@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { parseISO } from 'date-fns';
+import { parseISO, format } from 'date-fns';
 import type { Website } from '../../../shared/types/chart';
-import { normalizeUrlToPath, getStoredPeriod, savePeriodPreference } from '../../../shared/lib/utils';
+import { normalizeUrlToPath, getStoredPeriod, savePeriodPreference, getDateRangeFromPeriod } from '../../../shared/lib/utils';
 import { fetchEventJourneys } from '../api/eventJourneyApi';
 import type { JourneyStats, QueryStats } from '../model/types';
 
@@ -60,40 +60,13 @@ export const useEventJourney = () => {
         setQueryStats(null);
         setHasAutoSubmitted(true);
 
-        // Calculate date range
-        const now = new Date();
-        let startDate: Date;
-        let endDate: Date;
-
-        if (period === 'current_month') {
-            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-            endDate = now;
-        } else if (period === 'last_month') {
-            startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-            endDate = new Date(now.getFullYear(), now.getMonth(), 0);
-        } else if (period === 'custom') {
-            if (!customStartDate || !customEndDate) {
-                setError('Vennligst velg en gyldig periode.');
-                setLoading(false);
-                return;
-            }
-            startDate = new Date(customStartDate);
-            startDate.setHours(0, 0, 0, 0);
-
-            const isToday = customEndDate.getDate() === now.getDate() &&
-                customEndDate.getMonth() === now.getMonth() &&
-                customEndDate.getFullYear() === now.getFullYear();
-
-            if (isToday) {
-                endDate = now;
-            } else {
-                endDate = new Date(customEndDate);
-                endDate.setHours(23, 59, 59, 999);
-            }
-        } else {
-            startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-            endDate = new Date(now.getFullYear(), now.getMonth(), 0);
+        const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate);
+        if (!dateRange) {
+            setError('Vennligst velg en gyldig periode.');
+            setLoading(false);
+            return;
         }
+        const { startDate, endDate } = dateRange;
 
         try {
             const result = await fetchEventJourneys({
@@ -113,6 +86,13 @@ export const useEventJourney = () => {
             newParams.set('period', period);
             newParams.set('urlPath', urlPath);
             newParams.delete('minEvents');
+            if (period === 'custom' && customStartDate && customEndDate) {
+                newParams.set('from', format(customStartDate, 'yyyy-MM-dd'));
+                newParams.set('to', format(customEndDate, 'yyyy-MM-dd'));
+            } else {
+                newParams.delete('from');
+                newParams.delete('to');
+            }
             window.history.replaceState({}, '', `${window.location.pathname}?${newParams.toString()}`);
             setLastAppliedFilterKey(appliedFilterKey);
 
@@ -160,4 +140,3 @@ export const useEventJourney = () => {
         fetchData
     };
 };
-

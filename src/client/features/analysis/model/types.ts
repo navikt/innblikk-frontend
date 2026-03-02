@@ -445,6 +445,8 @@ export interface UmamiJourneyFullViewProps {
     journeyDirection?: string;
     websiteId?: string;
     period?: string;
+    customStartDate?: Date;
+    customEndDate?: Date;
     domain?: string;
     onLoadMore?: (increment: number) => void;
     isLoadingMore?: boolean;

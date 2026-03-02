@@ -8,6 +8,7 @@ import { useUmamiJourney } from '../../hooks/useUmamiJourney.ts';
 const UmamiJourneyView: React.FC<UmamiJourneyFullViewProps> = ({
     nodes, links, isFullscreen = false, reverseVisualOrder = false,
     journeyDirection = 'forward', websiteId, period = 'current_month', domain,
+    customStartDate, customEndDate,
     onLoadMore, isLoadingMore,
 }) => {
     const {
@@ -15,7 +16,17 @@ const UmamiJourneyView: React.FC<UmamiJourneyFullViewProps> = ({
         selectedUrl, contentRef, containerRef, nodeRefs,
         toggleNode, toggleFunnelStep, clearFunnelSteps, navigateToFunnel,
         openActionModal, closeActionModal,
-    } = useUmamiJourney(nodes, links, isFullscreen, reverseVisualOrder, journeyDirection, websiteId);
+    } = useUmamiJourney(
+        nodes,
+        links,
+        isFullscreen,
+        reverseVisualOrder,
+        journeyDirection,
+        websiteId,
+        period,
+        customStartDate,
+        customEndDate
+    );
 
     if (!stepsData.length) {
         return <div className="p-4 text-gray-500">Ingen data å vise.</div>;

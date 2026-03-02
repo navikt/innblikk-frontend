@@ -1,5 +1,6 @@
 import type React from 'react';
 import { useMemo, useState, useRef, useLayoutEffect, useEffect, useCallback } from 'react';
+import { format } from 'date-fns';
 import type { UmamiNode, UmamiLink, ConnectionPath, JourneyFunnelStep, JourneyStepData } from '../model/types.ts';
 import { processJourneyFullData, getJourneyConnectedNodeIds } from '../utils/umamiJourney.ts';
 
@@ -10,6 +11,9 @@ export const useUmamiJourney = (
     reverseVisualOrder: boolean,
     journeyDirection: string,
     websiteId?: string,
+    period: string = 'current_month',
+    customStartDate?: Date,
+    customEndDate?: Date,
 ) => {
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
     const [selectedUrl, setSelectedUrl] = useState<string | null>(null);
@@ -153,8 +157,21 @@ export const useUmamiJourney = (
 
         const params = new URLSearchParams();
         params.set('websiteId', websiteId);
-        params.set('period', 'current_month');
+        params.set('period', period);
         params.set('strict', 'true');
+
+        if (period === 'custom' && customStartDate && customEndDate) {
+            params.set('from', format(customStartDate, 'yyyy-MM-dd'));
+            params.set('to', format(customEndDate, 'yyyy-MM-dd'));
+        } else if (period === 'custom') {
+            const currentParams = new URLSearchParams(window.location.search);
+            const from = currentParams.get('from');
+            const to = currentParams.get('to');
+            if (from && to) {
+                params.set('from', from);
+                params.set('to', to);
+            }
+        }
 
         sortedSteps.forEach((s: JourneyFunnelStep) => {
             params.append('step', s.path);
@@ -162,7 +179,7 @@ export const useUmamiJourney = (
 
         const url = `/trakt?${params.toString()}`;
         window.open(url, '_blank');
-    }, [funnelSteps, websiteId, journeyDirection]);
+    }, [funnelSteps, websiteId, journeyDirection, period, customStartDate, customEndDate]);
 
     const openActionModal = useCallback((name: string) => {
         setSelectedUrl(name);
@@ -190,4 +207,3 @@ export const useUmamiJourney = (
         closeActionModal,
     };
 };
-

@@ -371,6 +371,8 @@ const UserJourney = () => {
                   journeyDirection={journeyDirection}
                   websiteId={selectedWebsite?.id}
                   period={period}
+                  customStartDate={customStartDate}
+                  customEndDate={customEndDate}
                   domain={selectedWebsite?.domain}
                   onLoadMore={handleLoadMore}
                   isLoadingMore={isUpdating}
