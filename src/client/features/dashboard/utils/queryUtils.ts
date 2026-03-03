@@ -34,17 +34,18 @@ export const processDashboardSql = (sql: string, websiteId: string, filters: Fil
     processedSql = processedSql.replace(/{{website_id}}/g, websiteId);
 
     // 2. Substitute URL Path
+    const directUrlVarPattern = /\{\{\s*url_(?:sti|path)\s*\}\}/gi;
     if (filters.urlFilters.length > 0) {
         const operator = filters.pathOperator || 'equals';
 
         if (operator === 'starts-with') {
             if (filters.urlFilters.length === 1) {
                 // Single value: simple LIKE
-                const assignmentRegex = /=\s*\[\[\s*\{\{url_sti\}\}\s*--\s*\]\]\s*('[^']+')/gi;
+                const assignmentRegex = /=\s*\[\[\s*\{\{url_(?:sti|path)\}\}\s*--\s*\]\]\s*('[^']+')/gi;
                 processedSql = processedSql.replace(assignmentRegex, `LIKE '${filters.urlFilters[0]}%'`);
             } else {
                 // Multiple values: OR conditions
-                const multiLikeRegex = /(\S+)\s*=\s*\[\[\s*\{\{url_sti\}\}\s*--\s*\]\]\s*('[^']+')/gi;
+                const multiLikeRegex = /(\S+)\s*=\s*\[\[\s*\{\{url_(?:sti|path)\}\}\s*--\s*\]\]\s*('[^']+')/gi;
                 processedSql = processedSql.replace(multiLikeRegex, (_match, column) => {
                     const likeConditions = filters.urlFilters.map(p => `${column} LIKE '${p}%'`).join(' OR ');
                     return `(${likeConditions})`;
@@ -52,7 +53,7 @@ export const processDashboardSql = (sql: string, websiteId: string, filters: Fil
             }
         } else {
             // equals operator
-            const assignmentRegex = /=\s*\[\[\s*\{\{url_sti\}\}\s*--\s*\]\]\s*('[^']+')/gi;
+            const assignmentRegex = /=\s*\[\[\s*\{\{url_(?:sti|path)\}\}\s*--\s*\]\]\s*('[^']+')/gi;
             if (filters.urlFilters.length === 1) {
                 processedSql = processedSql.replace(assignmentRegex, `= '${filters.urlFilters[0]}'`);
             } else {
@@ -61,9 +62,31 @@ export const processDashboardSql = (sql: string, websiteId: string, filters: Fil
                 processedSql = processedSql.replace(assignmentRegex, `IN (${quotedPaths})`);
             }
         }
+
+        // Direct URL placeholder substitution: column = {{url_sti}} / {{url_path}}
+        const directAssignmentRegex = /(\S+)\s*=\s*(?:['"])?\s*\{\{\s*url_(?:sti|path)\s*\}\}\s*(?:['"])?/gi;
+        if (operator === 'starts-with') {
+            if (filters.urlFilters.length === 1) {
+                processedSql = processedSql.replace(directAssignmentRegex, `$1 LIKE '${filters.urlFilters[0]}%'`);
+            } else {
+                processedSql = processedSql.replace(directAssignmentRegex, (_match, column) => {
+                    const likeConditions = filters.urlFilters.map(p => `${column} LIKE '${p}%'`).join(' OR ');
+                    return `(${likeConditions})`;
+                });
+            }
+        } else if (filters.urlFilters.length === 1) {
+            processedSql = processedSql.replace(directAssignmentRegex, `$1 = '${filters.urlFilters[0]}'`);
+        } else {
+            const quotedPaths = filters.urlFilters.map(p => `'${p}'`).join(', ');
+            processedSql = processedSql.replace(directAssignmentRegex, `$1 IN (${quotedPaths})`);
+        }
+
+        // Fallback replacement if placeholder appears outside a direct assignment.
+        processedSql = processedSql.replace(directUrlVarPattern, `'${filters.urlFilters[0]}'`);
     } else {
         // Remove marker to use default value
-        processedSql = processedSql.replace(/\[\[\s*\{\{url_sti\}\}\s*--\s*\]\]/gi, "");
+        processedSql = processedSql.replace(/\[\[\s*\{\{url_(?:sti|path)\}\}\s*--\s*\]\]/gi, '');
+        processedSql = processedSql.replace(directUrlVarPattern, "'/'");
     }
 
     // 3. Substitute Date / Created At

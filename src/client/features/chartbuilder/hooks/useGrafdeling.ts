@@ -301,11 +301,13 @@ export function useGrafdeling() {
     const andUrlPathPattern = /\[\[\s*AND\s*\{\{url_sti\}\}\s*\]\]/i;
     const urlPathPattern2 = /\[\[\s*\{\{url_path\}\}\s*--\s*\]\]\s*'\/'/i;
     const andUrlPathPattern2 = /\[\[\s*AND\s*\{\{url_path\}\}\s*\]\]/i;
+    const directUrlPathPattern = /\{\{\s*url_(?:sti|path)\s*\}\}/i;
     setHasUrlPathFilter(
       urlPathPattern.test(query) ||
       andUrlPathPattern.test(query) ||
       urlPathPattern2.test(query) ||
-      andUrlPathPattern2.test(query)
+      andUrlPathPattern2.test(query) ||
+      directUrlPathPattern.test(query)
     );
 
     setHasWebsiteIdPlaceholder(/\{\{\s*website_id\s*\}\}/i.test(query));
@@ -394,4 +396,3 @@ export function useGrafdeling() {
     preparePieChartData,
   };
 }
-

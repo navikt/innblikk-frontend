@@ -34,6 +34,7 @@ export const applyUrlFiltersToSql = (sql: string, ctx: SqlFilterContext): string
 
     // URL path substitution (Metabase style [[ {{url_sti}} --]] '/' or [[ {{url_path}} --]] '/')
     const pathSource = ctx.urlPathFromUrl || ctx.urlPath;
+    const directUrlVarPattern = /\{\{\s*url_(?:sti|path)\s*\}\}/gi;
     if (pathSource) {
         const paths = pathSource.split(',').filter(Boolean);
         const operator = ctx.pathOperatorFromUrl === 'starts-with' ? 'starts-with' : 'equals';
@@ -57,9 +58,31 @@ export const applyUrlFiltersToSql = (sql: string, ctx: SqlFilterContext): string
                     : processedSql.replace(assignmentRegex, `IN (${paths.map(p => `'${p}'`).join(', ')})`);
             }
         }
+
+        // Direct URL placeholder substitution: column = {{url_sti}} / {{url_path}}
+        const directAssignmentRegex = /(\S+)\s*=\s*(?:['"])?\s*\{\{\s*url_(?:sti|path)\s*\}\}\s*(?:['"])?/gi;
+        if (operator === 'starts-with') {
+            if (paths.length === 1) {
+                processedSql = processedSql.replace(directAssignmentRegex, `$1 LIKE '${paths[0]}%'`);
+            } else {
+                processedSql = processedSql.replace(directAssignmentRegex, (_m, column) => {
+                    const likeConditions = paths.map(p => `${column} LIKE '${p}%'`).join(' OR ');
+                    return `(${likeConditions})`;
+                });
+            }
+        } else if (paths.length === 1) {
+            processedSql = processedSql.replace(directAssignmentRegex, `$1 = '${paths[0]}'`);
+        } else {
+            const quotedPaths = paths.map(p => `'${p}'`).join(', ');
+            processedSql = processedSql.replace(directAssignmentRegex, `$1 IN (${quotedPaths})`);
+        }
+
+        // Fallback replacement if placeholder appears outside a direct assignment.
+        processedSql = processedSql.replace(directUrlVarPattern, `'${paths[0]}'`);
     } else {
         // No external path provided; keep default '/'
         processedSql = processedSql.replace(/\[\[\s*\{\{url_(?:sti|path)\}\}\s*--\s*\]\]/gi, '');
+        processedSql = processedSql.replace(directUrlVarPattern, "'/'");
     }
 
     // Optional URL path substitution [[AND {{url_sti}} ]] or [[AND {{url_path}} ]]
@@ -223,4 +246,3 @@ export const updateUrlParams = (updates: Record<string, string | null>) => {
     const newUrl = `${window.location.pathname}?${params.toString()}`;
     window.history.replaceState({}, '', newUrl);
 };
-

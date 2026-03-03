@@ -151,11 +151,13 @@ export const useSqlEditor = () => {
         const andUrlPathPattern = /\[\[\s*AND\s*\{\{url_sti\}\}\s*\]\]/i;
         const urlPathPattern2 = /\[\[\s*\{\{url_path\}\}\s*--\s*\]\]\s*'\/'/i;
         const andUrlPathPattern2 = /\[\[\s*AND\s*\{\{url_path\}\}\s*\]\]/i;
+        const directUrlPathPattern = /\{\{\s*url_(?:sti|path)\s*\}\}/i;
         setHasUrlPathFilter(
             urlPathPattern.test(query) ||
             andUrlPathPattern.test(query) ||
             urlPathPattern2.test(query) ||
-            andUrlPathPattern2.test(query)
+            andUrlPathPattern2.test(query) ||
+            directUrlPathPattern.test(query)
         );
 
         const websiteIdPattern = /\{\{\s*website_id\s*\}\}/i;
@@ -172,7 +174,8 @@ export const useSqlEditor = () => {
             urlPathPattern.test(query) ||
             andUrlPathPattern.test(query) ||
             urlPathPattern2.test(query) ||
-            andUrlPathPattern2.test(query);
+            andUrlPathPattern2.test(query) ||
+            directUrlPathPattern.test(query);
 
         const alwaysKnownVariables = ['website_id', 'nettside', 'created_at'];
         const knownVariables = urlPathInSpecialPattern
@@ -499,4 +502,3 @@ export const useSqlEditor = () => {
         preparePieChartData: getPieChartData,
     };
 };
-

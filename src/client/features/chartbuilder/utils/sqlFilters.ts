@@ -34,11 +34,26 @@ export const applyUrlFiltersToSql = (sql: string, params: SqlFilterParams): stri
   // URL path substitution: e.g. url_path = [[ {{url_sti}} --]] '/'
   const pathSource = params.urlPath;
   const replacePattern = /\[\[\s*\{\{url_(?:sti|path)\}\}\s*--\s*\]\]\s*('[^']*')/gi;
+  const directUrlVarPattern = /\{\{\s*url_(?:sti|path)\s*\}\}/gi;
 
   if (pathSource && pathSource !== '/') {
     processedSql = processedSql.replace(replacePattern, `'${pathSource}'`);
   } else {
     processedSql = processedSql.replace(replacePattern, '$1');
+  }
+
+  // Direct URL placeholder substitution: column = {{url_sti}} / {{url_path}}
+  const directAssignmentRegex = /(\S+)\s*=\s*(?:['"])?\s*\{\{\s*url_(?:sti|path)\s*\}\}\s*(?:['"])?/gi;
+  if (pathSource && pathSource !== '/') {
+    const operator = params.pathOperator === 'starts-with' ? 'starts-with' : 'equals';
+    if (operator === 'starts-with') {
+      processedSql = processedSql.replace(directAssignmentRegex, `$1 LIKE '${pathSource}%'`);
+    } else {
+      processedSql = processedSql.replace(directAssignmentRegex, `$1 = '${pathSource}'`);
+    }
+    processedSql = processedSql.replace(directUrlVarPattern, `'${pathSource}'`);
+  } else {
+    processedSql = processedSql.replace(directUrlVarPattern, "'/'");
   }
 
   // Optional URL path substitution [[AND {{url_sti}} ]]
@@ -98,4 +113,3 @@ export const extractWebsiteId = (sql: string): string | undefined => {
   const match = sql.match(/website_id\s*=\s*['"]([0-9a-f-]{36})['"]/i);
   return match?.[1];
 };
-
