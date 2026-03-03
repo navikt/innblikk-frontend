@@ -365,7 +365,6 @@ const EditChartDialog = ({
                                             label="Variantnavn"
                                             value={variantName}
                                             onChange={(event) => setVariantName(event.target.value)}
-                                            placeholder="F.eks. Mobil / Desktop"
                                             size="small"
                                         />
                                         <div className="flex gap-2">
@@ -423,6 +422,9 @@ const EditChartDialog = ({
                                                 />
                                             </ActionMenu.Trigger>
                                             <ActionMenu.Content align="end">
+                                                <ActionMenu.Item onClick={handleEnableAddVariant}>
+                                                    Legg til variant
+                                                </ActionMenu.Item>
                                                 {onRenameVariant && (
                                                     <ActionMenu.Item
                                                         onClick={() => {

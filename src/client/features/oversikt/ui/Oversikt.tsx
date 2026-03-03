@@ -1195,6 +1195,14 @@ const Oversikt = () => {
                                         Slett aktiv fane
                                     </Button>
                                 )}
+                                <Button
+                                    variant="secondary"
+                                    size="xsmall"
+                                    onClick={openCreateTabModal}
+                                    disabled={!selectedDashboard}
+                                >
+                                    Legg til fane
+                                </Button>
                             </div>
                             {categoryMutationError && (
                                 <div className="mt-3">
