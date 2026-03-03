@@ -500,16 +500,33 @@ const Oversikt = () => {
         websiteId?: string;
     }) => {
         if (!copyChartTarget) return;
-        const sqlText = copyChartTarget.chart.sql?.trim() ?? '';
-        if (!sqlText) {
-            setCopyMutationError('Grafen mangler SQL og kan ikke kopieres');
-            return;
-        }
         if (!params.chartName.trim()) {
             setCopyMutationError('Grafnavn er påkrevd');
             return;
         }
-        const sqlForCopy = rewriteSqlWebsiteId(sqlText, params.websiteId);
+
+        const sourceVariants = (copyChartTarget.chart.variants ?? [])
+            .map((variant, index) => {
+                const sqlText = variant.sql?.trim() ?? '';
+                if (!sqlText) return null;
+                return {
+                    name: variant.queryName?.trim() || `${params.chartName.trim()} - query ${index + 1}`,
+                    sqlText: rewriteSqlWebsiteId(sqlText, params.websiteId),
+                };
+            })
+            .filter((variant): variant is { name: string; sqlText: string } => Boolean(variant));
+
+        if (sourceVariants.length === 0) {
+            const sqlText = copyChartTarget.chart.sql?.trim() ?? '';
+            if (!sqlText) {
+                setCopyMutationError('Grafen mangler SQL og kan ikke kopieres');
+                return;
+            }
+            sourceVariants.push({
+                name: copyChartTarget.chart.queryName,
+                sqlText: rewriteSqlWebsiteId(sqlText, params.websiteId),
+            });
+        }
 
         setCopyingChart(true);
         setCopyMutationError(null);
@@ -549,17 +566,20 @@ const Oversikt = () => {
                 });
 
                 const existingQueries = await fetchQueries(params.projectId, params.dashboardId, targetCategoryId, existingGraph.id);
-                const firstQuery = existingQueries[0];
-                if (firstQuery) {
-                    await updateQuery(params.projectId, params.dashboardId, targetCategoryId, existingGraph.id, firstQuery.id, {
-                        name: copyChartTarget.chart.queryName,
-                        sqlText: sqlForCopy,
-                    });
-                } else {
-                    await createQuery(params.projectId, params.dashboardId, targetCategoryId, existingGraph.id, {
-                        name: copyChartTarget.chart.queryName,
-                        sqlText: sqlForCopy,
-                    });
+                for (let index = 0; index < sourceVariants.length; index += 1) {
+                    const sourceVariant = sourceVariants[index];
+                    const existingQuery = existingQueries[index];
+                    if (existingQuery) {
+                        await updateQuery(params.projectId, params.dashboardId, targetCategoryId, existingGraph.id, existingQuery.id, {
+                            name: sourceVariant.name,
+                            sqlText: sourceVariant.sqlText,
+                        });
+                    } else {
+                        await createQuery(params.projectId, params.dashboardId, targetCategoryId, existingGraph.id, {
+                            name: sourceVariant.name,
+                            sqlText: sourceVariant.sqlText,
+                        });
+                    }
                 }
             } else {
                 const createdGraph = await createGraph(params.projectId, params.dashboardId, targetCategoryId, {
@@ -568,10 +588,12 @@ const Oversikt = () => {
                     width,
                 });
 
-                await createQuery(params.projectId, params.dashboardId, targetCategoryId, createdGraph.id, {
-                    name: copyChartTarget.chart.queryName,
-                    sqlText: sqlForCopy,
-                });
+                for (const sourceVariant of sourceVariants) {
+                    await createQuery(params.projectId, params.dashboardId, targetCategoryId, createdGraph.id, {
+                        name: sourceVariant.name,
+                        sqlText: sourceVariant.sqlText,
+                    });
+                }
             }
 
             if (isSameDashboard) {

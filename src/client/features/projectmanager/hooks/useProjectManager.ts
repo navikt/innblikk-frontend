@@ -346,8 +346,17 @@ export const useProjectManager = () => {
                     params.sourceCategoryId,
                     params.sourceGraphId,
                 );
-                const sourceQuery = sourceQueries[0];
-                if (!sourceQuery?.sqlText?.trim()) {
+                const sourceQueryVariants = sourceQueries
+                    .map((query, index) => {
+                        const sqlText = query.sqlText?.trim() ?? '';
+                        if (!sqlText) return null;
+                        return {
+                            name: query.name?.trim() || `${params.chartName.trim()} - query ${index + 1}`,
+                            sqlText: rewriteSqlWebsiteId(sqlText, params.websiteId),
+                        };
+                    })
+                    .filter((query): query is { name: string; sqlText: string } => Boolean(query));
+                if (sourceQueryVariants.length === 0) {
                     return { ok: false, error: 'Grafen mangler SQL og kan ikke kopieres' };
                 }
 
@@ -356,7 +365,6 @@ export const useProjectManager = () => {
                     return { ok: false, error: 'Grafnavn er påkrevd' };
                 }
 
-                const sqlForCopy = rewriteSqlWebsiteId(sourceQuery.sqlText.trim(), params.websiteId);
                 const targetGraphs = await api.fetchGraphs(params.targetProjectId, params.targetDashboardId, params.targetCategoryId);
                 const targetNameLower = targetName.toLowerCase();
                 const isSameDashboard =
@@ -370,7 +378,6 @@ export const useProjectManager = () => {
 
                 const sourceGraphType = sourceGraph.graphType ?? 'TABLE';
                 const sourceWidth = sourceGraph.width;
-                const queryName = sourceQuery.name?.trim() || `${targetName} - query`;
 
                 if (existingTarget) {
                     await api.updateGraph(
@@ -387,26 +394,29 @@ export const useProjectManager = () => {
                         params.targetCategoryId,
                         existingTarget.id,
                     );
-                    const firstTargetQuery = existingQueries[0];
-                    if (firstTargetQuery) {
-                        await api.updateQuery(
-                            params.targetProjectId,
-                            params.targetDashboardId,
-                            params.targetCategoryId,
-                            existingTarget.id,
-                            firstTargetQuery.id,
-                            queryName,
-                            sqlForCopy,
-                        );
-                    } else {
-                        await api.createQuery(
-                            params.targetProjectId,
-                            params.targetDashboardId,
-                            params.targetCategoryId,
-                            existingTarget.id,
-                            queryName,
-                            sqlForCopy,
-                        );
+                    for (let index = 0; index < sourceQueryVariants.length; index += 1) {
+                        const sourceVariant = sourceQueryVariants[index];
+                        const existingQuery = existingQueries[index];
+                        if (existingQuery) {
+                            await api.updateQuery(
+                                params.targetProjectId,
+                                params.targetDashboardId,
+                                params.targetCategoryId,
+                                existingTarget.id,
+                                existingQuery.id,
+                                sourceVariant.name,
+                                sourceVariant.sqlText,
+                            );
+                        } else {
+                            await api.createQuery(
+                                params.targetProjectId,
+                                params.targetDashboardId,
+                                params.targetCategoryId,
+                                existingTarget.id,
+                                sourceVariant.name,
+                                sourceVariant.sqlText,
+                            );
+                        }
                     }
                 } else {
                     const createdGraph = await api.createGraph(
@@ -415,14 +425,16 @@ export const useProjectManager = () => {
                         params.targetCategoryId,
                         { name: targetName, graphType: sourceGraphType, width: sourceWidth },
                     );
-                    await api.createQuery(
-                        params.targetProjectId,
-                        params.targetDashboardId,
-                        params.targetCategoryId,
-                        createdGraph.id,
-                        queryName,
-                        sqlForCopy,
-                    );
+                    for (const sourceVariant of sourceQueryVariants) {
+                        await api.createQuery(
+                            params.targetProjectId,
+                            params.targetDashboardId,
+                            params.targetCategoryId,
+                            createdGraph.id,
+                            sourceVariant.name,
+                            sourceVariant.sqlText,
+                        );
+                    }
                 }
 
                 await loadProjectSummaries();
