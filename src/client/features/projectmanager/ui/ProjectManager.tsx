@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { BarChartIcon, LineGraphIcon, PieChartIcon, SquareGridIcon, TableIcon, TabsIcon } from '@navikt/aksel-icons';
-import { MoreVertical, Plus } from 'lucide-react';
+import { ChevronDown, ChevronUp, MoreVertical, Plus } from 'lucide-react';
 import { ActionMenu, Alert, BodyShort, Button, Heading, Link, Loader, Modal, Search, Select, Table, TextField, Tooltip } from '@navikt/ds-react';
 import DeleteDashboardDialog from '../../oversikt/ui/dialogs/DeleteDashboardDialog.tsx';
 import CopyChartDialog from '../../oversikt/ui/dialogs/CopyChartDialog.tsx';
@@ -139,6 +139,7 @@ const ProjectManager = () => {
     const [showNoProjectsAlert, setShowNoProjectsAlert] = useState(true);
     const [showNoSearchResultsAlert, setShowNoSearchResultsAlert] = useState(true);
     const [showNoSelectedProjectAlert, setShowNoSelectedProjectAlert] = useState(true);
+    const [expandedDashboards, setExpandedDashboards] = useState<Set<number>>(new Set());
     const projectNameInputRef = useRef<HTMLInputElement | null>(null);
 
     useEffect(() => {
@@ -278,6 +279,10 @@ const ProjectManager = () => {
     useEffect(() => {
         setShowNoSelectedProjectAlert(true);
     }, [selectedProjectId, projectSummaries.length]);
+
+    useEffect(() => {
+        setExpandedDashboards(new Set());
+    }, [selectedProjectId]);
 
     const openEdit = (summary: ProjectSummary) => {
         setLocalError(null);
@@ -858,6 +863,10 @@ const ProjectManager = () => {
     }, [selectedProject]);
 
     const isInitialLoading = loading && projectSummaries.length === 0 && !error;
+    const visibleFileRows = useMemo(
+        () => fileRows.filter((row) => row.type === 'dashboard' || expandedDashboards.has(row.dashboardId)),
+        [fileRows, expandedDashboards],
+    );
 
     return (
         <>
@@ -1060,21 +1069,26 @@ const ProjectManager = () => {
                     )}
 
                     {!isInitialLoading && selectedProject && fileRows.length > 0 && (
-                        <Table size="small">
+                        <Table size="small" className="table-fixed">
                             <Table.Header>
                                 <Table.Row>
                                     <Table.HeaderCell scope="col">Dashboard</Table.HeaderCell>
-                                    <Table.HeaderCell scope="col">Type</Table.HeaderCell>
-                                    <Table.HeaderCell scope="col" className="w-0">
+                                    <Table.HeaderCell scope="col" className="w-28 text-right">Grafer</Table.HeaderCell>
+                                    <Table.HeaderCell scope="col" className="w-32 text-right">Type</Table.HeaderCell>
+                                    <Table.HeaderCell scope="col" className="w-14">
                                         <span className="sr-only">Handlinger</span>
                                     </Table.HeaderCell>
                                 </Table.Row>
                             </Table.Header>
                             <Table.Body>
-                                {fileRows.map((row) => {
+                                {visibleFileRows.map((row) => {
                                     const paddingClass = row.indentLevel === 2 ? 'pl-12' : row.indentLevel === 1 ? 'pl-6' : '';
                                     const overviewHref = `/oversikt?projectId=${selectedProject.project.id}&dashboardId=${row.dashboardId}${row.categoryId ? `&categoryId=${row.categoryId}` : ''}`;
                                     const isEmptyDashboardRow = row.type === 'dashboard' && (dashboardChartCountById.get(row.dashboardId) ?? 0) === 0;
+                                    const isDashboardExpanded = row.type === 'dashboard' && expandedDashboards.has(row.dashboardId);
+                                    const chartCountValue = row.type === 'dashboard'
+                                        ? String(dashboardChartCountById.get(row.dashboardId) ?? 0)
+                                        : '';
                                     return (
                                         <Fragment key={row.id}>
                                             <Table.Row>
@@ -1082,7 +1096,25 @@ const ProjectManager = () => {
                                                     <span className={`inline-flex items-center gap-2 min-w-0 ${paddingClass}`}>
                                                         <span className="text-[var(--ax-text-subtle)]">
                                                             {row.type === 'dashboard' ? (
-                                                                <SquareGridIcon aria-hidden fontSize="1rem" />
+                                                                <button
+                                                                    type="button"
+                                                                    aria-label={`${isDashboardExpanded ? 'Skjul' : 'Vis'} innhold i ${row.name}`}
+                                                                    aria-expanded={isDashboardExpanded}
+                                                                    onClick={() => {
+                                                                        setExpandedDashboards((prev) => {
+                                                                            const next = new Set(prev);
+                                                                            if (next.has(row.dashboardId)) {
+                                                                                next.delete(row.dashboardId);
+                                                                            } else {
+                                                                                next.add(row.dashboardId);
+                                                                            }
+                                                                            return next;
+                                                                        });
+                                                                    }}
+                                                                    className="inline-flex h-5 w-5 items-center justify-center rounded border border-transparent hover:border-[var(--ax-border-neutral)] hover:bg-[var(--ax-bg-neutral-moderate)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-border-accent)]"
+                                                                >
+                                                                    {isDashboardExpanded ? <ChevronUp aria-hidden size={14} /> : <ChevronDown aria-hidden size={14} />}
+                                                                </button>
                                                             ) : row.type === 'category' ? (
                                                                 <TabsIcon aria-hidden fontSize="0.9rem" />
                                                             ) : (
@@ -1094,7 +1126,10 @@ const ProjectManager = () => {
                                                         </Link>
                                                     </span>
                                                 </Table.HeaderCell>
-                                                <Table.DataCell>
+                                                <Table.DataCell className="w-28 text-right whitespace-nowrap">
+                                                    {chartCountValue}
+                                                </Table.DataCell>
+                                                <Table.DataCell className="w-32 text-right whitespace-nowrap">
                                                     {row.type === 'dashboard' ? 'Dashboard' : row.type === 'category' ? 'Fane' : getChartTypeLabel(row.graphType)}
                                                 </Table.DataCell>
                                                 <Table.DataCell>
@@ -1203,7 +1238,7 @@ const ProjectManager = () => {
                                                     </div>
                                                 </Table.DataCell>
                                             </Table.Row>
-                                            {isEmptyDashboardRow && (
+                                            {isEmptyDashboardRow && isDashboardExpanded && (
                                                 <Table.Row>
                                                     <Table.HeaderCell scope="row">
                                                         <div className="inline-flex items-center gap-2 pl-6">
@@ -1227,6 +1262,7 @@ const ProjectManager = () => {
                                                             </ActionMenu>
                                                         </div>
                                                     </Table.HeaderCell>
+                                                    <Table.DataCell />
                                                     <Table.DataCell />
                                                     <Table.DataCell />
                                                 </Table.Row>
