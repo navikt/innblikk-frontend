@@ -321,7 +321,7 @@ const EventSelector = ({
           <Tabs.Panel value="hendelser" className="pt-6">
             <div className="space-y-4">
               <RadioGroup
-                legend="Hvilke hendelser?"
+                legend="Jeg ønsker å inkludere..."
                 value={customEventsMode}
                 onChange={(val) => {
                   const newMode = val as 'none' | 'all' | 'specific' | 'interactive';
@@ -355,10 +355,10 @@ const EventSelector = ({
                   }
                 }}
               >
-                <Radio value="none">Ingen hendelser</Radio>
+                <Radio value="none">Ingen egendefinerte hendelser</Radio>
                 <Radio value="specific">Utvalgte hendelser / hendelsesdetaljer</Radio>
                 <Radio value="all">Alle hendelser</Radio>
-                <Radio value="interactive">Mottaker velger selv</Radio>
+                <Radio value="interactive">Filter der mottaker velger selv i dashboardet</Radio>
               </RadioGroup>
               <div className="mt-4">
                 {(customEventsMode === 'specific') && (
