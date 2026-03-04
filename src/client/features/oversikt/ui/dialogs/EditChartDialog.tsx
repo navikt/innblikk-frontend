@@ -476,6 +476,16 @@ const EditChartDialog = ({
                                         </Tabs.List>
                                     </Tabs>
                                 </div>
+                                {showSql && !showAddVariantControls && (
+                                    <Button
+                                        type="button"
+                                        size="xsmall"
+                                        variant="secondary"
+                                        onClick={handleEnableAddVariant}
+                                    >
+                                        Legg til variant
+                                    </Button>
+                                )}
                                 {showSql && !showAddVariantControls && selectedVariant && !selectedVariantIsDraft && (onRenameVariant || onDeleteVariant) && (
                                     <ActionMenu>
                                         <ActionMenu.Trigger>
@@ -488,9 +498,6 @@ const EditChartDialog = ({
                                             />
                                         </ActionMenu.Trigger>
                                         <ActionMenu.Content align="end">
-                                            <ActionMenu.Item onClick={handleEnableAddVariant}>
-                                                Legg til variant
-                                            </ActionMenu.Item>
                                             {onRenameVariant && (
                                                 <ActionMenu.Item
                                                     onClick={() => {
@@ -519,47 +526,33 @@ const EditChartDialog = ({
                             </p>
                         </div>
                     )}
-                    {showSql && (
-                        <div className="flex flex-col gap-2">
-                            <div className="flex items-center justify-start">
-                                <Button
-                                    type="button"
-                                    size="xsmall"
-                                    variant={showAddVariantControls ? 'primary' : 'secondary'}
-                                    onClick={handleEnableAddVariant}
-                                >
-                                    Legg til variant
-                                </Button>
-                            </div>
-                            {showAddVariantControls && (
-                                <div className="rounded-md border border-[var(--ax-border-neutral-subtle)] p-3">
-                                    <div className="flex flex-col gap-2">
-                                        <TextField
-                                            label="Variantnavn"
-                                            value={variantName}
-                                            onChange={(event) => setVariantName(event.target.value)}
-                                            size="small"
-                                        />
-                                        <div className="flex gap-2">
-                                            <Button
-                                                type="button"
-                                                size="xsmall"
-                                                onClick={handleConfirmAddVariant}
-                                            >
-                                                Legg til
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                size="xsmall"
-                                                variant="secondary"
-                                                onClick={handleCancelAddVariant}
-                                            >
-                                                Avbryt
-                                            </Button>
-                                        </div>
-                                    </div>
+                    {showSql && showAddVariantControls && (
+                        <div className="rounded-md border border-[var(--ax-border-neutral-subtle)] p-3">
+                            <div className="flex flex-col gap-2">
+                                <TextField
+                                    label="Variantnavn"
+                                    value={variantName}
+                                    onChange={(event) => setVariantName(event.target.value)}
+                                    size="small"
+                                />
+                                <div className="flex gap-2">
+                                    <Button
+                                        type="button"
+                                        size="xsmall"
+                                        onClick={handleConfirmAddVariant}
+                                    >
+                                        Legg til
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        size="xsmall"
+                                        variant="secondary"
+                                        onClick={handleCancelAddVariant}
+                                    >
+                                        Avbryt
+                                    </Button>
                                 </div>
-                            )}
+                            </div>
                         </div>
                     )}
                     {showSql && (
