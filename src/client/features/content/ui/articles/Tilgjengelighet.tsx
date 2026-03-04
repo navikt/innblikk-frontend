@@ -7,7 +7,7 @@ function Accessibility() {
         <>
             <PageHeader
                 title="Tilgjengelighetserklæring"
-                description="Start Umami skal være tilgjengelig for alle."
+                description="Innblikk skal være tilgjengelig for alle."
                 variant="article"
             />
 
@@ -16,7 +16,7 @@ function Accessibility() {
                     <div className="prose max-w-full prose-lg">
                         <VStack gap="space-12">
                             <section>
-                                <p className="mb-4 leading-normal">Start Umami skal være tilgjengelig for alle. Det betyr at vi har som mål å følge lovpålagte krav til universell utforming. Vår ambisjon er i tillegg at du skal ha en god brukeropplevelse enten du bruker hjelpeteknologi (for eksempel skjermleser) eller ikke.</p>
+                                <p className="mb-4 leading-normal">Innblikk skal være tilgjengelig for alle. Det betyr at vi har som mål å følge lovpålagte krav til universell utforming. Vår ambisjon er i tillegg at du skal ha en god brukeropplevelse enten du bruker hjelpeteknologi (for eksempel skjermleser) eller ikke.</p>
                                 <p className="mb-4 leading-normal">Alle virksomheter i offentlig sektor skal ha en tilgjengelighetserklæring. WCAG 2.1 på nivå AA er lovpålagt i Norge. Erklæringen beskriver hvert suksesskriterium i WCAG, og om nettstedet imøtekommer disse kravene.</p>
                             </section>
 
