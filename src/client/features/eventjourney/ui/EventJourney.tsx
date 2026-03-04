@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { TextField, Button, Alert, Loader, Tabs, UNSAFE_Combobox } from '@navikt/ds-react';
+import { TextField, Button, Alert, Loader, Switch, UNSAFE_Combobox } from '@navikt/ds-react';
 import { Share2, Check, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx';
@@ -43,7 +43,7 @@ const EventJourney = () => {
 
     const [filterText, setFilterText] = useState<string>('');
     const [excludedEventTypes, setExcludedEventTypes] = useState<string[]>([]);
-    const [activeTab, setActiveTab] = useState<string>('visual');
+    const [showTableSection, setShowTableSection] = useState<boolean>(false);
     const [copySuccess, setCopySuccess] = useState<boolean>(false);
     const [selectedFunnelSteps, setSelectedFunnelSteps] = useState<SelectedFunnelStep[]>([]);
 
@@ -198,25 +198,29 @@ const EventJourney = () => {
                         </div>
                     </div>
 
-                    <Tabs value={activeTab} onChange={setActiveTab}>
-                        <Tabs.List>
-                            <Tabs.Tab value="visual" label="Hendelsesforløp" />
-                            <Tabs.Tab value="table" label="Tabellvisning" />
-                        </Tabs.List>
+                    <div className="pt-4">
+                        <JourneyVisualView
+                            journeys={filteredData}
+                            totalSessions={totalJourneySessions}
+                            selectedStepIds={selectedFunnelSteps.map((step) => step.id)}
+                            onToggleFunnelStep={toggleFunnelStep}
+                        />
+                        <div className="mt-4 flex justify-end">
+                            <Switch
+                                checked={showTableSection}
+                                onChange={(e) => setShowTableSection(e.target.checked)}
+                                size="small"
+                            >
+                                Vis tabell
+                            </Switch>
+                        </div>
+                    </div>
 
-                        <Tabs.Panel value="visual" className="pt-4">
-                            <JourneyVisualView
-                                journeys={filteredData}
-                                totalSessions={totalJourneySessions}
-                                selectedStepIds={selectedFunnelSteps.map((step) => step.id)}
-                                onToggleFunnelStep={toggleFunnelStep}
-                            />
-                        </Tabs.Panel>
-
-                        <Tabs.Panel value="table" className="pt-4">
+                    {showTableSection && (
+                        <div className={`pt-4 ${selectedFunnelSteps.length > 0 ? 'pb-28' : ''}`}>
                             <JourneyTableView journeys={filteredData} totalSessions={totalJourneySessions} />
-                        </Tabs.Panel>
-                    </Tabs>
+                        </div>
+                    )}
 
                     {selectedFunnelSteps.length > 0 && (
                         <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-gray-900 border border-gray-700 text-white px-6 py-4 rounded-full shadow-2xl z-50 flex items-center gap-6">

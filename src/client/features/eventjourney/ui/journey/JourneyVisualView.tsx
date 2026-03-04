@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Button } from '@navikt/ds-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Button, Pagination, Select } from '@navikt/ds-react';
 import { ArrowRight, Plus, Check } from 'lucide-react';
 import { parseJourneyStep } from '../../utils/parsers.ts';
 import { formatNumber } from '../../utils/formatters.ts';
@@ -18,6 +18,23 @@ interface JourneyVisualViewProps {
 
 const JourneyVisualView = ({ journeys, totalSessions, selectedStepIds, onToggleFunnelStep }: JourneyVisualViewProps) => {
     const [expandedDetails, setExpandedDetails] = useState<Record<string, boolean>>({});
+    const [page, setPage] = useState<number>(1);
+    const [rowsPerPage, setRowsPerPage] = useState<number>(15);
+
+    const totalPages = Math.max(1, Math.ceil(journeys.length / rowsPerPage));
+
+    useEffect(() => {
+        setPage(1);
+    }, [journeys.length, rowsPerPage]);
+
+    const paginatedJourneys = useMemo(() => {
+        const startIndex = (page - 1) * rowsPerPage;
+        const endIndex = startIndex + rowsPerPage;
+        return journeys.slice(startIndex, endIndex);
+    }, [journeys, page, rowsPerPage]);
+
+    const startRow = journeys.length === 0 ? 0 : (page - 1) * rowsPerPage + 1;
+    const endRow = Math.min(page * rowsPerPage, journeys.length);
 
     const toggleDetailsExpansion = (stepKey: string) => {
         setExpandedDetails((current) => ({
@@ -29,7 +46,7 @@ const JourneyVisualView = ({ journeys, totalSessions, selectedStepIds, onToggleF
     if (journeys.length === 0) {
         return (
             <div className="text-center text-gray-500 py-8">
-                Ingen reiser matcher søket ditt.
+                Ingen forløp matcher søket ditt.
             </div>
         );
     }
@@ -37,7 +54,7 @@ const JourneyVisualView = ({ journeys, totalSessions, selectedStepIds, onToggleF
     return (
         <div className="bg-[var(--ax-bg-default)]">
             <div className="space-y-4">
-                {journeys.map((journey, idx) => (
+                {paginatedJourneys.map((journey, idx) => (
                     <div key={`${journey.path.join('->')}-${idx}`} className="rounded-xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-4">
                         <div className="flex items-center gap-2 text-sm text-[var(--ax-text-subtle)] mb-3">
                             <span className="font-semibold text-[var(--ax-text-default)]">{formatNumber(journey.count)} sesjoner</span>
@@ -108,6 +125,31 @@ const JourneyVisualView = ({ journeys, totalSessions, selectedStepIds, onToggleF
                         </div>
                     </div>
                 ))}
+            </div>
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div className="text-sm text-[var(--ax-text-subtle)]">
+                    Viser {startRow}-{endRow} av {journeys.length} forløp
+                </div>
+                <div className="w-full sm:w-auto sm:min-w-[140px]">
+                    <Select
+                        size="small"
+                        label="Forløp per side"
+                        value={rowsPerPage}
+                        onChange={(e) => setRowsPerPage(Number(e.target.value))}
+                    >
+                        <option value={15}>15</option>
+                        <option value={25}>25</option>
+                        <option value={50}>50</option>
+                    </Select>
+                </div>
+            </div>
+            <div className="mt-4 flex justify-center">
+                <Pagination
+                    page={page}
+                    onPageChange={setPage}
+                    count={totalPages}
+                    size="small"
+                />
             </div>
         </div>
     );
