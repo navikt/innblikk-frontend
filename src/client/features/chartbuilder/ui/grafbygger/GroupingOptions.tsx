@@ -704,7 +704,7 @@ const GroupingOptions = forwardRef(({
             <Switch
               size="small"
               description={interactiveMode
-                ? 'Tidsperiode velges via filter i dasboardet'
+                ? 'Tidsperiode velges via filter i dasboardet (standard)'
                 : 'Bruk valgt tidsperiode fra grafbyggeren som standard'}
               checked={!interactiveMode}
               onChange={(e) => setInteractiveMode(!e.target.checked)}
