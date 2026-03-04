@@ -11,6 +11,7 @@ import { ResultsPanel } from '../../chartbuilder';
 import type { Website } from '../../../shared/types/chart.ts';
 import { normalizeUrlToPath, getDateRangeFromPeriod, getStoredPeriod, savePeriodPreference, getCookieCountByParams } from '../../../shared/lib/utils.ts';
 import { useCookieSupport, useCookieStartDate } from '../../../shared/hooks/useSiteimproveSupport.ts';
+import { translateValue } from '../../../shared/lib/translations.ts';
 import type { IVerticalBarChartProps } from '@fluentui/react-charting';
 
 
@@ -193,7 +194,7 @@ const UserComposition = () => {
 
         return {
             data: currentData.data.map((row) => ({
-                x: String(row[activeCategory]),
+                x: String(translateValue(activeCategory, row[activeCategory]) || 'Ukjent'),
                 y: Number(row.Antall),
             })),
             barWidth: 20,
@@ -209,7 +210,7 @@ const UserComposition = () => {
 
         return {
             data: currentData.data.map((row) => ({
-                x: String(row[activeCategory]),
+                x: String(translateValue(activeCategory, row[activeCategory]) || 'Ukjent'),
                 y: Number(row.Antall),
             })),
             total,
