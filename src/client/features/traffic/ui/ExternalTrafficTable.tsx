@@ -28,7 +28,7 @@ const ExternalTrafficTable = ({ title, data, metricLabel, websiteDomain, submitt
     const totalPages = Math.ceil(filteredData.length / rowsPerPage);
 
     const renderName = (name: string) => {
-        if (name === 'Interne sider') return <div className="truncate">Interne sider</div>;
+        if (name === 'Interne sider') return <div className="whitespace-nowrap">Interne sider</div>;
         if (name === 'Ukjent / Andre') {
             return (
                 <div className="flex items-center gap-2 max-w-full">
@@ -61,7 +61,7 @@ const ExternalTrafficTable = ({ title, data, metricLabel, websiteDomain, submitt
                 </div>
             );
         }
-        return <div className="truncate">{name}</div>;
+        return <div className="whitespace-nowrap">{name}</div>;
     };
 
     const handleDownloadCSV = () => {
@@ -98,45 +98,47 @@ const ExternalTrafficTable = ({ title, data, metricLabel, websiteDomain, submitt
                 </div>
             </div>
             <div className="border rounded-lg overflow-x-auto">
-                <Table size="small" className="table-fixed w-full [&_th:first-child]:!pl-2 [&_th:first-child]:!pr-2 [&_td:first-child]:!pl-2 [&_td:first-child]:!pr-2">
-                    <colgroup>
-                        <col style={{ width: '6.75rem' }} />
-                        <col />
-                    </colgroup>
-                    <Table.Header>
-                        <Table.Row>
-                            <Table.HeaderCell align="right" className="whitespace-normal leading-tight" style={{ width: '6.75rem', minWidth: '6.75rem' }}>{metricLabel}</Table.HeaderCell>
-                            <Table.HeaderCell>Navn</Table.HeaderCell>
-                        </Table.Row>
-                    </Table.Header>
-                    <Table.Body>
-                        {paginatedData.map((row, i) => (
-                            <Table.Row key={i}>
-                                <Table.DataCell align="right" className="tabular-nums" style={{ width: '6.75rem', minWidth: '6.75rem' }}>{formatMetricValue(row.count, submittedMetricType)}</Table.DataCell>
-                                <Table.DataCell className="max-w-md" title={row.name}>
-                                    {renderName(row.name)}
-                                </Table.DataCell>
-                            </Table.Row>
-                        ))}
-                        {filteredData.length === 0 && (
+                <div className="min-w-max">
+                    <Table size="small" className="table-auto min-w-full [&_th:first-child]:!pl-2 [&_th:first-child]:!pr-2 [&_td:first-child]:!pl-2 [&_td:first-child]:!pr-2">
+                        <colgroup>
+                            <col style={{ width: '6.75rem' }} />
+                            <col />
+                        </colgroup>
+                        <Table.Header>
                             <Table.Row>
-                                <Table.DataCell colSpan={2} align="center">
-                                    {data.length > 0 ? 'Ingen treff' : 'Ingen data'}
-                                </Table.DataCell>
+                                <Table.HeaderCell align="right" className="whitespace-normal leading-tight" style={{ width: '6.75rem', minWidth: '6.75rem' }}>{metricLabel}</Table.HeaderCell>
+                                <Table.HeaderCell className="whitespace-nowrap">Navn</Table.HeaderCell>
                             </Table.Row>
-                        )}
-                    </Table.Body>
-                </Table>
-                <div className="flex gap-2 p-3 bg-[var(--ax-bg-neutral-soft)] border-t justify-between items-center">
-                    <div className="flex gap-2">
-                        <Button
-                            size="small"
-                            variant="secondary"
-                            onClick={handleDownloadCSV}
-                            icon={<Download size={16} />}
-                        >
-                            Last ned CSV
-                        </Button>
+                        </Table.Header>
+                        <Table.Body>
+                            {paginatedData.map((row, i) => (
+                                <Table.Row key={i}>
+                                    <Table.DataCell align="right" className="tabular-nums" style={{ width: '6.75rem', minWidth: '6.75rem' }}>{formatMetricValue(row.count, submittedMetricType)}</Table.DataCell>
+                                    <Table.DataCell className="whitespace-nowrap" title={row.name}>
+                                        {renderName(row.name)}
+                                    </Table.DataCell>
+                                </Table.Row>
+                            ))}
+                            {filteredData.length === 0 && (
+                                <Table.Row>
+                                    <Table.DataCell colSpan={2} align="center">
+                                        {data.length > 0 ? 'Ingen treff' : 'Ingen data'}
+                                    </Table.DataCell>
+                                </Table.Row>
+                            )}
+                        </Table.Body>
+                    </Table>
+                    <div className="flex gap-2 p-3 bg-[var(--ax-bg-neutral-soft)] border-t justify-between items-center min-w-full">
+                        <div className="flex gap-2">
+                            <Button
+                                size="small"
+                                variant="secondary"
+                                onClick={handleDownloadCSV}
+                                icon={<Download size={16} />}
+                            >
+                                Last ned CSV
+                            </Button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -153,4 +155,3 @@ const ExternalTrafficTable = ({ title, data, metricLabel, websiteDomain, submitt
 };
 
 export default ExternalTrafficTable;
-

@@ -84,7 +84,7 @@ const TrafficTable = ({
             );
         }
 
-        return <div className="truncate">{name}</div>;
+        return <div className="whitespace-nowrap">{name}</div>;
     };
 
     const handleDownloadCSV = () => {
@@ -128,96 +128,98 @@ const TrafficTable = ({
                 </div>
             </div>
             <div className="border rounded-lg overflow-x-auto">
-                <Table
-                    size="small"
-                    className="table-fixed w-full [&_th:first-child]:!pl-2 [&_th:first-child]:!pr-2 [&_td:first-child]:!pl-2 [&_td:first-child]:!pr-2"
-                >
-                    <colgroup>
-                        <col style={{ width: valueColWidth }} />
-                        {showCompare && <col style={{ width: valueColWidth }} />}
-                        {showCompare && <col style={{ width: deltaColWidth }} />}
-                        <col />
-                    </colgroup>
-                    <Table.Header>
-                        <Table.Row>
-                            <Table.HeaderCell align="right" className="whitespace-normal leading-tight" style={{ width: valueColWidth, minWidth: valueColWidth }}>
-                                {metricLabel}
-                            </Table.HeaderCell>
-                            {showCompare && (
-                                <Table.HeaderCell align="right" className="whitespace-normal leading-tight" style={{ width: valueColWidth, minWidth: valueColWidth }}>
-                                    Forrige
-                                </Table.HeaderCell>
-                            )}
-                            {showCompare && (
-                                <Table.HeaderCell align="right" className="whitespace-normal leading-tight" style={{ width: deltaColWidth, minWidth: deltaColWidth }}>
-                                    Endring
-                                </Table.HeaderCell>
-                            )}
-                            <Table.HeaderCell>URL-sti</Table.HeaderCell>
-                        </Table.Row>
-                    </Table.Header>
-                    <Table.Body>
-                        {paginatedData.map((row, i) => (
-                            <Table.Row
-                                key={i}
-                                className={isClickableRow(row.name) ? 'cursor-pointer hover:bg-[var(--ax-bg-neutral-soft)]' : ''}
-                                onClick={() => isClickableRow(row.name) && onRowClick?.(row.name)}
-                            >
-                                <Table.DataCell align="right" className="tabular-nums" style={{ width: valueColWidth, minWidth: valueColWidth }}>
-                                    {formatMetricValue(row.count, submittedMetricType)}
-                                </Table.DataCell>
-                                {showCompare && (
-                                    <Table.DataCell align="right" className="tabular-nums" style={{ width: valueColWidth, minWidth: valueColWidth }}>
-                                        {formatMetricValue(row.previousCount || 0, submittedMetricType)}
-                                    </Table.DataCell>
-                                )}
-                                {showCompare && (
-                                    <Table.DataCell
-                                        align="right"
-                                        className={`tabular-nums font-medium ${((row.deltaCount || 0) > 0) ? 'text-green-700' : ((row.deltaCount || 0) < 0) ? 'text-red-700' : ''}`}
-                                        style={{ width: deltaColWidth, minWidth: deltaColWidth }}
-                                    >
-                                        {formatMetricDeltaUtil(row.deltaCount || 0, submittedMetricType)}
-                                    </Table.DataCell>
-                                )}
-                                <Table.DataCell className="max-w-[13rem] sm:max-w-md" title={row.name}>
-                                    {isClickableRow(row.name) ? (
-                                        <span className="flex items-center gap-1 max-w-full">
-                                            <span
-                                                className="truncate text-blue-600 hover:underline cursor-pointer"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    onRowClick?.(row.name);
-                                                }}
-                                            >
-                                                {row.name === '/' ? '/ (forside)' : row.name}
-                                            </span>
-                                            <ExternalLink className="h-3 w-3 shrink-0 text-blue-600" />
-                                        </span>
-                                    ) : (
-                                        renderName(row.name)
-                                    )}
-                                </Table.DataCell>
-                            </Table.Row>
-                        ))}
-                        {filteredData.length === 0 && (
-                            <Table.Row>
-                                <Table.DataCell colSpan={showCompare ? 4 : 2} align="center">
-                                    {data.length > 0 ? 'Ingen treff' : 'Ingen data'}
-                                </Table.DataCell>
-                            </Table.Row>
-                        )}
-                    </Table.Body>
-                </Table>
-                <div className="flex gap-2 p-3 bg-[var(--ax-bg-neutral-soft)] border-t justify-between items-center">
-                    <Button
+                <div className="min-w-max">
+                    <Table
                         size="small"
-                        variant="secondary"
-                        onClick={handleDownloadCSV}
-                        icon={<Download size={16} />}
+                        className="table-auto min-w-full [&_th:first-child]:!pl-2 [&_th:first-child]:!pr-2 [&_td:first-child]:!pl-2 [&_td:first-child]:!pr-2"
                     >
-                        Last ned CSV
-                    </Button>
+                        <colgroup>
+                            <col style={{ width: valueColWidth }} />
+                            {showCompare && <col style={{ width: valueColWidth }} />}
+                            {showCompare && <col style={{ width: deltaColWidth }} />}
+                            <col />
+                        </colgroup>
+                        <Table.Header>
+                            <Table.Row>
+                                <Table.HeaderCell align="right" className="whitespace-normal leading-tight" style={{ width: valueColWidth, minWidth: valueColWidth }}>
+                                    {metricLabel}
+                                </Table.HeaderCell>
+                                {showCompare && (
+                                    <Table.HeaderCell align="right" className="whitespace-normal leading-tight" style={{ width: valueColWidth, minWidth: valueColWidth }}>
+                                        Forrige
+                                    </Table.HeaderCell>
+                                )}
+                                {showCompare && (
+                                    <Table.HeaderCell align="right" className="whitespace-normal leading-tight" style={{ width: deltaColWidth, minWidth: deltaColWidth }}>
+                                        Endring
+                                    </Table.HeaderCell>
+                                )}
+                                <Table.HeaderCell className="whitespace-nowrap">URL-sti</Table.HeaderCell>
+                            </Table.Row>
+                        </Table.Header>
+                        <Table.Body>
+                            {paginatedData.map((row, i) => (
+                                <Table.Row
+                                    key={i}
+                                    className={isClickableRow(row.name) ? 'cursor-pointer hover:bg-[var(--ax-bg-neutral-soft)]' : ''}
+                                    onClick={() => isClickableRow(row.name) && onRowClick?.(row.name)}
+                                >
+                                    <Table.DataCell align="right" className="tabular-nums" style={{ width: valueColWidth, minWidth: valueColWidth }}>
+                                        {formatMetricValue(row.count, submittedMetricType)}
+                                    </Table.DataCell>
+                                    {showCompare && (
+                                        <Table.DataCell align="right" className="tabular-nums" style={{ width: valueColWidth, minWidth: valueColWidth }}>
+                                            {formatMetricValue(row.previousCount || 0, submittedMetricType)}
+                                        </Table.DataCell>
+                                    )}
+                                    {showCompare && (
+                                        <Table.DataCell
+                                            align="right"
+                                            className={`tabular-nums font-medium ${((row.deltaCount || 0) > 0) ? 'text-green-700' : ((row.deltaCount || 0) < 0) ? 'text-red-700' : ''}`}
+                                            style={{ width: deltaColWidth, minWidth: deltaColWidth }}
+                                        >
+                                            {formatMetricDeltaUtil(row.deltaCount || 0, submittedMetricType)}
+                                        </Table.DataCell>
+                                    )}
+                                    <Table.DataCell className="whitespace-nowrap" title={row.name}>
+                                        {isClickableRow(row.name) ? (
+                                            <span className="flex items-center gap-1">
+                                                <span
+                                                    className="text-blue-600 hover:underline cursor-pointer whitespace-nowrap"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onRowClick?.(row.name);
+                                                    }}
+                                                >
+                                                    {row.name === '/' ? '/ (forside)' : row.name}
+                                                </span>
+                                                <ExternalLink className="h-3 w-3 shrink-0 text-blue-600" />
+                                            </span>
+                                        ) : (
+                                            renderName(row.name)
+                                        )}
+                                    </Table.DataCell>
+                                </Table.Row>
+                            ))}
+                            {filteredData.length === 0 && (
+                                <Table.Row>
+                                    <Table.DataCell colSpan={showCompare ? 4 : 2} align="center">
+                                        {data.length > 0 ? 'Ingen treff' : 'Ingen data'}
+                                    </Table.DataCell>
+                                </Table.Row>
+                            )}
+                        </Table.Body>
+                    </Table>
+                    <div className="flex gap-2 p-3 bg-[var(--ax-bg-neutral-soft)] border-t justify-between items-center min-w-full">
+                        <Button
+                            size="small"
+                            variant="secondary"
+                            onClick={handleDownloadCSV}
+                            icon={<Download size={16} />}
+                        >
+                            Last ned CSV
+                        </Button>
+                    </div>
                 </div>
             </div>
             {totalPages > 1 && (
@@ -233,4 +235,3 @@ const TrafficTable = ({
 };
 
 export default TrafficTable;
-

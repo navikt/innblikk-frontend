@@ -103,63 +103,65 @@ const CombinedEntrancesTable = ({
                 </div>
             </div>
             <div className="border rounded-lg overflow-x-auto">
-                <Table size="small" className="table-fixed w-full [&_th:first-child]:!pl-2 [&_th:first-child]:!pr-2 [&_td:first-child]:!pl-2 [&_td:first-child]:!pr-2">
-                    <colgroup>
-                        <col style={{ width: '6.75rem' }} />
-                        <col />
-                    </colgroup>
-                    <Table.Header>
-                        <Table.Row>
-                            <Table.HeaderCell align="right" className="whitespace-normal leading-tight" style={{ width: '6.75rem', minWidth: '6.75rem' }}>{metricLabel}</Table.HeaderCell>
-                            <Table.HeaderCell>Inngang</Table.HeaderCell>
-                        </Table.Row>
-                    </Table.Header>
-                    <Table.Body>
-                        {paginatedData.map((row, i) => (
-                            <Table.Row
-                                key={i}
-                                className={isClickableRow(row) ? 'cursor-pointer hover:bg-[var(--ax-bg-neutral-soft)]' : ''}
-                                onClick={() => isClickableRow(row) && onRowClick?.(row.name)}
-                            >
-                                <Table.DataCell align="right" className="tabular-nums" style={{ width: '6.75rem', minWidth: '6.75rem' }}>{formatMetricValue(row.count, submittedMetricType)}</Table.DataCell>
-                                <Table.DataCell className="max-w-md" title={row.name}>
-                                    {isClickableRow(row) ? (
-                                        <span className="flex items-center gap-1 max-w-full">
-                                            <span
-                                                className="truncate text-blue-600 hover:underline cursor-pointer"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    onRowClick?.(row.name);
-                                                }}
-                                            >
-                                                {renderName(row)}
-                                            </span>
-                                            <ExternalLink className="h-3 w-3 shrink-0 text-blue-600" />
-                                        </span>
-                                    ) : (
-                                        <div className="truncate">{renderName(row)}</div>
-                                    )}
-                                </Table.DataCell>
-                            </Table.Row>
-                        ))}
-                        {filteredData.length === 0 && (
+                <div className="min-w-max">
+                    <Table size="small" className="table-auto min-w-full [&_th:first-child]:!pl-2 [&_th:first-child]:!pr-2 [&_td:first-child]:!pl-2 [&_td:first-child]:!pr-2">
+                        <colgroup>
+                            <col style={{ width: '6.75rem' }} />
+                            <col />
+                        </colgroup>
+                        <Table.Header>
                             <Table.Row>
-                                <Table.DataCell colSpan={2} align="center">
-                                    {data.length > 0 ? 'Ingen treff' : 'Ingen data'}
-                                </Table.DataCell>
+                                <Table.HeaderCell align="right" className="whitespace-normal leading-tight" style={{ width: '6.75rem', minWidth: '6.75rem' }}>{metricLabel}</Table.HeaderCell>
+                                <Table.HeaderCell className="whitespace-nowrap">Inngang</Table.HeaderCell>
                             </Table.Row>
-                        )}
-                    </Table.Body>
-                </Table>
-                <div className="flex gap-2 p-3 bg-[var(--ax-bg-neutral-soft)] border-t justify-between items-center">
-                    <Button
-                        size="small"
-                        variant="secondary"
-                        onClick={handleDownloadCSV}
-                        icon={<Download size={16} />}
-                    >
-                        Last ned CSV
-                    </Button>
+                        </Table.Header>
+                        <Table.Body>
+                            {paginatedData.map((row, i) => (
+                                <Table.Row
+                                    key={i}
+                                    className={isClickableRow(row) ? 'cursor-pointer hover:bg-[var(--ax-bg-neutral-soft)]' : ''}
+                                    onClick={() => isClickableRow(row) && onRowClick?.(row.name)}
+                                >
+                                    <Table.DataCell align="right" className="tabular-nums" style={{ width: '6.75rem', minWidth: '6.75rem' }}>{formatMetricValue(row.count, submittedMetricType)}</Table.DataCell>
+                                    <Table.DataCell className="whitespace-nowrap" title={row.name}>
+                                        {isClickableRow(row) ? (
+                                            <span className="flex items-center gap-1">
+                                                <span
+                                                    className="text-blue-600 hover:underline cursor-pointer whitespace-nowrap"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onRowClick?.(row.name);
+                                                    }}
+                                                >
+                                                    {renderName(row)}
+                                                </span>
+                                                <ExternalLink className="h-3 w-3 shrink-0 text-blue-600" />
+                                            </span>
+                                        ) : (
+                                            <div className="whitespace-nowrap">{renderName(row)}</div>
+                                        )}
+                                    </Table.DataCell>
+                                </Table.Row>
+                            ))}
+                            {filteredData.length === 0 && (
+                                <Table.Row>
+                                    <Table.DataCell colSpan={2} align="center">
+                                        {data.length > 0 ? 'Ingen treff' : 'Ingen data'}
+                                    </Table.DataCell>
+                                </Table.Row>
+                            )}
+                        </Table.Body>
+                    </Table>
+                    <div className="flex gap-2 p-3 bg-[var(--ax-bg-neutral-soft)] border-t justify-between items-center min-w-full">
+                        <Button
+                            size="small"
+                            variant="secondary"
+                            onClick={handleDownloadCSV}
+                            icon={<Download size={16} />}
+                        >
+                            Last ned CSV
+                        </Button>
+                    </div>
                 </div>
             </div>
             {totalPages > 1 && (
@@ -175,4 +177,3 @@ const CombinedEntrancesTable = ({
 };
 
 export default CombinedEntrancesTable;
-

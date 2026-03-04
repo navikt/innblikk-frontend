@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { Button, Alert, Loader, Tabs, Select } from '@navikt/ds-react';
+import { Button, Alert, Loader, Select } from '@navikt/ds-react';
 import { Share2, Check } from 'lucide-react';
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx';
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx';
@@ -73,8 +73,6 @@ const TrafficAnalysis = () => {
         copyShareLink,
         copySuccess,
         hasUnappliedFilterChanges,
-        activeTab,
-        setActiveTab,
         selectedInternalUrl,
         setSelectedInternalUrl,
         currentDateRange,
@@ -218,70 +216,63 @@ const TrafficAnalysis = () => {
 
             {!loading && hasAttemptedFetch && !error && (
                 <>
-                    <Tabs value={activeTab} onChange={setActiveTab}>
-                        <Tabs.List>
-                            <Tabs.Tab value="visits" label="Oversikt" />
-                            <Tabs.Tab value="sources" label="Inn- og utganger" />
-                        </Tabs.List>
+                    <div className="pt-4">
+                        <OversiktTabContent
+                            hasAttemptedFetch={hasAttemptedFetch}
+                            isLoadingPageMetrics={isLoadingPageMetrics}
+                            hasFetchedPageMetrics={hasFetchedPageMetrics}
+                            submittedComparePreviousPeriod={submittedComparePreviousPeriod}
+                            comparisonSummary={comparisonSummary}
+                            comparisonRangeLabel={comparisonRangeLabel}
+                            submittedDateRange={submittedDateRange}
+                            submittedPreviousDateRange={submittedPreviousDateRange}
+                            formatComparisonValue={formatComparisonValue}
+                            formatComparisonDelta={formatComparisonDelta}
+                            seriesData={seriesData}
+                            submittedMetricType={submittedMetricType}
+                            totalOverride={totalOverride}
+                            submittedGranularity={submittedGranularity}
+                            showAverage={showAverage}
+                            onShowAverageChange={setShowAverage}
+                            comparePreviousPeriod={comparePreviousPeriod}
+                            onComparePreviousPeriodChange={setComparePreviousPeriod}
+                            granularity={granularity}
+                            onGranularityChange={setGranularity}
+                            chartData={chartData?.data ?? null}
+                            chartYMax={chartData?.yMax ?? 0}
+                            chartYMin={chartData?.yMin ?? 0}
+                            chartKey={`${submittedMetricType}-${submittedPeriod}-${seriesData.length}-${previousSeriesData.length}-${submittedComparePreviousPeriod ? 'compare' : 'single'}`}
+                            processedSeriesData={processedSeriesData}
+                            processedPreviousSeriesData={processedPreviousSeriesData}
+                            getMetricLabelWithCount={getMetricLabelWithCount}
+                            includedPagesWithCompare={includedPagesWithCompare}
+                            onSelectInternalUrl={setSelectedInternalUrl}
+                            selectedWebsite={selectedWebsite}
+                            getMetricLabelCapitalized={getMetricLabelCapitalized}
+                            ChartDataTableComponent={BridgedChartDataTable}
+                            TrafficTableComponent={BridgedTrafficTable}
+                        />
+                    </div>
 
-                        <Tabs.Panel value="visits" className="pt-4">
-                            <OversiktTabContent
-                                hasAttemptedFetch={hasAttemptedFetch}
-                                isLoadingPageMetrics={isLoadingPageMetrics}
-                                hasFetchedPageMetrics={hasFetchedPageMetrics}
-                                submittedComparePreviousPeriod={submittedComparePreviousPeriod}
-                                comparisonSummary={comparisonSummary}
-                                comparisonRangeLabel={comparisonRangeLabel}
-                                submittedDateRange={submittedDateRange}
-                                submittedPreviousDateRange={submittedPreviousDateRange}
-                                formatComparisonValue={formatComparisonValue}
-                                formatComparisonDelta={formatComparisonDelta}
-                                seriesData={seriesData}
-                                submittedMetricType={submittedMetricType}
-                                totalOverride={totalOverride}
-                                submittedGranularity={submittedGranularity}
-                                showAverage={showAverage}
-                                onShowAverageChange={setShowAverage}
-                                comparePreviousPeriod={comparePreviousPeriod}
-                                onComparePreviousPeriodChange={setComparePreviousPeriod}
-                                granularity={granularity}
-                                onGranularityChange={setGranularity}
-                                chartData={chartData?.data ?? null}
-                                chartYMax={chartData?.yMax ?? 0}
-                                chartYMin={chartData?.yMin ?? 0}
-                                chartKey={`${submittedMetricType}-${submittedPeriod}-${seriesData.length}-${previousSeriesData.length}-${submittedComparePreviousPeriod ? 'compare' : 'single'}`}
-                                processedSeriesData={processedSeriesData}
-                                processedPreviousSeriesData={processedPreviousSeriesData}
-                                getMetricLabelWithCount={getMetricLabelWithCount}
-                                includedPagesWithCompare={includedPagesWithCompare}
-                                onSelectInternalUrl={setSelectedInternalUrl}
-                                selectedWebsite={selectedWebsite}
-                                getMetricLabelCapitalized={getMetricLabelCapitalized}
-                                ChartDataTableComponent={BridgedChartDataTable}
-                                TrafficTableComponent={BridgedTrafficTable}
-                            />
-                        </Tabs.Panel>
-
-                        <Tabs.Panel value="sources" className="pt-4">
-                            <InnOgUtgangerTabContent
-                                hasAttemptedFetch={hasAttemptedFetch}
-                                isLoadingExternalReferrers={isLoadingExternalReferrers}
-                                hasFetchedExternalReferrers={hasFetchedExternalReferrers}
-                                isLoadingBreakdown={isLoadingBreakdown}
-                                hasFetchedBreakdown={hasFetchedBreakdown}
-                                combinedEntrances={combinedEntrances}
-                                entranceSummaryWithUnknown={entranceSummaryWithUnknown}
-                                exits={exits}
-                                selectedWebsite={selectedWebsite}
-                                metricLabel={getMetricLabelCapitalized(submittedMetricType)}
-                                onSelectInternalUrl={setSelectedInternalUrl}
-                                onNavigateToJourney={navigateToJourney}
-                                CombinedEntrancesTableComponent={BridgedCombinedEntrancesTable}
-                                ExternalTrafficTableComponent={BridgedExternalTrafficTable}
-                                TrafficTableComponent={BridgedTrafficTable}
-                            />
-                        </Tabs.Panel>
-                    </Tabs>
+                    <div className="mt-8">
+                        <InnOgUtgangerTabContent
+                            hasAttemptedFetch={hasAttemptedFetch}
+                            isLoadingExternalReferrers={isLoadingExternalReferrers}
+                            hasFetchedExternalReferrers={hasFetchedExternalReferrers}
+                            isLoadingBreakdown={isLoadingBreakdown}
+                            hasFetchedBreakdown={hasFetchedBreakdown}
+                            combinedEntrances={combinedEntrances}
+                            entranceSummaryWithUnknown={entranceSummaryWithUnknown}
+                            exits={exits}
+                            selectedWebsite={selectedWebsite}
+                            metricLabel={getMetricLabelCapitalized(submittedMetricType)}
+                            onSelectInternalUrl={setSelectedInternalUrl}
+                            onNavigateToJourney={navigateToJourney}
+                            CombinedEntrancesTableComponent={BridgedCombinedEntrancesTable}
+                            ExternalTrafficTableComponent={BridgedExternalTrafficTable}
+                            TrafficTableComponent={BridgedTrafficTable}
+                        />
+                    </div>
 
                     <AnalysisActionModal
                         open={!!selectedInternalUrl}

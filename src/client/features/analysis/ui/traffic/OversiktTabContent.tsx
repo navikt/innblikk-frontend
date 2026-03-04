@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Label, Loader, Select, Switch } from '@navikt/ds-react';
 import { LineChart, ResponsiveContainer } from '@fluentui/react-charting';
 import TrafficStats from './TrafficStats.tsx';
@@ -39,6 +40,8 @@ const OversiktTabContent = ({
     ChartDataTableComponent,
     TrafficTableComponent,
 }: OversiktTabContentProps) => {
+    const [showTableSection, setShowTableSection] = useState(false);
+
     const {
         chartWrapperRef,
         dayDividerXs,
@@ -73,7 +76,7 @@ const OversiktTabContent = ({
             {submittedComparePreviousPeriod && comparisonSummary && comparisonRangeLabel && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                     <div className="bg-[var(--ax-bg-default)] p-4 rounded-lg border border-[var(--ax-border-neutral-subtle)] shadow-sm">
-                        <div className="text-sm text-[var(--ax-text-default)] font-medium mb-1">Denne perioden</div>
+                        <div className="text-sm text-[var(--ax-text-default)] font-medium mb-1">Valgt periode</div>
                         <div className="text-2xl font-bold text-[var(--ax-text-default)]">
                             {formatComparisonValue(comparisonSummary.currentValue)}
                         </div>
@@ -102,23 +105,30 @@ const OversiktTabContent = ({
             <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-4">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 w-full sm:w-auto">
-                            <Switch
-                                checked={showAverage}
-                                onChange={(e) => onShowAverageChange(e.target.checked)}
-                                size="small"
-                            >
-                                Vis gjennomsnitt
-                            </Switch>
-                            <Switch
-                                checked={comparePreviousPeriod}
-                                onChange={(e) => onComparePreviousPeriodChange(e.target.checked)}
-                                size="small"
-                            >
-                                Sammenlign forrige periode
-                            </Switch>
+                        <div className="flex flex-wrap items-center gap-4">
+                        <Switch
+                            checked={showAverage}
+                            onChange={(e) => onShowAverageChange(e.target.checked)}
+                            size="small"
+                        >
+                            Vis snitt
+                        </Switch>
+                        <Switch
+                            checked={showTableSection}
+                            onChange={(e) => setShowTableSection(e.target.checked)}
+                            size="small"
+                        >
+                            Vis tabell
+                        </Switch>
+                        <Switch
+                            checked={comparePreviousPeriod}
+                            onChange={(e) => onComparePreviousPeriodChange(e.target.checked)}
+                            size="small"
+                        >
+                            Sammenlign forrige periode
+                        </Switch>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 sm:ml-auto">
                             <Label size="small" htmlFor="traffic-granularity">Intervall</Label>
                             <Select
                                 id="traffic-granularity"
@@ -187,28 +197,30 @@ const OversiktTabContent = ({
                     </div>
                 </div>
 
-                <div className="flex flex-col md:flex-row gap-8 mt-0">
-                    <div className="w-full md:flex-1 md:basis-0 min-w-0">
-                        <ChartDataTableComponent
-                            data={processedSeriesData}
-                            previousData={processedPreviousSeriesData}
-                            metricLabel={getMetricLabelWithCount(submittedMetricType)}
-                            submittedDateRange={submittedDateRange}
-                            submittedPreviousDateRange={submittedPreviousDateRange}
-                        />
-                    </div>
+                {showTableSection && (
+                    <div className="flex flex-col md:flex-row gap-8 mt-4">
+                        <div className="w-full md:flex-1 md:basis-0 min-w-0">
+                            <ChartDataTableComponent
+                                data={processedSeriesData}
+                                previousData={processedPreviousSeriesData}
+                                metricLabel={getMetricLabelWithCount(submittedMetricType)}
+                                submittedDateRange={submittedDateRange}
+                                submittedPreviousDateRange={submittedPreviousDateRange}
+                            />
+                        </div>
 
-                    <div className="w-full md:flex-1 md:basis-0 min-w-0">
-                        <TrafficTableComponent
-                            title="Inkluderte sider"
-                            data={includedPagesWithCompare}
-                            onRowClick={onSelectInternalUrl}
-                            selectedWebsite={selectedWebsite}
-                            metricLabel={getMetricLabelCapitalized(submittedMetricType)}
-                            showCompare={submittedComparePreviousPeriod}
-                        />
+                        <div className="w-full md:flex-1 md:basis-0 min-w-0">
+                            <TrafficTableComponent
+                                title="Inkluderte sider"
+                                data={includedPagesWithCompare}
+                                onRowClick={onSelectInternalUrl}
+                                selectedWebsite={selectedWebsite}
+                                metricLabel={getMetricLabelCapitalized(submittedMetricType)}
+                                showCompare={submittedComparePreviousPeriod}
+                            />
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
         </>
     );

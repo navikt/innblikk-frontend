@@ -67,9 +67,6 @@ export const useTrafficAnalysis = () => {
     const [granularity, setGranularity] = useState<Granularity>('day');
     const [submittedGranularity, setSubmittedGranularity] = useState<Granularity>('day');
 
-    // Tab states
-    const [activeTab, setActiveTab] = useState<string>('visits');
-
     // View options
     const [metricType, setMetricTypeState] = useState<string>(() => getStoredMetricType(searchParams.get('metricType')));
     const [submittedMetricType, setSubmittedMetricType] = useState<string>(() => getStoredMetricType(searchParams.get('metricType')));
@@ -452,7 +449,7 @@ export const useTrafficAnalysis = () => {
         }
     }, [selectedWebsite, submittedUrlPaths, submittedPathOperator, submittedMetricType, getCountByQueryParams]);
 
-    // Lazy-load tab data
+    // Load all dependent traffic tables for the current selection.
     useEffect(() => {
         if (!hasAttemptedFetch || !selectedWebsite) return;
 
@@ -466,24 +463,17 @@ export const useTrafficAnalysis = () => {
             metricType: submittedMetricType
         };
 
-        if (activeTab === 'visits') {
-            if (!hasFetchedPageMetrics) {
-                void fetchPageMetricsHandler(startDate, endDate, options);
-            }
-            return;
+        if (!hasFetchedPageMetrics) {
+            void fetchPageMetricsHandler(startDate, endDate, options);
         }
-
-        if (activeTab === 'sources') {
-            if (!hasFetchedExternalReferrers) {
-                void fetchExternalReferrersHandler(startDate, endDate, options);
-            }
-            if (!hasFetchedBreakdown) {
-                void fetchTrafficBreakdownHandler(startDate, endDate, options);
-            }
-            return;
+        if (!hasFetchedExternalReferrers) {
+            void fetchExternalReferrersHandler(startDate, endDate, options);
+        }
+        if (!hasFetchedBreakdown) {
+            void fetchTrafficBreakdownHandler(startDate, endDate, options);
         }
     }, [
-        activeTab, hasAttemptedFetch, selectedWebsite, submittedPeriod,
+        hasAttemptedFetch, selectedWebsite, submittedPeriod,
         submittedCustomStartDate, submittedCustomEndDate, submittedMetricType,
         submittedUrlPaths, submittedPathOperator,
         hasFetchedPageMetrics, hasFetchedExternalReferrers, hasFetchedBreakdown,
@@ -956,10 +946,6 @@ export const useTrafficAnalysis = () => {
         downloadCSV,
         copySuccess,
         hasUnappliedFilterChanges,
-
-        // Tab
-        activeTab,
-        setActiveTab,
 
         // Internal URL modal
         selectedInternalUrl,
