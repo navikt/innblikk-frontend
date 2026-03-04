@@ -17,10 +17,10 @@ function Personvern() {
                         <VStack gap="space-12">
                             <section>
                                 <Heading level="2" size="medium" spacing>
-                                    Hva er Start Umami
+                                    Hva er Innblikk
                                 </Heading>
                                 <p className="mb-4 leading-normal">
-                                    Start Umami er en nettside for Nav Arbeids- og velferdsdirektoratet. Personvernerklæring for behandling av personopplysninger. For mer info: <Link href="https://navno.sharepoint.com/sites/intranett-hr/SitePages/Personvernerkl%C3%A6ring.aspx" className="underline hover:no-underline">ansattes personvern</Link>
+                                    Innblikk er en nettside for Nav Arbeids- og velferdsdirektoratet. Personvernerklæring for behandling av personopplysninger. For mer info: <Link href="https://navno.sharepoint.com/sites/intranett-hr/SitePages/Personvernerkl%C3%A6ring.aspx" className="underline hover:no-underline">ansattes personvern</Link>
                                 </p>
                             </section>
 
@@ -29,7 +29,7 @@ function Personvern() {
                                     Formålet med audit loggingen
                                 </Heading>
                                 <p className="mb-4 leading-normal">
-                                    Når du bruker målingsverktøyet Umami så sender Start Umami din Nav-ident sammen med alle spørringer som kjøres. Dette gjør at vi kan logge hvem som har kjørt hvilke spørringer, og er en del av vår sikkerhetsrutine for å beskytte data innsamlet med målingsverktøyet Umami.
+                                    Når du bruker målingsverktøyet Umami så sender Innblikk din Nav-ident sammen med alle spørringer som kjøres. Dette gjør at vi kan logge hvem som har kjørt hvilke spørringer, og er en del av vår sikkerhetsrutine for å beskytte data innsamlet med målingsverktøyet Umami.
                                 </p>
                                 <p className="mb-4 leading-normal">
                                     Loggene brukes kun til statistikk, avvik og sikkerhetsformål. Eksempelvis i forbindelse med avvik for å se hvem som har gjort hvilke spørringer og har hatt tilgang til eventuelle personopplysninger som er innsamlet ved en feil.
@@ -76,7 +76,7 @@ function Personvern() {
                                         Umami
                                     </Heading>
                                     <p className="mb-4 leading-normal">
-                                        Umami brukes til statistikk og analyse av hvordan startumami.ansatt.Nav.no brukes. Unami bruker ikke informasjonskapsler, men henter inn opplysninger om nettleseren din for å lage en unik ID. Denne ID-en brukes for å skille deg fra andre brukere. For å hindre identifisering, bruker vi en egenutviklet proxy som vasker bort deler av IP-adressen din før dataene sendes til verktøyet.
+                                        Umami brukes til statistikk og analyse av hvordan innblikk.ansatt.nav.no brukes. Unami bruker ikke informasjonskapsler, men henter inn opplysninger om nettleseren din for å lage en unik ID. Denne ID-en brukes for å skille deg fra andre brukere. For å hindre identifisering, bruker vi en egenutviklet proxy som vasker bort deler av IP-adressen din før dataene sendes til verktøyet.
                                     </p>
                                 </section>
                             </section>
@@ -95,7 +95,7 @@ function Personvern() {
                                     Personvernombudet
                                 </Heading>
                                 <p className="mb-4 leading-normal">
-                                    Arbeids- og velferdsetaten har et <Link href="https://www.Nav.no/personvern" className="underline hover:no-underline">personvernombud</Link> som skal ivareta personverninteressene, også til de ansatte. Personvernombudet kan gi råd og veiledning generelt om Navs behandling av personopplysninger og kan hjelpe deg med å ivareta dine personverninteresser.
+                                    Arbeids- og velferdsetaten har et <Link href="https://www.nav.no/personvern" className="underline hover:no-underline">personvernombud</Link> som skal ivareta personverninteressene, også til de ansatte. Personvernombudet kan gi råd og veiledning generelt om Navs behandling av personopplysninger og kan hjelpe deg med å ivareta dine personverninteresser.
                                 </p>
                             </section>
 

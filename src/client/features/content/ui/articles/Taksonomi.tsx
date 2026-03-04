@@ -313,7 +313,7 @@ analytics(Events.NAVIGERE, properties);`}
                   Implementer i koden
                 </Heading>
                 <BodyLong spacing>
-                  For å implementere Umami trenger du en sporingskode. Denne finner du via <Link href="/public">Start Umami forsiden</Link>.
+                  For å implementere Umami trenger du en sporingskode. Denne finner du via <Link href="/public">Innblikk forsiden</Link>.
                   Her er et eksempel på hvordan du kan spore hendelser i tråd med taksonomien:
                 </BodyLong>
 
