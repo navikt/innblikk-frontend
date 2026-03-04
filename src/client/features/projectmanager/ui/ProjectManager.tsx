@@ -1130,7 +1130,6 @@ const ProjectManager = () => {
                                 <Table.Row>
                                     <Table.HeaderCell scope="col">Dashboard</Table.HeaderCell>
                                     <Table.HeaderCell scope="col" className="w-28 text-right">Grafer</Table.HeaderCell>
-                                    <Table.HeaderCell scope="col" className="w-32 text-right">Type</Table.HeaderCell>
                                     <Table.HeaderCell scope="col" className="w-14">
                                         <span className="sr-only">Handlinger</span>
                                     </Table.HeaderCell>
@@ -1206,7 +1205,15 @@ const ProjectManager = () => {
                                                                     {isCategoryExpanded ? <ChevronUp aria-hidden size={14} /> : <ChevronDown aria-hidden size={14} />}
                                                                 </button>
                                                             ) : (
-                                                                getChartIcon(row.graphType)
+                                                                <Tooltip content={getChartTypeLabel(row.graphType)}>
+                                                                    <span
+                                                                        className="inline-flex items-center"
+                                                                        role="img"
+                                                                        aria-label={getChartTypeLabel(row.graphType)}
+                                                                    >
+                                                                        {getChartIcon(row.graphType)}
+                                                                    </span>
+                                                                </Tooltip>
                                                             )}
                                                         </span>
                                                         <Link as={RouterLink} to={overviewHref}>
@@ -1216,9 +1223,6 @@ const ProjectManager = () => {
                                                 </Table.HeaderCell>
                                                 <Table.DataCell className="w-28 text-right whitespace-nowrap">
                                                     {chartCountValue}
-                                                </Table.DataCell>
-                                                <Table.DataCell className="w-32 text-right whitespace-nowrap">
-                                                    {row.type === 'dashboard' ? 'Dashboard' : row.type === 'category' ? 'Fane' : getChartTypeLabel(row.graphType)}
                                                 </Table.DataCell>
                                                 <Table.DataCell>
                                                     <div className="flex justify-end">
@@ -1338,7 +1342,6 @@ const ProjectManager = () => {
                                                     </Table.HeaderCell>
                                                     <Table.DataCell />
                                                     <Table.DataCell />
-                                                    <Table.DataCell />
                                                 </Table.Row>
                                             )}
                                             {isDashboardExpanded && isLastRowInDashboard && (
@@ -1351,7 +1354,6 @@ const ProjectManager = () => {
                                                             {renderAddMenu(row.dashboardId)}
                                                         </div>
                                                     </Table.HeaderCell>
-                                                    <Table.DataCell />
                                                     <Table.DataCell />
                                                     <Table.DataCell />
                                                 </Table.Row>
