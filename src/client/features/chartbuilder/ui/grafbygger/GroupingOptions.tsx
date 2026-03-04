@@ -704,12 +704,12 @@ const GroupingOptions = forwardRef(({
             <Switch
               size="small"
               description={interactiveMode
-                ? 'Standard: mottaker velger selv'
+                ? 'Tidsperiode velges via filter i dasboardet'
                 : 'Bruk valgt tidsperiode fra grafbyggeren som standard'}
               checked={!interactiveMode}
               onChange={(e) => setInteractiveMode(!e.target.checked)}
             >
-              Tving egendefinert tidsperiode
+              Overstyr tidsperiode
             </Switch>
 
             <div className={interactiveMode ? 'hidden' : undefined}>

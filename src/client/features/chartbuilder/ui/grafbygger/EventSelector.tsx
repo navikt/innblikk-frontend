@@ -195,14 +195,14 @@ const EventSelector = ({
               <Switch
                 checked={selectedEventTypes.includes('pageviews')}
                 onChange={(e) => handleEventTypeChange('pageviews', e.target.checked)}
-                description="Standard: Mottaker velger side selv"
+                description='Sider velges via filter i dashboardet'
               >
                 Sidevisninger
               </Switch>
 
               {selectedEventTypes.includes('pageviews') && (
                 <div className="pl-0 mt-4">
-                  <ReadMore header="Tving alle sider / utvalgte sider" size="small">
+                  <ReadMore header="Overstyr sidevalg" size="small">
                     <div className="pt-2">
                       <RadioGroup
                         legend="Valg for sidevisninger"
@@ -221,9 +221,9 @@ const EventSelector = ({
                           }
                         }}
                       >
-                        <Radio value="interactive">Mottaker velger selv</Radio>
+                        <Radio value="interactive">Mottaker velger side via filter</Radio>
                         <Radio value="all">Alle (hele nettstedet)</Radio>
-                        <Radio value="specific">Utvalgte sider</Radio>
+                        <Radio value="specific">Lås til utvalgte sider</Radio>
                       </RadioGroup>
                     </div>
                   </ReadMore>
