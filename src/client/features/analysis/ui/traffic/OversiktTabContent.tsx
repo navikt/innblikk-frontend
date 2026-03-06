@@ -114,13 +114,6 @@ const OversiktTabContent = ({
                             Vis snitt
                         </Switch>
                         <Switch
-                            checked={showTableSection}
-                            onChange={(e) => setShowTableSection(e.target.checked)}
-                            size="small"
-                        >
-                            Vis tabell
-                        </Switch>
-                        <Switch
                             checked={comparePreviousPeriod}
                             onChange={(e) => onComparePreviousPeriodChange(e.target.checked)}
                             size="small"
@@ -194,6 +187,15 @@ const OversiktTabContent = ({
                                 Ingen data tilgjengelig for diagram
                             </div>
                         )}
+                    </div>
+                    <div className="flex justify-end mt-1">
+                        <Switch
+                            checked={showTableSection}
+                            onChange={(e) => setShowTableSection(e.target.checked)}
+                            size="small"
+                        >
+                            Vis graf som tabell
+                        </Switch>
                     </div>
                 </div>
 
