@@ -19,6 +19,7 @@ function UrlSearchForm({ children }: UrlSearchFormProps) {
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [searchError, setSearchError] = useState<string | null>(null);
     const hostname = typeof window !== "undefined" ? window.location.hostname : "";
+    const isLocalEnvironment = hostname === "localhost" || hostname === "127.0.0.1";
     const isDevEnvironment = hostname.includes(".dev.nav.no");
     const isProdEnvironment = hostname.includes(".nav.no") && !isDevEnvironment;
     const normalizedAkselSearchQuery = akselSearchQuery.trim().toLowerCase();
@@ -124,8 +125,12 @@ function UrlSearchForm({ children }: UrlSearchFormProps) {
         setSearchError(null);
         setAlertVisible(false);
 
-        let inputUrl = searchQuery;
-        if (!inputUrl.startsWith('http://') && !inputUrl.startsWith('https://')) {
+        let inputUrl = searchQuery.trim();
+        const isPathOnlyInput = inputUrl.startsWith("/");
+
+        if ((isProdEnvironment || isLocalEnvironment) && isPathOnlyInput) {
+            inputUrl = `https://www.nav.no${inputUrl}`;
+        } else if (!inputUrl.startsWith('http://') && !inputUrl.startsWith('https://')) {
             inputUrl = 'https://' + inputUrl;
         }
 
