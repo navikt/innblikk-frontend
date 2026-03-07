@@ -9,6 +9,7 @@ import {
   Select,
   Switch,
   TextField,
+  Tooltip,
 } from "@navikt/ds-react";
 import { Minimize2, ExternalLink, MoreVertical, Search } from "lucide-react";
 import ChartLayout from "../../analysis/ui/ChartLayout.tsx";
@@ -80,6 +81,7 @@ const UserJourney = () => {
   const [selectedTableUrl, setSelectedTableUrl] = useState<string | null>(null);
   const [tableSearch, setTableSearch] = useState<string>("");
   const [showTableSearch, setShowTableSearch] = useState<boolean>(false);
+  const tableSearchInputRef = useRef<HTMLInputElement>(null);
   const hasAutoSubmittedRef = useRef<boolean>(false);
 
   const hasUnappliedFilterChanges = lastAppliedFilterKey
@@ -145,6 +147,10 @@ const UserJourney = () => {
         return haystack.includes(tableSearch.toLowerCase());
       })
     : [];
+
+  useEffect(() => {
+    if (showTableSearch) tableSearchInputRef.current?.focus();
+  }, [showTableSearch]);
 
   return (
     <ChartLayout
@@ -342,27 +348,32 @@ const UserJourney = () => {
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <Heading level="3" size="small">Tabell</Heading>
                   <div className="flex items-center gap-1">
-                    <Button
-                      type="button"
-                      variant={showTableSearch ? "secondary" : "tertiary"}
-                      size="xsmall"
-                      icon={<Search aria-hidden />}
-                      aria-label="Søk i tabell"
-                      onClick={() => {
-                        setShowTableSearch((prev) => !prev);
-                        if (showTableSearch) setTableSearch("");
-                      }}
-                    />
+                    <Tooltip content="Søk" placement="top">
+                      <Button
+                        type="button"
+                        variant={showTableSearch ? "secondary" : "tertiary"}
+                        size="xsmall"
+                        icon={<Search aria-hidden />}
+                        aria-label="Søk i tabell"
+                        aria-pressed={showTableSearch}
+                        onClick={() => {
+                          setShowTableSearch((prev) => !prev);
+                          if (showTableSearch) setTableSearch("");
+                        }}
+                      />
+                    </Tooltip>
                     <ActionMenu>
-                      <ActionMenu.Trigger>
-                        <Button
-                          type="button"
-                          variant="tertiary"
-                          size="xsmall"
-                          icon={<MoreVertical aria-hidden />}
-                          aria-label="Flere valg for tabell"
-                        />
-                      </ActionMenu.Trigger>
+                      <Tooltip content="Flere valg" placement="top">
+                        <ActionMenu.Trigger>
+                          <Button
+                            type="button"
+                            variant="tertiary"
+                            size="xsmall"
+                            icon={<MoreVertical aria-hidden />}
+                            aria-label="Flere valg for tabell"
+                          />
+                        </ActionMenu.Trigger>
+                      </Tooltip>
                       <ActionMenu.Content align="end">
                         <ActionMenu.Item onClick={handleDownloadCSV}>
                           Last ned CSV
@@ -390,6 +401,7 @@ const UserJourney = () => {
                       placeholder="Søk..."
                       size="small"
                       value={tableSearch}
+                      ref={tableSearchInputRef}
                       onChange={(e) => setTableSearch(e.target.value)}
                     />
                   </div>

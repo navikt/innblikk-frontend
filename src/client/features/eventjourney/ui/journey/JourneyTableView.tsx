@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { ActionMenu, Button, Heading, Pagination, Select, TextField } from '@navikt/ds-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ActionMenu, Button, Heading, Pagination, Select, TextField, Tooltip } from '@navikt/ds-react';
 import { MoreVertical, Search } from 'lucide-react';
 import { parseJourneyStep } from '../../utils/parsers.ts';
 
@@ -15,6 +15,7 @@ const JourneyTableView = ({ journeys, totalSessions }: JourneyTableViewProps) =>
     const [rowsPerPage, setRowsPerPage] = useState<number>(25);
     const [search, setSearch] = useState('');
     const [showSearch, setShowSearch] = useState(false);
+    const searchInputRef = useRef<HTMLInputElement>(null);
 
     const filteredJourneys = useMemo(() =>
         journeys.filter((journey) =>
@@ -34,6 +35,10 @@ const JourneyTableView = ({ journeys, totalSessions }: JourneyTableViewProps) =>
         const endIndex = startIndex + rowsPerPage;
         return filteredJourneys.slice(startIndex, endIndex);
     }, [filteredJourneys, currentPage, rowsPerPage]);
+
+    useEffect(() => {
+        if (showSearch) searchInputRef.current?.focus();
+    }, [showSearch]);
 
     const startRow = filteredJourneys.length === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
     const endRow = Math.min(currentPage * rowsPerPage, filteredJourneys.length);
@@ -67,27 +72,32 @@ const JourneyTableView = ({ journeys, totalSessions }: JourneyTableViewProps) =>
                 <div className="mb-2 flex items-center justify-between gap-2">
                     <Heading level="3" size="small">Tabell</Heading>
                     <div className="flex items-center gap-1">
-                        <Button
-                            type="button"
-                            variant={showSearch ? 'secondary' : 'tertiary'}
-                            size="xsmall"
-                            icon={<Search aria-hidden />}
-                            aria-label="Søk i tabell"
-                            onClick={() => {
-                                setShowSearch((prev) => !prev);
-                                if (showSearch) setSearch('');
-                            }}
-                        />
+                        <Tooltip content="Søk" placement="top">
+                            <Button
+                                type="button"
+                                variant={showSearch ? 'secondary' : 'tertiary'}
+                                size="xsmall"
+                                icon={<Search aria-hidden />}
+                                aria-label="Søk i tabell"
+                                aria-pressed={showSearch}
+                                onClick={() => {
+                                    setShowSearch((prev) => !prev);
+                                    if (showSearch) setSearch('');
+                                }}
+                            />
+                        </Tooltip>
                         <ActionMenu>
-                            <ActionMenu.Trigger>
-                                <Button
-                                    type="button"
-                                    variant="tertiary"
-                                    size="xsmall"
-                                    icon={<MoreVertical aria-hidden />}
-                                    aria-label="Flere valg for tabell"
-                                />
-                            </ActionMenu.Trigger>
+                            <Tooltip content="Flere valg" placement="top">
+                                <ActionMenu.Trigger>
+                                    <Button
+                                        type="button"
+                                        variant="tertiary"
+                                        size="xsmall"
+                                        icon={<MoreVertical aria-hidden />}
+                                        aria-label="Flere valg for tabell"
+                                    />
+                                </ActionMenu.Trigger>
+                            </Tooltip>
                             <ActionMenu.Content align="end">
                                 <ActionMenu.Item onClick={handleDownloadCsv} disabled={filteredJourneys.length === 0}>
                                     Last ned
@@ -108,6 +118,7 @@ const JourneyTableView = ({ journeys, totalSessions }: JourneyTableViewProps) =>
                             placeholder="Søk..."
                             size="small"
                             value={search}
+                            ref={searchInputRef}
                             onChange={(e) => setSearch(e.target.value)}
                         />
                     </div>

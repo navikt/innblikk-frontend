@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ActionMenu, Button, Alert, Loader, Heading, Table, Pagination, Modal, Link, BodyShort, InlineMessage } from '@navikt/ds-react';
+import { ActionMenu, Button, Alert, Loader, Heading, Table, Pagination, Modal, Link, BodyShort, InlineMessage, Tooltip } from '@navikt/ds-react';
 import { Monitor, Smartphone, Globe, Clock, User, Laptop, Tablet, ExternalLink, MoreVertical, Search } from 'lucide-react';
 import { parseISO } from 'date-fns';
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx';
@@ -55,6 +55,7 @@ const UserProfiles = () => {
     const [maxUsers, setMaxUsers] = useState<number>(DEFAULT_MAX_USERS);
     const [queryStats, setQueryStats] = useState<QueryStats | null>(null);
     const [showTableSearch, setShowTableSearch] = useState(false);
+    const tableSearchInputRef = useRef<HTMLInputElement>(null);
 
     // Details Modal State
     const [selectedSession, setSelectedSession] = useState<UserProfile | null>(null);
@@ -259,6 +260,10 @@ const UserProfiles = () => {
         URL.revokeObjectURL(url);
     };
 
+    useEffect(() => {
+        if (showTableSearch) tableSearchInputRef.current?.focus();
+    }, [showTableSearch]);
+
     return (
         <ChartLayout
             title="Enkeltbrukere"
@@ -394,27 +399,32 @@ const UserProfiles = () => {
                                 </BodyShort>
                             </div>
                             <div className="flex items-center gap-1">
-                                <Button
-                                    type="button"
-                                    variant={showTableSearch ? 'secondary' : 'tertiary'}
-                                    size="xsmall"
-                                    icon={<Search aria-hidden />}
-                                    aria-label="Søk i brukertabell"
-                                    onClick={() => {
-                                        setShowTableSearch((prev) => !prev);
-                                        if (showTableSearch) setSearchQuery('');
-                                    }}
-                                />
+                                <Tooltip content="Søk" placement="top">
+                                    <Button
+                                        type="button"
+                                        variant={showTableSearch ? 'secondary' : 'tertiary'}
+                                        size="xsmall"
+                                        icon={<Search aria-hidden />}
+                                        aria-label="Søk i brukertabell"
+                                        aria-pressed={showTableSearch}
+                                        onClick={() => {
+                                            setShowTableSearch((prev) => !prev);
+                                            if (showTableSearch) setSearchQuery('');
+                                        }}
+                                    />
+                                </Tooltip>
                                 <ActionMenu>
-                                    <ActionMenu.Trigger>
-                                        <Button
-                                            type="button"
-                                            variant="tertiary"
-                                            size="xsmall"
-                                            icon={<MoreVertical aria-hidden />}
-                                            aria-label="Flere valg for brukertabell"
-                                        />
-                                    </ActionMenu.Trigger>
+                                    <Tooltip content="Flere valg" placement="top">
+                                        <ActionMenu.Trigger>
+                                            <Button
+                                                type="button"
+                                                variant="tertiary"
+                                                size="xsmall"
+                                                icon={<MoreVertical aria-hidden />}
+                                                aria-label="Flere valg for brukertabell"
+                                            />
+                                        </ActionMenu.Trigger>
+                                    </Tooltip>
                                     <ActionMenu.Content align="end">
                                         <ActionMenu.Item
                                             onClick={() => downloadProfilesCsv(filteredUsers)}
@@ -442,6 +452,7 @@ const UserProfiles = () => {
                                     placeholder="Søk..."
                                     size="small"
                                     value={searchQuery}
+                                    ref={tableSearchInputRef}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                 />
                             </div>

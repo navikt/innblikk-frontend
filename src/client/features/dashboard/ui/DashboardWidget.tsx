@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import { Loader, Alert, Button } from '@navikt/ds-react';
+import { Loader, Alert, Button, Tooltip } from '@navikt/ds-react';
 import { MoreVertical } from 'lucide-react';
 import type { SavedChart } from '../../../../data/dashboard';
 import AnalysisActionModal from '../../analysis/ui/AnalysisActionModal.tsx';
@@ -249,14 +249,16 @@ export const DashboardWidget = ({
                             </h2>
                         </div>
                         {chart.sql && (
-                            <Button
-                                variant="tertiary"
-                                size="small"
-                                onClick={() => setIsActionModalOpen(true)}
-                                title={`Flere valg for ${chart.title}`}
-                                aria-label={`Flere valg for ${chart.title}`}
-                                icon={<MoreVertical aria-hidden="true" />}
-                            />
+                            <Tooltip content="Flere valg" placement="top">
+                                <Button
+                                    variant="tertiary"
+                                    size="small"
+                                    onClick={() => setIsActionModalOpen(true)}
+                                    title={`Flere valg for ${chart.title}`}
+                                    aria-label={`Flere valg for ${chart.title}`}
+                                    icon={<MoreVertical aria-hidden="true" />}
+                                />
+                            </Tooltip>
                         )}
                     </div>
                     {titleBelow && (

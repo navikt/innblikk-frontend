@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ActionMenu, Button, Table, Heading, Pagination, VStack, HelpText, TextField } from '@navikt/ds-react';
+import { useEffect, useRef, useState } from 'react';
+import { ActionMenu, Button, Table, Heading, Pagination, VStack, HelpText, TextField, Tooltip } from '@navikt/ds-react';
 import { ExternalLink, MoreVertical, Search } from 'lucide-react';
 import type { Website } from '../../../shared/types/chart.ts';
 import { formatMetricValue, formatMetricDelta as formatMetricDeltaUtil, downloadCsvFile } from '../utils/trafficUtils';
@@ -25,6 +25,7 @@ const TrafficTable = ({
 }: TrafficTableProps) => {
     const [search, setSearch] = useState('');
     const [showSearch, setShowSearch] = useState(false);
+    const searchInputRef = useRef<HTMLInputElement>(null);
     const [page, setPage] = useState(1);
     const rowsPerPage = 10;
     const valueColWidth = showCompare ? '5.75rem' : '6.75rem';
@@ -37,6 +38,10 @@ const TrafficTable = ({
     const totalPages = Math.max(1, Math.ceil(filteredData.length / rowsPerPage));
     const currentPage = Math.min(page, totalPages);
     const paginatedData = filteredData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+
+    useEffect(() => {
+        if (showSearch) searchInputRef.current?.focus();
+    }, [showSearch]);
 
     const isClickableRow = (name: string) => name.startsWith('/') && onRowClick;
 
@@ -115,27 +120,32 @@ const TrafficTable = ({
             <div className="mb-2 flex items-center justify-between gap-2">
                 <Heading level="3" size="small">{title}</Heading>
                 <div className="flex items-center gap-1">
-                    <Button
-                        type="button"
-                        variant={showSearch ? 'secondary' : 'tertiary'}
-                        size="xsmall"
-                        icon={<Search aria-hidden />}
-                        aria-label={`Søk i ${title}`}
-                        onClick={() => {
-                            setShowSearch((prev) => !prev);
-                            if (showSearch) setSearch('');
-                        }}
-                    />
+                    <Tooltip content="Søk" placement="top">
+                        <Button
+                            type="button"
+                            variant={showSearch ? 'secondary' : 'tertiary'}
+                            size="xsmall"
+                            icon={<Search aria-hidden />}
+                            aria-label={`Søk i ${title}`}
+                            aria-pressed={showSearch}
+                            onClick={() => {
+                                setShowSearch((prev) => !prev);
+                                if (showSearch) setSearch('');
+                            }}
+                        />
+                    </Tooltip>
                     <ActionMenu>
-                        <ActionMenu.Trigger>
-                            <Button
-                                type="button"
-                                variant="tertiary"
-                                size="xsmall"
-                                icon={<MoreVertical aria-hidden />}
-                                aria-label={`Flere valg for ${title}`}
-                            />
-                        </ActionMenu.Trigger>
+                        <Tooltip content="Flere valg" placement="top">
+                            <ActionMenu.Trigger>
+                                <Button
+                                    type="button"
+                                    variant="tertiary"
+                                    size="xsmall"
+                                    icon={<MoreVertical aria-hidden />}
+                                    aria-label={`Flere valg for ${title}`}
+                                />
+                            </ActionMenu.Trigger>
+                        </Tooltip>
                         <ActionMenu.Content align="end">
                             <ActionMenu.Item onClick={handleDownloadCSV} disabled={!data.length}>
                                 Last ned
@@ -152,6 +162,7 @@ const TrafficTable = ({
                         placeholder="Søk..."
                         size="small"
                         value={search}
+                        ref={searchInputRef}
                         onChange={(e) => setSearch(e.target.value)}
                     />
                 </div>

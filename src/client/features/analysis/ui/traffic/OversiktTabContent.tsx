@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActionMenu, Button, Heading, Label, Loader, Select, Switch } from '@navikt/ds-react';
+import { ActionMenu, Button, Heading, Label, Loader, Select, Switch, Tooltip } from '@navikt/ds-react';
 import { MoreVertical } from 'lucide-react';
 import { LineChart, ResponsiveContainer } from '@fluentui/react-charting';
 import TrafficStats from './TrafficStats.tsx';
@@ -148,15 +148,17 @@ const OversiktTabContent = ({
                                 <option value="hour">Time</option>
                             </Select>
                             <ActionMenu>
-                                <ActionMenu.Trigger>
-                                    <Button
-                                        type="button"
-                                        variant="tertiary"
-                                        size="xsmall"
-                                        icon={<MoreVertical aria-hidden />}
-                                        aria-label="Flere valg for graf"
-                                    />
-                                </ActionMenu.Trigger>
+                                <Tooltip content="Flere valg" placement="top">
+                                    <ActionMenu.Trigger>
+                                        <Button
+                                            type="button"
+                                            variant="tertiary"
+                                            size="xsmall"
+                                            icon={<MoreVertical aria-hidden />}
+                                            aria-label="Flere valg for graf"
+                                        />
+                                    </ActionMenu.Trigger>
+                                </Tooltip>
                                 <ActionMenu.Content align="end">
                                     <ActionMenu.Item onClick={handleDownloadCsv} disabled={!processedSeriesData.length}>
                                         Last ned

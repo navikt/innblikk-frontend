@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ActionMenu, Button, Heading, TextField } from '@navikt/ds-react';
+import { useEffect, useRef, useState } from 'react';
+import { ActionMenu, Button, Heading, TextField, Tooltip } from '@navikt/ds-react';
 import { MoreVertical, Search } from 'lucide-react';
 import type { SeriesPoint, QueryStats } from '../model/types.ts';
 
@@ -12,10 +12,15 @@ interface EventSeriesTrendTableProps {
 const EventSeriesTrendTable = ({ seriesData, selectedEvent, queryStats }: EventSeriesTrendTableProps) => {
     const [search, setSearch] = useState('');
     const [showSearch, setShowSearch] = useState(false);
+    const searchInputRef = useRef<HTMLInputElement>(null);
 
     const filteredSeriesData = seriesData.filter((item) =>
         new Date(item.time).toLocaleDateString('nb-NO').includes(search)
     );
+
+    useEffect(() => {
+        if (showSearch) searchInputRef.current?.focus();
+    }, [showSearch]);
 
     const handleDownloadCsv = () => {
         const headers = ['Dato', 'Antall'];
@@ -46,27 +51,32 @@ const EventSeriesTrendTable = ({ seriesData, selectedEvent, queryStats }: EventS
             <div className="mb-2 flex items-center justify-between gap-2">
                 <Heading level="3" size="small">Trend over tid</Heading>
                 <div className="flex items-center gap-1">
-                    <Button
-                        type="button"
-                        variant={showSearch ? 'secondary' : 'tertiary'}
-                        size="xsmall"
-                        icon={<Search aria-hidden />}
-                        aria-label="Søk i trendtabell"
-                        onClick={() => {
-                            setShowSearch((prev) => !prev);
-                            if (showSearch) setSearch('');
-                        }}
-                    />
+                    <Tooltip content="Søk" placement="top">
+                        <Button
+                            type="button"
+                            variant={showSearch ? 'secondary' : 'tertiary'}
+                            size="xsmall"
+                            icon={<Search aria-hidden />}
+                            aria-label="Søk i trendtabell"
+                            aria-pressed={showSearch}
+                            onClick={() => {
+                                setShowSearch((prev) => !prev);
+                                if (showSearch) setSearch('');
+                            }}
+                        />
+                    </Tooltip>
                     <ActionMenu>
-                        <ActionMenu.Trigger>
-                            <Button
-                                type="button"
-                                variant="tertiary"
-                                size="xsmall"
-                                icon={<MoreVertical aria-hidden />}
-                                aria-label="Flere valg for trendtabell"
-                            />
-                        </ActionMenu.Trigger>
+                        <Tooltip content="Flere valg" placement="top">
+                            <ActionMenu.Trigger>
+                                <Button
+                                    type="button"
+                                    variant="tertiary"
+                                    size="xsmall"
+                                    icon={<MoreVertical aria-hidden />}
+                                    aria-label="Flere valg for trendtabell"
+                                />
+                            </ActionMenu.Trigger>
+                        </Tooltip>
                         <ActionMenu.Content align="end">
                             <ActionMenu.Item onClick={handleDownloadCsv} disabled={filteredSeriesData.length === 0}>
                                 Last ned
@@ -91,6 +101,7 @@ const EventSeriesTrendTable = ({ seriesData, selectedEvent, queryStats }: EventS
                         placeholder="Søk etter dato..."
                         size="small"
                         value={search}
+                        ref={searchInputRef}
                         onChange={(e) => setSearch(e.target.value)}
                     />
                 </div>

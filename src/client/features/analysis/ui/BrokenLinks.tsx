@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Table, Alert, Loader, Link as DsLink, Tabs, HelpText, Button, TextField, ActionMenu, Heading } from '@navikt/ds-react';
+import { Table, Alert, Loader, Link as DsLink, Tabs, HelpText, Button, TextField, ActionMenu, Heading, Tooltip } from '@navikt/ds-react';
 import { ExternalLink, MoreVertical, Search } from 'lucide-react';
 import ChartLayout from './ChartLayout.tsx';
 import AnalysisActionModal from './AnalysisActionModal.tsx';
@@ -139,6 +139,8 @@ const BrokenLinks = () => {
     const [linksSearch, setLinksSearch] = useState('');
     const [showPagesSearch, setShowPagesSearch] = useState(false);
     const [showLinksSearch, setShowLinksSearch] = useState(false);
+    const pagesSearchInputRef = useRef<HTMLInputElement>(null);
+    const linksSearchInputRef = useRef<HTMLInputElement>(null);
 
     const {
         brokenLinks,
@@ -153,6 +155,14 @@ const BrokenLinks = () => {
     const filteredPages = pagesWithBrokenLinks.filter(page => !urlPath || page.url.toLowerCase().includes(urlPath.toLowerCase()));
     const displayedPages = filteredPages.filter((page) => getUrlPath(page.url).toLowerCase().includes(pagesSearch.toLowerCase()));
     const displayedLinks = brokenLinks.filter((link) => link.url.toLowerCase().includes(linksSearch.toLowerCase()));
+
+    useEffect(() => {
+        if (showPagesSearch) pagesSearchInputRef.current?.focus();
+    }, [showPagesSearch]);
+
+    useEffect(() => {
+        if (showLinksSearch) linksSearchInputRef.current?.focus();
+    }, [showLinksSearch]);
 
     return (
         <ChartLayout
@@ -300,27 +310,32 @@ const BrokenLinks = () => {
                                     <div className="mb-2 flex items-center justify-between gap-2">
                                         <Heading level="3" size="small">Sider med ødelagte lenker</Heading>
                                         <div className="flex items-center gap-1">
-                                            <Button
-                                                type="button"
-                                                variant={showPagesSearch ? 'secondary' : 'tertiary'}
-                                                size="xsmall"
-                                                icon={<Search aria-hidden />}
-                                                aria-label="Søk i sider med ødelagte lenker"
-                                                onClick={() => {
-                                                    setShowPagesSearch((prev) => !prev);
-                                                    if (showPagesSearch) setPagesSearch('');
-                                                }}
-                                            />
+                                            <Tooltip content="Søk" placement="top">
+                                                <Button
+                                                    type="button"
+                                                    variant={showPagesSearch ? 'secondary' : 'tertiary'}
+                                                    size="xsmall"
+                                                    icon={<Search aria-hidden />}
+                                                    aria-label="Søk i sider med ødelagte lenker"
+                                                    aria-pressed={showPagesSearch}
+                                                    onClick={() => {
+                                                        setShowPagesSearch((prev) => !prev);
+                                                        if (showPagesSearch) setPagesSearch('');
+                                                    }}
+                                                />
+                                            </Tooltip>
                                             <ActionMenu>
-                                                <ActionMenu.Trigger>
-                                                    <Button
-                                                        type="button"
-                                                        variant="tertiary"
-                                                        size="xsmall"
-                                                        icon={<MoreVertical aria-hidden />}
-                                                        aria-label="Flere valg for sider med ødelagte lenker"
-                                                    />
-                                                </ActionMenu.Trigger>
+                                                <Tooltip content="Flere valg" placement="top">
+                                                    <ActionMenu.Trigger>
+                                                        <Button
+                                                            type="button"
+                                                            variant="tertiary"
+                                                            size="xsmall"
+                                                            icon={<MoreVertical aria-hidden />}
+                                                            aria-label="Flere valg for sider med ødelagte lenker"
+                                                        />
+                                                    </ActionMenu.Trigger>
+                                                </Tooltip>
                                                 <ActionMenu.Content align="end">
                                                     <ActionMenu.Item
                                                         onClick={() => {
@@ -346,6 +361,7 @@ const BrokenLinks = () => {
                                                 placeholder="Søk..."
                                                 size="small"
                                                 value={pagesSearch}
+                                                ref={pagesSearchInputRef}
                                                 onChange={(e) => setPagesSearch(e.target.value)}
                                             />
                                         </div>
@@ -408,27 +424,32 @@ const BrokenLinks = () => {
                                     <div className="mb-2 flex items-center justify-between gap-2">
                                         <Heading level="3" size="small">Alle ødelagte lenker</Heading>
                                         <div className="flex items-center gap-1">
-                                            <Button
-                                                type="button"
-                                                variant={showLinksSearch ? 'secondary' : 'tertiary'}
-                                                size="xsmall"
-                                                icon={<Search aria-hidden />}
-                                                aria-label="Søk i alle ødelagte lenker"
-                                                onClick={() => {
-                                                    setShowLinksSearch((prev) => !prev);
-                                                    if (showLinksSearch) setLinksSearch('');
-                                                }}
-                                            />
+                                            <Tooltip content="Søk" placement="top">
+                                                <Button
+                                                    type="button"
+                                                    variant={showLinksSearch ? 'secondary' : 'tertiary'}
+                                                    size="xsmall"
+                                                    icon={<Search aria-hidden />}
+                                                    aria-label="Søk i alle ødelagte lenker"
+                                                    aria-pressed={showLinksSearch}
+                                                    onClick={() => {
+                                                        setShowLinksSearch((prev) => !prev);
+                                                        if (showLinksSearch) setLinksSearch('');
+                                                    }}
+                                                />
+                                            </Tooltip>
                                             <ActionMenu>
-                                                <ActionMenu.Trigger>
-                                                    <Button
-                                                        type="button"
-                                                        variant="tertiary"
-                                                        size="xsmall"
-                                                        icon={<MoreVertical aria-hidden />}
-                                                        aria-label="Flere valg for alle ødelagte lenker"
-                                                    />
-                                                </ActionMenu.Trigger>
+                                                <Tooltip content="Flere valg" placement="top">
+                                                    <ActionMenu.Trigger>
+                                                        <Button
+                                                            type="button"
+                                                            variant="tertiary"
+                                                            size="xsmall"
+                                                            icon={<MoreVertical aria-hidden />}
+                                                            aria-label="Flere valg for alle ødelagte lenker"
+                                                        />
+                                                    </ActionMenu.Trigger>
+                                                </Tooltip>
                                                 <ActionMenu.Content align="end">
                                                     <ActionMenu.Item
                                                         onClick={() => {
@@ -454,6 +475,7 @@ const BrokenLinks = () => {
                                                 placeholder="Søk..."
                                                 size="small"
                                                 value={linksSearch}
+                                                ref={linksSearchInputRef}
                                                 onChange={(e) => setLinksSearch(e.target.value)}
                                             />
                                         </div>

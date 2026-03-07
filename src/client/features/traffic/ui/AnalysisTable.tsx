@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ActionMenu, Button, Table, Heading, Pagination, VStack, HelpText, TextField } from '@navikt/ds-react';
+import { useEffect, useRef, useState } from 'react';
+import { ActionMenu, Button, Table, Heading, Pagination, VStack, HelpText, TextField, Tooltip } from '@navikt/ds-react';
 import { MoreVertical, Search } from 'lucide-react';
 import type { Website } from '../../../shared/types/chart.ts';
 import type { MarketingRow, QueryStats } from '../model/types';
@@ -17,6 +17,7 @@ type AnalysisTableProps = {
 const AnalysisTable = ({ title, data, metricLabel, queryStats, selectedWebsite, metricType }: AnalysisTableProps) => {
     const [search, setSearch] = useState('');
     const [showSearch, setShowSearch] = useState(false);
+    const searchInputRef = useRef<HTMLInputElement>(null);
     const [page, setPage] = useState(1);
     const rowsPerPage = 20;
 
@@ -27,6 +28,10 @@ const AnalysisTable = ({ title, data, metricLabel, queryStats, selectedWebsite, 
     const totalPages = Math.max(1, Math.ceil(filteredData.length / rowsPerPage));
     const currentPage = Math.min(page, totalPages);
     const paginatedData = filteredData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+
+    useEffect(() => {
+        if (showSearch) searchInputRef.current?.focus();
+    }, [showSearch]);
 
     const formatValue = (count: number) => {
         if (metricType === 'proportion') {
@@ -99,27 +104,32 @@ const AnalysisTable = ({ title, data, metricLabel, queryStats, selectedWebsite, 
             <div className="mb-2 flex items-center justify-between gap-2">
                 <Heading level="3" size="small">{title}</Heading>
                 <div className="flex items-center gap-1">
-                    <Button
-                        type="button"
-                        variant={showSearch ? 'secondary' : 'tertiary'}
-                        size="xsmall"
-                        icon={<Search aria-hidden />}
-                        aria-label={`Søk i ${title}`}
-                        onClick={() => {
-                            setShowSearch((prev) => !prev);
-                            if (showSearch) setSearch('');
-                        }}
-                    />
+                    <Tooltip content="Søk" placement="top">
+                        <Button
+                            type="button"
+                            variant={showSearch ? 'secondary' : 'tertiary'}
+                            size="xsmall"
+                            icon={<Search aria-hidden />}
+                            aria-label={`Søk i ${title}`}
+                            aria-pressed={showSearch}
+                            onClick={() => {
+                                setShowSearch((prev) => !prev);
+                                if (showSearch) setSearch('');
+                            }}
+                        />
+                    </Tooltip>
                     <ActionMenu>
-                        <ActionMenu.Trigger>
-                            <Button
-                                type="button"
-                                variant="tertiary"
-                                size="xsmall"
-                                icon={<MoreVertical aria-hidden />}
-                                aria-label={`Flere valg for ${title}`}
-                            />
-                        </ActionMenu.Trigger>
+                        <Tooltip content="Flere valg" placement="top">
+                            <ActionMenu.Trigger>
+                                <Button
+                                    type="button"
+                                    variant="tertiary"
+                                    size="xsmall"
+                                    icon={<MoreVertical aria-hidden />}
+                                    aria-label={`Flere valg for ${title}`}
+                                />
+                            </ActionMenu.Trigger>
+                        </Tooltip>
                         <ActionMenu.Content align="end">
                             <ActionMenu.Item onClick={handleDownloadCSV} disabled={data.length === 0}>
                                 Last ned
@@ -144,6 +154,7 @@ const AnalysisTable = ({ title, data, metricLabel, queryStats, selectedWebsite, 
                         placeholder="Søk..."
                         size="small"
                         value={search}
+                        ref={searchInputRef}
                         onChange={(e) => setSearch(e.target.value)}
                     />
                 </div>

@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Heading, Button, Alert, Tabs, Search, Switch, ReadMore, CopyButton, Select, Label, ActionMenu, TextField } from '@navikt/ds-react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { Heading, Button, Alert, Tabs, Search, Switch, ReadMore, CopyButton, Select, Label, ActionMenu, TextField, Tooltip } from '@navikt/ds-react';
 import { PlayIcon, Download, ArrowUpDown, ArrowUp, ArrowDown, ExternalLink, MoreVertical, Search as SearchIcon } from 'lucide-react';
 import type { ILineChartProps, IVerticalBarChartProps, IVerticalBarChartDataPoint} from '@fluentui/react-charting';
 import { LineChart, VerticalBarChart, AreaChart, PieChart, ResponsiveContainer } from '@fluentui/react-charting';
@@ -87,6 +87,11 @@ const ResultsPanel = ({
   const [showAllRows, setShowAllRows] = useState<boolean>(false);
   const [selectedUrl, setSelectedUrl] = useState<string | null>(null);
   const [showTableSearch, setShowTableSearch] = useState<boolean>(false);
+  const tableSearchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (showTableSearch) tableSearchInputRef.current?.focus();
+  }, [showTableSearch]);
 
   // Helper to check if a value is a clickable URL path
   const isClickablePath = (val: any): boolean => {
@@ -595,27 +600,32 @@ const ResultsPanel = ({
                           <Heading level="3" size="small">{compactTableTitle}</Heading>
                         ) : <span />}
                         <div className="flex items-center gap-1">
-                          <Button
-                            type="button"
-                            variant={showTableSearch ? 'secondary' : 'tertiary'}
-                            size="xsmall"
-                            icon={<SearchIcon aria-hidden />}
-                            aria-label="Søk i tabellen"
-                            onClick={() => {
-                              setShowTableSearch((prev) => !prev);
-                              if (showTableSearch) handleClearSearch();
-                            }}
-                          />
+                          <Tooltip content="Søk" placement="top">
+                            <Button
+                              type="button"
+                              variant={showTableSearch ? 'secondary' : 'tertiary'}
+                              size="xsmall"
+                              icon={<SearchIcon aria-hidden />}
+                              aria-label="Søk i tabellen"
+                              aria-pressed={showTableSearch}
+                              onClick={() => {
+                                setShowTableSearch((prev) => !prev);
+                                if (showTableSearch) handleClearSearch();
+                              }}
+                            />
+                          </Tooltip>
                           <ActionMenu>
-                            <ActionMenu.Trigger>
-                              <Button
-                                type="button"
-                                variant="tertiary"
-                                size="xsmall"
-                                icon={<MoreVertical aria-hidden />}
-                                aria-label="Flere valg for tabell"
-                              />
-                            </ActionMenu.Trigger>
+                            <Tooltip content="Flere valg" placement="top">
+                              <ActionMenu.Trigger>
+                                <Button
+                                  type="button"
+                                  variant="tertiary"
+                                  size="xsmall"
+                                  icon={<MoreVertical aria-hidden />}
+                                  aria-label="Flere valg for tabell"
+                                />
+                              </ActionMenu.Trigger>
+                            </Tooltip>
                             <ActionMenu.Content align="end">
                               <ActionMenu.Item onClick={downloadCSV}>
                                 Last ned CSV
@@ -633,6 +643,7 @@ const ResultsPanel = ({
                             value={searchQuery}
                             placeholder="Søk..."
                             onChange={(e) => setSearchQuery(e.target.value)}
+                            ref={tableSearchInputRef}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') {
                                 handleSearch();

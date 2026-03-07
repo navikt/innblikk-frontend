@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { Table, Alert, Loader, Tabs, TextField, HelpText, Button, Link as DsLink, ActionMenu, Heading } from '@navikt/ds-react';
+import { useEffect, useRef, useState } from 'react';
+import type { RefObject } from 'react';
+import { Table, Alert, Loader, Tabs, TextField, HelpText, Button, Link as DsLink, ActionMenu, Heading, Tooltip } from '@navikt/ds-react';
 import { MoreVertical, Search } from 'lucide-react';
 
 import ChartLayout from './ChartLayout.tsx';
@@ -25,6 +26,16 @@ const Spellings = () => {
     const [misspellingsSearch, setMisspellingsSearch] = useState('');
     const [showPotentialSearch, setShowPotentialSearch] = useState(false);
     const [showMisspellingsSearch, setShowMisspellingsSearch] = useState(false);
+    const potentialSearchInputRef = useRef<HTMLInputElement>(null);
+    const misspellingsSearchInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        if (showPotentialSearch) potentialSearchInputRef.current?.focus();
+    }, [showPotentialSearch]);
+
+    useEffect(() => {
+        if (showMisspellingsSearch) misspellingsSearchInputRef.current?.focus();
+    }, [showMisspellingsSearch]);
 
     const renderTable = (
         items: SpellingIssue[],
@@ -35,6 +46,7 @@ const Spellings = () => {
         setSearch: (value: string) => void,
         showSearch: boolean,
         setShowSearch: (value: boolean) => void,
+        searchInputRef: RefObject<HTMLInputElement | null>,
     ) => {
         const filteredItems = items.filter((item) => item.word.toLowerCase().includes(search.toLowerCase()));
 
@@ -46,28 +58,32 @@ const Spellings = () => {
                 <div className="mb-2 flex items-center justify-between gap-2">
                     <Heading level="3" size="small">{title}</Heading>
                     <div className="flex items-center gap-1">
-                        <Button
-                            type="button"
-                            variant={showSearch ? 'secondary' : 'tertiary'}
-                            size="xsmall"
-                            icon={<Search aria-hidden />}
-                            aria-label={`Søk i ${title.toLowerCase()}`}
-                            onClick={() => {
-                                setShowSearch(!showSearch);
-                                if (showSearch) setSearch('');
-                            }}
-                        >
-                        </Button>
+                        <Tooltip content="Søk" placement="top">
+                            <Button
+                                type="button"
+                                variant={showSearch ? 'secondary' : 'tertiary'}
+                                size="xsmall"
+                                icon={<Search aria-hidden />}
+                                aria-label={`Søk i ${title.toLowerCase()}`}
+                                aria-pressed={showSearch}
+                                onClick={() => {
+                                    setShowSearch(!showSearch);
+                                    if (showSearch) setSearch('');
+                                }}
+                            />
+                        </Tooltip>
                         <ActionMenu>
-                            <ActionMenu.Trigger>
-                                <Button
-                                    type="button"
-                                    variant="tertiary"
-                                    size="xsmall"
-                                    icon={<MoreVertical aria-hidden />}
-                                    aria-label={`Flere valg for ${title.toLowerCase()}`}
-                                />
-                            </ActionMenu.Trigger>
+                            <Tooltip content="Flere valg" placement="top">
+                                <ActionMenu.Trigger>
+                                    <Button
+                                        type="button"
+                                        variant="tertiary"
+                                        size="xsmall"
+                                        icon={<MoreVertical aria-hidden />}
+                                        aria-label={`Flere valg for ${title.toLowerCase()}`}
+                                    />
+                                </ActionMenu.Trigger>
+                            </Tooltip>
                             <ActionMenu.Content align="end">
                                 <ActionMenu.Item
                                     onClick={() => {
@@ -93,6 +109,7 @@ const Spellings = () => {
                             placeholder="Søk..."
                             size="small"
                             value={search}
+                            ref={searchInputRef}
                             onChange={(e) => setSearch(e.target.value)}
                         />
                     </div>
@@ -319,6 +336,7 @@ const Spellings = () => {
                                         setPotentialSearch,
                                         showPotentialSearch,
                                         setShowPotentialSearch,
+                                        potentialSearchInputRef,
                                     )}
                                 </Tabs.Panel>
                                 <Tabs.Panel value="misspellings" className="pt-4">
@@ -331,6 +349,7 @@ const Spellings = () => {
                                         setMisspellingsSearch,
                                         showMisspellingsSearch,
                                         setShowMisspellingsSearch,
+                                        misspellingsSearchInputRef,
                                     )}
                                 </Tabs.Panel>
                             </Tabs>

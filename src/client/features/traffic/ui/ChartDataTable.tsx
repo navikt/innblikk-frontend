@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { ActionMenu, Button, Table, Heading, Pagination, VStack, TextField } from '@navikt/ds-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ActionMenu, Button, Table, Heading, Pagination, VStack, TextField, Tooltip } from '@navikt/ds-react';
 import { MoreVertical, Search } from 'lucide-react';
 import type { SeriesPoint, QueryStats, Granularity, DateRange } from '../model/types';
 import { formatMetricValue, formatMetricDelta as formatMetricDeltaUtil, downloadCsvFile } from '../utils/trafficUtils';
@@ -29,6 +29,7 @@ const ChartDataTable = (props: ChartDataTableProps) => {
     } = props;
     const [search, setSearch] = useState('');
     const [showSearch, setShowSearch] = useState(false);
+    const searchInputRef = useRef<HTMLInputElement>(null);
     const [page, setPage] = useState(1);
     const rowsPerPage = 10;
 
@@ -70,6 +71,10 @@ const ChartDataTable = (props: ChartDataTableProps) => {
     const currentPage = Math.min(page, totalPages);
     const paginatedData = filteredData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
 
+    useEffect(() => {
+        if (showSearch) searchInputRef.current?.focus();
+    }, [showSearch]);
+
     const handleDownloadCSV = () => {
         if (!data.length) return;
 
@@ -102,27 +107,32 @@ const ChartDataTable = (props: ChartDataTableProps) => {
             <div className="mb-2 flex items-center justify-between gap-2">
                 <Heading level="3" size="small">Oversikt</Heading>
                 <div className="flex items-center gap-1">
-                    <Button
-                        type="button"
-                        variant={showSearch ? 'secondary' : 'tertiary'}
-                        size="xsmall"
-                        icon={<Search aria-hidden />}
-                        aria-label="Søk i oversiktstabell"
-                        onClick={() => {
-                            setShowSearch((prev) => !prev);
-                            if (showSearch) setSearch('');
-                        }}
-                    />
+                    <Tooltip content="Søk" placement="top">
+                        <Button
+                            type="button"
+                            variant={showSearch ? 'secondary' : 'tertiary'}
+                            size="xsmall"
+                            icon={<Search aria-hidden />}
+                            aria-label="Søk i oversiktstabell"
+                            aria-pressed={showSearch}
+                            onClick={() => {
+                                setShowSearch((prev) => !prev);
+                                if (showSearch) setSearch('');
+                            }}
+                        />
+                    </Tooltip>
                     <ActionMenu>
-                        <ActionMenu.Trigger>
-                            <Button
-                                type="button"
-                                variant="tertiary"
-                                size="xsmall"
-                                icon={<MoreVertical aria-hidden />}
-                                aria-label="Flere valg for oversiktstabell"
-                            />
-                        </ActionMenu.Trigger>
+                        <Tooltip content="Flere valg" placement="top">
+                            <ActionMenu.Trigger>
+                                <Button
+                                    type="button"
+                                    variant="tertiary"
+                                    size="xsmall"
+                                    icon={<MoreVertical aria-hidden />}
+                                    aria-label="Flere valg for oversiktstabell"
+                                />
+                            </ActionMenu.Trigger>
+                        </Tooltip>
                         <ActionMenu.Content align="end">
                             <ActionMenu.Item onClick={handleDownloadCSV} disabled={!data.length}>
                                 Last ned
@@ -139,6 +149,7 @@ const ChartDataTable = (props: ChartDataTableProps) => {
                         placeholder={submittedGranularity === 'hour' ? 'Søk etter tid...' : 'Søk etter dato...'}
                         size="small"
                         value={search}
+                        ref={searchInputRef}
                         onChange={(e) => setSearch(e.target.value)}
                     />
                 </div>

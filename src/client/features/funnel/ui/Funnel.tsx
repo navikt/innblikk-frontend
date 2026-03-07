@@ -1,4 +1,4 @@
-import { Heading, TextField, Button, Alert, Loader, Tabs, Radio, RadioGroup, Select, UNSAFE_Combobox as Combobox, Modal, ActionMenu } from '@navikt/ds-react';
+import { Heading, TextField, Button, Alert, Loader, Tabs, Radio, RadioGroup, Select, UNSAFE_Combobox as Combobox, Modal, ActionMenu, Tooltip } from '@navikt/ds-react';
 import { Plus, Trash2, Share2, Check, Code2, ExternalLink, ChevronLeft, ChevronRight, MoreVertical } from 'lucide-react';
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx';
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx';
@@ -448,15 +448,17 @@ const Funnel = () => {
                                                 <Heading level="3" size="small">Tabell</Heading>
                                                 <div className="flex items-center gap-2">
                                                     <ActionMenu>
-                                                        <ActionMenu.Trigger>
-                                                            <Button
-                                                                type="button"
-                                                                variant="tertiary"
-                                                                size="xsmall"
-                                                                icon={<MoreVertical aria-hidden />}
-                                                                aria-label="Flere valg for tabell"
-                                                            />
-                                                        </ActionMenu.Trigger>
+                                                        <Tooltip content="Flere valg" placement="top">
+                                                            <ActionMenu.Trigger>
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="tertiary"
+                                                                    size="xsmall"
+                                                                    icon={<MoreVertical aria-hidden />}
+                                                                    aria-label="Flere valg for tabell"
+                                                                />
+                                                            </ActionMenu.Trigger>
+                                                        </Tooltip>
                                                         <ActionMenu.Content align="end">
                                                             <ActionMenu.Item onClick={() => downloadCSV(funnelData, selectedWebsite?.name)}>
                                                                 Last ned CSV
@@ -587,15 +589,17 @@ const Funnel = () => {
                                                 </Heading>
                                                 {showTiming && (
                                                     <ActionMenu>
-                                                        <ActionMenu.Trigger>
-                                                            <Button
-                                                                type="button"
-                                                                variant="tertiary"
-                                                                size="xsmall"
-                                                                icon={<MoreVertical aria-hidden />}
-                                                                aria-label="Flere valg for tidsbruk"
-                                                            />
-                                                        </ActionMenu.Trigger>
+                                                        <Tooltip content="Flere valg" placement="top">
+                                                            <ActionMenu.Trigger>
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="tertiary"
+                                                                    size="xsmall"
+                                                                    icon={<MoreVertical aria-hidden />}
+                                                                    aria-label="Flere valg for tidsbruk"
+                                                                />
+                                                            </ActionMenu.Trigger>
+                                                        </Tooltip>
                                                         <ActionMenu.Content align="end">
                                                             <ActionMenu.Item onClick={copyTimingMetabaseSql}>
                                                                 {timingMetabaseCopySuccess ? 'Kopiert!' : 'Kopier for Metabase'}

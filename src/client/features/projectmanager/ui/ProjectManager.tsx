@@ -1077,14 +1077,16 @@ const ProjectManager = () => {
                                     </ActionMenu.Content>
                                 </ActionMenu>
                                 <ActionMenu>
-                                    <ActionMenu.Trigger>
-                                        <Button
-                                            variant="tertiary"
-                                            size="xsmall"
-                                            icon={<MoreVertical aria-hidden />}
-                                            aria-label={`Flere valg for ${selectedProject.project.name}`}
-                                        />
-                                    </ActionMenu.Trigger>
+                                    <Tooltip content="Flere valg" describesChild>
+                                        <ActionMenu.Trigger>
+                                            <Button
+                                                variant="tertiary"
+                                                size="xsmall"
+                                                icon={<MoreVertical aria-hidden />}
+                                                aria-label={`Flere valg for ${selectedProject.project.name}`}
+                                            />
+                                        </ActionMenu.Trigger>
+                                    </Tooltip>
                                     <ActionMenu.Content align="end">
                                         <ActionMenu.Item onClick={() => openEdit(selectedProject)}>
                                             Rediger team
@@ -1204,14 +1206,16 @@ const ProjectManager = () => {
                                                     <div className="flex justify-end">
                                                         {row.type === 'chart' ? (
                                                             <ActionMenu>
-                                                                <ActionMenu.Trigger>
-                                                                    <Button
-                                                                        variant="tertiary"
-                                                                        size="xsmall"
-                                                                        icon={<MoreVertical aria-hidden />}
-                                                                        aria-label={`Flere valg for ${row.name}`}
-                                                                    />
-                                                                </ActionMenu.Trigger>
+                                                                <Tooltip content="Flere valg" describesChild>
+                                                                    <ActionMenu.Trigger>
+                                                                        <Button
+                                                                            variant="tertiary"
+                                                                            size="xsmall"
+                                                                            icon={<MoreVertical aria-hidden />}
+                                                                            aria-label={`Flere valg for ${row.name}`}
+                                                                        />
+                                                                    </ActionMenu.Trigger>
+                                                                </Tooltip>
                                                                 <ActionMenu.Content align="end">
                                                                     <ActionMenu.Item as={RouterLink} to={overviewHref}>
                                                                         Åpne i dashboard
@@ -1248,14 +1252,16 @@ const ProjectManager = () => {
                                                             </ActionMenu>
                                                         ) : row.type === 'dashboard' ? (
                                                             <ActionMenu>
-                                                                <ActionMenu.Trigger>
-                                                                    <Button
-                                                                        variant="tertiary"
-                                                                        size="xsmall"
-                                                                        icon={<MoreVertical aria-hidden />}
-                                                                        aria-label={`Flere valg for ${row.name}`}
-                                                                    />
-                                                                </ActionMenu.Trigger>
+                                                                <Tooltip content="Flere valg" describesChild>
+                                                                    <ActionMenu.Trigger>
+                                                                        <Button
+                                                                            variant="tertiary"
+                                                                            size="xsmall"
+                                                                            icon={<MoreVertical aria-hidden />}
+                                                                            aria-label={`Flere valg for ${row.name}`}
+                                                                        />
+                                                                    </ActionMenu.Trigger>
+                                                                </Tooltip>
                                                                 <ActionMenu.Content align="end">
                                                                     {selectedProject && (
                                                                         <ActionMenu.Item
@@ -1282,14 +1288,16 @@ const ProjectManager = () => {
                                                             </ActionMenu>
                                                         ) : row.type === 'category' ? (
                                                             <ActionMenu>
-                                                                <ActionMenu.Trigger>
-                                                                    <Button
-                                                                        variant="tertiary"
-                                                                        size="xsmall"
-                                                                        icon={<MoreVertical aria-hidden />}
-                                                                        aria-label={`Flere valg for ${getCategoryDisplayName(row.name)}`}
-                                                                    />
-                                                                </ActionMenu.Trigger>
+                                                                <Tooltip content="Flere valg" describesChild>
+                                                                    <ActionMenu.Trigger>
+                                                                        <Button
+                                                                            variant="tertiary"
+                                                                            size="xsmall"
+                                                                            icon={<MoreVertical aria-hidden />}
+                                                                            aria-label={`Flere valg for ${getCategoryDisplayName(row.name)}`}
+                                                                        />
+                                                                    </ActionMenu.Trigger>
+                                                                </Tooltip>
                                                                 <ActionMenu.Content align="end">
                                                                     <ActionMenu.Item as={RouterLink} to={overviewHref}>
                                                                         Åpne fane i dashboard

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActionMenu, Button, Alert, Loader, Switch, Heading, BodyShort } from '@navikt/ds-react';
+import { ActionMenu, Button, Alert, Loader, Switch, Heading, BodyShort, Tooltip } from '@navikt/ds-react';
 import { ResponsiveContainer, LineChart } from '@fluentui/react-charting';
 import { Download, Share2, Check, MoreVertical } from 'lucide-react';
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx';
@@ -156,15 +156,17 @@ const Retention = () => {
                         <div className="mb-2 flex items-center justify-between gap-2">
                             <Heading level="3" size="small">Gjenbesøk over tid</Heading>
                             <ActionMenu>
-                                <ActionMenu.Trigger>
-                                    <Button
-                                        type="button"
-                                        variant="tertiary"
-                                        size="xsmall"
-                                        icon={<MoreVertical aria-hidden />}
-                                        aria-label="Flere valg for gjenbesøksgraf"
-                                    />
-                                </ActionMenu.Trigger>
+                                <Tooltip content="Flere valg" placement="top">
+                                    <ActionMenu.Trigger>
+                                        <Button
+                                            type="button"
+                                            variant="tertiary"
+                                            size="xsmall"
+                                            icon={<MoreVertical aria-hidden />}
+                                            aria-label="Flere valg for gjenbesøksgraf"
+                                        />
+                                    </ActionMenu.Trigger>
+                                </Tooltip>
                                 <ActionMenu.Content align="end">
                                     <ActionMenu.Item onClick={downloadCSV}>
                                         Last ned CSV

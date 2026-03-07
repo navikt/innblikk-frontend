@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Heading, Button, Table, TextField, ActionMenu } from '@navikt/ds-react';
+import { useEffect, useRef, useState } from 'react';
+import { Heading, Button, Table, TextField, ActionMenu, Tooltip } from '@navikt/ds-react';
 import { MoreVertical, Search } from 'lucide-react';
 import type { QueryStats } from '../model/types.ts';
 
@@ -13,10 +13,15 @@ interface EventListProps {
 const EventList = ({ events, eventsQueryStats, websiteName, onSelectEvent }: EventListProps) => {
     const [eventSearch, setEventSearch] = useState<string>('');
     const [showSearch, setShowSearch] = useState(false);
+    const searchInputRef = useRef<HTMLInputElement>(null);
 
     const filteredEvents = events.filter(event =>
         event.name.toLowerCase().includes(eventSearch.toLowerCase())
     );
+
+    useEffect(() => {
+        if (showSearch) searchInputRef.current?.focus();
+    }, [showSearch]);
 
     const handleDownloadCsv = () => {
         const headers = ['Hendelsesnavn', 'Antall'];
@@ -45,27 +50,32 @@ const EventList = ({ events, eventsQueryStats, websiteName, onSelectEvent }: Eve
             <div className="mb-2 flex items-center justify-between gap-2">
                 <Heading level="3" size="small">Egendefinerte hendelser</Heading>
                 <div className="flex items-center gap-1">
-                    <Button
-                        type="button"
-                        variant={showSearch ? 'secondary' : 'tertiary'}
-                        size="xsmall"
-                        icon={<Search aria-hidden />}
-                        aria-label="Søk i hendelseslisten"
-                        onClick={() => {
-                            setShowSearch((prev) => !prev);
-                            if (showSearch) setEventSearch('');
-                        }}
-                    />
+                    <Tooltip content="Søk" placement="top">
+                        <Button
+                            type="button"
+                            variant={showSearch ? 'secondary' : 'tertiary'}
+                            size="xsmall"
+                            icon={<Search aria-hidden />}
+                            aria-label="Søk i hendelseslisten"
+                            aria-pressed={showSearch}
+                            onClick={() => {
+                                setShowSearch((prev) => !prev);
+                                if (showSearch) setEventSearch('');
+                            }}
+                        />
+                    </Tooltip>
                     <ActionMenu>
-                        <ActionMenu.Trigger>
-                            <Button
-                                type="button"
-                                variant="tertiary"
-                                size="xsmall"
-                                icon={<MoreVertical aria-hidden />}
-                                aria-label="Flere valg for hendelseslisten"
-                            />
-                        </ActionMenu.Trigger>
+                        <Tooltip content="Flere valg" placement="top">
+                            <ActionMenu.Trigger>
+                                <Button
+                                    type="button"
+                                    variant="tertiary"
+                                    size="xsmall"
+                                    icon={<MoreVertical aria-hidden />}
+                                    aria-label="Flere valg for hendelseslisten"
+                                />
+                            </ActionMenu.Trigger>
+                        </Tooltip>
                         <ActionMenu.Content align="end">
                             <ActionMenu.Item onClick={handleDownloadCsv} disabled={filteredEvents.length === 0}>
                                 Last ned
@@ -90,6 +100,7 @@ const EventList = ({ events, eventsQueryStats, websiteName, onSelectEvent }: Eve
                         placeholder="Søk..."
                         size="small"
                         value={eventSearch}
+                        ref={searchInputRef}
                         onChange={(e) => setEventSearch(e.target.value)}
                     />
                 </div>

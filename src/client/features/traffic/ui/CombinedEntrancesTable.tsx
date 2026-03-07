@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ActionMenu, Button, Table, Heading, Pagination, VStack, Select, TextField } from '@navikt/ds-react';
+import { useEffect, useRef, useState } from 'react';
+import { ActionMenu, Button, Table, Heading, Pagination, VStack, Select, TextField, Tooltip } from '@navikt/ds-react';
 import { ExternalLink, Filter, MoreVertical, Search } from 'lucide-react';
 import type { Website } from '../../../shared/types/chart.ts';
 import { formatMetricValue, formatCsvValue, downloadCsvFile } from '../utils/trafficUtils';
@@ -24,6 +24,8 @@ const CombinedEntrancesTable = ({
     const [search, setSearch] = useState('');
     const [showSearch, setShowSearch] = useState(false);
     const [showFilter, setShowFilter] = useState(false);
+    const searchInputRef = useRef<HTMLInputElement>(null);
+    const filterSelectRef = useRef<HTMLSelectElement>(null);
     const [typeFilter, setTypeFilter] = useState<'all' | 'external' | 'internal'>('all');
     const [page, setPage] = useState(1);
     const rowsPerPage = 10;
@@ -41,6 +43,14 @@ const CombinedEntrancesTable = ({
     const totalPages = Math.max(1, Math.ceil(filteredData.length / rowsPerPage));
     const currentPage = Math.min(page, totalPages);
     const paginatedData = filteredData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+
+    useEffect(() => {
+        if (showSearch) searchInputRef.current?.focus();
+    }, [showSearch]);
+
+    useEffect(() => {
+        if (showFilter) filterSelectRef.current?.focus();
+    }, [showFilter]);
 
     const isClickableRow = (row: { name: string; type: 'external' | 'internal' }) =>
         row.type === 'internal' && row.name.startsWith('/') && onRowClick;
@@ -76,35 +86,43 @@ const CombinedEntrancesTable = ({
             <div className="mb-2 flex items-center justify-between gap-2">
                 <Heading level="3" size="small">{title}</Heading>
                 <div className="flex items-center gap-1">
-                    <Button
-                        type="button"
-                        variant={showFilter ? 'secondary' : 'tertiary'}
-                        size="xsmall"
-                        icon={<Filter aria-hidden />}
-                        aria-label={`Filtrer ${title}`}
-                        onClick={() => setShowFilter((prev) => !prev)}
-                    />
-                    <Button
-                        type="button"
-                        variant={showSearch ? 'secondary' : 'tertiary'}
-                        size="xsmall"
-                        icon={<Search aria-hidden />}
-                        aria-label={`Søk i ${title}`}
-                        onClick={() => {
-                            setShowSearch((prev) => !prev);
-                            if (showSearch) setSearch('');
-                        }}
-                    />
+                    <Tooltip content="Filter" placement="top">
+                        <Button
+                            type="button"
+                            variant={showFilter ? 'secondary' : 'tertiary'}
+                            size="xsmall"
+                            icon={<Filter aria-hidden />}
+                            aria-label={`Filtrer ${title}`}
+                            aria-pressed={showFilter}
+                            onClick={() => setShowFilter((prev) => !prev)}
+                        />
+                    </Tooltip>
+                    <Tooltip content="Søk" placement="top">
+                        <Button
+                            type="button"
+                            variant={showSearch ? 'secondary' : 'tertiary'}
+                            size="xsmall"
+                            icon={<Search aria-hidden />}
+                            aria-label={`Søk i ${title}`}
+                            aria-pressed={showSearch}
+                            onClick={() => {
+                                setShowSearch((prev) => !prev);
+                                if (showSearch) setSearch('');
+                            }}
+                        />
+                    </Tooltip>
                     <ActionMenu>
-                        <ActionMenu.Trigger>
-                            <Button
-                                type="button"
-                                variant="tertiary"
-                                size="xsmall"
-                                icon={<MoreVertical aria-hidden />}
-                                aria-label={`Flere valg for ${title}`}
-                            />
-                        </ActionMenu.Trigger>
+                        <Tooltip content="Flere valg" placement="top">
+                            <ActionMenu.Trigger>
+                                <Button
+                                    type="button"
+                                    variant="tertiary"
+                                    size="xsmall"
+                                    icon={<MoreVertical aria-hidden />}
+                                    aria-label={`Flere valg for ${title}`}
+                                />
+                            </ActionMenu.Trigger>
+                        </Tooltip>
                         <ActionMenu.Content align="end">
                             <ActionMenu.Item onClick={handleDownloadCSV} disabled={!data.length}>
                                 Last ned
@@ -125,6 +143,7 @@ const CombinedEntrancesTable = ({
                                 hideLabel
                                 size="small"
                                 value={typeFilter}
+                                ref={filterSelectRef}
                                 onChange={(e) => setTypeFilter(e.target.value as 'all' | 'external' | 'internal')}
                             >
                                 <option value="all">Alle</option>
@@ -142,6 +161,7 @@ const CombinedEntrancesTable = ({
                             placeholder="Søk..."
                             size="small"
                             value={search}
+                            ref={searchInputRef}
                             onChange={(e) => setSearch(e.target.value)}
                         />
                     </div>
