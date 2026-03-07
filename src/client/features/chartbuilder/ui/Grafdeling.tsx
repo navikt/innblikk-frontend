@@ -86,6 +86,10 @@ export default function Grafdeling() {
           hiddenTabs={result && result.data && result.data.length > 12 ? ['barchart', 'piechart'] : []}
           containerStyle="white"
           websiteId={websiteId}
+          compactTableActions={true}
+          compactTableTitle={description || 'Resultater'}
+          hideTableFooter={true}
+          showDownloadReadMore={false}
         />
       );
     }

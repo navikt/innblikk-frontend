@@ -58,6 +58,10 @@ export default function SqlResultsSection({
                 showEditButton={true}
                 showCost={true}
                 websiteId={websiteId}
+                compactTableActions={true}
+                compactTableTitle="Resultater"
+                hideTableFooter={true}
+                showDownloadReadMore={false}
             />
 
             {/* JSON Output - below results */}
@@ -96,4 +100,3 @@ export default function SqlResultsSection({
         </>
     );
 }
-
