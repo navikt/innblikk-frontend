@@ -14,6 +14,8 @@ import { normalizeUrlToPath, getDateRangeFromPeriod, getStoredPeriod, savePeriod
 import { useCookieSupport, useCookieStartDate } from '../../../shared/hooks/useSiteimproveSupport.ts';
 import { translateValue } from '../../../shared/lib/translations.ts';
 import type { IVerticalBarChartProps } from '@fluentui/react-charting';
+import AddToDashboardDialog from '../../../shared/ui/AddToDashboardDialog.tsx';
+import { getUserCompositionSqlTemplate } from '../utils/userCompositionDashboardSql.ts';
 
 
 const UserComposition = () => {
@@ -72,6 +74,7 @@ const UserComposition = () => {
     const [lastAppliedFilterKey, setLastAppliedFilterKey] = useState<string | null>(null);
     const [showBarChart, setShowBarChart] = useState<boolean>(false);
     const [showPieChart, setShowPieChart] = useState<boolean>(false);
+    const [showAddToDashboardDialog, setShowAddToDashboardDialog] = useState<boolean>(false);
 
     const buildFilterKey = useCallback(() =>
         JSON.stringify({
@@ -234,6 +237,8 @@ const UserComposition = () => {
         country: 'Land',
         custom: 'Egendefinert',
     };
+    const addToDashboardSqlTemplate = getUserCompositionSqlTemplate(activeCategory);
+    const addToDashboardGraphName = `${categoryTitleByKey[activeCategory] ?? 'Brukerdetaljer'}`;
 
     return (
         <ChartLayout
@@ -462,6 +467,7 @@ const UserComposition = () => {
                                 hideTableFooter={true}
                                 compactTableTitle={categoryTitleByKey[activeCategory] ?? 'Tabell'}
                                 showDownloadReadMore={false}
+                                onAddToDashboard={addToDashboardSqlTemplate ? () => setShowAddToDashboardDialog(true) : undefined}
                             />
                         </div>
                     </Tabs>
@@ -476,6 +482,15 @@ const UserComposition = () => {
                             {copySuccess ? 'Kopiert!' : 'Del analyse'}
                         </Button>
                     </div>
+                    {addToDashboardSqlTemplate && (
+                        <AddToDashboardDialog
+                            open={showAddToDashboardDialog}
+                            onClose={() => setShowAddToDashboardDialog(false)}
+                            graphName={addToDashboardGraphName}
+                            sqlText={addToDashboardSqlTemplate}
+                            graphType="TABLE"
+                        />
+                    )}
                 </>
             )}
         </ChartLayout>

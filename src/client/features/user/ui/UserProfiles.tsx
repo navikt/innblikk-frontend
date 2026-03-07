@@ -9,12 +9,14 @@ import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx';
 import AnalysisActionModal from '../../analysis/ui/AnalysisActionModal.tsx';
 import UrlPathFilter from '../../analysis/ui/UrlPathFilter.tsx';
 import TableSectionHeader from '../../../shared/ui/TableSectionHeader.tsx';
+import AddToDashboardDialog from '../../../shared/ui/AddToDashboardDialog.tsx';
 import type { Website } from '../../../shared/types/chart.ts';
 import { translateCountry } from '../../../shared/lib/translations.ts';
 import { normalizeUrlToPath, getDateRangeFromPeriod, getStoredPeriod, savePeriodPreference, getCookieCountByParams, getCookieBadge } from '../../../shared/lib/utils.ts';
 import { TextField } from '@navikt/ds-react';
 import { useCookieSupport, useCookieStartDate } from '../../../shared/hooks/useSiteimproveSupport.ts';
 import type { UserProfile, ActivityItem, QueryStats, UsersApiResponse, ActivityApiResponse } from '../model';
+import { getUserProfilesSqlTemplate } from '../utils/userProfilesDashboardSql.ts';
 
 const ROWS_PER_PAGE = 50;
 const DEFAULT_MAX_USERS = 1000;
@@ -56,6 +58,7 @@ const UserProfiles = () => {
     const [maxUsers, setMaxUsers] = useState<number>(DEFAULT_MAX_USERS);
     const [queryStats, setQueryStats] = useState<QueryStats | null>(null);
     const [showTableSearch, setShowTableSearch] = useState(false);
+    const [showAddToDashboardDialog, setShowAddToDashboardDialog] = useState(false);
     const tableSearchInputRef = useRef<HTMLInputElement>(null);
 
     // Details Modal State
@@ -430,6 +433,9 @@ const UserProfiles = () => {
                                         >
                                             Last ned CSV
                                         </ActionMenu.Item>
+                                        <ActionMenu.Item onClick={() => setShowAddToDashboardDialog(true)}>
+                                            Legg til i dashboard
+                                        </ActionMenu.Item>
                                         {queryStats && (
                                             <>
                                                 <ActionMenu.Divider />
@@ -524,6 +530,14 @@ const UserProfiles = () => {
                     </>
                 );
             })()}
+
+            <AddToDashboardDialog
+                open={showAddToDashboardDialog}
+                onClose={() => setShowAddToDashboardDialog(false)}
+                graphName="Enkeltbrukere"
+                sqlText={getUserProfilesSqlTemplate()}
+                graphType="TABLE"
+            />
 
             <Modal
                 open={isModalOpen}

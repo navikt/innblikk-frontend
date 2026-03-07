@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { ActionMenu, Button, Heading, TextField, Tooltip } from '@navikt/ds-react';
 import { MoreVertical, Search } from 'lucide-react';
 import type { SeriesPoint, QueryStats } from '../model/types.ts';
+import AddToDashboardDialog from '../../../shared/ui/AddToDashboardDialog.tsx';
+import { getEventSeriesSqlTemplate } from '../utils/eventExplorerDashboardSql.ts';
 
 interface EventSeriesTrendTableProps {
     seriesData: SeriesPoint[];
@@ -12,6 +14,7 @@ interface EventSeriesTrendTableProps {
 const EventSeriesTrendTable = ({ seriesData, selectedEvent, queryStats }: EventSeriesTrendTableProps) => {
     const [search, setSearch] = useState('');
     const [showSearch, setShowSearch] = useState(false);
+    const [showAddToDashboardDialog, setShowAddToDashboardDialog] = useState(false);
     const searchInputRef = useRef<HTMLInputElement>(null);
 
     const filteredSeriesData = seriesData.filter((item) =>
@@ -81,6 +84,9 @@ const EventSeriesTrendTable = ({ seriesData, selectedEvent, queryStats }: EventS
                             <ActionMenu.Item onClick={handleDownloadCsv} disabled={filteredSeriesData.length === 0}>
                                 Last ned
                             </ActionMenu.Item>
+                            <ActionMenu.Item onClick={() => setShowAddToDashboardDialog(true)}>
+                                Legg til i dashboard
+                            </ActionMenu.Item>
                             {queryStats && (
                                 <>
                                     <ActionMenu.Divider />
@@ -130,6 +136,13 @@ const EventSeriesTrendTable = ({ seriesData, selectedEvent, queryStats }: EventS
                 </table>
             </div>
             </div>
+            <AddToDashboardDialog
+                open={showAddToDashboardDialog}
+                onClose={() => setShowAddToDashboardDialog(false)}
+                graphName={`Trend over tid: ${selectedEvent}`}
+                sqlText={getEventSeriesSqlTemplate(selectedEvent)}
+                graphType="LINE"
+            />
         </div>
     );
 };

@@ -7,8 +7,10 @@ import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx';
 import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx';
 import UrlPathFilter from '../../analysis/ui/UrlPathFilter.tsx';
 import CookieMixNotice from '../../analysis/ui/CookieMixNotice.tsx';
+import AddToDashboardDialog from '../../../shared/ui/AddToDashboardDialog.tsx';
 import RetentionStatsCards from './RetentionStatsCards.tsx';
 import { useRetention } from '../hooks/useRetention';
+import { getRetentionSqlTemplate } from '../utils/retentionDashboardSql.ts';
 
 const Retention = () => {
     const {
@@ -44,6 +46,7 @@ const Retention = () => {
         copyShareLink,
     } = useRetention();
     const [showTableSection, setShowTableSection] = useState(false);
+    const [showAddToDashboardDialog, setShowAddToDashboardDialog] = useState(false);
 
     return (
         <ChartLayout
@@ -171,6 +174,9 @@ const Retention = () => {
                                     <ActionMenu.Item onClick={downloadCSV}>
                                         Last ned CSV
                                     </ActionMenu.Item>
+                                    <ActionMenu.Item onClick={() => setShowAddToDashboardDialog(true)}>
+                                        Legg til i dashboard
+                                    </ActionMenu.Item>
                                     {queryStats && (
                                         <>
                                             <ActionMenu.Divider />
@@ -267,6 +273,13 @@ const Retention = () => {
                             {copySuccess ? 'Kopiert!' : 'Del analyse'}
                         </Button>
                     </div>
+                    <AddToDashboardDialog
+                        open={showAddToDashboardDialog}
+                        onClose={() => setShowAddToDashboardDialog(false)}
+                        graphName="Gjenbesøk over tid"
+                        sqlText={getRetentionSqlTemplate()}
+                        graphType="LINE"
+                    />
                 </>
             )}
 

@@ -38,6 +38,7 @@ interface ResultsPanelProps {
   // Optional props for AnalysisActionModal
   websiteId?: string;
   period?: string;
+  onAddToDashboard?: () => void;
 }
 
 const ResultsPanel = ({
@@ -66,6 +67,7 @@ const ResultsPanel = ({
   compactTableTitle,
   websiteId,
   period,
+  onAddToDashboard,
 }: ResultsPanelProps) => {
   // Read initial tab from URL parameter
   const [activeTab, setActiveTab] = useState<string>(() => {
@@ -630,6 +632,11 @@ const ResultsPanel = ({
                               <ActionMenu.Item onClick={downloadCSV}>
                                 Last ned CSV
                               </ActionMenu.Item>
+                              {onAddToDashboard && (
+                                <ActionMenu.Item onClick={onAddToDashboard}>
+                                  Legg til i dashboard
+                                </ActionMenu.Item>
+                              )}
                             </ActionMenu.Content>
                           </ActionMenu>
                         </div>

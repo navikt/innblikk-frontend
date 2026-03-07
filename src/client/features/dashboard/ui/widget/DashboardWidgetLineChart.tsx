@@ -18,11 +18,45 @@ const DashboardWidgetLineChart = ({ data, title }: DashboardWidgetLineChartProps
         const rawY = (row as Record<string, unknown>)[keys[1]];
         const yVal = typeof rawY === 'number' ? rawY : parseFloat(String(rawY)) || 0;
 
+        const xAsString = (() => {
+            if (xVal === null || xVal === undefined) return '';
+            if (typeof xVal === 'string' || typeof xVal === 'number' || typeof xVal === 'boolean') return String(xVal);
+            if (xVal instanceof Date) return xVal.toISOString();
+            return '';
+        })();
+        const xAsNumber = Number(xVal);
+        const isNumericX = xAsString.trim() !== '' && Number.isFinite(xAsNumber);
+        const likelyDateString = typeof xVal === 'string' && /[-/:T]/.test(xVal);
+        const parsedDate = new Date(xAsString);
+        const isDateX = xVal instanceof Date || (likelyDateString && !Number.isNaN(parsedDate.getTime()));
+
+        if (isDateX) {
+            const date = xVal instanceof Date ? xVal : parsedDate;
+            const label = format(date, 'dd.MM');
+            return {
+                x: date,
+                y: yVal,
+                legend: label,
+                xAxisCalloutData: label,
+                yAxisCalloutData: String(yVal),
+            };
+        }
+
+        if (isNumericX) {
+            return {
+                x: xAsNumber,
+                y: yVal,
+                legend: String(xAsNumber),
+                xAxisCalloutData: String(xAsNumber),
+                yAxisCalloutData: String(yVal),
+            };
+        }
+
         return {
-            x: new Date(String(xVal)),
+            x: 0,
             y: yVal,
-            legend: format(new Date(String(xVal)), 'dd.MM'),
-            xAxisCalloutData: format(new Date(String(xVal)), 'dd.MM'),
+            legend: xAsString || 'Ukjent',
+            xAxisCalloutData: xAsString || 'Ukjent',
             yAxisCalloutData: String(yVal),
         };
     });

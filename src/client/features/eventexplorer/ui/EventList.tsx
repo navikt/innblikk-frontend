@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Heading, Button, Table, TextField, ActionMenu, Tooltip } from '@navikt/ds-react';
 import { MoreVertical, Search } from 'lucide-react';
 import type { QueryStats } from '../model/types.ts';
+import AddToDashboardDialog from '../../../shared/ui/AddToDashboardDialog.tsx';
+import { getEventListSqlTemplate } from '../utils/eventExplorerDashboardSql.ts';
 
 interface EventListProps {
     events: { name: string; count: number }[];
@@ -13,6 +15,7 @@ interface EventListProps {
 const EventList = ({ events, eventsQueryStats, websiteName, onSelectEvent }: EventListProps) => {
     const [eventSearch, setEventSearch] = useState<string>('');
     const [showSearch, setShowSearch] = useState(false);
+    const [showAddToDashboardDialog, setShowAddToDashboardDialog] = useState(false);
     const searchInputRef = useRef<HTMLInputElement>(null);
 
     const filteredEvents = events.filter(event =>
@@ -80,6 +83,9 @@ const EventList = ({ events, eventsQueryStats, websiteName, onSelectEvent }: Eve
                             <ActionMenu.Item onClick={handleDownloadCsv} disabled={filteredEvents.length === 0}>
                                 Last ned
                             </ActionMenu.Item>
+                            <ActionMenu.Item onClick={() => setShowAddToDashboardDialog(true)}>
+                                Legg til i dashboard
+                            </ActionMenu.Item>
                             {eventsQueryStats && (
                                 <>
                                     <ActionMenu.Divider />
@@ -135,6 +141,13 @@ const EventList = ({ events, eventsQueryStats, websiteName, onSelectEvent }: Eve
                     </Table>
                 </div>
             </div>
+            <AddToDashboardDialog
+                open={showAddToDashboardDialog}
+                onClose={() => setShowAddToDashboardDialog(false)}
+                graphName="Egendefinerte hendelser"
+                sqlText={getEventListSqlTemplate()}
+                graphType="TABLE"
+            />
         </div>
     );
 };
