@@ -6,7 +6,6 @@ import ChartLayout from './ChartLayout.tsx';
 import AnalysisActionModal from './AnalysisActionModal.tsx';
 import WebsitePicker from './WebsitePicker.tsx';
 import type { Website } from '../../../shared/types/chart.ts';
-import InfoCard from '../../../shared/ui/InfoCard.tsx';
 import { getUrlPath } from '../utils/url.ts';
 import { downloadCsv } from '../utils/siteimprove.ts';
 import { useBrokenLinks, usePageBrokenLinks, useBrokenLinkPages } from '../hooks/useBrokenLinks.ts';
@@ -155,6 +154,11 @@ const BrokenLinks = () => {
     const filteredPages = pagesWithBrokenLinks.filter(page => !urlPath || page.url.toLowerCase().includes(urlPath.toLowerCase()));
     const displayedPages = filteredPages.filter((page) => getUrlPath(page.url).toLowerCase().includes(pagesSearch.toLowerCase()));
     const displayedLinks = brokenLinks.filter((link) => link.url.toLowerCase().includes(linksSearch.toLowerCase()));
+    const hasUrlFilter = urlPath.trim().length > 0;
+    const pagesCount = hasUrlFilter ? filteredPages.length : pagesWithBrokenLinks.length;
+    const brokenLinksCount = hasUrlFilter
+        ? filteredPages.reduce((sum, page) => sum + page.broken_links, 0)
+        : brokenLinks.length;
 
     useEffect(() => {
         if (showPagesSearch) pagesSearchInputRef.current?.focus();
@@ -224,13 +228,13 @@ const BrokenLinks = () => {
                         <div className="bg-[var(--ax-bg-default)] p-4 rounded-lg border border-[var(--ax-border-neutral-subtle)] shadow-sm">
                             <div className="text-sm text-[var(--ax-text-default)] font-medium mb-1">Antall sider med ødelagte lenker</div>
                             <div className="text-2xl font-bold text-[var(--ax-text-default)]">
-                                {pagesWithBrokenLinks.length.toLocaleString('nb-NO')}
+                                {pagesCount.toLocaleString('nb-NO')}
                             </div>
                         </div>
                         <div className="bg-[var(--ax-bg-default)] p-4 rounded-lg border border-[var(--ax-border-neutral-subtle)] shadow-sm">
                             <div className="text-sm text-[var(--ax-text-default)] font-medium mb-1">Totalt antall ødelagte lenker</div>
                             <div className="text-2xl font-bold text-[var(--ax-text-default)]">
-                                {brokenLinks.length.toLocaleString('nb-NO')}
+                                {brokenLinksCount.toLocaleString('nb-NO')}
                             </div>
                         </div>
                         <div className="bg-[var(--ax-bg-default)] p-4 rounded-lg border border-[var(--ax-border-neutral-subtle)] shadow-sm">
@@ -262,34 +266,6 @@ const BrokenLinks = () => {
                             </div>
                         </div>
                     </div>
-
-                    {siteimproveId && (
-                        <div className="mb-6">
-                            <InfoCard data-color="info">
-                                <InfoCard.Header>
-                                    <InfoCard.Title>Rett opp feil i Siteimprove</InfoCard.Title>
-                                </InfoCard.Header>
-                                <InfoCard.Content>
-                                    For å rette opp i de ødelagte lenkene må du logge inn på Siteimprove.
-                                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-6 mt-2">
-                                        <DsLink
-                                            href={`https://my2.siteimprove.com/QualityAssurance/${siteimproveId}/Links/Pages/1/PageLevel/Asc?pageSize=100`}
-                                            target="_blank"
-                                            className="font-semibold"
-                                        >
-                                            Gå til Siteimprove for å korrigere
-                                        </DsLink>
-                                        <DsLink
-                                            href="https://jira.adeo.no/plugins/servlet/desk/portal/581/create/2641"
-                                            target="_blank"
-                                        >
-                                            Få tilgang til Siteimprove
-                                        </DsLink>
-                                    </div>
-                                </InfoCard.Content>
-                            </InfoCard>
-                        </div>
-                    )}
 
                     <Tabs value={activeTab} onChange={setActiveTab}>
                         <Tabs.List>
@@ -521,6 +497,26 @@ const BrokenLinks = () => {
                             )}
                         </Tabs.Panel>
                     </Tabs>
+
+                    {siteimproveId && (
+                        <div className="mt-6 flex justify-end">
+                            <div className="flex flex-col sm:flex-row gap-2 sm:gap-6">
+                                <DsLink
+                                    href={`https://my2.siteimprove.com/QualityAssurance/${siteimproveId}/Links/Pages/1/PageLevel/Asc?pageSize=100`}
+                                    target="_blank"
+                                    className="font-semibold"
+                                >
+                                    Åpne i Siteimprove
+                                </DsLink>
+                                <DsLink
+                                    href="https://jira.adeo.no/plugins/servlet/desk/portal/581/create/2641"
+                                    target="_blank"
+                                >
+                                    Få tilgang til Siteimprove
+                                </DsLink>
+                            </div>
+                        </div>
+                    )}
                 </>
             )}
 

@@ -5,7 +5,6 @@ import { MoreVertical, Search } from 'lucide-react';
 
 import ChartLayout from './ChartLayout.tsx';
 import WebsitePicker from './WebsitePicker.tsx';
-import InfoCard from '../../../shared/ui/InfoCard.tsx';
 import type { SpellingIssue } from '../model/types.ts';
 import { downloadCsv } from '../utils/siteimprove.ts';
 import { useSpellings } from '../hooks/useSpellings.ts';
@@ -292,34 +291,6 @@ const Spellings = () => {
                                 )}
                             </div>
 
-                            {siteimproveId && (
-                                <div className="mb-6">
-                                    <InfoCard data-color="info">
-                                        <InfoCard.Header>
-                                            <InfoCard.Title>Rett opp feil i Siteimprove</InfoCard.Title>
-                                        </InfoCard.Header>
-                                        <InfoCard.Content>
-                                            For å rette opp stavefeil må du logge inn på Siteimprove.
-                                            <div className="flex flex-col sm:flex-row gap-2 sm:gap-6 mt-2">
-                                                <DsLink
-                                                    href={`https://my2.siteimprove.com/QualityAssurance/${siteimproveId}/Spelling/PagesWithSpellingIssues`}
-                                                    target="_blank"
-                                                    className="font-semibold"
-                                                >
-                                                    Gå til Siteimprove for å korrigere
-                                                </DsLink>
-                                                <DsLink
-                                                    href="https://jira.adeo.no/plugins/servlet/desk/portal/581/create/2641"
-                                                    target="_blank"
-                                                >
-                                                    Få tilgang til Siteimprove
-                                                </DsLink>
-                                            </div>
-                                        </InfoCard.Content>
-                                    </InfoCard>
-                                </div>
-                            )}
-
                             <Tabs value={activeTab} onChange={setActiveTab}>
                                 <Tabs.List>
                                     <Tabs.Tab value="potential" label="Mulige stavefeil" />
@@ -353,6 +324,26 @@ const Spellings = () => {
                                     )}
                                 </Tabs.Panel>
                             </Tabs>
+
+                            {siteimproveId && (
+                                <div className="mt-6 flex justify-end">
+                                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-6">
+                                        <DsLink
+                                            href={`https://my2.siteimprove.com/QualityAssurance/${siteimproveId}/Spelling/PagesWithSpellingIssues`}
+                                            target="_blank"
+                                            className="font-semibold"
+                                        >
+                                            Åpne i Siteimprove
+                                        </DsLink>
+                                        <DsLink
+                                            href="https://jira.adeo.no/plugins/servlet/desk/portal/581/create/2641"
+                                            target="_blank"
+                                        >
+                                            Få tilgang til Siteimprove
+                                        </DsLink>
+                                    </div>
+                                </div>
+                            )}
                         </>
                     )}
                 </>
