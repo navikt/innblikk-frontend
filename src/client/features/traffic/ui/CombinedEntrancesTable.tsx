@@ -93,103 +93,106 @@ const CombinedEntrancesTable = ({
     return (
         <>
         <VStack gap="space-4">
-            <TableSectionHeader
-                title={title}
-                actions={(
-                    <>
-                    <Tooltip content="Filter" placement="top">
-                        <Button
-                            type="button"
-                            variant={showFilter ? 'secondary' : 'tertiary'}
-                            size="xsmall"
-                            icon={<Filter aria-hidden />}
-                            aria-label={`Filtrer ${title}`}
-                            aria-pressed={showFilter}
-                            onClick={() => setShowFilter((prev) => !prev)}
-                        />
-                    </Tooltip>
-                    <Tooltip content="Søk" placement="top">
-                        <Button
-                            type="button"
-                            variant={showSearch ? 'secondary' : 'tertiary'}
-                            size="xsmall"
-                            icon={<Search aria-hidden />}
-                            aria-label={`Søk i ${title}`}
-                            aria-pressed={showSearch}
-                            onClick={() => {
-                                setShowSearch((prev) => !prev);
-                                if (showSearch) setSearch('');
-                            }}
-                        />
-                    </Tooltip>
-                    <ActionMenu>
-                        <Tooltip content="Flere valg" placement="top">
-                            <ActionMenu.Trigger>
+            <div className="border border-[var(--ax-border-neutral-subtle)] rounded-lg overflow-hidden bg-[var(--ax-bg-default)]">
+                <div className="p-4 pb-2">
+                    <TableSectionHeader
+                        title={title}
+                        actions={(
+                            <>
+                            <Tooltip content="Filter" placement="top">
                                 <Button
                                     type="button"
-                                    variant="tertiary"
+                                    variant={showFilter ? 'secondary' : 'tertiary'}
                                     size="xsmall"
-                                    icon={<MoreVertical aria-hidden />}
-                                    aria-label={`Flere valg for ${title}`}
+                                    icon={<Filter aria-hidden />}
+                                    aria-label={`Filtrer ${title}`}
+                                    aria-pressed={showFilter}
+                                    onClick={() => setShowFilter((prev) => !prev)}
                                 />
-                            </ActionMenu.Trigger>
-                        </Tooltip>
-                        <ActionMenu.Content align="end">
-                            <ActionMenu.Item onClick={() => setShowAddToDashboardDialog(true)} disabled={!filteredData.length}>
-                                Legg til i dashboard
-                            </ActionMenu.Item>
-                            <ActionMenu.Item onClick={() => setShowTransferToMetabaseDialog(true)}>
-                                Overfør til Metabase
-                            </ActionMenu.Item>
-                            <ActionMenu.Item onClick={() => openSqlEditorWithContext({ sql: addToDashboardSql, websiteId: selectedWebsite?.id })}>
-                                Åpne i SQL-editor
-                            </ActionMenu.Item>
-                            <ActionMenu.Item onClick={handleDownloadCSV} disabled={!data.length}>Last ned CSV</ActionMenu.Item>
-                        </ActionMenu.Content>
-                    </ActionMenu>
-                    </>
-                )}
-                controls={(
-                    <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto min-w-0">
-                        {showFilter && (
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
-                                <span className="text-sm text-[var(--ax-text-default)] whitespace-nowrap">
-                                    Type trafikkilde
-                                </span>
-                                <div className="w-full sm:w-32">
-                                    <Select
-                                        label="Trafikktype"
-                                        hideLabel
-                                        size="small"
-                                        value={typeFilter}
-                                        ref={filterSelectRef}
-                                        onChange={(e) => setTypeFilter(e.target.value as 'all' | 'external' | 'internal')}
-                                    >
-                                        <option value="all">Alle</option>
-                                        <option value="external">Eksterne</option>
-                                        <option value="internal">Interne</option>
-                                    </Select>
-                                </div>
+                            </Tooltip>
+                            <Tooltip content="Søk" placement="top">
+                                <Button
+                                    type="button"
+                                    variant={showSearch ? 'secondary' : 'tertiary'}
+                                    size="xsmall"
+                                    icon={<Search aria-hidden />}
+                                    aria-label={`Søk i ${title}`}
+                                    aria-pressed={showSearch}
+                                    onClick={() => {
+                                        setShowSearch((prev) => !prev);
+                                        if (showSearch) setSearch('');
+                                    }}
+                                />
+                            </Tooltip>
+                            <ActionMenu>
+                                <Tooltip content="Flere valg" placement="top">
+                                    <ActionMenu.Trigger>
+                                        <Button
+                                            type="button"
+                                            variant="tertiary"
+                                            size="xsmall"
+                                            icon={<MoreVertical aria-hidden />}
+                                            aria-label={`Flere valg for ${title}`}
+                                        />
+                                    </ActionMenu.Trigger>
+                                </Tooltip>
+                                <ActionMenu.Content align="end">
+                                    <ActionMenu.Item onClick={() => setShowAddToDashboardDialog(true)} disabled={!filteredData.length}>
+                                        Legg til i dashboard
+                                    </ActionMenu.Item>
+                                    <ActionMenu.Item onClick={() => setShowTransferToMetabaseDialog(true)}>
+                                        Overfør til Metabase
+                                    </ActionMenu.Item>
+                                    <ActionMenu.Item onClick={() => openSqlEditorWithContext({ sql: addToDashboardSql, websiteId: selectedWebsite?.id })}>
+                                        Åpne i SQL-editor
+                                    </ActionMenu.Item>
+                                    <ActionMenu.Item onClick={handleDownloadCSV} disabled={!data.length}>Last ned CSV</ActionMenu.Item>
+                                </ActionMenu.Content>
+                            </ActionMenu>
+                            </>
+                        )}
+                        controls={(
+                            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto min-w-0">
+                                {showFilter && (
+                                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
+                                        <span className="text-sm text-[var(--ax-text-default)] whitespace-nowrap">
+                                            Type trafikkilde
+                                        </span>
+                                        <div className="w-full sm:w-32">
+                                            <Select
+                                                label="Trafikktype"
+                                                hideLabel
+                                                size="small"
+                                                value={typeFilter}
+                                                ref={filterSelectRef}
+                                                onChange={(e) => setTypeFilter(e.target.value as 'all' | 'external' | 'internal')}
+                                            >
+                                                <option value="all">Alle</option>
+                                                <option value="external">Eksterne</option>
+                                                <option value="internal">Interne</option>
+                                            </Select>
+                                        </div>
+                                    </div>
+                                )}
+                                {showSearch && (
+                                    <div className="w-full sm:w-64 min-w-0">
+                                        <TextField
+                                            label="Søk"
+                                            hideLabel
+                                            placeholder="Søk..."
+                                            size="small"
+                                            value={search}
+                                            ref={searchInputRef}
+                                            onChange={(e) => setSearch(e.target.value)}
+                                        />
+                                    </div>
+                                )}
                             </div>
                         )}
-                        {showSearch && (
-                            <div className="w-full sm:w-64 min-w-0">
-                                <TextField
-                                    label="Søk"
-                                    hideLabel
-                                    placeholder="Søk..."
-                                    size="small"
-                                    value={search}
-                                    ref={searchInputRef}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                />
-                            </div>
-                        )}
-                    </div>
-                )}
-            />
-            <div className="border rounded-lg overflow-x-auto">
-                <div className="min-w-max">
+                    />
+                </div>
+                <div className="overflow-x-auto px-4">
+                    <div className="min-w-max">
                     <Table size="small" className="table-auto min-w-full [&_th:first-child]:!pl-2 [&_th:first-child]:!pr-2 [&_td:first-child]:!pl-2 [&_td:first-child]:!pr-2">
                         <colgroup>
                             <col style={{ width: '6.75rem' }} />
@@ -238,16 +241,21 @@ const CombinedEntrancesTable = ({
                             )}
                         </Table.Body>
                     </Table>
+                    </div>
                 </div>
+                {totalPages > 1 ? (
+                    <div className="px-4 py-3">
+                        <Pagination
+                            page={currentPage}
+                            onPageChange={setPage}
+                            count={totalPages}
+                            size="small"
+                        />
+                    </div>
+                ) : (
+                    <div className="px-4 pb-4" aria-hidden="true" />
+                )}
             </div>
-            {totalPages > 1 && (
-                <Pagination
-                    page={currentPage}
-                    onPageChange={setPage}
-                    count={totalPages}
-                    size="small"
-                />
-            )}
         </VStack>
         <AddToDashboardDialog
             open={showAddToDashboardDialog}

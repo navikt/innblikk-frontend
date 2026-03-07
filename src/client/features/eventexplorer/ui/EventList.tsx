@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { Heading, Button, Table, TextField, ActionMenu, Tooltip } from '@navikt/ds-react';
+import { Button, Table, TextField, ActionMenu, Tooltip } from '@navikt/ds-react';
 import { MoreVertical, Search } from 'lucide-react';
 import type { QueryStats } from '../model/types.ts';
 import AddToDashboardDialog from '../../../shared/ui/AddToDashboardDialog.tsx';
 import TransferToMetabaseDialog from '../../../shared/ui/TransferToMetabaseDialog.tsx';
 import { getEventListSqlTemplate } from '../utils/eventExplorerDashboardSql.ts';
 import { openSqlEditorWithContext } from '../../../shared/lib/openSqlEditor.ts';
+import TableSectionHeader from '../../../shared/ui/TableSectionHeader.tsx';
 
 interface EventListProps {
     events: { name: string; count: number }[];
@@ -53,76 +54,79 @@ const EventList = ({ events, eventsQueryStats, websiteName, selectedWebsiteId, o
     };
 
     return (
-        <div className="space-y-4">
-            <div className="mb-2 flex items-center justify-between gap-2">
-                <Heading level="3" size="small">Egendefinerte hendelser</Heading>
-                <div className="flex items-center gap-1">
-                    <Tooltip content="Søk" placement="top">
-                        <Button
-                            type="button"
-                            variant={showSearch ? 'secondary' : 'tertiary'}
-                            size="xsmall"
-                            icon={<Search aria-hidden />}
-                            aria-label="Søk i hendelseslisten"
-                            aria-pressed={showSearch}
-                            onClick={() => {
-                                setShowSearch((prev) => !prev);
-                                if (showSearch) setEventSearch('');
-                            }}
-                        />
-                    </Tooltip>
-                    <ActionMenu>
-                        <Tooltip content="Flere valg" placement="top">
-                            <ActionMenu.Trigger>
+        <div className="border border-[var(--ax-border-neutral-subtle)] rounded-lg overflow-hidden bg-[var(--ax-bg-default)]">
+            <div className="p-4 pb-2">
+                <TableSectionHeader
+                    title="Egendefinerte hendelser"
+                    actions={(
+                        <>
+                            <Tooltip content="Søk" placement="top">
                                 <Button
                                     type="button"
-                                    variant="tertiary"
+                                    variant={showSearch ? 'secondary' : 'tertiary'}
                                     size="xsmall"
-                                    icon={<MoreVertical aria-hidden />}
-                                    aria-label="Flere valg for hendelseslisten"
+                                    icon={<Search aria-hidden />}
+                                    aria-label="Søk i hendelseslisten"
+                                    aria-pressed={showSearch}
+                                    onClick={() => {
+                                        setShowSearch((prev) => !prev);
+                                        if (showSearch) setEventSearch('');
+                                    }}
                                 />
-                            </ActionMenu.Trigger>
-                        </Tooltip>
-                        <ActionMenu.Content align="end">
-                            <ActionMenu.Item onClick={() => setShowAddToDashboardDialog(true)}>
-                                Legg til i dashboard
-                            </ActionMenu.Item>
-                            <ActionMenu.Item onClick={() => setShowTransferToMetabaseDialog(true)}>
-                                Overfør til Metabase
-                            </ActionMenu.Item>
-                            <ActionMenu.Item onClick={() => openSqlEditorWithContext({ sql: getEventListSqlTemplate(), websiteId: selectedWebsiteId })}>
-                                Åpne i SQL-editor
-                            </ActionMenu.Item>
-                            <ActionMenu.Item onClick={handleDownloadCsv} disabled={filteredEvents.length === 0}>
-                                Last ned
-                            </ActionMenu.Item>
-                            {eventsQueryStats && (
-                                <>
-                                    <ActionMenu.Divider />
-                                    <div className="px-3 py-2 text-xs text-[var(--ax-text-subtle)]">
-                                        {eventsQueryStats.totalBytesProcessedGB} GB prosessert
-                                    </div>
-                                </>
-                            )}
-                        </ActionMenu.Content>
-                    </ActionMenu>
-                </div>
+                            </Tooltip>
+                            <ActionMenu>
+                                <Tooltip content="Flere valg" placement="top">
+                                    <ActionMenu.Trigger>
+                                        <Button
+                                            type="button"
+                                            variant="tertiary"
+                                            size="xsmall"
+                                            icon={<MoreVertical aria-hidden />}
+                                            aria-label="Flere valg for hendelseslisten"
+                                        />
+                                    </ActionMenu.Trigger>
+                                </Tooltip>
+                                <ActionMenu.Content align="end">
+                                    <ActionMenu.Item onClick={() => setShowAddToDashboardDialog(true)}>
+                                        Legg til i dashboard
+                                    </ActionMenu.Item>
+                                    <ActionMenu.Item onClick={() => setShowTransferToMetabaseDialog(true)}>
+                                        Overfør til Metabase
+                                    </ActionMenu.Item>
+                                    <ActionMenu.Item onClick={() => openSqlEditorWithContext({ sql: getEventListSqlTemplate(), websiteId: selectedWebsiteId })}>
+                                        Åpne i SQL-editor
+                                    </ActionMenu.Item>
+                                    <ActionMenu.Item onClick={handleDownloadCsv} disabled={filteredEvents.length === 0}>
+                                        Last ned
+                                    </ActionMenu.Item>
+                                    {eventsQueryStats && (
+                                        <>
+                                            <ActionMenu.Divider />
+                                            <div className="px-3 py-2 text-xs text-[var(--ax-text-subtle)]">
+                                                {eventsQueryStats.totalBytesProcessedGB} GB prosessert
+                                            </div>
+                                        </>
+                                    )}
+                                </ActionMenu.Content>
+                            </ActionMenu>
+                        </>
+                    )}
+                    controls={showSearch ? (
+                        <div className="w-full sm:w-64 min-w-0">
+                            <TextField
+                                label="Søk"
+                                hideLabel
+                                placeholder="Søk..."
+                                size="small"
+                                value={eventSearch}
+                                ref={searchInputRef}
+                                onChange={(e) => setEventSearch(e.target.value)}
+                            />
+                        </div>
+                    ) : undefined}
+                />
             </div>
-            {showSearch && (
-                <div className="w-full sm:w-64 min-w-0">
-                    <TextField
-                        label="Søk"
-                        hideLabel
-                        placeholder="Søk..."
-                        size="small"
-                        value={eventSearch}
-                        ref={searchInputRef}
-                        onChange={(e) => setEventSearch(e.target.value)}
-                    />
-                </div>
-            )}
-            <div className="border rounded-lg overflow-hidden">
-                <div className="overflow-x-auto">
+            <div className="overflow-x-auto px-4">
                     <Table size="small">
                         <Table.Header>
                             <Table.Row>
@@ -150,7 +154,7 @@ const EventList = ({ events, eventsQueryStats, websiteName, selectedWebsiteId, o
                     </Table.Body>
                     </Table>
                 </div>
-            </div>
+            <div className="px-4 pb-4" aria-hidden="true" />
             <AddToDashboardDialog
                 open={showAddToDashboardDialog}
                 onClose={() => setShowAddToDashboardDialog(false)}

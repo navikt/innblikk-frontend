@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ActionMenu, Button, Alert, Loader, Switch, Heading, BodyShort, Tooltip } from '@navikt/ds-react';
 import { ResponsiveContainer, LineChart } from '@fluentui/react-charting';
-import { Download, Share2, Check, MoreVertical } from 'lucide-react';
+import { Share2, Check, MoreVertical } from 'lucide-react';
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx';
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx';
 import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx';
@@ -10,6 +10,7 @@ import CookieMixNotice from '../../analysis/ui/CookieMixNotice.tsx';
 import AddToDashboardDialog from '../../../shared/ui/AddToDashboardDialog.tsx';
 import TransferToMetabaseDialog from '../../../shared/ui/TransferToMetabaseDialog.tsx';
 import { openSqlEditorWithContext } from '../../../shared/lib/openSqlEditor.ts';
+import TableSectionHeader from '../../../shared/ui/TableSectionHeader.tsx';
 import RetentionStatsCards from './RetentionStatsCards.tsx';
 import { useRetention } from '../hooks/useRetention';
 import { getRetentionSqlTemplate } from '../utils/retentionDashboardSql.ts';
@@ -227,8 +228,11 @@ const Retention = () => {
 
                     {showTableSection && (
                         <div className="pt-4">
-                            <div className="border rounded-lg overflow-hidden">
-                                <div className="overflow-x-auto">
+                            <div className="border border-[var(--ax-border-neutral-subtle)] rounded-lg overflow-hidden bg-[var(--ax-bg-default)]">
+                                <div className="p-4 pb-2">
+                                    <TableSectionHeader title="Tabell" />
+                                </div>
+                                <div className="overflow-x-auto px-4">
                                     <table className="min-w-full divide-y divide-[var(--ax-border-neutral-subtle)]">
                                         <thead className="bg-[var(--ax-bg-neutral-soft)]">
                                             <tr>
@@ -254,21 +258,7 @@ const Retention = () => {
                                         </tbody>
                                     </table>
                                 </div>
-                                <div className="flex gap-2 p-3 bg-[var(--ax-bg-neutral-soft)] border-t justify-between items-center">
-                                    <Button
-                                        size="small"
-                                        variant="secondary"
-                                        onClick={downloadCSV}
-                                        icon={<Download size={16} />}
-                                    >
-                                        Last ned CSV
-                                    </Button>
-                                    {queryStats && (
-                                        <span className="text-sm text-[var(--ax-text-subtle)]">
-                                            Data prosessert: {queryStats.totalBytesProcessedGB} GB
-                                        </span>
-                                    )}
-                                </div>
+                                <div className="px-4 pb-4" aria-hidden="true" />
                             </div>
                         </div>
                     )}

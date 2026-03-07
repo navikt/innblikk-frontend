@@ -383,97 +383,98 @@ const UserProfiles = () => {
                 );
                 return (
                     <>
-                        <TableSectionHeader
-                            title={`Viser ${formatNumber(totalUsers)} ${totalUsers === 1 ? 'bruker' : 'enkeltbrukere'}`}
-                            headingLevel="2"
-                            headingSize="medium"
-                            meta={isAtMaxUsersLimit ? (
-                                <div className="mt-3 max-w-[72ch] pb-4">
-                                    <InlineMessage status="warning">
-                                        {normalizedMaxUsers === DEFAULT_MAX_USERS
-                                            ? `Begrenset til maks ${formatNumber(DEFAULT_MAX_USERS)} brukere. Øk "Maks brukere" ved behov.`
-                                            : `Begrenset til maks ${formatNumber(normalizedMaxUsers)} brukere. Flere ved behov.`}
-                                    </InlineMessage>
-                                </div>
-                            ) : undefined}
-                            description={isCookieRange
-                                ? 'Cookies er aktivert. Brukere identifiseres med cookie‑ID på tvers av økter innen perioden.'
-                                : isMixRange
-                                    ? 'Perioden krysser overgang til cookies. Listen inneholder både cookie‑ID og sesjons‑ID.'
-                                    : 'Brukere er unike hver måned og får en ny bruker ID ved månedsskifte. På den måten kan de ikke spores over tid, noe som ivaretar personvernet.'}
-                            actions={(
-                                <>
-                                <Tooltip content="Søk" placement="top">
-                                    <Button
-                                        type="button"
-                                        variant={showTableSearch ? 'secondary' : 'tertiary'}
-                                        size="xsmall"
-                                        icon={<Search aria-hidden />}
-                                        aria-label="Søk i brukertabell"
-                                        aria-pressed={showTableSearch}
-                                        onClick={() => {
-                                            setShowTableSearch((prev) => !prev);
-                                            if (showTableSearch) setSearchQuery('');
-                                        }}
-                                    />
-                                </Tooltip>
-                                <ActionMenu>
-                                    <Tooltip content="Flere valg" placement="top">
-                                        <ActionMenu.Trigger>
+                        <div className="border border-[var(--ax-border-neutral-subtle)] rounded-lg overflow-hidden bg-[var(--ax-bg-default)]">
+                            <div className="p-4 pb-2">
+                                <TableSectionHeader
+                                    title={`Viser ${formatNumber(totalUsers)} ${totalUsers === 1 ? 'bruker' : 'enkeltbrukere'}`}
+                                    headingLevel="2"
+                                    headingSize="medium"
+                                    meta={isAtMaxUsersLimit ? (
+                                        <div className="mt-3 max-w-[72ch] pb-4">
+                                            <InlineMessage status="warning">
+                                                {normalizedMaxUsers === DEFAULT_MAX_USERS
+                                                    ? `Begrenset til maks ${formatNumber(DEFAULT_MAX_USERS)} brukere. Øk "Maks brukere" ved behov.`
+                                                    : `Begrenset til maks ${formatNumber(normalizedMaxUsers)} brukere. Flere ved behov.`}
+                                            </InlineMessage>
+                                        </div>
+                                    ) : undefined}
+                                    description={isCookieRange
+                                        ? 'Cookies er aktivert. Brukere identifiseres med cookie‑ID på tvers av økter innen perioden.'
+                                        : isMixRange
+                                            ? 'Perioden krysser overgang til cookies. Listen inneholder både cookie‑ID og sesjons‑ID.'
+                                            : 'Brukere er unike hver måned og får en ny bruker ID ved månedsskifte. På den måten kan de ikke spores over tid, noe som ivaretar personvernet.'}
+                                    actions={(
+                                        <>
+                                        <Tooltip content="Søk" placement="top">
                                             <Button
                                                 type="button"
-                                                variant="tertiary"
+                                                variant={showTableSearch ? 'secondary' : 'tertiary'}
                                                 size="xsmall"
-                                                icon={<MoreVertical aria-hidden />}
-                                                aria-label="Flere valg for brukertabell"
+                                                icon={<Search aria-hidden />}
+                                                aria-label="Søk i brukertabell"
+                                                aria-pressed={showTableSearch}
+                                                onClick={() => {
+                                                    setShowTableSearch((prev) => !prev);
+                                                    if (showTableSearch) setSearchQuery('');
+                                                }}
                                             />
-                                        </ActionMenu.Trigger>
-                                    </Tooltip>
-                                    <ActionMenu.Content align="end">
-                                        <ActionMenu.Item onClick={() => setShowAddToDashboardDialog(true)}>
-                                            Legg til i dashboard
-                                        </ActionMenu.Item>
-                                        <ActionMenu.Item onClick={() => setShowTransferToMetabaseDialog(true)}>
-                                            Overfør til Metabase
-                                        </ActionMenu.Item>
-                                        <ActionMenu.Item onClick={() => openSqlEditorWithContext({ sql: getUserProfilesSqlTemplate(), websiteId: selectedWebsite?.id })}>
-                                            Åpne i SQL-editor
-                                        </ActionMenu.Item>
-                                        <ActionMenu.Item
-                                            onClick={() => downloadProfilesCsv(filteredUsers)}
-                                            disabled={filteredUsers.length === 0}
-                                        >
-                                            Last ned CSV
-                                        </ActionMenu.Item>
-                                        {queryStats && (
-                                            <>
-                                                <ActionMenu.Divider />
-                                                <div className="px-3 py-2 text-xs text-[var(--ax-text-subtle)]">
-                                                    {queryStats.totalBytesProcessedGB} GB prosessert
-                                                </div>
-                                            </>
-                                        )}
-                                    </ActionMenu.Content>
-                                </ActionMenu>
-                                </>
-                            )}
-                            controls={showTableSearch ? (
-                                <div className="mb-4 w-full sm:w-64 min-w-0">
-                                    <TextField
-                                        label="Søk"
-                                        hideLabel
-                                        placeholder="Søk..."
-                                        size="small"
-                                        value={searchQuery}
-                                        ref={tableSearchInputRef}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                    />
-                                </div>
-                            ) : undefined}
-                        />
-
-                        <div className="border rounded-lg overflow-hidden">
-                            <div className="overflow-x-auto">
+                                        </Tooltip>
+                                        <ActionMenu>
+                                            <Tooltip content="Flere valg" placement="top">
+                                                <ActionMenu.Trigger>
+                                                    <Button
+                                                        type="button"
+                                                        variant="tertiary"
+                                                        size="xsmall"
+                                                        icon={<MoreVertical aria-hidden />}
+                                                        aria-label="Flere valg for brukertabell"
+                                                    />
+                                                </ActionMenu.Trigger>
+                                            </Tooltip>
+                                            <ActionMenu.Content align="end">
+                                                <ActionMenu.Item onClick={() => setShowAddToDashboardDialog(true)}>
+                                                    Legg til i dashboard
+                                                </ActionMenu.Item>
+                                                <ActionMenu.Item onClick={() => setShowTransferToMetabaseDialog(true)}>
+                                                    Overfør til Metabase
+                                                </ActionMenu.Item>
+                                                <ActionMenu.Item onClick={() => openSqlEditorWithContext({ sql: getUserProfilesSqlTemplate(), websiteId: selectedWebsite?.id })}>
+                                                    Åpne i SQL-editor
+                                                </ActionMenu.Item>
+                                                <ActionMenu.Item
+                                                    onClick={() => downloadProfilesCsv(filteredUsers)}
+                                                    disabled={filteredUsers.length === 0}
+                                                >
+                                                    Last ned CSV
+                                                </ActionMenu.Item>
+                                                {queryStats && (
+                                                    <>
+                                                        <ActionMenu.Divider />
+                                                        <div className="px-3 py-2 text-xs text-[var(--ax-text-subtle)]">
+                                                            {queryStats.totalBytesProcessedGB} GB prosessert
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </ActionMenu.Content>
+                                        </ActionMenu>
+                                        </>
+                                    )}
+                                    controls={showTableSearch ? (
+                                        <div className="w-full sm:w-64 min-w-0">
+                                            <TextField
+                                                label="Søk"
+                                                hideLabel
+                                                placeholder="Søk..."
+                                                size="small"
+                                                value={searchQuery}
+                                                ref={tableSearchInputRef}
+                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                            />
+                                        </div>
+                                    ) : undefined}
+                                />
+                            </div>
+                            <div className="overflow-x-auto px-4">
                                 <Table size="medium" zebraStripes>
                                     <Table.Header>
                                         <Table.Row>
@@ -524,18 +525,19 @@ const UserProfiles = () => {
                                     </Table.Body>
                                 </Table>
                             </div>
-                        </div>
-
-                        {totalUsers > ROWS_PER_PAGE && (
-                            <div className="mt-4 flex justify-center">
-                                <Pagination
-                                    page={page}
-                                    onPageChange={setPage}
-                                    count={Math.ceil(totalUsers / ROWS_PER_PAGE)}
-                                    size="small"
-                                />
+                            {totalUsers > ROWS_PER_PAGE ? (
+                                <div className="flex justify-center px-4 pb-4 pt-2">
+                                    <Pagination
+                                        page={page}
+                                        onPageChange={setPage}
+                                        count={Math.ceil(totalUsers / ROWS_PER_PAGE)}
+                                        size="small"
+                                    />
+                                </div>
+                            ) : (
+                                <div className="px-4 pb-4" aria-hidden="true" />
+                            )}
                             </div>
-                        )}
                     </>
                 );
             })()}

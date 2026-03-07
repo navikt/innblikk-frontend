@@ -98,7 +98,7 @@ export const computeTrafficStats = (
     return {
         box1Label: 'Totalt',
         box1Value: totalOverride !== undefined ? totalOverride : sum,
-        box2Label: `Gjennomsnitt per ${timeUnitLabel}`,
+        box2Label: `Snitt per ${timeUnitLabel}`,
         box2Value: avg,
         box2Suffix: `${valueSuffix} (median: ${formatMetricValue(median, metricType)})`,
         box3Label: `${box3Label} ${maxLabelText}`,
@@ -107,4 +107,3 @@ export const computeTrafficStats = (
         valueSuffix,
     };
 };
-

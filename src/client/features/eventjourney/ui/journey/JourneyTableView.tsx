@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActionMenu, Button, Heading, Pagination, Select, TextField, Tooltip } from '@navikt/ds-react';
+import { ActionMenu, Button, Pagination, Select, TextField, Tooltip } from '@navikt/ds-react';
 import { MoreVertical, Search } from 'lucide-react';
 import { parseJourneyStep } from '../../utils/parsers.ts';
+import TableSectionHeader from '../../../../shared/ui/TableSectionHeader.tsx';
 
 interface JourneyTableViewProps {
     journeys: { path: string[]; count: number }[];
@@ -68,64 +69,66 @@ const JourneyTableView = ({ journeys, totalSessions }: JourneyTableViewProps) =>
 
     return (
         <>
-            <div className="space-y-4">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                    <Heading level="3" size="small">Tabell</Heading>
-                    <div className="flex items-center gap-1">
-                        <Tooltip content="Søk" placement="top">
-                            <Button
-                                type="button"
-                                variant={showSearch ? 'secondary' : 'tertiary'}
-                                size="xsmall"
-                                icon={<Search aria-hidden />}
-                                aria-label="Søk i tabell"
-                                aria-pressed={showSearch}
-                                onClick={() => {
-                                    setShowSearch((prev) => !prev);
-                                    if (showSearch) setSearch('');
-                                }}
-                            />
-                        </Tooltip>
-                        <ActionMenu>
-                            <Tooltip content="Flere valg" placement="top">
-                                <ActionMenu.Trigger>
+            <div className="border border-[var(--ax-border-neutral-subtle)] rounded-lg overflow-hidden bg-[var(--ax-bg-default)]">
+                <div className="p-4 pb-2">
+                    <TableSectionHeader
+                        title="Tabell"
+                        actions={(
+                            <>
+                                <Tooltip content="Søk" placement="top">
                                     <Button
                                         type="button"
-                                        variant="tertiary"
+                                        variant={showSearch ? 'secondary' : 'tertiary'}
                                         size="xsmall"
-                                        icon={<MoreVertical aria-hidden />}
-                                        aria-label="Flere valg for tabell"
+                                        icon={<Search aria-hidden />}
+                                        aria-label="Søk i tabell"
+                                        aria-pressed={showSearch}
+                                        onClick={() => {
+                                            setShowSearch((prev) => !prev);
+                                            if (showSearch) setSearch('');
+                                        }}
                                     />
-                                </ActionMenu.Trigger>
-                            </Tooltip>
-                            <ActionMenu.Content align="end">
-                                <ActionMenu.Item onClick={handleDownloadCsv} disabled={filteredJourneys.length === 0}>
-                                    Last ned
-                                </ActionMenu.Item>
-                                <ActionMenu.Divider />
-                                <div className="px-3 py-2 text-xs text-[var(--ax-text-subtle)]">
-                                    {filteredJourneys.length} rader
-                                </div>
-                            </ActionMenu.Content>
-                        </ActionMenu>
-                    </div>
+                                </Tooltip>
+                                <ActionMenu>
+                                    <Tooltip content="Flere valg" placement="top">
+                                        <ActionMenu.Trigger>
+                                            <Button
+                                                type="button"
+                                                variant="tertiary"
+                                                size="xsmall"
+                                                icon={<MoreVertical aria-hidden />}
+                                                aria-label="Flere valg for tabell"
+                                            />
+                                        </ActionMenu.Trigger>
+                                    </Tooltip>
+                                    <ActionMenu.Content align="end">
+                                        <ActionMenu.Item onClick={handleDownloadCsv} disabled={filteredJourneys.length === 0}>
+                                            Last ned
+                                        </ActionMenu.Item>
+                                        <ActionMenu.Divider />
+                                        <div className="px-3 py-2 text-xs text-[var(--ax-text-subtle)]">
+                                            {filteredJourneys.length} rader
+                                        </div>
+                                    </ActionMenu.Content>
+                                </ActionMenu>
+                            </>
+                        )}
+                        controls={showSearch ? (
+                            <div className="w-full sm:w-64 min-w-0">
+                                <TextField
+                                    label="Søk"
+                                    hideLabel
+                                    placeholder="Søk..."
+                                    size="small"
+                                    value={search}
+                                    ref={searchInputRef}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                />
+                            </div>
+                        ) : undefined}
+                    />
                 </div>
-                {showSearch && (
-                    <div className="w-full sm:w-64 min-w-0">
-                        <TextField
-                            label="Søk"
-                            hideLabel
-                            placeholder="Søk..."
-                            size="small"
-                            value={search}
-                            ref={searchInputRef}
-                            onChange={(e) => setSearch(e.target.value)}
-                        />
-                    </div>
-                )}
-            </div>
-            <div className="border rounded-lg overflow-hidden">
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto px-4">
                     <table className="min-w-full divide-y divide-[var(--ax-border-neutral-subtle)]">
                         <thead className="bg-[var(--ax-bg-neutral-soft)]">
                             <tr>
@@ -149,6 +152,7 @@ const JourneyTableView = ({ journeys, totalSessions }: JourneyTableViewProps) =>
                         </tbody>
                     </table>
                 </div>
+                <div className="px-4 pb-4" aria-hidden="true" />
             </div>
             <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div className="text-sm text-[var(--ax-text-subtle)]">

@@ -107,21 +107,21 @@ const OversiktTabContent = ({
             )}
             {submittedComparePreviousPeriod && comparisonSummary && comparisonRangeLabel && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <div className="bg-[var(--ax-bg-default)] p-4 rounded-lg border border-[var(--ax-border-neutral-subtle)] shadow-sm">
+                    <div className="bg-[var(--ax-bg-default)] p-4 rounded-lg border border-[var(--ax-border-neutral-subtle)]">
                         <div className="text-sm text-[var(--ax-text-default)] font-medium mb-1">Valgt periode</div>
                         <div className="text-2xl font-bold text-[var(--ax-text-default)]">
                             {formatComparisonValue(comparisonSummary.currentValue)}
                         </div>
                         <div className="text-sm text-[var(--ax-text-subtle)] mt-1">{comparisonRangeLabel.current}</div>
                     </div>
-                    <div className="bg-[var(--ax-bg-default)] p-4 rounded-lg border border-[var(--ax-border-neutral-subtle)] shadow-sm">
+                    <div className="bg-[var(--ax-bg-default)] p-4 rounded-lg border border-[var(--ax-border-neutral-subtle)]">
                         <div className="text-sm text-[var(--ax-text-default)] font-medium mb-1">Forrige periode</div>
                         <div className="text-2xl font-bold text-[var(--ax-text-default)]">
                             {formatComparisonValue(comparisonSummary.previousValue)}
                         </div>
                         <div className="text-sm text-[var(--ax-text-subtle)] mt-1">{comparisonRangeLabel.previous}</div>
                     </div>
-                    <div className="bg-[var(--ax-bg-default)] p-4 rounded-lg border border-[var(--ax-border-neutral-subtle)] shadow-sm">
+                    <div className="bg-[var(--ax-bg-default)] p-4 rounded-lg border border-[var(--ax-border-neutral-subtle)]">
                         <div className="text-sm text-[var(--ax-text-default)] font-medium mb-1">Endring</div>
                         <div className={`text-2xl font-bold ${comparisonSummary.deltaPercent !== null ? (comparisonSummary.deltaPercent > 0 ? 'text-green-700' : comparisonSummary.deltaPercent < 0 ? 'text-red-700' : 'text-[var(--ax-text-default)]') : 'text-[var(--ax-text-default)]'}`}>
                             {comparisonSummary.deltaPercent === null

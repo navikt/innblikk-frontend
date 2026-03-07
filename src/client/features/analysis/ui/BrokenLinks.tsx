@@ -282,67 +282,69 @@ const BrokenLinks = () => {
                                     }
                                 </Alert>
                             ) : (
-                                <div className="space-y-4">
-                                    <div className="mb-2 flex items-center justify-between gap-2">
-                                        <Heading level="3" size="small">Sider med ødelagte lenker</Heading>
-                                        <div className="flex items-center gap-1">
-                                            <Tooltip content="Søk" placement="top">
-                                                <Button
-                                                    type="button"
-                                                    variant={showPagesSearch ? 'secondary' : 'tertiary'}
-                                                    size="xsmall"
-                                                    icon={<Search aria-hidden />}
-                                                    aria-label="Søk i sider med ødelagte lenker"
-                                                    aria-pressed={showPagesSearch}
-                                                    onClick={() => {
-                                                        setShowPagesSearch((prev) => !prev);
-                                                        if (showPagesSearch) setPagesSearch('');
-                                                    }}
-                                                />
-                                            </Tooltip>
-                                            <ActionMenu>
-                                                <Tooltip content="Flere valg" placement="top">
-                                                    <ActionMenu.Trigger>
-                                                        <Button
-                                                            type="button"
-                                                            variant="tertiary"
-                                                            size="xsmall"
-                                                            icon={<MoreVertical aria-hidden />}
-                                                            aria-label="Flere valg for sider med ødelagte lenker"
-                                                        />
-                                                    </ActionMenu.Trigger>
-                                                </Tooltip>
-                                                <ActionMenu.Content align="end">
-                                                    <ActionMenu.Item
+                                <div className="border border-[var(--ax-border-neutral-subtle)] rounded-lg overflow-hidden bg-[var(--ax-bg-default)]">
+                                    <div className="p-4 pb-2">
+                                        <div className="mb-2 flex items-center justify-between gap-2">
+                                            <Heading level="3" size="small">Sider med ødelagte lenker</Heading>
+                                            <div className="flex items-center gap-1">
+                                                <Tooltip content="Søk" placement="top">
+                                                    <Button
+                                                        type="button"
+                                                        variant={showPagesSearch ? 'secondary' : 'tertiary'}
+                                                        size="xsmall"
+                                                        icon={<Search aria-hidden />}
+                                                        aria-label="Søk i sider med ødelagte lenker"
+                                                        aria-pressed={showPagesSearch}
                                                         onClick={() => {
-                                                            downloadCsv(
-                                                                `sider_med_odelagte_lenker_${selectedWebsite?.name || 'data'}_${new Date().toISOString().slice(0, 10)}.csv`,
-                                                                ['URL', 'Ødelagte lenker'],
-                                                                displayedPages.map((page) => [`"${getUrlPath(page.url)}"`, String(page.broken_links)])
-                                                            );
+                                                            setShowPagesSearch((prev) => !prev);
+                                                            if (showPagesSearch) setPagesSearch('');
                                                         }}
-                                                        disabled={displayedPages.length === 0}
-                                                    >
-                                                        Last ned
-                                                    </ActionMenu.Item>
-                                                </ActionMenu.Content>
-                                            </ActionMenu>
+                                                    />
+                                                </Tooltip>
+                                                <ActionMenu>
+                                                    <Tooltip content="Flere valg" placement="top">
+                                                        <ActionMenu.Trigger>
+                                                            <Button
+                                                                type="button"
+                                                                variant="tertiary"
+                                                                size="xsmall"
+                                                                icon={<MoreVertical aria-hidden />}
+                                                                aria-label="Flere valg for sider med ødelagte lenker"
+                                                            />
+                                                        </ActionMenu.Trigger>
+                                                    </Tooltip>
+                                                    <ActionMenu.Content align="end">
+                                                        <ActionMenu.Item
+                                                            onClick={() => {
+                                                                downloadCsv(
+                                                                    `sider_med_odelagte_lenker_${selectedWebsite?.name || 'data'}_${new Date().toISOString().slice(0, 10)}.csv`,
+                                                                    ['URL', 'Ødelagte lenker'],
+                                                                    displayedPages.map((page) => [`"${getUrlPath(page.url)}"`, String(page.broken_links)])
+                                                                );
+                                                            }}
+                                                            disabled={displayedPages.length === 0}
+                                                        >
+                                                            Last ned
+                                                        </ActionMenu.Item>
+                                                    </ActionMenu.Content>
+                                                </ActionMenu>
+                                            </div>
                                         </div>
+                                        {showPagesSearch && (
+                                            <div className="w-full sm:w-64 min-w-0">
+                                                <TextField
+                                                    label="Søk"
+                                                    hideLabel
+                                                    placeholder="Søk..."
+                                                    size="small"
+                                                    value={pagesSearch}
+                                                    ref={pagesSearchInputRef}
+                                                    onChange={(e) => setPagesSearch(e.target.value)}
+                                                />
+                                            </div>
+                                        )}
                                     </div>
-                                    {showPagesSearch && (
-                                        <div className="w-full sm:w-64 min-w-0">
-                                            <TextField
-                                                label="Søk"
-                                                hideLabel
-                                                placeholder="Søk..."
-                                                size="small"
-                                                value={pagesSearch}
-                                                ref={pagesSearchInputRef}
-                                                onChange={(e) => setPagesSearch(e.target.value)}
-                                            />
-                                        </div>
-                                    )}
-                                <div className="border rounded-lg overflow-x-auto bg-[var(--ax-bg-default)]">
+                                <div className="overflow-x-auto px-4 pb-4">
                                     <Table size="small" zebraStripes>
                                         <Table.Header>
                                             <Table.Row>
@@ -396,67 +398,69 @@ const BrokenLinks = () => {
                                     {linksSearch ? `Fant ingen treff for "${linksSearch}"` : 'Fant ingen ødelagte lenker! 🎉'}
                                 </Alert>
                             ) : (
-                                <div className="space-y-4">
-                                    <div className="mb-2 flex items-center justify-between gap-2">
-                                        <Heading level="3" size="small">Alle ødelagte lenker</Heading>
-                                        <div className="flex items-center gap-1">
-                                            <Tooltip content="Søk" placement="top">
-                                                <Button
-                                                    type="button"
-                                                    variant={showLinksSearch ? 'secondary' : 'tertiary'}
-                                                    size="xsmall"
-                                                    icon={<Search aria-hidden />}
-                                                    aria-label="Søk i alle ødelagte lenker"
-                                                    aria-pressed={showLinksSearch}
-                                                    onClick={() => {
-                                                        setShowLinksSearch((prev) => !prev);
-                                                        if (showLinksSearch) setLinksSearch('');
-                                                    }}
-                                                />
-                                            </Tooltip>
-                                            <ActionMenu>
-                                                <Tooltip content="Flere valg" placement="top">
-                                                    <ActionMenu.Trigger>
-                                                        <Button
-                                                            type="button"
-                                                            variant="tertiary"
-                                                            size="xsmall"
-                                                            icon={<MoreVertical aria-hidden />}
-                                                            aria-label="Flere valg for alle ødelagte lenker"
-                                                        />
-                                                    </ActionMenu.Trigger>
-                                                </Tooltip>
-                                                <ActionMenu.Content align="end">
-                                                    <ActionMenu.Item
+                                <div className="border border-[var(--ax-border-neutral-subtle)] rounded-lg overflow-hidden bg-[var(--ax-bg-default)]">
+                                    <div className="p-4 pb-2">
+                                        <div className="mb-2 flex items-center justify-between gap-2">
+                                            <Heading level="3" size="small">Alle ødelagte lenker</Heading>
+                                            <div className="flex items-center gap-1">
+                                                <Tooltip content="Søk" placement="top">
+                                                    <Button
+                                                        type="button"
+                                                        variant={showLinksSearch ? 'secondary' : 'tertiary'}
+                                                        size="xsmall"
+                                                        icon={<Search aria-hidden />}
+                                                        aria-label="Søk i alle ødelagte lenker"
+                                                        aria-pressed={showLinksSearch}
                                                         onClick={() => {
-                                                            downloadCsv(
-                                                                `odelagte_lenker_${selectedWebsite?.name || 'data'}_${new Date().toISOString().slice(0, 10)}.csv`,
-                                                                ['URL', 'Tilfeller'],
-                                                                displayedLinks.map((bl) => [`"${bl.url}"`, String(bl.pages)])
-                                                            );
+                                                            setShowLinksSearch((prev) => !prev);
+                                                            if (showLinksSearch) setLinksSearch('');
                                                         }}
-                                                        disabled={displayedLinks.length === 0}
-                                                    >
-                                                        Last ned
-                                                    </ActionMenu.Item>
-                                                </ActionMenu.Content>
-                                            </ActionMenu>
+                                                    />
+                                                </Tooltip>
+                                                <ActionMenu>
+                                                    <Tooltip content="Flere valg" placement="top">
+                                                        <ActionMenu.Trigger>
+                                                            <Button
+                                                                type="button"
+                                                                variant="tertiary"
+                                                                size="xsmall"
+                                                                icon={<MoreVertical aria-hidden />}
+                                                                aria-label="Flere valg for alle ødelagte lenker"
+                                                            />
+                                                        </ActionMenu.Trigger>
+                                                    </Tooltip>
+                                                    <ActionMenu.Content align="end">
+                                                        <ActionMenu.Item
+                                                            onClick={() => {
+                                                                downloadCsv(
+                                                                    `odelagte_lenker_${selectedWebsite?.name || 'data'}_${new Date().toISOString().slice(0, 10)}.csv`,
+                                                                    ['URL', 'Tilfeller'],
+                                                                    displayedLinks.map((bl) => [`"${bl.url}"`, String(bl.pages)])
+                                                                );
+                                                            }}
+                                                            disabled={displayedLinks.length === 0}
+                                                        >
+                                                            Last ned
+                                                        </ActionMenu.Item>
+                                                    </ActionMenu.Content>
+                                                </ActionMenu>
+                                            </div>
                                         </div>
+                                        {showLinksSearch && (
+                                            <div className="w-full sm:w-64 min-w-0">
+                                                <TextField
+                                                    label="Søk"
+                                                    hideLabel
+                                                    placeholder="Søk..."
+                                                    size="small"
+                                                    value={linksSearch}
+                                                    ref={linksSearchInputRef}
+                                                    onChange={(e) => setLinksSearch(e.target.value)}
+                                                />
+                                            </div>
+                                        )}
                                     </div>
-                                    {showLinksSearch && (
-                                        <div className="w-full sm:w-64 min-w-0">
-                                            <TextField
-                                                label="Søk"
-                                                hideLabel
-                                                placeholder="Søk..."
-                                                size="small"
-                                                value={linksSearch}
-                                                ref={linksSearchInputRef}
-                                                onChange={(e) => setLinksSearch(e.target.value)}
-                                            />
-                                        </div>
-                                    )}
-                                <div className="border rounded-lg overflow-x-auto bg-[var(--ax-bg-neutral)]">
+                                <div className="overflow-x-auto px-4 pb-4">
                                     <Table size="small" zebraStripes>
                                         <Table.Header>
                                             <Table.Row>

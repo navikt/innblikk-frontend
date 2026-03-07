@@ -3,7 +3,6 @@ import {
   ActionMenu,
   Alert,
   Button,
-  Heading,
   Loader,
   ReadMore,
   Select,
@@ -17,6 +16,7 @@ import WebsitePicker from "../../analysis/ui/WebsitePicker.tsx";
 import PeriodPicker from "../../analysis/ui/PeriodPicker.tsx";
 import UmamiJourneyView from "../../analysis/ui/journey/UmamiJourneyView.tsx";
 import AnalysisActionModal from "../../analysis/ui/AnalysisActionModal.tsx";
+import TableSectionHeader from "../../../shared/ui/TableSectionHeader.tsx";
 import type { Website } from "../../../shared/types/chart.ts";
 import { normalizeUrlToPath } from "../../../shared/lib/utils.ts";
 import type { JourneyLink } from "../model";
@@ -344,71 +344,73 @@ const UserJourney = () => {
 
           {showTableSection && (
             <div className="pt-4">
-              <div className="space-y-4">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <Heading level="3" size="small">Tabell</Heading>
-                  <div className="flex items-center gap-1">
-                    <Tooltip content="Søk" placement="top">
-                      <Button
-                        type="button"
-                        variant={showTableSearch ? "secondary" : "tertiary"}
-                        size="xsmall"
-                        icon={<Search aria-hidden />}
-                        aria-label="Søk i tabell"
-                        aria-pressed={showTableSearch}
-                        onClick={() => {
-                          setShowTableSearch((prev) => !prev);
-                          if (showTableSearch) setTableSearch("");
-                        }}
-                      />
-                    </Tooltip>
-                    <ActionMenu>
-                      <Tooltip content="Flere valg" placement="top">
-                        <ActionMenu.Trigger>
+              <div className="border border-[var(--ax-border-neutral-subtle)] rounded-lg overflow-hidden bg-[var(--ax-bg-default)]">
+                <div className="p-4 pb-2">
+                  <TableSectionHeader
+                    title="Tabell"
+                    actions={(
+                      <>
+                        <Tooltip content="Søk" placement="top">
                           <Button
                             type="button"
-                            variant="tertiary"
+                            variant={showTableSearch ? "secondary" : "tertiary"}
                             size="xsmall"
-                            icon={<MoreVertical aria-hidden />}
-                            aria-label="Flere valg for tabell"
+                            icon={<Search aria-hidden />}
+                            aria-label="Søk i tabell"
+                            aria-pressed={showTableSearch}
+                            onClick={() => {
+                              setShowTableSearch((prev) => !prev);
+                              if (showTableSearch) setTableSearch("");
+                            }}
                           />
-                        </ActionMenu.Trigger>
-                      </Tooltip>
-                      <ActionMenu.Content align="end">
-                        <ActionMenu.Item onClick={handleDownloadCSV}>
-                          Last ned CSV
-                        </ActionMenu.Item>
-                        <ActionMenu.Item onClick={handleDownloadExcel}>
-                          Last ned Excel
-                        </ActionMenu.Item>
-                        <ActionMenu.Divider />
-                        <div className="px-3 py-2 text-xs text-[var(--ax-text-subtle)]">
-                          {rawData &&
-                            `${filteredTableLinks.length} forbindelser mellom ${rawData.nodes.length} sider`}
-                          {queryStats && (
-                            <span> • {queryStats.totalBytesProcessedGB} GB prosessert</span>
-                          )}
-                        </div>
-                      </ActionMenu.Content>
-                    </ActionMenu>
-                  </div>
+                        </Tooltip>
+                        <ActionMenu>
+                          <Tooltip content="Flere valg" placement="top">
+                            <ActionMenu.Trigger>
+                              <Button
+                                type="button"
+                                variant="tertiary"
+                                size="xsmall"
+                                icon={<MoreVertical aria-hidden />}
+                                aria-label="Flere valg for tabell"
+                              />
+                            </ActionMenu.Trigger>
+                          </Tooltip>
+                          <ActionMenu.Content align="end">
+                            <ActionMenu.Item onClick={handleDownloadCSV}>
+                              Last ned CSV
+                            </ActionMenu.Item>
+                            <ActionMenu.Item onClick={handleDownloadExcel}>
+                              Last ned Excel
+                            </ActionMenu.Item>
+                            <ActionMenu.Divider />
+                            <div className="px-3 py-2 text-xs text-[var(--ax-text-subtle)]">
+                              {rawData &&
+                                `${filteredTableLinks.length} forbindelser mellom ${rawData.nodes.length} sider`}
+                              {queryStats && (
+                                <span> • {queryStats.totalBytesProcessedGB} GB prosessert</span>
+                              )}
+                            </div>
+                          </ActionMenu.Content>
+                        </ActionMenu>
+                      </>
+                    )}
+                    controls={showTableSearch ? (
+                      <div className="w-full sm:w-64 min-w-0">
+                        <TextField
+                          label="Søk"
+                          hideLabel
+                          placeholder="Søk..."
+                          size="small"
+                          value={tableSearch}
+                          ref={tableSearchInputRef}
+                          onChange={(e) => setTableSearch(e.target.value)}
+                        />
+                      </div>
+                    ) : undefined}
+                  />
                 </div>
-                {showTableSearch && (
-                  <div className="w-full sm:w-64 min-w-0">
-                    <TextField
-                      label="Søk"
-                      hideLabel
-                      placeholder="Søk..."
-                      size="small"
-                      value={tableSearch}
-                      ref={tableSearchInputRef}
-                      onChange={(e) => setTableSearch(e.target.value)}
-                    />
-                  </div>
-                )}
-              </div>
-              <div className="border rounded-lg overflow-hidden">
-                <div className="overflow-x-auto max-h-[550px] overflow-y-auto">
+                <div className="overflow-x-auto max-h-[550px] overflow-y-auto px-4">
                   <table className="min-w-full divide-y divide-[var(--ax-border-neutral-subtle)]">
                     <thead className="bg-[var(--ax-bg-neutral-soft)] sticky top-0">
                       <tr>
@@ -495,6 +497,7 @@ const UserJourney = () => {
                     </tbody>
                   </table>
                 </div>
+                <div className="px-4 pb-4" aria-hidden="true" />
               </div>
             </div>
           )}

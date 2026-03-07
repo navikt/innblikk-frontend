@@ -28,8 +28,8 @@ const DashboardWidgetTable = ({ data, page, onPageChange, showTotal, onSelectUrl
     const currentData = tableData.slice(start, end);
 
     return (
-        <div className="flex flex-col gap-4">
-            <div className="overflow-x-auto">
+        <div className="flex flex-col">
+            <div className="overflow-x-auto px-4">
                 <Table size="small">
                     <Table.Header>
                         <Table.Row>
@@ -74,8 +74,8 @@ const DashboardWidgetTable = ({ data, page, onPageChange, showTotal, onSelectUrl
                     </Table.Body>
                 </Table>
             </div>
-            {totalRows > rowsPerPage && (
-                <div className="flex justify-center">
+            {totalRows > rowsPerPage ? (
+                <div className="flex justify-center px-4 pb-4 pt-2">
                     <Pagination
                         page={page}
                         onPageChange={onPageChange}
@@ -83,10 +83,11 @@ const DashboardWidgetTable = ({ data, page, onPageChange, showTotal, onSelectUrl
                         size="small"
                     />
                 </div>
+            ) : (
+                <div className="px-4 pb-4" aria-hidden="true" />
             )}
         </div>
     );
 };
 
 export default DashboardWidgetTable;
-

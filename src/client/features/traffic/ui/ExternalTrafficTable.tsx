@@ -97,67 +97,70 @@ const ExternalTrafficTable = ({ title, data, metricLabel, websiteDomain, submitt
     return (
         <>
         <VStack gap="space-4">
-            <TableSectionHeader
-                title={title}
-                actions={(
-                    <>
-                    <Tooltip content="Søk" placement="top">
-                        <Button
-                            type="button"
-                            variant={showSearch ? 'secondary' : 'tertiary'}
-                            size="xsmall"
-                            icon={<Search aria-hidden />}
-                            aria-label={`Søk i ${title}`}
-                            aria-pressed={showSearch}
-                            onClick={() => {
-                                setShowSearch((prev) => !prev);
-                                if (showSearch) setSearch('');
-                            }}
-                        />
-                    </Tooltip>
-                    <ActionMenu>
-                        <Tooltip content="Flere valg" placement="top">
-                            <ActionMenu.Trigger>
+            <div className="border border-[var(--ax-border-neutral-subtle)] rounded-lg overflow-hidden bg-[var(--ax-bg-default)]">
+                <div className="p-4 pb-2">
+                    <TableSectionHeader
+                        title={title}
+                        actions={(
+                            <>
+                            <Tooltip content="Søk" placement="top">
                                 <Button
                                     type="button"
-                                    variant="tertiary"
+                                    variant={showSearch ? 'secondary' : 'tertiary'}
                                     size="xsmall"
-                                    icon={<MoreVertical aria-hidden />}
-                                    aria-label={`Flere valg for ${title}`}
+                                    icon={<Search aria-hidden />}
+                                    aria-label={`Søk i ${title}`}
+                                    aria-pressed={showSearch}
+                                    onClick={() => {
+                                        setShowSearch((prev) => !prev);
+                                        if (showSearch) setSearch('');
+                                    }}
                                 />
-                            </ActionMenu.Trigger>
-                        </Tooltip>
-                        <ActionMenu.Content align="end">
-                            <ActionMenu.Item onClick={() => setShowAddToDashboardDialog(true)} disabled={!filteredData.length}>
-                                Legg til i dashboard
-                            </ActionMenu.Item>
-                            <ActionMenu.Item onClick={() => setShowTransferToMetabaseDialog(true)}>
-                                Overfør til Metabase
-                            </ActionMenu.Item>
-                            <ActionMenu.Item onClick={() => openSqlEditorWithContext({ sql: addToDashboardSql })}>
-                                Åpne i SQL-editor
-                            </ActionMenu.Item>
-                            <ActionMenu.Item onClick={handleDownloadCSV} disabled={!data.length}>Last ned CSV</ActionMenu.Item>
-                        </ActionMenu.Content>
-                    </ActionMenu>
-                    </>
-                )}
-                controls={showSearch ? (
-                    <div className="w-full sm:w-64 min-w-0">
-                        <TextField
-                            label="Søk"
-                            hideLabel
-                            placeholder="Søk..."
-                            size="small"
-                            value={search}
-                            ref={searchInputRef}
-                            onChange={(e) => setSearch(e.target.value)}
-                        />
-                    </div>
-                ) : undefined}
-            />
-            <div className="border rounded-lg overflow-x-auto">
-                <div className="min-w-max">
+                            </Tooltip>
+                            <ActionMenu>
+                                <Tooltip content="Flere valg" placement="top">
+                                    <ActionMenu.Trigger>
+                                        <Button
+                                            type="button"
+                                            variant="tertiary"
+                                            size="xsmall"
+                                            icon={<MoreVertical aria-hidden />}
+                                            aria-label={`Flere valg for ${title}`}
+                                        />
+                                    </ActionMenu.Trigger>
+                                </Tooltip>
+                                <ActionMenu.Content align="end">
+                                    <ActionMenu.Item onClick={() => setShowAddToDashboardDialog(true)} disabled={!filteredData.length}>
+                                        Legg til i dashboard
+                                    </ActionMenu.Item>
+                                    <ActionMenu.Item onClick={() => setShowTransferToMetabaseDialog(true)}>
+                                        Overfør til Metabase
+                                    </ActionMenu.Item>
+                                    <ActionMenu.Item onClick={() => openSqlEditorWithContext({ sql: addToDashboardSql })}>
+                                        Åpne i SQL-editor
+                                    </ActionMenu.Item>
+                                    <ActionMenu.Item onClick={handleDownloadCSV} disabled={!data.length}>Last ned CSV</ActionMenu.Item>
+                                </ActionMenu.Content>
+                            </ActionMenu>
+                            </>
+                        )}
+                        controls={showSearch ? (
+                            <div className="w-full sm:w-64 min-w-0">
+                                <TextField
+                                    label="Søk"
+                                    hideLabel
+                                    placeholder="Søk..."
+                                    size="small"
+                                    value={search}
+                                    ref={searchInputRef}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                />
+                            </div>
+                        ) : undefined}
+                    />
+                </div>
+                <div className="overflow-x-auto px-4">
+                    <div className="min-w-max">
                     <Table size="small" className="table-auto min-w-full [&_th:first-child]:!pl-2 [&_th:first-child]:!pr-2 [&_td:first-child]:!pl-2 [&_td:first-child]:!pr-2">
                         <colgroup>
                             <col style={{ width: '6.75rem' }} />
@@ -187,16 +190,21 @@ const ExternalTrafficTable = ({ title, data, metricLabel, websiteDomain, submitt
                             )}
                         </Table.Body>
                     </Table>
+                    </div>
                 </div>
+                {totalPages > 1 ? (
+                    <div className="px-4 py-3">
+                        <Pagination
+                            page={currentPage}
+                            onPageChange={setPage}
+                            count={totalPages}
+                            size="small"
+                        />
+                    </div>
+                ) : (
+                    <div className="px-4 pb-4" aria-hidden="true" />
+                )}
             </div>
-            {totalPages > 1 && (
-                <Pagination
-                    page={currentPage}
-                    onPageChange={setPage}
-                    count={totalPages}
-                    size="small"
-                />
-            )}
         </VStack>
         <AddToDashboardDialog
             open={showAddToDashboardDialog}

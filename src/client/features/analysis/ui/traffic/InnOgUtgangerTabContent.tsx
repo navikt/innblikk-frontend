@@ -52,9 +52,9 @@ const InnOgUtgangerTabContent = ({
                     selectedWebsite={selectedWebsite}
                     metricLabel={metricLabel}
                 />
-                <div className="border border-[var(--ax-border-neutral-subtle)] rounded-lg p-6 bg-[var(--ax-bg-neutral-soft)]">
-                    <Heading level="3" size="small" className="mb-2">Vil du se hele brukerreisen?</Heading>
-                    <p className="text-[var(--ax-text-subtle)] mb-4 mt-3">
+                <div className="rounded-lg border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-6">
+                    <Heading level="3" size="small" className="mb-3">Vil du se hele brukerreisen?</Heading>
+                    <p className="text-[var(--ax-text-subtle)] mb-5">
                         Siden du er på nå viser hvor besøk starter og slutter. I navigasjonsflyt ser du hele reisen gjennom nettstedet.
                     </p>
                     <Button

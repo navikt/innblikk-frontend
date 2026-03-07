@@ -10,7 +10,7 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ data, metricType, totalOver
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="bg-[var(--ax-bg-default)] p-4 rounded-lg border border-[var(--ax-border-neutral-subtle)] shadow-sm">
+            <div className="bg-[var(--ax-bg-default)] p-4 rounded-lg border border-[var(--ax-border-neutral-subtle)]">
                 <div className="text-sm text-[var(--ax-text-default)] font-medium mb-1">{box1Label}</div>
                 <div className="text-2xl font-bold text-[var(--ax-text-default)] flex items-baseline gap-2">
                     {formatMetricValue(box1Value, metricType)}
@@ -21,7 +21,7 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ data, metricType, totalOver
                     )}
                 </div>
             </div>
-            <div className="bg-[var(--ax-bg-default)] p-4 rounded-lg border border-[var(--ax-border-neutral-subtle)] shadow-sm">
+            <div className="bg-[var(--ax-bg-default)] p-4 rounded-lg border border-[var(--ax-border-neutral-subtle)]">
                 <div className="text-sm text-[var(--ax-text-default)] font-medium mb-1">{box2Label}</div>
                 <div className="text-2xl font-bold text-[var(--ax-text-default)] flex items-baseline flex-wrap gap-2">
                     {formatMetricValue(box2Value, metricType)}
@@ -32,7 +32,7 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ data, metricType, totalOver
                     )}
                 </div>
             </div>
-            <div className="bg-[var(--ax-bg-default)] p-4 rounded-lg border border-[var(--ax-border-neutral-subtle)] shadow-sm">
+            <div className="bg-[var(--ax-bg-default)] p-4 rounded-lg border border-[var(--ax-border-neutral-subtle)]">
                 <div className="text-sm text-[var(--ax-text-default)] font-medium mb-1">{box3Label}</div>
                 <div className="text-2xl font-bold text-[var(--ax-text-default)] flex items-baseline flex-wrap gap-2">
                     {formatMetricValue(box3Value, metricType)}

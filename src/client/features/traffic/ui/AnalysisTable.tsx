@@ -111,75 +111,78 @@ const AnalysisTable = ({ title, data, metricLabel, queryStats, selectedWebsite, 
     return (
         <>
         <VStack gap="space-4">
-            <TableSectionHeader
-                title={title}
-                actions={(
-                    <>
-                    <Tooltip content="Søk" placement="top">
-                        <Button
-                            type="button"
-                            variant={showSearch ? 'secondary' : 'tertiary'}
-                            size="xsmall"
-                            icon={<Search aria-hidden />}
-                            aria-label={`Søk i ${title}`}
-                            aria-pressed={showSearch}
-                            onClick={() => {
-                                setShowSearch((prev) => !prev);
-                                if (showSearch) setSearch('');
-                            }}
-                        />
-                    </Tooltip>
-                    <ActionMenu>
-                        <Tooltip content="Flere valg" placement="top">
-                            <ActionMenu.Trigger>
+            <div className="border border-[var(--ax-border-neutral-subtle)] rounded-lg overflow-hidden bg-[var(--ax-bg-default)]">
+                <div className="p-4 pb-2">
+                    <TableSectionHeader
+                        title={title}
+                        actions={(
+                            <>
+                            <Tooltip content="Søk" placement="top">
                                 <Button
                                     type="button"
-                                    variant="tertiary"
+                                    variant={showSearch ? 'secondary' : 'tertiary'}
                                     size="xsmall"
-                                    icon={<MoreVertical aria-hidden />}
-                                    aria-label={`Flere valg for ${title}`}
+                                    icon={<Search aria-hidden />}
+                                    aria-label={`Søk i ${title}`}
+                                    aria-pressed={showSearch}
+                                    onClick={() => {
+                                        setShowSearch((prev) => !prev);
+                                        if (showSearch) setSearch('');
+                                    }}
                                 />
-                            </ActionMenu.Trigger>
-                        </Tooltip>
-                        <ActionMenu.Content align="end">
-                            <ActionMenu.Item onClick={() => setShowAddToDashboardDialog(true)} disabled={!filteredData.length}>
-                                Legg til i dashboard
-                            </ActionMenu.Item>
-                            <ActionMenu.Item onClick={() => setShowTransferToMetabaseDialog(true)}>
-                                Overfør til Metabase
-                            </ActionMenu.Item>
-                            <ActionMenu.Item onClick={() => openSqlEditorWithContext({ sql: addToDashboardSql, websiteId: selectedWebsite?.id })}>
-                                Åpne i SQL-editor
-                            </ActionMenu.Item>
-                            <ActionMenu.Item onClick={handleDownloadCSV} disabled={data.length === 0}>Last ned CSV</ActionMenu.Item>
-                            {queryStats && (
-                                <>
-                                    <ActionMenu.Divider />
-                                    <div className="px-3 py-2 text-xs text-[var(--ax-text-subtle)]">
-                                        {queryStats.totalBytesProcessedGB} GB prosessert
-                                    </div>
-                                </>
-                            )}
-                        </ActionMenu.Content>
-                    </ActionMenu>
-                    </>
-                )}
-                controls={showSearch ? (
-                    <div className="w-full sm:w-64 min-w-0">
-                        <TextField
-                            label="Søk"
-                            hideLabel
-                            placeholder="Søk..."
-                            size="small"
-                            value={search}
-                            ref={searchInputRef}
-                            onChange={(e) => setSearch(e.target.value)}
-                        />
-                    </div>
-                ) : undefined}
-            />
-            <div className="border rounded-lg overflow-x-auto">
-                <Table size="small">
+                            </Tooltip>
+                            <ActionMenu>
+                                <Tooltip content="Flere valg" placement="top">
+                                    <ActionMenu.Trigger>
+                                        <Button
+                                            type="button"
+                                            variant="tertiary"
+                                            size="xsmall"
+                                            icon={<MoreVertical aria-hidden />}
+                                            aria-label={`Flere valg for ${title}`}
+                                        />
+                                    </ActionMenu.Trigger>
+                                </Tooltip>
+                                <ActionMenu.Content align="end">
+                                    <ActionMenu.Item onClick={() => setShowAddToDashboardDialog(true)} disabled={!filteredData.length}>
+                                        Legg til i dashboard
+                                    </ActionMenu.Item>
+                                    <ActionMenu.Item onClick={() => setShowTransferToMetabaseDialog(true)}>
+                                        Overfør til Metabase
+                                    </ActionMenu.Item>
+                                    <ActionMenu.Item onClick={() => openSqlEditorWithContext({ sql: addToDashboardSql, websiteId: selectedWebsite?.id })}>
+                                        Åpne i SQL-editor
+                                    </ActionMenu.Item>
+                                    <ActionMenu.Item onClick={handleDownloadCSV} disabled={data.length === 0}>Last ned CSV</ActionMenu.Item>
+                                    {queryStats && (
+                                        <>
+                                            <ActionMenu.Divider />
+                                            <div className="px-3 py-2 text-xs text-[var(--ax-text-subtle)]">
+                                                {queryStats.totalBytesProcessedGB} GB prosessert
+                                            </div>
+                                        </>
+                                    )}
+                                </ActionMenu.Content>
+                            </ActionMenu>
+                            </>
+                        )}
+                        controls={showSearch ? (
+                            <div className="w-full sm:w-64 min-w-0">
+                                <TextField
+                                    label="Søk"
+                                    hideLabel
+                                    placeholder="Søk..."
+                                    size="small"
+                                    value={search}
+                                    ref={searchInputRef}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                />
+                            </div>
+                        ) : undefined}
+                    />
+                </div>
+                <div className="overflow-x-auto px-4">
+                    <Table size="small">
                     <Table.Header>
                         <Table.Row>
                             <Table.HeaderCell>Navn</Table.HeaderCell>
@@ -204,15 +207,20 @@ const AnalysisTable = ({ title, data, metricLabel, queryStats, selectedWebsite, 
                         )}
                     </Table.Body>
                 </Table>
+                </div>
+                {totalPages > 1 ? (
+                    <div className="px-4 py-3">
+                        <Pagination
+                            page={currentPage}
+                            onPageChange={setPage}
+                            count={totalPages}
+                            size="small"
+                        />
+                    </div>
+                ) : (
+                    <div className="px-4 pb-4" aria-hidden="true" />
+                )}
             </div>
-            {totalPages > 1 && (
-                <Pagination
-                    page={currentPage}
-                    onPageChange={setPage}
-                    count={totalPages}
-                    size="small"
-                />
-            )}
         </VStack>
         <AddToDashboardDialog
             open={showAddToDashboardDialog}

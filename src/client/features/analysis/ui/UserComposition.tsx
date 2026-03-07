@@ -333,7 +333,7 @@ const UserComposition = () => {
                             </div>
 
                             {showBarChart && (
-                                <div className="mt-4 border rounded-lg bg-[var(--ax-bg-default)] p-4">
+                                <div className="mt-4 rounded-lg border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-4">
                                     {(() => {
                                         const barChartData = prepareBarChartData();
                                         if (!barChartData) {
@@ -378,7 +378,7 @@ const UserComposition = () => {
                             )}
 
                             {showPieChart && (
-                                <div className="mt-4 w-full lg:w-1/2 border rounded-lg bg-[var(--ax-bg-default)] p-4">
+                                <div className="mt-4 w-full lg:w-1/2 rounded-lg border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-4">
                                     {(() => {
                                         const pieChartData = preparePieChartData();
                                         if (!pieChartData) {

@@ -331,9 +331,13 @@ export const DashboardWidget = ({
         </ActionMenu>
     ) : null;
 
+    const containerClass = chart.type === 'table'
+        ? `h-full bg-[var(--ax-bg-default)] p-6 rounded-lg border border-[var(--ax-border-neutral-subtle)] min-h-[400px] ${colClass}`
+        : `h-full bg-[var(--ax-bg-default)] p-6 rounded-lg border border-[var(--ax-border-neutral-subtle)] shadow-sm min-h-[400px] ${colClass}`;
+
     return (
         <>
-            <div className={`h-full bg-[var(--ax-bg-default)] p-6 rounded-lg border border-[var(--ax-border-neutral-subtle)] shadow-sm min-h-[400px] ${colClass}`}>
+            <div className={containerClass}>
                 <div className="flex flex-col mb-4">
                     {chart.type === 'table' ? (
                         <TableSectionHeader

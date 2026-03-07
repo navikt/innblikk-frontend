@@ -597,9 +597,9 @@ const ResultsPanel = ({
 
               {/* Table Tab */}
               <Tabs.Panel value="table" className="pt-4">
-                <div className="space-y-3">
+                <div className={compactTableActions ? 'border border-[var(--ax-border-neutral-subtle)] rounded-lg overflow-hidden bg-[var(--ax-bg-default)]' : 'space-y-3'}>
                   {compactTableActions && (
-                    <div className="space-y-2">
+                    <div className="space-y-2 p-3">
                       <div className="mb-2 flex items-center justify-between gap-2">
                         {compactTableTitle ? (
                           <Heading level="3" size="small">{compactTableTitle}</Heading>
@@ -674,7 +674,7 @@ const ResultsPanel = ({
                       )}
                     </div>
                   )}
-                  <div className="border rounded-lg overflow-hidden bg-[var(--ax-bg-default)]">
+                  <div className={`${compactTableActions ? '' : 'border rounded-lg'} overflow-hidden bg-[var(--ax-bg-default)]`}>
                     {/* Search Input */}
                     {!compactTableActions && (
                       <div className="p-3 bg-[var(--ax-bg-neutral-soft)] border-b space-y-2">
@@ -794,6 +794,9 @@ const ResultsPanel = ({
                           )}
                         </div>
                       </div>
+                    )}
+                    {compactTableActions && hideTableFooter && (
+                      <div className="px-4 pb-4" aria-hidden="true" />
                     )}
                   </div>
                 </div>

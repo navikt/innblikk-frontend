@@ -602,12 +602,12 @@ export const useTrafficAnalysis = () => {
                 ...p,
                 y: avg,
                 yAxisCalloutData: submittedMetricType === 'proportion'
-                    ? `Gjennomsnitt: ${avg.toFixed(1)}%`
-                    : `Gjennomsnitt: ${Math.round(avg).toLocaleString('nb-NO')}`
+                    ? `Snitt per dag: ${avg.toFixed(1)}%`
+                    : `Snitt per dag: ${Math.round(avg).toLocaleString('nb-NO')}`
             }));
 
             lines.push({
-                legend: 'Gjennomsnitt',
+                legend: 'Snitt per dag',
                 data: avgPoints,
                 color: '#009E73',
             });

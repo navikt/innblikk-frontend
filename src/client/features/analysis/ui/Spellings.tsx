@@ -53,67 +53,69 @@ const Spellings = () => {
             return <Alert variant="success">{emptyMsg}</Alert>;
         }
         return (
-            <div className="space-y-4">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                    <Heading level="3" size="small">{title}</Heading>
-                    <div className="flex items-center gap-1">
-                        <Tooltip content="Søk" placement="top">
-                            <Button
-                                type="button"
-                                variant={showSearch ? 'secondary' : 'tertiary'}
-                                size="xsmall"
-                                icon={<Search aria-hidden />}
-                                aria-label={`Søk i ${title.toLowerCase()}`}
-                                aria-pressed={showSearch}
-                                onClick={() => {
-                                    setShowSearch(!showSearch);
-                                    if (showSearch) setSearch('');
-                                }}
-                            />
-                        </Tooltip>
-                        <ActionMenu>
-                            <Tooltip content="Flere valg" placement="top">
-                                <ActionMenu.Trigger>
-                                    <Button
-                                        type="button"
-                                        variant="tertiary"
-                                        size="xsmall"
-                                        icon={<MoreVertical aria-hidden />}
-                                        aria-label={`Flere valg for ${title.toLowerCase()}`}
-                                    />
-                                </ActionMenu.Trigger>
-                            </Tooltip>
-                            <ActionMenu.Content align="end">
-                                <ActionMenu.Item
+            <div className="border border-[var(--ax-border-neutral-subtle)] rounded-lg overflow-hidden bg-[var(--ax-bg-default)]">
+                <div className="p-4 pb-2">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                        <Heading level="3" size="small">{title}</Heading>
+                        <div className="flex items-center gap-1">
+                            <Tooltip content="Søk" placement="top">
+                                <Button
+                                    type="button"
+                                    variant={showSearch ? 'secondary' : 'tertiary'}
+                                    size="xsmall"
+                                    icon={<Search aria-hidden />}
+                                    aria-label={`Søk i ${title.toLowerCase()}`}
+                                    aria-pressed={showSearch}
                                     onClick={() => {
-                                        downloadCsv(
-                                            `${filename}_${selectedWebsite?.name || 'data'}_${new Date().toISOString().slice(0, 10)}.csv`,
-                                            ['Ord'],
-                                            filteredItems.map((item) => [`"${item.word}"`]),
-                                        );
+                                        setShowSearch(!showSearch);
+                                        if (showSearch) setSearch('');
                                     }}
-                                    disabled={filteredItems.length === 0}
-                                >
-                                    Last ned
-                                </ActionMenu.Item>
-                            </ActionMenu.Content>
-                        </ActionMenu>
+                                />
+                            </Tooltip>
+                            <ActionMenu>
+                                <Tooltip content="Flere valg" placement="top">
+                                    <ActionMenu.Trigger>
+                                        <Button
+                                            type="button"
+                                            variant="tertiary"
+                                            size="xsmall"
+                                            icon={<MoreVertical aria-hidden />}
+                                            aria-label={`Flere valg for ${title.toLowerCase()}`}
+                                        />
+                                    </ActionMenu.Trigger>
+                                </Tooltip>
+                                <ActionMenu.Content align="end">
+                                    <ActionMenu.Item
+                                        onClick={() => {
+                                            downloadCsv(
+                                                `${filename}_${selectedWebsite?.name || 'data'}_${new Date().toISOString().slice(0, 10)}.csv`,
+                                                ['Ord'],
+                                                filteredItems.map((item) => [`"${item.word}"`]),
+                                            );
+                                        }}
+                                        disabled={filteredItems.length === 0}
+                                    >
+                                        Last ned
+                                    </ActionMenu.Item>
+                                </ActionMenu.Content>
+                            </ActionMenu>
+                        </div>
                     </div>
+                    {showSearch && (
+                        <div className="w-full sm:w-64 min-w-0">
+                            <TextField
+                                label="Søk"
+                                hideLabel
+                                placeholder="Søk..."
+                                size="small"
+                                value={search}
+                                ref={searchInputRef}
+                                onChange={(e) => setSearch(e.target.value)}
+                            />
+                        </div>
+                    )}
                 </div>
-                {showSearch && (
-                    <div className="w-full sm:w-64 min-w-0">
-                        <TextField
-                            label="Søk"
-                            hideLabel
-                            placeholder="Søk..."
-                            size="small"
-                            value={search}
-                            ref={searchInputRef}
-                            onChange={(e) => setSearch(e.target.value)}
-                        />
-                    </div>
-                )}
-                <div className="border rounded-lg overflow-x-auto bg-[var(--ax-bg-default)]">
+                <div className="overflow-x-auto px-4 pb-4">
                     <Table size="small" zebraStripes>
                         <Table.Header>
                             <Table.Row>
