@@ -4,6 +4,7 @@ import { ExternalLink, MoreVertical, Search } from 'lucide-react';
 import type { Website } from '../../../shared/types/chart.ts';
 import TableSectionHeader from '../../../shared/ui/TableSectionHeader.tsx';
 import AddToDashboardDialog from '../../../shared/ui/AddToDashboardDialog.tsx';
+import { openSqlEditorWithContext } from '../../../shared/lib/openSqlEditor.ts';
 import { formatMetricValue, formatMetricDelta as formatMetricDeltaUtil, downloadCsvFile } from '../utils/trafficUtils';
 import { getExitsSqlTemplate, getIncludedPagesSqlTemplate } from '../utils/trafficDashboardSqlTemplates.ts';
 
@@ -160,6 +161,9 @@ const TrafficTable = ({
                             <ActionMenu.Item onClick={handleDownloadCSV} disabled={!data.length}>Last ned CSV</ActionMenu.Item>
                             <ActionMenu.Item onClick={() => setShowAddToDashboardDialog(true)} disabled={!filteredData.length}>
                                 Legg til i dashboard
+                            </ActionMenu.Item>
+                            <ActionMenu.Item onClick={() => openSqlEditorWithContext({ sql: addToDashboardSql, websiteId: selectedWebsite?.id })}>
+                                Åpne i SQL-editor
                             </ActionMenu.Item>
                         </ActionMenu.Content>
                     </ActionMenu>

@@ -10,6 +10,7 @@ import AnalysisActionModal from '../../analysis/ui/AnalysisActionModal.tsx';
 import UrlPathFilter from '../../analysis/ui/UrlPathFilter.tsx';
 import TableSectionHeader from '../../../shared/ui/TableSectionHeader.tsx';
 import AddToDashboardDialog from '../../../shared/ui/AddToDashboardDialog.tsx';
+import { openSqlEditorWithContext } from '../../../shared/lib/openSqlEditor.ts';
 import type { Website } from '../../../shared/types/chart.ts';
 import { translateCountry } from '../../../shared/lib/translations.ts';
 import { normalizeUrlToPath, getDateRangeFromPeriod, getStoredPeriod, savePeriodPreference, getCookieCountByParams, getCookieBadge } from '../../../shared/lib/utils.ts';
@@ -435,6 +436,9 @@ const UserProfiles = () => {
                                         </ActionMenu.Item>
                                         <ActionMenu.Item onClick={() => setShowAddToDashboardDialog(true)}>
                                             Legg til i dashboard
+                                        </ActionMenu.Item>
+                                        <ActionMenu.Item onClick={() => openSqlEditorWithContext({ sql: getUserProfilesSqlTemplate(), websiteId: selectedWebsite?.id })}>
+                                            Åpne i SQL-editor
                                         </ActionMenu.Item>
                                         {queryStats && (
                                             <>

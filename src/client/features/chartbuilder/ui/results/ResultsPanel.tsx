@@ -4,6 +4,7 @@ import { PlayIcon, Download, ArrowUpDown, ArrowUp, ArrowDown, ExternalLink, More
 import type { ILineChartProps, IVerticalBarChartProps, IVerticalBarChartDataPoint} from '@fluentui/react-charting';
 import { LineChart, VerticalBarChart, AreaChart, PieChart, ResponsiveContainer } from '@fluentui/react-charting';
 import { translateValue } from '../../../../shared/lib/translations.ts';
+import { openSqlEditorWithContext } from '../../../../shared/lib/openSqlEditor.ts';
 import { format, startOfWeek, startOfMonth, isValid } from 'date-fns';
 import { nb } from 'date-fns/locale';
 import SqlViewer from './SqlViewer.tsx';
@@ -635,6 +636,11 @@ const ResultsPanel = ({
                               {onAddToDashboard && (
                                 <ActionMenu.Item onClick={onAddToDashboard}>
                                   Legg til i dashboard
+                                </ActionMenu.Item>
+                              )}
+                              {sql && (
+                                <ActionMenu.Item onClick={() => openSqlEditorWithContext({ sql, websiteId })}>
+                                  Åpne i SQL-editor
                                 </ActionMenu.Item>
                               )}
                             </ActionMenu.Content>

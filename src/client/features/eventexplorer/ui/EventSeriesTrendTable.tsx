@@ -4,6 +4,7 @@ import { MoreVertical, Search } from 'lucide-react';
 import type { SeriesPoint, QueryStats } from '../model/types.ts';
 import AddToDashboardDialog from '../../../shared/ui/AddToDashboardDialog.tsx';
 import { getEventSeriesSqlTemplate } from '../utils/eventExplorerDashboardSql.ts';
+import { openSqlEditorWithContext } from '../../../shared/lib/openSqlEditor.ts';
 
 interface EventSeriesTrendTableProps {
     seriesData: SeriesPoint[];
@@ -86,6 +87,9 @@ const EventSeriesTrendTable = ({ seriesData, selectedEvent, queryStats }: EventS
                             </ActionMenu.Item>
                             <ActionMenu.Item onClick={() => setShowAddToDashboardDialog(true)}>
                                 Legg til i dashboard
+                            </ActionMenu.Item>
+                            <ActionMenu.Item onClick={() => openSqlEditorWithContext({ sql: getEventSeriesSqlTemplate(selectedEvent) })}>
+                                Åpne i SQL-editor
                             </ActionMenu.Item>
                             {queryStats && (
                                 <>

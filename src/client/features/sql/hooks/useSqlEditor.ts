@@ -89,8 +89,21 @@ export const useSqlEditor = () => {
     // Check for SQL in URL params on mount and init filters
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
-        const sqlParam = urlParams.get('sql');
+        let sqlParam = urlParams.get('sql');
+        const sqlStorageKey = urlParams.get('sqlStorageKey');
         const defaultQuery = getDefaultQuery();
+
+        if (!sqlParam && sqlStorageKey) {
+            try {
+                const storedSql = window.sessionStorage.getItem(sqlStorageKey);
+                if (storedSql) {
+                    sqlParam = storedSql;
+                    window.sessionStorage.removeItem(sqlStorageKey);
+                }
+            } catch {
+                // Ignore storage access issues and fall back to default query.
+            }
+        }
 
         if (sqlParam) {
             try {

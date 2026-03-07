@@ -8,6 +8,7 @@ import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx';
 import UrlPathFilter from '../../analysis/ui/UrlPathFilter.tsx';
 import CookieMixNotice from '../../analysis/ui/CookieMixNotice.tsx';
 import AddToDashboardDialog from '../../../shared/ui/AddToDashboardDialog.tsx';
+import { openSqlEditorWithContext } from '../../../shared/lib/openSqlEditor.ts';
 import RetentionStatsCards from './RetentionStatsCards.tsx';
 import { useRetention } from '../hooks/useRetention';
 import { getRetentionSqlTemplate } from '../utils/retentionDashboardSql.ts';
@@ -176,6 +177,9 @@ const Retention = () => {
                                     </ActionMenu.Item>
                                     <ActionMenu.Item onClick={() => setShowAddToDashboardDialog(true)}>
                                         Legg til i dashboard
+                                    </ActionMenu.Item>
+                                    <ActionMenu.Item onClick={() => openSqlEditorWithContext({ sql: getRetentionSqlTemplate(), websiteId: selectedWebsite?.id })}>
+                                        Åpne i SQL-editor
                                     </ActionMenu.Item>
                                     {queryStats && (
                                         <>

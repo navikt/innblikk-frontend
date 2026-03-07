@@ -4,6 +4,7 @@ import { MoreVertical, Search } from 'lucide-react';
 import type { QueryStats } from '../model/types.ts';
 import AddToDashboardDialog from '../../../shared/ui/AddToDashboardDialog.tsx';
 import { getEventListSqlTemplate } from '../utils/eventExplorerDashboardSql.ts';
+import { openSqlEditorWithContext } from '../../../shared/lib/openSqlEditor.ts';
 
 interface EventListProps {
     events: { name: string; count: number }[];
@@ -86,6 +87,9 @@ const EventList = ({ events, eventsQueryStats, websiteName, selectedWebsiteId, o
                             </ActionMenu.Item>
                             <ActionMenu.Item onClick={() => setShowAddToDashboardDialog(true)}>
                                 Legg til i dashboard
+                            </ActionMenu.Item>
+                            <ActionMenu.Item onClick={() => openSqlEditorWithContext({ sql: getEventListSqlTemplate(), websiteId: selectedWebsiteId })}>
+                                Åpne i SQL-editor
                             </ActionMenu.Item>
                             {eventsQueryStats && (
                                 <>

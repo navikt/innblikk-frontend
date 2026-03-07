@@ -5,6 +5,7 @@ import type { Website } from '../../../shared/types/chart.ts';
 import type { MarketingRow, QueryStats } from '../model/types';
 import TableSectionHeader from '../../../shared/ui/TableSectionHeader.tsx';
 import AddToDashboardDialog from '../../../shared/ui/AddToDashboardDialog.tsx';
+import { openSqlEditorWithContext } from '../../../shared/lib/openSqlEditor.ts';
 import { downloadCsvFile } from '../utils/trafficUtils';
 
 type AnalysisTableProps = {
@@ -142,6 +143,9 @@ const AnalysisTable = ({ title, data, metricLabel, queryStats, selectedWebsite, 
                             <ActionMenu.Item onClick={handleDownloadCSV} disabled={data.length === 0}>Last ned CSV</ActionMenu.Item>
                             <ActionMenu.Item onClick={() => setShowAddToDashboardDialog(true)} disabled={!filteredData.length}>
                                 Legg til i dashboard
+                            </ActionMenu.Item>
+                            <ActionMenu.Item onClick={() => openSqlEditorWithContext({ sql: addToDashboardSql, websiteId: selectedWebsite?.id })}>
+                                Åpne i SQL-editor
                             </ActionMenu.Item>
                             {queryStats && (
                                 <>

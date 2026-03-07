@@ -7,6 +7,7 @@ import type { Granularity, OversiktTabContentProps } from '../../model/types.ts'
 import { useOversiktDayDividers } from '../../hooks/useOversiktDayDividers.ts';
 import AddToDashboardDialog from '../../../../shared/ui/AddToDashboardDialog.tsx';
 import { getTrafficSeriesSqlTemplate } from '../../../traffic/utils/trafficDashboardSqlTemplates.ts';
+import { openSqlEditorWithContext } from '../../../../shared/lib/openSqlEditor.ts';
 
 const OversiktTabContent = ({
     hasAttemptedFetch,
@@ -168,6 +169,9 @@ const OversiktTabContent = ({
                                     </ActionMenu.Item>
                                     <ActionMenu.Item onClick={() => setShowAddToDashboardDialog(true)}>
                                         Legg til i dashboard
+                                    </ActionMenu.Item>
+                                    <ActionMenu.Item onClick={() => openSqlEditorWithContext({ sql: getTrafficSeriesSqlTemplate(), websiteId: selectedWebsite?.id })}>
+                                        Åpne i SQL-editor
                                     </ActionMenu.Item>
                                     <ActionMenu.Item onClick={() => onShowAverageChange(!showAverage)}>
                                         {showAverage ? 'Skjul gjennomsnitt' : 'Vis gjennomsnitt'}
