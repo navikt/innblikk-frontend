@@ -86,11 +86,19 @@ const AddToDashboardDialog = ({
     const [loadingWebsites, setLoadingWebsites] = useState(false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [showSaveSuccessModal, setShowSaveSuccessModal] = useState(false);
+    const [savedLocation, setSavedLocation] = useState<{
+        projectId: number;
+        dashboardId: number;
+        dashboardName: string;
+    } | null>(null);
 
     useEffect(() => {
         if (!open) return;
         setChartName(graphName);
         setError(null);
+        setShowSaveSuccessModal(false);
+        setSavedLocation(null);
         const rememberedWebsiteId = getStoredWebsiteId();
         setWebsiteId(sourceWebsiteId || rememberedWebsiteId || '');
     }, [open, graphName, sourceWebsiteId]);
@@ -269,7 +277,7 @@ const AddToDashboardDialog = ({
             const sqlToSave = websiteId
                 ? sqlText.replace(/\{\{\s*website_id\s*\}\}/g, websiteId)
                 : sqlText;
-            await saveChartToBackend({
+            const saved = await saveChartToBackend({
                 projectName: project.name,
                 dashboardName: dashboard.name,
                 graphName: chartName.trim(),
@@ -282,6 +290,12 @@ const AddToDashboardDialog = ({
             saveStoredDashboardId(dashboardId);
             if (categoryId) saveStoredCategoryId(categoryId);
             saveStoredWebsiteId(websiteId);
+            setSavedLocation({
+                projectId: saved.project.id,
+                dashboardId: saved.dashboard.id,
+                dashboardName: saved.dashboard.name,
+            });
+            setShowSaveSuccessModal(true);
             onClose();
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Kunne ikke lagre graf');
@@ -290,113 +304,149 @@ const AddToDashboardDialog = ({
         }
     };
 
+    const savedDashboardUrl = savedLocation
+        ? `/oversikt?projectId=${savedLocation.projectId}&dashboardId=${savedLocation.dashboardId}`
+        : '';
+
+    const handleGoToSavedDashboard = () => {
+        if (!savedDashboardUrl || typeof window === 'undefined') return;
+        window.location.href = savedDashboardUrl;
+    };
+
     return (
-        <Modal open={open} onClose={onClose} header={{ heading: `Legg til i dashboard: ${graphName}` }} width="small">
-            <Modal.Body>
-                <div className="flex flex-col gap-4">
-                    {error && <Alert variant="error">{error}</Alert>}
+        <>
+            <Modal open={open} onClose={onClose} header={{ heading: 'Legg til i dashboard' }} width="small">
+                <Modal.Body>
+                    <div className="flex flex-col gap-4">
+                        <p className="text-sm text-[var(--ax-text-subtle)]">
+                            {graphName}
+                        </p>
+                        {error && <Alert variant="error">{error}</Alert>}
 
-                    <Select
-                        label="Arbeidsområde"
-                        value={projectId ? String(projectId) : ''}
-                        onChange={(event) => {
-                            const nextProjectId = Number(event.target.value);
-                            setProjectId(nextProjectId);
-                            if (nextProjectId) saveStoredProjectId(nextProjectId);
-                            setError(null);
-                        }}
-                        size="small"
-                        disabled={loadingProjects || saving}
-                    >
-                        <option value="">Velg arbeidsområde</option>
-                        {projects.map((project) => (
-                            <option key={project.id} value={project.id}>
-                                {project.name}
-                            </option>
-                        ))}
-                    </Select>
-
-                    <Select
-                        label="Dashboard"
-                        value={dashboardId ? String(dashboardId) : ''}
-                        onChange={(event) => {
-                            const nextDashboardId = Number(event.target.value);
-                            setDashboardId(nextDashboardId);
-                            if (nextDashboardId) saveStoredDashboardId(nextDashboardId);
-                            setCategoryId(0);
-                            setError(null);
-                        }}
-                        size="small"
-                        disabled={!projectId || loadingDashboards || saving}
-                    >
-                        <option value="">Velg dashboard</option>
-                        {dashboards.map((dashboard) => (
-                            <option key={dashboard.id} value={dashboard.id}>
-                                {dashboard.name}
-                            </option>
-                        ))}
-                    </Select>
-
-                    {categories.length > 1 && (
                         <Select
-                            label="Fane"
-                            value={categoryId ? String(categoryId) : ''}
+                            label="Arbeidsområde"
+                            value={projectId ? String(projectId) : ''}
                             onChange={(event) => {
-                                const nextCategoryId = Number(event.target.value);
-                                setCategoryId(nextCategoryId);
-                                if (nextCategoryId) saveStoredCategoryId(nextCategoryId);
+                                const nextProjectId = Number(event.target.value);
+                                setProjectId(nextProjectId);
+                                if (nextProjectId) saveStoredProjectId(nextProjectId);
                                 setError(null);
                             }}
                             size="small"
-                            disabled={!dashboardId || loadingCategories || saving}
+                            disabled={loadingProjects || saving}
                         >
-                            <option value="">Velg fane</option>
-                            {categories.map((category) => (
-                                <option key={category.id} value={category.id}>
-                                    {getCategoryDisplayName(category.name)}
+                            <option value="">Velg arbeidsområde</option>
+                            {projects.map((project) => (
+                                <option key={project.id} value={project.id}>
+                                    {project.name}
                                 </option>
                             ))}
                         </Select>
+
+                        <Select
+                            label="Dashboard"
+                            value={dashboardId ? String(dashboardId) : ''}
+                            onChange={(event) => {
+                                const nextDashboardId = Number(event.target.value);
+                                setDashboardId(nextDashboardId);
+                                if (nextDashboardId) saveStoredDashboardId(nextDashboardId);
+                                setCategoryId(0);
+                                setError(null);
+                            }}
+                            size="small"
+                            disabled={!projectId || loadingDashboards || saving}
+                        >
+                            <option value="">Velg dashboard</option>
+                            {dashboards.map((dashboard) => (
+                                <option key={dashboard.id} value={dashboard.id}>
+                                    {dashboard.name}
+                                </option>
+                            ))}
+                        </Select>
+
+                        {categories.length > 1 && (
+                            <Select
+                                label="Fane"
+                                value={categoryId ? String(categoryId) : ''}
+                                onChange={(event) => {
+                                    const nextCategoryId = Number(event.target.value);
+                                    setCategoryId(nextCategoryId);
+                                    if (nextCategoryId) saveStoredCategoryId(nextCategoryId);
+                                    setError(null);
+                                }}
+                                size="small"
+                                disabled={!dashboardId || loadingCategories || saving}
+                            >
+                                <option value="">Velg fane</option>
+                                {categories.map((category) => (
+                                    <option key={category.id} value={category.id}>
+                                        {getCategoryDisplayName(category.name)}
+                                    </option>
+                                ))}
+                            </Select>
+                        )}
+
+                        <TextField
+                            label="Grafnavn"
+                            value={chartName}
+                            onChange={(event) => setChartName(event.target.value)}
+                            size="small"
+                            disabled={saving}
+                        />
+
+                        <Select
+                            label="Vis resultatet for nettsiden..."
+                            value={websiteId}
+                            onChange={(event) => {
+                                const nextWebsiteId = event.target.value;
+                                setWebsiteId(nextWebsiteId);
+                                saveStoredWebsiteId(nextWebsiteId);
+                            }}
+                            size="small"
+                            disabled={loadingWebsites || saving}
+                        >
+                            <option value="">Bruk dashboard-filter</option>
+                            {websites.map((website) => (
+                                <option key={website.id} value={website.id}>
+                                    {website.name}
+                                </option>
+                            ))}
+                        </Select>
+                    </div>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button onClick={() => void handleSave()} loading={saving}>
+                        Legg til i dashboard
+                    </Button>
+                    <Button variant="secondary" onClick={onClose} disabled={saving}>
+                        Avbryt
+                    </Button>
+                </Modal.Footer>
+            </Modal>
+
+            <Modal
+                open={showSaveSuccessModal && !!savedLocation}
+                onClose={() => setShowSaveSuccessModal(false)}
+                header={{ heading: 'Graf lagret' }}
+                width="small"
+            >
+                <Modal.Body>
+                    {savedLocation && (
+                        <p>
+                            Grafen er lagt til i "{savedLocation.dashboardName}". Hva vil du gjøre nå?
+                        </p>
                     )}
-
-                    <TextField
-                        label="Grafnavn"
-                        value={chartName}
-                        onChange={(event) => setChartName(event.target.value)}
-                        size="small"
-                        disabled={saving}
-                    />
-
-                    <Select
-                        label="Nettside for graf"
-                        description="Velg nettside for fast resultat, eller bruk dashboard-filter."
-                        value={websiteId}
-                        onChange={(event) => {
-                            const nextWebsiteId = event.target.value;
-                            setWebsiteId(nextWebsiteId);
-                            saveStoredWebsiteId(nextWebsiteId);
-                        }}
-                        size="small"
-                        disabled={loadingWebsites || saving}
-                    >
-                        <option value="">Bruk dashboard-filter</option>
-                        {websites.map((website) => (
-                            <option key={website.id} value={website.id}>
-                                {website.name}
-                            </option>
-                        ))}
-                    </Select>
-                </div>
-            </Modal.Body>
-            <Modal.Footer>
-                <Button onClick={() => void handleSave()} loading={saving}>
-                    Legg til i dashboard
-                </Button>
-                <Button variant="secondary" onClick={onClose} disabled={saving}>
-                    Avbryt
-                </Button>
-            </Modal.Footer>
-        </Modal>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button onClick={handleGoToSavedDashboard}>
+                        Gå til dashboard
+                    </Button>
+                    <Button variant="secondary" onClick={() => setShowSaveSuccessModal(false)}>
+                        Bli her
+                    </Button>
+                </Modal.Footer>
+            </Modal>
+        </>
     );
 };
 

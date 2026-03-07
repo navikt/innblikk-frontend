@@ -9,7 +9,9 @@ const toErrorMessage = (status: number, payload: unknown): string => {
     if (payload && typeof payload === 'object') {
         const error = (payload as { error?: unknown }).error;
         const details = (payload as { details?: unknown }).details;
+        const message = (payload as { message?: unknown }).message;
         if (typeof details === 'string' && details.trim()) return details;
+        if (typeof message === 'string' && message.trim()) return message;
         if (typeof error === 'string' && error.trim()) return error;
     }
     return `Forespørsel feilet (${status})`;
@@ -34,4 +36,3 @@ export async function requestJson<T>(url: string, init?: RequestInit): Promise<T
 
     return payload as T;
 }
-
