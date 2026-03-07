@@ -14,6 +14,7 @@ export function useGrafdeling() {
   const [description, setDescription] = useState<string>('');
   const [dashboardTitle, setDashboardTitle] = useState<string>('');
   const [queryStats, setQueryStats] = useState<any>(null);
+  const [lastProcessedSql, setLastProcessedSql] = useState<string>('');
 
   // Filter states
   const [availableWebsites, setAvailableWebsites] = useState<Website[]>([]);
@@ -59,6 +60,7 @@ export function useGrafdeling() {
       customVariables,
       customVariableValues,
     });
+    setLastProcessedSql(processedSql);
     console.log('Executing processed SQL:', processedSql);
 
     try {
@@ -249,6 +251,23 @@ export function useGrafdeling() {
         }
       }
 
+      // If SQL is fully concrete and no override inputs are provided, execute as-is.
+      // If override inputs exist (website/date/url), convert hardcoded filters to placeholders
+      // so Grafdeling controls can override values.
+      const hasTemplatePlaceholders = /\[\[|\{\{/.test(sqlParam);
+      const hasOverrideInputs = Boolean(
+        websiteIdParam ||
+        urlPathFromUrl ||
+        dateRangeFromUrl ||
+        customStartFromUrl ||
+        customEndFromUrl,
+      );
+
+      if (!hasTemplatePlaceholders && !hasOverrideInputs) {
+        setQuery(sqlParam);
+        return;
+      }
+
       let modifiedSql = sqlParam;
 
       // 1. Hardcoded Website ID
@@ -365,6 +384,7 @@ export function useGrafdeling() {
     description,
     dashboardTitle,
     queryStats,
+    lastProcessedSql,
     selectedWebsite,
     websiteId,
     dateRange,

@@ -22,14 +22,20 @@ export const applyUrlFiltersToSql = (sql: string, ctx: SqlFilterContext): string
     const hasWebsitePlaceholderInline = /\{\{\s*website_id\s*\}\}/i.test(processedSql);
     if (hasWebsitePlaceholderInline && ctx.websiteIdState) {
         const sanitizedWebsiteId = ctx.websiteIdState.replace(/'/g, "''");
-        processedSql = processedSql.replace(/(['"])?\s*\{\{\s*website_id\s*\}\}\s*\1?/gi, `'${sanitizedWebsiteId}'`);
+        processedSql = processedSql.replace(
+            /(['"])?(\s*)\{\{\s*website_id\s*\}\}(\s*)\1?/gi,
+            (_match, _quote, leading = '', trailing = '') => `${leading}'${sanitizedWebsiteId}'${trailing}`,
+        );
     }
 
     // Nettside substitution {{nettside}} -> website domain
     const hasNettsidePlaceholder = /\{\{\s*nettside\s*\}\}/i.test(processedSql);
     if (hasNettsidePlaceholder && ctx.selectedWebsite?.domain) {
         const sanitizedDomain = ctx.selectedWebsite.domain.replace(/'/g, "''");
-        processedSql = processedSql.replace(/(['"])?\s*\{\{\s*nettside\s*\}\}\s*\1?/gi, `'${sanitizedDomain}'`);
+        processedSql = processedSql.replace(
+            /(['"])?(\s*)\{\{\s*nettside\s*\}\}(\s*)\1?/gi,
+            (_match, _quote, leading = '', trailing = '') => `${leading}'${sanitizedDomain}'${trailing}`,
+        );
     }
 
     // URL path substitution (Metabase style [[ {{url_sti}} --]] '/' or [[ {{url_path}} --]] '/')
@@ -158,7 +164,10 @@ export const applyWebsiteIdOnly = (sql: string, websiteIdState: string): string 
     const hasWebsitePlaceholderInline = /\{\{\s*website_id\s*\}\}/i.test(processedSql);
     if (hasWebsitePlaceholderInline && websiteIdState) {
         const sanitizedWebsiteId = websiteIdState.replace(/'/g, "''");
-        processedSql = processedSql.replace(/(['"])?\s*\{\{\s*website_id\s*\}\}\s*\1?/gi, `'${sanitizedWebsiteId}'`);
+        processedSql = processedSql.replace(
+            /(['"])?(\s*)\{\{\s*website_id\s*\}\}(\s*)\1?/gi,
+            (_match, _quote, leading = '', trailing = '') => `${leading}'${sanitizedWebsiteId}'${trailing}`,
+        );
     }
     return processedSql;
 };

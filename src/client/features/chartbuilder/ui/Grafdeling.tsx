@@ -15,6 +15,7 @@ export default function Grafdeling() {
     description,
     dashboardTitle,
     queryStats,
+    lastProcessedSql,
     selectedWebsite,
     websiteId,
     dateRange,
@@ -54,7 +55,14 @@ export default function Grafdeling() {
     }
     if (error && !loading) {
       return (
-        <Alert variant="error"><BodyLong>{error}</BodyLong></Alert>
+        <div className="space-y-4">
+          <Alert variant="error"><BodyLong>{error}</BodyLong></Alert>
+          {lastProcessedSql && (
+            <pre className="text-xs overflow-x-auto whitespace-pre-wrap bg-[var(--ax-bg-neutral-soft)] border border-[var(--ax-border-neutral-subtle)] rounded p-3 text-[var(--ax-text-default)]">
+              {lastProcessedSql}
+            </pre>
+          )}
+        </div>
       );
     }
     if (!loading && !error && result) {
@@ -72,7 +80,7 @@ export default function Grafdeling() {
           prepareBarChartData={prepareBarChartData}
           preparePieChartData={preparePieChartData}
           hideHeading={true}
-          sql={query}
+          sql={lastProcessedSql || query}
           showSqlCode={true}
           showEditButton={true}
           hiddenTabs={result && result.data && result.data.length > 12 ? ['barchart', 'piechart'] : []}
