@@ -141,31 +141,22 @@ const Funnel = () => {
         >
             <div className="flex flex-col xl:flex-row gap-8 items-start relative">
                 {/* Left Column: Configuration */}
-                {!isStepsOpen && (
-                    <div className="hidden xl:block absolute left-0 top-0 z-10">
-                        <button
-                            onClick={() => setIsStepsOpen(true)}
-                            className="flex items-center justify-center w-8 h-8 bg-[var(--ax-bg-default)] border border-[var(--ax-border-neutral-strong)] rounded-md shadow-sm hover:bg-[var(--ax-bg-neutral-soft)] transition-colors"
-                            title="Vis steg"
-                        >
-                            <ChevronRight size={16} />
-                        </button>
-                    </div>
-                )}
-
                 {isStepsOpen && (
                     <div className="w-full xl:w-[450px] flex-shrink-0 space-y-6 relative group">
-                        {/* Collapse Button */}
-                        <button
-                            onClick={() => setIsStepsOpen(false)}
-                            className="hidden xl:flex absolute top-4 -right-4 translate-x-1/2 z-10 items-center justify-center w-8 h-8 bg-[var(--ax-bg-default)] border border-[var(--ax-border-neutral-strong)] rounded-full shadow-sm hover:bg-[var(--ax-bg-neutral-soft)] transition-colors"
-                            title="Skjul steg"
-                        >
-                            <ChevronLeft size={16} />
-                        </button>
-
                         <div className="bg-[var(--ax-bg-neutral-soft)] p-4 rounded-lg border border-[var(--ax-border-neutral-subtle)]">
-                            <Heading level="2" size="small" style={{ marginBottom: '1.5rem' }}>Steg i trakten</Heading>
+                            <div className="flex items-center justify-between gap-3 mb-6">
+                                <Heading level="2" size="small">Steg i trakten</Heading>
+                                <Button
+                                    size="small"
+                                    variant="tertiary-neutral"
+                                    icon={<ChevronLeft size={16} />}
+                                    onClick={() => setIsStepsOpen(false)}
+                                    className="hidden xl:inline-flex"
+                                >
+                                    Minimer
+                                </Button>
+                            </div>
+
                             <div className="space-y-3">
                                 {steps.map((step, index) => (
                                     <div key={index} className="border border-gray-300 rounded-lg p-3 bg-[var(--ax-bg-default)] relative shadow-sm">
@@ -336,7 +327,20 @@ const Funnel = () => {
                 )}
 
                 {/* Right Column: Results */}
-                <div className={`flex-1 min-w-0 w-full ${!isStepsOpen ? 'xl:pl-12' : ''} transition-all duration-300`}>
+                <div className="flex-1 min-w-0 w-full transition-all duration-300">
+                    {!isStepsOpen && (
+                        <div className="hidden xl:flex mb-4">
+                            <Button
+                                size="small"
+                                variant="secondary"
+                                icon={<ChevronRight size={16} />}
+                                onClick={() => setIsStepsOpen(true)}
+                            >
+                                Vis steg i trakten
+                            </Button>
+                        </div>
+                    )}
+
                     {error && (
                         <Alert variant="error" className="mb-4">
                             {error}

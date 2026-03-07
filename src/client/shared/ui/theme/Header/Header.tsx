@@ -160,7 +160,7 @@ export default function Header({ theme }: HeaderProps) {
           </>
         )}
         <ActionMenu.Divider />
-        <ActionMenu.Group label="Innstillinger">
+        <ActionMenu.Group label="Preferanser">
           <ActionMenu.Item onClick={toggleTheme}>
             <span className="inline-flex items-center gap-2 whitespace-nowrap">
               <ThemeIcon aria-hidden fontSize="1rem" />

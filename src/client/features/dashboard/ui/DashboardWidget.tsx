@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import { Loader, Alert, Button, Tooltip } from '@navikt/ds-react';
+import { Loader, Alert, Button, Tooltip, ActionMenu } from '@navikt/ds-react';
 import { MoreVertical } from 'lucide-react';
 import type { SavedChart } from '../../../../data/dashboard';
 import AnalysisActionModal from '../../analysis/ui/AnalysisActionModal.tsx';
@@ -18,6 +18,7 @@ import {
     type DashboardRow
 } from '../utils/widgetUtils.ts';
 import {executeBigQuery} from '../api/bigquery.ts';
+import { buildEditorUrl, downloadChartCsv, generateShareUrl } from '../../analysis/utils/chartActions.ts';
 
 type SelectedWebsite = {
     domain: string;
@@ -81,6 +82,8 @@ export const DashboardWidget = ({
     const [selectedUrl, setSelectedUrl] = useState<string | null>(null);
     // State for ChartActionModal (for title click)
     const [isActionModalOpen, setIsActionModalOpen] = useState(false);
+    const [copyLinkFeedback, setCopyLinkFeedback] = useState(false);
+    const showShareAction = false; // Temporary: hide "Del grafen" in inline action menu
 
     // If prefetchedData is available, use it directly instead of fetching
     useEffect(() => {
@@ -240,17 +243,100 @@ export const DashboardWidget = ({
         return null;
     })() : null;
 
+    const handleOpenSharedView = () => {
+        if (!chart.sql) return;
+        window.open(generateShareUrl(chart, websiteId, filters, selectedWebsite?.domain, dashboardTitle), '_blank');
+    };
+
+    const handleCopyShareLink = async () => {
+        if (!chart.sql) return;
+        try {
+            await navigator.clipboard.writeText(generateShareUrl(chart, websiteId, filters, selectedWebsite?.domain, dashboardTitle));
+            setCopyLinkFeedback(true);
+            setTimeout(() => setCopyLinkFeedback(false), 2000);
+        } catch (err) {
+            console.error('Failed to copy', err);
+        }
+    };
+
+    const handleOpenInSqlEditor = () => {
+        if (!chart.sql) return;
+        window.location.href = buildEditorUrl(chart, websiteId, filters, selectedWebsite?.domain);
+    };
+
+    const handleDownloadCsv = () => {
+        if (!data || data.length === 0) return;
+        downloadChartCsv(data, chart.title);
+    };
+
     const chartActions = chart.sql ? (
-        <Tooltip content="Flere valg" placement="top">
-            <Button
-                variant="tertiary"
-                size="small"
-                onClick={() => setIsActionModalOpen(true)}
-                title={`Flere valg for ${chart.title}`}
-                aria-label={`Flere valg for ${chart.title}`}
-                icon={<MoreVertical aria-hidden="true" />}
-            />
-        </Tooltip>
+        chart.type === 'table' ? (
+            <ActionMenu>
+                <Tooltip content="Flere valg" placement="top">
+                    <ActionMenu.Trigger>
+                        <Button
+                            variant="tertiary"
+                            size="small"
+                            aria-label={`Flere valg for ${chart.title}`}
+                            icon={<MoreVertical aria-hidden="true" />}
+                        />
+                    </ActionMenu.Trigger>
+                </Tooltip>
+                <ActionMenu.Content align="end">
+                    {!replaceExploreActionWithSqlEditor && (
+                        <ActionMenu.Item onClick={handleOpenSharedView}>
+                            Utforsk grafen
+                        </ActionMenu.Item>
+                    )}
+                    {showShareAction && (
+                        <ActionMenu.Item onClick={() => void handleCopyShareLink()}>
+                            {copyLinkFeedback ? 'Lenke kopiert!' : 'Del grafen'}
+                        </ActionMenu.Item>
+                    )}
+                    {onCopyChart && (
+                        <ActionMenu.Item onClick={() => onCopyChart(chart.id, websiteId)}>
+                            Kopier graf
+                        </ActionMenu.Item>
+                    )}
+                    {onEditChart && (
+                        <ActionMenu.Item onClick={() => onEditChart(chart.id)}>
+                            Rediger graf
+                        </ActionMenu.Item>
+                    )}
+                    {onMoveChart && (
+                        <ActionMenu.Item onClick={() => onMoveChart(chart.id)}>
+                            Flytt til annen fane
+                        </ActionMenu.Item>
+                    )}
+                    {onDeleteChart && (
+                        <ActionMenu.Item onClick={() => onDeleteChart(chart.id)}>
+                            Slett graf
+                        </ActionMenu.Item>
+                    )}
+                    {(replaceExploreActionWithSqlEditor || (data && data.length > 0)) && <ActionMenu.Divider />}
+                    {replaceExploreActionWithSqlEditor && (
+                        <ActionMenu.Item onClick={handleOpenInSqlEditor}>
+                            Åpne i SQL-editor
+                        </ActionMenu.Item>
+                    )}
+                    {data && data.length > 0 && (
+                        <ActionMenu.Item onClick={handleDownloadCsv}>
+                            Last ned CSV
+                        </ActionMenu.Item>
+                    )}
+                </ActionMenu.Content>
+            </ActionMenu>
+        ) : (
+            <Tooltip content="Flere valg" placement="top">
+                <Button
+                    variant="tertiary"
+                    size="small"
+                    onClick={() => setIsActionModalOpen(true)}
+                    aria-label={`Flere valg for ${chart.title}`}
+                    icon={<MoreVertical aria-hidden="true" />}
+                />
+            </Tooltip>
+        )
     ) : null;
 
     return (
@@ -319,22 +405,24 @@ export const DashboardWidget = ({
                 domain={selectedWebsite?.domain}
             />
 
-            <ChartActionModal
-                open={isActionModalOpen}
-                onClose={() => setIsActionModalOpen(false)}
-                chart={chart}
-                websiteId={websiteId}
-                filters={filters}
-                domain={selectedWebsite?.domain}
-                data={data}
-                dashboardTitle={dashboardTitle}
-                onEditChart={onEditChart ? () => onEditChart(chart.id) : undefined}
-                onDeleteChart={onDeleteChart ? () => onDeleteChart(chart.id) : undefined}
-                onCopyChart={onCopyChart ? () => onCopyChart(chart.id, websiteId) : undefined}
-                copyActionLabel={onCopyChart ? 'Kopier graf' : undefined}
-                onMoveChart={onMoveChart ? () => onMoveChart(chart.id) : undefined}
-                replaceExploreActionWithSqlEditor={replaceExploreActionWithSqlEditor}
-            />
+            {chart.type !== 'table' && (
+                <ChartActionModal
+                    open={isActionModalOpen}
+                    onClose={() => setIsActionModalOpen(false)}
+                    chart={chart}
+                    websiteId={websiteId}
+                    filters={filters}
+                    domain={selectedWebsite?.domain}
+                    data={data}
+                    dashboardTitle={dashboardTitle}
+                    onEditChart={onEditChart ? () => onEditChart(chart.id) : undefined}
+                    onDeleteChart={onDeleteChart ? () => onDeleteChart(chart.id) : undefined}
+                    onCopyChart={onCopyChart ? () => onCopyChart(chart.id, websiteId) : undefined}
+                    copyActionLabel={onCopyChart ? 'Kopier graf' : undefined}
+                    onMoveChart={onMoveChart ? () => onMoveChart(chart.id) : undefined}
+                    replaceExploreActionWithSqlEditor={replaceExploreActionWithSqlEditor}
+                />
+            )}
         </>
     );
 };

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Page, Accordion } from "@navikt/ds-react";
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { type AnalyticsPage, analyticsPages } from '../model/analyticsNavigation.ts';
 import { type ChartGroup } from '../model/chartGroups.tsx';
 import { KontaktSeksjon } from '../../../shared/ui/theme/Kontakt/KontaktSeksjon.tsx';
@@ -97,6 +98,7 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
     websiteDomain
 }) => {
     const { filteredChartGroups, handleNavigation } = useChartNavigation(websiteDomain, hideAnalysisSelector);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
     return (
         <>
@@ -114,7 +116,7 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
                         
                         {/* Left Column Header (Sidebar Content) */}
                         {!hideAnalysisSelector && (
-                        <div className="w-full md:w-[250px] flex-shrink-0 border-b md:border-b-0 p-4 flex flex-col justify-end transition-all duration-300">
+                        <div className={`w-full md:w-[250px] flex-shrink-0 border-b md:border-b-0 p-4 flex flex-col justify-end transition-all duration-300 ${isSidebarOpen ? 'md:flex' : 'md:hidden'}`}>
                             {sidebarContent}
                         </div>
                         )}
@@ -131,7 +133,8 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
 
                         {/* ================= COL 1: NAVIGATION ================= */}
                         {!hideAnalysisSelector && (
-                            <div className="md:w-[250px] bg-[var(--ax-bg-neutral-soft)] md:border-b-0 flex-shrink-0">
+                            <>
+                            <div className={`bg-[var(--ax-bg-neutral-soft)] md:border-b-0 flex-shrink-0 ${isSidebarOpen ? 'md:w-[250px]' : 'md:w-0'}`}>
 
 
                                 {/* Mobile: Accordion View */}
@@ -153,7 +156,7 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
                                 </div>
 
                                 {/* Desktop: Standard View */}
-                                <div className="hidden md:flex flex-col h-full overflow-y-auto overflow-x-hidden min-w-[250px] p-4 space-y-6">
+                                <div className={`hidden md:flex flex-col h-full overflow-y-auto overflow-x-hidden min-w-[250px] p-4 space-y-6 ${isSidebarOpen ? '' : 'md:hidden'}`}>
                                     <SidebarNavigationContent
                                         filteredChartGroups={filteredChartGroups}
                                         currentPage={currentPage}
@@ -161,6 +164,27 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
                                     />
                                 </div>
                             </div>
+                            {isSidebarOpen && (
+                                <button
+                                    onClick={() => setIsSidebarOpen(false)}
+                                    className="hidden md:flex absolute top-3 left-[250px] -translate-x-1/2 items-center justify-center w-6 h-12 bg-[var(--ax-bg-default)] border border-[var(--ax-border-neutral-subtle)] rounded-md shadow-sm hover:bg-[var(--ax-bg-neutral-soft)] hover:border-[var(--ax-border-neutral-strong)] transition-colors z-10"
+                                    title="Minimer meny"
+                                    aria-label="Minimer meny"
+                                >
+                                    <ChevronLeft size={16} className="text-[var(--ax-text-accent)]" aria-hidden />
+                                </button>
+                            )}
+                            {!isSidebarOpen && (
+                                <button
+                                    onClick={() => setIsSidebarOpen(true)}
+                                    className="hidden md:flex absolute top-3 left-0 items-center justify-center w-6 h-12 bg-[var(--ax-bg-default)] border border-[var(--ax-border-neutral-subtle)] rounded-md shadow-sm hover:bg-[var(--ax-bg-neutral-soft)] hover:border-[var(--ax-border-neutral-strong)] transition-colors z-10"
+                                    title="Vis meny"
+                                    aria-label="Vis meny"
+                                >
+                                    <ChevronRight size={16} className="text-[var(--ax-text-accent)]" aria-hidden />
+                                </button>
+                            )}
+                            </>
                         )}
 
                         {/* ================= COL 2: CONTENT ================= */}
