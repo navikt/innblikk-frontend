@@ -467,6 +467,8 @@ const UserComposition = () => {
                                 hideTableFooter={true}
                                 compactTableTitle={categoryTitleByKey[activeCategory] ?? 'Tabell'}
                                 showDownloadReadMore={false}
+                                sql={addToDashboardSqlTemplate}
+                                websiteId={selectedWebsite?.id}
                                 onAddToDashboard={addToDashboardSqlTemplate ? () => setShowAddToDashboardDialog(true) : undefined}
                             />
                         </div>
