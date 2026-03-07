@@ -132,9 +132,7 @@ const CombinedEntrancesTable = ({
                             </ActionMenu.Trigger>
                         </Tooltip>
                         <ActionMenu.Content align="end">
-                            <ActionMenu.Item onClick={handleDownloadCSV} disabled={!data.length}>
-                                Last ned
-                            </ActionMenu.Item>
+                            <ActionMenu.Item onClick={handleDownloadCSV} disabled={!data.length}>Last ned CSV</ActionMenu.Item>
                             <ActionMenu.Item onClick={() => setShowAddToDashboardDialog(true)} disabled={!filteredData.length}>
                                 Legg til i dashboard
                             </ActionMenu.Item>
