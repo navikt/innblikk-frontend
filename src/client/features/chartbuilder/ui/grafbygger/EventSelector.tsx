@@ -487,7 +487,7 @@ const EventSelector = ({
                               ) : parameters.length === 0 ? (
                                 <>
                                   <Label as="p" size="small" className="mb-2">
-                                    Velg hendelsesdetaljer (valgfritt)
+                                    Filtrer på hendelsesdetaljer (valgfritt)
                                   </Label>
                                   <div className="mt-3">
                                     <Button
