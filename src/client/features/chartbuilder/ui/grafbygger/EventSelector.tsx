@@ -177,7 +177,7 @@ const EventSelector = ({
   return (
     <div className='mb-4'>
       <Heading level="2" size="xsmall" spacing className="mt-6">
-        Hendelser
+        Hendelse
       </Heading>
 
       <div className="mt-3 bg-(--ax-bg-default) p-4 rounded-md border shadow-inner">

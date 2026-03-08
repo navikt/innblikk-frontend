@@ -367,7 +367,7 @@ const GroupingOptions = forwardRef(({
         <div className="space-y-4 mb-6">
           <div className="flex items-center gap-2 mb-4">
             <Heading level="2" size="xsmall" >
-              Grupper etter...
+              Gruppert etter...
             </Heading>
             <HelpText title="Hva er en gruppering?">
               Legg til en eller flere grupperinger, disse vises som kolonner i tabeller.
