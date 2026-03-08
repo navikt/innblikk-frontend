@@ -161,8 +161,9 @@ const GroupingOptions = forwardRef(({
         groups[eventName] = [];
       }
 
-      // Avoid duplicates within the same event
-      if (!groups[eventName].some(p => p.key === param.key)) {
+      // Avoid duplicates within the same event by displayed parameter name
+      // (rendering uses baseName, not the full event-prefixed key).
+      if (!groups[eventName].some(p => p.key.split('.').pop() === baseName)) {
         groups[eventName].push(param);
       }
     });
