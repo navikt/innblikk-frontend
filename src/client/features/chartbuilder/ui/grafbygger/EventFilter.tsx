@@ -417,8 +417,7 @@ const EventFilter = forwardRef(({
       )
     );
 
-    // Ensure "Sidevisninger -> Mottaker velger selv" default on first load.
-    // Do not override if url_path is already present (e.g. from URL/shared config).
+    // Ensure "Mottaker velger side via filter" default on first load.
     if (!hasUrlPathFilter && hasPageviewsEnabled) {
       didInitPageviewsRef.current = true;
       const timer = setTimeout(() => {
