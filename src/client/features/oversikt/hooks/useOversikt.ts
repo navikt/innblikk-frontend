@@ -18,8 +18,35 @@ import {
     saveLastOversiktDashboardId,
 } from '../utils/oversikt.ts';
 
+const normalizePathOperator = (value: string | null): string =>
+    value === 'starts-with' ? 'starts-with' : 'equals';
+
+const normalizeDateRange = (value: string | null): string => {
+    if (!value) return 'last_7_days';
+    if (value === 'this-month') return 'current_month';
+    if (value === 'last-month') return 'last_month';
+    return value;
+};
+
+const normalizeMetricType = (value: string | null): MetricType => {
+    if (value === 'pageviews' || value === 'proportion' || value === 'visits') return value;
+    return 'visitors';
+};
+
+const getInitialUrlPaths = (searchParams: URLSearchParams): string[] => {
+    const paths = searchParams
+        .getAll('path')
+        .map((path) => normalizeUrlToPath(path))
+        .filter((path) => Boolean(path));
+    return Array.from(new Set(paths));
+};
+
 export const useOversikt = () => {
     const [searchParams, setSearchParams] = useSearchParams();
+    const initialPathOperator = normalizePathOperator(searchParams.get('pathOperator'));
+    const initialUrlPaths = getInitialUrlPaths(searchParams);
+    const initialDateRange = normalizeDateRange(searchParams.get('periode'));
+    const initialMetricType = normalizeMetricType(searchParams.get('metrikk') || searchParams.get('metricType'));
 
     const [projects, setProjects] = useState<ProjectDto[]>([]);
     const [dashboards, setDashboards] = useState<DashboardDto[]>([]);
@@ -28,10 +55,10 @@ export const useOversikt = () => {
     const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null);
     const [activeWebsite, setActiveWebsite] = useState<Website | null>(null);
 
-    const [tempPathOperator, setTempPathOperator] = useState('equals');
-    const [tempUrlPaths, setTempUrlPaths] = useState<string[]>([]);
-    const [tempDateRange, setTempDateRange] = useState('last_7_days');
-    const [tempMetricType, setTempMetricType] = useState<MetricType>('visitors');
+    const [tempPathOperator, setTempPathOperator] = useState(initialPathOperator);
+    const [tempUrlPaths, setTempUrlPaths] = useState<string[]>(initialUrlPaths);
+    const [tempDateRange, setTempDateRange] = useState(initialDateRange);
+    const [tempMetricType, setTempMetricType] = useState<MetricType>(initialMetricType);
     const [comboInputValue, setComboInputValue] = useState('');
     const isSelectingRef = useRef(false);
     const hasResolvedInitialProjectRef = useRef(false);
@@ -41,10 +68,10 @@ export const useOversikt = () => {
     const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null);
 
     const [activeFilters, setActiveFilters] = useState<FilterState>({
-        pathOperator: 'equals',
-        urlFilters: [],
-        dateRange: 'last_7_days',
-        metricType: 'visitors',
+        pathOperator: initialPathOperator,
+        urlFilters: initialUrlPaths,
+        dateRange: initialDateRange,
+        metricType: initialMetricType,
     });
 
     const [loadingProjects, setLoadingProjects] = useState(false);
@@ -127,6 +154,20 @@ export const useOversikt = () => {
     // ── Handlers ──
 
     const handleUpdate = useCallback(() => {
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.delete('path');
+        tempUrlPaths.forEach((path) => {
+            if (path) nextParams.append('path', path);
+        });
+        if (tempPathOperator !== 'equals') nextParams.set('pathOperator', tempPathOperator);
+        else nextParams.delete('pathOperator');
+        if (tempDateRange && tempDateRange !== 'last_7_days') nextParams.set('periode', tempDateRange);
+        else nextParams.delete('periode');
+        if (tempMetricType !== 'visitors') nextParams.set('metrikk', tempMetricType);
+        else nextParams.delete('metrikk');
+        nextParams.delete('metricType');
+        setSearchParams(nextParams);
+
         setActiveFilters({
             pathOperator: tempPathOperator,
             urlFilters: tempUrlPaths,
@@ -134,7 +175,7 @@ export const useOversikt = () => {
             metricType: tempMetricType,
         });
         setActiveWebsite(selectedWebsite);
-    }, [tempPathOperator, tempUrlPaths, tempDateRange, tempMetricType, selectedWebsite]);
+    }, [searchParams, setSearchParams, tempPathOperator, tempUrlPaths, tempDateRange, tempMetricType, selectedWebsite]);
 
     const handleProjectSelected = useCallback(
         async (option: string, isSelected: boolean) => {
