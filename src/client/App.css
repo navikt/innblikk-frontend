@@ -106,7 +106,7 @@
 }
 
 .dark .sidebar-toggle-btn {
-  border-color: var(--ax-border-neutral-strong);
+  border-color: var(--ax-border-neutral);
 }
 
 /* Home page bottom grid responsive */
