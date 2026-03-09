@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { DragEvent } from 'react';
-import { ActionMenu, Alert, Button, Modal, Select, Switch, Tabs, Textarea, TextField } from '@navikt/ds-react';
+import { ActionMenu, Alert, Button, Modal, Select, Switch, TextField, Tabs } from '@navikt/ds-react';
+import Editor from '@monaco-editor/react';
 import { GripVertical, MoreVertical } from 'lucide-react';
 import type { GraphType, OversiktChart } from '../../model/types.ts';
 import type { Website } from '../../../../shared/types/website.ts';
@@ -98,6 +99,7 @@ const EditChartDialog = ({
     const [websites, setWebsites] = useState<Website[]>([]);
     const [websiteId, setWebsiteId] = useState(defaultWebsiteId ?? '');
     const [dashboardId, setDashboardId] = useState<number | null>(initialDashboardId);
+    const [editorHeight, setEditorHeight] = useState(260);
     const [localError, setLocalError] = useState<string | null>(null);
 
     useEffect(() => {
@@ -425,7 +427,7 @@ const EditChartDialog = ({
                     <Switch checked={showSql} onChange={(event) => setShowSql(event.target.checked)}>
                         Vis SQL kode / varianter
                     </Switch>
-                    {variants.length > 0 && (
+                    {showSql && variants.length > 0 && (
                         <div className="flex flex-col gap-2">
                             <div className="flex items-start gap-2">
                                 <div className="min-w-0 flex-1">
@@ -586,22 +588,49 @@ const EditChartDialog = ({
                                     </div>
                                 </div>
                             )}
-                            <Textarea
-                                label="SQL-kode"
-                                minRows={8}
-                                value={sqlText}
-                                onChange={(event) => {
-                                    const nextSql = event.target.value;
-                                    setSqlText(nextSql);
-                                    if ((selectedVariant?.queryId ?? 0) < 0) {
-                                        setVariants((prev) => prev.map((variant) => (
-                                            variant.queryId === selectedVariant?.queryId
-                                                ? { ...variant, sql: nextSql }
-                                                : variant
-                                        )));
-                                    }
-                                }}
-                            />
+                            <div>
+                                <label className="block font-medium mb-2" htmlFor="edit-chart-sql-editor">SQL-kode</label>
+                                <div
+                                    id="edit-chart-sql-editor"
+                                    className="border rounded resize-y overflow-auto"
+                                    style={{ position: 'relative', isolation: 'isolate', minHeight: 120, maxHeight: 600, height: editorHeight }}
+                                    onMouseUp={(event) => {
+                                        const target = event.currentTarget as HTMLDivElement;
+                                        setEditorHeight(target.offsetHeight);
+                                    }}
+                                >
+                                    <Editor
+                                        height={editorHeight}
+                                        defaultLanguage="sql"
+                                        value={sqlText}
+                                        onChange={(value) => {
+                                            const nextSql = value || '';
+                                            setSqlText(nextSql);
+                                            if ((selectedVariant?.queryId ?? 0) < 0) {
+                                                setVariants((prev) => prev.map((variant) => (
+                                                    variant.queryId === selectedVariant?.queryId
+                                                        ? { ...variant, sql: nextSql }
+                                                        : variant
+                                                )));
+                                            }
+                                        }}
+                                        theme="vs-dark"
+                                        options={{
+                                            minimap: { enabled: false },
+                                            fontSize: 14,
+                                            lineNumbers: 'on',
+                                            scrollBeyondLastLine: false,
+                                            automaticLayout: true,
+                                            tabSize: 2,
+                                            wordWrap: 'on',
+                                            fixedOverflowWidgets: true,
+                                            stickyScroll: { enabled: false },
+                                            lineNumbersMinChars: 4,
+                                            glyphMargin: false,
+                                        }}
+                                    />
+                                </div>
+                            </div>
                         </div>
                     )}
                 </div>
