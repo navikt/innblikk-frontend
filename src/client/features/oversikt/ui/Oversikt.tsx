@@ -302,6 +302,7 @@ const Oversikt = () => {
         websiteId?: string;
         addAsVariant?: boolean;
         variantName?: string;
+        newVariants?: Array<{ name: string; sqlText: string }>;
         targetQueryId?: number;
         targetQueryName?: string;
     }) => {
@@ -315,23 +316,38 @@ const Oversikt = () => {
                 graphType: params.graphType,
                 width: params.width,
             });
-            if (params.addAsVariant) {
-                await createQuery(selectedProjectId, selectedDashboardId, editChart.categoryId, editChart.graphId, {
-                    name: params.variantName?.trim() || `${params.name} - variant`,
-                    sqlText: sqlForSave,
-                });
-            } else {
+            const hasTargetQuery = typeof params.targetQueryId === 'number' && params.targetQueryId > 0;
+            const pendingNewVariants = (params.newVariants ?? [])
+                .map((variant) => ({
+                    name: variant.name.trim(),
+                    sqlText: variant.sqlText.trim(),
+                }))
+                .filter((variant) => variant.name && variant.sqlText);
+
+            if (hasTargetQuery) {
                 await updateQuery(
                     selectedProjectId,
                     selectedDashboardId,
                     editChart.categoryId,
                     editChart.graphId,
-                    params.targetQueryId ?? editChart.queryId,
+                    params.targetQueryId as number,
                     {
-                    name: params.targetQueryName ?? editChart.queryName,
-                    sqlText: sqlForSave,
+                        name: params.targetQueryName ?? editChart.queryName,
+                        sqlText: sqlForSave,
                     },
                 );
+            } else if (params.addAsVariant && pendingNewVariants.length === 0) {
+                await createQuery(selectedProjectId, selectedDashboardId, editChart.categoryId, editChart.graphId, {
+                    name: params.variantName?.trim() || `${params.name} - variant`,
+                    sqlText: sqlForSave,
+                });
+            }
+
+            for (const variant of pendingNewVariants) {
+                await createQuery(selectedProjectId, selectedDashboardId, editChart.categoryId, editChart.graphId, {
+                    name: variant.name,
+                    sqlText: rewriteSqlWebsiteId(variant.sqlText, params.websiteId),
+                });
             }
             await refreshGraphs(editChart.categoryId);
             setEditChart(null);

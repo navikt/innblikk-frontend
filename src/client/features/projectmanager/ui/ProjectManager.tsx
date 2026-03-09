@@ -641,6 +641,9 @@ const ProjectManager = () => {
         width: number;
         websiteId?: string;
         dashboardId?: number;
+        newVariants?: Array<{ name: string; sqlText: string }>;
+        targetQueryId?: number;
+        targetQueryName?: string;
     }) => {
         if (!editChartTarget) return;
         setChartMutationError(null);
@@ -649,8 +652,9 @@ const ProjectManager = () => {
             graphType: params.graphType,
             width: params.width,
             sqlText: params.sqlText,
-            queryId: editChartTarget.chart.queryId,
-            queryName: editChartTarget.chart.queryName,
+            queryId: params.targetQueryId,
+            queryName: params.targetQueryName,
+            newVariants: params.newVariants,
             websiteId: params.websiteId,
             targetDashboardId: params.dashboardId,
         });

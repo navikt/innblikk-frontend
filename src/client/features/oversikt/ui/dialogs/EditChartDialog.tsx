@@ -6,6 +6,7 @@ import { GripVertical, MoreVertical } from 'lucide-react';
 import type { GraphType, OversiktChart } from '../../model/types.ts';
 import type { Website } from '../../../../shared/types/website.ts';
 import { fetchWebsites } from '../../../../shared/api/websiteApi.ts';
+import { openSqlEditorWithContext } from '../../../../shared/lib/openSqlEditor.ts';
 
 type EditChartDialogProps = {
     open: boolean;
@@ -26,6 +27,7 @@ type EditChartDialogProps = {
         dashboardId?: number;
         addAsVariant?: boolean;
         variantName?: string;
+        newVariants?: Array<{ name: string; sqlText: string }>;
         targetQueryId?: number;
         targetQueryName?: string;
     }) => Promise<void>;
@@ -129,10 +131,6 @@ const EditChartDialog = ({
             setLocalError('SQL-kode kan ikke være tom når SQL-visning er aktiv');
             return;
         }
-        if (showSql && addAsVariant && !variantName.trim()) {
-            setLocalError('Variantnavn er påkrevd når du legger til variant');
-            return;
-        }
         const parsedWidth = Number(width);
         if (!Number.isFinite(parsedWidth)) {
             setLocalError('Bredde må være et tall mellom 0 og 100');
@@ -140,19 +138,38 @@ const EditChartDialog = ({
         }
         const normalizedWidth = parsedWidth <= 0 ? 50 : Math.min(100, Math.max(1, Math.round(parsedWidth)));
         const selectedVariant = variants.find((variant) => variant.queryId === selectedVariantQueryId) ?? null;
+        const selectedVariantIsPersisted = (selectedVariant?.queryId ?? 0) > 0;
+        const draftVariants = showSql
+            ? variants
+                .filter((variant) => variant.queryId < 0 && variant.sql.trim())
+                .map((variant) => {
+                    const variantIndex = variants.findIndex((item) => item.queryId === variant.queryId);
+                    return {
+                        name: getVariantDisplayName(variant.queryName, variantIndex >= 0 ? variantIndex : 0),
+                        sqlText: variant.sql,
+                    };
+                })
+            : [];
 
         setLocalError(null);
         await onSave({
             name: name.trim(),
             graphType,
             width: normalizedWidth,
-            sqlText: showSql ? sqlText : (chart.sql ?? ''),
+            sqlText: showSql
+                ? (selectedVariantIsPersisted ? sqlText : (chart.sql ?? ''))
+                : (chart.sql ?? ''),
             websiteId: websiteId || undefined,
             dashboardId: dashboardId ?? undefined,
             addAsVariant: showSql ? addAsVariant : false,
             variantName: showSql && addAsVariant ? variantName.trim() : undefined,
-            targetQueryId: selectedVariant?.queryId ?? chart.queryId,
-            targetQueryName: selectedVariant?.queryName ?? chart.queryName,
+            newVariants: draftVariants,
+            targetQueryId: showSql
+                ? (selectedVariantIsPersisted ? selectedVariant?.queryId : undefined)
+                : (selectedVariant?.queryId ?? chart.queryId),
+            targetQueryName: showSql
+                ? (selectedVariantIsPersisted ? selectedVariant?.queryName : undefined)
+                : (selectedVariant?.queryName ?? chart.queryName),
         });
     };
 
@@ -177,7 +194,12 @@ const EditChartDialog = ({
         setShowAddVariantControls(false);
         setShowSql(defaultShowSql);
         setShowRenameVariantField(false);
-        setRenameVariantValue(selectedVariant?.queryName ?? '');
+        const selectedVariantIndex = selectedVariant ? nextVariants.findIndex((variant) => variant.queryId === selectedVariant.queryId) : -1;
+        setRenameVariantValue(
+            selectedVariant
+                ? getVariantDisplayName(selectedVariant.queryName, selectedVariantIndex >= 0 ? selectedVariantIndex : 0)
+                : '',
+        );
         setReorderingVariantQueryId(null);
         setDraggedVariantQueryId(null);
         setDropTargetVariantQueryId(null);
@@ -267,7 +289,8 @@ const EditChartDialog = ({
         setVariantName(isDraft ? nextVariant.queryName : '');
         setShowAddVariantControls(false);
         setShowRenameVariantField(false);
-        setRenameVariantValue(nextVariant.queryName);
+        const nextVariantIndex = variants.findIndex((variant) => variant.queryId === queryId);
+        setRenameVariantValue(getVariantDisplayName(nextVariant.queryName, nextVariantIndex >= 0 ? nextVariantIndex : 0));
         setLocalError(null);
     };
 
@@ -311,10 +334,35 @@ const EditChartDialog = ({
     };
 
     const handleRenameSelectedVariant = async () => {
-        if (!selectedVariant || !onRenameVariant) return;
+        if (!selectedVariant) return;
         const trimmed = renameVariantValue.trim();
         if (!trimmed) {
             setLocalError('Variantnavn er påkrevd');
+            return;
+        }
+
+        if (selectedVariant.queryId < 0) {
+            setVariants((prev) => prev.map((variant) => (
+                variant.queryId === selectedVariant.queryId
+                    ? { ...variant, queryName: trimmed }
+                    : variant
+            )));
+            setRenameVariantValue(trimmed);
+            setVariantName(trimmed);
+            setShowRenameVariantField(false);
+            setLocalError(null);
+            return;
+        }
+
+        if (!onRenameVariant) {
+            setVariants((prev) => prev.map((variant) => (
+                variant.queryId === selectedVariant.queryId
+                    ? { ...variant, queryName: trimmed }
+                    : variant
+            )));
+            setRenameVariantValue(trimmed);
+            setShowRenameVariantField(false);
+            setLocalError(null);
             return;
         }
 
@@ -337,11 +385,35 @@ const EditChartDialog = ({
     };
 
     const handleDeleteSelectedVariant = async () => {
-        if (!selectedVariant || !onDeleteVariant) return;
+        if (!selectedVariant) return;
         if (!canDeleteSelectedVariant) {
             setLocalError('Du kan ikke slette siste variant');
             return;
         }
+
+        if (selectedVariant.queryId < 0) {
+            setVariants((prev) => {
+                const next = prev.filter((variant) => variant.queryId !== selectedVariant.queryId);
+                const nextSelected = next[0] ?? null;
+                setSelectedVariantQueryId(nextSelected?.queryId ?? null);
+                setSqlText(nextSelected?.sql ?? '');
+                const nextSelectedIndex = nextSelected ? next.findIndex((variant) => variant.queryId === nextSelected.queryId) : -1;
+                setRenameVariantValue(
+                    nextSelected
+                        ? getVariantDisplayName(nextSelected.queryName, nextSelectedIndex >= 0 ? nextSelectedIndex : 0)
+                        : '',
+                );
+                return next;
+            });
+            setShowRenameVariantField(false);
+            setAddAsVariant(false);
+            setShowAddVariantControls(false);
+            setVariantName('');
+            setLocalError(null);
+            return;
+        }
+
+        if (!onDeleteVariant) return;
 
         setVariantActionLoading(true);
         setLocalError(null);
@@ -352,7 +424,12 @@ const EditChartDialog = ({
                 const nextSelected = next[0] ?? null;
                 setSelectedVariantQueryId(nextSelected?.queryId ?? null);
                 setSqlText(nextSelected?.sql ?? '');
-                setRenameVariantValue(nextSelected?.queryName ?? '');
+                const nextSelectedIndex = nextSelected ? next.findIndex((variant) => variant.queryId === nextSelected.queryId) : -1;
+                setRenameVariantValue(
+                    nextSelected
+                        ? getVariantDisplayName(nextSelected.queryName, nextSelectedIndex >= 0 ? nextSelectedIndex : 0)
+                        : '',
+                );
                 return next;
             });
             setShowRenameVariantField(false);
@@ -429,8 +506,8 @@ const EditChartDialog = ({
                     </Switch>
                     {showSql && variants.length > 0 && (
                         <div className="flex flex-col gap-2">
-                            <div className="flex items-start gap-2">
-                                <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-start gap-2">
+                                <div className="min-w-0">
                                     <Tabs
                                         size="small"
                                         value={String(selectedVariant?.queryId ?? '')}
@@ -487,40 +564,6 @@ const EditChartDialog = ({
                                     >
                                         Legg til variant
                                     </Button>
-                                )}
-                                {showSql && !showAddVariantControls && selectedVariant && !selectedVariantIsDraft && (onRenameVariant || onDeleteVariant) && (
-                                    <ActionMenu>
-                                        <ActionMenu.Trigger>
-                                            <Button
-                                                type="button"
-                                                variant="secondary"
-                                                size="xsmall"
-                                                icon={<MoreVertical aria-hidden />}
-                                                title="Handlinger for valgt variant"
-                                            />
-                                        </ActionMenu.Trigger>
-                                        <ActionMenu.Content align="end">
-                                            {onRenameVariant && (
-                                                <ActionMenu.Item
-                                                    onClick={() => {
-                                                        setShowRenameVariantField(true);
-                                                        setRenameVariantValue(selectedVariant.queryName ?? '');
-                                                        setLocalError(null);
-                                                    }}
-                                                >
-                                                    Gi nytt navn til variant
-                                                </ActionMenu.Item>
-                                            )}
-                                            {onDeleteVariant && (
-                                                <ActionMenu.Item
-                                                    onClick={() => void handleDeleteSelectedVariant()}
-                                                    disabled={!canDeleteSelectedVariant || variantActionLoading}
-                                                >
-                                                    Slett variant
-                                                </ActionMenu.Item>
-                                            )}
-                                        </ActionMenu.Content>
-                                    </ActionMenu>
                                 )}
                             </div>
                             <p className="sr-only" aria-live="polite" aria-atomic="true">
@@ -589,7 +632,61 @@ const EditChartDialog = ({
                                 </div>
                             )}
                             <div>
-                                <label className="block font-medium mb-2" htmlFor="edit-chart-sql-editor">SQL-kode</label>
+                                <div className="mb-2 flex items-center justify-between gap-2">
+                                    <label className="block font-medium" htmlFor="edit-chart-sql-editor">SQL-kode</label>
+                                    <div className="flex items-center gap-2">
+                                        {selectedVariant && (
+                                            <ActionMenu>
+                                                <ActionMenu.Trigger>
+                                                    <Button
+                                                        type="button"
+                                                        variant="secondary"
+                                                        size="xsmall"
+                                                        icon={<MoreVertical aria-hidden />}
+                                                        title="Handlinger for valgt variant"
+                                                    />
+                                                </ActionMenu.Trigger>
+                                                <ActionMenu.Content align="end">
+                                                    <ActionMenu.Item
+                                                        onClick={() => {
+                                                            setShowRenameVariantField(true);
+                                                            const selectedVariantIndex = getVariantIndex(selectedVariant.queryId);
+                                                            setRenameVariantValue(
+                                                                getVariantDisplayName(
+                                                                    selectedVariant.queryName,
+                                                                    selectedVariantIndex >= 0 ? selectedVariantIndex : 0,
+                                                                ),
+                                                            );
+                                                            setLocalError(null);
+                                                        }}
+                                                    >
+                                                        Gi nytt navn til variant
+                                                    </ActionMenu.Item>
+                                                    {(selectedVariantIsDraft || onDeleteVariant) && (
+                                                        <ActionMenu.Item
+                                                            onClick={() => void handleDeleteSelectedVariant()}
+                                                            disabled={!canDeleteSelectedVariant || variantActionLoading}
+                                                        >
+                                                            Slett variant
+                                                        </ActionMenu.Item>
+                                                    )}
+                                                </ActionMenu.Content>
+                                            </ActionMenu>
+                                        )}
+                                        <Button
+                                            type="button"
+                                            size="xsmall"
+                                            variant="secondary"
+                                            onClick={() => openSqlEditorWithContext({
+                                                sql: sqlText,
+                                                websiteId: websiteId || undefined,
+                                            })}
+                                            disabled={!sqlText.trim()}
+                                        >
+                                            Åpne i SQL-editor
+                                        </Button>
+                                    </div>
+                                </div>
                                 <div
                                     id="edit-chart-sql-editor"
                                     className="border rounded resize-y overflow-auto"

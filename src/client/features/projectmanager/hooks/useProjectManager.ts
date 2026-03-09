@@ -582,8 +582,9 @@ export const useProjectManager = () => {
                 graphType: string;
                 width: number;
                 sqlText: string;
-                queryId: number;
-                queryName: string;
+                queryId?: number;
+                queryName?: string;
+                newVariants?: Array<{ name: string; sqlText: string }>;
                 websiteId?: string;
                 targetDashboardId?: number;
                 targetCategoryId?: number;
@@ -600,6 +601,14 @@ export const useProjectManager = () => {
                     return { ok: false, error: 'SQL-kode er påkrevd' };
                 }
                 const sqlForSave = rewriteSqlWebsiteId(params.sqlText, params.websiteId);
+                const pendingNewVariants = (params.newVariants ?? [])
+                    .map((variant) => ({
+                        name: variant.name.trim(),
+                        sqlText: variant.sqlText.trim(),
+                    }))
+                    .filter((variant) => variant.name && variant.sqlText);
+                const hasTargetQuery = typeof params.queryId === 'number' && params.queryId > 0;
+                const resolvedQueryName = params.queryName?.trim() || `${params.name.trim()} - query`;
                 const targetDashboardId = params.targetDashboardId;
                 const targetCategoryId = params.targetCategoryId ?? categoryId;
                 const shouldMove = (targetDashboardId != null && targetDashboardId !== dashboardId)
@@ -611,14 +620,26 @@ export const useProjectManager = () => {
                         graphType: params.graphType,
                         width: params.width,
                     });
-                    await api.createQuery(
-                        projectId,
-                        moveDashboardId,
-                        targetCategoryId,
-                        createdGraph.id,
-                        params.queryName,
-                        sqlForSave,
-                    );
+                    if (hasTargetQuery || pendingNewVariants.length === 0) {
+                        await api.createQuery(
+                            projectId,
+                            moveDashboardId,
+                            targetCategoryId,
+                            createdGraph.id,
+                            resolvedQueryName,
+                            sqlForSave,
+                        );
+                    }
+                    for (const variant of pendingNewVariants) {
+                        await api.createQuery(
+                            projectId,
+                            moveDashboardId,
+                            targetCategoryId,
+                            createdGraph.id,
+                            variant.name,
+                            rewriteSqlWebsiteId(variant.sqlText, params.websiteId),
+                        );
+                    }
                     await api.deleteGraph(projectId, dashboardId, categoryId, graphId);
                 } else {
                     await api.updateGraph(projectId, dashboardId, categoryId, graphId, {
@@ -626,15 +647,27 @@ export const useProjectManager = () => {
                         graphType: params.graphType,
                         width: params.width,
                     });
-                    await api.updateQuery(
-                        projectId,
-                        dashboardId,
-                        categoryId,
-                        graphId,
-                        params.queryId,
-                        params.queryName,
-                        sqlForSave,
-                    );
+                    if (hasTargetQuery) {
+                        await api.updateQuery(
+                            projectId,
+                            dashboardId,
+                            categoryId,
+                            graphId,
+                            params.queryId as number,
+                            resolvedQueryName,
+                            sqlForSave,
+                        );
+                    }
+                    for (const variant of pendingNewVariants) {
+                        await api.createQuery(
+                            projectId,
+                            dashboardId,
+                            categoryId,
+                            graphId,
+                            variant.name,
+                            rewriteSqlWebsiteId(variant.sqlText, params.websiteId),
+                        );
+                    }
                 }
                 await loadProjectSummaries();
                 setMessage('Graf oppdatert');
