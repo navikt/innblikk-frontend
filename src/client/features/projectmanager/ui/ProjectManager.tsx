@@ -27,6 +27,7 @@ type FileTableRow = {
     categoryId?: number;
     graphType?: string;
     graphId?: number;
+    variantCount?: number;
 };
 
 type ImportGraphType = 'LINE' | 'BAR' | 'PIE' | 'TABLE';
@@ -208,6 +209,7 @@ const ProjectManager = () => {
                     categoryId: chart.categoryId ?? singleCategoryId,
                     graphType: chart.graphType,
                     graphId: chart.id,
+                    variantCount: chart.variantCount,
                 })));
                 return rows;
             }
@@ -235,6 +237,7 @@ const ProjectManager = () => {
                     categoryName: category.name,
                     graphType: chart.graphType,
                     graphId: chart.id,
+                    variantCount: chart.variantCount,
                 })));
             });
 
@@ -540,6 +543,11 @@ const ProjectManager = () => {
         return 'Graf';
     };
 
+    const getVariantCountLabel = (variantCount?: number) => {
+        if (!variantCount || variantCount <= 1) return null;
+        return `(${variantCount} varianter)`;
+    };
+
     const normalizeGraphType = (graphType?: string): GraphType => {
         if (graphType === 'LINE' || graphType === 'BAR' || graphType === 'PIE' || graphType === 'TABLE') return graphType;
         return 'TABLE';
@@ -553,8 +561,18 @@ const ProjectManager = () => {
                 api.fetchQueries(projectId, row.dashboardId, row.categoryId, row.graphId),
                 api.fetchGraphs(projectId, row.dashboardId, row.categoryId),
             ]);
-            const query = queryItems[0];
-            if (!query) {
+            if (queryItems.length === 0) {
+                setChartMutationError('Grafen mangler SQL/query og kan ikke redigeres. Dette skjer ofte hvis import feilet under lagring.');
+                return;
+            }
+            const sortedQueries = [...queryItems].sort((a, b) => {
+                const aOrdering = a.ordering ?? Number.MAX_SAFE_INTEGER;
+                const bOrdering = b.ordering ?? Number.MAX_SAFE_INTEGER;
+                if (aOrdering !== bOrdering) return aOrdering - bOrdering;
+                return a.id - b.id;
+            });
+            const primaryQuery = sortedQueries[0];
+            if (!primaryQuery) {
                 setChartMutationError('Grafen mangler SQL/query og kan ikke redigeres. Dette skjer ofte hvis import feilet under lagring.');
                 return;
             }
@@ -563,20 +581,25 @@ const ProjectManager = () => {
                 id: `projectmanager-${row.graphId}`,
                 title: row.name,
                 type: 'table',
-                sql: query.sqlText,
+                sql: primaryQuery.sqlText,
                 width: graph?.width ? String(graph.width) : '50',
                 graphId: row.graphId,
                 graphType: normalizeGraphType(row.graphType ?? graph?.graphType),
-                queryId: query.id,
-                queryName: query.name,
+                queryId: primaryQuery.id,
+                queryName: primaryQuery.name,
                 categoryId: row.categoryId!,
+                variants: sortedQueries.map((item) => ({
+                    queryId: item.id,
+                    queryName: item.name,
+                    sql: item.sqlText,
+                })),
             };
             setEditChartTarget({
                 projectId,
                 dashboardId: row.dashboardId,
                 categoryId: row.categoryId!,
                 chart,
-                defaultWebsiteId: extractWebsiteId(query.sqlText),
+                defaultWebsiteId: extractWebsiteId(primaryQuery.sqlText),
             });
         } catch (err: unknown) {
             setChartMutationError(err instanceof Error ? err.message : 'Kunne ikke hente grafdata');
@@ -1202,7 +1225,11 @@ const ProjectManager = () => {
                                                             )}
                                                         </span>
                                                         <Link as={RouterLink} to={overviewHref} className="block min-w-0 flex-1 truncate">
-                                                            {row.type === 'category' ? getCategoryDisplayName(row.name) : row.name}
+                                                            {row.type === 'category'
+                                                                ? getCategoryDisplayName(row.name)
+                                                                : row.type === 'chart'
+                                                                    ? `${row.name} ${getVariantCountLabel(row.variantCount) ?? ''}`.trim()
+                                                                    : row.name}
                                                         </Link>
                                                     </span>
                                                 </Table.HeaderCell>
