@@ -13,9 +13,9 @@ const fieldByCategory: Record<string, string | undefined> = {
     country: 'country',
 };
 
-export const getUserCompositionSqlTemplate = (category: string): string | null => {
+export const getUserCompositionSqlTemplate = (category: string): string | undefined => {
     const field = fieldByCategory[category];
-    if (!field) return null;
+    if (!field) return undefined;
 
     return `
 WITH base_query AS (
@@ -39,4 +39,3 @@ ORDER BY Unike_besokende DESC
 LIMIT 1000
 `;
 };
-
