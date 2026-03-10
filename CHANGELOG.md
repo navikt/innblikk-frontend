@@ -9,6 +9,10 @@ All notable changes to this project will be documented in this file.
 - Dependabot
 - Dependabot
 
+### 🐛 Bug Fixes
+
+- Use pnpm consistently in start script
+
 ### 👷 CI
 
 - Change changelog workflow commit message
