@@ -832,7 +832,7 @@ const ProjectManager = () => {
             setMoveChartError('Velg dashboard');
             return;
         }
-        if (!moveChartTargetCategoryId && (moveChartTargetDashboardSummary?.categories.length ?? 0) > 0) {
+        if (!moveChartTargetCategoryId && (moveChartTargetDashboardSummary?.categories.length ?? 0) > 1) {
             setMoveChartError('Velg fane');
             return;
         }
@@ -1751,23 +1751,25 @@ const ProjectManager = () => {
                                 </option>
                             ))}
                         </Select>
-                        <Select
-                            label="Fane"
-                            value={moveChartTargetCategoryId ? String(moveChartTargetCategoryId) : ''}
-                            onChange={(event) => {
-                                setMoveChartTargetCategoryId(Number(event.target.value));
-                                setMoveChartError(null);
-                            }}
-                            size="small"
-                            disabled={!moveChartTargetDashboardId || moveChartCategoryOptions.length === 0}
-                        >
-                            <option value="">Velg fane</option>
-                            {moveChartCategoryOptions.map((category) => (
-                                <option key={category.id} value={category.id}>
-                                    {category.name}
-                                </option>
-                            ))}
-                        </Select>
+                        {moveChartCategoryOptions.length > 1 && (
+                            <Select
+                                label="Fane"
+                                value={moveChartTargetCategoryId ? String(moveChartTargetCategoryId) : ''}
+                                onChange={(event) => {
+                                    setMoveChartTargetCategoryId(Number(event.target.value));
+                                    setMoveChartError(null);
+                                }}
+                                size="small"
+                                disabled={!moveChartTargetDashboardId}
+                            >
+                                <option value="">Velg fane</option>
+                                {moveChartCategoryOptions.map((category) => (
+                                    <option key={category.id} value={category.id}>
+                                        {category.name}
+                                    </option>
+                                ))}
+                            </Select>
+                        )}
                         {moveChartTargetProjectId > 0 && moveChartDashboardOptions.length === 0 && (
                             <BodyShort size="small" className="text-[var(--ax-text-subtle)]">
                                 Valgt team har ingen dashboard.
