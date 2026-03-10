@@ -70,6 +70,7 @@ type CopySuccessState = {
     dashboardName: string;
     chartName: string;
 };
+const DASHBOARD_MOVE_SUCCESS_FLASH_KEY = 'oversikt:dashboardMoveSuccessMessage';
 
 const Oversikt = () => {
     const {
@@ -106,8 +107,14 @@ const Oversikt = () => {
     const [dashboardMutationError, setDashboardMutationError] = useState<string | null>(null);
     const [editDashboardTarget, setEditDashboardTarget] = useState<DashboardDto | null>(null);
     const [deleteDashboardTarget, setDeleteDashboardTarget] = useState<DashboardDto | null>(null);
+    const [moveDashboardTarget, setMoveDashboardTarget] = useState<DashboardDto | null>(null);
+    const [isMoveDashboardModalOpen, setIsMoveDashboardModalOpen] = useState(false);
+    const [moveDashboardTargetProjectId, setMoveDashboardTargetProjectId] = useState<number>(0);
+    const [moveDashboardError, setMoveDashboardError] = useState<string | null>(null);
+    const [dashboardMoveSuccessMessage, setDashboardMoveSuccessMessage] = useState<string | null>(null);
     const [savingDashboard, setSavingDashboard] = useState(false);
     const [deletingDashboard, setDeletingDashboard] = useState(false);
+    const [movingDashboard, setMovingDashboard] = useState(false);
     const [copyChartTarget, setCopyChartTarget] = useState<{ chart: OversiktChart; sourceWebsiteId?: string } | null>(null);
     const [copyMutationError, setCopyMutationError] = useState<string | null>(null);
     const [copyingChart, setCopyingChart] = useState(false);
@@ -163,6 +170,14 @@ const Oversikt = () => {
         if (!selectedProjectId) return;
         window.localStorage.setItem('projectmanager:lastSelectedProjectId', String(selectedProjectId));
     }, [selectedProjectId]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const flash = window.sessionStorage.getItem(DASHBOARD_MOVE_SUCCESS_FLASH_KEY);
+        if (!flash) return;
+        setDashboardMoveSuccessMessage(flash);
+        window.sessionStorage.removeItem(DASHBOARD_MOVE_SUCCESS_FLASH_KEY);
+    }, []);
 
     useEffect(() => {
         const chartIds = new Set(charts.filter((chart) => chart.graphType !== 'TEXT').map((chart) => chart.id));
@@ -737,6 +752,14 @@ const Oversikt = () => {
         setDeleteDashboardTarget(selectedDashboard);
     };
 
+    const openMoveDashboardDialog = () => {
+        if (!selectedDashboard || !selectedProjectId) return;
+        setMoveDashboardError(null);
+        setMoveDashboardTarget(selectedDashboard);
+        setMoveDashboardTargetProjectId(selectedProjectId);
+        setIsMoveDashboardModalOpen(true);
+    };
+
     const openCreateTabModal = () => {
         if (!selectedDashboardId) return;
         setCategoryMutationError(null);
@@ -865,6 +888,41 @@ const Oversikt = () => {
             setDashboardMutationError(err instanceof Error ? err.message : 'Kunne ikke slette dashboard');
         } finally {
             setDeletingDashboard(false);
+        }
+    };
+
+    const handleMoveDashboard = async () => {
+        if (!moveDashboardTarget || !selectedProjectId) return;
+        const sourceProjectId = selectedProjectId;
+        const targetProjectId = moveDashboardTargetProjectId;
+        const dashboardToMove = moveDashboardTarget;
+        if (!moveDashboardTargetProjectId) {
+            setMoveDashboardError('Velg team');
+            return;
+        }
+        if (moveDashboardTargetProjectId === selectedProjectId) {
+            setMoveDashboardError('Velg et annet team');
+            return;
+        }
+
+        setMovingDashboard(true);
+        setMoveDashboardError(null);
+        try {
+            await updateDashboard(sourceProjectId, dashboardToMove.id, {
+                name: dashboardToMove.name,
+                description: dashboardToMove.description,
+                projectId: targetProjectId,
+            });
+            setIsMoveDashboardModalOpen(false);
+            setMoveDashboardTarget(null);
+            setMoveDashboardTargetProjectId(0);
+            setDashboardMoveSuccessMessage('Dashboard flyttet');
+            setSelectedProjectId(targetProjectId);
+            await refreshDashboards(targetProjectId, dashboardToMove.id);
+        } catch (err: unknown) {
+            setMoveDashboardError(err instanceof Error ? err.message : 'Kunne ikke flytte dashboard');
+        } finally {
+            setMovingDashboard(false);
         }
     };
 
@@ -1395,6 +1453,11 @@ const Oversikt = () => {
             filters={supportsVisibleStandardFilters ? filters : undefined}
         >
             {error && <Alert variant="error">{error}</Alert>}
+            {dashboardMoveSuccessMessage && (
+                <Alert variant="success" closeButton onClose={() => setDashboardMoveSuccessMessage(null)}>
+                    {dashboardMoveSuccessMessage}
+                </Alert>
+            )}
             <p className="sr-only" aria-live="polite" aria-atomic="true">
                 {reorderAnnouncement}
             </p>
@@ -1433,6 +1496,14 @@ const Oversikt = () => {
                                     disabled={!selectedDashboard}
                                 >
                                     Endre info
+                                </Button>
+                                <Button
+                                    variant="secondary"
+                                    size="xsmall"
+                                    onClick={openMoveDashboardDialog}
+                                    disabled={!selectedDashboard}
+                                >
+                                    Flytt dashboard
                                 </Button>
                                 <Button
                                     variant="secondary"
@@ -1964,6 +2035,62 @@ const Oversikt = () => {
                     </Button>
                     <Button variant="secondary" onClick={() => setCopySuccess(null)}>
                         Nei, bli her
+                    </Button>
+                </Modal.Footer>
+            </Modal>
+
+            <Modal
+                open={isMoveDashboardModalOpen}
+                onClose={() => {
+                    setIsMoveDashboardModalOpen(false);
+                    setMoveDashboardTarget(null);
+                    setMoveDashboardTargetProjectId(0);
+                    setMoveDashboardError(null);
+                }}
+                header={{ heading: 'Flytt dashboard' }}
+                width="small"
+            >
+                <Modal.Body>
+                    <div className="space-y-4">
+                        {moveDashboardError && <Alert variant="error" size="small">{moveDashboardError}</Alert>}
+                        {moveDashboardTarget && (
+                            <p>
+                                Dashboard: <strong>{moveDashboardTarget.name}</strong>
+                            </p>
+                        )}
+                        <Select
+                            label="Team"
+                            value={moveDashboardTargetProjectId ? String(moveDashboardTargetProjectId) : ''}
+                            onChange={(event) => {
+                                setMoveDashboardTargetProjectId(Number(event.target.value));
+                                setMoveDashboardError(null);
+                            }}
+                            size="small"
+                        >
+                            <option value="">Velg team</option>
+                            {projects.map((project) => (
+                                <option key={project.id} value={project.id}>
+                                    {project.name}
+                                </option>
+                            ))}
+                        </Select>
+                    </div>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button onClick={() => void handleMoveDashboard()} loading={movingDashboard}>
+                        Flytt dashboard
+                    </Button>
+                    <Button
+                        variant="secondary"
+                        onClick={() => {
+                            setIsMoveDashboardModalOpen(false);
+                            setMoveDashboardTarget(null);
+                            setMoveDashboardTargetProjectId(0);
+                            setMoveDashboardError(null);
+                        }}
+                        disabled={movingDashboard}
+                    >
+                        Avbryt
                     </Button>
                 </Modal.Footer>
             </Modal>

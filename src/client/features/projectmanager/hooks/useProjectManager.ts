@@ -148,15 +148,17 @@ export const useProjectManager = () => {
     );
 
     const editDashboard = useCallback(
-        (projectId: number, dashboardId: number, params: { name: string; description?: string }) =>
+        (projectId: number, dashboardId: number, params: { name: string; description?: string; projectId?: number }) =>
             run(async () => {
                 if (!params.name.trim()) throw new Error('Dashboardnavn er påkrevd');
                 await api.updateDashboard(projectId, dashboardId, {
                     name: params.name.trim(),
                     description: params.description?.trim() || undefined,
+                    projectId: params.projectId,
                 });
                 await loadProjectSummaries();
                 setMessage('Dashboard oppdatert');
+                return true;
             }),
         [run, loadProjectSummaries],
     );

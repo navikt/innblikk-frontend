@@ -47,6 +47,18 @@ type ProjectManagerMoveChartTarget = {
     graphId: number;
     name: string;
 };
+type ProjectManagerMoveDashboardTarget = {
+    id: number;
+    projectId: number;
+    name: string;
+    description?: string;
+};
+type ProjectManagerMoveDashboardSuccessTarget = {
+    id: number;
+    projectId: number;
+    dashboardName: string;
+    projectName: string;
+};
 
 const LAST_PROJECT_STORAGE_KEY = 'projectmanager:lastSelectedProjectId';
 
@@ -119,6 +131,11 @@ const ProjectManager = () => {
     const [moveChartTargetDashboardId, setMoveChartTargetDashboardId] = useState<number>(0);
     const [moveChartTargetCategoryId, setMoveChartTargetCategoryId] = useState<number>(0);
     const [moveChartError, setMoveChartError] = useState<string | null>(null);
+    const [moveDashboardTarget, setMoveDashboardTarget] = useState<ProjectManagerMoveDashboardTarget | null>(null);
+    const [isMoveDashboardModalOpen, setIsMoveDashboardModalOpen] = useState(false);
+    const [moveDashboardTargetProjectId, setMoveDashboardTargetProjectId] = useState<number>(0);
+    const [moveDashboardError, setMoveDashboardError] = useState<string | null>(null);
+    const [moveDashboardSuccessTarget, setMoveDashboardSuccessTarget] = useState<ProjectManagerMoveDashboardSuccessTarget | null>(null);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [projectSearch, setProjectSearch] = useState('');
     const [isCreateDashboardOpen, setIsCreateDashboardOpen] = useState(false);
@@ -350,6 +367,20 @@ const ProjectManager = () => {
         setDeleteDashboardTarget({ id: dashboardId, projectId, name });
     };
 
+    const openMoveDashboard = (projectId: number, dashboardId: number, name: string) => {
+        setMoveDashboardError(null);
+        const projectSummary = projectSummaries.find((summary) => summary.project.id === projectId);
+        const dashboardSummary = projectSummary?.dashboards.find((dashboard) => dashboard.id === dashboardId);
+        setMoveDashboardTarget({
+            id: dashboardId,
+            projectId,
+            name: dashboardSummary?.name ?? name,
+            description: dashboardSummary?.description,
+        });
+        setMoveDashboardTargetProjectId(projectId);
+        setIsMoveDashboardModalOpen(true);
+    };
+
     const openCreateDashboard = () => {
         setCreateDashboardError(null);
         setNewDashboardName('');
@@ -372,6 +403,36 @@ const ProjectManager = () => {
         }
         await deleteDashboard(deleteDashboardTarget.projectId, deleteDashboardTarget.id);
         setDeleteDashboardTarget(null);
+    };
+
+    const handleMoveDashboard = async () => {
+        if (!moveDashboardTarget) return;
+        if (!moveDashboardTargetProjectId) {
+            setMoveDashboardError('Velg team');
+            return;
+        }
+        if (moveDashboardTargetProjectId === moveDashboardTarget.projectId) {
+            setMoveDashboardError('Velg et annet team');
+            return;
+        }
+
+        setMoveDashboardError(null);
+        const result = await editDashboard(moveDashboardTarget.projectId, moveDashboardTarget.id, {
+            name: moveDashboardTarget.name,
+            description: moveDashboardTarget.description,
+            projectId: moveDashboardTargetProjectId,
+        });
+        if (result === undefined) return;
+        const targetProject = projectOptions.find((project) => project.id === moveDashboardTargetProjectId);
+        setIsMoveDashboardModalOpen(false);
+        setMoveDashboardTarget(null);
+        setMoveDashboardTargetProjectId(0);
+        setMoveDashboardSuccessTarget({
+            id: moveDashboardTarget.id,
+            projectId: moveDashboardTargetProjectId,
+            dashboardName: moveDashboardTarget.name,
+            projectName: targetProject?.name ?? 'valgt team',
+        });
     };
 
     const handleCreateDashboard = async () => {
@@ -1314,6 +1375,13 @@ const ProjectManager = () => {
                                                                     )}
                                                                     {selectedProject && (
                                                                         <ActionMenu.Item
+                                                                            onClick={() => openMoveDashboard(selectedProject.project.id, row.dashboardId, row.name)}
+                                                                        >
+                                                                            Flytt dashboard
+                                                                        </ActionMenu.Item>
+                                                                    )}
+                                                                    {selectedProject && (
+                                                                        <ActionMenu.Item
                                                                             onClick={() => openDeleteDashboard(selectedProject.project.id, row.dashboardId, row.name)}
                                                                         >
                                                                             Slett dashboard
@@ -1472,6 +1540,98 @@ const ProjectManager = () => {
                 }}
                 onSave={handleSaveDashboard}
             />
+
+            <Modal
+                open={isMoveDashboardModalOpen}
+                onClose={() => {
+                    setIsMoveDashboardModalOpen(false);
+                    setMoveDashboardTarget(null);
+                    setMoveDashboardTargetProjectId(0);
+                    setMoveDashboardError(null);
+                }}
+                header={{ heading: 'Flytt dashboard' }}
+                width="small"
+            >
+                <Modal.Body>
+                    <div className="space-y-4">
+                        {moveDashboardError && <Alert variant="error" size="small">{moveDashboardError}</Alert>}
+                        {moveDashboardTarget && (
+                            <BodyShort size="small" className="text-[var(--ax-text-subtle)]">
+                                Dashboard: <strong>{moveDashboardTarget.name}</strong>
+                            </BodyShort>
+                        )}
+                        <Select
+                            label="Team"
+                            value={moveDashboardTargetProjectId ? String(moveDashboardTargetProjectId) : ''}
+                            onChange={(event) => {
+                                setMoveDashboardTargetProjectId(Number(event.target.value));
+                                setMoveDashboardError(null);
+                            }}
+                            size="small"
+                        >
+                            <option value="">Velg team</option>
+                            {projectOptions.map((project) => (
+                                <option key={project.id} value={project.id}>
+                                    {project.name}
+                                </option>
+                            ))}
+                        </Select>
+                    </div>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button onClick={() => void handleMoveDashboard()} loading={loading}>
+                        Flytt dashboard
+                    </Button>
+                    <Button
+                        variant="secondary"
+                        onClick={() => {
+                            setIsMoveDashboardModalOpen(false);
+                            setMoveDashboardTarget(null);
+                            setMoveDashboardTargetProjectId(0);
+                            setMoveDashboardError(null);
+                        }}
+                        disabled={loading}
+                    >
+                        Avbryt
+                    </Button>
+                </Modal.Footer>
+            </Modal>
+
+            <Modal
+                open={!!moveDashboardSuccessTarget}
+                onClose={() => setMoveDashboardSuccessTarget(null)}
+                header={{ heading: 'Dashboard flyttet' }}
+                width="small"
+            >
+                <Modal.Body>
+                    <div className="space-y-3">
+                        <BodyShort>
+                            Dashboard <strong>{moveDashboardSuccessTarget?.dashboardName}</strong> ble flyttet til{' '}
+                            <strong>{moveDashboardSuccessTarget?.projectName}</strong>.
+                        </BodyShort>
+                        <BodyShort size="small" className="text-[var(--ax-text-subtle)]">
+                            Vil du gå til ny plassering, eller bli her?
+                        </BodyShort>
+                    </div>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button
+                        onClick={() => {
+                            if (!moveDashboardSuccessTarget) return;
+                            setSelectedProjectId(moveDashboardSuccessTarget.projectId);
+                            setMoveDashboardSuccessTarget(null);
+                        }}
+                    >
+                        Gå til ny plassering
+                    </Button>
+                    <Button
+                        variant="secondary"
+                        onClick={() => setMoveDashboardSuccessTarget(null)}
+                    >
+                        Bli her
+                    </Button>
+                </Modal.Footer>
+            </Modal>
 
             <Modal
                 open={!!createTabTarget}
