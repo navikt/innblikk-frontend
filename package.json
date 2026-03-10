@@ -9,7 +9,7 @@
     "lint": "eslint . --max-warnings=0 --report-unused-disable-directives",
     "preview": "vite preview",
     "server": "node server.js",
-    "start": "concurrently --names \"VITE,SERVER\" --prefix-colors \"cyan,green\" \"npm run dev\" \"npm run server\""
+    "start": "concurrently --names \"VITE,SERVER\" --prefix-colors \"cyan,green\" \"pnpm run dev\" \"pnpm run server\""
   },
   "dependencies": {
     "@google-cloud/bigquery": "^8.1.1",
