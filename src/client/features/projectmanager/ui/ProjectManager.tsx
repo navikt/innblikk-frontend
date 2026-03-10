@@ -1015,7 +1015,9 @@ const ProjectManager = () => {
                                                         title={`${summary.chartCount} ${summary.chartCount === 1 ? 'graf' : 'grafer'}`}
                                                     >
                                                         <BarChartIcon aria-hidden fontSize="0.9rem" />
-                                                        {summary.chartCount}
+                                                        <span className="inline-block min-w-[2ch] tabular-nums">
+                                                            {summary.chartCount}
+                                                        </span>
                                                         <span className="sr-only"> {summary.chartCount === 1 ? 'graf' : 'grafer'}</span>
                                                     </span>
                                                 </div>
