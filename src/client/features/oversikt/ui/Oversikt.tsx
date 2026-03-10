@@ -1382,11 +1382,11 @@ const Oversikt = () => {
                             <ActionMenu.Item onClick={openAddTextModal}>
                                 Legg til tekstboks
                             </ActionMenu.Item>
-                            <ActionMenu.Item onClick={openImportModal}>
-                                Importer graf
-                            </ActionMenu.Item>
                             <ActionMenu.Item onClick={openCreateTabModal}>
                                 Legg til fane
+                            </ActionMenu.Item>
+                            <ActionMenu.Item onClick={openImportModal}>
+                                Importer graf
                             </ActionMenu.Item>
                         </ActionMenu.Content>
                     </ActionMenu>
