@@ -165,7 +165,7 @@ const Oversikt = () => {
     }, [selectedProjectId]);
 
     useEffect(() => {
-        const chartIds = new Set(charts.map((chart) => chart.id));
+        const chartIds = new Set(charts.filter((chart) => chart.graphType !== 'TEXT').map((chart) => chart.id));
         setStats((prev) => {
             const nextEntries = Object.entries(prev).filter(([id]) => chartIds.has(id));
             if (nextEntries.length === Object.keys(prev).length) return prev;
@@ -1238,6 +1238,8 @@ const Oversikt = () => {
     };
 
     const handleDataLoaded = (data: { id: string; gb: number; title: string }) => {
+        const chart = charts.find((item) => item.id === data.id);
+        if (chart?.graphType === 'TEXT') return;
         setStats((prev) => ({
             ...prev,
             [data.id]: { gb: data.gb, title: data.title },
