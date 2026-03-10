@@ -596,7 +596,7 @@ export const DashboardWidget = ({
                     title={(
                         <span className="inline-flex items-center gap-2 min-w-0">
                             {titlePrefix}
-                            <span className="truncate">{chart.title}</span>
+                            <span className="whitespace-normal break-words">{chart.title}</span>
                         </span>
                     )}
                     headingLevel="2"
@@ -626,7 +626,7 @@ export const DashboardWidget = ({
                             title={(
                                 <span className="inline-flex items-center gap-2 min-w-0">
                                     {titlePrefix}
-                                    <span className="truncate">{chart.title}</span>
+                                    <span className="whitespace-normal break-words">{chart.title}</span>
                                 </span>
                             )}
                             headingLevel="2"
@@ -647,9 +647,9 @@ export const DashboardWidget = ({
                     ) : (
                         <>
                             <div className="flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-2 min-w-0">
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
                                     {titlePrefix}
-                                    <h2 className="text-xl font-semibold text-[var(--ax-text-default)] truncate">
+                                    <h2 className="text-xl font-semibold text-[var(--ax-text-default)] whitespace-normal break-words">
                                         {chart.title}
                                     </h2>
                                 </div>

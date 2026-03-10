@@ -24,9 +24,9 @@ const TableSectionHeader = ({
     headingSize = 'small',
 }: TableSectionHeaderProps) => (
     <div className="space-y-2">
-        <div className="mb-2 flex items-center justify-between gap-2">
-            <div className="min-w-0">
-                <Heading level={headingLevel} size={headingSize}>
+        <div className="mb-2 flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+                <Heading level={headingLevel} size={headingSize} className="break-words">
                     {title}
                 </Heading>
                 {meta}
@@ -36,7 +36,7 @@ const TableSectionHeader = ({
                     </BodyShort>
                 )}
             </div>
-            {actions && <div className="flex items-center gap-1">{actions}</div>}
+            {actions && <div className="flex items-center gap-1 shrink-0">{actions}</div>}
         </div>
         {controls}
     </div>
