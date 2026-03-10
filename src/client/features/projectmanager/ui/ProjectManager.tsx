@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import { BarChartIcon, LineGraphIcon, PieChartIcon, SquareGridIcon, TableIcon } from '@navikt/aksel-icons';
+import { BarChartIcon, LineGraphIcon, PieChartIcon, TableIcon } from '@navikt/aksel-icons';
 import { ChevronDown, ChevronUp, MoreVertical, Plus } from 'lucide-react';
 import { ActionMenu, Alert, BodyShort, Button, Heading, Link, Loader, Modal, Search, Select, Table, TextField, Tooltip } from '@navikt/ds-react';
 import { Link as RouterLink } from 'react-router-dom';
@@ -1012,19 +1012,11 @@ const ProjectManager = () => {
                                                 <div className="flex items-center gap-3 text-xs text-[var(--ax-text-subtle)] shrink-0">
                                                     <span
                                                         className="inline-flex items-center gap-1"
-                                                        title={`${summary.dashboardCount} dashboard`}
-                                                    >
-                                                        <SquareGridIcon aria-hidden fontSize="0.9rem" />
-                                                        {summary.dashboardCount}
-                                                        <span className="sr-only"> dashboard</span>
-                                                    </span>
-                                                    <span
-                                                        className="inline-flex items-center gap-1"
-                                                        title={`${summary.chartCount} grafer`}
+                                                        title={`${summary.chartCount} ${summary.chartCount === 1 ? 'graf' : 'grafer'}`}
                                                     >
                                                         <BarChartIcon aria-hidden fontSize="0.9rem" />
                                                         {summary.chartCount}
-                                                        <span className="sr-only"> grafer</span>
+                                                        <span className="sr-only"> {summary.chartCount === 1 ? 'graf' : 'grafer'}</span>
                                                     </span>
                                                 </div>
                                             </div>
