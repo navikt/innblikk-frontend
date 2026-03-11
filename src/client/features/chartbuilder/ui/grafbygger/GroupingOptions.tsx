@@ -734,17 +734,6 @@ const GroupingOptions = forwardRef(({
             </div>
 
             <Switch
-              size="small"
-              description={columnOrderMode === 'metrics_first'
-                ? 'Måltall før grupperingskolonner'
-                : 'Standard rekkefølge: Grupperinger før måltall'}
-              checked={columnOrderMode === 'metrics_first'}
-              onChange={(e) => setColumnOrderMode(e.target.checked ? 'metrics_first' : 'default')}
-            >
-              Bytt kolonnerekkefølge
-            </Switch>
-
-            <Switch
               className="mt-1"
               size="small"
               description={orderBy
@@ -856,6 +845,17 @@ const GroupingOptions = forwardRef(({
                 />
               </div>
             )}
+
+            <Switch
+              size="small"
+              description={columnOrderMode === 'metrics_first'
+                ? 'Måltall før grupperingskolonner'
+                : 'Standard rekkefølge: Grupperinger før måltall'}
+              checked={columnOrderMode === 'metrics_first'}
+              onChange={(e) => setColumnOrderMode(e.target.checked ? 'metrics_first' : 'default')}
+            >
+              Bytt kolonnerekkefølge
+            </Switch>
           </div>
         </div>
       </div>
