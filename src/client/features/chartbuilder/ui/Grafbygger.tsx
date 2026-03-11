@@ -39,6 +39,7 @@ const ChartsPage = () => {
     displayOptionsRef,
 
     setFilters,
+    setDateRangeInDays,
     setRequestIncludeParams,
     setRequestLoadEvents,
     setIsEventsLoading,
@@ -99,6 +100,11 @@ const ChartsPage = () => {
                     if (withParams) {
                       setRequestIncludeParams(true);
                     }
+                  }}
+                  dateRangeInDays={dateRangeInDays}
+                  onDateRangeInDaysChange={(days) => {
+                    setDateRangeInDays(days);
+                    setRequestLoadEvents(true);
                   }}
                   hideHeader={true}
                   isEventsLoading={isEventsLoading}

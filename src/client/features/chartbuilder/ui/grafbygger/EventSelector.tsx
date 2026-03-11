@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Heading, RadioGroup, Radio, Select, UNSAFE_Combobox, Tabs, Button, Label, Skeleton, Switch } from '@navikt/ds-react';
+import { Heading, RadioGroup, Radio, Select, UNSAFE_Combobox, Tabs, Button, Label, Skeleton, Switch, ReadMore } from '@navikt/ds-react';
 import { ChevronDownIcon, ChevronUpIcon } from '@navikt/aksel-icons';
 import type { Filter, Parameter } from '../../../../shared/types/chart.ts';
 import AlertWithCloseButton from './AlertWithCloseButton.tsx';
@@ -29,6 +29,8 @@ interface EventSelectorProps {
   customEventsList: string[];
   filters: Filter[];
   OPERATORS: { value: string; label: string }[];
+  eventLookbackDays?: number;
+  onEventLookbackDaysChange?: (days: number) => void;
   onEnableCustomEvents?: (withParams?: boolean) => void;
   // Advanced filters props
   stagingFilter?: Filter | null;
@@ -63,6 +65,8 @@ const EventSelector = ({
   availablePaths,
   customEventsList,
   OPERATORS,
+  eventLookbackDays = 7,
+  onEventLookbackDaysChange,
   eventNameOperator,
   setEventNameOperator,
   customEvents,
@@ -582,6 +586,32 @@ const EventSelector = ({
                           </div>
                         </div>
                       )}
+                    </div>
+
+                    <div className="mt-3">
+                      <ReadMore size="small" header="Utvid søkevindu (standard 7 dager)">
+                        <div className="mt-2 space-y-2">
+                          <Select
+                            label="Hvor langt tilbake hente hendelser"
+                            size="small"
+                            value={String(eventLookbackDays)}
+                            onChange={(e) => {
+                              const days = Number(e.target.value);
+                              if (Number.isFinite(days) && onEventLookbackDaysChange) {
+                                onEventLookbackDaysChange(days);
+                              }
+                            }}
+                            className="w-full md:w-1/2"
+                          >
+                            <option value="7">Siste 7 dager</option>
+                            <option value="14">Siste 14 dager</option>
+                            <option value="30">Siste 30 dager</option>
+                            <option value="60">Siste 60 dager</option>
+                            <option value="90">Siste 90 dager</option>
+                            <option value="180">Siste 180 dager</option>
+                          </Select>
+                        </div>
+                      </ReadMore>
                     </div>
                   </div>
                 )}

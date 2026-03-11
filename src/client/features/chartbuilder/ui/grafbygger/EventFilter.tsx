@@ -18,6 +18,8 @@ interface ChartFiltersProps {
   setFilters: (filters: Filter[]) => void;
   availableEvents?: string[];
   onEnableCustomEvents?: (withParams?: boolean) => void;
+  dateRangeInDays?: number;
+  onDateRangeInDaysChange?: (days: number) => void;
   hideHeader?: boolean;
   isEventsLoading?: boolean;
 }
@@ -28,6 +30,8 @@ const EventFilter = forwardRef(({
   setFilters,
   availableEvents = [],
   onEnableCustomEvents,
+  dateRangeInDays = 7,
+  onDateRangeInDaysChange,
   hideHeader = false,
   isEventsLoading = false
 }: ChartFiltersProps, ref) => {
@@ -585,6 +589,8 @@ const EventFilter = forwardRef(({
             filters={filters}
             OPERATORS={OPERATORS}
             onEnableCustomEvents={onEnableCustomEvents}
+            eventLookbackDays={dateRangeInDays}
+            onEventLookbackDaysChange={onDateRangeInDaysChange}
 
             // Pass advanced filter props
             stagingFilter={stagingFilter}

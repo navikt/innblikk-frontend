@@ -561,6 +561,7 @@ export function useChartConfig() {
 
     // Setters
     setFilters,
+    setDateRangeInDays,
     setRequestIncludeParams,
     setRequestLoadEvents,
     setIsEventsLoading,
