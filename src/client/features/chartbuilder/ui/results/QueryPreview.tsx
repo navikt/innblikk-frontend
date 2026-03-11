@@ -321,17 +321,20 @@ const QueryPreview = ({
     if (hasUrlPathFilter) {
       // When preserving for Metabase, always keep the placeholder so the recipient can choose the path
       if (!preserveMetabasePlaceholders) {
-        const optionalPattern = /\[\[\s*\{\{\s*url_sti\s*\}\}\s*--\s*\]\]\s*'\/'/gi;
-        const directPattern = /\{\{\s*url_sti\s*\}\}/gi;
+        const optionalPattern = /\[\[\s*\{\{\s*url_(?:sti|path)\s*\}\}\s*--\s*\]\]\s*'\/'/gi;
+        const optionalClausePattern = /\s+AND\s+[\w`.-]*url_path\s*=\s*\[\[\s*\{\{\s*url_(?:sti|path)\s*\}\}\s*--\s*\]\]\s*'\/'/gi;
+        const directPattern = /\{\{\s*url_(?:sti|path)\s*\}\}/gi;
         const trimmedPath = (urlPath || '').trim();
-        const hasExplicitPath = trimmedPath.length > 0 && trimmedPath !== '/';
+        const hasExplicitPath = trimmedPath.length > 0;
 
         if (hasExplicitPath) {
           const safePath = `'${trimmedPath.replace(/'/g, "''")}'`;
           processedSql = processedSql.replace(optionalPattern, safePath);
           processedSql = processedSql.replace(directPattern, safePath);
         } else {
-          // Default to front page when URL field is empty or set to '/'
+          // Empty URL means "whole website": remove optional URL clause entirely.
+          processedSql = processedSql.replace(optionalClausePattern, '');
+          // Keep fallback for any remaining placeholder forms that cannot be removed safely.
           processedSql = processedSql.replace(optionalPattern, `'/'`);
           processedSql = processedSql.replace(directPattern, `'/'`);
         }
