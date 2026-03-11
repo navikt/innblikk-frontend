@@ -608,6 +608,7 @@ const GroupingOptions = forwardRef(({
                       <optgroup label="Hendelsesdetaljer">
                         {uniqueParameters
                           .filter(param => !groupByFields.includes(`param_${sanitizeColumnName(param.key)}`))
+                          .sort((a, b) => a.key.localeCompare(b.key, 'nb-NO'))
                           .map(param => (
                             <option key={`param_${param.key}`} value={`param_${sanitizeColumnName(param.key)}`}>
                               {param.key}
