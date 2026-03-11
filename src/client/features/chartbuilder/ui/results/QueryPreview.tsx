@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Heading, Link, Button, Alert, Modal, TextField, Select, UNSAFE_Combobox } from '@navikt/ds-react';
 import { Copy, ExternalLink, RotateCcw } from 'lucide-react';
 import type { ILineChartProps, IVerticalBarChartProps } from '@fluentui/react-charting';
@@ -185,6 +185,7 @@ const QueryPreview = ({
   const [datePreset, setDatePreset] = useState<DatePreset>(DEFAULT_DATE_PRESET);
   const [urlPath, setUrlPath] = useState<string>('/');
   const [urlComboInputValue, setUrlComboInputValue] = useState<string>('');
+  const isSelectingUrlPathRef = useRef(false);
   const [eventName, setEventName] = useState<string>('');
   const isDevEnvironment =
     typeof window !== 'undefined' &&
@@ -1210,21 +1211,28 @@ const QueryPreview = ({
                           selectedOptions={urlPath ? [formatPathLabel(urlPath)] : []}
                           onToggleSelected={(option: string, isSelected: boolean) => {
                             if (option) {
+                              isSelectingUrlPathRef.current = true;
                               setUrlPath(isSelected ? parseFormattedPath(option) : '');
                               setUrlComboInputValue('');
+                              setTimeout(() => {
+                                isSelectingUrlPathRef.current = false;
+                              }, 100);
                             }
                           }}
                           value={urlComboInputValue}
                           onChange={(value) => setUrlComboInputValue(value || '')}
                           onBlur={() => {
-                            const trimmed = urlComboInputValue.trim();
-                            if (!trimmed) return;
-                            let parsed = parseFormattedPath(trimmed);
-                            if (!parsed.startsWith('/')) {
-                              parsed = `/${parsed}`;
-                            }
-                            setUrlPath(parsed || '');
-                            setUrlComboInputValue('');
+                            // Delay so selection handlers can finish before auto-saving typed value.
+                            setTimeout(() => {
+                              const trimmed = urlComboInputValue.trim();
+                              if (!trimmed || isSelectingUrlPathRef.current) return;
+                              let parsed = parseFormattedPath(trimmed);
+                              if (!parsed.startsWith('/')) {
+                                parsed = `/${parsed}`;
+                              }
+                              setUrlPath(parsed || '');
+                              setUrlComboInputValue('');
+                            }, 150);
                           }}
                           isMultiSelect={true}
                           allowNewValues
