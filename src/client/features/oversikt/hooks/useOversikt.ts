@@ -41,10 +41,82 @@ const getInitialUrlPaths = (searchParams: URLSearchParams): string[] => {
     return Array.from(new Set(paths));
 };
 
+const isDevLikeValue = (value: string): boolean => {
+    const normalized = value.trim().toLowerCase();
+    return normalized.includes('-dev.')
+        || normalized.includes('.dev.')
+        || normalized.includes('.dev-')
+        || normalized.includes('-dev-')
+        || normalized.startsWith('dev.')
+        || normalized.startsWith('dev-')
+        || normalized.endsWith('.dev')
+        || normalized.endsWith('-dev')
+        || normalized.includes(' - dev')
+        || normalized.includes('(dev)')
+        || normalized.endsWith(' dev')
+        || normalized.startsWith('dev ');
+};
+
+const getCurrentEnvironmentBucket = (website: Website | null): 'dev' | 'prod' => {
+    if (website) {
+        if (isDevLikeValue(website.domain) || isDevLikeValue(website.name)) return 'dev';
+        return 'prod';
+    }
+
+    if (typeof window === 'undefined') return 'prod';
+    const hostname = window.location.hostname.toLowerCase();
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]') return 'dev';
+    return hostname.endsWith('.dev.nav.no') ? 'dev' : 'prod';
+};
+
+const getHostPrefix = (): string => {
+    if (typeof window === 'undefined') return 'server';
+    return window.location.hostname.replace(/\./g, '_');
+};
+
+const getUrlPathStorageKey = (website: Website | null): string => {
+    const environment = getCurrentEnvironmentBucket(website);
+    return `oversikt_last_url_paths_${environment}_${getHostPrefix()}`;
+};
+
+const getStoredUrlPaths = (storageKey: string): string[] => {
+    if (typeof window === 'undefined') return [];
+
+    try {
+        const raw = window.localStorage.getItem(storageKey);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+
+        const normalized = parsed
+            .map((path) => (typeof path === 'string' ? normalizeUrlToPath(path) : ''))
+            .filter((path): path is string => Boolean(path))
+            .map((path) => (path.startsWith('/') ? path : `/${path}`));
+
+        return Array.from(new Set(normalized));
+    } catch {
+        return [];
+    }
+};
+
+const saveUrlPaths = (storageKey: string, paths: string[]) => {
+    if (typeof window === 'undefined') return;
+
+    if (paths.length === 0) {
+        window.localStorage.removeItem(storageKey);
+        return;
+    }
+
+    window.localStorage.setItem(storageKey, JSON.stringify(paths));
+};
+
 export const useOversikt = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const initialPathOperator = normalizePathOperator(searchParams.get('pathOperator'));
     const initialUrlPaths = getInitialUrlPaths(searchParams);
+    const initialResolvedUrlPaths = initialUrlPaths.length > 0
+        ? initialUrlPaths
+        : getStoredUrlPaths(getUrlPathStorageKey(null));
     const initialDateRange = normalizeDateRange(searchParams.get('periode'));
     const initialMetricType = normalizeMetricType(searchParams.get('metrikk') || searchParams.get('metricType'));
 
@@ -56,12 +128,13 @@ export const useOversikt = () => {
     const [activeWebsite, setActiveWebsite] = useState<Website | null>(null);
 
     const [tempPathOperator, setTempPathOperator] = useState(initialPathOperator);
-    const [tempUrlPaths, setTempUrlPaths] = useState<string[]>(initialUrlPaths);
+    const [tempUrlPaths, setTempUrlPaths] = useState<string[]>(initialResolvedUrlPaths);
     const [tempDateRange, setTempDateRange] = useState(initialDateRange);
     const [tempMetricType, setTempMetricType] = useState<MetricType>(initialMetricType);
     const [comboInputValue, setComboInputValue] = useState('');
     const isSelectingRef = useRef(false);
     const hasResolvedInitialProjectRef = useRef(false);
+    const previousUrlPathStorageKeyRef = useRef<string | null>(null);
 
     const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
     const [selectedDashboardId, setSelectedDashboardId] = useState<number | null>(null);
@@ -69,7 +142,7 @@ export const useOversikt = () => {
 
     const [activeFilters, setActiveFilters] = useState<FilterState>({
         pathOperator: initialPathOperator,
-        urlFilters: initialUrlPaths,
+        urlFilters: initialResolvedUrlPaths,
         dateRange: initialDateRange,
         metricType: initialMetricType,
     });
@@ -103,6 +176,8 @@ export const useOversikt = () => {
     const selectedProjectLabel = projectOptions.find((o) => o.value === String(selectedProjectId))?.label;
     const selectedDashboardLabel = dashboardOptions.find((o) => o.value === String(selectedDashboardId))?.label;
     const activeWebsiteId = activeWebsite?.id ?? '';
+    const urlPathStorageKey = useMemo(() => getUrlPathStorageKey(selectedWebsite), [selectedWebsite]);
+    const hasUrlPathParams = searchParams.getAll('path').length > 0;
 
     const charts = useMemo<OversiktChart[]>(() => {
         return [...graphs]
@@ -537,6 +612,24 @@ export const useOversikt = () => {
         if (!selectedWebsite) return;
         setActiveWebsite(selectedWebsite);
     }, [selectedWebsite]);
+
+    useEffect(() => {
+        if (hasUrlPathParams) return;
+        const storedPaths = getStoredUrlPaths(urlPathStorageKey);
+        setTempUrlPaths((prev) => (arraysEqual(prev, storedPaths) ? prev : storedPaths));
+        setActiveFilters((prev) => (arraysEqual(prev.urlFilters, storedPaths)
+            ? prev
+            : { ...prev, urlFilters: storedPaths }));
+    }, [urlPathStorageKey, hasUrlPathParams]);
+
+    useEffect(() => {
+        if (previousUrlPathStorageKeyRef.current !== urlPathStorageKey) {
+            previousUrlPathStorageKeyRef.current = urlPathStorageKey;
+            return;
+        }
+
+        saveUrlPaths(urlPathStorageKey, tempUrlPaths);
+    }, [urlPathStorageKey, tempUrlPaths]);
 
     useEffect(() => {
         saveLastOversiktProjectId(selectedProjectId);

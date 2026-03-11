@@ -47,7 +47,8 @@ export function useChartConfig() {
   const [forceReload] = useState<boolean>(false);
   const [resetIncludeParams, setResetIncludeParams] = useState<boolean>(false);
   const [requestIncludeParams, setRequestIncludeParams] = useState<boolean>(false);
-  const [requestLoadEvents, setRequestLoadEvents] = useState<boolean>(false);
+  // Grafbygger should load full event list on first load (same behavior as EventExplorer).
+  const [requestLoadEvents, setRequestLoadEvents] = useState<boolean>(true);
   const [isEventsLoading, setIsEventsLoading] = useState<boolean>(false);
 
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -471,6 +472,7 @@ export function useChartConfig() {
       website
     }));
     if (website && website.id !== config.website?.id) {
+      setRequestLoadEvents(true);
       setFilters([]);
       setAvailableEvents([]);
       setParameters([]);
