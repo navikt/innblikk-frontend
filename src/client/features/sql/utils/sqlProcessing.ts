@@ -86,8 +86,13 @@ export const applyUrlFiltersToSql = (sql: string, ctx: SqlFilterContext): string
         // Fallback replacement if placeholder appears outside a direct assignment.
         processedSql = processedSql.replace(directUrlVarPattern, `'${paths[0]}'`);
     } else {
-        // No external path provided; keep default '/'
+        // No external path provided: treat as whole website (remove URL filter clauses).
+        const optionalClausePattern = /\s+AND\s+[\w`.-]*url_path\s*=\s*\[\[\s*\{\{url_(?:sti|path)\}\}\s*--\s*\]\]\s*'\/'/gi;
+        const directClausePattern = /\s+AND\s+[\w`.-]*url_path\s*=\s*(?:['"])?\s*\{\{\s*url_(?:sti|path)\s*\}\}\s*(?:['"])?/gi;
+        processedSql = processedSql.replace(optionalClausePattern, '');
+        processedSql = processedSql.replace(directClausePattern, '');
         processedSql = processedSql.replace(/\[\[\s*\{\{url_(?:sti|path)\}\}\s*--\s*\]\]/gi, '');
+        // Keep a safe fallback only for placeholders outside URL predicates.
         processedSql = processedSql.replace(directUrlVarPattern, "'/'");
     }
 

@@ -323,6 +323,7 @@ const QueryPreview = ({
       if (!preserveMetabasePlaceholders) {
         const optionalPattern = /\[\[\s*\{\{\s*url_(?:sti|path)\s*\}\}\s*--\s*\]\]\s*'\/'/gi;
         const optionalClausePattern = /\s+AND\s+[\w`.-]*url_path\s*=\s*\[\[\s*\{\{\s*url_(?:sti|path)\s*\}\}\s*--\s*\]\]\s*'\/'/gi;
+        const directClausePattern = /\s+AND\s+[\w`.-]*url_path\s*=\s*(?:['"])?\{\{\s*url_(?:sti|path)\s*\}\}(?:['"])?/gi;
         const directPattern = /\{\{\s*url_(?:sti|path)\s*\}\}/gi;
         const trimmedPath = (urlPath || '').trim();
         const hasExplicitPath = trimmedPath.length > 0;
@@ -332,9 +333,10 @@ const QueryPreview = ({
           processedSql = processedSql.replace(optionalPattern, safePath);
           processedSql = processedSql.replace(directPattern, safePath);
         } else {
-          // Empty URL means "whole website": remove optional URL clause entirely.
+          // Empty URL means "whole website": remove URL clauses entirely.
           processedSql = processedSql.replace(optionalClausePattern, '');
-          // Keep fallback for any remaining placeholder forms that cannot be removed safely.
+          processedSql = processedSql.replace(directClausePattern, '');
+          // Fallback for remaining placeholder forms that cannot be removed safely.
           processedSql = processedSql.replace(optionalPattern, `'/'`);
           processedSql = processedSql.replace(directPattern, `'/'`);
         }
