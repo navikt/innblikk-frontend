@@ -170,7 +170,8 @@ function buildCombinedSessionQuery(
             }
         }
     } else {
-        urlFilterClause = `AND ${tableName}.url_path = '/'`;
+        // No URL filter selected means whole website.
+        urlFilterClause = '';
     }
 
     // For visitors: use DISTINCT to get unique sessions

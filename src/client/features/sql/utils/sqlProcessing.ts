@@ -89,8 +89,15 @@ export const applyUrlFiltersToSql = (sql: string, ctx: SqlFilterContext): string
         // No external path provided: treat as whole website (remove URL filter clauses).
         const optionalClausePattern = /\s+AND\s+[\w`.-]*url_path\s*=\s*\[\[\s*\{\{url_(?:sti|path)\}\}\s*--\s*\]\]\s*'\/'/gi;
         const directClausePattern = /\s+AND\s+[\w`.-]*url_path\s*=\s*(?:['"])?\s*\{\{\s*url_(?:sti|path)\s*\}\}\s*(?:['"])?/gi;
+        const placeholderLinePattern = /^\s*AND\s+[^\n]*url_path[^\n]*\{\{\s*url_(?:sti|path)\s*\}\}[^\n]*$/gim;
+        const optionalPlaceholderLinePattern = /^\s*AND\s+[^\n]*url_path[^\n]*\[\[\s*\{\{url_(?:sti|path)\}\}\s*--\s*\]\][^\n]*$/gim;
+        const directAssignmentRegex = /(\S+)\s*=\s*(?:['"])?\s*\{\{\s*url_(?:sti|path)\s*\}\}\s*(?:['"])?/gi;
         processedSql = processedSql.replace(optionalClausePattern, '');
         processedSql = processedSql.replace(directClausePattern, '');
+        processedSql = processedSql.replace(placeholderLinePattern, '');
+        processedSql = processedSql.replace(optionalPlaceholderLinePattern, '');
+        // Fallback if placeholder assignment is inline (not line-based)
+        processedSql = processedSql.replace(directAssignmentRegex, '1=1');
         processedSql = processedSql.replace(/\[\[\s*\{\{url_(?:sti|path)\}\}\s*--\s*\]\]/gi, '');
         // Keep a safe fallback only for placeholders outside URL predicates.
         processedSql = processedSql.replace(directUrlVarPattern, "'/'");
