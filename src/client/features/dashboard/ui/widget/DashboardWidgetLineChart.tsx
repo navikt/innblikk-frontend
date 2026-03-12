@@ -55,7 +55,6 @@ const DashboardWidgetLineChart = ({ data, title }: DashboardWidgetLineChartProps
             seriesMap.get(seriesName)!.push({
                 x,
                 y: yVal,
-                legend: xLabel,
                 xAxisCalloutData: xLabel,
                 yAxisCalloutData: String(yVal),
             });
@@ -102,7 +101,6 @@ const DashboardWidgetLineChart = ({ data, title }: DashboardWidgetLineChartProps
         return {
             x,
             y: yVal,
-            legend: xLabel,
             xAxisCalloutData: xLabel,
             yAxisCalloutData: String(yVal),
         };
