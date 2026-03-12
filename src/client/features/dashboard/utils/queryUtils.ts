@@ -97,8 +97,8 @@ export const processDashboardSql = (sql: string, websiteId: string, filters: Fil
         // Fallback if placeholder assignment is inline (not line-based)
         processedSql = processedSql.replace(directAssignmentRegex, '1=1');
         processedSql = processedSql.replace(/\[\[\s*\{\{url_(?:sti|path)\}\}\s*--\s*\]\]/gi, '');
-        // Keep safe fallback only if placeholder remains outside URL predicate.
-        processedSql = processedSql.replace(directUrlVarPattern, "'/'");
+        // Do not force '/' when URL is blank; keep whole-site behavior.
+        processedSql = processedSql.replace(directUrlVarPattern, '');
     }
 
     // 3. Substitute Date / Created At

@@ -99,8 +99,8 @@ export const applyUrlFiltersToSql = (sql: string, ctx: SqlFilterContext): string
         // Fallback if placeholder assignment is inline (not line-based)
         processedSql = processedSql.replace(directAssignmentRegex, '1=1');
         processedSql = processedSql.replace(/\[\[\s*\{\{url_(?:sti|path)\}\}\s*--\s*\]\]/gi, '');
-        // Keep a safe fallback only for placeholders outside URL predicates.
-        processedSql = processedSql.replace(directUrlVarPattern, "'/'");
+        // Do not force '/' when URL is blank; keep whole-site behavior.
+        processedSql = processedSql.replace(directUrlVarPattern, '');
     }
 
     // Optional URL path substitution [[AND {{url_sti}} ]] or [[AND {{url_path}} ]]
