@@ -1408,7 +1408,7 @@ const Oversikt = () => {
 
     return (
         <DashboardLayout
-            title={selectedDashboard ? `Dashboard: ${selectedDashboard.name}` : 'Dashboard'}
+            title={selectedDashboard ? `${selectedDashboard.name}` : 'Dashboard'}
             description={(
                 <Link
                     href={selectedProjectId ? `/prosjekter?projectId=${selectedProjectId}` : '/prosjekter'}
@@ -1634,7 +1634,10 @@ const Oversikt = () => {
                     )}
                     {charts.length > 0 && (
                         <div className="grid grid-cols-1 md:grid-cols-20 gap-6">
-                            {charts.map((chart, index) => (
+                            {charts.map((chart, index) => {
+                                const activeChart = getChartWithSelectedVariant(chart);
+                                const resolvedWebsiteId = activeWebsiteId || (activeChart.sql ? (extractWebsiteId(activeChart.sql) ?? '') : '');
+                                return (
                                 <div
                                     key={chart.id}
                                     className={`relative ${getSpanClass(chart.width)}`}
@@ -1666,8 +1669,8 @@ const Oversikt = () => {
                                     }}
                                 >
                                     <DashboardWidget
-                                        chart={getChartWithSelectedVariant(chart)}
-                                        websiteId={activeWebsiteId}
+                                        chart={activeChart}
+                                        websiteId={resolvedWebsiteId}
                                         filters={activeFilters}
                                         onDataLoaded={handleDataLoaded}
                                         selectedWebsite={activeWebsite ? { ...activeWebsite } : undefined}
@@ -1780,7 +1783,8 @@ const Oversikt = () => {
                                         ) : undefined}
                                     />
                                 </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
 
