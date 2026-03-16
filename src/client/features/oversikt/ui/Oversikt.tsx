@@ -1,8 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { DragEvent, KeyboardEvent } from 'react';
 import { GripVertical } from 'lucide-react';
-import { ArrowLeftIcon } from '@navikt/aksel-icons';
-import { ActionMenu, Alert, Button, Label, Link, Loader, Modal, ReadMore, Select, Tabs, TextField, Textarea, UNSAFE_Combobox } from '@navikt/ds-react';
+import { ActionMenu, Alert, Button, Label, Loader, Modal, ReadMore, Select, Tabs, TextField, Textarea, UNSAFE_Combobox } from '@navikt/ds-react';
 import DashboardLayout from '../../dashboard/ui/DashboardLayout.tsx';
 import DashboardWebsitePicker from '../../dashboard/ui/DashboardWebsitePicker.tsx';
 import { DashboardWidget } from '../../dashboard';
@@ -1659,15 +1658,6 @@ const Oversikt = () => {
     return (
         <DashboardLayout
             title={selectedDashboard ? `${selectedDashboard.name}` : 'Dashboard'}
-            description={(
-                <Link
-                    href={selectedProjectId ? `/prosjekter?projectId=${selectedProjectId}` : '/prosjekter'}
-                    className="inline-flex items-center gap-1"
-                >
-                    <ArrowLeftIcon aria-hidden fontSize="1rem" />
-                    <span>Alle dashboard</span>
-                </Link>
-            )}
             headerActions={selectedDashboard ? (
                 <div className="flex justify-end gap-2">
                     <ActionMenu>
