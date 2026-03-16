@@ -110,7 +110,7 @@ const DashboardWidgetTable = ({
                                                         <ActionMenu.Content align="start">
                                                             <ActionMenu.Item onClick={() => openOnWebsite(val)}>
                                                                 <span className="inline-flex items-center gap-1">
-                                                                    <span>Gå til siden</span>
+                                                                    <span>Åpne siden</span>
                                                                     <ExternalLink aria-hidden size={16} />
                                                                 </span>
                                                             </ActionMenu.Item>
@@ -120,7 +120,7 @@ const DashboardWidgetTable = ({
                                                             {onOpenAnalysisMenu && (
                                                                 <>
                                                                     <ActionMenu.Item onClick={() => onOpenAnalysisMenu(val)}>
-                                                                        Analysevalg
+                                                                        Analyser siden
                                                                     </ActionMenu.Item>
                                                                 </>
                                                             )}
