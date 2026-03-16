@@ -28,6 +28,14 @@ const DashboardWidgetTable = ({
         return key;
     };
 
+    const formatSpecialTableValue = (value: string): string => {
+        if (value === '/') return '/ (forsiden)';
+        if (value === '(exit)' || value === 'Exit') return 'Forlot siden';
+        if (value === '(none)') return 'Direkte / Ingen';
+        if (value === '(not set)') return 'Ikke satt (not set)';
+        return value;
+    };
+
     let tableData = data;
 
     if (showTotal) {
@@ -81,7 +89,7 @@ const DashboardWidgetTable = ({
                                         const translatedVal = String(translateValue(key, rawString));
                                         const displayVal = typeof val === 'number'
                                             ? val.toLocaleString('nb-NO')
-                                            : translatedVal;
+                                            : formatSpecialTableValue(translatedVal);
                                         const clickable = enableLinks && isClickablePath(val);
                                         return (
                                             <Table.DataCell
