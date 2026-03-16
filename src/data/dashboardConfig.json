@@ -11,5 +11,18 @@
     "dashboardPathFilteLabel": "Fylkeskontor",
     "dashboardPathFilterEmpty": "Velg et kontor for å vise webstatistikk.",
     "metricTypeOptions": ["visitors", "proportion"]
+  },
+    {
+    "dashboardName": "DigiHoT",
+    "dashboardIdProd": 11,
+    "dashboardIdDev": 10,
+    "dashboardIdLocalhost": 16,
+    "dashboardPathFilter": true,
+    "dashboardPathFilterAutosubmit": true,
+    "dashboardPathFilterJson": "hjelpemiddelsentraler",
+    "dashboardPathOperator": "starts-with",
+    "dashboardPathFilteLabel": "Hjelpemiddelsentral",
+    "dashboardPathFilterEmpty": "Velg en sentral for å vise webstatistikk.",
+    "metricTypeOptions": ["visitors", "proportion"]
   }
 ]
