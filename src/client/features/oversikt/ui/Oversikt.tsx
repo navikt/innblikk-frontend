@@ -88,6 +88,7 @@ type DashboardPathFilterConfigEntry = {
     dashboardPathFilterEmpty?: string;
     dashboardPathFilterAutosubmit?: boolean;
     metricTypeOptions?: Array<'visitors' | 'pageviews' | 'proportion' | 'visits'>;
+    dashboardChartLinks?: boolean;
 };
 
 type DashboardPathFilterOption = {
@@ -328,6 +329,7 @@ const Oversikt = () => {
         return Array.from(new Set(normalized));
     }, [dashboardPathFilterConfig]);
     const showMetricTypeFilter = allowedMetricTypes.length > 1;
+    const chartLinksEnabled = dashboardPathFilterConfig?.dashboardChartLinks !== false;
     const requiresPreselectedPathSelection = usePreselectedPathFilter;
     const selectedPreselectedPath = useMemo(() => {
         if (!usePreselectedPathFilter) return '';
@@ -1845,6 +1847,7 @@ const Oversikt = () => {
                                         onCopyChart={chart.graphType === 'TEXT' ? undefined : openCopyDialog}
                                         onMoveChart={categories.length > 1 ? openMoveDialog : undefined}
                                         replaceExploreActionWithSqlEditor
+                                        chartLinksEnabled={chartLinksEnabled}
                                         titleBelow={(chart.variants?.length ?? 0) > 1 ? (
                                             <Tabs
                                                 size="small"

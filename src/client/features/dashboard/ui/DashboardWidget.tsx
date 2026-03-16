@@ -292,6 +292,7 @@ interface DashboardWidgetProps {
     replaceExploreActionWithSqlEditor?: boolean;
     titlePrefix?: ReactNode;
     titleBelow?: ReactNode;
+    chartLinksEnabled?: boolean;
 }
 
 export const DashboardWidget = ({
@@ -311,6 +312,7 @@ export const DashboardWidget = ({
     replaceExploreActionWithSqlEditor = false,
     titlePrefix,
     titleBelow,
+    chartLinksEnabled = true,
 }: DashboardWidgetProps) => {
     const [loading, setLoading] = useState(shouldWaitForBatch ?? false);
     const [error, setError] = useState<string | null>(null);
@@ -479,6 +481,7 @@ export const DashboardWidget = ({
                     onPageChange={setPage}
                     showTotal={chart.showTotal}
                     onSelectUrl={setSelectedUrl}
+                    enableLinks={chartLinksEnabled}
                 />
             );
         }
@@ -674,14 +677,16 @@ export const DashboardWidget = ({
                 {renderContent()}
             </div>
 
-            <AnalysisActionModal
-                open={!!selectedUrl}
-                onClose={() => setSelectedUrl(null)}
-                urlPath={selectedUrl}
-                websiteId={websiteId}
-                period={filters.dateRange}
-                domain={selectedWebsite?.domain}
-            />
+            {chartLinksEnabled && (
+                <AnalysisActionModal
+                    open={!!selectedUrl}
+                    onClose={() => setSelectedUrl(null)}
+                    urlPath={selectedUrl}
+                    websiteId={websiteId}
+                    period={filters.dateRange}
+                    domain={selectedWebsite?.domain}
+                />
+            )}
 
             {chart.sql && (
                 <TransferToMetabaseDialog

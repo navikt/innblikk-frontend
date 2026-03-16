@@ -10,9 +10,10 @@ interface DashboardWidgetTableProps {
     onPageChange: (page: number) => void;
     showTotal?: boolean;
     onSelectUrl: (url: string) => void;
+    enableLinks?: boolean;
 }
 
-const DashboardWidgetTable = ({ data, page, onPageChange, showTotal, onSelectUrl }: DashboardWidgetTableProps) => {
+const DashboardWidgetTable = ({ data, page, onPageChange, showTotal, onSelectUrl, enableLinks = true }: DashboardWidgetTableProps) => {
     let tableData = data;
 
     if (showTotal) {
@@ -53,7 +54,7 @@ const DashboardWidgetTable = ({ data, page, onPageChange, showTotal, onSelectUrl
                                         const displayVal = typeof val === 'number'
                                             ? val.toLocaleString('nb-NO')
                                             : translatedVal;
-                                        const clickable = isClickablePath(val);
+                                        const clickable = enableLinks && isClickablePath(val);
                                         return (
                                             <Table.DataCell
                                                 key={j}

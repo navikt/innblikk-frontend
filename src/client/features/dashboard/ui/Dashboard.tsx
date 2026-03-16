@@ -963,6 +963,7 @@ const Dashboard = () => {
                             shouldWaitForBatch={chart.id ? batchableChartIds.has(chart.id) && !batchingComplete : false}
                             siteimproveGroupId={getSiteimproveGroupId}
                             dashboardTitle={dashboard.title}
+                            chartLinksEnabled={dashboard.dashboardChartLinks !== false}
                         />
                     ))}
 
