@@ -23,6 +23,11 @@ const DashboardWidgetTable = ({
     enableLinks = true,
     onOpenAnalysisMenu,
 }: DashboardWidgetTableProps) => {
+    const formatHeaderLabel = (key: string): string => {
+        if (key === 'Unike_besokende') return 'Unike besøkende';
+        return key;
+    };
+
     let tableData = data;
 
     if (showTotal) {
@@ -61,7 +66,7 @@ const DashboardWidgetTable = ({
                     <Table.Header>
                         <Table.Row>
                             {Object.keys(tableData[0] || data[0]).map(key => (
-                                <Table.HeaderCell key={key}>{key}</Table.HeaderCell>
+                                <Table.HeaderCell key={key}>{formatHeaderLabel(key)}</Table.HeaderCell>
                             ))}
                         </Table.Row>
                     </Table.Header>
