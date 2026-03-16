@@ -6,9 +6,11 @@
     "dashboardIdLocalhost": 15,
     "dashboardChartLinks": false,
     "dashboardPathFilter": true,
+    "dashboardPathFilterAutosubmit": true,
     "dashboardPathFilterJson": "navkontor",
     "dashboardPathOperator": "starts-with",
     "dashboardPathFilteLabel": "Fylkeskontor",
-    "dashboardPathFilterEmpty": "Velg et kontor for å vise webstatistikk."
+    "dashboardPathFilterEmpty": "Velg et kontor for å vise webstatistikk.",
+    "metricTypeOptions": ["visitors", "proportion"]
   }
 ]

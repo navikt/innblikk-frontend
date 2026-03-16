@@ -87,6 +87,7 @@ type DashboardPathFilterConfigEntry = {
     dashboardPathFilterLabel?: string;
     dashboardPathFilterEmpty?: string;
     dashboardPathFilterAutosubmit?: boolean;
+    metricTypeOptions?: Array<'visitors' | 'pageviews' | 'proportion' | 'visits'>;
 };
 
 type DashboardPathFilterOption = {
@@ -283,8 +284,6 @@ const Oversikt = () => {
         const environment = getDashboardConfigEnvironment();
 
         return (dashboardConfigData as DashboardPathFilterConfigEntry[]).find((entry) => {
-            if (!entry.dashboardPathFilter) return false;
-
             const configuredId = environment === 'prod'
                 ? entry.dashboardIdProd
                 : environment === 'dev'
@@ -305,7 +304,10 @@ const Oversikt = () => {
         return DASHBOARD_PATH_FILTER_OPTIONS[optionsKey] ?? [];
     }, [dashboardPathFilterConfig]);
 
-    const usePreselectedPathFilter = visibleFilterCapabilities.url && dashboardPathFilterOptions.length > 0;
+    const usePreselectedPathFilter =
+        visibleFilterCapabilities.url
+        && Boolean(dashboardPathFilterConfig?.dashboardPathFilter)
+        && dashboardPathFilterOptions.length > 0;
     const preselectedPathOperator = dashboardPathFilterConfig?.dashboardPathOperator;
     const preselectedPathFilterLabel =
         dashboardPathFilterConfig?.dashboardPathFilteLabel
@@ -316,6 +318,16 @@ const Oversikt = () => {
         dashboardPathFilterConfig?.dashboardPathFilterEmpty
         || 'Velg et alternativ for å vise grafdata.';
     const preselectedPathFilterAutosubmit = Boolean(dashboardPathFilterConfig?.dashboardPathFilterAutosubmit);
+    const allowedMetricTypes = useMemo<Array<'visitors' | 'pageviews' | 'proportion' | 'visits'>>(() => {
+        const defaults: Array<'visitors' | 'pageviews' | 'proportion' | 'visits'> = ['visitors', 'visits', 'pageviews', 'proportion'];
+        const configured = dashboardPathFilterConfig?.metricTypeOptions ?? [];
+        const normalized = configured.filter((option): option is 'visitors' | 'pageviews' | 'proportion' | 'visits' =>
+            defaults.includes(option),
+        );
+        if (normalized.length === 0) return defaults;
+        return Array.from(new Set(normalized));
+    }, [dashboardPathFilterConfig]);
+    const showMetricTypeFilter = allowedMetricTypes.length > 1;
     const requiresPreselectedPathSelection = usePreselectedPathFilter;
     const selectedPreselectedPath = useMemo(() => {
         if (!usePreselectedPathFilter) return '';
@@ -333,6 +345,12 @@ const Oversikt = () => {
         if (tempPathOperator === preselectedPathOperator) return;
         setTempPathOperator(preselectedPathOperator);
     }, [preselectedPathOperator, tempPathOperator, setTempPathOperator, usePreselectedPathFilter]);
+
+    useEffect(() => {
+        if (!allowedMetricTypes.includes(tempMetricType)) {
+            setTempMetricType(allowedMetricTypes[0]);
+        }
+    }, [allowedMetricTypes, tempMetricType, setTempMetricType]);
 
     useLayoutEffect(() => {
         const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1501,7 +1519,7 @@ const Oversikt = () => {
                         </div>
                     )}
 
-                    {visibleFilterCapabilities.website && (
+                    {showMetricTypeFilter && (
                         <div className="w-full sm:w-auto min-w-[150px]">
                             <Select
                                 label="Visning"
@@ -1509,10 +1527,18 @@ const Oversikt = () => {
                                 value={tempMetricType}
                                 onChange={(e) => setTempMetricType(e.target.value as 'visitors' | 'pageviews' | 'proportion' | 'visits')}
                             >
-                                <option value="visitors">Unike besøkende</option>
-                                <option value="visits">Økter / besøk</option>
-                                <option value="pageviews">Sidevisninger</option>
-                                <option value="proportion">Andel (%)</option>
+                                {allowedMetricTypes.includes('visitors') && (
+                                    <option value="visitors">Unike besøkende</option>
+                                )}
+                                {allowedMetricTypes.includes('visits') && (
+                                    <option value="visits">Økter / besøk</option>
+                                )}
+                                {allowedMetricTypes.includes('pageviews') && (
+                                    <option value="pageviews">Sidevisninger</option>
+                                )}
+                                {allowedMetricTypes.includes('proportion') && (
+                                    <option value="proportion">Andel (%)</option>
+                                )}
                             </Select>
                         </div>
                     )}

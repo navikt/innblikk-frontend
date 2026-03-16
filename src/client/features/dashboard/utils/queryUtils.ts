@@ -179,7 +179,7 @@ export const processDashboardSql = (sql: string, websiteId: string, filters: Fil
             /COUNT\s*\(\s*DISTINCT\s+(?:([a-zA-Z_.]+)\.)?session_id\s*\)\s+as\s+Unike_besokende/gi,
             (_match, tablePrefix) => {
                 const sessionRef = tablePrefix ? `${tablePrefix}.session_id` : 'session_id';
-                return `CONCAT(CAST(ROUND(COUNT(DISTINCT ${sessionRef}) * 100.0 / ${totalSiteVisitorsSubquery}, 1) AS STRING), '%') as Andel`;
+                return `CONCAT(REGEXP_REPLACE(REGEXP_REPLACE(FORMAT('%.6f', COALESCE(SAFE_DIVIDE(COUNT(DISTINCT ${sessionRef}) * 100.0, ${totalSiteVisitorsSubquery}), 0)), r'(\\.\\d*?[1-9])0+$', '\\\\1'), r'\\.0+$', ''), '%') as Andel`;
             }
         );
         processedSql = processedSql.replace(/\bUnike_besokende\b/g, 'Andel');
