@@ -30,7 +30,7 @@ const DashboardWidgetTable = ({
 
     const formatSpecialTableValue = (value: string): string => {
         if (value === '/') return '/ (forsiden)';
-        if (value === '(exit)' || value === 'Exit') return 'Forlot siden';
+        if (value === '(exit)' || value === 'Exit') return 'Forlot nettsiden';
         if (value === '(none)') return 'Direkte / Ingen';
         if (value === '(not set)') return 'Ikke satt (not set)';
         return value;
