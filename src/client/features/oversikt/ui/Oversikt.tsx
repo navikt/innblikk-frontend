@@ -1989,7 +1989,7 @@ const Oversikt = () => {
                         </div>
                     )}
 
-                    {Object.keys(stats).length > 0 && (
+                    {isEditPanelOpen && Object.keys(stats).length > 0 && (
                         <div className="mt-5">
                             <ReadMore header={`${Math.round(totalGb)} GB prosessert`} size="small">
                                 <div className="text-sm text-[var(--ax-text-subtle)]">
