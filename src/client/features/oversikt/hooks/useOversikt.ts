@@ -230,13 +230,15 @@ export const useOversikt = () => {
 
     // ── Handlers ──
 
-    const handleUpdate = useCallback(() => {
+    const handleUpdate = useCallback((overrides?: { urlPaths?: string[]; pathOperator?: string }) => {
+        const resolvedUrlPaths = overrides?.urlPaths ?? tempUrlPaths;
+        const resolvedPathOperator = overrides?.pathOperator ?? tempPathOperator;
         const nextParams = new URLSearchParams(searchParams);
         nextParams.delete('path');
-        tempUrlPaths.forEach((path) => {
+        resolvedUrlPaths.forEach((path) => {
             if (path) nextParams.append('path', path);
         });
-        if (tempPathOperator !== 'equals') nextParams.set('pathOperator', tempPathOperator);
+        if (resolvedPathOperator !== 'equals') nextParams.set('pathOperator', resolvedPathOperator);
         else nextParams.delete('pathOperator');
         if (tempDateRange && tempDateRange !== 'last_7_days') nextParams.set('periode', tempDateRange);
         else nextParams.delete('periode');
@@ -246,8 +248,8 @@ export const useOversikt = () => {
         setSearchParams(nextParams);
 
         setActiveFilters({
-            pathOperator: tempPathOperator,
-            urlFilters: tempUrlPaths,
+            pathOperator: resolvedPathOperator,
+            urlFilters: resolvedUrlPaths,
             dateRange: tempDateRange,
             metricType: tempMetricType,
         });
@@ -669,6 +671,7 @@ export const useOversikt = () => {
         tempPathOperator,
         setTempPathOperator,
         tempUrlPaths,
+        setTempUrlPaths,
         tempDateRange,
         setTempDateRange,
         tempMetricType,

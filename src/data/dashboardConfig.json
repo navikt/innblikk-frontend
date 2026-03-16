@@ -1,0 +1,14 @@
+[
+  {
+    "dashboardName": "Fylkessider",
+    "dashboardIdProd": 10,
+    "dashboardIdDev": 9,
+    "dashboardIdLocalhost": 15,
+    "dashboardChartLinks": false,
+    "dashboardPathFilter": true,
+    "dashboardPathFilterJson": "navkontor",
+    "dashboardPathOperator": "starts-with",
+    "dashboardPathFilteLabel": "Fylkeskontor",
+    "dashboardPathFilterEmpty": "Velg et kontor for å vise webstatistikk."
+  }
+]

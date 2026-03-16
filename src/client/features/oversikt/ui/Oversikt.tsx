@@ -35,6 +35,9 @@ import DeleteDashboardDialog from './dialogs/DeleteDashboardDialog.tsx';
 import CopyChartDialog from './dialogs/CopyChartDialog.tsx';
 import ImportChartDialog from './dialogs/ImportChartDialog.tsx';
 import { applyWebsiteIdOnly, extractWebsiteId, replaceHardcodedWebsiteId } from '../../sql/utils/sqlProcessing.ts';
+import dashboardConfigData from '../../../../data/dashboardConfig.json';
+import navkontorData from '../../../../data/navkontor.json';
+import hjelpemiddelsentralerData from '../../../../data/hjelpemiddelsentraler.json';
 
 const parseChartWidth = (width?: string): number | undefined => {
     const parsed = Number(width);
@@ -72,6 +75,38 @@ type CopySuccessState = {
 };
 const DASHBOARD_MOVE_SUCCESS_FLASH_KEY = 'oversikt:dashboardMoveSuccessMessage';
 
+type DashboardPathFilterConfigEntry = {
+    dashboardName?: string;
+    dashboardIdProd?: number;
+    dashboardIdDev?: number;
+    dashboardIdLocalhost?: number;
+    dashboardPathFilter?: boolean;
+    dashboardPathFilterJson?: string;
+    dashboardPathOperator?: 'equals' | 'starts-with';
+    dashboardPathFilteLabel?: string;
+    dashboardPathFilterLabel?: string;
+    dashboardPathFilterEmpty?: string;
+    dashboardPathFilterAutosubmit?: boolean;
+};
+
+type DashboardPathFilterOption = {
+    region: string;
+    path: string;
+};
+
+const DASHBOARD_PATH_FILTER_OPTIONS: Record<string, DashboardPathFilterOption[]> = {
+    navkontor: navkontorData,
+    hjelpemiddelsentraler: hjelpemiddelsentralerData,
+};
+
+const getDashboardConfigEnvironment = (): 'prod' | 'dev' | 'localhost' => {
+    if (typeof window === 'undefined') return 'prod';
+    const hostname = window.location.hostname.toLowerCase();
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]') return 'localhost';
+    if (hostname.endsWith('.dev.nav.no')) return 'dev';
+    return 'prod';
+};
+
 const Oversikt = () => {
     const {
         selectedDashboard,
@@ -84,7 +119,7 @@ const Oversikt = () => {
         selectedWebsite, setSelectedWebsite,
         activeWebsite, activeWebsiteId,
         tempPathOperator, setTempPathOperator,
-        tempUrlPaths,
+        tempUrlPaths, setTempUrlPaths,
         tempDateRange, setTempDateRange,
         tempMetricType, setTempMetricType,
         comboInputValue,
@@ -242,6 +277,62 @@ const Oversikt = () => {
 
     const supportsVisibleStandardFilters =
         visibleFilterCapabilities.website || visibleFilterCapabilities.url || visibleFilterCapabilities.date;
+
+    const dashboardPathFilterConfig = useMemo(() => {
+        if (!selectedDashboard) return null;
+        const environment = getDashboardConfigEnvironment();
+
+        return (dashboardConfigData as DashboardPathFilterConfigEntry[]).find((entry) => {
+            if (!entry.dashboardPathFilter) return false;
+
+            const configuredId = environment === 'prod'
+                ? entry.dashboardIdProd
+                : environment === 'dev'
+                    ? entry.dashboardIdDev
+                    : entry.dashboardIdLocalhost;
+
+            const idMatches = typeof configuredId === 'number' && configuredId === selectedDashboard.id;
+            const nameMatches = Boolean(entry.dashboardName)
+                && entry.dashboardName!.trim().toLowerCase() === selectedDashboard.name.trim().toLowerCase();
+
+            return idMatches || nameMatches;
+        }) ?? null;
+    }, [selectedDashboard]);
+
+    const dashboardPathFilterOptions = useMemo(() => {
+        const optionsKey = dashboardPathFilterConfig?.dashboardPathFilterJson;
+        if (!optionsKey) return [];
+        return DASHBOARD_PATH_FILTER_OPTIONS[optionsKey] ?? [];
+    }, [dashboardPathFilterConfig]);
+
+    const usePreselectedPathFilter = visibleFilterCapabilities.url && dashboardPathFilterOptions.length > 0;
+    const preselectedPathOperator = dashboardPathFilterConfig?.dashboardPathOperator;
+    const preselectedPathFilterLabel =
+        dashboardPathFilterConfig?.dashboardPathFilteLabel
+        || dashboardPathFilterConfig?.dashboardPathFilterLabel
+        || 'URL-sti';
+    const preselectedPathFilterPlaceholder = `Velg ${preselectedPathFilterLabel.trim().toLocaleLowerCase('nb-NO')}`;
+    const preselectedPathFilterEmptyMessage =
+        dashboardPathFilterConfig?.dashboardPathFilterEmpty
+        || 'Velg et alternativ for å vise grafdata.';
+    const preselectedPathFilterAutosubmit = Boolean(dashboardPathFilterConfig?.dashboardPathFilterAutosubmit);
+    const requiresPreselectedPathSelection = usePreselectedPathFilter;
+    const selectedPreselectedPath = useMemo(() => {
+        if (!usePreselectedPathFilter) return '';
+        return tempUrlPaths.find((path) => dashboardPathFilterOptions.some((option) => option.path === path)) ?? '';
+    }, [tempUrlPaths, dashboardPathFilterOptions, usePreselectedPathFilter]);
+    const hasRequiredPreselectedPathSelection =
+        !requiresPreselectedPathSelection || activeFilters.urlFilters.length > 0;
+    const hasTempPreselectedPathSelection =
+        !requiresPreselectedPathSelection || selectedPreselectedPath.length > 0;
+    const hidePathOperatorChoice = usePreselectedPathFilter && Boolean(preselectedPathOperator);
+
+    useEffect(() => {
+        if (!preselectedPathOperator) return;
+        if (!usePreselectedPathFilter) return;
+        if (tempPathOperator === preselectedPathOperator) return;
+        setTempPathOperator(preselectedPathOperator);
+    }, [preselectedPathOperator, tempPathOperator, setTempPathOperator, usePreselectedPathFilter]);
 
     useLayoutEffect(() => {
         const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1333,30 +1424,60 @@ const Oversikt = () => {
                     {visibleFilterCapabilities.url && (
                         <div className="w-full md:w-[20rem]">
                             <div className="flex items-center gap-2 mb-1">
-                                <Label size="small" htmlFor="oversikt-url-filter">URL-sti</Label>
-                                <select
-                                    className="text-sm bg-[var(--ax-bg-default)] border border-[var(--ax-border-neutral-subtle)] rounded text-[var(--ax-text-accent)] font-medium cursor-pointer focus:outline-none py-1 px-2"
-                                    value={tempPathOperator}
-                                    onChange={(e) => setTempPathOperator(e.target.value)}
-                                >
-                                    <option value="equals">er lik</option>
-                                    <option value="starts-with">starter med</option>
-                                </select>
+                                <Label size="small" htmlFor="oversikt-url-filter">{preselectedPathFilterLabel}</Label>
+                                {!hidePathOperatorChoice && (
+                                    <select
+                                        className="text-sm bg-[var(--ax-bg-default)] border border-[var(--ax-border-neutral-subtle)] rounded text-[var(--ax-text-accent)] font-medium cursor-pointer focus:outline-none py-1 px-2"
+                                        value={tempPathOperator}
+                                        onChange={(e) => setTempPathOperator(e.target.value)}
+                                    >
+                                        <option value="equals">er lik</option>
+                                        <option value="starts-with">starter med</option>
+                                    </select>
+                                )}
                             </div>
-                            <UNSAFE_Combobox
-                                id="oversikt-url-filter"
-                                label="URL-stier"
-                                hideLabel
-                                size="small"
-                                isMultiSelect
-                                allowNewValues
-                                options={tempUrlPaths.map((path) => ({ label: path, value: path }))}
-                                selectedOptions={tempUrlPaths}
-                                onToggleSelected={handleUrlToggleSelected}
-                                value={comboInputValue}
-                                onChange={handleComboChange}
-                                clearButton
-                            />
+                            {usePreselectedPathFilter ? (
+                                <Select
+                                    label="URL-stier"
+                                    hideLabel
+                                    size="small"
+                                    value={selectedPreselectedPath}
+                                    onChange={(e) => {
+                                        const nextPath = e.target.value;
+                                        const nextOperator = preselectedPathOperator ?? tempPathOperator;
+                                        if (preselectedPathOperator) setTempPathOperator(preselectedPathOperator);
+                                        setTempUrlPaths(nextPath ? [nextPath] : []);
+                                        if (preselectedPathFilterAutosubmit && nextPath) {
+                                            handleUpdate({
+                                                urlPaths: [nextPath],
+                                                pathOperator: nextOperator,
+                                            });
+                                        }
+                                    }}
+                                >
+                                    <option value="">{preselectedPathFilterPlaceholder}</option>
+                                    {dashboardPathFilterOptions.map((option) => (
+                                        <option key={option.path} value={option.path}>
+                                            {option.region}
+                                        </option>
+                                    ))}
+                                </Select>
+                            ) : (
+                                <UNSAFE_Combobox
+                                    id="oversikt-url-filter"
+                                    label="URL-stier"
+                                    hideLabel
+                                    size="small"
+                                    isMultiSelect
+                                    allowNewValues
+                                    options={tempUrlPaths.map((path) => ({ label: path, value: path }))}
+                                    selectedOptions={tempUrlPaths}
+                                    onToggleSelected={handleUrlToggleSelected}
+                                    value={comboInputValue}
+                                    onChange={handleComboChange}
+                                    clearButton
+                                />
+                            )}
                         </div>
                     )}
 
@@ -1397,7 +1518,11 @@ const Oversikt = () => {
                     )}
 
                     <div className="flex items-end pb-[2px]">
-                        <Button size="small" onClick={handleUpdate} disabled={!hasChanges}>
+                        <Button
+                            size="small"
+                            onClick={() => handleUpdate()}
+                            disabled={!hasChanges || !hasTempPreselectedPathSelection}
+                        >
                             Oppdater
                         </Button>
                     </div>
@@ -1484,7 +1609,21 @@ const Oversikt = () => {
                 </div>
             )}
 
-            {!isLoading && selectedDashboard && (!visibleFilterCapabilities.website || activeWebsiteId) && (
+            {!isLoading
+                && selectedDashboard
+                && (!visibleFilterCapabilities.website || activeWebsiteId)
+                && !hasRequiredPreselectedPathSelection && (
+                <div className="w-fit">
+                    <Alert variant="info" size="small">
+                        {preselectedPathFilterEmptyMessage}
+                    </Alert>
+                </div>
+            )}
+
+            {!isLoading
+                && selectedDashboard
+                && (!visibleFilterCapabilities.website || activeWebsiteId)
+                && hasRequiredPreselectedPathSelection && (
                 <>
                     {isEditPanelOpen && (
                         <section className="mb-4 p-3 border border-[var(--ax-border-neutral-subtle)] rounded-md bg-[var(--ax-bg-default)]">
