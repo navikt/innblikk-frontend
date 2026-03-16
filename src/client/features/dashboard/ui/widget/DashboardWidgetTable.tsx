@@ -1,4 +1,4 @@
-import { Table, Pagination } from '@navikt/ds-react';
+import { ActionMenu, Pagination, Table } from '@navikt/ds-react';
 import { ExternalLink } from 'lucide-react';
 import type { DashboardRow } from '../../utils/widgetUtils.ts';
 import { formatTableValue, isClickablePath } from '../../utils/widgetUtils.ts';
@@ -9,11 +9,20 @@ interface DashboardWidgetTableProps {
     page: number;
     onPageChange: (page: number) => void;
     showTotal?: boolean;
-    onSelectUrl: (url: string) => void;
+    domain?: string;
     enableLinks?: boolean;
+    onOpenAnalysisMenu?: (urlPath: string) => void;
 }
 
-const DashboardWidgetTable = ({ data, page, onPageChange, showTotal, onSelectUrl, enableLinks = true }: DashboardWidgetTableProps) => {
+const DashboardWidgetTable = ({
+    data,
+    page,
+    onPageChange,
+    showTotal,
+    domain,
+    enableLinks = true,
+    onOpenAnalysisMenu,
+}: DashboardWidgetTableProps) => {
     let tableData = data;
 
     if (showTotal) {
@@ -27,6 +36,20 @@ const DashboardWidgetTable = ({ data, page, onPageChange, showTotal, onSelectUrl
     const start = (page - 1) * rowsPerPage;
     const end = start + rowsPerPage;
     const currentData = tableData.slice(start, end);
+
+    const openOnWebsite = (urlPath: string) => {
+        const safeDomain = domain || 'nav.no';
+        const protocol = safeDomain.includes('http') ? '' : 'https://';
+        window.open(`${protocol}${safeDomain}${urlPath}`, '_blank');
+    };
+
+    const copyPath = async (urlPath: string) => {
+        try {
+            await navigator.clipboard.writeText(urlPath);
+        } catch (error) {
+            console.error('Failed to copy URL path:', error);
+        }
+    };
 
     return (
         <div className="flex flex-col">
@@ -60,12 +83,36 @@ const DashboardWidgetTable = ({ data, page, onPageChange, showTotal, onSelectUrl
                                                 key={j}
                                                 className={`whitespace-nowrap ${clickable ? 'cursor-pointer' : ''}`}
                                                 title={rawString}
-                                                onClick={clickable ? () => onSelectUrl(val) : undefined}
                                             >
                                                 {clickable ? (
-                                                    <span className="text-blue-600 hover:underline flex items-center gap-1">
-                                                        {displayVal} <ExternalLink className="h-3 w-3" />
-                                                    </span>
+                                                    <ActionMenu>
+                                                        <ActionMenu.Trigger>
+                                                            <button
+                                                                type="button"
+                                                                className="text-blue-600 hover:underline inline-flex items-center gap-1"
+                                                            >
+                                                                {displayVal} <ExternalLink className="h-3 w-3" />
+                                                            </button>
+                                                        </ActionMenu.Trigger>
+                                                        <ActionMenu.Content align="start">
+                                                            <ActionMenu.Item onClick={() => openOnWebsite(val)}>
+                                                                <span className="inline-flex items-center gap-1">
+                                                                    <span>Gå til siden</span>
+                                                                    <ExternalLink aria-hidden size={16} />
+                                                                </span>
+                                                            </ActionMenu.Item>
+                                                            <ActionMenu.Item onClick={() => void copyPath(val)}>
+                                                                Kopier URL
+                                                            </ActionMenu.Item>
+                                                            {onOpenAnalysisMenu && (
+                                                                <>
+                                                                    <ActionMenu.Item onClick={() => onOpenAnalysisMenu(val)}>
+                                                                        Analysevalg
+                                                                    </ActionMenu.Item>
+                                                                </>
+                                                            )}
+                                                        </ActionMenu.Content>
+                                                    </ActionMenu>
                                                 ) : (
                                                     displayVal
                                                 )}

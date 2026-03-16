@@ -59,6 +59,6 @@ export interface DashboardConfig {
     customFilterRequiredMessage?: string;
     // Which metric types to show in the "Visning" filter (defaults to all if not specified)
     metricTypeOptions?: ('visitors' | 'pageviews' | 'proportion' | 'visits')[];
-    // If false, disable URL path click-to-open link modal in table charts
+    // If false, disable URL path action menu in table charts
     dashboardChartLinks?: boolean;
 }

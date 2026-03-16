@@ -320,8 +320,7 @@ export const DashboardWidget = ({
     const [page, setPage] = useState(1);
     // Track if individual fetch has been done to prevent repeat fetches
     const [hasFetchedIndividually, setHasFetchedIndividually] = useState(false);
-    // State for AnalysisActionModal (for links in table)
-    const [selectedUrl, setSelectedUrl] = useState<string | null>(null);
+    const [selectedUrlForAnalysis, setSelectedUrlForAnalysis] = useState<string | null>(null);
     const [showTransferToMetabaseDialog, setShowTransferToMetabaseDialog] = useState(false);
     const [copyLinkFeedback, setCopyLinkFeedback] = useState(false);
     const showShareAction = false; // Temporary: hide "Del grafen" in inline action menu
@@ -480,8 +479,9 @@ export const DashboardWidget = ({
                     page={page}
                     onPageChange={setPage}
                     showTotal={chart.showTotal}
-                    onSelectUrl={setSelectedUrl}
+                    domain={selectedWebsite?.domain}
                     enableLinks={chartLinksEnabled}
+                    onOpenAnalysisMenu={chartLinksEnabled ? setSelectedUrlForAnalysis : undefined}
                 />
             );
         }
@@ -677,16 +677,14 @@ export const DashboardWidget = ({
                 {renderContent()}
             </div>
 
-            {chartLinksEnabled && (
-                <AnalysisActionModal
-                    open={!!selectedUrl}
-                    onClose={() => setSelectedUrl(null)}
-                    urlPath={selectedUrl}
-                    websiteId={websiteId}
-                    period={filters.dateRange}
-                    domain={selectedWebsite?.domain}
-                />
-            )}
+            <AnalysisActionModal
+                open={!!selectedUrlForAnalysis}
+                onClose={() => setSelectedUrlForAnalysis(null)}
+                urlPath={selectedUrlForAnalysis}
+                websiteId={websiteId}
+                period={filters.dateRange}
+                domain={selectedWebsite?.domain}
+            />
 
             {chart.sql && (
                 <TransferToMetabaseDialog
