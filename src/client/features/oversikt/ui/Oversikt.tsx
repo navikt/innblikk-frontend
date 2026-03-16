@@ -198,6 +198,7 @@ const Oversikt = () => {
     const totalGb = Object.values(stats).reduce((acc, curr) => acc + curr.gb, 0);
     const activeCategory = categories.find((category) => category.id === activeCategoryId) ?? null;
     const hasMultipleTabs = categories.length > 1;
+    const pageTitle = selectedDashboard?.name ?? (selectedDashboardId ? '' : 'Dashboard');
 
     useEffect(() => {
         setStats({});
@@ -1657,7 +1658,7 @@ const Oversikt = () => {
 
     return (
         <DashboardLayout
-            title={selectedDashboard ? `${selectedDashboard.name}` : 'Dashboard'}
+            title={pageTitle}
             headerActions={selectedDashboard ? (
                 <div className="flex justify-end gap-2">
                     <ActionMenu>
