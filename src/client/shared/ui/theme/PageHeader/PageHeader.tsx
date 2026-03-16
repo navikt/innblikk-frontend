@@ -5,6 +5,7 @@ interface PageHeaderProps {
     title: string;
     subtitle?: string;
     description?: React.ReactNode;
+    actions?: React.ReactNode;
     variant?: "regular" | "article";
     width?: "xl" | "2xl";
 }
@@ -13,6 +14,7 @@ export const PageHeader = ({
     title,
     subtitle,
     description,
+    actions,
     variant = "regular",
     width = "xl",
 }: PageHeaderProps) => {
@@ -35,18 +37,25 @@ export const PageHeader = ({
                     className={`flex flex-col gap-[10px] ${isArticle ? "max-w-[800px] mx-auto" : ""
                         }`}
                 >
-                    <div className="flex flex-col gap-[6px]">
-                        <Heading level="1" size="xlarge">
-                            {title}
-                        </Heading>
-                        {subtitle && (
-                            <Heading
-                                level="2"
-                                size="medium"
-                                className="text-[var(--ax-text-neutral-subtle)] font-normal"
-                            >
-                                {subtitle}
+                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                        <div className="flex flex-col gap-[6px]">
+                            <Heading level="1" size="xlarge">
+                                {title}
                             </Heading>
+                            {subtitle && (
+                                <Heading
+                                    level="2"
+                                    size="medium"
+                                    className="text-[var(--ax-text-neutral-subtle)] font-normal"
+                                >
+                                    {subtitle}
+                                </Heading>
+                            )}
+                        </div>
+                        {actions && (
+                            <div className="flex shrink-0 items-center gap-2 md:pt-1">
+                                {actions}
+                            </div>
                         )}
                     </div>
 

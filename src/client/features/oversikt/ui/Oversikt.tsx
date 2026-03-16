@@ -25,6 +25,7 @@ import {
     updateCategoryOrdering,
     updateCategory,
     updateGraph,
+    updateGraphOrdering,
     updateQueryOrdering,
     updateQuery,
 } from '../api/oversiktApi.ts';
@@ -176,6 +177,7 @@ const Oversikt = () => {
     const [textTitle, setTextTitle] = useState('');
     const [textMarkdown, setTextMarkdown] = useState('');
     const [textWidth, setTextWidth] = useState('100');
+    const [textPlacement, setTextPlacement] = useState<'top' | 'bottom'>('top');
     const [addingText, setAddingText] = useState(false);
     const [textError, setTextError] = useState<string | null>(null);
     const [editTextChart, setEditTextChart] = useState<OversiktChart | null>(null);
@@ -1275,7 +1277,9 @@ const Oversikt = () => {
         if (!selectedDashboardId) return;
         setTextError(null);
         setTextTitle('');
+        setTextMarkdown('');
         setTextWidth('100');
+        setTextPlacement('top');
         setIsAddTextModalOpen(true);
     };
 
@@ -1354,17 +1358,31 @@ const Oversikt = () => {
                 categoryId = created.id;
             }
 
-            await createGraph(selectedProjectId, selectedDashboardId, categoryId, {
+            const createdGraph = await createGraph(selectedProjectId, selectedDashboardId, categoryId, {
                 name: title,
                 graphType: 'TEXT',
                 width: normalizedWidth,
                 description: markdown || undefined,
             });
+
+            if (textPlacement === 'top') {
+                const categoryGraphs = await fetchGraphs(selectedProjectId, selectedDashboardId, categoryId);
+                const ordering = [
+                    createdGraph.id,
+                    ...categoryGraphs
+                        .sort((a, b) => (a.ordering ?? 0) - (b.ordering ?? 0))
+                        .map((graph) => graph.id)
+                        .filter((id) => id !== createdGraph.id),
+                ].map((id, ordering) => ({ id, ordering }));
+                await updateGraphOrdering(selectedProjectId, selectedDashboardId, categoryId, ordering);
+            }
+
             await refreshCategories(categoryId);
             await refreshGraphs(categoryId);
             setIsAddTextModalOpen(false);
             setTextTitle('');
             setTextMarkdown('');
+            setTextPlacement('top');
         } catch (err: unknown) {
             setTextError(err instanceof Error ? err.message : 'Kunne ikke legge til tekst');
         } finally {
@@ -1559,6 +1577,85 @@ const Oversikt = () => {
         </>
     );
 
+    const editModeControls = selectedDashboard && isEditPanelOpen ? (
+        <section className="p-3 border border-[var(--ax-border-neutral-subtle)] rounded-md bg-[var(--ax-bg-default)]">
+            <div className="flex flex-wrap items-center gap-1.5">
+                <ActionMenu>
+                    <ActionMenu.Trigger>
+                        <Button type="button" variant="secondary" size="xsmall">
+                            + legg til
+                        </Button>
+                    </ActionMenu.Trigger>
+                    <ActionMenu.Content>
+                        <ActionMenu.Item as="a" href="/grafbygger">
+                            Legg til graf
+                        </ActionMenu.Item>
+                        <ActionMenu.Item onClick={openAddTextModal}>
+                            Legg til tekstboks
+                        </ActionMenu.Item>
+                        <ActionMenu.Item onClick={openCreateTabModal}>
+                            Legg til fane
+                        </ActionMenu.Item>
+                        <ActionMenu.Item onClick={openImportModal}>
+                            Importer graf
+                        </ActionMenu.Item>
+                    </ActionMenu.Content>
+                </ActionMenu>
+                <Button
+                    variant="secondary"
+                    size="xsmall"
+                    onClick={openEditDashboardDialog}
+                    disabled={!selectedDashboard}
+                >
+                    Endre tittel
+                </Button>
+                <Button
+                    variant="secondary"
+                    size="xsmall"
+                    onClick={openMoveDashboardDialog}
+                    disabled={!selectedDashboard}
+                >
+                    Flytt dashboard
+                </Button>
+                <Button
+                    variant="secondary"
+                    size="xsmall"
+                    onClick={openDeleteDashboardDialog}
+                    disabled={!selectedDashboard}
+                >
+                    Slett dashboard
+                </Button>
+                {categories.length > 1 && (
+                    <Button
+                        variant="secondary"
+                        size="xsmall"
+                        onClick={openRenameTabModal}
+                        disabled={!activeCategory}
+                    >
+                        Gi nytt navn til fane
+                    </Button>
+                )}
+                {categories.length > 1 && (
+                    <Button
+                        variant="secondary"
+                        size="xsmall"
+                        onClick={() => void handleDeleteActiveTab()}
+                        loading={deletingCategory}
+                        disabled={!activeCategory || charts.length > 0}
+                        title={charts.length > 0 ? 'Tøm fanen for grafer før du sletter den' : undefined}
+                    >
+                        Slett aktiv fane
+                    </Button>
+                )}
+            </div>
+            {categoryMutationError && (
+                <div className="mt-3">
+                    <Alert variant="error" size="small">{categoryMutationError}</Alert>
+                </div>
+            )}
+        </section>
+    ) : undefined;
+
     return (
         <DashboardLayout
             title={selectedDashboard ? `${selectedDashboard.name}` : 'Dashboard'}
@@ -1571,15 +1668,8 @@ const Oversikt = () => {
                     <span>Alle dashboard</span>
                 </Link>
             )}
-            filtersTop={selectedDashboard ? (
+            headerActions={selectedDashboard ? (
                 <div className="flex justify-end gap-2">
-                    <Button
-                        variant={isEditPanelOpen ? 'primary' : 'secondary'}
-                        size="small"
-                        onClick={toggleEditPanel}
-                    >
-                        {isEditPanelOpen ? 'Lukk' : 'Rediger'}
-                    </Button>
                     <ActionMenu>
                         <ActionMenu.Trigger>
                             <Button type="button" variant="secondary" size="small">
@@ -1601,8 +1691,16 @@ const Oversikt = () => {
                             </ActionMenu.Item>
                         </ActionMenu.Content>
                     </ActionMenu>
+                    <Button
+                        variant={isEditPanelOpen ? 'primary' : 'secondary'}
+                        size="small"
+                        onClick={toggleEditPanel}
+                    >
+                        {isEditPanelOpen ? 'Lukk redigeringsmodus' : 'Rediger'}
+                    </Button>
                 </div>
             ) : undefined}
+            filtersTop={editModeControls}
             filters={supportsVisibleStandardFilters ? filters : undefined}
         >
             {error && <Alert variant="error">{error}</Alert>}
@@ -1653,71 +1751,6 @@ const Oversikt = () => {
                 && (!visibleFilterCapabilities.website || activeWebsiteId)
                 && hasRequiredPreselectedPathSelection && (
                 <>
-                    {isEditPanelOpen && (
-                        <section className="mb-4 p-3 border border-[var(--ax-border-neutral-subtle)] rounded-md bg-[var(--ax-bg-default)]">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                                <Button
-                                    variant="secondary"
-                                    size="xsmall"
-                                    onClick={openEditDashboardDialog}
-                                    disabled={!selectedDashboard}
-                                >
-                                    Endre info
-                                </Button>
-                                <Button
-                                    variant="secondary"
-                                    size="xsmall"
-                                    onClick={openMoveDashboardDialog}
-                                    disabled={!selectedDashboard}
-                                >
-                                    Flytt dashboard
-                                </Button>
-                                <Button
-                                    variant="secondary"
-                                    size="xsmall"
-                                    onClick={openDeleteDashboardDialog}
-                                    disabled={!selectedDashboard}
-                                >
-                                    Slett dashboard
-                                </Button>
-                                {categories.length > 1 && (
-                                    <Button
-                                        variant="secondary"
-                                        size="xsmall"
-                                        onClick={openRenameTabModal}
-                                        disabled={!activeCategory}
-                                    >
-                                        Gi nytt navn til fane
-                                    </Button>
-                                )}
-                                {categories.length > 1 && (
-                                    <Button
-                                        variant="secondary"
-                                        size="xsmall"
-                                        onClick={() => void handleDeleteActiveTab()}
-                                        loading={deletingCategory}
-                                        disabled={!activeCategory || charts.length > 0}
-                                        title={charts.length > 0 ? 'Tøm fanen for grafer før du sletter den' : undefined}
-                                    >
-                                        Slett aktiv fane
-                                    </Button>
-                                )}
-                                <Button
-                                    variant="secondary"
-                                    size="xsmall"
-                                    onClick={openCreateTabModal}
-                                    disabled={!selectedDashboard}
-                                >
-                                    Legg til fane
-                                </Button>
-                            </div>
-                            {categoryMutationError && (
-                                <div className="mt-3">
-                                    <Alert variant="error" size="small">{categoryMutationError}</Alert>
-                                </div>
-                            )}
-                        </section>
-                    )}
                     {hasMultipleTabs && (
                         <div className="mb-6">
                             <Tabs value={activeCategoryId ? String(activeCategoryId) : undefined} onChange={handleCategoryTabChange}>
@@ -2307,6 +2340,14 @@ const Oversikt = () => {
                             value={textWidth}
                             onChange={(event) => setTextWidth(event.target.value)}
                         />
+                        <Select
+                            label="Plassering"
+                            value={textPlacement}
+                            onChange={(event) => setTextPlacement(event.target.value as 'top' | 'bottom')}
+                        >
+                            <option value="bottom">Nederst</option>
+                            <option value="top">Øverst</option>
+                        </Select>
                         {textError && (
                             <Alert variant="error" size="small">{textError}</Alert>
                         )}

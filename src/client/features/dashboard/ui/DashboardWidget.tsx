@@ -540,6 +540,11 @@ export const DashboardWidget = ({
                 </ActionMenu.Trigger>
             </Tooltip>
             <ActionMenu.Content align="end">
+                {onEditChart && chart.type === 'text' && (
+                    <ActionMenu.Item onClick={() => onEditChart(chart.id)}>
+                        {`Rediger ${entityLabel}`}
+                    </ActionMenu.Item>
+                )}
                 {!replaceExploreActionWithSqlEditor && (
                     <ActionMenu.Item onClick={handleOpenSharedView}>
                         Utforsk grafen
@@ -555,7 +560,7 @@ export const DashboardWidget = ({
                         {`Kopier ${entityLabel}`}
                     </ActionMenu.Item>
                 )}
-                {onEditChart && (
+                {onEditChart && chart.type !== 'text' && (
                     <ActionMenu.Item onClick={() => onEditChart(chart.id)}>
                         {`Rediger ${entityLabel}`}
                     </ActionMenu.Item>
