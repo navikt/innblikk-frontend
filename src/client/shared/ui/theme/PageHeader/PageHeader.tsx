@@ -34,33 +34,26 @@ export const PageHeader = ({
         >
             <Page.Block width={width} gutters>
                 <div
-                    className={`flex flex-col gap-[10px] ${isArticle ? "max-w-[800px] mx-auto" : ""
+                    className={`grid gap-[10px] md:grid-cols-[minmax(0,1fr)_auto] md:items-start ${isArticle ? "max-w-[800px] mx-auto" : ""
                         }`}
                 >
-                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                        <div className="flex flex-col gap-[6px]">
-                            <Heading level="1" size="xlarge">
-                                {title}
+                    <div className="flex flex-col gap-[6px] md:col-start-1 md:row-start-1">
+                        <Heading level="1" size="xlarge">
+                            {title}
+                        </Heading>
+                        {subtitle && (
+                            <Heading
+                                level="2"
+                                size="medium"
+                                className="text-[var(--ax-text-neutral-subtle)] font-normal"
+                            >
+                                {subtitle}
                             </Heading>
-                            {subtitle && (
-                                <Heading
-                                    level="2"
-                                    size="medium"
-                                    className="text-[var(--ax-text-neutral-subtle)] font-normal"
-                                >
-                                    {subtitle}
-                                </Heading>
-                            )}
-                        </div>
-                        {actions && (
-                            <div className="flex shrink-0 items-center gap-2 md:pt-1">
-                                {actions}
-                            </div>
                         )}
                     </div>
 
                     {description && (
-                        <div className="text-[var(--ax-text-neutral-subtle)]">
+                        <div className="text-[var(--ax-text-neutral-subtle)] md:col-start-1 md:col-span-2 md:row-start-2">
                             {typeof description === "string" ? (
                                 isArticle ? (
                                     <BodyLong size="large">{description}</BodyLong>
@@ -72,6 +65,12 @@ export const PageHeader = ({
                                     {description}
                                 </BodyLong>
                             )}
+                        </div>
+                    )}
+
+                    {actions && (
+                        <div className="flex justify-end gap-2 md:col-start-2 md:row-start-1 md:row-span-2 md:self-center">
+                            {actions}
                         </div>
                     )}
                 </div>
