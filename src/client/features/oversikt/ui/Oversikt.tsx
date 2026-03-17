@@ -1548,16 +1548,16 @@ const Oversikt = () => {
                                 onChange={(e) => setTempMetricType(e.target.value as 'visitors' | 'pageviews' | 'proportion' | 'visits')}
                             >
                                 {allowedMetricTypes.includes('visitors') && (
-                                    <option value="visitors">Unike besøkende</option>
+                                    <option value="visitors">Antall besøkende</option>
                                 )}
                                 {allowedMetricTypes.includes('visits') && (
-                                    <option value="visits">Økter / besøk</option>
+                                    <option value="visits">Antall besøk</option>
                                 )}
                                 {allowedMetricTypes.includes('pageviews') && (
-                                    <option value="pageviews">Sidevisninger</option>
+                                    <option value="pageviews">Antall sidevisninger</option>
                                 )}
                                 {allowedMetricTypes.includes('proportion') && (
-                                    <option value="proportion">Andel (%)</option>
+                                    <option value="proportion">Andel besøkende</option>
                                 )}
                             </Select>
                         </div>
