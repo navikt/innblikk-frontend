@@ -74,9 +74,10 @@ const getHostPrefix = (): string => {
     return window.location.hostname.replace(/\./g, '_');
 };
 
-const getUrlPathStorageKey = (website: Website | null): string => {
+const getUrlPathStorageKey = (website: Website | null, dashboardId: number | null): string | null => {
+    if (!dashboardId) return null;
     const environment = getCurrentEnvironmentBucket(website);
-    return `oversikt_last_url_paths_${environment}_${getHostPrefix()}`;
+    return `oversikt_last_url_paths_${environment}_${getHostPrefix()}_dashboard_${dashboardId}`;
 };
 
 const getStoredUrlPaths = (storageKey: string): string[] => {
@@ -85,7 +86,7 @@ const getStoredUrlPaths = (storageKey: string): string[] => {
     try {
         const raw = window.localStorage.getItem(storageKey);
         if (!raw) return [];
-        const parsed = JSON.parse(raw);
+        const parsed: unknown = JSON.parse(raw);
         if (!Array.isArray(parsed)) return [];
 
         const normalized = parsed
@@ -120,7 +121,7 @@ export const useOversikt = () => {
     const initialUrlPaths = getInitialUrlPaths(searchParams);
     const initialResolvedUrlPaths = initialUrlPaths.length > 0
         ? initialUrlPaths
-        : getStoredUrlPaths(getUrlPathStorageKey(null));
+        : (initialDashboardId ? getStoredUrlPaths(getUrlPathStorageKey(null, initialDashboardId) ?? '') : []);
     const initialDateRange = normalizeDateRange(searchParams.get('periode'));
     const initialMetricType = normalizeMetricType(searchParams.get('metrikk') || searchParams.get('metricType'));
 
@@ -180,7 +181,10 @@ export const useOversikt = () => {
     const selectedProjectLabel = projectOptions.find((o) => o.value === String(selectedProjectId))?.label;
     const selectedDashboardLabel = dashboardOptions.find((o) => o.value === String(selectedDashboardId))?.label;
     const activeWebsiteId = activeWebsite?.id ?? '';
-    const urlPathStorageKey = useMemo(() => getUrlPathStorageKey(selectedWebsite), [selectedWebsite]);
+    const urlPathStorageKey = useMemo(
+        () => getUrlPathStorageKey(selectedWebsite, selectedDashboardId),
+        [selectedWebsite, selectedDashboardId],
+    );
     const hasUrlPathParams = searchParams.getAll('path').length > 0;
 
     const charts = useMemo<OversiktChart[]>(() => {
@@ -650,6 +654,7 @@ export const useOversikt = () => {
     }, [selectedWebsite]);
 
     useEffect(() => {
+        if (!urlPathStorageKey) return;
         if (hasUrlPathParams) return;
         const storedPaths = getStoredUrlPaths(urlPathStorageKey);
         setTempUrlPaths((prev) => (arraysEqual(prev, storedPaths) ? prev : storedPaths));
@@ -659,6 +664,7 @@ export const useOversikt = () => {
     }, [urlPathStorageKey, hasUrlPathParams]);
 
     useEffect(() => {
+        if (!urlPathStorageKey) return;
         if (previousUrlPathStorageKeyRef.current !== urlPathStorageKey) {
             previousUrlPathStorageKeyRef.current = urlPathStorageKey;
             return;
