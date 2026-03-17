@@ -1607,7 +1607,7 @@ const Oversikt = () => {
                     onClick={openEditDashboardDialog}
                     disabled={!selectedDashboard}
                 >
-                    Endre tittel
+                    Endre info
                 </Button>
                 <Button
                     variant="secondary"
@@ -1659,6 +1659,7 @@ const Oversikt = () => {
     return (
         <DashboardLayout
             title={pageTitle}
+            description={selectedDashboard?.description?.trim() ? selectedDashboard.description : undefined}
             headerActions={selectedDashboard ? (
                 <div className="flex justify-end gap-2">
                     <ActionMenu>
