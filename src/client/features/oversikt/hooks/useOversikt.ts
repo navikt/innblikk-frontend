@@ -114,6 +114,8 @@ export const useOversikt = () => {
     const { dashboardId: dashboardIdFromPath } = useParams<{ dashboardId?: string }>();
     const [searchParams, setSearchParams] = useSearchParams();
     const routeDashboardId = parseId(dashboardIdFromPath ?? null);
+    const initialProjectId = parseId(searchParams.get('projectId'));
+    const initialDashboardId = parseId(searchParams.get('dashboardId')) ?? routeDashboardId;
     const initialPathOperator = normalizePathOperator(searchParams.get('pathOperator'));
     const initialUrlPaths = getInitialUrlPaths(searchParams);
     const initialResolvedUrlPaths = initialUrlPaths.length > 0
@@ -138,8 +140,8 @@ export const useOversikt = () => {
     const hasResolvedInitialProjectRef = useRef(false);
     const previousUrlPathStorageKeyRef = useRef<string | null>(null);
 
-    const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
-    const [selectedDashboardId, setSelectedDashboardId] = useState<number | null>(null);
+    const [selectedProjectId, setSelectedProjectId] = useState<number | null>(initialProjectId);
+    const [selectedDashboardId, setSelectedDashboardId] = useState<number | null>(initialDashboardId);
     const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null);
 
     const [activeFilters, setActiveFilters] = useState<FilterState>({
