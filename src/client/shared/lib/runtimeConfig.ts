@@ -1,5 +1,4 @@
 export type RuntimeConfig = {
-  UMAMI_BASE_URL?: string;
   GCP_PROJECT_ID?: string;
 };
 
@@ -10,14 +9,13 @@ declare global {
 }
 
 const readWindowConfig = (): RuntimeConfig => {
-  if (typeof window === 'undefined') return {};
+  if (typeof window === "undefined") return {};
   return window.__RUNTIME_CONFIG__ ?? {};
 };
 
 const readViteConfig = (): RuntimeConfig => {
-  if (typeof import.meta === 'undefined' || !import.meta.env) return {};
+  if (typeof import.meta === "undefined" || !import.meta.env) return {};
   return {
-    UMAMI_BASE_URL: import.meta.env.VITE_UMAMI_BASE_URL,
     GCP_PROJECT_ID: import.meta.env.VITE_GCP_PROJECT_ID,
   };
 };
@@ -35,8 +33,7 @@ const requireRuntimeValue = (key: keyof RuntimeConfig): string => {
   return value;
 };
 
-export const getGcpProjectId = (): string => requireRuntimeValue('GCP_PROJECT_ID');
-
-export const getUmamiBaseUrl = (): string => requireRuntimeValue('UMAMI_BASE_URL');
+export const getGcpProjectId = (): string =>
+  requireRuntimeValue("GCP_PROJECT_ID");
 
 export {};
