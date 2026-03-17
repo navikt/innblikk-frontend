@@ -61,7 +61,6 @@ All notable changes to this project will be documented in this file.
 - Deploy dev
 - Deploy dev
 - Use url for dev
-- UMAMI_BASE_URL is env
 - Env based GCP_PROJECT_ID
 - Env based GCP_PROJECT_ID
 - Deploy-pr workflow
