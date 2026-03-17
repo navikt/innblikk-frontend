@@ -1551,7 +1551,7 @@ const Oversikt = () => {
                                     <option value="visitors">Antall besøkende</option>
                                 )}
                                 {allowedMetricTypes.includes('visits') && (
-                                    <option value="visits">Antall besøk</option>
+                                    <option value="visits">Antall økter</option>
                                 )}
                                 {allowedMetricTypes.includes('pageviews') && (
                                     <option value="pageviews">Antall sidevisninger</option>
