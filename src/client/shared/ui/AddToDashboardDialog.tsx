@@ -305,7 +305,7 @@ const AddToDashboardDialog = ({
     };
 
     const savedDashboardUrl = savedLocation
-        ? `/oversikt?projectId=${savedLocation.projectId}&dashboardId=${savedLocation.dashboardId}`
+        ? `/dashboard/${savedLocation.dashboardId}?projectId=${savedLocation.projectId}`
         : '';
 
     const handleGoToSavedDashboard = () => {

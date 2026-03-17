@@ -976,7 +976,7 @@ const QueryPreview = ({
   const selectedProjectLabel = projectOptions.find((option) => option.value === selectedProjectOption)?.label;
   const selectedDashboardLabel = dashboardOptions.find((option) => option.value === selectedDashboardOption)?.label;
   const savedDashboardUrl = savedLocation
-    ? `/oversikt?projectId=${savedLocation.projectId}&dashboardId=${savedLocation.dashboardId}`
+    ? `/dashboard/${savedLocation.dashboardId}?projectId=${savedLocation.projectId}`
     : '';
 
   const handleGoToSavedDashboard = () => {

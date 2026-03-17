@@ -3,7 +3,7 @@ import SiteScores from './SiteScores';
 // @ts-expect-error Untyped JS module
 import SiteGroupScores from './SiteGroupScores';
 import teamsData from '../../../../../data/teamsData.json';
-import type { SavedChart } from '../../../../../data/dashboard';
+import type { SavedChart } from '../../../../shared/types/savedChart';
 
 type SelectedWebsite = {
     domain: string;
@@ -89,4 +89,3 @@ const DashboardWidgetSiteimprove = ({ chart, colClass, selectedWebsite, urlPath,
 };
 
 export default DashboardWidgetSiteimprove;
-

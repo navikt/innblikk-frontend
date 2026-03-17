@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { normalizeUrlToPath } from '../../../shared/lib/utils.ts';
 import type { Website } from '../../dashboard/model/types.ts';
 import type {
@@ -111,7 +111,9 @@ const saveUrlPaths = (storageKey: string, paths: string[]) => {
 };
 
 export const useOversikt = () => {
+    const { dashboardId: dashboardIdFromPath } = useParams<{ dashboardId?: string }>();
     const [searchParams, setSearchParams] = useSearchParams();
+    const routeDashboardId = parseId(dashboardIdFromPath ?? null);
     const initialPathOperator = normalizePathOperator(searchParams.get('pathOperator'));
     const initialUrlPaths = getInitialUrlPaths(searchParams);
     const initialResolvedUrlPaths = initialUrlPaths.length > 0
@@ -374,9 +376,19 @@ export const useOversikt = () => {
                 setProjects(projectItems);
 
                 const fromUrl = parseId(searchParams.get('projectId'));
-                const fromStorage = fromUrl ? null : getLastOversiktProjectId();
+                let resolvedFromRoute: number | null = null;
+                if (!fromUrl && routeDashboardId) {
+                    for (const project of projectItems) {
+                        const dashboardsInProject = await fetchDashboards(project.id);
+                        if (dashboardsInProject.some((dashboard) => dashboard.id === routeDashboardId)) {
+                            resolvedFromRoute = project.id;
+                            break;
+                        }
+                    }
+                }
+                const fromStorage = fromUrl || resolvedFromRoute ? null : getLastOversiktProjectId();
                 const fromState = selectedProjectId;
-                const preferredId = fromState ?? fromUrl ?? fromStorage;
+                const preferredId = fromState ?? fromUrl ?? resolvedFromRoute ?? fromStorage;
 
                 const nextProject =
                     (preferredId ? projectItems.find((item) => item.id === preferredId) : null)
@@ -395,7 +407,7 @@ export const useOversikt = () => {
 
         void run();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [routeDashboardId]);
 
     const refreshDashboards = useCallback(async (projectId: number | null, preferredDashboardId?: number | null) => {
         if (!projectId) {
@@ -414,10 +426,11 @@ export const useOversikt = () => {
             setDashboards(dashboardItems);
 
             const fromUrlProjectId = parseId(searchParams.get('projectId'));
-            const fromUrlDashboardId = parseId(searchParams.get('dashboardId'));
+            const fromUrlDashboardId = parseId(searchParams.get('dashboardId')) ?? routeDashboardId;
             const fromStorage = fromUrlDashboardId ? null : getLastOversiktDashboardId();
             const fromState = preferredDashboardId ?? selectedDashboardId;
-            const fromMatchingUrl = fromUrlProjectId === projectId ? fromUrlDashboardId : null;
+            const canUseUrlDashboardId = fromUrlProjectId === projectId || (fromUrlProjectId === null && routeDashboardId !== null);
+            const fromMatchingUrl = canUseUrlDashboardId ? fromUrlDashboardId : null;
 
             const resolvedPreferredDashboardId =
                 fromMatchingUrl ?? fromState ?? fromStorage;
@@ -433,7 +446,7 @@ export const useOversikt = () => {
         } finally {
             setLoadingDashboards(false);
         }
-    }, [searchParams, selectedDashboardId]);
+    }, [searchParams, selectedDashboardId, routeDashboardId]);
 
     useEffect(() => {
         void refreshDashboards(selectedProjectId);
@@ -584,8 +597,11 @@ export const useOversikt = () => {
         if (!hasResolvedInitialProjectRef.current) return;
         if (loadingProjects || loadingDashboards || loadingCategories) return;
 
-        const currentProjectId = searchParams.get('projectId');
-        const currentDashboardId = searchParams.get('dashboardId');
+        const shouldSyncProjectId = routeDashboardId === null;
+        const currentProjectId = shouldSyncProjectId
+            ? searchParams.get('projectId')
+            : (selectedProjectId ? String(selectedProjectId) : null);
+        const currentDashboardId = searchParams.get('dashboardId') ?? (routeDashboardId ? String(routeDashboardId) : null);
         const currentCategoryId = searchParams.get('categoryId');
 
         // Preserve deep-link params while state is still resolving during initial/load transitions.
@@ -595,20 +611,36 @@ export const useOversikt = () => {
         const nextProjectId = selectedProjectId ? String(selectedProjectId) : null;
         const nextDashboardId = selectedDashboardId ? String(selectedDashboardId) : null;
         if (selectedDashboardId && !activeCategoryId && currentCategoryId) return;
-        const nextCategoryId = selectedDashboardId && activeCategoryId ? String(activeCategoryId) : null;
+        const firstCategoryId = categories[0]?.id ?? null;
+        const shouldPersistCategoryId = Boolean(
+            selectedDashboardId
+            && activeCategoryId
+            && firstCategoryId
+            && activeCategoryId !== firstCategoryId,
+        );
+        const nextCategoryId = shouldPersistCategoryId ? String(activeCategoryId) : null;
 
         if (currentProjectId === nextProjectId && currentDashboardId === nextDashboardId && currentCategoryId === nextCategoryId) return;
 
         const nextParams = new URLSearchParams(searchParams);
-        if (nextProjectId) nextParams.set('projectId', nextProjectId);
-        else nextParams.delete('projectId');
-        if (nextDashboardId) nextParams.set('dashboardId', nextDashboardId);
-        else nextParams.delete('dashboardId');
+        if (shouldSyncProjectId) {
+            if (nextProjectId) nextParams.set('projectId', nextProjectId);
+            else nextParams.delete('projectId');
+        } else {
+            nextParams.delete('projectId');
+        }
+        if (routeDashboardId) {
+            nextParams.delete('dashboardId');
+        } else if (nextDashboardId) {
+            nextParams.set('dashboardId', nextDashboardId);
+        } else {
+            nextParams.delete('dashboardId');
+        }
         if (nextCategoryId) nextParams.set('categoryId', nextCategoryId);
         else nextParams.delete('categoryId');
 
         setSearchParams(nextParams, { replace: true });
-    }, [searchParams, selectedProjectId, selectedDashboardId, activeCategoryId, setSearchParams, loadingProjects, loadingDashboards, loadingCategories]);
+    }, [searchParams, selectedProjectId, selectedDashboardId, activeCategoryId, setSearchParams, loadingProjects, loadingDashboards, loadingCategories, routeDashboardId, categories]);
 
     useEffect(() => {
         if (!selectedWebsite) return;

@@ -1,4 +1,4 @@
-import type { SavedChart } from '../../../../data/dashboard';
+import type { SavedChart } from '../../../shared/types/savedChart';
 import type { GraphDto, QueryDto } from '../../../shared/types/backend';
 
 export type {

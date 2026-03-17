@@ -1,4 +1,4 @@
-import type { SavedChart } from '../../../../data/dashboard';
+import type { SavedChart } from '../../../shared/types/savedChart';
 
 type JsonPrimitive = string | number | boolean | null;
 interface JsonObject {
@@ -89,4 +89,3 @@ export const extractJsonValue = (value: unknown): unknown => {
     }
     return value;
 };
-

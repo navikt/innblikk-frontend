@@ -9,7 +9,7 @@
  * and compute all aggregates client-side.
  */
 
-import type {SavedChart} from '../../../data/dashboard';
+import type { SavedChart } from '../types/savedChart';
 import {format, subDays} from 'date-fns';
 import {getGcpProjectId} from './runtimeConfig.ts';
 import {isRecord} from './typeGuards';

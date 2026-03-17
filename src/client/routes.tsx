@@ -1,5 +1,6 @@
 import { lazy } from 'react';
 import type { ReactElement } from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
 
 // Content Feature
 const Home = lazy(() => import('./features/content').then(m => ({ default: m.Home })));
@@ -10,10 +11,6 @@ const Tilgjengelighet = lazy(() => import('./features/content').then(m => ({ def
 const Taksonomi = lazy(() => import('./features/content').then(m => ({ default: m.Taksonomi })));
 const Oppsett = lazy(() => import('./features/content').then(m => ({ default: m.Oppsett })));
 const Sporingskoder = lazy(() => import('./features/content').then(m => ({ default: m.Sporingskoder })));
-
-// Dashboard Feature
-const Dashboard = lazy(() => import('./features/dashboard').then(m => ({ default: m.Dashboard })));
-const DashboardOverview = lazy(() => import('./features/dashboard').then(m => ({ default: m.DashboardOverview })));
 
 // Chartbuilder Feature
 const Grafbygger = lazy(() => import('./features/chartbuilder').then(m => ({ default: m.Grafbygger })));
@@ -54,6 +51,46 @@ const Retention = lazy(() => import('./features/retention').then(m => ({ default
 // SQL Feature
 const SqlEditor = lazy(() => import('./features/sql').then(m => ({ default: m.SqlEditor })));
 
+const DashboardRouteResolver = () => {
+    const location = useLocation();
+    const params = new URLSearchParams(location.search);
+    const visning = params.get('visning');
+
+    if (visning === 'fylkeskontor') {
+        return <Navigate to="/dashboard/10" replace />;
+    }
+    if (visning === 'hjelpemiddelsentral') {
+        return <Navigate to="/dashboard/11" replace />;
+    }
+
+    const legacyDashboardId = params.get('dashboardId');
+    if (legacyDashboardId) {
+        const nextParams = new URLSearchParams(params);
+        nextParams.delete('dashboardId');
+        const query = nextParams.toString();
+        return <Navigate to={`/dashboard/${legacyDashboardId}${query ? `?${query}` : ''}`} replace />;
+    }
+
+    return <ProjectManager />;
+};
+
+const DashboardDetailRoute = () => <Oversikt />;
+
+const LegacyOversiktRedirect = () => {
+    const location = useLocation();
+    const params = new URLSearchParams(location.search);
+    const dashboardId = params.get('dashboardId');
+
+    if (!dashboardId) {
+        const query = params.toString();
+        return <Navigate to={`/dashboard${query ? `?${query}` : ''}`} replace />;
+    }
+
+    params.delete('dashboardId');
+    const query = params.toString();
+    return <Navigate to={`/dashboard/${dashboardId}${query ? `?${query}` : ''}`} replace />;
+};
+
 export type AppRoute = {
     path: string;
     component: ReactElement;
@@ -74,6 +111,7 @@ export const fullWidthPathPrefixes = [
     "/personvernssjekk",
     "/diagnose",
     "/grafdeling",
+    "/dashboard/",
     "/profil",
     "/kvalitet/odelagte-lenker",
     "/kvalitet/stavekontroll",
@@ -94,7 +132,8 @@ export const routes: AppRoute[] = [
 
     { path: "/sql", component: <SqlEditor />, fullWidth: true },
     { path: "/grafdeling", component: <Grafdeling />, fullWidth: true },
-    { path: "/prosjekter", component: <ProjectManager />, fullWidth: true },
+    { path: "/dashboard", component: <DashboardRouteResolver />, fullWidth: true },
+    { path: "/dashboard/:dashboardId", component: <DashboardDetailRoute />, fullWidth: true },
     { path: "/brukerreiser", component: <UserJourney />, fullWidth: true },
     { path: "/hendelsesreiser", component: <EventJourney />, fullWidth: true },
     { path: "/trakt", component: <Funnel />, fullWidth: true },
@@ -108,9 +147,7 @@ export const routes: AppRoute[] = [
     { path: "/personvernssjekk", component: <PrivacyCheck />, fullWidth: true },
     { path: "/diagnose", component: <Diagnosis />, fullWidth: true },
     { path: "/profil", component: <UserProfile />, fullWidth: true },
-    { path: "/dashboards", component: <DashboardOverview />, fullWidth: true },
-    { path: "/dashboard", component: <Dashboard />, fullWidth: true },
-    { path: "/oversikt", component: <Oversikt />, fullWidth: true },
+    { path: "/oversikt", component: <LegacyOversiktRedirect />, fullWidth: true },
     { path: "/kvalitet/odelagte-lenker", component: <BrokenLinks />, fullWidth: true },
     { path: "/kvalitet/stavekontroll", component: <Spellings />, fullWidth: true }
 ];

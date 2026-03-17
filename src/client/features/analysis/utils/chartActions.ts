@@ -1,4 +1,4 @@
-import type { SavedChart } from '../../../../data/dashboard';
+import type { SavedChart } from '../../../shared/types/savedChart';
 import type { ChartActionModalFilters } from '../model/types.ts';
 import { processDashboardSql } from '../../dashboard';
 import { translateValue } from '../../../shared/lib/translations.ts';
@@ -100,4 +100,3 @@ export const downloadChartCsv = (data: any[], title: string) => {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 };
-

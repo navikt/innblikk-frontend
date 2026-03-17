@@ -109,7 +109,7 @@ export interface ApiCache {
 }
 
 import type { Website } from '../../../shared/types/chart.ts';
-import type { SavedChart } from '../../../../data/dashboard';
+import type { SavedChart } from '../../../shared/types/savedChart';
 
 export interface WebsiteApiResponse {
     data: Website[];

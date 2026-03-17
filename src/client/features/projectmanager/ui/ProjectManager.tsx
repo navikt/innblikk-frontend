@@ -1216,7 +1216,7 @@ const ProjectManager = () => {
                             <Table.Body>
                                 {visibleFileRows.map((row, index) => {
                                     const paddingClass = row.indentLevel === 2 ? 'pl-6 sm:pl-12' : row.indentLevel === 1 ? 'pl-3 sm:pl-6' : '';
-                                    const overviewHref = `/oversikt?projectId=${selectedProject.project.id}&dashboardId=${row.dashboardId}${row.categoryId ? `&categoryId=${row.categoryId}` : ''}`;
+                                    const overviewHref = `/dashboard/${row.dashboardId}${row.categoryId ? `?categoryId=${row.categoryId}` : ''}`;
                                     const isDashboardExpanded = expandedDashboards.has(row.dashboardId);
                                     const nextRow = visibleFileRows[index + 1];
                                     const isLastRowInDashboard = !nextRow || nextRow.dashboardId !== row.dashboardId;

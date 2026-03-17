@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { Loader, Alert, Button, Tooltip, ActionMenu } from '@navikt/ds-react';
 import { MoreVertical } from 'lucide-react';
-import type { SavedChart } from '../../../../data/dashboard';
+import type { SavedChart } from '../../../shared/types/savedChart';
 import AnalysisActionModal from '../../analysis/ui/AnalysisActionModal.tsx';
 import DashboardWidgetLineChart from './widget/DashboardWidgetLineChart.tsx';
 import DashboardWidgetBarChart from './widget/DashboardWidgetBarChart.tsx';
