@@ -1,6 +1,7 @@
-import { Heading, Link, VStack, Box, Page } from "@navikt/ds-react";
+import { Heading, Link, VStack, Box } from "@navikt/ds-react";
 import { KontaktSeksjon } from "../../../../shared/ui/theme/Kontakt/KontaktSeksjon.tsx";
 import { PageHeader } from "../../../../shared/ui/theme/PageHeader/PageHeader.tsx";
+import { AppBlock } from "../../../../shared/ui/theme/AppBlock/AppBlock.tsx";
 
 function Personvern() {
     return (
@@ -11,7 +12,7 @@ function Personvern() {
                 variant="article"
             />
 
-            <Page.Block width="xl" gutters className="pb-16 px-4">
+            <AppBlock className="pb-16 px-4">
                 <div className="max-w-[800px] mx-auto pt-16">
                     <div className="prose max-w-full prose-lg">
                         <VStack gap="space-12">
@@ -117,7 +118,7 @@ function Personvern() {
                         </VStack>
                     </div>
                 </div>
-            </Page.Block>
+            </AppBlock>
             <KontaktSeksjon showMarginBottom={true} narrowContent />
         </>
     )

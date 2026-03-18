@@ -1,3 +1,17 @@
+/* =====================================================
+   APP-WIDE MAX WIDTH
+   Single source of truth: change --app-max-width to
+   adjust the max content width across the entire app.
+   ===================================================== */
+:root {
+  --app-max-width: 1600px;
+}
+
+/* Override Page.Block's built-in max-width with our custom value */
+.app-block {
+  max-width: var(--app-max-width) !important;
+}
+
 /* Responsive modal styles */
 .sporings-modal {
   max-width: 90vw !important;

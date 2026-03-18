@@ -13,6 +13,7 @@ import ScrollToTop from "./shared/ui/theme/ScrollToTop/ScrollToTop.tsx";
 import Header from "./shared/ui/theme/Header/Header.tsx";
 import { ErrorBoundary } from "./shared/ui/ErrorBoundary.tsx";
 import { useHead } from "@unhead/react";
+import { AppBlock } from "./shared/ui/theme/AppBlock/AppBlock.tsx";
 
 import "./App.css";
 
@@ -38,9 +39,9 @@ const PageLayout = ({ children }: { children: React.ReactNode }) => {
   }
 
   return (
-    <Page.Block as="main" width="xl" gutters>
+    <AppBlock as="main">
       {children}
-    </Page.Block>
+    </AppBlock>
   );
 };
 

@@ -1,7 +1,7 @@
 import React from 'react';
-import { Page } from '@navikt/ds-react';
 import { KontaktSeksjon } from '../../../shared/ui/theme/Kontakt/KontaktSeksjon.tsx';
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx';
+import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx';
 
 interface DashboardLayoutProps {
     title: string;
@@ -31,7 +31,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 actions={headerActions}
             />
 
-            <Page.Block width="xl" gutters className="pb-16">
+            <AppBlock className="pb-16">
                 {filtersTop && (
                     <div className="mb-4">
                         {filtersTop}
@@ -47,7 +47,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 <div className="min-h-[400px] w-full">
                     {children}
                 </div>
-            </Page.Block>
+            </AppBlock>
             <KontaktSeksjon showMarginBottom={true} />
         </>
     );

@@ -3,10 +3,10 @@ import {
   VStack,
   Box,
   List,
-  Page
 } from '@navikt/ds-react';
 import { KontaktSeksjon } from "../../../../shared/ui/theme/Kontakt/KontaktSeksjon.tsx";
 import { PageHeader } from "../../../../shared/ui/theme/PageHeader/PageHeader.tsx";
+import { AppBlock } from "../../../../shared/ui/theme/AppBlock/AppBlock.tsx";
 
 const MetabaseGuide = () => {
   return (
@@ -17,7 +17,7 @@ const MetabaseGuide = () => {
         variant="article"
       />
 
-      <Page.Block width="xl" gutters className="pb-16 px-4">
+      <AppBlock className="pb-16 px-4">
         <div className="max-w-[800px] mx-auto">
           {/* Introduction box */}
           <Box className="mt-12 mb-8 bg-[var(--ax-bg-accent-soft)] p-6 border border-[var(--ax-border-subtle)] rounded-medium">
@@ -176,7 +176,7 @@ const MetabaseGuide = () => {
             </VStack>
           </div>
         </div>
-      </Page.Block>
+      </AppBlock>
       <KontaktSeksjon showMarginBottom={true} narrowContent />
     </>
   );

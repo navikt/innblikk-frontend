@@ -1,7 +1,8 @@
 import React from 'react';
-import { Accordion, Page } from '@navikt/ds-react';
+import { Accordion } from '@navikt/ds-react';
 import { KontaktSeksjon } from '../../../shared/ui/theme/Kontakt/KontaktSeksjon.tsx';
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx';
+import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx';
 
 interface ProjectManagerLayoutProps {
     title: string;
@@ -27,7 +28,7 @@ const ProjectManagerLayout: React.FC<ProjectManagerLayoutProps> = ({
                 description={description}
             />
 
-            <Page.Block width="xl" gutters className="pb-16">
+            <AppBlock className="pb-16">
                 <div className="rounded-lg shadow-sm border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] overflow-hidden">
                     {(toolbar || sidebarHeader) && (
                         <div className="border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-subtle)] flex flex-col md:flex-row md:min-h-[76px]">
@@ -62,7 +63,7 @@ const ProjectManagerLayout: React.FC<ProjectManagerLayoutProps> = ({
                         </main>
                     </div>
                 </div>
-            </Page.Block>
+            </AppBlock>
             <KontaktSeksjon showMarginBottom={true} />
         </>
     );

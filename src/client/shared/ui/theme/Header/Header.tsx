@@ -1,7 +1,8 @@
 import { CogIcon, ExternalLinkIcon, MenuHamburgerIcon, ThemeIcon } from "@navikt/aksel-icons";
-import { ActionMenu, Button, Dropdown, Link, Page, Tooltip } from "@navikt/ds-react";
+import { ActionMenu, Button, Dropdown, Link, Tooltip } from "@navikt/ds-react";
 import { useEffect, useState } from "react";
 import "../../../../tailwind.css";
+import { AppBlock } from "../AppBlock/AppBlock.tsx";
 
 interface HeaderProps {
   theme: "light" | "dark";
@@ -180,7 +181,7 @@ export default function Header({ theme }: HeaderProps) {
       }}
       className="border-b border-[var(--ax-border-neutral-subtle)]"
     >
-      <Page.Block width="2xl" gutters>
+      <AppBlock>
         <header className="flex py-1 z-10 items-center justify-between">
           <div className="flex items-center gap-4">
             <Button
@@ -291,7 +292,7 @@ export default function Header({ theme }: HeaderProps) {
             </div>
           )}
         </header>
-      </Page.Block>
+      </AppBlock>
     </div>
   );
 }

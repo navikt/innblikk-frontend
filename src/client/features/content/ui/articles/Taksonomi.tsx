@@ -8,10 +8,10 @@ import {
   List,
   Link,
   CopyButton,
-  Page,
 } from '@navikt/ds-react';
 import { KontaktSeksjon } from "../../../../shared/ui/theme/Kontakt/KontaktSeksjon.tsx";
 import { PageHeader } from "../../../../shared/ui/theme/PageHeader/PageHeader.tsx";
+import { AppBlock } from "../../../../shared/ui/theme/AppBlock/AppBlock.tsx";
 
 const TaksonomiPage = () => {
   return (
@@ -22,7 +22,7 @@ const TaksonomiPage = () => {
         variant="article"
       />
 
-      <Page.Block width="xl" gutters className="pb-16 px-4">
+      <AppBlock className="pb-16 px-4">
         <div className="max-w-[800px] mx-auto">
           {/* Innhold / Quick links */}
           <Box className="mt-12 mb-8 p-8 border border-[var(--ax-border-subtle)] rounded-xl bg-[var(--ax-bg-accent-soft)]">
@@ -360,7 +360,7 @@ function handleSkjemaSendt() {
             </VStack>
           </div>
         </div>
-      </Page.Block>
+      </AppBlock>
       <KontaktSeksjon showMarginBottom={true} narrowContent />
     </>
   );

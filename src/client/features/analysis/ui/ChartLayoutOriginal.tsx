@@ -1,11 +1,12 @@
 import React from 'react';
-import { Select, Page } from "@navikt/ds-react";
+import { Select } from "@navikt/ds-react";
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { type AnalyticsPage, analyticsPages } from '../model/analyticsNavigation.ts';
 import { chartGroupsOriginal } from '../model/chartGroups.tsx';
 import { KontaktSeksjon } from '../../../shared/ui/theme/Kontakt/KontaktSeksjon.tsx';
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx';
 import { useChartLayoutOriginal } from '../hooks/useChartLayoutOriginal.ts';
+import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx';
 
 interface ChartLayoutProps {
     title: string;
@@ -42,7 +43,7 @@ const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
                 description={description}
             />
 
-            <Page.Block width="xl" gutters className="pb-16">
+            <AppBlock className="pb-16">
 
 
                 <div className={hideSidebar ? 'mb-8' : 'rounded-lg shadow-sm border border-[var(--ax-border-neutral-subtle)] mb-8 bg-[var(--ax-bg-default)]'}>
@@ -118,7 +119,7 @@ const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
                 </div>
 
 
-            </Page.Block>
+            </AppBlock>
             <KontaktSeksjon showMarginBottom={true} />
         </>
     );

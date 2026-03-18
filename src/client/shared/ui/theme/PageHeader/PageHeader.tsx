@@ -1,5 +1,6 @@
-import { BodyLong, BodyShort, Heading, Page } from "@navikt/ds-react";
+import { BodyLong, BodyShort, Heading } from "@navikt/ds-react";
 import React from "react";
+import { AppBlock } from "../AppBlock/AppBlock.tsx";
 
 interface PageHeaderProps {
     title: string;
@@ -7,7 +8,6 @@ interface PageHeaderProps {
     description?: React.ReactNode;
     actions?: React.ReactNode;
     variant?: "regular" | "article";
-    width?: "xl" | "2xl";
 }
 
 export const PageHeader = ({
@@ -16,7 +16,6 @@ export const PageHeader = ({
     description,
     actions,
     variant = "regular",
-    width = "xl",
 }: PageHeaderProps) => {
     const isArticle = variant === "article";
     const padding = isArticle ? "64px" : "32px";
@@ -32,7 +31,7 @@ export const PageHeader = ({
                 marginBottom: "24px",
             }}
         >
-            <Page.Block width={width} gutters>
+            <AppBlock>
                 <div
                     className={`grid gap-[10px] md:grid-cols-[minmax(0,1fr)_auto] md:items-start ${isArticle ? "max-w-[800px] mx-auto" : ""
                         }`}
@@ -74,7 +73,7 @@ export const PageHeader = ({
                         </div>
                     )}
                 </div>
-            </Page.Block>
+            </AppBlock>
         </div>
     );
 };

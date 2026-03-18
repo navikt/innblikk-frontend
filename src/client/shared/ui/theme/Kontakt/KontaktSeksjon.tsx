@@ -1,4 +1,5 @@
-import { Heading, Link, Page } from "@navikt/ds-react";
+import { Heading, Link } from "@navikt/ds-react";
+import { AppBlock } from "../AppBlock/AppBlock.tsx";
 
 interface KontaktSeksjonProps {
     showMarginBottom?: boolean;
@@ -23,9 +24,9 @@ export const KontaktSeksjon = ({ showMarginBottom = false, narrowContent = false
             marginTop: '60px',
             marginBottom: showMarginBottom ? '-60px' : '0'
         }}>
-            <Page.Block width="xl" gutters>
+            <AppBlock>
                 {contentWrapper}
-            </Page.Block>
+            </AppBlock>
         </div>
     );
 };

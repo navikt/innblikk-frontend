@@ -1,7 +1,8 @@
-import { BodyShort, Link, Page } from "@navikt/ds-react";
+import { BodyShort, Link } from "@navikt/ds-react";
 import { TeamWebsites } from "../../../settings";
 import { KontaktSeksjon } from "../../../../shared/ui/theme/Kontakt/KontaktSeksjon.tsx";
 import { PageHeader } from "../../../../shared/ui/theme/PageHeader/PageHeader.tsx";
+import { AppBlock } from "../../../../shared/ui/theme/AppBlock/AppBlock.tsx";
 
 function Sporingskoder() {
   return (
@@ -22,7 +23,7 @@ function Sporingskoder() {
         }
       />
 
-      <Page.Block width="xl" gutters className="pb-16 px-4">
+      <AppBlock className="pb-16 px-4">
 
         <TeamWebsites />
 
@@ -36,7 +37,7 @@ function Sporingskoder() {
           </Link>
           .
         </BodyShort>
-      </Page.Block>
+      </AppBlock>
 
       <KontaktSeksjon showMarginBottom={true} />
     </>

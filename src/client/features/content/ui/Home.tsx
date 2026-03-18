@@ -1,6 +1,7 @@
-import { Heading, Page } from "@navikt/ds-react";
+import { Heading } from "@navikt/ds-react";
 import { UrlSearchForm } from "../../dashboard";
 import { KontaktSeksjon } from "../../../shared/ui/theme/Kontakt/KontaktSeksjon.tsx";
+import { AppBlock } from "../../../shared/ui/theme/AppBlock/AppBlock.tsx";
 
 function Home() {
     return (
@@ -22,12 +23,12 @@ function Home() {
                 paddingTop: "24px",
                 paddingBottom: "24px",
             }}>
-                <Page.Block width="2xl" gutters style={{ width: "100%" }}>
+                <AppBlock style={{ width: "100%" }}>
                     <div style={{ width: "100%", maxWidth: "680px", margin: "0 auto" }}>
                         <Heading spacing={true} as="h1" size="xlarge">Forstå brukeradferd med Innblikk</Heading>
                         <UrlSearchForm />
                     </div>
-                </Page.Block>
+                </AppBlock>
             </section>
 
             <KontaktSeksjon showMarginBottom={true} />

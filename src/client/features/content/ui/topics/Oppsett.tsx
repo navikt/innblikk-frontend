@@ -1,8 +1,9 @@
-import { BodyShort, Heading, Link, Page, Tag } from "@navikt/ds-react";
+import { BodyShort, Heading, Link, Tag } from "@navikt/ds-react";
 import { TeamWebsites } from "../../../settings";
 import { KontaktSeksjon } from "../../../../shared/ui/theme/Kontakt/KontaktSeksjon.tsx";
 import { PageHeader } from "../../../../shared/ui/theme/PageHeader/PageHeader.tsx";
 import { developerTools } from "../../../analysis/ui/DeveloperToolsNavigation.tsx";
+import { AppBlock } from "../../../../shared/ui/theme/AppBlock/AppBlock.tsx";
 
 // Helper to get environment info and switch URL
 const getEnvironmentInfo = () => {
@@ -46,7 +47,7 @@ function Oppsett() {
                 description={<>Her finner du utviklerverktøy, veiledning og <Link href="#sporingskoder">sporingskoder</Link> for Umami.</>}
             />
 
-            <Page.Block width="xl" gutters className="pb-16 px-4">
+            <AppBlock className="pb-16 px-4">
 
                 <div style={{ marginBottom: "12px", paddingTop: "24px" }}>
                     <Heading spacing as="h2" size="medium">Nyhet: Hardt skille mellom dev og prod</Heading>
@@ -232,7 +233,7 @@ function Oppsett() {
                 <BodyShort style={{ marginTop: "40px", marginBottom: "40px" }}>
                     For teknisk dokumentasjon, <Link target="_blank" href="https://umami.is/docs/tracker-configuration">se Umami sin dokumentasjonsside</Link>.
                 </BodyShort>
-            </Page.Block>
+            </AppBlock>
             <KontaktSeksjon showMarginBottom={true} />
         </>
     );

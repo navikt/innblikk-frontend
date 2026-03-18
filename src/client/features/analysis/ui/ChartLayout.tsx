@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Page, Accordion } from "@navikt/ds-react";
+import { Accordion } from "@navikt/ds-react";
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { type AnalyticsPage, analyticsPages } from '../model/analyticsNavigation.ts';
 import { type ChartGroup } from '../model/chartGroups.tsx';
 import { KontaktSeksjon } from '../../../shared/ui/theme/Kontakt/KontaktSeksjon.tsx';
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx';
 import { useChartNavigation } from '../hooks/useChartNavigation.ts';
+import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx';
 
 interface ChartLayoutProps {
     title: string;
@@ -108,10 +109,9 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
             <PageHeader
                 title={title}
                 description={description}
-                width="2xl"
             />
 
-            <Page.Block width="2xl" gutters className="pb-16">
+            <AppBlock className="pb-16">
                 <div className="rounded-lg shadow-sm border border-[var(--ax-border-neutral-subtle)] mb-8 bg-[var(--ax-bg-default)] overflow-hidden">
                     {/* Unified Top Bar */}
                     {(sidebarContent || (!hideSidebar && filters)) && (
@@ -203,7 +203,7 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
 
                     </div>
                 </div>
-            </Page.Block>
+            </AppBlock>
             <KontaktSeksjon showMarginBottom={true} />
         </>
     );
