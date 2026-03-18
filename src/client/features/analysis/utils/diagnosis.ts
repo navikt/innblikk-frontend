@@ -1,5 +1,6 @@
 import type { DiagnosisData, HistoryData } from '../model/types.ts';
 import type { ILineChartDataPoint, ILineChartProps } from '@fluentui/react-charting';
+import { startOfWeek, endOfWeek, subDays } from 'date-fns';
 
 export const isDevDomain = (domain: string | null): boolean => {
     if (!domain) return false;
@@ -26,6 +27,50 @@ export const calculateDateRange = (
     customEndDate?: Date,
 ): DateRange | null => {
     const now = new Date();
+
+    if (period === 'today') {
+        return {
+            startDate: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0),
+            endDate: now,
+        };
+    }
+
+    if (period === 'yesterday') {
+        const yesterday = subDays(now, 1);
+        return {
+            startDate: new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 0, 0, 0, 0),
+            endDate: new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59, 999),
+        };
+    }
+
+    if (period === 'this_week') {
+        return {
+            startDate: startOfWeek(now, { weekStartsOn: 1 }),
+            endDate: now,
+        };
+    }
+
+    if (period === 'last_7_days') {
+        return {
+            startDate: new Date(subDays(now, 6).setHours(0, 0, 0, 0)),
+            endDate: now,
+        };
+    }
+
+    if (period === 'last_week') {
+        const previousWeek = subDays(now, 7);
+        return {
+            startDate: startOfWeek(previousWeek, { weekStartsOn: 1 }),
+            endDate: endOfWeek(previousWeek, { weekStartsOn: 1 }),
+        };
+    }
+
+    if (period === 'last_28_days') {
+        return {
+            startDate: new Date(subDays(now, 27).setHours(0, 0, 0, 0)),
+            endDate: now,
+        };
+    }
 
     if (period === 'current_month') {
         return {
@@ -138,4 +183,3 @@ export const buildChartData = (historyData: HistoryData[]): ILineChartProps | nu
         },
     };
 };
-

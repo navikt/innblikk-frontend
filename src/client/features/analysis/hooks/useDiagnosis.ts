@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { parseISO } from 'date-fns';
 import type { Website } from '../../../shared/types/chart.ts';
@@ -16,7 +16,7 @@ import {
 export const useDiagnosis = () => {
     const [searchParams] = useSearchParams();
 
-    const [period, setPeriod] = useState<string>(() => searchParams.get('period') || 'current_month');
+    const [period, setPeriod] = useState<string>(() => searchParams.get('period') || 'last_7_days');
 
     const fromDateFromUrl = searchParams.get('from');
     const toDateFromUrl = searchParams.get('to');
@@ -81,10 +81,6 @@ export const useDiagnosis = () => {
             setLoading(false);
         }
     }, [period, customStartDate, customEndDate]);
-
-    useEffect(() => {
-        void fetchData();
-    }, [period, fetchData]);
 
     const environmentData = useMemo(
         () => (data ? filterByEnvironment(data, environment) : []),
@@ -177,6 +173,6 @@ export const useDiagnosis = () => {
         historyQueryStats,
         chartData,
         handleExplore,
+        fetchData,
     };
 };
-
