@@ -61,6 +61,7 @@ export default function SqlResultsSection({
                 sql={lastProcessedSql || query}
                 showSqlCode={true}
                 showEditButton={true}
+                showSqlMetabaseActions={false}
                 showCost={true}
                 websiteId={websiteId}
                 compactTableActions={true}

@@ -7,9 +7,15 @@ interface SqlViewerProps {
   sql: string;
   showEditButton?: boolean;
   withoutReadMore?: boolean;
+  showMetabaseActions?: boolean;
 }
 
-const SqlViewer = ({ sql, showEditButton = false, withoutReadMore = false }: SqlViewerProps) => {
+const SqlViewer = ({
+  sql,
+  showEditButton = false,
+  withoutReadMore = false,
+  showMetabaseActions = true,
+}: SqlViewerProps) => {
   const [copiedMetabase, setCopiedMetabase] = useState(false);
   const isDevEnvironment =
     typeof window !== 'undefined' &&
@@ -79,28 +85,30 @@ const SqlViewer = ({ sql, showEditButton = false, withoutReadMore = false }: Sql
         />
       </div>
 
-      <div className="pt-2 border-t border-[var(--ax-border-neutral-subtle)] space-y-2">
-        <Heading level="3" size="xsmall">Legg til i Metabase</Heading>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button
-            size="xsmall"
-            variant="secondary"
-            type="button"
-            onClick={handleCopyToMetabase}
-            icon={<Copy size={14} />}
-          >
-            {copiedMetabase ? 'Kopiert!' : 'Kopier spørringen'}
-          </Button>
-          <Link
-            href={metabaseQuestionUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-sm"
-          >
-            Åpne Metabase <ExternalLink size={14} />
-          </Link>
+      {showMetabaseActions && (
+        <div className="pt-2 border-t border-[var(--ax-border-neutral-subtle)] space-y-2">
+          <Heading level="3" size="xsmall">Legg til i Metabase</Heading>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              size="xsmall"
+              variant="secondary"
+              type="button"
+              onClick={handleCopyToMetabase}
+              icon={<Copy size={14} />}
+            >
+              {copiedMetabase ? 'Kopiert!' : 'Kopier spørringen'}
+            </Button>
+            <Link
+              href={metabaseQuestionUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-sm"
+            >
+              Åpne Metabase <ExternalLink size={14} />
+            </Link>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 

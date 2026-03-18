@@ -29,6 +29,7 @@ interface ResultsPanelProps {
   sql?: string;
   showSqlCode?: boolean;
   showEditButton?: boolean;
+  showSqlMetabaseActions?: boolean;
   hiddenTabs?: string[];
   containerStyle?: 'green' | 'white' | 'none';
   showCost?: boolean;
@@ -56,6 +57,7 @@ const ResultsPanel = ({
   sql,
   showSqlCode = false,
   showEditButton = false,
+  showSqlMetabaseActions = true,
   prepareLineChartData,
   prepareBarChartData,
   preparePieChartData,
@@ -1295,7 +1297,11 @@ const ResultsPanel = ({
 
         {/* SQL Code Display */}
         {showSqlCode && sql && result && (
-          <SqlViewer sql={sql} showEditButton={showEditButton} />
+          <SqlViewer
+            sql={sql}
+            showEditButton={showEditButton}
+            showMetabaseActions={showSqlMetabaseActions}
+          />
         )}
       </div>
 
