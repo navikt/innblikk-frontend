@@ -218,7 +218,7 @@ const QueryPreview = ({
   } | null>(null);
   const [projectName, setProjectName] = useState('Start Umami');
   const [dashboardName, setDashboardName] = useState('Grafbygger');
-  const [graphName, setGraphName] = useState('Ny graf');
+  const [graphName, setGraphName] = useState('');
   const [graphType, setGraphType] = useState('TABLE');
   const [projects, setProjects] = useState<ProjectDto[]>([]);
   const [dashboards, setDashboards] = useState<DashboardDto[]>([]);
@@ -763,11 +763,6 @@ const QueryPreview = ({
     setSaveError(null);
     setSaveSuccess(null);
     setSavedLocation(null);
-
-    if (!graphName || graphName === 'Ny graf') {
-      const timestamp = format(new Date(), 'yyyy-MM-dd HH:mm');
-      setGraphName(`Graf ${timestamp}`);
-    }
 
     const loadSaveData = async () => {
       try {
