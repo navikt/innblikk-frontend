@@ -7,7 +7,7 @@ function Personvern() {
         <>
             <PageHeader
                 title="Personvern"
-                description={<>Slik håndterer vi personvern og sikkerhet på <Link href="https://startumami.ansatt.nav.no" className="underline hover:no-underline">startumami.ansatt.nav.no</Link></>}
+                description={<>Slik håndterer vi personvern og sikkerhet på <Link href="https://innblikk.ansatt.nav.no" className="underline hover:no-underline">Innblikk</Link></>}
                 variant="article"
             />
 
