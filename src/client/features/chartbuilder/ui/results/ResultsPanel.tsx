@@ -537,8 +537,6 @@ const ResultsPanel = ({
 
   return (
     <div className="space-y-2 mb-6">
-      {!hideHeading && <Heading level="2" size="small" className="mb-2 pb-2">Vis resultater</Heading>}
-
       <div className={containerClass}>
         {/* Only show button if no results yet */}
         {!result && !error && (
