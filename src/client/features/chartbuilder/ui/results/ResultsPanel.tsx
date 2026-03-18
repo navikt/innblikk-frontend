@@ -53,7 +53,6 @@ const ResultsPanel = ({
   showLoadingMessage,
   executeQuery,
   handleRetry,
-  hideHeading = false,
   sql,
   showSqlCode = false,
   showEditButton = false,
