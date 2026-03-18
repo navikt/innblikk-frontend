@@ -71,7 +71,7 @@ export default function SqlEditor() {
 
     return (
         <ChartLayout
-            title="Umami SQL-spørringer"
+            title="SQL-editor"
             description="Kjør SQL-spørringer mot Umami datasettet i BigQuery."
             currentPage="sql"
             wideSidebar={true}
