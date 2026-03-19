@@ -1,5 +1,6 @@
-import { Button, Heading, Select, Label, TextField, Switch, HelpText, Tabs, Search, Accordion, Pagination } from '@navikt/ds-react';
-import { MoveUp, MoveDown, Calendar, Link2, Activity, Smartphone, Globe, Monitor, Cpu, MapPin } from 'lucide-react';
+import { Button, Heading, Select, Label, TextField, Switch, HelpText } from '@navikt/ds-react';
+import { ChevronDownIcon, ChevronUpIcon } from '@navikt/aksel-icons';
+import { MoveUp, MoveDown } from 'lucide-react';
 import { useState, useEffect, forwardRef, useImperativeHandle, useRef, useMemo } from 'react';
 import type {
   Parameter,
@@ -72,13 +73,10 @@ const GroupingOptions = forwardRef(({
   interactiveMode,
   setInteractiveMode
 }: DisplayOptionsProps, ref) => {
-  const [activeGroupingsTab, setActiveGroupingsTab] = useState<string>('basic');
   const [showCustomSort, setShowCustomSort] = useState<boolean>(false);
   const [showCustomLimit, setShowCustomLimit] = useState<boolean>(false);
-  const [activeGroupings, setActiveGroupings] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const ITEMS_PER_PAGE = 10;
+  const [showReorderGroupings, setShowReorderGroupings] = useState<boolean>(false);
+  const [isGroupingSelectorOpen, setIsGroupingSelectorOpen] = useState<boolean>(false);
   const [alertInfo, setAlertInfo] = useState<{ show: boolean, message: string }>({
     show: false,
     message: ''
@@ -114,89 +112,43 @@ const GroupingOptions = forwardRef(({
 
   const uniqueParameters = getUniqueParameters(parameters);
 
-  // Get selected event names from filters
-  const selectedEventNames = useMemo(() => {
-    const eventNameFilter = filters.find(f => f.column === 'event_name');
-    if (!eventNameFilter) return [];
+  const groupedGroupingOptions = useMemo(() => {
+    const baseGroups = Object.entries(COLUMN_GROUPS).map(([groupKey, group]) => ({
+      key: groupKey,
+      label: group.label,
+      options: group.columns.map(col => ({ value: col.value, label: col.label }))
+    }));
 
-    // Handle multiple values (IN operator)
-    if (eventNameFilter.multipleValues && eventNameFilter.multipleValues.length > 0) {
-      return eventNameFilter.multipleValues;
-    }
-    // Handle single value
-    if (eventNameFilter.value && typeof eventNameFilter.value === 'string') {
-      return [eventNameFilter.value];
-    }
-    return [];
-  }, [filters]);
+    const parameterOptions = uniqueParameters
+      .map(param => ({
+        value: `param_${sanitizeColumnName(param.key)}`,
+        label: param.key
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'nb-NO'));
 
-  const hasEventNameFilter = selectedEventNames.length > 0;
-
-  const groupedAndFilteredParams = useMemo(() => {
-    const groups: Record<string, Parameter[]> = {};
-    const query = searchQuery.toLowerCase();
-
-    parameters.forEach(param => {
-      let eventName = 'Andre';
-
-      if (param.key.includes('.')) {
-        eventName = param.key.split('.')[0];
-      }
-
-      // Filter by selected event names if any are selected
-      if (hasEventNameFilter) {
-        const matchesSelectedEvent = selectedEventNames.some(
-          selectedEvent => eventName.toLowerCase() === selectedEvent.toLowerCase()
-        );
-        if (!matchesSelectedEvent) {
-          return;
-        }
-      }
-
-      // Filter based on search query
-      const baseName = param.key.split('.').pop()!;
-      if (searchQuery &&
-        !eventName.toLowerCase().includes(query) &&
-        !baseName.toLowerCase().includes(query)) {
-        return;
-      }
-
-      if (!groups[eventName]) {
-        groups[eventName] = [];
-      }
-
-      // Avoid duplicates within the same event by displayed parameter name
-      // (rendering uses baseName, not the full event-prefixed key).
-      if (!groups[eventName].some(p => p.key.split('.').pop() === baseName)) {
-        groups[eventName].push(param);
-      }
+    baseGroups.push({
+      key: 'event_details',
+      label: 'Hendelsesdetaljer',
+      options: parameterOptions
     });
 
-    return groups;
-  }, [parameters, searchQuery, hasEventNameFilter, selectedEventNames]);
+    return baseGroups;
+  }, [COLUMN_GROUPS, uniqueParameters, sanitizeColumnName]);
 
-  // Pagination logic
-  const sortedEventNames = useMemo(() => {
-    return Object.keys(groupedAndFilteredParams).sort((a, b) => a.localeCompare(b, 'nb-NO'));
-  }, [groupedAndFilteredParams]);
+  const groupingLabelByValue = useMemo(() => {
+    return new Map(
+      groupedGroupingOptions.flatMap(group =>
+        group.options.map(option => [option.value, option.label] as const)
+      )
+    );
+  }, [groupedGroupingOptions]);
 
-  const totalPages = Math.ceil(sortedEventNames.length / ITEMS_PER_PAGE);
-  const showPagination = !hasEventNameFilter && !searchQuery && sortedEventNames.length > ITEMS_PER_PAGE;
-
-  const paginatedEventNames = useMemo(() => {
-    if (hasEventNameFilter || searchQuery) {
-      // Show all when filtered
-      return sortedEventNames;
-    }
-    // Paginate when not filtered
-    const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
-    return sortedEventNames.slice(startIdx, startIdx + ITEMS_PER_PAGE);
-  }, [sortedEventNames, currentPage, hasEventNameFilter, searchQuery]);
-
-  // Reset page when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, hasEventNameFilter]);
+  const selectedGroupingLabel = useMemo(() => {
+    if (groupByFields.length === 0) return 'Velg grupperinger';
+    const firstLabel = groupingLabelByValue.get(groupByFields[0]) || groupByFields[0];
+    if (groupByFields.length === 1) return firstLabel;
+    return `${firstLabel} +${groupByFields.length - 1}`;
+  }, [groupByFields, groupingLabelByValue]);
 
   // Reset local loading state when parameters are loaded or external loading completes
   useEffect(() => {
@@ -244,12 +196,11 @@ const GroupingOptions = forwardRef(({
     }
 
     // Always add the field
-    setActiveGroupings([...activeGroupings, field]);
     addGroupByField(field);
   };
 
   const handleToggleGroupField = (field: string) => {
-    if (activeGroupings.includes(field)) {
+    if (groupByFields.includes(field)) {
       removeGroupByField(field);
       return;
     }
@@ -268,7 +219,6 @@ const GroupingOptions = forwardRef(({
     setColumnOrderMode('default');
     setParamAggregation('representative');
 
-    setActiveGroupingsTab('basic');
     setShowCustomSort(false);
 
     if (!silent) {
@@ -314,10 +264,6 @@ const GroupingOptions = forwardRef(({
   useImperativeHandle(ref, () => ({
     resetOptions
   }));
-
-  useEffect(() => {
-    setActiveGroupings(groupByFields);
-  }, [groupByFields]);
 
   // Sync limitInput with limit prop
   useEffect(() => {
@@ -371,258 +317,90 @@ const GroupingOptions = forwardRef(({
         )}
 
         <div className="space-y-4 mb-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Heading level="2" size="xsmall" >
-              Gruppert etter...
-            </Heading>
-            <HelpText title="Hva er en gruppering?">
-              Legg til en eller flere grupperinger, disse vises som kolonner i tabeller.
-            </HelpText>
-          </div>
-
-          <div className="bg-[var(--ax-bg-default)] p-4 rounded-md border shadow-inner mb-2">
-            <Tabs
-              value={activeGroupingsTab}
-              onChange={value => setActiveGroupingsTab(value)}
-              size="small"
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <Heading level="2" size="xsmall">
+                Gruppert etter...
+              </Heading>
+              <HelpText title="Hva er en gruppering?">
+                Legg til en eller flere grupperinger, disse vises som kolonner i tabeller.
+              </HelpText>
+            </div>
+            <button
+              type="button"
+              className="w-full flex items-center justify-between rounded-md border border-(--ax-border-neutral) bg-(--ax-bg-default) pl-3 pr-1 py-1.5 text-left text-base"
+              onClick={() => setIsGroupingSelectorOpen(prev => !prev)}
             >
-              <Tabs.List>
-                <Tabs.Tab value="basic" label="Ofte brukte" />
-                <Tabs.Tab value="custom" label="Hendelsesdetaljer" />
-                <Tabs.Tab value="advanced" label="Flere valg" />
-              </Tabs.List>
-
-              <Tabs.Panel value="basic" className="pt-4">
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant={activeGroupings.includes('created_at') ? "primary" : "secondary"}
-                    size="small"
-                    onClick={() => handleToggleGroupField('created_at')}
-                    icon={<Calendar size={16} />}
-                  >
-                    Dato
-                  </Button>
-                  <Button
-                    variant={activeGroupings.includes('url_path') ? "primary" : "secondary"}
-                    size="small"
-                    onClick={() => handleToggleGroupField('url_path')}
-                    icon={<Link2 size={16} />}
-                  >
-                    URL-sti
-                  </Button>
-                  <Button
-                    variant={activeGroupings.includes('referrer_domain') ? "primary" : "secondary"}
-                    size="small"
-                    onClick={() => handleToggleGroupField('referrer_domain')}
-                    icon={<Link2 size={16} />}
-                  >
-                    Henvisningsdomene
-                  </Button>
-                  <Button
-                    variant={activeGroupings.includes('event_name') ? "primary" : "secondary"}
-                    size="small"
-                    onClick={() => handleToggleGroupField('event_name')}
-                    icon={<Activity size={16} />}
-                  >
-                    Hendelsesnavn
-                  </Button>
-                  <Button
-                    variant={activeGroupings.includes('device') ? "primary" : "secondary"}
-                    size="small"
-                    onClick={() => handleToggleGroupField('device')}
-                    icon={<Smartphone size={16} />}
-                  >
-                    Enhet
-                  </Button>
-                  <Button
-                    variant={activeGroupings.includes('browser') ? "primary" : "secondary"}
-                    size="small"
-                    onClick={() => handleToggleGroupField('browser')}
-                    icon={<Globe size={16} />}
-                  >
-                    Nettleser
-                  </Button>
-                  <Button
-                    variant={activeGroupings.includes('os') ? "primary" : "secondary"}
-                    size="small"
-                    onClick={() => handleToggleGroupField('os')}
-                    icon={<Cpu size={16} />}
-                  >
-                    OS
-                  </Button>
-                  <Button
-                    variant={activeGroupings.includes('language') ? "primary" : "secondary"}
-                    size="small"
-                    onClick={() => handleToggleGroupField('language')}
-                    icon={<Globe size={16} />}
-                  >
-                    Språk
-                  </Button>
-                  <Button
-                    variant={activeGroupings.includes('country') ? "primary" : "secondary"}
-                    size="small"
-                    onClick={() => handleToggleGroupField('country')}
-                    icon={<MapPin size={16} />}
-                  >
-                    Land
-                  </Button>
-                  <Button
-                    variant={activeGroupings.includes('screen') ? "primary" : "secondary"}
-                    size="small"
-                    onClick={() => handleToggleGroupField('screen')}
-                    icon={<Monitor size={16} />}
-                  >
-                    Skjermstørrelse
-                  </Button>
-                </div>
-              </Tabs.Panel>
-
-              <Tabs.Panel value="custom" className="pt-4">
-                {uniqueParameters.length === 0 ? (
-                  <div className="flex flex-col items-start justify-center">
-                    <Button
-                      variant="primary"
-                      size="small"
-                      loading={isLoadingParams || isEventsLoading}
-                      disabled={isLoadingParams || isEventsLoading}
-                      onClick={() => {
-                        if (onEnableCustomEvents) {
-                          setIsLoadingParams(true);
-                          onEnableCustomEvents();
-                        }
-                      }}
-                    >
-                      {isLoadingParams || isEventsLoading ? 'Henter hendelsesdetaljer...' : 'Hent hendelsesdetaljer'}
-                    </Button>
-                  </div>
-                ) : (
-                  <>
-                    <div className="mb-4">
-                      <Search
-                        label="Søk i egendefinerte hendelsesdetaljer"
-                        hideLabel={false}
-                        variant="simple"
-                        size="small"
-                        value={searchQuery}
-                        onChange={setSearchQuery}
-                        onClear={() => setSearchQuery('')}
-                      />
+              <span>{selectedGroupingLabel}</span>
+              <span className="text-(--ax-text-default) shrink-0">
+                {isGroupingSelectorOpen ? <ChevronUpIcon aria-hidden fontSize="1.25rem" /> : <ChevronDownIcon aria-hidden fontSize="1.25rem" />}
+              </span>
+            </button>
+            {isGroupingSelectorOpen && (
+              <div className="mt-0 rounded-md border border-(--ax-border-neutral) bg-(--ax-bg-default) p-2 space-y-2">
+                {groupedGroupingOptions.map(group => (
+                  <div key={group.key}>
+                    <div className="px-2 py-1 text-xs font-semibold text-(--ax-text-subtle)">
+                      {group.label}
                     </div>
-
-                    {Object.keys(groupedAndFilteredParams).length === 0 ? (
-                      <div className="text-sm text-[var(--ax-text-subtle)] mt-2">
-                        {searchQuery ? 'Ingen resultater funnet.' : 'Ingen egendefinerte hendelsesdetaljer funnet for denne nettsiden.'}
-                      </div>
-                    ) : (
-                      <>
-                        {hasEventNameFilter && (
-                          <div className="mb-3 text-sm text-[var(--ax-text-accent)] bg-[var(--ax-bg-accent-soft)] px-3 py-2 rounded">
-                            Viser kun hendelsesdetaljer fra: {selectedEventNames.join(', ')}
-                          </div>
-                        )}
-                        <Accordion size="small" headingSize="xsmall">
-                          {paginatedEventNames.map(eventName => {
-                            const params = groupedAndFilteredParams[eventName];
-                            if (!params) return null;
-                            return (
-                              <Accordion.Item key={eventName} defaultOpen={!!searchQuery || hasEventNameFilter}>
-                                <Accordion.Header>
-                                  {eventName === '_manual_parameters_' ? 'Manuelt lagt til' : eventName}
-                                  <span className="text-sm text-[var(--ax-text-subtle)] ml-2 font-normal">
-                                    ({params.length})
-                                  </span>
-                                </Accordion.Header>
-                                <Accordion.Content>
-                                  <div className="flex flex-wrap gap-2">
-                                    {params.map(param => {
-                                      const baseName = param.key.split('.').pop()!;
-                                      const columnValue = `param_${sanitizeColumnName(baseName)}`;
-                                      const isActive = activeGroupings.includes(columnValue);
-
-                                      return (
-                                        <Button
-                                          key={param.key}
-                                          variant={isActive ? "primary" : "secondary"}
-                                          size="small"
-                                          onClick={() => handleToggleGroupField(columnValue)}
-                                        >
-                                          {baseName}
-                                        </Button>
-                                      );
-                                    })}
-                                  </div>
-                                </Accordion.Content>
-                              </Accordion.Item>
-                            );
-                          })}
-                        </Accordion>
-                        {showPagination && (
-                          <div className="mt-4 flex justify-center">
-                            <Pagination
-                              page={currentPage}
-                              onPageChange={setCurrentPage}
-                              count={totalPages}
-                              size="small"
-                            />
-                          </div>
-                        )}
-                        {!showPagination && sortedEventNames.length > 0 && (
-                          <div className="mt-2 text-xs text-[var(--ax-text-subtle)]">
-                            Viser {paginatedEventNames.length} av {sortedEventNames.length} hendelser
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </>
-                )}
-              </Tabs.Panel>
-
-              <Tabs.Panel value="advanced" className="pt-4">
-                <div className="flex gap-2 items-center">
-                  <Select
-                    label="Grupper etter"
-                    description="F.eks. dato (dag, uker, måneder), enhet, nettlesertype, etc."
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        handleAddGroupField(e.target.value);
-                        (e.target as HTMLSelectElement).value = '';
-                      }
-                    }}
-                    size="small"
-                    className="flex-grow"
-                  >
-                    <option value="">Velg gruppering...</option>
-                    {Object.entries(COLUMN_GROUPS).map(([groupKey, group]) => (
-                      <optgroup key={groupKey} label={group.label}>
-                        {group.columns
-                          .filter(col => !groupByFields.includes(col.value))
-                          .map(col => (
-                            <option key={col.value} value={col.value}>
-                              {col.label}
-                            </option>
-                          ))}
-                      </optgroup>
-                    ))}
-
-                    {uniqueParameters.length > 0 && (
-                      <optgroup label="Hendelsesdetaljer">
-                        {uniqueParameters
-                          .filter(param => !groupByFields.includes(`param_${sanitizeColumnName(param.key)}`))
-                          .sort((a, b) => a.key.localeCompare(b.key, 'nb-NO'))
-                          .map(param => (
-                            <option key={`param_${param.key}`} value={`param_${sanitizeColumnName(param.key)}`}>
-                              {param.key}
-                            </option>
-                          ))}
-                      </optgroup>
-                    )}
-                  </Select>
-                </div>
-              </Tabs.Panel>
-            </Tabs>
+                    <div>
+                      {group.key === 'event_details' && group.options.length === 0 && (
+                        <div className="px-2 py-1.5">
+                          <Button
+                            variant="secondary"
+                            size="xsmall"
+                            loading={isLoadingParams || isEventsLoading}
+                            disabled={isLoadingParams || isEventsLoading}
+                            onClick={() => {
+                              if (onEnableCustomEvents) {
+                                setIsLoadingParams(true);
+                                onEnableCustomEvents();
+                              }
+                            }}
+                          >
+                            {isLoadingParams || isEventsLoading ? 'Henter hendelsesdetaljer...' : 'Hent hendelsesdetaljer'}
+                          </Button>
+                        </div>
+                      )}
+                      {group.options.map(option => {
+                        const isSelected = groupByFields.includes(option.value);
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            className="w-full flex items-center gap-2 px-2 py-1.5 text-left rounded hover:bg-(--ax-bg-neutral-soft)"
+                            onClick={() => handleToggleGroupField(option.value)}
+                          >
+                            <span
+                              className={`inline-flex h-4 w-4 items-center justify-center rounded-sm border ${isSelected
+                                ? 'border-(--ax-border-accent) bg-(--ax-bg-accent-soft) text-(--ax-text-accent)'
+                                : 'border-(--ax-border-neutral) bg-(--ax-bg-default)'}`}
+                            >
+                              {isSelected ? '✓' : ''}
+                            </span>
+                            <span>{option.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {groupByFields.length > 0 && (
+          {groupByFields.length > 1 && (
+            <Switch
+              size="small"
+              checked={showReorderGroupings}
+              onChange={(e) => setShowReorderGroupings(e.target.checked)}
+              description="Vis liste for å endre rekkefølge med piler"
+            >
+              Endre rekkefølge på grupperinger
+            </Switch>
+          )}
+
+          {showReorderGroupings && groupByFields.length > 1 && (
             <div className="pt-3 space-y-2">
               <Label as="p" size="small">
                 Valgte grupperinger (sorter med pilene):
