@@ -723,7 +723,6 @@ const MetricSelector = forwardRef(({
                                     }}
                                     isMultiSelect={false}
                                     size="small"
-                                    // @ts-expect-error ds-react typing mismatch on disabled for this combobox variant
                                     disabled={isEventsLoading}
                                   />
                                 </div>
