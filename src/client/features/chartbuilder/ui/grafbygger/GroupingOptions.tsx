@@ -1,95 +1,52 @@
-import { Button, Heading, Select, Label, TextField, Switch, HelpText } from '@navikt/ds-react';
+import { Button, Heading, Select, Label, Switch, HelpText } from '@navikt/ds-react';
 import { ChevronDownIcon, ChevronUpIcon } from '@navikt/aksel-icons';
 import { MoveUp, MoveDown } from 'lucide-react';
-import { useState, useEffect, forwardRef, useImperativeHandle, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import type {
   Parameter,
   DateFormat,
   ColumnGroup,
-  OrderBy,
-  Metric,
   Filter
 } from '../../../../shared/types/chart.ts';
 import AlertWithCloseButton from './AlertWithCloseButton.tsx'; // Import AlertWithCloseButton
-import DateRangeSelector from './DateRangeSelector.tsx';
 
-interface DisplayOptionsProps {
+interface GroupingOptionsProps {
   groupByFields: string[];
   parameters: Parameter[];
   dateFormat: string | null;
-  orderBy: OrderBy | null;
-  columnOrderMode: 'default' | 'metrics_first';
-  paramAggregation: 'representative' | 'unique';
-  limit: number | null;
   DATE_FORMATS: DateFormat[];
   COLUMN_GROUPS: Record<string, ColumnGroup>;
   sanitizeColumnName: (key: string) => string;
   addGroupByField: (field: string) => void;
   removeGroupByField: (field: string) => void;
   moveGroupField: (index: number, direction: 'up' | 'down') => void;
-  setOrderBy: (column: string, direction: 'ASC' | 'DESC') => void;
-  clearOrderBy: () => void;
   setDateFormat: (format: string) => void;
-  setParamAggregation: (strategy: 'representative' | 'unique') => void;
-  setLimit: (limit: number | null) => void;
-  setColumnOrderMode: (mode: 'default' | 'metrics_first') => void;
-  metrics: Metric[];
   filters: Filter[];
-  setFilters: (filters: Filter[]) => void;
-  maxDaysAvailable: number;
   onEnableCustomEvents?: () => void;
   hideHeader?: boolean;
   isEventsLoading?: boolean;
-  interactiveMode: boolean;
-  setInteractiveMode: (mode: boolean) => void;
 }
 
-const GroupingOptions = forwardRef(({
+const GroupingOptions = ({
   groupByFields,
   parameters,
   dateFormat,
-  orderBy,
-  columnOrderMode,
-  limit,
   DATE_FORMATS,
   COLUMN_GROUPS,
   sanitizeColumnName,
   addGroupByField,
   removeGroupByField,
   moveGroupField,
-  setOrderBy,
-  clearOrderBy,
   setDateFormat,
-  setParamAggregation,
-  setLimit,
-  setColumnOrderMode,
-  metrics,
   filters,
-  setFilters,
-  maxDaysAvailable,
   onEnableCustomEvents,
   hideHeader = false,
-  isEventsLoading = false,
-  interactiveMode,
-  setInteractiveMode
-}: DisplayOptionsProps, ref) => {
-  const [showCustomSort, setShowCustomSort] = useState<boolean>(false);
-  const [showCustomLimit, setShowCustomLimit] = useState<boolean>(false);
+  isEventsLoading = false
+}: GroupingOptionsProps) => {
   const [showReorderGroupings, setShowReorderGroupings] = useState<boolean>(false);
   const [isGroupingSelectorOpen, setIsGroupingSelectorOpen] = useState<boolean>(false);
-  const [alertInfo, setAlertInfo] = useState<{ show: boolean, message: string }>({
-    show: false,
-    message: ''
-  });
-  const [limitInput, setLimitInput] = useState<string>('');
   const [eventNameWarning, setEventNameWarning] = useState<boolean>(false);
   const [isLoadingParams, setIsLoadingParams] = useState<boolean>(false);
-  const [customPeriodInputs, setCustomPeriodInputs] = useState<Record<number, { amount: string, unit: string }>>({});
-  const [selectedDateRange, setSelectedDateRange] = useState<string>('last7days');
-
-  // Add a ref to store the timeout ID
-  const alertTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const dateRangePickerRef = useRef<{ clearDateRange: () => void }>(null);
 
   // Add a ref to store the event name warning timeout
   const eventNameWarningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -116,7 +73,8 @@ const GroupingOptions = forwardRef(({
     const baseGroups = Object.entries(COLUMN_GROUPS).map(([groupKey, group]) => ({
       key: groupKey,
       label: group.label,
-      options: group.columns.map(col => ({ value: col.value, label: col.label }))
+      options: group.columns.map(col => ({ value: col.value, label: col.label })),
+      isEventDetailsEmpty: false
     }));
 
     const parameterOptions = uniqueParameters
@@ -126,13 +84,53 @@ const GroupingOptions = forwardRef(({
       }))
       .sort((a, b) => a.label.localeCompare(b.label, 'nb-NO'));
 
-    baseGroups.push({
-      key: 'event_details',
-      label: 'Hendelsesdetaljer',
-      options: parameterOptions
-    });
+    const daoOption = parameterOptions.find(option => option.label.toLowerCase() === 'dao');
+    const otherParameterOptions = parameterOptions.filter(option => option !== daoOption);
 
-    return baseGroups;
+    const eventBasicsGroup = baseGroups.find(group => group.key === 'eventBasics');
+    const baseGroupsWithoutEventBasics = baseGroups.filter(group => group.key !== 'eventBasics');
+    const dateOption = eventBasicsGroup?.options.find(option => option.value === 'created_at');
+    const eventBasicsWithoutDate = eventBasicsGroup
+      ? eventBasicsGroup.options.filter(option => option.value !== 'created_at')
+      : [];
+
+    const reorderedGroups: Array<{
+      key: string;
+      label: string;
+      options: { value: string; label: string }[];
+      isEventDetailsEmpty: boolean;
+    }> = [];
+
+    if (dateOption) {
+      reorderedGroups.push({
+        key: 'date',
+        label: 'Dato',
+        options: [dateOption],
+        isEventDetailsEmpty: false
+      });
+    }
+
+    if (daoOption) {
+      reorderedGroups.push({
+        key: 'dao',
+        label: 'DAO',
+        options: [daoOption],
+        isEventDetailsEmpty: false
+      });
+    }
+
+    reorderedGroups.push(...baseGroupsWithoutEventBasics);
+
+    if (eventBasicsGroup) {
+      reorderedGroups.push({
+        key: 'hendelser',
+        label: 'Hendelser',
+        options: [...eventBasicsWithoutDate, ...otherParameterOptions],
+        isEventDetailsEmpty: otherParameterOptions.length === 0
+      });
+    }
+
+    return reorderedGroups;
   }, [COLUMN_GROUPS, uniqueParameters, sanitizeColumnName]);
 
   const groupingLabelByValue = useMemo(() => {
@@ -207,98 +205,25 @@ const GroupingOptions = forwardRef(({
     handleAddGroupField(field);
   };
 
-  const resetOptions = (silent = false) => {
-    const fieldsCopy = [...groupByFields];
-    fieldsCopy.forEach(field => {
-      removeGroupByField(field);
-    });
-
-    clearOrderBy();
-    setDateFormat('day');
-    setLimit(1000);
-    setColumnOrderMode('default');
-    setParamAggregation('representative');
-
-    setShowCustomSort(false);
-
-    if (!silent) {
-      // Clear any existing timeout
-      if (alertTimeoutRef.current) {
-        clearTimeout(alertTimeoutRef.current);
-        alertTimeoutRef.current = null;
-      }
-
-      setAlertInfo({
-        show: true,
-        message: 'Alle visningsvalg ble tilbakestilt'
-      });
-
-      alertTimeoutRef.current = setTimeout(() => {
-        setAlertInfo(prev => ({ ...prev, show: false }));
-        alertTimeoutRef.current = null;
-      }, 4000);
-    }
-  };
-
-  // Add handler for alert close
-  const handleAlertClose = () => {
-    if (alertTimeoutRef.current) {
-      clearTimeout(alertTimeoutRef.current);
-      alertTimeoutRef.current = null;
-    }
-    setAlertInfo(prev => ({ ...prev, show: false }));
-  };
-
   // Clear timeout when component unmounts
   useEffect(() => {
     return () => {
-      if (alertTimeoutRef.current) {
-        clearTimeout(alertTimeoutRef.current);
-      }
       if (eventNameWarningTimeoutRef.current) {
         clearTimeout(eventNameWarningTimeoutRef.current);
       }
     };
   }, []);
 
-  useImperativeHandle(ref, () => ({
-    resetOptions
-  }));
-
-  // Sync limitInput with limit prop
-  useEffect(() => {
-    setLimitInput(limit?.toString() || '');
-  }, [limit]);
-
   return (
     <>
       {!hideHeader && (
-        <div className="flex justify-between items-center mb-4">
+        <div className="mb-4">
           <Heading level="2" size="small">
-            Hvordan vil du vise resultatene?
+            Gruppert etter...
           </Heading>
-
-          <Button
-            variant="tertiary"
-            size="small"
-            onClick={() => resetOptions(false)} // Explicitly pass false to show alert
-          >
-            Tilbakestill visningsvalg
-          </Button>
         </div>
       )}
       <div>
-        {alertInfo.show && (
-          <div className="mb-4">
-            <AlertWithCloseButton
-              variant="success"
-              onClose={handleAlertClose}
-            >
-              {alertInfo.message}
-            </AlertWithCloseButton>
-          </div>
-        )}
-
         {eventNameWarning && (
           <div className="mb-4">
             <AlertWithCloseButton
@@ -344,7 +269,7 @@ const GroupingOptions = forwardRef(({
                       {group.label}
                     </div>
                     <div>
-                      {group.key === 'event_details' && group.options.length === 0 && (
+                      {group.isEventDetailsEmpty && (
                         <div className="px-2 py-1.5">
                           <Button
                             variant="secondary"
@@ -365,21 +290,38 @@ const GroupingOptions = forwardRef(({
                       {group.options.map(option => {
                         const isSelected = groupByFields.includes(option.value);
                         return (
-                          <button
-                            key={option.value}
-                            type="button"
-                            className="w-full flex items-center gap-2 px-2 py-1.5 text-left rounded hover:bg-(--ax-bg-neutral-soft)"
-                            onClick={() => handleToggleGroupField(option.value)}
-                          >
-                            <span
-                              className={`inline-flex h-4 w-4 items-center justify-center rounded-sm border ${isSelected
-                                ? 'border-(--ax-border-accent) bg-(--ax-bg-accent-soft) text-(--ax-text-accent)'
-                                : 'border-(--ax-border-neutral) bg-(--ax-bg-default)'}`}
+                          <div key={option.value}>
+                            <button
+                              type="button"
+                              className="w-full flex items-center gap-2 px-2 py-1.5 text-left rounded hover:bg-(--ax-bg-neutral-soft)"
+                              onClick={() => handleToggleGroupField(option.value)}
                             >
-                              {isSelected ? '✓' : ''}
-                            </span>
-                            <span>{option.label}</span>
-                          </button>
+                              <span
+                                className={`inline-flex h-4 w-4 items-center justify-center rounded-sm border ${isSelected
+                                  ? 'border-(--ax-border-accent) bg-(--ax-bg-accent-soft) text-(--ax-text-accent)'
+                                  : 'border-(--ax-border-neutral) bg-(--ax-bg-default)'}`}
+                              >
+                                {isSelected ? '✓' : ''}
+                              </span>
+                              <span>{option.label}</span>
+                            </button>
+                            {option.value === 'created_at' && isSelected && (
+                              <div className="px-8 pb-2">
+                                <Select
+                                  label="Gruppert etter..."
+                                  value={dateFormat || 'day'}
+                                  onChange={(e) => setDateFormat(e.target.value)}
+                                  size="small"
+                                >
+                                  {DATE_FORMATS.map(format => (
+                                    <option key={format.value} value={format.value}>
+                                      {format.label}
+                                    </option>
+                                  ))}
+                                </Select>
+                              </div>
+                            )}
+                          </div>
                         );
                       })}
                     </div>
@@ -480,165 +422,9 @@ const GroupingOptions = forwardRef(({
             </div>
           )}
         </div>
-
-        <div>
-          <Heading level="2" size="xsmall" spacing className="mt-6">
-            Visningsvalg
-          </Heading>
-          <div className="flex flex-col gap-4 pb-4">
-            <Switch
-              size="small"
-              description={interactiveMode
-                ? 'Tidsperiode velges via filter i dasboardet (standard)'
-                : 'Bruk valgt tidsperiode fra grafbyggeren som standard'}
-              checked={!interactiveMode}
-              onChange={(e) => setInteractiveMode(!e.target.checked)}
-            >
-              Overstyr tidsperiode
-            </Switch>
-
-            <div className={interactiveMode ? 'hidden' : undefined}>
-              <DateRangeSelector
-                ref={dateRangePickerRef}
-                filters={filters}
-                setFilters={setFilters}
-                maxDaysAvailable={maxDaysAvailable}
-                selectedDateRange={selectedDateRange}
-                setSelectedDateRange={setSelectedDateRange}
-                customPeriodInputs={customPeriodInputs}
-                setCustomPeriodInputs={setCustomPeriodInputs}
-                interactiveMode={interactiveMode}
-              />
-            </div>
-
-            <Switch
-              className="mt-1"
-              size="small"
-              description={orderBy
-                ? `Sorterer etter ${orderBy.column ? orderBy.column.toLowerCase() : 'første kolonne'} i ${orderBy.direction === 'ASC' ? 'stigende' : 'synkende'} rekkefølge`
-                : 'Sorterer etter første kolonne i synkende rekkefølge'}
-              checked={showCustomSort}
-              onChange={() => setShowCustomSort(!showCustomSort)}
-            >
-              Tilpass sortering
-            </Switch>
-
-            {showCustomSort && (
-              <>
-                <div className="flex flex-col gap-2 bg-[var(--ax-bg-default)] p-3 rounded-md border">
-                  <div className="flex gap-2">
-                    <Select
-                      label="Sorter etter"
-                      value={orderBy?.column || ""}
-                      onChange={(e) => {
-                        if (e.target.value) {
-                          const direction = e.target.value === 'dato' ? 'ASC' : 'DESC';
-                          setOrderBy(e.target.value, direction);
-                        } else {
-                          clearOrderBy();
-                        }
-                      }}
-                      size="small"
-                      className="flex-grow"
-                    >
-                      <option value="">Standard sortering</option>
-                      <optgroup label="Grupperinger">
-                        {groupByFields.map((field) => {
-                          const column = Object.values(COLUMN_GROUPS)
-                            .flatMap(group => group.columns)
-                            .find(col => col.value === field);
-
-                          return (
-                            <option key={field} value={field === 'created_at' ? 'dato' : field}>
-                              {field === "created_at" ? "Dato" : column?.label || field}
-                            </option>
-                          );
-                        })}
-                      </optgroup>
-                      <optgroup label="Metrikker">
-                        {metrics.map((metric, index) => (
-                          <option
-                            key={`metrikk_${index}`}
-                            value={metric.alias || `metrikk_${index + 1}`}
-                          >
-                            {metric.alias || `metrikk_${index + 1}`}
-                          </option>
-                        ))}
-                      </optgroup>
-                    </Select>
-
-                    <Select
-                      label="Retning"
-                      value={orderBy?.direction || 'ASC'}
-                      onChange={(e) => setOrderBy(
-                        orderBy?.column || "",
-                        e.target.value as 'ASC' | 'DESC'
-                      )}
-                      size="small"
-                    >
-                      <option value="ASC">Stigende (A-Å, 0-9)</option>
-                      <option value="DESC">Synkende (Å-A, 9-0)</option>
-                    </Select>
-                  </div>
-                </div>
-              </>
-            )}
-
-            <Switch
-              size="small"
-              description={limit && limit !== 1000
-                ? `Begrenser til ${limit} rader`
-                : 'F.eks. for en topp 10-liste (standard: 1000 rader)'}
-              checked={showCustomLimit}
-              onChange={(e) => {
-                setShowCustomLimit(e.target.checked);
-                if (!e.target.checked) {
-                  setLimit(1000);
-                  setLimitInput('1000');
-                }
-              }}
-            >
-              Begrens antall rader
-            </Switch>
-
-            {showCustomLimit && (
-              <div className="flex gap-2 items-center bg-[var(--ax-bg-default)] p-3 rounded-md border">
-                <TextField
-                  label="Maksimalt antall rader"
-                  type="number"
-                  value={limitInput}
-                  onChange={(e) => setLimitInput(e.target.value)}
-                  onBlur={() => {
-                    const numValue = parseInt(limitInput, 10);
-                    if (!isNaN(numValue) && numValue > 0) {
-                      setLimit(numValue);
-                    } else {
-                      setLimit(1000);
-                      setLimitInput('1000');
-                    }
-                  }}
-                  min="1"
-                  size="small"
-                  className="flex-grow"
-                />
-              </div>
-            )}
-
-            <Switch
-              size="small"
-              description={columnOrderMode === 'metrics_first'
-                ? 'Måltall før grupperingskolonner'
-                : 'Standard rekkefølge: Grupperinger før måltall'}
-              checked={columnOrderMode === 'metrics_first'}
-              onChange={(e) => setColumnOrderMode(e.target.checked ? 'metrics_first' : 'default')}
-            >
-              Bytt kolonnerekkefølge
-            </Switch>
-          </div>
-        </div>
       </div>
     </>
   );
-});
+};
 
 export default GroupingOptions;

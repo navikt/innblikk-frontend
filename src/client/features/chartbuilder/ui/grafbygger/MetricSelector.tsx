@@ -1,12 +1,14 @@
-import { Button, Heading, Select, TextField, HelpText, Tabs, Label, UNSAFE_Combobox } from '@navikt/ds-react';
-import { MoveUp, MoveDown, Users, BarChart2, PieChart, Clock, LogOut } from 'lucide-react';
-import { useState, useEffect, forwardRef, useImperativeHandle, useRef } from 'react';
+import { Button, Heading, Select, TextField, HelpText, Label, Switch, UNSAFE_Combobox } from '@navikt/ds-react';
+import { ChevronDownIcon, ChevronUpIcon } from '@navikt/aksel-icons';
+import { MoveUp, MoveDown } from 'lucide-react';
+import { useState, useEffect, forwardRef, useImperativeHandle, useRef, useMemo } from 'react';
 import type {
   Parameter,
   Metric,
   MetricOption,
   ColumnOption,
-  Filter
+  Filter,
+  ColumnGroup
 } from '../../../../shared/types/chart.ts';
 import AlertWithCloseButton from './AlertWithCloseButton.tsx';
 
@@ -14,12 +16,12 @@ interface SummarizeProps {
   metrics: Metric[];
   parameters: Parameter[];
   METRICS: MetricOption[];
-  COLUMN_GROUPS: Record<string, any>;
+  COLUMN_GROUPS: Record<string, ColumnGroup>;
   getMetricColumns: (parameters: Parameter[], metric: string) => ColumnOption[];
   sanitizeColumnName: (key: string) => string;
   updateMetric: (index: number, updates: Partial<Metric>) => void;
   removeMetric: (index: number) => void;
-  addMetric: (metricFunction: string) => void;
+  addMetric: (metricFunction: string, initialUpdates?: Partial<Metric>) => void;
   moveMetric: (index: number, direction: 'up' | 'down') => void;
   filters: Filter[];
   hideHeader?: boolean;
@@ -42,6 +44,18 @@ const MetricSelector = forwardRef(({
   availableEvents = [],
   isEventsLoading = false
 }: SummarizeProps, ref) => {
+  type MetricDropdownOption = {
+    id: string;
+    label: string;
+    metricFunction: string;
+    section: string;
+    column?: string;
+    alias?: string;
+    showInMinutes?: boolean;
+    defaultColumn?: string;
+    mode: 'preset' | 'function';
+  };
+
   const [alertInfo, setAlertInfo] = useState<{ show: boolean, message: string }>({
     show: false,
     message: ''
@@ -49,10 +63,9 @@ const MetricSelector = forwardRef(({
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [activeCalculations, setActiveCalculations] = useState<string[]>([]);
-  const [activeMetricCategory, setActiveMetricCategory] = useState<string>('antall');
-
   const [editingMetrics, setEditingMetrics] = useState<number[]>([]);
+  const [showActiveMetrics, setShowActiveMetrics] = useState<boolean>(false);
+  const [isMoreMetricsOpen, setIsMoreMetricsOpen] = useState<boolean>(false);
 
   const getUniqueParameters = (params: Parameter[]): Parameter[] => {
     const uniqueParams = new Map<string, Parameter>();
@@ -74,11 +87,9 @@ const MetricSelector = forwardRef(({
 
   const resetConfig = (silent = false) => {
     const metricsCopy = [...metrics];
-    metricsCopy.forEach((_) => {
+    metricsCopy.forEach(() => {
       removeMetric(0);
     });
-
-    setActiveMetricCategory('antall');
 
     if (!silent) {
       if (timeoutRef.current) {
@@ -113,70 +124,6 @@ const MetricSelector = forwardRef(({
     }
     setAlertInfo(prev => ({ ...prev, show: false }));
   };
-
-  const addConfiguredMetric = (
-    metricType: string,
-    column?: string,
-    alias?: string,
-    showInMinutes?: boolean
-  ) => {
-    const newIndex = metrics.length;
-
-    setActiveCalculations([...activeCalculations, `${metricType}_${column || ''}`]);
-
-    addMetric(metricType);
-
-    setTimeout(() => {
-      const updates: Partial<Metric> = {};
-      if (column) updates.column = column;
-      if (alias) updates.alias = alias;
-      if (showInMinutes !== undefined) updates.showInMinutes = showInMinutes;
-      updateMetric(newIndex, updates);
-    }, 0);
-  };
-
-  const findMetricIndex = (
-    functionType: string,
-    column?: string,
-    alias?: string,
-    checkMinutes?: boolean
-  ): number => {
-    return metrics.findIndex(metric =>
-      metric.function === functionType &&
-      metric.column === column &&
-      (alias === undefined || metric.alias === alias) &&
-      (checkMinutes === undefined || metric.showInMinutes === checkMinutes)
-    );
-  };
-
-  const isMetricAdded = (
-    functionType: string,
-    column?: string,
-    alias?: string,
-    checkMinutes?: boolean
-  ): boolean => {
-    return findMetricIndex(functionType, column, alias, checkMinutes) >= 0;
-  };
-
-  const toggleConfiguredMetric = (
-    functionType: string,
-    column?: string,
-    alias?: string,
-    checkMinutes?: boolean
-  ) => {
-    const existingMetricIndex = findMetricIndex(functionType, column, alias, checkMinutes);
-    if (existingMetricIndex >= 0) {
-      removeMetric(existingMetricIndex);
-      return;
-    }
-
-    addConfiguredMetric(functionType, column, alias, checkMinutes);
-  };
-
-  useEffect(() => {
-    const calculationIds = metrics.map(m => `${m.function}_${m.column || ''}`);
-    setActiveCalculations(calculationIds);
-  }, [metrics]);
 
   useEffect(() => {
     const event = new CustomEvent('summarizeStepStatus', {
@@ -271,14 +218,263 @@ const MetricSelector = forwardRef(({
     return METRICS.find(m => m.value === metric.function)?.label || 'Måling';
   };
 
+  const moreMetricGroups = useMemo(() => {
+    const presetOptions: MetricDropdownOption[] = [
+      {
+        id: 'preset_distinct_session_id_unike',
+        label: 'Antall unike besøkende',
+        metricFunction: 'distinct',
+        section: 'Antall',
+        column: 'session_id',
+        alias: 'Unike_besokende',
+        mode: 'preset'
+      },
+      {
+        id: 'preset_distinct_visit_id_okter',
+        label: 'Økter / besøk',
+        metricFunction: 'distinct',
+        section: 'Antall',
+        column: 'visit_id',
+        alias: 'Okter_besok',
+        mode: 'preset'
+      },
+      {
+        id: 'preset_count_sidevisninger',
+        label: 'Antall sidevisninger',
+        metricFunction: 'count',
+        section: 'Antall',
+        alias: 'Antall_sidevisninger',
+        mode: 'preset'
+      },
+      {
+        id: 'preset_count_hendelser',
+        label: 'Antall hendelser',
+        metricFunction: 'count',
+        section: 'Antall',
+        alias: 'Antall_hendelser',
+        mode: 'preset'
+      },
+      {
+        id: 'preset_andel_totale_besokende',
+        label: 'Andel av totale besøkende',
+        metricFunction: 'andel',
+        section: 'Andel',
+        column: 'session_id',
+        alias: 'Andel_av_totale_besokende',
+        mode: 'preset'
+      },
+      {
+        id: 'preset_percentage_besokende_pa_side',
+        label: 'Andel av besøkende på side',
+        metricFunction: 'percentage',
+        section: 'Andel',
+        column: 'session_id',
+        alias: 'Andel_av_besokende_pa_side',
+        mode: 'preset'
+      },
+      {
+        id: 'preset_percentage_hendelser_pa_side',
+        label: 'Andel av hendelser på side',
+        metricFunction: 'percentage',
+        section: 'Andel',
+        column: 'event_id',
+        alias: 'Andel_av_hendelser_pa_side',
+        mode: 'preset'
+      },
+      {
+        id: 'preset_bounce_rate',
+        label: 'Fluktrate',
+        metricFunction: 'bounce_rate',
+        section: 'Andel',
+        column: 'visit_id',
+        alias: 'Fluktrate',
+        mode: 'preset'
+      },
+      {
+        id: 'preset_average_visit_duration_min',
+        label: 'Besøksvarighet i minutter',
+        metricFunction: 'average',
+        section: 'Tid',
+        column: 'visit_duration',
+        alias: 'Gjennomsnittlig_besokstid_minutter',
+        showInMinutes: true,
+        mode: 'preset'
+      },
+      {
+        id: 'preset_average_visit_duration_sec',
+        label: 'Besøksvarighet i sekunder',
+        metricFunction: 'average',
+        section: 'Tid',
+        column: 'visit_duration',
+        alias: 'Gjennomsnittlig_besokstid_sekunder',
+        showInMinutes: false,
+        mode: 'preset'
+      }
+    ];
+
+    const getFunctionSection = (metricValue: string): string => {
+      if (['count', 'distinct', 'count_where', 'sum'].includes(metricValue)) return 'Antall';
+      if (['percentage', 'andel', 'bounce_rate'].includes(metricValue)) return 'Andel';
+      if (['average', 'median'].includes(metricValue)) return 'Tid';
+      return 'Avansert';
+    };
+
+    const functionOptions: MetricDropdownOption[] = METRICS.map(metric => ({
+      id: `function_${metric.value}`,
+      label: metric.label,
+      metricFunction: metric.value,
+      section: getFunctionSection(metric.value),
+      defaultColumn: metric.value === 'percentage' || metric.value === 'andel' ? 'session_id' : undefined,
+      mode: 'function'
+    }));
+
+    const allOptions = [...presetOptions, ...functionOptions];
+    const sectionOrder = ['Antall', 'Andel', 'Tid', 'Avansert'];
+
+    return sectionOrder
+      .map(section => ({
+        key: section.toLowerCase().replace(/\s+/g, '_'),
+        label: section,
+        options: allOptions.filter(option => option.section === section)
+      }))
+      .filter(section => section.options.length > 0);
+  }, [METRICS]);
+
+  const findMetricIndex = (
+    functionType: string,
+    column?: string,
+    alias?: string,
+    checkMinutes?: boolean
+  ): number => {
+    return metrics.findIndex(metric =>
+      metric.function === functionType &&
+      metric.column === column &&
+      (alias === undefined || metric.alias === alias) &&
+      (checkMinutes === undefined || metric.showInMinutes === checkMinutes)
+    );
+  };
+
+  const isDropdownOptionSelected = (option: MetricDropdownOption): boolean => {
+    if (option.mode === 'function') {
+      return metrics.some(metric => {
+        if (metric.function !== option.metricFunction) return false;
+        // Function-options should only represent "generic" metrics,
+        // not preset variants with aliases.
+        if (metric.alias) return false;
+        if (option.defaultColumn) return metric.column === option.defaultColumn;
+        return true;
+      });
+    }
+
+    return findMetricIndex(
+      option.metricFunction,
+      option.column,
+      option.alias,
+      option.showInMinutes
+    ) >= 0;
+  };
+
+  const selectedDropdownOptions = moreMetricGroups.flatMap(group =>
+    group.options.filter(option => isDropdownOptionSelected(option))
+  );
+
+  const moreMetricsButtonLabel = useMemo(() => {
+    if (selectedDropdownOptions.length === 0) return 'Velg målinger';
+    if (selectedDropdownOptions.length === 1) return selectedDropdownOptions[0].label;
+    return `${selectedDropdownOptions[0].label} +${selectedDropdownOptions.length - 1}`;
+  }, [selectedDropdownOptions]);
+
+  const metricNeedsInput = (metric: Metric): boolean => {
+    const requiresColumn = new Set(['sum', 'average', 'median', 'distinct', 'percentage', 'andel', 'bounce_rate']);
+    if (metric.function === 'count_where') {
+      return !metric.column || !metric.whereColumn || !metric.whereValue;
+    }
+    if (requiresColumn.has(metric.function)) {
+      return !metric.column;
+    }
+    return false;
+  };
+
+  const addConfiguredMetric = (
+    metricType: string,
+    column?: string,
+    alias?: string,
+    showInMinutes?: boolean
+  ) => {
+    const updates: Partial<Metric> = {};
+    if (column) updates.column = column;
+    if (alias) updates.alias = alias;
+    if (showInMinutes !== undefined) updates.showInMinutes = showInMinutes;
+    addMetric(metricType, updates);
+  };
+
+  const toggleDropdownMetricOption = (option: MetricDropdownOption) => {
+    if (option.mode === 'function') {
+      const matchingIndices = metrics
+        .map((metric, index) => ({ metric, index }))
+        .filter(({ metric }) => {
+          if (metric.function !== option.metricFunction) return false;
+          if (metric.alias) return false;
+          if (option.defaultColumn) return metric.column === option.defaultColumn;
+          return true;
+        })
+        .map(({ index }) => index);
+
+      if (matchingIndices.length > 0) {
+        [...matchingIndices].reverse().forEach(index => removeMetric(index));
+        return;
+      }
+
+      addMetric(
+        option.metricFunction,
+        option.defaultColumn ? { column: option.defaultColumn } : undefined
+      );
+      return;
+    }
+
+    const existingMetricIndex = findMetricIndex(
+      option.metricFunction,
+      option.column,
+      option.alias,
+      option.showInMinutes
+    );
+
+    if (existingMetricIndex >= 0) {
+      removeMetric(existingMetricIndex);
+      return;
+    }
+
+    addConfiguredMetric(
+      option.metricFunction,
+      option.column,
+      option.alias,
+      option.showInMinutes
+    );
+  };
+
+  const dropdownOptionNeedsInput = (option: MetricDropdownOption): boolean => {
+    if (!isDropdownOptionSelected(option)) return false;
+
+    if (option.mode === 'function') {
+      const functionMetrics = metrics.filter(metric => metric.function === option.metricFunction);
+      return functionMetrics.some(metricNeedsInput);
+    }
+
+    const metricIndex = findMetricIndex(
+      option.metricFunction,
+      option.column,
+      option.alias,
+      option.showInMinutes
+    );
+
+    if (metricIndex < 0) return false;
+    return metricNeedsInput(metrics[metricIndex]);
+  };
+
   return (
     <>
       {!hideHeader && (
-        <div className="flex justify-between items-center mb-4">
-          <Heading level="2" size="small">
-            Hva vil du måle?
-          </Heading>
-
+        <div className="flex justify-end items-center mb-4">
           <Button
             variant="tertiary"
             size="small"
@@ -303,7 +499,7 @@ const MetricSelector = forwardRef(({
         <div>
           <div className="flex items-center gap-2 mb-4">
             <Heading level="2" size="xsmall" >
-              Målt som...
+              Vis...
             </Heading>
             <HelpText title="Hva er en måling?">
               Legg til en eller flere målinger, disse vises som kolonner i tabeller og grafer.
@@ -311,190 +507,85 @@ const MetricSelector = forwardRef(({
           </div>
 
           <div className="space-y-4">
-            <div className="mb-2">
-              <div className="bg-[var(--ax-bg-default)] p-4 rounded-md border shadow-inner">
-                <Tabs
-                  value={activeMetricCategory}
-                  onChange={value => setActiveMetricCategory(value)}
-                  size="small"
-                >
-                  <Tabs.List>
-                    <Tabs.Tab value="antall" label="Antall" />
-                    <Tabs.Tab value="andel" label="Andel" />
-                    <Tabs.Tab value="gjennomsnitt" label="Tid" />
-                    <Tabs.Tab value="avansert" label="Flere valg" />
-                    <Tabs.Tab value="aktive_valg" label={`Aktive valg (${metrics.length})`} />
-                  </Tabs.List>
-
-                  <Tabs.Panel value="antall" className="pt-4">
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        variant={isMetricAdded('distinct', 'session_id', 'Unike_besokende') ? "primary" : "secondary"}
-                        size="small"
-                        onClick={() => toggleConfiguredMetric('distinct', 'session_id', 'Unike_besokende')}
-                        icon={<Users size={16} />}
-                      >
-                        Antall unike besøkende
-                      </Button>
-                      <Button
-                        variant={isMetricAdded('distinct', 'visit_id', 'Okter_besok') ? "primary" : "secondary"}
-                        size="small"
-                        onClick={() => toggleConfiguredMetric('distinct', 'visit_id', 'Okter_besok')}
-                        icon={<Users size={16} />}
-                      >
-                        Økter / besøk
-                      </Button>
-                      <Button
-                        variant={isMetricAdded('count', undefined, 'Antall_sidevisninger') ? "primary" : "secondary"}
-                        size="small"
-                        onClick={() => toggleConfiguredMetric('count', undefined, 'Antall_sidevisninger')}
-                        icon={<BarChart2 size={16} />}
-                      >
-                        Antall sidevisninger
-                      </Button>
-                      <Button
-                        variant={isMetricAdded('count', undefined, 'Antall_hendelser') ? "primary" : "secondary"}
-                        size="small"
-                        onClick={() => toggleConfiguredMetric('count', undefined, 'Antall_hendelser')}
-                        icon={<BarChart2 size={16} />}
-                      >
-                        Antall hendelser
-                      </Button>
-                    </div>
-                  </Tabs.Panel>
-
-                  <Tabs.Panel value="andel" className="pt-4">
-                    <div className="space-y-4">
-                      <div>
-                        <h4 className="text-sm font-medium mb-2 text-[var(--ax-text-subtle)]">Andel av alle besøkende på hele nettsiden</h4>
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            variant={isMetricAdded('andel', 'session_id', 'Andel_av_totale_besokende') ? "primary" : "secondary"}
-                            size="small"
-                            onClick={() => toggleConfiguredMetric('andel', 'session_id', 'Andel_av_totale_besokende')}
-                            icon={<PieChart size={16} />}
-                          >
-                            Andel av totale besøkende
-                          </Button>
-                        </div>
+            <div>
+              <button
+                type="button"
+                className="w-full flex items-center justify-between rounded-md border border-(--ax-border-neutral) bg-(--ax-bg-default) pl-3 pr-1 py-1.5 text-left text-base"
+                onClick={() => setIsMoreMetricsOpen(prev => !prev)}
+              >
+                <span>{moreMetricsButtonLabel}</span>
+                <span className="text-(--ax-text-default) shrink-0">
+                  {isMoreMetricsOpen ? <ChevronUpIcon aria-hidden fontSize="1.25rem" /> : <ChevronDownIcon aria-hidden fontSize="1.25rem" />}
+                </span>
+              </button>
+              {isMoreMetricsOpen && (
+                <div className="mt-0 rounded-md border border-(--ax-border-neutral) bg-(--ax-bg-default) p-2 space-y-2">
+                  {moreMetricGroups.map(group => (
+                    <div key={group.key}>
+                      <div className="px-2 py-1 text-xs font-semibold text-(--ax-text-subtle)">
+                        {group.label}
                       </div>
-
                       <div>
-                        <h4 className="text-sm font-medium mb-2 text-[var(--ax-text-subtle)]">Andel av besøkende på en side</h4>
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            variant={isMetricAdded('percentage', 'session_id', 'Andel_av_besokende_pa_side') ? "primary" : "secondary"}
-                            size="small"
-                            onClick={() => toggleConfiguredMetric('percentage', 'session_id', 'Andel_av_besokende_pa_side')}
-                            icon={<PieChart size={16} />}
-                          >
-                            Andel av besøkende på side
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div>
-                        <h4 className="text-sm font-medium mb-2 text-[var(--ax-text-subtle)]">Andel av hendelser på en side</h4>
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            variant={isMetricAdded('percentage', 'event_id', 'Andel_av_hendelser_pa_side') ? "primary" : "secondary"}
-                            size="small"
-                            onClick={() => toggleConfiguredMetric('percentage', 'event_id', 'Andel_av_hendelser_pa_side')}
-                            icon={<PieChart size={16} />}
-                          >
-                            Andel av hendelser på side
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div>
-                        <h4 className="text-sm font-medium mb-2 text-[var(--ax-text-subtle)]">Fluktrate - andel besøkende som kun ser én side før de forlater nettstedet</h4>
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            variant={isMetricAdded('bounce_rate', 'visit_id', 'Fluktrate') ? "primary" : "secondary"}
-                            size="small"
-                            onClick={() => toggleConfiguredMetric('bounce_rate', 'visit_id', 'Fluktrate')}
-                            icon={<LogOut size={16} />}
-                          >
-                            Fluktrate
-                          </Button>
-                        </div>
+                        {group.options.map(option => {
+                          const isSelected = isDropdownOptionSelected(option);
+                          const needsInput = dropdownOptionNeedsInput(option);
+                          return (
+                            <div key={option.id}>
+                              <button
+                                type="button"
+                                className="w-full flex items-center gap-2 px-2 py-1.5 text-left rounded hover:bg-(--ax-bg-neutral-soft)"
+                                onClick={() => toggleDropdownMetricOption(option)}
+                              >
+                                <span
+                                  className={`inline-flex h-4 w-4 items-center justify-center rounded-sm border ${isSelected
+                                    ? 'border-(--ax-border-accent) bg-(--ax-bg-accent-soft) text-(--ax-text-accent)'
+                                    : 'border-(--ax-border-neutral) bg-(--ax-bg-default)'}`}
+                                >
+                                  {isSelected ? '✓' : ''}
+                                </span>
+                                <span>{option.label}</span>
+                              </button>
+                              {isSelected && needsInput && (
+                                <div className="mt-1 pl-8 pr-2 pb-1">
+                                  <div className="rounded-md border border-(--ax-border-accent) bg-(--ax-bg-accent-soft) px-3 py-2 text-sm">
+                                    Krever flere valg før målingen er ferdig satt opp.
+                                    <button
+                                      type="button"
+                                      className="ml-1 underline"
+                                      onClick={() => setShowActiveMetrics(true)}
+                                    >
+                                      Vis aktive valg
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
-                  </Tabs.Panel>
-
-                  <Tabs.Panel value="gjennomsnitt" className="pt-4">
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        variant={isMetricAdded('average', 'visit_duration', 'Gjennomsnittlig_besokstid_minutter', true) ? "primary" : "secondary"}
-                        size="small"
-                        onClick={() => toggleConfiguredMetric('average', 'visit_duration', 'Gjennomsnittlig_besokstid_minutter', true)}
-                        icon={<Clock size={16} />}
-                      >
-                        Besøksvarighet i minutter
-                      </Button>
-                      <Button
-                        variant={isMetricAdded('average', 'visit_duration', 'Gjennomsnittlig_besokstid_sekunder', false) ? "primary" : "secondary"}
-                        size="small"
-                        onClick={() => toggleConfiguredMetric('average', 'visit_duration', 'Gjennomsnittlig_besokstid_sekunder', false)}
-                        icon={<Clock size={16} />}
-                      >
-                        Besøksvarighet i sekunder
-                      </Button>
-                    </div>
-                  </Tabs.Panel>
-
-                  <Tabs.Panel value="avansert" className="pt-4">
-                    <div className="flex flex-col gap-2">
-                      <Select
-                        label="Målt som"
-                        description="F.eks. antall, andel, sum, gjennomsnitt, etc."
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            addMetric(e.target.value);
-
-                            if (e.target.value === 'percentage' || e.target.value === 'andel') {
-                              const newIndex = metrics.length;
-
-                              setTimeout(() => {
-                                updateMetric(newIndex, { column: 'session_id' });
-                              }, 0);
-                            }
-
-                            (e.target as HTMLSelectElement).value = '';
-                          }
-                        }}
-                        size="small"
-                        className="w-full"
-                      >
-                        <option value="">Velg måling...</option>
-                        {METRICS.map(metric => (
-                          <option key={metric.value} value={metric.value}>
-                            {metric.label}
-                          </option>
-                        ))}
-                      </Select>
-                    </div>
-                  </Tabs.Panel>
-
-                  <Tabs.Panel value="aktive_valg" className="pt-4">
-                    {metrics.length === 0 && (
-                      <p className="text-sm text-[var(--ax-text-subtle)]">
-                        Ingen aktive valg. Velg et målingsvalg, så dukker dem opp her.
-                      </p>
-                    )}
-                  </Tabs.Panel>
-                </Tabs>
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {activeMetricCategory === 'aktive_valg' && metrics.length > 0 && (
-              <Heading level="3" size="xsmall" spacing className="mt-6">
-                Aktive valg
-              </Heading>
+            {metrics.length > 0 && (
+              <Switch
+                size="small"
+                checked={showActiveMetrics}
+                onChange={(e) => setShowActiveMetrics(e.target.checked)}
+              >
+                Aktive målingsvalg ({metrics.length})
+              </Switch>
             )}
 
-            {activeMetricCategory === 'aktive_valg' && metrics.map((metric, index) => (
+            {showActiveMetrics && metrics.length === 0 && (
+              <p className="text-sm text-[var(--ax-text-subtle)]">
+                Ingen aktive valg. Velg et målingsvalg, så dukker dem opp her.
+              </p>
+            )}
+
+            {showActiveMetrics && metrics.map((metric, index) => (
               <div key={index} className={`flex ${shouldShowDetailedView(metric, index) ? 'flex-col' : 'items-center justify-between'} bg-[var(--ax-bg-default)] px-4 py-3 rounded-md border`}>
                 <div className="flex items-center justify-between w-full">
                   <div className="flex flex-col">
@@ -632,7 +723,7 @@ const MetricSelector = forwardRef(({
                                     }}
                                     isMultiSelect={false}
                                     size="small"
-                                    // @ts-ignore
+                                    // @ts-expect-error ds-react typing mismatch on disabled for this combobox variant
                                     disabled={isEventsLoading}
                                   />
                                 </div>

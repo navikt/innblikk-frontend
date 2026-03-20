@@ -281,9 +281,12 @@ export function useChartConfig() {
   };
 
   // Helper functions for metrics
-  const addMetric = (functionType?: string) => {
+  const addMetric = (functionType?: string, initialUpdates?: Partial<Metric>) => {
     setConfig(prev => {
-      const newMetrics = [...prev.metrics, { function: functionType || 'count' }];
+      const newMetrics = [
+        ...prev.metrics,
+        { function: functionType || 'count', ...(initialUpdates || {}) }
+      ];
       const updatedConfig = {
         ...prev,
         metrics: newMetrics

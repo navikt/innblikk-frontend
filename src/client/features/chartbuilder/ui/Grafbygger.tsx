@@ -5,6 +5,7 @@ import EventFilter from './grafbygger/EventFilter.tsx';
 import ChartLayout from '../../analysis/ui/ChartLayoutOriginal.tsx';
 import MetricSelector from './grafbygger/MetricSelector.tsx';
 import GroupingOptions from './grafbygger/GroupingOptions.tsx';
+import DisplayOptions from './grafbygger/DisplayOptions.tsx';
 import AlertWithCloseButton from './grafbygger/AlertWithCloseButton.tsx';
 import { FILTER_COLUMNS } from '../../../shared/lib/constants.ts';
 import { DATE_FORMATS, METRICS } from '../model/constants.ts';
@@ -87,7 +88,7 @@ const ChartsPage = () => {
 
           {config.website && dateRangeReady && (
             <>
-              {/* Step 2: Event Filter Selection */}
+              {/* Step: Event Filter Selection */}
               <section className="mt-4">
                 <EventFilter
                   ref={chartFiltersRef}
@@ -111,7 +112,7 @@ const ChartsPage = () => {
                 />
               </section>
 
-              {/* Step 3: Metrics */}
+                            {/* Step: Metrics */}
               <section className="mt-4">
                 <MetricSelector
                   ref={summarizeRef}
@@ -132,23 +133,45 @@ const ChartsPage = () => {
                 />
               </section>
 
-              {/* Step 4: Display Options */}
+              {/* Step: Grouping */}
               <section className="mt-4">
                 <GroupingOptions
-                  ref={displayOptionsRef}
                   groupByFields={config.groupByFields}
                   parameters={parameters}
                   dateFormat={config.dateFormat}
-                  orderBy={config.orderBy}
-                  columnOrderMode={config.columnOrderMode || 'default'}
-                  paramAggregation={config.paramAggregation}
-                  limit={config.limit}
                   DATE_FORMATS={DATE_FORMATS}
                   COLUMN_GROUPS={FILTER_COLUMNS}
                   sanitizeColumnName={sanitizeColumnName}
                   addGroupByField={addGroupByField}
                   removeGroupByField={removeGroupByField}
                   moveGroupField={moveGroupField}
+                  setDateFormat={(format) => setConfig(prev => ({
+                    ...prev,
+                    dateFormat: format
+                  }))}
+                  filters={filters}
+                  onEnableCustomEvents={() => {
+                    if (chartFiltersRef.current) {
+                      chartFiltersRef.current.enableCustomEvents();
+                    }
+                    setRequestLoadEvents(true);
+                    setRequestIncludeParams(true);
+                  }}
+                  hideHeader={true}
+                  isEventsLoading={isEventsLoading}
+                />
+              </section>
+
+              {/* Step: Display Options */}
+              <section className="mt-4">
+                <DisplayOptions
+                  ref={displayOptionsRef}
+                  groupByFields={config.groupByFields}
+                  orderBy={config.orderBy}
+                  columnOrderMode={config.columnOrderMode || 'default'}
+                  paramAggregation={config.paramAggregation}
+                  limit={config.limit}
+                  COLUMN_GROUPS={FILTER_COLUMNS}
                   setOrderBy={setOrderBy}
                   clearOrderBy={clearOrderBy}
                   setDateFormat={(format) => setConfig(prev => ({
@@ -162,15 +185,7 @@ const ChartsPage = () => {
                   filters={filters}
                   setFilters={setFilters}
                   maxDaysAvailable={maxDaysAvailable}
-                  onEnableCustomEvents={() => {
-                    if (chartFiltersRef.current) {
-                      chartFiltersRef.current.enableCustomEvents();
-                    }
-                    setRequestLoadEvents(true);
-                    setRequestIncludeParams(true);
-                  }}
                   hideHeader={true}
-                  isEventsLoading={isEventsLoading}
                   interactiveMode={interactiveDateFilterEnabled}
                   setInteractiveMode={setInteractiveDateFilterEnabled}
                 />
