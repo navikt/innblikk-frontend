@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
+import { format, isValid, parseISO } from 'date-fns';
 import { normalizeUrlToPath } from '../../../shared/lib/utils.ts';
 import type { Website } from '../../dashboard/model/types.ts';
 import type {
@@ -27,6 +28,14 @@ const normalizeDateRange = (value: string | null): string => {
     if (value === 'last-month') return 'last_month';
     return value;
 };
+
+const parseCustomDateFromUrl = (value: string | null): Date | undefined => {
+    if (!value) return undefined;
+    const parsed = parseISO(value);
+    return isValid(parsed) ? parsed : undefined;
+};
+
+const formatCustomDateForUrl = (value: Date): string => format(value, 'yyyy-MM-dd');
 
 const normalizeMetricType = (value: string | null): MetricType => {
     if (value === 'pageviews' || value === 'proportion' || value === 'visits') return value;
@@ -123,6 +132,8 @@ export const useOversikt = () => {
         ? initialUrlPaths
         : (initialDashboardId ? getStoredUrlPaths(getUrlPathStorageKey(null, initialDashboardId) ?? '') : []);
     const initialDateRange = normalizeDateRange(searchParams.get('periode'));
+    const initialCustomStartDate = parseCustomDateFromUrl(searchParams.get('customStartDate'));
+    const initialCustomEndDate = parseCustomDateFromUrl(searchParams.get('customEndDate'));
     const initialMetricType = normalizeMetricType(searchParams.get('metrikk') || searchParams.get('metricType'));
 
     const [projects, setProjects] = useState<ProjectDto[]>([]);
@@ -135,6 +146,8 @@ export const useOversikt = () => {
     const [tempPathOperator, setTempPathOperator] = useState(initialPathOperator);
     const [tempUrlPaths, setTempUrlPaths] = useState<string[]>(initialResolvedUrlPaths);
     const [tempDateRange, setTempDateRange] = useState(initialDateRange);
+    const [tempCustomStartDate, setTempCustomStartDate] = useState<Date | undefined>(initialCustomStartDate);
+    const [tempCustomEndDate, setTempCustomEndDate] = useState<Date | undefined>(initialCustomEndDate);
     const [tempMetricType, setTempMetricType] = useState<MetricType>(initialMetricType);
     const [comboInputValue, setComboInputValue] = useState('');
     const isSelectingRef = useRef(false);
@@ -150,6 +163,8 @@ export const useOversikt = () => {
         urlFilters: initialResolvedUrlPaths,
         dateRange: initialDateRange,
         metricType: initialMetricType,
+        customStartDate: initialDateRange === 'custom' ? initialCustomStartDate : undefined,
+        customEndDate: initialDateRange === 'custom' ? initialCustomEndDate : undefined,
     });
 
     const [loadingProjects, setLoadingProjects] = useState(false);
@@ -229,6 +244,8 @@ export const useOversikt = () => {
 
     const hasChanges =
         tempDateRange !== activeFilters.dateRange
+        || (tempDateRange === 'custom' && tempCustomStartDate?.getTime() !== activeFilters.customStartDate?.getTime())
+        || (tempDateRange === 'custom' && tempCustomEndDate?.getTime() !== activeFilters.customEndDate?.getTime())
         || !arraysEqual(tempUrlPaths, activeFilters.urlFilters)
         || tempPathOperator !== activeFilters.pathOperator
         || tempMetricType !== activeFilters.metricType
@@ -241,6 +258,7 @@ export const useOversikt = () => {
     const handleUpdate = useCallback((overrides?: { urlPaths?: string[]; pathOperator?: string }) => {
         const resolvedUrlPaths = overrides?.urlPaths ?? tempUrlPaths;
         const resolvedPathOperator = overrides?.pathOperator ?? tempPathOperator;
+        const shouldUseCustomDates = tempDateRange === 'custom' && tempCustomStartDate && tempCustomEndDate;
         const nextParams = new URLSearchParams(searchParams);
         nextParams.delete('path');
         resolvedUrlPaths.forEach((path) => {
@@ -250,6 +268,13 @@ export const useOversikt = () => {
         else nextParams.delete('pathOperator');
         if (tempDateRange && tempDateRange !== 'last_7_days') nextParams.set('periode', tempDateRange);
         else nextParams.delete('periode');
+        if (shouldUseCustomDates) {
+            nextParams.set('customStartDate', formatCustomDateForUrl(tempCustomStartDate));
+            nextParams.set('customEndDate', formatCustomDateForUrl(tempCustomEndDate));
+        } else {
+            nextParams.delete('customStartDate');
+            nextParams.delete('customEndDate');
+        }
         if (tempMetricType !== 'visitors') nextParams.set('metrikk', tempMetricType);
         else nextParams.delete('metrikk');
         nextParams.delete('metricType');
@@ -260,9 +285,11 @@ export const useOversikt = () => {
             urlFilters: resolvedUrlPaths,
             dateRange: tempDateRange,
             metricType: tempMetricType,
+            customStartDate: shouldUseCustomDates ? tempCustomStartDate : undefined,
+            customEndDate: shouldUseCustomDates ? tempCustomEndDate : undefined,
         });
         setActiveWebsite(selectedWebsite);
-    }, [searchParams, setSearchParams, tempPathOperator, tempUrlPaths, tempDateRange, tempMetricType, selectedWebsite]);
+    }, [searchParams, setSearchParams, tempPathOperator, tempUrlPaths, tempDateRange, tempCustomStartDate, tempCustomEndDate, tempMetricType, selectedWebsite]);
 
     const handleProjectSelected = useCallback(
         async (option: string, isSelected: boolean) => {
@@ -714,6 +741,10 @@ export const useOversikt = () => {
         setTempUrlPaths,
         tempDateRange,
         setTempDateRange,
+        tempCustomStartDate,
+        setTempCustomStartDate,
+        tempCustomEndDate,
+        setTempCustomEndDate,
         tempMetricType,
         setTempMetricType,
         comboInputValue,

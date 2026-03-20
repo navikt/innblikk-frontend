@@ -6,6 +6,7 @@ import DashboardLayout from '../../dashboard/ui/DashboardLayout.tsx';
 import DashboardWebsitePicker from '../../dashboard/ui/DashboardWebsitePicker.tsx';
 import { DashboardWidget } from '../../dashboard';
 import { getSpanClass } from '../../dashboard';
+import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx';
 import { useOversikt } from '../hooks/useOversikt.ts';
 import type { DashboardDto, GraphType, OversiktChart } from '../model/types.ts';
 import {
@@ -123,6 +124,8 @@ const Oversikt = () => {
         tempPathOperator, setTempPathOperator,
         tempUrlPaths, setTempUrlPaths,
         tempDateRange, setTempDateRange,
+        tempCustomStartDate, setTempCustomStartDate,
+        tempCustomEndDate, setTempCustomEndDate,
         tempMetricType, setTempMetricType,
         comboInputValue,
         activeFilters,
@@ -339,6 +342,7 @@ const Oversikt = () => {
     }, [tempUrlPaths, dashboardPathFilterOptions, usePreselectedPathFilter]);
     const hasRequiredPreselectedPathSelection =
         !requiresPreselectedPathSelection || activeFilters.urlFilters.length > 0;
+    const hasValidTempDateRange = tempDateRange !== 'custom' || Boolean(tempCustomStartDate && tempCustomEndDate);
     const hasTempPreselectedPathSelection =
         !requiresPreselectedPathSelection || selectedPreselectedPath.length > 0;
     const hidePathOperatorChoice = usePreselectedPathFilter && Boolean(preselectedPathOperator);
@@ -1521,21 +1525,20 @@ const Oversikt = () => {
 
                     {visibleFilterCapabilities.date && (
                         <div className="w-full sm:w-auto min-w-[180px]">
-                            <Select
-                                label="Datoperiode"
-                                size="small"
-                                value={tempDateRange}
-                                onChange={(e) => setTempDateRange(e.target.value)}
-                            >
-                                <option value="today">I dag</option>
-                                <option value="yesterday">I går</option>
-                                <option value="this_week">Denne uken</option>
-                                <option value="last_7_days">Siste 7 dager</option>
-                                <option value="last_week">Forrige uke</option>
-                                <option value="last_28_days">Siste 28 dager</option>
-                                <option value="current_month">Denne måneden</option>
-                                <option value="last_month">Forrige måned</option>
-                            </Select>
+                            <PeriodPicker
+                                period={tempDateRange}
+                                onPeriodChange={(value) => {
+                                    setTempDateRange(value);
+                                    if (value !== 'custom') {
+                                        setTempCustomStartDate(undefined);
+                                        setTempCustomEndDate(undefined);
+                                    }
+                                }}
+                                startDate={tempCustomStartDate}
+                                onStartDateChange={setTempCustomStartDate}
+                                endDate={tempCustomEndDate}
+                                onEndDateChange={setTempCustomEndDate}
+                            />
                         </div>
                     )}
 
@@ -1567,7 +1570,7 @@ const Oversikt = () => {
                         <Button
                             size="small"
                             onClick={() => handleUpdate()}
-                            disabled={!hasChanges || !hasTempPreselectedPathSelection}
+                            disabled={!hasChanges || !hasTempPreselectedPathSelection || !hasValidTempDateRange}
                         >
                             Oppdater
                         </Button>
