@@ -53,6 +53,8 @@ spec:
   env:
     - name: SITEIMPROVE_BASE_URL
       value: "http://reops-proxy.team-researchops.svc.cluster.local/siteimprove"
+    - name: UMAMI_BASE_URL
+      value: "https://reops-event-proxy.ekstern.dev.nav.no"
     - name: GCP_PROJECT_ID
       value: "team-researchops-dev-4396"
     - name: BACKEND_BASE_URL
