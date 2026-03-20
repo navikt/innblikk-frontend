@@ -1,5 +1,5 @@
 import { Button, Heading, Select, TextField, HelpText, Label, Switch, UNSAFE_Combobox } from '@navikt/ds-react';
-import { ChevronDownIcon, ChevronUpIcon } from '@navikt/aksel-icons';
+import GroupedCombobox from '../../../../shared/ui/GroupedCombobox.tsx';
 import { MoveUp, MoveDown } from 'lucide-react';
 import { useState, useEffect, forwardRef, useImperativeHandle, useRef, useMemo } from 'react';
 import type {
@@ -65,7 +65,6 @@ const MetricSelector = forwardRef(({
 
   const [editingMetrics, setEditingMetrics] = useState<number[]>([]);
   const [showActiveMetrics, setShowActiveMetrics] = useState<boolean>(false);
-  const [isMoreMetricsOpen, setIsMoreMetricsOpen] = useState<boolean>(false);
 
   const getUniqueParameters = (params: Parameter[]): Parameter[] => {
     const uniqueParams = new Map<string, Parameter>();
@@ -378,11 +377,15 @@ const MetricSelector = forwardRef(({
     group.options.filter(option => isDropdownOptionSelected(option))
   );
 
-  const moreMetricsButtonLabel = useMemo(() => {
-    if (selectedDropdownOptions.length === 0) return 'Velg målinger';
-    if (selectedDropdownOptions.length === 1) return selectedDropdownOptions[0].label;
-    return `${selectedDropdownOptions[0].label} +${selectedDropdownOptions.length - 1}`;
-  }, [selectedDropdownOptions]);
+  /** Groups shaped for GroupedCombobox */
+  const comboboxGroups = useMemo(() =>
+    moreMetricGroups.map(group => ({
+      key: group.key,
+      label: group.label,
+      options: group.options.map(o => ({ label: o.label, value: o.id })),
+    })),
+    [moreMetricGroups]
+  );
 
   const metricNeedsInput = (metric: Metric): boolean => {
     const requiresColumn = new Set(['sum', 'average', 'median', 'distinct', 'percentage', 'andel', 'bounce_rate']);
@@ -508,63 +511,31 @@ const MetricSelector = forwardRef(({
 
           <div className="space-y-4">
             <div>
-              <button
-                type="button"
-                className="w-full flex items-center justify-between rounded-md border border-(--ax-border-neutral) bg-(--ax-bg-default) pl-3 pr-1 py-1.5 text-left text-base"
-                onClick={() => setIsMoreMetricsOpen(prev => !prev)}
-              >
-                <span>{moreMetricsButtonLabel}</span>
-                <span className="text-(--ax-text-default) shrink-0">
-                  {isMoreMetricsOpen ? <ChevronUpIcon aria-hidden fontSize="1.25rem" /> : <ChevronDownIcon aria-hidden fontSize="1.25rem" />}
-                </span>
-              </button>
-              {isMoreMetricsOpen && (
-                <div className="mt-0 rounded-md border border-(--ax-border-neutral) bg-(--ax-bg-default) p-2 space-y-2">
-                  {moreMetricGroups.map(group => (
-                    <div key={group.key}>
-                      <div className="px-2 py-1 text-xs font-semibold text-(--ax-text-subtle)">
-                        {group.label}
-                      </div>
-                      <div>
-                        {group.options.map(option => {
-                          const isSelected = isDropdownOptionSelected(option);
-                          const needsInput = dropdownOptionNeedsInput(option);
-                          return (
-                            <div key={option.id}>
-                              <button
-                                type="button"
-                                className="w-full flex items-center gap-2 px-2 py-1.5 text-left rounded hover:bg-(--ax-bg-neutral-soft)"
-                                onClick={() => toggleDropdownMetricOption(option)}
-                              >
-                                <span
-                                  className={`inline-flex h-4 w-4 items-center justify-center rounded-sm border ${isSelected
-                                    ? 'border-(--ax-border-accent) bg-(--ax-bg-accent-soft) text-(--ax-text-accent)'
-                                    : 'border-(--ax-border-neutral) bg-(--ax-bg-default)'}`}
-                                >
-                                  {isSelected ? '✓' : ''}
-                                </span>
-                                <span>{option.label}</span>
-                              </button>
-                              {isSelected && needsInput && (
-                                <div className="mt-1 pl-8 pr-2 pb-1">
-                                  <div className="rounded-md border border-(--ax-border-accent) bg-(--ax-bg-accent-soft) px-3 py-2 text-sm">
-                                    Krever flere valg før målingen er ferdig satt opp.
-                                    <button
-                                      type="button"
-                                      className="ml-1 underline"
-                                      onClick={() => setShowActiveMetrics(true)}
-                                    >
-                                      Vis aktive valg
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
+              <GroupedCombobox
+                label="Velg målinger"
+                hideLabel
+                isMultiSelect
+                groups={comboboxGroups}
+                selectedOptions={selectedDropdownOptions.map(o => o.id)}
+                onToggleSelected={(optionValue) => {
+                  const option = moreMetricGroups
+                    .flatMap(g => g.options)
+                    .find(o => o.id === optionValue);
+                  if (option) toggleDropdownMetricOption(option);
+                }}
+                placeholder="Søk etter målinger..."
+              />
+              {/* Warn about metrics that need further configuration */}
+              {selectedDropdownOptions.some(o => dropdownOptionNeedsInput(o)) && (
+                <div className="mt-2 rounded-md border border-(--ax-border-accent) bg-(--ax-bg-accent-soft) px-3 py-2 text-sm">
+                  En eller flere målinger krever flere valg før de er ferdig satt opp.{' '}
+                  <button
+                    type="button"
+                    className="underline"
+                    onClick={() => setShowActiveMetrics(true)}
+                  >
+                    Vis aktive valg
+                  </button>
                 </div>
               )}
             </div>

@@ -1,0 +1,59 @@
+/*
+  GroupedCombobox.module.css
+
+  Styles for the GroupedCombobox wrapper.
+
+  Group headers are injected as synthetic option items whose `value` starts
+  with `__group__`. Aksel gives each <li> an id derived from the option value,
+  so the `[id*="__group__"]` attribute selector reliably targets them.
+
+  Fetch-placeholder items use `__fetch__` the same way.
+*/
+
+/* ── Wrapper ─────────────────────────────────────────────────────────────── */
+.wrapper {
+  /* nothing structural — just a scoping anchor for the selectors below */
+}
+
+/* ── Group header rows ────────────────────────────────────────────────────── */
+.wrapper :global(.aksel-combobox__list-item[id*="__group__"]) {
+  pointer-events: none;
+  cursor: default;
+  padding-block: 0.25rem;
+  padding-inline: 0.5rem;
+  margin-block-start: 0.5rem;
+  font-size: var(--ax-font-size-small, 0.75rem);
+  font-weight: 600;
+  color: var(--ax-text-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-block-start: 1px solid var(--ax-border-neutral-subtle);
+  background: transparent !important;
+}
+
+/* Remove the checkbox/checkmark SVG that Aksel renders for every list item */
+.wrapper :global(.aksel-combobox__list-item[id*="__group__"] svg) {
+  display: none;
+}
+
+/* First group header in the list — no top border */
+.wrapper :global(.aksel-combobox__list-item[id*="__group__"]:first-child) {
+  border-block-start: none;
+  margin-block-start: 0;
+}
+
+/* ── Fetch-placeholder rows ───────────────────────────────────────────────── */
+.wrapper :global(.aksel-combobox__list-item[id*="__fetch__"]) {
+  pointer-events: none;
+  cursor: default;
+  padding-block: 0.25rem;
+  padding-inline: 1rem;
+  font-size: var(--ax-font-size-small, 0.75rem);
+  color: var(--ax-text-subtle);
+  font-style: italic;
+  background: transparent !important;
+}
+
+.wrapper :global(.aksel-combobox__list-item[id*="__fetch__"] svg) {
+  display: none;
+}

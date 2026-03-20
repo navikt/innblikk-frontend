@@ -1,5 +1,5 @@
 import { Button, Heading, Select, Label, Switch, HelpText } from '@navikt/ds-react';
-import { ChevronDownIcon, ChevronUpIcon } from '@navikt/aksel-icons';
+import GroupedCombobox from '../../../../shared/ui/GroupedCombobox.tsx';
 import { MoveUp, MoveDown } from 'lucide-react';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import type {
@@ -44,7 +44,6 @@ const GroupingOptions = ({
   isEventsLoading = false
 }: GroupingOptionsProps) => {
   const [showReorderGroupings, setShowReorderGroupings] = useState<boolean>(false);
-  const [isGroupingSelectorOpen, setIsGroupingSelectorOpen] = useState<boolean>(false);
   const [eventNameWarning, setEventNameWarning] = useState<boolean>(false);
   const [isLoadingParams, setIsLoadingParams] = useState<boolean>(false);
 
@@ -133,20 +132,16 @@ const GroupingOptions = ({
     return reorderedGroups;
   }, [COLUMN_GROUPS, uniqueParameters, sanitizeColumnName]);
 
-  const groupingLabelByValue = useMemo(() => {
-    return new Map(
-      groupedGroupingOptions.flatMap(group =>
-        group.options.map(option => [option.value, option.label] as const)
-      )
-    );
-  }, [groupedGroupingOptions]);
-
-  const selectedGroupingLabel = useMemo(() => {
-    if (groupByFields.length === 0) return 'Velg grupperinger';
-    const firstLabel = groupingLabelByValue.get(groupByFields[0]) || groupByFields[0];
-    if (groupByFields.length === 1) return firstLabel;
-    return `${firstLabel} +${groupByFields.length - 1}`;
-  }, [groupByFields, groupingLabelByValue]);
+  /** Groups shaped for GroupedCombobox */
+  const comboboxGroups = useMemo(() =>
+    groupedGroupingOptions.map(group => ({
+      key: group.key,
+      label: group.label,
+      options: group.options.map(o => ({ label: o.label, value: o.value })),
+      emptyPlaceholder: group.isEventDetailsEmpty ? 'Hent hendelsesdetaljer for å se valg' : undefined,
+    })),
+    [groupedGroupingOptions]
+  );
 
   // Reset local loading state when parameters are loaded or external loading completes
   useEffect(() => {
@@ -251,84 +246,53 @@ const GroupingOptions = ({
                 Legg til en eller flere grupperinger, disse vises som kolonner i tabeller.
               </HelpText>
             </div>
-            <button
-              type="button"
-              className="w-full flex items-center justify-between rounded-md border border-(--ax-border-neutral) bg-(--ax-bg-default) pl-3 pr-1 py-1.5 text-left text-base"
-              onClick={() => setIsGroupingSelectorOpen(prev => !prev)}
-            >
-              <span>{selectedGroupingLabel}</span>
-              <span className="text-(--ax-text-default) shrink-0">
-                {isGroupingSelectorOpen ? <ChevronUpIcon aria-hidden fontSize="1.25rem" /> : <ChevronDownIcon aria-hidden fontSize="1.25rem" />}
-              </span>
-            </button>
-            {isGroupingSelectorOpen && (
-              <div className="mt-0 rounded-md border border-(--ax-border-neutral) bg-(--ax-bg-default) p-2 space-y-2">
-                {groupedGroupingOptions.map(group => (
-                  <div key={group.key}>
-                    <div className="px-2 py-1 text-xs font-semibold text-(--ax-text-subtle)">
-                      {group.label}
-                    </div>
-                    <div>
-                      {group.isEventDetailsEmpty && (
-                        <div className="px-2 py-1.5">
-                          <Button
-                            variant="secondary"
-                            size="xsmall"
-                            loading={isLoadingParams || isEventsLoading}
-                            disabled={isLoadingParams || isEventsLoading}
-                            onClick={() => {
-                              if (onEnableCustomEvents) {
-                                setIsLoadingParams(true);
-                                onEnableCustomEvents();
-                              }
-                            }}
-                          >
-                            {isLoadingParams || isEventsLoading ? 'Henter hendelsesdetaljer...' : 'Hent hendelsesdetaljer'}
-                          </Button>
-                        </div>
-                      )}
-                      {group.options.map(option => {
-                        const isSelected = groupByFields.includes(option.value);
-                        return (
-                          <div key={option.value}>
-                            <button
-                              type="button"
-                              className="w-full flex items-center gap-2 px-2 py-1.5 text-left rounded hover:bg-(--ax-bg-neutral-soft)"
-                              onClick={() => handleToggleGroupField(option.value)}
-                            >
-                              <span
-                                className={`inline-flex h-4 w-4 items-center justify-center rounded-sm border ${isSelected
-                                  ? 'border-(--ax-border-accent) bg-(--ax-bg-accent-soft) text-(--ax-text-accent)'
-                                  : 'border-(--ax-border-neutral) bg-(--ax-bg-default)'}`}
-                              >
-                                {isSelected ? '✓' : ''}
-                              </span>
-                              <span>{option.label}</span>
-                            </button>
-                            {option.value === 'created_at' && isSelected && (
-                              <div className="px-8 pb-2">
-                                <Select
-                                  label="Gruppert etter..."
-                                  value={dateFormat || 'day'}
-                                  onChange={(e) => setDateFormat(e.target.value)}
-                                  size="small"
-                                >
-                                  {DATE_FORMATS.map(format => (
-                                    <option key={format.value} value={format.value}>
-                                      {format.label}
-                                    </option>
-                                  ))}
-                                </Select>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div>
+              <GroupedCombobox
+                label="Velg grupperinger"
+                hideLabel
+                isMultiSelect
+                groups={comboboxGroups}
+                selectedOptions={groupByFields}
+                onToggleSelected={(optionValue) => handleToggleGroupField(optionValue)}
+                placeholder="Søk etter grupperinger..."
+              />
+              {/* "Hent hendelsesdetaljer" CTA — shown when the Hendelser group has no params yet */}
+              {groupedGroupingOptions.some(g => g.isEventDetailsEmpty) && (
+                <div className="mt-2">
+                  <Button
+                    variant="secondary"
+                    size="xsmall"
+                    loading={isLoadingParams || isEventsLoading}
+                    disabled={isLoadingParams || isEventsLoading}
+                    onClick={() => {
+                      if (onEnableCustomEvents) {
+                        setIsLoadingParams(true);
+                        onEnableCustomEvents();
+                      }
+                    }}
+                  >
+                    {isLoadingParams || isEventsLoading ? 'Henter hendelsesdetaljer...' : 'Hent hendelsesdetaljer'}
+                  </Button>
+                </div>
+              )}
+              {/* Date format selector — shown below the combobox when created_at is selected */}
+              {groupByFields.includes('created_at') && (
+                <div className="mt-2">
+                  <Select
+                    label="Gruppert etter dato"
+                    value={dateFormat || 'day'}
+                    onChange={(e) => setDateFormat(e.target.value)}
+                    size="small"
+                  >
+                    {DATE_FORMATS.map(format => (
+                      <option key={format.value} value={format.value}>
+                        {format.label}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              )}
+            </div>
           </div>
 
           {groupByFields.length > 1 && (
