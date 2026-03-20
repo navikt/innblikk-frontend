@@ -108,7 +108,7 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
         <>
             <PageHeader
                 title={title}
-                description={description}
+                description={<span className="block max-w-[72ch]">{description}</span>}
             />
 
             <AppBlock className="pb-16">
