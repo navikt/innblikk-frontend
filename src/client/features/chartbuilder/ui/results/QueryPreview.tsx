@@ -1155,8 +1155,6 @@ const QueryPreview = ({
                 </div>
               )}
 
-              <Heading level="2" size="small" className="mb-4">Vis resultater</Heading>
-
               {/* Success Alert for Reset */}
               {showAlert && (
                 <div className="mb-3">
