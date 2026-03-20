@@ -283,9 +283,13 @@ export function useChartConfig() {
   // Helper functions for metrics
   const addMetric = (functionType?: string, initialUpdates?: Partial<Metric>) => {
     setConfig(prev => {
+      const metricToAdd: Metric = {
+        function: functionType || 'count',
+        ...(initialUpdates || {})
+      };
       const newMetrics = [
         ...prev.metrics,
-        { function: functionType || 'count', ...(initialUpdates || {}) }
+        metricToAdd
       ];
       const updatedConfig = {
         ...prev,
@@ -295,7 +299,7 @@ export function useChartConfig() {
       if (newMetrics.length === 1 && !prev.groupByFields.includes('created_at') &&
         (!prev.orderBy || prev.orderBy.column === 'dato')) {
         updatedConfig.orderBy = {
-          column: 'metrikk_1',
+          column: metricToAdd.alias || 'metrikk_1',
           direction: 'DESC'
         };
       }
