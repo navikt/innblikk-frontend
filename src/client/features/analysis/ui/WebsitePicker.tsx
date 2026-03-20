@@ -19,6 +19,7 @@ interface WebsitePickerProps {
   disableAutoEvents?: boolean; // Add flag to disable auto-fetching of events
   requestLoadEvents?: boolean; // Add flag to manually trigger event loading
   onLoadingChange?: (isLoading: boolean) => void; // Add callback for loading state
+  onInitialLoadingChange?: (isInitialLoading: boolean) => void;
   disableAutoRestore?: boolean; // Disable auto-restore from localStorage/URL (for SQL editor)
   customLabel?: string; // Custom label for the combobox
 }
@@ -46,6 +47,7 @@ const WebsitePicker = ({
   disableAutoEvents = false,
   requestLoadEvents = false,
   onLoadingChange,
+  onInitialLoadingChange,
   disableAutoRestore = false,
   customLabel
 }: WebsitePickerProps) => {
@@ -91,6 +93,12 @@ const WebsitePicker = ({
       onIncludeParamsChange(includeParams);
     }
   }, [includeParams, onIncludeParamsChange]);
+
+  useEffect(() => {
+    if (onInitialLoadingChange) {
+      onInitialLoadingChange(isInitialLoading);
+    }
+  }, [isInitialLoading, onInitialLoadingChange]);
 
   // Function to update URL with website ID
   const updateUrlWithWebsiteId = useCallback((website: Website | null) => {
@@ -557,6 +565,7 @@ const WebsitePicker = ({
         )}
 
         <UNSAFE_Combobox
+          className="website-picker-combobox"
           size="small"
           label={customLabel || "Nettside"}
           options={comboboxOptions}

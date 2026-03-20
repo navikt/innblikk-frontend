@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { ProgressBar } from '@navikt/ds-react';
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx';
 import QueryPreview from './results/QueryPreview.tsx';
 import EventFilter from './grafbygger/EventFilter.tsx';
@@ -17,6 +18,8 @@ import { useChartConfig } from '../hooks/useChartConfig.ts';
 
 const ChartsPage = () => {
   const [interactiveDateFilterEnabled, setInteractiveDateFilterEnabled] = useState<boolean>(true);
+  const [isWebsitePickerInitializing, setIsWebsitePickerInitializing] = useState<boolean>(true);
+  const [fakeProgress, setFakeProgress] = useState<number>(1);
 
   const {
     config,
@@ -65,6 +68,21 @@ const ChartsPage = () => {
     handleEventsLoad,
   } = useChartConfig();
 
+  const isSidebarLoading = isWebsitePickerInitializing || (!!config.website && (isEventsLoading || !dateRangeReady));
+
+  useEffect(() => {
+    if (!isSidebarLoading) {
+      setFakeProgress(1);
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setFakeProgress((prev) => (prev >= 11 ? 1 : prev + 1));
+    }, 180);
+
+    return () => window.clearInterval(intervalId);
+  }, [isSidebarLoading]);
+
   return (
     <ChartLayout
       title="Grafbyggeren"
@@ -79,6 +97,7 @@ const ChartsPage = () => {
               selectedWebsite={config.website}
               onWebsiteChange={handleWebsiteChange}
               onEventsLoad={handleEventsLoad}
+              onInitialLoadingChange={setIsWebsitePickerInitializing}
               dateRangeInDays={dateRangeInDays}
               shouldReload={forceReload}
               resetIncludeParams={resetIncludeParams}
@@ -89,160 +108,160 @@ const ChartsPage = () => {
             />
           </div>
 
-          {/* ── Hendelse ───────────────────────────────────────── */}
-          <SidebarSection
-            title="Hendelse"
-            action={
-              <ActionFeedbackButton
-                label="Tilbakestill"
-                activeLabel="Tilbakestilt!"
-                onClick={() => chartFiltersRef.current?.resetFilters(false)}
-                className="text-(--ax-text-danger)!"
+          {isSidebarLoading ? (
+            <div className="px-1 py-2 max-w-[180px]">
+              <span id="grafbygger-loading-progress" className="sr-only">Laster data</span>
+              <ProgressBar
+                value={fakeProgress}
+                valueMax={12}
+                size="small"
+                aria-labelledby="grafbygger-loading-progress"
               />
-            }
-          >
-            {config.website && dateRangeReady ? (
-              <EventFilter
-                ref={chartFiltersRef}
-                filters={filters}
-                parameters={parameters}
-                setFilters={setFilters}
-                availableEvents={availableEvents}
-                onEnableCustomEvents={(withParams = false) => {
-                  setRequestLoadEvents(true);
-                  if (withParams) {
+            </div>
+          ) : !config.website ? (
+            <div className="px-1 py-2 text-sm text-(--ax-text-subtle)">Velg nettside og datoperiode først.</div>
+          ) : (
+            <>
+              {/* ── Hendelse ───────────────────────────────────────── */}
+              <SidebarSection
+                title="Hendelse"
+                action={
+                  <ActionFeedbackButton
+                    label="Tilbakestill"
+                    activeLabel="Tilbakestilt!"
+                    onClick={() => chartFiltersRef.current?.resetFilters(false)}
+                    className="text-(--ax-text-danger)!"
+                  />
+                }
+              >
+                <EventFilter
+                  ref={chartFiltersRef}
+                  filters={filters}
+                  parameters={parameters}
+                  setFilters={setFilters}
+                  availableEvents={availableEvents}
+                  onEnableCustomEvents={(withParams = false) => {
+                    setRequestLoadEvents(true);
+                    if (withParams) {
+                      setRequestIncludeParams(true);
+                    }
+                  }}
+                  dateRangeInDays={dateRangeInDays}
+                  onDateRangeInDaysChange={(days) => {
+                    setDateRangeInDays(days);
+                    setRequestLoadEvents(true);
+                  }}
+                  isEventsLoading={isEventsLoading}
+                />
+              </SidebarSection>
+
+              {/* ── Målt som ───────────────────────────────────────── */}
+              <SidebarSection
+                title="Målt som..."
+                action={
+                  <ActionFeedbackButton
+                    label="Tilbakestill"
+                    activeLabel="Tilbakestilt!"
+                    onClick={() => summarizeRef.current?.resetConfig(false)}
+                    className="text-(--ax-text-danger)!"
+                  />
+                }
+              >
+                <MetricSelector
+                  ref={summarizeRef}
+                  metrics={config.metrics}
+                  parameters={parameters}
+                  METRICS={METRICS}
+                  COLUMN_GROUPS={FILTER_COLUMNS}
+                  getMetricColumns={getMetricColumns}
+                  sanitizeColumnName={sanitizeColumnName}
+                  updateMetric={(index, updates) => updateMetric(index, updates)}
+                  removeMetric={removeMetric}
+                  addMetric={addMetric}
+                  moveMetric={moveMetric}
+                  filters={filters}
+                  availableEvents={availableEvents}
+                  isEventsLoading={isEventsLoading}
+                />
+              </SidebarSection>
+
+              {/* ── Gruppert etter ─────────────────────────────────── */}
+              <SidebarSection
+                title="Gruppert etter..."
+                action={
+                  <ActionFeedbackButton
+                    label="Tilbakestill"
+                    activeLabel="Tilbakestilt!"
+                    onClick={() => setConfig(prev => ({ ...prev, groupByFields: [] }))}
+                    className="text-(--ax-text-danger)!"
+                  />
+                }
+              >
+                <GroupingOptions
+                  groupByFields={config.groupByFields}
+                  parameters={parameters}
+                  dateFormat={config.dateFormat}
+                  DATE_FORMATS={DATE_FORMATS}
+                  COLUMN_GROUPS={FILTER_COLUMNS}
+                  sanitizeColumnName={sanitizeColumnName}
+                  addGroupByField={addGroupByField}
+                  removeGroupByField={removeGroupByField}
+                  moveGroupField={moveGroupField}
+                  setDateFormat={(format) => setConfig(prev => ({
+                    ...prev,
+                    dateFormat: format
+                  }))}
+                  filters={filters}
+                  onEnableCustomEvents={() => {
+                    if (chartFiltersRef.current) {
+                      chartFiltersRef.current.enableCustomEvents();
+                    }
+                    setRequestLoadEvents(true);
                     setRequestIncludeParams(true);
-                  }
-                }}
-                dateRangeInDays={dateRangeInDays}
-                onDateRangeInDaysChange={(days) => {
-                  setDateRangeInDays(days);
-                  setRequestLoadEvents(true);
-                }}
-                isEventsLoading={isEventsLoading}
-              />
-            ) : (
-              <p className="text-sm text-(--ax-text-subtle)">Velg nettside og datoperiode først.</p>
-            )}
-          </SidebarSection>
+                  }}
+                  isEventsLoading={isEventsLoading}
+                />
+              </SidebarSection>
 
-          {/* ── Målt som ───────────────────────────────────────── */}
-          <SidebarSection
-            title="Målt som..."
-            action={
-              <ActionFeedbackButton
-                label="Tilbakestill"
-                activeLabel="Tilbakestilt!"
-                onClick={() => summarizeRef.current?.resetConfig(false)}
-                className="text-(--ax-text-danger)!"
-              />
-            }
-          >
-            {config.website && dateRangeReady ? (
-              <MetricSelector
-                ref={summarizeRef}
-                metrics={config.metrics}
-                parameters={parameters}
-                METRICS={METRICS}
-                COLUMN_GROUPS={FILTER_COLUMNS}
-                getMetricColumns={getMetricColumns}
-                sanitizeColumnName={sanitizeColumnName}
-                updateMetric={(index, updates) => updateMetric(index, updates)}
-                removeMetric={removeMetric}
-                addMetric={addMetric}
-                moveMetric={moveMetric}
-                filters={filters}
-                availableEvents={availableEvents}
-                isEventsLoading={isEventsLoading}
-              />
-            ) : (
-              <p className="text-sm text-(--ax-text-subtle)">Velg nettside og datoperiode først.</p>
-            )}
-          </SidebarSection>
-
-          {/* ── Gruppert etter ─────────────────────────────────── */}
-          <SidebarSection
-            title="Gruppert etter..."
-            action={
-              <ActionFeedbackButton
-                label="Tilbakestill"
-                activeLabel="Tilbakestilt!"
-                onClick={() => setConfig(prev => ({ ...prev, groupByFields: [] }))}
-                className="text-(--ax-text-danger)!"
-              />
-            }
-          >
-            {config.website && dateRangeReady ? (
-              <GroupingOptions
-                groupByFields={config.groupByFields}
-                parameters={parameters}
-                dateFormat={config.dateFormat}
-                DATE_FORMATS={DATE_FORMATS}
-                COLUMN_GROUPS={FILTER_COLUMNS}
-                sanitizeColumnName={sanitizeColumnName}
-                addGroupByField={addGroupByField}
-                removeGroupByField={removeGroupByField}
-                moveGroupField={moveGroupField}
-                setDateFormat={(format) => setConfig(prev => ({
-                  ...prev,
-                  dateFormat: format
-                }))}
-                filters={filters}
-                onEnableCustomEvents={() => {
-                  if (chartFiltersRef.current) {
-                    chartFiltersRef.current.enableCustomEvents();
-                  }
-                  setRequestLoadEvents(true);
-                  setRequestIncludeParams(true);
-                }}
-                isEventsLoading={isEventsLoading}
-              />
-            ) : (
-              <p className="text-sm text-(--ax-text-subtle)">Velg nettside og datoperiode først.</p>
-            )}
-          </SidebarSection>
-
-          {/* ── Visningsalternativer ───────────────────────────── */}
-          <SidebarSection
-            title="Visningsalternativer"
-            action={
-              <ActionFeedbackButton
-                label="Tilbakestill"
-                activeLabel="Tilbakestilt!"
-                onClick={() => displayOptionsRef.current?.resetOptions(false)}
-                className="text-(--ax-text-danger)!"
-              />
-            }
-          >
-            {config.website && dateRangeReady ? (
-              <DisplayOptions
-                ref={displayOptionsRef}
-                groupByFields={config.groupByFields}
-                orderBy={config.orderBy}
-                columnOrderMode={config.columnOrderMode || 'default'}
-                paramAggregation={config.paramAggregation}
-                limit={config.limit}
-                COLUMN_GROUPS={FILTER_COLUMNS}
-                setOrderBy={setOrderBy}
-                clearOrderBy={clearOrderBy}
-                setDateFormat={(format) => setConfig(prev => ({
-                  ...prev,
-                  dateFormat: format
-                }))}
-                setParamAggregation={setParamAggregation}
-                setLimit={setLimit}
-                setColumnOrderMode={setColumnOrderMode}
-                metrics={config.metrics}
-                filters={filters}
-                setFilters={setFilters}
-                maxDaysAvailable={maxDaysAvailable}
-                interactiveMode={interactiveDateFilterEnabled}
-                setInteractiveMode={setInteractiveDateFilterEnabled}
-              />
-            ) : (
-              <p className="text-sm text-(--ax-text-subtle)">Velg nettside og datoperiode først.</p>
-            )}
-          </SidebarSection>
+              {/* ── Visningsalternativer ───────────────────────────── */}
+              <SidebarSection
+                title="Visningsalternativer"
+                action={
+                  <ActionFeedbackButton
+                    label="Tilbakestill"
+                    activeLabel="Tilbakestilt!"
+                    onClick={() => displayOptionsRef.current?.resetOptions(false)}
+                    className="text-(--ax-text-danger)!"
+                  />
+                }
+              >
+                <DisplayOptions
+                  ref={displayOptionsRef}
+                  groupByFields={config.groupByFields}
+                  orderBy={config.orderBy}
+                  columnOrderMode={config.columnOrderMode || 'default'}
+                  paramAggregation={config.paramAggregation}
+                  limit={config.limit}
+                  COLUMN_GROUPS={FILTER_COLUMNS}
+                  setOrderBy={setOrderBy}
+                  clearOrderBy={clearOrderBy}
+                  setDateFormat={(format) => setConfig(prev => ({
+                    ...prev,
+                    dateFormat: format
+                  }))}
+                  setParamAggregation={setParamAggregation}
+                  setLimit={setLimit}
+                  setColumnOrderMode={setColumnOrderMode}
+                  metrics={config.metrics}
+                  filters={filters}
+                  setFilters={setFilters}
+                  maxDaysAvailable={maxDaysAvailable}
+                  interactiveMode={interactiveDateFilterEnabled}
+                  setInteractiveMode={setInteractiveDateFilterEnabled}
+                />
+              </SidebarSection>
+            </>
+          )}
         </>
       }
     >

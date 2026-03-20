@@ -141,6 +141,12 @@
   grid-column: span 1;
 }
 
+.website-picker-combobox [role="listbox"],
+.website-picker-combobox [role="option"] {
+  animation: none !important;
+  transition: none !important;
+}
+
 @media (max-width: 768px) {
   .bottom-grid {
     grid-template-columns: 1fr !important;
