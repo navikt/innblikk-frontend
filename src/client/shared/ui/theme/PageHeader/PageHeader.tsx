@@ -52,7 +52,7 @@ export const PageHeader = ({
                     </div>
 
                     {description && (
-                        <div className="text-[var(--ax-text-neutral-subtle)] md:col-start-1 md:col-span-2 md:row-start-2">
+                        <div className={`text-[var(--ax-text-neutral-subtle)] md:col-start-1 md:row-start-2 ${actions ? "md:col-span-1" : "md:col-span-2"}`}>
                             {typeof description === "string" ? (
                                 isArticle ? (
                                     <BodyLong size="large">{description}</BodyLong>
