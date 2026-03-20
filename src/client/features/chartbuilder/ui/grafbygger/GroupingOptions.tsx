@@ -253,6 +253,22 @@ const GroupingOptions = ({
                                 >
                                   {option.label}
                                 </Checkbox>
+                                {option.value === 'created_at' && groupByFields.includes('created_at') && (
+                                  <div className="mt-2 ml-6">
+                                    <Select
+                                      label="Visning per"
+                                      value={dateFormat || 'day'}
+                                      onChange={(e) => setDateFormat(e.target.value)}
+                                      size="small"
+                                    >
+                                      {DATE_FORMATS.map(format => (
+                                        <option key={format.value} value={format.value}>
+                                          {format.label}
+                                        </option>
+                                      ))}
+                                    </Select>
+                                  </div>
+                                )}
                               </li>
                             ))}
                           </ul>
@@ -279,23 +295,6 @@ const GroupingOptions = ({
                   >
                     {isLoadingParams || isEventsLoading ? 'Henter hendelsesdetaljer...' : 'Hent hendelsesdetaljer'}
                   </Button>
-                </div>
-              )}
-              {/* Date format selector — shown below the combobox when created_at is selected */}
-              {groupByFields.includes('created_at') && (
-                <div className="mt-2">
-                  <Select
-                    label="Gruppert etter dato"
-                    value={dateFormat || 'day'}
-                    onChange={(e) => setDateFormat(e.target.value)}
-                    size="small"
-                  >
-                    {DATE_FORMATS.map(format => (
-                      <option key={format.value} value={format.value}>
-                        {format.label}
-                      </option>
-                    ))}
-                  </Select>
                 </div>
               )}
             </div>
