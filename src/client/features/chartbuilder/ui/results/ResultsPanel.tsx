@@ -331,9 +331,15 @@ const ResultsPanel = ({
                     const value = row[key];
                     const translatedValue = translateValue(key, value);
                     const clickable = isClickablePath(value);
+                    const isUnknownValue = translatedValue === null
+                      || translatedValue === undefined
+                      || (typeof translatedValue === 'string'
+                        && (translatedValue.trim() === '' || translatedValue.trim() === '-'));
 
                     // Format the display value
-                    const displayValue = typeof translatedValue === 'number'
+                    const displayValue = isUnknownValue
+                      ? '(ukjent)'
+                      : typeof translatedValue === 'number'
                       ? translatedValue.toLocaleString('nb-NO')
                       : translatedValue !== null && translatedValue !== undefined
                         ? (typeof translatedValue === 'object'
@@ -345,7 +351,7 @@ const ResultsPanel = ({
                                 : String(translatedValue.value))
                               : JSON.stringify(translatedValue)))
                           : String(translatedValue))
-                        : '-';
+                        : '(ukjent)';
 
                     return (
                       <td
