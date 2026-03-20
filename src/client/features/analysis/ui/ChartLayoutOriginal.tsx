@@ -1,5 +1,5 @@
 import React from 'react';
-import { Select } from "@navikt/ds-react";
+import { Select, VStack } from "@navikt/ds-react";
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { type AnalyticsPage, analyticsPages } from '../model/analyticsNavigation.ts';
 import { chartGroupsOriginal } from '../model/chartGroups.tsx';
@@ -51,7 +51,7 @@ const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
                         {isSidebarOpen && (
                             <>
                                 <div className={`bg-[var(--ax-bg-accent-soft)] w-full ${sidebarWidth} p-6 border-b border-[var(--ax-border-neutral-subtle)] md:border-0 md:shadow-[inset_-1px_0_0_var(--ax-border-neutral-subtle)]`}>
-                                    <div className="space-y-6">
+                                    <VStack gap="space-32">
                                         {!hideAnalysisSelector && (
                                             <div className="pb-2">
                                                 <Select
@@ -88,7 +88,7 @@ const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
                                             </div>
                                         )}
                                         {filters}
-                                    </div>
+                                    </VStack>
                                 </div>
                                 {/* Collapse button on divider - hidden on mobile */}
                                 <button

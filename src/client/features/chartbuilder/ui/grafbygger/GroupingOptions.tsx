@@ -1,5 +1,4 @@
-import { Button, Heading, Select, Label, Switch, HelpText } from '@navikt/ds-react';
-import GroupedCombobox from '../../../../shared/ui/GroupedCombobox.tsx';
+import { Accordion, Checkbox, Button, Select, Label, Switch } from '@navikt/ds-react';
 import { MoveUp, MoveDown } from 'lucide-react';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import type {
@@ -23,7 +22,6 @@ interface GroupingOptionsProps {
   setDateFormat: (format: string) => void;
   filters: Filter[];
   onEnableCustomEvents?: () => void;
-  hideHeader?: boolean;
   isEventsLoading?: boolean;
 }
 
@@ -40,7 +38,6 @@ const GroupingOptions = ({
   setDateFormat,
   filters,
   onEnableCustomEvents,
-  hideHeader = false,
   isEventsLoading = false
 }: GroupingOptionsProps) => {
   const [showReorderGroupings, setShowReorderGroupings] = useState<boolean>(false);
@@ -211,13 +208,6 @@ const GroupingOptions = ({
 
   return (
     <>
-      {!hideHeader && (
-        <div className="mb-4">
-          <Heading level="2" size="small">
-            Gruppert etter...
-          </Heading>
-        </div>
-      )}
       <div>
         {eventNameWarning && (
           <div className="mb-4">
@@ -238,24 +228,40 @@ const GroupingOptions = ({
 
         <div className="space-y-4 mb-6">
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Heading level="2" size="xsmall">
-                Gruppert etter...
-              </Heading>
-              <HelpText title="Hva er en gruppering?">
-                Legg til en eller flere grupperinger, disse vises som kolonner i tabeller.
-              </HelpText>
-            </div>
             <div>
-              <GroupedCombobox
-                label="Velg grupperinger"
-                hideLabel
-                isMultiSelect
-                groups={comboboxGroups}
-                selectedOptions={groupByFields}
-                onToggleSelected={(optionValue) => handleToggleGroupField(optionValue)}
-                placeholder="Søk etter grupperinger..."
-              />
+              <Accordion size="small" indent={false}>
+                {comboboxGroups.map(group => {
+                  const selectedInGroup = group.options.filter(o =>
+                    groupByFields.includes(o.value)
+                  ).length;
+                  return (
+                    <Accordion.Item key={group.key}>
+                      <Accordion.Header>
+                        {selectedInGroup > 0 ? `${group.label} (${selectedInGroup})` : group.label}
+                      </Accordion.Header>
+                      <Accordion.Content>
+                        {group.options.length === 0 && group.emptyPlaceholder ? (
+                          <p className="text-xs text-(--ax-text-subtle) italic">{group.emptyPlaceholder}</p>
+                        ) : (
+                          <ul className="list-none m-0 p-0 flex flex-col gap-1">
+                            {group.options.map(option => (
+                              <li key={option.value}>
+                                <Checkbox
+                                  size="small"
+                                  checked={groupByFields.includes(option.value)}
+                                  onChange={() => handleToggleGroupField(option.value)}
+                                >
+                                  {option.label}
+                                </Checkbox>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </Accordion.Content>
+                    </Accordion.Item>
+                  );
+                })}
+              </Accordion>
               {/* "Hent hendelsesdetaljer" CTA — shown when the Hendelser group has no params yet */}
               {groupedGroupingOptions.some(g => g.isEventDetailsEmpty) && (
                 <div className="mt-2">

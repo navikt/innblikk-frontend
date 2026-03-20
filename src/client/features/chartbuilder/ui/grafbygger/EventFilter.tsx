@@ -1,8 +1,6 @@
-import { Button, Heading } from '@navikt/ds-react';
 import { useMemo, useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import type { Filter, Parameter } from '../../../../shared/types/chart.ts';
 import { FILTER_COLUMNS, OPERATORS } from '../../../../shared/lib/constants.ts';
-import AlertWithCloseButton from './AlertWithCloseButton.tsx';
 import EventSelector from './EventSelector.tsx';
 
 // Event type options for the dropdown
@@ -20,7 +18,7 @@ interface ChartFiltersProps {
   onEnableCustomEvents?: (withParams?: boolean) => void;
   dateRangeInDays?: number;
   onDateRangeInDaysChange?: (days: number) => void;
-  hideHeader?: boolean;
+
   isEventsLoading?: boolean;
 }
 
@@ -32,7 +30,6 @@ const EventFilter = forwardRef(({
   onEnableCustomEvents,
   dateRangeInDays = 7,
   onDateRangeInDaysChange,
-  hideHeader = false,
   isEventsLoading = false
 }: ChartFiltersProps, ref) => {
   // Change to store array instead of single string
@@ -49,12 +46,6 @@ const EventFilter = forwardRef(({
   // Add these new state variables
   const [pageViewsMode, setPageViewsMode] = useState<'all' | 'specific' | 'interactive'>('interactive');
   const [customEventsMode, setCustomEventsMode] = useState<'none' | 'all' | 'specific' | 'interactive'>('none');
-
-  // Add alert state
-  const [alertInfo, setAlertInfo] = useState<{ show: boolean, message: string }>({
-    show: false,
-    message: ''
-  });
 
   // Add a separate alert state for staging area
   const [stagingAlertInfo, setStagingAlertInfo] = useState<{ show: boolean, message: string }>({
@@ -481,26 +472,7 @@ const EventFilter = forwardRef(({
         clearTimeout(alertTimeoutRef.current);
         alertTimeoutRef.current = null;
       }
-
-      setAlertInfo({
-        show: true,
-        message: 'Alle filtre ble tilbakestilt'
-      });
-
-      alertTimeoutRef.current = setTimeout(() => {
-        setAlertInfo(prev => ({ ...prev, show: false }));
-        alertTimeoutRef.current = null;
-      }, 4000);
     }
-  };
-
-  // Add handlers for alert close
-  const handleAlertClose = () => {
-    if (alertTimeoutRef.current) {
-      clearTimeout(alertTimeoutRef.current);
-      alertTimeoutRef.current = null;
-    }
-    setAlertInfo(prev => ({ ...prev, show: false }));
   };
 
   const handleStagingAlertClose = () => {
@@ -536,38 +508,8 @@ const EventFilter = forwardRef(({
 
   return (
     <section>
-      {!hideHeader && (
-        <div className="flex justify-between items-center">
-          <Heading level="2" size="small" spacing>
-            Hvilke hendelser vil du inkludere?
-          </Heading>
-
-          {/* Add reset button next to the heading */}
-          <Button
-            variant="tertiary"
-            size="small"
-            onClick={() => resetFilters(false)} // Explicitly pass false to show alert
-            className="mb-2"
-          >
-            Tilbakestill filtre
-          </Button>
-        </div>
-      )}
-
       <div className="space-y-6 relative">
         <div>
-          {/* Show alert if it's active */}
-          {alertInfo.show && (
-            <div className="mb-4">
-              <AlertWithCloseButton
-                variant="success"
-                onClose={handleAlertClose}
-              >
-                {alertInfo.message}
-              </AlertWithCloseButton>
-            </div>
-          )}
-
           {/* Replace the Velg hendelse section with EventSelector component */}
           <EventSelector
             selectedEventTypes={selectedEventTypes}

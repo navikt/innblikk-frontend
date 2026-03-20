@@ -1,12 +1,11 @@
-import { Button, Heading, Select, TextField, Switch, ReadMore } from '@navikt/ds-react';
-import { useState, useEffect, forwardRef, useImperativeHandle, useRef } from 'react';
+import { Select, TextField, Switch } from '@navikt/ds-react';
+import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import type {
   ColumnGroup,
   OrderBy,
   Metric,
   Filter
 } from '../../../../shared/types/chart.ts';
-import AlertWithCloseButton from './AlertWithCloseButton.tsx';
 import DateRangeSelector from './DateRangeSelector.tsx';
 
 interface DisplayOptionsProps {
@@ -26,7 +25,7 @@ interface DisplayOptionsProps {
   filters: Filter[];
   setFilters: (filters: Filter[]) => void;
   maxDaysAvailable: number;
-  hideHeader?: boolean;
+
   interactiveMode: boolean;
   setInteractiveMode: (mode: boolean) => void;
 }
@@ -47,22 +46,16 @@ const DisplayOptions = forwardRef(({
   filters,
   setFilters,
   maxDaysAvailable,
-  hideHeader = false,
   interactiveMode,
   setInteractiveMode
 }: DisplayOptionsProps, ref) => {
   const [showCustomSort, setShowCustomSort] = useState<boolean>(false);
   const [showCustomLimit, setShowCustomLimit] = useState<boolean>(false);
-  const [alertInfo, setAlertInfo] = useState<{ show: boolean, message: string }>({
-    show: false,
-    message: ''
-  });
   const [limitInput, setLimitInput] = useState<string>('');
   const [customPeriodInputs, setCustomPeriodInputs] = useState<Record<number, { amount: string, unit: string }>>({});
   const [selectedDateRange, setSelectedDateRange] = useState<string>('last7days');
-  const alertTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const resetOptions = (silent = false) => {
+  const resetOptions = (_silent = false) => {
     clearOrderBy();
     setDateFormat('day');
     setLimit(1000);
@@ -71,40 +64,7 @@ const DisplayOptions = forwardRef(({
     setShowCustomSort(false);
     setShowCustomLimit(false);
     setLimitInput('1000');
-
-    if (!silent) {
-      if (alertTimeoutRef.current) {
-        clearTimeout(alertTimeoutRef.current);
-        alertTimeoutRef.current = null;
-      }
-
-      setAlertInfo({
-        show: true,
-        message: 'Alle visningsvalg ble tilbakestilt'
-      });
-
-      alertTimeoutRef.current = setTimeout(() => {
-        setAlertInfo(prev => ({ ...prev, show: false }));
-        alertTimeoutRef.current = null;
-      }, 4000);
-    }
   };
-
-  const handleAlertClose = () => {
-    if (alertTimeoutRef.current) {
-      clearTimeout(alertTimeoutRef.current);
-      alertTimeoutRef.current = null;
-    }
-    setAlertInfo(prev => ({ ...prev, show: false }));
-  };
-
-  useEffect(() => {
-    return () => {
-      if (alertTimeoutRef.current) {
-        clearTimeout(alertTimeoutRef.current);
-      }
-    };
-  }, []);
 
   useImperativeHandle(ref, () => ({
     resetOptions
@@ -116,35 +76,7 @@ const DisplayOptions = forwardRef(({
 
   return (
     <>
-      {!hideHeader && (
-        <div className="flex justify-between items-center mb-4">
-          <Heading level="2" size="small">
-            Hvordan vil du vise resultatene?
-          </Heading>
-
-          <Button
-            variant="tertiary"
-            size="small"
-            onClick={() => resetOptions(false)}
-          >
-            Tilbakestill visningsvalg
-          </Button>
-        </div>
-      )}
-
-      {alertInfo.show && (
-        <div className="mb-4">
-          <AlertWithCloseButton
-            variant="success"
-            onClose={handleAlertClose}
-          >
-            {alertInfo.message}
-          </AlertWithCloseButton>
-        </div>
-      )}
-
-      <ReadMore header="Visningsvalg" size="medium">
-        <div className="flex flex-col gap-4 pb-4 pt-2">
+      <div className="flex flex-col gap-4 pb-2">
           <Switch
             size="small"
             description={interactiveMode
@@ -291,7 +223,6 @@ const DisplayOptions = forwardRef(({
             Bytt kolonnerekkefølge
           </Switch>
         </div>
-      </ReadMore>
     </>
   );
 });

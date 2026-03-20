@@ -1,8 +1,6 @@
-import { Button, Heading, Select, TextField, HelpText, Label, Switch, UNSAFE_Combobox } from '@navikt/ds-react';
-import GroupedCombobox from '../../../../shared/ui/GroupedCombobox.tsx';
+import { Button, Select, TextField, Label, Switch, UNSAFE_Combobox, Accordion, Checkbox } from '@navikt/ds-react';
 import { MoveUp, MoveDown } from 'lucide-react';
-import { useState, useEffect, forwardRef, useImperativeHandle, useRef, useMemo } from 'react';
-import type {
+import { useState, useEffect, forwardRef, useImperativeHandle, useMemo } from 'react';import type {
   Parameter,
   Metric,
   MetricOption,
@@ -10,7 +8,6 @@ import type {
   Filter,
   ColumnGroup
 } from '../../../../shared/types/chart.ts';
-import AlertWithCloseButton from './AlertWithCloseButton.tsx';
 
 interface SummarizeProps {
   metrics: Metric[];
@@ -24,7 +21,7 @@ interface SummarizeProps {
   addMetric: (metricFunction: string, initialUpdates?: Partial<Metric>) => void;
   moveMetric: (index: number, direction: 'up' | 'down') => void;
   filters: Filter[];
-  hideHeader?: boolean;
+
   availableEvents?: string[];
   isEventsLoading?: boolean;
 }
@@ -40,7 +37,6 @@ const MetricSelector = forwardRef(({
   removeMetric,
   addMetric,
   moveMetric,
-  hideHeader = false,
   availableEvents = [],
   isEventsLoading = false
 }: SummarizeProps, ref) => {
@@ -55,13 +51,6 @@ const MetricSelector = forwardRef(({
     defaultColumn?: string;
     mode: 'preset' | 'function';
   };
-
-  const [alertInfo, setAlertInfo] = useState<{ show: boolean, message: string }>({
-    show: false,
-    message: ''
-  });
-
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [editingMetrics, setEditingMetrics] = useState<number[]>([]);
   const [showActiveMetrics, setShowActiveMetrics] = useState<boolean>(false);
@@ -84,44 +73,11 @@ const MetricSelector = forwardRef(({
 
   const uniqueParameters = getUniqueParameters(parameters);
 
-  const resetConfig = (silent = false) => {
+  const resetConfig = (_silent = false) => {
     const metricsCopy = [...metrics];
     metricsCopy.forEach(() => {
       removeMetric(0);
     });
-
-    if (!silent) {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-
-      setAlertInfo({
-        show: true,
-        message: 'Alle målinger ble tilbakestilt'
-      });
-
-      timeoutRef.current = setTimeout(() => {
-        setAlertInfo(prev => ({ ...prev, show: false }));
-        timeoutRef.current = null;
-      }, 4000);
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, []);
-
-  const handleAlertClose = () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-    setAlertInfo(prev => ({ ...prev, show: false }));
   };
 
   useEffect(() => {
@@ -476,55 +432,44 @@ const MetricSelector = forwardRef(({
 
   return (
     <>
-      {!hideHeader && (
-        <div className="flex justify-end items-center mb-4">
-          <Button
-            variant="tertiary"
-            size="small"
-            onClick={() => resetConfig(false)}
-          >
-            Tilbakestill målinger
-          </Button>
-        </div>
-      )}
       <div>
-        {alertInfo.show && (
-          <div className="mb-4">
-            <AlertWithCloseButton
-              variant="success"
-              onClose={handleAlertClose}
-            >
-              {alertInfo.message}
-            </AlertWithCloseButton>
-          </div>
-        )}
-
         <div>
-          <div className="flex items-center gap-2 mb-4">
-            <Heading level="2" size="xsmall" >
-              Målt som...
-            </Heading>
-            <HelpText title="Hva er en måling?">
-              Legg til en eller flere målinger, disse vises som kolonner i tabeller og grafer.
-            </HelpText>
-          </div>
-
           <div className="space-y-4">
             <div>
-              <GroupedCombobox
-                label="Velg målinger"
-                hideLabel
-                isMultiSelect
-                groups={comboboxGroups}
-                selectedOptions={selectedDropdownOptions.map(o => o.id)}
-                onToggleSelected={(optionValue) => {
-                  const option = moreMetricGroups
-                    .flatMap(g => g.options)
-                    .find(o => o.id === optionValue);
-                  if (option) toggleDropdownMetricOption(option);
-                }}
-                placeholder="Søk etter målinger..."
-              />
+              <Accordion size="small" indent={false}>
+                {comboboxGroups.map(group => {
+                  const selectedInGroup = group.options.filter(o =>
+                    selectedDropdownOptions.some(s => s.id === o.value)
+                  ).length;
+                  return (
+                    <Accordion.Item key={group.key}>
+                      <Accordion.Header>
+                        {selectedInGroup > 0 ? `${group.label} (${selectedInGroup})` : group.label}
+                      </Accordion.Header>
+                      <Accordion.Content>
+                        <ul className="list-none m-0 p-0 flex flex-col gap-1">
+                          {group.options.map(option => (
+                            <li key={option.value}>
+                              <Checkbox
+                                size="small"
+                                checked={selectedDropdownOptions.some(o => o.id === option.value)}
+                                onChange={() => {
+                                  const found = moreMetricGroups
+                                    .flatMap(g => g.options)
+                                    .find(o => o.id === option.value);
+                                  if (found) toggleDropdownMetricOption(found);
+                                }}
+                              >
+                                {option.label}
+                              </Checkbox>
+                            </li>
+                          ))}
+                        </ul>
+                      </Accordion.Content>
+                    </Accordion.Item>
+                  );
+                })}
+              </Accordion>
               {/* Warn about metrics that need further configuration */}
               {selectedDropdownOptions.some(o => dropdownOptionNeedsInput(o)) && (
                 <div className="mt-2 rounded-md border border-(--ax-border-accent) bg-(--ax-bg-accent-soft) px-3 py-2 text-sm">
