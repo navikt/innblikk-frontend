@@ -499,7 +499,7 @@ const MetricSelector = forwardRef(({
         <div>
           <div className="flex items-center gap-2 mb-4">
             <Heading level="2" size="xsmall" >
-              Vis...
+              Målt som...
             </Heading>
             <HelpText title="Hva er en måling?">
               Legg til en eller flere målinger, disse vises som kolonner i tabeller og grafer.
