@@ -27,6 +27,7 @@ export function useChartConfig() {
   const [config, setConfig] = useState<ChartConfig>({
     website: null,
     filters: [],
+    segments: [],
     metrics: [],
     groupByFields: [],
     orderBy: null,
@@ -64,6 +65,11 @@ export function useChartConfig() {
 
   // Create a function to calculate the current step based on selections
   const calculateCurrentStep = useCallback(() => {
+    const hasSegmentRules = (config.segments || []).length > 1 || (config.segments || []).some(segment =>
+      (segment.filters?.length || 0) > 0 ||
+      ((segment.performed?.events?.length || 0) > 0)
+    );
+
     if (!config.website) {
       return 1;
     }
@@ -72,12 +78,12 @@ export function useChartConfig() {
       return 2;
     }
 
-    if (filters.length === 0) {
+    if (filters.length === 0 && !hasSegmentRules) {
       return 3;
     }
 
     return 4;
-  }, [config.website, filters.length, hasUserSelectedMetrics, config.groupByFields.length]);
+  }, [config.website, filters.length, hasUserSelectedMetrics, config.groupByFields.length, config.segments]);
 
   // Update the step whenever relevant data changes
   useEffect(() => {
@@ -260,6 +266,7 @@ export function useChartConfig() {
       ...prev,
       website: null,
       metrics: [],
+      segments: [],
       groupByFields: [],
       orderBy: null,
       columnOrderMode: 'default'
@@ -488,6 +495,7 @@ export function useChartConfig() {
         ...prev,
         website,
         metrics: [],
+        segments: [],
         groupByFields: [],
         orderBy: null,
         columnOrderMode: 'default'

@@ -11,6 +11,18 @@ export interface Filter {
   interactive?: boolean; // Add this for interactive mode filters
 }
 
+export interface SegmentPerformed {
+  operator: 'IN' | '=' | 'LIKE' | 'STARTS_WITH' | 'ENDS_WITH';
+  events: string[];
+}
+
+export interface SegmentDefinition {
+  id: number;
+  name: string;
+  filters: Filter[];
+  performed?: SegmentPerformed | null;
+}
+
 export interface Parameter {
   key: string;
   type: 'string' | 'number';
@@ -61,6 +73,7 @@ export type { Website };
 export interface ChartConfig {
   website: Website | null;
   filters: Filter[];
+  segments?: SegmentDefinition[];
   metrics: Metric[];
   groupByFields: string[];
   orderBy: { column: string; direction: 'ASC' | 'DESC' } | null;

@@ -384,10 +384,27 @@ const QueryPreview = ({
       return !isNaN(parsed.getTime()) ? parsed : fallback;
     };
 
+    const isDateLikeValue = (value: unknown): boolean => {
+      if (typeof value !== 'string') return false;
+      if (/^\d{4}-\d{2}-\d{2}/.test(value)) return true;
+      const parsed = new Date(value);
+      return !isNaN(parsed.getTime());
+    };
+
     if (keys.length === 3) {
-      const xKey = keys[0];
-      const seriesKey = keys[1];
-      const yKey = keys[2];
+      const isNumericColumn = (key: string): boolean => data.every((row: Record<string, unknown>) => {
+        const value = row[key];
+        if (value === null || value === undefined || value === '') return true;
+        return Number.isFinite(Number(value));
+      });
+
+      const yKey = keys.find(key => isNumericColumn(key)) || keys[2];
+      const dimensionKeys = keys.filter(key => key !== yKey);
+      const xKey =
+        dimensionKeys.find(key => ['dato', 'date', 'created_at'].includes(key.toLowerCase())) ||
+        dimensionKeys.find(key => data.some((row: Record<string, unknown>) => isDateLikeValue(row[key]))) ||
+        dimensionKeys[0];
+      const seriesKey = dimensionKeys.find(key => key !== xKey) || dimensionKeys[1] || dimensionKeys[0];
 
       const seriesMap = new Map<string, Array<{ x: Date | number; y: number; xAxisCalloutData: string; yAxisCalloutData: string }>>();
 
@@ -411,7 +428,11 @@ const QueryPreview = ({
       const colors = ['#0067C5', '#FF9100', '#06893A', '#C30000', '#634689', '#A8874C', '#005B82', '#E18AAA'];
       const lineChartData = Array.from(seriesMap.entries()).map(([seriesName, points], index) => ({
         legend: seriesName,
-        data: points,
+        data: [...points].sort((a, b) => {
+          const ax = a.x instanceof Date ? a.x.getTime() : Number(a.x);
+          const bx = b.x instanceof Date ? b.x.getTime() : Number(b.x);
+          return ax - bx;
+        }),
         color: colors[index % colors.length],
         lineOptions: { lineBorderWidth: '2' },
       }));

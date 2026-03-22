@@ -25,6 +25,70 @@ export const getDateFilterConditions = (filters: Filter[]): string => {
   return conditions;
 };
 
+const escapeSqlLiteral = (value: string): string => value.replace(/'/g, "''");
+
+const needsQuotedValue = (column: string, value: string): boolean => {
+  return isNaN(Number(value)) ||
+    column === 'event_name' ||
+    column === 'url_path' ||
+    column.includes('_path') ||
+    column.includes('_name');
+};
+
+const buildSegmentFilterCondition = (filter: Filter, tableAlias: string): string | null => {
+  if (filter.column.startsWith('param_')) return null;
+  if (!filter.operator) return null;
+
+  const columnRef = `${tableAlias}.${filter.column}`;
+
+  if (filter.operator === 'IS NULL' || filter.operator === 'IS NOT NULL') {
+    return `${columnRef} ${filter.operator}`;
+  }
+
+  if (filter.operator === 'IN' && filter.multipleValues && filter.multipleValues.length > 0) {
+    const values = filter.multipleValues
+      .map(value => needsQuotedValue(filter.column, value)
+        ? `'${escapeSqlLiteral(value)}'`
+        : value
+      )
+      .join(', ');
+    return `${columnRef} IN (${values})`;
+  }
+
+  if (!filter.value) return null;
+
+  if (filter.operator === 'STARTS_WITH') {
+    return `${columnRef} LIKE '${escapeSqlLiteral(filter.value)}%'`;
+  }
+
+  if (filter.operator === 'ENDS_WITH') {
+    return `${columnRef} LIKE '%${escapeSqlLiteral(filter.value)}'`;
+  }
+
+  if ((filter.operator === 'LIKE' || filter.operator === 'NOT LIKE') && !filter.value.includes('%')) {
+    return `${columnRef} ${filter.operator} '%${escapeSqlLiteral(filter.value)}%'`;
+  }
+
+  const isMetabaseParam = filter.metabaseParam === true ||
+    (typeof filter.value === 'string' && /^\s*\{\{.*\}\}\s*$/.test(filter.value));
+
+  const isTimestampFunction = typeof filter.value === 'string' &&
+    filter.value.toUpperCase().includes('TIMESTAMP(') &&
+    !filter.value.startsWith("'");
+
+  if (isMetabaseParam) {
+    return `${columnRef} ${filter.operator} ${filter.value.trim()}`;
+  }
+
+  const formattedValue = isTimestampFunction
+    ? filter.value.replace(/^['"]|['"]$/g, '')
+    : needsQuotedValue(filter.column, filter.value)
+      ? `'${escapeSqlLiteral(filter.value)}'`
+      : filter.value;
+
+  return `${columnRef} ${filter.operator} ${formattedValue}`;
+};
+
 export const getMetricSQLByType = (
   func: string,
   filters: Filter[],
@@ -248,6 +312,15 @@ export const generateSQLCore = (
   const fullSessionTable = `\`${projectId}.umami_views.session\``;
 
   const hasInteractiveFilters = filters.some(f => f.interactive === true && f.metabaseParam === true);
+  const segmentDefinitions = config.segments || [];
+  const segmentFilters = segmentDefinitions.flatMap(segment => segment.filters || []);
+  const hasSegmentBreakdown = segmentDefinitions.length > 0 && (
+    segmentDefinitions.length > 1 ||
+    segmentDefinitions.some(segment =>
+      (segment.filters?.length || 0) > 0 ||
+      ((segment.performed?.events?.length || 0) > 0)
+    )
+  );
 
   let websiteAlias, sessionAlias, tablePrefix;
   let websiteRef, sessionRef;
@@ -272,11 +345,12 @@ export const generateSQLCore = (
     void sessionAlias;
   }
 
-  const requiredTables = getRequiredTables(config, filters);
+  const allFilters = [...filters, ...segmentFilters];
+  const requiredTables = getRequiredTables(config, allFilters);
   const needsSessionJoin = requiredTables.session;
-  const requiredSessionColumns = getRequiredSessionColumns(config, filters);
+  const requiredSessionColumns = getRequiredSessionColumns(config, allFilters);
 
-  const needsUrlFullpath = filters.some(f => f.column === 'url_fullpath') ||
+  const needsUrlFullpath = allFilters.some(f => f.column === 'url_fullpath') ||
     config.groupByFields.includes('url_fullpath');
 
   const needsVisitDuration = config.metrics.some(m =>
@@ -555,11 +629,60 @@ export const generateSQLCore = (
     }
   });
 
-  sql += ')\n\n';
+  sql += ')\n';
+
+  if (hasSegmentBreakdown) {
+    const segmentQueries = segmentDefinitions.map(segment => {
+      const segmentFilters = segment.filters || [];
+      const segmentConditions = segmentFilters
+        .map(filter => buildSegmentFilterCondition(filter, 'b'))
+        .filter((condition): condition is string => Boolean(condition));
+
+      if (segment.performed && segment.performed.events.length > 0) {
+        const { operator, events } = segment.performed;
+
+        if (operator === 'IN') {
+          const eventList = events
+            .map(event => `'${escapeSqlLiteral(event)}'`)
+            .join(', ');
+          segmentConditions.push(`b.event_name IN (${eventList})`);
+        } else {
+          const selectedEvent = events[0];
+          if (selectedEvent) {
+            if (operator === 'LIKE') {
+              segmentConditions.push(`b.event_name LIKE '%${escapeSqlLiteral(selectedEvent)}%'`);
+            } else if (operator === 'STARTS_WITH') {
+              segmentConditions.push(`b.event_name LIKE '${escapeSqlLiteral(selectedEvent)}%'`);
+            } else if (operator === 'ENDS_WITH') {
+              segmentConditions.push(`b.event_name LIKE '%${escapeSqlLiteral(selectedEvent)}'`);
+            } else {
+              segmentConditions.push(`b.event_name = '${escapeSqlLiteral(selectedEvent)}'`);
+            }
+          }
+        }
+      }
+
+      const whereClause = segmentConditions.length > 0
+        ? segmentConditions.join('\n    AND ')
+        : '1=1';
+
+      return `  SELECT '${escapeSqlLiteral(segment.name)}' AS segment_navn, b.*\n  FROM base_query b\n  WHERE ${whereClause}`;
+    });
+
+    sql += ',\nsegmented_base AS (\n';
+    sql += segmentQueries.join('\n  UNION ALL\n');
+    sql += '\n)\n\n';
+  } else {
+    sql += '\n';
+  }
 
   sql += 'SELECT\n';
   const groupingSelectClauses: string[] = [];
   const metricSelectClauses: string[] = [];
+
+  if (hasSegmentBreakdown) {
+    groupingSelectClauses.push('base_query.segment_navn AS segment');
+  }
 
   config.groupByFields.forEach(field => {
     if (field === 'created_at') {
@@ -617,7 +740,9 @@ export const generateSQLCore = (
 
   sql += '  ' + dedupedSelectClauses.join(',\n  ');
 
-  sql += '\nFROM base_query\n';
+  sql += hasSegmentBreakdown
+    ? '\nFROM segmented_base AS base_query\n'
+    : '\nFROM base_query\n';
 
   if (parameters.length > 0) {
     const needsEventData = config.groupByFields.some(field => field.startsWith('param_')) ||
@@ -684,6 +809,9 @@ export const generateSQLCore = (
 
   if (config.groupByFields.length > 0) {
     const groupByCols: string[] = [];
+    if (hasSegmentBreakdown) {
+      groupByCols.push('base_query.segment_navn');
+    }
     config.groupByFields.forEach(field => {
       if (field === 'created_at') {
         groupByCols.push('dato');
@@ -720,6 +848,8 @@ export const generateSQLCore = (
       sql += groupByCols.join(',\n  ');
       sql += '\n';
     }
+  } else if (hasSegmentBreakdown) {
+    sql += 'GROUP BY\n  base_query.segment_navn\n';
   }
 
   if (config.orderBy && config.orderBy.column && config.orderBy.direction) {

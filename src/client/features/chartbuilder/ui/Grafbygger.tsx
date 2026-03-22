@@ -1,15 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ProgressBar } from '@navikt/ds-react';
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx';
 import QueryPreview from './results/QueryPreview.tsx';
 import EventFilter from './grafbygger/EventFilter.tsx';
 import ChartLayout from '../../analysis/ui/ChartLayoutOriginal.tsx';
 import MetricSelector from './grafbygger/MetricSelector.tsx';
+import SegmentBy, { type SegmentByRef } from './grafbygger/SegmentBy.tsx';
 import GroupingOptions from './grafbygger/GroupingOptions.tsx';
 import DisplayOptions from './grafbygger/DisplayOptions.tsx';
 import AlertWithCloseButton from './grafbygger/AlertWithCloseButton.tsx';
 import SidebarSection from '../../../shared/ui/SidebarSection.tsx';
 import ActionFeedbackButton from '../../../shared/ui/ActionFeedbackButton.tsx';
+import type { SegmentDefinition } from '../../../shared/types/chart.ts';
 import { FILTER_COLUMNS } from '../../../shared/lib/constants.ts';
 import { DATE_FORMATS, METRICS } from '../model/constants.ts';
 import { sanitizeColumnName } from '../utils/sanitize.ts';
@@ -20,6 +22,7 @@ const ChartsPage = () => {
   const [interactiveDateFilterEnabled, setInteractiveDateFilterEnabled] = useState<boolean>(true);
   const [isWebsitePickerInitializing, setIsWebsitePickerInitializing] = useState<boolean>(true);
   const [fakeProgress, setFakeProgress] = useState<number>(1);
+  const segmentByRef = useRef<SegmentByRef>(null);
 
   const {
     config,
@@ -67,6 +70,13 @@ const ChartsPage = () => {
     handleWebsiteChange,
     handleEventsLoad,
   } = useChartConfig();
+
+  const handleSegmentsChange = useCallback((segments: SegmentDefinition[]) => {
+    setConfig(prev => ({
+      ...prev,
+      segments
+    }));
+  }, [setConfig]);
 
   // Keep sidebar sections visible during background event/detail fetches.
   // Only gate on initial website/date readiness.
@@ -186,6 +196,39 @@ const ChartsPage = () => {
                   filters={filters}
                   availableEvents={availableEvents}
                   isEventsLoading={isEventsLoading}
+                />
+              </SidebarSection>
+
+              {/* ── Segmenter etter ────────────────────────────────── */}
+              <SidebarSection
+                title="Segmenter etter..."
+                action={
+                  <ActionFeedbackButton
+                    label="Tilbakestill"
+                    activeLabel="Tilbakestilt!"
+                    size="xsmall"
+                    onClick={() => segmentByRef.current?.resetSegments(false)}
+                    className="text-(--ax-text-danger)! !px-2 !py-1"
+                  />
+                }
+              >
+                <SegmentBy
+                  ref={segmentByRef}
+                  parameters={parameters}
+                  availableEvents={availableEvents}
+                  dateRangeInDays={dateRangeInDays}
+                  onDateRangeInDaysChange={(days) => {
+                    setDateRangeInDays(days);
+                    setRequestLoadEvents(true);
+                  }}
+                  onEnableCustomEvents={(withParams = false) => {
+                    setRequestLoadEvents(true);
+                    if (withParams) {
+                      setRequestIncludeParams(true);
+                    }
+                  }}
+                  isEventsLoading={isEventsLoading}
+                  onSegmentsChange={handleSegmentsChange}
                 />
               </SidebarSection>
 

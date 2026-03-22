@@ -20,6 +20,7 @@ interface ChartFiltersProps {
   onDateRangeInDaysChange?: (days: number) => void;
 
   isEventsLoading?: boolean;
+  mode?: 'full' | 'filter-only';
 }
 
 const EventFilter = forwardRef(({
@@ -30,10 +31,13 @@ const EventFilter = forwardRef(({
   onEnableCustomEvents,
   dateRangeInDays = 7,
   onDateRangeInDaysChange,
-  isEventsLoading = false
+  isEventsLoading = false,
+  mode = 'full'
 }: ChartFiltersProps, ref) => {
   // Change to store array instead of single string
-  const [selectedEventTypes, setSelectedEventTypes] = useState<string[]>(['pageviews']);
+  const [selectedEventTypes, setSelectedEventTypes] = useState<string[]>(
+    mode === 'filter-only' ? [] : ['pageviews']
+  );
   // Add state to track custom events selection
   const [customEvents, setCustomEvents] = useState<string[]>([]);
   // Add state to track selected URL paths
@@ -99,8 +103,8 @@ const EventFilter = forwardRef(({
     if (stagingFilter) {
       let currentFilters = [...filters];
 
-      // Auto-adjust event_type if filtering by specific event_name
-      if (stagingFilter.column === 'event_name') {
+      // Auto-adjust event_type if filtering by specific event_name (full mode only)
+      if (mode === 'full' && stagingFilter.column === 'event_name') {
         const hasPageviewFilter = currentFilters.some(f => f.column === 'event_type' && f.value === '1');
 
         if (hasPageviewFilter) {
@@ -147,22 +151,24 @@ const EventFilter = forwardRef(({
 
       setStagingFilter(null);
 
-      // Show alert in the staging area
-      if (stagingAlertTimeoutRef.current) {
-        clearTimeout(stagingAlertTimeoutRef.current);
-        stagingAlertTimeoutRef.current = null;
+      // Show staging alert only in full mode (not in segment/filter-only mode)
+      if (mode === 'full') {
+        if (stagingAlertTimeoutRef.current) {
+          clearTimeout(stagingAlertTimeoutRef.current);
+          stagingAlertTimeoutRef.current = null;
+        }
+
+        setStagingAlertInfo({
+          show: true,
+          message: `Filter lagt til under aktive filter`
+        });
+
+        // Auto-hide staging alert after 4 seconds
+        stagingAlertTimeoutRef.current = setTimeout(() => {
+          setStagingAlertInfo(prev => ({ ...prev, show: false }));
+          stagingAlertTimeoutRef.current = null;
+        }, 4000);
       }
-
-      setStagingAlertInfo({
-        show: true,
-        message: `Filter lagt til under aktive filter`
-      });
-
-      // Auto-hide staging alert after 4 seconds
-      stagingAlertTimeoutRef.current = setTimeout(() => {
-        setStagingAlertInfo(prev => ({ ...prev, show: false }));
-        stagingAlertTimeoutRef.current = null;
-      }, 4000);
     }
   };
 
@@ -389,6 +395,8 @@ const EventFilter = forwardRef(({
   // Keep URL placeholder filter in sync for "Sidevisninger -> Mottaker velger selv"
   // so Vis resultater can show URL input immediately on first load.
   useEffect(() => {
+    if (mode !== 'full') return;
+
     const pageviewsSelected = selectedEventTypes.includes('pageviews');
     const hasUrlPathFilter = filters.some(f => f.column === 'url_path');
 
@@ -398,10 +406,11 @@ const EventFilter = forwardRef(({
         { column: 'url_path', operator: '=', value: '{{url_sti}}', interactive: true, metabaseParam: true }
       ]);
     }
-  }, [selectedEventTypes, pageViewsMode, filters, setFilters]);
+  }, [mode, selectedEventTypes, pageViewsMode, filters, setFilters]);
 
   // Add useEffect to apply initial pageviews filter
   useEffect(() => {
+    if (mode !== 'full') return;
     if (didInitPageviewsRef.current) return;
 
     const hasUrlPathFilter = filters.some(f => f.column === 'url_path');
@@ -427,7 +436,7 @@ const EventFilter = forwardRef(({
     }
 
     didInitPageviewsRef.current = true;
-  }, [filters, setFilters]);
+  }, [mode, filters, setFilters]);
 
   // Create a Set to track unique parameters
   const uniqueParameters = useMemo(() => {
@@ -446,6 +455,17 @@ const EventFilter = forwardRef(({
   const resetFilters = (silent = false) => {
     // Ensure filters are completely cleared
     setFilters([]);
+
+    // Filter-only mode should not force event presets
+    if (mode === 'filter-only') {
+      setSelectedEventTypes([]);
+      setCustomEvents([]);
+      setSelectedPaths([]);
+      setPageViewsMode('interactive');
+      setCustomEventsMode('none');
+      setStagingFilter(null);
+      return;
+    }
 
     // Reset UI state but keep 'pageviews' suggestion active
     setSelectedEventTypes(['pageviews']);
@@ -499,12 +519,13 @@ const EventFilter = forwardRef(({
   useImperativeHandle(ref, () => ({
     resetFilters,
     enableCustomEvents: () => {
+      if (mode === 'filter-only') return;
       // Enable custom events if not already enabled
       if (!selectedEventTypes.includes('custom_events')) {
         handleEventTypeChange('custom_events', true);
       }
     }
-  }));
+  }), [mode, selectedEventTypes]);
 
   return (
     <section>
@@ -551,6 +572,7 @@ const EventFilter = forwardRef(({
             isDateRangeFilter={isDateRangeFilter}
             isEventsLoading={isEventsLoading}
             addFilterDirectly={addFilterDirectly}
+            showFilterPanelOnly={mode === 'filter-only'}
           />
 
         </div>
