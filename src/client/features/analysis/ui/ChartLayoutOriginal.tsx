@@ -50,7 +50,7 @@ const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
                     <div className={hideSidebar ? '' : 'flex flex-col md:flex-row min-h-[600px] relative'}>
                         {isSidebarOpen && (
                             <>
-                                <div className={`bg-[var(--ax-bg-accent-soft)] w-full ${sidebarWidth} p-6 border-b border-[var(--ax-border-neutral-subtle)] md:border-0 md:shadow-[inset_-1px_0_0_var(--ax-border-neutral-subtle)]`}>
+                                <div className={`bg-[var(--ax-bg-accent-soft)] w-full ${sidebarWidth} p-6 border-b border-[var(--ax-border-neutral-subtle)] md:border-b-0 md:border-r md:border-[var(--ax-border-neutral-subtle)]`}>
                                     <VStack gap="space-32">
                                         {!hideAnalysisSelector && (
                                             <div className="pb-2">

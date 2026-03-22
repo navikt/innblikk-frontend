@@ -391,27 +391,41 @@ const QueryPreview = ({
       return !isNaN(parsed.getTime());
     };
 
-    if (keys.length === 3) {
+    if (keys.length >= 3) {
       const isNumericColumn = (key: string): boolean => data.every((row: Record<string, unknown>) => {
         const value = row[key];
         if (value === null || value === undefined || value === '') return true;
         return Number.isFinite(Number(value));
       });
 
-      const yKey = keys.find(key => isNumericColumn(key)) || keys[2];
+      const numericKeys = keys.filter(key => isNumericColumn(key));
+      const yKey =
+        keys.find(key => /^metrikk(_\d+)?$/i.test(key) || /^andel(_\d+)?$/i.test(key)) ||
+        (numericKeys.length > 0 ? numericKeys[numericKeys.length - 1] : keys[keys.length - 1]);
+
       const dimensionKeys = keys.filter(key => key !== yKey);
+
+      if (dimensionKeys.length === 0) {
+        return null;
+      }
+
       const xKey =
         dimensionKeys.find(key => ['dato', 'date', 'created_at'].includes(key.toLowerCase())) ||
         dimensionKeys.find(key => data.some((row: Record<string, unknown>) => isDateLikeValue(row[key]))) ||
         dimensionKeys[0];
-      const seriesKey = dimensionKeys.find(key => key !== xKey) || dimensionKeys[1] || dimensionKeys[0];
+      const seriesKeys = dimensionKeys.filter(key => key !== xKey);
 
       const seriesMap = new Map<string, Array<{ x: Date | number; y: number; xAxisCalloutData: string; yAxisCalloutData: string }>>();
 
       data.forEach((row, idx) => {
-        const rawSeriesValue = row[seriesKey];
-        const translatedSeriesValue = translateValue(seriesKey, rawSeriesValue ?? 'Ukjent');
-        const seriesValue = String(translatedSeriesValue || 'Ukjent');
+        const seriesValue = seriesKeys.length === 0
+          ? yKey
+          : seriesKeys.map((key) => {
+            const rawSeriesValue = row[key];
+            const translatedSeriesValue = translateValue(key, rawSeriesValue ?? 'Ukjent');
+            return String(translatedSeriesValue || 'Ukjent');
+          }).join(' / ');
+
         if (!seriesMap.has(seriesValue)) seriesMap.set(seriesValue, []);
 
         const xValue = row[xKey];

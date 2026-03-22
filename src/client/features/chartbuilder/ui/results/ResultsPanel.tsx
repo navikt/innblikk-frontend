@@ -160,6 +160,34 @@ const ResultsPanel = ({
     };
   };
 
+  const getCategoricalXAxisProps = (chartData: ILineChartProps | null) => {
+    const firstSeries = chartData?.data?.lineChartData?.[0];
+    if (!firstSeries?.data || firstSeries.data.length === 0) return {};
+
+    const points = [...firstSeries.data].sort((a, b) => Number(a.x) - Number(b.x));
+    const hasOnlyNumericX = points.every((point) => typeof point.x === 'number' && Number.isFinite(point.x));
+    if (!hasOnlyNumericX) return {};
+
+    const isSequentialIndexes = points.every((point, index) => Number(point.x) === index);
+    if (!isSequentialIndexes) return {};
+
+    const tickValues = points.map((point) => Number(point.x));
+    const tickText = points.map((point) => point.xAxisCalloutData ? String(point.xAxisCalloutData) : String(point.x));
+    const hasDescriptiveLabels = tickText.some((label, index) => label !== String(tickValues[index]));
+    if (!hasDescriptiveLabels) return {};
+
+    return {
+      tickValues,
+      xAxis: {
+        tickText,
+        tickLayout: 'auto' as const,
+      },
+      rotateXAxisLables: true,
+      showXAxisLablesTooltip: true,
+      noOfCharsToTruncate: 14,
+    };
+  };
+
   // Get hidden tabs from URL or props
   const hiddenTabs = (() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -827,6 +855,8 @@ const ResultsPanel = ({
                         </Alert>
                       );
                     }
+
+                    const lineAxisProps = getCategoricalXAxisProps(chartData);
                     return (
                       <div style={{ overflow: 'visible' }}>
                         <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
@@ -862,6 +892,7 @@ const ResultsPanel = ({
                               allowMultipleShapesForPoints={false}
                               enablePerfOptimization={true}
                               margins={{ left: 50, right: 40, top: 20, bottom: 35 }}
+                              {...lineAxisProps}
                               legendProps={{
                                 allowFocusOnLegends: true,
                                 styles: {
@@ -942,6 +973,8 @@ const ResultsPanel = ({
                       };
                     }
 
+                    const areaAxisProps = getCategoricalXAxisProps(chartData);
+
                     return (
                       <div style={{ overflow: 'visible' }}>
                         <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
@@ -981,6 +1014,7 @@ const ResultsPanel = ({
                               margins={{ left: 50, right: 50, top: 20, bottom: 35 }}
                               yMinValue={isPercentageStacked ? 0 : undefined}
                               yMaxValue={isPercentageStacked ? 100 : undefined}
+                              {...areaAxisProps}
                               legendProps={{
                                 allowFocusOnLegends: true,
                                 styles: {
