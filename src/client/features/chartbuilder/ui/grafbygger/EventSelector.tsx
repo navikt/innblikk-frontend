@@ -189,7 +189,7 @@ const EventSelector = ({
   };
 
   return (
-    <div className='mb-4'>
+    <div className='mb-1'>
       <div className="mt-3">
         <div className="space-y-4">
           <div>
@@ -626,8 +626,8 @@ const EventSelector = ({
         </div>
       </div>
 
-      <div className="mt-4">
-        {showActiveFilters && (
+      {showActiveFilters && (
+        <div className="mt-4">
           <div className="bg-(--ax-bg-default) p-4 rounded-md border shadow-inner">
             <Tabs defaultValue="flere_valg" size="small">
               <Tabs.List>
@@ -1033,8 +1033,8 @@ const EventSelector = ({
               </Tabs.Panel>
             </Tabs>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div >
   );
 };

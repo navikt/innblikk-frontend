@@ -280,7 +280,7 @@ const GroupingOptions = ({
           </div>
         )}
 
-        <div className="space-y-4 mb-6">
+        <div className="space-y-4 mb-3">
           <div>
             <div>
               <Accordion size="small" indent={false}>

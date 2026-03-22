@@ -434,7 +434,7 @@ const MetricSelector = forwardRef(({
     <>
       <div>
         <div>
-          <div className="space-y-4">
+          <div className="space-y-4 mb-3">
             <div>
               <Accordion size="small" indent={false}>
                 {comboboxGroups.map(group => {

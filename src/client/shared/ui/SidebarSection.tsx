@@ -26,9 +26,11 @@ export function SidebarSection({
   children,
   className,
 }: SidebarSectionProps) {
+  const sectionClassName = `pb-4 ${className ?? ''}`.trim();
+
   return (
     <Bleed asChild marginInline="space-24" reflectivePadding>
-      <Box background="sunken" className={className}>
+      <Box background="sunken" className={sectionClassName}>
         {(title || action) && (
           <div className="flex items-center justify-between mb-3">
             {title && (
