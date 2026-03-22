@@ -131,8 +131,9 @@ const ChartsPage = () => {
                   <ActionFeedbackButton
                     label="Tilbakestill"
                     activeLabel="Tilbakestilt!"
+                    size="xsmall"
                     onClick={() => chartFiltersRef.current?.resetFilters(false)}
-                    className="text-(--ax-text-danger)!"
+                    className="text-(--ax-text-danger)! !px-2 !py-1"
                   />
                 }
               >
@@ -164,8 +165,9 @@ const ChartsPage = () => {
                   <ActionFeedbackButton
                     label="Tilbakestill"
                     activeLabel="Tilbakestilt!"
+                    size="xsmall"
                     onClick={() => summarizeRef.current?.resetConfig(false)}
-                    className="text-(--ax-text-danger)!"
+                    className="text-(--ax-text-danger)! !px-2 !py-1"
                   />
                 }
               >
@@ -194,8 +196,9 @@ const ChartsPage = () => {
                   <ActionFeedbackButton
                     label="Tilbakestill"
                     activeLabel="Tilbakestilt!"
+                    size="xsmall"
                     onClick={() => setConfig(prev => ({ ...prev, groupByFields: [] }))}
-                    className="text-(--ax-text-danger)!"
+                    className="text-(--ax-text-danger)! !px-2 !py-1"
                   />
                 }
               >
@@ -232,8 +235,9 @@ const ChartsPage = () => {
                   <ActionFeedbackButton
                     label="Tilbakestill"
                     activeLabel="Tilbakestilt!"
+                    size="xsmall"
                     onClick={() => displayOptionsRef.current?.resetOptions(false)}
-                    className="text-(--ax-text-danger)!"
+                    className="text-(--ax-text-danger)! !px-2 !py-1"
                   />
                 }
               >

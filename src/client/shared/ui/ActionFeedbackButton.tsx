@@ -16,10 +16,10 @@
 import { forwardRef, useState } from 'react';
 import { CheckmarkIcon, ArrowUndoIcon } from '@navikt/aksel-icons';
 import { Button } from '@navikt/ds-react';
-import type { ButtonHTMLAttributes } from 'react';
+import type { ButtonProps } from '@navikt/ds-react';
 
 export interface ActionFeedbackButtonProps
-  extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
+  extends Omit<ButtonProps, 'children' | 'onClick'> {
   /** Label shown in the default (idle) state. */
   label: string;
   /** Label shown briefly after the action fires. @default `${label}!` */
@@ -30,6 +30,8 @@ export interface ActionFeedbackButtonProps
   activeIcon?: React.ReactNode;
   /** How long (ms) to stay in the active state. @default 2000 */
   activeDuration?: number;
+  /** Button size. @default "small" */
+  size?: ButtonProps['size'];
   /** Called when the button is clicked (before the active state is shown). */
   onClick?: () => void;
   /** Extra className forwarded to the underlying Button. */
@@ -44,6 +46,7 @@ const ActionFeedbackButton = forwardRef<HTMLButtonElement, ActionFeedbackButtonP
       icon,
       activeIcon,
       activeDuration = 2000,
+      size = 'small',
       onClick,
       className,
       ...rest
@@ -63,7 +66,7 @@ const ActionFeedbackButton = forwardRef<HTMLButtonElement, ActionFeedbackButtonP
         ref={ref}
         type="button"
         variant="tertiary-neutral"
-        size="small"
+        size={size}
         icon={active
           ? (activeIcon ?? <CheckmarkIcon aria-hidden />)
           : (icon ?? <ArrowUndoIcon aria-hidden />)
