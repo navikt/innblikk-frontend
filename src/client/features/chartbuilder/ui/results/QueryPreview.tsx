@@ -614,6 +614,48 @@ const QueryPreview = ({
     return { data: pieChartData, total };
   };
 
+  const canRenderBarChart = (): boolean => {
+    const chartData = prepareBarChartData();
+    if (!chartData || !Array.isArray(chartData.data) || chartData.data.length === 0) return false;
+
+    let displayData = chartData.data;
+    if (chartData.data.length > 12) {
+      const top11 = chartData.data.slice(0, 11);
+      const others = chartData.data.slice(11);
+      const otherSum = others.reduce((sum, item) => sum + item.y, 0);
+      displayData = [...top11, { x: 'Andre', y: otherSum }];
+    }
+
+    return displayData.some((item) => Number.isFinite(item.y) && item.y !== 0);
+  };
+
+  const canRenderPieChart = (): boolean => {
+    const chartData = preparePieChartData();
+    if (!chartData || !Array.isArray(chartData.data) || chartData.data.length === 0) return false;
+
+    let displayData = chartData.data;
+    if (chartData.data.length > 12) {
+      const top11 = chartData.data.slice(0, 11);
+      const others = chartData.data.slice(11);
+      const otherSum = others.reduce((sum, item) => sum + item.y, 0);
+      displayData = [...top11, { x: 'Andre', y: otherSum }];
+    }
+
+    const hasValidY = displayData.some((item) => Number.isFinite(item.y) && item.y !== 0);
+    const allNaN = displayData.every((item) => Number.isNaN(item.y));
+    return hasValidY && !allNaN;
+  };
+
+  const hiddenResultTabs = (() => {
+    if (!result?.data || result.data.length === 0) return [] as string[];
+
+    const tabsToHide: string[] = [];
+    if (!canRenderBarChart()) tabsToHide.push('barchart');
+    if (!canRenderPieChart()) tabsToHide.push('piechart');
+
+    return tabsToHide;
+  })();
+
   const handleCopy = async () => {
     const metabaseSql = getProcessedSql({ preserveMetabasePlaceholders: true });
     navigator.clipboard.writeText(metabaseSql);
@@ -1311,6 +1353,7 @@ const QueryPreview = ({
                 showCost={true}
                 websiteId={websiteId}
                 showDownloadReadMore={showDownloadReadMore}
+                hiddenTabs={hiddenResultTabs}
               />
             </div>
 

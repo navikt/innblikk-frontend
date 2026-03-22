@@ -219,9 +219,11 @@ const SegmentBy = forwardRef<SegmentByRef, SegmentByProps>(({
         {segments.map((segment, index) => (
           <div key={segment.id} className="rounded-md border bg-[var(--ax-bg-default)] px-3 py-3">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex h-7 min-w-7 items-center justify-center rounded bg-blue-700 px-2 text-sm font-semibold text-white">
-                {index + 1}
-              </span>
+              {segments.length > 1 && (
+                <span className="inline-flex h-7 min-w-7 items-center justify-center rounded bg-blue-700 px-2 text-sm font-semibold text-white">
+                  {index + 1}
+                </span>
+              )}
 
               {editingSegmentId === segment.id ? (
                 <div className="min-w-[170px] max-w-[280px]">
