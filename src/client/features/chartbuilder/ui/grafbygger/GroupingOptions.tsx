@@ -63,7 +63,53 @@ const GroupingOptions = ({
     return Array.from(uniqueParams.values());
   };
 
-  const uniqueParameters = getUniqueParameters(parameters);
+  const filteredParameters = useMemo(() => {
+    const eventNameFilter = filters.find(filter => filter.column === 'event_name');
+    if (!eventNameFilter) {
+      return parameters;
+    }
+
+    const operator = eventNameFilter.operator || '=';
+    const rawValue = (eventNameFilter.value || '').toLowerCase().trim();
+    const rawValues = (eventNameFilter.multipleValues || [])
+      .map(value => value.toLowerCase().trim())
+      .filter(Boolean);
+
+    const matchesEventName = (eventName: string): boolean => {
+      const normalizedEventName = eventName.toLowerCase();
+
+      if (operator === 'IN') {
+        return rawValues.includes(normalizedEventName);
+      }
+
+      if (operator === '=') {
+        return normalizedEventName === rawValue;
+      }
+
+      if (operator === 'LIKE') {
+        return normalizedEventName.includes(rawValue);
+      }
+
+      if (operator === 'STARTS_WITH') {
+        return normalizedEventName.startsWith(rawValue);
+      }
+
+      if (operator === 'ENDS_WITH') {
+        return normalizedEventName.endsWith(rawValue);
+      }
+
+      return true;
+    };
+
+    return parameters.filter(param => {
+      const splitIndex = param.key.indexOf('.');
+      if (splitIndex === -1) return false;
+      const eventName = param.key.slice(0, splitIndex);
+      return matchesEventName(eventName);
+    });
+  }, [parameters, filters]);
+
+  const uniqueParameters = getUniqueParameters(filteredParameters);
 
   const groupedGroupingOptions = useMemo(() => {
     const baseGroups = Object.entries(COLUMN_GROUPS).map(([groupKey, group]) => ({
