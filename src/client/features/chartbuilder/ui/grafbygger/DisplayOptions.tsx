@@ -74,6 +74,10 @@ const DisplayOptions = forwardRef(({
     setLimitInput(limit?.toString() || '');
   }, [limit]);
 
+  useEffect(() => {
+    setShowCustomSort(Boolean(orderBy));
+  }, [orderBy]);
+
   return (
     <>
       <div className="flex flex-col gap-4 pb-2">
@@ -108,7 +112,12 @@ const DisplayOptions = forwardRef(({
               ? `Sorterer etter ${orderBy.column ? orderBy.column.toLowerCase() : 'første kolonne'} i ${orderBy.direction === 'ASC' ? 'stigende' : 'synkende'} rekkefølge`
               : 'Sorterer etter første kolonne i synkende rekkefølge'}
             checked={showCustomSort}
-            onChange={() => setShowCustomSort(!showCustomSort)}
+            onChange={(e) => {
+              setShowCustomSort(e.target.checked);
+              if (!e.target.checked) {
+                clearOrderBy();
+              }
+            }}
           >
             Tilpass sortering
           </Switch>

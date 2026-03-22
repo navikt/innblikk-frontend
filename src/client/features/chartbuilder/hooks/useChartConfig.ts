@@ -385,7 +385,7 @@ export function useChartConfig() {
   const addGroupByField = (field: string) => {
     if (!config.groupByFields.includes(field)) {
       setConfig(prev => {
-        if (field === 'created_at' && (prev.groupByFields.length === 0)) {
+        if (field === 'created_at') {
           return {
             ...prev,
             groupByFields: [field, ...prev.groupByFields],
