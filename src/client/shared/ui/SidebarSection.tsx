@@ -16,7 +16,7 @@ interface SidebarSectionProps {
   /** Optional action rendered to the right of the title (e.g. a tertiary Button) */
   action?: ReactNode;
   children: ReactNode;
-  /** Extra class names on the inner Box element */
+  /** Extra class names on the inner section content wrapper */
   className?: string;
 }
 
@@ -26,22 +26,24 @@ export function SidebarSection({
   children,
   className,
 }: SidebarSectionProps) {
-  const sectionClassName = `pb-4 ${className ?? ''}`.trim();
+  const sectionContentClassName = `pt-5 pb-4 ${className ?? ''}`.trim();
 
   return (
     <Bleed asChild marginInline="space-24" reflectivePadding>
-      <Box background="sunken" className={sectionClassName}>
-        {(title || action) && (
-          <div className="flex items-center justify-between mb-3">
-            {title && (
-              <span className="text-base font-semibold text-(--ax-text-default)">
-                {title}
-              </span>
-            )}
-            {action && <div>{action}</div>}
-          </div>
-        )}
-        {children}
+      <Box background="sunken">
+        <div className={sectionContentClassName}>
+          {(title || action) && (
+            <div className="flex items-center justify-between mb-3">
+              {title && (
+                <span className="text-base font-semibold text-(--ax-text-default)">
+                  {title}
+                </span>
+              )}
+              {action && <div>{action}</div>}
+            </div>
+          )}
+          {children}
+        </div>
       </Box>
     </Bleed>
   );
