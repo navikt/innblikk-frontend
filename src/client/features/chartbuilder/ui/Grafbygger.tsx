@@ -68,7 +68,9 @@ const ChartsPage = () => {
     handleEventsLoad,
   } = useChartConfig();
 
-  const isSidebarLoading = isWebsitePickerInitializing || (!!config.website && (isEventsLoading || !dateRangeReady));
+  // Keep sidebar sections visible during background event/detail fetches.
+  // Only gate on initial website/date readiness.
+  const isSidebarLoading = isWebsitePickerInitializing || (!!config.website && !dateRangeReady);
 
   useEffect(() => {
     if (!isSidebarLoading) {

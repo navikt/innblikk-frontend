@@ -1,4 +1,4 @@
-import { Accordion, Checkbox, Button, Select, Label, Switch } from '@navikt/ds-react';
+import { Accordion, Checkbox, Button, Select, Label, Switch, Search } from '@navikt/ds-react';
 import { MoveUp, MoveDown } from 'lucide-react';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import type {
@@ -42,7 +42,7 @@ const GroupingOptions = ({
 }: GroupingOptionsProps) => {
   const [showReorderGroupings, setShowReorderGroupings] = useState<boolean>(false);
   const [eventNameWarning, setEventNameWarning] = useState<boolean>(false);
-  const [isLoadingParams, setIsLoadingParams] = useState<boolean>(false);
+  const [eventDetailsSearch, setEventDetailsSearch] = useState<string>('');
 
   // Add a ref to store the event name warning timeout
   const eventNameWarningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -121,7 +121,14 @@ const GroupingOptions = ({
       reorderedGroups.push({
         key: 'hendelser',
         label: 'Hendelser',
-        options: [...eventBasicsWithoutDate, ...otherParameterOptions],
+        options: eventBasicsWithoutDate,
+        isEventDetailsEmpty: false
+      });
+
+      reorderedGroups.push({
+        key: 'hendelsesdetaljer',
+        label: 'Hendelsesdetaljer',
+        options: otherParameterOptions,
         isEventDetailsEmpty: otherParameterOptions.length === 0
       });
     }
@@ -129,23 +136,24 @@ const GroupingOptions = ({
     return reorderedGroups;
   }, [COLUMN_GROUPS, uniqueParameters, sanitizeColumnName]);
 
-  /** Groups shaped for GroupedCombobox */
+  /** Groups shaped for accordion and filtered search in "Hendelsesdetaljer" */
   const comboboxGroups = useMemo(() =>
-    groupedGroupingOptions.map(group => ({
-      key: group.key,
-      label: group.label,
-      options: group.options.map(o => ({ label: o.label, value: o.value })),
-      emptyPlaceholder: group.isEventDetailsEmpty ? 'Hent hendelsesdetaljer for å se valg' : undefined,
-    })),
-    [groupedGroupingOptions]
-  );
+    groupedGroupingOptions.map(group => {
+      const options = group.key === 'hendelsesdetaljer' && eventDetailsSearch.trim()
+        ? group.options.filter(option =>
+          option.label.toLowerCase().includes(eventDetailsSearch.trim().toLowerCase())
+        )
+        : group.options;
 
-  // Reset local loading state when parameters are loaded or external loading completes
-  useEffect(() => {
-    if (parameters.length > 0 || !isEventsLoading) {
-      setIsLoadingParams(false);
-    }
-  }, [parameters.length, isEventsLoading]);
+      return {
+        key: group.key,
+        label: group.label,
+        options: options.map(o => ({ label: o.label, value: o.value })),
+        emptyPlaceholder: group.isEventDetailsEmpty ? 'Hent hendelsesdetaljer for å se valg' : undefined,
+      };
+    }),
+    [groupedGroupingOptions, eventDetailsSearch]
+  );
 
   // Check if custom events (event_type = 2) are enabled in filters
   const hasCustomEventsEnabled = filters.some(f => {
@@ -240,8 +248,42 @@ const GroupingOptions = ({
                         {selectedInGroup > 0 ? `${group.label} (${selectedInGroup})` : group.label}
                       </Accordion.Header>
                       <Accordion.Content>
+                        {group.key === 'hendelsesdetaljer' && (
+                          <div className="mb-3">
+                            {!groupedGroupingOptions.find(g => g.key === 'hendelsesdetaljer')?.isEventDetailsEmpty && (
+                              <Search
+                                label="Søk i hendelsesdetaljer"
+                                variant="simple"
+                                size="small"
+                                value={eventDetailsSearch}
+                                onChange={(value) => setEventDetailsSearch(value)}
+                                onClear={() => setEventDetailsSearch('')}
+                              />
+                            )}
+                            {groupedGroupingOptions.find(g => g.key === 'hendelsesdetaljer')?.isEventDetailsEmpty && (
+                              <div className="mt-2">
+                                <Button
+                                  variant="secondary"
+                                  size="xsmall"
+                                  disabled={isEventsLoading}
+                                  onClick={() => {
+                                    if (onEnableCustomEvents) {
+                                      onEnableCustomEvents();
+                                    }
+                                  }}
+                                >
+                                  {isEventsLoading ? 'Henter hendelsesdetaljer...' : 'Hent hendelsesdetaljer'}
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        )}
                         {group.options.length === 0 && group.emptyPlaceholder ? (
                           <p className="text-xs text-(--ax-text-subtle) italic">{group.emptyPlaceholder}</p>
+                        ) : group.key === 'hendelsesdetaljer' && eventDetailsSearch.trim() && group.options.length === 0 ? (
+                          <p className="text-xs text-(--ax-text-subtle) italic">
+                            Ingen hendelsesdetaljer matcher "{eventDetailsSearch}".
+                          </p>
                         ) : (
                           <ul className="list-none m-0 p-0 flex flex-col gap-1">
                             {group.options.map(option => (
@@ -278,25 +320,6 @@ const GroupingOptions = ({
                   );
                 })}
               </Accordion>
-              {/* "Hent hendelsesdetaljer" CTA — shown when the Hendelser group has no params yet */}
-              {groupedGroupingOptions.some(g => g.isEventDetailsEmpty) && (
-                <div className="mt-2">
-                  <Button
-                    variant="secondary"
-                    size="xsmall"
-                    loading={isLoadingParams || isEventsLoading}
-                    disabled={isLoadingParams || isEventsLoading}
-                    onClick={() => {
-                      if (onEnableCustomEvents) {
-                        setIsLoadingParams(true);
-                        onEnableCustomEvents();
-                      }
-                    }}
-                  >
-                    {isLoadingParams || isEventsLoading ? 'Henter hendelsesdetaljer...' : 'Hent hendelsesdetaljer'}
-                  </Button>
-                </div>
-              )}
             </div>
           </div>
 
