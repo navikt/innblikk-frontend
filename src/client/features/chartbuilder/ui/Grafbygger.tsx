@@ -22,6 +22,8 @@ const ChartsPage = () => {
   const [interactiveDateFilterEnabled, setInteractiveDateFilterEnabled] = useState<boolean>(true);
   const [isWebsitePickerInitializing, setIsWebsitePickerInitializing] = useState<boolean>(true);
   const [fakeProgress, setFakeProgress] = useState<number>(1);
+  const [groupingResetSignal, setGroupingResetSignal] = useState<number>(0);
+  const [metricResetSignal, setMetricResetSignal] = useState<number>(0);
   const segmentByRef = useRef<SegmentByRef>(null);
 
   const {
@@ -77,6 +79,22 @@ const ChartsPage = () => {
       segments
     }));
   }, [setConfig]);
+
+  const handleResetGroupings = useCallback(() => {
+    setConfig(prev => ({ ...prev, groupByFields: [] }));
+    setGroupingResetSignal(prev => prev + 1);
+  }, [setConfig]);
+
+  const handleResetMetrics = useCallback(() => {
+    summarizeRef.current?.resetConfig(false);
+    setMetricResetSignal(prev => prev + 1);
+  }, [summarizeRef]);
+
+  const handleResetAllWithSignals = useCallback(() => {
+    resetAll();
+    setGroupingResetSignal(prev => prev + 1);
+    setMetricResetSignal(prev => prev + 1);
+  }, [resetAll]);
 
   // Keep sidebar sections visible during background event/detail fetches.
   // Only gate on initial website/date readiness.
@@ -176,7 +194,7 @@ const ChartsPage = () => {
                     label="Tilbakestill"
                     activeLabel="Tilbakestilt!"
                     size="xsmall"
-                    onClick={() => summarizeRef.current?.resetConfig(false)}
+                    onClick={handleResetMetrics}
                     className="text-(--ax-text-danger)! !px-2 !py-1"
                   />
                 }
@@ -196,6 +214,7 @@ const ChartsPage = () => {
                   filters={filters}
                   availableEvents={availableEvents}
                   isEventsLoading={isEventsLoading}
+                  resetSignal={metricResetSignal}
                 />
               </SidebarSection>
 
@@ -240,7 +259,7 @@ const ChartsPage = () => {
                     label="Tilbakestill"
                     activeLabel="Tilbakestilt!"
                     size="xsmall"
-                    onClick={() => setConfig(prev => ({ ...prev, groupByFields: [] }))}
+                    onClick={handleResetGroupings}
                     className="text-(--ax-text-danger)! !px-2 !py-1"
                   />
                 }
@@ -268,6 +287,7 @@ const ChartsPage = () => {
                     setRequestIncludeParams(true);
                   }}
                   isEventsLoading={isEventsLoading}
+                  resetSignal={groupingResetSignal}
                 />
               </SidebarSection>
 
@@ -340,7 +360,7 @@ const ChartsPage = () => {
           filters={filters}
           metrics={config.metrics}
           groupByFields={config.groupByFields}
-          onResetAll={resetAll}
+          onResetAll={handleResetAllWithSignals}
           availableEvents={availableEvents}
           isEventsLoading={isEventsLoading}
           websiteId={config.website?.id}

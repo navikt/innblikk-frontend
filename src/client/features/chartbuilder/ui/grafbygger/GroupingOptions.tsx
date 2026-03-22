@@ -23,6 +23,7 @@ interface GroupingOptionsProps {
   filters: Filter[];
   onEnableCustomEvents?: () => void;
   isEventsLoading?: boolean;
+  resetSignal?: number;
 }
 
 const GroupingOptions = ({
@@ -38,11 +39,13 @@ const GroupingOptions = ({
   setDateFormat,
   filters,
   onEnableCustomEvents,
-  isEventsLoading = false
+  isEventsLoading = false,
+  resetSignal
 }: GroupingOptionsProps) => {
   const [showReorderGroupings, setShowReorderGroupings] = useState<boolean>(false);
   const [eventNameWarning, setEventNameWarning] = useState<boolean>(false);
   const [eventDetailsSearch, setEventDetailsSearch] = useState<string>('');
+  const [openAccordions, setOpenAccordions] = useState<Record<string, boolean>>({});
 
   // Add a ref to store the event name warning timeout
   const eventNameWarningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -260,6 +263,12 @@ const GroupingOptions = ({
     };
   }, []);
 
+  // Close all accordion items when grouping reset is triggered from parent.
+  useEffect(() => {
+    setOpenAccordions({});
+    setEventDetailsSearch('');
+  }, [resetSignal]);
+
   return (
     <>
       <div>
@@ -289,7 +298,13 @@ const GroupingOptions = ({
                     groupByFields.includes(o.value)
                   ).length;
                   return (
-                    <Accordion.Item key={group.key}>
+                    <Accordion.Item
+                      key={group.key}
+                      open={openAccordions[group.key] ?? false}
+                      onOpenChange={(open) => {
+                        setOpenAccordions(prev => ({ ...prev, [group.key]: open }));
+                      }}
+                    >
                       <Accordion.Header>
                         {selectedInGroup > 0 ? `${group.label} (${selectedInGroup})` : group.label}
                       </Accordion.Header>

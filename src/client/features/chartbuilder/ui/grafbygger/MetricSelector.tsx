@@ -24,6 +24,7 @@ interface SummarizeProps {
 
   availableEvents?: string[];
   isEventsLoading?: boolean;
+  resetSignal?: number;
 }
 
 const MetricSelector = forwardRef(({
@@ -38,7 +39,8 @@ const MetricSelector = forwardRef(({
   addMetric,
   moveMetric,
   availableEvents = [],
-  isEventsLoading = false
+  isEventsLoading = false,
+  resetSignal
 }: SummarizeProps, ref) => {
   type MetricDropdownOption = {
     id: string;
@@ -54,6 +56,7 @@ const MetricSelector = forwardRef(({
 
   const [editingMetrics, setEditingMetrics] = useState<number[]>([]);
   const [showActiveMetrics, setShowActiveMetrics] = useState<boolean>(false);
+  const [openAccordions, setOpenAccordions] = useState<Record<string, boolean>>({});
 
   const getUniqueParameters = (params: Parameter[]): Parameter[] => {
     const uniqueParams = new Map<string, Parameter>();
@@ -92,6 +95,10 @@ const MetricSelector = forwardRef(({
   useImperativeHandle(ref, () => ({
     resetConfig
   }));
+
+  useEffect(() => {
+    setOpenAccordions({});
+  }, [resetSignal]);
 
   const isShortcutMetric = (metric: Metric): boolean => {
     const shortcutMetrics = [
@@ -442,7 +449,13 @@ const MetricSelector = forwardRef(({
                     selectedDropdownOptions.some(s => s.id === o.value)
                   ).length;
                   return (
-                    <Accordion.Item key={group.key}>
+                    <Accordion.Item
+                      key={group.key}
+                      open={openAccordions[group.key] ?? false}
+                      onOpenChange={(open) => {
+                        setOpenAccordions(prev => ({ ...prev, [group.key]: open }));
+                      }}
+                    >
                       <Accordion.Header>
                         {selectedInGroup > 0 ? `${group.label} (${selectedInGroup})` : group.label}
                       </Accordion.Header>
