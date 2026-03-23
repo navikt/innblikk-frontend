@@ -683,20 +683,24 @@ const EventSelector = ({
               })}
 
               {missingEventTypes.length > 0 && (
-                <div className="mb-3 rounded-md border border-dashed bg-[var(--ax-bg-default)] p-2">
-                  <div className="flex flex-wrap items-center gap-1">
-                    {missingEventTypes.map(eventType => (
-                      <Button
-                        key={eventType}
-                        variant="tertiary"
-                        size="small"
-                        onClick={() => addEventType(eventType)}
-                      >
-                        {eventType === 'pageviews'
-                          ? '+ Legg til sidevisninger'
-                          : '+ Legg til egendefinerte hendelser'}
-                      </Button>
-                    ))}
+                <div className="mb-3">
+                  <div className="flex flex-col gap-2">
+                    {missingEventTypes.map(eventType => {
+                      const isPageviews = eventType === 'pageviews';
+                      return (
+                        <button
+                          key={eventType}
+                          type="button"
+                          onClick={() => addEventType(eventType)}
+                          aria-label={isPageviews ? 'Legg til sidevisninger' : 'Legg til egendefinerte hendelser'}
+                          className="block w-full cursor-pointer rounded-md border border-dashed border-(--ax-border-neutral) bg-[var(--ax-bg-default)] px-3 py-3 text-left hover:bg-(--ax-bg-subtle) focus:outline-none focus-visible:ring-2 focus-visible:ring-(--ax-border-accent)"
+                        >
+                          <p className="text-sm font-semibold text-(--ax-text-default)">
+                            {isPageviews ? '+ Legg til sidevisninger' : '+ Legg til egendefinerte hendelser'}
+                          </p>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
