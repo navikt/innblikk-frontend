@@ -171,6 +171,10 @@ const SegmentBy = forwardRef<SegmentByRef, SegmentByProps>(({
     return filters.filter(filter => !(filter.column === 'created_at' && ['>=', '<='].includes(filter.operator || ''))).length;
   };
 
+  const getSelectedPerformedCount = (segmentId: number): number => {
+    return performedSelections[segmentId]?.events?.length || 0;
+  };
+
   const togglePerformedBuilder = (segmentId: number) => {
     setShowPerformedBuilder(prev => ({
       ...prev,
@@ -178,10 +182,21 @@ const SegmentBy = forwardRef<SegmentByRef, SegmentByProps>(({
     }));
   };
 
-  const openFilterBuilder = (segmentId: number) => {
+  const clearPerformedSelection = (segmentId: number) => {
+    setPerformedSelections(prev => ({
+      ...prev,
+      [segmentId]: { operator: 'IN', events: [] }
+    }));
+    setShowPerformedBuilder(prev => ({
+      ...prev,
+      [segmentId]: false
+    }));
+  };
+
+  const toggleFilterBuilder = (segmentId: number) => {
     setShowFilterBuilder(prev => ({
       ...prev,
-      [segmentId]: true
+      [segmentId]: !prev[segmentId]
     }));
   };
 
@@ -266,26 +281,41 @@ const SegmentBy = forwardRef<SegmentByRef, SegmentByProps>(({
 
               {getActiveFilterCount(segment.id) > 0 && (
                 <Tag variant="neutral" size="xsmall">
-                  {getActiveFilterCount(segment.id)} filtre
+                  {getActiveFilterCount(segment.id)} {getActiveFilterCount(segment.id) === 1 ? 'filter' : 'filtre'}
+                </Tag>
+              )}
+              {getSelectedPerformedCount(segment.id) > 0 && (
+                <Tag variant="neutral" size="xsmall">
+                  {getSelectedPerformedCount(segment.id)} {getSelectedPerformedCount(segment.id) === 1 ? 'handling' : 'handlinger'}
                 </Tag>
               )}
 
               <div className="ml-auto flex flex-wrap items-center gap-1">
-                <Button
-                  variant="tertiary"
-                  size="xsmall"
-                  onClick={() => openFilterBuilder(segment.id)}
-                  disabled={showFilterBuilder[segment.id] === true}
-                >
-                  Filter
-                </Button>
-                <Button
-                  variant="tertiary"
-                  size="xsmall"
-                  onClick={() => togglePerformedBuilder(segment.id)}
-                >
-                  Handling
-                </Button>
+                {(() => {
+                  const isFilterBuilderOpen = showFilterBuilder[segment.id] === true;
+                  const filterLabel = isFilterBuilderOpen ? 'Lukk filter' : 'Filter';
+                  const isPerformedBuilderOpen = showPerformedBuilder[segment.id] === true;
+                  const performedLabel = isPerformedBuilderOpen ? 'Lukk handling' : 'Handling';
+
+                  return (
+                    <>
+                      <Button
+                        variant="tertiary"
+                        size="xsmall"
+                        onClick={() => toggleFilterBuilder(segment.id)}
+                      >
+                        {filterLabel}
+                      </Button>
+                      <Button
+                        variant="tertiary"
+                        size="xsmall"
+                        onClick={() => togglePerformedBuilder(segment.id)}
+                      >
+                        {performedLabel}
+                      </Button>
+                    </>
+                  );
+                })()}
 
                 {segments.length > 1 && (
                   <Button
@@ -324,7 +354,7 @@ const SegmentBy = forwardRef<SegmentByRef, SegmentByProps>(({
                   <Button
                     variant="tertiary-neutral"
                     size="xsmall"
-                    onClick={() => togglePerformedBuilder(segment.id)}
+                    onClick={() => clearPerformedSelection(segment.id)}
                   >
                     Fjern
                   </Button>
