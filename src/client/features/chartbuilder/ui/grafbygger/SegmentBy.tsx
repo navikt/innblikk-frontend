@@ -264,19 +264,17 @@ const SegmentBy = forwardRef<SegmentByRef, SegmentByProps>(({
                   />
                 </div>
               ) : (
-                <>
-                  <span className="text-sm font-semibold text-(--ax-text-default)">
+                <button
+                  type="button"
+                  aria-label={`Rediger navn for ${segment.name}`}
+                  onClick={() => startEditingSegmentName(segment)}
+                  className="inline-flex items-center gap-1 rounded px-2 py-1 hover:bg-[var(--ax-bg-neutral-soft)] focus:outline-none focus-visible:ring-2 focus-visible:ring-(--ax-border-accent)"
+                >
+                  <span className="text-sm font-semibold" style={{ color: 'var(--ax-text-subtle)' }}>
                     {segment.name}
                   </span>
-                  <Button
-                    variant="tertiary-neutral"
-                    size="xsmall"
-                    icon={<PencilIcon aria-hidden fontSize="1rem" />}
-                    aria-label={`Rediger navn for ${segment.name}`}
-                    onClick={() => startEditingSegmentName(segment)}
-                    className="!px-2"
-                  />
-                </>
+                  <PencilIcon aria-hidden fontSize="1rem" style={{ color: 'var(--ax-text-subtle)' }} />
+                </button>
               )}
 
               {getActiveFilterCount(segment.id) > 0 && (
