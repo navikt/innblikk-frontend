@@ -634,10 +634,10 @@ const EventSelector = ({
                   <div key={eventType} className="rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-3 py-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <div className="min-w-[170px]">
-                        <p className="text-sm font-semibold text-(--ax-text-default)">
+                        <p className="text-sm font-semibold event-selector-title">
                           {title}
                         </p>
-                        <p className="text-xs text-(--ax-text-subtle)">
+                        <p className="text-xs event-selector-summary">
                           {summary}
                         </p>
                       </div>
