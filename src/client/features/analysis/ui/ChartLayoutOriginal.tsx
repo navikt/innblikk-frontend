@@ -1,5 +1,5 @@
 import React from 'react';
-import { Select, VStack } from "@navikt/ds-react";
+import { Select, VStack, type VStackProps } from "@navikt/ds-react";
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { type AnalyticsPage, analyticsPages } from '../model/analyticsNavigation.ts';
 import { chartGroupsOriginal } from '../model/chartGroups.tsx';
@@ -17,7 +17,7 @@ interface ChartLayoutProps {
     wideSidebar?: boolean;
     hideSidebar?: boolean;
     hideAnalysisSelector?: boolean;
-    sidebarFilterGap?: string;
+    sidebarFilterGap?: VStackProps['gap'];
 }
 
 const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
