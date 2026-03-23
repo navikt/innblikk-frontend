@@ -631,7 +631,7 @@ const EventSelector = ({
                 const summary = isPageviewsRow ? pageviewsSummary : customEventsSummary;
 
                 return (
-                  <div key={eventType} className="rounded-md border bg-[var(--ax-bg-default)] px-3 py-3">
+                  <div key={eventType} className="rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-3 py-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <div className="min-w-[170px]">
                         <p className="text-sm font-semibold text-(--ax-text-default)">
@@ -693,7 +693,7 @@ const EventSelector = ({
                           type="button"
                           onClick={() => addEventType(eventType)}
                           aria-label={isPageviews ? 'Legg til sidevisninger' : 'Legg til egendefinerte hendelser'}
-                          className="block w-full cursor-pointer rounded-md border border-dashed border-(--ax-border-neutral) bg-[var(--ax-bg-default)] px-3 py-3 text-left hover:bg-(--ax-bg-subtle) focus:outline-none focus-visible:ring-2 focus-visible:ring-(--ax-border-accent)"
+                          className="block w-full cursor-pointer rounded-md border-1 border-dashed border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-3 py-3 text-left hover:border-(--ax-border-neutral) hover:bg-[var(--ax-bg-subtle)] focus:outline-none focus-visible:ring-2 focus-visible:ring-(--ax-border-accent)"
                         >
                           <p className="text-sm font-semibold text-(--ax-text-default)">
                             {isPageviews ? '+ Legg til sidevisninger' : '+ Legg til egendefinerte hendelser'}
@@ -724,7 +724,7 @@ const EventSelector = ({
               <Tabs.Panel value="flere_valg" className={showFilterPanelOnly ? 'pt-1' : 'pt-6'}>
                 <div className="mb-4">
                   {hasActivatedEventType && (
-                    <div className={`flex gap-2 items-center bg-(--ax-bg-default) p-3 rounded-md border border-(--ax-border-neutral) ${showFilterPanelOnly ? 'mb-6' : 'mt-3 mb-6'}`}>
+                    <div className={`flex gap-2 items-center bg-[var(--ax-bg-default)] p-3 rounded-md border border-[var(--ax-border-neutral-subtle)] ${showFilterPanelOnly ? 'mb-6' : 'mt-3 mb-6'}`}>
                       <Select
                         label="Legg til filtre"
                         onChange={(e) => {

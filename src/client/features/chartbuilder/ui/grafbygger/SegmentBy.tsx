@@ -232,7 +232,7 @@ const SegmentBy = forwardRef<SegmentByRef, SegmentByProps>(({
     <div className="space-y-3">
       <div className="space-y-2">
         {segments.map((segment, index) => (
-          <div key={segment.id} className="rounded-md border bg-[var(--ax-bg-default)] px-3 py-3">
+          <div key={segment.id} className="rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-3 py-3">
             <div className="flex flex-wrap items-center gap-2">
               {segments.length > 1 && (
                 <span className="inline-flex h-7 min-w-7 items-center justify-center rounded bg-blue-700 px-2 text-sm font-semibold text-white">
