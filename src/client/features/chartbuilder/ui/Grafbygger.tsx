@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ProgressBar, Box, Bleed } from "@navikt/ds-react";
+import { useCallback, useRef, useState } from "react";
+import { Bleed, Box, Loader } from "@navikt/ds-react";
 import { ArrowCirclepathReverseIcon } from "@navikt/aksel-icons";
 import WebsitePicker from "../../analysis/ui/WebsitePicker.tsx";
 import QueryPreview from "./results/QueryPreview.tsx";
@@ -24,7 +24,6 @@ const ChartsPage = () => {
     useState<boolean>(true);
   const [isWebsitePickerInitializing, setIsWebsitePickerInitializing] =
     useState<boolean>(true);
-  const [fakeProgress, setFakeProgress] = useState<number>(1);
   const [groupingResetSignal, setGroupingResetSignal] = useState<number>(0);
   const [metricResetSignal, setMetricResetSignal] = useState<number>(0);
   const [isEventFilterDirty, setIsEventFilterDirty] = useState<boolean>(false);
@@ -141,19 +140,6 @@ const ChartsPage = () => {
   const isSidebarLoading =
     isWebsitePickerInitializing || (!!config.website && !dateRangeReady);
 
-  useEffect(() => {
-    if (!isSidebarLoading) {
-      setFakeProgress(1);
-      return;
-    }
-
-    const intervalId = window.setInterval(() => {
-      setFakeProgress((prev) => (prev >= 11 ? 1 : prev + 1));
-    }, 180);
-
-    return () => window.clearInterval(intervalId);
-  }, [isSidebarLoading]);
-
   return (
     <ChartLayout
       title="Grafbyggeren"
@@ -191,15 +177,7 @@ const ChartsPage = () => {
 
           {isSidebarLoading ? (
             <div className="px-1 py-2 max-w-[180px]">
-              <span id="grafbygger-loading-progress" className="sr-only">
-                Laster data
-              </span>
-              <ProgressBar
-                value={fakeProgress}
-                valueMax={12}
-                size="small"
-                aria-labelledby="grafbygger-loading-progress"
-              />
+              <Loader size="small" title="Laster data" />
             </div>
           ) : !config.website ? (
             <div className="px-1 py-2 text-sm text-(--ax-text-subtle)">

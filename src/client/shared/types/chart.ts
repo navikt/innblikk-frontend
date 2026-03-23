@@ -12,7 +12,7 @@ export interface Filter {
 }
 
 export interface SegmentPerformed {
-  operator: 'IN' | '=' | 'LIKE' | 'STARTS_WITH' | 'ENDS_WITH';
+  operator: 'IN' | '=' | '!=' | 'LIKE' | 'STARTS_WITH' | 'ENDS_WITH';
   events: string[];
 }
 
