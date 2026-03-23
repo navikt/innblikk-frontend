@@ -6,10 +6,10 @@ metadata:
   labels:
     team: team-researchops
 spec:
-  image: { { image } }
+  image: {{ image }}
   port: 8080
   envFrom:
-    - secret: umami-bigquery
+  - secret: umami-bigquery
   liveness:
     path: /isalive
     port: 8080
@@ -38,10 +38,10 @@ spec:
   accessPolicy:
     outbound:
       rules:
-        - application: reops-proxy
-          namespace: team-researchops
-        - application: start-umami-backend
-          namespace: team-researchops
+          - application: reops-proxy
+            namespace: team-researchops
+          - application: start-umami-backend
+            namespace: team-researchops
   azure:
     application:
       enabled: true
@@ -52,14 +52,14 @@ spec:
       enabled: true
   env:
     - name: SITEIMPROVE_BASE_URL
-      value: 'http://reops-proxy.team-researchops.svc.cluster.local/siteimprove'
+      value: "http://reops-proxy.team-researchops.svc.cluster.local/siteimprove"
     - name: UMAMI_BASE_URL
-      value: 'https://reops-event-proxy.ekstern.dev.nav.no'
+      value: "https://reops-event-proxy.ekstern.dev.nav.no"
     - name: GCP_PROJECT_ID
-      value: 'team-researchops-dev-4396'
+      value: "team-researchops-dev-4396"
     - name: BACKEND_BASE_URL
-      value: 'http://start-umami-backend.team-researchops.svc.cluster.local'
+      value: "http://start-umami-backend.team-researchops.svc.cluster.local"
     - name: BACKEND_APP_NAME
-      value: 'start-umami-backend'
+      value: "start-umami-backend"
     - name: NAIS_CLUSTER_NAME
-      value: 'dev-gcp'
+      value: "dev-gcp"
