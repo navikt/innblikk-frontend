@@ -164,7 +164,7 @@ const ChartsPage = () => {
           </Bleed>
 
           {isSidebarLoading ? (
-            <div className="px-1 py-2 max-w-[180px]">
+            <div className="px-1 py-2 mt-2 max-w-[180px]">
               <Loader size="small" title="Laster data" />
             </div>
           ) : !config.website ? (

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import type { Dispatch, SetStateAction } from 'react'
 import {
   Heading,
   Button,
@@ -22,7 +23,7 @@ import { FILTER_COLUMNS } from '../../../../shared/lib/constants.ts'
 interface EventParameterSelectorProps {
   availableEvents: string[]
   parameters: Parameter[]
-  setParameters: (parameters: Parameter[]) => void
+  setParameters: Dispatch<SetStateAction<Parameter[]>>
   initiallySelectAll?: boolean // New optional prop to control initial selection
   // New props for date range settings
   maxDaysAvailable?: number
@@ -154,7 +155,6 @@ const EventParameterSelector: React.FC<EventParameterSelectorProps> = ({
 
   // Remove manual parameters and deselect manual event
   const confirmRemoveManualParameters = () => {
-    // @ts-expect-error — setParameters type mismatch with generic parameter type
     setParameters((prev) => prev.filter((p) => !p.key.startsWith(`${MANUAL_EVENT_NAME}.`)))
     setSelectedEvents((prev) => prev.filter((e) => e !== MANUAL_EVENT_NAME))
     setShowConfirmModal(false)
@@ -217,7 +217,6 @@ const EventParameterSelector: React.FC<EventParameterSelectorProps> = ({
   const toggleParameterType = (paramKey: string, currentType: 'string' | 'number'): void => {
     const newType = currentType === 'string' ? 'number' : 'string'
     const paramBase = paramKey.split('.')[1]
-    // @ts-expect-error — setParameters type mismatch with generic parameter type
     setParameters((prev) =>
       prev.map((p) => {
         if (p.key.includes(`.${paramBase}`)) {
