@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { hasMarketingSupport, hasSiteimproveSupport } from '../../../shared/hooks/useSiteimproveSupport.ts'
+import {
+  hasClickmapSupport,
+  hasMarketingSupport,
+  hasSiteimproveSupport,
+} from '../../../shared/hooks/useSiteimproveSupport.ts'
 import { chartGroups } from '../model/chartGroups.tsx'
 import { SHARED_PARAMS } from '../model/types.ts'
 
@@ -24,6 +28,7 @@ export const useChartNavigation = (
     () => hasMarketingSupport(domain, websiteName, resolvedWebsiteId),
     [domain, websiteName, resolvedWebsiteId],
   )
+  const showClickmapSection = useMemo(() => hasClickmapSupport(domain, resolvedWebsiteId), [domain, resolvedWebsiteId])
 
   const filteredChartGroups = useMemo(() => {
     const groupsWithoutSiteimprove = showSiteimproveSection
@@ -33,10 +38,12 @@ export const useChartNavigation = (
     return groupsWithoutSiteimprove
       .map((group) => ({
         ...group,
-        ids: group.ids.filter((id) => id !== 'markedsanalyse' || showMarketingSection),
+        ids: group.ids.filter(
+          (id) => (id !== 'markedsanalyse' || showMarketingSection) && (id !== 'clickmap' || showClickmapSection),
+        ),
       }))
       .filter((group) => group.ids.length > 0)
-  }, [showSiteimproveSection, showMarketingSection])
+  }, [showSiteimproveSection, showMarketingSection, showClickmapSection])
 
   const getTargetUrl = useCallback((href: string) => {
     const currentParams = new URLSearchParams(window.location.search)

@@ -23,6 +23,7 @@
     "teamDomain": "https://www.nav.no",
     "teamSiteimproveSite": 21766831756,
     "supportsMarketing": false,
+    "supportsClickmaps": true,
     "usesCookies": true,
     "cookiesEnabledFrom": "2026-02-01"
   },

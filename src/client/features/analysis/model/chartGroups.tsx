@@ -16,7 +16,7 @@ export const chartGroups: ChartGroup[] = [
   {
     title: 'Hendelser',
     icon: <Activity size={18} />,
-    ids: ['event-explorer', 'hendelsesreiser'],
+    ids: ['event-explorer', 'hendelsesreiser', 'clickmap'],
   },
   {
     title: 'Brukere',

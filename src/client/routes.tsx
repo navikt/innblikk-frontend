@@ -36,6 +36,7 @@ const UserProfiles = lazy(() => import('./features/user').then((m) => ({ default
 
 // Events Feature
 const EventExplorer = lazy(() => import('./features/eventexplorer').then((m) => ({ default: m.EventExplorer })))
+const Clickmap = lazy(() => import('./features/clickmap').then((m) => ({ default: m.Clickmap })))
 
 // Event Journey Feature
 const EventJourney = lazy(() => import('./features/eventjourney').then((m) => ({ default: m.EventJourney })))
@@ -103,6 +104,7 @@ export const fullWidthPathPrefixes = [
   '/trafikkanalyse',
   '/markedsanalyse',
   '/utforsk-hendelser',
+  '/klikkkart',
   '/datastruktur',
   '/brukerprofiler',
   '/brukerlojalitet',
@@ -143,6 +145,7 @@ export const routes: AppRoute[] = [
   { path: '/brukersammensetning', component: <UserComposition />, fullWidth: true },
   { path: '/brukerprofiler', component: <UserProfiles />, fullWidth: true },
   { path: '/utforsk-hendelser', component: <EventExplorer />, fullWidth: true },
+  { path: '/klikkkart', component: <Clickmap />, fullWidth: true },
   { path: '/datastruktur', component: <EventExplorer />, fullWidth: true },
   { path: '/trafikkanalyse', component: <TrafficAnalysis />, fullWidth: true },
   { path: '/markedsanalyse', component: <MarketingAnalysis />, fullWidth: true },

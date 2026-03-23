@@ -9,6 +9,7 @@ export const useUrlPathFilter = (
   urlPaths: string[],
   onUrlPathsChange: (paths: string[]) => void,
   selectedWebsiteDomain?: string,
+  isMultiSelect = true,
 ) => {
   const uniqueUrlPaths = useMemo(() => Array.from(new Set(urlPaths)), [urlPaths])
 
@@ -43,14 +44,27 @@ export const useUrlPathFilter = (
     [normalizeDomainHelper],
   )
 
+  const addPathSelection = useCallback(
+    (path: string) => {
+      if (isMultiSelect) {
+        if (!uniqueUrlPaths.includes(path)) {
+          onUrlPathsChange([...uniqueUrlPaths, path])
+        }
+        return
+      }
+
+      if (uniqueUrlPaths.length !== 1 || uniqueUrlPaths[0] !== path) {
+        onUrlPathsChange([path])
+      }
+    },
+    [isMultiSelect, uniqueUrlPaths, onUrlPathsChange],
+  )
+
   const handleSiteSwitch = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (website: any, path: string) => {
+    (website: PendingSwitchData['website'], path: string) => {
       const newParams = new URLSearchParams(searchParams)
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      newParams.set('websiteId', website.id as string)
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      newParams.set('domain', website.domain as string)
+      newParams.set('websiteId', website.id)
+      newParams.set('domain', website.domain)
       if (path && path !== '/') {
         newParams.set('urlPath', path)
       } else {
@@ -87,16 +101,12 @@ export const useUrlPathFilter = (
         try {
           const url = new URL(pastedText)
           const path = decodeURIComponent(url.pathname)
-          if (!uniqueUrlPaths.includes(path)) {
-            onUrlPathsChange([...uniqueUrlPaths, path])
-            setComboInputValue('')
-          }
+          addPathSelection(path)
+          setComboInputValue('')
         } catch {
           const path = pastedText
-          if (!uniqueUrlPaths.includes(path)) {
-            onUrlPathsChange([...uniqueUrlPaths, path])
-            setComboInputValue('')
-          }
+          addPathSelection(path)
+          setComboInputValue('')
         }
         return
       }
@@ -116,13 +126,25 @@ export const useUrlPathFilter = (
         }
 
         if (paths.length > 0) {
-          const uniqueNewPaths = new Set([...uniqueUrlPaths, ...paths])
-          onUrlPathsChange(Array.from(uniqueNewPaths))
+          if (isMultiSelect) {
+            const uniqueNewPaths = new Set([...uniqueUrlPaths, ...paths])
+            onUrlPathsChange(Array.from(uniqueNewPaths))
+          } else {
+            onUrlPathsChange([paths[0]])
+          }
           setComboInputValue('')
         }
       }
     },
-    [findMatchingWebsite, selectedWebsiteDomain, normalizeDomain, uniqueUrlPaths, onUrlPathsChange],
+    [
+      findMatchingWebsite,
+      selectedWebsiteDomain,
+      normalizeDomain,
+      uniqueUrlPaths,
+      onUrlPathsChange,
+      addPathSelection,
+      isMultiSelect,
+    ],
   )
 
   const handleBulkAddUrls = useCallback(() => {
@@ -140,13 +162,17 @@ export const useUrlPathFilter = (
       return
     }
 
-    const uniqueNewPaths = new Set([...uniqueUrlPaths, ...paths])
-    onUrlPathsChange(Array.from(uniqueNewPaths))
+    if (isMultiSelect) {
+      const uniqueNewPaths = new Set([...uniqueUrlPaths, ...paths])
+      onUrlPathsChange(Array.from(uniqueNewPaths))
+    } else {
+      onUrlPathsChange([paths[0]])
+    }
 
     setUrlPasteInput('')
     setUrlPasteError('')
     setIsUrlModalOpen(false)
-  }, [urlPasteInput, selectedWebsiteDomain, normalizeDomain, uniqueUrlPaths, onUrlPathsChange])
+  }, [urlPasteInput, selectedWebsiteDomain, normalizeDomain, uniqueUrlPaths, onUrlPathsChange, isMultiSelect])
 
   const handleToggleSelected = useCallback(
     (option: string, isSelected: boolean) => {
@@ -164,10 +190,19 @@ export const useUrlPathFilter = (
           }, 100)
           return
         }
-        if (normalized && !uniqueUrlPaths.includes(normalized)) {
-          onUrlPathsChange([...uniqueUrlPaths, normalized])
+        if (normalized) {
+          addPathSelection(normalized)
         }
       } else {
+        if (!isMultiSelect) {
+          onUrlPathsChange([])
+          setComboInputValue('')
+          setTimeout(() => {
+            isSelectingRef.current = false
+          }, 100)
+          return
+        }
+
         let normalized = normalizeUrlToPath(rawOption)
         if (normalized && !normalized.startsWith('/')) {
           normalized = '/' + normalized
@@ -181,7 +216,7 @@ export const useUrlPathFilter = (
         isSelectingRef.current = false
       }, 100)
     },
-    [uniqueUrlPaths, onUrlPathsChange],
+    [uniqueUrlPaths, onUrlPathsChange, addPathSelection, isMultiSelect],
   )
 
   const handleBlur = useCallback(() => {
@@ -211,13 +246,13 @@ export const useUrlPathFilter = (
           setComboInputValue('')
           return
         }
-        if (normalized && !uniqueUrlPaths.includes(normalized)) {
-          onUrlPathsChange([...uniqueUrlPaths, normalized])
+        if (normalized) {
+          addPathSelection(normalized)
         }
         setComboInputValue('')
       }
     }, 150)
-  }, [comboInputValue, findMatchingWebsite, selectedWebsiteDomain, normalizeDomain, uniqueUrlPaths, onUrlPathsChange])
+  }, [comboInputValue, findMatchingWebsite, selectedWebsiteDomain, normalizeDomain, addPathSelection])
 
   // Modal actions
   const closeBulkModal = useCallback(() => {
@@ -245,12 +280,12 @@ export const useUrlPathFilter = (
       if (path && !path.startsWith('/')) {
         path = '/' + path
       }
-      if (path && !uniqueUrlPaths.includes(path)) {
-        onUrlPathsChange([...uniqueUrlPaths, path])
+      if (path) {
+        addPathSelection(path)
       }
     }
     closeSwitchModal()
-  }, [pendingSwitchData, uniqueUrlPaths, onUrlPathsChange, closeSwitchModal])
+  }, [pendingSwitchData, addPathSelection, closeSwitchModal])
 
   const closeMissingSlashModal = useCallback(() => {
     setIsMissingSlashModalOpen(false)
@@ -258,11 +293,11 @@ export const useUrlPathFilter = (
   }, [])
 
   const confirmMissingSlash = useCallback(() => {
-    if (pendingMissingSlash && !uniqueUrlPaths.includes('/' + pendingMissingSlash)) {
-      onUrlPathsChange([...uniqueUrlPaths, '/' + pendingMissingSlash])
+    if (pendingMissingSlash) {
+      addPathSelection('/' + pendingMissingSlash)
     }
     closeMissingSlashModal()
-  }, [pendingMissingSlash, uniqueUrlPaths, onUrlPathsChange, closeMissingSlashModal])
+  }, [pendingMissingSlash, addPathSelection, closeMissingSlashModal])
 
   return {
     uniqueUrlPaths,

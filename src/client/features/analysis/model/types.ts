@@ -264,12 +264,16 @@ export interface UrlPathFilterProps {
   hideLabel?: boolean
   showOperator?: boolean
   showSuggestions?: boolean
+  isMultiSelect?: boolean
   className?: string
 }
 
 export interface PendingSwitchData {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  website: any
+  website: {
+    id: string
+    domain: string
+    name?: string
+  }
   path: string
   originalUrl: string
 }

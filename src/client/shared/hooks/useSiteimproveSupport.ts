@@ -7,6 +7,7 @@ interface TeamData {
   websiteID?: string
   teamSiteimproveSite: number | false
   supportsMarketing?: boolean
+  supportsClickmaps?: boolean
   usesCookies?: boolean
   cookiesEnabledFrom?: string
 }
@@ -121,6 +122,16 @@ export function hasMarketingSupport(
 }
 
 /**
+ * Check if a domain supports Clickmap based on teamsData.json
+ * @param domain - The domain to check
+ * @returns boolean - true if Clickmap is supported (requires explicit true)
+ */
+export function hasClickmapSupport(domain: string | null | undefined, websiteId?: string | null): boolean {
+  const team = findTeam(domain, websiteId)
+  return team ? team.supportsClickmaps === true : false
+}
+
+/**
  * React hook to check Siteimprove support for a domain
  * @param domain - The domain to check
  * @returns boolean - true if Siteimprove is supported
@@ -180,6 +191,15 @@ export function useMarketingSupport(
   websiteId?: string | null,
 ): boolean {
   return useMemo(() => hasMarketingSupport(domain, websiteName, websiteId), [domain, websiteName, websiteId])
+}
+
+/**
+ * React hook to check Clickmap support for a domain
+ * @param domain - The domain to check
+ * @returns boolean - true if Clickmap is supported
+ */
+export function useClickmapSupport(domain: string | null | undefined, websiteId?: string | null): boolean {
+  return useMemo(() => hasClickmapSupport(domain, websiteId), [domain, websiteId])
 }
 
 export default useSiteimproveSupport

@@ -15,6 +15,7 @@ export const UrlPathFilter = ({
   hideLabel = false,
   showOperator = true,
   showSuggestions = false,
+  isMultiSelect = true,
   className = '',
 }: UrlPathFilterProps) => {
   const urlModalRef = useRef<HTMLDialogElement>(null)
@@ -47,7 +48,7 @@ export const UrlPathFilter = ({
     handlePaste,
     handleToggleSelected,
     handleBlur,
-  } = useUrlPathFilter(urlPaths, onUrlPathsChange, selectedWebsiteDomain)
+  } = useUrlPathFilter(urlPaths, onUrlPathsChange, selectedWebsiteDomain, isMultiSelect)
 
   return (
     <div className={className}>
@@ -74,7 +75,7 @@ export const UrlPathFilter = ({
           label={label}
           hideLabel={showOperator || hideLabel}
           size={size}
-          isMultiSelect
+          isMultiSelect={isMultiSelect}
           allowNewValues
           toggleListButton={showSuggestions}
           options={

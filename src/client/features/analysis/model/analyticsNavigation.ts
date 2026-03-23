@@ -11,6 +11,7 @@ export type AnalyticsPage =
   | 'enkeltbrukere'
   | 'personvern'
   | 'hendelsesreiser'
+  | 'clickmap'
   | 'sql'
   | 'grafdeling'
   | 'odelagte-lenker'

@@ -120,6 +120,188 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
     }
   })
 
+  // Get clickmap data for a website from BigQuery
+  router.get('/api/bigquery/websites/:websiteId/clickmap', async (req, res) => {
+    try {
+      const { websiteId } = req.params
+      const navIdent = req.user?.navIdent || 'UNKNOWN'
+      const { startAt, endAt, urlPath, pathOperator, limit = '300', minCount = '1' } = req.query
+
+      if (!bigquery) {
+        return res.status(500).json({
+          error: 'BigQuery client not initialized',
+        })
+      }
+
+      const startDate = startAt
+        ? new Date(parseInt(startAt)).toISOString()
+        : new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
+      const endDate = endAt ? new Date(parseInt(endAt)).toISOString() : new Date().toISOString()
+
+      const eventNameValues = Array.isArray(req.query.eventName)
+        ? req.query.eventName
+        : typeof req.query.eventName === 'string'
+          ? req.query.eventName.split(',')
+          : []
+      const eventNames = eventNameValues.map((value) => value.trim()).filter(Boolean)
+      const effectiveEventNames = eventNames.length > 0 ? eventNames : ['navigere', 'accordion åpnet']
+
+      const params = {
+        websiteId,
+        startDate,
+        endDate,
+        eventNames: effectiveEventNames,
+        minCount: Math.max(1, parseInt(minCount) || 1),
+        limit: Math.max(1, Math.min(parseInt(limit) || 300, 1000)),
+      }
+
+      let urlFilter = ''
+      if (urlPath) {
+        if (pathOperator === 'starts-with') {
+          urlFilter = `AND LOWER(e.url_path) LIKE @urlPathPattern`
+          params.urlPathPattern = urlPath.toLowerCase() + '%'
+        } else {
+          urlFilter = `AND (
+                      e.url_path = @urlPath
+                      OR e.url_path = @urlPathSlash
+                      OR e.url_path LIKE @urlPathQuery
+                  )`
+          params.urlPath = urlPath
+          params.urlPathSlash = urlPath.endsWith('/') ? urlPath : urlPath + '/'
+          params.urlPathQuery = urlPath + '?%'
+        }
+      }
+
+      const query = `
+              WITH RawEvents AS (
+                  SELECT
+                      e.event_id,
+                      e.url_path AS source_path,
+                      MAX(
+                          CASE
+                              WHEN LOWER(p.data_key) IN ('lenketekst', 'tekst', 'label', 'tittel')
+                              THEN COALESCE(NULLIF(TRIM(p.string_value), ''), CAST(p.number_value AS STRING), CAST(p.date_value AS STRING))
+                              ELSE NULL
+                          END
+                      ) AS link_text,
+                      MAX(
+                          CASE
+                              WHEN LOWER(p.data_key) IN ('destinasjon', 'url', 'href')
+                              THEN COALESCE(NULLIF(TRIM(p.string_value), ''), CAST(p.number_value AS STRING), CAST(p.date_value AS STRING))
+                              ELSE NULL
+                          END
+                      ) AS destination,
+                      MAX(
+                          CASE
+                              WHEN LOWER(p.data_key) = 'seksjon'
+                              THEN COALESCE(NULLIF(TRIM(p.string_value), ''), CAST(p.number_value AS STRING), CAST(p.date_value AS STRING))
+                              ELSE NULL
+                          END
+                      ) AS section,
+                      MAX(
+                          CASE
+                              WHEN LOWER(p.data_key) IN ('målgruppe', 'malgruppe')
+                              THEN COALESCE(NULLIF(TRIM(p.string_value), ''), CAST(p.number_value AS STRING), CAST(p.date_value AS STRING))
+                              ELSE NULL
+                          END
+                      ) AS audience
+                      ,
+                      MAX(
+                          CASE
+                              WHEN LOWER(p.data_key) IN ('komponent', 'component')
+                              THEN COALESCE(NULLIF(TRIM(p.string_value), ''), CAST(p.number_value AS STRING), CAST(p.date_value AS STRING))
+                              ELSE NULL
+                          END
+                      ) AS component
+                  FROM \`${GCP_PROJECT_ID}.umami.public_website_event\` e
+                  LEFT JOIN \`${GCP_PROJECT_ID}.umami_views.event_data\` d
+                      ON e.event_id = d.website_event_id
+                      AND e.website_id = d.website_id
+                      AND e.created_at = d.created_at
+                  LEFT JOIN UNNEST(d.event_parameters) AS p
+                  WHERE e.website_id = @websiteId
+                  AND e.created_at BETWEEN @startDate AND @endDate
+                  AND e.event_name IN UNNEST(@eventNames)
+                  ${urlFilter}
+                  GROUP BY e.event_id, e.url_path
+              )
+              SELECT
+                  source_path AS sourcePath,
+                  link_text AS linkText,
+                  destination,
+                  section,
+                  audience,
+                  component,
+                  COUNT(*) AS count
+              FROM RawEvents
+              WHERE COALESCE(link_text, destination) IS NOT NULL
+              GROUP BY 1, 2, 3, 4, 5, 6
+              HAVING COUNT(*) >= @minCount
+              ORDER BY count DESC
+              LIMIT @limit
+          `
+
+      const [job] = await bigquery.createQueryJob(
+        addAuditLogging(
+          {
+            query,
+            location: 'europe-north1',
+            params,
+            maximumBytesBilled: MAX_BYTES_BILLED,
+          },
+          navIdent,
+          'Klikkkart',
+        ),
+      )
+
+      const [rows] = await job.getQueryResults()
+      const data = rows.map((row) => ({
+        sourcePath: row.sourcePath || '',
+        linkText: row.linkText || '',
+        destination: row.destination || '',
+        section: row.section || '',
+        audience: row.audience || '',
+        component: row.component || '',
+        count: parseInt(row.count),
+      }))
+
+      let queryStats = null
+      try {
+        const [dryRunJob] = await bigquery.createQueryJob(
+          addAuditLogging(
+            {
+              query,
+              location: 'europe-north1',
+              params,
+              dryRun: true,
+            },
+            navIdent,
+            'Klikkkart',
+          ),
+        )
+
+        const stats = dryRunJob.metadata.statistics
+        const bytesProcessed = parseInt(stats.totalBytesProcessed)
+        const gbProcessed = (bytesProcessed / 1024 ** 3).toFixed(2)
+        const estimatedCostUSD = ((bytesProcessed / 1024 ** 4) * 6.25).toFixed(3)
+
+        queryStats = {
+          totalBytesProcessedGB: gbProcessed,
+          estimatedCostUSD: estimatedCostUSD,
+        }
+      } catch (dryRunError) {
+        console.log('[Clickmap] Dry run failed:', dryRunError.message)
+      }
+
+      res.json({ data, queryStats })
+    } catch (error) {
+      console.error('BigQuery clickmap error:', error)
+      res.status(500).json({
+        error: error.message || 'Failed to fetch clickmap data',
+      })
+    }
+  })
+
   // Get event properties/parameters for a website from BigQuery
   router.get('/api/bigquery/websites/:websiteId/event-properties', async (req, res) => {
     try {
