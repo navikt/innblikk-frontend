@@ -444,9 +444,16 @@ const SegmentBy = forwardRef<SegmentByRef, SegmentByProps>(({
         ))}
       </div>
 
-      <Button variant="tertiary" size="small" onClick={addSegment}>
-        + Legg til segment
-      </Button>
+      <button
+        type="button"
+        onClick={addSegment}
+        aria-label="Legg til segment"
+        className="block w-full cursor-pointer rounded-md border-1 border-dashed border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-3 py-3 text-left hover:border-(--ax-border-neutral) hover:bg-[var(--ax-bg-subtle)] focus:outline-none focus-visible:ring-2 focus-visible:ring-(--ax-border-accent)"
+      >
+        <p className="text-sm font-semibold" style={{ color: 'var(--ax-text-subtle)' }}>
+          + Legg til segment
+        </p>
+      </button>
     </div>
   );
 });

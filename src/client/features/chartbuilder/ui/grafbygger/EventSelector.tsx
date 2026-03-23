@@ -695,7 +695,7 @@ const EventSelector = ({
                           aria-label={isPageviews ? 'Legg til sidevisninger' : 'Legg til egendefinerte hendelser'}
                           className="block w-full cursor-pointer rounded-md border-1 border-dashed border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-3 py-3 text-left hover:border-(--ax-border-neutral) hover:bg-[var(--ax-bg-subtle)] focus:outline-none focus-visible:ring-2 focus-visible:ring-(--ax-border-accent)"
                         >
-                          <p className="text-sm font-semibold text-(--ax-text-default)">
+                          <p className="text-sm font-semibold" style={{ color: 'var(--ax-text-subtle)' }}>
                             {isPageviews ? '+ Legg til sidevisninger' : '+ Legg til egendefinerte hendelser'}
                           </p>
                         </button>
