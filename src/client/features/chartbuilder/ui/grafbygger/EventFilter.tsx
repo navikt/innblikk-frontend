@@ -14,6 +14,7 @@ interface ChartFiltersProps {
   filters: Filter[];
   parameters: Parameter[];
   setFilters: (filters: Filter[]) => void;
+  onDirtyStateChange?: (isDirty: boolean) => void;
   availableEvents?: string[];
   onEnableCustomEvents?: (withParams?: boolean) => void;
   dateRangeInDays?: number;
@@ -27,6 +28,7 @@ const EventFilter = forwardRef(({
   filters,
   parameters,
   setFilters,
+  onDirtyStateChange,
   availableEvents = [],
   onEnableCustomEvents,
   dateRangeInDays = 7,
@@ -190,6 +192,7 @@ const EventFilter = forwardRef(({
   const isDateRangeFilter = (filter: Filter): boolean => {
     return filter.column === 'created_at' && ['>=', '<='].includes(filter.operator || '');
   };
+
 
   // Replace toggleFilterSuggestion with new handler
   const handleEventTypeChange = (eventType: string, isChecked: boolean) => {
@@ -437,6 +440,26 @@ const EventFilter = forwardRef(({
 
     didInitPageviewsRef.current = true;
   }, [mode, filters, setFilters]);
+
+  useEffect(() => {
+    if (!onDirtyStateChange) return;
+
+    // Source of truth for reset visibility in "Hendelse":
+    // default means only the standard Pageviews + interactive dashboard filter setup.
+    const isDefaultUiState = mode === 'full' &&
+      selectedEventTypes.length === 1 &&
+      selectedEventTypes[0] === 'pageviews' &&
+      pageViewsMode === 'interactive' &&
+      customEventsMode === 'none';
+
+    onDirtyStateChange(!isDefaultUiState);
+  }, [
+    mode,
+    selectedEventTypes,
+    pageViewsMode,
+    customEventsMode,
+    onDirtyStateChange
+  ]);
 
   // Create a Set to track unique parameters
   const uniqueParameters = useMemo(() => {

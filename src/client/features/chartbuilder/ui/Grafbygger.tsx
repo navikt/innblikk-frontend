@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ProgressBar } from '@navikt/ds-react';
+import { ArrowCirclepathReverseIcon } from '@navikt/aksel-icons';
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx';
 import QueryPreview from './results/QueryPreview.tsx';
 import EventFilter from './grafbygger/EventFilter.tsx';
@@ -24,6 +25,7 @@ const ChartsPage = () => {
   const [fakeProgress, setFakeProgress] = useState<number>(1);
   const [groupingResetSignal, setGroupingResetSignal] = useState<number>(0);
   const [metricResetSignal, setMetricResetSignal] = useState<number>(0);
+  const [isEventFilterDirty, setIsEventFilterDirty] = useState<boolean>(false);
   const segmentByRef = useRef<SegmentByRef>(null);
 
   const {
@@ -96,6 +98,35 @@ const ChartsPage = () => {
     setMetricResetSignal(prev => prev + 1);
   }, [resetAll]);
 
+  const hasSegmentConfigToReset = useCallback((segments: SegmentDefinition[] | undefined): boolean => {
+    if (!segments || segments.length === 0) {
+      return false;
+    }
+
+    if (segments.length !== 1) {
+      return true;
+    }
+
+    const [segment] = segments;
+    const hasFilters = (segment.filters?.length || 0) > 0;
+    const hasPerformedSelection = (segment.performed?.events?.length || 0) > 0;
+    const hasCustomName = (segment.name || '').trim() !== 'Alle brukere';
+
+    return hasFilters || hasPerformedSelection || hasCustomName;
+  }, []);
+
+  const showResetEventFilters = isEventFilterDirty;
+  const showResetMetrics = config.metrics.length > 0;
+  const showResetSegments = hasSegmentConfigToReset(config.segments);
+  const showResetGroupings = config.groupByFields.length > 0;
+  const showResetDisplayOptions =
+    Boolean(config.orderBy) ||
+    (config.columnOrderMode || 'default') !== 'default' ||
+    config.paramAggregation !== 'unique' ||
+    (config.limit ?? 1000) !== 1000 ||
+    config.dateFormat !== 'day' ||
+    !interactiveDateFilterEnabled;
+
   // Keep sidebar sections visible during background event/detail fetches.
   // Only gate on initial website/date readiness.
   const isSidebarLoading = isWebsitePickerInitializing || (!!config.website && !dateRangeReady);
@@ -156,21 +187,23 @@ const ChartsPage = () => {
               {/* ── Hendelse ───────────────────────────────────────── */}
               <SidebarSection
                 title="Hendelse"
-                action={
+                action={showResetEventFilters ? (
                   <ActionFeedbackButton
                     label="Tilbakestill"
                     activeLabel="Tilbakestilt!"
-                    size="xsmall"
+                    variant="tertiary"
+                    size="small"
+                    icon={<ArrowCirclepathReverseIcon aria-hidden />}
                     onClick={() => chartFiltersRef.current?.resetFilters(false)}
-                    className="text-(--ax-text-danger)! !px-2 !py-1"
                   />
-                }
+                ) : undefined}
               >
                 <EventFilter
                   ref={chartFiltersRef}
                   filters={filters}
                   parameters={parameters}
                   setFilters={setFilters}
+                  onDirtyStateChange={setIsEventFilterDirty}
                   availableEvents={availableEvents}
                   onEnableCustomEvents={(withParams = false) => {
                     setRequestLoadEvents(true);
@@ -190,15 +223,16 @@ const ChartsPage = () => {
               {/* ── Målt som ───────────────────────────────────────── */}
               <SidebarSection
                 title="Målt som..."
-                action={
+                action={showResetMetrics ? (
                   <ActionFeedbackButton
                     label="Tilbakestill"
                     activeLabel="Tilbakestilt!"
-                    size="xsmall"
+                    variant="tertiary"
+                    size="small"
+                    icon={<ArrowCirclepathReverseIcon aria-hidden />}
                     onClick={handleResetMetrics}
-                    className="text-(--ax-text-danger)! !px-2 !py-1"
                   />
-                }
+                ) : undefined}
               >
                 <MetricSelector
                   ref={summarizeRef}
@@ -222,15 +256,16 @@ const ChartsPage = () => {
               {/* ── Segmenter etter ────────────────────────────────── */}
               <SidebarSection
                 title="Segmenter etter..."
-                action={
+                action={showResetSegments ? (
                   <ActionFeedbackButton
                     label="Tilbakestill"
                     activeLabel="Tilbakestilt!"
-                    size="xsmall"
+                    variant="tertiary"
+                    size="small"
+                    icon={<ArrowCirclepathReverseIcon aria-hidden />}
                     onClick={() => segmentByRef.current?.resetSegments(false)}
-                    className="text-(--ax-text-danger)! !px-2 !py-1"
                   />
-                }
+                ) : undefined}
               >
                 <SegmentBy
                   ref={segmentByRef}
@@ -255,15 +290,16 @@ const ChartsPage = () => {
               {/* ── Gruppert etter ─────────────────────────────────── */}
               <SidebarSection
                 title="Gruppert etter..."
-                action={
+                action={showResetGroupings ? (
                   <ActionFeedbackButton
                     label="Tilbakestill"
                     activeLabel="Tilbakestilt!"
-                    size="xsmall"
+                    variant="tertiary"
+                    size="small"
+                    icon={<ArrowCirclepathReverseIcon aria-hidden />}
                     onClick={handleResetGroupings}
-                    className="text-(--ax-text-danger)! !px-2 !py-1"
                   />
-                }
+                ) : undefined}
               >
                 <GroupingOptions
                   groupByFields={config.groupByFields}
@@ -295,15 +331,16 @@ const ChartsPage = () => {
               {/* ── Visningsalternativer ───────────────────────────── */}
               <SidebarSection
                 title="Visningsalternativer"
-                action={
+                action={showResetDisplayOptions ? (
                   <ActionFeedbackButton
                     label="Tilbakestill"
                     activeLabel="Tilbakestilt!"
-                    size="xsmall"
+                    variant="tertiary"
+                    size="small"
+                    icon={<ArrowCirclepathReverseIcon aria-hidden />}
                     onClick={() => displayOptionsRef.current?.resetOptions(false)}
-                    className="text-(--ax-text-danger)! !px-2 !py-1"
                   />
-                }
+                ) : undefined}
               >
                 <DisplayOptions
                   ref={displayOptionsRef}

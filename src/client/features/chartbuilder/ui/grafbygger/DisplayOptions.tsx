@@ -55,12 +55,13 @@ const DisplayOptions = forwardRef(({
   const [customPeriodInputs, setCustomPeriodInputs] = useState<Record<number, { amount: string, unit: string }>>({});
   const [selectedDateRange, setSelectedDateRange] = useState<string>('last7days');
 
-  const resetOptions = (_silent = false) => {
+  const resetOptions = (silent = false) => {
+    void silent;
     clearOrderBy();
     setDateFormat('day');
     setLimit(1000);
     setColumnOrderMode('default');
-    setParamAggregation('representative');
+    setParamAggregation('unique');
     setShowCustomSort(false);
     setShowCustomLimit(false);
     setLimitInput('1000');
