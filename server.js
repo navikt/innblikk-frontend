@@ -43,6 +43,20 @@ app.use('/api/backend', createBackendProxyRouter({ BACKEND_BASE_URL }))
 // BigQuery routes (router paths already include /api/bigquery)
 app.use(createBigQueryRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE }))
 
+app.get('/api/debug', async (req, res) => {
+  try {
+    const response = await fetch('https://www.nav.no/aap')
+    const html = await response.text()
+
+    res.status(response.status)
+    res.type('text/html; charset=utf-8')
+    res.send(html)
+  } catch (error) {
+    console.error('Failed to fetch NAV AAP HTML:', error)
+    res.status(500).json({ error: 'Failed to fetch NAV AAP HTML' })
+  }
+})
+
 // Serve index.html with injected runtime config
 registerFrontend(app, { buildPath, UMAMI_BASE_URL, GCP_PROJECT_ID })
 
