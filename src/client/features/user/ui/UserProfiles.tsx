@@ -158,7 +158,7 @@ const UserProfiles = () => {
 
     const handleSearchClick = useCallback(() => {
         setPage(1);
-        fetchUsers(1);
+        void fetchUsers(1);
     }, [fetchUsers]);
 
     useEffect(() => {
@@ -201,7 +201,7 @@ const UserProfiles = () => {
     const handleRowClick = (user: UserProfile) => {
         setSelectedSession(user);
         setIsModalOpen(true);
-        fetchUserActivity(user.primarySessionId || user.sessionIds?.[0] || user.userId || '');
+        void fetchUserActivity(user.primarySessionId || user.sessionIds?.[0] || user.userId || '');
     };
 
     const formatDate = (dateString: string) => {

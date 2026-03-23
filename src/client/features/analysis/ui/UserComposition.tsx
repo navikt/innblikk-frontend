@@ -161,7 +161,7 @@ const UserComposition = () => {
     useEffect(() => {
         if (selectedWebsite && !hasAutoSubmitted && !loading) {
             setHasAutoSubmitted(true);
-            fetchData();
+            void fetchData();
         }
     }, [selectedWebsite, hasAutoSubmitted, loading, fetchData]);
 

@@ -146,7 +146,7 @@ export async function fetchTimingData(params: FetchTimingParams): Promise<FetchT
         if (!response.ok) {
             let errorMessage = 'Kunne ikke hente tidsdata';
             try {
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+                 
                 const errorData: unknown = await response.json();
                 if (isErrorResponse(errorData)) {
                     errorMessage = errorData.error;

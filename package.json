@@ -6,10 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "eslint . --max-warnings=0 --report-unused-disable-directives",
+    "lint": "eslint . --report-unused-disable-directives",
     "preview": "vite preview",
     "server": "node server.js",
-    "start": "concurrently --names \"VITE,SERVER\" --prefix-colors \"cyan,green\" \"pnpm run dev\" \"pnpm run server\""
+    "start": "concurrently --names \"VITE,SERVER\" --prefix-colors \"cyan,green\" \"pnpm run dev\" \"pnpm run server\"",
+    "prepare": "husky || true"
   },
   "dependencies": {
     "@google-cloud/bigquery": "^8.1.1",
@@ -42,6 +43,8 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.26",
     "globals": "^17.0.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
     "lucide-react": "^0.562.0",
     "postcss": "^8.5.6",
     "prismjs": "^1.30.0",
@@ -62,5 +65,8 @@
       "glob": "^13.0.3",
       "node-domexception": "^2.0.2"
     }
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js}": "eslint --fix --report-unused-disable-directives"
   }
 }

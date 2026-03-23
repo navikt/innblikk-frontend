@@ -81,7 +81,6 @@ const WebsitePicker = ({
   const prevShouldReload = useRef<boolean>(shouldReload);
   const initialUrlChecked = useRef<boolean>(false);
 
-  // @ts-ignore
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [showLoading, setShowLoading] = useState<boolean>(false);
@@ -242,12 +241,10 @@ const WebsitePicker = ({
     null,
   );
 
-  // @ts-ignore
-  // @ts-ignore
   const fetchEventNames = useCallback(
     async (
       website: Website,
-      forceFresh = false,
+      _forceFresh = false,
       daysToFetch = dateRangeInDays,
       metadataOnly = false,
     ) => {
@@ -309,7 +306,8 @@ const WebsitePicker = ({
             `${apiBase}/websites/${websiteId}/event-properties?startAt=${startAt}&endAt=${endAt}&includeParams=${includeParams}`,
           ),
           timeoutPromise(API_TIMEOUT_MS),
-        ]); // @ts-ignore
+        ]);
+        // @ts-expect-error — Promise.race return type is overly broad
         const responseData = await propertiesResponse.json();
 
         console.log("API Response:", responseData);
@@ -493,13 +491,13 @@ const WebsitePicker = ({
     if (isNewWebsite) {
       if (disableAutoEvents && !requestLoadEvents) {
         // Metadata only fetch
-        fetchEventNames(selectedWebsite, false, dateRangeInDays, true);
+        void fetchEventNames(selectedWebsite, false, dateRangeInDays, true);
         setLoadedWebsiteId(selectedWebsite.id);
         setFullEventsLoadedId(null);
       } else {
         // Full fetch
         apiCache.current = {};
-        fetchEventNames(selectedWebsite, false, dateRangeInDays, false);
+        void fetchEventNames(selectedWebsite, false, dateRangeInDays, false);
         setLoadedWebsiteId(selectedWebsite.id);
         setFullEventsLoadedId(selectedWebsite.id);
       }
@@ -509,7 +507,7 @@ const WebsitePicker = ({
       // to ensure we fetch with includeParams=true instead of false
       if (!requestIncludeParams) {
         apiCache.current = {};
-        fetchEventNames(selectedWebsite, false, dateRangeInDays, false);
+        void fetchEventNames(selectedWebsite, false, dateRangeInDays, false);
       }
       setFullEventsLoadedId(selectedWebsite.id);
     }
@@ -535,7 +533,7 @@ const WebsitePicker = ({
     ) {
       prevIncludeParams.current = includeParams;
       apiCache.current[selectedWebsite.id] = {};
-      fetchEventNames(selectedWebsite, true, dateRangeInDays);
+      void fetchEventNames(selectedWebsite, true, dateRangeInDays);
     }
   }, [
     includeParams,
@@ -574,7 +572,7 @@ const WebsitePicker = ({
       apiCache.current[selectedWebsite.id] = {};
 
       // Always use API data when explicitly reloading
-      fetchEventNames(
+      void fetchEventNames(
         selectedWebsite,
         true,
         externalDateRange || dateRangeInDays,

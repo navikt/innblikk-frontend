@@ -44,7 +44,7 @@ function UrlSearchForm({ children }: UrlSearchFormProps) {
     };
 
     const navigateToTrafficAnalysis = (website: Website, path: string) => {
-        navigate(
+        void navigate(
             `/trafikkanalyse?websiteId=${website.id}&domain=${website.domain}&urlPath=${encodeURIComponent(path)}`
         );
     };

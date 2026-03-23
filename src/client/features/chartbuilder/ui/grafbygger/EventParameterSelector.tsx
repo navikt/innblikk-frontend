@@ -77,8 +77,8 @@ const EventParameterSelector: React.FC<EventParameterSelectorProps> = ({
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // @ts-ignore Store event-parameter mapping to ensure proper relationship
-  const [eventParamsMap, setEventParamsMap] = useState<EventParams>({});
+  // Store event-parameter mapping to ensure proper relationship (written but not yet consumed)
+  const [_eventParamsMap, setEventParamsMap] = useState<EventParams>({});
 
   // Rename isLoading state to isLoadingParameters to avoid conflict with prop
   const [isLoadingParameters, setIsLoadingParameters] = useState<boolean>(true);
@@ -163,7 +163,7 @@ const EventParameterSelector: React.FC<EventParameterSelectorProps> = ({
 
   // Remove manual parameters and deselect manual event
   const confirmRemoveManualParameters = () => {
-    // @ts-ignore
+    // @ts-expect-error — setParameters type mismatch with generic parameter type
     setParameters(prev => prev.filter(p => !p.key.startsWith(`${MANUAL_EVENT_NAME}.`)));
     setSelectedEvents(prev => prev.filter(e => e !== MANUAL_EVENT_NAME));
     setShowConfirmModal(false);
@@ -217,16 +217,14 @@ const EventParameterSelector: React.FC<EventParameterSelectorProps> = ({
 
   // Fix missing functions
   const removeParameter = (paramKey: string): void => {
-    // @ts-ignore - paramBase might be undefined but it's handled by the filter
     const paramBase = paramKey.split('.')[1];
     setParameters(parameters.filter(p => !p.key.includes(`.${paramBase}`)));
   };
 
   const toggleParameterType = (paramKey: string, currentType: 'string' | 'number'): void => {
     const newType = currentType === 'string' ? 'number' : 'string';
-    // @ts-ignore - paramBase might be undefined but it's handled by the filter
     const paramBase = paramKey.split('.')[1];
-    // @ts-ignore
+    // @ts-expect-error — setParameters type mismatch with generic parameter type
     setParameters(prev => prev.map(p => {
       if (p.key.includes(`.${paramBase}`)) {
         return { ...p, type: newType };

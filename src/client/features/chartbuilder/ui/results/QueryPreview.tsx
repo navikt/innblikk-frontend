@@ -672,7 +672,7 @@ const QueryPreview = ({
 
   const handleCopy = async () => {
     const metabaseSql = getProcessedSql({ preserveMetabasePlaceholders: true });
-    navigator.clipboard.writeText(metabaseSql);
+    void navigator.clipboard.writeText(metabaseSql);
     setCopied(true);
 
     setEstimating(true);

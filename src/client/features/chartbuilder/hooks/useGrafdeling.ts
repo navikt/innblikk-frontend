@@ -83,7 +83,7 @@ export function useGrafdeling() {
   }, [websiteIdState, selectedWebsite?.domain, urlPath, pathOperatorFromUrl, dateRange, customVariables, customVariableValues]);
 
   const handleRetry = useCallback(() => {
-    if (query) executeQuery(query);
+    if (query) void executeQuery(query);
   }, [query, executeQuery]);
 
   // --- Chart data preparation ---
@@ -367,7 +367,7 @@ export function useGrafdeling() {
 
     const timer = setTimeout(() => {
       if (query && !hasRunInitialQuery.current) {
-        executeQuery(query);
+        void executeQuery(query);
         hasRunInitialQuery.current = true;
       }
     }, 500);

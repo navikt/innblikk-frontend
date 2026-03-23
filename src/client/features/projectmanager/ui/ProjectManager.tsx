@@ -658,7 +658,7 @@ const ProjectManager = () => {
                 graphType: normalizeGraphType(row.graphType ?? graph?.graphType),
                 queryId: primaryQuery.id,
                 queryName: primaryQuery.name,
-                categoryId: row.categoryId!,
+                categoryId: row.categoryId,
                 variants: sortedQueries.map((item) => ({
                     queryId: item.id,
                     queryName: item.name,
@@ -668,7 +668,7 @@ const ProjectManager = () => {
             setEditChartTarget({
                 projectId,
                 dashboardId: row.dashboardId,
-                categoryId: row.categoryId!,
+                categoryId: row.categoryId,
                 chart,
                 defaultWebsiteId: extractWebsiteId(primaryQuery.sqlText),
             });
