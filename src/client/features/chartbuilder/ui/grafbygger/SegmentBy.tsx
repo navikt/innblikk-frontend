@@ -25,7 +25,7 @@ interface SegmentByProps {
 }
 
 interface PerformedSelection {
-  operator: 'IN' | '=' | 'LIKE' | 'STARTS_WITH' | 'ENDS_WITH';
+  operator: 'IN' | '=' | '!=' | 'LIKE' | 'STARTS_WITH' | 'ENDS_WITH';
   events: string[];
 }
 
@@ -69,7 +69,7 @@ const SegmentBy = forwardRef<SegmentByRef, SegmentByProps>(({
 
   const performedOperators = useMemo(() => ([
     { label: 'er lik', value: 'IN' },
-    ...OPERATORS.filter(operator => ['=', 'LIKE', 'STARTS_WITH', 'ENDS_WITH'].includes(operator.value))
+    ...OPERATORS.filter(operator => ['=', '!=', 'LIKE', 'STARTS_WITH', 'ENDS_WITH'].includes(operator.value))
   ]), []);
 
   const resetSegments = (_silent = false) => {

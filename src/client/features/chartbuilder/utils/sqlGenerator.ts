@@ -651,6 +651,8 @@ export const generateSQLCore = (
           if (selectedEvent) {
             if (operator === 'LIKE') {
               segmentConditions.push(`b.event_name LIKE '%${escapeSqlLiteral(selectedEvent)}%'`);
+            } else if (operator === '!=') {
+              segmentConditions.push(`b.event_name != '${escapeSqlLiteral(selectedEvent)}'`);
             } else if (operator === 'STARTS_WITH') {
               segmentConditions.push(`b.event_name LIKE '${escapeSqlLiteral(selectedEvent)}%'`);
             } else if (operator === 'ENDS_WITH') {
