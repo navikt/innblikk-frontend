@@ -17,6 +17,7 @@ interface ChartLayoutProps {
     wideSidebar?: boolean;
     hideSidebar?: boolean;
     hideAnalysisSelector?: boolean;
+    sidebarFilterGap?: string;
 }
 
 const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
@@ -27,7 +28,8 @@ const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
     currentPage,
     wideSidebar = false,
     hideSidebar = false,
-    hideAnalysisSelector = true
+    hideAnalysisSelector = true,
+    sidebarFilterGap = 'space-32'
 }) => {
     const { isSidebarOpen, setIsSidebarOpen, handleChartChange } = useChartLayoutOriginal(hideSidebar);
 
@@ -51,7 +53,7 @@ const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
                         {isSidebarOpen && (
                             <>
                                 <div className={`bg-[var(--ax-bg-accent-soft)] w-full ${sidebarWidth} p-6 border-b border-[var(--ax-border-neutral-subtle)] md:border-b-0 md:border-r md:border-[var(--ax-border-neutral-subtle)]`}>
-                                    <VStack gap="space-32">
+                                    <VStack gap={sidebarFilterGap}>
                                         {!hideAnalysisSelector && (
                                             <div className="pb-2">
                                                 <Select

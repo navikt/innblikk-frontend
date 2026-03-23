@@ -119,6 +119,7 @@ const ChartsPage = () => {
       description="Lag tilpassede grafer og tabeller."
       currentPage="grafbygger"
       wideSidebar={true}
+      sidebarFilterGap="space-16"
       filters={
         <>
           {/* ── Nettside ───────────────────────────────────────── */}
