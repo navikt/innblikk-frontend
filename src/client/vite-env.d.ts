@@ -2,11 +2,11 @@
 
 declare module 'xlsx-js-style' {
   export const utils: {
-    aoa_to_sheet(data: unknown[][]): unknown;
-    book_new(): unknown;
-    book_append_sheet(workbook: unknown, worksheet: unknown, name: string): void;
-  };
-  export function write(workbook: unknown, opts: { bookType: string; type: string }): ArrayBuffer;
+    aoa_to_sheet(data: unknown[][]): unknown
+    book_new(): unknown
+    book_append_sheet(workbook: unknown, worksheet: unknown, name: string): void
+  }
+  export function write(workbook: unknown, opts: { bookType: string; type: string }): ArrayBuffer
 }
 
 declare module '*.vue' {

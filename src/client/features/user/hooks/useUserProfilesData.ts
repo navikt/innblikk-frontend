@@ -1,27 +1,27 @@
-import { useState, useCallback } from 'react';
-import type { Website } from '../../../shared/types/chart';
-import type { UserProfile, ActivityItem, QueryStats } from '../model';
-import { getDateRangeFromPeriod } from '../../../shared/lib/utils';
+import { useState, useCallback } from 'react'
+import type { Website } from '../../../shared/types/chart'
+import type { UserProfile, ActivityItem, QueryStats } from '../model'
+import { getDateRangeFromPeriod } from '../../../shared/lib/utils'
 
 export function useUserProfilesData(
   selectedWebsite: Website | null,
   period: string,
   customStartDate: Date | undefined,
-  customEndDate: Date | undefined
+  customEndDate: Date | undefined,
 ) {
-  const [users, setUsers] = useState<UserProfile[]>([]);
-  const [totalUsers, setTotalUsers] = useState<number>(0);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const [queryStats, setQueryStats] = useState<QueryStats | null>(null);
+  const [users, setUsers] = useState<UserProfile[]>([])
+  const [totalUsers, setTotalUsers] = useState<number>(0)
+  const [loading, setLoading] = useState<boolean>(false)
+  const [error, setError] = useState<string | null>(null)
+  const [queryStats, setQueryStats] = useState<QueryStats | null>(null)
 
   const getDateRange = useCallback(() => {
-    const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate);
+    const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
     if (!dateRange) {
-      throw new Error('Invalid date range');
+      throw new Error('Invalid date range')
     }
-    return dateRange;
-  }, [period, customStartDate, customEndDate]);
+    return dateRange
+  }, [period, customStartDate, customEndDate])
 
   const fetchUsers = useCallback(
     async (
@@ -30,14 +30,14 @@ export function useUserProfilesData(
       searchQuery?: string,
       pagePath?: string,
       pathOperator?: string,
-      usesCookies?: boolean
+      usesCookies?: boolean,
     ) => {
-      if (!selectedWebsite) return;
+      if (!selectedWebsite) return
 
-      setLoading(true);
-      setError(null);
+      setLoading(true)
+      setError(null)
 
-      const { startDate, endDate } = getDateRange();
+      const { startDate, endDate } = getDateRange()
 
       try {
         const response = await fetch('/api/bigquery/users', {
@@ -54,28 +54,28 @@ export function useUserProfilesData(
             pathOperator,
             usesCookies,
           }),
-        });
+        })
 
         if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to fetch user profiles');
+          const errorData = await response.json()
+          throw new Error(errorData.error || 'Failed to fetch user profiles')
         }
 
-        const result = await response.json();
-        setUsers(result.users || []);
-        setTotalUsers(result.total || 0);
+        const result = await response.json()
+        setUsers(result.users || [])
+        setTotalUsers(result.total || 0)
 
         if (result.queryStats) {
-          setQueryStats(result.queryStats);
+          setQueryStats(result.queryStats)
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch user profiles');
+        setError(err instanceof Error ? err.message : 'Failed to fetch user profiles')
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
     },
-    [selectedWebsite, getDateRange]
-  );
+    [selectedWebsite, getDateRange],
+  )
 
   return {
     users,
@@ -85,22 +85,22 @@ export function useUserProfilesData(
     queryStats,
     fetchUsers,
     getDateRange,
-  };
+  }
 }
 
 export function useUserActivity(
   selectedWebsite: Website | null,
-  getDateRange: () => { startDate: Date; endDate: Date }
+  getDateRange: () => { startDate: Date; endDate: Date },
 ) {
-  const [activityData, setActivityData] = useState<ActivityItem[]>([]);
-  const [activityLoading, setActivityLoading] = useState<boolean>(false);
+  const [activityData, setActivityData] = useState<ActivityItem[]>([])
+  const [activityLoading, setActivityLoading] = useState<boolean>(false)
 
   const fetchUserActivity = useCallback(
     async (sessionId: string) => {
-      if (!selectedWebsite) return;
+      if (!selectedWebsite) return
 
-      setActivityLoading(true);
-      const { startDate, endDate } = getDateRange();
+      setActivityLoading(true)
+      const { startDate, endDate } = getDateRange()
 
       try {
         const response = await fetch(`/api/bigquery/users/${sessionId}/activity`, {
@@ -111,28 +111,27 @@ export function useUserActivity(
             startDate: startDate.toISOString(),
             endDate: endDate.toISOString(),
           }),
-        });
+        })
 
         if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to fetch user activity');
+          const errorData = await response.json()
+          throw new Error(errorData.error || 'Failed to fetch user activity')
         }
 
-        const result = await response.json();
-        setActivityData(result.activity || []);
+        const result = await response.json()
+        setActivityData(result.activity || [])
       } catch (err) {
-        console.error('Error fetching activity:', err);
+        console.error('Error fetching activity:', err)
       } finally {
-        setActivityLoading(false);
+        setActivityLoading(false)
       }
     },
-    [selectedWebsite, getDateRange]
-  );
+    [selectedWebsite, getDateRange],
+  )
 
   return {
     activityData,
     activityLoading,
     fetchUserActivity,
-  };
+  }
 }
-

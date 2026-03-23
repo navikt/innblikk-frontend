@@ -1,1 +1,1 @@
-export { copyToClipboard } from '../../../shared/lib/clipboard';
+export { copyToClipboard } from '../../../shared/lib/clipboard'

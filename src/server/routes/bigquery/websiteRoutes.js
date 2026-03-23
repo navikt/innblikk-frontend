@@ -1,15 +1,15 @@
-import express from 'express';
-import { addAuditLogging } from '../../bigquery/audit.js';
-import { requireBigQuery, getNavIdent, MAX_BYTES_BILLED } from './helpers.js';
+import express from 'express'
+import { addAuditLogging } from '../../bigquery/audit.js'
+import { requireBigQuery, getNavIdent, MAX_BYTES_BILLED } from './helpers.js'
 
 export function createWebsiteRoutes({ bigquery, GCP_PROJECT_ID }) {
-  const router = express.Router();
+  const router = express.Router()
 
   // Get websites from BigQuery
   router.get('/api/bigquery/websites', async (req, res) => {
     try {
-      const navIdent = getNavIdent(req);
-      if (!requireBigQuery(bigquery, res)) return;
+      const navIdent = getNavIdent(req)
+      if (!requireBigQuery(bigquery, res)) return
 
       const query = `
         SELECT
@@ -24,34 +24,39 @@ export function createWebsiteRoutes({ bigquery, GCP_PROJECT_ID }) {
           AND name IS NOT NULL
         GROUP BY website_id
         ORDER BY name
-      `;
+      `
 
-      const [job] = await bigquery.createQueryJob(addAuditLogging({
-        query,
-        location: 'europe-north1',
-        maximumBytesBilled: MAX_BYTES_BILLED,
-      }, navIdent, 'Nettsidevelger'));
+      const [job] = await bigquery.createQueryJob(
+        addAuditLogging(
+          {
+            query,
+            location: 'europe-north1',
+            maximumBytesBilled: MAX_BYTES_BILLED,
+          },
+          navIdent,
+          'Nettsidevelger',
+        ),
+      )
 
-      const [rows] = await job.getQueryResults();
+      const [rows] = await job.getQueryResults()
 
       // Map rows to handle BigQuery timestamp objects
-      const data = rows.map(row => {
-        let createdAt = row.createdAt;
+      const data = rows.map((row) => {
+        let createdAt = row.createdAt
         if (createdAt && typeof createdAt === 'object' && createdAt.value) {
-          createdAt = createdAt.value;
+          createdAt = createdAt.value
         }
-        return { ...row, createdAt };
-      });
+        return { ...row, createdAt }
+      })
 
-      res.json({ data });
+      res.json({ data })
     } catch (error) {
-      console.error('BigQuery websites error:', error);
+      console.error('BigQuery websites error:', error)
       res.status(500).json({
         error: error.message || 'Failed to fetch websites',
-      });
+      })
     }
-  });
+  })
 
-  return router;
+  return router
 }
-

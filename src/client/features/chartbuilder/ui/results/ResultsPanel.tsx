@@ -1,47 +1,70 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Heading, Button, Alert, Tabs, Search, Switch, ReadMore, CopyButton, Select, Label, ActionMenu, TextField, Tooltip } from '@navikt/ds-react';
-import { PlayIcon, Download, ArrowUpDown, ArrowUp, ArrowDown, ExternalLink, MoreVertical, Search as SearchIcon } from 'lucide-react';
-import type { ILineChartProps, IVerticalBarChartProps, IVerticalBarChartDataPoint} from '@fluentui/react-charting';
-import { LineChart, VerticalBarChart, AreaChart, PieChart, ResponsiveContainer } from '@fluentui/react-charting';
-import { translateValue } from '../../../../shared/lib/translations.ts';
-import { openSqlEditorWithContext } from '../../../../shared/lib/openSqlEditor.ts';
-import { format, startOfWeek, startOfMonth, isValid } from 'date-fns';
-import { nb } from 'date-fns/locale';
-import SqlViewer from './SqlViewer.tsx';
-import ShareResultsModal from './ShareResultsModal.tsx';
-import AnalysisActionModal from '../../../analysis/ui/AnalysisActionModal.tsx';
-import { encode } from '@toon-format/toon';
-import TransferToMetabaseDialog from '../../../../shared/ui/TransferToMetabaseDialog.tsx';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import {
+  Heading,
+  Button,
+  Alert,
+  Tabs,
+  Search,
+  Switch,
+  ReadMore,
+  CopyButton,
+  Select,
+  Label,
+  ActionMenu,
+  TextField,
+  Tooltip,
+} from '@navikt/ds-react'
+import {
+  PlayIcon,
+  Download,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  ExternalLink,
+  MoreVertical,
+  Search as SearchIcon,
+} from 'lucide-react'
+import type { ILineChartProps, IVerticalBarChartProps, IVerticalBarChartDataPoint } from '@fluentui/react-charting'
+import { LineChart, VerticalBarChart, AreaChart, PieChart, ResponsiveContainer } from '@fluentui/react-charting'
+import { translateValue } from '../../../../shared/lib/translations.ts'
+import { openSqlEditorWithContext } from '../../../../shared/lib/openSqlEditor.ts'
+import { format, startOfWeek, startOfMonth, isValid } from 'date-fns'
+import { nb } from 'date-fns/locale'
+import SqlViewer from './SqlViewer.tsx'
+import ShareResultsModal from './ShareResultsModal.tsx'
+import AnalysisActionModal from '../../../analysis/ui/AnalysisActionModal.tsx'
+import { encode } from '@toon-format/toon'
+import TransferToMetabaseDialog from '../../../../shared/ui/TransferToMetabaseDialog.tsx'
 
 interface ResultsPanelProps {
-  result: any;
-  loading: boolean;
-  error: string | null;
-  queryStats: any;
-  lastAction: 'copy' | 'estimate' | 'execute' | 'run' | null;
-  showLoadingMessage: boolean;
-  executeQuery: () => void;
-  handleRetry: () => void;
-  prepareLineChartData: (includeAverage?: boolean) => ILineChartProps | null;
-  prepareBarChartData: () => IVerticalBarChartProps | null;
-  preparePieChartData: () => { data: Array<{ y: number; x: string }>; total: number } | null;
-  hideHeading?: boolean;
-  sql?: string;
-  showSqlCode?: boolean;
-  showEditButton?: boolean;
-  showSqlMetabaseActions?: boolean;
-  hiddenTabs?: string[];
-  containerStyle?: 'green' | 'white' | 'none';
-  showCost?: boolean;
-  showDownloadReadMore?: boolean;
-  hideTabList?: boolean;
-  compactTableActions?: boolean;
-  hideTableFooter?: boolean;
-  compactTableTitle?: string;
+  result: any
+  loading: boolean
+  error: string | null
+  queryStats: any
+  lastAction: 'copy' | 'estimate' | 'execute' | 'run' | null
+  showLoadingMessage: boolean
+  executeQuery: () => void
+  handleRetry: () => void
+  prepareLineChartData: (includeAverage?: boolean) => ILineChartProps | null
+  prepareBarChartData: () => IVerticalBarChartProps | null
+  preparePieChartData: () => { data: Array<{ y: number; x: string }>; total: number } | null
+  hideHeading?: boolean
+  sql?: string
+  showSqlCode?: boolean
+  showEditButton?: boolean
+  showSqlMetabaseActions?: boolean
+  hiddenTabs?: string[]
+  containerStyle?: 'green' | 'white' | 'none'
+  showCost?: boolean
+  showDownloadReadMore?: boolean
+  hideTabList?: boolean
+  compactTableActions?: boolean
+  hideTableFooter?: boolean
+  compactTableTitle?: string
   // Optional props for AnalysisActionModal
-  websiteId?: string;
-  period?: string;
-  onAddToDashboard?: () => void;
+  websiteId?: string
+  period?: string
+  onAddToDashboard?: () => void
 }
 
 const ResultsPanel = ({
@@ -74,107 +97,110 @@ const ResultsPanel = ({
 }: ResultsPanelProps) => {
   // Read initial tab from URL parameter
   const [activeTab, setActiveTab] = useState<string>(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const tabParam = urlParams.get('tab');
-    const validTabs = ['table', 'linechart', 'areachart', 'barchart', 'piechart'];
-    return tabParam && validTabs.includes(tabParam) ? tabParam : 'table';
-  });
+    const urlParams = new URLSearchParams(window.location.search)
+    const tabParam = urlParams.get('tab')
+    const validTabs = ['table', 'linechart', 'areachart', 'barchart', 'piechart']
+    return tabParam && validTabs.includes(tabParam) ? tabParam : 'table'
+  })
 
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [activeSearchQuery, setActiveSearchQuery] = useState<string>(''); // The actual search query being used for filtering
-  const [sortColumn, setSortColumn] = useState<string | null>(null);
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [showAverage, setShowAverage] = useState<boolean>(false);
-  const [isPercentageStacked, setIsPercentageStacked] = useState<boolean>(false);
-  const [granularity, setGranularity] = useState<'day' | 'week' | 'month'>('day');
-  const [showShareModal, setShowShareModal] = useState<boolean>(false);
-  const [rowLimit] = useState<number>(5000); // Limit rows for performance
-  const [showAllRows, setShowAllRows] = useState<boolean>(false);
-  const [selectedUrl, setSelectedUrl] = useState<string | null>(null);
-  const [showTableSearch, setShowTableSearch] = useState<boolean>(false);
-  const [showTransferToMetabaseDialog, setShowTransferToMetabaseDialog] = useState<boolean>(false);
-  const tableSearchInputRef = useRef<HTMLInputElement>(null);
+  const [searchQuery, setSearchQuery] = useState<string>('')
+  const [activeSearchQuery, setActiveSearchQuery] = useState<string>('') // The actual search query being used for filtering
+  const [sortColumn, setSortColumn] = useState<string | null>(null)
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
+  const [showAverage, setShowAverage] = useState<boolean>(false)
+  const [isPercentageStacked, setIsPercentageStacked] = useState<boolean>(false)
+  const [granularity, setGranularity] = useState<'day' | 'week' | 'month'>('day')
+  const [showShareModal, setShowShareModal] = useState<boolean>(false)
+  const [rowLimit] = useState<number>(5000) // Limit rows for performance
+  const [showAllRows, setShowAllRows] = useState<boolean>(false)
+  const [selectedUrl, setSelectedUrl] = useState<string | null>(null)
+  const [showTableSearch, setShowTableSearch] = useState<boolean>(false)
+  const [showTransferToMetabaseDialog, setShowTransferToMetabaseDialog] = useState<boolean>(false)
+  const tableSearchInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    if (showTableSearch) tableSearchInputRef.current?.focus();
-  }, [showTableSearch]);
+    if (showTableSearch) tableSearchInputRef.current?.focus()
+  }, [showTableSearch])
 
   // Helper to check if a value is a clickable URL path
   const isClickablePath = (val: any): boolean => {
-    return typeof val === 'string' && val.startsWith('/') && val !== '/' && websiteId !== undefined;
-  };
+    return typeof val === 'string' && val.startsWith('/') && val !== '/' && websiteId !== undefined
+  }
 
   // Helper to aggregate chart data by week or month
   const aggregateChartData = (chartData: ILineChartProps, granularity: 'day' | 'week' | 'month'): ILineChartProps => {
-    if (granularity === 'day' || !chartData.data?.lineChartData) return chartData;
+    if (granularity === 'day' || !chartData.data?.lineChartData) return chartData
 
     const newSeries = chartData.data.lineChartData.map((series: any) => {
-      const points = series.data;
-      const aggregatedPoints: Record<string, { x: Date, y: number, count: number }> = {};
+      const points = series.data
+      const aggregatedPoints: Record<string, { x: Date; y: number; count: number }> = {}
 
       points.forEach((point: any) => {
-        const date = point.x instanceof Date ? point.x : new Date(point.x);
-        if (!isValid(date)) return;
+        const date = point.x instanceof Date ? point.x : new Date(point.x)
+        if (!isValid(date)) return
 
-        let key = '';
-        let displayDate: Date = date;
+        let key = ''
+        let displayDate: Date = date
 
         if (granularity === 'week') {
-          const start = startOfWeek(date, { weekStartsOn: 1 });
-          key = format(start, 'yyyy-MM-dd');
-          displayDate = start;
+          const start = startOfWeek(date, { weekStartsOn: 1 })
+          key = format(start, 'yyyy-MM-dd')
+          displayDate = start
         } else if (granularity === 'month') {
-          const start = startOfMonth(date);
-          key = format(start, 'yyyy-MM');
-          displayDate = start;
+          const start = startOfMonth(date)
+          key = format(start, 'yyyy-MM')
+          displayDate = start
         }
 
         if (!aggregatedPoints[key]) {
-          aggregatedPoints[key] = { x: displayDate, y: 0, count: 0 };
+          aggregatedPoints[key] = { x: displayDate, y: 0, count: 0 }
         }
-        aggregatedPoints[key].y += point.y;
-        aggregatedPoints[key].count += 1;
-      });
+        aggregatedPoints[key].y += point.y
+        aggregatedPoints[key].count += 1
+      })
 
       const newPoints = Object.values(aggregatedPoints)
         .sort((a, b) => a.x.getTime() - b.x.getTime())
-        .map(p => ({
+        .map((p) => ({
           x: p.x,
           y: p.y,
-          xAxisCalloutData: granularity === 'week' ? `Uke ${format(p.x, 'w', { locale: nb })}` : format(p.x, 'MMMM yyyy', { locale: nb }),
-          yAxisCalloutData: p.y.toLocaleString('nb-NO')
-        }));
+          xAxisCalloutData:
+            granularity === 'week'
+              ? `Uke ${format(p.x, 'w', { locale: nb })}`
+              : format(p.x, 'MMMM yyyy', { locale: nb }),
+          yAxisCalloutData: p.y.toLocaleString('nb-NO'),
+        }))
 
       return {
         ...series,
-        data: newPoints
-      };
-    });
+        data: newPoints,
+      }
+    })
 
     return {
       ...chartData,
       data: {
         ...chartData.data,
-        lineChartData: newSeries
-      }
-    };
-  };
+        lineChartData: newSeries,
+      },
+    }
+  }
 
   const getCategoricalXAxisProps = (chartData: ILineChartProps | null) => {
-    const firstSeries = chartData?.data?.lineChartData?.[0];
-    if (!firstSeries?.data || firstSeries.data.length === 0) return {};
+    const firstSeries = chartData?.data?.lineChartData?.[0]
+    if (!firstSeries?.data || firstSeries.data.length === 0) return {}
 
-    const points = [...firstSeries.data].sort((a, b) => Number(a.x) - Number(b.x));
-    const hasOnlyNumericX = points.every((point) => typeof point.x === 'number' && Number.isFinite(point.x));
-    if (!hasOnlyNumericX) return {};
+    const points = [...firstSeries.data].sort((a, b) => Number(a.x) - Number(b.x))
+    const hasOnlyNumericX = points.every((point) => typeof point.x === 'number' && Number.isFinite(point.x))
+    if (!hasOnlyNumericX) return {}
 
-    const isSequentialIndexes = points.every((point, index) => Number(point.x) === index);
-    if (!isSequentialIndexes) return {};
+    const isSequentialIndexes = points.every((point, index) => Number(point.x) === index)
+    if (!isSequentialIndexes) return {}
 
-    const tickValues = points.map((point) => Number(point.x));
-    const tickText = points.map((point) => point.xAxisCalloutData ? String(point.xAxisCalloutData) : String(point.x));
-    const hasDescriptiveLabels = tickText.some((label, index) => label !== String(tickValues[index]));
-    if (!hasDescriptiveLabels) return {};
+    const tickValues = points.map((point) => Number(point.x))
+    const tickText = points.map((point) => (point.xAxisCalloutData ? String(point.xAxisCalloutData) : String(point.x)))
+    const hasDescriptiveLabels = tickText.some((label, index) => label !== String(tickValues[index]))
+    if (!hasDescriptiveLabels) return {}
 
     return {
       tickValues,
@@ -185,142 +211,145 @@ const ResultsPanel = ({
       rotateXAxisLables: true,
       showXAxisLablesTooltip: true,
       noOfCharsToTruncate: 14,
-    };
-  };
+    }
+  }
 
   // Get hidden tabs from URL or props
   const hiddenTabs = (() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const hideTabsParam = urlParams.get('hideTabs');
-    const urlHiddenTabs = hideTabsParam ? hideTabsParam.split(',') : [];
-    return [...new Set([...urlHiddenTabs, ...propHiddenTabs])];
-  })();
+    const urlParams = new URLSearchParams(window.location.search)
+    const hideTabsParam = urlParams.get('hideTabs')
+    const urlHiddenTabs = hideTabsParam ? hideTabsParam.split(',') : []
+    return [...new Set([...urlHiddenTabs, ...propHiddenTabs])]
+  })()
 
   useEffect(() => {
     if (hiddenTabs.includes(activeTab)) {
-      setActiveTab('table');
+      setActiveTab('table')
     }
-  }, [activeTab, hiddenTabs]);
+  }, [activeTab, hiddenTabs])
 
   // Update URL when tab changes
   const handleTabChange = (newTab: string) => {
-    setActiveTab(newTab);
-    const urlParams = new URLSearchParams(window.location.search);
-    urlParams.set('tab', newTab);
-    const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
-    window.history.replaceState({}, '', newUrl);
-  };
+    setActiveTab(newTab)
+    const urlParams = new URLSearchParams(window.location.search)
+    urlParams.set('tab', newTab)
+    const newUrl = `${window.location.pathname}?${urlParams.toString()}`
+    window.history.replaceState({}, '', newUrl)
+  }
 
   // Handler for executing search
   const handleSearch = () => {
-    setActiveSearchQuery(searchQuery);
-  };
+    setActiveSearchQuery(searchQuery)
+  }
 
   // Handler for clearing search
   const handleClearSearch = () => {
-    setSearchQuery('');
-    setActiveSearchQuery('');
-  };
+    setSearchQuery('')
+    setActiveSearchQuery('')
+  }
 
   // Reset visualization settings when result changes
   useEffect(() => {
-    setIsPercentageStacked(false);
-    setGranularity('day');
-  }, [result]);
+    setIsPercentageStacked(false)
+    setGranularity('day')
+  }, [result])
 
   // For small datasets, auto-submit search as you type
   useEffect(() => {
-    if (!result || !result.data) return;
+    if (!result || !result.data) return
 
-    const isLargeDataset = result.data.length > rowLimit;
+    const isLargeDataset = result.data.length > rowLimit
     if (!isLargeDataset) {
       // For small datasets, automatically sync searchQuery to activeSearchQuery
-      setActiveSearchQuery(searchQuery);
+      setActiveSearchQuery(searchQuery)
     }
-  }, [searchQuery, result, rowLimit]);
+  }, [searchQuery, result, rowLimit])
 
   // Memoize the expensive table data processing
   const processedTableData = useMemo(() => {
     if (!result || !result.data || result.data.length === 0) {
-      return null;
+      return null
     }
 
-    const totalRows = result.data.length;
-    const isLargeDataset = totalRows > rowLimit;
-    const shouldLimitRows = isLargeDataset && !showAllRows && !activeSearchQuery;
+    const totalRows = result.data.length
+    const isLargeDataset = totalRows > rowLimit
+    const shouldLimitRows = isLargeDataset && !showAllRows && !activeSearchQuery
 
     // Filter the data based on active search query
     const filteredData = result.data.filter((row: any) => {
-      if (!activeSearchQuery) return true;
-      const query = activeSearchQuery.toLowerCase();
+      if (!activeSearchQuery) return true
+      const query = activeSearchQuery.toLowerCase()
       return Object.keys(row).some((key) => {
-        const value = row[key];
-        if (value === null || value === undefined) return false;
+        const value = row[key]
+        if (value === null || value === undefined) return false
         // Use translated value for search
-        const translatedValue = translateValue(key, value);
-        return String(translatedValue).toLowerCase().includes(query);
-      });
-    });
+        const translatedValue = translateValue(key, value)
+        return String(translatedValue).toLowerCase().includes(query)
+      })
+    })
 
     // Apply row limit if needed (only when not searching)
-    const limitedData = shouldLimitRows ? filteredData.slice(0, rowLimit) : filteredData;
+    const limitedData = shouldLimitRows ? filteredData.slice(0, rowLimit) : filteredData
 
     // Sort the filtered/limited data
     const sortedData = sortColumn
       ? [...limitedData].sort((a: any, b: any) => {
-        const aVal = a[sortColumn];
-        const bVal = b[sortColumn];
+          const aVal = a[sortColumn]
+          const bVal = b[sortColumn]
 
-        // Handle null/undefined values
-        if (aVal === null || aVal === undefined) return sortDirection === 'asc' ? 1 : -1;
-        if (bVal === null || bVal === undefined) return sortDirection === 'asc' ? -1 : 1;
+          // Handle null/undefined values
+          if (aVal === null || aVal === undefined) return sortDirection === 'asc' ? 1 : -1
+          if (bVal === null || bVal === undefined) return sortDirection === 'asc' ? -1 : 1
 
-        // Numeric comparison
-        if (typeof aVal === 'number' && typeof bVal === 'number') {
-          return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
-        }
+          // Numeric comparison
+          if (typeof aVal === 'number' && typeof bVal === 'number') {
+            return sortDirection === 'asc' ? aVal - bVal : bVal - aVal
+          }
 
-        // String comparison
-        const aStr = String(aVal).toLowerCase();
-        const bStr = String(bVal).toLowerCase();
+          // String comparison
+          const aStr = String(aVal).toLowerCase()
+          const bStr = String(bVal).toLowerCase()
 
-        if (sortDirection === 'asc') {
-          return aStr.localeCompare(bStr, 'nb-NO');
-        } else {
-          return bStr.localeCompare(aStr, 'nb-NO');
-        }
-      })
-      : limitedData;
+          if (sortDirection === 'asc') {
+            return aStr.localeCompare(bStr, 'nb-NO')
+          } else {
+            return bStr.localeCompare(aStr, 'nb-NO')
+          }
+        })
+      : limitedData
 
-    return sortedData;
-  }, [result, activeSearchQuery, showAllRows, rowLimit, sortColumn, sortDirection]);
+    return sortedData
+  }, [result, activeSearchQuery, showAllRows, rowLimit, sortColumn, sortDirection])
 
   // Handler for sorting (memoized to prevent recreating on every render)
-  const handleSort = useCallback((column: string) => {
-    if (sortColumn === column) {
-      // Same column - toggle direction
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-    } else {
-      // New column - set column and default to descending for numbers (most useful default)
-      setSortColumn(column);
-      setSortDirection('desc');
-    }
-  }, [sortColumn]);
+  const handleSort = useCallback(
+    (column: string) => {
+      if (sortColumn === column) {
+        // Same column - toggle direction
+        setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+      } else {
+        // New column - set column and default to descending for numbers (most useful default)
+        setSortColumn(column)
+        setSortDirection('desc')
+      }
+    },
+    [sortColumn],
+  )
 
   // Memoize the table rendering to prevent re-renders when only searchQuery changes
   const tableContent = useMemo(() => {
-    const sortedData = processedTableData;
+    const sortedData = processedTableData
 
     if (!sortedData || sortedData.length === 0) {
       return (
         <div className="p-8 text-center text-[var(--ax-text-subtle)]">
           <p>Ingen resultater funnet for "{activeSearchQuery}"</p>
         </div>
-      );
+      )
     }
 
     if (!result || !result.data || result.data.length === 0) {
-      return null;
+      return null
     }
 
     return (
@@ -352,34 +381,35 @@ const ResultsPanel = ({
           </thead>
           <tbody className="bg-[var(--ax-bg-default)] divide-y divide-[var(--ax-border-neutral-subtle)]">
             {sortedData.map((row: any, idx: number) => {
-              const keys = Object.keys(row);
+              const keys = Object.keys(row)
               return (
                 <tr key={idx} className="hover:bg-[var(--ax-bg-neutral-soft)]">
                   {keys.map((key, cellIdx: number) => {
-                    const value = row[key];
-                    const translatedValue = translateValue(key, value);
-                    const clickable = isClickablePath(value);
-                    const isUnknownValue = translatedValue === null
-                      || translatedValue === undefined
-                      || (typeof translatedValue === 'string'
-                        && (translatedValue.trim() === '' || translatedValue.trim() === '-'));
+                    const value = row[key]
+                    const translatedValue = translateValue(key, value)
+                    const clickable = isClickablePath(value)
+                    const isUnknownValue =
+                      translatedValue === null ||
+                      translatedValue === undefined ||
+                      (typeof translatedValue === 'string' &&
+                        (translatedValue.trim() === '' || translatedValue.trim() === '-'))
 
                     // Format the display value
                     const displayValue = isUnknownValue
                       ? '(ukjent)'
                       : typeof translatedValue === 'number'
-                      ? translatedValue.toLocaleString('nb-NO')
-                      : translatedValue !== null && translatedValue !== undefined
-                        ? (typeof translatedValue === 'object'
-                          ? (translatedValue instanceof Date && !isNaN(translatedValue as any)
-                            ? translatedValue.toISOString()
-                            : (Object.keys(translatedValue).length === 1 && 'value' in translatedValue
-                              ? (typeof translatedValue.value === 'string' && !isNaN(Date.parse(translatedValue.value))
-                                ? new Date(translatedValue.value).toISOString()
-                                : String(translatedValue.value))
-                              : JSON.stringify(translatedValue)))
-                          : String(translatedValue))
-                        : '(ukjent)';
+                        ? translatedValue.toLocaleString('nb-NO')
+                        : translatedValue !== null && translatedValue !== undefined
+                          ? typeof translatedValue === 'object'
+                            ? translatedValue instanceof Date && !isNaN(translatedValue as any)
+                              ? translatedValue.toISOString()
+                              : Object.keys(translatedValue).length === 1 && 'value' in translatedValue
+                                ? typeof translatedValue.value === 'string' && !isNaN(Date.parse(translatedValue.value))
+                                  ? new Date(translatedValue.value).toISOString()
+                                  : String(translatedValue.value)
+                                : JSON.stringify(translatedValue)
+                            : String(translatedValue)
+                          : '(ukjent)'
 
                     return (
                       <td
@@ -395,178 +425,187 @@ const ResultsPanel = ({
                           displayValue
                         )}
                       </td>
-                    );
+                    )
                   })}
                 </tr>
-              );
+              )
             })}
           </tbody>
         </table>
       </>
-    );
-  }, [processedTableData, activeSearchQuery, result, sortColumn, sortDirection, handleSort, isClickablePath, setSelectedUrl]);
+    )
+  }, [
+    processedTableData,
+    activeSearchQuery,
+    result,
+    sortColumn,
+    sortDirection,
+    handleSort,
+    isClickablePath,
+    setSelectedUrl,
+  ])
 
   // Helper functions to generate content
   const getCSVContent = () => {
-    if (!result || !result.data || result.data.length === 0) return '';
-    const headers = Object.keys(result.data[0]);
+    if (!result || !result.data || result.data.length === 0) return ''
+    const headers = Object.keys(result.data[0])
     const csvRows = [
       headers.join(','),
       ...result.data.map((row: any) =>
         headers
           .map((header) => {
-            const value = row[header];
-            const translatedValue = translateValue(header, value);
-            const stringValue = translatedValue !== null && translatedValue !== undefined ? String(translatedValue) : '';
+            const value = row[header]
+            const translatedValue = translateValue(header, value)
+            const stringValue = translatedValue !== null && translatedValue !== undefined ? String(translatedValue) : ''
             if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
-              return `"${stringValue.replace(/"/g, '""')}"`;
+              return `"${stringValue.replace(/"/g, '""')}"`
             }
-            return stringValue;
+            return stringValue
           })
-          .join(',')
+          .join(','),
       ),
-    ];
-    return csvRows.join('\n');
-  };
+    ]
+    return csvRows.join('\n')
+  }
 
   const getJSONContent = () => {
-    if (!result || !result.data || result.data.length === 0) return '';
+    if (!result || !result.data || result.data.length === 0) return ''
     const translatedData = result.data.map((row: any) => {
-      const translatedRow: any = {};
+      const translatedRow: any = {}
       Object.keys(row).forEach((key) => {
-        translatedRow[key] = translateValue(key, row[key]);
-      });
-      return translatedRow;
-    });
-    return JSON.stringify(translatedData, null, 2);
-  };
+        translatedRow[key] = translateValue(key, row[key])
+      })
+      return translatedRow
+    })
+    return JSON.stringify(translatedData, null, 2)
+  }
 
   const getTOONContent = () => {
-    if (!result || !result.data || result.data.length === 0) return '';
+    if (!result || !result.data || result.data.length === 0) return ''
     const translatedData = result.data.map((row: any) => {
-      const translatedRow: any = {};
+      const translatedRow: any = {}
       Object.keys(row).forEach((key) => {
-        translatedRow[key] = translateValue(key, row[key]);
-      });
-      return translatedRow;
-    });
-    return encode(translatedData);
-  };
+        translatedRow[key] = translateValue(key, row[key])
+      })
+      return translatedRow
+    })
+    return encode(translatedData)
+  }
 
   // Function to convert results to CSV
   const downloadCSV = () => {
-    const csvContent = getCSVContent();
-    if (!csvContent) return;
+    const csvContent = getCSVContent()
+    if (!csvContent) return
 
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' }); // BOM for Excel compatibility
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `query_results_${new Date().toISOString().slice(0, 10)}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' }) // BOM for Excel compatibility
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', `query_results_${new Date().toISOString().slice(0, 10)}.csv`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
 
   // Function to convert results to a real XLSX file
   const downloadExcel = async () => {
-    if (!result || !result.data || result.data.length === 0) return;
+    if (!result || !result.data || result.data.length === 0) return
 
-    const headers = Object.keys(result.data[0]);
+    const headers = Object.keys(result.data[0])
     const worksheetData = [
       headers,
       ...result.data.map((row: any) =>
         headers.map((header) => {
-          const value = row[header];
-          const translatedValue = translateValue(header, value);
-          return translatedValue !== null && translatedValue !== undefined ? translatedValue : '';
-        })
+          const value = row[header]
+          const translatedValue = translateValue(header, value)
+          return translatedValue !== null && translatedValue !== undefined ? translatedValue : ''
+        }),
       ),
-    ];
+    ]
 
-    let xlsx: any;
+    let xlsx: any
     try {
-      const preferred = 'xlsx-js-style';
-      xlsx = await import(/* @vite-ignore */ preferred);
+      const preferred = 'xlsx-js-style'
+      xlsx = await import(/* @vite-ignore */ preferred)
     } catch {
       try {
-        const fallback = 'xlsx';
-        xlsx = await import(/* @vite-ignore */ fallback);
+        const fallback = 'xlsx'
+        xlsx = await import(/* @vite-ignore */ fallback)
       } catch {
-        console.error('Mangler XLSX-bibliotek (xlsx-js-style/xlsx). Kjør npm install.');
-        return;
+        console.error('Mangler XLSX-bibliotek (xlsx-js-style/xlsx). Kjør npm install.')
+        return
       }
     }
 
-    const XLSXUtils = xlsx.utils;
-    const XLSXWrite = xlsx.write;
-    const worksheet = XLSXUtils.aoa_to_sheet(worksheetData);
-    const workbook = XLSXUtils.book_new();
-    XLSXUtils.book_append_sheet(workbook, worksheet, 'Query Results');
-    const wbout = XLSXWrite(workbook, { bookType: 'xlsx', type: 'array' });
+    const XLSXUtils = xlsx.utils
+    const XLSXWrite = xlsx.write
+    const worksheet = XLSXUtils.aoa_to_sheet(worksheetData)
+    const workbook = XLSXUtils.book_new()
+    XLSXUtils.book_append_sheet(workbook, worksheet, 'Query Results')
+    const wbout = XLSXWrite(workbook, { bookType: 'xlsx', type: 'array' })
     const blob = new Blob([wbout], {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    });
+    })
 
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `query_results_${new Date().toISOString().slice(0, 10)}.xlsx`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', `query_results_${new Date().toISOString().slice(0, 10)}.xlsx`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
 
   // Function to convert results to JSON
   const downloadJSON = () => {
-    const jsonContent = getJSONContent();
-    if (!jsonContent) return;
+    const jsonContent = getJSONContent()
+    if (!jsonContent) return
 
-    const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `query_results_${new Date().toISOString().slice(0, 10)}.json`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
+    const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', `query_results_${new Date().toISOString().slice(0, 10)}.json`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
 
   // Function to convert results to TOON (Token-Oriented Object Notation)
   const downloadTOON = () => {
-    const toonContent = getTOONContent();
-    if (!toonContent) return;
+    const toonContent = getTOONContent()
+    if (!toonContent) return
 
-    const blob = new Blob([toonContent], { type: 'text/plain;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `query_results_${new Date().toISOString().slice(0, 10)}.toon`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
+    const blob = new Blob([toonContent], { type: 'text/plain;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', `query_results_${new Date().toISOString().slice(0, 10)}.toon`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
 
   const getContainerClass = () => {
     switch (containerStyle) {
       case 'white':
-        return "bg-[var(--ax-bg-default)] p-6 rounded-lg border border-[var(--ax-border-neutral-subtle)] shadow-sm";
+        return 'bg-[var(--ax-bg-default)] p-6 rounded-lg border border-[var(--ax-border-neutral-subtle)] shadow-sm'
       case 'none':
-        return "";
+        return ''
       case 'green':
       default:
-        return "bg-[var(--ax-bg-default)]";
+        return 'bg-[var(--ax-bg-default)]'
     }
-  };
+  }
 
-  const containerClass = getContainerClass();
+  const containerClass = getContainerClass()
 
   return (
     <div className="space-y-2 mb-6">
@@ -630,13 +669,23 @@ const ResultsPanel = ({
 
               {/* Table Tab */}
               <Tabs.Panel value="table" className="pt-4">
-                <div className={compactTableActions ? 'border border-[var(--ax-border-neutral-subtle)] rounded-lg overflow-hidden bg-[var(--ax-bg-default)]' : 'space-y-3'}>
+                <div
+                  className={
+                    compactTableActions
+                      ? 'border border-[var(--ax-border-neutral-subtle)] rounded-lg overflow-hidden bg-[var(--ax-bg-default)]'
+                      : 'space-y-3'
+                  }
+                >
                   {compactTableActions && (
                     <div className="space-y-2 p-3">
                       <div className="mb-2 flex items-center justify-between gap-2">
                         {compactTableTitle ? (
-                          <Heading level="3" size="small">{compactTableTitle}</Heading>
-                        ) : <span />}
+                          <Heading level="3" size="small">
+                            {compactTableTitle}
+                          </Heading>
+                        ) : (
+                          <span />
+                        )}
                         <div className="flex items-center gap-1">
                           <Tooltip content="Søk" placement="top">
                             <Button
@@ -647,8 +696,8 @@ const ResultsPanel = ({
                               aria-label="Søk i tabellen"
                               aria-pressed={showTableSearch}
                               onClick={() => {
-                                setShowTableSearch((prev) => !prev);
-                                if (showTableSearch) handleClearSearch();
+                                setShowTableSearch((prev) => !prev)
+                                if (showTableSearch) handleClearSearch()
                               }}
                             />
                           </Tooltip>
@@ -666,9 +715,7 @@ const ResultsPanel = ({
                             </Tooltip>
                             <ActionMenu.Content align="end">
                               {onAddToDashboard && (
-                                <ActionMenu.Item onClick={onAddToDashboard}>
-                                  Legg til i dashboard
-                                </ActionMenu.Item>
+                                <ActionMenu.Item onClick={onAddToDashboard}>Legg til i dashboard</ActionMenu.Item>
                               )}
                               {sql && (
                                 <ActionMenu.Item onClick={() => setShowTransferToMetabaseDialog(true)}>
@@ -680,9 +727,7 @@ const ResultsPanel = ({
                                   Åpne i SQL-editor
                                 </ActionMenu.Item>
                               )}
-                              <ActionMenu.Item onClick={downloadCSV}>
-                                Last ned CSV
-                              </ActionMenu.Item>
+                              <ActionMenu.Item onClick={downloadCSV}>Last ned CSV</ActionMenu.Item>
                             </ActionMenu.Content>
                           </ActionMenu>
                         </div>
@@ -699,7 +744,7 @@ const ResultsPanel = ({
                             ref={tableSearchInputRef}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') {
-                                handleSearch();
+                                handleSearch()
                               }
                             }}
                           />
@@ -707,7 +752,9 @@ const ResultsPanel = ({
                       )}
                     </div>
                   )}
-                  <div className={`${compactTableActions ? '' : 'border rounded-lg'} overflow-hidden bg-[var(--ax-bg-default)]`}>
+                  <div
+                    className={`${compactTableActions ? '' : 'border rounded-lg'} overflow-hidden bg-[var(--ax-bg-default)]`}
+                  >
                     {/* Search Input */}
                     {!compactTableActions && (
                       <div className="p-3 bg-[var(--ax-bg-neutral-soft)] border-b space-y-2">
@@ -718,11 +765,11 @@ const ResultsPanel = ({
                           value={searchQuery}
                           onChange={(value) => setSearchQuery(value)}
                           onClear={handleClearSearch}
-                          variant={result.data.length > rowLimit ? "primary" : "simple"}
+                          variant={result.data.length > rowLimit ? 'primary' : 'simple'}
                           onSearchClick={result.data.length > rowLimit ? handleSearch : undefined}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
-                              handleSearch();
+                              handleSearch()
                             }
                           }}
                           htmlSize={result.data.length > rowLimit ? 40 : undefined}
@@ -734,13 +781,10 @@ const ResultsPanel = ({
                               <Alert variant="warning" size="small">
                                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                                   <span className="text-sm">
-                                    Viser bare {rowLimit.toLocaleString('nb-NO')} av {result.data.length.toLocaleString('nb-NO')} rader for ytelse
+                                    Viser bare {rowLimit.toLocaleString('nb-NO')} av{' '}
+                                    {result.data.length.toLocaleString('nb-NO')} rader for ytelse
                                   </span>
-                                  <Button
-                                    size="xsmall"
-                                    variant="secondary"
-                                    onClick={() => setShowAllRows(true)}
-                                  >
+                                  <Button size="xsmall" variant="secondary" onClick={() => setShowAllRows(true)}>
                                     Vis alle rader
                                   </Button>
                                 </div>
@@ -752,11 +796,7 @@ const ResultsPanel = ({
                                   <span className="text-sm">
                                     Viser alle {result.data.length.toLocaleString('nb-NO')} rader (kan være tregt)
                                   </span>
-                                  <Button
-                                    size="xsmall"
-                                    variant="secondary"
-                                    onClick={() => setShowAllRows(false)}
-                                  >
+                                  <Button size="xsmall" variant="secondary" onClick={() => setShowAllRows(false)}>
                                     Begrens til {rowLimit.toLocaleString('nb-NO')} rader
                                   </Button>
                                 </div>
@@ -765,7 +805,8 @@ const ResultsPanel = ({
                             {activeSearchQuery && processedTableData && (
                               <Alert variant="info" size="small">
                                 <span className="text-sm">
-                                  Fant {processedTableData.length.toLocaleString('nb-NO')} av {result.data.length.toLocaleString('nb-NO')} rader
+                                  Fant {processedTableData.length.toLocaleString('nb-NO')} av{' '}
+                                  {result.data.length.toLocaleString('nb-NO')} rader
                                 </span>
                               </Alert>
                             )}
@@ -773,9 +814,7 @@ const ResultsPanel = ({
                         )}
                       </div>
                     )}
-                    <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
-                      {tableContent}
-                    </div>
+                    <div className="overflow-x-auto max-h-[400px] overflow-y-auto">{tableContent}</div>
                     {/* Table Footer */}
                     {!hideTableFooter && (
                       <div className="px-4 py-3 bg-[var(--ax-bg-neutral-soft)] text-sm text-[var(--ax-text-subtle)] border-t">
@@ -791,26 +830,40 @@ const ResultsPanel = ({
                             </Button>
                             <span>
                               {(() => {
-                                const totalRows = result.data.length;
-                                const isLargeDataset = totalRows > rowLimit;
-                                const shouldLimitRows = isLargeDataset && !showAllRows && !activeSearchQuery;
+                                const totalRows = result.data.length
+                                const isLargeDataset = totalRows > rowLimit
+                                const shouldLimitRows = isLargeDataset && !showAllRows && !activeSearchQuery
 
                                 if (activeSearchQuery) {
                                   // Showing search results
                                   const filteredCount = result.data.filter((row: any) => {
-                                    const query = activeSearchQuery.toLowerCase();
+                                    const query = activeSearchQuery.toLowerCase()
                                     return Object.values(row).some((value: any) => {
-                                      if (value === null || value === undefined) return false;
-                                      return String(value).toLowerCase().includes(query);
-                                    });
-                                  }).length;
-                                  return <>Viser {filteredCount.toLocaleString('nb-NO')} av {totalRows.toLocaleString('nb-NO')} rader</>;
+                                      if (value === null || value === undefined) return false
+                                      return String(value).toLowerCase().includes(query)
+                                    })
+                                  }).length
+                                  return (
+                                    <>
+                                      Viser {filteredCount.toLocaleString('nb-NO')} av{' '}
+                                      {totalRows.toLocaleString('nb-NO')} rader
+                                    </>
+                                  )
                                 } else if (shouldLimitRows) {
                                   // Showing limited rows
-                                  return <>Viser {rowLimit.toLocaleString('nb-NO')} av {totalRows.toLocaleString('nb-NO')} rader</>;
+                                  return (
+                                    <>
+                                      Viser {rowLimit.toLocaleString('nb-NO')} av {totalRows.toLocaleString('nb-NO')}{' '}
+                                      rader
+                                    </>
+                                  )
                                 } else {
                                   // Showing all rows
-                                  return <>{totalRows.toLocaleString('nb-NO')} {totalRows === 1 ? 'rad' : 'rader'}</>;
+                                  return (
+                                    <>
+                                      {totalRows.toLocaleString('nb-NO')} {totalRows === 1 ? 'rad' : 'rader'}
+                                    </>
+                                  )
                                 }
                               })()}
                             </span>
@@ -818,19 +871,18 @@ const ResultsPanel = ({
                           {queryStats && (
                             <span>
                               Data prosessert: {queryStats.totalBytesProcessedGB} GB
-                              {showCost && (() => {
-                                const gb = parseFloat(queryStats.totalBytesProcessedGB);
-                                const cost = parseFloat(queryStats.estimatedCostUSD) || (gb * 0.00625);
-                                return cost > 0 ? ` • Kostnad: $${cost.toFixed(2)}` : '';
-                              })()}
+                              {showCost &&
+                                (() => {
+                                  const gb = parseFloat(queryStats.totalBytesProcessedGB)
+                                  const cost = parseFloat(queryStats.estimatedCostUSD) || gb * 0.00625
+                                  return cost > 0 ? ` • Kostnad: $${cost.toFixed(2)}` : ''
+                                })()}
                             </span>
                           )}
                         </div>
                       </div>
                     )}
-                    {compactTableActions && hideTableFooter && (
-                      <div className="px-4 pb-4" aria-hidden="true" />
-                    )}
+                    {compactTableActions && hideTableFooter && <div className="px-4 pb-4" aria-hidden="true" />}
                   </div>
                 </div>
               </Tabs.Panel>
@@ -839,36 +891,34 @@ const ResultsPanel = ({
               <Tabs.Panel value="linechart" className="pt-4">
                 <div className="border rounded-lg bg-[var(--ax-bg-default)] p-4">
                   {(() => {
-                    let chartData = prepareLineChartData(showAverage);
+                    let chartData = prepareLineChartData(showAverage)
 
                     if (chartData && granularity !== 'day') {
-                      chartData = aggregateChartData(chartData, granularity);
+                      chartData = aggregateChartData(chartData, granularity)
                     }
 
-                    console.log('Line Chart Data:', chartData);
-                    console.log('Raw Result Data:', result.data);
+                    console.log('Line Chart Data:', chartData)
+                    console.log('Raw Result Data:', result.data)
 
                     if (!chartData) {
                       return (
                         <Alert variant="info">
                           Kunne ikke lage linjediagram fra dataene. Trenger minst to kolonner (x-akse og y-akse).
                         </Alert>
-                      );
+                      )
                     }
 
-                    const lineAxisProps = getCategoricalXAxisProps(chartData);
+                    const lineAxisProps = getCategoricalXAxisProps(chartData)
                     return (
                       <div style={{ overflow: 'visible' }}>
                         <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-                          <Switch
-                            checked={showAverage}
-                            onChange={(e) => setShowAverage(e.target.checked)}
-                            size="small"
-                          >
+                          <Switch checked={showAverage} onChange={(e) => setShowAverage(e.target.checked)} size="small">
                             Vis gjennomsnitt
                           </Switch>
                           <div className="flex items-center gap-2">
-                            <Label size="small" htmlFor="line-granularity">Tidsoppløsning</Label>
+                            <Label size="small" htmlFor="line-granularity">
+                              Tidsoppløsning
+                            </Label>
                             <Select
                               id="line-granularity"
                               label="Tidsoppløsning"
@@ -897,7 +947,7 @@ const ResultsPanel = ({
                                 allowFocusOnLegends: true,
                                 styles: {
                                   text: { color: 'var(--ax-text-default)' },
-                                }
+                                },
                               }}
                             />
                           </ResponsiveContainer>
@@ -906,7 +956,7 @@ const ResultsPanel = ({
                           Viser {chartData.data.lineChartData?.[0]?.data?.length || 0} datapunkter
                         </div>
                       </div>
-                    );
+                    )
                   })()}
                 </div>
               </Tabs.Panel>
@@ -915,65 +965,66 @@ const ResultsPanel = ({
               <Tabs.Panel value="areachart" className="pt-4">
                 <div className="border rounded-lg bg-[var(--ax-bg-default)] p-4">
                   {(() => {
-                    let baseChartData = prepareLineChartData(false);
+                    let baseChartData = prepareLineChartData(false)
 
                     if (!baseChartData) {
                       return (
                         <Alert variant="info">
                           Kunne ikke lage områdediagram fra dataene. Trenger minst to kolonner (x-akse og y-akse).
                         </Alert>
-                      );
+                      )
                     }
 
                     // Apply granularity aggregation
                     if (granularity !== 'day') {
-                      baseChartData = aggregateChartData(baseChartData, granularity);
+                      baseChartData = aggregateChartData(baseChartData, granularity)
                     }
 
                     // Check if we have multiple series
-                    const hasMultipleSeries = baseChartData.data.lineChartData && baseChartData.data.lineChartData.length > 1;
+                    const hasMultipleSeries =
+                      baseChartData.data.lineChartData && baseChartData.data.lineChartData.length > 1
 
                     // Transform data for percentage view if needed
-                    let chartData = baseChartData;
+                    let chartData = baseChartData
                     if (isPercentageStacked && baseChartData.data.lineChartData) {
                       // Create a map of x values to total y values
-                      const xTotals = new Map<number, number>();
+                      const xTotals = new Map<number, number>()
 
                       // Calculate totals for each x value
                       baseChartData.data.lineChartData.forEach((series: any) => {
                         series.data.forEach((point: any) => {
-                          const xVal = point.x instanceof Date ? point.x.getTime() : Number(point.x);
-                          const currentTotal = xTotals.get(xVal) || 0;
-                          xTotals.set(xVal, currentTotal + point.y);
-                        });
-                      });
+                          const xVal = point.x instanceof Date ? point.x.getTime() : Number(point.x)
+                          const currentTotal = xTotals.get(xVal) || 0
+                          xTotals.set(xVal, currentTotal + point.y)
+                        })
+                      })
 
                       // Transform each series to percentages
                       const percentageData = baseChartData.data.lineChartData.map((series: any) => ({
                         ...series,
                         data: series.data.map((point: any) => {
-                          const xVal = point.x instanceof Date ? point.x.getTime() : Number(point.x);
-                          const total = xTotals.get(xVal) || 1;
-                          const percentage = (point.y / total) * 100;
+                          const xVal = point.x instanceof Date ? point.x.getTime() : Number(point.x)
+                          const total = xTotals.get(xVal) || 1
+                          const percentage = (point.y / total) * 100
 
                           return {
                             ...point,
                             y: percentage,
                             yAxisCalloutData: `${percentage.toFixed(1)}%`,
                             originalY: point.y,
-                          };
+                          }
                         }),
-                      }));
+                      }))
 
                       chartData = {
                         ...baseChartData,
                         data: {
                           lineChartData: percentageData,
                         },
-                      };
+                      }
                     }
 
-                    const areaAxisProps = getCategoricalXAxisProps(chartData);
+                    const areaAxisProps = getCategoricalXAxisProps(chartData)
 
                     return (
                       <div style={{ overflow: 'visible' }}>
@@ -988,7 +1039,9 @@ const ResultsPanel = ({
                             </Switch>
                           )}
                           <div className="flex items-center gap-2">
-                            <Label size="small" htmlFor="area-granularity">Tidsoppløsning</Label>
+                            <Label size="small" htmlFor="area-granularity">
+                              Tidsoppløsning
+                            </Label>
                             <Select
                               id="area-granularity"
                               label="Tidsoppløsning"
@@ -1019,7 +1072,7 @@ const ResultsPanel = ({
                                 allowFocusOnLegends: true,
                                 styles: {
                                   text: { color: 'var(--ax-text-default)' },
-                                }
+                                },
                               }}
                             />
                           </ResponsiveContainer>
@@ -1029,7 +1082,7 @@ const ResultsPanel = ({
                           {isPercentageStacked && ' (prosent av totalen per tidspunkt)'}
                         </div>
                       </div>
-                    );
+                    )
                   })()}
                 </div>
               </Tabs.Panel>
@@ -1038,51 +1091,55 @@ const ResultsPanel = ({
               <Tabs.Panel value="barchart" className="pt-4">
                 <div className="border rounded-lg bg-[var(--ax-bg-default)] p-4">
                   {(() => {
-                    const chartData = prepareBarChartData();
-                    console.log('Bar Chart Data:', chartData);
+                    const chartData = prepareBarChartData()
+                    console.log('Bar Chart Data:', chartData)
                     // Check if too many items
-                    let displayData: IVerticalBarChartDataPoint[] = [];
-                    let limitMessage = null;
+                    let displayData: IVerticalBarChartDataPoint[] = []
+                    let limitMessage = null
 
                     if (chartData && Array.isArray(chartData.data)) {
                       if (chartData.data.length > 12) {
-                        const top11 = chartData.data.slice(0, 11);
-                        const others = chartData.data.slice(11);
-                        const otherSum = others.reduce((sum, item) => sum + (item.y), 0);
+                        const top11 = chartData.data.slice(0, 11)
+                        const others = chartData.data.slice(11)
+                        const otherSum = others.reduce((sum, item) => sum + item.y, 0)
 
-                        displayData = [
-                          ...top11,
-                          { x: 'Andre', y: otherSum }
-                        ];
+                        displayData = [...top11, { x: 'Andre', y: otherSum }]
 
                         limitMessage = (
                           <Alert variant="info" className="mb-4">
-                            Viser topp 11 kategorier, pluss "Andre" som samler de resterende {others.length} kategoriene.
+                            Viser topp 11 kategorier, pluss "Andre" som samler de resterende {others.length}{' '}
+                            kategoriene.
                           </Alert>
-                        );
+                        )
                       } else {
-                        displayData = chartData.data;
+                        displayData = chartData.data
                       }
                     }
 
-                    if (!chartData || !chartData.data || (Array.isArray(chartData.data) && chartData.data.length === 0)) {
+                    if (
+                      !chartData ||
+                      !chartData.data ||
+                      (Array.isArray(chartData.data) && chartData.data.length === 0)
+                    ) {
                       return (
                         <Alert variant="info">
                           Kunne ikke lage stolpediagram fra dataene. Trenger minst to kolonner (kategori og verdi).
                         </Alert>
-                      );
+                      )
                     }
                     // Check if all y values are NaN, 0, or invalid
-                    const hasValidBarData = Array.isArray(displayData) && displayData.some((item) => {
-                      return !Number.isNaN(item.y) && typeof item.y === 'number' && item.y !== 0;
-                    });
+                    const hasValidBarData =
+                      Array.isArray(displayData) &&
+                      displayData.some((item) => {
+                        return !Number.isNaN(item.y) && typeof item.y === 'number' && item.y !== 0
+                      })
 
                     if (!hasValidBarData) {
                       return (
                         <Alert variant="info">
                           Klarer ikke å vise stolpediagram, egner seg trolig ikke for denne grafen
                         </Alert>
-                      );
+                      )
                     }
                     return (
                       <div className="w-full">
@@ -1109,7 +1166,7 @@ const ResultsPanel = ({
                           Viser {displayData.length} kategorier (hold markøren over stolpene for detaljer)
                         </div>
                       </div>
-                    );
+                    )
                   })()}
                 </div>
               </Tabs.Panel>
@@ -1118,49 +1175,55 @@ const ResultsPanel = ({
               <Tabs.Panel value="piechart" className="pt-4">
                 <div className="border rounded-lg bg-[var(--ax-bg-default)] p-4">
                   {(() => {
-                    const chartData = preparePieChartData();
-                    console.log('Pie Chart Data:', chartData);
+                    const chartData = preparePieChartData()
+                    console.log('Pie Chart Data:', chartData)
                     // Check if too many items
-                    let displayData: any[] = [];
-                    let limitMessage = null;
+                    let displayData: any[] = []
+                    let limitMessage = null
 
                     if (chartData && Array.isArray(chartData.data)) {
                       if (chartData.data.length > 12) {
-                        const top11 = chartData.data.slice(0, 11);
-                        const others = chartData.data.slice(11);
-                        const otherSum = others.reduce((sum, item) => sum + (item.y), 0);
+                        const top11 = chartData.data.slice(0, 11)
+                        const others = chartData.data.slice(11)
+                        const otherSum = others.reduce((sum, item) => sum + item.y, 0)
 
-                        displayData = [
-                          ...top11,
-                          { x: 'Andre', y: otherSum }
-                        ];
+                        displayData = [...top11, { x: 'Andre', y: otherSum }]
 
                         limitMessage = (
                           <Alert variant="info" className="mb-4">
-                            Viser topp 11 kategorier, pluss "Andre" som samler de resterende {others.length} kategoriene.
+                            Viser topp 11 kategorier, pluss "Andre" som samler de resterende {others.length}{' '}
+                            kategoriene.
                           </Alert>
-                        );
+                        )
                       } else {
-                        displayData = chartData.data;
+                        displayData = chartData.data
                       }
                     }
 
-                    if (!chartData || !chartData.data || (Array.isArray(chartData.data) && chartData.data.length === 0)) {
+                    if (
+                      !chartData ||
+                      !chartData.data ||
+                      (Array.isArray(chartData.data) && chartData.data.length === 0)
+                    ) {
                       return (
                         <Alert variant="info">
                           Kunne ikke lage sirkeldiagram fra dataene. Trenger minst to kolonner (kategori og verdi).
                         </Alert>
-                      );
+                      )
                     }
                     // Check if all y values are NaN or if no valid values exist
-                    const hasValidY = Array.isArray(displayData) && displayData.some((item) => !Number.isNaN(item.y) && item.y !== 0);
+                    const hasValidY =
+                      Array.isArray(displayData) && displayData.some((item) => !Number.isNaN(item.y) && item.y !== 0)
 
-                    if (!hasValidY || (Array.isArray(displayData) && displayData.every((item) => Number.isNaN(item.y)))) {
+                    if (
+                      !hasValidY ||
+                      (Array.isArray(displayData) && displayData.every((item) => Number.isNaN(item.y)))
+                    ) {
                       return (
                         <Alert variant="info">
                           Klarer ikke å vise sirkeldiagram, egner seg trolig ikke for denne grafen.
                         </Alert>
-                      );
+                      )
                     }
 
                     return (
@@ -1196,33 +1259,35 @@ const ResultsPanel = ({
                           `}</style>
                           <div className="pie-chart-wrapper" style={{ width: '100%', height: '400px' }}>
                             <ResponsiveContainer>
-                              <PieChart
-                                data={displayData}
-                                chartTitle=""
-                              />
+                              <PieChart data={displayData} chartTitle="" />
                             </ResponsiveContainer>
                           </div>
                           <div className="mt-4 text-lg text-[var(--ax-text-default)]">
-                            <p className="font-medium mb-3">Viser {displayData.length} kategorier med prosentandeler:</p>
+                            <p className="font-medium mb-3">
+                              Viser {displayData.length} kategorier med prosentandeler:
+                            </p>
                             <div className="mt-2 flex flex-col gap-2">
                               {displayData.map((item, idx) => {
                                 // Ensure chartData is not null before accessing total
-                                const total = chartData ? chartData.total : 0;
-                                const percentage = ((item.y / total) * 100).toFixed(1);
+                                const total = chartData ? chartData.total : 0
+                                const percentage = ((item.y / total) * 100).toFixed(1)
                                 // Skip displaying if percentage is NaN
-                                if (isNaN(parseFloat(percentage))) return null;
+                                if (isNaN(parseFloat(percentage))) return null
                                 return (
-                                  <div key={idx} className="flex justify-between items-center py-1 px-2 hover:bg-[var(--ax-bg-neutral-soft)] rounded">
+                                  <div
+                                    key={idx}
+                                    className="flex justify-between items-center py-1 px-2 hover:bg-[var(--ax-bg-neutral-soft)] rounded"
+                                  >
                                     <span>{item.x}</span>
                                     <strong className="ml-4">{percentage}%</strong>
                                   </div>
-                                );
+                                )
                               })}
                             </div>
                           </div>
                         </div>
                       </div>
-                    );
+                    )
                   })()}
                 </div>
               </Tabs.Panel>
@@ -1236,39 +1301,19 @@ const ResultsPanel = ({
                     {/* Download Section */}
                     <div>
                       <div className="flex gap-2 flex-wrap items-center">
-                        <Button
-                          onClick={downloadCSV}
-                          variant="secondary"
-                          size="small"
-                          icon={<Download size={16} />}
-                        >
+                        <Button onClick={downloadCSV} variant="secondary" size="small" icon={<Download size={16} />}>
                           CSV
                         </Button>
 
-                        <Button
-                          onClick={downloadExcel}
-                          variant="secondary"
-                          size="small"
-                          icon={<Download size={16} />}
-                        >
+                        <Button onClick={downloadExcel} variant="secondary" size="small" icon={<Download size={16} />}>
                           Excel
                         </Button>
 
-                        <Button
-                          onClick={downloadJSON}
-                          variant="secondary"
-                          size="small"
-                          icon={<Download size={16} />}
-                        >
+                        <Button onClick={downloadJSON} variant="secondary" size="small" icon={<Download size={16} />}>
                           JSON
                         </Button>
 
-                        <Button
-                          onClick={downloadTOON}
-                          variant="secondary"
-                          size="small"
-                          icon={<Download size={16} />}
-                        >
+                        <Button onClick={downloadTOON} variant="secondary" size="small" icon={<Download size={16} />}>
                           TOON
                         </Button>
                       </div>
@@ -1321,10 +1366,8 @@ const ResultsPanel = ({
                 </Button>
               </div>
             )} */}
-
           </div>
         )}
-
 
         {result && result.data && result.data.length === 0 && (
           <Alert variant="info" className="mt-3">
@@ -1334,32 +1377,22 @@ const ResultsPanel = ({
 
         {/* SQL Code Display */}
         {showSqlCode && sql && result && (
-          <SqlViewer
-            sql={sql}
-            showEditButton={showEditButton}
-            showMetabaseActions={showSqlMetabaseActions}
-          />
+          <SqlViewer sql={sql} showEditButton={showEditButton} showMetabaseActions={showSqlMetabaseActions} />
         )}
       </div>
 
       {/* Share Modal */}
-      {
-        sql && (
-          <>
-            <ShareResultsModal
-              sql={sql}
-              open={showShareModal}
-              onClose={() => setShowShareModal(false)}
-            />
-            <TransferToMetabaseDialog
-              open={showTransferToMetabaseDialog}
-              onClose={() => setShowTransferToMetabaseDialog(false)}
-              sqlText={sql}
-              sourceWebsiteId={websiteId}
-            />
-          </>
-        )
-      }
+      {sql && (
+        <>
+          <ShareResultsModal sql={sql} open={showShareModal} onClose={() => setShowShareModal(false)} />
+          <TransferToMetabaseDialog
+            open={showTransferToMetabaseDialog}
+            onClose={() => setShowTransferToMetabaseDialog(false)}
+            sqlText={sql}
+            sourceWebsiteId={websiteId}
+          />
+        </>
+      )}
 
       {/* Analysis Action Modal */}
       <AnalysisActionModal
@@ -1369,8 +1402,8 @@ const ResultsPanel = ({
         websiteId={websiteId}
         period={period}
       />
-    </div >
-  );
-};
+    </div>
+  )
+}
 
-export default ResultsPanel;
+export default ResultsPanel

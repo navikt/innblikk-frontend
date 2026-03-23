@@ -1,2 +1,1 @@
-export { fetchWebsites } from '../../../shared/api/websiteApi';
-
+export { fetchWebsites } from '../../../shared/api/websiteApi'

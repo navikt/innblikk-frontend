@@ -14,40 +14,34 @@
  *   />
  */
 
-import { Checkbox } from '@navikt/ds-react';
+import { Checkbox } from '@navikt/ds-react'
 
-export type CheckboxListOption = { label: string; value: string };
+export type CheckboxListOption = { label: string; value: string }
 
 export type CheckboxListGroup = {
-  key: string;
-  label: string;
-  options: CheckboxListOption[];
-  emptyPlaceholder?: string;
-};
-
-interface GroupedCheckboxListProps {
-  groups: CheckboxListGroup[];
-  selectedOptions: string[];
-  onToggleSelected: (value: string, isSelected: boolean) => void;
+  key: string
+  label: string
+  options: CheckboxListOption[]
+  emptyPlaceholder?: string
 }
 
-export function GroupedCheckboxList({
-  groups,
-  selectedOptions,
-  onToggleSelected,
-}: GroupedCheckboxListProps) {
+interface GroupedCheckboxListProps {
+  groups: CheckboxListGroup[]
+  selectedOptions: string[]
+  onToggleSelected: (value: string, isSelected: boolean) => void
+}
+
+export function GroupedCheckboxList({ groups, selectedOptions, onToggleSelected }: GroupedCheckboxListProps) {
   return (
     <div className="space-y-4">
-      {groups.map(group => (
+      {groups.map((group) => (
         <div key={group.key}>
-          <p className="text-xs font-semibold text-(--ax-text-subtle) uppercase tracking-wide mb-1">
-            {group.label}
-          </p>
+          <p className="text-xs font-semibold text-(--ax-text-subtle) uppercase tracking-wide mb-1">{group.label}</p>
           {group.options.length === 0 && group.emptyPlaceholder ? (
             <p className="text-xs text-(--ax-text-subtle) italic">{group.emptyPlaceholder}</p>
           ) : (
             <ul className="list-none m-0 p-0 flex flex-col gap-1">
-              {group.options.map(option => (
+              {group.options.map((option) => (
                 <li key={option.value}>
                   <Checkbox
                     size="small"
@@ -63,7 +57,7 @@ export function GroupedCheckboxList({
         </div>
       ))}
     </div>
-  );
+  )
 }
 
-export default GroupedCheckboxList;
+export default GroupedCheckboxList

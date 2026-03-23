@@ -1,43 +1,43 @@
-name: "Deploy Prod (Manual)"
-run-name: "Deploy Prod (Latest Dev)"
+name: 'Deploy Prod (Manual)'
+run-name: 'Deploy Prod (Latest Dev)'
 
 on:
   workflow_dispatch:
 
 concurrency:
-  group: "deploy-prod-manual"
+  group: 'deploy-prod-manual'
   cancel-in-progress: false
 
 jobs:
   ensure-main:
-    name: "Ensure main branch"
-    runs-on: "ubuntu-latest"
+    name: 'Ensure main branch'
+    runs-on: 'ubuntu-latest'
     steps:
-      - name: "Fail if not main"
+      - name: 'Fail if not main'
         if: github.ref_name != 'main'
         run: |
           echo "This workflow can only run from the main branch."
           echo "Triggered from: ${GITHUB_REF_NAME}"
           exit 1
-      - name: "Confirm main"
+      - name: 'Confirm main'
         if: github.ref_name == 'main'
         run: echo "Running from main"
 
   preflight:
-    name: "Preflight checks"
+    name: 'Preflight checks'
     if: github.ref_name == 'main'
     needs: ensure-main
-    runs-on: "ubuntu-latest"
+    runs-on: 'ubuntu-latest'
     outputs:
       image: ${{ steps.resolve-dev.outputs.image }}
       version: ${{ steps.resolve-dev.outputs.version }}
       source_tag: ${{ steps.resolve-dev.outputs.source_tag }}
     steps:
-      - uses: "actions/checkout@v6"
+      - uses: 'actions/checkout@v6'
         with:
           fetch-depth: 0
 
-      - name: "Resolve latest dev deployment metadata"
+      - name: 'Resolve latest dev deployment metadata'
         id: resolve-dev
         run: |
           git fetch --tags --force
@@ -70,7 +70,7 @@ jobs:
             echo "image=${IMAGE}"
           } >> "$GITHUB_OUTPUT"
 
-      - name: "Check for duplicate prod deployment"
+      - name: 'Check for duplicate prod deployment'
         env:
           VERSION: ${{ steps.resolve-dev.outputs.version }}
         run: |
@@ -91,24 +91,24 @@ jobs:
     needs:
       - ensure-main
       - preflight
-    runs-on: "ubuntu-latest"
+    runs-on: 'ubuntu-latest'
     permissions:
       contents: write
       id-token: write
     steps:
-      - uses: "actions/checkout@v6"
-      - name: "Deploy to Prod"
-        uses: "nais/deploy/actions/deploy@v2"
+      - uses: 'actions/checkout@v6'
+      - name: 'Deploy to Prod'
+        uses: 'nais/deploy/actions/deploy@v2'
         env:
-          CLUSTER: "prod-gcp"
+          CLUSTER: 'prod-gcp'
           RESOURCE: .nais/prod/nais-prod.yaml
           VAR: image=${{ needs.preflight.outputs.image }},version=${{ needs.preflight.outputs.version }}
-      - name: "Show promoted artifact"
+      - name: 'Show promoted artifact'
         run: |
           echo "Promoted dev tag: ${{ needs.preflight.outputs.source_tag }}"
           echo "Image: ${{ needs.preflight.outputs.image }}"
           echo "Version: ${{ needs.preflight.outputs.version }}"
-      - name: "Create deployment tag"
+      - name: 'Create deployment tag'
         if: success()
         run: |
           git config user.name "github-actions[bot]"

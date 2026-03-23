@@ -1,33 +1,31 @@
-import { useCallback, useRef, useState } from "react";
-import { Bleed, Box, Loader } from "@navikt/ds-react";
-import { ArrowCirclepathReverseIcon } from "@navikt/aksel-icons";
-import WebsitePicker from "../../analysis/ui/WebsitePicker.tsx";
-import QueryPreview from "./results/QueryPreview.tsx";
-import EventFilter from "./grafbygger/EventFilter.tsx";
-import ChartLayout from "../../analysis/ui/ChartLayoutOriginal.tsx";
-import MetricSelector from "./grafbygger/MetricSelector.tsx";
-import SegmentBy, { type SegmentByRef } from "./grafbygger/SegmentBy.tsx";
-import GroupingOptions from "./grafbygger/GroupingOptions.tsx";
-import DisplayOptions from "./grafbygger/DisplayOptions.tsx";
-import AlertWithCloseButton from "./grafbygger/AlertWithCloseButton.tsx";
-import SidebarSection from "../../../shared/ui/SidebarSection.tsx";
-import ActionFeedbackButton from "../../../shared/ui/ActionFeedbackButton.tsx";
-import type { SegmentDefinition } from "../../../shared/types/chart.ts";
-import { FILTER_COLUMNS } from "../../../shared/lib/constants.ts";
-import { DATE_FORMATS, METRICS } from "../model/constants.ts";
-import { sanitizeColumnName } from "../utils/sanitize.ts";
-import { getMetricColumns } from "../utils/metricColumns.ts";
-import { useChartConfig } from "../hooks/useChartConfig.ts";
+import { useCallback, useRef, useState } from 'react'
+import { Bleed, Box, Loader } from '@navikt/ds-react'
+import { ArrowCirclepathReverseIcon } from '@navikt/aksel-icons'
+import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
+import QueryPreview from './results/QueryPreview.tsx'
+import EventFilter from './grafbygger/EventFilter.tsx'
+import ChartLayout from '../../analysis/ui/ChartLayoutOriginal.tsx'
+import MetricSelector from './grafbygger/MetricSelector.tsx'
+import SegmentBy, { type SegmentByRef } from './grafbygger/SegmentBy.tsx'
+import GroupingOptions from './grafbygger/GroupingOptions.tsx'
+import DisplayOptions from './grafbygger/DisplayOptions.tsx'
+import AlertWithCloseButton from './grafbygger/AlertWithCloseButton.tsx'
+import SidebarSection from '../../../shared/ui/SidebarSection.tsx'
+import ActionFeedbackButton from '../../../shared/ui/ActionFeedbackButton.tsx'
+import type { SegmentDefinition } from '../../../shared/types/chart.ts'
+import { FILTER_COLUMNS } from '../../../shared/lib/constants.ts'
+import { DATE_FORMATS, METRICS } from '../model/constants.ts'
+import { sanitizeColumnName } from '../utils/sanitize.ts'
+import { getMetricColumns } from '../utils/metricColumns.ts'
+import { useChartConfig } from '../hooks/useChartConfig.ts'
 
 const ChartsPage = () => {
-  const [interactiveDateFilterEnabled, setInteractiveDateFilterEnabled] =
-    useState<boolean>(true);
-  const [isWebsitePickerInitializing, setIsWebsitePickerInitializing] =
-    useState<boolean>(true);
-  const [groupingResetSignal, setGroupingResetSignal] = useState<number>(0);
-  const [metricResetSignal, setMetricResetSignal] = useState<number>(0);
-  const [isEventFilterDirty, setIsEventFilterDirty] = useState<boolean>(false);
-  const segmentByRef = useRef<SegmentByRef>(null);
+  const [interactiveDateFilterEnabled, setInteractiveDateFilterEnabled] = useState<boolean>(true)
+  const [isWebsitePickerInitializing, setIsWebsitePickerInitializing] = useState<boolean>(true)
+  const [groupingResetSignal, setGroupingResetSignal] = useState<number>(0)
+  const [metricResetSignal, setMetricResetSignal] = useState<number>(0)
+  const [isEventFilterDirty, setIsEventFilterDirty] = useState<boolean>(false)
+  const segmentByRef = useRef<SegmentByRef>(null)
 
   const {
     config,
@@ -74,71 +72,66 @@ const ChartsPage = () => {
     setColumnOrderMode,
     handleWebsiteChange,
     handleEventsLoad,
-  } = useChartConfig();
+  } = useChartConfig()
 
   const handleSegmentsChange = useCallback(
     (segments: SegmentDefinition[]) => {
       setConfig((prev) => ({
         ...prev,
         segments,
-      }));
+      }))
     },
     [setConfig],
-  );
+  )
 
   const handleResetGroupings = useCallback(() => {
-    setConfig((prev) => ({ ...prev, groupByFields: [] }));
-    setGroupingResetSignal((prev) => prev + 1);
-  }, [setConfig]);
+    setConfig((prev) => ({ ...prev, groupByFields: [] }))
+    setGroupingResetSignal((prev) => prev + 1)
+  }, [setConfig])
 
   const handleResetMetrics = useCallback(() => {
-    summarizeRef.current?.resetConfig(false);
-    setMetricResetSignal((prev) => prev + 1);
-  }, [summarizeRef]);
+    summarizeRef.current?.resetConfig(false)
+    setMetricResetSignal((prev) => prev + 1)
+  }, [summarizeRef])
 
   const handleResetAllWithSignals = useCallback(() => {
-    resetAll();
-    setGroupingResetSignal((prev) => prev + 1);
-    setMetricResetSignal((prev) => prev + 1);
-  }, [resetAll]);
+    resetAll()
+    setGroupingResetSignal((prev) => prev + 1)
+    setMetricResetSignal((prev) => prev + 1)
+  }, [resetAll])
 
-  const hasSegmentConfigToReset = useCallback(
-    (segments: SegmentDefinition[] | undefined): boolean => {
-      if (!segments || segments.length === 0) {
-        return false;
-      }
+  const hasSegmentConfigToReset = useCallback((segments: SegmentDefinition[] | undefined): boolean => {
+    if (!segments || segments.length === 0) {
+      return false
+    }
 
-      if (segments.length !== 1) {
-        return true;
-      }
+    if (segments.length !== 1) {
+      return true
+    }
 
-      const [segment] = segments;
-      const hasFilters = (segment.filters?.length || 0) > 0;
-      const hasPerformedSelection =
-        (segment.performed?.events?.length || 0) > 0;
-      const hasCustomName = (segment.name || "").trim() !== "Alle brukere";
+    const [segment] = segments
+    const hasFilters = (segment.filters?.length || 0) > 0
+    const hasPerformedSelection = (segment.performed?.events?.length || 0) > 0
+    const hasCustomName = (segment.name || '').trim() !== 'Alle brukere'
 
-      return hasFilters || hasPerformedSelection || hasCustomName;
-    },
-    [],
-  );
+    return hasFilters || hasPerformedSelection || hasCustomName
+  }, [])
 
-  const showResetEventFilters = isEventFilterDirty;
-  const showResetMetrics = config.metrics.length > 0;
-  const showResetSegments = hasSegmentConfigToReset(config.segments);
-  const showResetGroupings = config.groupByFields.length > 0;
+  const showResetEventFilters = isEventFilterDirty
+  const showResetMetrics = config.metrics.length > 0
+  const showResetSegments = hasSegmentConfigToReset(config.segments)
+  const showResetGroupings = config.groupByFields.length > 0
   const showResetDisplayOptions =
     Boolean(config.orderBy) ||
-    (config.columnOrderMode || "default") !== "default" ||
-    config.paramAggregation !== "unique" ||
+    (config.columnOrderMode || 'default') !== 'default' ||
+    config.paramAggregation !== 'unique' ||
     (config.limit ?? 1000) !== 1000 ||
-    config.dateFormat !== "day" ||
-    !interactiveDateFilterEnabled;
+    config.dateFormat !== 'day' ||
+    !interactiveDateFilterEnabled
 
   // Keep sidebar sections visible during background event/detail fetches.
   // Only gate on initial website/date readiness.
-  const isSidebarLoading =
-    isWebsitePickerInitializing || (!!config.website && !dateRangeReady);
+  const isSidebarLoading = isWebsitePickerInitializing || (!!config.website && !dateRangeReady)
 
   return (
     <ChartLayout
@@ -150,12 +143,7 @@ const ChartsPage = () => {
       filters={
         <>
           {/* ── Nettside ───────────────────────────────────────── */}
-          <Bleed
-            asChild
-            marginBlock="space-24"
-            marginInline="space-24"
-            reflectivePadding
-          >
+          <Bleed asChild marginBlock="space-24" marginInline="space-24" reflectivePadding>
             <Box background="accent-strong" className="pb-2">
               <WebsitePicker
                 id="grafbygger-website-picker"
@@ -180,9 +168,7 @@ const ChartsPage = () => {
               <Loader size="small" title="Laster data" />
             </div>
           ) : !config.website ? (
-            <div className="px-1 py-2 text-sm text-(--ax-text-subtle)">
-              Velg nettside og datoperiode først.
-            </div>
+            <div className="px-1 py-2 text-sm text-(--ax-text-subtle)">Velg nettside og datoperiode først.</div>
           ) : (
             <>
               {/* ── Hendelse ───────────────────────────────────────── */}
@@ -196,9 +182,7 @@ const ChartsPage = () => {
                       variant="tertiary"
                       size="small"
                       icon={<ArrowCirclepathReverseIcon aria-hidden />}
-                      onClick={() =>
-                        chartFiltersRef.current?.resetFilters(false)
-                      }
+                      onClick={() => chartFiltersRef.current?.resetFilters(false)}
                     />
                   ) : undefined
                 }
@@ -211,15 +195,15 @@ const ChartsPage = () => {
                   onDirtyStateChange={setIsEventFilterDirty}
                   availableEvents={availableEvents}
                   onEnableCustomEvents={(withParams = false) => {
-                    setRequestLoadEvents(true);
+                    setRequestLoadEvents(true)
                     if (withParams) {
-                      setRequestIncludeParams(true);
+                      setRequestIncludeParams(true)
                     }
                   }}
                   dateRangeInDays={dateRangeInDays}
                   onDateRangeInDaysChange={(days) => {
-                    setDateRangeInDays(days);
-                    setRequestLoadEvents(true);
+                    setDateRangeInDays(days)
+                    setRequestLoadEvents(true)
                   }}
                   isEventsLoading={isEventsLoading}
                 />
@@ -249,9 +233,7 @@ const ChartsPage = () => {
                   COLUMN_GROUPS={FILTER_COLUMNS}
                   getMetricColumns={getMetricColumns}
                   sanitizeColumnName={sanitizeColumnName}
-                  updateMetric={(index, updates) =>
-                    updateMetric(index, updates)
-                  }
+                  updateMetric={(index, updates) => updateMetric(index, updates)}
                   removeMetric={removeMetric}
                   addMetric={addMetric}
                   moveMetric={moveMetric}
@@ -284,13 +266,13 @@ const ChartsPage = () => {
                   availableEvents={availableEvents}
                   dateRangeInDays={dateRangeInDays}
                   onDateRangeInDaysChange={(days) => {
-                    setDateRangeInDays(days);
-                    setRequestLoadEvents(true);
+                    setDateRangeInDays(days)
+                    setRequestLoadEvents(true)
                   }}
                   onEnableCustomEvents={(withParams = false) => {
-                    setRequestLoadEvents(true);
+                    setRequestLoadEvents(true)
                     if (withParams) {
-                      setRequestIncludeParams(true);
+                      setRequestIncludeParams(true)
                     }
                   }}
                   isEventsLoading={isEventsLoading}
@@ -333,10 +315,10 @@ const ChartsPage = () => {
                   filters={filters}
                   onEnableCustomEvents={() => {
                     if (chartFiltersRef.current) {
-                      chartFiltersRef.current.enableCustomEvents();
+                      chartFiltersRef.current.enableCustomEvents()
                     }
-                    setRequestLoadEvents(true);
-                    setRequestIncludeParams(true);
+                    setRequestLoadEvents(true)
+                    setRequestIncludeParams(true)
                   }}
                   isEventsLoading={isEventsLoading}
                   resetSignal={groupingResetSignal}
@@ -354,9 +336,7 @@ const ChartsPage = () => {
                       variant="tertiary"
                       size="small"
                       icon={<ArrowCirclepathReverseIcon aria-hidden />}
-                      onClick={() =>
-                        displayOptionsRef.current?.resetOptions(false)
-                      }
+                      onClick={() => displayOptionsRef.current?.resetOptions(false)}
                     />
                   ) : undefined
                 }
@@ -365,7 +345,7 @@ const ChartsPage = () => {
                   ref={displayOptionsRef}
                   groupByFields={config.groupByFields}
                   orderBy={config.orderBy}
-                  columnOrderMode={config.columnOrderMode || "default"}
+                  columnOrderMode={config.columnOrderMode || 'default'}
                   paramAggregation={config.paramAggregation}
                   limit={config.limit}
                   COLUMN_GROUPS={FILTER_COLUMNS}
@@ -396,9 +376,7 @@ const ChartsPage = () => {
       {/* Alert Display */}
       {alertInfo.show && (
         <div className="mb-4">
-          <AlertWithCloseButton variant="success">
-            {alertInfo.message}
-          </AlertWithCloseButton>
+          <AlertWithCloseButton variant="success">{alertInfo.message}</AlertWithCloseButton>
         </div>
       )}
 
@@ -406,8 +384,7 @@ const ChartsPage = () => {
       {titleFromUrl && hasAppliedUrlParams && config.website && (
         <div className="mb-4">
           <AlertWithCloseButton variant="info">
-            Forhåndsvisning fra dashboard: <strong>{titleFromUrl}</strong>. Du
-            kan nå redigere og tilpasse grafen.
+            Forhåndsvisning fra dashboard: <strong>{titleFromUrl}</strong>. Du kan nå redigere og tilpasse grafen.
           </AlertWithCloseButton>
         </div>
       )}
@@ -428,7 +405,7 @@ const ChartsPage = () => {
         />
       </div>
     </ChartLayout>
-  );
-};
+  )
+}
 
-export default ChartsPage;
+export default ChartsPage

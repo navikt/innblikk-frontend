@@ -1,38 +1,23 @@
-import { useEffect, useRef, useState } from "react";
-import {
-  ActionMenu,
-  Alert,
-  Button,
-  Loader,
-  ReadMore,
-  Select,
-  Switch,
-  TextField,
-  Tooltip,
-} from "@navikt/ds-react";
-import { Minimize2, ExternalLink, MoreVertical, Search } from "lucide-react";
-import ChartLayout from "../../analysis/ui/ChartLayout.tsx";
-import WebsitePicker from "../../analysis/ui/WebsitePicker.tsx";
-import PeriodPicker from "../../analysis/ui/PeriodPicker.tsx";
-import UmamiJourneyView from "../../analysis/ui/journey/UmamiJourneyView.tsx";
-import AnalysisActionModal from "../../analysis/ui/AnalysisActionModal.tsx";
-import TableSectionHeader from "../../../shared/ui/TableSectionHeader.tsx";
-import type { Website } from "../../../shared/types/chart.ts";
-import { normalizeUrlToPath } from "../../../shared/lib/utils.ts";
-import type { JourneyLink } from "../model";
-import { useUrlState, useJourneyData } from "../hooks";
-import {
-  buildAppliedFilterKey,
-  downloadJourneyCSV,
-  downloadJourneyExcel,
-  copyShareLink,
-} from "../utils";
+import { useEffect, useRef, useState } from 'react'
+import { ActionMenu, Alert, Button, Loader, ReadMore, Select, Switch, TextField, Tooltip } from '@navikt/ds-react'
+import { Minimize2, ExternalLink, MoreVertical, Search } from 'lucide-react'
+import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
+import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
+import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
+import UmamiJourneyView from '../../analysis/ui/journey/UmamiJourneyView.tsx'
+import AnalysisActionModal from '../../analysis/ui/AnalysisActionModal.tsx'
+import TableSectionHeader from '../../../shared/ui/TableSectionHeader.tsx'
+import type { Website } from '../../../shared/types/chart.ts'
+import { normalizeUrlToPath } from '../../../shared/lib/utils.ts'
+import type { JourneyLink } from '../model'
+import { useUrlState, useJourneyData } from '../hooks'
+import { buildAppliedFilterKey, downloadJourneyCSV, downloadJourneyExcel, copyShareLink } from '../utils'
 
 const UserJourney = () => {
-  const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null);
+  const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
 
   // Use custom hooks for URL state management
-  const urlState = useUrlState();
+  const urlState = useUrlState()
   const {
     startUrl,
     setStartUrl,
@@ -51,106 +36,89 @@ const UserJourney = () => {
     journeyDirection,
     setJourneyDirection,
     searchParams,
-  } = urlState;
+  } = urlState
 
   // Use custom hook for journey data fetching
-  const journeyData = useJourneyData(
-    selectedWebsite,
-    period,
-    customStartDate,
-    customEndDate,
-    limit,
-    journeyDirection
-  );
-  const {
-    data,
-    rawData,
-    loading,
-    isUpdating,
-    error,
-    queryStats,
-    lastAppliedFilterKey,
-    reverseVisualOrder,
-    fetchData,
-  } = journeyData;
+  const journeyData = useJourneyData(selectedWebsite, period, customStartDate, customEndDate, limit, journeyDirection)
+  const { data, rawData, loading, isUpdating, error, queryStats, lastAppliedFilterKey, reverseVisualOrder, fetchData } =
+    journeyData
 
   // UI state
-  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  const [showTableSection, setShowTableSection] = useState<boolean>(false);
-  const [copySuccess, setCopySuccess] = useState<boolean>(false);
-  const [selectedTableUrl, setSelectedTableUrl] = useState<string | null>(null);
-  const [tableSearch, setTableSearch] = useState<string>("");
-  const [showTableSearch, setShowTableSearch] = useState<boolean>(false);
-  const tableSearchInputRef = useRef<HTMLInputElement>(null);
-  const hasAutoSubmittedRef = useRef<boolean>(false);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false)
+  const [showTableSection, setShowTableSection] = useState<boolean>(false)
+  const [copySuccess, setCopySuccess] = useState<boolean>(false)
+  const [selectedTableUrl, setSelectedTableUrl] = useState<string | null>(null)
+  const [tableSearch, setTableSearch] = useState<string>('')
+  const [showTableSearch, setShowTableSearch] = useState<boolean>(false)
+  const tableSearchInputRef = useRef<HTMLInputElement>(null)
+  const hasAutoSubmittedRef = useRef<boolean>(false)
 
   const hasUnappliedFilterChanges = lastAppliedFilterKey
     ? buildAppliedFilterKey(
         selectedWebsite?.id,
-        normalizeUrlToPath(startUrl) || "",
+        normalizeUrlToPath(startUrl) || '',
         period,
         customStartDate,
         customEndDate,
         steps,
         limit,
-        journeyDirection
+        journeyDirection,
       ) !== lastAppliedFilterKey
-    : true;
+    : true
 
   const handleSearch = () => {
-    void fetchData(startUrl, steps);
-  };
+    void fetchData(startUrl, steps)
+  }
 
   // Auto-submit when URL parameters are present (for shared links)
   useEffect(() => {
     const hasConfigParams =
-      searchParams.has("period") ||
-      searchParams.has("urlPath") ||
-      searchParams.has("startUrl") ||
-      searchParams.has("steps") ||
-      searchParams.has("limit") ||
-      searchParams.has("direction");
+      searchParams.has('period') ||
+      searchParams.has('urlPath') ||
+      searchParams.has('startUrl') ||
+      searchParams.has('steps') ||
+      searchParams.has('limit') ||
+      searchParams.has('direction')
     if (selectedWebsite && hasConfigParams && !hasAutoSubmittedRef.current && !loading) {
-      hasAutoSubmittedRef.current = true;
-      void fetchData(startUrl, steps);
+      hasAutoSubmittedRef.current = true
+      void fetchData(startUrl, steps)
     }
-  }, [selectedWebsite, searchParams, loading, fetchData, startUrl, steps]);
+  }, [selectedWebsite, searchParams, loading, fetchData, startUrl, steps])
 
   const handleCopyShareLink = async () => {
-    const success = await copyShareLink();
+    const success = await copyShareLink()
     if (success) {
-      setCopySuccess(true);
-      setTimeout(() => setCopySuccess(false), 2000);
+      setCopySuccess(true)
+      setTimeout(() => setCopySuccess(false), 2000)
     }
-  };
+  }
 
   const handleDownloadCSV = () => {
-    downloadJourneyCSV(rawData, selectedWebsite?.name || "data", journeyDirection);
-  };
+    downloadJourneyCSV(rawData, selectedWebsite?.name || 'data', journeyDirection)
+  }
 
   const handleDownloadExcel = () => {
-    void downloadJourneyExcel(rawData, selectedWebsite?.name || "data", journeyDirection);
-  };
-
+    void downloadJourneyExcel(rawData, selectedWebsite?.name || 'data', journeyDirection)
+  }
 
   const handleLoadMore = (increment: number) => {
-    const newSteps = steps + increment;
-    setSteps(newSteps);
-    void fetchData(startUrl, newSteps, true);
-  };
+    const newSteps = steps + increment
+    setSteps(newSteps)
+    void fetchData(startUrl, newSteps, true)
+  }
 
   const filteredTableLinks = rawData
     ? rawData.links.filter((link: JourneyLink) => {
-        const sourceNode = rawData.nodes[link.source];
-        const targetNode = rawData.nodes[link.target];
-        const haystack = `${sourceNode?.name ?? ""} ${targetNode?.name ?? ""}`.toLowerCase();
-        return haystack.includes(tableSearch.toLowerCase());
+        const sourceNode = rawData.nodes[link.source]
+        const targetNode = rawData.nodes[link.target]
+        const haystack = `${sourceNode?.name ?? ''} ${targetNode?.name ?? ''}`.toLowerCase()
+        return haystack.includes(tableSearch.toLowerCase())
       })
-    : [];
+    : []
 
   useEffect(() => {
-    if (showTableSearch) tableSearchInputRef.current?.focus();
-  }, [showTableSearch]);
+    if (showTableSearch) tableSearchInputRef.current?.focus()
+  }, [showTableSearch])
 
   return (
     <ChartLayout
@@ -159,12 +127,7 @@ const UserJourney = () => {
       currentPage="brukerreiser"
       websiteDomain={selectedWebsite?.domain}
       websiteName={selectedWebsite?.name}
-      sidebarContent={
-        <WebsitePicker
-          selectedWebsite={selectedWebsite}
-          onWebsiteChange={setSelectedWebsite}
-        />
-      }
+      sidebarContent={<WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} />}
       filters={
         <>
           <div className="w-full sm:w-[300px]">
@@ -199,12 +162,7 @@ const UserJourney = () => {
           </div>
 
           <div className="w-full sm:w-auto min-w-[100px]">
-            <Select
-              size="small"
-              label="Antall steg"
-              value={steps}
-              onChange={(e) => setSteps(Number(e.target.value))}
-            >
+            <Select size="small" label="Antall steg" value={steps} onChange={(e) => setSteps(Number(e.target.value))}>
               <option value={1}>1 steg</option>
               <option value={2}>2 steg</option>
               <option value={3}>3 steg</option>
@@ -231,11 +189,11 @@ const UserJourney = () => {
               value={limitInput}
               onChange={(e) => setLimitInput(e.target.value)}
               onBlur={() => {
-                const val = parseInt(limitInput);
+                const val = parseInt(limitInput)
                 if (!isNaN(val) && val > 0) {
-                  setLimit(val);
+                  setLimit(val)
                 } else {
-                  setLimitInput(limit.toString());
+                  setLimitInput(limit.toString())
                 }
               }}
             />
@@ -276,26 +234,15 @@ const UserJourney = () => {
         <>
           <div
             className={`${
-              isFullscreen
-                ? "fixed inset-0 z-50 bg-[var(--ax-bg-default)] p-8 overflow-auto"
-                : "-mt-2 md:-mt-4"
+              isFullscreen ? 'fixed inset-0 z-50 bg-[var(--ax-bg-default)] p-8 overflow-auto' : '-mt-2 md:-mt-4'
             }`}
           >
             {!isFullscreen && (
-              <ReadMore
-                header="Slik leser du flyten"
-                defaultOpen={true}
-                size="large"
-                className="mt-0 mb-6"
-              >
+              <ReadMore header="Slik leser du flyten" defaultOpen={true} size="large" className="mt-0 mb-6">
                 <ul className="list-disc pl-5 space-y-1">
-                  <li>
-                    Klikk på et steg for å utheve trafikken via den siden
-                  </li>
+                  <li>Klikk på et steg for å utheve trafikken via den siden</li>
                   <li>Bruk + for å legge til steget i en traktanalyse</li>
-                  <li>
-                    Bytt reiseretning for å se brukerreisen bakover
-                  </li>
+                  <li>Bytt reiseretning for å se brukerreisen bakover</li>
                 </ul>
               </ReadMore>
             )}
@@ -332,11 +279,7 @@ const UserJourney = () => {
               </div>
             )}
             <div className="mt-4 flex justify-end">
-              <Switch
-                checked={showTableSection}
-                onChange={(e) => setShowTableSection(e.target.checked)}
-                size="small"
-              >
+              <Switch checked={showTableSection} onChange={(e) => setShowTableSection(e.target.checked)} size="small">
                 Vis som tabell
               </Switch>
             </div>
@@ -348,19 +291,19 @@ const UserJourney = () => {
                 <div className="p-4 pb-2">
                   <TableSectionHeader
                     title="Tabell"
-                    actions={(
+                    actions={
                       <>
                         <Tooltip content="Søk" placement="top">
                           <Button
                             type="button"
-                            variant={showTableSearch ? "secondary" : "tertiary"}
+                            variant={showTableSearch ? 'secondary' : 'tertiary'}
                             size="xsmall"
                             icon={<Search aria-hidden />}
                             aria-label="Søk i tabell"
                             aria-pressed={showTableSearch}
                             onClick={() => {
-                              setShowTableSearch((prev) => !prev);
-                              if (showTableSearch) setTableSearch("");
+                              setShowTableSearch((prev) => !prev)
+                              if (showTableSearch) setTableSearch('')
                             }}
                           />
                         </Tooltip>
@@ -377,37 +320,33 @@ const UserJourney = () => {
                             </ActionMenu.Trigger>
                           </Tooltip>
                           <ActionMenu.Content align="end">
-                            <ActionMenu.Item onClick={handleDownloadCSV}>
-                              Last ned CSV
-                            </ActionMenu.Item>
-                            <ActionMenu.Item onClick={handleDownloadExcel}>
-                              Last ned Excel
-                            </ActionMenu.Item>
+                            <ActionMenu.Item onClick={handleDownloadCSV}>Last ned CSV</ActionMenu.Item>
+                            <ActionMenu.Item onClick={handleDownloadExcel}>Last ned Excel</ActionMenu.Item>
                             <ActionMenu.Divider />
                             <div className="px-3 py-2 text-xs text-[var(--ax-text-subtle)]">
                               {rawData &&
                                 `${filteredTableLinks.length} forbindelser mellom ${rawData.nodes.length} sider`}
-                              {queryStats && (
-                                <span> • {queryStats.totalBytesProcessedGB} GB prosessert</span>
-                              )}
+                              {queryStats && <span> • {queryStats.totalBytesProcessedGB} GB prosessert</span>}
                             </div>
                           </ActionMenu.Content>
                         </ActionMenu>
                       </>
-                    )}
-                    controls={showTableSearch ? (
-                      <div className="w-full sm:w-64 min-w-0">
-                        <TextField
-                          label="Søk"
-                          hideLabel
-                          placeholder="Søk..."
-                          size="small"
-                          value={tableSearch}
-                          ref={tableSearchInputRef}
-                          onChange={(e) => setTableSearch(e.target.value)}
-                        />
-                      </div>
-                    ) : undefined}
+                    }
+                    controls={
+                      showTableSearch ? (
+                        <div className="w-full sm:w-64 min-w-0">
+                          <TextField
+                            label="Søk"
+                            hideLabel
+                            placeholder="Søk..."
+                            size="small"
+                            value={tableSearch}
+                            ref={tableSearchInputRef}
+                            onChange={(e) => setTableSearch(e.target.value)}
+                          />
+                        </div>
+                      ) : undefined
+                    }
                   />
                 </div>
                 <div className="overflow-x-auto max-h-[550px] overflow-y-auto px-4">
@@ -431,42 +370,35 @@ const UserJourney = () => {
                     <tbody className="bg-[var(--ax-bg-default)] divide-y divide-[var(--ax-border-neutral-subtle)]">
                       {rawData &&
                         filteredTableLinks.map((link: JourneyLink, idx: number) => {
-                          const sourceNode = rawData.nodes.find(
-                            (n) => rawData.nodes.indexOf(n) === link.source
-                          );
-                          const targetNode = rawData.nodes.find(
-                            (n) => rawData.nodes.indexOf(n) === link.target
-                          );
+                          const sourceNode = rawData.nodes.find((n) => rawData.nodes.indexOf(n) === link.source)
+                          const targetNode = rawData.nodes.find((n) => rawData.nodes.indexOf(n) === link.target)
 
-                          const stepMatch = sourceNode?.nodeId?.match(/^(\d+):/);
-                          let step: number | string = "-";
+                          const stepMatch = sourceNode?.nodeId?.match(/^(\d+):/)
+                          let step: number | string = '-'
                           if (stepMatch) {
-                            const rawStep = parseInt(stepMatch[1]);
-                            step = journeyDirection === "backward" ? rawStep * -1 : rawStep;
+                            const rawStep = parseInt(stepMatch[1])
+                            step = journeyDirection === 'backward' ? rawStep * -1 : rawStep
                           }
 
                           return (
                             <tr key={idx} className="hover:bg-[var(--ax-bg-neutral-soft)]">
                               <td className="px-4 py-2 whitespace-nowrap text-sm text-[var(--ax-text-default)]">
-                                {step === "-" ? "-" : `Steg ${step}`}
+                                {step === '-' ? '-' : `Steg ${step}`}
                               </td>
                               <td className="px-4 py-2 text-sm">
                                 {targetNode?.name && selectedWebsite ? (
                                   <span
                                     className="text-blue-600 hover:underline cursor-pointer flex items-center gap-1"
                                     onClick={() => {
-                                      if (typeof targetNode.name === "string") {
-                                        setSelectedTableUrl(targetNode.name);
+                                      if (typeof targetNode.name === 'string') {
+                                        setSelectedTableUrl(targetNode.name)
                                       }
                                     }}
                                   >
-                                    {targetNode.name}{" "}
-                                    <ExternalLink className="h-3 w-3" />
+                                    {targetNode.name} <ExternalLink className="h-3 w-3" />
                                   </span>
                                 ) : (
-                                  <span className="text-[var(--ax-text-default)]">
-                                    {targetNode?.name || "-"}
-                                  </span>
+                                  <span className="text-[var(--ax-text-default)]">{targetNode?.name || '-'}</span>
                                 )}
                               </td>
                               <td className="px-4 py-2 text-sm">
@@ -474,25 +406,22 @@ const UserJourney = () => {
                                   <span
                                     className="text-blue-600 hover:underline cursor-pointer flex items-center gap-1"
                                     onClick={() => {
-                                      if (typeof sourceNode.name === "string") {
-                                        setSelectedTableUrl(sourceNode.name);
+                                      if (typeof sourceNode.name === 'string') {
+                                        setSelectedTableUrl(sourceNode.name)
                                       }
                                     }}
                                   >
-                                    {sourceNode.name}{" "}
-                                    <ExternalLink className="h-3 w-3" />
+                                    {sourceNode.name} <ExternalLink className="h-3 w-3" />
                                   </span>
                                 ) : (
-                                  <span className="text-[var(--ax-text-default)]">
-                                    {sourceNode?.name || "-"}
-                                  </span>
+                                  <span className="text-[var(--ax-text-default)]">{sourceNode?.name || '-'}</span>
                                 )}
                               </td>
                               <td className="px-4 py-2 whitespace-nowrap text-sm text-[var(--ax-text-default)]">
-                                {link.value.toLocaleString("nb-NO")}
+                                {link.value.toLocaleString('nb-NO')}
                               </td>
                             </tr>
-                          );
+                          )
                         })}
                     </tbody>
                   </table>
@@ -511,12 +440,8 @@ const UserJourney = () => {
             domain={selectedWebsite?.domain}
           />
           <div className="flex justify-end mt-8">
-            <Button
-              size="small"
-              variant="secondary"
-              onClick={handleCopyShareLink}
-            >
-              {copySuccess ? "Kopiert!" : "Del analyse"}
+            <Button size="small" variant="secondary" onClick={handleCopyShareLink}>
+              {copySuccess ? 'Kopiert!' : 'Del analyse'}
             </Button>
           </div>
         </>
@@ -528,7 +453,7 @@ const UserJourney = () => {
         </div>
       )}
     </ChartLayout>
-  );
-};
+  )
+}
 
-export default UserJourney;
+export default UserJourney

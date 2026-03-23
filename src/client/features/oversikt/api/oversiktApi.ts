@@ -8,40 +8,40 @@ import type {
   QueryDto,
   QueryOrderingEntry,
   GraphType,
-} from '../model/types.ts';
+} from '../model/types.ts'
 
 const toErrorMessage = (status: number, payload: unknown): string => {
   if (payload && typeof payload === 'object') {
-    const error = (payload as { error?: unknown }).error;
-    const details = (payload as { details?: unknown }).details;
-    if (typeof details === 'string' && details.trim()) return details;
-    if (typeof error === 'string' && error.trim()) return error;
+    const error = (payload as { error?: unknown }).error
+    const details = (payload as { details?: unknown }).details
+    if (typeof details === 'string' && details.trim()) return details
+    if (typeof error === 'string' && error.trim()) return error
   }
-  return `Foresporsel feilet (${status})`;
-};
+  return `Foresporsel feilet (${status})`
+}
 
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, init);
-  const text = await response.text();
-  let payload: unknown = null;
+  const response = await fetch(url, init)
+  const text = await response.text()
+  let payload: unknown = null
 
   if (text) {
     try {
-      payload = JSON.parse(text) as unknown;
+      payload = JSON.parse(text) as unknown
     } catch {
-      payload = { error: text };
+      payload = { error: text }
     }
   }
 
   if (!response.ok) {
-    throw new Error(toErrorMessage(response.status, payload));
+    throw new Error(toErrorMessage(response.status, payload))
   }
 
-  return payload as T;
+  return payload as T
 }
 
 export async function fetchProjects(): Promise<ProjectDto[]> {
-  return requestJson<ProjectDto[]>('/api/backend/projects');
+  return requestJson<ProjectDto[]>('/api/backend/projects')
 }
 
 export async function createProject(name: string, description?: string): Promise<ProjectDto> {
@@ -52,11 +52,11 @@ export async function createProject(name: string, description?: string): Promise
       name: name.trim(),
       description: description?.trim() || undefined,
     }),
-  });
+  })
 }
 
 export async function fetchDashboards(projectId: number): Promise<DashboardDto[]> {
-  return requestJson<DashboardDto[]>(`/api/backend/projects/${projectId}/dashboards`);
+  return requestJson<DashboardDto[]>(`/api/backend/projects/${projectId}/dashboards`)
 }
 
 export async function createDashboard(projectId: number, name: string, description?: string): Promise<DashboardDto> {
@@ -67,7 +67,7 @@ export async function createDashboard(projectId: number, name: string, descripti
       name: name.trim(),
       description: description?.trim() || undefined,
     }),
-  });
+  })
 }
 
 export async function updateDashboard(
@@ -79,39 +79,27 @@ export async function updateDashboard(
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
-  });
+  })
 }
 
-export async function deleteDashboard(
-  projectId: number,
-  dashboardId: number,
-): Promise<void> {
+export async function deleteDashboard(projectId: number, dashboardId: number): Promise<void> {
   await requestJson<unknown>(`/api/backend/projects/${projectId}/dashboards/${dashboardId}`, {
     method: 'DELETE',
-  });
+  })
 }
 
 // ── Graph Categories ──
 
 export async function fetchCategories(projectId: number, dashboardId: number): Promise<GraphCategoryDto[]> {
-  return requestJson<GraphCategoryDto[]>(
-    `/api/backend/projects/${projectId}/dashboards/${dashboardId}/categories`,
-  );
+  return requestJson<GraphCategoryDto[]>(`/api/backend/projects/${projectId}/dashboards/${dashboardId}/categories`)
 }
 
-export async function createCategory(
-  projectId: number,
-  dashboardId: number,
-  name: string,
-): Promise<GraphCategoryDto> {
-  return requestJson<GraphCategoryDto>(
-    `/api/backend/projects/${projectId}/dashboards/${dashboardId}/categories`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
-    },
-  );
+export async function createCategory(projectId: number, dashboardId: number, name: string): Promise<GraphCategoryDto> {
+  return requestJson<GraphCategoryDto>(`/api/backend/projects/${projectId}/dashboards/${dashboardId}/categories`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  })
 }
 
 export async function updateCategory(
@@ -127,20 +115,13 @@ export async function updateCategory(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
     },
-  );
+  )
 }
 
-export async function deleteCategory(
-  projectId: number,
-  dashboardId: number,
-  categoryId: number,
-): Promise<void> {
-  await requestJson<unknown>(
-    `/api/backend/projects/${projectId}/dashboards/${dashboardId}/categories/${categoryId}`,
-    {
-      method: 'DELETE',
-    },
-  );
+export async function deleteCategory(projectId: number, dashboardId: number, categoryId: number): Promise<void> {
+  await requestJson<unknown>(`/api/backend/projects/${projectId}/dashboards/${dashboardId}/categories/${categoryId}`, {
+    method: 'DELETE',
+  })
 }
 
 export async function updateCategoryOrdering(
@@ -148,14 +129,11 @@ export async function updateCategoryOrdering(
   dashboardId: number,
   ordering: GraphCategoryOrderingEntry[],
 ): Promise<void> {
-  await requestJson<void>(
-    `/api/backend/projects/${projectId}/dashboards/${dashboardId}/categories/ordering`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(ordering),
-    },
-  );
+  await requestJson<void>(`/api/backend/projects/${projectId}/dashboards/${dashboardId}/categories/ordering`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(ordering),
+  })
 }
 
 // ── Graphs ──
@@ -163,13 +141,18 @@ export async function updateCategoryOrdering(
 export async function fetchGraphs(projectId: number, dashboardId: number, categoryId: number): Promise<GraphDto[]> {
   return requestJson<GraphDto[]>(
     `/api/backend/projects/${projectId}/dashboards/${dashboardId}/categories/${categoryId}/graphs`,
-  );
+  )
 }
 
-export async function fetchQueries(projectId: number, dashboardId: number, categoryId: number, graphId: number): Promise<QueryDto[]> {
+export async function fetchQueries(
+  projectId: number,
+  dashboardId: number,
+  categoryId: number,
+  graphId: number,
+): Promise<QueryDto[]> {
   return requestJson<QueryDto[]>(
     `/api/backend/projects/${projectId}/dashboards/${dashboardId}/categories/${categoryId}/graphs/${graphId}/queries`,
-  );
+  )
 }
 
 export async function createGraph(
@@ -185,7 +168,7 @@ export async function createGraph(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
     },
-  );
+  )
 }
 
 export async function createQuery(
@@ -202,7 +185,7 @@ export async function createQuery(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
     },
-  );
+  )
 }
 
 export async function updateGraph(
@@ -219,7 +202,7 @@ export async function updateGraph(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
     },
-  );
+  )
 }
 
 export async function updateQuery(
@@ -237,7 +220,7 @@ export async function updateQuery(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
     },
-  );
+  )
 }
 
 export async function deleteQuery(
@@ -252,7 +235,7 @@ export async function deleteQuery(
     {
       method: 'DELETE',
     },
-  );
+  )
 }
 
 export async function updateQueryOrdering(
@@ -269,7 +252,7 @@ export async function updateQueryOrdering(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(ordering),
     },
-  );
+  )
 }
 
 export async function deleteGraph(
@@ -283,7 +266,7 @@ export async function deleteGraph(
     {
       method: 'DELETE',
     },
-  );
+  )
 }
 
 export async function updateGraphOrdering(
@@ -299,5 +282,5 @@ export async function updateGraphOrdering(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(ordering),
     },
-  );
+  )
 }

@@ -1,775 +1,827 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
-import { format, isValid, parseISO } from 'date-fns';
-import { normalizeUrlToPath } from '../../../shared/lib/utils.ts';
-import type { Website } from '../../dashboard/model/types.ts';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import { useParams, useSearchParams } from 'react-router-dom'
+import { format, isValid, parseISO } from 'date-fns'
+import { normalizeUrlToPath } from '../../../shared/lib/utils.ts'
+import type { Website } from '../../dashboard/model/types.ts'
 import type {
-    ProjectDto, DashboardDto, GraphCategoryDto, GraphWithQueries, FilterState, MetricType,
-    OversiktChart, OversiktSelectOption,
-} from '../model/types.ts';
-import { createDashboard, createProject, fetchProjects, fetchDashboards, fetchCategories, fetchGraphs, fetchQueries, updateGraphOrdering } from '../api/oversiktApi.ts';
+  ProjectDto,
+  DashboardDto,
+  GraphCategoryDto,
+  GraphWithQueries,
+  FilterState,
+  MetricType,
+  OversiktChart,
+  OversiktSelectOption,
+} from '../model/types.ts'
 import {
-    parseId,
-    arraysEqual,
-    mapGraphTypeToChart,
-    normalizeGraphType,
-    getLastOversiktProjectId,
-    getLastOversiktDashboardId,
-    saveLastOversiktProjectId,
-    saveLastOversiktDashboardId,
-} from '../utils/oversikt.ts';
+  createDashboard,
+  createProject,
+  fetchProjects,
+  fetchDashboards,
+  fetchCategories,
+  fetchGraphs,
+  fetchQueries,
+  updateGraphOrdering,
+} from '../api/oversiktApi.ts'
+import {
+  parseId,
+  arraysEqual,
+  mapGraphTypeToChart,
+  normalizeGraphType,
+  getLastOversiktProjectId,
+  getLastOversiktDashboardId,
+  saveLastOversiktProjectId,
+  saveLastOversiktDashboardId,
+} from '../utils/oversikt.ts'
 
-const normalizePathOperator = (value: string | null): string =>
-    value === 'starts-with' ? 'starts-with' : 'equals';
+const normalizePathOperator = (value: string | null): string => (value === 'starts-with' ? 'starts-with' : 'equals')
 
 const normalizeDateRange = (value: string | null): string => {
-    if (!value) return 'last_7_days';
-    if (value === 'this-month') return 'current_month';
-    if (value === 'last-month') return 'last_month';
-    return value;
-};
+  if (!value) return 'last_7_days'
+  if (value === 'this-month') return 'current_month'
+  if (value === 'last-month') return 'last_month'
+  return value
+}
 
 const parseCustomDateFromUrl = (value: string | null): Date | undefined => {
-    if (!value) return undefined;
-    const parsed = parseISO(value);
-    return isValid(parsed) ? parsed : undefined;
-};
+  if (!value) return undefined
+  const parsed = parseISO(value)
+  return isValid(parsed) ? parsed : undefined
+}
 
-const formatCustomDateForUrl = (value: Date): string => format(value, 'yyyy-MM-dd');
+const formatCustomDateForUrl = (value: Date): string => format(value, 'yyyy-MM-dd')
 
 const normalizeMetricType = (value: string | null): MetricType => {
-    if (value === 'pageviews' || value === 'proportion' || value === 'visits') return value;
-    return 'visitors';
-};
+  if (value === 'pageviews' || value === 'proportion' || value === 'visits') return value
+  return 'visitors'
+}
 
 const getInitialUrlPaths = (searchParams: URLSearchParams): string[] => {
-    const paths = searchParams
-        .getAll('path')
-        .map((path) => normalizeUrlToPath(path))
-        .filter((path) => Boolean(path));
-    return Array.from(new Set(paths));
-};
+  const paths = searchParams
+    .getAll('path')
+    .map((path) => normalizeUrlToPath(path))
+    .filter((path) => Boolean(path))
+  return Array.from(new Set(paths))
+}
 
 const isDevLikeValue = (value: string): boolean => {
-    const normalized = value.trim().toLowerCase();
-    return normalized.includes('-dev.')
-        || normalized.includes('.dev.')
-        || normalized.includes('.dev-')
-        || normalized.includes('-dev-')
-        || normalized.startsWith('dev.')
-        || normalized.startsWith('dev-')
-        || normalized.endsWith('.dev')
-        || normalized.endsWith('-dev')
-        || normalized.includes(' - dev')
-        || normalized.includes('(dev)')
-        || normalized.endsWith(' dev')
-        || normalized.startsWith('dev ');
-};
+  const normalized = value.trim().toLowerCase()
+  return (
+    normalized.includes('-dev.') ||
+    normalized.includes('.dev.') ||
+    normalized.includes('.dev-') ||
+    normalized.includes('-dev-') ||
+    normalized.startsWith('dev.') ||
+    normalized.startsWith('dev-') ||
+    normalized.endsWith('.dev') ||
+    normalized.endsWith('-dev') ||
+    normalized.includes(' - dev') ||
+    normalized.includes('(dev)') ||
+    normalized.endsWith(' dev') ||
+    normalized.startsWith('dev ')
+  )
+}
 
 const getCurrentEnvironmentBucket = (website: Website | null): 'dev' | 'prod' => {
-    if (website) {
-        if (isDevLikeValue(website.domain) || isDevLikeValue(website.name)) return 'dev';
-        return 'prod';
-    }
+  if (website) {
+    if (isDevLikeValue(website.domain) || isDevLikeValue(website.name)) return 'dev'
+    return 'prod'
+  }
 
-    if (typeof window === 'undefined') return 'prod';
-    const hostname = window.location.hostname.toLowerCase();
-    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]') return 'dev';
-    return hostname.endsWith('.dev.nav.no') ? 'dev' : 'prod';
-};
+  if (typeof window === 'undefined') return 'prod'
+  const hostname = window.location.hostname.toLowerCase()
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]') return 'dev'
+  return hostname.endsWith('.dev.nav.no') ? 'dev' : 'prod'
+}
 
 const getHostPrefix = (): string => {
-    if (typeof window === 'undefined') return 'server';
-    return window.location.hostname.replace(/\./g, '_');
-};
+  if (typeof window === 'undefined') return 'server'
+  return window.location.hostname.replace(/\./g, '_')
+}
 
 const getUrlPathStorageKey = (website: Website | null, dashboardId: number | null): string | null => {
-    if (!dashboardId) return null;
-    const environment = getCurrentEnvironmentBucket(website);
-    return `oversikt_last_url_paths_${environment}_${getHostPrefix()}_dashboard_${dashboardId}`;
-};
+  if (!dashboardId) return null
+  const environment = getCurrentEnvironmentBucket(website)
+  return `oversikt_last_url_paths_${environment}_${getHostPrefix()}_dashboard_${dashboardId}`
+}
 
 const getStoredUrlPaths = (storageKey: string): string[] => {
-    if (typeof window === 'undefined') return [];
+  if (typeof window === 'undefined') return []
 
-    try {
-        const raw = window.localStorage.getItem(storageKey);
-        if (!raw) return [];
-        const parsed: unknown = JSON.parse(raw);
-        if (!Array.isArray(parsed)) return [];
+  try {
+    const raw = window.localStorage.getItem(storageKey)
+    if (!raw) return []
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
 
-        const normalized = parsed
-            .map((path) => (typeof path === 'string' ? normalizeUrlToPath(path) : ''))
-            .filter((path): path is string => Boolean(path))
-            .map((path) => (path.startsWith('/') ? path : `/${path}`));
+    const normalized = parsed
+      .map((path) => (typeof path === 'string' ? normalizeUrlToPath(path) : ''))
+      .filter((path): path is string => Boolean(path))
+      .map((path) => (path.startsWith('/') ? path : `/${path}`))
 
-        return Array.from(new Set(normalized));
-    } catch {
-        return [];
-    }
-};
+    return Array.from(new Set(normalized))
+  } catch {
+    return []
+  }
+}
 
 const saveUrlPaths = (storageKey: string, paths: string[]) => {
-    if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined') return
 
-    if (paths.length === 0) {
-        window.localStorage.removeItem(storageKey);
-        return;
-    }
+  if (paths.length === 0) {
+    window.localStorage.removeItem(storageKey)
+    return
+  }
 
-    window.localStorage.setItem(storageKey, JSON.stringify(paths));
-};
+  window.localStorage.setItem(storageKey, JSON.stringify(paths))
+}
 
 export const useOversikt = () => {
-    const { dashboardId: dashboardIdFromPath } = useParams<{ dashboardId?: string }>();
-    const [searchParams, setSearchParams] = useSearchParams();
-    const routeDashboardId = parseId(dashboardIdFromPath ?? null);
-    const initialProjectId = parseId(searchParams.get('projectId'));
-    const initialDashboardId = parseId(searchParams.get('dashboardId')) ?? routeDashboardId;
-    const initialPathOperator = normalizePathOperator(searchParams.get('pathOperator'));
-    const initialUrlPaths = getInitialUrlPaths(searchParams);
-    const initialResolvedUrlPaths = initialUrlPaths.length > 0
-        ? initialUrlPaths
-        : (initialDashboardId ? getStoredUrlPaths(getUrlPathStorageKey(null, initialDashboardId) ?? '') : []);
-    const initialDateRange = normalizeDateRange(searchParams.get('periode'));
-    const initialCustomStartDate = parseCustomDateFromUrl(searchParams.get('customStartDate'));
-    const initialCustomEndDate = parseCustomDateFromUrl(searchParams.get('customEndDate'));
-    const initialMetricType = normalizeMetricType(searchParams.get('metrikk') || searchParams.get('metricType'));
+  const { dashboardId: dashboardIdFromPath } = useParams<{ dashboardId?: string }>()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const routeDashboardId = parseId(dashboardIdFromPath ?? null)
+  const initialProjectId = parseId(searchParams.get('projectId'))
+  const initialDashboardId = parseId(searchParams.get('dashboardId')) ?? routeDashboardId
+  const initialPathOperator = normalizePathOperator(searchParams.get('pathOperator'))
+  const initialUrlPaths = getInitialUrlPaths(searchParams)
+  const initialResolvedUrlPaths =
+    initialUrlPaths.length > 0
+      ? initialUrlPaths
+      : initialDashboardId
+        ? getStoredUrlPaths(getUrlPathStorageKey(null, initialDashboardId) ?? '')
+        : []
+  const initialDateRange = normalizeDateRange(searchParams.get('periode'))
+  const initialCustomStartDate = parseCustomDateFromUrl(searchParams.get('customStartDate'))
+  const initialCustomEndDate = parseCustomDateFromUrl(searchParams.get('customEndDate'))
+  const initialMetricType = normalizeMetricType(searchParams.get('metrikk') || searchParams.get('metricType'))
 
-    const [projects, setProjects] = useState<ProjectDto[]>([]);
-    const [dashboards, setDashboards] = useState<DashboardDto[]>([]);
-    const [categories, setCategories] = useState<GraphCategoryDto[]>([]);
-    const [graphs, setGraphs] = useState<GraphWithQueries[]>([]);
-    const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null);
-    const [activeWebsite, setActiveWebsite] = useState<Website | null>(null);
+  const [projects, setProjects] = useState<ProjectDto[]>([])
+  const [dashboards, setDashboards] = useState<DashboardDto[]>([])
+  const [categories, setCategories] = useState<GraphCategoryDto[]>([])
+  const [graphs, setGraphs] = useState<GraphWithQueries[]>([])
+  const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
+  const [activeWebsite, setActiveWebsite] = useState<Website | null>(null)
 
-    const [tempPathOperator, setTempPathOperator] = useState(initialPathOperator);
-    const [tempUrlPaths, setTempUrlPaths] = useState<string[]>(initialResolvedUrlPaths);
-    const [tempDateRange, setTempDateRange] = useState(initialDateRange);
-    const [tempCustomStartDate, setTempCustomStartDate] = useState<Date | undefined>(initialCustomStartDate);
-    const [tempCustomEndDate, setTempCustomEndDate] = useState<Date | undefined>(initialCustomEndDate);
-    const [tempMetricType, setTempMetricType] = useState<MetricType>(initialMetricType);
-    const [comboInputValue, setComboInputValue] = useState('');
-    const isSelectingRef = useRef(false);
-    const hasResolvedInitialProjectRef = useRef(false);
-    const previousUrlPathStorageKeyRef = useRef<string | null>(null);
+  const [tempPathOperator, setTempPathOperator] = useState(initialPathOperator)
+  const [tempUrlPaths, setTempUrlPaths] = useState<string[]>(initialResolvedUrlPaths)
+  const [tempDateRange, setTempDateRange] = useState(initialDateRange)
+  const [tempCustomStartDate, setTempCustomStartDate] = useState<Date | undefined>(initialCustomStartDate)
+  const [tempCustomEndDate, setTempCustomEndDate] = useState<Date | undefined>(initialCustomEndDate)
+  const [tempMetricType, setTempMetricType] = useState<MetricType>(initialMetricType)
+  const [comboInputValue, setComboInputValue] = useState('')
+  const isSelectingRef = useRef(false)
+  const hasResolvedInitialProjectRef = useRef(false)
+  const previousUrlPathStorageKeyRef = useRef<string | null>(null)
 
-    const [selectedProjectId, setSelectedProjectId] = useState<number | null>(initialProjectId);
-    const [selectedDashboardId, setSelectedDashboardId] = useState<number | null>(initialDashboardId);
-    const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(initialProjectId)
+  const [selectedDashboardId, setSelectedDashboardId] = useState<number | null>(initialDashboardId)
+  const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null)
 
-    const [activeFilters, setActiveFilters] = useState<FilterState>({
-        pathOperator: initialPathOperator,
-        urlFilters: initialResolvedUrlPaths,
-        dateRange: initialDateRange,
-        metricType: initialMetricType,
-        customStartDate: initialDateRange === 'custom' ? initialCustomStartDate : undefined,
-        customEndDate: initialDateRange === 'custom' ? initialCustomEndDate : undefined,
-    });
+  const [activeFilters, setActiveFilters] = useState<FilterState>({
+    pathOperator: initialPathOperator,
+    urlFilters: initialResolvedUrlPaths,
+    dateRange: initialDateRange,
+    metricType: initialMetricType,
+    customStartDate: initialDateRange === 'custom' ? initialCustomStartDate : undefined,
+    customEndDate: initialDateRange === 'custom' ? initialCustomEndDate : undefined,
+  })
 
-    const [loadingProjects, setLoadingProjects] = useState(false);
-    const [loadingDashboards, setLoadingDashboards] = useState(false);
-    const [loadingCategories, setLoadingCategories] = useState(false);
-    const [loadingGraphs, setLoadingGraphs] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+  const [loadingProjects, setLoadingProjects] = useState(false)
+  const [loadingDashboards, setLoadingDashboards] = useState(false)
+  const [loadingCategories, setLoadingCategories] = useState(false)
+  const [loadingGraphs, setLoadingGraphs] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-    // ── Derived ──
+  // ── Derived ──
 
-    const selectedProject = useMemo(
-        () => projects.find((p) => p.id === selectedProjectId) ?? null,
-        [projects, selectedProjectId],
-    );
-    const selectedDashboard = useMemo(
-        () => dashboards.find((d) => d.id === selectedDashboardId) ?? null,
-        [dashboards, selectedDashboardId],
-    );
+  const selectedProject = useMemo(
+    () => projects.find((p) => p.id === selectedProjectId) ?? null,
+    [projects, selectedProjectId],
+  )
+  const selectedDashboard = useMemo(
+    () => dashboards.find((d) => d.id === selectedDashboardId) ?? null,
+    [dashboards, selectedDashboardId],
+  )
 
-    const projectOptions = useMemo<OversiktSelectOption[]>(
-        () => projects.map((p) => ({ label: p.name, value: String(p.id) })),
-        [projects],
-    );
-    const dashboardOptions = useMemo<OversiktSelectOption[]>(
-        () => dashboards.map((d) => ({ label: d.name, value: String(d.id) })),
-        [dashboards],
-    );
+  const projectOptions = useMemo<OversiktSelectOption[]>(
+    () => projects.map((p) => ({ label: p.name, value: String(p.id) })),
+    [projects],
+  )
+  const dashboardOptions = useMemo<OversiktSelectOption[]>(
+    () => dashboards.map((d) => ({ label: d.name, value: String(d.id) })),
+    [dashboards],
+  )
 
-    const selectedProjectLabel = projectOptions.find((o) => o.value === String(selectedProjectId))?.label;
-    const selectedDashboardLabel = dashboardOptions.find((o) => o.value === String(selectedDashboardId))?.label;
-    const activeWebsiteId = activeWebsite?.id ?? '';
-    const urlPathStorageKey = useMemo(
-        () => getUrlPathStorageKey(selectedWebsite, selectedDashboardId),
-        [selectedWebsite, selectedDashboardId],
-    );
-    const hasUrlPathParams = searchParams.getAll('path').length > 0;
+  const selectedProjectLabel = projectOptions.find((o) => o.value === String(selectedProjectId))?.label
+  const selectedDashboardLabel = dashboardOptions.find((o) => o.value === String(selectedDashboardId))?.label
+  const activeWebsiteId = activeWebsite?.id ?? ''
+  const urlPathStorageKey = useMemo(
+    () => getUrlPathStorageKey(selectedWebsite, selectedDashboardId),
+    [selectedWebsite, selectedDashboardId],
+  )
+  const hasUrlPathParams = searchParams.getAll('path').length > 0
 
-    const charts = useMemo<OversiktChart[]>(() => {
-        return [...graphs]
-            .sort((a, b) => (a.graph.ordering ?? 0) - (b.graph.ordering ?? 0))
-            .filter((item) => item.queries.length > 0 || item.graph.graphType === 'TEXT')
-            .map((item) => {
-                const primaryQuery = item.queries[0];
-                const isTextGraph = item.graph.graphType === 'TEXT';
-                return {
-                    id: `graph-${item.graph.id}`,
-                    title: item.graph.name,
-                    type: mapGraphTypeToChart(item.graph.graphType),
-                    sql: primaryQuery?.sqlText,
-                    width: item.graph.width && item.graph.width > 0 ? String(item.graph.width) : '50',
-                    description: item.graph.description,
-                    graphId: item.graph.id,
-                    graphType: normalizeGraphType(item.graph.graphType),
-                    queryId: primaryQuery?.id ?? 0,
-                    queryName: primaryQuery?.name ?? (isTextGraph ? 'Tekst' : 'Query'),
-                    categoryId: item.categoryId,
-                    variants: item.queries.map((query) => ({
-                        queryId: query.id,
-                        queryName: query.name,
-                        sql: query.sqlText,
-                    })),
-                };
-            });
-    }, [graphs]);
-
-    const filterCapabilities = useMemo(() => {
-        return charts.reduce((acc, chart) => {
-            const sql = chart.sql ?? '';
-            if (sql.includes('{{website_id}}')) acc.website = true;
-            if (sql.includes('{{url_sti}}')) acc.url = true;
-            if (sql.includes('{{created_at}}')) acc.date = true;
-            return acc;
-        }, { website: false, url: false, date: false });
-    }, [charts]);
-
-    const supportsStandardFilters = filterCapabilities.website || filterCapabilities.url || filterCapabilities.date;
-
-    const hasChanges =
-        tempDateRange !== activeFilters.dateRange
-        || (tempDateRange === 'custom' && tempCustomStartDate?.getTime() !== activeFilters.customStartDate?.getTime())
-        || (tempDateRange === 'custom' && tempCustomEndDate?.getTime() !== activeFilters.customEndDate?.getTime())
-        || !arraysEqual(tempUrlPaths, activeFilters.urlFilters)
-        || tempPathOperator !== activeFilters.pathOperator
-        || tempMetricType !== activeFilters.metricType
-        || (selectedWebsite?.id ?? null) !== (activeWebsite?.id ?? null);
-
-    const isLoading = loadingProjects || loadingDashboards || loadingCategories || loadingGraphs;
-
-    // ── Handlers ──
-
-    const handleUpdate = useCallback((overrides?: { urlPaths?: string[]; pathOperator?: string }) => {
-        const resolvedUrlPaths = overrides?.urlPaths ?? tempUrlPaths;
-        const resolvedPathOperator = overrides?.pathOperator ?? tempPathOperator;
-        const shouldUseCustomDates = tempDateRange === 'custom' && tempCustomStartDate && tempCustomEndDate;
-        const nextParams = new URLSearchParams(searchParams);
-        nextParams.delete('path');
-        resolvedUrlPaths.forEach((path) => {
-            if (path) nextParams.append('path', path);
-        });
-        if (resolvedPathOperator !== 'equals') nextParams.set('pathOperator', resolvedPathOperator);
-        else nextParams.delete('pathOperator');
-        if (tempDateRange && tempDateRange !== 'last_7_days') nextParams.set('periode', tempDateRange);
-        else nextParams.delete('periode');
-        if (shouldUseCustomDates) {
-            nextParams.set('customStartDate', formatCustomDateForUrl(tempCustomStartDate));
-            nextParams.set('customEndDate', formatCustomDateForUrl(tempCustomEndDate));
-        } else {
-            nextParams.delete('customStartDate');
-            nextParams.delete('customEndDate');
+  const charts = useMemo<OversiktChart[]>(() => {
+    return [...graphs]
+      .sort((a, b) => (a.graph.ordering ?? 0) - (b.graph.ordering ?? 0))
+      .filter((item) => item.queries.length > 0 || item.graph.graphType === 'TEXT')
+      .map((item) => {
+        const primaryQuery = item.queries[0]
+        const isTextGraph = item.graph.graphType === 'TEXT'
+        return {
+          id: `graph-${item.graph.id}`,
+          title: item.graph.name,
+          type: mapGraphTypeToChart(item.graph.graphType),
+          sql: primaryQuery?.sqlText,
+          width: item.graph.width && item.graph.width > 0 ? String(item.graph.width) : '50',
+          description: item.graph.description,
+          graphId: item.graph.id,
+          graphType: normalizeGraphType(item.graph.graphType),
+          queryId: primaryQuery?.id ?? 0,
+          queryName: primaryQuery?.name ?? (isTextGraph ? 'Tekst' : 'Query'),
+          categoryId: item.categoryId,
+          variants: item.queries.map((query) => ({
+            queryId: query.id,
+            queryName: query.name,
+            sql: query.sqlText,
+          })),
         }
-        if (tempMetricType !== 'visitors') nextParams.set('metrikk', tempMetricType);
-        else nextParams.delete('metrikk');
-        nextParams.delete('metricType');
-        setSearchParams(nextParams);
+      })
+  }, [graphs])
 
-        setActiveFilters({
-            pathOperator: resolvedPathOperator,
-            urlFilters: resolvedUrlPaths,
-            dateRange: tempDateRange,
-            metricType: tempMetricType,
-            customStartDate: shouldUseCustomDates ? tempCustomStartDate : undefined,
-            customEndDate: shouldUseCustomDates ? tempCustomEndDate : undefined,
-        });
-        setActiveWebsite(selectedWebsite);
-    }, [searchParams, setSearchParams, tempPathOperator, tempUrlPaths, tempDateRange, tempCustomStartDate, tempCustomEndDate, tempMetricType, selectedWebsite]);
+  const filterCapabilities = useMemo(() => {
+    return charts.reduce(
+      (acc, chart) => {
+        const sql = chart.sql ?? ''
+        if (sql.includes('{{website_id}}')) acc.website = true
+        if (sql.includes('{{url_sti}}')) acc.url = true
+        if (sql.includes('{{created_at}}')) acc.date = true
+        return acc
+      },
+      { website: false, url: false, date: false },
+    )
+  }, [charts])
 
-    const handleProjectSelected = useCallback(
-        async (option: string, isSelected: boolean) => {
-            if (!isSelected) {
-                setSelectedProjectId(null);
-                setSelectedDashboardId(null);
-                return;
+  const supportsStandardFilters = filterCapabilities.website || filterCapabilities.url || filterCapabilities.date
+
+  const hasChanges =
+    tempDateRange !== activeFilters.dateRange ||
+    (tempDateRange === 'custom' && tempCustomStartDate?.getTime() !== activeFilters.customStartDate?.getTime()) ||
+    (tempDateRange === 'custom' && tempCustomEndDate?.getTime() !== activeFilters.customEndDate?.getTime()) ||
+    !arraysEqual(tempUrlPaths, activeFilters.urlFilters) ||
+    tempPathOperator !== activeFilters.pathOperator ||
+    tempMetricType !== activeFilters.metricType ||
+    (selectedWebsite?.id ?? null) !== (activeWebsite?.id ?? null)
+
+  const isLoading = loadingProjects || loadingDashboards || loadingCategories || loadingGraphs
+
+  // ── Handlers ──
+
+  const handleUpdate = useCallback(
+    (overrides?: { urlPaths?: string[]; pathOperator?: string }) => {
+      const resolvedUrlPaths = overrides?.urlPaths ?? tempUrlPaths
+      const resolvedPathOperator = overrides?.pathOperator ?? tempPathOperator
+      const shouldUseCustomDates = tempDateRange === 'custom' && tempCustomStartDate && tempCustomEndDate
+      const nextParams = new URLSearchParams(searchParams)
+      nextParams.delete('path')
+      resolvedUrlPaths.forEach((path) => {
+        if (path) nextParams.append('path', path)
+      })
+      if (resolvedPathOperator !== 'equals') nextParams.set('pathOperator', resolvedPathOperator)
+      else nextParams.delete('pathOperator')
+      if (tempDateRange && tempDateRange !== 'last_7_days') nextParams.set('periode', tempDateRange)
+      else nextParams.delete('periode')
+      if (shouldUseCustomDates) {
+        nextParams.set('customStartDate', formatCustomDateForUrl(tempCustomStartDate))
+        nextParams.set('customEndDate', formatCustomDateForUrl(tempCustomEndDate))
+      } else {
+        nextParams.delete('customStartDate')
+        nextParams.delete('customEndDate')
+      }
+      if (tempMetricType !== 'visitors') nextParams.set('metrikk', tempMetricType)
+      else nextParams.delete('metrikk')
+      nextParams.delete('metricType')
+      setSearchParams(nextParams)
+
+      setActiveFilters({
+        pathOperator: resolvedPathOperator,
+        urlFilters: resolvedUrlPaths,
+        dateRange: tempDateRange,
+        metricType: tempMetricType,
+        customStartDate: shouldUseCustomDates ? tempCustomStartDate : undefined,
+        customEndDate: shouldUseCustomDates ? tempCustomEndDate : undefined,
+      })
+      setActiveWebsite(selectedWebsite)
+    },
+    [
+      searchParams,
+      setSearchParams,
+      tempPathOperator,
+      tempUrlPaths,
+      tempDateRange,
+      tempCustomStartDate,
+      tempCustomEndDate,
+      tempMetricType,
+      selectedWebsite,
+    ],
+  )
+
+  const handleProjectSelected = useCallback(
+    async (option: string, isSelected: boolean) => {
+      if (!isSelected) {
+        setSelectedProjectId(null)
+        setSelectedDashboardId(null)
+        return
+      }
+
+      try {
+        setError(null)
+        const selectedById = projects.find((p) => String(p.id) === option)
+        const selectedByName = projects.find((p) => p.name.trim().toLowerCase() === option.trim().toLowerCase())
+        const selected = selectedById ?? selectedByName
+
+        let projectToUse = selected
+        if (!projectToUse) {
+          const trimmedName = option.trim()
+          if (!trimmedName) return
+          setLoadingProjects(true)
+          const createdProject = await createProject(trimmedName, 'Opprettet fra Oversikt')
+          projectToUse = createdProject
+          setProjects((prev) => [...prev, createdProject])
+        }
+
+        setSelectedProjectId(projectToUse.id)
+        setSelectedDashboardId(null)
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Klarte ikke velge eller opprette prosjekt')
+      } finally {
+        setLoadingProjects(false)
+      }
+    },
+    [projects],
+  )
+
+  const handleDashboardSelected = useCallback(
+    async (option: string, isSelected: boolean) => {
+      if (!isSelected) {
+        setSelectedDashboardId(null)
+        return
+      }
+
+      if (!selectedProjectId) {
+        setError('Velg eller opprett prosjekt først')
+        return
+      }
+
+      try {
+        setError(null)
+        const selectedById = dashboards.find((d) => String(d.id) === option)
+        const selectedByName = dashboards.find((d) => d.name.trim().toLowerCase() === option.trim().toLowerCase())
+        const selected = selectedById ?? selectedByName
+
+        let dashboardToUse = selected
+        if (!dashboardToUse) {
+          const trimmedName = option.trim()
+          if (!trimmedName) return
+          setLoadingDashboards(true)
+          const createdDashboard = await createDashboard(selectedProjectId, trimmedName, 'Opprettet fra Oversikt')
+          dashboardToUse = createdDashboard
+          setDashboards((prev) => [...prev, createdDashboard])
+        }
+
+        setSelectedDashboardId(dashboardToUse.id)
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Klarte ikke velge eller opprette dashboard')
+      } finally {
+        setLoadingDashboards(false)
+      }
+    },
+    [dashboards, selectedProjectId],
+  )
+
+  const handleUrlToggleSelected = useCallback((option: string, isSelected: boolean) => {
+    isSelectingRef.current = true
+    setComboInputValue('')
+
+    if (isSelected) {
+      let normalized = normalizeUrlToPath(option)
+      if (normalized && !normalized.startsWith('/')) normalized = `/${normalized}`
+      setTempUrlPaths((prev) => {
+        if (!normalized || prev.includes(normalized)) return prev
+        return [...prev, normalized]
+      })
+    } else {
+      let normalized = normalizeUrlToPath(option)
+      if (normalized && !normalized.startsWith('/')) normalized = `/${normalized}`
+      setTempUrlPaths((prev) => prev.filter((p) => p !== option && p !== normalized))
+    }
+
+    setTimeout(() => {
+      isSelectingRef.current = false
+    }, 100)
+  }, [])
+
+  const handleComboChange = useCallback((value: string) => {
+    if (isSelectingRef.current) return
+    setComboInputValue(value)
+  }, [])
+
+  // ── Effects ──
+
+  useEffect(() => {
+    const run = async () => {
+      setLoadingProjects(true)
+      setError(null)
+      try {
+        const projectItems = await fetchProjects()
+        setProjects(projectItems)
+
+        const fromUrl = parseId(searchParams.get('projectId'))
+        let resolvedFromRoute: number | null = null
+        if (!fromUrl && routeDashboardId) {
+          for (const project of projectItems) {
+            const dashboardsInProject = await fetchDashboards(project.id)
+            if (dashboardsInProject.some((dashboard) => dashboard.id === routeDashboardId)) {
+              resolvedFromRoute = project.id
+              break
             }
+          }
+        }
+        const fromStorage = fromUrl || resolvedFromRoute ? null : getLastOversiktProjectId()
+        const fromState = selectedProjectId
+        const preferredId = fromState ?? fromUrl ?? resolvedFromRoute ?? fromStorage
 
-            try {
-                setError(null);
-                const selectedById = projects.find((p) => String(p.id) === option);
-                const selectedByName = projects.find((p) => p.name.trim().toLowerCase() === option.trim().toLowerCase());
-                const selected = selectedById ?? selectedByName;
+        const nextProject =
+          (preferredId ? projectItems.find((item) => item.id === preferredId) : null) ?? projectItems[0] ?? null
 
-                let projectToUse = selected;
-                if (!projectToUse) {
-                    const trimmedName = option.trim();
-                    if (!trimmedName) return;
-                    setLoadingProjects(true);
-                    const createdProject = await createProject(trimmedName, 'Opprettet fra Oversikt');
-                    projectToUse = createdProject;
-                    setProjects((prev) => [...prev, createdProject]);
-                }
+        setSelectedProjectId(nextProject?.id ?? null)
+        hasResolvedInitialProjectRef.current = true
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Klarte ikke laste prosjekter')
+        hasResolvedInitialProjectRef.current = true
+      } finally {
+        setLoadingProjects(false)
+      }
+    }
 
-                setSelectedProjectId(projectToUse.id);
-                setSelectedDashboardId(null);
-            } catch (err: unknown) {
-                setError(err instanceof Error ? err.message : 'Klarte ikke velge eller opprette prosjekt');
-            } finally {
-                setLoadingProjects(false);
+    void run()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeDashboardId])
+
+  const refreshDashboards = useCallback(
+    async (projectId: number | null, preferredDashboardId?: number | null) => {
+      if (!projectId) {
+        setDashboards([])
+        setCategories([])
+        setSelectedDashboardId(null)
+        setActiveCategoryId(null)
+        setGraphs([])
+        return
+      }
+
+      setLoadingDashboards(true)
+      setError(null)
+      try {
+        const dashboardItems = await fetchDashboards(projectId)
+        setDashboards(dashboardItems)
+
+        const fromUrlProjectId = parseId(searchParams.get('projectId'))
+        const fromUrlDashboardId = parseId(searchParams.get('dashboardId')) ?? routeDashboardId
+        const fromStorage = fromUrlDashboardId ? null : getLastOversiktDashboardId()
+        const fromState = preferredDashboardId ?? selectedDashboardId
+        const canUseUrlDashboardId =
+          fromUrlProjectId === projectId || (fromUrlProjectId === null && routeDashboardId !== null)
+        const fromMatchingUrl = canUseUrlDashboardId ? fromUrlDashboardId : null
+
+        const resolvedPreferredDashboardId = fromMatchingUrl ?? fromState ?? fromStorage
+
+        const nextDashboard =
+          (resolvedPreferredDashboardId
+            ? dashboardItems.find((item) => item.id === resolvedPreferredDashboardId)
+            : null) ??
+          dashboardItems[0] ??
+          null
+
+        setSelectedDashboardId(nextDashboard?.id ?? null)
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Klarte ikke laste dashboards')
+      } finally {
+        setLoadingDashboards(false)
+      }
+    },
+    [searchParams, selectedDashboardId, routeDashboardId],
+  )
+
+  useEffect(() => {
+    void refreshDashboards(selectedProjectId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProjectId])
+
+  const refreshCategories = useCallback(
+    async (preferredCategoryId?: number | null) => {
+      if (!selectedProjectId || !selectedDashboardId) {
+        setCategories([])
+        setActiveCategoryId(null)
+        setGraphs([])
+        return { categories: [] as GraphCategoryDto[], activeCategoryId: null as number | null }
+      }
+
+      setLoadingCategories(true)
+      setError(null)
+      try {
+        const categoryItems = await fetchCategories(selectedProjectId, selectedDashboardId)
+        const sortedCategories = [...categoryItems].sort((a, b) => (a.ordering ?? 0) - (b.ordering ?? 0))
+        setCategories(sortedCategories)
+        const fromUrlCategoryId = parseId(searchParams.get('categoryId'))
+
+        const nextActiveCategoryId =
+          (preferredCategoryId && sortedCategories.some((category) => category.id === preferredCategoryId)
+            ? preferredCategoryId
+            : null) ??
+          (fromUrlCategoryId && sortedCategories.some((category) => category.id === fromUrlCategoryId)
+            ? fromUrlCategoryId
+            : null) ??
+          (activeCategoryId && sortedCategories.some((category) => category.id === activeCategoryId)
+            ? activeCategoryId
+            : null) ??
+          sortedCategories[0]?.id ??
+          null
+
+        setActiveCategoryId(nextActiveCategoryId)
+        if (!nextActiveCategoryId) {
+          setGraphs([])
+        }
+
+        return { categories: sortedCategories, activeCategoryId: nextActiveCategoryId }
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Klarte ikke laste faner')
+        setCategories([])
+        setActiveCategoryId(null)
+        setGraphs([])
+        return { categories: [] as GraphCategoryDto[], activeCategoryId: null as number | null }
+      } finally {
+        setLoadingCategories(false)
+      }
+    },
+    [selectedProjectId, selectedDashboardId, activeCategoryId, searchParams],
+  )
+
+  const refreshGraphs = useCallback(
+    async (categoryIdOverride?: number | null) => {
+      const categoryIdToLoad = categoryIdOverride ?? activeCategoryId
+      if (!selectedProjectId || !selectedDashboardId || !categoryIdToLoad) {
+        setGraphs([])
+        return
+      }
+
+      setLoadingGraphs(true)
+      setError(null)
+      try {
+        const graphItems = await fetchGraphs(selectedProjectId, selectedDashboardId, categoryIdToLoad)
+        const graphsWithQueries = await Promise.all(
+          graphItems.map(async (graph) => {
+            const queryItems = await fetchQueries(selectedProjectId, selectedDashboardId, categoryIdToLoad, graph.id)
+            const sortedQueries = [...queryItems].sort((a, b) => (a.ordering ?? 0) - (b.ordering ?? 0))
+            return {
+              graph,
+              queries: sortedQueries,
+              categoryId: categoryIdToLoad,
             }
-        },
-        [projects],
-    );
+          }),
+        )
+        setGraphs(graphsWithQueries)
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Klarte ikke laste grafer')
+      } finally {
+        setLoadingGraphs(false)
+      }
+    },
+    [selectedProjectId, selectedDashboardId, activeCategoryId],
+  )
 
-    const handleDashboardSelected = useCallback(
-        async (option: string, isSelected: boolean) => {
-            if (!isSelected) {
-                setSelectedDashboardId(null);
-                return;
-            }
+  useEffect(() => {
+    if (!selectedProjectId || !selectedDashboardId) {
+      setCategories([])
+      setActiveCategoryId(null)
+      setGraphs([])
+      return
+    }
 
-            if (!selectedProjectId) {
-                setError('Velg eller opprett prosjekt først');
-                return;
-            }
+    setCategories([])
+    setActiveCategoryId(null)
+    setGraphs([])
+    const preferredCategoryId = parseId(searchParams.get('categoryId'))
+    void refreshCategories(preferredCategoryId)
+    // Intentionally only run when dashboard changes, not when active tab changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProjectId, selectedDashboardId])
 
-            try {
-                setError(null);
-                const selectedById = dashboards.find((d) => String(d.id) === option);
-                const selectedByName = dashboards.find((d) => d.name.trim().toLowerCase() === option.trim().toLowerCase());
-                const selected = selectedById ?? selectedByName;
+  useEffect(() => {
+    void refreshGraphs()
+  }, [refreshGraphs])
 
-                let dashboardToUse = selected;
-                if (!dashboardToUse) {
-                    const trimmedName = option.trim();
-                    if (!trimmedName) return;
-                    setLoadingDashboards(true);
-                    const createdDashboard = await createDashboard(selectedProjectId, trimmedName, 'Opprettet fra Oversikt');
-                    dashboardToUse = createdDashboard;
-                    setDashboards((prev) => [...prev, createdDashboard]);
-                }
+  const handleReorderCharts = useCallback(
+    async (fromIndex: number, toIndex: number) => {
+      if (!selectedProjectId || !selectedDashboardId) return false
+      if (fromIndex === toIndex) return true
+      if (fromIndex < 0 || toIndex < 0 || fromIndex >= charts.length || toIndex >= charts.length) return false
 
-                setSelectedDashboardId(dashboardToUse.id);
-            } catch (err: unknown) {
-                setError(err instanceof Error ? err.message : 'Klarte ikke velge eller opprette dashboard');
-            } finally {
-                setLoadingDashboards(false);
-            }
-        },
-        [dashboards, selectedProjectId],
-    );
+      // Compute reordered list from current charts
+      const reordered = [...charts]
+      const [moved] = reordered.splice(fromIndex, 1)
+      if (!moved) return false
+      reordered.splice(toIndex, 0, moved)
 
-    const handleUrlToggleSelected = useCallback(
-        (option: string, isSelected: boolean) => {
-            isSelectingRef.current = true;
-            setComboInputValue('');
+      const ordering = reordered.map((chart, index) => ({
+        id: chart.graphId,
+        ordering: index,
+      }))
 
-            if (isSelected) {
-                let normalized = normalizeUrlToPath(option);
-                if (normalized && !normalized.startsWith('/')) normalized = `/${normalized}`;
-                setTempUrlPaths((prev) => {
-                    if (!normalized || prev.includes(normalized)) return prev;
-                    return [...prev, normalized];
-                });
-            } else {
-                let normalized = normalizeUrlToPath(option);
-                if (normalized && !normalized.startsWith('/')) normalized = `/${normalized}`;
-                setTempUrlPaths((prev) => prev.filter((p) => p !== option && p !== normalized));
-            }
+      // Optimistically update local graph ordering
+      setGraphs((prev) => {
+        const orderMap = new Map(ordering.map((entry) => [entry.id, entry.ordering]))
+        return prev.map((item) => ({
+          ...item,
+          graph: {
+            ...item.graph,
+            ordering: orderMap.get(item.graph.id) ?? item.graph.ordering,
+          },
+        }))
+      })
 
-            setTimeout(() => {
-                isSelectingRef.current = false;
-            }, 100);
-        },
-        [],
-    );
+      try {
+        // Use the categoryId from the moved chart
+        await updateGraphOrdering(selectedProjectId, selectedDashboardId, moved.categoryId, ordering)
+        return true
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Kunne ikke oppdatere rekkefølge')
+        // Revert by re-fetching
+        await refreshGraphs()
+        return false
+      }
+    },
+    [selectedProjectId, selectedDashboardId, charts, refreshGraphs],
+  )
 
-    const handleComboChange = useCallback(
-        (value: string) => {
-            if (isSelectingRef.current) return;
-            setComboInputValue(value);
-        },
-        [],
-    );
+  useEffect(() => {
+    if (!hasResolvedInitialProjectRef.current) return
+    if (loadingProjects || loadingDashboards || loadingCategories) return
 
+    const shouldSyncProjectId = routeDashboardId === null
+    const currentProjectId = shouldSyncProjectId
+      ? searchParams.get('projectId')
+      : selectedProjectId
+        ? String(selectedProjectId)
+        : null
+    const currentDashboardId = searchParams.get('dashboardId') ?? (routeDashboardId ? String(routeDashboardId) : null)
+    const currentCategoryId = searchParams.get('categoryId')
 
-    // ── Effects ──
+    // Preserve deep-link params while state is still resolving during initial/load transitions.
+    if (currentProjectId && !selectedProjectId) return
+    if (currentDashboardId && !selectedDashboardId) return
 
-    useEffect(() => {
-        const run = async () => {
-            setLoadingProjects(true);
-            setError(null);
-            try {
-                const projectItems = await fetchProjects();
-                setProjects(projectItems);
+    const nextProjectId = selectedProjectId ? String(selectedProjectId) : null
+    const nextDashboardId = selectedDashboardId ? String(selectedDashboardId) : null
+    if (selectedDashboardId && !activeCategoryId && currentCategoryId) return
+    const firstCategoryId = categories[0]?.id ?? null
+    const shouldPersistCategoryId = Boolean(
+      selectedDashboardId && activeCategoryId && firstCategoryId && activeCategoryId !== firstCategoryId,
+    )
+    const nextCategoryId = shouldPersistCategoryId ? String(activeCategoryId) : null
 
-                const fromUrl = parseId(searchParams.get('projectId'));
-                let resolvedFromRoute: number | null = null;
-                if (!fromUrl && routeDashboardId) {
-                    for (const project of projectItems) {
-                        const dashboardsInProject = await fetchDashboards(project.id);
-                        if (dashboardsInProject.some((dashboard) => dashboard.id === routeDashboardId)) {
-                            resolvedFromRoute = project.id;
-                            break;
-                        }
-                    }
-                }
-                const fromStorage = fromUrl || resolvedFromRoute ? null : getLastOversiktProjectId();
-                const fromState = selectedProjectId;
-                const preferredId = fromState ?? fromUrl ?? resolvedFromRoute ?? fromStorage;
+    if (
+      currentProjectId === nextProjectId &&
+      currentDashboardId === nextDashboardId &&
+      currentCategoryId === nextCategoryId
+    )
+      return
 
-                const nextProject =
-                    (preferredId ? projectItems.find((item) => item.id === preferredId) : null)
-                    ?? projectItems[0]
-                    ?? null;
+    const nextParams = new URLSearchParams(searchParams)
+    if (shouldSyncProjectId) {
+      if (nextProjectId) nextParams.set('projectId', nextProjectId)
+      else nextParams.delete('projectId')
+    } else {
+      nextParams.delete('projectId')
+    }
+    if (routeDashboardId) {
+      nextParams.delete('dashboardId')
+    } else if (nextDashboardId) {
+      nextParams.set('dashboardId', nextDashboardId)
+    } else {
+      nextParams.delete('dashboardId')
+    }
+    if (nextCategoryId) nextParams.set('categoryId', nextCategoryId)
+    else nextParams.delete('categoryId')
 
-                setSelectedProjectId(nextProject?.id ?? null);
-                hasResolvedInitialProjectRef.current = true;
-            } catch (err: unknown) {
-                setError(err instanceof Error ? err.message : 'Klarte ikke laste prosjekter');
-                hasResolvedInitialProjectRef.current = true;
-            } finally {
-                setLoadingProjects(false);
-            }
-        };
+    setSearchParams(nextParams, { replace: true })
+  }, [
+    searchParams,
+    selectedProjectId,
+    selectedDashboardId,
+    activeCategoryId,
+    setSearchParams,
+    loadingProjects,
+    loadingDashboards,
+    loadingCategories,
+    routeDashboardId,
+    categories,
+  ])
 
-        void run();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [routeDashboardId]);
+  useEffect(() => {
+    if (!selectedWebsite) return
+    setActiveWebsite(selectedWebsite)
+  }, [selectedWebsite])
 
-    const refreshDashboards = useCallback(async (projectId: number | null, preferredDashboardId?: number | null) => {
-        if (!projectId) {
-            setDashboards([]);
-            setCategories([]);
-            setSelectedDashboardId(null);
-            setActiveCategoryId(null);
-            setGraphs([]);
-            return;
-        }
+  useEffect(() => {
+    if (!urlPathStorageKey) return
+    if (hasUrlPathParams) return
+    const storedPaths = getStoredUrlPaths(urlPathStorageKey)
+    setTempUrlPaths((prev) => (arraysEqual(prev, storedPaths) ? prev : storedPaths))
+    setActiveFilters((prev) =>
+      arraysEqual(prev.urlFilters, storedPaths) ? prev : { ...prev, urlFilters: storedPaths },
+    )
+  }, [urlPathStorageKey, hasUrlPathParams])
 
-        setLoadingDashboards(true);
-        setError(null);
-        try {
-            const dashboardItems = await fetchDashboards(projectId);
-            setDashboards(dashboardItems);
+  useEffect(() => {
+    if (!urlPathStorageKey) return
+    if (previousUrlPathStorageKeyRef.current !== urlPathStorageKey) {
+      previousUrlPathStorageKeyRef.current = urlPathStorageKey
+      return
+    }
 
-            const fromUrlProjectId = parseId(searchParams.get('projectId'));
-            const fromUrlDashboardId = parseId(searchParams.get('dashboardId')) ?? routeDashboardId;
-            const fromStorage = fromUrlDashboardId ? null : getLastOversiktDashboardId();
-            const fromState = preferredDashboardId ?? selectedDashboardId;
-            const canUseUrlDashboardId = fromUrlProjectId === projectId || (fromUrlProjectId === null && routeDashboardId !== null);
-            const fromMatchingUrl = canUseUrlDashboardId ? fromUrlDashboardId : null;
+    saveUrlPaths(urlPathStorageKey, tempUrlPaths)
+  }, [urlPathStorageKey, tempUrlPaths])
 
-            const resolvedPreferredDashboardId =
-                fromMatchingUrl ?? fromState ?? fromStorage;
+  useEffect(() => {
+    saveLastOversiktProjectId(selectedProjectId)
+  }, [selectedProjectId])
 
-            const nextDashboard =
-                (resolvedPreferredDashboardId ? dashboardItems.find((item) => item.id === resolvedPreferredDashboardId) : null)
-                ?? dashboardItems[0]
-                ?? null;
+  useEffect(() => {
+    saveLastOversiktDashboardId(selectedDashboardId)
+  }, [selectedDashboardId])
 
-            setSelectedDashboardId(nextDashboard?.id ?? null);
-        } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Klarte ikke laste dashboards');
-        } finally {
-            setLoadingDashboards(false);
-        }
-    }, [searchParams, selectedDashboardId, routeDashboardId]);
+  return {
+    // Selections & options
+    selectedProject,
+    selectedDashboard,
+    selectedProjectId,
+    selectedDashboardId,
+    setSelectedProjectId,
+    setSelectedDashboardId,
+    projects,
+    projectOptions,
+    dashboardOptions,
+    selectedProjectLabel,
+    selectedDashboardLabel,
 
-    useEffect(() => {
-        void refreshDashboards(selectedProjectId);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedProjectId]);
+    // Tabs / categories
+    categories,
+    activeCategoryId,
+    setActiveCategoryId,
+    refreshCategories,
 
-    const refreshCategories = useCallback(async (preferredCategoryId?: number | null) => {
-        if (!selectedProjectId || !selectedDashboardId) {
-            setCategories([]);
-            setActiveCategoryId(null);
-            setGraphs([]);
-            return { categories: [] as GraphCategoryDto[], activeCategoryId: null as number | null };
-        }
+    // Website
+    selectedWebsite,
+    setSelectedWebsite,
+    activeWebsite,
+    activeWebsiteId,
 
-        setLoadingCategories(true);
-        setError(null);
-        try {
-            const categoryItems = await fetchCategories(selectedProjectId, selectedDashboardId);
-            const sortedCategories = [...categoryItems].sort((a, b) => (a.ordering ?? 0) - (b.ordering ?? 0));
-            setCategories(sortedCategories);
-            const fromUrlCategoryId = parseId(searchParams.get('categoryId'));
+    // Temp filter fields
+    tempPathOperator,
+    setTempPathOperator,
+    tempUrlPaths,
+    setTempUrlPaths,
+    tempDateRange,
+    setTempDateRange,
+    tempCustomStartDate,
+    setTempCustomStartDate,
+    tempCustomEndDate,
+    setTempCustomEndDate,
+    tempMetricType,
+    setTempMetricType,
+    comboInputValue,
 
-            const nextActiveCategoryId =
-                (preferredCategoryId && sortedCategories.some((category) => category.id === preferredCategoryId)
-                    ? preferredCategoryId
-                    : null)
-                ?? (fromUrlCategoryId && sortedCategories.some((category) => category.id === fromUrlCategoryId)
-                    ? fromUrlCategoryId
-                    : null)
-                ?? (activeCategoryId && sortedCategories.some((category) => category.id === activeCategoryId)
-                    ? activeCategoryId
-                    : null)
-                ?? sortedCategories[0]?.id
-                ?? null;
+    // Active filters
+    activeFilters,
 
-            setActiveCategoryId(nextActiveCategoryId);
-            if (!nextActiveCategoryId) {
-                setGraphs([]);
-            }
+    // Derived
+    charts,
+    filterCapabilities,
+    supportsStandardFilters,
+    hasChanges,
+    isLoading,
+    loadingProjects,
+    loadingDashboards,
+    error,
 
-            return { categories: sortedCategories, activeCategoryId: nextActiveCategoryId };
-        } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Klarte ikke laste faner');
-            setCategories([]);
-            setActiveCategoryId(null);
-            setGraphs([]);
-            return { categories: [] as GraphCategoryDto[], activeCategoryId: null as number | null };
-        } finally {
-            setLoadingCategories(false);
-        }
-    }, [selectedProjectId, selectedDashboardId, activeCategoryId, searchParams]);
-
-    const refreshGraphs = useCallback(async (categoryIdOverride?: number | null) => {
-        const categoryIdToLoad = categoryIdOverride ?? activeCategoryId;
-        if (!selectedProjectId || !selectedDashboardId || !categoryIdToLoad) {
-            setGraphs([]);
-            return;
-        }
-
-        setLoadingGraphs(true);
-        setError(null);
-        try {
-            const graphItems = await fetchGraphs(selectedProjectId, selectedDashboardId, categoryIdToLoad);
-            const graphsWithQueries = await Promise.all(
-                graphItems.map(async (graph) => {
-                    const queryItems = await fetchQueries(selectedProjectId, selectedDashboardId, categoryIdToLoad, graph.id);
-                    const sortedQueries = [...queryItems].sort((a, b) => (a.ordering ?? 0) - (b.ordering ?? 0));
-                    return {
-                        graph,
-                        queries: sortedQueries,
-                        categoryId: categoryIdToLoad,
-                    };
-                }),
-            );
-            setGraphs(graphsWithQueries);
-        } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Klarte ikke laste grafer');
-        } finally {
-            setLoadingGraphs(false);
-        }
-    }, [selectedProjectId, selectedDashboardId, activeCategoryId]);
-
-    useEffect(() => {
-        if (!selectedProjectId || !selectedDashboardId) {
-            setCategories([]);
-            setActiveCategoryId(null);
-            setGraphs([]);
-            return;
-        }
-
-        setCategories([]);
-        setActiveCategoryId(null);
-        setGraphs([]);
-        const preferredCategoryId = parseId(searchParams.get('categoryId'));
-        void refreshCategories(preferredCategoryId);
-        // Intentionally only run when dashboard changes, not when active tab changes.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedProjectId, selectedDashboardId]);
-
-    useEffect(() => {
-        void refreshGraphs();
-    }, [refreshGraphs]);
-
-    const handleReorderCharts = useCallback(
-        async (fromIndex: number, toIndex: number) => {
-            if (!selectedProjectId || !selectedDashboardId) return false;
-            if (fromIndex === toIndex) return true;
-            if (fromIndex < 0 || toIndex < 0 || fromIndex >= charts.length || toIndex >= charts.length) return false;
-
-            // Compute reordered list from current charts
-            const reordered = [...charts];
-            const [moved] = reordered.splice(fromIndex, 1);
-            if (!moved) return false;
-            reordered.splice(toIndex, 0, moved);
-
-            const ordering = reordered.map((chart, index) => ({
-                id: chart.graphId,
-                ordering: index,
-            }));
-
-            // Optimistically update local graph ordering
-            setGraphs((prev) => {
-                const orderMap = new Map(ordering.map((entry) => [entry.id, entry.ordering]));
-                return prev.map((item) => ({
-                    ...item,
-                    graph: {
-                        ...item.graph,
-                        ordering: orderMap.get(item.graph.id) ?? item.graph.ordering,
-                    },
-                }));
-            });
-
-            try {
-                // Use the categoryId from the moved chart
-                await updateGraphOrdering(selectedProjectId, selectedDashboardId, moved.categoryId, ordering);
-                return true;
-            } catch (err: unknown) {
-                setError(err instanceof Error ? err.message : 'Kunne ikke oppdatere rekkefølge');
-                // Revert by re-fetching
-                await refreshGraphs();
-                return false;
-            }
-        },
-        [selectedProjectId, selectedDashboardId, charts, refreshGraphs],
-    );
-
-    useEffect(() => {
-        if (!hasResolvedInitialProjectRef.current) return;
-        if (loadingProjects || loadingDashboards || loadingCategories) return;
-
-        const shouldSyncProjectId = routeDashboardId === null;
-        const currentProjectId = shouldSyncProjectId
-            ? searchParams.get('projectId')
-            : (selectedProjectId ? String(selectedProjectId) : null);
-        const currentDashboardId = searchParams.get('dashboardId') ?? (routeDashboardId ? String(routeDashboardId) : null);
-        const currentCategoryId = searchParams.get('categoryId');
-
-        // Preserve deep-link params while state is still resolving during initial/load transitions.
-        if (currentProjectId && !selectedProjectId) return;
-        if (currentDashboardId && !selectedDashboardId) return;
-
-        const nextProjectId = selectedProjectId ? String(selectedProjectId) : null;
-        const nextDashboardId = selectedDashboardId ? String(selectedDashboardId) : null;
-        if (selectedDashboardId && !activeCategoryId && currentCategoryId) return;
-        const firstCategoryId = categories[0]?.id ?? null;
-        const shouldPersistCategoryId = Boolean(
-            selectedDashboardId
-            && activeCategoryId
-            && firstCategoryId
-            && activeCategoryId !== firstCategoryId,
-        );
-        const nextCategoryId = shouldPersistCategoryId ? String(activeCategoryId) : null;
-
-        if (currentProjectId === nextProjectId && currentDashboardId === nextDashboardId && currentCategoryId === nextCategoryId) return;
-
-        const nextParams = new URLSearchParams(searchParams);
-        if (shouldSyncProjectId) {
-            if (nextProjectId) nextParams.set('projectId', nextProjectId);
-            else nextParams.delete('projectId');
-        } else {
-            nextParams.delete('projectId');
-        }
-        if (routeDashboardId) {
-            nextParams.delete('dashboardId');
-        } else if (nextDashboardId) {
-            nextParams.set('dashboardId', nextDashboardId);
-        } else {
-            nextParams.delete('dashboardId');
-        }
-        if (nextCategoryId) nextParams.set('categoryId', nextCategoryId);
-        else nextParams.delete('categoryId');
-
-        setSearchParams(nextParams, { replace: true });
-    }, [searchParams, selectedProjectId, selectedDashboardId, activeCategoryId, setSearchParams, loadingProjects, loadingDashboards, loadingCategories, routeDashboardId, categories]);
-
-    useEffect(() => {
-        if (!selectedWebsite) return;
-        setActiveWebsite(selectedWebsite);
-    }, [selectedWebsite]);
-
-    useEffect(() => {
-        if (!urlPathStorageKey) return;
-        if (hasUrlPathParams) return;
-        const storedPaths = getStoredUrlPaths(urlPathStorageKey);
-        setTempUrlPaths((prev) => (arraysEqual(prev, storedPaths) ? prev : storedPaths));
-        setActiveFilters((prev) => (arraysEqual(prev.urlFilters, storedPaths)
-            ? prev
-            : { ...prev, urlFilters: storedPaths }));
-    }, [urlPathStorageKey, hasUrlPathParams]);
-
-    useEffect(() => {
-        if (!urlPathStorageKey) return;
-        if (previousUrlPathStorageKeyRef.current !== urlPathStorageKey) {
-            previousUrlPathStorageKeyRef.current = urlPathStorageKey;
-            return;
-        }
-
-        saveUrlPaths(urlPathStorageKey, tempUrlPaths);
-    }, [urlPathStorageKey, tempUrlPaths]);
-
-    useEffect(() => {
-        saveLastOversiktProjectId(selectedProjectId);
-    }, [selectedProjectId]);
-
-    useEffect(() => {
-        saveLastOversiktDashboardId(selectedDashboardId);
-    }, [selectedDashboardId]);
-
-    return {
-        // Selections & options
-        selectedProject,
-        selectedDashboard,
-        selectedProjectId,
-        selectedDashboardId,
-        setSelectedProjectId,
-        setSelectedDashboardId,
-        projects,
-        projectOptions,
-        dashboardOptions,
-        selectedProjectLabel,
-        selectedDashboardLabel,
-
-        // Tabs / categories
-        categories,
-        activeCategoryId,
-        setActiveCategoryId,
-        refreshCategories,
-
-        // Website
-        selectedWebsite,
-        setSelectedWebsite,
-        activeWebsite,
-        activeWebsiteId,
-
-        // Temp filter fields
-        tempPathOperator,
-        setTempPathOperator,
-        tempUrlPaths,
-        setTempUrlPaths,
-        tempDateRange,
-        setTempDateRange,
-        tempCustomStartDate,
-        setTempCustomStartDate,
-        tempCustomEndDate,
-        setTempCustomEndDate,
-        tempMetricType,
-        setTempMetricType,
-        comboInputValue,
-
-        // Active filters
-        activeFilters,
-
-        // Derived
-        charts,
-        filterCapabilities,
-        supportsStandardFilters,
-        hasChanges,
-        isLoading,
-        loadingProjects,
-        loadingDashboards,
-        error,
-
-        // Handlers
-        handleUpdate,
-        handleProjectSelected,
-        handleDashboardSelected,
-        handleUrlToggleSelected,
-        handleComboChange,
-        handleReorderCharts,
-        refreshGraphs,
-        refreshDashboards,
-    };
-};
+    // Handlers
+    handleUpdate,
+    handleProjectSelected,
+    handleDashboardSelected,
+    handleUrlToggleSelected,
+    handleComboChange,
+    handleReorderCharts,
+    refreshGraphs,
+    refreshDashboards,
+  }
+}

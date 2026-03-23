@@ -1,92 +1,93 @@
-import { Select, TextField, Switch } from '@navikt/ds-react';
-import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
-import type {
-  ColumnGroup,
-  OrderBy,
-  Metric,
-  Filter
-} from '../../../../shared/types/chart.ts';
-import DateRangeSelector from './DateRangeSelector.tsx';
+import { Select, TextField, Switch } from '@navikt/ds-react'
+import { useState, useEffect, forwardRef, useImperativeHandle } from 'react'
+import type { ColumnGroup, OrderBy, Metric, Filter } from '../../../../shared/types/chart.ts'
+import DateRangeSelector from './DateRangeSelector.tsx'
 
 interface DisplayOptionsProps {
-  groupByFields: string[];
-  orderBy: OrderBy | null;
-  columnOrderMode: 'default' | 'metrics_first';
-  paramAggregation: 'representative' | 'unique';
-  limit: number | null;
-  COLUMN_GROUPS: Record<string, ColumnGroup>;
-  setOrderBy: (column: string, direction: 'ASC' | 'DESC') => void;
-  clearOrderBy: () => void;
-  setDateFormat: (format: string) => void;
-  setParamAggregation: (strategy: 'representative' | 'unique') => void;
-  setLimit: (limit: number | null) => void;
-  setColumnOrderMode: (mode: 'default' | 'metrics_first') => void;
-  metrics: Metric[];
-  filters: Filter[];
-  setFilters: (filters: Filter[]) => void;
-  maxDaysAvailable: number;
+  groupByFields: string[]
+  orderBy: OrderBy | null
+  columnOrderMode: 'default' | 'metrics_first'
+  paramAggregation: 'representative' | 'unique'
+  limit: number | null
+  COLUMN_GROUPS: Record<string, ColumnGroup>
+  setOrderBy: (column: string, direction: 'ASC' | 'DESC') => void
+  clearOrderBy: () => void
+  setDateFormat: (format: string) => void
+  setParamAggregation: (strategy: 'representative' | 'unique') => void
+  setLimit: (limit: number | null) => void
+  setColumnOrderMode: (mode: 'default' | 'metrics_first') => void
+  metrics: Metric[]
+  filters: Filter[]
+  setFilters: (filters: Filter[]) => void
+  maxDaysAvailable: number
 
-  interactiveMode: boolean;
-  setInteractiveMode: (mode: boolean) => void;
+  interactiveMode: boolean
+  setInteractiveMode: (mode: boolean) => void
 }
 
-const DisplayOptions = forwardRef(({
-  groupByFields,
-  orderBy,
-  columnOrderMode,
-  limit,
-  COLUMN_GROUPS,
-  setOrderBy,
-  clearOrderBy,
-  setDateFormat,
-  setParamAggregation,
-  setLimit,
-  setColumnOrderMode,
-  metrics,
-  filters,
-  setFilters,
-  maxDaysAvailable,
-  interactiveMode,
-  setInteractiveMode
-}: DisplayOptionsProps, ref) => {
-  const [showCustomSort, setShowCustomSort] = useState<boolean>(false);
-  const [showCustomLimit, setShowCustomLimit] = useState<boolean>(false);
-  const [limitInput, setLimitInput] = useState<string>('');
-  const [customPeriodInputs, setCustomPeriodInputs] = useState<Record<number, { amount: string, unit: string }>>({});
-  const [selectedDateRange, setSelectedDateRange] = useState<string>('last7days');
+const DisplayOptions = forwardRef(
+  (
+    {
+      groupByFields,
+      orderBy,
+      columnOrderMode,
+      limit,
+      COLUMN_GROUPS,
+      setOrderBy,
+      clearOrderBy,
+      setDateFormat,
+      setParamAggregation,
+      setLimit,
+      setColumnOrderMode,
+      metrics,
+      filters,
+      setFilters,
+      maxDaysAvailable,
+      interactiveMode,
+      setInteractiveMode,
+    }: DisplayOptionsProps,
+    ref,
+  ) => {
+    const [showCustomSort, setShowCustomSort] = useState<boolean>(false)
+    const [showCustomLimit, setShowCustomLimit] = useState<boolean>(false)
+    const [limitInput, setLimitInput] = useState<string>('')
+    const [customPeriodInputs, setCustomPeriodInputs] = useState<Record<number, { amount: string; unit: string }>>({})
+    const [selectedDateRange, setSelectedDateRange] = useState<string>('last7days')
 
-  const resetOptions = (silent = false) => {
-    void silent;
-    clearOrderBy();
-    setDateFormat('day');
-    setLimit(1000);
-    setColumnOrderMode('default');
-    setParamAggregation('unique');
-    setShowCustomSort(false);
-    setShowCustomLimit(false);
-    setLimitInput('1000');
-  };
+    const resetOptions = (silent = false) => {
+      void silent
+      clearOrderBy()
+      setDateFormat('day')
+      setLimit(1000)
+      setColumnOrderMode('default')
+      setParamAggregation('unique')
+      setShowCustomSort(false)
+      setShowCustomLimit(false)
+      setLimitInput('1000')
+    }
 
-  useImperativeHandle(ref, () => ({
-    resetOptions
-  }));
+    useImperativeHandle(ref, () => ({
+      resetOptions,
+    }))
 
-  useEffect(() => {
-    setLimitInput(limit?.toString() || '');
-  }, [limit]);
+    useEffect(() => {
+      setLimitInput(limit?.toString() || '')
+    }, [limit])
 
-  useEffect(() => {
-    setShowCustomSort(Boolean(orderBy));
-  }, [orderBy]);
+    useEffect(() => {
+      setShowCustomSort(Boolean(orderBy))
+    }, [orderBy])
 
-  return (
-    <>
-      <div className="flex flex-col gap-4 pb-2">
+    return (
+      <>
+        <div className="flex flex-col gap-4 pb-2">
           <Switch
             size="small"
-            description={interactiveMode
-              ? 'Tidsperiode velges via filter i dasboardet (standard)'
-              : 'Bruk valgt tidsperiode fra grafbyggeren som standard'}
+            description={
+              interactiveMode
+                ? 'Tidsperiode velges via filter i dasboardet (standard)'
+                : 'Bruk valgt tidsperiode fra grafbyggeren som standard'
+            }
             checked={!interactiveMode}
             onChange={(e) => setInteractiveMode(!e.target.checked)}
           >
@@ -109,14 +110,16 @@ const DisplayOptions = forwardRef(({
           <Switch
             className="mt-1"
             size="small"
-            description={orderBy
-              ? `Sorterer etter ${orderBy.column ? orderBy.column.toLowerCase() : 'første kolonne'} i ${orderBy.direction === 'ASC' ? 'stigende' : 'synkende'} rekkefølge`
-              : 'Sorterer etter første kolonne i synkende rekkefølge'}
+            description={
+              orderBy
+                ? `Sorterer etter ${orderBy.column ? orderBy.column.toLowerCase() : 'første kolonne'} i ${orderBy.direction === 'ASC' ? 'stigende' : 'synkende'} rekkefølge`
+                : 'Sorterer etter første kolonne i synkende rekkefølge'
+            }
             checked={showCustomSort}
             onChange={(e) => {
-              setShowCustomSort(e.target.checked);
+              setShowCustomSort(e.target.checked)
               if (!e.target.checked) {
-                clearOrderBy();
+                clearOrderBy()
               }
             }}
           >
@@ -131,10 +134,10 @@ const DisplayOptions = forwardRef(({
                   value={orderBy?.column || ''}
                   onChange={(e) => {
                     if (e.target.value) {
-                      const direction = e.target.value === 'dato' ? 'ASC' : 'DESC';
-                      setOrderBy(e.target.value, direction);
+                      const direction = e.target.value === 'dato' ? 'ASC' : 'DESC'
+                      setOrderBy(e.target.value, direction)
                     } else {
-                      clearOrderBy();
+                      clearOrderBy()
                     }
                   }}
                   size="small"
@@ -144,22 +147,19 @@ const DisplayOptions = forwardRef(({
                   <optgroup label="Grupperinger">
                     {groupByFields.map((field) => {
                       const column = Object.values(COLUMN_GROUPS)
-                        .flatMap(group => group.columns)
-                        .find(col => col.value === field);
+                        .flatMap((group) => group.columns)
+                        .find((col) => col.value === field)
 
                       return (
                         <option key={field} value={field === 'created_at' ? 'dato' : field}>
                           {field === 'created_at' ? 'Dato' : column?.label || field}
                         </option>
-                      );
+                      )
                     })}
                   </optgroup>
                   <optgroup label="Metrikker">
                     {metrics.map((metric, index) => (
-                      <option
-                        key={`metrikk_${index}`}
-                        value={metric.alias || `metrikk_${index + 1}`}
-                      >
+                      <option key={`metrikk_${index}`} value={metric.alias || `metrikk_${index + 1}`}>
                         {metric.alias || `metrikk_${index + 1}`}
                       </option>
                     ))}
@@ -169,10 +169,7 @@ const DisplayOptions = forwardRef(({
                 <Select
                   label="Retning"
                   value={orderBy?.direction || 'ASC'}
-                  onChange={(e) => setOrderBy(
-                    orderBy?.column || '',
-                    e.target.value as 'ASC' | 'DESC'
-                  )}
+                  onChange={(e) => setOrderBy(orderBy?.column || '', e.target.value as 'ASC' | 'DESC')}
                   size="small"
                 >
                   <option value="ASC">Stigende (A-Å, 0-9)</option>
@@ -184,15 +181,17 @@ const DisplayOptions = forwardRef(({
 
           <Switch
             size="small"
-            description={limit && limit !== 1000
-              ? `Begrenser til ${limit} rader`
-              : 'F.eks. for en topp 10-liste (standard: 1000 rader)'}
+            description={
+              limit && limit !== 1000
+                ? `Begrenser til ${limit} rader`
+                : 'F.eks. for en topp 10-liste (standard: 1000 rader)'
+            }
             checked={showCustomLimit}
             onChange={(e) => {
-              setShowCustomLimit(e.target.checked);
+              setShowCustomLimit(e.target.checked)
               if (!e.target.checked) {
-                setLimit(1000);
-                setLimitInput('1000');
+                setLimit(1000)
+                setLimitInput('1000')
               }
             }}
           >
@@ -207,12 +206,12 @@ const DisplayOptions = forwardRef(({
                 value={limitInput}
                 onChange={(e) => setLimitInput(e.target.value)}
                 onBlur={() => {
-                  const numValue = parseInt(limitInput, 10);
+                  const numValue = parseInt(limitInput, 10)
                   if (!isNaN(numValue) && numValue > 0) {
-                    setLimit(numValue);
+                    setLimit(numValue)
                   } else {
-                    setLimit(1000);
-                    setLimitInput('1000');
+                    setLimit(1000)
+                    setLimitInput('1000')
                   }
                 }}
                 min="1"
@@ -224,17 +223,20 @@ const DisplayOptions = forwardRef(({
 
           <Switch
             size="small"
-            description={columnOrderMode === 'metrics_first'
-              ? 'Måltall før grupperingskolonner'
-              : 'Standard rekkefølge: Grupperinger før måltall'}
+            description={
+              columnOrderMode === 'metrics_first'
+                ? 'Måltall før grupperingskolonner'
+                : 'Standard rekkefølge: Grupperinger før måltall'
+            }
             checked={columnOrderMode === 'metrics_first'}
             onChange={(e) => setColumnOrderMode(e.target.checked ? 'metrics_first' : 'default')}
           >
             Bytt kolonnerekkefølge
           </Switch>
         </div>
-    </>
-  );
-});
+      </>
+    )
+  },
+)
 
-export default DisplayOptions;
+export default DisplayOptions

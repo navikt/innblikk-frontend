@@ -76,22 +76,22 @@
 }
 
 /* FluentUI Chart dark mode support */
-.dark [class*="axis"] text,
-.dark [class*="xAxis"] text,
-.dark [class*="yAxis"] text,
+.dark [class*='axis'] text,
+.dark [class*='xAxis'] text,
+.dark [class*='yAxis'] text,
 .dark .ms-LineChart text,
 .dark .ms-Chart text {
   fill: var(--ax-text-subtle) !important;
 }
 
 /* FluentUI Legend text */
-.dark [class*="legend"] text,
-.dark [class*="Legend"] span,
-.dark [class*="legend"] span,
-.dark [class*="Legend"] button,
-.dark [class*="legend"] button,
-.dark [class*="legendContainer"] span,
-.dark [class*="legendContainer"] button {
+.dark [class*='legend'] text,
+.dark [class*='Legend'] span,
+.dark [class*='legend'] span,
+.dark [class*='Legend'] button,
+.dark [class*='legend'] button,
+.dark [class*='legendContainer'] span,
+.dark [class*='legendContainer'] button {
   color: var(--ax-text-subtle) !important;
 }
 
@@ -101,20 +101,20 @@
   border: 1px solid var(--ax-border-neutral-subtle) !important;
 }
 
-.traffic-linechart-callout [class*="calloutDateTimeContainer"],
-.traffic-linechart-callout [class*="calloutInfoContainer"] {
+.traffic-linechart-callout [class*='calloutDateTimeContainer'],
+.traffic-linechart-callout [class*='calloutInfoContainer'] {
   color: var(--ax-text-default) !important;
 }
 
-.traffic-linechart-callout [class*="calloutContentX"],
-.traffic-linechart-callout [class*="calloutlegendText"] {
+.traffic-linechart-callout [class*='calloutContentX'],
+.traffic-linechart-callout [class*='calloutlegendText'] {
   color: var(--ax-text-default) !important;
   font-size: 17px !important;
   line-height: 1.35 !important;
   font-weight: 500 !important;
 }
 
-.traffic-linechart-callout [class*="calloutContentY"] {
+.traffic-linechart-callout [class*='calloutContentY'] {
   color: var(--ax-text-default) !important;
   font-size: 18px !important;
   line-height: 1.3 !important;
@@ -143,8 +143,8 @@
   grid-column: span 1;
 }
 
-.website-picker-combobox [role="listbox"],
-.website-picker-combobox [role="option"] {
+.website-picker-combobox [role='listbox'],
+.website-picker-combobox [role='option'] {
   animation: none !important;
   transition: none !important;
 }

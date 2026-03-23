@@ -6,8 +6,8 @@ export const FILTER_COLUMNS = {
       { label: 'Hendelsesnavn', value: 'event_name' },
       { label: 'Hendelsestype', value: 'event_type' },
       { label: 'Unike hendelser (ID)', value: 'event_id' },
-      { label: 'Dato', value: 'created_at' }
-    ]
+      { label: 'Dato', value: 'created_at' },
+    ],
   },
   pageDetails: {
     label: 'Sidedetaljer',
@@ -16,14 +16,14 @@ export const FILTER_COLUMNS = {
       { label: 'URL-sti', value: 'url_path' },
       { label: 'URL-spørring', value: 'url_query' },
       { label: 'URL-sti og spørring', value: 'url_fullpath' },
-     /* { label: 'URL fullstendig adresse', value: 'url_fullurl' },*/
+      /* { label: 'URL fullstendig adresse', value: 'url_fullurl' },*/
       { label: 'Sidetittel', value: 'page_title' },
       { label: 'Henvisningsdomene', value: 'referrer_domain' },
       { label: 'Henvisningssti', value: 'referrer_path' },
       { label: 'Henvisningsspørring', value: 'referrer_query' },
       { label: 'Henvisning sti og spørring', value: 'referrer_fullpath' },
-      { label: 'Henvisning fullstendig URL', value: 'referrer_fullurl' }
-    ]
+      { label: 'Henvisning fullstendig URL', value: 'referrer_fullurl' },
+    ],
   },
   visitorDetails: {
     label: 'Besøksdetaljer',
@@ -37,10 +37,10 @@ export const FILTER_COLUMNS = {
       { label: 'Skjermstørrelse', value: 'screen' },
       { label: 'Språk', value: 'language' },
       { label: 'Land', value: 'country' },
-      { label: 'Besøksvarighet', value: 'visit_duration' }
-    ]
-  }
-};
+      { label: 'Besøksvarighet', value: 'visit_duration' },
+    ],
+  },
+}
 
 export const OPERATORS = [
   { label: 'er lik', value: '=' },
@@ -51,4 +51,4 @@ export const OPERATORS = [
   { label: 'er ikke tom', value: 'IS NOT NULL' },
   { label: 'starter med', value: 'STARTS_WITH' },
   { label: 'slutter med', value: 'ENDS_WITH' },
-];
+]

@@ -1,15 +1,15 @@
 #språkhjelp-back-to-top {
-    z-index: 999;
-    position: fixed;
-    bottom: 25px;
-    right: 25px;
-    border-radius: 100px;
-    background: var(--ax-bg-accent-strong);
-    color: var(--ax-text-contrast);
-    border: 1px solid var(--ax-border-subtle);
+  z-index: 999;
+  position: fixed;
+  bottom: 25px;
+  right: 25px;
+  border-radius: 100px;
+  background: var(--ax-bg-accent-strong);
+  color: var(--ax-text-contrast);
+  border: 1px solid var(--ax-border-subtle);
 }
 
 #språkhjelp-back-to-top:hover {
-    background: var(--ax-bg-accent-strong-hover);
-    color: var(--ax-text-contrast);
+  background: var(--ax-bg-accent-strong-hover);
+  color: var(--ax-text-contrast);
 }

@@ -5,9 +5,8 @@
  * hence the union types for several fields.
  */
 export type QueryStats = {
-    totalBytesProcessed?: number;
-    totalBytesProcessedGB?: number | string;
-    estimatedCostUSD?: number | string;
-    cacheHit?: boolean;
-};
-
+  totalBytesProcessed?: number
+  totalBytesProcessedGB?: number | string
+  estimatedCostUSD?: number | string
+  cacheHit?: boolean
+}

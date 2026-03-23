@@ -1,5 +1,5 @@
-import { Page } from "@navikt/ds-react";
-import React from "react";
+import { Page } from '@navikt/ds-react'
+import React from 'react'
 
 /**
  * AppBlock wraps Aksel's Page.Block and applies the app-wide max-width.
@@ -8,38 +8,27 @@ import React from "react";
  * Change it in one place to affect every layout, header, footer and section.
  */
 interface AppBlockProps {
-  as?: React.ElementType;
-  gutters?: boolean;
-  className?: string;
-  children: React.ReactNode;
-  style?: React.CSSProperties;
+  as?: React.ElementType
+  gutters?: boolean
+  className?: string
+  children: React.ReactNode
+  style?: React.CSSProperties
 }
 
-export const AppBlock = ({ as, gutters = true, className = "", children, style }: AppBlockProps) => {
-  const combinedClassName = `app-block${className ? ` ${className}` : ""}`;
+export const AppBlock = ({ as, gutters = true, className = '', children, style }: AppBlockProps) => {
+  const combinedClassName = `app-block${className ? ` ${className}` : ''}`
 
   if (as) {
     return (
-      <Page.Block
-        as={as}
-        width="2xl"
-        gutters={gutters}
-        className={combinedClassName}
-        style={style}
-      >
+      <Page.Block as={as} width="2xl" gutters={gutters} className={combinedClassName} style={style}>
         {children}
       </Page.Block>
-    );
+    )
   }
 
   return (
-    <Page.Block
-      width="2xl"
-      gutters={gutters}
-      className={combinedClassName}
-      style={style}
-    >
+    <Page.Block width="2xl" gutters={gutters} className={combinedClassName} style={style}>
       {children}
     </Page.Block>
-  );
-};
+  )
+}

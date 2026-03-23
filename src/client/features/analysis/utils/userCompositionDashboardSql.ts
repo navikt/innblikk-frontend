@@ -1,23 +1,23 @@
-import { getGcpProjectId } from '../../../shared/lib/runtimeConfig.ts';
+import { getGcpProjectId } from '../../../shared/lib/runtimeConfig.ts'
 
-const projectId = getGcpProjectId();
-const eventTable = `\`${projectId}.umami_views.event\``;
-const sessionTable = `\`${projectId}.umami_views.session\``;
+const projectId = getGcpProjectId()
+const eventTable = `\`${projectId}.umami_views.event\``
+const sessionTable = `\`${projectId}.umami_views.session\``
 
 const fieldByCategory: Record<string, string | undefined> = {
-    browser: 'browser',
-    os: 'os',
-    device: 'device',
-    screen: 'screen',
-    language: 'language',
-    country: 'country',
-};
+  browser: 'browser',
+  os: 'os',
+  device: 'device',
+  screen: 'screen',
+  language: 'language',
+  country: 'country',
+}
 
 export const getUserCompositionSqlTemplate = (category: string): string | undefined => {
-    const field = fieldByCategory[category];
-    if (!field) return undefined;
+  const field = fieldByCategory[category]
+  if (!field) return undefined
 
-    return `
+  return `
 WITH base_query AS (
   SELECT
     ${eventTable}.session_id,
@@ -37,5 +37,5 @@ FROM base_query
 GROUP BY ${field}
 ORDER BY Unike_besokende DESC
 LIMIT 1000
-`;
-};
+`
+}

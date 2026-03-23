@@ -5,13 +5,10 @@ export const sanitizeColumnName = (key: string): string => {
     .replace(/æ/gi, 'ae')
     .replace(/ø/gi, 'oe')
     .replace(/å/gi, 'aa')
-    .replace(/[^a-z0-9_]/gi, '_');
-};
+    .replace(/[^a-z0-9_]/gi, '_')
+}
 
 /** Replace spaces, parentheses and other special chars with underscores for BigQuery field names */
 export const sanitizeFieldNameForBigQuery = (name: string): string => {
-  return name
-    .replace(/[^\w]/g, '_')
-    .replace(/^[0-9]/, '_$&');
-};
-
+  return name.replace(/[^\w]/g, '_').replace(/^[0-9]/, '_$&')
+}

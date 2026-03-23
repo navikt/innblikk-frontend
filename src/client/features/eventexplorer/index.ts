@@ -1,2 +1,2 @@
 // UI Components
-export { default as EventExplorer } from './ui/EventExplorer';
+export { default as EventExplorer } from './ui/EventExplorer'

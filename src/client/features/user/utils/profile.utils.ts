@@ -1,7 +1,7 @@
-import type { UserProfile } from '../model';
+import type { UserProfile } from '../model'
 
 export function downloadUsersCSV(users: UserProfile[]): void {
-  if (!users || users.length === 0) return;
+  if (!users || users.length === 0) return
 
   const headers = [
     'User ID',
@@ -15,7 +15,7 @@ export function downloadUsersCSV(users: UserProfile[]): void {
     'First Seen',
     'Last Seen',
     'Primary Session ID',
-  ];
+  ]
 
   const csvRows = [
     headers.join(','),
@@ -34,24 +34,21 @@ export function downloadUsersCSV(users: UserProfile[]): void {
         user.primarySessionId || '',
       ]
         .map((v) => `"${String(v).replace(/"/g, '""')}"`)
-        .join(',')
+        .join(','),
     ),
-  ];
+  ]
 
-  const csvContent = csvRows.join('\n');
-  const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement('a');
-  const url = URL.createObjectURL(blob);
-  link.setAttribute('href', url);
-  link.setAttribute(
-    'download',
-    `brukerprofiler-${new Date().toISOString().split('T')[0]}.csv`
-  );
-  link.style.visibility = 'hidden';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  const csvContent = csvRows.join('\n')
+  const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
+  const link = document.createElement('a')
+  const url = URL.createObjectURL(blob)
+  link.setAttribute('href', url)
+  link.setAttribute('download', `brukerprofiler-${new Date().toISOString().split('T')[0]}.csv`)
+  link.style.visibility = 'hidden'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
 }
 
 export function formatDateTime(dateString: string): string {
@@ -62,7 +59,7 @@ export function formatDateTime(dateString: string): string {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-  });
+  })
 }
 
 export function formatTime(dateString: string): string {
@@ -70,6 +67,5 @@ export function formatTime(dateString: string): string {
     timeZone: 'Europe/Oslo',
     hour: '2-digit',
     minute: '2-digit',
-  });
+  })
 }
-

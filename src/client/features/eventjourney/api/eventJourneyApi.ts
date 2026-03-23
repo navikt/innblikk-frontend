@@ -1,32 +1,31 @@
-import type { EventJourneyResponse } from '../model/types';
+import type { EventJourneyResponse } from '../model/types'
 
 export interface FetchEventJourneysParams {
-    websiteId: string;
-    urlPath: string;
-    startDate: string;
-    endDate: string;
-    minEvents?: number;
+  websiteId: string
+  urlPath: string
+  startDate: string
+  endDate: string
+  minEvents?: number
 }
 
 export const fetchEventJourneys = async (params: FetchEventJourneysParams): Promise<EventJourneyResponse> => {
-    const response = await fetch('/api/bigquery/event-journeys', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            websiteId: params.websiteId,
-            urlPath: params.urlPath,
-            startDate: params.startDate,
-            endDate: params.endDate,
-            minEvents: params.minEvents ?? 1
-        }),
-    });
+  const response = await fetch('/api/bigquery/event-journeys', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      websiteId: params.websiteId,
+      urlPath: params.urlPath,
+      startDate: params.startDate,
+      endDate: params.endDate,
+      minEvents: params.minEvents ?? 1,
+    }),
+  })
 
-    if (!response.ok) {
-        throw new Error('Failed to fetch event journeys');
-    }
+  if (!response.ok) {
+    throw new Error('Failed to fetch event journeys')
+  }
 
-    return await response.json() as EventJourneyResponse;
-};
-
+  return (await response.json()) as EventJourneyResponse
+}

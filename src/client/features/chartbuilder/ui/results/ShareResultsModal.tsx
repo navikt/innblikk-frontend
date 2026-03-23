@@ -1,73 +1,73 @@
-import { useState, useEffect } from 'react';
-import { Modal, Button, Textarea, Select, Checkbox, CheckboxGroup, ReadMore, CopyButton } from '@navikt/ds-react';
+import { useState, useEffect } from 'react'
+import { Modal, Button, Textarea, Select, Checkbox, CheckboxGroup, ReadMore, CopyButton } from '@navikt/ds-react'
 
 interface ShareResultsModalProps {
-  sql: string;
-  open: boolean;
-  onClose: () => void;
+  sql: string
+  open: boolean
+  onClose: () => void
 }
 
 const ShareResultsModal = ({ sql, open, onClose }: ShareResultsModalProps) => {
-  const [description, setDescription] = useState('');
-  const [selectedTab, setSelectedTab] = useState('table');
-  const [hiddenTabs, setHiddenTabs] = useState<string[]>([]);
-  const maxChars = 200;
+  const [description, setDescription] = useState('')
+  const [selectedTab, setSelectedTab] = useState('table')
+  const [hiddenTabs, setHiddenTabs] = useState<string[]>([])
+  const maxChars = 200
 
   // On open, if description/selectedTab/hiddenTabs are default, set from URL params
   useEffect(() => {
     if (open) {
-      const urlParams = new URLSearchParams(window.location.search);
+      const urlParams = new URLSearchParams(window.location.search)
 
       // Description
       if (description === '') {
-        const descParam = urlParams.get('beskrivelse');
+        const descParam = urlParams.get('beskrivelse')
         if (descParam) {
-          setDescription(descParam);
+          setDescription(descParam)
         }
       }
 
       // Tab
       if (selectedTab === 'table') {
-        const tabParam = urlParams.get('tab');
+        const tabParam = urlParams.get('tab')
         if (tabParam) {
-          setSelectedTab(tabParam);
+          setSelectedTab(tabParam)
         }
       }
 
       // hideTabs
       if (hiddenTabs.length === 0) {
-        const hideTabsParam = urlParams.get('hideTabs');
+        const hideTabsParam = urlParams.get('hideTabs')
         if (hideTabsParam) {
-          setHiddenTabs(hideTabsParam.split(',').filter(Boolean));
+          setHiddenTabs(hideTabsParam.split(',').filter(Boolean))
         }
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open])
 
   // Genererer delbar lenke for CopyButton
   const getShareUrl = () => {
-    const encodedSql = encodeURIComponent(sql);
-    const encodedDesc = description.trim() ? encodeURIComponent(description.trim()) : '';
-    let baseUrl = `${window.location.origin}/grafdeling?sql=${encodedSql}`;
+    const encodedSql = encodeURIComponent(sql)
+    const encodedDesc = description.trim() ? encodeURIComponent(description.trim()) : ''
+    let baseUrl = `${window.location.origin}/grafdeling?sql=${encodedSql}`
     if (encodedDesc) {
-      baseUrl += `&beskrivelse=${encodedDesc}`;
+      baseUrl += `&beskrivelse=${encodedDesc}`
     }
     if (selectedTab !== 'table') {
-      baseUrl += `&tab=${selectedTab}`;
+      baseUrl += `&tab=${selectedTab}`
     }
     if (hiddenTabs.length > 0) {
-      baseUrl += `&hideTabs=${hiddenTabs.join(',')}`;
+      baseUrl += `&hideTabs=${hiddenTabs.join(',')}`
     }
-    return baseUrl;
-  };
+    return baseUrl
+  }
 
   const handleClose = () => {
-    setDescription('');
-    setSelectedTab('table');
-    setHiddenTabs([]);
-    onClose();
-  };
+    setDescription('')
+    setSelectedTab('table')
+    setHiddenTabs([])
+    onClose()
+  }
 
   const tabOptions = [
     { label: 'Tabell', value: 'table' },
@@ -75,14 +75,14 @@ const ShareResultsModal = ({ sql, open, onClose }: ShareResultsModalProps) => {
     { label: 'Områdediagram', value: 'areachart' },
     { label: 'Stolpediagram', value: 'barchart' },
     { label: 'Kakediagram', value: 'piechart' },
-  ];
+  ]
 
   return (
     <Modal
       open={open}
       onClose={handleClose}
       header={{
-        heading: "Del tabell & graf",
+        heading: 'Del tabell & graf',
         closeButton: true,
       }}
       width="medium"
@@ -94,20 +94,16 @@ const ShareResultsModal = ({ sql, open, onClose }: ShareResultsModalProps) => {
             description="Fullfør setningen: Grafen viser..."
             value={description}
             onChange={(e) => {
-              const value = e.target.value;
+              const value = e.target.value
               if (value.length <= maxChars) {
-                setDescription(value);
+                setDescription(value)
               }
             }}
             maxLength={maxChars}
             rows={2}
           />
 
-          <Select
-            label="Velg startfane"
-            value={selectedTab}
-            onChange={(e) => setSelectedTab(e.target.value)}
-          >
+          <Select label="Velg startfane" value={selectedTab} onChange={(e) => setSelectedTab(e.target.value)}>
             {tabOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
@@ -147,7 +143,7 @@ const ShareResultsModal = ({ sql, open, onClose }: ShareResultsModalProps) => {
         />
       </Modal.Footer>
     </Modal>
-  );
-};
+  )
+}
 
-export default ShareResultsModal;
+export default ShareResultsModal

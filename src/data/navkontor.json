@@ -1,74 +1,74 @@
 [
-    {
-        "region": "Agder",
-        "link": "https://www.nav.no/no/lokalt/agder",
-        "path": "/no/lokalt/agder",
-        "siteimprove_groupid": "35702099068"
-    },
-    {
-        "region": "Innlandet",
-        "link": "https://www.nav.no/no/lokalt/innlandet",
-        "path": "/no/lokalt/innlandet",
-        "siteimprove_groupid": "35702116635"
-    },
-    {
-        "region": "Møre og Romsdal",
-        "link": "https://www.nav.no/no/lokalt/more-og-romsdal",
-        "path": "/no/lokalt/more-og-romsdal",
-        "siteimprove_groupid": "35702118342"
-    },
-    {
-        "region": "Nordland",
-        "link": "https://www.nav.no/no/lokalt/nordland",
-        "path": "/no/lokalt/nordland",
-        "siteimprove_groupid": "35702154071"
-    },
-    {
-        "region": "Oslo",
-        "link": "https://www.nav.no/no/lokalt/oslo",
-        "path": "/no/lokalt/oslo",
-        "siteimprove_groupid": "35702179962"
-    },
-    {
-        "region": "Rogaland",
-        "link": "https://www.nav.no/no/lokalt/rogaland",
-        "path": "/no/lokalt/rogaland",
-        "siteimprove_groupid": "35702196289"
-    },
-    {
-        "region": "Troms og Finnmark",
-        "link": "https://www.nav.no/no/lokalt/troms-og-finnmark",
-        "path": "/no/lokalt/troms-og-finnmark",
-        "siteimprove_groupid": "35702254446"
-    },
-    {
-        "region": "Trøndelag",
-        "link": "https://www.nav.no/no/lokalt/trondelag",
-        "path": "/no/lokalt/trondelag",
-        "siteimprove_groupid": "35702286126"
-    },
-    {
-        "region": "Vestfold og Telemark",
-        "link": "https://www.nav.no/no/lokalt/vestfold-og-telemark",
-        "path": "/no/lokalt/vestfold-og-telemark",
-        "siteimprove_groupid": "35702288116"
-    },
-    {
-        "region": "Vestland",
-        "link": "https://www.nav.no/no/lokalt/vestland",
-        "path": "/no/lokalt/vestland",
-        "siteimprove_groupid": "35702292701"
-    },
-    {
-        "region": "Vest-Viken",
-        "link": "https://www.nav.no/no/lokalt/vest-viken",
-        "path": "/no/lokalt/vest-viken",
-        "siteimprove_groupid": "35702333352"
-    },
-    {
-        "region": "Øst-Viken",
-        "link": "https://www.nav.no/no/lokalt/ost-viken",
-        "path": "/no/lokalt/ost-viken",
-        "siteimprove_groupid": "35702359593"
-    }
+  {
+    "region": "Agder",
+    "link": "https://www.nav.no/no/lokalt/agder",
+    "path": "/no/lokalt/agder",
+    "siteimprove_groupid": "35702099068"
+  },
+  {
+    "region": "Innlandet",
+    "link": "https://www.nav.no/no/lokalt/innlandet",
+    "path": "/no/lokalt/innlandet",
+    "siteimprove_groupid": "35702116635"
+  },
+  {
+    "region": "Møre og Romsdal",
+    "link": "https://www.nav.no/no/lokalt/more-og-romsdal",
+    "path": "/no/lokalt/more-og-romsdal",
+    "siteimprove_groupid": "35702118342"
+  },
+  {
+    "region": "Nordland",
+    "link": "https://www.nav.no/no/lokalt/nordland",
+    "path": "/no/lokalt/nordland",
+    "siteimprove_groupid": "35702154071"
+  },
+  {
+    "region": "Oslo",
+    "link": "https://www.nav.no/no/lokalt/oslo",
+    "path": "/no/lokalt/oslo",
+    "siteimprove_groupid": "35702179962"
+  },
+  {
+    "region": "Rogaland",
+    "link": "https://www.nav.no/no/lokalt/rogaland",
+    "path": "/no/lokalt/rogaland",
+    "siteimprove_groupid": "35702196289"
+  },
+  {
+    "region": "Troms og Finnmark",
+    "link": "https://www.nav.no/no/lokalt/troms-og-finnmark",
+    "path": "/no/lokalt/troms-og-finnmark",
+    "siteimprove_groupid": "35702254446"
+  },
+  {
+    "region": "Trøndelag",
+    "link": "https://www.nav.no/no/lokalt/trondelag",
+    "path": "/no/lokalt/trondelag",
+    "siteimprove_groupid": "35702286126"
+  },
+  {
+    "region": "Vestfold og Telemark",
+    "link": "https://www.nav.no/no/lokalt/vestfold-og-telemark",
+    "path": "/no/lokalt/vestfold-og-telemark",
+    "siteimprove_groupid": "35702288116"
+  },
+  {
+    "region": "Vestland",
+    "link": "https://www.nav.no/no/lokalt/vestland",
+    "path": "/no/lokalt/vestland",
+    "siteimprove_groupid": "35702292701"
+  },
+  {
+    "region": "Vest-Viken",
+    "link": "https://www.nav.no/no/lokalt/vest-viken",
+    "path": "/no/lokalt/vest-viken",
+    "siteimprove_groupid": "35702333352"
+  },
+  {
+    "region": "Øst-Viken",
+    "link": "https://www.nav.no/no/lokalt/ost-viken",
+    "path": "/no/lokalt/ost-viken",
+    "siteimprove_groupid": "35702359593"
+  }
 ]

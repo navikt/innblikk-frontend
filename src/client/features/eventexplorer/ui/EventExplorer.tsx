@@ -1,177 +1,172 @@
-import { useState } from 'react';
-import { Button, Alert, Loader } from '@navikt/ds-react';
-import { Share2, Check } from 'lucide-react';
-import ChartLayout from '../../analysis/ui/ChartLayout.tsx';
-import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx';
-import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx';
-import UrlPathFilter from '../../analysis/ui/UrlPathFilter.tsx';
-import { useEventExplorer } from '../hooks/useEventExplorer.ts';
-import { copyToClipboard } from '../utils/clipboard.ts';
-import EventList from './EventList.tsx';
-import EventDetailView from './EventDetailView.tsx';
+import { useState } from 'react'
+import { Button, Alert, Loader } from '@navikt/ds-react'
+import { Share2, Check } from 'lucide-react'
+import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
+import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
+import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
+import UrlPathFilter from '../../analysis/ui/UrlPathFilter.tsx'
+import { useEventExplorer } from '../hooks/useEventExplorer.ts'
+import { copyToClipboard } from '../utils/clipboard.ts'
+import EventList from './EventList.tsx'
+import EventDetailView from './EventDetailView.tsx'
 
 const EventExplorer = () => {
-    const {
-        selectedWebsite,
-        setSelectedWebsite,
-        urlPaths,
-        setUrlPaths,
-        pathOperator,
-        setPathOperator,
-        selectedEvent,
-        setSelectedEvent,
-        events,
-        loadingEvents,
-        period,
-        setPeriod,
-        customStartDate,
-        setCustomStartDate,
-        customEndDate,
-        setCustomEndDate,
-        hasSearched,
-        seriesData,
-        propertiesData,
-        loadingData,
-        error,
-        queryStats,
-        eventsQueryStats,
-        allParameterValues,
-        loadingValues,
-        hasLoadedValues,
-        latestEvents,
-        selectedParameterForDrilldown,
-        setSelectedParameterForDrilldown,
-        parameterValuesQueryStats,
-        hasUnappliedFilterChanges,
-        fetchEventsData,
-        fetchAllParameterValues
-    } = useEventExplorer();
+  const {
+    selectedWebsite,
+    setSelectedWebsite,
+    urlPaths,
+    setUrlPaths,
+    pathOperator,
+    setPathOperator,
+    selectedEvent,
+    setSelectedEvent,
+    events,
+    loadingEvents,
+    period,
+    setPeriod,
+    customStartDate,
+    setCustomStartDate,
+    customEndDate,
+    setCustomEndDate,
+    hasSearched,
+    seriesData,
+    propertiesData,
+    loadingData,
+    error,
+    queryStats,
+    eventsQueryStats,
+    allParameterValues,
+    loadingValues,
+    hasLoadedValues,
+    latestEvents,
+    selectedParameterForDrilldown,
+    setSelectedParameterForDrilldown,
+    parameterValuesQueryStats,
+    hasUnappliedFilterChanges,
+    fetchEventsData,
+    fetchAllParameterValues,
+  } = useEventExplorer()
 
-    const [copySuccess, setCopySuccess] = useState<boolean>(false);
+  const [copySuccess, setCopySuccess] = useState<boolean>(false)
 
-    const copyShareLink = async () => {
-        const success = await copyToClipboard(window.location.href);
-        if (success) {
-            setCopySuccess(true);
-            setTimeout(() => setCopySuccess(false), 2000);
-        }
-    };
+  const copyShareLink = async () => {
+    const success = await copyToClipboard(window.location.href)
+    if (success) {
+      setCopySuccess(true)
+      setTimeout(() => setCopySuccess(false), 2000)
+    }
+  }
 
-    const handleBackToEvents = () => {
-        setSelectedEvent('');
-        setSelectedParameterForDrilldown(null);
-    };
+  const handleBackToEvents = () => {
+    setSelectedEvent('')
+    setSelectedParameterForDrilldown(null)
+  }
 
-    return (
-        <ChartLayout
-            title="Egendefinerte hendelser"
-            description="Utforsk egendefinerte hendelser."
-            currentPage="event-explorer"
-            websiteDomain={selectedWebsite?.domain}
-            websiteName={selectedWebsite?.name}
-            sidebarContent={
-                <WebsitePicker
-                    selectedWebsite={selectedWebsite}
-                    onWebsiteChange={setSelectedWebsite}
-                />
-            }
-            filters={
-                <>
-                    <UrlPathFilter
-                        urlPaths={urlPaths}
-                        onUrlPathsChange={setUrlPaths}
-                        pathOperator={pathOperator}
-                        onPathOperatorChange={setPathOperator}
-                        selectedWebsiteDomain={selectedWebsite?.domain}
-                        className="w-full sm:w-[300px]"
-                        label="URL"
-                        showOperator={true}
-                    />
+  return (
+    <ChartLayout
+      title="Egendefinerte hendelser"
+      description="Utforsk egendefinerte hendelser."
+      currentPage="event-explorer"
+      websiteDomain={selectedWebsite?.domain}
+      websiteName={selectedWebsite?.name}
+      sidebarContent={<WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} />}
+      filters={
+        <>
+          <UrlPathFilter
+            urlPaths={urlPaths}
+            onUrlPathsChange={setUrlPaths}
+            pathOperator={pathOperator}
+            onPathOperatorChange={setPathOperator}
+            selectedWebsiteDomain={selectedWebsite?.domain}
+            className="w-full sm:w-[300px]"
+            label="URL"
+            showOperator={true}
+          />
 
-                    <PeriodPicker
-                        period={period}
-                        onPeriodChange={setPeriod}
-                        startDate={customStartDate}
-                        onStartDateChange={setCustomStartDate}
-                        endDate={customEndDate}
-                        onEndDateChange={setCustomEndDate}
-                    />
+          <PeriodPicker
+            period={period}
+            onPeriodChange={setPeriod}
+            startDate={customStartDate}
+            onStartDateChange={setCustomStartDate}
+            endDate={customEndDate}
+            onEndDateChange={setCustomEndDate}
+          />
 
-                    <div className="w-full sm:w-auto self-end pb-[2px]">
-                        <Button
-                            onClick={fetchEventsData}
-                            disabled={!selectedWebsite || loadingEvents || !hasUnappliedFilterChanges}
-                            loading={loadingEvents}
-                            size="small"
-                        >
-                            Vis hendelser
-                        </Button>
-                    </div>
-                </>
-            }
-        >
-            {error && (
-                <Alert variant="error" className="mb-4">
-                    {error}
-                </Alert>
-            )}
+          <div className="w-full sm:w-auto self-end pb-[2px]">
+            <Button
+              onClick={fetchEventsData}
+              disabled={!selectedWebsite || loadingEvents || !hasUnappliedFilterChanges}
+              loading={loadingEvents}
+              size="small"
+            >
+              Vis hendelser
+            </Button>
+          </div>
+        </>
+      }
+    >
+      {error && (
+        <Alert variant="error" className="mb-4">
+          {error}
+        </Alert>
+      )}
 
-            {loadingEvents && (
-                <div className="flex justify-center items-center h-full">
-                    <Loader size="xlarge" title="Henter hendelser..." />
-                </div>
-            )}
+      {loadingEvents && (
+        <div className="flex justify-center items-center h-full">
+          <Loader size="xlarge" title="Henter hendelser..." />
+        </div>
+      )}
 
-            {!selectedEvent && !loadingEvents && hasSearched && events.length > 0 && (
-                <EventList
-                    events={events}
-                    eventsQueryStats={eventsQueryStats}
-                    websiteName={selectedWebsite?.name}
-                    selectedWebsiteId={selectedWebsite?.id}
-                    onSelectEvent={setSelectedEvent}
-                />
-            )}
+      {!selectedEvent && !loadingEvents && hasSearched && events.length > 0 && (
+        <EventList
+          events={events}
+          eventsQueryStats={eventsQueryStats}
+          websiteName={selectedWebsite?.name}
+          selectedWebsiteId={selectedWebsite?.id}
+          onSelectEvent={setSelectedEvent}
+        />
+      )}
 
-            {selectedEvent && (
-                <EventDetailView
-                    selectedEvent={selectedEvent}
-                    seriesData={seriesData}
-                    propertiesData={propertiesData}
-                    loadingData={loadingData}
-                    error={error}
-                    queryStats={queryStats}
-                    allParameterValues={allParameterValues}
-                    loadingValues={loadingValues}
-                    hasLoadedValues={hasLoadedValues}
-                    latestEvents={latestEvents}
-                    selectedParameterForDrilldown={selectedParameterForDrilldown}
-                    parameterValuesQueryStats={parameterValuesQueryStats}
-                    onBack={handleBackToEvents}
-                    onDrilldown={setSelectedParameterForDrilldown}
-                    onFetchValues={fetchAllParameterValues}
-                />
-            )}
+      {selectedEvent && (
+        <EventDetailView
+          selectedEvent={selectedEvent}
+          seriesData={seriesData}
+          propertiesData={propertiesData}
+          loadingData={loadingData}
+          error={error}
+          queryStats={queryStats}
+          allParameterValues={allParameterValues}
+          loadingValues={loadingValues}
+          hasLoadedValues={hasLoadedValues}
+          latestEvents={latestEvents}
+          selectedParameterForDrilldown={selectedParameterForDrilldown}
+          parameterValuesQueryStats={parameterValuesQueryStats}
+          onBack={handleBackToEvents}
+          onDrilldown={setSelectedParameterForDrilldown}
+          onFetchValues={fetchAllParameterValues}
+        />
+      )}
 
-            {!loadingEvents && hasSearched && (events.length > 0 || selectedEvent) && (
-                <div className="flex justify-end mt-8">
-                    <Button
-                        size="small"
-                        variant="secondary"
-                        icon={copySuccess ? <Check size={16} /> : <Share2 size={16} />}
-                        onClick={copyShareLink}
-                    >
-                        {copySuccess ? 'Kopiert!' : 'Del analyse'}
-                    </Button>
-                </div>
-            )}
+      {!loadingEvents && hasSearched && (events.length > 0 || selectedEvent) && (
+        <div className="flex justify-end mt-8">
+          <Button
+            size="small"
+            variant="secondary"
+            icon={copySuccess ? <Check size={16} /> : <Share2 size={16} />}
+            onClick={copyShareLink}
+          >
+            {copySuccess ? 'Kopiert!' : 'Del analyse'}
+          </Button>
+        </div>
+      )}
 
-            {!selectedEvent && !loadingEvents && hasSearched && events.length === 0 && !error && (
-                <div className="flex justify-center items-center h-full text-gray-500">
-                    Ingen egendefinerte hendelser funnet for valgt periode og filter.
-                </div>
-            )}
-        </ChartLayout>
-    );
-};
+      {!selectedEvent && !loadingEvents && hasSearched && events.length === 0 && !error && (
+        <div className="flex justify-center items-center h-full text-gray-500">
+          Ingen egendefinerte hendelser funnet for valgt periode og filter.
+        </div>
+      )}
+    </ChartLayout>
+  )
+}
 
-export default EventExplorer;
+export default EventExplorer

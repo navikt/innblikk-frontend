@@ -1,74 +1,77 @@
-import { useEffect, useMemo, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { hasMarketingSupport, hasSiteimproveSupport } from '../../../shared/hooks/useSiteimproveSupport.ts';
-import { chartGroups } from '../model/chartGroups.tsx';
-import { SHARED_PARAMS } from '../model/types.ts';
+import { useEffect, useMemo, useCallback } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { hasMarketingSupport, hasSiteimproveSupport } from '../../../shared/hooks/useSiteimproveSupport.ts'
+import { chartGroups } from '../model/chartGroups.tsx'
+import { SHARED_PARAMS } from '../model/types.ts'
 
 export const useChartNavigation = (
-    websiteDomain?: string,
-    websiteName?: string,
-    websiteId?: string,
-    hideAnalysisSelector = false,
+  websiteDomain?: string,
+  websiteName?: string,
+  websiteId?: string,
+  hideAnalysisSelector = false,
 ) => {
-    const isNavOpen = !hideAnalysisSelector;
-    const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
+  const isNavOpen = !hideAnalysisSelector
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
-    const domain = websiteDomain || searchParams.get('domain');
-    const resolvedWebsiteId = websiteId || searchParams.get('websiteId');
-    const showSiteimproveSection = useMemo(
-        () => hasSiteimproveSupport(domain, resolvedWebsiteId),
-        [domain, resolvedWebsiteId]
-    );
-    const showMarketingSection = useMemo(
-        () => hasMarketingSupport(domain, websiteName, resolvedWebsiteId),
-        [domain, websiteName, resolvedWebsiteId]
-    );
+  const domain = websiteDomain || searchParams.get('domain')
+  const resolvedWebsiteId = websiteId || searchParams.get('websiteId')
+  const showSiteimproveSection = useMemo(
+    () => hasSiteimproveSupport(domain, resolvedWebsiteId),
+    [domain, resolvedWebsiteId],
+  )
+  const showMarketingSection = useMemo(
+    () => hasMarketingSupport(domain, websiteName, resolvedWebsiteId),
+    [domain, websiteName, resolvedWebsiteId],
+  )
 
-    const filteredChartGroups = useMemo(() => {
-        const groupsWithoutSiteimprove = showSiteimproveSection
-            ? chartGroups
-            : chartGroups.filter(group => group.title !== 'Innholdskvalitet');
+  const filteredChartGroups = useMemo(() => {
+    const groupsWithoutSiteimprove = showSiteimproveSection
+      ? chartGroups
+      : chartGroups.filter((group) => group.title !== 'Innholdskvalitet')
 
-        return groupsWithoutSiteimprove
-            .map(group => ({
-                ...group,
-                ids: group.ids.filter(id => id !== 'markedsanalyse' || showMarketingSection),
-            }))
-            .filter(group => group.ids.length > 0);
-    }, [showSiteimproveSection, showMarketingSection]);
+    return groupsWithoutSiteimprove
+      .map((group) => ({
+        ...group,
+        ids: group.ids.filter((id) => id !== 'markedsanalyse' || showMarketingSection),
+      }))
+      .filter((group) => group.ids.length > 0)
+  }, [showSiteimproveSection, showMarketingSection])
 
-    const getTargetUrl = useCallback((href: string) => {
-        const currentParams = new URLSearchParams(window.location.search);
-        const preservedParams = new URLSearchParams();
+  const getTargetUrl = useCallback((href: string) => {
+    const currentParams = new URLSearchParams(window.location.search)
+    const preservedParams = new URLSearchParams()
 
-        SHARED_PARAMS.forEach(param => {
-            const value = currentParams.get(param);
-            if (value) {
-                preservedParams.set(param, value);
-            }
-        });
+    SHARED_PARAMS.forEach((param) => {
+      const value = currentParams.get(param)
+      if (value) {
+        preservedParams.set(param, value)
+      }
+    })
 
-        const queryString = preservedParams.toString();
-        return queryString ? `${href}?${queryString}` : href;
-    }, []);
+    const queryString = preservedParams.toString()
+    return queryString ? `${href}?${queryString}` : href
+  }, [])
 
-    const handleNavigation = useCallback((e: React.MouseEvent, href: string) => {
-        e.preventDefault();
-        const targetUrl = getTargetUrl(href);
-        void navigate(targetUrl);
-    }, [getTargetUrl, navigate]);
+  const handleNavigation = useCallback(
+    (e: React.MouseEvent, href: string) => {
+      e.preventDefault()
+      const targetUrl = getTargetUrl(href)
+      void navigate(targetUrl)
+    },
+    [getTargetUrl, navigate],
+  )
 
-    // Trigger resize for charts when sidebar widths change
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            window.dispatchEvent(new Event('resize'));
-        }, 100);
-        return () => clearTimeout(timer);
-    }, [isNavOpen]);
+  // Trigger resize for charts when sidebar widths change
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      window.dispatchEvent(new Event('resize'))
+    }, 100)
+    return () => clearTimeout(timer)
+  }, [isNavOpen])
 
-    return {
-        filteredChartGroups,
-        handleNavigation,
-    };
-};
+  return {
+    filteredChartGroups,
+    handleNavigation,
+  }
+}

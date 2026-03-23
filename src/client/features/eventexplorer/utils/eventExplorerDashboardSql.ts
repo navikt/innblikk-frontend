@@ -1,9 +1,9 @@
-import { getGcpProjectId } from '../../../shared/lib/runtimeConfig.ts';
+import { getGcpProjectId } from '../../../shared/lib/runtimeConfig.ts'
 
-const projectId = getGcpProjectId();
-const eventTable = `\`${projectId}.umami_views.event\``;
+const projectId = getGcpProjectId()
+const eventTable = `\`${projectId}.umami_views.event\``
 
-const escapeSqlString = (value: string) => value.replace(/\\/g, '\\\\').replace(/'/g, "''");
+const escapeSqlString = (value: string) => value.replace(/\\/g, '\\\\').replace(/'/g, "''")
 
 export const getEventListSqlTemplate = () => `
 WITH base_query AS (
@@ -23,7 +23,7 @@ FROM base_query
 GROUP BY hendelsesnavn
 ORDER BY Antall DESC
 LIMIT 1000
-`;
+`
 
 export const getEventSeriesSqlTemplate = (eventName: string) => `
 WITH base_query AS (
@@ -43,5 +43,4 @@ FROM base_query
 GROUP BY dato
 ORDER BY dato ASC
 LIMIT 1000
-`;
-
+`

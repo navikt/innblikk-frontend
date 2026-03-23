@@ -1,4 +1,4 @@
-name: "Changelog"
+name: 'Changelog'
 
 on:
   push:
@@ -10,14 +10,14 @@ permissions:
 
 jobs:
   changelog:
-    name: "Generate changelog"
-    runs-on: "ubuntu-latest"
+    name: 'Generate changelog'
+    runs-on: 'ubuntu-latest'
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - name: "Generate CHANGELOG.md"
+      - name: 'Generate CHANGELOG.md'
         uses: orhun/git-cliff-action@v4
         with:
           config: cliff.toml
@@ -26,7 +26,7 @@ jobs:
           OUTPUT: CHANGELOG.md
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: "Commit CHANGELOG.md"
+      - name: 'Commit CHANGELOG.md'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -37,4 +37,3 @@ jobs:
             git commit -m "docs(changelog): update CHANGELOG.md"
             git push
           fi
-

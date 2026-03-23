@@ -7,24 +7,22 @@
  * Checks if the app is running on localhost
  */
 export const isLocalhost = (): boolean => {
-  if (typeof window === "undefined") return false;
+  if (typeof window === 'undefined') return false
 
-  const hostname = window.location.hostname;
-  return (
-    hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]"
-  );
-};
+  const hostname = window.location.hostname
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]'
+}
 
 /**
  * Checks if the app is running in a development environment
  * Development URLs typically follow the pattern: *-dev.*.nav.no
  */
 export const isDevelopment = (): boolean => {
-  if (typeof window === "undefined") return false;
+  if (typeof window === 'undefined') return false
 
-  const hostname = window.location.hostname;
-  return hostname.endsWith("dev.nav.no");
-};
+  const hostname = window.location.hostname
+  return hostname.endsWith('dev.nav.no')
+}
 
 /**
  * Gets the appropriate base URL based on the environment
@@ -35,12 +33,8 @@ export const isDevelopment = (): boolean => {
  * @param urls.prodUrl - URL to use for production/deployed environments
  * @param urls.devUrl - URL to use specifically for development environment
  */
-export const getBaseUrl = (urls: {
-  localUrl: string;
-  prodUrl: string;
-  devUrl: string;
-}): string => {
-  if (isLocalhost()) return urls.localUrl;
-  if (isDevelopment() && urls.devUrl) return urls.devUrl;
-  return urls.prodUrl;
-};
+export const getBaseUrl = (urls: { localUrl: string; prodUrl: string; devUrl: string }): string => {
+  if (isLocalhost()) return urls.localUrl
+  if (isDevelopment() && urls.devUrl) return urls.devUrl
+  return urls.prodUrl
+}

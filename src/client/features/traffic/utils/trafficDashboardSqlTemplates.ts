@@ -1,7 +1,7 @@
-import { getGcpProjectId } from '../../../shared/lib/runtimeConfig.ts';
+import { getGcpProjectId } from '../../../shared/lib/runtimeConfig.ts'
 
-const projectId = getGcpProjectId();
-const eventTable = `\`${projectId}.umami_views.event\``;
+const projectId = getGcpProjectId()
+const eventTable = `\`${projectId}.umami_views.event\``
 
 const baseQuery = `
 WITH base_query AS (
@@ -12,7 +12,7 @@ WITH base_query AS (
     AND ${eventTable}.event_type = 1
     AND ${eventTable}.url_path = [[ {{url_sti}} --]] '/'
     [[AND {{created_at}} ]]
-)`;
+)`
 
 export const getTrafficSeriesSqlTemplate = () => `
 ${baseQuery}
@@ -23,7 +23,7 @@ FROM base_query
 GROUP BY dato
 ORDER BY dato ASC
 LIMIT 1000
-`;
+`
 
 export const getIncludedPagesSqlTemplate = () => `
 ${baseQuery}
@@ -34,7 +34,7 @@ FROM base_query
 GROUP BY base_query.url_path
 ORDER BY Unike_besokende DESC
 LIMIT 1000
-`;
+`
 
 export const getExitsSqlTemplate = () => `
 WITH base_query AS (
@@ -60,7 +60,7 @@ WHERE url_path = [[ {{url_sti}} --]] '/'
 GROUP BY URL_sti
 ORDER BY Unike_besokende DESC
 LIMIT 1000
-`;
+`
 
 export const getCombinedEntrancesSqlTemplate = () => `
 ${baseQuery}
@@ -75,7 +75,7 @@ FROM base_query
 GROUP BY Inngang
 ORDER BY Unike_besokende DESC
 LIMIT 1000
-`;
+`
 
 export const getExternalSourcesSqlTemplate = () => `
 ${baseQuery}
@@ -86,19 +86,20 @@ FROM base_query
 GROUP BY Navn
 ORDER BY Unike_besokende DESC
 LIMIT 1000
-`;
+`
 
-type MarketingDimension = 'source' | 'medium' | 'campaign' | 'content' | 'term' | 'referrer' | 'query';
+type MarketingDimension = 'source' | 'medium' | 'campaign' | 'content' | 'term' | 'referrer' | 'query'
 
 const marketingDimensionExpr: Record<MarketingDimension, string> = {
-    source: "COALESCE(NULLIF(REGEXP_EXTRACT(base_query.url_query, r'(?:^|[?&])utm_source=([^&]*)'), ''), NULLIF(base_query.referrer_domain, ''), '(none)')",
-    medium: "COALESCE(NULLIF(REGEXP_EXTRACT(base_query.url_query, r'(?:^|[?&])utm_medium=([^&]*)'), ''), '(none)')",
-    campaign: "COALESCE(NULLIF(REGEXP_EXTRACT(base_query.url_query, r'(?:^|[?&])utm_campaign=([^&]*)'), ''), '(none)')",
-    content: "COALESCE(NULLIF(REGEXP_EXTRACT(base_query.url_query, r'(?:^|[?&])utm_content=([^&]*)'), ''), '(none)')",
-    term: "COALESCE(NULLIF(REGEXP_EXTRACT(base_query.url_query, r'(?:^|[?&])utm_term=([^&]*)'), ''), '(none)')",
-    referrer: "COALESCE(NULLIF(base_query.referrer_domain, ''), '(none)')",
-    query: "COALESCE(NULLIF(base_query.url_query, ''), '(none)')",
-};
+  source:
+    "COALESCE(NULLIF(REGEXP_EXTRACT(base_query.url_query, r'(?:^|[?&])utm_source=([^&]*)'), ''), NULLIF(base_query.referrer_domain, ''), '(none)')",
+  medium: "COALESCE(NULLIF(REGEXP_EXTRACT(base_query.url_query, r'(?:^|[?&])utm_medium=([^&]*)'), ''), '(none)')",
+  campaign: "COALESCE(NULLIF(REGEXP_EXTRACT(base_query.url_query, r'(?:^|[?&])utm_campaign=([^&]*)'), ''), '(none)')",
+  content: "COALESCE(NULLIF(REGEXP_EXTRACT(base_query.url_query, r'(?:^|[?&])utm_content=([^&]*)'), ''), '(none)')",
+  term: "COALESCE(NULLIF(REGEXP_EXTRACT(base_query.url_query, r'(?:^|[?&])utm_term=([^&]*)'), ''), '(none)')",
+  referrer: "COALESCE(NULLIF(base_query.referrer_domain, ''), '(none)')",
+  query: "COALESCE(NULLIF(base_query.url_query, ''), '(none)')",
+}
 
 export const getMarketingSqlTemplate = (dimension: MarketingDimension, label = 'Navn') => `
 ${baseQuery}
@@ -109,4 +110,4 @@ FROM base_query
 GROUP BY ${label}
 ORDER BY Unike_besokende DESC
 LIMIT 1000
-`;
+`

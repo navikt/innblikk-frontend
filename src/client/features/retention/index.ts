@@ -1,24 +1,24 @@
 // UI Components
-export { default as Retention } from './ui/Retention';
-export { default as RetentionStatsCards } from './ui/RetentionStatsCards';
+export { default as Retention } from './ui/Retention'
+export { default as RetentionStatsCards } from './ui/RetentionStatsCards'
 
 // Types
-export type { RetentionRow, QueryStats, RetentionStats } from './model/types';
+export type { RetentionRow, QueryStats, RetentionStats } from './model/types'
 
 // Hooks
-export { useRetention } from './hooks/useRetention';
-export type { RetentionState } from './hooks/useRetention';
+export { useRetention } from './hooks/useRetention'
+export type { RetentionState } from './hooks/useRetention'
 
 // API
-export { fetchRetentionData } from './api/retentionApi';
-export type { FetchRetentionParams, FetchRetentionResult } from './api/retentionApi';
+export { fetchRetentionData } from './api/retentionApi'
+export type { FetchRetentionParams, FetchRetentionResult } from './api/retentionApi'
 
 // Utils
 export {
-    getRetentionDateRange,
-    buildChartData,
-    computeRetentionStats,
-    downloadRetentionCSV,
-    buildShareParams,
-    copyShareLink,
-} from './utils/retentionUtils';
+  getRetentionDateRange,
+  buildChartData,
+  computeRetentionStats,
+  downloadRetentionCSV,
+  buildShareParams,
+  copyShareLink,
+} from './utils/retentionUtils'

@@ -1,17 +1,7 @@
-import {
-  Heading,
-  VStack,
-  Table,
-  Box,
-  ReadMore,
-  BodyLong,
-  List,
-  Link,
-  CopyButton,
-} from '@navikt/ds-react';
-import { KontaktSeksjon } from "../../../../shared/ui/theme/Kontakt/KontaktSeksjon.tsx";
-import { PageHeader } from "../../../../shared/ui/theme/PageHeader/PageHeader.tsx";
-import { AppBlock } from "../../../../shared/ui/theme/AppBlock/AppBlock.tsx";
+import { Heading, VStack, Table, Box, ReadMore, BodyLong, List, Link, CopyButton } from '@navikt/ds-react'
+import { KontaktSeksjon } from '../../../../shared/ui/theme/Kontakt/KontaktSeksjon.tsx'
+import { PageHeader } from '../../../../shared/ui/theme/PageHeader/PageHeader.tsx'
+import { AppBlock } from '../../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 
 const TaksonomiPage = () => {
   return (
@@ -27,16 +17,42 @@ const TaksonomiPage = () => {
           {/* Innhold / Quick links */}
           <Box className="mt-12 mb-8 p-8 border border-[var(--ax-border-subtle)] rounded-xl bg-[var(--ax-bg-accent-soft)]">
             <div className="mb-4">
-              <Heading size="small" level="2">Innhold</Heading>
+              <Heading size="small" level="2">
+                Innhold
+              </Heading>
             </div>
             <nav>
               <List as="ul" size="small" className="space-y-4 ml-4">
-                <List.Item><Link href="#hvorfor" className="no-underline hover:underline">Hvorfor bruke taksonomi?</Link></List.Item>
-                <List.Item><Link href="#navngivning-hendelser" className="no-underline hover:underline">Slik navngir du hendelser</Link></List.Item>
-                <List.Item><Link href="#navngivning-detaljer" className="no-underline hover:underline">Slik navngir du hendelsesdetaljer</Link></List.Item>
-                <List.Item><Link href="#analytics-types" className="no-underline hover:underline">Type-definisjoner for analytics-hendelser</Link></List.Item>
-                <List.Item><Link href="#implementering" className="no-underline hover:underline">Implementer i koden</Link></List.Item>
-                <List.Item><Link href="#test-verifiser" className="no-underline hover:underline">Test og verifiser</Link></List.Item>
+                <List.Item>
+                  <Link href="#hvorfor" className="no-underline hover:underline">
+                    Hvorfor bruke taksonomi?
+                  </Link>
+                </List.Item>
+                <List.Item>
+                  <Link href="#navngivning-hendelser" className="no-underline hover:underline">
+                    Slik navngir du hendelser
+                  </Link>
+                </List.Item>
+                <List.Item>
+                  <Link href="#navngivning-detaljer" className="no-underline hover:underline">
+                    Slik navngir du hendelsesdetaljer
+                  </Link>
+                </List.Item>
+                <List.Item>
+                  <Link href="#analytics-types" className="no-underline hover:underline">
+                    Type-definisjoner for analytics-hendelser
+                  </Link>
+                </List.Item>
+                <List.Item>
+                  <Link href="#implementering" className="no-underline hover:underline">
+                    Implementer i koden
+                  </Link>
+                </List.Item>
+                <List.Item>
+                  <Link href="#test-verifiser" className="no-underline hover:underline">
+                    Test og verifiser
+                  </Link>
+                </List.Item>
               </List>
             </nav>
           </Box>
@@ -49,20 +65,15 @@ const TaksonomiPage = () => {
                   Hvorfor bruke taksonomi?
                 </Heading>
                 <BodyLong spacing>
-                  Med en felles taksonomi blir det lettere å samle inn, analysere og sammenligne
-                  data på tvers av team og løsninger. Dette gir oss bedre innsikt i hvordan
-                  tjenestene våre brukes.
+                  Med en felles taksonomi blir det lettere å samle inn, analysere og sammenligne data på tvers av team
+                  og løsninger. Dette gir oss bedre innsikt i hvordan tjenestene våre brukes.
                 </BodyLong>
 
-                <Box
-                  className="p-6 border border-[var(--ax-border-subtle)] rounded-medium bg-[var(--ax-bg-accent-soft)]"
-                >
+                <Box className="p-6 border border-[var(--ax-border-subtle)] rounded-medium bg-[var(--ax-bg-accent-soft)]">
                   <Heading size="small" level="3">
                     Dette får du med taksonomien
                   </Heading>
-                  <BodyLong spacing>
-                    En standard for navngivning av hendelser på tvers av team, som gjør det:
-                  </BodyLong>
+                  <BodyLong spacing>En standard for navngivning av hendelser på tvers av team, som gjør det:</BodyLong>
                   <List as="ul" className="mb-0">
                     <List.Item>Enklere å sammenlikne data fra forskjellige løsninger</List.Item>
                     <List.Item>Lettere å forstå hva hendelsene betyr</List.Item>
@@ -77,8 +88,8 @@ const TaksonomiPage = () => {
                   Slik navngir du hendelser
                 </Heading>
                 <BodyLong spacing>
-                  Når du sporer hendelser i Umami, bruk naturlig språk som beskriver hva
-                  brukeren gjør. Tenk på hendelsesnavnet som en kort setning.
+                  Når du sporer hendelser i Umami, bruk naturlig språk som beskriver hva brukeren gjør. Tenk på
+                  hendelsesnavnet som en kort setning.
                 </BodyLong>
 
                 <Box className="my-4 p-6 border border-[var(--ax-border-subtle)] rounded-medium bg-[var(--ax-bg-neutral-soft)]">
@@ -88,12 +99,24 @@ const TaksonomiPage = () => {
 
                 <BodyLong spacing>Eksempler på hendelsesnavn:</BodyLong>
                 <List as="ul" className="mb-6">
-                  <List.Item><strong>navigere</strong> - når bruker klikker på lenker</List.Item>
-                  <List.Item><strong>besøk</strong> - når bruker besøker en side</List.Item>
-                  <List.Item><strong>filtervalg</strong> - når bruker velger et filter</List.Item>
-                  <List.Item><strong>skjema startet</strong> - når bruker starter et skjema</List.Item>
-                  <List.Item><strong>skjema fullført</strong> - når bruker fullfører et skjema</List.Item>
-                  <List.Item><strong>last ned</strong> - når bruker laster ned en fil</List.Item>
+                  <List.Item>
+                    <strong>navigere</strong> - når bruker klikker på lenker
+                  </List.Item>
+                  <List.Item>
+                    <strong>besøk</strong> - når bruker besøker en side
+                  </List.Item>
+                  <List.Item>
+                    <strong>filtervalg</strong> - når bruker velger et filter
+                  </List.Item>
+                  <List.Item>
+                    <strong>skjema startet</strong> - når bruker starter et skjema
+                  </List.Item>
+                  <List.Item>
+                    <strong>skjema fullført</strong> - når bruker fullfører et skjema
+                  </List.Item>
+                  <List.Item>
+                    <strong>last ned</strong> - når bruker laster ned en fil
+                  </List.Item>
                 </List>
 
                 <ReadMore header="Se flere hendelsesnavn du kan bruke">
@@ -164,25 +187,35 @@ const TaksonomiPage = () => {
                   Slik navngir du hendelsesdetaljer
                 </Heading>
                 <BodyLong spacing>
-                  For å gi mer kontekst til hendelsene kan du legge til ekstra informasjon.
-                  Dette gjør det lettere å forstå nøyaktig hva som skjedde og analysere dataene senere.
+                  For å gi mer kontekst til hendelsene kan du legge til ekstra informasjon. Dette gjør det lettere å
+                  forstå nøyaktig hva som skjedde og analysere dataene senere.
                 </BodyLong>
 
                 <Box className="my-4 p-6 border border-[var(--ax-border-subtle)] rounded-medium bg-[var(--ax-bg-neutral-soft)]">
                   <BodyLong className="font-medium">Navnestruktur:</BodyLong>
-                  <BodyLong className="italic">Bruk to eller flere ord der første ordet starter med liten bokstav og de neste med stor.</BodyLong>
-                  <BodyLong className="mt-2">For eksempel: <code>appNavn</code>, <code>skjemaType</code>, <code>tekst</code></BodyLong>
+                  <BodyLong className="italic">
+                    Bruk to eller flere ord der første ordet starter med liten bokstav og de neste med stor.
+                  </BodyLong>
+                  <BodyLong className="mt-2">
+                    For eksempel: <code>appNavn</code>, <code>skjemaType</code>, <code>tekst</code>
+                  </BodyLong>
                 </Box>
 
                 <BodyLong spacing>Vanlige eksempler:</BodyLong>
                 <List as="ul" className="mb-6">
-                  <List.Item><code>lenketekst: "Les mer"</code> - teksten på lenken som ble klikket</List.Item>
-                  <List.Item><code>destinasjon: "/side/info"</code> - hvor lenken fører hen</List.Item>
-                  <List.Item><code>skjemanavn: "dagpengesoknad"</code> - hvilket skjema det gjelder</List.Item>
-                  <List.Item><code>komponentId: "hovedmeny"</code> - unik ID for komponenten</List.Item>
+                  <List.Item>
+                    <code>lenketekst: "Les mer"</code> - teksten på lenken som ble klikket
+                  </List.Item>
+                  <List.Item>
+                    <code>destinasjon: "/side/info"</code> - hvor lenken fører hen
+                  </List.Item>
+                  <List.Item>
+                    <code>skjemanavn: "dagpengesoknad"</code> - hvilket skjema det gjelder
+                  </List.Item>
+                  <List.Item>
+                    <code>komponentId: "hovedmeny"</code> - unik ID for komponenten
+                  </List.Item>
                 </List>
-
-
 
                 <ReadMore header="Se flere hendelsesdetaljer du kan bruke">
                   <Table size="medium">
@@ -248,26 +281,39 @@ const TaksonomiPage = () => {
                   En npm-pakke basert på Navs felles taksonomi som sikrer enhetlig sporing på tvers av team.
                 </BodyLong>
 
-                <Box
-                  className="p-6 border border-[var(--ax-border-subtle)] rounded-medium bg-[var(--ax-bg-accent-soft)]"
-                >
+                <Box className="p-6 border border-[var(--ax-border-subtle)] rounded-medium bg-[var(--ax-bg-accent-soft)]">
                   <Heading size="small" level="3" spacing>
-                    <Link href="https://github.com/navikt/analytics-types" target="_blank" className="text-[var(--ax-text-default)] hover:underline">
+                    <Link
+                      href="https://github.com/navikt/analytics-types"
+                      target="_blank"
+                      className="text-[var(--ax-text-default)] hover:underline"
+                    >
                       @navikt/analytics-types
                     </Link>
                   </Heading>
-                  <BodyLong className="mb-3">
-                    Pakken gir:
-                  </BodyLong>
+                  <BodyLong className="mb-3">Pakken gir:</BodyLong>
                   <List as="ul" className="mb-4">
-                    <List.Item><strong>Standardiserte hendelsenavn</strong> - Følger naturlige språkkonvensjoner (f.eks. "skjema åpnet")</List.Item>
-                    <List.Item><strong>Type-sikkerhet</strong> - Forhindrer skrivefeil og sikrer korrekte properties</List.Item>
-                    <List.Item><strong>Gjenbrukbarhet</strong> - Team kan dele hendelsesdefinisjoner på tvers av tjenester</List.Item>
-                    <List.Item><strong>Personvernoverensstemmelse</strong> - Kun godkjente, ikke-sensitive properties</List.Item>
+                    <List.Item>
+                      <strong>Standardiserte hendelsenavn</strong> - Følger naturlige språkkonvensjoner (f.eks. "skjema
+                      åpnet")
+                    </List.Item>
+                    <List.Item>
+                      <strong>Type-sikkerhet</strong> - Forhindrer skrivefeil og sikrer korrekte properties
+                    </List.Item>
+                    <List.Item>
+                      <strong>Gjenbrukbarhet</strong> - Team kan dele hendelsesdefinisjoner på tvers av tjenester
+                    </List.Item>
+                    <List.Item>
+                      <strong>Personvernoverensstemmelse</strong> - Kun godkjente, ikke-sensitive properties
+                    </List.Item>
                   </List>
                   <div className="pt-6">
                     <BodyLong className="mb-6">
-                      Navngivningen følger <Link href="https://aksel.nav.no/" target="_blank">Aksel</Link>, Navs designsystem, for å spore komponentbruk.
+                      Navngivningen følger{' '}
+                      <Link href="https://aksel.nav.no/" target="_blank">
+                        Aksel
+                      </Link>
+                      , Navs designsystem, for å spore komponentbruk.
                     </BodyLong>
                   </div>
                   <div className="pt-4">
@@ -301,9 +347,15 @@ analytics(Events.NAVIGERE, properties);`}
                 </Box>
 
                 <BodyLong spacing>
-                  Se <Link href="https://github.com/navikt/analytics-types" target="_blank">GitHub-repoet</Link> for
-                  komplett dokumentasjon over alle støttede events og attributter, og <Link href="https://github.com/navikt/analytics-types/blob/main/CONTRIBUTING.md" target="_blank">bidragsguiden</Link> hvis
-                  du vil legge til nye hendelser.
+                  Se{' '}
+                  <Link href="https://github.com/navikt/analytics-types" target="_blank">
+                    GitHub-repoet
+                  </Link>{' '}
+                  for komplett dokumentasjon over alle støttede events og attributter, og{' '}
+                  <Link href="https://github.com/navikt/analytics-types/blob/main/CONTRIBUTING.md" target="_blank">
+                    bidragsguiden
+                  </Link>{' '}
+                  hvis du vil legge til nye hendelser.
                 </BodyLong>
               </section>
 
@@ -313,8 +365,9 @@ analytics(Events.NAVIGERE, properties);`}
                   Implementer i koden
                 </Heading>
                 <BodyLong spacing>
-                  For å implementere Umami trenger du en sporingskode. Denne finner du via <Link href="/public">Innblikk forsiden</Link>.
-                  Her er et eksempel på hvordan du kan spore hendelser i tråd med taksonomien:
+                  For å implementere Umami trenger du en sporingskode. Denne finner du via{' '}
+                  <Link href="/public">Innblikk forsiden</Link>. Her er et eksempel på hvordan du kan spore hendelser i
+                  tråd med taksonomien:
                 </BodyLong>
 
                 <Box className="my-4 bg-[var(--ax-bg-neutral-soft)] p-6 border border-[var(--ax-border-subtle)] rounded-medium">
@@ -344,13 +397,14 @@ function handleSkjemaSendt() {
                 <Heading level="2" size="medium" spacing className="mb-8">
                   Test og verifiser
                 </Heading>
-                <BodyLong spacing>
-                  Sjekk alltid at hendelsene blir registrert riktig i Umami.
-                </BodyLong>
+                <BodyLong spacing>Sjekk alltid at hendelsene blir registrert riktig i Umami.</BodyLong>
 
                 <List as="ol">
                   <List.Item>
-                    <strong><Link href="/grafbygger">Bruk Grafbygger</Link></strong> til å sjekke at du kan lage de rapportene du trenger
+                    <strong>
+                      <Link href="/grafbygger">Bruk Grafbygger</Link>
+                    </strong>{' '}
+                    til å sjekke at du kan lage de rapportene du trenger
                   </List.Item>
                   <List.Item>
                     <strong>Del med teamet</strong> for å sikre at alle forstår hva som spores og hvorfor
@@ -363,7 +417,7 @@ function handleSkjemaSendt() {
       </AppBlock>
       <KontaktSeksjon showMarginBottom={true} narrowContent />
     </>
-  );
-};
+  )
+}
 
-export default TaksonomiPage;
+export default TaksonomiPage

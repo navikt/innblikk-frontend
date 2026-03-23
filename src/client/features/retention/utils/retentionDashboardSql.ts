@@ -1,7 +1,7 @@
-import { getGcpProjectId } from '../../../shared/lib/runtimeConfig.ts';
+import { getGcpProjectId } from '../../../shared/lib/runtimeConfig.ts'
 
-const projectId = getGcpProjectId();
-const eventTable = `\`${projectId}.umami_views.event\``;
+const projectId = getGcpProjectId()
+const eventTable = `\`${projectId}.umami_views.event\``
 
 export const getRetentionSqlTemplate = () => `
 WITH base_events AS (
@@ -47,5 +47,4 @@ SELECT
 FROM retention_raw
 ORDER BY retention_raw.day ASC
 LIMIT 365
-`;
-
+`

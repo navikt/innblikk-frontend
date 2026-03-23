@@ -1,19 +1,14 @@
-import { Button } from '@navikt/ds-react';
-import { Download, Share2, Check } from 'lucide-react';
+import { Button } from '@navikt/ds-react'
+import { Download, Share2, Check } from 'lucide-react'
 
 interface JourneyToolbarProps {
-  onDownloadCSV: () => void;
-  onDownloadExcel: () => void;
-  onShare: () => void;
-  copySuccess: boolean;
+  onDownloadCSV: () => void
+  onDownloadExcel: () => void
+  onShare: () => void
+  copySuccess: boolean
 }
 
-export default function JourneyToolbar({
-  onDownloadCSV,
-  onDownloadExcel,
-  onShare,
-  copySuccess,
-}: JourneyToolbarProps) {
+export default function JourneyToolbar({ onDownloadCSV, onDownloadExcel, onShare, copySuccess }: JourneyToolbarProps) {
   return (
     <div className="flex gap-2 p-3 bg-[var(--ax-bg-neutral-soft)] border-b">
       <Button size="small" variant="secondary" onClick={onDownloadCSV}>
@@ -29,6 +24,5 @@ export default function JourneyToolbar({
         {copySuccess ? 'Lenke kopiert!' : 'Del rapport'}
       </Button>
     </div>
-  );
+  )
 }
-

@@ -1,19 +1,19 @@
-import { TextField, Select, Button } from '@navikt/ds-react';
-import type { Website } from '../../../../shared/types/chart';
+import { TextField, Select, Button } from '@navikt/ds-react'
+import type { Website } from '../../../../shared/types/chart'
 
 interface JourneyControlsProps {
-  startUrl: string;
-  onStartUrlChange: (value: string) => void;
-  steps: number;
-  onStepsChange: (value: number) => void;
-  limitInput: string;
-  onLimitInputChange: (value: string) => void;
-  onLimitBlur: () => void;
-  journeyDirection: string;
-  onDirectionChange: (value: string) => void;
-  onSearch: () => void;
-  selectedWebsite: Website | null;
-  hasUnappliedChanges: boolean;
+  startUrl: string
+  onStartUrlChange: (value: string) => void
+  steps: number
+  onStepsChange: (value: number) => void
+  limitInput: string
+  onLimitInputChange: (value: string) => void
+  onLimitBlur: () => void
+  journeyDirection: string
+  onDirectionChange: (value: string) => void
+  onSearch: () => void
+  selectedWebsite: Website | null
+  hasUnappliedChanges: boolean
 }
 
 export default function JourneyControls({
@@ -40,7 +40,7 @@ export default function JourneyControls({
           onChange={(e) => onStartUrlChange(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
-              onSearch();
+              onSearch()
             }
           }}
         />
@@ -70,11 +70,7 @@ export default function JourneyControls({
       </div>
 
       <div className="w-full sm:w-[100px]">
-        <Select
-          label="Retning"
-          value={journeyDirection}
-          onChange={(e) => onDirectionChange(e.target.value)}
-        >
+        <Select label="Retning" value={journeyDirection} onChange={(e) => onDirectionChange(e.target.value)}>
           <option value="forward">Fremover</option>
           <option value="backward">Bakover</option>
         </Select>
@@ -90,6 +86,5 @@ export default function JourneyControls({
         </Button>
       </div>
     </div>
-  );
+  )
 }
-

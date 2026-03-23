@@ -1,34 +1,37 @@
-import express from 'express';
-import { addAuditLogging } from '../../bigquery/audit.js';
-import { requireBigQuery, getNavIdent, getDryRunStats, MAX_BYTES_BILLED } from './helpers.js';
+import express from 'express'
+import { addAuditLogging } from '../../bigquery/audit.js'
+import { requireBigQuery, getNavIdent, getDryRunStats, MAX_BYTES_BILLED } from './helpers.js'
 
 export function createRetentionRoutes({ bigquery, GCP_PROJECT_ID }) {
-  const router = express.Router();
+  const router = express.Router()
 
   // Get retention data from BigQuery
   router.post('/api/bigquery/retention', async (req, res) => {
     try {
-      const { websiteId, startDate, endDate, urlPath, pathOperator, businessDaysOnly, countBy, countBySwitchAt } = req.body;
-      const navIdent = getNavIdent(req);
+      const { websiteId, startDate, endDate, urlPath, pathOperator, businessDaysOnly, countBy, countBySwitchAt } =
+        req.body
+      const navIdent = getNavIdent(req)
 
-      if (!requireBigQuery(bigquery, res)) return;
+      if (!requireBigQuery(bigquery, res)) return
 
-      const countBySwitchAtMs = countBySwitchAt ? parseInt(countBySwitchAt) : NaN;
-      const hasCountBySwitchAt = Number.isFinite(countBySwitchAtMs);
-      const useDistinctId = countBy === 'distinct_id';
-      const useSwitch = useDistinctId && hasCountBySwitchAt;
-      const col = useDistinctId ? 'e.' : '';
+      const countBySwitchAtMs = countBySwitchAt ? parseInt(countBySwitchAt) : NaN
+      const hasCountBySwitchAt = Number.isFinite(countBySwitchAtMs)
+      const useDistinctId = countBy === 'distinct_id'
+      const useSwitch = useDistinctId && hasCountBySwitchAt
+      const col = useDistinctId ? 'e.' : ''
       const fromClause = useDistinctId
         ? `\`${GCP_PROJECT_ID}.umami.public_website_event\` e LEFT JOIN \`${GCP_PROJECT_ID}.umami_views.session\` s ON e.session_id = s.session_id`
-        : `\`${GCP_PROJECT_ID}.umami.public_website_event\``;
+        : `\`${GCP_PROJECT_ID}.umami.public_website_event\``
       const userIdExpression = useSwitch
         ? `IF(${col}created_at >= @countBySwitchAt, s.distinct_id, ${col}session_id)`
-        : (useDistinctId ? 's.distinct_id' : `${col}session_id`);
+        : useDistinctId
+          ? 's.distinct_id'
+          : `${col}session_id`
 
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      const daysDiff = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-      const maxDays = Math.max(daysDiff, 31);
+      const start = new Date(startDate)
+      const end = new Date(endDate)
+      const daysDiff = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+      const maxDays = Math.max(daysDiff, 31)
 
       const query = `
           WITH base AS(
@@ -49,17 +52,22 @@ export function createRetentionRoutes({ bigquery, GCP_PROJECT_ID }) {
               WHERE ${col}website_id = @websiteId
                   AND ${col}created_at BETWEEN @startDate AND @endDate
           ),
-          ${urlPath ? `
+          ${
+            urlPath
+              ? `
           filtered_sessions AS (
               SELECT DISTINCT
                   user_id,
                   event_date AS first_seen_date
               FROM base
-              WHERE ${pathOperator === 'starts-with'
-                ? 'LOWER(url_path_clean) LIKE @urlPathPattern'
-                : 'url_path_clean = @urlPath'}
+              WHERE ${
+                pathOperator === 'starts-with'
+                  ? 'LOWER(url_path_clean) LIKE @urlPathPattern'
+                  : 'url_path_clean = @urlPath'
+              }
           ),
-          ` : `
+          `
+              : `
           filtered_sessions AS (
               SELECT
                   user_id,
@@ -67,7 +75,8 @@ export function createRetentionRoutes({ bigquery, GCP_PROJECT_ID }) {
               FROM base
               GROUP BY user_id
           ),
-          `}
+          `
+          }
           user_activity AS (
               SELECT DISTINCT
                   user_id,
@@ -105,59 +114,72 @@ export function createRetentionRoutes({ bigquery, GCP_PROJECT_ID }) {
           FROM retention_counts rc
           CROSS JOIN user_counts u
           ORDER BY rc.day_diff
-      `;
+      `
 
-      const params = { websiteId, startDate, endDate, maxDays };
+      const params = { websiteId, startDate, endDate, maxDays }
       if (useSwitch) {
-        params.countBySwitchAt = new Date(countBySwitchAtMs).toISOString();
+        params.countBySwitchAt = new Date(countBySwitchAtMs).toISOString()
       }
       if (urlPath) {
         if (pathOperator === 'starts-with') {
-          params.urlPathPattern = urlPath.toLowerCase() + '%';
+          params.urlPathPattern = urlPath.toLowerCase() + '%'
         } else {
-          params.urlPath = urlPath;
+          params.urlPath = urlPath
         }
       }
 
-      const queryStats = await getDryRunStats(bigquery, {
-        query, params, navIdent, analysisType: 'Brukerlojalitet',
-      }, addAuditLogging);
+      const queryStats = await getDryRunStats(
+        bigquery,
+        {
+          query,
+          params,
+          navIdent,
+          analysisType: 'Brukerlojalitet',
+        },
+        addAuditLogging,
+      )
 
       if (queryStats) {
-        console.log(`[Retention] Dry run - Processing ${queryStats.totalBytesProcessedGB} GB, estimated cost: $${queryStats.estimatedCostUSD}`);
+        console.log(
+          `[Retention] Dry run - Processing ${queryStats.totalBytesProcessedGB} GB, estimated cost: $${queryStats.estimatedCostUSD}`,
+        )
       }
 
-      const [job] = await bigquery.createQueryJob(addAuditLogging({
-        query,
-        location: 'europe-north1',
-        params,
-        maximumBytesBilled: MAX_BYTES_BILLED,
-      }, navIdent, 'Brukerlojalitet'));
+      const [job] = await bigquery.createQueryJob(
+        addAuditLogging(
+          {
+            query,
+            location: 'europe-north1',
+            params,
+            maximumBytesBilled: MAX_BYTES_BILLED,
+          },
+          navIdent,
+          'Brukerlojalitet',
+        ),
+      )
 
-      const [rows] = await job.getQueryResults();
+      const [rows] = await job.getQueryResults()
 
-      let day0Count = 0;
-      const day0Row = rows.find(r => r.day === 0);
+      let day0Count = 0
+      const day0Row = rows.find((r) => r.day === 0)
       if (day0Row) {
-        day0Count = parseInt(day0Row.returning_users);
+        day0Count = parseInt(day0Row.returning_users)
       }
 
-      const data = rows.map(row => {
-        const count = parseInt(row.returning_users);
-        const percentage = day0Count > 0 ? Math.round((count / day0Count) * 100) : 0;
-        return { day: row.day, returning_users: count, percentage };
-      });
+      const data = rows.map((row) => {
+        const count = parseInt(row.returning_users)
+        const percentage = day0Count > 0 ? Math.round((count / day0Count) * 100) : 0
+        return { day: row.day, returning_users: count, percentage }
+      })
 
-      res.json({ data, queryStats });
-
+      res.json({ data, queryStats })
     } catch (error) {
-      console.error('BigQuery retention error:', error);
+      console.error('BigQuery retention error:', error)
       res.status(500).json({
         error: error.message || 'Failed to fetch retention data',
-      });
+      })
     }
-  });
+  })
 
-  return router;
+  return router
 }
-

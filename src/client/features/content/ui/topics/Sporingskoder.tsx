@@ -1,8 +1,8 @@
-import { BodyShort, Link } from "@navikt/ds-react";
-import { TeamWebsites } from "../../../settings";
-import { KontaktSeksjon } from "../../../../shared/ui/theme/Kontakt/KontaktSeksjon.tsx";
-import { PageHeader } from "../../../../shared/ui/theme/PageHeader/PageHeader.tsx";
-import { AppBlock } from "../../../../shared/ui/theme/AppBlock/AppBlock.tsx";
+import { BodyShort, Link } from '@navikt/ds-react'
+import { TeamWebsites } from '../../../settings'
+import { KontaktSeksjon } from '../../../../shared/ui/theme/Kontakt/KontaktSeksjon.tsx'
+import { PageHeader } from '../../../../shared/ui/theme/PageHeader/PageHeader.tsx'
+import { AppBlock } from '../../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 
 function Sporingskoder() {
   return (
@@ -11,28 +11,21 @@ function Sporingskoder() {
         title="Sporingskoder"
         description={
           <>
-            Kontakt{" "}
-            <Link
-              target="_blank"
-              href="https://nav-it.slack.com/archives/C02UGFS2J4B"
-            >
+            Kontakt{' '}
+            <Link target="_blank" href="https://nav-it.slack.com/archives/C02UGFS2J4B">
               #ResearchOps på Slack
-            </Link>{" "}
+            </Link>{' '}
             for å få sporingskode til nettsiden eller appen din.
           </>
         }
       />
 
       <AppBlock className="pb-16 px-4">
-
         <TeamWebsites />
 
-        <BodyShort style={{ marginTop: "40px", marginBottom: "40px" }}>
-          For teknisk dokumentasjon,{" "}
-          <Link
-            target="_blank"
-            href="https://umami.is/docs/tracker-configuration"
-          >
+        <BodyShort style={{ marginTop: '40px', marginBottom: '40px' }}>
+          For teknisk dokumentasjon,{' '}
+          <Link target="_blank" href="https://umami.is/docs/tracker-configuration">
             se Umami sin dokumentasjonsside
           </Link>
           .
@@ -41,7 +34,7 @@ function Sporingskoder() {
 
       <KontaktSeksjon showMarginBottom={true} />
     </>
-  );
+  )
 }
 
-export default Sporingskoder;
+export default Sporingskoder

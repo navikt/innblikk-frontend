@@ -1,8 +1,8 @@
-import { getGcpProjectId } from '../../../shared/lib/runtimeConfig.ts';
+import { getGcpProjectId } from '../../../shared/lib/runtimeConfig.ts'
 
-const projectId = getGcpProjectId();
-const eventTable = `\`${projectId}.umami_views.event\``;
-const sessionTable = `\`${projectId}.umami_views.session\``;
+const projectId = getGcpProjectId()
+const eventTable = `\`${projectId}.umami_views.event\``
+const sessionTable = `\`${projectId}.umami_views.session\``
 
 export const getUserProfilesSqlTemplate = () => `
 WITH base_query AS (
@@ -49,5 +49,4 @@ SELECT
 FROM users
 ORDER BY sist_sett DESC
 LIMIT 1000
-`;
-
+`

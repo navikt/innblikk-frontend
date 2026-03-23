@@ -1,17 +1,17 @@
-import { Modal, Heading, BodyShort, Loader } from '@navikt/ds-react';
-import { Monitor, Clock } from 'lucide-react';
-import type { UserProfile, ActivityItem } from '../../model';
-import { formatDateTime, formatTime } from '../../utils';
-import { getDeviceIcon } from './DeviceIcon';
+import { Modal, Heading, BodyShort, Loader } from '@navikt/ds-react'
+import { Monitor, Clock } from 'lucide-react'
+import type { UserProfile, ActivityItem } from '../../model'
+import { formatDateTime, formatTime } from '../../utils'
+import { getDeviceIcon } from './DeviceIcon'
 
 interface UserDetailsModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  selectedSession: UserProfile | null;
-  activityData: ActivityItem[];
-  activityLoading: boolean;
-  selectedActivityUrl: string | null;
-  onActivityUrlClick: (url: string) => void;
+  isOpen: boolean
+  onClose: () => void
+  selectedSession: UserProfile | null
+  activityData: ActivityItem[]
+  activityLoading: boolean
+  selectedActivityUrl: string | null
+  onActivityUrlClick: (url: string) => void
 }
 
 export default function UserDetailsModal({
@@ -23,7 +23,7 @@ export default function UserDetailsModal({
   selectedActivityUrl,
   onActivityUrlClick,
 }: UserDetailsModalProps) {
-  if (!selectedSession) return null;
+  if (!selectedSession) return null
 
   return (
     <Modal open={isOpen} onClose={onClose} width="medium" aria-labelledby="user-details-title">
@@ -140,13 +140,11 @@ export default function UserDetailsModal({
                         <code
                           className="text-sm bg-[var(--ax-bg-neutral-soft)] px-2 py-1 rounded cursor-pointer hover:bg-[var(--ax-bg-neutral-moderate)]"
                           onClick={() => {
-                            onActivityUrlClick(item.url || '');
+                            onActivityUrlClick(item.url || '')
                           }}
                           style={{
                             color:
-                              selectedActivityUrl === item.url
-                                ? 'var(--ax-text-accent)'
-                                : 'var(--ax-text-default)',
+                              selectedActivityUrl === item.url ? 'var(--ax-text-accent)' : 'var(--ax-text-default)',
                           }}
                         >
                           {item.url}
@@ -167,6 +165,5 @@ export default function UserDetailsModal({
         </div>
       </Modal.Body>
     </Modal>
-  );
+  )
 }
-

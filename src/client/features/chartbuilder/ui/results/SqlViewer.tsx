@@ -1,13 +1,13 @@
-import { useState } from 'react';
-import { Button, CopyButton, ReadMore, Heading, Link } from '@navikt/ds-react';
-import { Copy, ExternalLink } from 'lucide-react';
-import Editor from '@monaco-editor/react';
+import { useState } from 'react'
+import { Button, CopyButton, ReadMore, Heading, Link } from '@navikt/ds-react'
+import { Copy, ExternalLink } from 'lucide-react'
+import Editor from '@monaco-editor/react'
 
 interface SqlViewerProps {
-  sql: string;
-  showEditButton?: boolean;
-  withoutReadMore?: boolean;
-  showMetabaseActions?: boolean;
+  sql: string
+  showEditButton?: boolean
+  withoutReadMore?: boolean
+  showMetabaseActions?: boolean
 }
 
 const SqlViewer = ({
@@ -16,49 +16,48 @@ const SqlViewer = ({
   withoutReadMore = false,
   showMetabaseActions = true,
 }: SqlViewerProps) => {
-  const [copiedMetabase, setCopiedMetabase] = useState(false);
-  const isDevEnvironment =
-    typeof window !== 'undefined' &&
-    window.location.hostname.includes('.dev.nav.no');
+  const [copiedMetabase, setCopiedMetabase] = useState(false)
+  const isDevEnvironment = typeof window !== 'undefined' && window.location.hostname.includes('.dev.nav.no')
   const metabaseQuestionUrl = isDevEnvironment
     ? 'https://metabase.ansatt.dev.nav.no/question#eyJkYXRhc2V0X3F1ZXJ5Ijp7ImxpYi90eXBlIjoibWJxbC9xdWVyeSIsImRhdGFiYXNlIjo1Njg2LCJzdGFnZXMiOlt7ImxpYi90eXBlIjoibWJxbC5zdGFnZS9uYXRpdmUiLCJuYXRpdmUiOiIiLCJ0ZW1wbGF0ZS10YWdzIjp7fX1dfSwiZGlzcGxheSI6InRhYmxlIiwidmlzdWFsaXphdGlvbl9zZXR0aW5ncyI6e30sInR5cGUiOiJxdWVzdGlvbiJ9'
-    : 'https://metabase.ansatt.nav.no/question#eyJkYXRhc2V0X3F1ZXJ5Ijp7ImxpYi90eXBlIjoibWJxbC9xdWVyeSIsImRhdGFiYXNlIjoxNTQ4LCJzdGFnZXMiOlt7ImxpYi90eXBlIjoibWJxbC5zdGFnZS9uYXRpdmUiLCJuYXRpdmUiOiIiLCJ0ZW1wbGF0ZS10YWdzIjp7fX1dfSwiZGlzcGxheSI6InRhYmxlIiwidmlzdWFsaXphdGlvbl9zZXR0aW5ncyI6e30sInR5cGUiOiJxdWVzdGlvbiJ9';
+    : 'https://metabase.ansatt.nav.no/question#eyJkYXRhc2V0X3F1ZXJ5Ijp7ImxpYi90eXBlIjoibWJxbC9xdWVyeSIsImRhdGFiYXNlIjoxNTQ4LCJzdGFnZXMiOlt7ImxpYi90eXBlIjoibWJxbC5zdGFnZS9uYXRpdmUiLCJuYXRpdmUiOiIiLCJ0ZW1wbGF0ZS10YWdzIjp7fX1dfSwiZGlzcGxheSI6InRhYmxlIiwidmlzdWFsaXphdGlvbl9zZXR0aW5ncyI6e30sInR5cGUiOiJxdWVzdGlvbiJ9'
 
-  if (!sql) return null;
+  if (!sql) return null
 
   const handleCopyToMetabase = () => {
-    void navigator.clipboard.writeText(sql);
-    setCopiedMetabase(true);
-    setTimeout(() => setCopiedMetabase(false), 3000);
-  };
+    void navigator.clipboard.writeText(sql)
+    setCopiedMetabase(true)
+    setTimeout(() => setCopiedMetabase(false), 3000)
+  }
 
   const content = (
     <div className="space-y-2">
       <div className="flex justify-end gap-2 items-center">
         <CopyButton copyText={sql} text="Kopier" activeText="Kopiert!" size="small" />
-        {showEditButton && (() => {
-          const encodedSql = encodeURIComponent(sql);
-          const urlLength = `/sql?sql=${encodedSql}`.length;
-          const isTooLong = urlLength > 2000;
+        {showEditButton &&
+          (() => {
+            const encodedSql = encodeURIComponent(sql)
+            const urlLength = `/sql?sql=${encodedSql}`.length
+            const isTooLong = urlLength > 2000
 
-          return (
-            <Button
-              size="xsmall"
-              variant="tertiary"
-              type="button"
-              onClick={() => {
-                if (isTooLong) {
-                  window.open('/sql', '_blank');
-                } else {
-                  window.open(`/sql?sql=${encodedSql}`, '_blank');
-                }
-              }}
-              aria-label="Åpne redigeringsverktøy"
-            >
-              Åpne redigeringsverktøy
-            </Button>
-          );
-        })()}
+            return (
+              <Button
+                size="xsmall"
+                variant="tertiary"
+                type="button"
+                onClick={() => {
+                  if (isTooLong) {
+                    window.open('/sql', '_blank')
+                  } else {
+                    window.open(`/sql?sql=${encodedSql}`, '_blank')
+                  }
+                }}
+                aria-label="Åpne redigeringsverktøy"
+              >
+                Åpne redigeringsverktøy
+              </Button>
+            )
+          })()}
       </div>
       <div className="border rounded-md overflow-hidden bg-[#1e1e1e]">
         <Editor
@@ -87,7 +86,9 @@ const SqlViewer = ({
 
       {showMetabaseActions && (
         <div className="pt-2 border-t border-[var(--ax-border-neutral-subtle)] space-y-2">
-          <Heading level="3" size="xsmall">Legg til i Metabase</Heading>
+          <Heading level="3" size="xsmall">
+            Legg til i Metabase
+          </Heading>
           <div className="flex items-center gap-2 flex-wrap">
             <Button
               size="xsmall"
@@ -110,10 +111,10 @@ const SqlViewer = ({
         </div>
       )}
     </div>
-  );
+  )
 
   if (withoutReadMore) {
-    return <div className="mt-2">{content}</div>;
+    return <div className="mt-2">{content}</div>
   }
 
   return (
@@ -122,7 +123,7 @@ const SqlViewer = ({
         {content}
       </ReadMore>
     </div>
-  );
-};
+  )
+}
 
-export default SqlViewer;
+export default SqlViewer

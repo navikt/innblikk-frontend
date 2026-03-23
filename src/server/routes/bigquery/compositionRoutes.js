@@ -1,31 +1,32 @@
-import express from 'express';
-import { addAuditLogging } from '../../bigquery/audit.js';
-import { requireBigQuery, getNavIdent, getDryRunStats, normalizeUrlSql, MAX_BYTES_BILLED } from './helpers.js';
+import express from 'express'
+import { addAuditLogging } from '../../bigquery/audit.js'
+import { requireBigQuery, getNavIdent, getDryRunStats, normalizeUrlSql, MAX_BYTES_BILLED } from './helpers.js'
 
 export function createCompositionRoutes({ bigquery, GCP_PROJECT_ID }) {
-  const router = express.Router();
+  const router = express.Router()
 
   // Get user composition data from BigQuery
   router.post('/api/bigquery/composition', async (req, res) => {
     try {
-      const { websiteId, startDate, endDate, urlPath, pathOperator, countBy, countBySwitchAt } = req.body;
-      const navIdent = getNavIdent(req);
+      const { websiteId, startDate, endDate, urlPath, pathOperator, countBy, countBySwitchAt } = req.body
+      const navIdent = getNavIdent(req)
 
-      if (!requireBigQuery(bigquery, res)) return;
+      if (!requireBigQuery(bigquery, res)) return
 
-      const countBySwitchAtMs = countBySwitchAt ? parseInt(countBySwitchAt) : NaN;
-      const hasCountBySwitchAt = Number.isFinite(countBySwitchAtMs);
-      const useDistinctId = countBy === 'distinct_id';
-      const useSwitch = useDistinctId && hasCountBySwitchAt;
+      const countBySwitchAtMs = countBySwitchAt ? parseInt(countBySwitchAt) : NaN
+      const hasCountBySwitchAt = Number.isFinite(countBySwitchAtMs)
+      const useDistinctId = countBy === 'distinct_id'
+      const useSwitch = useDistinctId && hasCountBySwitchAt
       const table = useDistinctId
         ? `\`${GCP_PROJECT_ID}.umami_views.session\``
-        : `\`${GCP_PROJECT_ID}.umami.public_session\``;
+        : `\`${GCP_PROJECT_ID}.umami.public_session\``
 
       const userIdExpression = useSwitch
         ? `IF(s.created_at >= @countBySwitchAt, s.distinct_id, s.session_id)`
-        : (useDistinctId ? 's.distinct_id' : 's.session_id');
-      const countExpression = useDistinctId ? 'COUNT(DISTINCT user_id)' : 'COUNT(*)';
-
+        : useDistinctId
+          ? 's.distinct_id'
+          : 's.session_id'
+      const countExpression = useDistinctId ? 'COUNT(DISTINCT user_id)' : 'COUNT(*)'
 
       const query = `
           WITH relevant_sessions AS (
@@ -40,18 +41,23 @@ export function createCompositionRoutes({ bigquery, GCP_PROJECT_ID }) {
               FROM ${table} s
               WHERE s.website_id = @websiteId
                 AND s.created_at BETWEEN @startDate AND @endDate
-                ${urlPath ? `
+                ${
+                  urlPath
+                    ? `
                 AND EXISTS (
                   SELECT 1 
                   FROM \`${GCP_PROJECT_ID}.umami.public_website_event\` e 
                   WHERE e.session_id = s.session_id 
                     AND e.website_id = @websiteId
                     AND e.created_at BETWEEN @startDate AND @endDate
-                    ${pathOperator === 'starts-with'
-                      ? `AND LOWER(${normalizeUrlSql('e.url_path')}) LIKE @urlPathPattern`
-                      : `AND ${normalizeUrlSql('e.url_path')} = @urlPath`
+                    ${
+                      pathOperator === 'starts-with'
+                        ? `AND LOWER(${normalizeUrlSql('e.url_path')}) LIKE @urlPathPattern`
+                        : `AND ${normalizeUrlSql('e.url_path')} = @urlPath`
                     }
-                )` : ''}
+                )`
+                    : ''
+                }
           )
           SELECT 'browser' as category, browser as value, ${countExpression} as count FROM relevant_sessions GROUP BY 1, 2
           UNION ALL
@@ -65,56 +71,69 @@ export function createCompositionRoutes({ bigquery, GCP_PROJECT_ID }) {
           UNION ALL
           SELECT 'country' as category, country as value, ${countExpression} as count FROM relevant_sessions GROUP BY 1, 2
           ORDER BY category, count DESC
-      `;
+      `
 
-      const params = { websiteId, startDate, endDate };
+      const params = { websiteId, startDate, endDate }
       if (useSwitch) {
-        params.countBySwitchAt = new Date(countBySwitchAtMs).toISOString();
+        params.countBySwitchAt = new Date(countBySwitchAtMs).toISOString()
       }
       if (urlPath) {
         if (pathOperator === 'starts-with') {
-          params.urlPathPattern = urlPath.toLowerCase() + '%';
+          params.urlPathPattern = urlPath.toLowerCase() + '%'
         } else {
-          params.urlPath = urlPath;
+          params.urlPath = urlPath
         }
       }
 
-      const queryStats = await getDryRunStats(bigquery, {
-        query, params, navIdent, analysisType: 'Brukersammensetning',
-      }, addAuditLogging);
+      const queryStats = await getDryRunStats(
+        bigquery,
+        {
+          query,
+          params,
+          navIdent,
+          analysisType: 'Brukersammensetning',
+        },
+        addAuditLogging,
+      )
 
       if (queryStats) {
-        console.log(`[Composition] Dry run - Processing ${queryStats.totalBytesProcessedGB} GB, estimated cost: $${queryStats.estimatedCostUSD}`);
+        console.log(
+          `[Composition] Dry run - Processing ${queryStats.totalBytesProcessedGB} GB, estimated cost: $${queryStats.estimatedCostUSD}`,
+        )
       }
 
-      const [job] = await bigquery.createQueryJob(addAuditLogging({
-        query,
-        location: 'europe-north1',
-        params,
-        maximumBytesBilled: MAX_BYTES_BILLED,
-      }, navIdent, 'Brukersammensetning'));
+      const [job] = await bigquery.createQueryJob(
+        addAuditLogging(
+          {
+            query,
+            location: 'europe-north1',
+            params,
+            maximumBytesBilled: MAX_BYTES_BILLED,
+          },
+          navIdent,
+          'Brukersammensetning',
+        ),
+      )
 
-      const [rows] = await job.getQueryResults();
+      const [rows] = await job.getQueryResults()
 
       res.json({
         data: rows,
         queryStats,
         meta: { usedDistinctId: useDistinctId },
-      });
-
+      })
     } catch (error) {
-      console.error('BigQuery composition error:', error);
-      if (error.code) console.error('Error Code:', error.code);
-      if (error.errors) console.error('Error Details:', JSON.stringify(error.errors, null, 2));
-      if (error.response) console.error('Error Response:', JSON.stringify(error.response, null, 2));
+      console.error('BigQuery composition error:', error)
+      if (error.code) console.error('Error Code:', error.code)
+      if (error.errors) console.error('Error Details:', JSON.stringify(error.errors, null, 2))
+      if (error.response) console.error('Error Response:', JSON.stringify(error.response, null, 2))
 
       res.status(500).json({
         error: error.message || 'Failed to fetch composition data',
         details: error.errors || error.response,
-      });
+      })
     }
-  });
+  })
 
-  return router;
+  return router
 }
-

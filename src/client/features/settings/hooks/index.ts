@@ -1,2 +1,1 @@
-export * from './useWebsites';
-
+export * from './useWebsites'

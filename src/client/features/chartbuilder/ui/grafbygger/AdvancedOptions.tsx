@@ -1,13 +1,13 @@
-import { Button, TextField, Label, Accordion } from '@navikt/ds-react';
-import { CogIcon } from '@navikt/aksel-icons';
-import type { ChangeEvent } from 'react';
+import { Button, TextField, Label, Accordion } from '@navikt/ds-react'
+import { CogIcon } from '@navikt/aksel-icons'
+import type { ChangeEvent } from 'react'
 
 interface AdvancedOptionsProps {
-  dateRangeInDays: number;
-  tempDateRangeInDays: number;
-  maxDaysAvailable: number;
-  setTempDateRangeInDays: (days: number) => void;
-  handleDateRangeChange: () => void;
+  dateRangeInDays: number
+  tempDateRangeInDays: number
+  maxDaysAvailable: number
+  setTempDateRangeInDays: (days: number) => void
+  handleDateRangeChange: () => void
 }
 
 const AdvancedOptions: React.FC<AdvancedOptionsProps> = ({
@@ -15,7 +15,7 @@ const AdvancedOptions: React.FC<AdvancedOptionsProps> = ({
   tempDateRangeInDays,
   maxDaysAvailable,
   setTempDateRangeInDays,
-  handleDateRangeChange
+  handleDateRangeChange,
 }) => {
   return (
     <Accordion>
@@ -42,27 +42,22 @@ const AdvancedOptions: React.FC<AdvancedOptionsProps> = ({
                   size="small"
                   value={tempDateRangeInDays}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                    const val = parseInt(e.target.value, 10);
-                    setTempDateRangeInDays(isNaN(val) ? 1 : val);
+                    const val = parseInt(e.target.value, 10)
+                    setTempDateRangeInDays(isNaN(val) ? 1 : val)
                   }}
                   min={1}
                   max={maxDaysAvailable}
                   className="w-24"
                 />
-                <Button
-                  variant="secondary"
-                  size="small"
-                  onClick={handleDateRangeChange}
-                  style={{ height: '42px' }}
-                >
+                <Button variant="secondary" size="small" onClick={handleDateRangeChange} style={{ height: '42px' }}>
                   Endre
                 </Button>
               </div>
             </div>
-            
+
             <div className="text-sm text-[var(--ax-text-subtle)]">
               <p>
-                Ser på data for de siste {dateRangeInDays} dagene 
+                Ser på data for de siste {dateRangeInDays} dagene
                 {maxDaysAvailable > 0 && ` (maks ${maxDaysAvailable} dager tilgjengelig)`}
               </p>
             </div>
@@ -70,7 +65,7 @@ const AdvancedOptions: React.FC<AdvancedOptionsProps> = ({
         </Accordion.Content>
       </Accordion.Item>
     </Accordion>
-  );
-};
+  )
+}
 
-export default AdvancedOptions;
+export default AdvancedOptions

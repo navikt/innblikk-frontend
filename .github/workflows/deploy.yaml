@@ -1,13 +1,13 @@
-name: "Deploy"
+name: 'Deploy'
 run-name: "Deploy ${{ github.event_name == 'push' && 'Dev' || github.event.inputs.environment == 'prod' && 'Prod' || 'Dev' }}"
 on:
   push:
     branches:
-      - "main"
+      - 'main'
   workflow_dispatch:
     inputs:
       environment:
-        description: "Environment to deploy to"
+        description: 'Environment to deploy to'
         required: true
         type: choice
         options:
@@ -16,16 +16,16 @@ on:
 
 jobs:
   build:
-    name: "build"
-    runs-on: "ubuntu-latest"
+    name: 'build'
+    runs-on: 'ubuntu-latest'
     permissions:
       packages: write
       contents: read
       id-token: write
     steps:
-      - uses: "actions/checkout@v6"
+      - uses: 'actions/checkout@v6'
 
-      - name: "Build and push"
+      - name: 'Build and push'
         uses: nais/docker-build-push@v0
         id: docker-build-push
         with:
@@ -35,26 +35,25 @@ jobs:
           build_secrets: |
             "NODE_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}"
 
-
     outputs:
       image: ${{ steps.docker-build-push.outputs.image }}
 
   deploy-dev:
     if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'dev')
     needs: build
-    runs-on: "ubuntu-latest"
+    runs-on: 'ubuntu-latest'
     permissions:
       contents: write
       id-token: write
     steps:
-      - uses: "actions/checkout@v6"
-      - name: "Deploy to Dev"
-        uses: "nais/deploy/actions/deploy@v2"
+      - uses: 'actions/checkout@v6'
+      - name: 'Deploy to Dev'
+        uses: 'nais/deploy/actions/deploy@v2'
         env:
-          CLUSTER: "dev-gcp"
+          CLUSTER: 'dev-gcp'
           RESOURCE: .nais/dev/nais-dev.yaml
           VAR: image=${{ needs.build.outputs.image }},version=${{ github.sha }}
-      - name: "Create dev deployment tag"
+      - name: 'Create dev deployment tag'
         if: success()
         run: |
           git config user.name "github-actions[bot]"
@@ -68,19 +67,19 @@ jobs:
   deploy-prod:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod'
     needs: build
-    runs-on: "ubuntu-latest"
+    runs-on: 'ubuntu-latest'
     permissions:
       contents: write
       id-token: write
     steps:
-      - uses: "actions/checkout@v6"
-      - name: "Deploy to Prod"
-        uses: "nais/deploy/actions/deploy@v2"
+      - uses: 'actions/checkout@v6'
+      - name: 'Deploy to Prod'
+        uses: 'nais/deploy/actions/deploy@v2'
         env:
-          CLUSTER: "prod-gcp"
+          CLUSTER: 'prod-gcp'
           RESOURCE: .nais/prod/nais-prod.yaml
           VAR: image=${{ needs.build.outputs.image }},version=${{ github.sha }}
-      - name: "Create deployment tag"
+      - name: 'Create deployment tag'
         if: success()
         run: |
           git config user.name "github-actions[bot]"

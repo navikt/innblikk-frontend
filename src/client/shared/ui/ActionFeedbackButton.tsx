@@ -13,53 +13,42 @@
  *   />
  */
 
-import { forwardRef, useState } from 'react';
-import { CheckmarkIcon, ArrowUndoIcon } from '@navikt/aksel-icons';
-import { Button } from '@navikt/ds-react';
-import type { ButtonProps } from '@navikt/ds-react';
+import { forwardRef, useState } from 'react'
+import { CheckmarkIcon, ArrowUndoIcon } from '@navikt/aksel-icons'
+import { Button } from '@navikt/ds-react'
+import type { ButtonProps } from '@navikt/ds-react'
 
-export interface ActionFeedbackButtonProps
-  extends Omit<ButtonProps, 'children' | 'onClick'> {
+export interface ActionFeedbackButtonProps extends Omit<ButtonProps, 'children' | 'onClick'> {
   /** Label shown in the default (idle) state. */
-  label: string;
+  label: string
   /** Label shown briefly after the action fires. @default `${label}!` */
-  activeLabel?: string;
+  activeLabel?: string
   /** Icon shown in idle state. @default <ArrowUndoIcon /> */
-  icon?: React.ReactNode;
+  icon?: React.ReactNode
   /** Icon shown in active state. @default <CheckmarkIcon /> */
-  activeIcon?: React.ReactNode;
+  activeIcon?: React.ReactNode
   /** How long (ms) to stay in the active state. @default 2000 */
-  activeDuration?: number;
+  activeDuration?: number
   /** Button size. @default "small" */
-  size?: ButtonProps['size'];
+  size?: ButtonProps['size']
   /** Called when the button is clicked (before the active state is shown). */
-  onClick?: () => void;
+  onClick?: () => void
   /** Extra className forwarded to the underlying Button. */
-  className?: string;
+  className?: string
 }
 
 const ActionFeedbackButton = forwardRef<HTMLButtonElement, ActionFeedbackButtonProps>(
   (
-    {
-      label,
-      activeLabel,
-      icon,
-      activeIcon,
-      activeDuration = 2000,
-      size = 'small',
-      onClick,
-      className,
-      ...rest
-    },
+    { label, activeLabel, icon, activeIcon, activeDuration = 2000, size = 'small', onClick, className, ...rest },
     ref,
   ) => {
-    const [active, setActive] = useState(false);
+    const [active, setActive] = useState(false)
 
     const handleClick = () => {
-      onClick?.();
-      setActive(true);
-      setTimeout(() => setActive(false), activeDuration);
-    };
+      onClick?.()
+      setActive(true)
+      setTimeout(() => setActive(false), activeDuration)
+    }
 
     return (
       <Button
@@ -67,10 +56,7 @@ const ActionFeedbackButton = forwardRef<HTMLButtonElement, ActionFeedbackButtonP
         type="button"
         variant="tertiary-neutral"
         size={size}
-        icon={active
-          ? (activeIcon ?? <CheckmarkIcon aria-hidden />)
-          : (icon ?? <ArrowUndoIcon aria-hidden />)
-        }
+        icon={active ? (activeIcon ?? <CheckmarkIcon aria-hidden />) : (icon ?? <ArrowUndoIcon aria-hidden />)}
         iconPosition="left"
         data-active={active}
         className={className}
@@ -79,10 +65,10 @@ const ActionFeedbackButton = forwardRef<HTMLButtonElement, ActionFeedbackButtonP
       >
         {active ? (activeLabel ?? `${label}!`) : label}
       </Button>
-    );
+    )
   },
-);
+)
 
-ActionFeedbackButton.displayName = 'ActionFeedbackButton';
+ActionFeedbackButton.displayName = 'ActionFeedbackButton'
 
-export default ActionFeedbackButton;
+export default ActionFeedbackButton

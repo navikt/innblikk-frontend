@@ -7,7 +7,7 @@
  * BigQuery will abort the job before executing if it would exceed this.
  * Must be passed as a string to the BigQuery client.
  */
-export const MAX_BYTES_BILLED = String(500 * 1024 ** 3);
+export const MAX_BYTES_BILLED = String(500 * 1024 ** 3)
 
 /**
  * Ensures the BigQuery client is initialized.
@@ -15,49 +15,51 @@ export const MAX_BYTES_BILLED = String(500 * 1024 ** 3);
  */
 export function requireBigQuery(bigquery, res) {
   if (!bigquery) {
-    res.status(500).json({ error: 'BigQuery client not initialized' });
-    return false;
+    res.status(500).json({ error: 'BigQuery client not initialized' })
+    return false
   }
-  return true;
+  return true
 }
 
 /**
  * Extracts the authenticated user's NAV ident from the request.
  */
 export function getNavIdent(req) {
-  return req.user?.navIdent || 'UNKNOWN';
+  return req.user?.navIdent || 'UNKNOWN'
 }
 
 /**
  * Runs a BigQuery dry-run to estimate query cost.
  * Returns a queryStats object, or null if the dry run fails.
  */
-export async function getDryRunStats(bigquery, { query, location = 'europe-north1', params, navIdent, analysisType }, addAuditLogging) {
+export async function getDryRunStats(
+  bigquery,
+  { query, location = 'europe-north1', params, navIdent, analysisType },
+  addAuditLogging,
+) {
   try {
     const jobConfig = {
       query,
       location,
       dryRun: true,
-    };
-    if (params) jobConfig.params = params;
+    }
+    if (params) jobConfig.params = params
 
-    const [dryRunJob] = await bigquery.createQueryJob(
-      addAuditLogging(jobConfig, navIdent, analysisType)
-    );
+    const [dryRunJob] = await bigquery.createQueryJob(addAuditLogging(jobConfig, navIdent, analysisType))
 
-    const stats = dryRunJob.metadata.statistics;
-    const bytesProcessed = parseInt(stats.totalBytesProcessed);
-    const gbProcessed = (bytesProcessed / (1024 ** 3)).toFixed(2);
-    const estimatedCostUSD = ((bytesProcessed / (1024 ** 4)) * 6.25).toFixed(3);
+    const stats = dryRunJob.metadata.statistics
+    const bytesProcessed = parseInt(stats.totalBytesProcessed)
+    const gbProcessed = (bytesProcessed / 1024 ** 3).toFixed(2)
+    const estimatedCostUSD = ((bytesProcessed / 1024 ** 4) * 6.25).toFixed(3)
 
     return {
       totalBytesProcessed: bytesProcessed,
       totalBytesProcessedGB: gbProcessed,
       estimatedCostUSD,
-    };
+    }
   } catch (err) {
-    console.log(`[${analysisType || 'DryRun'}] Dry run failed:`, err.message);
-    return null;
+    console.log(`[${analysisType || 'DryRun'}] Dry run failed:`, err.message)
+    return null
   }
 }
 
@@ -71,6 +73,5 @@ export function normalizeUrlSql(column = 'url_path') {
       WHEN RTRIM(REGEXP_REPLACE(REGEXP_REPLACE(${column}, r'[?#].*', ''), r'//+', '/'), '/') = ''
       THEN '/'
       ELSE RTRIM(REGEXP_REPLACE(REGEXP_REPLACE(${column}, r'[?#].*', ''), r'//+', '/'), '/')
-    END`;
+    END`
 }
-

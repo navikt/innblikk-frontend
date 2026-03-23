@@ -12,7 +12,7 @@
     "dashboardPathFilterEmpty": "Velg et kontor for å vise webstatistikk.",
     "metricTypeOptions": ["visitors", "proportion"]
   },
-    {
+  {
     "dashboardName": "DigiHoT",
     "dashboardIdProd": 11,
     "dashboardIdDev": 10,

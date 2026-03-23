@@ -1,14 +1,14 @@
-import { Component } from 'react';
-import type { ErrorInfo, ReactNode } from 'react';
-import { Alert, Button, BodyShort } from '@navikt/ds-react';
+import { Component } from 'react'
+import type { ErrorInfo, ReactNode } from 'react'
+import { Alert, Button, BodyShort } from '@navikt/ds-react'
 
 interface Props {
-  children: ReactNode;
+  children: ReactNode
 }
 
 interface State {
-  hasError: boolean;
-  error: Error | null;
+  hasError: boolean
+  error: Error | null
 }
 
 /**
@@ -17,28 +17,28 @@ interface State {
  */
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
-    super(props);
-    this.state = { hasError: false, error: null };
+    super(props)
+    this.state = { hasError: false, error: null }
   }
 
   static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
+    return { hasError: true, error }
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('[ErrorBoundary] Uncaught error:', error, errorInfo);
+    console.error('[ErrorBoundary] Uncaught error:', error, errorInfo)
   }
 
   private handleReload = () => {
-    window.location.reload();
-  };
+    window.location.reload()
+  }
 
   render() {
     if (this.state.hasError) {
       const isChunkError =
         this.state.error?.message?.includes('Failed to fetch dynamically imported module') ||
         this.state.error?.message?.includes('Loading chunk') ||
-        this.state.error?.message?.includes('Loading CSS chunk');
+        this.state.error?.message?.includes('Loading CSS chunk')
 
       return (
         <div style={{ padding: '2rem', maxWidth: '40rem', margin: '4rem auto' }}>
@@ -53,10 +53,9 @@ export class ErrorBoundary extends Component<Props, State> {
             </Button>
           </Alert>
         </div>
-      );
+      )
     }
 
-    return this.props.children;
+    return this.props.children
   }
 }
-

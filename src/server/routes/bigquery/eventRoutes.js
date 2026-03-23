@@ -1,53 +1,55 @@
-import express from 'express';
-import { addAuditLogging } from '../../bigquery/audit.js';
-import { MAX_BYTES_BILLED } from './helpers.js';
+import express from 'express'
+import { addAuditLogging } from '../../bigquery/audit.js'
+import { MAX_BYTES_BILLED } from './helpers.js'
 
 export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE }) {
-  const router = express.Router();
+  const router = express.Router()
 
   // Get events for a website from BigQuery
   router.get('/api/bigquery/websites/:websiteId/events', async (req, res) => {
-      try {
-          const { websiteId } = req.params;
+    try {
+      const { websiteId } = req.params
 
-          // Get NAV ident from authenticated user for audit logging
-          const navIdent = req.user?.navIdent || 'UNKNOWN';
+      // Get NAV ident from authenticated user for audit logging
+      const navIdent = req.user?.navIdent || 'UNKNOWN'
 
-          const { startAt, endAt, urlPath, pathOperator } = req.query;
+      const { startAt, endAt, urlPath, pathOperator } = req.query
 
-          if (!bigquery) {
-              return res.status(500).json({
-                  error: 'BigQuery client not initialized'
-              })
-          }
+      if (!bigquery) {
+        return res.status(500).json({
+          error: 'BigQuery client not initialized',
+        })
+      }
 
-          const startDate = startAt ? new Date(parseInt(startAt)).toISOString() : new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
-          const endDate = endAt ? new Date(parseInt(endAt)).toISOString() : new Date().toISOString();
+      const startDate = startAt
+        ? new Date(parseInt(startAt)).toISOString()
+        : new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
+      const endDate = endAt ? new Date(parseInt(endAt)).toISOString() : new Date().toISOString()
 
-          const params = {
-              websiteId: websiteId,
-              startDate: startDate,
-              endDate: endDate
-          };
+      const params = {
+        websiteId: websiteId,
+        startDate: startDate,
+        endDate: endDate,
+      }
 
-          let urlFilter = '';
-          if (urlPath) {
-              if (pathOperator === 'starts-with') {
-                  urlFilter = `AND LOWER(url_path) LIKE @urlPathPattern`;
-                  params.urlPathPattern = urlPath.toLowerCase() + '%';
-              } else {
-                  urlFilter = `AND (
+      let urlFilter = ''
+      if (urlPath) {
+        if (pathOperator === 'starts-with') {
+          urlFilter = `AND LOWER(url_path) LIKE @urlPathPattern`
+          params.urlPathPattern = urlPath.toLowerCase() + '%'
+        } else {
+          urlFilter = `AND (
                       url_path = @urlPath 
                       OR url_path = @urlPathSlash 
                       OR url_path LIKE @urlPathQuery
-                  )`;
-                  params.urlPath = urlPath;
-                  params.urlPathSlash = urlPath.endsWith('/') ? urlPath : urlPath + '/';
-                  params.urlPathQuery = urlPath + '?%';
-              }
-          }
+                  )`
+          params.urlPath = urlPath
+          params.urlPathSlash = urlPath.endsWith('/') ? urlPath : urlPath + '/'
+          params.urlPathQuery = urlPath + '?%'
+        }
+      }
 
-          const query = `
+      const query = `
               SELECT event_name, COUNT(*) as count
               FROM \`${GCP_PROJECT_ID}.umami.public_website_event\`
               WHERE website_id = @websiteId
@@ -56,111 +58,126 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
               ${urlFilter}
               GROUP BY event_name
               ORDER BY count DESC
-          `;
+          `
 
+      const [job] = await bigquery.createQueryJob(
+        addAuditLogging(
+          {
+            query: query,
+            location: 'europe-north1',
+            params: params,
+            maximumBytesBilled: MAX_BYTES_BILLED,
+          },
+          navIdent,
+          'Hendelsesutforsker',
+        ),
+      )
 
+      const [rows] = await job.getQueryResults()
+      const events = rows.map((row) => ({
+        name: row.event_name,
+        count: parseInt(row.count),
+      }))
 
-          const [job] = await bigquery.createQueryJob(addAuditLogging({
+      // Get dry run stats
+      let queryStats = null
+      try {
+        // Get NAV ident from authenticated user for audit logging
+
+        const [dryRunJob] = await bigquery.createQueryJob(
+          addAuditLogging(
+            {
               query: query,
               location: 'europe-north1',
               params: params,
-              maximumBytesBilled: MAX_BYTES_BILLED,
-          }, navIdent, 'Hendelsesutforsker'));
+              dryRun: true,
+            },
+            navIdent,
+            'Hendelsesutforsker',
+          ),
+        )
 
-          const [rows] = await job.getQueryResults();
-          const events = rows.map(row => ({
-              name: row.event_name,
-              count: parseInt(row.count)
-          }));
+        const stats = dryRunJob.metadata.statistics
+        const bytesProcessed = parseInt(stats.totalBytesProcessed)
+        const gbProcessed = (bytesProcessed / 1024 ** 3).toFixed(1)
+        const estimatedCostUSD = ((bytesProcessed / 1024 ** 4) * 6.25).toFixed(3)
 
-          // Get dry run stats
-          let queryStats = null;
-          try {
-              // Get NAV ident from authenticated user for audit logging
-
-              const [dryRunJob] = await bigquery.createQueryJob(addAuditLogging({
-                  query: query,
-                  location: 'europe-north1',
-                  params: params,
-                  dryRun: true
-              }, navIdent, 'Hendelsesutforsker'));
-
-              const stats = dryRunJob.metadata.statistics;
-              const bytesProcessed = parseInt(stats.totalBytesProcessed);
-              const gbProcessed = (bytesProcessed / (1024 ** 3)).toFixed(1);
-              const estimatedCostUSD = ((bytesProcessed / (1024 ** 4)) * 6.25).toFixed(3);
-
-              queryStats = {
-                  totalBytesProcessed: bytesProcessed,
-                  totalBytesProcessedGB: gbProcessed,
-                  estimatedCostUSD: estimatedCostUSD
-              };
-          } catch (dryRunError) {
-              console.log('[Events] Dry run failed:', dryRunError.message);
-          }
-
-          res.json({ events, queryStats });
-      } catch (error) {
-          console.error('BigQuery events error:', error);
-          res.status(500).json({
-              error: error.message || 'Failed to fetch events'
-          });
+        queryStats = {
+          totalBytesProcessed: bytesProcessed,
+          totalBytesProcessedGB: gbProcessed,
+          estimatedCostUSD: estimatedCostUSD,
+        }
+      } catch (dryRunError) {
+        console.log('[Events] Dry run failed:', dryRunError.message)
       }
-  });
+
+      res.json({ events, queryStats })
+    } catch (error) {
+      console.error('BigQuery events error:', error)
+      res.status(500).json({
+        error: error.message || 'Failed to fetch events',
+      })
+    }
+  })
 
   // Get event properties/parameters for a website from BigQuery
   router.get('/api/bigquery/websites/:websiteId/event-properties', async (req, res) => {
-      try {
-          const { websiteId } = req.params;
+    try {
+      const { websiteId } = req.params
 
-          // Get NAV ident from authenticated user for audit logging
-          const navIdent = req.user?.navIdent || 'UNKNOWN';
+      // Get NAV ident from authenticated user for audit logging
+      const navIdent = req.user?.navIdent || 'UNKNOWN'
 
-          const { startAt, endAt, includeParams, eventName, urlPath, pathOperator } = req.query;
+      const { startAt, endAt, includeParams, eventName, urlPath, pathOperator } = req.query
 
-          if (!bigquery) {
-              return res.status(500).json({
-                  error: 'BigQuery client not initialized'
-              })
-          }
+      if (!bigquery) {
+        return res.status(500).json({
+          error: 'BigQuery client not initialized',
+        })
+      }
 
-          const startDate = startAt ? new Date(parseInt(startAt)).toISOString() : new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
-          const endDate = endAt ? new Date(parseInt(endAt)).toISOString() : new Date().toISOString();
-          const withParams = includeParams === 'true';
+      const startDate = startAt
+        ? new Date(parseInt(startAt)).toISOString()
+        : new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
+      const endDate = endAt ? new Date(parseInt(endAt)).toISOString() : new Date().toISOString()
+      const withParams = includeParams === 'true'
 
-          console.log(`[Event Properties] Query: ${withParams ? 'EXPENSIVE (with params)' : 'CHEAP (events only)'} - includeParams=${includeParams} eventName=${eventName} urlPath=${urlPath}`);
+      console.log(
+        `[Event Properties] Query: ${withParams ? 'EXPENSIVE (with params)' : 'CHEAP (events only)'} - includeParams=${includeParams} eventName=${eventName} urlPath=${urlPath}`,
+      )
 
-          const params = {
-              websiteId: websiteId,
-              startDate: startDate,
-              endDate: endDate
-          };
+      const params = {
+        websiteId: websiteId,
+        startDate: startDate,
+        endDate: endDate,
+      }
 
-          let urlFilter = '';
-          if (urlPath) {
-              if (pathOperator === 'starts-with') {
-                  urlFilter = `AND LOWER(e.url_path) LIKE @urlPathPattern`;
-                  params.urlPathPattern = urlPath.toLowerCase() + '%';
-              } else {
-                  urlFilter = `AND (
+      let urlFilter = ''
+      if (urlPath) {
+        if (pathOperator === 'starts-with') {
+          urlFilter = `AND LOWER(e.url_path) LIKE @urlPathPattern`
+          params.urlPathPattern = urlPath.toLowerCase() + '%'
+        } else {
+          urlFilter = `AND (
                       e.url_path = @urlPath 
                       OR e.url_path = @urlPathSlash 
                       OR e.url_path LIKE @urlPathQuery
-                  )`;
-                  params.urlPath = urlPath;
-                  params.urlPathSlash = urlPath.endsWith('/') ? urlPath : urlPath + '/';
-                  params.urlPathQuery = urlPath + '?%';
-              }
-          }
+                  )`
+          params.urlPath = urlPath
+          params.urlPathSlash = urlPath.endsWith('/') ? urlPath : urlPath + '/'
+          params.urlPathQuery = urlPath + '?%'
+        }
+      }
 
-          let eventFilter = '';
-          if (eventName) {
-              eventFilter = `AND e.event_name = @eventName`;
-              params.eventName = eventName;
-          }
+      let eventFilter = ''
+      if (eventName) {
+        eventFilter = `AND e.event_name = @eventName`
+        params.eventName = eventName
+      }
 
-          // Query depends on whether we need parameters or not
-          const query = withParams ? `
+      // Query depends on whether we need parameters or not
+      const query = withParams
+        ? `
               SELECT
                   e.event_name,
                   p.data_key,
@@ -194,7 +211,8 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
               ORDER BY
                   e.event_name,
                   p.data_key
-          ` : `
+          `
+        : `
               SELECT 
                   event_name,
                   COUNT(*) AS total
@@ -206,133 +224,145 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
               ${eventFilter}
               GROUP BY event_name
               ORDER BY event_name
-          `;
+          `
 
-          // Dry run to estimate bytes processed
-          let estimatedBytes = '0';
-          try {
-              // Get NAV ident from authenticated user for audit logging
-              const navIdent = req.user?.navIdent || 'UNKNOWN';
+      // Dry run to estimate bytes processed
+      let estimatedBytes = '0'
+      try {
+        // Get NAV ident from authenticated user for audit logging
+        const navIdent = req.user?.navIdent || 'UNKNOWN'
 
-              const [dryRunJob] = await bigquery.createQueryJob(addAuditLogging({
-                  query: query,
-                  location: 'europe-north1',
-                  params: params,
-                  dryRun: true
-              }, navIdent, 'Hendelsesutforsker'));
-
-              const dryRunMetadata = dryRunJob.metadata;
-              estimatedBytes = dryRunMetadata.statistics?.totalBytesProcessed || '0';
-              const estimatedGb = (Number(estimatedBytes) / (1024 ** 3)).toFixed(2);
-              console.log(`[Event Properties] Estimated bytes: ${estimatedGb} GB`);
-          } catch (dryRunError) {
-              console.warn('[Event Properties] Dry run failed:', dryRunError.message);
-          }
-
-          // Actual query execution
-          // Get NAV ident from authenticated user for audit logging
-
-          const [job] = await bigquery.createQueryJob(addAuditLogging({
+        const [dryRunJob] = await bigquery.createQueryJob(
+          addAuditLogging(
+            {
               query: query,
               location: 'europe-north1',
               params: params,
-              maximumBytesBilled: MAX_BYTES_BILLED,
-          }, navIdent, 'Hendelsesutforsker'));
+              dryRun: true,
+            },
+            navIdent,
+            'Hendelsesutforsker',
+          ),
+        )
 
-          const [rows] = await job.getQueryResults();
-
-          // Get job statistics for bytes processed from metadata
-          const [metadata] = await job.getMetadata();
-          const bytesProcessed = metadata.statistics?.totalBytesProcessed || estimatedBytes;
-          const gbProcessed = (Number(bytesProcessed) / (1024 ** 3)).toFixed(2);
-
-          // Format the response based on query type
-          const properties = withParams
-              ? rows.map(row => ({
-                  eventName: row.event_name,
-                  propertyName: row.data_key,
-                  total: parseInt(row.total),
-                  type: row.type
-              }))
-              : rows.map(row => ({
-                  eventName: row.event_name,
-                  propertyName: null, // No parameters in simple query
-                  total: parseInt(row.total),
-                  type: 'string'
-              }));
-
-          res.json({
-              properties,
-              gbProcessed,
-              estimatedGbProcessed: (Number(estimatedBytes) / (1024 ** 3)).toFixed(2),
-              includeParams: withParams
-          });
-      } catch (error) {
-          console.error('BigQuery event properties error:', error);
-          res.status(500).json({
-              error: error.message || 'Failed to fetch event properties'
-          });
+        const dryRunMetadata = dryRunJob.metadata
+        estimatedBytes = dryRunMetadata.statistics?.totalBytesProcessed || '0'
+        const estimatedGb = (Number(estimatedBytes) / 1024 ** 3).toFixed(2)
+        console.log(`[Event Properties] Estimated bytes: ${estimatedGb} GB`)
+      } catch (dryRunError) {
+        console.warn('[Event Properties] Dry run failed:', dryRunError.message)
       }
-  });
+
+      // Actual query execution
+      // Get NAV ident from authenticated user for audit logging
+
+      const [job] = await bigquery.createQueryJob(
+        addAuditLogging(
+          {
+            query: query,
+            location: 'europe-north1',
+            params: params,
+            maximumBytesBilled: MAX_BYTES_BILLED,
+          },
+          navIdent,
+          'Hendelsesutforsker',
+        ),
+      )
+
+      const [rows] = await job.getQueryResults()
+
+      // Get job statistics for bytes processed from metadata
+      const [metadata] = await job.getMetadata()
+      const bytesProcessed = metadata.statistics?.totalBytesProcessed || estimatedBytes
+      const gbProcessed = (Number(bytesProcessed) / 1024 ** 3).toFixed(2)
+
+      // Format the response based on query type
+      const properties = withParams
+        ? rows.map((row) => ({
+            eventName: row.event_name,
+            propertyName: row.data_key,
+            total: parseInt(row.total),
+            type: row.type,
+          }))
+        : rows.map((row) => ({
+            eventName: row.event_name,
+            propertyName: null, // No parameters in simple query
+            total: parseInt(row.total),
+            type: 'string',
+          }))
+
+      res.json({
+        properties,
+        gbProcessed,
+        estimatedGbProcessed: (Number(estimatedBytes) / 1024 ** 3).toFixed(2),
+        includeParams: withParams,
+      })
+    } catch (error) {
+      console.error('BigQuery event properties error:', error)
+      res.status(500).json({
+        error: error.message || 'Failed to fetch event properties',
+      })
+    }
+  })
 
   // Get event series data (time series)
   router.get('/api/bigquery/websites/:websiteId/event-series', async (req, res) => {
-      try {
-          const { websiteId } = req.params;
+    try {
+      const { websiteId } = req.params
 
-          // Get NAV ident from authenticated user for audit logging
-          const navIdent = req.user?.navIdent || 'UNKNOWN';
+      // Get NAV ident from authenticated user for audit logging
+      const navIdent = req.user?.navIdent || 'UNKNOWN'
 
+      const { startAt, endAt, eventName, urlPath, interval = 'day', pathOperator } = req.query
 
+      if (!bigquery) {
+        return res.status(500).json({
+          error: 'BigQuery client not initialized',
+        })
+      }
 
-          const { startAt, endAt, eventName, urlPath, interval = 'day', pathOperator } = req.query;
+      const startDate = startAt
+        ? new Date(parseInt(startAt)).toISOString()
+        : new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
+      const endDate = endAt ? new Date(parseInt(endAt)).toISOString() : new Date().toISOString()
 
-          if (!bigquery) {
-              return res.status(500).json({
-                  error: 'BigQuery client not initialized'
-              })
-          }
+      const params = {
+        websiteId: websiteId,
+        startDate: startDate,
+        endDate: endDate,
+      }
 
-          const startDate = startAt ? new Date(parseInt(startAt)).toISOString() : new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
-          const endDate = endAt ? new Date(parseInt(endAt)).toISOString() : new Date().toISOString();
-
-          const params = {
-              websiteId: websiteId,
-              startDate: startDate,
-              endDate: endDate
-          };
-
-          let urlFilter = '';
-          if (urlPath) {
-              if (pathOperator === 'starts-with') {
-                  urlFilter = `AND LOWER(url_path) LIKE @urlPathPattern`;
-                  params.urlPathPattern = urlPath.toLowerCase() + '%';
-              } else {
-                  urlFilter = `AND (
+      let urlFilter = ''
+      if (urlPath) {
+        if (pathOperator === 'starts-with') {
+          urlFilter = `AND LOWER(url_path) LIKE @urlPathPattern`
+          params.urlPathPattern = urlPath.toLowerCase() + '%'
+        } else {
+          urlFilter = `AND (
                       url_path = @urlPath 
                       OR url_path = @urlPathSlash 
                       OR url_path LIKE @urlPathQuery
-                  )`;
-                  params.urlPath = urlPath;
-                  params.urlPathSlash = urlPath.endsWith('/') ? urlPath : urlPath + '/';
-                  params.urlPathQuery = urlPath + '?%';
-              }
-          }
+                  )`
+          params.urlPath = urlPath
+          params.urlPathSlash = urlPath.endsWith('/') ? urlPath : urlPath + '/'
+          params.urlPathQuery = urlPath + '?%'
+        }
+      }
 
-          let eventFilter = '';
-          if (eventName) {
-              eventFilter = `AND event_name = @eventName`;
-              params.eventName = eventName;
-          }
+      let eventFilter = ''
+      if (eventName) {
+        eventFilter = `AND event_name = @eventName`
+        params.eventName = eventName
+      }
 
-          // Determine time truncation based on interval
-          let timeTrunc = 'DAY';
-          if (interval === 'hour') timeTrunc = 'HOUR';
-          if (interval === 'week') timeTrunc = 'WEEK';
-          if (interval === 'month') timeTrunc = 'MONTH';
-          const intervalStep = timeTrunc;
+      // Determine time truncation based on interval
+      let timeTrunc = 'DAY'
+      if (interval === 'hour') timeTrunc = 'HOUR'
+      if (interval === 'week') timeTrunc = 'WEEK'
+      if (interval === 'month') timeTrunc = 'MONTH'
+      const intervalStep = timeTrunc
 
-          const query = `
+      const query = `
               WITH buckets AS (
                   SELECT bucket_time AS time
                   FROM UNNEST(
@@ -361,138 +391,146 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
               FROM buckets
               LEFT JOIN counts ON buckets.time = counts.time
               ORDER BY buckets.time
-          `;
+          `
 
+      const [job] = await bigquery.createQueryJob(
+        addAuditLogging(
+          {
+            query: query,
+            location: 'europe-north1',
+            params: params,
+            maximumBytesBilled: MAX_BYTES_BILLED,
+          },
+          navIdent,
+          'Hendelsesutforsker',
+        ),
+      )
 
+      const [rows] = await job.getQueryResults()
 
-          const [job] = await bigquery.createQueryJob(addAuditLogging({
-              query: query,
-              location: 'europe-north1',
-              params: params,
-              maximumBytesBilled: MAX_BYTES_BILLED,
-          }, navIdent, 'Hendelsesutforsker'));
+      const data = rows.map((row) => ({
+        time: row.time.value,
+        count: parseInt(row.count),
+      }))
 
-          const [rows] = await job.getQueryResults();
-
-          const data = rows.map(row => ({
-              time: row.time.value,
-              count: parseInt(row.count)
-          }));
-
-          res.json({
-              data
-          });
-      } catch (error) {
-          console.error('BigQuery event series error:', error);
-          res.status(500).json({
-              error: error.message || 'Failed to fetch event series'
-          });
-      }
-  });
+      res.json({
+        data,
+      })
+    } catch (error) {
+      console.error('BigQuery event series error:', error)
+      res.status(500).json({
+        error: error.message || 'Failed to fetch event series',
+      })
+    }
+  })
 
   // Get date range for a website from BigQuery
   router.get('/api/bigquery/websites/:websiteId/daterange', async (req, res) => {
-      try {
-          const { websiteId } = req.params;
+    try {
+      const { websiteId } = req.params
 
-          // Get NAV ident from authenticated user for audit logging
-          const navIdent = req.user?.navIdent || 'UNKNOWN';
+      // Get NAV ident from authenticated user for audit logging
+      const navIdent = req.user?.navIdent || 'UNKNOWN'
 
+      if (!bigquery) {
+        return res.status(500).json({
+          error: 'BigQuery client not initialized',
+        })
+      }
 
-
-          if (!bigquery) {
-              return res.status(500).json({
-                  error: 'BigQuery client not initialized'
-              })
-          }
-
-          const query = `
+      const query = `
               SELECT 
                   MIN(created_at) as mindate,
                   MAX(created_at) as maxdate
               FROM \`${GCP_PROJECT_ID}.umami.public_website_event\`
               WHERE website_id = @websiteId
-          `;
+          `
 
-          // Get NAV ident from authenticated user for audit logging
+      // Get NAV ident from authenticated user for audit logging
 
-          const [job] = await bigquery.createQueryJob(addAuditLogging({
-              query: query,
-              location: 'europe-north1',
-              params: {
-                  websiteId: websiteId
-              },
-              maximumBytesBilled: MAX_BYTES_BILLED,
-          }, navIdent, 'Datovelger'));
+      const [job] = await bigquery.createQueryJob(
+        addAuditLogging(
+          {
+            query: query,
+            location: 'europe-north1',
+            params: {
+              websiteId: websiteId,
+            },
+            maximumBytesBilled: MAX_BYTES_BILLED,
+          },
+          navIdent,
+          'Datovelger',
+        ),
+      )
 
-          const [rows] = await job.getQueryResults();
+      const [rows] = await job.getQueryResults()
 
-          if (rows.length > 0 && rows[0].mindate) {
-              res.json({
-                  mindate: rows[0].mindate.value,
-                  maxdate: rows[0].maxdate.value
-              });
-          } else {
-              res.json({
-                  mindate: null,
-                  maxdate: null
-              });
-          }
-      } catch (error) {
-          console.error('BigQuery daterange error:', error);
-          res.status(500).json({
-              error: error.message || 'Failed to fetch date range'
-          });
+      if (rows.length > 0 && rows[0].mindate) {
+        res.json({
+          mindate: rows[0].mindate.value,
+          maxdate: rows[0].maxdate.value,
+        })
+      } else {
+        res.json({
+          mindate: null,
+          maxdate: null,
+        })
       }
-  });
+    } catch (error) {
+      console.error('BigQuery daterange error:', error)
+      res.status(500).json({
+        error: error.message || 'Failed to fetch date range',
+      })
+    }
+  })
 
   // Get values for a specific event parameter
   router.get('/api/bigquery/websites/:websiteId/event-parameter-values', async (req, res) => {
-      try {
-          const { websiteId } = req.params;
+    try {
+      const { websiteId } = req.params
 
-          // Get NAV ident from authenticated user for audit logging
-          const navIdent = req.user?.navIdent || 'UNKNOWN';
+      // Get NAV ident from authenticated user for audit logging
+      const navIdent = req.user?.navIdent || 'UNKNOWN'
 
+      const { startAt, endAt, eventName, parameterName, urlPath, pathOperator } = req.query
 
+      if (!bigquery) {
+        return res.status(500).json({
+          error: 'BigQuery client not initialized',
+        })
+      }
 
-          const { startAt, endAt, eventName, parameterName, urlPath, pathOperator } = req.query;
+      const startDate = startAt
+        ? new Date(parseInt(startAt)).toISOString()
+        : new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
+      const endDate = endAt ? new Date(parseInt(endAt)).toISOString() : new Date().toISOString()
 
-          if (!bigquery) {
-              return res.status(500).json({
-                  error: 'BigQuery client not initialized'
-              })
-          }
+      const params = {
+        websiteId,
+        startDate,
+        endDate,
+        eventName,
+        parameterName,
+      }
 
-          const startDate = startAt ? new Date(parseInt(startAt)).toISOString() : new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
-          const endDate = endAt ? new Date(parseInt(endAt)).toISOString() : new Date().toISOString();
-
-          const params = {
-              websiteId,
-              startDate,
-              endDate,
-              eventName,
-              parameterName
-          };
-
-          let urlFilter = '';
-          if (urlPath) {
-              if (pathOperator === 'starts-with') {
-                  urlFilter = `AND LOWER(e.url_path) LIKE @urlPathPattern`;
-                  params.urlPathPattern = urlPath.toLowerCase() + '%';
-              } else {
-                  urlFilter = `AND (
+      let urlFilter = ''
+      if (urlPath) {
+        if (pathOperator === 'starts-with') {
+          urlFilter = `AND LOWER(e.url_path) LIKE @urlPathPattern`
+          params.urlPathPattern = urlPath.toLowerCase() + '%'
+        } else {
+          urlFilter = `AND (
                       e.url_path = @urlPath 
                       OR e.url_path = @urlPathSlash 
                       OR e.url_path LIKE @urlPathQuery
-                  )`;
-                  params.urlPath = urlPath;
-                  params.urlPathSlash = urlPath.endsWith('/') ? urlPath : urlPath + '/';
-                  params.urlPathQuery = urlPath + '?%';
-              }
-          }
+                  )`
+          params.urlPath = urlPath
+          params.urlPathSlash = urlPath.endsWith('/') ? urlPath : urlPath + '/'
+          params.urlPathQuery = urlPath + '?%'
+        }
+      }
 
-          const query = `
+      const query = `
               SELECT
                   p.string_value,
                   COUNT(*) as count
@@ -510,106 +548,118 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
               GROUP BY 1
               ORDER BY 2 DESC
               LIMIT 100
-          `;
+          `
 
-          const [job] = await bigquery.createQueryJob(addAuditLogging({
+      const [job] = await bigquery.createQueryJob(
+        addAuditLogging(
+          {
+            query: query,
+            location: 'europe-north1',
+            params: params,
+            maximumBytesBilled: MAX_BYTES_BILLED,
+          },
+          navIdent,
+          'Hendelsesutforsker',
+        ),
+      )
+
+      const [rows] = await job.getQueryResults()
+
+      const values = rows.map((row) => ({
+        value: row.string_value,
+        count: parseInt(row.count),
+      }))
+
+      // Get dry run stats
+      let queryStats = null
+      try {
+        // Get NAV ident from authenticated user for audit logging
+
+        const [dryRunJob] = await bigquery.createQueryJob(
+          addAuditLogging(
+            {
               query: query,
               location: 'europe-north1',
               params: params,
-              maximumBytesBilled: MAX_BYTES_BILLED,
-          }, navIdent, 'Hendelsesutforsker'));
+              dryRun: true,
+            },
+            navIdent,
+            'Hendelsesutforsker',
+          ),
+        )
 
-          const [rows] = await job.getQueryResults();
+        const stats = dryRunJob.metadata.statistics
+        const bytesProcessed = parseInt(stats.totalBytesProcessed)
+        const gbProcessed = (bytesProcessed / 1024 ** 3).toFixed(1)
+        const estimatedCostUSD = ((bytesProcessed / 1024 ** 4) * 6.25).toFixed(3)
 
-          const values = rows.map(row => ({
-              value: row.string_value,
-              count: parseInt(row.count)
-          }));
-
-          // Get dry run stats
-          let queryStats = null;
-          try {
-              // Get NAV ident from authenticated user for audit logging
-
-              const [dryRunJob] = await bigquery.createQueryJob(addAuditLogging({
-                  query: query,
-                  location: 'europe-north1',
-                  params: params,
-                  dryRun: true
-              }, navIdent, 'Hendelsesutforsker'));
-
-              const stats = dryRunJob.metadata.statistics;
-              const bytesProcessed = parseInt(stats.totalBytesProcessed);
-              const gbProcessed = (bytesProcessed / (1024 ** 3)).toFixed(1);
-              const estimatedCostUSD = ((bytesProcessed / (1024 ** 4)) * 6.25).toFixed(3);
-
-              queryStats = {
-                  totalBytesProcessedGB: gbProcessed,
-                  estimatedCostUSD: estimatedCostUSD
-              };
-          } catch (dryRunError) {
-              console.log('[Event Parameter Values] Dry run failed:', dryRunError.message);
-          }
-
-          res.json({
-              values,
-              queryStats
-          });
-      } catch (error) {
-          console.error('BigQuery event parameter values error:', error);
-          res.status(500).json({
-              error: error.message || 'Failed to fetch event parameter values'
-          });
+        queryStats = {
+          totalBytesProcessedGB: gbProcessed,
+          estimatedCostUSD: estimatedCostUSD,
+        }
+      } catch (dryRunError) {
+        console.log('[Event Parameter Values] Dry run failed:', dryRunError.message)
       }
-  });
+
+      res.json({
+        values,
+        queryStats,
+      })
+    } catch (error) {
+      console.error('BigQuery event parameter values error:', error)
+      res.status(500).json({
+        error: error.message || 'Failed to fetch event parameter values',
+      })
+    }
+  })
 
   // Get latest N events with all parameter values
   router.get('/api/bigquery/websites/:websiteId/event-latest', async (req, res) => {
-      try {
-          const { websiteId } = req.params;
+    try {
+      const { websiteId } = req.params
 
-          // Get NAV ident from authenticated user for audit logging
-          const navIdent = req.user?.navIdent || 'UNKNOWN';
+      // Get NAV ident from authenticated user for audit logging
+      const navIdent = req.user?.navIdent || 'UNKNOWN'
 
+      const { startAt, endAt, eventName, urlPath, limit = '20', pathOperator } = req.query
 
+      if (!bigquery) {
+        return res.status(500).json({
+          error: 'BigQuery client not initialized',
+        })
+      }
 
-          const { startAt, endAt, eventName, urlPath, limit = '20', pathOperator } = req.query;
+      const startDate = startAt
+        ? new Date(parseInt(startAt)).toISOString()
+        : new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
+      const endDate = endAt ? new Date(parseInt(endAt)).toISOString() : new Date().toISOString()
 
-          if (!bigquery) {
-              return res.status(500).json({
-                  error: 'BigQuery client not initialized'
-              })
-          }
+      const params = {
+        websiteId,
+        startDate,
+        endDate,
+        eventName,
+        limit: parseInt(limit),
+      }
 
-          const startDate = startAt ? new Date(parseInt(startAt)).toISOString() : new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
-          const endDate = endAt ? new Date(parseInt(endAt)).toISOString() : new Date().toISOString();
-
-          const params = {
-              websiteId,
-              startDate,
-              endDate,
-              eventName,
-              limit: parseInt(limit)
-          };
-
-          let urlFilter = '';
-          if (urlPath) {
-              if (pathOperator === 'starts-with') {
-                  urlFilter = `AND LOWER(e.url_path) LIKE @urlPathPattern`;
-                  params.urlPathPattern = urlPath.toLowerCase() + '%';
-              } else {
-                  urlFilter = `AND (
+      let urlFilter = ''
+      if (urlPath) {
+        if (pathOperator === 'starts-with') {
+          urlFilter = `AND LOWER(e.url_path) LIKE @urlPathPattern`
+          params.urlPathPattern = urlPath.toLowerCase() + '%'
+        } else {
+          urlFilter = `AND (
                       e.url_path = @urlPath 
                       OR e.url_path = @urlPathSlash 
                       OR e.url_path LIKE @urlPathQuery
-                  )`;
-                  params.urlPath = urlPath;
-                  params.urlPathSlash = urlPath.endsWith('/') ? urlPath : urlPath + '/';
-                  params.urlPathQuery = urlPath + '?%';
-              }
-          }
+                  )`
+          params.urlPath = urlPath
+          params.urlPathSlash = urlPath.endsWith('/') ? urlPath : urlPath + '/'
+          params.urlPathQuery = urlPath + '?%'
+        }
+      }
 
-          const query = `
+      const query = `
               SELECT
                   e.event_id,
                   e.created_at,
@@ -627,129 +677,139 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
               GROUP BY e.event_id, e.created_at
               ORDER BY e.created_at DESC
               LIMIT @limit
-          `;
+          `
 
-          console.log('[Latest Events] Query params:', params);
-          console.log('[Latest Events] URL filter:', urlFilter);
+      console.log('[Latest Events] Query params:', params)
+      console.log('[Latest Events] URL filter:', urlFilter)
 
+      const [job] = await bigquery.createQueryJob(
+        addAuditLogging(
+          {
+            query: query,
+            location: 'europe-north1',
+            params: params,
+            maximumBytesBilled: MAX_BYTES_BILLED,
+          },
+          navIdent,
+          'Hendelsesutforsker',
+        ),
+      )
 
+      const [rows] = await job.getQueryResults()
 
-          const [job] = await bigquery.createQueryJob(addAuditLogging({
+      console.log(`[Latest Events] Found ${rows.length} events`)
+      if (rows.length > 0) {
+        console.log('[Latest Events] First row sample:', JSON.stringify(rows[0], null, 2))
+      }
+
+      const events = rows.map((row) => {
+        const properties = {}
+        if (row.parameters) {
+          row.parameters.forEach((param) => {
+            if (param.data_key && param.string_value) {
+              properties[param.data_key] = param.string_value
+            }
+          })
+        }
+
+        return {
+          website_event_id: row.event_id,
+          created_at: row.created_at.value,
+          properties,
+        }
+      })
+
+      // Get dry run stats
+      let queryStats = null
+      try {
+        // Get NAV ident from authenticated user for audit logging
+
+        const [dryRunJob] = await bigquery.createQueryJob(
+          addAuditLogging(
+            {
               query: query,
               location: 'europe-north1',
               params: params,
-              maximumBytesBilled: MAX_BYTES_BILLED,
-          }, navIdent, 'Hendelsesutforsker'));
+              dryRun: true,
+            },
+            navIdent,
+            'Hendelsesutforsker',
+          ),
+        )
 
-          const [rows] = await job.getQueryResults();
+        const stats = dryRunJob.metadata.statistics
+        const bytesProcessed = parseInt(stats.totalBytesProcessed)
+        const gbProcessed = (bytesProcessed / 1024 ** 3).toFixed(1)
+        const estimatedCostUSD = ((bytesProcessed / 1024 ** 4) * 6.25).toFixed(3)
 
-          console.log(`[Latest Events] Found ${rows.length} events`);
-          if (rows.length > 0) {
-              console.log('[Latest Events] First row sample:', JSON.stringify(rows[0], null, 2));
-          }
-
-          const events = rows.map(row => {
-              const properties = {};
-              if (row.parameters) {
-                  row.parameters.forEach(param => {
-                      if (param.data_key && param.string_value) {
-                          properties[param.data_key] = param.string_value;
-                      }
-                  });
-              }
-
-              return {
-                  website_event_id: row.event_id,
-                  created_at: row.created_at.value,
-                  properties
-              };
-          });
-
-          // Get dry run stats
-          let queryStats = null;
-          try {
-              // Get NAV ident from authenticated user for audit logging
-
-              const [dryRunJob] = await bigquery.createQueryJob(addAuditLogging({
-                  query: query,
-                  location: 'europe-north1',
-                  params: params,
-                  dryRun: true
-              }, navIdent, 'Hendelsesutforsker'));
-
-              const stats = dryRunJob.metadata.statistics;
-              const bytesProcessed = parseInt(stats.totalBytesProcessed);
-              const gbProcessed = (bytesProcessed / (1024 ** 3)).toFixed(1);
-              const estimatedCostUSD = ((bytesProcessed / (1024 ** 4)) * 6.25).toFixed(3);
-
-              queryStats = {
-                  totalBytesProcessedGB: gbProcessed,
-                  estimatedCostUSD: estimatedCostUSD
-              };
-          } catch (dryRunError) {
-              console.log('[Latest Events] Dry run failed:', dryRunError.message);
-          }
-
-          console.log(`[Latest Events] Returning ${events.length} events`);
-          res.json({ events, queryStats });
-      } catch (error) {
-          console.error('BigQuery latest events error:', error);
-          res.status(500).json({
-              error: error.message || 'Failed to fetch latest events'
-          });
+        queryStats = {
+          totalBytesProcessedGB: gbProcessed,
+          estimatedCostUSD: estimatedCostUSD,
+        }
+      } catch (dryRunError) {
+        console.log('[Latest Events] Dry run failed:', dryRunError.message)
       }
-  });
+
+      console.log(`[Latest Events] Returning ${events.length} events`)
+      res.json({ events, queryStats })
+    } catch (error) {
+      console.error('BigQuery latest events error:', error)
+      res.status(500).json({
+        error: error.message || 'Failed to fetch latest events',
+      })
+    }
+  })
 
   // Get event journeys (sequences of events)
   router.post('/api/bigquery/event-journeys', async (req, res) => {
-      try {
-          const { websiteId, startDate, endDate, urlPath, minEvents = 1, eventFilter, maxEventsPerSession = 200 } = req.body;
+    try {
+      const { websiteId, startDate, endDate, urlPath, minEvents = 1, eventFilter, maxEventsPerSession = 200 } = req.body
 
-          if (!bigquery) {
-              return res.status(500).json({
-                  error: 'BigQuery client not initialized'
-              })
-          }
+      if (!bigquery) {
+        return res.status(500).json({
+          error: 'BigQuery client not initialized',
+        })
+      }
 
-          // Get NAV ident from authenticated user for audit logging
-          const navIdent = req.user?.navIdent || 'UNKNOWN';
+      // Get NAV ident from authenticated user for audit logging
+      const navIdent = req.user?.navIdent || 'UNKNOWN'
 
-          const params = {
-              websiteId,
-              startDate,
-              endDate,
-              minEvents: parseInt(minEvents),
-              maxEventsPerSession: Math.max(1, Math.min(parseInt(maxEventsPerSession) || 200, 1000))
-          };
+      const params = {
+        websiteId,
+        startDate,
+        endDate,
+        minEvents: parseInt(minEvents),
+        maxEventsPerSession: Math.max(1, Math.min(parseInt(maxEventsPerSession) || 200, 1000)),
+      }
 
-          let urlFilter = '';
-          if (urlPath && urlPath !== '') {
-              if (urlPath.includes('*')) {
-                  urlFilter = `AND e.url_path LIKE @urlPathLike`;
-                  params.urlPathLike = urlPath.replace(/\*/g, '%');
-              } else {
-                  urlFilter = `AND (
+      let urlFilter = ''
+      if (urlPath && urlPath !== '') {
+        if (urlPath.includes('*')) {
+          urlFilter = `AND e.url_path LIKE @urlPathLike`
+          params.urlPathLike = urlPath.replace(/\*/g, '%')
+        } else {
+          urlFilter = `AND (
                       e.url_path = @urlPath 
                       OR e.url_path = @urlPathSlash 
                       OR e.url_path LIKE @urlPathQuery
-                  )`;
-                  params.urlPath = urlPath;
-                  params.urlPathSlash = urlPath.endsWith('/') ? urlPath : urlPath + '/';
-                  params.urlPathQuery = urlPath + '?%';
-              }
-          }
+                  )`
+          params.urlPath = urlPath
+          params.urlPathSlash = urlPath.endsWith('/') ? urlPath : urlPath + '/'
+          params.urlPathQuery = urlPath + '?%'
+        }
+      }
 
-          if (eventFilter && Array.isArray(eventFilter) && eventFilter.length > 0) {
-              // We want sessions that include THESE events.
-              // Filter at the session aggregation level or pre-filter?
-              // Let's filter in the HAVING clause of SessionPaths to ensure the path contains the event
-              params.eventFilterList = eventFilter;
-          }
+      if (eventFilter && Array.isArray(eventFilter) && eventFilter.length > 0) {
+        // We want sessions that include THESE events.
+        // Filter at the session aggregation level or pre-filter?
+        // Let's filter in the HAVING clause of SessionPaths to ensure the path contains the event
+        params.eventFilterList = eventFilter
+      }
 
-          // 1. Join with event_data to get properties
-          // 2. Aggregate properties into a string per event
-          // 3. Create the path array
-          const query = `
+      // 1. Join with event_data to get properties
+      // 2. Aggregate properties into a string per event
+      // 3. Create the path array
+      const query = `
               WITH EventProps AS (
                   SELECT
                       e.event_id,
@@ -823,8 +883,11 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
                   WHERE event_order <= @maxEventsPerSession
                   GROUP BY session_id
                   HAVING ARRAY_LENGTH(path) >= @minEvents
-                  ${eventFilter && Array.isArray(eventFilter) && eventFilter.length > 0 ?
-                  `AND EXISTS(SELECT 1 FROM UNNEST(event_names) AS n WHERE n IN UNNEST(@eventFilterList))` : ''}
+                  ${
+                    eventFilter && Array.isArray(eventFilter) && eventFilter.length > 0
+                      ? `AND EXISTS(SELECT 1 FROM UNNEST(event_names) AS n WHERE n IN UNNEST(@eventFilterList))`
+                      : ''
+                  }
               ),
               PathCounts AS (
                   SELECT
@@ -839,10 +902,10 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
               FROM PathCounts
               ORDER BY count DESC
               LIMIT 100
-          `;
+          `
 
-          // Secondary query for high-level stats (Bounces, Navigation without events)
-          const statsQuery = `
+      // Secondary query for high-level stats (Bounces, Navigation without events)
+      const statsQuery = `
               WITH TargetVisits AS (
                   SELECT 
                       e.session_id, 
@@ -879,74 +942,88 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
               FROM TargetVisits t
               LEFT JOIN Interactions i ON t.session_id = i.session_id
               LEFT JOIN Navigation n ON t.session_id = n.session_id
-          `;
+          `
 
-          // Get dry run stats first
-          let queryStats = null;
-          try {
+      // Get dry run stats first
+      let queryStats = null
+      try {
+        // Get NAV ident from authenticated user for audit logging
 
-              // Get NAV ident from authenticated user for audit logging
-
-
-              const [dryRunJob] = await bigquery.createQueryJob(addAuditLogging({
-                  query: query,
-                  location: 'europe-north1',
-                  params: params,
-                  dryRun: true
-              }, navIdent, 'Hendelsesflyt'));
-
-              const stats = dryRunJob.metadata.statistics;
-              const bytesProcessed = parseInt(stats.totalBytesProcessed);
-              const gbProcessed = (bytesProcessed / (1024 ** 3)).toFixed(2);
-              const estimatedCostUSD = ((bytesProcessed / (1024 ** 4)) * 6.25).toFixed(3);
-
-              queryStats = {
-                  totalBytesProcessedGB: gbProcessed,
-                  estimatedCostUSD: estimatedCostUSD
-              };
-          } catch (dryRunError) {
-              console.log('[Event Journeys] Dry run failed:', dryRunError.message);
-          }
-
-
-          const [journeyJob] = await bigquery.createQueryJob(addAuditLogging({
-              query,
+        const [dryRunJob] = await bigquery.createQueryJob(
+          addAuditLogging(
+            {
+              query: query,
               location: 'europe-north1',
-              params,
-              maximumBytesBilled: MAX_BYTES_BILLED,
-          }, navIdent, 'Hendelsesflyt'));
-          const [journeyRows] = await journeyJob.getQueryResults();
+              params: params,
+              dryRun: true,
+            },
+            navIdent,
+            'Hendelsesflyt',
+          ),
+        )
 
-          const [statsJob] = await bigquery.createQueryJob(addAuditLogging({
-              query: statsQuery,
-              location: 'europe-north1',
-              params,
-              maximumBytesBilled: MAX_BYTES_BILLED,
-          }, navIdent, 'Hendelsesflyt'));
-          const [statsRows] = await statsJob.getQueryResults();
-          const journeyStats = statsRows[0] || {};
+        const stats = dryRunJob.metadata.statistics
+        const bytesProcessed = parseInt(stats.totalBytesProcessed)
+        const gbProcessed = (bytesProcessed / 1024 ** 3).toFixed(2)
+        const estimatedCostUSD = ((bytesProcessed / 1024 ** 4) * 6.25).toFixed(3)
 
-          const journeys = journeyRows.map(row => ({
-              path: JSON.parse(row.path_json),
-              count: row.count
-          }));
-
-          res.json({
-              journeys,
-              journeyStats,
-              queryStats
-          });
-
-      } catch (error) {
-          console.error('[Event Journeys] ERROR:', error.message);
-          if (error.errors) {
-              console.error('[Event Journeys] BigQuery errors:', JSON.stringify(error.errors, null, 2));
-          }
-          res.status(500).json({
-              error: error.message || 'Failed to fetch event journeys'
-          });
+        queryStats = {
+          totalBytesProcessedGB: gbProcessed,
+          estimatedCostUSD: estimatedCostUSD,
+        }
+      } catch (dryRunError) {
+        console.log('[Event Journeys] Dry run failed:', dryRunError.message)
       }
-  });
 
-  return router;
+      const [journeyJob] = await bigquery.createQueryJob(
+        addAuditLogging(
+          {
+            query,
+            location: 'europe-north1',
+            params,
+            maximumBytesBilled: MAX_BYTES_BILLED,
+          },
+          navIdent,
+          'Hendelsesflyt',
+        ),
+      )
+      const [journeyRows] = await journeyJob.getQueryResults()
+
+      const [statsJob] = await bigquery.createQueryJob(
+        addAuditLogging(
+          {
+            query: statsQuery,
+            location: 'europe-north1',
+            params,
+            maximumBytesBilled: MAX_BYTES_BILLED,
+          },
+          navIdent,
+          'Hendelsesflyt',
+        ),
+      )
+      const [statsRows] = await statsJob.getQueryResults()
+      const journeyStats = statsRows[0] || {}
+
+      const journeys = journeyRows.map((row) => ({
+        path: JSON.parse(row.path_json),
+        count: row.count,
+      }))
+
+      res.json({
+        journeys,
+        journeyStats,
+        queryStats,
+      })
+    } catch (error) {
+      console.error('[Event Journeys] ERROR:', error.message)
+      if (error.errors) {
+        console.error('[Event Journeys] BigQuery errors:', JSON.stringify(error.errors, null, 2))
+      }
+      res.status(500).json({
+        error: error.message || 'Failed to fetch event journeys',
+      })
+    }
+  })
+
+  return router
 }

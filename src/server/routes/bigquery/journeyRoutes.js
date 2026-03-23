@@ -1,22 +1,22 @@
-import express from 'express';
-import { addAuditLogging } from '../../bigquery/audit.js';
-import { requireBigQuery, getNavIdent, getDryRunStats, normalizeUrlSql, MAX_BYTES_BILLED } from './helpers.js';
+import express from 'express'
+import { addAuditLogging } from '../../bigquery/audit.js'
+import { requireBigQuery, getNavIdent, getDryRunStats, normalizeUrlSql, MAX_BYTES_BILLED } from './helpers.js'
 
 export function createJourneyRoutes({ bigquery, GCP_PROJECT_ID }) {
-  const router = express.Router();
+  const router = express.Router()
 
   // Get user journeys from BigQuery
   router.post('/api/bigquery/journeys', async (req, res) => {
     try {
-      const { websiteId, startUrl, startDate, endDate, steps = 3, limit = 30, direction = 'forward' } = req.body;
-      const navIdent = getNavIdent(req);
+      const { websiteId, startUrl, startDate, endDate, steps = 3, limit = 30, direction = 'forward' } = req.body
+      const navIdent = getNavIdent(req)
 
-      if (!requireBigQuery(bigquery, res)) return;
+      if (!requireBigQuery(bigquery, res)) return
 
       // Choose LAG (backward) or LEAD (forward) based on direction
-      const windowFunction = direction === 'backward' ? 'LAG' : 'LEAD';
-      const nextUrlColumn = direction === 'backward' ? 'prev_url' : 'next_url';
-      const timeOperator = direction === 'backward' ? '<=' : '>=';
+      const windowFunction = direction === 'backward' ? 'LAG' : 'LEAD'
+      const nextUrlColumn = direction === 'backward' ? 'prev_url' : 'next_url'
+      const timeOperator = direction === 'backward' ? '<=' : '>='
 
       const query = `
           WITH session_events AS (
@@ -103,57 +103,68 @@ export function createJourneyRoutes({ bigquery, GCP_PROJECT_ID }) {
               ON v.step = t.step
               AND v.page = t.source
           ORDER BY step, value DESC
-      `;
+      `
 
-      const params = { websiteId, startUrl, startDate, endDate, steps, limit };
+      const params = { websiteId, startUrl, startDate, endDate, steps, limit }
 
-      const [job] = await bigquery.createQueryJob(addAuditLogging({
-        query,
-        location: 'europe-north1',
-        params,
-        maximumBytesBilled: MAX_BYTES_BILLED,
-      }, navIdent, 'Sideflyt'));
+      const [job] = await bigquery.createQueryJob(
+        addAuditLogging(
+          {
+            query,
+            location: 'europe-north1',
+            params,
+            maximumBytesBilled: MAX_BYTES_BILLED,
+          },
+          navIdent,
+          'Sideflyt',
+        ),
+      )
 
-      const [rows] = await job.getQueryResults();
+      const [rows] = await job.getQueryResults()
 
       // Transform to Sankey format
-      const nodes = [];
-      const links = [];
-      const nodeMap = new Map();
+      const nodes = []
+      const links = []
+      const nodeMap = new Map()
 
       const getNodeIndex = (name, step) => {
-        const id = `${step}:${name}`;
+        const id = `${step}:${name}`
         if (!nodeMap.has(id)) {
-          nodeMap.set(id, nodes.length);
-          nodes.push({ nodeId: id, name, color: '#0056b3' });
+          nodeMap.set(id, nodes.length)
+          nodes.push({ nodeId: id, name, color: '#0056b3' })
         }
-        return nodeMap.get(id);
-      };
+        return nodeMap.get(id)
+      }
 
-      rows.forEach(row => {
-        const sourceIndex = getNodeIndex(row.source, row.step);
-        const targetIndex = getNodeIndex(row.target, row.step + 1);
+      rows.forEach((row) => {
+        const sourceIndex = getNodeIndex(row.source, row.step)
+        const targetIndex = getNodeIndex(row.target, row.step + 1)
         links.push({
           source: sourceIndex,
           target: targetIndex,
           value: parseInt(row.value),
-        });
-      });
+        })
+      })
 
-      const queryStats = await getDryRunStats(bigquery, {
-        query, params, navIdent, analysisType: 'Sideflyt',
-      }, addAuditLogging);
+      const queryStats = await getDryRunStats(
+        bigquery,
+        {
+          query,
+          params,
+          navIdent,
+          analysisType: 'Sideflyt',
+        },
+        addAuditLogging,
+      )
 
-      res.json({ nodes, links, queryStats });
-
+      res.json({ nodes, links, queryStats })
     } catch (error) {
-      console.error('BigQuery journeys error:', error);
+      console.error('BigQuery journeys error:', error)
       res.status(500).json({
         error: error.message || 'Failed to fetch user journeys',
-      });
+      })
     }
-  });
+  })
 
-  return router;
+  return router
 }
-

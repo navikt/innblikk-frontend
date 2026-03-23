@@ -1,13 +1,14 @@
-@import "tailwindcss";
-@import "@navikt/ds-css";
+@import 'tailwindcss';
+@import '@navikt/ds-css';
 
 /* Funnel/journey box colors - dark navy in light mode, lighter in dark mode */
 :root {
-    --funnel-box-bg: rgb(19, 17, 54);
-    --journey-line-color: #0067c5;
+  --funnel-box-bg: rgb(19, 17, 54);
+  --journey-line-color: #0067c5;
 }
 
-.dark, [data-theme="dark"] {
-    --funnel-box-bg: var(--ax-bg-neutral-moderate, #4a4a5a);
-    --journey-line-color: #66b3ff;
+.dark,
+[data-theme='dark'] {
+  --funnel-box-bg: var(--ax-bg-neutral-moderate, #4a4a5a);
+  --journey-line-color: #66b3ff;
 }

@@ -25,24 +25,24 @@
  *   />
  */
 
-import { Accordion, Checkbox } from '@navikt/ds-react';
-import styles from './GroupedAccordion.module.css';
+import { Accordion, Checkbox } from '@navikt/ds-react'
+import styles from './GroupedAccordion.module.css'
 
-export type AccordionOption = { label: string; value: string };
+export type AccordionOption = { label: string; value: string }
 
 export type OptionGroup = {
   /** Unique key — used to generate a stable React key */
-  key: string;
+  key: string
   /** Section heading shown in the accordion header */
-  label: string;
+  label: string
   /** The selectable options inside this group */
-  options: AccordionOption[];
+  options: AccordionOption[]
   /**
    * When the group has no options yet, show this text instead of an empty list.
    * Non-interactive — purely informational.
    */
-  emptyPlaceholder?: string;
-};
+  emptyPlaceholder?: string
+}
 
 interface GroupedAccordionProps {
   /**
@@ -50,31 +50,31 @@ interface GroupedAccordionProps {
    * All options are placed under a single accordion item labelled by `label`.
    * Mutually exclusive with `groups`.
    */
-  options?: AccordionOption[];
+  options?: AccordionOption[]
 
   /**
    * Human-readable label for the single accordion item when using `options` (flat mode).
    * Required in flat mode; ignored in grouped mode.
    */
-  label?: string;
+  label?: string
 
   /**
    * Grouped option list.
    * Mutually exclusive with `options`.
    */
-  groups?: OptionGroup[];
+  groups?: OptionGroup[]
 
   /** Currently selected option values */
-  selectedOptions: string[];
+  selectedOptions: string[]
 
   /** Called when the user toggles a checkbox */
-  onToggleSelected: (value: string, isSelected: boolean) => void;
+  onToggleSelected: (value: string, isSelected: boolean) => void
 
   /** Aksel Accordion size */
-  size?: 'large' | 'medium' | 'small';
+  size?: 'large' | 'medium' | 'small'
 
   /** Whether to indent accordion content */
-  indent?: boolean;
+  indent?: boolean
 }
 
 export function GroupedAccordion({
@@ -89,19 +89,15 @@ export function GroupedAccordion({
   // Build the list of groups to render
   const resolvedGroups: OptionGroup[] = groups
     ? groups
-    : [{ key: '__flat__', label: label ?? '', options: options ?? [] }];
+    : [{ key: '__flat__', label: label ?? '', options: options ?? [] }]
 
   return (
     <Accordion size={size} indent={indent} className={styles.accordion}>
-      {resolvedGroups.map(group => {
+      {resolvedGroups.map((group) => {
         // Count how many options in this group are selected
-        const selectedCount = group.options.filter(o =>
-          selectedOptions.includes(o.value)
-        ).length;
+        const selectedCount = group.options.filter((o) => selectedOptions.includes(o.value)).length
 
-        const headerLabel = selectedCount > 0
-          ? `${group.label} (${selectedCount})`
-          : group.label;
+        const headerLabel = selectedCount > 0 ? `${group.label} (${selectedCount})` : group.label
 
         return (
           <Accordion.Item key={group.key} defaultOpen>
@@ -111,14 +107,12 @@ export function GroupedAccordion({
                 <p className={styles.emptyPlaceholder}>{group.emptyPlaceholder}</p>
               ) : (
                 <ul className={styles.optionList}>
-                  {group.options.map(option => (
+                  {group.options.map((option) => (
                     <li key={option.value} className={styles.optionItem}>
                       <Checkbox
                         size="small"
                         checked={selectedOptions.includes(option.value)}
-                        onChange={(e) =>
-                          onToggleSelected(option.value, e.target.checked)
-                        }
+                        onChange={(e) => onToggleSelected(option.value, e.target.checked)}
                       >
                         {option.label}
                       </Checkbox>
@@ -128,10 +122,10 @@ export function GroupedAccordion({
               )}
             </Accordion.Content>
           </Accordion.Item>
-        );
+        )
       })}
     </Accordion>
-  );
+  )
 }
 
-export default GroupedAccordion;
+export default GroupedAccordion
