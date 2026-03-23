@@ -37,6 +37,8 @@ spec:
       to: https://innblikk.ansatt.dev.nav.no
   accessPolicy:
     outbound:
+      external:
+        - host: www.nav.no
       rules:
           - application: reops-proxy
             namespace: team-researchops
