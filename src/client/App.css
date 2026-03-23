@@ -70,7 +70,9 @@
 .primary-button:focus-visible {
   outline: 3px solid var(--ax-border-accent);
   outline-offset: 3px;
-  box-shadow: 0 0 0 3px var(--ax-bg-default), 0 0 0 6px var(--ax-border-accent);
+  box-shadow:
+    0 0 0 3px var(--ax-bg-default),
+    0 0 0 6px var(--ax-border-accent);
 }
 
 /* FluentUI Chart dark mode support */
@@ -128,7 +130,7 @@
   grid-template-columns: repeat(3, 1fr) !important;
 }
 
-.bottom-grid>div:last-child {
+.bottom-grid > div:last-child {
   grid-column: span 2;
 }
 
@@ -137,7 +139,7 @@
   grid-template-columns: 1fr !important;
 }
 
-.bottom-grid.single-item>div:last-child {
+.bottom-grid.single-item > div:last-child {
   grid-column: span 1;
 }
 
@@ -147,12 +149,18 @@
   transition: none !important;
 }
 
+/* ID selector beats :root specificity for the light-mode override.
+   Scoped to :not(.dark) so dark mode's token is respected. */
+:root:not(.dark) #grafbygger-website-picker {
+  --ax-bg-input: var(--ax-bg-default);
+}
+
 @media (max-width: 768px) {
   .bottom-grid {
     grid-template-columns: 1fr !important;
   }
 
-  .bottom-grid>div:last-child {
+  .bottom-grid > div:last-child {
     grid-column: span 1;
   }
 }
