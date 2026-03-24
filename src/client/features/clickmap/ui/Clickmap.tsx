@@ -91,6 +91,12 @@ type PreviewNotice = {
   details?: string
 }
 
+type VisualizationMode = 'clickmap' | 'heatmap'
+
+type ClickmapProps = {
+  visualizationMode?: VisualizationMode
+}
+
 const isClickmapLinkClickMessage = (value: unknown): value is ClickmapLinkClickMessage => {
   if (!value || typeof value !== 'object') return false
   const candidate = value as { type?: unknown }
@@ -109,7 +115,7 @@ const isClickmapPreviewErrorMessage = (value: unknown): value is ClickmapPreview
   return candidate.type === 'umami-clickmap-preview-error'
 }
 
-const Clickmap = () => {
+const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
   const {
     selectedWebsite,
     setSelectedWebsite,
@@ -131,6 +137,9 @@ const Clickmap = () => {
   } = useClickmap()
 
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
+  const isHeatmap = visualizationMode === 'heatmap'
+  const chartLabel = isHeatmap ? 'Varmekart' : 'Klikk-kart'
+  const showButtonLabel = isHeatmap ? 'Vis varmekart' : 'Vis klikk-kart'
   const showRightSidebar = false
   const [badgeMode, setBadgeMode] = useState<'count' | 'percent'>('count')
   const [urlInput, setUrlInput] = useState(urlPath)
@@ -182,13 +191,15 @@ const Clickmap = () => {
     [clickmapDataForPreview],
   )
 
-  const clickmapDataWithBadgeLabel = useMemo(
+  const clickmapDataWithLabels = useMemo(
     () =>
       clickmapDataForPreview.map((item) => ({
         ...item,
         badgeLabel: getBadgeLabel(item.count),
+        countLabel: item.count.toLocaleString('nb-NO'),
+        percentLabel: formatPercentBadge(item.count, totalClicks),
       })),
-    [clickmapDataForPreview, getBadgeLabel],
+    [clickmapDataForPreview, formatPercentBadge, getBadgeLabel, totalClicks],
   )
 
   const sendHeatmapDataToIframe = useCallback(() => {
@@ -198,12 +209,13 @@ const Clickmap = () => {
     contentWindow.postMessage(
       {
         type: 'umami-clickmap-data',
-        items: clickmapDataWithBadgeLabel,
+        items: clickmapDataWithLabels,
         zeroBadgeLabel: badgeMode === 'percent' ? '0,0%' : '0',
+        viewMode: visualizationMode,
       },
       '*',
     )
-  }, [clickmapDataWithBadgeLabel, badgeMode])
+  }, [clickmapDataWithLabels, badgeMode, visualizationMode])
 
   useEffect(() => {
     sendHeatmapDataToIframe()
@@ -231,8 +243,8 @@ const Clickmap = () => {
         setPendingLinkNavigation(null)
         const blockedPath = normalizeComparablePath(event.data.path || event.data.destination || '')
         setPreviewNotice({
-          title: 'Siden kan ikke vises i klikk-kart',
-          description: 'Klikk-kart kan foreløpig bare vise åpne sider.',
+          title: `Siden kan ikke vises i ${isHeatmap ? 'varmekart' : 'klikk-kart'}`,
+          description: `${chartLabel} kan foreløpig bare vise åpne sider.`,
           path: blockedPath || undefined,
           details: 'Prøv en offentlig side for å se markeringene.',
         })
@@ -263,7 +275,7 @@ const Clickmap = () => {
     return () => {
       window.removeEventListener('message', onMessage)
     }
-  }, [urlPath])
+  }, [urlPath, isHeatmap, chartLabel])
 
   const handleConfirmLinkNavigation = useCallback(() => {
     if (!pendingLinkNavigation) return
@@ -275,8 +287,8 @@ const Clickmap = () => {
 
   return (
     <ChartLayout
-      title="Klikk-kart"
-      description="Viser hvor brukere klikker basert på egendefinerte hendelser, med visuell markering på siden."
+      title={chartLabel}
+      description={isHeatmap ? 'Viser en varmevisualisering av hvor folk klikker.' : 'Viser visuelt hvor folk klikker.'}
       currentPage="clickmap"
       websiteDomain={selectedWebsite?.domain}
       websiteName={selectedWebsite?.name}
@@ -302,17 +314,19 @@ const Clickmap = () => {
             onEndDateChange={setCustomEndDate}
           />
 
-          <div className="w-full sm:w-auto min-w-[180px]">
-            <Select
-              size="small"
-              label="Visning"
-              value={badgeMode}
-              onChange={(e) => setBadgeMode(e.target.value as 'count' | 'percent')}
-            >
-              <option value="count">Antall klikk</option>
-              <option value="percent">Andel (%)</option>
-            </Select>
-          </div>
+          {!isHeatmap && (
+            <div className="w-full sm:w-auto min-w-[180px]">
+              <Select
+                size="small"
+                label="Visning"
+                value={badgeMode}
+                onChange={(e) => setBadgeMode(e.target.value as 'count' | 'percent')}
+              >
+                <option value="count">Antall klikk</option>
+                <option value="percent">Andel (%)</option>
+              </Select>
+            </div>
+          )}
 
           <div className="self-end pb-[2px]">
             <Button
@@ -327,7 +341,7 @@ const Clickmap = () => {
               loading={loading}
               size="small"
             >
-              Vis klikk-kart
+              {showButtonLabel}
             </Button>
           </div>
         </>
@@ -341,13 +355,13 @@ const Clickmap = () => {
 
       {!urlPath && !loading && (
         <Alert variant="info" className="mb-4">
-          Legg inn en URL-sti for å hente klikkdata og vise sidevisning med markering.
+          Legg inn en URL-sti for å hente data og vise sidevisning med markering.
         </Alert>
       )}
 
       {loading && (
         <div className="flex justify-center items-center h-full">
-          <Loader size="xlarge" title="Henter klikk-kart..." />
+          <Loader size="xlarge" title={isHeatmap ? 'Henter varmekart...' : 'Henter klikk-kart...'} />
         </div>
       )}
 
@@ -365,7 +379,7 @@ const Clickmap = () => {
             {iframeSrc ? (
               <iframe
                 ref={iframeRef}
-                title="Klikk-kart sidevisning"
+                title={isHeatmap ? 'Varmekart sidevisning' : 'Klikk-kart sidevisning'}
                 src={iframeSrc}
                 className="w-full h-[920px]"
                 sandbox="allow-same-origin allow-scripts allow-forms"
@@ -440,7 +454,7 @@ const Clickmap = () => {
       <Modal
         open={!!pendingLinkNavigation}
         onClose={() => setPendingLinkNavigation(null)}
-        header={{ heading: 'Åpne klikk-kart for denne siden?', closeButton: true }}
+        header={{ heading: `Åpne ${isHeatmap ? 'varmekart' : 'klikk-kart'} for denne siden?`, closeButton: true }}
       >
         <Modal.Body>
           {pendingLinkNavigation && (
@@ -452,7 +466,7 @@ const Clickmap = () => {
           )}
         </Modal.Body>
         <Modal.Footer>
-          <Button onClick={handleConfirmLinkNavigation}>Ja, vis klikk-kart</Button>
+          <Button onClick={handleConfirmLinkNavigation}>Ja, vis {isHeatmap ? 'varmekart' : 'klikk-kart'}</Button>
           <Button variant="secondary" onClick={() => setPendingLinkNavigation(null)}>
             Bli her
           </Button>
