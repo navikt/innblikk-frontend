@@ -183,6 +183,11 @@ interface DateRangePickerProps {
   customPeriodInputs: Record<number, { amount: string; unit: string }>
   setCustomPeriodInputs: (inputs: Record<number, { amount: string; unit: string }>) => void
   interactiveMode: boolean
+  /**
+   * When true, suppresses the heading and the inner bordered/padded box so the
+   * content can be rendered inside an external container (e.g. ToggleOption panel).
+   */
+  bare?: boolean
 }
 
 interface DateRange {
@@ -200,6 +205,7 @@ const DateRangeSelector = forwardRef(
       selectedDateRange,
       setSelectedDateRange,
       interactiveMode,
+      bare = false,
     }: DateRangePickerProps,
     ref,
   ) => {
@@ -500,12 +506,14 @@ const DateRangeSelector = forwardRef(
     }
 
     return (
-      <div className="mb-6 pt-2">
-        <Heading level="3" size="xsmall" spacing>
-          For hvilken tidsperiode?
-        </Heading>
+      <div className={bare ? undefined : 'mb-6 pt-2'}>
+        {!bare && (
+          <Heading level="3" size="xsmall" spacing>
+            For hvilken tidsperiode?
+          </Heading>
+        )}
 
-        <div className="mt-3 bg-[var(--ax-bg-default)] p-4 rounded-md border shadow-inner">
+        <div className={bare ? undefined : 'mt-3 bg-[var(--ax-bg-default)] p-4 rounded-md border shadow-inner'}>
           {interactiveMode && (
             <Alert variant="info" size="small" className="mb-4">
               Mottaker velger datoperiode i Metabase. Slå av i Visningsvalg for å sette en fast standard her.

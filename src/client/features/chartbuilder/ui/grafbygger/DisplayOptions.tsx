@@ -1,7 +1,8 @@
-import { Select, TextField, Switch } from '@navikt/ds-react'
+import { Select, TextField } from '@navikt/ds-react'
 import { useState, useEffect, forwardRef, useImperativeHandle } from 'react'
 import type { ColumnGroup, OrderBy, Metric, Filter } from '../../../../shared/types/chart.ts'
 import DateRangeSelector from './DateRangeSelector.tsx'
+import ToggleOption from '../../../../shared/ui/ToggleOption.tsx'
 
 interface DisplayOptionsProps {
   groupByFields: string[]
@@ -81,20 +82,16 @@ const DisplayOptions = forwardRef(
     return (
       <>
         <div className="flex flex-col gap-4 pb-2">
-          <Switch
-            size="small"
+          <ToggleOption
+            label="Overstyr tidsperiode"
             description={
               interactiveMode
                 ? 'Tidsperiode velges via filter i dasboardet (standard)'
                 : 'Bruk valgt tidsperiode fra grafbyggeren som standard'
             }
             checked={!interactiveMode}
-            onChange={(e) => setInteractiveMode(!e.target.checked)}
+            onChange={(checked) => setInteractiveMode(!checked)}
           >
-            Overstyr tidsperiode
-          </Switch>
-
-          <div className={interactiveMode ? 'hidden' : undefined}>
             <DateRangeSelector
               filters={filters}
               setFilters={setFilters}
@@ -104,102 +101,92 @@ const DisplayOptions = forwardRef(
               customPeriodInputs={customPeriodInputs}
               setCustomPeriodInputs={setCustomPeriodInputs}
               interactiveMode={interactiveMode}
+              bare
             />
-          </div>
+          </ToggleOption>
 
-          <Switch
-            className="mt-1"
-            size="small"
+          <ToggleOption
+            label="Tilpass sortering"
             description={
               orderBy
                 ? `Sorterer etter ${orderBy.column ? orderBy.column.toLowerCase() : 'første kolonne'} i ${orderBy.direction === 'ASC' ? 'stigende' : 'synkende'} rekkefølge`
                 : 'Sorterer etter første kolonne i synkende rekkefølge'
             }
             checked={showCustomSort}
-            onChange={(e) => {
-              setShowCustomSort(e.target.checked)
-              if (!e.target.checked) {
+            onChange={(checked) => {
+              setShowCustomSort(checked)
+              if (!checked) {
                 clearOrderBy()
               }
             }}
           >
-            Tilpass sortering
-          </Switch>
+            <div className="flex gap-2">
+              <Select
+                label="Sorter etter"
+                value={orderBy?.column || ''}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    const direction = e.target.value === 'dato' ? 'ASC' : 'DESC'
+                    setOrderBy(e.target.value, direction)
+                  } else {
+                    clearOrderBy()
+                  }
+                }}
+                size="small"
+                className="flex-grow"
+              >
+                <option value="">Standard sortering</option>
+                <optgroup label="Grupperinger">
+                  {groupByFields.map((field) => {
+                    const column = Object.values(COLUMN_GROUPS)
+                      .flatMap((group) => group.columns)
+                      .find((col) => col.value === field)
 
-          {showCustomSort && (
-            <div className="flex flex-col gap-2 bg-[var(--ax-bg-default)] p-3 rounded-md border">
-              <div className="flex gap-2">
-                <Select
-                  label="Sorter etter"
-                  value={orderBy?.column || ''}
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      const direction = e.target.value === 'dato' ? 'ASC' : 'DESC'
-                      setOrderBy(e.target.value, direction)
-                    } else {
-                      clearOrderBy()
-                    }
-                  }}
-                  size="small"
-                  className="flex-grow"
-                >
-                  <option value="">Standard sortering</option>
-                  <optgroup label="Grupperinger">
-                    {groupByFields.map((field) => {
-                      const column = Object.values(COLUMN_GROUPS)
-                        .flatMap((group) => group.columns)
-                        .find((col) => col.value === field)
-
-                      return (
-                        <option key={field} value={field === 'created_at' ? 'dato' : field}>
-                          {field === 'created_at' ? 'Dato' : column?.label || field}
-                        </option>
-                      )
-                    })}
-                  </optgroup>
-                  <optgroup label="Metrikker">
-                    {metrics.map((metric, index) => (
-                      <option key={`metrikk_${index}`} value={metric.alias || `metrikk_${index + 1}`}>
-                        {metric.alias || `metrikk_${index + 1}`}
+                    return (
+                      <option key={field} value={field === 'created_at' ? 'dato' : field}>
+                        {field === 'created_at' ? 'Dato' : column?.label || field}
                       </option>
-                    ))}
-                  </optgroup>
-                </Select>
+                    )
+                  })}
+                </optgroup>
+                <optgroup label="Metrikker">
+                  {metrics.map((metric, index) => (
+                    <option key={`metrikk_${index}`} value={metric.alias || `metrikk_${index + 1}`}>
+                      {metric.alias || `metrikk_${index + 1}`}
+                    </option>
+                  ))}
+                </optgroup>
+              </Select>
 
-                <Select
-                  label="Retning"
-                  value={orderBy?.direction || 'ASC'}
-                  onChange={(e) => setOrderBy(orderBy?.column || '', e.target.value as 'ASC' | 'DESC')}
-                  size="small"
-                >
-                  <option value="ASC">Stigende (A-Å, 0-9)</option>
-                  <option value="DESC">Synkende (Å-A, 9-0)</option>
-                </Select>
-              </div>
+              <Select
+                label="Retning"
+                value={orderBy?.direction || 'ASC'}
+                onChange={(e) => setOrderBy(orderBy?.column || '', e.target.value as 'ASC' | 'DESC')}
+                size="small"
+              >
+                <option value="ASC">Stigende (A-Å, 0-9)</option>
+                <option value="DESC">Synkende (Å-A, 9-0)</option>
+              </Select>
             </div>
-          )}
+          </ToggleOption>
 
-          <Switch
-            size="small"
+          <ToggleOption
+            label="Begrens antall rader"
             description={
               limit && limit !== 1000
                 ? `Begrenser til ${limit} rader`
                 : 'F.eks. for en topp 10-liste (standard: 1000 rader)'
             }
             checked={showCustomLimit}
-            onChange={(e) => {
-              setShowCustomLimit(e.target.checked)
-              if (!e.target.checked) {
+            onChange={(checked) => {
+              setShowCustomLimit(checked)
+              if (!checked) {
                 setLimit(1000)
                 setLimitInput('1000')
               }
             }}
           >
-            Begrens antall rader
-          </Switch>
-
-          {showCustomLimit && (
-            <div className="flex gap-2 items-center bg-[var(--ax-bg-default)] p-3 rounded-md border">
+            <div className="flex gap-2 items-center">
               <TextField
                 label="Maksimalt antall rader"
                 type="number"
@@ -219,20 +206,18 @@ const DisplayOptions = forwardRef(
                 className="flex-grow"
               />
             </div>
-          )}
+          </ToggleOption>
 
-          <Switch
-            size="small"
+          <ToggleOption
+            label="Bytt kolonnerekkefølge"
             description={
               columnOrderMode === 'metrics_first'
                 ? 'Måltall før grupperingskolonner'
                 : 'Standard rekkefølge: Grupperinger før måltall'
             }
             checked={columnOrderMode === 'metrics_first'}
-            onChange={(e) => setColumnOrderMode(e.target.checked ? 'metrics_first' : 'default')}
-          >
-            Bytt kolonnerekkefølge
-          </Switch>
+            onChange={(checked) => setColumnOrderMode(checked ? 'metrics_first' : 'default')}
+          />
         </div>
       </>
     )

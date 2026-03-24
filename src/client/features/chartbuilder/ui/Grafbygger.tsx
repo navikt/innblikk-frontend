@@ -10,13 +10,13 @@ import SegmentBy, { type SegmentByRef } from './grafbygger/SegmentBy.tsx'
 import GroupingOptions from './grafbygger/GroupingOptions.tsx'
 import DisplayOptions from './grafbygger/DisplayOptions.tsx'
 import AlertWithCloseButton from './grafbygger/AlertWithCloseButton.tsx'
+import ActiveMetricsPanel from './grafbygger/ActiveMetricsPanel.tsx'
 import SidebarSection from '../../../shared/ui/SidebarSection.tsx'
 import ActionFeedbackButton from '../../../shared/ui/ActionFeedbackButton.tsx'
 import type { SegmentDefinition } from '../../../shared/types/chart.ts'
 import { FILTER_COLUMNS } from '../../../shared/lib/constants.ts'
 import { DATE_FORMATS, METRICS } from '../model/constants.ts'
 import { sanitizeColumnName } from '../utils/sanitize.ts'
-import { getMetricColumns } from '../utils/metricColumns.ts'
 import { useChartConfig } from '../hooks/useChartConfig.ts'
 
 const ChartsPage = () => {
@@ -60,7 +60,6 @@ const ChartsPage = () => {
     addMetric,
     removeMetric,
     updateMetric,
-    moveMetric,
     addGroupByField,
     removeGroupByField,
     moveGroupField,
@@ -228,18 +227,10 @@ const ChartsPage = () => {
                 <MetricSelector
                   ref={summarizeRef}
                   metrics={config.metrics}
-                  parameters={parameters}
                   METRICS={METRICS}
-                  COLUMN_GROUPS={FILTER_COLUMNS}
-                  getMetricColumns={getMetricColumns}
-                  sanitizeColumnName={sanitizeColumnName}
-                  updateMetric={(index, updates) => updateMetric(index, updates)}
                   removeMetric={removeMetric}
                   addMetric={addMetric}
-                  moveMetric={moveMetric}
                   filters={filters}
-                  availableEvents={availableEvents}
-                  isEventsLoading={isEventsLoading}
                   resetSignal={metricResetSignal}
                 />
               </SidebarSection>
@@ -341,6 +332,7 @@ const ChartsPage = () => {
                   ) : undefined
                 }
               >
+                <ActiveMetricsPanel metrics={config.metrics} METRICS={METRICS} updateMetric={updateMetric} />
                 <DisplayOptions
                   ref={displayOptionsRef}
                   groupByFields={config.groupByFields}
