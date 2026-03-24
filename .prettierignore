@@ -1,0 +1,5 @@
+# NAIS deployment config files use {{ template }} syntax that Prettier breaks.
+# Exclude them from formatting.
+.nais/
+*nais*.yaml
+*nais*.yml

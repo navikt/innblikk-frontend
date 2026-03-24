@@ -75,5 +75,3 @@ All notable changes to this project will be documented in this file.
 - Graph ordering (#122)
 - Ingress innblikk
 - Graph category
-
-
