@@ -38,6 +38,9 @@ const UserProfiles = lazy(() => import('./features/user').then((m) => ({ default
 const EventExplorer = lazy(() => import('./features/eventexplorer').then((m) => ({ default: m.EventExplorer })))
 const Clickmap = lazy(() => import('./features/clickmap').then((m) => ({ default: m.Clickmap })))
 const Heatmap = lazy(() => import('./features/clickmap').then((m) => ({ default: m.Heatmap })))
+const EventJourneyClickmap = lazy(() =>
+  import('./features/clickmap').then((m) => ({ default: m.EventJourneyClickmap })),
+)
 
 // Event Journey Feature
 const EventJourney = lazy(() => import('./features/eventjourney').then((m) => ({ default: m.EventJourney })))
@@ -113,6 +116,7 @@ export const fullWidthPathPrefixes = [
   '/brukersammensetning',
   '/brukerreiser',
   '/hendelsesreiser',
+  '/hendelsesreiser/visualisering',
   '/trakt',
   '/personvernssjekk',
   '/diagnose',
@@ -142,6 +146,7 @@ export const routes: AppRoute[] = [
   { path: '/dashboard/:dashboardId', component: <DashboardDetailRoute />, fullWidth: true },
   { path: '/brukerreiser', component: <UserJourney />, fullWidth: true },
   { path: '/hendelsesreiser', component: <EventJourney />, fullWidth: true },
+  { path: '/hendelsesreiser/visualisering', component: <EventJourneyClickmap />, fullWidth: true },
   { path: '/trakt', component: <Funnel />, fullWidth: true },
   { path: '/brukerlojalitet', component: <Retention />, fullWidth: true },
   { path: '/brukersammensetning', component: <UserComposition />, fullWidth: true },

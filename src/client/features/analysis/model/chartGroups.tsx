@@ -11,12 +11,12 @@ export const chartGroups: ChartGroup[] = [
   {
     title: 'Trafikk',
     icon: <BarChart2 size={18} />,
-    ids: ['trafikkanalyse', 'markedsanalyse', 'brukerreiser', 'trakt'],
+    ids: ['trafikkanalyse', 'markedsanalyse', 'clickmap', 'brukerreiser', 'trakt'],
   },
   {
     title: 'Hendelser',
     icon: <Activity size={18} />,
-    ids: ['event-explorer', 'hendelsesreiser', 'clickmap'],
+    ids: ['event-explorer', 'hendelsesreiser'],
   },
   {
     title: 'Brukere',

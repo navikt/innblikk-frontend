@@ -323,7 +323,7 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
                 onChange={(e) => setBadgeMode(e.target.value as 'count' | 'percent')}
               >
                 <option value="count">Antall klikk</option>
-                <option value="percent">Andel (%)</option>
+                <option value="percent">Andel av totale klikk (%)</option>
               </Select>
             </div>
           )}

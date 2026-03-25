@@ -38,6 +38,7 @@ export const useEventJourney = () => {
   const [data, setData] = useState<{ path: string[]; count: number }[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
+  const [hasSearched, setHasSearched] = useState<boolean>(false)
   const [journeyStats, setJourneyStats] = useState<JourneyStats | null>(null)
   const [queryStats, setQueryStats] = useState<QueryStats | null>(null)
   const [hasAutoSubmitted, setHasAutoSubmitted] = useState<boolean>(false)
@@ -64,6 +65,7 @@ export const useEventJourney = () => {
     const appliedFilterKey = buildFilterKey()
 
     setLoading(true)
+    setHasSearched(true)
     setError(null)
     setData([])
     setJourneyStats(null)
@@ -136,6 +138,7 @@ export const useEventJourney = () => {
     data,
     loading,
     error,
+    hasSearched,
     journeyStats,
     queryStats,
     hasUnappliedFilterChanges,

@@ -18,21 +18,21 @@ const JourneyStatsGrid = ({ journeyStats }: JourneyStatsGridProps) => {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-      <StatCard label="Unike besøkende" value={formatNumber(totalSessions)} subtitle="Totalt i utvalget" />
+      <StatCard label="Økter" value={formatNumber(totalSessions)} subtitle="Totalt i utvalget" />
       <StatCard
         label="Utførte handlinger"
         value={getPercentage(journeyStats?.sessions_with_events || 0, totalSessions)}
-        subtitle={`${formatNumber(journeyStats?.sessions_with_events || 0)} sesjoner`}
+        subtitle={`${formatNumber(journeyStats?.sessions_with_events || 0)} økter`}
       />
       <StatCard
         label="Navigering uten handling"
         value={getPercentage(journeyStats?.sessions_no_events_navigated || 0, totalSessions)}
-        subtitle={`${formatNumber(journeyStats?.sessions_no_events_navigated || 0)} sesjoner`}
+        subtitle={`${formatNumber(journeyStats?.sessions_no_events_navigated || 0)} økter`}
       />
       <StatCard
         label="Forlot nettstedet"
         value={getPercentage(journeyStats?.sessions_no_events_bounced || 0, totalSessions)}
-        subtitle={`${formatNumber(journeyStats?.sessions_no_events_bounced || 0)} sesjoner`}
+        subtitle={`${formatNumber(journeyStats?.sessions_no_events_bounced || 0)} økter`}
       />
     </div>
   )

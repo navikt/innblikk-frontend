@@ -6,6 +6,7 @@ import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
 import { normalizeUrlToPath } from '../../../shared/lib/utils.ts'
+import { hasClickmapSupport } from '../../../shared/hooks/useSiteimproveSupport.ts'
 import { useEventJourney } from '../hooks/useEventJourney.ts'
 import { getUniqueEventTypes, filterJourneys } from '../utils/journeyFilters.ts'
 import { copyToClipboard } from '../utils/clipboard.ts'
@@ -35,6 +36,7 @@ const EventJourney = () => {
     data,
     loading,
     error,
+    hasSearched,
     journeyStats,
     queryStats,
     hasUnappliedFilterChanges,
@@ -49,6 +51,7 @@ const EventJourney = () => {
 
   const filteredData = filterJourneys(data, excludedEventTypes, filterText)
   const totalJourneySessions = data.reduce((total, journey) => total + journey.count, 0)
+  const supportsClickmaps = hasClickmapSupport(selectedWebsite?.domain, selectedWebsite?.id)
 
   const copyShareLink = async () => {
     const success = await copyToClipboard(window.location.href)
@@ -75,6 +78,25 @@ const EventJourney = () => {
 
   const clearFunnelSteps = () => {
     setSelectedFunnelSteps([])
+  }
+
+  const openJourneyVisualizer = (journey: { path: string[]; count: number }) => {
+    if (!selectedWebsite) return
+
+    const params = new URLSearchParams()
+    params.set('websiteId', selectedWebsite.id)
+    params.set('urlPath', normalizeUrlToPath(urlPath))
+    params.set('period', period)
+    params.set('journey', JSON.stringify(journey.path))
+    params.set('journeyCount', String(journey.count))
+    params.set('journeyTotal', String(totalJourneySessions))
+
+    if (period === 'custom' && customStartDate && customEndDate) {
+      params.set('from', format(customStartDate, 'yyyy-MM-dd'))
+      params.set('to', format(customEndDate, 'yyyy-MM-dd'))
+    }
+
+    window.open(`/hendelsesreiser/visualisering?${params.toString()}`, '_blank', 'noopener,noreferrer')
   }
 
   const navigateToFunnel = () => {
@@ -205,6 +227,7 @@ const EventJourney = () => {
               totalSessions={totalJourneySessions}
               selectedStepIds={selectedFunnelSteps.map((step) => step.id)}
               onToggleFunnelStep={toggleFunnelStep}
+              onVisualizeJourney={supportsClickmaps ? openJourneyVisualizer : undefined}
             />
             <div className="mt-4 flex justify-end">
               <Switch checked={showTableSection} onChange={(e) => setShowTableSection(e.target.checked)} size="small">
@@ -260,7 +283,7 @@ const EventJourney = () => {
         </div>
       )}
 
-      {!loading && urlPath && data.length === 0 && !error && (
+      {!loading && hasSearched && urlPath && data.length === 0 && !error && (
         <div className="flex justify-center items-center h-full text-gray-500">
           Ingen egendefinerte hendelser funnet for valgt periode og filter.
         </div>

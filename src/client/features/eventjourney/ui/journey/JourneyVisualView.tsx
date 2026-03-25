@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button, Pagination, Select } from '@navikt/ds-react'
-import { ArrowRight, Plus, Check } from 'lucide-react'
+import { ArrowRight, Plus, Check, ExternalLink } from 'lucide-react'
 import { parseJourneyStep } from '../../utils/parsers.ts'
 import { formatNumber } from '../../utils/formatters.ts'
 
@@ -14,6 +14,7 @@ interface JourneyVisualViewProps {
     journeyOrder: number,
     details: { key: string; value: string }[],
   ) => void
+  onVisualizeJourney?: (journey: { path: string[]; count: number }) => void
 }
 
 const JourneyVisualView = ({
@@ -21,6 +22,7 @@ const JourneyVisualView = ({
   totalSessions,
   selectedStepIds,
   onToggleFunnelStep,
+  onVisualizeJourney,
 }: JourneyVisualViewProps) => {
   const [expandedDetails, setExpandedDetails] = useState<Record<string, boolean>>({})
   const [page, setPage] = useState<number>(1)
@@ -60,11 +62,22 @@ const JourneyVisualView = ({
             key={`${journey.path.join('->')}-${idx}`}
             className="rounded-xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-4"
           >
-            <div className="flex items-center gap-2 text-sm text-[var(--ax-text-subtle)] mb-3">
-              <span className="font-semibold text-[var(--ax-text-default)]">
-                {formatNumber(journey.count)} sesjoner
+            <div className="flex items-center gap-2 text-[var(--ax-text-subtle)] mb-3">
+              <span className="text-lg font-bold text-[var(--ax-text-default)]">
+                {((journey.count / totalSessions) * 100).toFixed(1)}% ({formatNumber(journey.count)} av{' '}
+                {formatNumber(totalSessions)} økter)
               </span>
-              <span>({((journey.count / totalSessions) * 100).toFixed(1)}% av totalt)</span>
+              {onVisualizeJourney && (
+                <Button
+                  size="xsmall"
+                  variant="secondary"
+                  icon={<ExternalLink size={14} />}
+                  className="ml-auto"
+                  onClick={() => onVisualizeJourney(journey)}
+                >
+                  Se på nettsiden
+                </Button>
+              )}
             </div>
 
             <div className="overflow-x-auto pb-1">

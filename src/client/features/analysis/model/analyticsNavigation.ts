@@ -66,6 +66,12 @@ export const analyticsPages = [
     description: 'Se hvor mange som kommer tilbake',
   },
   {
+    id: 'clickmap',
+    href: '/klikkkart',
+    label: 'Klikkoversikt',
+    description: 'Se hvor brukerne klikker på en side',
+  },
+  {
     id: 'event-explorer',
     href: '/utforsk-hendelser',
     label: 'Egendefinerte hendelser',
