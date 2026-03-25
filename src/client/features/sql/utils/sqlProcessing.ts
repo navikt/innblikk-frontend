@@ -17,6 +17,19 @@ export const applyUrlFiltersToSql = (sql: string, ctx: SqlFilterContext): string
   let processedSql = sql
   let fromSql: string | null = null
   let toSql: string | null = null
+  const escapeSqlString = (value: string) => value.replace(/'/g, "''")
+  const buildEqualsPathCondition = (column: string, path: string) => {
+    const safePath = escapeSqlString(path)
+    const pathSlash = path.endsWith('/') ? path : `${path}/`
+    const safePathSlash = escapeSqlString(pathSlash)
+    const queryPattern = escapeSqlString(`${path}?%`)
+
+    if (pathSlash === path) {
+      return `(${column} = '${safePath}' OR ${column} LIKE '${queryPattern}')`
+    }
+
+    return `(${column} = '${safePath}' OR ${column} = '${safePathSlash}' OR ${column} LIKE '${queryPattern}')`
+  }
 
   // Website ID substitution {{website_id}}
   const hasWebsitePlaceholderInline = /\{\{\s*website_id\s*\}\}/i.test(processedSql)
@@ -48,21 +61,29 @@ export const applyUrlFiltersToSql = (sql: string, ctx: SqlFilterContext): string
     if (paths.length > 0) {
       if (operator === 'starts-with') {
         if (paths.length === 1) {
-          const assignmentRegex = /=\s*\[\[\s*\{\{url_(?:sti|path)\}\}\s*--\s*\]\]\s*('[^']*')/gi
-          processedSql = processedSql.replace(assignmentRegex, `LIKE '${paths[0]}%'`)
+          const assignmentRegex = /(\S+)\s*=\s*\[\[\s*\{\{url_(?:sti|path)\}\}\s*--\s*\]\]\s*('[^']*')/gi
+          processedSql = processedSql.replace(
+            assignmentRegex,
+            (_m: string, column: string) => `${column} LIKE '${paths[0]}%'`,
+          )
         } else {
           const multiLikeRegex = /(\S+)\s*=\s*\[\[\s*\{\{url_(?:sti|path)\}\}\s*--\s*\]\]\s*('[^']*')/gi
-          processedSql = processedSql.replace(multiLikeRegex, (_m, column) => {
+          processedSql = processedSql.replace(multiLikeRegex, (_m: string, column: string) => {
             const likeConditions = paths.map((p) => `${column} LIKE '${p}%'`).join(' OR ')
             return `(${likeConditions})`
           })
         }
       } else {
-        const assignmentRegex = /=\s*\[\[\s*\{\{url_(?:sti|path)\}\}\s*--\s*\]\]\s*('[^']*')/gi
+        const assignmentRegex = /(\S+)\s*=\s*\[\[\s*\{\{url_(?:sti|path)\}\}\s*--\s*\]\]\s*('[^']*')/gi
         processedSql =
           paths.length === 1
-            ? processedSql.replace(assignmentRegex, `= '${paths[0]}'`)
-            : processedSql.replace(assignmentRegex, `IN (${paths.map((p) => `'${p}'`).join(', ')})`)
+            ? processedSql.replace(assignmentRegex, (_m: string, column: string) =>
+                buildEqualsPathCondition(column, paths[0]),
+              )
+            : processedSql.replace(assignmentRegex, (_m: string, column: string) => {
+                const conditions = paths.map((p) => buildEqualsPathCondition(column, p)).join(' OR ')
+                return `(${conditions})`
+              })
       }
     }
 
@@ -72,16 +93,20 @@ export const applyUrlFiltersToSql = (sql: string, ctx: SqlFilterContext): string
       if (paths.length === 1) {
         processedSql = processedSql.replace(directAssignmentRegex, `$1 LIKE '${paths[0]}%'`)
       } else {
-        processedSql = processedSql.replace(directAssignmentRegex, (_m, column) => {
+        processedSql = processedSql.replace(directAssignmentRegex, (_m: string, column: string) => {
           const likeConditions = paths.map((p) => `${column} LIKE '${p}%'`).join(' OR ')
           return `(${likeConditions})`
         })
       }
     } else if (paths.length === 1) {
-      processedSql = processedSql.replace(directAssignmentRegex, `$1 = '${paths[0]}'`)
+      processedSql = processedSql.replace(directAssignmentRegex, (_m: string, column: string) =>
+        buildEqualsPathCondition(column, paths[0]),
+      )
     } else {
-      const quotedPaths = paths.map((p) => `'${p}'`).join(', ')
-      processedSql = processedSql.replace(directAssignmentRegex, `$1 IN (${quotedPaths})`)
+      processedSql = processedSql.replace(directAssignmentRegex, (_m: string, column: string) => {
+        const conditions = paths.map((p) => buildEqualsPathCondition(column, p)).join(' OR ')
+        return `(${conditions})`
+      })
     }
 
     // Fallback replacement if placeholder appears outside a direct assignment.
@@ -116,7 +141,7 @@ export const applyUrlFiltersToSql = (sql: string, ctx: SqlFilterContext): string
       if (operator === 'starts-with') {
         processedSql = processedSql.replace(andUrlStiPattern, `AND url_path LIKE '${path}%'`)
       } else {
-        processedSql = processedSql.replace(andUrlStiPattern, `AND url_path = '${path}'`)
+        processedSql = processedSql.replace(andUrlStiPattern, `AND ${buildEqualsPathCondition('url_path', path)}`)
       }
     } else {
       processedSql = processedSql.replace(andUrlStiPattern, '')
@@ -127,10 +152,23 @@ export const applyUrlFiltersToSql = (sql: string, ctx: SqlFilterContext): string
   const datePattern = /\[\[\s*AND\s*\{\{created_at\}\}\s*\]\]/gi
   if (datePattern.test(processedSql)) {
     const now = new Date()
-    const from = ctx.dateRange.from || subDays(now, 30)
-    const to = ctx.dateRange.to || now
-    fromSql = `TIMESTAMP('${format(from, 'yyyy-MM-dd')}')`
-    toSql = `TIMESTAMP('${format(to, 'yyyy-MM-dd')}T23:59:59')`
+    const rawFrom = ctx.dateRange.from || subDays(now, 30)
+    const rawTo = ctx.dateRange.to || now
+
+    const from = new Date(rawFrom)
+    from.setHours(0, 0, 0, 0)
+
+    const to = new Date(rawTo)
+    const isToday =
+      to.getDate() === now.getDate() && to.getMonth() === now.getMonth() && to.getFullYear() === now.getFullYear()
+    if (isToday) {
+      to.setTime(now.getTime())
+    } else {
+      to.setHours(23, 59, 59, 999)
+    }
+
+    fromSql = `TIMESTAMP('${format(from, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx")}')`
+    toSql = `TIMESTAMP('${format(to, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx")}')`
 
     const projectId = getGcpProjectId()
     let tablePrefix = `\`${projectId}.umami_views.event\``

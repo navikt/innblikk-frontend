@@ -18,6 +18,9 @@ import {
 import { prepareLineChartData, prepareBarChartData, preparePieChartData } from '../utils/chartHelpers'
 import { fetchWebsites, estimateQueryCost, executeQueryApi } from '../api/sqlApi'
 
+// Handles React StrictMode double-mount in dev so SQL prefill doesn't get lost
+const sqlPrefillCache = new Map<string, string>()
+
 export const useSqlEditor = () => {
   const [searchParams] = useSearchParams()
 
@@ -107,9 +110,13 @@ export const useSqlEditor = () => {
 
     if (!sqlParam && sqlStorageKey) {
       try {
-        const storedSql = window.sessionStorage.getItem(sqlStorageKey)
+        const cachedSql = sqlPrefillCache.get(sqlStorageKey)
+        const storedSql =
+          cachedSql || window.localStorage.getItem(sqlStorageKey) || window.sessionStorage.getItem(sqlStorageKey)
         if (storedSql) {
           sqlParam = storedSql
+          sqlPrefillCache.set(sqlStorageKey, storedSql)
+          window.localStorage.removeItem(sqlStorageKey)
           window.sessionStorage.removeItem(sqlStorageKey)
         }
       } catch {

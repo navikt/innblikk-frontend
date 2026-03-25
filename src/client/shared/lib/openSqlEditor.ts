@@ -17,7 +17,7 @@ export const openSqlEditorWithContext = ({ sql, websiteId }: OpenSqlEditorOption
   if (url.length > 2000) {
     try {
       const storageKey = `sql_editor_prefill_${Date.now()}`
-      window.sessionStorage.setItem(storageKey, sql)
+      window.localStorage.setItem(storageKey, sql)
       params.delete('sql')
       params.set('sqlStorageKey', storageKey)
       url = `/sql?${params.toString()}`

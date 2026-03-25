@@ -1,4 +1,5 @@
 import { getGcpProjectId } from '../../../shared/lib/runtimeConfig.ts'
+import { getEntranceSummaryChannelCaseSql } from './entranceSummaryChannels'
 
 const projectId = getGcpProjectId()
 const eventTable = `\`${projectId}.umami_views.event\``
@@ -82,6 +83,17 @@ ${baseQuery}
 SELECT
   COUNT(DISTINCT base_query.session_id) as Unike_besokende,
   COALESCE(NULLIF(base_query.referrer_domain, ''), '(none)') AS Navn
+FROM base_query
+GROUP BY Navn
+ORDER BY Unike_besokende DESC
+LIMIT 1000
+`
+
+export const getEntranceSummarySqlTemplate = (websiteDomain?: string) => `
+${baseQuery}
+SELECT
+  COUNT(DISTINCT base_query.session_id) as Unike_besokende,
+  ${getEntranceSummaryChannelCaseSql('base_query.referrer_domain', websiteDomain)} AS Navn
 FROM base_query
 GROUP BY Navn
 ORDER BY Unike_besokende DESC

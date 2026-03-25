@@ -6,7 +6,7 @@ import AddToDashboardDialog from '../../../shared/ui/AddToDashboardDialog.tsx'
 import TransferToMetabaseDialog from '../../../shared/ui/TransferToMetabaseDialog.tsx'
 import { openSqlEditorWithContext } from '../../../shared/lib/openSqlEditor.ts'
 import { formatMetricValue, formatCsvValue, downloadCsvFile } from '../utils/trafficUtils'
-import { getExternalSourcesSqlTemplate } from '../utils/trafficDashboardSqlTemplates.ts'
+import { getEntranceSummarySqlTemplate } from '../utils/trafficDashboardSqlTemplates.ts'
 
 type ExternalTrafficTableProps = {
   title: string
@@ -100,7 +100,7 @@ const ExternalTrafficTable = ({
     )
   }
 
-  const addToDashboardSql = getExternalSourcesSqlTemplate()
+  const addToDashboardSql = getEntranceSummarySqlTemplate(websiteDomain)
 
   return (
     <>

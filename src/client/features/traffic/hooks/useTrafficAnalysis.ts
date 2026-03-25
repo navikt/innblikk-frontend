@@ -36,6 +36,7 @@ import {
   getCSVMetricLabel,
   downloadCsvFile,
 } from '../utils/trafficUtils'
+import { getEntranceSummaryChannel } from '../utils/entranceSummaryChannels'
 import {
   buildSeriesUrl,
   fetchTrafficSeries,
@@ -870,37 +871,12 @@ export const useTrafficAnalysis = () => {
 
   const entranceSummary = useMemo(() => {
     const channelMap = new Map<string, number>()
-    const normalizedDomain = selectedWebsite?.domain?.toLowerCase().replace(/^www\./, '')
+    const websiteDomain = selectedWebsite?.domain
 
     externalReferrerData.forEach((item) => {
       const rawName = String(item.name || '')
-      const source = rawName.toLowerCase().replace(/^www\./, '')
       const count = submittedMetricType === 'proportion' ? Number(item.count || 0) / 100 : Number(item.count || 0)
-      let channel = 'Eksterne nettsider'
-
-      if (source === '(none)') {
-        channel = 'Direkte'
-      } else if (normalizedDomain && source === normalizedDomain) {
-        channel = 'Interne sider'
-      } else if (
-        source.includes('google') ||
-        source.includes('bing') ||
-        source.includes('yahoo') ||
-        source.includes('duckduckgo') ||
-        source.includes('ecosia') ||
-        source.includes('qwant')
-      ) {
-        channel = 'Søkemotorer'
-      } else if (
-        source.includes('facebook') ||
-        source.includes('twitter') ||
-        source.includes('linkedin') ||
-        source.includes('instagram') ||
-        source.includes('tiktok') ||
-        source.includes('snapchat')
-      ) {
-        channel = 'Sosiale medier'
-      }
+      const channel = getEntranceSummaryChannel(rawName, websiteDomain)
 
       channelMap.set(channel, (channelMap.get(channel) || 0) + count)
     })
@@ -909,7 +885,7 @@ export const useTrafficAnalysis = () => {
       .map(([name, count]) => ({ name, count }))
       .filter((item) => item.count > 0)
       .sort((a, b) => b.count - a.count)
-  }, [externalReferrerData, selectedWebsite, submittedMetricType])
+  }, [externalReferrerData, selectedWebsite?.domain, submittedMetricType])
 
   const seriesTotal = useMemo(() => {
     if (submittedMetricType === 'visits' || submittedMetricType === 'visitors') {
