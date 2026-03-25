@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, Button, TextField } from '@navikt/ds-react'
 import { format, parseISO } from 'date-fns'
-import { ArrowRight } from 'lucide-react'
+import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
@@ -626,18 +626,6 @@ const EventJourneyClickmap = () => {
               endDate={customEndDate}
               onEndDateChange={setCustomEndDate}
             />
-            <Button
-              size="small"
-              variant="secondary"
-              onClick={() => {
-                const params = new URLSearchParams(window.location.search)
-                params.delete('journey')
-                params.delete('journeyCount')
-                window.location.assign(`/hendelsesreiser?${params.toString()}`)
-              }}
-            >
-              Tilbake
-            </Button>
           </div>
         </>
       }
@@ -662,6 +650,23 @@ const EventJourneyClickmap = () => {
 
       {hasJourney && selectedWebsite && iframeSrc && (
         <>
+          <div className="mb-4 pb-[2px]">
+            <Button
+              size="small"
+              variant="secondary"
+              icon={<ArrowLeft size={16} />}
+              onClick={() => {
+                const params = new URLSearchParams(window.location.search)
+                params.delete('journey')
+                params.delete('journeyCount')
+                params.delete('journeyTotal')
+                window.location.assign(`/hendelsesreiser?${params.toString()}`)
+              }}
+            >
+              Alle hendelsesforløp
+            </Button>
+          </div>
+
           <div className="mb-4 rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] px-4 py-3">
             <p className="text-xl leading-8 text-[var(--ax-text-default)]">
               <span className="font-bold text-red-700">{journeyPercent} %</span> av alle økter fulgte dette løpet. Det
