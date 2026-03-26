@@ -44,12 +44,14 @@ const EventJourney = () => {
   } = useEventJourney()
 
   const [filterText, setFilterText] = useState<string>('')
+  const [includedEventTypes, setIncludedEventTypes] = useState<string[]>([])
   const [excludedEventTypes, setExcludedEventTypes] = useState<string[]>([])
   const [showTableSection, setShowTableSection] = useState<boolean>(false)
   const [copySuccess, setCopySuccess] = useState<boolean>(false)
   const [selectedFunnelSteps, setSelectedFunnelSteps] = useState<SelectedFunnelStep[]>([])
 
-  const filteredData = filterJourneys(data, excludedEventTypes, filterText)
+  const uniqueEventTypes = getUniqueEventTypes(data)
+  const filteredData = filterJourneys(data, includedEventTypes, excludedEventTypes, filterText)
   const totalJourneySessions = data.reduce((total, journey) => total + journey.count, 0)
   const supportsClickmaps = hasClickmapSupport(selectedWebsite?.domain, selectedWebsite?.id)
 
@@ -193,23 +195,41 @@ const EventJourney = () => {
 
           <div className="mb-4">
             <div className="flex flex-wrap items-end gap-3">
-              {getUniqueEventTypes(data).length > 0 && (
-                <UNSAFE_Combobox
-                  label="Skjul hendelser"
-                  size="small"
-                  options={getUniqueEventTypes(data)}
-                  selectedOptions={excludedEventTypes}
-                  isMultiSelect
-                  placeholder="Velg..."
-                  onToggleSelected={(option: string, isSelected: boolean) => {
-                    if (isSelected) {
-                      setExcludedEventTypes([...excludedEventTypes, option])
-                    } else {
-                      setExcludedEventTypes(excludedEventTypes.filter((e) => e !== option))
-                    }
-                  }}
-                  className="w-56"
-                />
+              {uniqueEventTypes.length > 0 && (
+                <>
+                  <UNSAFE_Combobox
+                    label="Vis bestemte hendelser"
+                    size="small"
+                    options={uniqueEventTypes}
+                    selectedOptions={includedEventTypes}
+                    isMultiSelect
+                    placeholder="Velg..."
+                    onToggleSelected={(option: string, isSelected: boolean) => {
+                      if (isSelected) {
+                        setIncludedEventTypes([...includedEventTypes, option])
+                      } else {
+                        setIncludedEventTypes(includedEventTypes.filter((e) => e !== option))
+                      }
+                    }}
+                    className="w-56"
+                  />
+                  <UNSAFE_Combobox
+                    label="Skjul hendelser"
+                    size="small"
+                    options={uniqueEventTypes}
+                    selectedOptions={excludedEventTypes}
+                    isMultiSelect
+                    placeholder="Velg..."
+                    onToggleSelected={(option: string, isSelected: boolean) => {
+                      if (isSelected) {
+                        setExcludedEventTypes([...excludedEventTypes, option])
+                      } else {
+                        setExcludedEventTypes(excludedEventTypes.filter((e) => e !== option))
+                      }
+                    }}
+                    className="w-56"
+                  />
+                </>
               )}
               <TextField
                 label="Søk"

@@ -11,16 +11,25 @@ export const getUniqueEventTypes = (data: { path: string[]; count: number }[]): 
 
 export const filterJourneys = (
   data: { path: string[]; count: number }[],
+  includedEventTypes: string[],
   excludedEventTypes: string[],
   filterText: string,
 ) => {
   const processed = data
-    .map((journey) => ({
-      ...journey,
-      path: journey.path
+    .map((journey) => {
+      const filteredPath = journey.path
         .filter((step) => {
           const eventName = step.split(': ')[0]
-          return !excludedEventTypes.includes(eventName)
+
+          if (includedEventTypes.length > 0 && !includedEventTypes.includes(eventName)) {
+            return false
+          }
+
+          if (excludedEventTypes.includes(eventName)) {
+            return false
+          }
+
+          return true
         })
         .map((step) => {
           const parts = step.split(': ')
@@ -42,9 +51,27 @@ export const filterJourneys = (
           if (filteredDetails.length === 0) return eventName
 
           return `${eventName}: ${filteredDetails.join('||')}`
-        }),
-    }))
-    .filter((journey) => journey.path.length > 0)
+        })
+
+      if (includedEventTypes.length > 0) {
+        const includedInJourney = new Set(filteredPath.map((step) => step.split(': ')[0]))
+        const hasAllIncludedTypes = includedEventTypes.every((eventType) => includedInJourney.has(eventType))
+
+        if (!hasAllIncludedTypes) {
+          return null
+        }
+      }
+
+      if (filteredPath.length === 0) {
+        return null
+      }
+
+      return {
+        ...journey,
+        path: filteredPath,
+      }
+    })
+    .filter((journey): journey is { path: string[]; count: number } => journey !== null)
 
   const aggregatedMap = new Map<string, { path: string[]; count: number }>()
   processed.forEach((journey) => {
