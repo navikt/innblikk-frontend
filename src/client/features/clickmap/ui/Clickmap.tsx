@@ -708,7 +708,7 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
           )}
           {isClickmap && (
             <Button size="small" variant="secondary" onClick={() => setIsTopListOpen((current) => !current)}>
-              {isTopListOpen ? 'Skjul toppliste' : 'Vis toppliste'}
+              {isTopListOpen ? 'Skjul toppliste / filter' : 'Vis toppliste / filter'}
             </Button>
           )}
         </div>

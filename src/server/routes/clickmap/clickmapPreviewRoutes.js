@@ -369,6 +369,48 @@ export function createClickmapPreviewRouter() {
     }
   
     const isAccordionComponent = (value) => value.includes('accordion') || value.includes('trekkspill')
+    const isTabComponent = (value) => value.includes('tab')
+    const isButtonComponent = (value) =>
+      value.includes('knapp') ||
+      value.includes('button') ||
+      value.includes('cta') ||
+      value.includes('toggle') ||
+      value.includes('switch')
+    const isMenuComponent = (value) =>
+      value.includes('meny') || value.includes('menu') || value.includes('dropdown') || value.includes('navigasjon')
+    const getComponentIntent = (componentKey) => {
+      if (!componentKey) return 'any'
+      if (isAccordionComponent(componentKey)) return 'accordion'
+      if (isTabComponent(componentKey)) return 'tab'
+      if (isButtonComponent(componentKey)) return 'button'
+      if (isMenuComponent(componentKey)) return 'menu'
+      return 'any'
+    }
+    const candidateMatchesIntent = (candidateKind, intent) => {
+      if (intent === 'accordion') return candidateKind === 'accordion'
+      if (intent === 'tab') return candidateKind === 'tab'
+      if (intent === 'button') return candidateKind === 'button' || candidateKind === 'menuitem'
+      if (intent === 'menu') return candidateKind === 'menuitem' || candidateKind === 'link' || candidateKind === 'button'
+      return true
+    }
+    const getAccordionText = (element) => {
+      const section = element.closest(
+        'section.navds-expansioncard, section[class*="expansioncard"], section[class*="Expandable_expandable"], section[aria-label]',
+      )
+      if (section) {
+        const titleNode =
+          section.querySelector(
+            '[class*="Expandable_headerTitle"], .navds-expansioncard__header-content, .navds-expansioncard__header',
+          ) || section
+        const titleText = cleanText(titleNode.textContent || '')
+        if (titleText) return titleText
+        const sectionAria = cleanText(section.getAttribute('aria-label') || '')
+        if (sectionAria) return sectionAria
+      }
+
+      const fallbackText = cleanText(element.textContent || element.getAttribute('aria-label') || '')
+      return fallbackText
+    }
     const isHeaderLikeElement = (element) =>
       !!element.closest(
         'header, nav, [role="banner"], #decorator-header, .decorator-header, [class*="dekorator"], [class*="decorator"]',
@@ -462,33 +504,61 @@ export function createClickmapPreviewRouter() {
       Array.from(document.querySelectorAll('button[aria-expanded], button[aria-controls], summary')).forEach((element) =>
         addCandidate(element, 'accordion'),
       )
+      Array.from(
+        document.querySelectorAll(
+          'section.navds-expansioncard .navds-expansioncard__header, section[class*="expansioncard"] .navds-expansioncard__header, section[class*="Expandable_expandable"] [class*="Expandable_header"], section[class*="Expandable_expandable"] [class*="Expandable_headerTitle"]',
+        ),
+      ).forEach((element) => addCandidate(element, 'accordion'))
+      Array.from(
+        document.querySelectorAll(
+          'button:not([aria-expanded]):not([aria-controls]), [role="button"]:not([aria-expanded]):not([aria-controls]), input[type="button"], input[type="submit"]',
+        ),
+      ).forEach((element) => addCandidate(element, 'button'))
+      Array.from(document.querySelectorAll('[role="tab"], button[role="tab"], [aria-selected][aria-controls]')).forEach(
+        (element) => addCandidate(element, 'tab'),
+      )
+      Array.from(document.querySelectorAll('[role="menuitem"], [role="option"], [role="switch"], [role="checkbox"]')).forEach(
+        (element) => addCandidate(element, 'menuitem'),
+      )
   
       return candidates
     }
-  
+
     const findBestMatch = (candidate, preparedItems) => {
-      const elementText = cleanText(candidate.element.textContent || candidate.element.getAttribute('aria-label') || '')
+      const elementText =
+        candidate.kind === 'accordion'
+          ? getAccordionText(candidate.element)
+          : cleanText(candidate.element.textContent || candidate.element.getAttribute('aria-label') || '')
       const elementDestination = candidate.kind === 'link' ? normalizeDestination(candidate.element.getAttribute('href') || '') : null
       let bestMatch = null
       let bestScore = -1
-  
+
       for (const item of preparedItems) {
-        const itemIsAccordion = isAccordionComponent(item.componentKey)
+        const itemIntent = getComponentIntent(item.componentKey)
+        const itemIsAccordion = itemIntent === 'accordion'
+        const matchesIntent = candidateMatchesIntent(candidate.kind, itemIntent)
         if (itemIsAccordion && candidate.kind !== 'accordion') continue
-  
-        const textMatches = !!item.linkTextKey && item.linkTextKey === elementText
+
+        const textExactMatch = !!item.linkTextKey && item.linkTextKey === elementText
+        const textContainsMatch =
+          !!item.linkTextKey &&
+          !textExactMatch &&
+          (elementText.includes(item.linkTextKey) || item.linkTextKey.includes(elementText))
+        const textMatches = textExactMatch || textContainsMatch
         const destinationMatches =
           candidate.kind === 'link' &&
           !!elementDestination &&
           (item.destinationHasHost
             ? !!item.destinationFullKey && item.destinationFullKey === elementDestination.full
             : !!item.destinationPathKey && item.destinationPathKey === elementDestination.path)
+        if (itemIntent !== 'any' && !destinationMatches && !matchesIntent) continue
         if (!textMatches && !destinationMatches) continue
-  
+
         const score =
           (destinationMatches ? 3 : 0) +
-          (textMatches ? 1 : 0) +
-          (itemIsAccordion && candidate.kind === 'accordion' ? 3 : 0) +
+          (textExactMatch ? 2 : textContainsMatch ? 1 : 0) +
+          (matchesIntent ? 2 : 0) +
+          (itemIsAccordion && candidate.kind === 'accordion' ? 2 : 0) +
           (candidate.kind === 'link' ? 0.1 : 0)
         if (!bestMatch || score > bestScore || (score === bestScore && item.count > bestMatch.count)) {
           bestMatch = item
@@ -782,15 +852,20 @@ export function createClickmapPreviewRouter() {
         linkTextKey: cleanText(payload?.linkText || ''),
         componentKey: cleanText(payload?.component || ''),
       }
-      const targetIsAccordion = isAccordionComponent(target.componentKey)
+      const targetIntent = getComponentIntent(target.componentKey)
+      const targetIsAccordion = targetIntent === 'accordion'
       const candidates = getInteractiveCandidates()
       let bestElement = null
       let bestScore = -1
 
       for (const candidate of candidates) {
+        const matchesIntent = candidateMatchesIntent(candidate.kind, targetIntent)
         if (targetIsAccordion && candidate.kind !== 'accordion') continue
 
-        const elementText = cleanText(candidate.element.textContent || candidate.element.getAttribute('aria-label') || '')
+        const elementText =
+          candidate.kind === 'accordion'
+            ? getAccordionText(candidate.element)
+            : cleanText(candidate.element.textContent || candidate.element.getAttribute('aria-label') || '')
         const textExact = !!target.linkTextKey && target.linkTextKey === elementText
         const textContains =
           !!target.linkTextKey &&
@@ -805,13 +880,15 @@ export function createClickmapPreviewRouter() {
             ? !!target.destinationFullKey && target.destinationFullKey === destinationMetaForElement.full
             : !!target.destinationPathKey && target.destinationPathKey === destinationMetaForElement.path)
 
+        if (!destinationMatches && targetIntent !== 'any' && !matchesIntent) continue
         if (!destinationMatches && !textExact && !textContains && !targetIsAccordion) continue
         if (!destinationMatches && !textExact && !textContains && targetIsAccordion && candidate.kind !== 'accordion') continue
 
         const score =
           (destinationMatches ? 6 : 0) +
           (textExact ? 4 : textContains ? 2 : 0) +
-          (targetIsAccordion && candidate.kind === 'accordion' ? 3 : 0) +
+          (matchesIntent ? 2 : 0) +
+          (targetIsAccordion && candidate.kind === 'accordion' ? 2 : 0) +
           (candidate.element.classList.contains('umami-clickmap-hit') || candidate.element.classList.contains('umami-heatmap-hit')
             ? 1
             : 0)
