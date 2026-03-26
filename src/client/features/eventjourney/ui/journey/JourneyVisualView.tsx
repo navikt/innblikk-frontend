@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button, Pagination, Select } from '@navikt/ds-react'
-import { ArrowRight, Plus, Check, ExternalLink } from 'lucide-react'
+import { ArrowRight, Plus, Check } from 'lucide-react'
 import { parseJourneyStep } from '../../utils/parsers.ts'
 import { formatNumber } from '../../utils/formatters.ts'
 
@@ -71,7 +71,6 @@ const JourneyVisualView = ({
                 <Button
                   size="xsmall"
                   variant="secondary"
-                  icon={<ExternalLink size={14} />}
                   className="ml-auto"
                   onClick={() => onVisualizeJourney(journey)}
                 >

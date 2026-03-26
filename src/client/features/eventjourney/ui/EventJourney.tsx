@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { TextField, Button, Alert, Loader, Switch, UNSAFE_Combobox } from '@navikt/ds-react'
 import { Share2, Check, ExternalLink } from 'lucide-react'
 import { format } from 'date-fns'
+import { useNavigate } from 'react-router-dom'
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
@@ -22,6 +23,7 @@ type SelectedFunnelStep = {
 }
 
 const EventJourney = () => {
+  const navigate = useNavigate()
   const {
     selectedWebsite,
     setSelectedWebsite,
@@ -54,6 +56,13 @@ const EventJourney = () => {
   const filteredData = filterJourneys(data, includedEventTypes, excludedEventTypes, filterText)
   const totalJourneySessions = data.reduce((total, journey) => total + journey.count, 0)
   const supportsClickmaps = hasClickmapSupport(selectedWebsite?.domain, selectedWebsite?.id)
+
+  useEffect(() => {
+    if (!supportsClickmaps) return
+    if (filteredData.length === 0) return
+    // Warm up the visualizer route chunk before first navigation.
+    void import('../../clickmap')
+  }, [supportsClickmaps, filteredData.length])
 
   const copyShareLink = async () => {
     const success = await copyToClipboard(window.location.href)
@@ -98,7 +107,7 @@ const EventJourney = () => {
       params.set('to', format(customEndDate, 'yyyy-MM-dd'))
     }
 
-    window.open(`/hendelsesreiser/visualisering?${params.toString()}`, '_blank', 'noopener,noreferrer')
+    void navigate(`/hendelsesreiser/visualisering?${params.toString()}`)
   }
 
   const navigateToFunnel = () => {

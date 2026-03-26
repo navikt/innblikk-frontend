@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, Button, TextField } from '@navikt/ds-react'
 import { format, parseISO } from 'date-fns'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
@@ -399,6 +399,7 @@ const buildPreviewTargetUrl = (domain: string | undefined, path: string): string
 }
 
 const EventJourneyClickmap = () => {
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
   const [isWebsitePickerInitializing, setIsWebsitePickerInitializing] = useState<boolean>(true)
@@ -675,7 +676,7 @@ const EventJourneyClickmap = () => {
                 params.delete('journey')
                 params.delete('journeyCount')
                 params.delete('journeyTotal')
-                window.location.assign(`/hendelsesreiser?${params.toString()}`)
+                void navigate(`/hendelsesreiser?${params.toString()}`)
               }}
             >
               Alle hendelsesforløp

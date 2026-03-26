@@ -11,6 +11,14 @@ import {
 import { fetchEventJourneys } from '../api/eventJourneyApi'
 import type { JourneyStats, QueryStats } from '../model/types'
 
+type CachedJourneyResult = {
+  data: { path: string[]; count: number }[]
+  journeyStats: JourneyStats | null
+  queryStats: QueryStats | null
+}
+
+const eventJourneyCache = new Map<string, CachedJourneyResult>()
+
 export const useEventJourney = () => {
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
   const [searchParams] = useSearchParams()
@@ -64,14 +72,6 @@ export const useEventJourney = () => {
 
     const appliedFilterKey = buildFilterKey()
 
-    setLoading(true)
-    setHasSearched(true)
-    setError(null)
-    setData([])
-    setJourneyStats(null)
-    setQueryStats(null)
-    setHasAutoSubmitted(true)
-
     const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
     if (!dateRange) {
       setError('Vennligst velg en gyldig periode.')
@@ -80,20 +80,7 @@ export const useEventJourney = () => {
     }
     const { startDate, endDate } = dateRange
 
-    try {
-      const result = await fetchEventJourneys({
-        websiteId: selectedWebsite.id,
-        urlPath,
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
-        minEvents: 1,
-      })
-
-      setData(result.journeys || [])
-      setJourneyStats(result.journeyStats || null)
-      setQueryStats(result.queryStats || null)
-
-      // Update URL
+    const syncSearchParams = () => {
       const newParams = new URLSearchParams(window.location.search)
       newParams.set('period', period)
       newParams.set('urlPath', urlPath)
@@ -106,6 +93,50 @@ export const useEventJourney = () => {
         newParams.delete('to')
       }
       window.history.replaceState({}, '', `${window.location.pathname}?${newParams.toString()}`)
+    }
+
+    const cachedResult = eventJourneyCache.get(appliedFilterKey)
+    if (cachedResult) {
+      setHasSearched(true)
+      setHasAutoSubmitted(true)
+      setError(null)
+      setData(cachedResult.data)
+      setJourneyStats(cachedResult.journeyStats)
+      setQueryStats(cachedResult.queryStats)
+      setLastAppliedFilterKey(appliedFilterKey)
+      syncSearchParams()
+      return
+    }
+
+    setLoading(true)
+    setHasSearched(true)
+    setError(null)
+    setData([])
+    setJourneyStats(null)
+    setQueryStats(null)
+    setHasAutoSubmitted(true)
+
+    try {
+      const result = await fetchEventJourneys({
+        websiteId: selectedWebsite.id,
+        urlPath,
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        minEvents: 1,
+      })
+
+      const nextData = result.journeys || []
+      const nextJourneyStats = result.journeyStats || null
+      const nextQueryStats = result.queryStats || null
+      setData(nextData)
+      setJourneyStats(nextJourneyStats)
+      setQueryStats(nextQueryStats)
+      eventJourneyCache.set(appliedFilterKey, {
+        data: nextData,
+        journeyStats: nextJourneyStats,
+        queryStats: nextQueryStats,
+      })
+      syncSearchParams()
       setLastAppliedFilterKey(appliedFilterKey)
     } catch (err) {
       console.error(err)
