@@ -329,8 +329,9 @@ const ensureJourneyOverlayStyles = (doc: Document) => {
       position: absolute;
       top: -${JOURNEY_STEP_BADGE_OFFSET}px;
       left: -${JOURNEY_STEP_BADGE_OFFSET}px;
-      width: ${JOURNEY_STEP_BADGE_SIZE}px;
+      min-width: ${JOURNEY_STEP_BADGE_SIZE}px;
       height: ${JOURNEY_STEP_BADGE_SIZE}px;
+      padding: 0 6px;
       border-radius: 9999px;
       border: 2px solid #fff;
       background: rgba(185, 28, 28, 0.98);
@@ -461,7 +462,7 @@ const EventJourneyClickmap = () => {
     ensureJourneyOverlayStyles(iframeDoc)
     clearJourneyHighlights(iframeDoc)
 
-    const nextMarkers: JourneyMarker[] = []
+    const stepMarkers: Array<JourneyMarker & { element: Element }> = []
     const nextUnmatched: number[] = []
     let firstMatchedElement: Element | null = null
     const nextMatchedElements = new Map<number, Element>()
@@ -474,7 +475,12 @@ const EventJourneyClickmap = () => {
       }
 
       matchedElement.classList.add(JOURNEY_STEP_HIT_CLASS)
-      matchedElement.setAttribute(JOURNEY_STEP_NUMBER_ATTR, String(index + 1))
+      const existingStepLabel = matchedElement.getAttribute(JOURNEY_STEP_NUMBER_ATTR)
+      const stepNumber = String(index + 1)
+      matchedElement.setAttribute(
+        JOURNEY_STEP_NUMBER_ATTR,
+        existingStepLabel ? `${existingStepLabel}, ${stepNumber}` : stepNumber,
+      )
       nextMatchedElements.set(index, matchedElement)
       if (!firstMatchedElement) {
         firstMatchedElement = matchedElement
@@ -491,13 +497,28 @@ const EventJourneyClickmap = () => {
         elementRect.right >= 0 &&
         elementRect.left <= iframeNode.clientWidth
       const markerAnchor = getMarkerAnchor(elementRect)
-      nextMarkers.push({
+      stepMarkers.push({
         index,
         x: markerAnchor.x,
         y: markerAnchor.y,
         visible: isInViewport,
+        element: matchedElement,
       })
     })
+
+    const nextMarkers: JourneyMarker[] = []
+    for (const marker of stepMarkers) {
+      const previousMarker = nextMarkers[nextMarkers.length - 1]
+      if (previousMarker && nextMatchedElements.get(previousMarker.index) === marker.element) {
+        continue
+      }
+      nextMarkers.push({
+        index: marker.index,
+        x: marker.x,
+        y: marker.y,
+        visible: marker.visible,
+      })
+    }
 
     setMarkers(nextMarkers)
     setOverlayViewport({ width: iframeNode.clientWidth, height: iframeNode.clientHeight })
@@ -745,11 +766,11 @@ const EventJourneyClickmap = () => {
                   // Skip lines that collapse on the same viewport edge while both points are off-screen.
                   if (!fromMarker.visible && !toMarker.visible && Math.hypot(dx, dy) < 2) return null
                   const length = Math.hypot(dx, dy) || 1
-                  const radius = JOURNEY_STEP_BADGE_RADIUS
-                  const startX = fromPoint.x + (dx / length) * radius
-                  const startY = fromPoint.y + (dy / length) * radius
-                  const endX = toPoint.x - (dx / length) * (radius + 2)
-                  const endY = toPoint.y - (dy / length) * (radius + 2)
+                  const lineClearance = JOURNEY_STEP_BADGE_RADIUS + 10
+                  const startX = fromPoint.x + (dx / length) * lineClearance
+                  const startY = fromPoint.y + (dy / length) * lineClearance
+                  const endX = toPoint.x - (dx / length) * lineClearance
+                  const endY = toPoint.y - (dy / length) * lineClearance
                   return (
                     <line
                       key={`line-${fromMarker.index}-${toMarker.index}`}
