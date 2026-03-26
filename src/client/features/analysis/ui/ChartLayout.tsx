@@ -10,7 +10,7 @@ import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 
 interface ChartLayoutProps {
   title: string
-  description: string
+  description?: string
   filters?: React.ReactNode
   children: React.ReactNode
   currentPage?: AnalyticsPage
