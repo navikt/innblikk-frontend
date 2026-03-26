@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, Button, Loader, Modal, Select, TextField } from '@navikt/ds-react'
+import { Alert, Button, Loader, Modal, Search, Select, TextField } from '@navikt/ds-react'
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
 import { normalizeUrlToPath } from '../../../shared/lib/utils.ts'
 import { useClickmap } from '../hooks/useClickmap.ts'
+import type { ClickmapItem } from '../model/types.ts'
 
 const normalizeComparablePath = (value: string): string => {
   const normalizedValue = normalizeUrlToPath(value || '')
@@ -97,6 +98,119 @@ type ClickmapProps = {
   visualizationMode?: VisualizationMode
 }
 
+type ClickmapFocusLinkPayload = {
+  type: 'umami-clickmap-focus-link'
+  linkText?: string
+  destination?: string
+  component?: string
+}
+
+const cleanText = (value: string): string => value.replace(/\s+/g, ' ').trim().toLowerCase()
+
+const isAccordionLike = (value: string): boolean => {
+  const cleaned = cleanText(value)
+  return cleaned.includes('accordion') || cleaned.includes('trekkspill')
+}
+
+const CLICKMAP_FOCUSED_CLASS = 'umami-clickmap-focused-link'
+
+const normalizeDestination = (value: string): { path: string; full: string } => {
+  if (!value) return { path: '', full: '' }
+  try {
+    const resolved = new URL(value, window.location.href)
+    const normalizedPath = decodeURIComponent(resolved.pathname || '/')
+    const path = normalizedPath === '/' ? '/' : normalizedPath.replace(/\/+$/, '')
+    const host = (resolved.hostname || '').toLowerCase()
+    return { path, full: host ? host + path : path }
+  } catch {
+    const path = normalizeComparablePath(value)
+    return { path, full: path }
+  }
+}
+
+const isElementVisible = (element: Element): boolean => {
+  const view = element.ownerDocument.defaultView
+  if (!view) return false
+  const style = view.getComputedStyle(element)
+  if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false
+  const rect = element.getBoundingClientRect()
+  return rect.width > 0 && rect.height > 0
+}
+
+const ensureFocusedStyle = (doc: Document) => {
+  if (doc.getElementById('umami-clickmap-focused-style')) return
+  const style = doc.createElement('style')
+  style.id = 'umami-clickmap-focused-style'
+  style.textContent = `
+    .${CLICKMAP_FOCUSED_CLASS} {
+      outline: 3px solid rgba(185, 28, 28, 0.95) !important;
+      outline-offset: 1px !important;
+      background-color: rgba(220, 38, 38, 0.2) !important;
+      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.82), 0 0 0 6px rgba(220, 38, 38, 0.52) !important;
+      border-radius: 3px !important;
+    }
+  `
+  doc.head.appendChild(style)
+}
+
+const clearFocusedElement = (doc: Document) => {
+  doc.querySelectorAll(`.${CLICKMAP_FOCUSED_CLASS}`).forEach((node) => {
+    node.classList.remove(CLICKMAP_FOCUSED_CLASS)
+  })
+}
+
+const findBestElementForClickmapItem = (doc: Document, item: ClickmapItem): Element | null => {
+  const targetText = cleanText(item.linkText || '')
+  const targetDestination = normalizeDestination(item.destination || '')
+  const targetIsAccordion = isAccordionLike(item.component || '')
+
+  const candidates = [
+    ...Array.from(doc.querySelectorAll('a[href]')).map((element) => ({ element, kind: 'link' as const })),
+    ...Array.from(doc.querySelectorAll('button[aria-expanded], button[aria-controls], summary')).map((element) => ({
+      element,
+      kind: 'accordion' as const,
+    })),
+  ]
+
+  let bestElement: Element | null = null
+  let bestScore = -1
+
+  for (const candidate of candidates) {
+    if (!isElementVisible(candidate.element)) continue
+    if (targetIsAccordion && candidate.kind !== 'accordion') continue
+
+    const elementText = cleanText(candidate.element.textContent || candidate.element.getAttribute('aria-label') || '')
+    const textExact = !!targetText && targetText === elementText
+    const textContains =
+      !!targetText && !textExact && (targetText.includes(elementText) || elementText.includes(targetText))
+
+    const href = candidate.kind === 'link' ? candidate.element.getAttribute('href') || '' : ''
+    const destination = normalizeDestination(href)
+    const destinationMatches =
+      candidate.kind === 'link' &&
+      !!targetDestination.path &&
+      (targetDestination.path === destination.path || targetDestination.full === destination.full)
+
+    if (!destinationMatches && !textExact && !textContains && !targetIsAccordion) continue
+
+    const score =
+      (destinationMatches ? 6 : 0) +
+      (textExact ? 4 : textContains ? 2 : 0) +
+      (targetIsAccordion && candidate.kind === 'accordion' ? 3 : 0) +
+      (candidate.element.classList.contains('umami-clickmap-hit') ||
+      candidate.element.classList.contains('umami-heatmap-hit')
+        ? 1
+        : 0)
+
+    if (score > bestScore) {
+      bestScore = score
+      bestElement = candidate.element
+    }
+  }
+
+  return bestElement
+}
+
 const isClickmapLinkClickMessage = (value: unknown): value is ClickmapLinkClickMessage => {
   if (!value || typeof value !== 'object') return false
   const candidate = value as { type?: unknown }
@@ -138,17 +252,25 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
 
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
   const isHeatmap = visualizationMode === 'heatmap'
-  const chartLabel = isHeatmap ? 'Varmekart' : 'Klikk-kart'
-  const showButtonLabel = isHeatmap ? 'Vis varmekart' : 'Vis klikk-kart'
-  const showRightSidebar = false
+  const chartLabel = isHeatmap ? 'Varmekart' : 'Klikkoversikt'
+  const showButtonLabel = isHeatmap ? 'Vis varmekart' : 'Vis klikkoversikt'
+  const [isTopListOpen, setIsTopListOpen] = useState(false)
+  const showRightSidebar = !isHeatmap && isTopListOpen
   const [badgeMode, setBadgeMode] = useState<'count' | 'percent'>('count')
   const [urlInput, setUrlInput] = useState(urlPath)
   const [pendingLinkNavigation, setPendingLinkNavigation] = useState<PendingLinkNavigation | null>(null)
   const [previewNotice, setPreviewNotice] = useState<PreviewNotice | null>(null)
+  const [activeTopListItemKey, setActiveTopListItemKey] = useState<string | null>(null)
+  const [listTypeFilter, setListTypeFilter] = useState<string>('all')
+  const [listSearch, setListSearch] = useState<string>('')
 
   useEffect(() => {
     setUrlInput(urlPath)
   }, [urlPath])
+
+  useEffect(() => {
+    setActiveTopListItemKey(null)
+  }, [urlPath, data])
 
   const hasPendingUrlChange = normalizeComparablePath(urlInput) !== normalizeComparablePath(urlPath)
 
@@ -186,20 +308,65 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
     [badgeMode, formatPercentBadge, totalClicks],
   )
 
-  const maxCount = useMemo(
-    () => Math.max(1, ...clickmapDataForPreview.map((item) => (Number.isFinite(item.count) ? item.count : 0))),
-    [clickmapDataForPreview],
+  const listTypeOptions = useMemo(() => {
+    const componentValues = Array.from(
+      new Set(clickmapDataForPreview.map((item) => item.component?.trim()).filter((value): value is string => !!value)),
+    ).sort((a, b) => a.localeCompare(b, 'nb'))
+
+    return [
+      { value: 'all', label: 'Alle treff' },
+      { value: 'links', label: 'Lenker' },
+      { value: 'accordion', label: 'Trekkspill/accordion' },
+      ...componentValues.map((component) => ({
+        value: `component:${component}`,
+        label: `Komponent: ${component}`,
+      })),
+    ]
+  }, [clickmapDataForPreview])
+
+  useEffect(() => {
+    if (listTypeOptions.some((option) => option.value === listTypeFilter)) return
+    setListTypeFilter('all')
+  }, [listTypeOptions, listTypeFilter])
+
+  const clickmapDataForSelectedType = useMemo(() => {
+    return clickmapDataForPreview.filter((item) => {
+      if (listTypeFilter === 'all') return true
+      if (listTypeFilter === 'links') return !isAccordionLike(item.component || '')
+      if (listTypeFilter === 'accordion') return isAccordionLike(item.component || '')
+      if (listTypeFilter.startsWith('component:')) {
+        return item.component === listTypeFilter.replace('component:', '')
+      }
+      return true
+    })
+  }, [clickmapDataForPreview, listTypeFilter])
+
+  const visibleTopListItems = useMemo(() => {
+    const searchKey = cleanText(listSearch)
+    if (!searchKey) return clickmapDataForSelectedType
+
+    return clickmapDataForSelectedType.filter((item) => {
+      const haystack = cleanText(
+        [item.linkText, item.destination, item.section, item.sourcePath, item.component].filter(Boolean).join(' '),
+      )
+      return haystack.includes(searchKey)
+    })
+  }, [clickmapDataForSelectedType, listSearch])
+
+  const topListMaxCount = useMemo(
+    () => Math.max(1, ...clickmapDataForSelectedType.map((item) => (Number.isFinite(item.count) ? item.count : 0))),
+    [clickmapDataForSelectedType],
   )
 
   const clickmapDataWithLabels = useMemo(
     () =>
-      clickmapDataForPreview.map((item) => ({
+      clickmapDataForSelectedType.map((item) => ({
         ...item,
         badgeLabel: getBadgeLabel(item.count),
         countLabel: item.count.toLocaleString('nb-NO'),
         percentLabel: formatPercentBadge(item.count, totalClicks),
       })),
-    [clickmapDataForPreview, formatPercentBadge, getBadgeLabel, totalClicks],
+    [clickmapDataForSelectedType, formatPercentBadge, getBadgeLabel, totalClicks],
   )
 
   const sendHeatmapDataToIframe = useCallback(() => {
@@ -212,10 +379,11 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
         items: clickmapDataWithLabels,
         zeroBadgeLabel: badgeMode === 'percent' ? '0,0%' : '0',
         viewMode: visualizationMode,
+        includeUnmatched: listTypeFilter === 'all',
       },
       '*',
     )
-  }, [clickmapDataWithLabels, badgeMode, visualizationMode])
+  }, [clickmapDataWithLabels, badgeMode, visualizationMode, listTypeFilter])
 
   useEffect(() => {
     sendHeatmapDataToIframe()
@@ -285,6 +453,39 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
     void fetchData(nextPath)
   }, [pendingLinkNavigation, setUrlPath, fetchData])
 
+  const handleFocusTopListItem = useCallback((item: (typeof clickmapDataForPreview)[number], index: number) => {
+    const itemKey = `${item.sourcePath}-${item.linkText}-${item.destination}-${index}`
+    setActiveTopListItemKey(itemKey)
+    const iframeNode = iframeRef.current
+    const iframeDoc = iframeNode?.contentDocument
+    const iframeWindow = iframeNode?.contentWindow
+
+    if (iframeDoc && iframeWindow) {
+      ensureFocusedStyle(iframeDoc)
+      clearFocusedElement(iframeDoc)
+      const matchedElement = findBestElementForClickmapItem(iframeDoc, item)
+      if (matchedElement) {
+        matchedElement.classList.add(CLICKMAP_FOCUSED_CLASS)
+        const rect = matchedElement.getBoundingClientRect()
+        const targetTop = Math.max(0, rect.top + iframeWindow.scrollY - iframeWindow.innerHeight * 0.35)
+        iframeWindow.scrollTo({ top: targetTop, behavior: 'smooth' })
+        return
+      }
+    }
+
+    const contentWindow = iframeRef.current?.contentWindow
+    if (!contentWindow) return
+
+    const focusPayload: ClickmapFocusLinkPayload = {
+      type: 'umami-clickmap-focus-link',
+      linkText: item.linkText,
+      destination: item.destination,
+      component: item.component,
+    }
+
+    contentWindow.postMessage(focusPayload, '*')
+  }, [])
+
   return (
     <ChartLayout
       title={chartLabel}
@@ -347,6 +548,18 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
         </>
       }
     >
+      {!isHeatmap && (
+        <div className="mb-4 flex items-center justify-end gap-3">
+          <div className="text-sm">
+            <span className="text-[var(--ax-text-subtle)]">Totale klikk:</span>{' '}
+            <span className="font-semibold">{totalClicks.toLocaleString('nb-NO')}</span>
+          </div>
+          <Button size="small" variant="secondary" onClick={() => setIsTopListOpen((current) => !current)}>
+            {isTopListOpen ? 'Skjul toppliste' : 'Vis toppliste'}
+          </Button>
+        </div>
+      )}
+
       {error && (
         <Alert variant="error" className="mb-4">
           {error}
@@ -394,37 +607,53 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
           <section
             className={`${showRightSidebar ? '' : 'hidden'} border border-[var(--ax-border-neutral-subtle)] rounded-md p-4 bg-[var(--ax-bg-default)]`}
           >
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              <div className="rounded-md bg-[var(--ax-bg-neutral-soft)] p-3">
-                <div className="text-xs text-[var(--ax-text-subtle)]">Totale klikk</div>
-                <div className="text-xl font-semibold">{totalClicks.toLocaleString('nb-NO')}</div>
-              </div>
-              <div className="rounded-md bg-[var(--ax-bg-neutral-soft)] p-3">
-                <div className="text-xs text-[var(--ax-text-subtle)]">Unike treff</div>
-                <div className="text-xl font-semibold">{clickmapDataForPreview.length.toLocaleString('nb-NO')}</div>
-              </div>
-              <div className="rounded-md bg-[var(--ax-bg-neutral-soft)] p-3">
-                <div className="text-xs text-[var(--ax-text-subtle)]">Maks klikk</div>
-                <div className="text-xl font-semibold">{maxCount.toLocaleString('nb-NO')}</div>
+            <div className="mb-3">
+              <div className="grid gap-3">
+                <Select
+                  size="small"
+                  label="Toppliste"
+                  value={listTypeFilter}
+                  onChange={(event) => setListTypeFilter(event.target.value)}
+                >
+                  {listTypeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
+                <Search
+                  size="small"
+                  label="Søk i toppliste"
+                  variant="simple"
+                  value={listSearch}
+                  onChange={setListSearch}
+                  onClear={() => setListSearch('')}
+                />
               </div>
             </div>
-
-            <h3 className="text-sm font-semibold mb-2">Toppliste lenker</h3>
             <div className="max-h-[760px] overflow-y-auto space-y-2 pr-1">
-              {clickmapDataForPreview.slice(0, 60).map((item, index) => {
-                const barWidth = Math.max(4, Math.round((item.count / maxCount) * 100))
+              {visibleTopListItems.slice(0, 60).map((item, index) => {
+                const barWidth = Math.max(4, Math.round((item.count / topListMaxCount) * 100))
+                const itemKey = `${item.sourcePath}-${item.linkText}-${item.destination}-${index}`
+                const isActive = activeTopListItemKey === itemKey
 
                 return (
-                  <div
-                    key={`${item.sourcePath}-${item.linkText}-${item.destination}-${index}`}
-                    className="rounded-md border p-2"
+                  <button
+                    type="button"
+                    key={itemKey}
+                    className={`w-full rounded-md border p-2 text-left transition-colors ${
+                      isActive
+                        ? 'border-red-700 bg-[var(--ax-bg-neutral-soft)] shadow-[0_0_0_2px_rgba(220,38,38,0.28)_inset]'
+                        : 'hover:bg-[var(--ax-bg-neutral-soft)]'
+                    }`}
+                    onClick={() => handleFocusTopListItem(item, index)}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="text-sm font-medium truncate">{item.linkText || '(uten lenketekst)'}</div>
-                        <div className="text-xs text-[var(--ax-text-subtle)] break-all">
-                          {item.destination || 'Ukjent destinasjon'}
-                        </div>
+                        {item.destination && (
+                          <div className="text-xs text-[var(--ax-text-subtle)] break-all">{item.destination}</div>
+                        )}
                         {item.section && (
                           <div className="text-xs text-[var(--ax-text-subtle)]">Seksjon: {item.section}</div>
                         )}
@@ -432,14 +661,28 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
                           <div className="text-xs text-[var(--ax-text-subtle)]">Kilde: {item.sourcePath}</div>
                         )}
                       </div>
-                      <div className="text-sm font-semibold">{getBadgeLabel(item.count)}</div>
+                      <div className="text-right">
+                        <div className="text-xs text-[var(--ax-text-subtle)]">
+                          {badgeMode === 'percent' ? 'Andel' : 'Antall klikk'}
+                        </div>
+                        <div className="text-base font-semibold">
+                          {badgeMode === 'percent'
+                            ? `${formatPercentBadge(item.count, totalClicks)} (${item.count.toLocaleString('nb-NO')} klikk)`
+                            : `${item.count.toLocaleString('nb-NO')} (${formatPercentBadge(item.count, totalClicks)})`}
+                        </div>
+                      </div>
                     </div>
                     <div className="mt-2 h-1.5 rounded bg-[var(--ax-bg-neutral-moderate)] overflow-hidden">
                       <div className="h-full rounded bg-red-700" style={{ width: `${barWidth}%` }} />
                     </div>
-                  </div>
+                  </button>
                 )
               })}
+              {visibleTopListItems.length === 0 && (
+                <div className="rounded-md border border-dashed p-3 text-sm text-[var(--ax-text-subtle)]">
+                  Ingen treff for valgt filter/søk.
+                </div>
+              )}
             </div>
           </section>
         </div>

@@ -129,6 +129,7 @@ export function createClickmapPreviewRouter() {
   <script>
   (() => {
     const MESSAGE_TYPE = 'umami-clickmap-data'
+    const FOCUS_LINK_MESSAGE_TYPE = 'umami-clickmap-focus-link'
     const LINK_CLICK_MESSAGE_TYPE = 'umami-clickmap-link-click'
     const LINK_BLOCKED_MESSAGE_TYPE = 'umami-clickmap-link-blocked'
     const UNSUPPORTED_CLICKMAP_PATH_PREFIXES = ['/oauth2/login']
@@ -269,11 +270,28 @@ export function createClickmapPreviewRouter() {
           opacity: 1;
           transform: translateY(0);
         }
+        .umami-clickmap-hit-active {
+          outline-width: 3px !important;
+          outline-color: rgba(185, 28, 28, 0.95) !important;
+          box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.82), 0 0 0 6px rgba(220, 38, 38, 0.52) !important;
+          background-color: rgba(220, 38, 38, 0.2) !important;
+        }
+        .umami-heatmap-hit-active::before {
+          box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.82), 0 0 0 7px rgba(220, 38, 38, 0.5) !important;
+        }
       \`
       document.head.appendChild(style)
     }
-  
+
+    const clearFocusedHighlight = () => {
+      document.querySelectorAll('.umami-clickmap-hit-active, .umami-heatmap-hit-active').forEach((node) => {
+        node.classList.remove('umami-clickmap-hit-active')
+        node.classList.remove('umami-heatmap-hit-active')
+      })
+    }
+
     const clearCurrentHighlights = () => {
+      clearFocusedHighlight()
       document.querySelectorAll('.umami-clickmap-hit, .umami-heatmap-hit').forEach((node) => {
         node.classList.remove('umami-clickmap-hit')
         node.classList.remove('umami-heatmap-hit')
@@ -427,22 +445,25 @@ export function createClickmapPreviewRouter() {
       const viewMode = payload?.viewMode === 'heatmap' ? 'heatmap' : 'clickmap'
       const items = Array.isArray(payload?.items) ? payload.items : []
       const zeroBadgeLabel = typeof payload?.zeroBadgeLabel === 'string' ? payload.zeroBadgeLabel : '0'
+      const includeUnmatched = payload?.includeUnmatched !== false
       if (items.length === 0) {
         return
       }
   
-      const preparedItems = items.map((item) => {
-        const destinationMeta = normalizeDestination(item.destination)
-        return {
-          ...item,
-          count: Number(item.count) || 0,
-          linkTextKey: cleanText(item.linkText),
-          destinationPathKey: destinationMeta.path,
-          destinationFullKey: destinationMeta.full,
-          destinationHasHost: destinationMeta.hasHost,
-          componentKey: cleanText(item.component),
-        }
-      })
+      const preparedItems = items
+        .map((item) => {
+          const destinationMeta = normalizeDestination(item.destination)
+          return {
+            ...item,
+            count: Number(item.count) || 0,
+            linkTextKey: cleanText(item.linkText),
+            destinationPathKey: destinationMeta.path,
+            destinationFullKey: destinationMeta.full,
+            destinationHasHost: destinationMeta.hasHost,
+            componentKey: cleanText(item.component),
+          }
+        })
+        .filter((item) => includeUnmatched || item.count > 0)
   
       const maxCount = Math.max(...preparedItems.map((item) => item.count), 1)
       const candidates = getInteractiveCandidates()
@@ -457,7 +478,9 @@ export function createClickmapPreviewRouter() {
         const match = findBestMatch(candidate, preparedItems)
         const hasMatch = !!match
         if (viewMode === 'heatmap' && !hasMatch) continue
-  
+        if (viewMode === 'clickmap' && !hasMatch && !includeUnmatched) continue
+        if (viewMode === 'clickmap' && hasMatch && !includeUnmatched && (match.count || 0) <= 0) continue
+
         if (viewMode === 'heatmap' && hasMatch) {
           candidate.element.classList.add('umami-heatmap-hit')
           const rawStrength = Math.pow(match.count / maxCount, 0.42)
@@ -510,6 +533,65 @@ export function createClickmapPreviewRouter() {
         )
       }
   
+    }
+
+    const focusOnItem = (payload) => {
+      const destinationMeta = normalizeDestination(payload?.destination || '')
+      const target = {
+        destinationPathKey: destinationMeta.path,
+        destinationFullKey: destinationMeta.full,
+        destinationHasHost: destinationMeta.hasHost,
+        linkTextKey: cleanText(payload?.linkText || ''),
+        componentKey: cleanText(payload?.component || ''),
+      }
+      const targetIsAccordion = isAccordionComponent(target.componentKey)
+      const candidates = getInteractiveCandidates()
+      let bestElement = null
+      let bestScore = -1
+
+      for (const candidate of candidates) {
+        if (targetIsAccordion && candidate.kind !== 'accordion') continue
+
+        const elementText = cleanText(candidate.element.textContent || candidate.element.getAttribute('aria-label') || '')
+        const textExact = !!target.linkTextKey && target.linkTextKey === elementText
+        const textContains =
+          !!target.linkTextKey &&
+          !textExact &&
+          (target.linkTextKey.includes(elementText) || elementText.includes(target.linkTextKey))
+        const destinationMetaForElement =
+          candidate.kind === 'link' ? normalizeDestination(candidate.element.getAttribute('href') || '') : null
+        const destinationMatches =
+          candidate.kind === 'link' &&
+          !!destinationMetaForElement &&
+          (target.destinationHasHost
+            ? !!target.destinationFullKey && target.destinationFullKey === destinationMetaForElement.full
+            : !!target.destinationPathKey && target.destinationPathKey === destinationMetaForElement.path)
+
+        if (!destinationMatches && !textExact && !textContains && !targetIsAccordion) continue
+        if (!destinationMatches && !textExact && !textContains && targetIsAccordion && candidate.kind !== 'accordion') continue
+
+        const score =
+          (destinationMatches ? 6 : 0) +
+          (textExact ? 4 : textContains ? 2 : 0) +
+          (targetIsAccordion && candidate.kind === 'accordion' ? 3 : 0) +
+          (candidate.element.classList.contains('umami-clickmap-hit') || candidate.element.classList.contains('umami-heatmap-hit')
+            ? 1
+            : 0)
+
+        if (score > bestScore) {
+          bestScore = score
+          bestElement = candidate.element
+        }
+      }
+
+      if (!bestElement || bestScore < 2) return
+
+      clearFocusedHighlight()
+      bestElement.classList.add(bestElement.classList.contains('umami-heatmap-hit') ? 'umami-heatmap-hit-active' : 'umami-clickmap-hit-active')
+
+      const rect = bestElement.getBoundingClientRect()
+      const targetTop = Math.max(0, rect.top + window.scrollY - window.innerHeight * 0.35)
+      window.scrollTo({ top: targetTop, behavior: 'smooth' })
     }
   
     const isPlainLeftClick = (event) =>
@@ -613,8 +695,13 @@ export function createClickmapPreviewRouter() {
     )
   
     window.addEventListener('message', (event) => {
-      if (event?.data?.type !== MESSAGE_TYPE) return
-      applyHeatmap(event.data)
+      if (event?.data?.type === MESSAGE_TYPE) {
+        applyHeatmap(event.data)
+        return
+      }
+      if (event?.data?.type === FOCUS_LINK_MESSAGE_TYPE) {
+        focusOnItem(event.data)
+      }
     })
   })()
   </script>
