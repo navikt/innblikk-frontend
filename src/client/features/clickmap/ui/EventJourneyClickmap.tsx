@@ -23,41 +23,31 @@ type JourneyMarker = {
   visible: boolean
 }
 
+const JOURNEY_STEP_BADGE_SIZE = 34
+const JOURNEY_STEP_BADGE_RADIUS = JOURNEY_STEP_BADGE_SIZE / 2
+const JOURNEY_STEP_BADGE_OFFSET = 20
+
 const getMarkerAnchor = (rect: DOMRect): { x: number; y: number } => {
-  // Place marker just outside left edge to avoid covering link text.
-  const x = rect.left - 10
-  const y = rect.top + Math.min(18, Math.max(10, rect.height * 0.5))
+  // Anchor arrows at the center of the step badge shown on each highlighted element.
+  const x = rect.left - (JOURNEY_STEP_BADGE_OFFSET - JOURNEY_STEP_BADGE_RADIUS)
+  const y = rect.top - (JOURNEY_STEP_BADGE_OFFSET - JOURNEY_STEP_BADGE_RADIUS)
   return { x, y }
 }
 
-const resolveMarkerOverlaps = (markers: JourneyMarker[], viewportHeight: number): JourneyMarker[] => {
-  const placed: JourneyMarker[] = []
-  const minDistance = 34
-  const stepOffset = 30
-  const minY = 18
-  const maxY = Math.max(minY, viewportHeight - 18)
+const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value))
 
-  for (const marker of markers) {
-    let adjustedY = marker.y
-    let adjustedX = marker.x
-    let attempts = 0
-
-    while (attempts < 8) {
-      const collides = placed.some((existing) => {
-        const dx = existing.x - adjustedX
-        const dy = existing.y - adjustedY
-        return Math.hypot(dx, dy) < minDistance
-      })
-      if (!collides) break
-      adjustedY = Math.min(maxY, Math.max(minY, marker.y + (attempts % 2 === 0 ? stepOffset : -stepOffset)))
-      adjustedX = marker.x + Math.floor((attempts + 1) / 2) * 2
-      attempts += 1
-    }
-
-    placed.push({ ...marker, x: adjustedX, y: adjustedY })
+const getMarkerRenderPoint = (
+  marker: JourneyMarker,
+  viewportWidth: number,
+  viewportHeight: number,
+): { x: number; y: number } => {
+  const min = 16
+  const maxX = Math.max(min, viewportWidth - min)
+  const maxY = Math.max(min, viewportHeight - min)
+  return {
+    x: clamp(marker.x, min, maxX),
+    y: clamp(marker.y, min, maxY),
   }
-
-  return placed
 }
 
 type ParsedStepMatchMeta = {
@@ -70,6 +60,7 @@ type ParsedStepMatchMeta = {
 const JOURNEY_STEP_HIT_CLASS = 'umami-journey-step-hit'
 const JOURNEY_STEP_START_CLASS = 'umami-journey-step-start'
 const JOURNEY_STEP_ACTIVE_CLASS = 'umami-journey-step-active'
+const JOURNEY_STEP_NUMBER_ATTR = 'data-journey-step'
 
 const cleanText = (value: string): string => value.replace(/\s+/g, ' ').trim().toLowerCase()
 const isAccordionLike = (value: string): boolean => value.includes('accordion') || value.includes('trekkspill')
@@ -333,6 +324,27 @@ const ensureJourneyOverlayStyles = (doc: Document) => {
       border-radius: 3px !important;
       background-color: rgba(220, 38, 38, 0.12) !important;
     }
+    .${JOURNEY_STEP_HIT_CLASS}[${JOURNEY_STEP_NUMBER_ATTR}]::before {
+      content: attr(${JOURNEY_STEP_NUMBER_ATTR});
+      position: absolute;
+      top: -${JOURNEY_STEP_BADGE_OFFSET}px;
+      left: -${JOURNEY_STEP_BADGE_OFFSET}px;
+      width: ${JOURNEY_STEP_BADGE_SIZE}px;
+      height: ${JOURNEY_STEP_BADGE_SIZE}px;
+      border-radius: 9999px;
+      border: 2px solid #fff;
+      background: rgba(185, 28, 28, 0.98);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 1px 4px rgba(15, 23, 42, 0.25);
+      z-index: 2147483646;
+      pointer-events: none;
+    }
     .${JOURNEY_STEP_START_CLASS} {
       outline-width: 3px !important;
       background-color: rgba(220, 38, 38, 0.18) !important;
@@ -352,6 +364,9 @@ const clearJourneyHighlights = (doc: Document) => {
     node.classList.remove(JOURNEY_STEP_HIT_CLASS)
     node.classList.remove(JOURNEY_STEP_START_CLASS)
     node.classList.remove(JOURNEY_STEP_ACTIVE_CLASS)
+  })
+  doc.querySelectorAll(`[${JOURNEY_STEP_NUMBER_ATTR}]`).forEach((node) => {
+    node.removeAttribute(JOURNEY_STEP_NUMBER_ATTR)
   })
 }
 
@@ -393,6 +408,7 @@ const EventJourneyClickmap = () => {
 
   const [urlPath, setUrlPath] = useState(() => normalizeUrlToPath(searchParams.get('urlPath') || ''))
   const [markers, setMarkers] = useState<JourneyMarker[]>([])
+  const [overlayViewport, setOverlayViewport] = useState<{ width: number; height: number }>({ width: 0, height: 0 })
   const [unmatchedStepIndexes, setUnmatchedStepIndexes] = useState<number[]>([])
   const [activeStepIndex, setActiveStepIndex] = useState(0)
 
@@ -457,6 +473,7 @@ const EventJourneyClickmap = () => {
       }
 
       matchedElement.classList.add(JOURNEY_STEP_HIT_CLASS)
+      matchedElement.setAttribute(JOURNEY_STEP_NUMBER_ATTR, String(index + 1))
       nextMatchedElements.set(index, matchedElement)
       if (!firstMatchedElement) {
         firstMatchedElement = matchedElement
@@ -473,18 +490,16 @@ const EventJourneyClickmap = () => {
         elementRect.right >= 0 &&
         elementRect.left <= iframeNode.clientWidth
       const markerAnchor = getMarkerAnchor(elementRect)
-      const maxX = Math.max(16, iframeNode.clientWidth - 16)
-      const maxY = Math.max(16, iframeNode.clientHeight - 16)
       nextMarkers.push({
         index,
-        x: Math.min(maxX, Math.max(16, markerAnchor.x)),
-        y: Math.min(maxY, Math.max(16, markerAnchor.y)),
+        x: markerAnchor.x,
+        y: markerAnchor.y,
         visible: isInViewport,
       })
     })
 
-    const resolvedMarkers = resolveMarkerOverlaps(nextMarkers, iframeNode.clientHeight)
-    setMarkers(resolvedMarkers)
+    setMarkers(nextMarkers)
+    setOverlayViewport({ width: iframeNode.clientWidth, height: iframeNode.clientHeight })
     setUnmatchedStepIndexes(nextUnmatched)
     matchedElementsRef.current = nextMatchedElements
 
@@ -721,15 +736,19 @@ const EventJourneyClickmap = () => {
               <svg className="absolute inset-0 w-full h-full" aria-hidden>
                 {markers.slice(0, -1).map((fromMarker, idx) => {
                   const toMarker = markers[idx + 1]
-                  if (!fromMarker.visible || !toMarker.visible) return null
-                  const dx = toMarker.x - fromMarker.x
-                  const dy = toMarker.y - fromMarker.y
+                  if (!overlayViewport.width || !overlayViewport.height) return null
+                  const fromPoint = getMarkerRenderPoint(fromMarker, overlayViewport.width, overlayViewport.height)
+                  const toPoint = getMarkerRenderPoint(toMarker, overlayViewport.width, overlayViewport.height)
+                  const dx = toPoint.x - fromPoint.x
+                  const dy = toPoint.y - fromPoint.y
+                  // Skip lines that collapse on the same viewport edge while both points are off-screen.
+                  if (!fromMarker.visible && !toMarker.visible && Math.hypot(dx, dy) < 2) return null
                   const length = Math.hypot(dx, dy) || 1
-                  const radius = 18
-                  const startX = fromMarker.x + (dx / length) * radius
-                  const startY = fromMarker.y + (dy / length) * radius
-                  const endX = toMarker.x - (dx / length) * (radius + 2)
-                  const endY = toMarker.y - (dy / length) * (radius + 2)
+                  const radius = JOURNEY_STEP_BADGE_RADIUS
+                  const startX = fromPoint.x + (dx / length) * radius
+                  const startY = fromPoint.y + (dy / length) * radius
+                  const endX = toPoint.x - (dx / length) * (radius + 2)
+                  const endY = toPoint.y - (dy / length) * (radius + 2)
                   return (
                     <line
                       key={`line-${fromMarker.index}-${toMarker.index}`}
@@ -751,16 +770,27 @@ const EventJourneyClickmap = () => {
                 </defs>
               </svg>
 
-              {markers.map((marker) => (
-                <div
-                  key={`marker-${marker.index}`}
-                  className={`absolute -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full text-white text-xs font-bold border-2 border-white shadow-md flex items-center justify-center ${marker.visible ? 'bg-red-700' : 'bg-red-700/55'}`}
-                  style={{ left: `${marker.x}px`, top: `${marker.y}px` }}
-                  title={`Steg ${marker.index + 1}`}
-                >
-                  {marker.index + 1}
-                </div>
-              ))}
+              {markers
+                .filter((marker) => !marker.visible && overlayViewport.width > 0 && overlayViewport.height > 0)
+                .map((marker) => {
+                  const point = getMarkerRenderPoint(marker, overlayViewport.width, overlayViewport.height)
+                  return (
+                    <div
+                      key={`edge-marker-${marker.index}`}
+                      className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-red-700/90 text-white font-bold shadow-md flex items-center justify-center"
+                      style={{
+                        left: `${point.x}px`,
+                        top: `${point.y}px`,
+                        width: `${JOURNEY_STEP_BADGE_SIZE}px`,
+                        height: `${JOURNEY_STEP_BADGE_SIZE}px`,
+                        fontSize: '16px',
+                      }}
+                      title={`Steg ${marker.index + 1} (utenfor visning)`}
+                    >
+                      {marker.index + 1}
+                    </div>
+                  )
+                })}
             </div>
           </section>
         </>
