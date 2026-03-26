@@ -37,8 +37,6 @@ const UserProfiles = lazy(() => import('./features/user').then((m) => ({ default
 // Events Feature
 const EventExplorer = lazy(() => import('./features/eventexplorer').then((m) => ({ default: m.EventExplorer })))
 const Clickmap = lazy(() => import('./features/clickmap').then((m) => ({ default: m.Clickmap })))
-const Heatmap = lazy(() => import('./features/clickmap').then((m) => ({ default: m.Heatmap })))
-const Scrollmap = lazy(() => import('./features/clickmap').then((m) => ({ default: m.Scrollmap })))
 const EventJourneyClickmap = lazy(() =>
   import('./features/clickmap').then((m) => ({ default: m.EventJourneyClickmap })),
 )
@@ -99,6 +97,11 @@ const LegacyOversiktRedirect = () => {
   return <Navigate to={`/dashboard/${dashboardId}${query ? `?${query}` : ''}`} replace />
 }
 
+const LegacyVisualizationRouteRedirect = ({ to }: { to: string }) => {
+  const location = useLocation()
+  return <Navigate to={`${to}${location.search}`} replace />
+}
+
 export type AppRoute = {
   path: string
   component: ReactElement
@@ -109,9 +112,7 @@ export const fullWidthPathPrefixes = [
   '/trafikkanalyse',
   '/markedsanalyse',
   '/utforsk-hendelser',
-  '/klikkkart',
-  '/varmekart',
-  '/scrollkart',
+  '/klikkoversikt',
   '/datastruktur',
   '/brukerprofiler',
   '/brukerlojalitet',
@@ -154,9 +155,20 @@ export const routes: AppRoute[] = [
   { path: '/brukersammensetning', component: <UserComposition />, fullWidth: true },
   { path: '/brukerprofiler', component: <UserProfiles />, fullWidth: true },
   { path: '/utforsk-hendelser', component: <EventExplorer />, fullWidth: true },
-  { path: '/klikkkart', component: <Clickmap />, fullWidth: true },
-  { path: '/varmekart', component: <Heatmap />, fullWidth: true },
-  { path: '/scrollkart', component: <Scrollmap />, fullWidth: true },
+  { path: '/klikkoversikt', component: <Clickmap />, fullWidth: true },
+  { path: '/klikkoversikt/varmekart', component: <Clickmap visualizationMode="heatmap" />, fullWidth: true },
+  { path: '/klikkoversikt/scrollkart', component: <Clickmap visualizationMode="scrollmap" />, fullWidth: true },
+  { path: '/klikkkart', component: <LegacyVisualizationRouteRedirect to="/klikkoversikt" />, fullWidth: true },
+  {
+    path: '/varmekart',
+    component: <LegacyVisualizationRouteRedirect to="/klikkoversikt/varmekart" />,
+    fullWidth: true,
+  },
+  {
+    path: '/scrollkart',
+    component: <LegacyVisualizationRouteRedirect to="/klikkoversikt/scrollkart" />,
+    fullWidth: true,
+  },
   { path: '/datastruktur', component: <EventExplorer />, fullWidth: true },
   { path: '/trafikkanalyse', component: <TrafficAnalysis />, fullWidth: true },
   { path: '/markedsanalyse', component: <MarketingAnalysis />, fullWidth: true },

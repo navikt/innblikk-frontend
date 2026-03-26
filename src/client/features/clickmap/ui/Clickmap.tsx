@@ -1,5 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, Button, ExpansionCard, Loader, Modal, Search, Select, TextField } from '@navikt/ds-react'
+import {
+  Alert,
+  Button,
+  ExpansionCard,
+  Loader,
+  Modal,
+  ReadMore,
+  Search,
+  Select,
+  Switch,
+  TextField,
+} from '@navikt/ds-react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
@@ -120,6 +132,12 @@ type ClickmapFocusLinkPayload = {
   linkText?: string
   destination?: string
   component?: string
+}
+
+const ROUTE_BY_VISUALIZATION_MODE: Record<VisualizationMode, string> = {
+  clickmap: '/klikkoversikt',
+  heatmap: '/klikkoversikt/varmekart',
+  scrollmap: '/klikkoversikt/scrollkart',
 }
 
 const cleanText = (value: string): string => value.replace(/\s+/g, ' ').trim().toLowerCase()
@@ -253,6 +271,8 @@ const isScrollmapSummaryMessage = (value: unknown): value is ScrollmapSummaryMes
 }
 
 const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
+  const navigate = useNavigate()
+  const location = useLocation()
   const {
     selectedWebsite,
     setSelectedWebsite,
@@ -277,7 +297,11 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
   const isHeatmap = visualizationMode === 'heatmap'
   const isScrollmap = visualizationMode === 'scrollmap'
   const isClickmap = visualizationMode === 'clickmap'
-  const chartLabel = isHeatmap ? 'Varmekart' : isScrollmap ? 'Scrollmap' : 'Klikkoversikt'
+  const chartLabel = isHeatmap
+    ? 'Klikkoversikt: Varmekart'
+    : isScrollmap
+      ? 'Klikkoversikt: Scrollkart'
+      : 'Klikkoversikt'
   const showButtonLabel = isHeatmap
     ? 'Oppdater varmekart'
     : isScrollmap
@@ -581,6 +605,21 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
     contentWindow.postMessage(focusPayload, '*')
   }, [])
 
+  const handleVisualizationModeChange = useCallback(
+    (nextMode: VisualizationMode) => {
+      if (nextMode === visualizationMode) return
+
+      void navigate(
+        {
+          pathname: ROUTE_BY_VISUALIZATION_MODE[nextMode],
+          search: location.search,
+        },
+        { replace: false },
+      )
+    },
+    [visualizationMode, navigate, location.search],
+  )
+
   return (
     <ChartLayout
       title={chartLabel}
@@ -588,7 +627,7 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
         isHeatmap
           ? 'Viser en varmevisualisering av hvor folk klikker.'
           : isScrollmap
-            ? 'Estimerer hvor langt ned brukerne scroller basert på klikkdybde på siden.'
+            ? 'Estimerer hvor langt ned brukerne scroller basert på hva folk har klikket på.'
             : 'Viser visuelt hvor folk klikker.'
       }
       currentPage="clickmap"
@@ -597,7 +636,7 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
       sidebarContent={<WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} />}
       filters={
         <>
-          <div className="w-full sm:w-[350px]">
+          <div className="w-full sm:w-[260px]">
             <TextField
               size="small"
               label="URL"
@@ -616,19 +655,18 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
             onEndDateChange={setCustomEndDate}
           />
 
-          {isClickmap && (
-            <div className="w-full sm:w-auto min-w-[180px]">
-              <Select
-                size="small"
-                label="Visning"
-                value={badgeMode}
-                onChange={(e) => setBadgeMode(e.target.value as 'count' | 'percent')}
-              >
-                <option value="count">Antall klikk</option>
-                <option value="percent">Andel av totale klikk (%)</option>
-              </Select>
-            </div>
-          )}
+          <div className="w-full sm:w-auto min-w-[180px]">
+            <Select
+              size="small"
+              label="Karttype"
+              value={visualizationMode}
+              onChange={(event) => handleVisualizationModeChange(event.target.value as VisualizationMode)}
+            >
+              <option value="clickmap">Klikkkart</option>
+              <option value="heatmap">Varmekart</option>
+              <option value="scrollmap">Scrollkart</option>
+            </Select>
+          </div>
 
           <div className="self-end pb-[2px]">
             <Button
@@ -649,17 +687,32 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
         </>
       }
     >
-      {isClickmap && (
-        <div className="mb-4 flex items-center justify-end gap-3">
-          <div className="text-sm">
-            <span className="text-[var(--ax-text-subtle)]">Totale klikk:</span>{' '}
-            <span className="font-semibold">{totalClicks.toLocaleString('nb-NO')}</span>
-          </div>
-          <Button size="small" variant="secondary" onClick={() => setIsTopListOpen((current) => !current)}>
-            {isTopListOpen ? 'Skjul toppliste' : 'Vis toppliste'}
-          </Button>
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          {isClickmap && (
+            <div className="text-sm">
+              <span className="text-[var(--ax-text-subtle)]">Totale klikk:</span>{' '}
+              <span className="font-semibold">{totalClicks.toLocaleString('nb-NO')}</span>
+            </div>
+          )}
         </div>
-      )}
+        <div className="flex flex-wrap items-end justify-end gap-3">
+          {isClickmap && (
+            <Switch
+              size="small"
+              checked={badgeMode === 'percent'}
+              onChange={(event) => setBadgeMode(event.target.checked ? 'percent' : 'count')}
+            >
+              Vis prosent
+            </Switch>
+          )}
+          {isClickmap && (
+            <Button size="small" variant="secondary" onClick={() => setIsTopListOpen((current) => !current)}>
+              {isTopListOpen ? 'Skjul toppliste' : 'Vis toppliste'}
+            </Button>
+          )}
+        </div>
+      </div>
 
       {isScrollmap && (
         <section className="mb-4 space-y-3">
@@ -751,29 +804,53 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
                   </div>
                 )}
 
-                <details className="pt-2">
-                  <summary className="cursor-pointer text-base font-semibold text-[var(--ax-text-subtle)]">
-                    Les mer: Hvordan beregnes dette?
-                  </summary>
-                  <div className="mt-3 max-w-prose space-y-3 text-base leading-7 text-[var(--ax-text-subtle)]">
-                    <p>
-                      Et klikk på et element tolkes som at brukeren minst har nådd den høyden på siden. Dette er en
-                      indirekte estimering, ikke faktisk målt scroll.
-                    </p>
-                    <p>
-                      Siden deles inn i 10 dybdebånd: 0-10%, 10-20%, 20-30%, 30-40%, 40-50%, 50-60%, 60-70%, 70-80%,
-                      80-90% og 90-100%.
-                    </p>
-                    <p>
-                      Median dybde (halvparten når hit) viser nivået der omtrent halvparten estimeres å ha nådd minst
-                      dette punktet.
-                    </p>
-                    <p>
-                      Eksempel: Klikk på tittelområdet i en accordion teller som at brukeren nådde kortets posisjon. Det
-                      betyr ikke nødvendigvis at innholdet i accordionen ble lest.
-                    </p>
-                  </div>
-                </details>
+                <div className="pt-2">
+                  <ReadMore header="Hvordan beregnes dette?">
+                    <div className="max-w-prose space-y-3 text-base leading-7 text-[var(--ax-text-subtle)]">
+                      <p>
+                        Et klikk på et element tolkes som at brukeren minst har nådd den høyden på siden. Dette er en
+                        indirekte estimering, ikke faktisk målt scroll.
+                      </p>
+                      <p>
+                        Siden deles inn i 10 dybdebånd: 0-10%, 10-20%, 20-30%, 30-40%, 40-50%, 50-60%, 60-70%, 70-80%,
+                        80-90% og 90-100%.
+                      </p>
+                      <p>
+                        Median dybde (halvparten når hit) viser nivået der omtrent halvparten estimeres å ha nådd minst
+                        dette punktet.
+                      </p>
+                      <p>
+                        Eksempel: Klikk på tittelområdet i en accordion teller som at brukeren nådde kortets posisjon.
+                        Det betyr ikke nødvendigvis at innholdet i accordionen ble lest.
+                      </p>
+                    </div>
+                  </ReadMore>
+                </div>
+              </div>
+            </ExpansionCard.Content>
+          </ExpansionCard>
+        </section>
+      )}
+
+      {isHeatmap && (
+        <section className="mb-4">
+          <ExpansionCard aria-label="Hvordan varmekartet fungerer" defaultOpen size="small">
+            <ExpansionCard.Header>
+              <ExpansionCard.Title as="h3" size="small">
+                Hvordan varmekartet fungerer
+              </ExpansionCard.Title>
+            </ExpansionCard.Header>
+            <ExpansionCard.Content>
+              <div className="max-w-prose space-y-3 text-base leading-7 text-[var(--ax-text-subtle)]">
+                <p>Varmekartet viser hvor folk faktisk har klikket eller tappet.</p>
+                <p>
+                  Hvis noen bare beveger musen, scroller, eller trykker andre steder på skjermen uten at det registreres
+                  som klikk, vises det ikke her.
+                </p>
+                <p>
+                  Dette er derfor ikke som et opptaksverktøy (for eksempel Hotjar). Det er kun en oversikt over
+                  registrerte klikk/tapp.
+                </p>
               </div>
             </ExpansionCard.Content>
           </ExpansionCard>

@@ -67,7 +67,7 @@ export const analyticsPages = [
   },
   {
     id: 'clickmap',
-    href: '/klikkkart',
+    href: '/klikkoversikt',
     label: 'Klikkoversikt',
     description: 'Se hvor brukerne klikker på en side',
   },
