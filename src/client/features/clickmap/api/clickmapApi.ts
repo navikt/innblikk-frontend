@@ -8,6 +8,7 @@ export interface FetchClickmapParams {
   pathOperator?: string
   eventNames?: string[]
   limit?: number
+  dataset?: 'clickmap' | 'scrollmap'
 }
 
 export const fetchClickmap = async (params: FetchClickmapParams): Promise<ClickmapResponse> => {
@@ -26,9 +27,10 @@ export const fetchClickmap = async (params: FetchClickmapParams): Promise<Clickm
     searchParams.set('pathOperator', params.pathOperator || 'equals')
   }
 
-  const response = await fetch(`/api/bigquery/websites/${params.websiteId}/clickmap?${searchParams.toString()}`)
+  const dataset = params.dataset === 'scrollmap' ? 'scrollmap' : 'clickmap'
+  const response = await fetch(`/api/bigquery/websites/${params.websiteId}/${dataset}?${searchParams.toString()}`)
   if (!response.ok) {
-    throw new Error('Kunne ikke hente klikk-kartdata')
+    throw new Error('Kunne ikke hente visualiseringsdata')
   }
 
   return (await response.json()) as ClickmapResponse

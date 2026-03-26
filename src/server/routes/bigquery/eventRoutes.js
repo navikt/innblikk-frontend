@@ -120,8 +120,8 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
     }
   })
 
-  // Get clickmap data for a website from BigQuery
-  router.get('/api/bigquery/websites/:websiteId/clickmap', async (req, res) => {
+  // Get clickmap/scrollmap data for a website from BigQuery
+  const handleClickmapRequest = async (req, res, { auditLabel = 'Klikkkart', errorLabel = 'clickmap' } = {}) => {
     try {
       const { websiteId } = req.params
       const navIdent = req.user?.navIdent || 'UNKNOWN'
@@ -250,7 +250,7 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
             maximumBytesBilled: MAX_BYTES_BILLED,
           },
           navIdent,
-          'Klikkkart',
+          auditLabel,
         ),
       )
 
@@ -276,7 +276,7 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
               dryRun: true,
             },
             navIdent,
-            'Klikkkart',
+            auditLabel,
           ),
         )
 
@@ -295,12 +295,19 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
 
       res.json({ data, queryStats })
     } catch (error) {
-      console.error('BigQuery clickmap error:', error)
+      console.error(`BigQuery ${errorLabel} error:`, error)
       res.status(500).json({
-        error: error.message || 'Failed to fetch clickmap data',
+        error: error.message || `Failed to fetch ${errorLabel} data`,
       })
     }
-  })
+  }
+
+  router.get('/api/bigquery/websites/:websiteId/clickmap', async (req, res) =>
+    handleClickmapRequest(req, res, { auditLabel: 'Klikkkart', errorLabel: 'clickmap' }),
+  )
+  router.get('/api/bigquery/websites/:websiteId/scrollmap', async (req, res) =>
+    handleClickmapRequest(req, res, { auditLabel: 'Scrollmap', errorLabel: 'scrollmap' }),
+  )
 
   // Get event properties/parameters for a website from BigQuery
   router.get('/api/bigquery/websites/:websiteId/event-properties', async (req, res) => {

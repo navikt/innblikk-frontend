@@ -38,6 +38,7 @@ const UserProfiles = lazy(() => import('./features/user').then((m) => ({ default
 const EventExplorer = lazy(() => import('./features/eventexplorer').then((m) => ({ default: m.EventExplorer })))
 const Clickmap = lazy(() => import('./features/clickmap').then((m) => ({ default: m.Clickmap })))
 const Heatmap = lazy(() => import('./features/clickmap').then((m) => ({ default: m.Heatmap })))
+const Scrollmap = lazy(() => import('./features/clickmap').then((m) => ({ default: m.Scrollmap })))
 const EventJourneyClickmap = lazy(() =>
   import('./features/clickmap').then((m) => ({ default: m.EventJourneyClickmap })),
 )
@@ -110,6 +111,7 @@ export const fullWidthPathPrefixes = [
   '/utforsk-hendelser',
   '/klikkkart',
   '/varmekart',
+  '/scrollkart',
   '/datastruktur',
   '/brukerprofiler',
   '/brukerlojalitet',
@@ -154,6 +156,7 @@ export const routes: AppRoute[] = [
   { path: '/utforsk-hendelser', component: <EventExplorer />, fullWidth: true },
   { path: '/klikkkart', component: <Clickmap />, fullWidth: true },
   { path: '/varmekart', component: <Heatmap />, fullWidth: true },
+  { path: '/scrollkart', component: <Scrollmap />, fullWidth: true },
   { path: '/datastruktur', component: <EventExplorer />, fullWidth: true },
   { path: '/trafikkanalyse', component: <TrafficAnalysis />, fullWidth: true },
   { path: '/markedsanalyse', component: <MarketingAnalysis />, fullWidth: true },

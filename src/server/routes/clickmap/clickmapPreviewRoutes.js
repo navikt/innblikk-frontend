@@ -129,6 +129,7 @@ export function createClickmapPreviewRouter() {
   <script>
   (() => {
     const MESSAGE_TYPE = 'umami-clickmap-data'
+    const SCROLLMAP_SUMMARY_MESSAGE_TYPE = 'umami-scrollmap-summary'
     const FOCUS_LINK_MESSAGE_TYPE = 'umami-clickmap-focus-link'
     const LINK_CLICK_MESSAGE_TYPE = 'umami-clickmap-link-click'
     const LINK_BLOCKED_MESSAGE_TYPE = 'umami-clickmap-link-blocked'
@@ -279,6 +280,65 @@ export function createClickmapPreviewRouter() {
         .umami-heatmap-hit-active::before {
           box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.82), 0 0 0 7px rgba(220, 38, 38, 0.5) !important;
         }
+        .umami-scrollmap-overlay {
+          position: absolute;
+          left: 0;
+          right: 0;
+          pointer-events: auto;
+          z-index: 2147483645;
+        }
+        .umami-scrollmap-band {
+          position: absolute;
+          left: 0;
+          right: 0;
+          border-top: 1px solid rgba(255, 255, 255, 0.72);
+          border-bottom: 1px solid rgba(15, 23, 42, 0.22);
+          box-sizing: border-box;
+          pointer-events: none;
+        }
+        .umami-scrollmap-band-label {
+          position: absolute;
+          left: 10px;
+          top: 6px;
+          padding: 4px 10px;
+          border-radius: 999px;
+          background: rgba(15, 23, 42, 0.78);
+          color: #fff;
+          font-family: Arial, sans-serif;
+          font-size: 14px;
+          line-height: 1.15;
+          font-weight: 700;
+          letter-spacing: 0.01em;
+          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
+          pointer-events: auto;
+          cursor: help;
+        }
+        .umami-scrollmap-median-line {
+          position: absolute;
+          left: 0;
+          right: 0;
+          height: 0;
+          border-top: 4px solid rgba(5, 150, 105, 0.96);
+          z-index: 2147483646;
+        }
+        .umami-scrollmap-median-label {
+          position: absolute;
+          left: 10px;
+          top: 10px;
+          padding: 4px 10px;
+          border-radius: 999px;
+          background: rgba(5, 150, 105, 0.97);
+          color: #fff;
+          font-family: Arial, sans-serif;
+          font-size: 13px;
+          line-height: 1.15;
+          font-weight: 700;
+          letter-spacing: 0.01em;
+          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
+          pointer-events: auto;
+          cursor: help;
+          white-space: nowrap;
+        }
       \`
       document.head.appendChild(style)
     }
@@ -292,6 +352,7 @@ export function createClickmapPreviewRouter() {
 
     const clearCurrentHighlights = () => {
       clearFocusedHighlight()
+      document.querySelectorAll('.umami-scrollmap-overlay').forEach((node) => node.remove())
       document.querySelectorAll('.umami-clickmap-hit, .umami-heatmap-hit').forEach((node) => {
         node.classList.remove('umami-clickmap-hit')
         node.classList.remove('umami-heatmap-hit')
@@ -442,7 +503,8 @@ export function createClickmapPreviewRouter() {
       ensureStyle()
       clearCurrentHighlights()
   
-      const viewMode = payload?.viewMode === 'heatmap' ? 'heatmap' : 'clickmap'
+      const viewMode =
+        payload?.viewMode === 'heatmap' ? 'heatmap' : payload?.viewMode === 'scrollmap' ? 'scrollmap' : 'clickmap'
       const items = Array.isArray(payload?.items) ? payload.items : []
       const zeroBadgeLabel = typeof payload?.zeroBadgeLabel === 'string' ? payload.zeroBadgeLabel : '0'
       const includeUnmatched = payload?.includeUnmatched !== false
@@ -467,6 +529,182 @@ export function createClickmapPreviewRouter() {
   
       const maxCount = Math.max(...preparedItems.map((item) => item.count), 1)
       const candidates = getInteractiveCandidates()
+      const resolveDocumentHeight = () =>
+        Math.max(
+          document.documentElement?.scrollHeight || 0,
+          document.body?.scrollHeight || 0,
+          document.documentElement?.offsetHeight || 0,
+          document.body?.offsetHeight || 0,
+          window.innerHeight || 0,
+        )
+
+      const renderScrollmap = () => {
+        const bins = 10
+        const binWeights = new Array(bins).fill(0)
+        const binCategoryCounts = Array.from({ length: bins }, () => ({
+          linkClicks: 0,
+          accordionClicks: 0,
+          otherClicks: 0,
+        }))
+        const documentHeight = Math.max(resolveDocumentHeight(), 1)
+        const foldRatio = Math.min(1, Math.max(0, window.innerHeight / documentHeight))
+
+        for (const candidate of candidates) {
+          const match = findBestMatch(candidate, preparedItems)
+          if (!match || (match.count || 0) <= 0) continue
+          const rect = candidate.element.getBoundingClientRect()
+          const elementCenterY = window.scrollY + rect.top + rect.height / 2
+          const normalizedDepth = Math.min(1, Math.max(0, elementCenterY / documentHeight))
+          const binIndex = Math.min(bins - 1, Math.floor(normalizedDepth * bins))
+          binWeights[binIndex] += match.count
+
+          const categoryBucket = binCategoryCounts[binIndex]
+          if (candidate.kind === 'accordion') {
+            categoryBucket.accordionClicks += match.count
+          } else if (candidate.kind === 'link') {
+            categoryBucket.linkClicks += match.count
+          } else {
+            categoryBucket.otherClicks += match.count
+          }
+        }
+
+        const totalWeightedClicks = binWeights.reduce((sum, value) => sum + value, 0)
+        if (totalWeightedClicks <= 0) {
+          window.parent.postMessage(
+            {
+              type: SCROLLMAP_SUMMARY_MESSAGE_TYPE,
+              breakpoints: [],
+              totalEstimatedClicks: 0,
+              medianDepthPercent: 0,
+            },
+            '*',
+          )
+          return
+        }
+
+        const estimatedReachByBand = new Array(bins).fill(0)
+        let running = 0
+        for (let index = bins - 1; index >= 0; index -= 1) {
+          running += binWeights[index]
+          estimatedReachByBand[index] = running / totalWeightedClicks
+        }
+
+        let medianDepthPercent = 100
+        let previousDepthPercent = 0
+        let previousReachRatio = 1
+        for (let index = 0; index < bins; index += 1) {
+          const depthPercent = (index / bins) * 100
+          const reachRatio = estimatedReachByBand[index]
+          if (reachRatio <= 0.5) {
+            const deltaReach = previousReachRatio - reachRatio
+            if (deltaReach > 0) {
+              const interpolationFactor = (previousReachRatio - 0.5) / deltaReach
+              medianDepthPercent = previousDepthPercent + (depthPercent - previousDepthPercent) * interpolationFactor
+            } else {
+              medianDepthPercent = depthPercent
+            }
+            break
+          }
+          previousDepthPercent = depthPercent
+          previousReachRatio = reachRatio
+        }
+        const effectiveMedianDepthPercent = Math.max(foldRatio * 100, Math.min(100, medianDepthPercent))
+
+        const overlay = document.createElement('div')
+        overlay.className = 'umami-scrollmap-overlay'
+        overlay.style.top = '0'
+        overlay.style.height = String(documentHeight) + 'px'
+        overlay.setAttribute('aria-hidden', 'true')
+
+        for (let index = 0; index < bins; index += 1) {
+          const band = document.createElement('div')
+          const bandTopPercent = (index / bins) * 100
+          const bandHeightPercent = 100 / bins
+          const estimatedReach = estimatedReachByBand[index]
+          const alpha = 0.07 + estimatedReach * 0.4
+          band.className = 'umami-scrollmap-band'
+          band.style.top = String(bandTopPercent) + '%'
+          band.style.height = String(bandHeightPercent) + '%'
+          band.style.backgroundColor = 'rgba(185, 28, 28, ' + alpha.toFixed(3) + ')'
+          if (index % 2 === 0) {
+            band.style.backgroundImage =
+              'repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0 8px, rgba(255, 255, 255, 0.08) 8px 16px)'
+          }
+          if (index > 0) {
+            band.style.borderTopWidth = '2px'
+          }
+
+          const startDepth = index * 10
+          const endDepth = (index + 1) * 10
+          const label = document.createElement('span')
+          label.className = 'umami-scrollmap-band-label'
+          const reachedPercent = Math.round(estimatedReach * 100)
+          label.textContent = 'Dybde ' + startDepth + '-' + endDepth + '% · Estimert nådd: ' + reachedPercent + '%'
+          label.title =
+            'Estimert andel som nådde minst dette dybdeområdet basert på klikkplasseringer, ikke faktisk målt scroll.'
+          label.setAttribute('aria-label', label.textContent || '')
+          band.appendChild(label)
+
+          overlay.appendChild(band)
+        }
+
+        if (document.body) {
+          document.body.appendChild(overlay)
+        }
+
+        const medianMarker = document.createElement('div')
+        medianMarker.className = 'umami-scrollmap-median-line'
+        medianMarker.style.top = effectiveMedianDepthPercent.toFixed(2) + '%'
+
+        const medianLabel = document.createElement('span')
+        medianLabel.className = 'umami-scrollmap-median-label'
+        medianLabel.textContent = 'Median dybde (halvparten når hit): ' + effectiveMedianDepthPercent.toFixed(1) + '%'
+        medianLabel.title =
+          'Median dybde er nivået der omtrent halvparten er estimert å ha nådd minst dette punktet.'
+        medianLabel.setAttribute('aria-label', medianLabel.textContent || '')
+        medianMarker.appendChild(medianLabel)
+        overlay.appendChild(medianMarker)
+
+        const summaryBreakpoints = [10, 25, 50, 75, 90].map((breakpoint) => {
+          const breakpointIndex = Math.min(bins - 1, Math.floor((breakpoint / 100) * bins))
+          const reachRatio = estimatedReachByBand[breakpointIndex] || 0
+          const categories = binCategoryCounts.slice(breakpointIndex).reduce(
+            (acc, current) => ({
+              linkClicks: acc.linkClicks + current.linkClicks,
+              accordionClicks: acc.accordionClicks + current.accordionClicks,
+              otherClicks: acc.otherClicks + current.otherClicks,
+            }),
+            { linkClicks: 0, accordionClicks: 0, otherClicks: 0 },
+          )
+          return {
+            depthPercent: breakpoint,
+            estimatedReachRatio: reachRatio,
+            estimatedReachPercent: Math.round(reachRatio * 1000) / 10,
+            estimatedClicksReached: Math.round(totalWeightedClicks * reachRatio),
+            categoryCounts: {
+              linkClicks: categories.linkClicks,
+              accordionClicks: categories.accordionClicks,
+              otherClicks: categories.otherClicks,
+            },
+          }
+        })
+
+        window.parent.postMessage(
+          {
+            type: SCROLLMAP_SUMMARY_MESSAGE_TYPE,
+            breakpoints: summaryBreakpoints,
+            totalEstimatedClicks: totalWeightedClicks,
+            medianDepthPercent: Math.round(effectiveMedianDepthPercent * 10) / 10,
+          },
+          '*',
+        )
+      }
+
+      if (viewMode === 'scrollmap') {
+        renderScrollmap()
+        return
+      }
+
       const buildTooltipText = (match) => {
         if (!match) return 'Klikk: 0\\nAndel: 0,0%'
         const countText = match.countLabel || String(match.count || 0)

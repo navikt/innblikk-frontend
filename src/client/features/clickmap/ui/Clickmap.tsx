@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, Button, Loader, Modal, Search, Select, TextField } from '@navikt/ds-react'
+import { Alert, Button, ExpansionCard, Loader, Modal, Search, Select, TextField } from '@navikt/ds-react'
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
@@ -85,6 +85,23 @@ type ClickmapPreviewErrorMessage = {
   details?: string
 }
 
+type ScrollmapSummaryMessage = {
+  type: 'umami-scrollmap-summary'
+  breakpoints?: Array<{
+    depthPercent?: number
+    estimatedReachRatio?: number
+    estimatedReachPercent?: number
+    estimatedClicksReached?: number
+    categoryCounts?: {
+      linkClicks?: number
+      accordionClicks?: number
+      otherClicks?: number
+    }
+  }>
+  totalEstimatedClicks?: number
+  medianDepthPercent?: number
+}
+
 type PreviewNotice = {
   title: string
   description: string
@@ -92,7 +109,7 @@ type PreviewNotice = {
   details?: string
 }
 
-type VisualizationMode = 'clickmap' | 'heatmap'
+type VisualizationMode = 'clickmap' | 'heatmap' | 'scrollmap'
 
 type ClickmapProps = {
   visualizationMode?: VisualizationMode
@@ -229,6 +246,12 @@ const isClickmapPreviewErrorMessage = (value: unknown): value is ClickmapPreview
   return candidate.type === 'umami-clickmap-preview-error'
 }
 
+const isScrollmapSummaryMessage = (value: unknown): value is ScrollmapSummaryMessage => {
+  if (!value || typeof value !== 'object') return false
+  const candidate = value as { type?: unknown }
+  return candidate.type === 'umami-scrollmap-summary'
+}
+
 const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
   const {
     selectedWebsite,
@@ -248,18 +271,46 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
     queryStats,
     hasUnappliedFilterChanges,
     fetchData,
-  } = useClickmap()
+  } = useClickmap(visualizationMode === 'scrollmap' ? 'scrollmap' : 'clickmap')
 
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
   const isHeatmap = visualizationMode === 'heatmap'
-  const chartLabel = isHeatmap ? 'Varmekart' : 'Klikkoversikt'
-  const showButtonLabel = isHeatmap ? 'Vis varmekart' : 'Vis klikkoversikt'
+  const isScrollmap = visualizationMode === 'scrollmap'
+  const isClickmap = visualizationMode === 'clickmap'
+  const chartLabel = isHeatmap ? 'Varmekart' : isScrollmap ? 'Scrollmap' : 'Klikkoversikt'
+  const showButtonLabel = isHeatmap
+    ? 'Oppdater varmekart'
+    : isScrollmap
+      ? 'Oppdater scrollmap'
+      : 'Oppdater klikkoversikt'
   const [isTopListOpen, setIsTopListOpen] = useState(false)
-  const showRightSidebar = !isHeatmap && isTopListOpen
+  const showRightSidebar = isClickmap && isTopListOpen
   const [badgeMode, setBadgeMode] = useState<'count' | 'percent'>('count')
   const [urlInput, setUrlInput] = useState(urlPath)
   const [pendingLinkNavigation, setPendingLinkNavigation] = useState<PendingLinkNavigation | null>(null)
   const [previewNotice, setPreviewNotice] = useState<PreviewNotice | null>(null)
+  const [scrollmapSummary, setScrollmapSummary] = useState<{
+    breakpoints: Array<{
+      depthPercent: number
+      estimatedReachPercent: number
+      estimatedClicksReached: number
+      categoryCounts: {
+        linkClicks: number
+        accordionClicks: number
+        otherClicks: number
+      }
+    }>
+    totalEstimatedClicks: number
+    medianDepthPercent: number
+  } | null>(null)
+  const [selectedScrollmapDepth, setSelectedScrollmapDepth] = useState<{
+    depthPercent: number
+    categoryCounts: {
+      linkClicks: number
+      accordionClicks: number
+      otherClicks: number
+    }
+  } | null>(null)
   const [activeTopListItemKey, setActiveTopListItemKey] = useState<string | null>(null)
   const [listTypeFilter, setListTypeFilter] = useState<string>('all')
   const [listSearch, setListSearch] = useState<string>('')
@@ -271,6 +322,11 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
   useEffect(() => {
     setActiveTopListItemKey(null)
   }, [urlPath, data])
+
+  useEffect(() => {
+    if (!isScrollmap) return
+    setScrollmapSummary(null)
+  }, [isScrollmap, data, urlPath])
 
   const hasPendingUrlChange = normalizeComparablePath(urlInput) !== normalizeComparablePath(urlPath)
 
@@ -410,8 +466,9 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
       if (isClickmapBlockedLinkMessage(event.data)) {
         setPendingLinkNavigation(null)
         const blockedPath = normalizeComparablePath(event.data.path || event.data.destination || '')
+        const chartLabelLower = chartLabel.toLowerCase()
         setPreviewNotice({
-          title: `Siden kan ikke vises i ${isHeatmap ? 'varmekart' : 'klikk-kart'}`,
+          title: `Siden kan ikke vises i ${chartLabelLower}`,
           description: `${chartLabel} kan foreløpig bare vise åpne sider.`,
           path: blockedPath || undefined,
           details: 'Prøv en offentlig side for å se markeringene.',
@@ -422,6 +479,37 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
       if (isClickmapPreviewErrorMessage(event.data)) {
         setPendingLinkNavigation(null)
         setPreviewNotice(null)
+        return
+      }
+
+      if (isScrollmapSummaryMessage(event.data)) {
+        const normalizedBreakpoints = Array.isArray(event.data.breakpoints)
+          ? event.data.breakpoints
+              .map((entry) => ({
+                depthPercent: Number(entry.depthPercent),
+                estimatedReachPercent: Number(entry.estimatedReachPercent),
+                estimatedClicksReached: Number(entry.estimatedClicksReached),
+                categoryCounts: {
+                  linkClicks: Number(entry.categoryCounts?.linkClicks) || 0,
+                  accordionClicks: Number(entry.categoryCounts?.accordionClicks) || 0,
+                  otherClicks: Number(entry.categoryCounts?.otherClicks) || 0,
+                },
+              }))
+              .filter(
+                (entry) =>
+                  Number.isFinite(entry.depthPercent) &&
+                  Number.isFinite(entry.estimatedReachPercent) &&
+                  Number.isFinite(entry.estimatedClicksReached),
+              )
+          : []
+
+        const totalEstimatedClicks = Number(event.data.totalEstimatedClicks)
+        const medianDepthPercent = Number(event.data.medianDepthPercent)
+        setScrollmapSummary({
+          breakpoints: normalizedBreakpoints,
+          totalEstimatedClicks: Number.isFinite(totalEstimatedClicks) ? totalEstimatedClicks : 0,
+          medianDepthPercent: Number.isFinite(medianDepthPercent) ? medianDepthPercent : 0,
+        })
         return
       }
 
@@ -440,10 +528,17 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
     }
 
     window.addEventListener('message', onMessage)
+
+    // Re-send after listener attachment so scrollmap summary is not missed on fast iframe loads.
+    const syncTimeout = window.setTimeout(() => {
+      sendHeatmapDataToIframe()
+    }, 0)
+
     return () => {
+      window.clearTimeout(syncTimeout)
       window.removeEventListener('message', onMessage)
     }
-  }, [urlPath, isHeatmap, chartLabel])
+  }, [urlPath, chartLabel, sendHeatmapDataToIframe])
 
   const handleConfirmLinkNavigation = useCallback(() => {
     if (!pendingLinkNavigation) return
@@ -489,7 +584,13 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
   return (
     <ChartLayout
       title={chartLabel}
-      description={isHeatmap ? 'Viser en varmevisualisering av hvor folk klikker.' : 'Viser visuelt hvor folk klikker.'}
+      description={
+        isHeatmap
+          ? 'Viser en varmevisualisering av hvor folk klikker.'
+          : isScrollmap
+            ? 'Estimerer hvor langt ned brukerne scroller basert på klikkdybde på siden.'
+            : 'Viser visuelt hvor folk klikker.'
+      }
       currentPage="clickmap"
       websiteDomain={selectedWebsite?.domain}
       websiteName={selectedWebsite?.name}
@@ -515,7 +616,7 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
             onEndDateChange={setCustomEndDate}
           />
 
-          {!isHeatmap && (
+          {isClickmap && (
             <div className="w-full sm:w-auto min-w-[180px]">
               <Select
                 size="small"
@@ -548,7 +649,7 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
         </>
       }
     >
-      {!isHeatmap && (
+      {isClickmap && (
         <div className="mb-4 flex items-center justify-end gap-3">
           <div className="text-sm">
             <span className="text-[var(--ax-text-subtle)]">Totale klikk:</span>{' '}
@@ -558,6 +659,125 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
             {isTopListOpen ? 'Skjul toppliste' : 'Vis toppliste'}
           </Button>
         </div>
+      )}
+
+      {isScrollmap && (
+        <section className="mb-4 space-y-3">
+          <ExpansionCard aria-label="Oppsummering for scrollkart" defaultOpen size="small">
+            <ExpansionCard.Header>
+              <ExpansionCard.Title as="h3" size="small">
+                Oppsummering
+              </ExpansionCard.Title>
+            </ExpansionCard.Header>
+            <ExpansionCard.Content>
+              <div className="space-y-3 text-sm leading-6">
+                <p className="text-base font-medium text-[var(--ax-text-subtle)]">
+                  Scrollkartet estimerer scroll-dybde fra klikkposisjoner.
+                </p>
+
+                {scrollmapSummary && scrollmapSummary.breakpoints.length > 0 ? (
+                  <>
+                    <p className="text-base font-medium">
+                      Basert på ca. <strong>{scrollmapSummary.totalEstimatedClicks.toLocaleString('nb-NO')}</strong>{' '}
+                      klikk i visningen.
+                    </p>
+                    <div className="overflow-x-auto rounded-md border border-[var(--ax-border-neutral-subtle)]">
+                      <table className="w-full text-sm">
+                        <caption className="sr-only">Scrollkart breakpoints med estimert nådd andel</caption>
+                        <thead>
+                          <tr className="bg-[var(--ax-bg-neutral-soft)] text-left">
+                            <th scope="col" className="px-3 py-2 font-semibold">
+                              Dybde
+                            </th>
+                            <th scope="col" className="px-3 py-2 font-semibold">
+                              Andel nådd
+                            </th>
+                            <th scope="col" className="px-3 py-2 font-semibold">
+                              Klikk
+                            </th>
+                            <th scope="col" className="px-3 py-2 font-semibold">
+                              Detaljer
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody aria-live="polite">
+                          {scrollmapSummary.breakpoints.map((item) => {
+                            return (
+                              <tr key={item.depthPercent} className="border-t border-[var(--ax-border-neutral-subtle)]">
+                                <th scope="row" className="px-3 py-2 text-left font-semibold">
+                                  {item.depthPercent}% dybde
+                                </th>
+                                <td className="px-3 py-2 text-[var(--ax-text-subtle)]">
+                                  {item.estimatedReachPercent.toLocaleString('nb-NO', {
+                                    minimumFractionDigits: 1,
+                                    maximumFractionDigits: 1,
+                                  })}
+                                  %
+                                </td>
+                                <td className="px-3 py-2 text-[var(--ax-text-subtle)]">
+                                  {item.estimatedClicksReached.toLocaleString('nb-NO')} klikk
+                                </td>
+                                <td className="px-3 py-2 text-[var(--ax-text-subtle)]">
+                                  <Button
+                                    size="xsmall"
+                                    variant="secondary"
+                                    onClick={() =>
+                                      setSelectedScrollmapDepth({
+                                        depthPercent: item.depthPercent,
+                                        categoryCounts: item.categoryCounts,
+                                      })
+                                    }
+                                    disabled={
+                                      item.categoryCounts.linkClicks +
+                                        item.categoryCounts.accordionClicks +
+                                        item.categoryCounts.otherClicks ===
+                                      0
+                                    }
+                                  >
+                                    Vis klikkdetaljer
+                                  </Button>
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center gap-3 text-[var(--ax-text-subtle)]" aria-live="polite">
+                    <Loader size="small" title="Beregner estimater..." />
+                    <p className="text-base">Beregner estimater ...</p>
+                  </div>
+                )}
+
+                <details className="pt-2">
+                  <summary className="cursor-pointer text-base font-semibold text-[var(--ax-text-subtle)]">
+                    Les mer: Hvordan beregnes dette?
+                  </summary>
+                  <div className="mt-3 max-w-prose space-y-3 text-base leading-7 text-[var(--ax-text-subtle)]">
+                    <p>
+                      Et klikk på et element tolkes som at brukeren minst har nådd den høyden på siden. Dette er en
+                      indirekte estimering, ikke faktisk målt scroll.
+                    </p>
+                    <p>
+                      Siden deles inn i 10 dybdebånd: 0-10%, 10-20%, 20-30%, 30-40%, 40-50%, 50-60%, 60-70%, 70-80%,
+                      80-90% og 90-100%.
+                    </p>
+                    <p>
+                      Median dybde (halvparten når hit) viser nivået der omtrent halvparten estimeres å ha nådd minst
+                      dette punktet.
+                    </p>
+                    <p>
+                      Eksempel: Klikk på tittelområdet i en accordion teller som at brukeren nådde kortets posisjon. Det
+                      betyr ikke nødvendigvis at innholdet i accordionen ble lest.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </ExpansionCard.Content>
+          </ExpansionCard>
+        </section>
       )}
 
       {error && (
@@ -574,7 +794,10 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
 
       {loading && (
         <div className="flex justify-center items-center h-full">
-          <Loader size="xlarge" title={isHeatmap ? 'Henter varmekart...' : 'Henter klikk-kart...'} />
+          <Loader
+            size="xlarge"
+            title={isHeatmap ? 'Henter varmekart...' : isScrollmap ? 'Henter scrollmap...' : 'Henter klikk-kart...'}
+          />
         </div>
       )}
 
@@ -592,7 +815,9 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
             {iframeSrc ? (
               <iframe
                 ref={iframeRef}
-                title={isHeatmap ? 'Varmekart sidevisning' : 'Klikk-kart sidevisning'}
+                title={
+                  isHeatmap ? 'Varmekart sidevisning' : isScrollmap ? 'Scrollmap sidevisning' : 'Klikk-kart sidevisning'
+                }
                 src={iframeSrc}
                 className="w-full h-[920px]"
                 sandbox="allow-same-origin allow-scripts allow-forms"
@@ -697,7 +922,7 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
       <Modal
         open={!!pendingLinkNavigation}
         onClose={() => setPendingLinkNavigation(null)}
-        header={{ heading: `Åpne ${isHeatmap ? 'varmekart' : 'klikk-kart'} for denne siden?`, closeButton: true }}
+        header={{ heading: `Åpne ${chartLabel.toLowerCase()} for denne siden?`, closeButton: true }}
       >
         <Modal.Body>
           {pendingLinkNavigation && (
@@ -709,7 +934,7 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
           )}
         </Modal.Body>
         <Modal.Footer>
-          <Button onClick={handleConfirmLinkNavigation}>Ja, vis {isHeatmap ? 'varmekart' : 'klikk-kart'}</Button>
+          <Button onClick={handleConfirmLinkNavigation}>Ja, vis {chartLabel.toLowerCase()}</Button>
           <Button variant="secondary" onClick={() => setPendingLinkNavigation(null)}>
             Bli her
           </Button>
@@ -738,6 +963,78 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
         </Modal.Body>
         <Modal.Footer>
           <Button onClick={() => setPreviewNotice(null)}>Lukk</Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal
+        open={!!selectedScrollmapDepth}
+        onClose={() => setSelectedScrollmapDepth(null)}
+        header={{
+          heading: selectedScrollmapDepth ? `Klikkategorier ved ${selectedScrollmapDepth.depthPercent}% dybde` : '',
+          closeButton: true,
+        }}
+      >
+        <Modal.Body>
+          {selectedScrollmapDepth && (
+            <div className="space-y-3">
+              {selectedScrollmapDepth.categoryCounts.linkClicks +
+                selectedScrollmapDepth.categoryCounts.accordionClicks +
+                selectedScrollmapDepth.categoryCounts.otherClicks >
+              0 ? (
+                <div className="overflow-x-auto rounded-md border border-[var(--ax-border-neutral-subtle)]">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-[var(--ax-bg-neutral-soft)] text-left">
+                        <th scope="col" className="px-3 py-2 font-semibold">
+                          Kategori
+                        </th>
+                        <th scope="col" className="px-3 py-2 font-semibold">
+                          Klikk
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedScrollmapDepth.categoryCounts.linkClicks > 0 && (
+                        <tr className="border-t border-[var(--ax-border-neutral-subtle)]">
+                          <th scope="row" className="px-3 py-2 text-left font-semibold">
+                            Lenkeklikk
+                          </th>
+                          <td className="px-3 py-2">
+                            {selectedScrollmapDepth.categoryCounts.linkClicks.toLocaleString('nb-NO')}
+                          </td>
+                        </tr>
+                      )}
+                      {selectedScrollmapDepth.categoryCounts.accordionClicks > 0 && (
+                        <tr className="border-t border-[var(--ax-border-neutral-subtle)]">
+                          <th scope="row" className="px-3 py-2 text-left font-semibold">
+                            Accordion-klikk
+                          </th>
+                          <td className="px-3 py-2">
+                            {selectedScrollmapDepth.categoryCounts.accordionClicks.toLocaleString('nb-NO')}
+                          </td>
+                        </tr>
+                      )}
+                      {selectedScrollmapDepth.categoryCounts.otherClicks > 0 && (
+                        <tr className="border-t border-[var(--ax-border-neutral-subtle)]">
+                          <th scope="row" className="px-3 py-2 text-left font-semibold">
+                            Andre
+                          </th>
+                          <td className="px-3 py-2">
+                            {selectedScrollmapDepth.categoryCounts.otherClicks.toLocaleString('nb-NO')}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p>Ingen klikk-kategorier for dette dybdepunktet.</p>
+              )}
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button onClick={() => setSelectedScrollmapDepth(null)}>Lukk</Button>
         </Modal.Footer>
       </Modal>
     </ChartLayout>

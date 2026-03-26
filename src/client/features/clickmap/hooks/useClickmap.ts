@@ -14,7 +14,9 @@ import type { QueryStats } from '../../../shared/types/queryStats'
 
 const CLICKMAP_EVENTS = ['navigere', 'accordion åpnet']
 
-export const useClickmap = () => {
+type ClickmapDataset = 'clickmap' | 'scrollmap'
+
+export const useClickmap = (dataset: ClickmapDataset = 'clickmap') => {
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
   const [searchParams] = useSearchParams()
   const initialAutoLoadAttemptedRef = useRef(false)
@@ -98,6 +100,7 @@ export const useClickmap = () => {
           pathOperator: 'equals',
           eventNames: CLICKMAP_EVENTS,
           limit: 400,
+          dataset,
         })
 
         setData(result.data ?? [])
@@ -126,7 +129,7 @@ export const useClickmap = () => {
         setLoading(false)
       }
     },
-    [selectedWebsite, urlPath, period, customStartDate, customEndDate],
+    [selectedWebsite, urlPath, period, customStartDate, customEndDate, dataset],
   )
 
   useEffect(() => {
