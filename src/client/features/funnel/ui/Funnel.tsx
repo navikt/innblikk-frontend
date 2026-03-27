@@ -148,6 +148,17 @@ const Funnel = () => {
               <Radio value="loose">Tillat andre steg imellom</Radio>
             </div>
           </RadioGroup>
+
+          <div className="flex items-end pb-[2px]">
+            <Button
+              size="small"
+              onClick={fetchData}
+              disabled={!selectedWebsite || loading || steps.filter((s) => s.value.trim() !== '').length < 2}
+              loading={loading}
+            >
+              {funnelData.length > 0 ? 'Oppdater' : 'Lag trakt'}
+            </Button>
+          </div>
         </>
       }
     >
@@ -485,13 +496,15 @@ const Funnel = () => {
                 </Tabs.Panel>
 
                 <Tabs.Panel value="visual" className="pt-4">
-                  <FunnelCanvasView
-                    data={funnelData}
-                    loading={loading}
-                    websiteId={selectedWebsite?.id}
-                    period={period}
-                    domain={selectedWebsite?.domain}
-                  />
+                  {activeTab === 'visual' && (
+                    <FunnelCanvasView
+                      data={funnelData}
+                      loading={loading}
+                      websiteId={selectedWebsite?.id}
+                      period={period}
+                      domain={selectedWebsite?.domain}
+                    />
+                  )}
                   <div className="flex gap-2 justify-between items-center mt-4">
                     {funnelQueryStats && (
                       <span className="text-sm text-[var(--ax-text-subtle)] mr-auto">

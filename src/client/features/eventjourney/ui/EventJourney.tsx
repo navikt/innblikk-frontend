@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { TextField, Button, Alert, Loader, Switch, UNSAFE_Combobox } from '@navikt/ds-react'
 import { Share2, Check, ExternalLink } from 'lucide-react'
 import { format } from 'date-fns'
@@ -56,13 +56,6 @@ const EventJourney = () => {
   const filteredData = filterJourneys(data, includedEventTypes, excludedEventTypes, filterText)
   const totalJourneySessions = data.reduce((total, journey) => total + journey.count, 0)
   const supportsClickmaps = hasClickmapSupport(selectedWebsite?.domain, selectedWebsite?.id)
-
-  useEffect(() => {
-    if (!supportsClickmaps) return
-    if (filteredData.length === 0) return
-    // Warm up the visualizer route chunk before first navigation.
-    void import('../../clickmap')
-  }, [supportsClickmaps, filteredData.length])
 
   const copyShareLink = async () => {
     const success = await copyToClipboard(window.location.href)
