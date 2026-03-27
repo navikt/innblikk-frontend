@@ -20,6 +20,7 @@ import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
 import FunnelChart from '../../analysis/ui/funnel/FunnelChart.tsx'
 import HorizontalFunnelChart from '../../analysis/ui/funnel/HorizontalFunnelChart.tsx'
 import FunnelStats from '../../analysis/ui/funnel/FunnelStats.tsx'
+import FunnelCanvasView from './FunnelCanvasView.tsx'
 import { SqlViewer } from '../../chartbuilder'
 import AnalysisActionModal from '../../analysis/ui/AnalysisActionModal.tsx'
 import { useFunnel } from '../hooks/useFunnel'
@@ -413,8 +414,9 @@ const Funnel = () => {
               </div>
               <Tabs value={activeTab} onChange={setActiveTab}>
                 <Tabs.List>
-                  <Tabs.Tab value="vertical" label="Vertikal trakt" />
-                  <Tabs.Tab value="horizontal" label="Horisontal trakt" />
+                  <Tabs.Tab value="vertical" label="Vertikal" />
+                  <Tabs.Tab value="horizontal" label="Horisontal" />
+                  <Tabs.Tab value="visual" label="Visuelt" />
                   <Tabs.Tab value="table" label="Tabell" />
                   <Tabs.Tab value="timing" label="Tidsbruk" />
                 </Tabs.List>
@@ -454,6 +456,41 @@ const Funnel = () => {
                     loading={loading}
                     websiteId={selectedWebsite?.id}
                     period={period}
+                  />
+                  <div className="flex gap-2 justify-between items-center mt-4">
+                    {funnelQueryStats && (
+                      <span className="text-sm text-[var(--ax-text-subtle)] mr-auto">
+                        Data prosessert: {funnelQueryStats.totalBytesProcessedGB} GB
+                      </span>
+                    )}
+                    <Button
+                      size="small"
+                      variant="tertiary"
+                      onClick={copyMetabaseSql}
+                      icon={metabaseCopySuccess ? <Check size={16} /> : <Code2 size={16} />}
+                    >
+                      {metabaseCopySuccess ? 'Kopiert!' : 'Kopier for Metabase'}
+                    </Button>
+                    {funnelSql && (
+                      <Button
+                        size="small"
+                        variant="tertiary"
+                        onClick={() => setModalSql(funnelSql)}
+                        icon={<Code2 size={16} />}
+                      >
+                        Vis SQL
+                      </Button>
+                    )}
+                  </div>
+                </Tabs.Panel>
+
+                <Tabs.Panel value="visual" className="pt-4">
+                  <FunnelCanvasView
+                    data={funnelData}
+                    loading={loading}
+                    websiteId={selectedWebsite?.id}
+                    period={period}
+                    domain={selectedWebsite?.domain}
                   />
                   <div className="flex gap-2 justify-between items-center mt-4">
                     {funnelQueryStats && (
