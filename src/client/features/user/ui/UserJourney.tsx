@@ -6,6 +6,7 @@ import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
 import UmamiJourneyView from '../../analysis/ui/journey/UmamiJourneyView.tsx'
 import AnalysisActionModal from '../../analysis/ui/AnalysisActionModal.tsx'
+import UserJourneyCanvasView from './UserJourneyCanvasView.tsx'
 import TableSectionHeader from '../../../shared/ui/TableSectionHeader.tsx'
 import type { Website } from '../../../shared/types/chart.ts'
 import { normalizeUrlToPath } from '../../../shared/lib/utils.ts'
@@ -46,6 +47,7 @@ const UserJourney = () => {
   // UI state
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false)
   const [showTableSection, setShowTableSection] = useState<boolean>(false)
+  const [showCanvasView, setShowCanvasView] = useState<boolean>(false)
   const [copySuccess, setCopySuccess] = useState<boolean>(false)
   const [selectedTableUrl, setSelectedTableUrl] = useState<string | null>(null)
   const [tableSearch, setTableSearch] = useState<string>('')
@@ -279,11 +281,30 @@ const UserJourney = () => {
               </div>
             )}
             <div className="mt-4 flex justify-end">
-              <Switch checked={showTableSection} onChange={(e) => setShowTableSection(e.target.checked)} size="small">
-                Vis som tabell
-              </Switch>
+              <div className="flex flex-col items-end gap-2">
+                <Switch checked={showTableSection} onChange={(e) => setShowTableSection(e.target.checked)} size="small">
+                  Vis som tabell
+                </Switch>
+                <Switch checked={showCanvasView} onChange={(e) => setShowCanvasView(e.target.checked)} size="small">
+                  Vis som canvas (beta)
+                </Switch>
+              </div>
             </div>
           </div>
+
+          {showCanvasView && (
+            <div className="pt-4">
+              <UserJourneyCanvasView
+                nodes={rawData?.nodes || []}
+                links={rawData?.links || []}
+                reverseVisualOrder={reverseVisualOrder}
+                journeyDirection={journeyDirection}
+                websiteId={selectedWebsite?.id}
+                period={period}
+                domain={selectedWebsite?.domain}
+              />
+            </div>
+          )}
 
           {showTableSection && (
             <div className="pt-4">
