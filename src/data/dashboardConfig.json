@@ -10,7 +10,7 @@
     "dashboardPathOperator": "starts-with",
     "dashboardPathFilteLabel": "Fylkeskontor",
     "dashboardPathFilterEmpty": "Velg et kontor for å vise webstatistikk.",
-    "metricTypeOptions": ["visitors", "proportion"]
+    "metricTypeOptions": ["visitors", "visits", "pageviews", "proportion"]
   },
   {
     "dashboardName": "DigiHoT",
@@ -23,6 +23,6 @@
     "dashboardPathOperator": "starts-with",
     "dashboardPathFilteLabel": "Hjelpemiddelsentral",
     "dashboardPathFilterEmpty": "Velg en sentral for å vise webstatistikk.",
-    "metricTypeOptions": ["visitors", "proportion"]
+    "metricTypeOptions": ["visitors", "visits", "pageviews", "proportion"]
   }
 ]
