@@ -382,6 +382,7 @@ export function createClickmapPreviewRouter() {
       value.includes('intern-navigasjon') || value.includes('page-navigation')
     const isNavigationMenuLink = (element) =>
       !!element.closest('nav, .part__page-navigation-menu, [class*="PageNavigationMenu"], [class*="NavigationMenu"]')
+    const isHeadingLink = (element) => !!element.closest('h1, h2, h3, h4, h5, h6')
     const getComponentIntent = (componentKey) => {
       if (!componentKey) return 'any'
       if (isAccordionComponent(componentKey)) return 'accordion'
@@ -543,6 +544,7 @@ export function createClickmapPreviewRouter() {
         const itemIsInternalNavigation = isInternalNavigationComponent(item.componentKey)
         const matchesIntent = candidateMatchesIntent(candidate.kind, itemIntent)
         if (itemIsAccordion && candidate.kind !== 'accordion') continue
+        if (candidate.kind === 'link' && isHeadingLink(candidate.element)) continue
         if (itemIsInternalNavigation && candidate.kind === 'link' && !isNavigationMenuLink(candidate.element)) continue
 
         const textExactMatch = !!item.linkTextKey && item.linkTextKey === elementText
@@ -868,6 +870,7 @@ export function createClickmapPreviewRouter() {
       for (const candidate of candidates) {
         const matchesIntent = candidateMatchesIntent(candidate.kind, targetIntent)
         if (targetIsAccordion && candidate.kind !== 'accordion') continue
+        if (candidate.kind === 'link' && isHeadingLink(candidate.element)) continue
         if (targetIsInternalNavigation && candidate.kind === 'link' && !isNavigationMenuLink(candidate.element)) continue
 
         const elementText =

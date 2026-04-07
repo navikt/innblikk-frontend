@@ -154,6 +154,7 @@ const isInternalNavigationComponent = (value: string): boolean => {
 
 const isNavigationMenuLink = (element: Element): boolean =>
   !!element.closest('nav, .part__page-navigation-menu, [class*="PageNavigationMenu"], [class*="NavigationMenu"]')
+const isHeadingLink = (element: Element): boolean => !!element.closest('h1, h2, h3, h4, h5, h6')
 
 const CLICKMAP_FOCUSED_CLASS = 'umami-clickmap-focused-link'
 
@@ -222,6 +223,7 @@ const findBestElementForClickmapItem = (doc: Document, item: ClickmapItem): Elem
   for (const candidate of candidates) {
     if (!isElementVisible(candidate.element)) continue
     if (targetIsAccordion && candidate.kind !== 'accordion') continue
+    if (candidate.kind === 'link' && isHeadingLink(candidate.element)) continue
     if (targetIsInternalNavigation && candidate.kind === 'link' && !isNavigationMenuLink(candidate.element)) continue
 
     const elementText = cleanText(candidate.element.textContent || candidate.element.getAttribute('aria-label') || '')
