@@ -420,6 +420,32 @@ export function createClickmapPreviewRouter() {
       const fallbackText = cleanText(element.textContent || element.getAttribute('aria-label') || '')
       return fallbackText
     }
+    const getElementSectionKey = (element) => {
+      const accordionSection = element.closest(
+        'section.navds-expansioncard, section[class*="expansioncard"], section[class*="Expandable_expandable"], section[aria-label]',
+      )
+      if (accordionSection) {
+        const titleNode =
+          accordionSection.querySelector(
+            '[class*="Expandable_headerTitle"], .navds-expansioncard__header-content, .navds-expansioncard__header',
+          ) || accordionSection
+        const title = cleanText(titleNode.textContent || '')
+        if (title) return title
+        const ariaLabel = cleanText(accordionSection.getAttribute('aria-label') || '')
+        if (ariaLabel) return ariaLabel
+      }
+
+      const sectionContainer = element.closest('section, article, [role="region"]')
+      if (sectionContainer) {
+        const heading = sectionContainer.querySelector('h1, h2, h3, h4, h5, h6')
+        const headingText = cleanText((heading && heading.textContent) || '')
+        if (headingText) return headingText
+        const ariaLabel = cleanText(sectionContainer.getAttribute('aria-label') || '')
+        if (ariaLabel) return ariaLabel
+      }
+
+      return ''
+    }
     const isHeaderLikeElement = (element) =>
       !!element.closest(
         'header, nav, [role="banner"], #decorator-header, .decorator-header, [class*="dekorator"], [class*="decorator"]',
@@ -506,7 +532,7 @@ export function createClickmapPreviewRouter() {
         if (!element) return
         if (seen.has(element)) return
         seen.add(element)
-        candidates.push({ element, kind })
+        candidates.push({ element, kind, sectionKey: getElementSectionKey(element) })
       }
   
       Array.from(document.querySelectorAll('a[href]')).forEach((element) => addCandidate(element, 'link'))
@@ -559,6 +585,12 @@ export function createClickmapPreviewRouter() {
           !textExactMatch &&
           (elementText.includes(item.linkTextKey) || item.linkTextKey.includes(elementText))
         const textMatches = textExactMatch || textContainsMatch
+        const sectionExactMatch = !!item.sectionKey && item.sectionKey === candidate.sectionKey
+        const sectionContainsMatch =
+          !!item.sectionKey &&
+          !sectionExactMatch &&
+          (item.sectionKey.includes(candidate.sectionKey) || candidate.sectionKey.includes(item.sectionKey))
+        const sectionMatches = sectionExactMatch || sectionContainsMatch
         const destinationMatches =
           candidate.kind === 'link' &&
           !!elementDestination &&
@@ -570,6 +602,7 @@ export function createClickmapPreviewRouter() {
 
         const score =
           (destinationMatches ? 3 : 0) +
+          (sectionExactMatch ? 4 : sectionContainsMatch ? 1 : 0) +
           (textExactMatch ? 2 : textContainsMatch ? 1 : 0) +
           (matchesIntent ? 2 : 0) +
           (itemIsAccordion && candidate.kind === 'accordion' ? 2 : 0) +
@@ -603,6 +636,7 @@ export function createClickmapPreviewRouter() {
             ...item,
             count: Number(item.count) || 0,
             linkTextKey: cleanText(item.linkText),
+            sectionKey: cleanText(item.section),
             destinationPathKey: destinationMeta.path,
             destinationFullKey: destinationMeta.full,
             destinationHasHost: destinationMeta.hasHost,
@@ -864,6 +898,7 @@ export function createClickmapPreviewRouter() {
         destinationFullKey: destinationMeta.full,
         destinationHasHost: destinationMeta.hasHost,
         linkTextKey: cleanText(payload?.linkText || ''),
+        sectionKey: cleanText(payload?.section || ''),
         componentKey: cleanText(payload?.component || ''),
       }
       const targetIntent = getComponentIntent(target.componentKey)
@@ -890,6 +925,11 @@ export function createClickmapPreviewRouter() {
           !!target.linkTextKey &&
           !textExact &&
           (target.linkTextKey.includes(elementText) || elementText.includes(target.linkTextKey))
+        const sectionExact = !!target.sectionKey && target.sectionKey === candidate.sectionKey
+        const sectionContains =
+          !!target.sectionKey &&
+          !sectionExact &&
+          (target.sectionKey.includes(candidate.sectionKey) || candidate.sectionKey.includes(target.sectionKey))
         const destinationMetaForElement =
           candidate.kind === 'link' ? normalizeDestination(candidate.element.getAttribute('href') || '') : null
         const destinationMatches =
@@ -901,10 +941,18 @@ export function createClickmapPreviewRouter() {
 
         if (!destinationMatches && targetIntent !== 'any' && !matchesIntent) continue
         if (!destinationMatches && !textExact && !textContains && !targetIsAccordion) continue
-        if (!destinationMatches && !textExact && !textContains && targetIsAccordion && candidate.kind !== 'accordion') continue
+        if (
+          !destinationMatches &&
+          !textExact &&
+          !textContains &&
+          targetIsAccordion &&
+          candidate.kind !== 'accordion'
+        )
+          continue
 
         const score =
           (destinationMatches ? 6 : 0) +
+          (sectionExact ? 4 : sectionContains ? 1 : 0) +
           (textExact ? 4 : textContains ? 2 : 0) +
           (matchesIntent ? 2 : 0) +
           (targetIsAccordion && candidate.kind === 'accordion' ? 2 : 0) +

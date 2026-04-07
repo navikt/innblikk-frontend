@@ -132,6 +132,7 @@ type ClickmapFocusLinkPayload = {
   linkText?: string
   destination?: string
   component?: string
+  section?: string
 }
 
 const ROUTE_BY_VISUALIZATION_MODE: Record<VisualizationMode, string> = {
@@ -158,6 +159,33 @@ const isHeadingLink = (element: Element): boolean => !!element.closest('h1, h2, 
 const isInPageHashLink = (element: Element): boolean => {
   const href = element.getAttribute('href') || ''
   return href.startsWith('#')
+}
+
+const getElementSectionKey = (element: Element): string => {
+  const accordionSection = element.closest(
+    'section.navds-expansioncard, section[class*="expansioncard"], section[class*="Expandable_expandable"], section[aria-label]',
+  )
+  if (accordionSection) {
+    const titleNode =
+      accordionSection.querySelector(
+        '[class*="Expandable_headerTitle"], .navds-expansioncard__header-content, .navds-expansioncard__header',
+      ) || accordionSection
+    const title = cleanText(titleNode.textContent || '')
+    if (title) return title
+    const ariaLabel = cleanText(accordionSection.getAttribute('aria-label') || '')
+    if (ariaLabel) return ariaLabel
+  }
+
+  const sectionContainer = element.closest('section, article, [role="region"]')
+  if (sectionContainer) {
+    const heading = sectionContainer.querySelector('h1, h2, h3, h4, h5, h6')
+    const headingText = cleanText(heading?.textContent || '')
+    if (headingText) return headingText
+    const ariaLabel = cleanText(sectionContainer.getAttribute('aria-label') || '')
+    if (ariaLabel) return ariaLabel
+  }
+
+  return ''
 }
 
 const CLICKMAP_FOCUSED_CLASS = 'umami-clickmap-focused-link'
@@ -212,6 +240,7 @@ const findBestElementForClickmapItem = (doc: Document, item: ClickmapItem): Elem
   const targetDestination = normalizeDestination(item.destination || '')
   const targetIsAccordion = isAccordionLike(item.component || '')
   const targetIsInternalNavigation = isInternalNavigationComponent(item.component || '')
+  const targetSection = cleanText(item.section || '')
 
   const candidates = [
     ...Array.from(doc.querySelectorAll('a[href]')).map((element) => ({ element, kind: 'link' as const })),
@@ -243,11 +272,18 @@ const findBestElementForClickmapItem = (doc: Document, item: ClickmapItem): Elem
       candidate.kind === 'link' &&
       !!targetDestination.path &&
       (targetDestination.path === destination.path || targetDestination.full === destination.full)
+    const candidateSection = getElementSectionKey(candidate.element)
+    const sectionExact = !!targetSection && targetSection === candidateSection
+    const sectionContains =
+      !!targetSection &&
+      !sectionExact &&
+      (targetSection.includes(candidateSection) || candidateSection.includes(targetSection))
 
     if (!destinationMatches && !textExact && !textContains && !targetIsAccordion) continue
 
     const score =
       (destinationMatches ? 6 : 0) +
+      (sectionExact ? 5 : sectionContains ? 2 : 0) +
       (textExact ? 4 : textContains ? 2 : 0) +
       (targetIsAccordion && candidate.kind === 'accordion' ? 3 : 0) +
       (candidate.element.classList.contains('umami-clickmap-hit') ||
@@ -618,6 +654,7 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
       linkText: item.linkText,
       destination: item.destination,
       component: item.component,
+      section: item.section,
     }
 
     contentWindow.postMessage(focusPayload, '*')
