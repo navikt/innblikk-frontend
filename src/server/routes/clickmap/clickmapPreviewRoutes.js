@@ -531,6 +531,8 @@ export function createClickmapPreviewRouter() {
       const addCandidate = (element, kind) => {
         if (!element) return
         if (seen.has(element)) return
+        if (kind === 'link' && isHeadingLink(element)) return
+        if (kind === 'link' && isInPageHashLink(element) && !isNavigationMenuLink(element)) return
         seen.add(element)
         candidates.push({ element, kind, sectionKey: getElementSectionKey(element) })
       }

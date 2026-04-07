@@ -680,9 +680,9 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
       title={chartLabel}
       description={
         isHeatmap
-          ? 'Viser en varmevisualisering av hvor folk klikker.'
+          ? 'Viser hvilke interaktive elementer som får klikk, ikke eksakt punkt inne i elementet.'
           : isScrollmap
-            ? 'Estimerer hvor langt ned brukerne scroller basert på hva folk har klikket på.'
+            ? 'Estimerer dybde ut fra scrolleposisjon når interaktive elementer klikkes, ikke faktisk målt scroll.'
             : 'Viser visuelt hvor folk klikker.'
       }
       currentPage="clickmap"
@@ -780,7 +780,7 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
             <ExpansionCard.Content>
               <div className="space-y-3 text-sm leading-6">
                 <p className="text-base font-medium text-[var(--ax-text-subtle)]">
-                  Scrollkartet estimerer scroll-dybde fra klikkposisjoner.
+                  Scrollkartet estimerer scroll-dybde fra scrolleposisjon ved klikk på interaktive elementer.
                 </p>
 
                 {scrollmapSummary && scrollmapSummary.breakpoints.length > 0 ? (
@@ -863,8 +863,9 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
                   <ReadMore header="Hvordan beregnes dette?">
                     <div className="max-w-prose space-y-3 text-base leading-7 text-[var(--ax-text-subtle)]">
                       <p>
-                        Et klikk på et element tolkes som at brukeren minst har nådd den høyden på siden. Dette er en
-                        indirekte estimering, ikke faktisk målt scroll.
+                        Et klikk på et interaktivt element tolkes som at brukeren minst har nådd den høyden på siden.
+                        Dette er en indirekte estimering, ikke faktisk målt scroll, og er ikke nødvendigvis
+                        representativt for hvor langt brukere scroller generelt.
                       </p>
                       <p>
                         Siden deles inn i 10 dybdebånd: 0-10%, 10-20%, 20-30%, 30-40%, 40-50%, 50-60%, 60-70%, 70-80%,
@@ -897,7 +898,10 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
             </ExpansionCard.Header>
             <ExpansionCard.Content>
               <div className="max-w-prose space-y-3 text-base leading-7 text-[var(--ax-text-subtle)]">
-                <p>Varmekartet viser hvor folk faktisk har klikket eller tappet.</p>
+                <p>
+                  Varmekartet viser hvilke interaktive elementer som har fått klikk eller tapp, ikke nøyaktig punkt inne
+                  i elementet.
+                </p>
                 <p>
                   Hvis noen bare beveger musen, scroller, eller trykker andre steder på skjermen uten at det registreres
                   som klikk, vises det ikke her.
