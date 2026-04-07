@@ -48,8 +48,8 @@ import {
 
 export const useTrafficAnalysis = () => {
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
-  const usesCookies = useCookieSupport(selectedWebsite?.domain)
-  const cookieStartDate = useCookieStartDate(selectedWebsite?.domain)
+  const usesCookies = useCookieSupport(selectedWebsite?.domain, selectedWebsite?.id)
+  const cookieStartDate = useCookieStartDate(selectedWebsite?.domain, selectedWebsite?.id)
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
 
