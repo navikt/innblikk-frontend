@@ -378,6 +378,10 @@ export function createClickmapPreviewRouter() {
       value.includes('switch')
     const isMenuComponent = (value) =>
       value.includes('meny') || value.includes('menu') || value.includes('dropdown') || value.includes('navigasjon')
+    const isInternalNavigationComponent = (value) =>
+      value.includes('intern-navigasjon') || value.includes('page-navigation')
+    const isNavigationMenuLink = (element) =>
+      !!element.closest('nav, .part__page-navigation-menu, [class*="PageNavigationMenu"], [class*="NavigationMenu"]')
     const getComponentIntent = (componentKey) => {
       if (!componentKey) return 'any'
       if (isAccordionComponent(componentKey)) return 'accordion'
@@ -536,8 +540,10 @@ export function createClickmapPreviewRouter() {
       for (const item of preparedItems) {
         const itemIntent = getComponentIntent(item.componentKey)
         const itemIsAccordion = itemIntent === 'accordion'
+        const itemIsInternalNavigation = isInternalNavigationComponent(item.componentKey)
         const matchesIntent = candidateMatchesIntent(candidate.kind, itemIntent)
         if (itemIsAccordion && candidate.kind !== 'accordion') continue
+        if (itemIsInternalNavigation && candidate.kind === 'link' && !isNavigationMenuLink(candidate.element)) continue
 
         const textExactMatch = !!item.linkTextKey && item.linkTextKey === elementText
         const textContainsMatch =
@@ -854,6 +860,7 @@ export function createClickmapPreviewRouter() {
       }
       const targetIntent = getComponentIntent(target.componentKey)
       const targetIsAccordion = targetIntent === 'accordion'
+      const targetIsInternalNavigation = isInternalNavigationComponent(target.componentKey)
       const candidates = getInteractiveCandidates()
       let bestElement = null
       let bestScore = -1
@@ -861,6 +868,7 @@ export function createClickmapPreviewRouter() {
       for (const candidate of candidates) {
         const matchesIntent = candidateMatchesIntent(candidate.kind, targetIntent)
         if (targetIsAccordion && candidate.kind !== 'accordion') continue
+        if (targetIsInternalNavigation && candidate.kind === 'link' && !isNavigationMenuLink(candidate.element)) continue
 
         const elementText =
           candidate.kind === 'accordion'

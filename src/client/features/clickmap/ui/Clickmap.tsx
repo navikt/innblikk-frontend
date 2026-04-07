@@ -147,6 +147,14 @@ const isAccordionLike = (value: string): boolean => {
   return cleaned.includes('accordion') || cleaned.includes('trekkspill')
 }
 
+const isInternalNavigationComponent = (value: string): boolean => {
+  const cleaned = cleanText(value)
+  return cleaned.includes('intern-navigasjon') || cleaned.includes('page-navigation')
+}
+
+const isNavigationMenuLink = (element: Element): boolean =>
+  !!element.closest('nav, .part__page-navigation-menu, [class*="PageNavigationMenu"], [class*="NavigationMenu"]')
+
 const CLICKMAP_FOCUSED_CLASS = 'umami-clickmap-focused-link'
 
 const normalizeDestination = (value: string): { path: string; full: string } => {
@@ -198,6 +206,7 @@ const findBestElementForClickmapItem = (doc: Document, item: ClickmapItem): Elem
   const targetText = cleanText(item.linkText || '')
   const targetDestination = normalizeDestination(item.destination || '')
   const targetIsAccordion = isAccordionLike(item.component || '')
+  const targetIsInternalNavigation = isInternalNavigationComponent(item.component || '')
 
   const candidates = [
     ...Array.from(doc.querySelectorAll('a[href]')).map((element) => ({ element, kind: 'link' as const })),
@@ -213,6 +222,7 @@ const findBestElementForClickmapItem = (doc: Document, item: ClickmapItem): Elem
   for (const candidate of candidates) {
     if (!isElementVisible(candidate.element)) continue
     if (targetIsAccordion && candidate.kind !== 'accordion') continue
+    if (targetIsInternalNavigation && candidate.kind === 'link' && !isNavigationMenuLink(candidate.element)) continue
 
     const elementText = cleanText(candidate.element.textContent || candidate.element.getAttribute('aria-label') || '')
     const textExact = !!targetText && targetText === elementText
