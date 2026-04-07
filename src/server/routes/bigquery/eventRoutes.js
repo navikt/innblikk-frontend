@@ -544,27 +544,67 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
         params.eventName = eventName
       }
 
-      // Determine time truncation based on interval
-      let timeTrunc = 'DAY'
-      if (interval === 'hour') timeTrunc = 'HOUR'
-      if (interval === 'week') timeTrunc = 'WEEK'
-      if (interval === 'month') timeTrunc = 'MONTH'
-      const intervalStep = timeTrunc
+      // Build timezone-safe bucket expressions.
+      // DATE buckets are robust for day/week/month across DST transitions.
+      let bucketSeriesSql = `
+                  SELECT bucket_time AS time
+                  FROM UNNEST(
+                      GENERATE_DATE_ARRAY(
+                          DATE(TIMESTAMP(@startDate), '${BIGQUERY_TIMEZONE}'),
+                          DATE(TIMESTAMP(@endDate), '${BIGQUERY_TIMEZONE}'),
+                          INTERVAL 1 DAY
+                      )
+                  ) AS bucket_time
+              `
+      let eventBucketExpression = `DATE(created_at, '${BIGQUERY_TIMEZONE}')`
+      let outputBucketAsTimestamp = `TIMESTAMP(buckets.time, '${BIGQUERY_TIMEZONE}')`
+
+      if (interval === 'hour') {
+        bucketSeriesSql = `
+                  SELECT bucket_time AS time
+                  FROM UNNEST(
+                      GENERATE_DATETIME_ARRAY(
+                          DATETIME_TRUNC(DATETIME(TIMESTAMP(@startDate), '${BIGQUERY_TIMEZONE}'), HOUR),
+                          DATETIME_TRUNC(DATETIME(TIMESTAMP(@endDate), '${BIGQUERY_TIMEZONE}'), HOUR),
+                          INTERVAL 1 HOUR
+                      )
+                  ) AS bucket_time
+              `
+        eventBucketExpression = `DATETIME_TRUNC(DATETIME(created_at, '${BIGQUERY_TIMEZONE}'), HOUR)`
+        outputBucketAsTimestamp = `TIMESTAMP(buckets.time, '${BIGQUERY_TIMEZONE}')`
+      } else if (interval === 'week') {
+        bucketSeriesSql = `
+                  SELECT bucket_time AS time
+                  FROM UNNEST(
+                      GENERATE_DATE_ARRAY(
+                          DATE_TRUNC(DATE(TIMESTAMP(@startDate), '${BIGQUERY_TIMEZONE}'), WEEK(MONDAY)),
+                          DATE_TRUNC(DATE(TIMESTAMP(@endDate), '${BIGQUERY_TIMEZONE}'), WEEK(MONDAY)),
+                          INTERVAL 1 WEEK
+                      )
+                  ) AS bucket_time
+              `
+        eventBucketExpression = `DATE_TRUNC(DATE(created_at, '${BIGQUERY_TIMEZONE}'), WEEK(MONDAY))`
+      } else if (interval === 'month') {
+        bucketSeriesSql = `
+                  SELECT bucket_time AS time
+                  FROM UNNEST(
+                      GENERATE_DATE_ARRAY(
+                          DATE_TRUNC(DATE(TIMESTAMP(@startDate), '${BIGQUERY_TIMEZONE}'), MONTH),
+                          DATE_TRUNC(DATE(TIMESTAMP(@endDate), '${BIGQUERY_TIMEZONE}'), MONTH),
+                          INTERVAL 1 MONTH
+                      )
+                  ) AS bucket_time
+              `
+        eventBucketExpression = `DATE_TRUNC(DATE(created_at, '${BIGQUERY_TIMEZONE}'), MONTH)`
+      }
 
       const query = `
               WITH buckets AS (
-                  SELECT bucket_time AS time
-                  FROM UNNEST(
-                      GENERATE_TIMESTAMP_ARRAY(
-                          TIMESTAMP_TRUNC(TIMESTAMP(@startDate), ${timeTrunc}, '${BIGQUERY_TIMEZONE}'),
-                          TIMESTAMP_TRUNC(TIMESTAMP(@endDate), ${timeTrunc}, '${BIGQUERY_TIMEZONE}'),
-                          INTERVAL 1 ${intervalStep}
-                      )
-                  ) AS bucket_time
+                  ${bucketSeriesSql}
               ),
               counts AS (
                   SELECT
-                      TIMESTAMP_TRUNC(created_at, ${timeTrunc}, '${BIGQUERY_TIMEZONE}') as time,
+                      ${eventBucketExpression} as time,
                       COUNT(*) as count
                   FROM \`${GCP_PROJECT_ID}.umami.public_website_event\`
                   WHERE website_id = @websiteId
@@ -575,7 +615,7 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
                   GROUP BY 1
               )
               SELECT
-                  buckets.time,
+                  ${outputBucketAsTimestamp} as time,
                   COALESCE(counts.count, 0) as count
               FROM buckets
               LEFT JOIN counts ON buckets.time = counts.time
