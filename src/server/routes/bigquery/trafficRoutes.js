@@ -89,12 +89,13 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
         }
       }
 
-      // Determine time truncation based on interval
+      // Determine time truncation based on interval.
+      // Use DATETIME buckets in local timezone to avoid DST bucket drift.
       let timeTrunc = 'DAY'
       if (interval === 'hour') timeTrunc = 'HOUR'
-      if (interval === 'week') timeTrunc = 'WEEK'
+      if (interval === 'week') timeTrunc = 'WEEK(MONDAY)'
       if (interval === 'month') timeTrunc = 'MONTH'
-      const intervalStep = timeTrunc
+      const intervalStep = interval === 'week' ? 'WEEK' : timeTrunc
       let query
 
       if (metricType === 'proportion') {
@@ -104,16 +105,16 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
                   WITH buckets AS (
                       SELECT bucket_time AS time
                       FROM UNNEST(
-                          GENERATE_TIMESTAMP_ARRAY(
-                              TIMESTAMP_TRUNC(TIMESTAMP(@startDate), ${timeTrunc}, '${BIGQUERY_TIMEZONE}'),
-                              TIMESTAMP_TRUNC(TIMESTAMP(@endDate), ${timeTrunc}, '${BIGQUERY_TIMEZONE}'),
+                          GENERATE_DATETIME_ARRAY(
+                              DATETIME_TRUNC(DATETIME(TIMESTAMP(@startDate), '${BIGQUERY_TIMEZONE}'), ${timeTrunc}),
+                              DATETIME_TRUNC(DATETIME(TIMESTAMP(@endDate), '${BIGQUERY_TIMEZONE}'), ${timeTrunc}),
                               INTERVAL 1 ${intervalStep}
                           )
                       ) AS bucket_time
                   ),
                   base_query AS (
                       SELECT
-                          TIMESTAMP_TRUNC(${col}created_at, ${timeTrunc}, '${BIGQUERY_TIMEZONE}') as time,
+                          DATETIME_TRUNC(DATETIME(${col}created_at, '${BIGQUERY_TIMEZONE}'), ${timeTrunc}) as time,
                           ${userIdExpression} as user_id,
                           CASE
                               WHEN (${urlFilterCondition}) THEN TRUE
@@ -147,7 +148,7 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
                       LEFT JOIN specifics ON totals.time = specifics.time
                   )
                   SELECT
-                      buckets.time,
+                      TIMESTAMP(buckets.time, '${BIGQUERY_TIMEZONE}') as time,
                       COALESCE(proportions.count, 0) as count
                   FROM buckets
                   LEFT JOIN proportions ON buckets.time = proportions.time
@@ -172,16 +173,16 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
                   WITH buckets AS (
                       SELECT bucket_time AS time
                       FROM UNNEST(
-                          GENERATE_TIMESTAMP_ARRAY(
-                              TIMESTAMP_TRUNC(TIMESTAMP(@startDate), ${timeTrunc}, '${BIGQUERY_TIMEZONE}'),
-                              TIMESTAMP_TRUNC(TIMESTAMP(@endDate), ${timeTrunc}, '${BIGQUERY_TIMEZONE}'),
+                          GENERATE_DATETIME_ARRAY(
+                              DATETIME_TRUNC(DATETIME(TIMESTAMP(@startDate), '${BIGQUERY_TIMEZONE}'), ${timeTrunc}),
+                              DATETIME_TRUNC(DATETIME(TIMESTAMP(@endDate), '${BIGQUERY_TIMEZONE}'), ${timeTrunc}),
                               INTERVAL 1 ${intervalStep}
                           )
                       ) AS bucket_time
                   ),
                   counts AS (
                       SELECT
-                          TIMESTAMP_TRUNC(${col}created_at, ${timeTrunc}, '${BIGQUERY_TIMEZONE}') as time,
+                          DATETIME_TRUNC(DATETIME(${col}created_at, '${BIGQUERY_TIMEZONE}'), ${timeTrunc}) as time,
                           ${countExpression} as count
                       FROM ${fromClause}
                       WHERE ${col}website_id = @websiteId
@@ -191,7 +192,7 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
                       GROUP BY 1
                   )
                   SELECT
-                      buckets.time,
+                      TIMESTAMP(buckets.time, '${BIGQUERY_TIMEZONE}') as time,
                       COALESCE(counts.count, 0) as count
                   FROM buckets
                   LEFT JOIN counts ON buckets.time = counts.time
