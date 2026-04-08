@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActionMenu, Alert, Button, Link, Loader, Modal, Select, Switch, TextField, Textarea } from '@navikt/ds-react'
-import { ChartNoAxesCombined, Edit2, ExternalLink, Move, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { ChartNoAxesCombined, Edit2, ExternalLink, Minus, Move, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import { computeFunnelStepMetrics } from '../../analysis/utils/horizontalFunnel.ts'
@@ -51,6 +51,7 @@ type CanvasFrame = {
   previewUrl?: string
   renderWebsite?: boolean
   headingText?: string
+  headingFontSize?: number
   textContent?: string
   chartType?: CanvasChartType
   chartSql?: string
@@ -125,6 +126,7 @@ type CanvasConfigPayload = {
   previewUrl?: string
   renderWebsite?: boolean
   headingText?: string
+  headingFontSize?: number
   textContent?: string
   chartType?: CanvasChartType
   chartSql?: string
@@ -144,6 +146,20 @@ type CanvasChartOption = {
 
 const CANVAS_DASHBOARD_TOKEN = '[canvas]'
 const CANVAS_QUERY_NAME = 'canvas-config'
+const CANVAS_SURFACE_WIDTH = 2200
+const CANVAS_SURFACE_HEIGHT = 1500
+const CANVAS_SURFACE_TOP_GAP = 24
+const CANVAS_ZOOM_MIN = 0.5
+const CANVAS_ZOOM_MAX = 1.5
+const CANVAS_ZOOM_STEP = 0.1
+const HEADING_FONT_SIZE_DEFAULT = 24
+const HEADING_FONT_SIZE_MIN = 14
+const HEADING_FONT_SIZE_MAX = 40
+const HEADING_FONT_SIZE_STEP = 2
+
+const clampCanvasZoom = (value: number): number => Math.min(CANVAS_ZOOM_MAX, Math.max(CANVAS_ZOOM_MIN, value))
+const clampHeadingFontSize = (value: number): number =>
+  Math.min(HEADING_FONT_SIZE_MAX, Math.max(HEADING_FONT_SIZE_MIN, value))
 
 const normalizeInputToTargetUrl = (value: string): string | null => {
   const trimmed = value.trim()
@@ -242,11 +258,9 @@ const buildConnectionPath = (
 const WEBSITE_CARD_HEADER_HEIGHT = 46
 const HEADING_CARD_HEADER_HEIGHT = 46
 const CANVAS_TOP_BUFFER = 240
-const HEADING_CHAR_WIDTH = 13
 const HEADING_TEXT_MIN_WIDTH = 140
 const HEADING_TEXT_MAX_WIDTH = 820
 const HEADING_TEXT_EXTRA_WIDTH = 32
-const HEADING_TEXT_LINE_HEIGHT = 26
 const HEADING_TEXT_VERTICAL_PADDING = 16
 
 const createPreviewProxySrc = (targetUrl: string): string => {
@@ -325,6 +339,7 @@ const parseCanvasConfig = (raw: string): CanvasConfigPayload | null => {
       previewUrl: typeof parsed.previewUrl === 'string' ? parsed.previewUrl : undefined,
       renderWebsite: typeof parsed.renderWebsite === 'boolean' ? parsed.renderWebsite : undefined,
       headingText: typeof parsed.headingText === 'string' ? parsed.headingText : undefined,
+      headingFontSize: Number.isFinite(parsed.headingFontSize) ? Number(parsed.headingFontSize) : undefined,
       textContent: typeof parsed.textContent === 'string' ? parsed.textContent : undefined,
       chartType: isCanvasChartType(parsed.chartType) ? parsed.chartType : undefined,
       chartSql: typeof parsed.chartSql === 'string' ? parsed.chartSql : undefined,
@@ -406,6 +421,7 @@ const Canvas = () => {
   const [pageInsights, setPageInsights] = useState<Record<string, CanvasPageInsight>>({})
   const [activeInsightFrameId, setActiveInsightFrameId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<CanvasDeleteTarget | null>(null)
+  const [canvasZoom, setCanvasZoom] = useState(1)
   const pageInsightsRef = useRef<Record<string, CanvasPageInsight>>({})
   const canvasViewportRef = useRef<HTMLDivElement | null>(null)
   const canvasToolbarRef = useRef<HTMLDivElement | null>(null)
@@ -413,6 +429,15 @@ const Canvas = () => {
   const [canvasToolbarHeight, setCanvasToolbarHeight] = useState(120)
   const toolbarNoticeTimerRef = useRef<number | null>(null)
   const toolbarNoticeReadyRef = useRef(false)
+  const canvasCanvasTopOffset = canvasToolbarHeight + CANVAS_SURFACE_TOP_GAP
+
+  const handleCanvasZoomChange = useCallback((nextZoom: number) => {
+    setCanvasZoom(clampCanvasZoom(nextZoom))
+  }, [])
+
+  const handleCanvasZoomReset = useCallback(() => {
+    setCanvasZoom(1)
+  }, [])
 
   const setPeriod = (nextPeriod: string) => {
     setPeriodState(nextPeriod)
@@ -640,6 +665,7 @@ const Canvas = () => {
         previewUrl: frame.previewUrl,
         renderWebsite: frame.renderWebsite,
         headingText: frame.headingText,
+        headingFontSize: frame.headingFontSize,
         textContent: frame.textContent,
         chartType: frame.chartType,
         chartSql: frame.chartSql,
@@ -796,6 +822,7 @@ const Canvas = () => {
               previewUrl: parsedConfig.previewUrl,
               renderWebsite: parsedConfig.renderWebsite,
               headingText: parsedConfig.headingText,
+              headingFontSize: parsedConfig.headingFontSize,
               textContent: parsedConfig.textContent,
               chartType: parsedConfig.chartType,
               chartSql: parsedConfig.chartSql,
@@ -1004,16 +1031,19 @@ const Canvas = () => {
     }
   }
 
-  const getCanvasPointerPosition = useCallback((clientX: number, clientY: number): { x: number; y: number } | null => {
-    const viewport = canvasViewportRef.current
-    if (!viewport) return null
+  const getCanvasPointerPosition = useCallback(
+    (clientX: number, clientY: number): { x: number; y: number } | null => {
+      const viewport = canvasViewportRef.current
+      if (!viewport) return null
 
-    const rect = viewport.getBoundingClientRect()
-    return {
-      x: clientX - rect.left + viewport.scrollLeft,
-      y: clientY - rect.top + viewport.scrollTop,
-    }
-  }, [])
+      const rect = viewport.getBoundingClientRect()
+      return {
+        x: (clientX - rect.left + viewport.scrollLeft) / canvasZoom,
+        y: (clientY - rect.top + viewport.scrollTop - canvasCanvasTopOffset) / canvasZoom,
+      }
+    },
+    [canvasCanvasTopOffset, canvasZoom],
+  )
 
   const getFrameBounds = useCallback(
     (frame: CanvasFrame): { left: number; top: number; right: number; bottom: number } => {
@@ -1114,6 +1144,7 @@ const Canvas = () => {
       id: `${Date.now()}-${Math.random()}`,
       kind: 'heading',
       headingText: heading,
+      headingFontSize: HEADING_FONT_SIZE_DEFAULT,
       label: heading,
       x: 80 + column * 460,
       y: 80 + row * 380,
@@ -1192,7 +1223,7 @@ const Canvas = () => {
       x: 80 + column * 460,
       y: 80 + row * 380,
       width: 360,
-      height: 260,
+      height: 180,
       refreshNonce: 0,
     }
     try {
@@ -1301,17 +1332,13 @@ const Canvas = () => {
   }
 
   const handleDragStart = (event: React.MouseEvent, frame: CanvasFrame) => {
-    const viewport = canvasViewportRef.current
-    if (!viewport) return
-
-    const rect = viewport.getBoundingClientRect()
-    const pointerCanvasX = event.clientX - rect.left + viewport.scrollLeft
-    const pointerCanvasY = event.clientY - rect.top + viewport.scrollTop
+    const pointer = getCanvasPointerPosition(event.clientX, event.clientY)
+    if (!pointer) return
 
     setDragState({
       id: frame.id,
-      offsetX: pointerCanvasX - frame.x,
-      offsetY: pointerCanvasY - frame.y,
+      offsetX: pointer.x - frame.x,
+      offsetY: pointer.y - frame.y,
     })
   }
 
@@ -1322,16 +1349,24 @@ const Canvas = () => {
     if (kind === 'chart') return { width: 680, height: 460, minWidth: 420, minHeight: 280 }
     if (kind === 'heading') return { width: 420, height: 72, minWidth: 260, minHeight: 48 }
     if (kind === 'text') return { width: 340, height: 170, minWidth: 240, minHeight: 120 }
-    return { width: 360, height: 260, minWidth: 280, minHeight: 220 }
+    return { width: 360, height: 180, minWidth: 280, minHeight: 120 }
   }
 
-  const getHeadingFrameWidth = useCallback((frame: CanvasFrame): number => {
-    if (frame.kind !== 'heading') return frame.width ?? getDefaultFrameSize(frame.kind).width
-
-    const headingText = (frame.headingText || frame.label || '').trim()
-    const estimatedTextWidth = Math.ceil(headingText.length * HEADING_CHAR_WIDTH) + HEADING_TEXT_EXTRA_WIDTH
-    return Math.min(HEADING_TEXT_MAX_WIDTH, Math.max(HEADING_TEXT_MIN_WIDTH, estimatedTextWidth))
+  const getHeadingFrameFontSize = useCallback((frame: CanvasFrame): number => {
+    return clampHeadingFontSize(frame.headingFontSize ?? HEADING_FONT_SIZE_DEFAULT)
   }, [])
+
+  const getHeadingFrameWidth = useCallback(
+    (frame: CanvasFrame): number => {
+      if (frame.kind !== 'heading') return frame.width ?? getDefaultFrameSize(frame.kind).width
+
+      const headingText = (frame.headingText || frame.label || '').trim()
+      const fontSize = getHeadingFrameFontSize(frame)
+      const estimatedTextWidth = Math.ceil(headingText.length * (fontSize * 0.52)) + HEADING_TEXT_EXTRA_WIDTH
+      return Math.min(HEADING_TEXT_MAX_WIDTH, Math.max(HEADING_TEXT_MIN_WIDTH, estimatedTextWidth))
+    },
+    [getHeadingFrameFontSize],
+  )
 
   const getHeadingFrameHeight = useCallback(
     (frame: CanvasFrame): number => {
@@ -1339,14 +1374,42 @@ const Canvas = () => {
 
       const headingText = (frame.headingText || frame.label || '').trim()
       const width = getHeadingFrameWidth(frame)
+      const fontSize = getHeadingFrameFontSize(frame)
       const usableWidth = Math.max(width - 24, HEADING_TEXT_MIN_WIDTH)
-      const charsPerLine = Math.max(12, Math.floor(usableWidth / HEADING_CHAR_WIDTH))
+      const charsPerLine = Math.max(12, Math.floor(usableWidth / (fontSize * 0.52)))
       const lineCount = headingText
         ? headingText.split('\n').reduce((count, line) => count + Math.max(1, Math.ceil(line.length / charsPerLine)), 0)
         : 1
-      return Math.max(48, lineCount * HEADING_TEXT_LINE_HEIGHT + HEADING_TEXT_VERTICAL_PADDING)
+      return Math.max(48, lineCount * Math.ceil(fontSize * 1.2) + HEADING_TEXT_VERTICAL_PADDING)
     },
-    [getHeadingFrameWidth],
+    [getHeadingFrameFontSize, getHeadingFrameWidth],
+  )
+
+  const updateHeadingFontSize = useCallback(
+    async (frameId: string, delta: number) => {
+      const currentFrame = frames.find((frame) => frame.id === frameId)
+      if (!currentFrame || currentFrame.kind !== 'heading') return
+
+      const nextFontSize = clampHeadingFontSize(getHeadingFrameFontSize(currentFrame) + delta)
+      const updatedFrame: CanvasFrame = {
+        ...currentFrame,
+        headingFontSize: nextFontSize,
+      }
+
+      setFrames((prev) => prev.map((frame) => (frame.id === frameId ? updatedFrame : frame)))
+
+      try {
+        setIsSavingCanvasItem(true)
+        setSyncError(null)
+        const persistedFrame = await persistFrame(updatedFrame)
+        setFrames((prev) => prev.map((frame) => (frame.id === frameId ? persistedFrame : frame)))
+      } catch (error) {
+        setSyncError(error instanceof Error ? error.message : 'Kunne ikke oppdatere overskrift')
+      } finally {
+        setIsSavingCanvasItem(false)
+      }
+    },
+    [frames, getHeadingFrameFontSize, persistFrame],
   )
 
   const handleResizeStart = (event: React.MouseEvent, frame: CanvasFrame) => {
@@ -1365,20 +1428,16 @@ const Canvas = () => {
     if (!dragState) return
 
     const onMouseMove = (event: MouseEvent) => {
-      const viewport = canvasViewportRef.current
-      if (!viewport) return
-
-      const rect = viewport.getBoundingClientRect()
-      const pointerCanvasX = event.clientX - rect.left + viewport.scrollLeft
-      const pointerCanvasY = event.clientY - rect.top + viewport.scrollTop
+      const pointer = getCanvasPointerPosition(event.clientX, event.clientY)
+      if (!pointer) return
 
       setFrames((prev) =>
         prev.map((frame) =>
           frame.id === dragState.id
             ? {
                 ...frame,
-                x: Math.max(0, pointerCanvasX - dragState.offsetX),
-                y: Math.max(-CANVAS_TOP_BUFFER, pointerCanvasY - dragState.offsetY),
+                x: Math.max(0, pointer.x - dragState.offsetX),
+                y: Math.max(-CANVAS_TOP_BUFFER, pointer.y - dragState.offsetY),
               }
             : frame,
         ),
@@ -1402,7 +1461,7 @@ const Canvas = () => {
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mouseup', onMouseUp)
     }
-  }, [dragState, frames, persistFrame])
+  }, [dragState, frames, getCanvasPointerPosition, persistFrame])
 
   useEffect(() => {
     if (!resizeState) return
@@ -1412,10 +1471,12 @@ const Canvas = () => {
         prev.map((frame) => {
           if (frame.id !== resizeState.id) return frame
           const defaults = getDefaultFrameSize(frame.kind)
+          const deltaX = (event.clientX - resizeState.startX) / canvasZoom
+          const deltaY = (event.clientY - resizeState.startY) / canvasZoom
           return {
             ...frame,
-            width: Math.max(defaults.minWidth, resizeState.startWidth + (event.clientX - resizeState.startX)),
-            height: Math.max(defaults.minHeight, resizeState.startHeight + (event.clientY - resizeState.startY)),
+            width: Math.max(defaults.minWidth, resizeState.startWidth + deltaX),
+            height: Math.max(defaults.minHeight, resizeState.startHeight + deltaY),
           }
         }),
       )
@@ -1437,7 +1498,7 @@ const Canvas = () => {
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mouseup', onMouseUp)
     }
-  }, [resizeState, frames, persistFrame])
+  }, [canvasZoom, frames, persistFrame, resizeState])
 
   useEffect(() => {
     if (!connectionDragState) return
@@ -1942,408 +2003,483 @@ const Canvas = () => {
         <div className="flex h-full">
           <main ref={canvasViewportRef} className="relative flex-1 overflow-auto">
             <div
-              className="relative min-h-[1500px] min-w-[2200px]"
+              className="relative"
               style={{
-                backgroundImage:
-                  'radial-gradient(circle at 1px 1px, var(--ax-border-neutral-subtle) 1px, transparent 0)',
-                backgroundSize: '24px 24px',
-                paddingTop: `${canvasToolbarHeight + 24}px`,
+                width: `${CANVAS_SURFACE_WIDTH * canvasZoom}px`,
+                minHeight: `${canvasCanvasTopOffset + CANVAS_SURFACE_HEIGHT * canvasZoom}px`,
               }}
             >
-              {connectionSegments.length > 0 && (
-                <svg className="pointer-events-none absolute inset-0 z-[1] h-full w-full overflow-visible">
-                  <defs>
-                    <marker
-                      id="canvas-connection-arrow"
-                      markerWidth="10"
-                      markerHeight="8"
-                      refX="9"
-                      refY="4"
-                      orient="auto"
-                      markerUnits="strokeWidth"
-                    >
-                      <path d="M0,0 L10,4 L0,8 z" fill="var(--ax-border-accent)" />
-                    </marker>
-                  </defs>
-                  {connectionSegments.map((segment) => (
-                    <g key={segment.id}>
-                      <path
-                        d={segment.path}
-                        stroke="var(--ax-border-accent)"
-                        strokeWidth={2}
-                        fill="none"
-                        markerEnd="url(#canvas-connection-arrow)"
-                      />
-                      <path
-                        d={segment.path}
-                        stroke="transparent"
-                        strokeWidth={16}
-                        fill="none"
-                        className="pointer-events-auto cursor-pointer"
-                        onClick={(event) => event.preventDefault()}
-                      />
-                    </g>
-                  ))}
-                </svg>
-              )}
-              {connectionPreview && (
-                <svg className="pointer-events-none absolute inset-0 z-[2] h-full w-full overflow-visible">
-                  <defs>
-                    <marker
-                      id="canvas-connection-arrow-preview"
-                      markerWidth="10"
-                      markerHeight="8"
-                      refX="9"
-                      refY="4"
-                      orient="auto"
-                      markerUnits="strokeWidth"
-                    >
-                      <path d="M0,0 L10,4 L0,8 z" fill="var(--ax-border-accent)" />
-                    </marker>
-                  </defs>
-                  <path
-                    d={connectionPreview.path}
-                    stroke="var(--ax-border-accent)"
-                    strokeWidth={3}
-                    strokeDasharray="8 5"
-                    strokeLinecap="round"
-                    fill="none"
-                    markerEnd="url(#canvas-connection-arrow-preview)"
-                  />
-                </svg>
-              )}
-              {connectionSegments
-                .map((segment) => {
-                  const metrics = connectionMetrics[segment.id]
-                  if (!metrics) return null
-
-                  return {
-                    ...segment,
-                    metrics,
-                  }
-                })
-                .filter(
-                  (
-                    item,
-                  ): item is CanvasConnectionVisual & {
-                    metrics: CanvasConnectionMetric
-                  } => item !== null,
-                )
-                .map((segment) => (
-                  <Fragment key={segment.id}>
-                    <div
-                      className="group pointer-events-auto absolute z-[2] -translate-x-1/2 -translate-y-full overflow-visible"
-                      style={{
-                        left: `${segment.labelX}px`,
-                        top: `${segment.labelY}px`,
-                      }}
-                    >
-                      <div className="absolute inset-x-0 -top-10 z-10 flex items-center justify-between gap-2 rounded-full border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-3 py-2 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-                        <div className="flex items-center gap-1.5 text-[13px] font-medium text-[var(--ax-text-default)]">
-                          <ChartNoAxesCombined size={13} className="text-[var(--ax-text-subtle)]" />
-                          <span>Kobling</span>
-                        </div>
-                        <Button
-                          size="xsmall"
-                          variant="tertiary"
-                          icon={<Trash2 size={14} />}
-                          onClick={() => handleRequestRemoveConnection(segment)}
-                          title="Fjern kobling"
-                          aria-label="Fjern kobling"
-                        />
-                      </div>
-                      <div className="min-w-[190px] overflow-hidden rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] shadow-sm">
-                        <div className="space-y-2 px-3 py-2 text-[13px] leading-tight">
-                          <div className="space-y-0.5 text-right">
-                            <div className="font-semibold text-[14px] text-[var(--ax-text-success)]">
-                              {segment.metrics.percentageOfPrev}% gikk videre
-                            </div>
-                            <div className="text-[13px] text-[var(--ax-text-default)]">
-                              {segment.metrics.toCount.toLocaleString('nb-NO')} brukere
-                            </div>
-                          </div>
-                          <div className="h-px bg-[var(--ax-border-neutral-subtle)]" />
-                          <div className="space-y-0.5 text-right">
-                            <div className="font-semibold text-[14px] text-[var(--ax-text-danger)]">
-                              {segment.metrics.dropoffPercentage}% falt fra
-                            </div>
-                            <div className="text-[13px] text-[var(--ax-text-default)]">
-                              {segment.metrics.dropoffCount.toLocaleString('nb-NO')} brukere
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </Fragment>
-                ))}
-              {frameItems.map((frame) =>
-                (() => {
-                  const defaults = getDefaultFrameSize(frame.kind)
-                  return (
-                    <article
-                      key={frame.id}
-                      className={
-                        frame.kind === 'website'
-                          ? `group absolute flex flex-col overflow-visible rounded-lg border ${
-                              connectionDragState?.sourceFrameId === frame.id ||
-                              connectionDragState?.currentTargetFrameId === frame.id
-                                ? 'border-[var(--ax-border-accent)] ring-2 ring-[var(--ax-border-accent)]/20'
-                                : 'border-[var(--ax-border-neutral-subtle)]'
-                            } bg-white shadow-sm`
-                          : frame.kind === 'chart'
-                            ? 'group absolute flex flex-col overflow-hidden rounded-lg border border-[var(--ax-border-neutral-subtle)] bg-white shadow-sm'
-                            : frame.kind === 'heading'
-                              ? 'group absolute flex flex-col overflow-hidden rounded-lg border border-transparent bg-transparent shadow-none transition-all hover:border-[var(--ax-border-neutral-subtle)] hover:bg-white/80 hover:shadow-sm focus-within:border-[var(--ax-border-neutral-subtle)] focus-within:bg-white/80 focus-within:shadow-sm'
-                              : frame.kind === 'text'
-                                ? 'group absolute flex flex-col overflow-hidden rounded-xl border border-transparent bg-transparent shadow-none'
-                                : 'group absolute flex flex-col overflow-hidden rounded-xl border border-[#f1dc7d] bg-[#fff5b8] shadow-sm'
-                      }
-                      style={{
-                        left: `${frame.x}px`,
-                        top: `${frame.y}px`,
-                        width:
-                          frame.kind === 'heading'
-                            ? `${getHeadingFrameWidth(frame)}px`
-                            : `${frame.width ?? defaults.width}px`,
-                        height:
-                          frame.kind === 'heading'
-                            ? `${getHeadingFrameHeight(frame) + HEADING_CARD_HEADER_HEIGHT}px`
-                            : `${frame.height ?? defaults.height}px`,
-                        minWidth: frame.kind === 'heading' ? `${HEADING_TEXT_MIN_WIDTH}px` : `${defaults.minWidth}px`,
-                        minHeight:
-                          frame.kind === 'heading' ? `${HEADING_CARD_HEADER_HEIGHT + 48}px` : `${defaults.minHeight}px`,
-                      }}
-                    >
-                      <header
-                        className={
-                          frame.kind === 'website'
-                            ? 'flex cursor-move items-center justify-between gap-2 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] px-3 py-2'
-                            : frame.kind === 'chart'
-                              ? 'flex cursor-move items-center justify-between gap-2 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] px-3 py-2'
-                              : frame.kind === 'heading'
-                                ? 'flex cursor-move items-center justify-between gap-2 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] px-2 py-2 opacity-0 transition-opacity pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100'
-                                : frame.kind === 'sticky'
-                                  ? 'flex cursor-move items-center justify-between gap-2 border-b border-[#ebd56d] bg-[#fff1a6] px-2 py-2'
-                                  : 'absolute right-2 top-2 z-10 flex items-center justify-end gap-1 opacity-0 transition-opacity pointer-events-none group-hover:opacity-100 group-focus-within:opacity-100 group-hover:pointer-events-auto group-focus-within:pointer-events-auto'
-                        }
-                        onMouseDown={
-                          frame.kind === 'website' ||
-                          frame.kind === 'sticky' ||
-                          frame.kind === 'heading' ||
-                          frame.kind === 'chart'
-                            ? (event) => handleDragStart(event, frame)
-                            : undefined
-                        }
+              <div
+                className="absolute left-0 top-0 origin-top-left"
+                style={{
+                  top: `${canvasCanvasTopOffset}px`,
+                  width: `${CANVAS_SURFACE_WIDTH}px`,
+                  height: `${CANVAS_SURFACE_HEIGHT}px`,
+                  transform: `scale(${canvasZoom})`,
+                  transformOrigin: 'top left',
+                  backgroundImage:
+                    'radial-gradient(circle at 1px 1px, var(--ax-border-neutral-subtle) 1px, transparent 0)',
+                  backgroundSize: '24px 24px',
+                }}
+              >
+                {connectionSegments.length > 0 && (
+                  <svg className="pointer-events-none absolute inset-0 z-[1] h-full w-full overflow-visible">
+                    <defs>
+                      <marker
+                        id="canvas-connection-arrow"
+                        markerWidth="10"
+                        markerHeight="8"
+                        refX="9"
+                        refY="4"
+                        orient="auto"
+                        markerUnits="strokeWidth"
                       >
-                        <div className="flex min-w-0 items-center gap-2">
-                          {(frame.kind === 'website' || frame.kind === 'heading' || frame.kind === 'chart') && (
-                            <Move size={14} className="text-[var(--ax-text-subtle)]" />
-                          )}
-                          {(frame.kind === 'website' || frame.kind === 'chart') && (
-                            <div className="min-w-0 text-sm font-semibold text-[var(--ax-text-default)] break-all">
-                              {frame.label}
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          {frame.kind === 'website' && (
-                            <Button
-                              size="xsmall"
-                              variant="tertiary"
-                              icon={<ChartNoAxesCombined size={14} />}
-                              onMouseDown={(event) => event.stopPropagation()}
-                              onClick={() => handleOpenInsightModal(frame)}
-                              title={selectedWebsite ? 'Vis innsikt' : 'Velg nettsted først'}
-                              aria-label="Vis innsikt"
-                              disabled={!selectedWebsite}
-                            />
-                          )}
-                          {frame.kind === 'website' && (
-                            <Button
-                              size="xsmall"
-                              variant="tertiary"
-                              icon={<Edit2 size={14} />}
-                              onMouseDown={(event) => event.stopPropagation()}
-                              onClick={() => handleOpenEditWebsiteModal(frame)}
-                              title="Rediger nettside"
-                              aria-label="Rediger nettside"
-                            />
-                          )}
-                          {frame.kind === 'website' && (
-                            <Button
-                              size="xsmall"
-                              variant="tertiary"
-                              icon={<RefreshCw size={14} />}
-                              onMouseDown={(event) => event.stopPropagation()}
-                              onClick={() => handleRefreshFrame(frame.id)}
-                              title="Last inn på nytt"
-                              aria-label="Last inn på nytt"
-                            />
-                          )}
+                        <path d="M0,0 L10,4 L0,8 z" fill="var(--ax-border-accent)" />
+                      </marker>
+                    </defs>
+                    {connectionSegments.map((segment) => (
+                      <g key={segment.id}>
+                        <path
+                          d={segment.path}
+                          stroke="var(--ax-border-accent)"
+                          strokeWidth={2}
+                          fill="none"
+                          markerEnd="url(#canvas-connection-arrow)"
+                        />
+                        <path
+                          d={segment.path}
+                          stroke="transparent"
+                          strokeWidth={16}
+                          fill="none"
+                          className="pointer-events-auto cursor-pointer"
+                          onClick={(event) => event.preventDefault()}
+                        />
+                      </g>
+                    ))}
+                  </svg>
+                )}
+                {connectionPreview && (
+                  <svg className="pointer-events-none absolute inset-0 z-[2] h-full w-full overflow-visible">
+                    <defs>
+                      <marker
+                        id="canvas-connection-arrow-preview"
+                        markerWidth="10"
+                        markerHeight="8"
+                        refX="9"
+                        refY="4"
+                        orient="auto"
+                        markerUnits="strokeWidth"
+                      >
+                        <path d="M0,0 L10,4 L0,8 z" fill="var(--ax-border-accent)" />
+                      </marker>
+                    </defs>
+                    <path
+                      d={connectionPreview.path}
+                      stroke="var(--ax-border-accent)"
+                      strokeWidth={3}
+                      strokeDasharray="8 5"
+                      strokeLinecap="round"
+                      fill="none"
+                      markerEnd="url(#canvas-connection-arrow-preview)"
+                    />
+                  </svg>
+                )}
+                {connectionSegments
+                  .map((segment) => {
+                    const metrics = connectionMetrics[segment.id]
+                    if (!metrics) return null
+
+                    return {
+                      ...segment,
+                      metrics,
+                    }
+                  })
+                  .filter(
+                    (
+                      item,
+                    ): item is CanvasConnectionVisual & {
+                      metrics: CanvasConnectionMetric
+                    } => item !== null,
+                  )
+                  .map((segment) => (
+                    <Fragment key={segment.id}>
+                      <div
+                        className="group pointer-events-auto absolute z-[2] -translate-x-1/2 -translate-y-full overflow-visible"
+                        style={{
+                          left: `${segment.labelX}px`,
+                          top: `${segment.labelY}px`,
+                        }}
+                      >
+                        <div className="absolute inset-x-0 -top-10 z-10 flex items-center justify-between gap-2 rounded-full border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-3 py-2 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                          <div className="flex items-center gap-1.5 text-[13px] font-medium text-[var(--ax-text-default)]">
+                            <ChartNoAxesCombined size={13} className="text-[var(--ax-text-subtle)]" />
+                            <span>Kobling</span>
+                          </div>
                           <Button
                             size="xsmall"
                             variant="tertiary"
                             icon={<Trash2 size={14} />}
-                            onClick={() => handleRequestRemoveFrame(frame)}
-                            title="Fjern kort"
-                            aria-label="Fjern kort"
+                            onClick={() => handleRequestRemoveConnection(segment)}
+                            title="Fjern kobling"
+                            aria-label="Fjern kobling"
                           />
                         </div>
-                      </header>
-
-                      <div
-                        className={`relative flex-1 ${frame.kind === 'website' || frame.kind === 'chart' ? 'overflow-hidden bg-white' : 'px-2 pb-2'}`}
-                      >
-                        {frame.kind === 'website' && (
-                          <div className="pointer-events-none absolute inset-y-0 left-0 right-0 z-20 overflow-visible">
-                            <button
-                              type="button"
-                              className={`pointer-events-auto absolute left-[-12px] top-1/2 flex h-6 w-6 -translate-y-1/2 cursor-grab items-center justify-center rounded-full bg-transparent opacity-0 transition-opacity active:cursor-grabbing group-hover:opacity-100 group-focus-within:opacity-100 ${
-                                connectionDragState?.sourceFrameId === frame.id ? 'opacity-100' : ''
-                              }`}
-                              aria-label="Kobling"
-                              title="Dra for å koble"
-                              onMouseDown={(event) => startConnectionDrag(event, frame)}
-                            >
-                              <span
-                                aria-hidden="true"
-                                className={`pointer-events-none h-3.5 w-3.5 rounded-full border border-[var(--ax-border-accent)] bg-[var(--ax-bg-default)] shadow-sm ${
-                                  connectionDragState?.sourceFrameId === frame.id ? 'bg-[var(--ax-border-accent)]' : ''
-                                }`}
-                              />
-                            </button>
-                            <button
-                              type="button"
-                              className={`pointer-events-auto absolute right-[-12px] top-1/2 flex h-6 w-6 -translate-y-1/2 cursor-grab items-center justify-center rounded-full bg-transparent opacity-0 transition-opacity active:cursor-grabbing group-hover:opacity-100 group-focus-within:opacity-100 ${
-                                connectionDragState?.sourceFrameId === frame.id ? 'opacity-100' : ''
-                              }`}
-                              aria-label="Kobling"
-                              title="Dra for å koble"
-                              onMouseDown={(event) => startConnectionDrag(event, frame)}
-                            >
-                              <span
-                                aria-hidden="true"
-                                className={`pointer-events-none h-3.5 w-3.5 rounded-full border border-[var(--ax-border-accent)] bg-[var(--ax-bg-default)] shadow-sm ${
-                                  connectionDragState?.sourceFrameId === frame.id ? 'bg-[var(--ax-border-accent)]' : ''
-                                }`}
-                              />
-                            </button>
-                          </div>
-                        )}
-                        {frame.kind === 'website' && frame.src && frame.displayUrl ? (
-                          <div className="h-full w-full overflow-y-auto overflow-x-hidden bg-white">
-                            {isImagePreviewUrl(frame.displayUrl) ? (
-                              <img
-                                key={`${frame.id}-${frame.refreshNonce}`}
-                                alt={frame.label}
-                                src={frame.src}
-                                className="block h-auto w-full max-w-full"
-                                loading="lazy"
-                              />
-                            ) : (
-                              <iframe
-                                key={`${frame.id}-${frame.refreshNonce}`}
-                                title={`Canvas-side ${frame.label}`}
-                                src={frame.src}
-                                className="h-full w-full"
-                                loading="lazy"
-                                sandbox="allow-same-origin allow-scripts allow-forms"
-                              />
-                            )}
-                          </div>
-                        ) : frame.kind === 'website' ? (
-                          <div className="flex h-full items-center justify-center px-6 text-center">
-                            <div className="space-y-2">
-                              <p className="text-sm font-semibold text-[var(--ax-text-default)]">{frame.label}</p>
-                              {frame.targetUrl && (
-                                <Link
-                                  href={frame.targetUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1.5"
-                                >
-                                  <span>Åpne nettside</span>
-                                  <ExternalLink size={14} aria-hidden="true" />
-                                </Link>
-                              )}
+                        <div className="min-w-[190px] overflow-hidden rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] shadow-sm">
+                          <div className="space-y-2 px-3 py-2 text-[13px] leading-tight">
+                            <div className="space-y-0.5 text-right">
+                              <div className="font-semibold text-[14px] text-[var(--ax-text-success)]">
+                                {segment.metrics.percentageOfPrev}% gikk videre
+                              </div>
+                              <div className="text-[13px] text-[var(--ax-text-default)]">
+                                {segment.metrics.toCount.toLocaleString('nb-NO')} brukere
+                              </div>
+                            </div>
+                            <div className="h-px bg-[var(--ax-border-neutral-subtle)]" />
+                            <div className="space-y-0.5 text-right">
+                              <div className="font-semibold text-[14px] text-[var(--ax-text-danger)]">
+                                {segment.metrics.dropoffPercentage}% falt fra
+                              </div>
+                              <div className="text-[13px] text-[var(--ax-text-default)]">
+                                {segment.metrics.dropoffCount.toLocaleString('nb-NO')} brukere
+                              </div>
                             </div>
                           </div>
-                        ) : frame.kind === 'chart' && frame.chartSql && frame.chartType ? (
-                          <div className="h-full p-2">
-                            <DashboardWidget
-                              chart={{
-                                id: `canvas-chart-${frame.id}`,
-                                title: frame.label,
-                                type: frame.chartType,
-                                sql: frame.chartSql,
-                              }}
-                              websiteId={selectedWebsite?.id ?? ''}
-                              filters={dashboardWidgetFilters}
-                              chartLinksEnabled={false}
-                            />
-                          </div>
-                        ) : frame.kind === 'heading' ? (
-                          <div className="overflow-visible px-2 py-2">
-                            <textarea
-                              value={frame.headingText || ''}
-                              onChange={(event) => handleEditableFrameChange(frame.id, event.target.value)}
-                              onBlur={() => handleEditableFrameBlur(frame.id)}
-                              onMouseDown={(event) => event.stopPropagation()}
-                              placeholder="Skriv overskrift"
-                              className="block w-full resize-none overflow-hidden border-none bg-transparent p-0 text-[var(--ax-text-default)] outline-none placeholder:text-[var(--ax-text-subtle)] [font-family:inherit]"
-                              style={{ fontSize: '22px', lineHeight: 1.15, fontWeight: 700 }}
-                              rows={1}
-                            />
-                          </div>
-                        ) : frame.kind === 'text' ? (
-                          <div className="h-full overflow-auto px-2 pb-2">
-                            <textarea
-                              value={frame.textContent || ''}
-                              onChange={(event) => handleEditableFrameChange(frame.id, event.target.value)}
-                              onBlur={() => handleEditableFrameBlur(frame.id)}
-                              onMouseDown={(event) => event.stopPropagation()}
-                              placeholder="Skriv tekst"
-                              className="h-full w-full resize-none overflow-auto border-none bg-transparent p-0 text-[var(--ax-text-default)] outline-none placeholder:text-[var(--ax-text-subtle)] [font-family:inherit]"
-                              style={{ fontSize: '24px', lineHeight: 1.3, fontWeight: 500 }}
-                            />
-                          </div>
-                        ) : frame.kind === 'sticky' ? (
-                          <div className="h-full overflow-auto p-4">
-                            <textarea
-                              value={frame.textContent || ''}
-                              onChange={(event) => handleEditableFrameChange(frame.id, event.target.value)}
-                              onBlur={() => handleEditableFrameBlur(frame.id)}
-                              placeholder="Skriv sticky note"
-                              className="h-full w-full resize-none overflow-auto border-none bg-transparent p-0 text-base leading-7 text-[#4a3d00] outline-none placeholder:text-[#7a6b2a]"
-                            />
-                          </div>
-                        ) : (
-                          <div className="flex h-full items-center justify-center px-6 text-center text-sm text-[var(--ax-text-subtle)]">
-                            Kunne ikke lage forhåndsvisning for denne siden.
-                          </div>
-                        )}
+                        </div>
                       </div>
-                      <button
-                        type="button"
-                        onMouseDown={(event) => handleResizeStart(event, frame)}
-                        title="Endre størrelse"
-                        aria-label="Endre størrelse"
-                        className="absolute bottom-1 right-1 h-5 w-5 cursor-se-resize rounded-sm border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                    </Fragment>
+                  ))}
+                {frameItems.map((frame) =>
+                  (() => {
+                    const defaults = getDefaultFrameSize(frame.kind)
+                    return (
+                      <article
+                        key={frame.id}
+                        className={
+                          frame.kind === 'website'
+                            ? `group absolute flex flex-col overflow-visible rounded-lg border ${
+                                connectionDragState?.sourceFrameId === frame.id ||
+                                connectionDragState?.currentTargetFrameId === frame.id
+                                  ? 'border-[var(--ax-border-accent)] ring-2 ring-[var(--ax-border-accent)]/20'
+                                  : 'border-[var(--ax-border-neutral-subtle)]'
+                              } bg-white shadow-sm`
+                            : frame.kind === 'chart'
+                              ? 'group absolute flex flex-col overflow-hidden rounded-lg border border-[var(--ax-border-neutral-subtle)] bg-white shadow-sm'
+                              : frame.kind === 'heading'
+                                ? 'group absolute flex flex-col overflow-hidden rounded-lg border border-transparent bg-transparent shadow-none transition-all hover:border-[var(--ax-border-neutral-subtle)] hover:bg-white/80 hover:shadow-sm focus-within:border-[var(--ax-border-neutral-subtle)] focus-within:bg-white/80 focus-within:shadow-sm'
+                                : frame.kind === 'text'
+                                  ? 'group absolute flex flex-col overflow-hidden rounded-xl border border-transparent bg-transparent shadow-none'
+                                  : 'group absolute flex flex-col overflow-hidden rounded-xl border border-[#f1dc7d] bg-[#fff5b8] shadow-sm'
+                        }
+                        style={{
+                          left: `${frame.x}px`,
+                          top: `${frame.y}px`,
+                          width:
+                            frame.kind === 'heading'
+                              ? `${getHeadingFrameWidth(frame)}px`
+                              : `${frame.width ?? defaults.width}px`,
+                          height:
+                            frame.kind === 'heading'
+                              ? `${getHeadingFrameHeight(frame) + HEADING_CARD_HEADER_HEIGHT}px`
+                              : `${frame.height ?? defaults.height}px`,
+                          minWidth: frame.kind === 'heading' ? `${HEADING_TEXT_MIN_WIDTH}px` : `${defaults.minWidth}px`,
+                          minHeight:
+                            frame.kind === 'heading'
+                              ? `${HEADING_CARD_HEADER_HEIGHT + 48}px`
+                              : `${defaults.minHeight}px`,
+                        }}
                       >
-                        <span
-                          className="pointer-events-none absolute bottom-[2px] right-[2px] h-2.5 w-2.5"
-                          style={{
-                            background:
-                              'linear-gradient(135deg, transparent 35%, var(--ax-text-subtle) 35%, var(--ax-text-subtle) 45%, transparent 45%, transparent 55%, var(--ax-text-subtle) 55%, var(--ax-text-subtle) 65%, transparent 65%)',
-                          }}
-                        />
-                      </button>
-                    </article>
-                  )
-                })(),
-              )}
+                        <header
+                          className={
+                            frame.kind === 'website'
+                              ? 'flex cursor-move items-center justify-between gap-2 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] px-3 py-2'
+                              : frame.kind === 'chart'
+                                ? 'flex cursor-move items-center justify-between gap-2 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] px-3 py-2'
+                                : frame.kind === 'heading'
+                                  ? 'flex cursor-move items-center justify-between gap-2 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] px-2 py-2 opacity-0 transition-opacity pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100'
+                                  : frame.kind === 'sticky'
+                                    ? 'flex cursor-move items-center justify-between gap-2 border-b border-[#ebd56d] bg-[#fff1a6] px-2 py-2'
+                                    : 'absolute right-2 top-2 z-10 flex items-center justify-end gap-1 opacity-0 transition-opacity pointer-events-none group-hover:opacity-100 group-focus-within:opacity-100 group-hover:pointer-events-auto group-focus-within:pointer-events-auto'
+                          }
+                          onMouseDown={
+                            frame.kind === 'website' ||
+                            frame.kind === 'sticky' ||
+                            frame.kind === 'heading' ||
+                            frame.kind === 'chart'
+                              ? (event) => handleDragStart(event, frame)
+                              : undefined
+                          }
+                        >
+                          <div className="flex min-w-0 items-center gap-2">
+                            {(frame.kind === 'website' || frame.kind === 'heading' || frame.kind === 'chart') && (
+                              <Move size={14} className="text-[var(--ax-text-subtle)]" />
+                            )}
+                            {(frame.kind === 'website' || frame.kind === 'chart') && (
+                              <div className="min-w-0 text-sm font-semibold text-[var(--ax-text-default)] break-all">
+                                {frame.label}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {frame.kind === 'heading' && (
+                              <>
+                                <Button
+                                  size="xsmall"
+                                  variant="tertiary"
+                                  icon={<Minus size={14} />}
+                                  onMouseDown={(event) => event.stopPropagation()}
+                                  onClick={() => void updateHeadingFontSize(frame.id, -HEADING_FONT_SIZE_STEP)}
+                                  title="Mindre overskrift"
+                                  aria-label="Mindre overskrift"
+                                  disabled={getHeadingFrameFontSize(frame) <= HEADING_FONT_SIZE_MIN}
+                                />
+                                <Button
+                                  size="xsmall"
+                                  variant="tertiary"
+                                  icon={<Plus size={14} />}
+                                  onMouseDown={(event) => event.stopPropagation()}
+                                  onClick={() => void updateHeadingFontSize(frame.id, HEADING_FONT_SIZE_STEP)}
+                                  title="Større overskrift"
+                                  aria-label="Større overskrift"
+                                  disabled={getHeadingFrameFontSize(frame) >= HEADING_FONT_SIZE_MAX}
+                                />
+                              </>
+                            )}
+                            {frame.kind === 'website' && (
+                              <Button
+                                size="xsmall"
+                                variant="tertiary"
+                                icon={<ChartNoAxesCombined size={14} />}
+                                onMouseDown={(event) => event.stopPropagation()}
+                                onClick={() => handleOpenInsightModal(frame)}
+                                title={selectedWebsite ? 'Vis innsikt' : 'Velg nettsted først'}
+                                aria-label="Vis innsikt"
+                                disabled={!selectedWebsite}
+                              />
+                            )}
+                            {frame.kind === 'website' && (
+                              <Button
+                                size="xsmall"
+                                variant="tertiary"
+                                icon={<Edit2 size={14} />}
+                                onMouseDown={(event) => event.stopPropagation()}
+                                onClick={() => handleOpenEditWebsiteModal(frame)}
+                                title="Rediger nettside"
+                                aria-label="Rediger nettside"
+                              />
+                            )}
+                            {frame.kind === 'website' && (
+                              <Button
+                                size="xsmall"
+                                variant="tertiary"
+                                icon={<RefreshCw size={14} />}
+                                onMouseDown={(event) => event.stopPropagation()}
+                                onClick={() => handleRefreshFrame(frame.id)}
+                                title="Last inn på nytt"
+                                aria-label="Last inn på nytt"
+                              />
+                            )}
+                            <Button
+                              size="xsmall"
+                              variant="tertiary"
+                              icon={<Trash2 size={14} />}
+                              onClick={() => handleRequestRemoveFrame(frame)}
+                              title="Fjern kort"
+                              aria-label="Fjern kort"
+                            />
+                          </div>
+                        </header>
+
+                        <div
+                          className={`relative flex-1 ${frame.kind === 'website' || frame.kind === 'chart' ? 'overflow-hidden bg-white' : 'px-2 pb-2'}`}
+                        >
+                          {frame.kind === 'website' && (
+                            <div className="pointer-events-none absolute inset-y-0 left-0 right-0 z-20 overflow-visible">
+                              <button
+                                type="button"
+                                className={`pointer-events-auto absolute left-[-12px] top-1/2 flex h-6 w-6 -translate-y-1/2 cursor-grab items-center justify-center rounded-full bg-transparent opacity-0 transition-opacity active:cursor-grabbing group-hover:opacity-100 group-focus-within:opacity-100 ${
+                                  connectionDragState?.sourceFrameId === frame.id ? 'opacity-100' : ''
+                                }`}
+                                aria-label="Kobling"
+                                title="Dra for å koble"
+                                onMouseDown={(event) => startConnectionDrag(event, frame)}
+                              >
+                                <span
+                                  aria-hidden="true"
+                                  className={`pointer-events-none h-3.5 w-3.5 rounded-full border border-[var(--ax-border-accent)] bg-[var(--ax-bg-default)] shadow-sm ${
+                                    connectionDragState?.sourceFrameId === frame.id
+                                      ? 'bg-[var(--ax-border-accent)]'
+                                      : ''
+                                  }`}
+                                />
+                              </button>
+                              <button
+                                type="button"
+                                className={`pointer-events-auto absolute right-[-12px] top-1/2 flex h-6 w-6 -translate-y-1/2 cursor-grab items-center justify-center rounded-full bg-transparent opacity-0 transition-opacity active:cursor-grabbing group-hover:opacity-100 group-focus-within:opacity-100 ${
+                                  connectionDragState?.sourceFrameId === frame.id ? 'opacity-100' : ''
+                                }`}
+                                aria-label="Kobling"
+                                title="Dra for å koble"
+                                onMouseDown={(event) => startConnectionDrag(event, frame)}
+                              >
+                                <span
+                                  aria-hidden="true"
+                                  className={`pointer-events-none h-3.5 w-3.5 rounded-full border border-[var(--ax-border-accent)] bg-[var(--ax-bg-default)] shadow-sm ${
+                                    connectionDragState?.sourceFrameId === frame.id
+                                      ? 'bg-[var(--ax-border-accent)]'
+                                      : ''
+                                  }`}
+                                />
+                              </button>
+                            </div>
+                          )}
+                          {frame.kind === 'website' && frame.src && frame.displayUrl ? (
+                            <div className="h-full w-full overflow-y-auto overflow-x-hidden bg-white">
+                              {isImagePreviewUrl(frame.displayUrl) ? (
+                                <img
+                                  key={`${frame.id}-${frame.refreshNonce}`}
+                                  alt={frame.label}
+                                  src={frame.src}
+                                  className="block h-auto w-full max-w-full"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <iframe
+                                  key={`${frame.id}-${frame.refreshNonce}`}
+                                  title={`Canvas-side ${frame.label}`}
+                                  src={frame.src}
+                                  className="h-full w-full"
+                                  loading="lazy"
+                                  sandbox="allow-same-origin allow-scripts allow-forms"
+                                />
+                              )}
+                            </div>
+                          ) : frame.kind === 'website' ? (
+                            <div className="flex h-full items-center justify-center px-6 text-center">
+                              <div className="space-y-2">
+                                <p className="text-sm font-semibold text-[var(--ax-text-default)]">{frame.label}</p>
+                                {frame.targetUrl && (
+                                  <Link
+                                    href={frame.targetUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1.5"
+                                  >
+                                    <span>Åpne nettside</span>
+                                    <ExternalLink size={14} aria-hidden="true" />
+                                  </Link>
+                                )}
+                              </div>
+                            </div>
+                          ) : frame.kind === 'chart' && frame.chartSql && frame.chartType ? (
+                            <div className="h-full p-2">
+                              <DashboardWidget
+                                chart={{
+                                  id: `canvas-chart-${frame.id}`,
+                                  title: frame.label,
+                                  type: frame.chartType,
+                                  sql: frame.chartSql,
+                                }}
+                                websiteId={selectedWebsite?.id ?? ''}
+                                filters={dashboardWidgetFilters}
+                                chartLinksEnabled={false}
+                              />
+                            </div>
+                          ) : frame.kind === 'heading' ? (
+                            <div className="overflow-visible py-2 pr-2">
+                              <textarea
+                                value={frame.headingText || ''}
+                                onChange={(event) => handleEditableFrameChange(frame.id, event.target.value)}
+                                onBlur={() => handleEditableFrameBlur(frame.id)}
+                                onMouseDown={(event) => event.stopPropagation()}
+                                placeholder="Skriv overskrift"
+                                className="block w-full resize-none overflow-hidden border-none bg-transparent p-0 text-[var(--ax-text-default)] outline-none placeholder:text-[var(--ax-text-subtle)] [font-family:inherit]"
+                                style={{
+                                  fontSize: `${getHeadingFrameFontSize(frame)}px`,
+                                  lineHeight: 1.15,
+                                  fontWeight: 700,
+                                }}
+                                rows={1}
+                              />
+                            </div>
+                          ) : frame.kind === 'text' ? (
+                            <div className="h-full overflow-auto px-2 pb-2">
+                              <textarea
+                                value={frame.textContent || ''}
+                                onChange={(event) => handleEditableFrameChange(frame.id, event.target.value)}
+                                onBlur={() => handleEditableFrameBlur(frame.id)}
+                                onMouseDown={(event) => event.stopPropagation()}
+                                placeholder="Skriv tekst"
+                                className="h-full w-full resize-none overflow-auto border-none bg-transparent p-0 text-[var(--ax-text-default)] outline-none placeholder:text-[var(--ax-text-subtle)] [font-family:inherit]"
+                                style={{ fontSize: '24px', lineHeight: 1.3, fontWeight: 500 }}
+                              />
+                            </div>
+                          ) : frame.kind === 'sticky' ? (
+                            <div className="h-full overflow-auto p-4">
+                              <textarea
+                                value={frame.textContent || ''}
+                                onChange={(event) => handleEditableFrameChange(frame.id, event.target.value)}
+                                onBlur={() => handleEditableFrameBlur(frame.id)}
+                                placeholder="Skriv sticky note"
+                                className="h-full w-full resize-none overflow-auto border-none bg-transparent p-0 text-base leading-7 text-[#4a3d00] outline-none placeholder:text-[#7a6b2a]"
+                              />
+                            </div>
+                          ) : (
+                            <div className="flex h-full items-center justify-center px-6 text-center text-sm text-[var(--ax-text-subtle)]">
+                              Kunne ikke lage forhåndsvisning for denne siden.
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onMouseDown={(event) => handleResizeStart(event, frame)}
+                          title="Endre størrelse"
+                          aria-label="Endre størrelse"
+                          className="absolute bottom-1 right-1 h-5 w-5 cursor-se-resize rounded-sm border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                        >
+                          <span
+                            className="pointer-events-none absolute bottom-[2px] right-[2px] h-2.5 w-2.5"
+                            style={{
+                              background:
+                                'linear-gradient(135deg, transparent 35%, var(--ax-text-subtle) 35%, var(--ax-text-subtle) 45%, transparent 45%, transparent 55%, var(--ax-text-subtle) 55%, var(--ax-text-subtle) 65%, transparent 65%)',
+                            }}
+                          />
+                        </button>
+                      </article>
+                    )
+                  })(),
+                )}
+              </div>
             </div>
           </main>
+        </div>
+        <div className="pointer-events-none fixed bottom-4 right-4 z-30">
+          <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-1 shadow-sm">
+            <Button
+              size="xsmall"
+              variant="tertiary"
+              icon={<Minus size={14} />}
+              onClick={() => handleCanvasZoomChange(canvasZoom - CANVAS_ZOOM_STEP)}
+              title="Zoom ut"
+              aria-label="Zoom ut"
+            />
+            <Button
+              size="xsmall"
+              variant="tertiary"
+              onClick={handleCanvasZoomReset}
+              title="Tilbakestill zoom"
+              aria-label="Tilbakestill zoom"
+            >
+              {Math.round(canvasZoom * 100)}%
+            </Button>
+            <Button
+              size="xsmall"
+              variant="tertiary"
+              icon={<Plus size={14} />}
+              onClick={() => handleCanvasZoomChange(canvasZoom + CANVAS_ZOOM_STEP)}
+              title="Zoom inn"
+              aria-label="Zoom inn"
+            />
+          </div>
         </div>
       </section>
 
