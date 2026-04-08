@@ -248,6 +248,7 @@ export interface PeriodPickerProps {
   lastMonthLabel?: string
   currentMonthLabel?: string
   showShortPeriods?: boolean
+  className?: string
 }
 
 // ===== UrlPathFilter types =====

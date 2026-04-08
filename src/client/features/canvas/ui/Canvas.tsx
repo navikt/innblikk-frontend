@@ -1,7 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActionMenu, Alert, Button, Link, Modal, Select, Switch, TextField, Textarea } from '@navikt/ds-react'
-import { Edit2, Move, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { Edit2, ExternalLink, Move, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
+import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
+import { computeFunnelStepMetrics } from '../../analysis/utils/horizontalFunnel.ts'
+import { fetchFunnelData } from '../../funnel/api/funnelApi.ts'
+import { splitUrlStepInput } from '../../funnel/utils/stepUtils.ts'
 import { getStoredPeriod, savePeriodPreference } from '../../../shared/lib/utils.ts'
 import { DashboardWidget } from '../../dashboard'
 import { mapGraphTypeToChart } from '../../oversikt'
@@ -16,14 +20,25 @@ import {
   fetchQueries,
   updateQuery,
 } from '../../oversikt/api/oversiktApi.ts'
+import type { FunnelStep } from '../../funnel/model/types.ts'
+import type { Website } from '../../../shared/types/website.ts'
 
 type CanvasChartType = 'line' | 'bar' | 'pie' | 'table'
 type CanvasPayloadKind = 'website' | 'heading' | 'text' | 'sticky' | 'chart' | 'connection'
+type CanvasConnectionMetric = {
+  percentageOfPrev: number
+  dropoffCount: number
+  dropoffPercentage: number
+  totalConversionPercent: number
+  fromCount: number
+  toCount: number
+}
 
 type CanvasFrame = {
   id: string
   kind: 'website' | 'heading' | 'text' | 'sticky' | 'chart'
   targetUrl?: string
+  previewUrl?: string
   renderWebsite?: boolean
   headingText?: string
   textContent?: string
@@ -51,6 +66,22 @@ type CanvasConnection = {
   queryId?: number
 }
 
+type ConnectionDragState = {
+  sourceFrameId: string
+  pointerX: number
+  pointerY: number
+  currentTargetFrameId: string | null
+}
+
+type CanvasConnectionVisual = {
+  id: string
+  path: string
+  labelX: number
+  labelY: number
+  fromUrl?: string
+  toUrl?: string
+}
+
 type CanvasConfigPayload = {
   kind: CanvasPayloadKind
   x: number
@@ -58,6 +89,7 @@ type CanvasConfigPayload = {
   width?: number
   height?: number
   targetUrl?: string
+  previewUrl?: string
   renderWebsite?: boolean
   headingText?: string
   textContent?: string
@@ -123,8 +155,59 @@ const getFrameLabel = (targetUrl: string): string => {
   }
 }
 
+const buildFunnelStepFromUrl = (targetUrl: string): FunnelStep => {
+  const { value, query } = splitUrlStepInput(targetUrl)
+  return { type: 'url', value, query }
+}
+
+const computeMidpoint = (x1: number, y1: number, x2: number, y2: number, delta: number): { x: number; y: number } => {
+  const c1x = x1 + delta
+  const c1y = y1
+  const c2x = x2 - delta
+  const c2y = y2
+  const t = 0.5
+  const mt = 1 - t
+
+  return {
+    x: mt ** 3 * x1 + 3 * mt ** 2 * t * c1x + 3 * mt * t ** 2 * c2x + t ** 3 * x2,
+    y: mt ** 3 * y1 + 3 * mt ** 2 * t * c1y + 3 * mt * t ** 2 * c2y + t ** 3 * y2,
+  }
+}
+
+const buildConnectionPath = (
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+): { path: string; midpoint: { x: number; y: number } } => {
+  const delta = Math.max(80, Math.abs(x2 - x1) * 0.45)
+  return {
+    path: `M ${x1} ${y1} C ${x1 + delta} ${y1}, ${x2 - delta} ${y2}, ${x2} ${y2}`,
+    midpoint: computeMidpoint(x1, y1, x2, y2, delta),
+  }
+}
+
+const WEBSITE_CARD_HEADER_HEIGHT = 46
+const HEADING_CARD_HEADER_HEIGHT = 46
+const CANVAS_TOP_BUFFER = 240
+const HEADING_CHAR_WIDTH = 13
+const HEADING_TEXT_MIN_WIDTH = 140
+const HEADING_TEXT_MAX_WIDTH = 820
+const HEADING_TEXT_EXTRA_WIDTH = 32
+const HEADING_TEXT_LINE_HEIGHT = 26
+const HEADING_TEXT_VERTICAL_PADDING = 16
+
 const createPreviewProxySrc = (targetUrl: string): string => {
   return `/api/clickmap-preview?url=${encodeURIComponent(targetUrl)}`
+}
+
+const isImagePreviewUrl = (value: string): boolean => {
+  try {
+    const url = new URL(value)
+    return /\.(png|jpe?g|gif|webp|avif|svg)$/i.test(url.pathname)
+  } catch {
+    return /\.(png|jpe?g|gif|webp|avif|svg)$/i.test(value)
+  }
 }
 
 const serializeCanvasConfig = (frame: CanvasConfigPayload): string => {
@@ -171,6 +254,7 @@ const parseCanvasConfig = (raw: string): CanvasConfigPayload | null => {
       width: Number.isFinite(parsed.width) ? Number(parsed.width) : undefined,
       height: Number.isFinite(parsed.height) ? Number(parsed.height) : undefined,
       targetUrl: typeof parsed.targetUrl === 'string' ? parsed.targetUrl : undefined,
+      previewUrl: typeof parsed.previewUrl === 'string' ? parsed.previewUrl : undefined,
       renderWebsite: typeof parsed.renderWebsite === 'boolean' ? parsed.renderWebsite : undefined,
       headingText: typeof parsed.headingText === 'string' ? parsed.headingText : undefined,
       textContent: typeof parsed.textContent === 'string' ? parsed.textContent : undefined,
@@ -193,14 +277,15 @@ const Canvas = () => {
     const projectId = Number(params.get('projectId'))
     const dashboardId = Number(params.get('dashboardId'))
     return {
-      websiteId: params.get('websiteId') || '',
+      onlyDirectEntry: params.get('strict') ? params.get('strict') === 'true' : false,
       projectId: Number.isFinite(projectId) ? projectId : null,
       dashboardId: Number.isFinite(dashboardId) ? dashboardId : null,
     }
   }, [])
-  const { websiteId, projectId, dashboardId } = routeContext
+  const { onlyDirectEntry, projectId, dashboardId } = routeContext
   const canPersistToDashboard = projectId !== null && dashboardId !== null
   const [canvasTitle, setCanvasTitle] = useState('Canvas')
+  const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
   const [period, setPeriodState] = useState<string>(() =>
     getStoredPeriod(new URLSearchParams(window.location.search).get('period')),
   )
@@ -208,7 +293,6 @@ const Canvas = () => {
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined)
   const [frames, setFrames] = useState<CanvasFrame[]>([])
   const [connections, setConnections] = useState<CanvasConnection[]>([])
-  const [connectSourceFrameId, setConnectSourceFrameId] = useState<string | null>(null)
   const [isAddPageModalOpen, setIsAddPageModalOpen] = useState(false)
   const [isAddHeadingModalOpen, setIsAddHeadingModalOpen] = useState(false)
   const [isAddTextModalOpen, setIsAddTextModalOpen] = useState(false)
@@ -217,8 +301,10 @@ const Canvas = () => {
   const [isEditWebsiteModalOpen, setIsEditWebsiteModalOpen] = useState(false)
   const [editWebsiteFrameId, setEditWebsiteFrameId] = useState<string | null>(null)
   const [editWebsitePathInput, setEditWebsitePathInput] = useState('')
+  const [editWebsitePreviewUrlInput, setEditWebsitePreviewUrlInput] = useState('')
   const [editWebsiteRenderEnabled, setEditWebsiteRenderEnabled] = useState(true)
   const [newPagePathInput, setNewPagePathInput] = useState('')
+  const [newPagePreviewUrlInput, setNewPagePreviewUrlInput] = useState('')
   const [addPageError, setAddPageError] = useState<string | null>(null)
   const [editWebsiteError, setEditWebsiteError] = useState<string | null>(null)
   const [headingTextInput, setHeadingTextInput] = useState('')
@@ -243,12 +329,44 @@ const Canvas = () => {
   const [syncError, setSyncError] = useState<string | null>(null)
   const [, setIsLoadingCanvasItems] = useState(false)
   const [isSavingCanvasItem, setIsSavingCanvasItem] = useState(false)
+  const [connectionMetrics, setConnectionMetrics] = useState<Record<string, CanvasConnectionMetric | null>>({})
+  const [hoveredConnectionId, setHoveredConnectionId] = useState<string | null>(null)
+  const [connectionDragState, setConnectionDragState] = useState<ConnectionDragState | null>(null)
+  const [toolbarNotice, setToolbarNotice] = useState<string | null>(null)
   const canvasViewportRef = useRef<HTMLDivElement | null>(null)
+  const canvasToolbarRef = useRef<HTMLDivElement | null>(null)
+  const connectionMetricRequestSignatureRef = useRef<string | null>(null)
+  const [canvasToolbarHeight, setCanvasToolbarHeight] = useState(120)
+  const toolbarNoticeTimerRef = useRef<number | null>(null)
+  const toolbarNoticeReadyRef = useRef(false)
 
   const setPeriod = (nextPeriod: string) => {
     setPeriodState(nextPeriod)
     savePeriodPreference(nextPeriod)
+    if (toolbarNoticeReadyRef.current) {
+      if (toolbarNoticeTimerRef.current) {
+        window.clearTimeout(toolbarNoticeTimerRef.current)
+      }
+      setToolbarNotice('Filter oppdatert')
+      toolbarNoticeTimerRef.current = window.setTimeout(() => {
+        setToolbarNotice(null)
+        toolbarNoticeTimerRef.current = null
+      }, 1800)
+    }
   }
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      toolbarNoticeReadyRef.current = true
+    }, 1200)
+
+    return () => {
+      window.clearTimeout(timer)
+      if (toolbarNoticeTimerRef.current) {
+        window.clearTimeout(toolbarNoticeTimerRef.current)
+      }
+    }
+  }, [])
 
   const dashboardWidgetFilters = useMemo(
     () => ({
@@ -266,7 +384,8 @@ const Canvas = () => {
     () =>
       frames.map((frame) => ({
         ...frame,
-        src: frame.targetUrl ? createPreviewProxySrc(frame.targetUrl) : '',
+        src:
+          frame.previewUrl || frame.targetUrl ? createPreviewProxySrc(frame.previewUrl || frame.targetUrl || '') : '',
       })),
     [frames],
   )
@@ -301,6 +420,7 @@ const Canvas = () => {
         width: frame.width,
         height: frame.height,
         targetUrl: frame.targetUrl,
+        previewUrl: frame.previewUrl,
         renderWebsite: frame.renderWebsite,
         headingText: frame.headingText,
         textContent: frame.textContent,
@@ -456,6 +576,7 @@ const Canvas = () => {
               id: `stored-${graph.id}`,
               kind: parsedConfig.kind,
               targetUrl: parsedConfig.targetUrl,
+              previewUrl: parsedConfig.previewUrl,
               renderWebsite: parsedConfig.renderWebsite,
               headingText: parsedConfig.headingText,
               textContent: parsedConfig.textContent,
@@ -513,10 +634,39 @@ const Canvas = () => {
     }
   }, [canPersistToDashboard, projectId, dashboardId])
 
+  useEffect(() => {
+    const toolbar = canvasToolbarRef.current
+    if (!toolbar) return
+
+    const updateToolbarHeight = () => {
+      setCanvasToolbarHeight(Math.ceil(toolbar.getBoundingClientRect().height))
+    }
+
+    updateToolbarHeight()
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', updateToolbarHeight)
+      return () => window.removeEventListener('resize', updateToolbarHeight)
+    }
+
+    const observer = new ResizeObserver(() => updateToolbarHeight())
+    observer.observe(toolbar)
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [])
+
   const handleAddPage = async () => {
     const targetUrl = normalizeInputToTargetUrl(newPagePathInput)
     if (!targetUrl) {
       setAddPageError('Legg inn en gyldig URL, for eksempel https://www.nav.no/aap.')
+      return
+    }
+
+    const previewUrl = newPagePreviewUrlInput.trim() ? normalizeInputToTargetUrl(newPagePreviewUrlInput) : undefined
+    if (newPagePreviewUrlInput.trim() && !previewUrl) {
+      setAddPageError('Legg inn en gyldig visnings-URL, for eksempel https://www.nav.no/...')
       return
     }
 
@@ -537,6 +687,7 @@ const Canvas = () => {
       id: `${Date.now()}-${Math.random()}`,
       kind: 'website',
       targetUrl,
+      previewUrl,
       renderWebsite: true,
       label: getFrameLabel(targetUrl),
       x: 80 + column * 460,
@@ -552,6 +703,7 @@ const Canvas = () => {
       const persistedFrame = await persistFrame(newFrame)
       setFrames((prev) => [...prev, persistedFrame])
       setNewPagePathInput('')
+      setNewPagePreviewUrlInput('')
       setAddPageError(null)
       setIsAddPageModalOpen(false)
     } catch (error) {
@@ -565,6 +717,7 @@ const Canvas = () => {
     if (frame.kind !== 'website') return
     setEditWebsiteFrameId(frame.id)
     setEditWebsitePathInput(frame.targetUrl || '')
+    setEditWebsitePreviewUrlInput(frame.previewUrl || '')
     setEditWebsiteRenderEnabled(frame.renderWebsite !== false)
     setEditWebsiteError(null)
     setIsEditWebsiteModalOpen(true)
@@ -576,6 +729,13 @@ const Canvas = () => {
     const targetUrl = normalizeInputToTargetUrl(editWebsitePathInput)
     if (!targetUrl) {
       setEditWebsiteError('Legg inn en gyldig URL, for eksempel https://www.nav.no/aap.')
+      return
+    }
+
+    const previewInput = editWebsitePreviewUrlInput.trim()
+    const previewUrl = previewInput ? normalizeInputToTargetUrl(previewInput) : undefined
+    if (previewInput && !previewUrl) {
+      setEditWebsiteError('Legg inn en gyldig visnings-URL, for eksempel https://www.nav.no/...')
       return
     }
 
@@ -599,6 +759,7 @@ const Canvas = () => {
     const updatedFrame: CanvasFrame = {
       ...currentFrame,
       targetUrl,
+      previewUrl,
       renderWebsite: editWebsiteRenderEnabled,
       label: getFrameLabel(targetUrl),
     }
@@ -610,6 +771,7 @@ const Canvas = () => {
       setFrames((prev) => prev.map((frame) => (frame.id === editWebsiteFrameId ? persistedFrame : frame)))
       setIsEditWebsiteModalOpen(false)
       setEditWebsiteFrameId(null)
+      setEditWebsitePreviewUrlInput('')
       setEditWebsiteError(null)
     } catch (error) {
       setSyncError(error instanceof Error ? error.message : 'Kunne ikke oppdatere nettside')
@@ -618,64 +780,101 @@ const Canvas = () => {
     }
   }
 
-  const createConnectionBetweenFrames = async (source: CanvasFrame, target: CanvasFrame) => {
-    if (source.kind !== 'website' || target.kind !== 'website') return
-    if (source.id === target.id) return
+  const getCanvasPointerPosition = useCallback((clientX: number, clientY: number): { x: number; y: number } | null => {
+    const viewport = canvasViewportRef.current
+    if (!viewport) return null
 
-    if (
-      connections.some(
-        (connection) =>
-          (connection.fromFrameId === source.id && connection.toFrameId === target.id) ||
-          (source.graphId &&
-            target.graphId &&
-            connection.fromGraphId === source.graphId &&
-            connection.toGraphId === target.graphId),
-      )
-    ) {
-      return
+    const rect = viewport.getBoundingClientRect()
+    return {
+      x: clientX - rect.left + viewport.scrollLeft,
+      y: clientY - rect.top + viewport.scrollTop,
     }
+  }, [])
 
-    const newConnection: CanvasConnection = {
-      id: `${Date.now()}-${Math.random()}`,
-      fromFrameId: source.id,
-      toFrameId: target.id,
-      fromGraphId: source.graphId,
-      toGraphId: target.graphId,
+  const getFrameBounds = useCallback(
+    (frame: CanvasFrame): { left: number; top: number; right: number; bottom: number } => {
+      const defaults = getDefaultFrameSize(frame.kind)
+      const width = frame.width ?? defaults.width
+      const height = frame.height ?? defaults.height
+      return {
+        left: frame.x,
+        top: frame.y,
+        right: frame.x + width,
+        bottom: frame.y + height,
+      }
+    },
+    [],
+  )
+
+  const getFrameAnchor = useCallback((frame: CanvasFrame, side: 'left' | 'right'): { x: number; y: number } => {
+    const defaults = getDefaultFrameSize(frame.kind)
+    const width = frame.width ?? defaults.width
+    const height = frame.height ?? defaults.height
+    const headerHeight = frame.kind === 'website' ? WEBSITE_CARD_HEADER_HEIGHT : 0
+    const bodyHeight = Math.max(height - headerHeight, 0)
+    return {
+      x: side === 'left' ? frame.x : frame.x + width,
+      y: frame.y + headerHeight + bodyHeight / 2,
     }
+  }, [])
 
-    try {
-      setIsSavingCanvasItem(true)
-      const persisted = await persistConnection(newConnection)
-      setConnections((prev) => [...prev, persisted])
-    } catch (error) {
-      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre kobling')
-    } finally {
-      setIsSavingCanvasItem(false)
-      setConnectSourceFrameId(null)
-    }
-  }
+  const createConnectionBetweenFrames = useCallback(
+    async (source: CanvasFrame, target: CanvasFrame) => {
+      if (source.kind !== 'website' || target.kind !== 'website') return
+      if (source.id === target.id) return
 
-  const handleConnectionDotClick = async (frame: CanvasFrame) => {
-    if (frame.kind !== 'website') return
+      if (
+        connections.some(
+          (connection) =>
+            (connection.fromFrameId === source.id && connection.toFrameId === target.id) ||
+            (source.graphId &&
+              target.graphId &&
+              connection.fromGraphId === source.graphId &&
+              connection.toGraphId === target.graphId),
+        )
+      ) {
+        return
+      }
 
-    if (!connectSourceFrameId) {
-      setConnectSourceFrameId(frame.id)
-      return
-    }
+      const newConnection: CanvasConnection = {
+        id: `${Date.now()}-${Math.random()}`,
+        fromFrameId: source.id,
+        toFrameId: target.id,
+        fromGraphId: source.graphId,
+        toGraphId: target.graphId,
+      }
 
-    if (connectSourceFrameId === frame.id) {
-      setConnectSourceFrameId(null)
-      return
-    }
+      try {
+        setIsSavingCanvasItem(true)
+        const persisted = await persistConnection(newConnection)
+        setConnections((prev) => [...prev, persisted])
+      } catch (error) {
+        setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre kobling')
+      } finally {
+        setIsSavingCanvasItem(false)
+      }
+    },
+    [connections, persistConnection],
+  )
 
-    const source = frames.find((item) => item.id === connectSourceFrameId)
-    if (!source || source.kind !== 'website') {
-      setConnectSourceFrameId(null)
-      return
-    }
+  const startConnectionDrag = useCallback(
+    (event: React.MouseEvent, frame: CanvasFrame) => {
+      if (frame.kind !== 'website') return
+      event.preventDefault()
+      event.stopPropagation()
 
-    await createConnectionBetweenFrames(source, frame)
-  }
+      const pointer = getCanvasPointerPosition(event.clientX, event.clientY)
+      if (!pointer) return
+
+      setConnectionDragState({
+        sourceFrameId: frame.id,
+        pointerX: pointer.x,
+        pointerY: pointer.y,
+        currentTargetFrameId: null,
+      })
+    },
+    [getCanvasPointerPosition],
+  )
 
   const handleAddHeadingCard = async () => {
     const heading = headingTextInput.trim()
@@ -897,10 +1096,34 @@ const Canvas = () => {
   ): { width: number; height: number; minWidth: number; minHeight: number } => {
     if (kind === 'website') return { width: 420, height: 560, minWidth: 320, minHeight: 320 }
     if (kind === 'chart') return { width: 680, height: 460, minWidth: 420, minHeight: 280 }
-    if (kind === 'heading') return { width: 420, height: 160, minWidth: 260, minHeight: 120 }
+    if (kind === 'heading') return { width: 420, height: 72, minWidth: 260, minHeight: 48 }
     if (kind === 'text') return { width: 340, height: 170, minWidth: 240, minHeight: 120 }
     return { width: 360, height: 260, minWidth: 280, minHeight: 220 }
   }
+
+  const getHeadingFrameWidth = useCallback((frame: CanvasFrame): number => {
+    if (frame.kind !== 'heading') return frame.width ?? getDefaultFrameSize(frame.kind).width
+
+    const headingText = (frame.headingText || frame.label || '').trim()
+    const estimatedTextWidth = Math.ceil(headingText.length * HEADING_CHAR_WIDTH) + HEADING_TEXT_EXTRA_WIDTH
+    return Math.min(HEADING_TEXT_MAX_WIDTH, Math.max(HEADING_TEXT_MIN_WIDTH, estimatedTextWidth))
+  }, [])
+
+  const getHeadingFrameHeight = useCallback(
+    (frame: CanvasFrame): number => {
+      if (frame.kind !== 'heading') return frame.height ?? getDefaultFrameSize(frame.kind).height
+
+      const headingText = (frame.headingText || frame.label || '').trim()
+      const width = getHeadingFrameWidth(frame)
+      const usableWidth = Math.max(width - 24, HEADING_TEXT_MIN_WIDTH)
+      const charsPerLine = Math.max(12, Math.floor(usableWidth / HEADING_CHAR_WIDTH))
+      const lineCount = headingText
+        ? headingText.split('\n').reduce((count, line) => count + Math.max(1, Math.ceil(line.length / charsPerLine)), 0)
+        : 1
+      return Math.max(48, lineCount * HEADING_TEXT_LINE_HEIGHT + HEADING_TEXT_VERTICAL_PADDING)
+    },
+    [getHeadingFrameWidth],
+  )
 
   const handleResizeStart = (event: React.MouseEvent, frame: CanvasFrame) => {
     event.stopPropagation()
@@ -931,7 +1154,7 @@ const Canvas = () => {
             ? {
                 ...frame,
                 x: Math.max(0, pointerCanvasX - dragState.offsetX),
-                y: Math.max(0, pointerCanvasY - dragState.offsetY),
+                y: Math.max(-CANVAS_TOP_BUFFER, pointerCanvasY - dragState.offsetY),
               }
             : frame,
         ),
@@ -992,6 +1215,66 @@ const Canvas = () => {
     }
   }, [resizeState, frames, persistFrame])
 
+  useEffect(() => {
+    if (!connectionDragState) return
+
+    const updateConnectionDrag = (event: MouseEvent) => {
+      const pointer = getCanvasPointerPosition(event.clientX, event.clientY)
+      if (!pointer) return
+
+      const currentTarget = frames.find((frame) => {
+        if (frame.kind !== 'website') return false
+        if (frame.id === connectionDragState.sourceFrameId) return false
+        const bounds = getFrameBounds(frame)
+        return (
+          pointer.x >= bounds.left && pointer.x <= bounds.right && pointer.y >= bounds.top && pointer.y <= bounds.bottom
+        )
+      })
+
+      setConnectionDragState((current) =>
+        current
+          ? {
+              ...current,
+              pointerX: pointer.x,
+              pointerY: pointer.y,
+              currentTargetFrameId: currentTarget?.id ?? null,
+            }
+          : current,
+      )
+    }
+
+    const finishConnectionDrag = async (event: MouseEvent) => {
+      const pointer = getCanvasPointerPosition(event.clientX, event.clientY)
+      const sourceFrame = frames.find((frame) => frame.id === connectionDragState.sourceFrameId)
+      if (!pointer || !sourceFrame || sourceFrame.kind !== 'website') {
+        setConnectionDragState(null)
+        return
+      }
+
+      const targetFrame = frames.find((frame) => {
+        if (frame.kind !== 'website') return false
+        if (frame.id === sourceFrame.id) return false
+        const bounds = getFrameBounds(frame)
+        return (
+          pointer.x >= bounds.left && pointer.x <= bounds.right && pointer.y >= bounds.top && pointer.y <= bounds.bottom
+        )
+      })
+
+      setConnectionDragState(null)
+      if (targetFrame) {
+        await createConnectionBetweenFrames(sourceFrame, targetFrame)
+      }
+    }
+
+    window.addEventListener('mousemove', updateConnectionDrag)
+    window.addEventListener('mouseup', finishConnectionDrag)
+
+    return () => {
+      window.removeEventListener('mousemove', updateConnectionDrag)
+      window.removeEventListener('mouseup', finishConnectionDrag)
+    }
+  }, [connectionDragState, createConnectionBetweenFrames, frames, getCanvasPointerPosition, getFrameBounds])
+
   const handleRemovePage = async (id: string) => {
     const frameToDelete = frames.find((frame) => frame.id === id)
     const linkedConnections = connections.filter(
@@ -1003,8 +1286,8 @@ const Canvas = () => {
     )
     setFrames((prev) => prev.filter((frame) => frame.id !== id))
     setConnections((prev) => prev.filter((connection) => !linkedConnections.some((item) => item.id === connection.id)))
-    if (connectSourceFrameId === id) {
-      setConnectSourceFrameId(null)
+    if (connectionDragState?.sourceFrameId === id) {
+      setConnectionDragState(null)
     }
 
     if (!frameToDelete || !canPersistToDashboard || projectId === null || dashboardId === null) return
@@ -1062,29 +1345,165 @@ const Canvas = () => {
           const toFrame = resolveConnectionFrame(connection, 'to')
           if (!fromFrame || !toFrame) return null
 
-          const fromDefaults = getDefaultFrameSize(fromFrame.kind)
-          const toDefaults = getDefaultFrameSize(toFrame.kind)
-          const fromWidth = fromFrame.width ?? fromDefaults.width
-          const fromHeight = fromFrame.height ?? fromDefaults.height
-          const fromAnchorY = fromFrame.y + fromHeight / 2
-          const toHeight = toFrame.height ?? toDefaults.height
-          const toAnchorY = toFrame.y + toHeight / 2
-
-          const x1 = fromFrame.x + fromWidth
-          const y1 = fromAnchorY
-          const x2 = toFrame.x
-          const y2 = toAnchorY
+          const x1 = getFrameAnchor(fromFrame, 'right').x
+          const y1 = getFrameAnchor(fromFrame, 'right').y
+          const x2 = getFrameAnchor(toFrame, 'left').x
+          const y2 = getFrameAnchor(toFrame, 'left').y
           const delta = Math.max(80, Math.abs(x2 - x1) * 0.45)
           const path = `M ${x1} ${y1} C ${x1 + delta} ${y1}, ${x2 - delta} ${y2}, ${x2} ${y2}`
+          const midpoint = computeMidpoint(x1, y1, x2, y2, delta)
 
           return {
             id: connection.id,
             path,
+            labelX: midpoint.x,
+            labelY: midpoint.y - 24,
+            midX: midpoint.x,
+            midY: midpoint.y,
+            endX: x2,
+            endY: y2,
+            fromUrl: fromFrame.targetUrl,
+            toUrl: toFrame.targetUrl,
           }
         })
-        .filter((item): item is { id: string; path: string } => item !== null),
+        .filter(
+          (
+            item,
+          ): item is {
+            id: string
+            path: string
+            labelX: number
+            labelY: number
+            midX: number
+            midY: number
+            endX: number
+            endY: number
+            fromUrl?: string
+            toUrl?: string
+          } => item !== null,
+        ),
+    [connections, resolveConnectionFrame, getFrameAnchor],
+  )
+
+  const connectionPreview = useMemo(() => {
+    if (!connectionDragState) return null
+
+    const sourceFrame = frames.find((frame) => frame.id === connectionDragState.sourceFrameId)
+    if (!sourceFrame || sourceFrame.kind !== 'website') return null
+
+    const targetFrame = connectionDragState.currentTargetFrameId
+      ? frames.find((frame) => frame.id === connectionDragState.currentTargetFrameId)
+      : null
+    const fromAnchor = getFrameAnchor(sourceFrame, 'right')
+    const toAnchor =
+      targetFrame?.kind === 'website'
+        ? getFrameAnchor(targetFrame, 'left')
+        : {
+            x: connectionDragState.pointerX,
+            y: connectionDragState.pointerY,
+          }
+    const { path, midpoint } = buildConnectionPath(fromAnchor.x, fromAnchor.y, toAnchor.x, toAnchor.y)
+
+    return {
+      path,
+      labelX: midpoint.x,
+      labelY: midpoint.y - 24,
+      midX: midpoint.x,
+      midY: midpoint.y,
+      targetFrameId: targetFrame?.id ?? null,
+    }
+  }, [connectionDragState, frames, getFrameAnchor])
+
+  const connectionMetricRequests = useMemo(
+    () =>
+      connections
+        .map((connection) => {
+          const fromFrame = resolveConnectionFrame(connection, 'from')
+          const toFrame = resolveConnectionFrame(connection, 'to')
+          if (!fromFrame?.targetUrl || !toFrame?.targetUrl) return null
+          return {
+            id: connection.id,
+            fromUrl: fromFrame.targetUrl,
+            toUrl: toFrame.targetUrl,
+          }
+        })
+        .filter((item): item is { id: string; fromUrl: string; toUrl: string } => item !== null),
     [connections, resolveConnectionFrame],
   )
+
+  // Request the funnel data only when the connected URLs change. Frame movement
+  // should not retrigger the network call.
+  useEffect(() => {
+    let isActive = true
+
+    const loadConnectionMetrics = async () => {
+      if (!selectedWebsite?.id) {
+        connectionMetricRequestSignatureRef.current = null
+        setConnectionMetrics({})
+        return
+      }
+
+      const requests = connectionMetricRequests
+      const requestSignature = JSON.stringify({
+        websiteId: selectedWebsite.id,
+        period,
+        customStartDate: customStartDate?.toISOString() ?? null,
+        customEndDate: customEndDate?.toISOString() ?? null,
+        onlyDirectEntry,
+        requests: requests.map((request) => [request.id, request.fromUrl, request.toUrl]),
+      })
+
+      if (connectionMetricRequestSignatureRef.current === requestSignature) {
+        return
+      }
+
+      connectionMetricRequestSignatureRef.current = requestSignature
+
+      if (requests.length === 0) {
+        setConnectionMetrics({})
+        return
+      }
+
+      const entries = await Promise.all(
+        requests.map(async (request) => {
+          const result = await fetchFunnelData({
+            websiteId: selectedWebsite.id,
+            steps: [buildFunnelStepFromUrl(request.fromUrl), buildFunnelStepFromUrl(request.toUrl)],
+            period,
+            customStartDate,
+            customEndDate,
+            onlyDirectEntry,
+          })
+
+          if (!isActive || result.error || result.data.length < 2) {
+            return [request.id, null] as const
+          }
+
+          const metrics = computeFunnelStepMetrics(result.data, 1)
+          const startCount = result.data[0]?.count ?? 0
+          const endCount = result.data[1]?.count ?? 0
+
+          return [
+            request.id,
+            {
+              ...metrics,
+              fromCount: startCount,
+              toCount: endCount,
+            },
+          ] as const
+        }),
+      )
+
+      if (!isActive) return
+      setConnectionMetrics(Object.fromEntries(entries))
+    }
+
+    void loadConnectionMetrics()
+
+    return () => {
+      isActive = false
+    }
+  }, [connectionMetricRequests, period, customStartDate, customEndDate, onlyDirectEntry, selectedWebsite?.id])
 
   const handleRefreshFrame = (id: string) => {
     setFrames((prev) =>
@@ -1149,117 +1568,133 @@ const Canvas = () => {
   return (
     <>
       <section className="relative h-[100dvh] min-h-[100dvh] bg-[var(--ax-bg-neutral-soft)]">
-        <div className="pointer-events-none absolute left-4 right-4 top-4 z-20">
-          <div className="pointer-events-auto flex items-center justify-between gap-3 rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2 shadow-sm">
-            <div className="min-w-0 flex items-center gap-1.5">
-              <a
-                href="/"
-                aria-label="Gå til forsiden"
-                className="grid h-7 w-7 place-items-center text-[var(--ax-text-default)] shrink-0 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-border-accent)]"
-              >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path
-                    d="M16.5 10.5C16.5 13.8137 13.8137 16.5 10.5 16.5C7.18629 16.5 4.5 13.8137 4.5 10.5C4.5 7.18629 7.18629 4.5 10.5 4.5C13.8137 4.5 16.5 7.18629 16.5 10.5Z"
-                    stroke="currentColor"
-                    strokeWidth="1.9"
+        <div ref={canvasToolbarRef} className="pointer-events-none fixed left-4 right-4 top-4 z-30">
+          <div className="pointer-events-auto rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0 flex flex-1 items-center gap-1.5">
+                <a
+                  href="/"
+                  aria-label="Gå til forsiden"
+                  className="grid h-7 w-7 shrink-0 place-items-center rounded-sm text-[var(--ax-text-default)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-border-accent)]"
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path
+                      d="M16.5 10.5C16.5 13.8137 13.8137 16.5 10.5 16.5C7.18629 16.5 4.5 13.8137 4.5 10.5C4.5 7.18629 7.18629 4.5 10.5 4.5C13.8137 4.5 16.5 7.18629 16.5 10.5Z"
+                      stroke="currentColor"
+                      strokeWidth="1.9"
+                    />
+                    <path d="M15.2 15.2L20.5 20.5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+                    <path
+                      d="M7.9 12.5V10.2M10.5 12.5V8.5M13.1 12.5V9.3"
+                      stroke="currentColor"
+                      strokeWidth="1.9"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </a>
+                <div
+                  className="truncate text-[20px] font-semibold leading-none text-[var(--ax-text-default)]"
+                  title={canvasTitle}
+                >
+                  {canvasTitle}
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="w-[160px] shrink-0 [&_label]:sr-only">
+                  <WebsitePicker
+                    selectedWebsite={selectedWebsite}
+                    onWebsiteChange={setSelectedWebsite}
+                    variant="minimal"
+                    customLabel="Nettside"
+                    labelClassName="[&_label]:sr-only"
                   />
-                  <path d="M15.2 15.2L20.5 20.5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
-                  <path
-                    d="M7.9 12.5V10.2M10.5 12.5V8.5M13.1 12.5V9.3"
-                    stroke="currentColor"
-                    strokeWidth="1.9"
-                    strokeLinecap="round"
+                </div>
+                <div className="w-[152px] shrink-0 [&_label]:sr-only">
+                  <PeriodPicker
+                    period={period}
+                    onPeriodChange={setPeriod}
+                    startDate={customStartDate}
+                    onStartDateChange={setCustomStartDate}
+                    endDate={customEndDate}
+                    onEndDateChange={setCustomEndDate}
+                    className="w-full sm:w-auto min-w-[152px]"
                   />
-                </svg>
-              </a>
-              <div
-                className="truncate text-[20px] font-semibold leading-none text-[var(--ax-text-default)]"
-                title={canvasTitle}
-              >
-                {canvasTitle}
+                </div>
+                <ActionMenu>
+                  <ActionMenu.Trigger>
+                    <Button size="small" icon={<Plus size={16} />} className="shrink-0 whitespace-nowrap">
+                      Legg til
+                    </Button>
+                  </ActionMenu.Trigger>
+                  <ActionMenu.Content align="end">
+                    <ActionMenu.Item
+                      onClick={() => {
+                        setAddPageError(null)
+                        setIsAddPageModalOpen(true)
+                      }}
+                    >
+                      Nettside
+                    </ActionMenu.Item>
+                    <ActionMenu.Item onClick={handleOpenAddChartModal}>Graf</ActionMenu.Item>
+                    <ActionMenu.Item
+                      onClick={() => {
+                        setAddHeadingError(null)
+                        setIsAddHeadingModalOpen(true)
+                      }}
+                    >
+                      Overskrift
+                    </ActionMenu.Item>
+                    <ActionMenu.Item
+                      onClick={() => {
+                        setAddTextError(null)
+                        setIsAddTextModalOpen(true)
+                      }}
+                    >
+                      Tekst
+                    </ActionMenu.Item>
+                    <ActionMenu.Item
+                      onClick={() => {
+                        setAddStickyError(null)
+                        setIsAddStickyModalOpen(true)
+                      }}
+                    >
+                      Sticky note
+                    </ActionMenu.Item>
+                  </ActionMenu.Content>
+                </ActionMenu>
+                {toolbarNotice && (
+                  <div className="shrink-0 rounded-full bg-[var(--ax-bg-success-soft)] px-2 py-1 text-[12px] font-medium text-[var(--ax-text-success)]">
+                    {toolbarNotice}
+                  </div>
+                )}
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-[210px] [&_label]:sr-only">
-                <PeriodPicker
-                  period={period}
-                  onPeriodChange={setPeriod}
-                  startDate={customStartDate}
-                  onStartDateChange={setCustomStartDate}
-                  endDate={customEndDate}
-                  onEndDateChange={setCustomEndDate}
-                />
+            {!canPersistToDashboard && (
+              <div className="mt-2">
+                <Alert variant="warning" size="small">
+                  Canvas er ikke koblet til et dashboard. Åpne canvas fra ProjectManager for lagring.
+                </Alert>
               </div>
-              <ActionMenu>
-                <ActionMenu.Trigger>
-                  <Button size="small" icon={<Plus size={16} />}>
-                    Legg til
-                  </Button>
-                </ActionMenu.Trigger>
-                <ActionMenu.Content align="end">
-                  <ActionMenu.Item
-                    onClick={() => {
-                      setAddPageError(null)
-                      setIsAddPageModalOpen(true)
-                    }}
-                  >
-                    Nettside
-                  </ActionMenu.Item>
-                  <ActionMenu.Item onClick={handleOpenAddChartModal}>Graf</ActionMenu.Item>
-                  <ActionMenu.Item
-                    onClick={() => {
-                      setAddHeadingError(null)
-                      setIsAddHeadingModalOpen(true)
-                    }}
-                  >
-                    Overskrift
-                  </ActionMenu.Item>
-                  <ActionMenu.Item
-                    onClick={() => {
-                      setAddTextError(null)
-                      setIsAddTextModalOpen(true)
-                    }}
-                  >
-                    Tekst
-                  </ActionMenu.Item>
-                  <ActionMenu.Item
-                    onClick={() => {
-                      setAddStickyError(null)
-                      setIsAddStickyModalOpen(true)
-                    }}
-                  >
-                    Sticky note
-                  </ActionMenu.Item>
-                </ActionMenu.Content>
-              </ActionMenu>
-            </div>
+            )}
+            {syncError && (
+              <div className="mt-2">
+                <Alert variant="error" size="small" closeButton onClose={() => setSyncError(null)}>
+                  {syncError}
+                </Alert>
+              </div>
+            )}
           </div>
         </div>
 
         <div className="flex h-full">
           <main ref={canvasViewportRef} className="relative flex-1 overflow-auto">
-            <div className="pointer-events-none absolute left-4 top-[68px] z-10 w-[min(640px,calc(100%-2rem))] space-y-2">
-              {!canPersistToDashboard && (
-                <div className="pointer-events-auto">
-                  <Alert variant="warning" size="small">
-                    Canvas er ikke koblet til et dashboard. Åpne canvas fra ProjectManager for lagring.
-                  </Alert>
-                </div>
-              )}
-              {syncError && (
-                <div className="pointer-events-auto">
-                  <Alert variant="error" size="small" closeButton onClose={() => setSyncError(null)}>
-                    {syncError}
-                  </Alert>
-                </div>
-              )}
-            </div>
             <div
               className="relative min-h-[1500px] min-w-[2200px]"
               style={{
                 backgroundImage:
                   'radial-gradient(circle at 1px 1px, var(--ax-border-neutral-subtle) 1px, transparent 0)',
                 backgroundSize: '24px 24px',
+                paddingTop: `${canvasToolbarHeight + 24}px`,
               }}
             >
               {connectionSegments.length > 0 && (
@@ -1289,15 +1724,110 @@ const Canvas = () => {
                       <path
                         d={segment.path}
                         stroke="transparent"
-                        strokeWidth={12}
+                        strokeWidth={16}
                         fill="none"
                         className="pointer-events-auto cursor-pointer"
-                        onClick={() => void handleRemoveConnection(segment.id)}
+                        onMouseEnter={() => setHoveredConnectionId(segment.id)}
+                        onMouseLeave={() =>
+                          setHoveredConnectionId((current) => (current === segment.id ? null : current))
+                        }
+                        onClick={(event) => event.preventDefault()}
                       />
                     </g>
                   ))}
                 </svg>
               )}
+              {connectionPreview && (
+                <svg className="pointer-events-none absolute inset-0 z-[2] h-full w-full overflow-visible">
+                  <defs>
+                    <marker
+                      id="canvas-connection-arrow-preview"
+                      markerWidth="10"
+                      markerHeight="8"
+                      refX="9"
+                      refY="4"
+                      orient="auto"
+                      markerUnits="strokeWidth"
+                    >
+                      <path d="M0,0 L10,4 L0,8 z" fill="var(--ax-border-accent)" />
+                    </marker>
+                  </defs>
+                  <path
+                    d={connectionPreview.path}
+                    stroke="var(--ax-border-accent)"
+                    strokeWidth={3}
+                    strokeDasharray="8 5"
+                    strokeLinecap="round"
+                    fill="none"
+                    markerEnd="url(#canvas-connection-arrow-preview)"
+                  />
+                </svg>
+              )}
+              {connectionSegments
+                .map((segment) => {
+                  const metrics = connectionMetrics[segment.id]
+                  if (!metrics) return null
+
+                  return {
+                    ...segment,
+                    metrics,
+                  }
+                })
+                .filter(
+                  (
+                    item,
+                  ): item is CanvasConnectionVisual & {
+                    metrics: CanvasConnectionMetric
+                  } => item !== null,
+                )
+                .map((segment) => (
+                  <Fragment key={segment.id}>
+                    <div
+                      className="pointer-events-none absolute z-[2] -translate-x-1/2 -translate-y-full"
+                      style={{
+                        left: `${segment.labelX}px`,
+                        top: `${segment.labelY}px`,
+                      }}
+                    >
+                      <div className="min-w-[170px] rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-3 py-2 shadow-sm">
+                        <div className="space-y-2 text-[13px] leading-tight">
+                          <div className="space-y-0.5 text-right">
+                            <div className="font-semibold text-[14px] text-[var(--ax-text-success)]">
+                              {segment.metrics.percentageOfPrev}% gikk videre
+                            </div>
+                            <div className="text-[13px] text-[var(--ax-text-default)]">
+                              {segment.metrics.toCount.toLocaleString('nb-NO')} brukere
+                            </div>
+                          </div>
+                          <div className="h-px bg-[var(--ax-border-neutral-subtle)]" />
+                          <div className="space-y-0.5 text-right">
+                            <div className="font-semibold text-[14px] text-[var(--ax-text-danger)]">
+                              {segment.metrics.dropoffPercentage}% falt fra
+                            </div>
+                            <div className="text-[13px] text-[var(--ax-text-default)]">
+                              {segment.metrics.dropoffCount.toLocaleString('nb-NO')} brukere
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className={`pointer-events-auto absolute z-[2] grid h-7 w-7 place-items-center rounded-full border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] text-[var(--ax-text-subtle)] opacity-0 shadow-sm transition-all hover:scale-105 hover:border-[var(--ax-border-danger)] hover:text-[var(--ax-text-danger)] focus-visible:opacity-100 ${
+                        hoveredConnectionId === segment.id ? 'opacity-100' : ''
+                      }`}
+                      style={{
+                        left: `${segment.midX - 14}px`,
+                        top: `${segment.midY - 14}px`,
+                      }}
+                      onClick={() => void handleRemoveConnection(segment.id)}
+                      title="Fjern kobling"
+                      aria-label="Fjern kobling"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </Fragment>
+                ))}
               {frameItems.map((frame) =>
                 (() => {
                   const defaults = getDefaultFrameSize(frame.kind)
@@ -1306,11 +1836,16 @@ const Canvas = () => {
                       key={frame.id}
                       className={
                         frame.kind === 'website'
-                          ? `group absolute flex flex-col overflow-visible rounded-lg border ${connectSourceFrameId === frame.id ? 'border-[var(--ax-border-accent)] ring-2 ring-[var(--ax-border-accent)]/20' : 'border-[var(--ax-border-neutral-subtle)]'} bg-white shadow-sm`
+                          ? `group absolute flex flex-col overflow-visible rounded-lg border ${
+                              connectionDragState?.sourceFrameId === frame.id ||
+                              connectionDragState?.currentTargetFrameId === frame.id
+                                ? 'border-[var(--ax-border-accent)] ring-2 ring-[var(--ax-border-accent)]/20'
+                                : 'border-[var(--ax-border-neutral-subtle)]'
+                            } bg-white shadow-sm`
                           : frame.kind === 'chart'
                             ? 'group absolute flex flex-col overflow-hidden rounded-lg border border-[var(--ax-border-neutral-subtle)] bg-white shadow-sm'
                             : frame.kind === 'heading'
-                              ? 'group absolute flex flex-col overflow-hidden rounded-xl border border-transparent bg-transparent shadow-none'
+                              ? 'group absolute flex flex-col overflow-hidden rounded-lg border border-transparent bg-transparent shadow-none transition-all hover:border-[var(--ax-border-neutral-subtle)] hover:bg-white/80 hover:shadow-sm focus-within:border-[var(--ax-border-neutral-subtle)] focus-within:bg-white/80 focus-within:shadow-sm'
                               : frame.kind === 'text'
                                 ? 'group absolute flex flex-col overflow-hidden rounded-xl border border-transparent bg-transparent shadow-none'
                                 : 'group absolute flex flex-col overflow-hidden rounded-xl border border-[#f1dc7d] bg-[#fff5b8] shadow-sm'
@@ -1318,28 +1853,39 @@ const Canvas = () => {
                       style={{
                         left: `${frame.x}px`,
                         top: `${frame.y}px`,
-                        width: `${frame.width ?? defaults.width}px`,
-                        height: `${frame.height ?? defaults.height}px`,
-                        minWidth: `${defaults.minWidth}px`,
-                        minHeight: `${defaults.minHeight}px`,
+                        width:
+                          frame.kind === 'heading'
+                            ? `${getHeadingFrameWidth(frame)}px`
+                            : `${frame.width ?? defaults.width}px`,
+                        height:
+                          frame.kind === 'heading'
+                            ? `${getHeadingFrameHeight(frame) + HEADING_CARD_HEADER_HEIGHT}px`
+                            : `${frame.height ?? defaults.height}px`,
+                        minWidth: frame.kind === 'heading' ? `${HEADING_TEXT_MIN_WIDTH}px` : `${defaults.minWidth}px`,
+                        minHeight:
+                          frame.kind === 'heading' ? `${HEADING_CARD_HEADER_HEIGHT + 48}px` : `${defaults.minHeight}px`,
                       }}
                     >
                       <header
                         className={
                           frame.kind === 'website'
                             ? 'flex cursor-move items-center justify-between gap-2 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] px-3 py-2'
-                            : frame.kind === 'sticky'
-                              ? 'flex cursor-move items-center justify-between gap-2 border-b border-[#ebd56d] bg-[#fff1a6] px-2 py-2'
-                              : 'absolute right-2 top-2 z-10 flex items-center justify-end gap-1 opacity-0 transition-opacity pointer-events-none group-hover:opacity-100 group-focus-within:opacity-100 group-hover:pointer-events-auto group-focus-within:pointer-events-auto'
+                            : frame.kind === 'heading'
+                              ? 'flex cursor-move items-center justify-between gap-2 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] px-2 py-2 opacity-0 transition-opacity pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100'
+                              : frame.kind === 'sticky'
+                                ? 'flex cursor-move items-center justify-between gap-2 border-b border-[#ebd56d] bg-[#fff1a6] px-2 py-2'
+                                : 'absolute right-2 top-2 z-10 flex items-center justify-end gap-1 opacity-0 transition-opacity pointer-events-none group-hover:opacity-100 group-focus-within:opacity-100 group-hover:pointer-events-auto group-focus-within:pointer-events-auto'
                         }
                         onMouseDown={
-                          frame.kind === 'website' || frame.kind === 'sticky'
+                          frame.kind === 'website' || frame.kind === 'sticky' || frame.kind === 'heading'
                             ? (event) => handleDragStart(event, frame)
                             : undefined
                         }
                       >
                         <div className="flex min-w-0 items-center gap-2">
-                          {frame.kind === 'website' && <Move size={14} className="text-[var(--ax-text-subtle)]" />}
+                          {(frame.kind === 'website' || frame.kind === 'heading') && (
+                            <Move size={14} className="text-[var(--ax-text-subtle)]" />
+                          )}
                           {frame.kind === 'website' && (
                             <div className="min-w-0 text-sm font-semibold text-[var(--ax-text-default)] break-all">
                               {frame.label}
@@ -1391,62 +1937,78 @@ const Canvas = () => {
                       </header>
 
                       <div
-                        className={`relative flex-1 ${frame.kind === 'website' || frame.kind === 'chart' ? 'bg-white' : 'px-2 pb-2'}`}
+                        className={`relative flex-1 ${frame.kind === 'website' || frame.kind === 'chart' ? 'overflow-hidden bg-white' : 'px-2 pb-2'}`}
                       >
                         {frame.kind === 'website' && (
                           <div className="pointer-events-none absolute inset-y-0 left-0 right-0 z-20 overflow-visible">
                             <button
                               type="button"
-                              className={`pointer-events-auto absolute left-[-12px] top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-transparent opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${
-                                connectSourceFrameId === frame.id ? 'opacity-100' : ''
+                              className={`pointer-events-auto absolute left-[-12px] top-1/2 flex h-6 w-6 -translate-y-1/2 cursor-grab items-center justify-center rounded-full bg-transparent opacity-0 transition-opacity active:cursor-grabbing group-hover:opacity-100 group-focus-within:opacity-100 ${
+                                connectionDragState?.sourceFrameId === frame.id ? 'opacity-100' : ''
                               }`}
                               aria-label="Kobling"
-                              title={connectSourceFrameId ? 'Koble hit' : 'Start kobling'}
-                              onClick={() => void handleConnectionDotClick(frame)}
-                              onMouseDown={(event) => event.stopPropagation()}
+                              title="Dra for å koble"
+                              onMouseDown={(event) => startConnectionDrag(event, frame)}
                             >
                               <span
                                 aria-hidden="true"
                                 className={`pointer-events-none h-3.5 w-3.5 rounded-full border border-[var(--ax-border-accent)] bg-[var(--ax-bg-default)] shadow-sm ${
-                                  connectSourceFrameId === frame.id ? 'bg-[var(--ax-border-accent)]' : ''
+                                  connectionDragState?.sourceFrameId === frame.id ? 'bg-[var(--ax-border-accent)]' : ''
                                 }`}
                               />
                             </button>
                             <button
                               type="button"
-                              className={`pointer-events-auto absolute right-[-12px] top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-transparent opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${
-                                connectSourceFrameId === frame.id ? 'opacity-100' : ''
+                              className={`pointer-events-auto absolute right-[-12px] top-1/2 flex h-6 w-6 -translate-y-1/2 cursor-grab items-center justify-center rounded-full bg-transparent opacity-0 transition-opacity active:cursor-grabbing group-hover:opacity-100 group-focus-within:opacity-100 ${
+                                connectionDragState?.sourceFrameId === frame.id ? 'opacity-100' : ''
                               }`}
                               aria-label="Kobling"
-                              title={connectSourceFrameId ? 'Koble hit' : 'Start kobling'}
-                              onClick={() => void handleConnectionDotClick(frame)}
-                              onMouseDown={(event) => event.stopPropagation()}
+                              title="Dra for å koble"
+                              onMouseDown={(event) => startConnectionDrag(event, frame)}
                             >
                               <span
                                 aria-hidden="true"
                                 className={`pointer-events-none h-3.5 w-3.5 rounded-full border border-[var(--ax-border-accent)] bg-[var(--ax-bg-default)] shadow-sm ${
-                                  connectSourceFrameId === frame.id ? 'bg-[var(--ax-border-accent)]' : ''
+                                  connectionDragState?.sourceFrameId === frame.id ? 'bg-[var(--ax-border-accent)]' : ''
                                 }`}
                               />
                             </button>
                           </div>
                         )}
                         {frame.kind === 'website' && frame.src && frame.renderWebsite !== false ? (
-                          <iframe
-                            key={`${frame.id}-${frame.refreshNonce}`}
-                            title={`Canvas-side ${frame.label}`}
-                            src={frame.src}
-                            className="h-full w-full"
-                            loading="lazy"
-                            sandbox="allow-same-origin allow-scripts allow-forms"
-                          />
+                          <div className="h-full w-full overflow-y-auto overflow-x-hidden bg-white">
+                            {isImagePreviewUrl(frame.previewUrl || frame.targetUrl || '') ? (
+                              <img
+                                key={`${frame.id}-${frame.refreshNonce}`}
+                                alt={frame.label}
+                                src={frame.previewUrl || frame.targetUrl}
+                                className="block h-auto w-full max-w-full"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <iframe
+                                key={`${frame.id}-${frame.refreshNonce}`}
+                                title={`Canvas-side ${frame.label}`}
+                                src={frame.src}
+                                className="h-full w-full"
+                                loading="lazy"
+                                sandbox="allow-same-origin allow-scripts allow-forms"
+                              />
+                            )}
+                          </div>
                         ) : frame.kind === 'website' ? (
                           <div className="flex h-full items-center justify-center px-6 text-center">
                             <div className="space-y-2">
                               <p className="text-sm font-semibold text-[var(--ax-text-default)]">{frame.label}</p>
                               {frame.targetUrl && (
-                                <Link href={frame.targetUrl} target="_blank" rel="noopener noreferrer">
-                                  Åpne nettside i ny fane
+                                <Link
+                                  href={frame.targetUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5"
+                                >
+                                  <span>Åpne nettside</span>
+                                  <ExternalLink size={14} aria-hidden="true" />
                                 </Link>
                               )}
                             </div>
@@ -1460,21 +2022,22 @@ const Canvas = () => {
                                 type: frame.chartType,
                                 sql: frame.chartSql,
                               }}
-                              websiteId={websiteId}
+                              websiteId={selectedWebsite?.id}
                               filters={dashboardWidgetFilters}
                               chartLinksEnabled={false}
                             />
                           </div>
                         ) : frame.kind === 'heading' ? (
-                          <div className="h-full overflow-auto px-2 pb-2">
+                          <div className="overflow-visible px-2 py-2">
                             <textarea
                               value={frame.headingText || ''}
                               onChange={(event) => handleEditableFrameChange(frame.id, event.target.value)}
                               onBlur={() => handleEditableFrameBlur(frame.id)}
                               onMouseDown={(event) => event.stopPropagation()}
                               placeholder="Skriv overskrift"
-                              className="h-full w-full resize-none overflow-auto border-none bg-transparent p-0 text-[var(--ax-text-default)] outline-none placeholder:text-[var(--ax-text-subtle)] [font-family:inherit]"
-                              style={{ fontSize: '42px', lineHeight: 1.1, fontWeight: 700 }}
+                              className="block w-full resize-none overflow-hidden border-none bg-transparent p-0 text-[var(--ax-text-default)] outline-none placeholder:text-[var(--ax-text-subtle)] [font-family:inherit]"
+                              style={{ fontSize: '22px', lineHeight: 1.15, fontWeight: 700 }}
+                              rows={1}
                             />
                           </div>
                         ) : frame.kind === 'text' ? (
@@ -1547,6 +2110,16 @@ const Canvas = () => {
               }}
               autoFocus
             />
+            <TextField
+              size="small"
+              label="Valgfri visnings-URL"
+              value={newPagePreviewUrlInput}
+              onChange={(event) => {
+                setNewPagePreviewUrlInput(event.target.value)
+                if (addPageError) setAddPageError(null)
+              }}
+              helpText="Vises i kortet i stedet for nettsiden. Kan være en image- eller innholdsside."
+            />
             {addPageError && <Alert variant="error">{addPageError}</Alert>}
           </div>
         </Modal.Body>
@@ -1581,6 +2154,16 @@ const Canvas = () => {
                 if (editWebsiteError) setEditWebsiteError(null)
               }}
               autoFocus
+            />
+            <TextField
+              size="small"
+              label="Valgfri visnings-URL"
+              value={editWebsitePreviewUrlInput}
+              onChange={(event) => {
+                setEditWebsitePreviewUrlInput(event.target.value)
+                if (editWebsiteError) setEditWebsiteError(null)
+              }}
+              helpText="Vises i kortet i stedet for nettsiden. Kan være en image- eller innholdsside."
             />
             <Switch
               size="small"

@@ -168,6 +168,7 @@ const FunnelCanvasView = ({ data, loading, websiteId, period = 'current_month', 
             const label = getStepLabel(item.params)
             const destination = getStepDestination(item.params) || item.url
             const iframeSrc = item.url?.startsWith('/') ? createPreviewProxySrc(domain, item.url) : ''
+            const funnelMetrics = index > 0 ? computeFunnelStepMetrics(data, index) : null
 
             const { totalConversionPercent } = computeFunnelStepMetrics(data, index)
 
@@ -202,6 +203,28 @@ const FunnelCanvasView = ({ data, loading, websiteId, period = 'current_month', 
                       <div className="text-sm text-[var(--ax-text-subtle)]">
                         {item.count.toLocaleString('nb-NO')} brukere ({totalConversionPercent}% av steg 1)
                       </div>
+                      {funnelMetrics && (
+                        <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
+                          <div className="rounded-md border border-[var(--ax-border-success-subtle)] bg-[var(--ax-bg-success-soft)] px-2 py-1.5 text-center">
+                            <div className="font-bold text-[var(--ax-text-success)]">
+                              {funnelMetrics.percentageOfPrev}%
+                            </div>
+                            <div className="text-[var(--ax-text-success)]">gikk videre</div>
+                            <div className="font-semibold text-[var(--ax-text-success)]">
+                              {item.count.toLocaleString('nb-NO')} brukere
+                            </div>
+                          </div>
+                          <div className="rounded-md border border-[var(--ax-border-danger-subtle)] bg-[var(--ax-bg-danger-soft)] px-2 py-1.5 text-center">
+                            <div className="font-bold text-[var(--ax-text-danger)]">
+                              {funnelMetrics.dropoffPercentage}%
+                            </div>
+                            <div className="text-[var(--ax-text-danger)]">falt fra</div>
+                            <div className="font-semibold text-[var(--ax-text-danger)]">
+                              {funnelMetrics.dropoffCount.toLocaleString('nb-NO')} brukere
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {websiteId && item.url?.startsWith('/') && (
