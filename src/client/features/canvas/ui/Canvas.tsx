@@ -3219,11 +3219,9 @@ const Canvas = () => {
               </Select>
             )}
             {addChartError && <Alert variant="error">{addChartError}</Alert>}
-            {!isLoadingChartOptions && chartOptions.length === 0 && !addChartError && (
-              <Link href="/grafbygger" target="_blank" rel="noopener noreferrer">
-                Lag en graf i Grafbyggeren (åpnes i ny fane)
-              </Link>
-            )}
+            <Link href="/grafbygger" target="_blank" rel="noopener noreferrer">
+              Lag en graf i Grafbyggeren (åpnes i ny fane)
+            </Link>
           </div>
         </Modal.Body>
         <Modal.Footer>
