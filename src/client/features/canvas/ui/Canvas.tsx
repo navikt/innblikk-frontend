@@ -146,6 +146,7 @@ type CanvasChartOption = {
 }
 
 const CANVAS_DASHBOARD_TOKEN = '[canvas]'
+const CANVAS_WEBSITE_ID_TOKEN_REGEX = /\[websiteId:([^\]]+)\]/i
 const CANVAS_QUERY_NAME = 'canvas-config'
 const CANVAS_SURFACE_WIDTH = 2200
 const CANVAS_SURFACE_HEIGHT = 1500
@@ -156,13 +157,51 @@ const CANVAS_ZOOM_STEP = 0.1
 const HEADING_FONT_SIZE_DEFAULT = 40
 
 const clampCanvasZoom = (value: number): number => Math.min(CANVAS_ZOOM_MAX, Math.max(CANVAS_ZOOM_MIN, value))
-const normalizeInputToTargetUrl = (value: string): string | null => {
+
+const extractCanvasWebsiteIdFromDescription = (description?: string): string | null => {
+  if (!description) return null
+  const match = description.match(CANVAS_WEBSITE_ID_TOKEN_REGEX)
+  const websiteId = match?.[1]?.trim()
+  return websiteId || null
+}
+
+const buildCanvasDashboardDescription = (description: string | undefined, websiteId?: string): string => {
+  const withoutCanvasToken = (description ?? '')
+    .replace(/\[canvas\]/gi, ' ')
+    .replace(CANVAS_WEBSITE_ID_TOKEN_REGEX, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  const tokens = [CANVAS_DASHBOARD_TOKEN]
+  if (websiteId?.trim()) {
+    tokens.push(`[websiteId:${websiteId.trim()}]`)
+  }
+  if (withoutCanvasToken) {
+    tokens.push(withoutCanvasToken)
+  }
+  return tokens.join(' ')
+}
+
+const normalizeInputToTargetUrl = (value: string, websiteDomain?: string): string | null => {
   const trimmed = value.trim()
   if (!trimmed) return null
 
+  const originFromWebsiteDomain = (() => {
+    if (!websiteDomain) return null
+    const withProtocol =
+      websiteDomain.startsWith('http://') || websiteDomain.startsWith('https://')
+        ? websiteDomain
+        : `https://${websiteDomain}`
+    try {
+      return new URL(withProtocol).origin
+    } catch {
+      return null
+    }
+  })()
+
   if (trimmed.startsWith('/')) {
     try {
-      const url = new URL(trimmed, 'https://www.nav.no/')
+      const baseUrl = originFromWebsiteDomain ?? 'https://www.nav.no/'
+      const url = new URL(trimmed, baseUrl)
       url.hash = ''
       return url.toString()
     } catch {
@@ -365,6 +404,8 @@ const Canvas = () => {
   const canPersistToDashboard = projectId !== null && dashboardId !== null
   const projectManagerHref = projectId !== null ? `/dashboard?projectId=${projectId}` : '/dashboard'
   const [canvasTitle, setCanvasTitle] = useState('Canvas')
+  const [canvasDashboardDescription, setCanvasDashboardDescription] = useState(CANVAS_DASHBOARD_TOKEN)
+  const [canvasConfiguredWebsiteId, setCanvasConfiguredWebsiteId] = useState<string | null>(null)
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
   const [period, setPeriodState] = useState<string>(() =>
     getStoredPeriod(new URLSearchParams(window.location.search).get('period')),
@@ -496,8 +537,10 @@ const Canvas = () => {
 
   useEffect(() => {
     if (selectedWebsite) return
+    const websiteIdFromConfig = canvasConfiguredWebsiteId
     const websiteIdFromUrl = new URLSearchParams(window.location.search).get('websiteId')
-    if (!websiteIdFromUrl) return
+    const websiteIdToUse = websiteIdFromConfig || websiteIdFromUrl
+    if (!websiteIdToUse) return
 
     let isActive = true
     fetch('/api/bigquery/websites')
@@ -505,7 +548,7 @@ const Canvas = () => {
       .then((payload) => {
         if (!isActive) return
         const websites = Array.isArray(payload?.data) ? payload.data : []
-        const matchedWebsite = websites.find((item) => item.id === websiteIdFromUrl) ?? null
+        const matchedWebsite = websites.find((item) => item.id === websiteIdToUse) ?? null
         if (matchedWebsite) {
           setSelectedWebsite(matchedWebsite)
         }
@@ -517,7 +560,7 @@ const Canvas = () => {
     return () => {
       isActive = false
     }
-  }, [selectedWebsite])
+  }, [canvasConfiguredWebsiteId, selectedWebsite])
 
   const frameItems = useMemo(
     () =>
@@ -897,9 +940,14 @@ const Canvas = () => {
         if (!isActive) return
         const dashboard = dashboards.find((item) => item.id === dashboardId)
         setCanvasTitle(dashboard?.name?.trim() || 'Canvas')
+        const dashboardDescription = dashboard?.description || CANVAS_DASHBOARD_TOKEN
+        setCanvasDashboardDescription(dashboardDescription)
+        setCanvasConfiguredWebsiteId(extractCanvasWebsiteIdFromDescription(dashboardDescription))
       } catch {
         if (!isActive) return
         setCanvasTitle('Canvas')
+        setCanvasDashboardDescription(CANVAS_DASHBOARD_TOKEN)
+        setCanvasConfiguredWebsiteId(null)
       }
     }
 
@@ -933,14 +981,14 @@ const Canvas = () => {
   }, [])
 
   const handleAddPage = async () => {
-    const targetUrl = normalizeInputToTargetUrl(newPagePathInput)
+    const targetUrl = normalizeInputToTargetUrl(newPagePathInput, selectedWebsite?.domain)
     if (!targetUrl) {
       setAddPageError('Legg inn en gyldig URL, for eksempel https://www.nav.no/aap.')
       return
     }
 
     const previewInput = newPagePreviewUrlInput.trim()
-    const previewUrl = previewInput ? normalizeInputToTargetUrl(previewInput) : undefined
+    const previewUrl = previewInput ? normalizeInputToTargetUrl(previewInput, selectedWebsite?.domain) : undefined
     if (!newPageRenderEnabled && previewInput && !previewUrl) {
       setAddPageError('Legg inn en gyldig visnings-URL, for eksempel https://www.nav.no/...')
       return
@@ -1007,14 +1055,14 @@ const Canvas = () => {
   const handleSaveEditedWebsite = async () => {
     if (!editWebsiteFrameId) return
 
-    const targetUrl = normalizeInputToTargetUrl(editWebsitePathInput)
+    const targetUrl = normalizeInputToTargetUrl(editWebsitePathInput, selectedWebsite?.domain)
     if (!targetUrl) {
       setEditWebsiteError('Legg inn en gyldig URL, for eksempel https://www.nav.no/aap.')
       return
     }
 
     const previewInput = editWebsitePreviewUrlInput.trim()
-    const previewUrl = previewInput ? normalizeInputToTargetUrl(previewInput) : undefined
+    const previewUrl = previewInput ? normalizeInputToTargetUrl(previewInput, selectedWebsite?.domain) : undefined
     if (!editWebsiteRenderEnabled && previewInput && !previewUrl) {
       setEditWebsiteError('Legg inn en gyldig visnings-URL, for eksempel https://www.nav.no/...')
       return
@@ -1910,8 +1958,11 @@ const Canvas = () => {
     try {
       setIsSavingCanvasItem(true)
       setSyncError(null)
-      await updateDashboard(projectId, dashboardId, { name: nextName })
+      const nextDescription = buildCanvasDashboardDescription(canvasDashboardDescription, selectedWebsite?.id)
+      await updateDashboard(projectId, dashboardId, { name: nextName, description: nextDescription })
       setCanvasTitle(nextName)
+      setCanvasDashboardDescription(nextDescription)
+      setCanvasConfiguredWebsiteId(selectedWebsite?.id ?? null)
       setIsCanvasSettingsModalOpen(false)
       setRenameCanvasError(null)
     } catch (error) {
@@ -2677,6 +2728,7 @@ const Canvas = () => {
             <WebsitePicker
               selectedWebsite={selectedWebsite}
               onWebsiteChange={setSelectedWebsite}
+              disableAutoRestore
               variant="default"
               customLabel="Nettside"
             />
