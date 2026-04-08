@@ -78,6 +78,10 @@ type CanvasConnectionVisual = {
   path: string
   labelX: number
   labelY: number
+  midX: number
+  midY: number
+  endX: number
+  endY: number
   fromUrl?: string
   toUrl?: string
 }
@@ -708,7 +712,7 @@ const Canvas = () => {
       id: `${Date.now()}-${Math.random()}`,
       kind: 'website',
       targetUrl,
-      previewUrl: newPageRenderEnabled ? undefined : previewUrl,
+      previewUrl: newPageRenderEnabled ? undefined : (previewUrl ?? undefined),
       renderWebsite: newPageRenderEnabled,
       label: getFrameLabel(targetUrl),
       x: 80 + column * 460,
@@ -780,7 +784,7 @@ const Canvas = () => {
     const updatedFrame: CanvasFrame = {
       ...currentFrame,
       targetUrl,
-      previewUrl: editWebsiteRenderEnabled ? undefined : previewUrl,
+      previewUrl: editWebsiteRenderEnabled ? undefined : (previewUrl ?? undefined),
       renderWebsite: editWebsiteRenderEnabled,
       label: getFrameLabel(targetUrl),
       refreshNonce: currentFrame.refreshNonce + 1,
@@ -1400,8 +1404,8 @@ const Canvas = () => {
             midY: number
             endX: number
             endY: number
-            fromUrl?: string
-            toUrl?: string
+            fromUrl: string | undefined
+            toUrl: string | undefined
           } => item !== null,
         ),
     [connections, resolveConnectionFrame, getFrameAnchor],
@@ -2046,7 +2050,7 @@ const Canvas = () => {
                                 type: frame.chartType,
                                 sql: frame.chartSql,
                               }}
-                              websiteId={selectedWebsite?.id}
+                              websiteId={selectedWebsite?.id ?? ''}
                               filters={dashboardWidgetFilters}
                               chartLinksEnabled={false}
                             />
@@ -2158,7 +2162,7 @@ const Canvas = () => {
                   setNewPagePreviewUrlInput(event.target.value)
                   if (addPageError) setAddPageError(null)
                 }}
-                helpText="Vises i kortet i stedet for nettsiden. Kan være en image- eller innholdsside."
+                description="Vises i kortet i stedet for nettsiden. Kan være en image- eller innholdsside."
               />
             )}
             {addPageError && <Alert variant="error">{addPageError}</Alert>}
@@ -2215,7 +2219,7 @@ const Canvas = () => {
                   setEditWebsitePreviewUrlInput(event.target.value)
                   if (editWebsiteError) setEditWebsiteError(null)
                 }}
-                helpText="Vises i kortet i stedet for nettsiden. Kan være en image- eller innholdsside."
+                description="Vises i kortet i stedet for nettsiden. Kan være en image- eller innholdsside."
               />
             )}
             {editWebsiteError && <Alert variant="error">{editWebsiteError}</Alert>}
