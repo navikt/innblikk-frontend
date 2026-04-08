@@ -3128,7 +3128,7 @@ const Canvas = () => {
                             />
                             <div
                               className={`pointer-events-none absolute z-30 ${
-                                frame.kind === 'heading' ? 'right-0 -top-10 flex items-center gap-1' : 'right-2 top-2'
+                                frame.kind === 'heading' ? 'right-0 -top-6 flex items-center gap-1' : 'right-2 top-2'
                               }`}
                             >
                               {(frame.kind === 'image' || (frame.kind === 'website' && frame.isInternalDashboard)) && (
