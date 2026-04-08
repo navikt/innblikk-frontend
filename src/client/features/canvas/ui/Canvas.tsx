@@ -31,6 +31,9 @@ import {
   updateDashboard,
   updateQuery,
 } from '../../oversikt/api/oversiktApi.ts'
+import type { GraphType, OversiktChart } from '../../oversikt/model/types.ts'
+import EditChartDialog from '../../oversikt/ui/dialogs/EditChartDialog.tsx'
+import DeleteChartDialog from '../../oversikt/ui/dialogs/DeleteChartDialog.tsx'
 import type { FunnelStep } from '../../funnel/model/types.ts'
 import type { Website } from '../../../shared/types/website.ts'
 import { useCookieStartDate, useCookieSupport } from '../../../shared/hooks/useSiteimproveSupport.ts'
@@ -160,6 +163,13 @@ const CANVAS_ZOOM_STEP = 0.1
 const HEADING_FONT_SIZE_DEFAULT = 40
 
 const clampCanvasZoom = (value: number): number => Math.min(CANVAS_ZOOM_MAX, Math.max(CANVAS_ZOOM_MIN, value))
+
+const mapCanvasChartTypeToGraphType = (chartType: CanvasChartType): GraphType => {
+  if (chartType === 'line') return 'LINE'
+  if (chartType === 'bar') return 'BAR'
+  if (chartType === 'pie') return 'PIE'
+  return 'TABLE'
+}
 
 const extractCanvasWebsiteIdFromDescription = (description?: string): string | null => {
   if (!description) return null
@@ -510,6 +520,13 @@ const Canvas = () => {
   const [selectedChartOptionId, setSelectedChartOptionId] = useState('')
   const [isLoadingChartOptions, setIsLoadingChartOptions] = useState(false)
   const [addChartError, setAddChartError] = useState<string | null>(null)
+  const [editChartFrameId, setEditChartFrameId] = useState<string | null>(null)
+  const [editChartTarget, setEditChartTarget] = useState<OversiktChart | null>(null)
+  const [deleteChartFrameId, setDeleteChartFrameId] = useState<string | null>(null)
+  const [deleteChartTarget, setDeleteChartTarget] = useState<OversiktChart | null>(null)
+  const [chartMutationError, setChartMutationError] = useState<string | null>(null)
+  const [savingEditChart, setSavingEditChart] = useState(false)
+  const [deletingChart, setDeletingChart] = useState(false)
   const [dragState, setDragState] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null)
   const [resizeState, setResizeState] = useState<{
     id: string
@@ -1868,6 +1885,114 @@ const Canvas = () => {
     }
   }
 
+  const getOversiktChartFromCanvasFrame = useCallback(
+    (frame: CanvasFrame): OversiktChart | null => {
+      if (frame.kind !== 'chart' || !frame.chartSql || !frame.chartType) return null
+      return {
+        id: `canvas-chart-${frame.id}`,
+        title: frame.label || 'Graf',
+        type: frame.chartType,
+        sql: frame.chartSql,
+        width: 'full',
+        graphId: frame.graphId ?? 0,
+        graphType: mapCanvasChartTypeToGraphType(frame.chartType),
+        queryId: frame.queryId ?? 1,
+        queryName: CANVAS_QUERY_NAME,
+        categoryId: frame.categoryId ?? canvasCategoryId ?? 0,
+      }
+    },
+    [canvasCategoryId],
+  )
+
+  const handleOpenEditChartModal = (frame: CanvasFrame) => {
+    const chart = getOversiktChartFromCanvasFrame(frame)
+    if (!chart) {
+      setChartMutationError('Kunne ikke laste graf for redigering')
+      return
+    }
+    setEditChartFrameId(frame.id)
+    setEditChartTarget(chart)
+    setChartMutationError(null)
+  }
+
+  const handleOpenDeleteChartModal = (frame: CanvasFrame) => {
+    const chart = getOversiktChartFromCanvasFrame(frame)
+    if (!chart) {
+      setChartMutationError('Kunne ikke laste graf for sletting')
+      return
+    }
+    setDeleteChartFrameId(frame.id)
+    setDeleteChartTarget(chart)
+    setChartMutationError(null)
+  }
+
+  const handleSaveEditedChart = async (params: {
+    name: string
+    graphType: GraphType
+    sqlText: string
+    width: number
+    websiteId?: string
+    dashboardId?: number
+    addAsVariant?: boolean
+    variantName?: string
+    newVariants?: Array<{ name: string; sqlText: string }>
+    targetQueryId?: number
+    targetQueryName?: string
+  }) => {
+    if (!editChartFrameId) return
+    const currentFrame = frames.find((frame) => frame.id === editChartFrameId)
+    if (!currentFrame || currentFrame.kind !== 'chart') return
+
+    const nextChartType = mapGraphTypeToChart(params.graphType)
+    if (nextChartType === 'text' || nextChartType === 'title' || nextChartType === 'siteimprove') {
+      setChartMutationError('Ugyldig graftype for canvas')
+      return
+    }
+
+    const sqlText = params.sqlText.trim()
+    if (!sqlText) {
+      setChartMutationError('SQL-kode kan ikke være tom')
+      return
+    }
+
+    const updatedFrame: CanvasFrame = {
+      ...currentFrame,
+      label: params.name.trim() || currentFrame.label,
+      chartType: nextChartType,
+      chartSql: sqlText,
+      refreshNonce: currentFrame.refreshNonce + 1,
+    }
+
+    try {
+      setSavingEditChart(true)
+      setSyncError(null)
+      setChartMutationError(null)
+      const persistedFrame = await persistFrame(updatedFrame)
+      setFrames((prev) => prev.map((frame) => (frame.id === editChartFrameId ? persistedFrame : frame)))
+      setEditChartTarget(null)
+      setEditChartFrameId(null)
+    } catch (error) {
+      setChartMutationError(error instanceof Error ? error.message : 'Kunne ikke oppdatere graf')
+    } finally {
+      setSavingEditChart(false)
+    }
+  }
+
+  const handleDeleteChart = async () => {
+    if (!deleteChartFrameId) return
+    try {
+      setDeletingChart(true)
+      setChartMutationError(null)
+      await handleRemovePage(deleteChartFrameId)
+      setDeleteChartTarget(null)
+      setDeleteChartFrameId(null)
+    } catch (error) {
+      setChartMutationError(error instanceof Error ? error.message : 'Kunne ikke slette graf')
+    } finally {
+      setDeletingChart(false)
+    }
+  }
+
   const handleDragStart = (event: React.MouseEvent, frame: CanvasFrame) => {
     const pointer = getCanvasPointerPosition(event.clientX, event.clientY)
     if (!pointer) return
@@ -3119,7 +3244,8 @@ const Canvas = () => {
                                 websiteId={selectedWebsite?.id ?? ''}
                                 filters={dashboardWidgetFilters}
                                 chartLinksEnabled={false}
-                                onDeleteChart={() => handleRequestRemoveFrame(frame)}
+                                onEditChart={() => handleOpenEditChartModal(frame)}
+                                onDeleteChart={() => handleOpenDeleteChartModal(frame)}
                               />
                             </div>
                           ) : frame.kind === 'heading' ? (
@@ -3658,6 +3784,35 @@ const Canvas = () => {
           </Button>
         </Modal.Footer>
       </Modal>
+
+      <EditChartDialog
+        key={editChartTarget?.id ?? 'canvas-edit-chart-dialog'}
+        open={Boolean(editChartTarget)}
+        chart={editChartTarget}
+        defaultWebsiteId={selectedWebsite?.id}
+        loading={savingEditChart}
+        error={chartMutationError}
+        defaultShowSql
+        onClose={() => {
+          setEditChartTarget(null)
+          setEditChartFrameId(null)
+          setChartMutationError(null)
+        }}
+        onSave={handleSaveEditedChart}
+      />
+
+      <DeleteChartDialog
+        open={Boolean(deleteChartTarget)}
+        chart={deleteChartTarget}
+        loading={deletingChart}
+        error={chartMutationError}
+        onClose={() => {
+          setDeleteChartTarget(null)
+          setDeleteChartFrameId(null)
+          setChartMutationError(null)
+        }}
+        onConfirm={handleDeleteChart}
+      />
 
       <Modal
         open={Boolean(deleteTarget)}
