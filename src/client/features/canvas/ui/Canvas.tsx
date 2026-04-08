@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActionMenu, Alert, Button, Link, Loader, Modal, Select, Switch, TextField, Textarea } from '@navikt/ds-react'
-import { ChartNoAxesCombined, Edit2, ExternalLink, Minus, Move, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { ChartNoAxesCombined, Edit2, ExternalLink, Minus, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import { computeFunnelStepMetrics } from '../../analysis/utils/horizontalFunnel.ts'
@@ -2199,9 +2199,6 @@ const Canvas = () => {
                           }
                         >
                           <div className="flex min-w-0 items-center gap-2">
-                            {(frame.kind === 'website' || frame.kind === 'heading' || frame.kind === 'chart') && (
-                              <Move size={14} className="text-[var(--ax-text-subtle)]" />
-                            )}
                             {(frame.kind === 'website' || frame.kind === 'chart') && (
                               <div className="min-w-0 text-sm font-semibold text-[var(--ax-text-default)] break-all">
                                 {frame.label}
