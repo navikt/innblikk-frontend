@@ -1,6 +1,6 @@
 import { Fragment, createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActionMenu, Alert, Button, Link, Loader, Modal, Select, Switch, TextField, Textarea } from '@navikt/ds-react'
-import { ChartNoAxesCombined, Edit2, ExternalLink, Minus, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { ChartNoAxesCombined, Edit2, ExternalLink, Minus, MoreVertical, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import { computeFunnelStepMetrics } from '../../analysis/utils/horizontalFunnel.ts'
@@ -481,7 +481,6 @@ const Canvas = () => {
     [activeInsightFrameId, frames],
   )
 
-  const activeInsightState = activeInsightFrameId ? (pageInsights[activeInsightFrameId] ?? null) : null
   const activeInsightPeriodLabel = useMemo(
     () => getCanvasPeriodLabel(period, customStartDate, customEndDate),
     [period, customStartDate, customEndDate],
@@ -971,9 +970,9 @@ const Canvas = () => {
     setIsEditWebsiteModalOpen(true)
   }
 
-  const handleOpenInsightModal = (frame: CanvasFrame) => {
+  const handleToggleInsightPanel = (frame: CanvasFrame) => {
     if (frame.kind !== 'website') return
-    setActiveInsightFrameId(frame.id)
+    setActiveInsightFrameId((current) => (current === frame.id ? null : frame.id))
   }
 
   const handleSaveEditedWebsite = async () => {
@@ -2114,6 +2113,8 @@ const Canvas = () => {
                 {frameItems.map((frame) =>
                   (() => {
                     const defaults = getDefaultFrameSize(frame.kind)
+                    const isWebsiteInsightOpen = frame.kind === 'website' && activeInsightFrameId === frame.id
+                    const websiteInsight = pageInsights[frame.id]
                     return (
                       <article
                         key={frame.id}
@@ -2169,37 +2170,45 @@ const Canvas = () => {
                                 variant="tertiary"
                                 icon={<ChartNoAxesCombined size={14} />}
                                 onMouseDown={(event) => event.stopPropagation()}
-                                onClick={() => handleOpenInsightModal(frame)}
-                                title={selectedWebsite ? 'Vis innsikt' : 'Velg nettsted først'}
-                                aria-label="Vis innsikt"
+                                onClick={() => handleToggleInsightPanel(frame)}
+                                title={selectedWebsite ? 'Vis/skjul innsikt' : 'Velg nettsted først'}
+                                aria-label={activeInsightFrameId === frame.id ? 'Skjul innsikt' : 'Vis innsikt'}
                                 disabled={!selectedWebsite}
-                              />
-                              <Button
-                                size="xsmall"
-                                variant="tertiary"
-                                icon={<Edit2 size={14} />}
-                                onMouseDown={(event) => event.stopPropagation()}
-                                onClick={() => handleOpenEditWebsiteModal(frame)}
-                                title="Rediger nettside"
-                                aria-label="Rediger nettside"
-                              />
-                              <Button
-                                size="xsmall"
-                                variant="tertiary"
-                                icon={<RefreshCw size={14} />}
-                                onMouseDown={(event) => event.stopPropagation()}
-                                onClick={() => handleRefreshFrame(frame.id)}
-                                title="Last inn på nytt"
-                                aria-label="Last inn på nytt"
-                              />
-                              <Button
-                                size="xsmall"
-                                variant="tertiary"
-                                icon={<Trash2 size={14} />}
-                                onClick={() => handleRequestRemoveFrame(frame)}
-                                title="Fjern kort"
-                                aria-label="Fjern kort"
-                              />
+                              >
+                                {activeInsightFrameId === frame.id ? 'Skjul innsikt' : 'Vis innsikt'}
+                              </Button>
+                              <ActionMenu>
+                                <ActionMenu.Trigger>
+                                  <Button
+                                    size="xsmall"
+                                    variant="tertiary"
+                                    icon={<MoreVertical size={14} />}
+                                    onMouseDown={(event) => event.stopPropagation()}
+                                    title="Flere valg"
+                                    aria-label="Flere valg"
+                                  />
+                                </ActionMenu.Trigger>
+                                <ActionMenu.Content align="end">
+                                  <ActionMenu.Item onClick={() => handleRefreshFrame(frame.id)}>
+                                    <span className="inline-flex items-center gap-2">
+                                      <RefreshCw size={14} aria-hidden="true" />
+                                      <span>Last inn på nytt</span>
+                                    </span>
+                                  </ActionMenu.Item>
+                                  <ActionMenu.Item onClick={() => handleOpenEditWebsiteModal(frame)}>
+                                    <span className="inline-flex items-center gap-2">
+                                      <Edit2 size={14} aria-hidden="true" />
+                                      <span>Rediger nettside</span>
+                                    </span>
+                                  </ActionMenu.Item>
+                                  <ActionMenu.Item onClick={() => handleRequestRemoveFrame(frame)}>
+                                    <span className="inline-flex items-center gap-2">
+                                      <Trash2 size={14} aria-hidden="true" />
+                                      <span>Fjern kort</span>
+                                    </span>
+                                  </ActionMenu.Item>
+                                </ActionMenu.Content>
+                              </ActionMenu>
                             </div>
                           </header>
                         )}
@@ -2296,41 +2305,145 @@ const Canvas = () => {
                             </div>
                           )}
                           {frame.kind === 'website' && frame.src && frame.displayUrl ? (
-                            <div className="h-full w-full overflow-y-auto overflow-x-hidden bg-white">
-                              {isImagePreviewUrl(frame.displayUrl) ? (
-                                <img
-                                  key={`${frame.id}-${frame.refreshNonce}`}
-                                  alt={frame.label}
-                                  src={frame.src}
-                                  className="block h-auto w-full max-w-full"
-                                  loading="lazy"
-                                />
-                              ) : (
-                                <iframe
-                                  key={`${frame.id}-${frame.refreshNonce}`}
-                                  title={`Canvas-side ${frame.label}`}
-                                  src={frame.src}
-                                  className="h-full w-full"
-                                  loading="lazy"
-                                  sandbox="allow-same-origin allow-scripts allow-forms"
-                                />
+                            <div className="flex h-full flex-col bg-white">
+                              {isWebsiteInsightOpen && (
+                                <div className="shrink-0 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] p-3">
+                                  <div className="text-xs font-semibold uppercase tracking-wide text-[var(--ax-text-subtle)]">
+                                    Sideinnsikt
+                                  </div>
+                                  <div className="mt-1 text-sm text-[var(--ax-text-subtle)]">
+                                    Periode: {activeInsightPeriodLabel}
+                                  </div>
+                                  {websiteInsight?.loading ? (
+                                    <div className="mt-2 flex items-center gap-2 text-sm text-[var(--ax-text-subtle)]">
+                                      <Loader size="xsmall" />
+                                      <span>Henter innsikt...</span>
+                                    </div>
+                                  ) : websiteInsight?.error ? (
+                                    <div className="mt-2">
+                                      <Alert variant="error" size="small">
+                                        {websiteInsight.error}
+                                      </Alert>
+                                    </div>
+                                  ) : websiteInsight?.data ? (
+                                    <div className="mt-2 grid grid-cols-3 gap-2">
+                                      <div className="rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2">
+                                        <div className="text-xs text-[var(--ax-text-subtle)]">Brukere</div>
+                                        <div className="text-sm font-semibold text-[var(--ax-text-default)]">
+                                          {websiteInsight.data.visitors.toLocaleString('nb-NO')}
+                                        </div>
+                                      </div>
+                                      <div className="rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2">
+                                        <div className="text-xs text-[var(--ax-text-subtle)]">Sidevisninger</div>
+                                        <div className="text-sm font-semibold text-[var(--ax-text-default)]">
+                                          {websiteInsight.data.pageviews.toLocaleString('nb-NO')}
+                                        </div>
+                                      </div>
+                                      <div className="rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2">
+                                        <div className="text-xs text-[var(--ax-text-subtle)]">Andel</div>
+                                        <div className="text-sm font-semibold text-[var(--ax-text-default)]">
+                                          {(websiteInsight.data.proportion * 100).toLocaleString('nb-NO', {
+                                            maximumFractionDigits: 1,
+                                          })}
+                                          %
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="mt-2 text-sm text-[var(--ax-text-subtle)]">
+                                      Ingen trafikk funnet for denne siden i valgt periode.
+                                    </div>
+                                  )}
+                                </div>
                               )}
+                              <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-white">
+                                {isImagePreviewUrl(frame.displayUrl) ? (
+                                  <img
+                                    key={`${frame.id}-${frame.refreshNonce}`}
+                                    alt={frame.label}
+                                    src={frame.src}
+                                    className="block h-auto w-full max-w-full"
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  <iframe
+                                    key={`${frame.id}-${frame.refreshNonce}`}
+                                    title={`Canvas-side ${frame.label}`}
+                                    src={frame.src}
+                                    className="h-full w-full"
+                                    loading="lazy"
+                                    sandbox="allow-same-origin allow-scripts allow-forms"
+                                  />
+                                )}
+                              </div>
                             </div>
                           ) : frame.kind === 'website' ? (
-                            <div className="flex h-full items-center justify-center px-6 text-center">
-                              <div className="space-y-2">
-                                <p className="text-sm font-semibold text-[var(--ax-text-default)]">{frame.label}</p>
-                                {frame.targetUrl && (
-                                  <Link
-                                    href={frame.targetUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1.5"
-                                  >
-                                    <span>Åpne nettside</span>
-                                    <ExternalLink size={14} aria-hidden="true" />
-                                  </Link>
-                                )}
+                            <div className="flex h-full flex-col bg-white">
+                              {isWebsiteInsightOpen && (
+                                <div className="shrink-0 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] p-3">
+                                  <div className="text-xs font-semibold uppercase tracking-wide text-[var(--ax-text-subtle)]">
+                                    Sideinnsikt
+                                  </div>
+                                  <div className="mt-1 text-sm text-[var(--ax-text-subtle)]">
+                                    Periode: {activeInsightPeriodLabel}
+                                  </div>
+                                  {websiteInsight?.loading ? (
+                                    <div className="mt-2 flex items-center gap-2 text-sm text-[var(--ax-text-subtle)]">
+                                      <Loader size="xsmall" />
+                                      <span>Henter innsikt...</span>
+                                    </div>
+                                  ) : websiteInsight?.error ? (
+                                    <div className="mt-2">
+                                      <Alert variant="error" size="small">
+                                        {websiteInsight.error}
+                                      </Alert>
+                                    </div>
+                                  ) : websiteInsight?.data ? (
+                                    <div className="mt-2 grid grid-cols-3 gap-2">
+                                      <div className="rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2">
+                                        <div className="text-xs text-[var(--ax-text-subtle)]">Brukere</div>
+                                        <div className="text-sm font-semibold text-[var(--ax-text-default)]">
+                                          {websiteInsight.data.visitors.toLocaleString('nb-NO')}
+                                        </div>
+                                      </div>
+                                      <div className="rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2">
+                                        <div className="text-xs text-[var(--ax-text-subtle)]">Sidevisninger</div>
+                                        <div className="text-sm font-semibold text-[var(--ax-text-default)]">
+                                          {websiteInsight.data.pageviews.toLocaleString('nb-NO')}
+                                        </div>
+                                      </div>
+                                      <div className="rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2">
+                                        <div className="text-xs text-[var(--ax-text-subtle)]">Andel</div>
+                                        <div className="text-sm font-semibold text-[var(--ax-text-default)]">
+                                          {(websiteInsight.data.proportion * 100).toLocaleString('nb-NO', {
+                                            maximumFractionDigits: 1,
+                                          })}
+                                          %
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="mt-2 text-sm text-[var(--ax-text-subtle)]">
+                                      Ingen trafikk funnet for denne siden i valgt periode.
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              <div className="flex h-full items-center justify-center px-6 text-center">
+                                <div className="space-y-2">
+                                  <p className="text-sm font-semibold text-[var(--ax-text-default)]">{frame.label}</p>
+                                  {frame.targetUrl && (
+                                    <Link
+                                      href={frame.targetUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1.5"
+                                    >
+                                      <span>Åpne nettside</span>
+                                      <ExternalLink size={14} aria-hidden="true" />
+                                    </Link>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           ) : frame.kind === 'chart' && frame.chartSql && frame.chartType ? (
@@ -2639,68 +2752,6 @@ const Canvas = () => {
             Avbryt
           </Button>
         </Modal.Footer>
-      </Modal>
-
-      <Modal
-        open={Boolean(activeInsightFrameId)}
-        onClose={() => setActiveInsightFrameId(null)}
-        header={{ heading: 'Sideinnsikt' }}
-        width="small"
-      >
-        <Modal.Body>
-          {!activeInsightFrame ? (
-            <Alert variant="warning">Fant ikke kortet som skulle vises.</Alert>
-          ) : (
-            <div className="space-y-4">
-              <div className="rounded-xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] p-4">
-                <div className="text-xs font-semibold uppercase tracking-wide text-[var(--ax-text-subtle)]">Side</div>
-                <div className="mt-1 break-all text-sm font-semibold text-[var(--ax-text-default)]">
-                  {activeInsightFrame.label}
-                </div>
-                {activeInsightFrame.targetUrl && (
-                  <div className="mt-1 break-all text-xs text-[var(--ax-text-subtle)]">
-                    {activeInsightFrame.targetUrl}
-                  </div>
-                )}
-                <div className="mt-3 text-sm text-[var(--ax-text-subtle)]">Periode: {activeInsightPeriodLabel}</div>
-              </div>
-
-              {activeInsightState?.loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader size="small" title="Henter sideinnsikt..." />
-                </div>
-              ) : activeInsightState?.error ? (
-                <Alert variant="error">{activeInsightState.error}</Alert>
-              ) : activeInsightState?.data ? (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <div className="rounded-xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-4">
-                    <div className="text-sm font-medium text-[var(--ax-text-subtle)]">Brukere</div>
-                    <div className="mt-1 text-2xl font-bold text-[var(--ax-text-default)]">
-                      {activeInsightState.data.visitors.toLocaleString('nb-NO')}
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-4">
-                    <div className="text-sm font-medium text-[var(--ax-text-subtle)]">Sidevisninger</div>
-                    <div className="mt-1 text-2xl font-bold text-[var(--ax-text-default)]">
-                      {activeInsightState.data.pageviews.toLocaleString('nb-NO')}
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-4">
-                    <div className="text-sm font-medium text-[var(--ax-text-subtle)]">Andel</div>
-                    <div className="mt-1 text-2xl font-bold text-[var(--ax-text-default)]">
-                      {(activeInsightState.data.proportion * 100).toLocaleString('nb-NO', {
-                        maximumFractionDigits: 1,
-                      })}
-                      %
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <Alert variant="warning">Ingen trafikk funnet for denne siden i valgt periode.</Alert>
-              )}
-            </div>
-          )}
-        </Modal.Body>
       </Modal>
 
       <Modal
