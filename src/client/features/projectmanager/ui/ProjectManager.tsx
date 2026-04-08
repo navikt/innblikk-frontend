@@ -1913,7 +1913,7 @@ const ProjectManager = () => {
               </Alert>
             )}
             <TextField
-              label="Dashboardnavn"
+              label="Navn"
               size="small"
               value={newDashboardName}
               onChange={(event) => setNewDashboardName(event.target.value)}
