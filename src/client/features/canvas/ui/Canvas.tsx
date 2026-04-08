@@ -35,7 +35,7 @@ import type { Website } from '../../../shared/types/website.ts'
 import { useCookieStartDate, useCookieSupport } from '../../../shared/hooks/useSiteimproveSupport.ts'
 
 type CanvasChartType = 'line' | 'bar' | 'pie' | 'table'
-type CanvasPayloadKind = 'website' | 'heading' | 'text' | 'sticky' | 'chart' | 'connection'
+type CanvasPayloadKind = 'website' | 'image' | 'heading' | 'text' | 'sticky' | 'chart' | 'connection'
 type CanvasConnectionMetric = {
   percentageOfPrev: number
   dropoffCount: number
@@ -47,7 +47,7 @@ type CanvasConnectionMetric = {
 
 type CanvasFrame = {
   id: string
-  kind: 'website' | 'heading' | 'text' | 'sticky' | 'chart'
+  kind: 'website' | 'image' | 'heading' | 'text' | 'sticky' | 'chart'
   targetUrl?: string
   previewUrl?: string
   renderWebsite?: boolean
@@ -303,6 +303,10 @@ const createPreviewProxySrc = (targetUrl: string): string => {
 }
 
 const getWebsiteFrameDisplayUrl = (frame: CanvasFrame): string | undefined => {
+  if (frame.kind === 'image') {
+    return frame.targetUrl
+  }
+
   if (frame.renderWebsite === false) {
     return frame.previewUrl
   }
@@ -311,6 +315,10 @@ const getWebsiteFrameDisplayUrl = (frame: CanvasFrame): string | undefined => {
 }
 
 const getWebsiteFrameRenderSrc = (frame: CanvasFrame): string | undefined => {
+  if (frame.kind === 'image') {
+    return frame.targetUrl
+  }
+
   if (frame.renderWebsite === false) {
     return frame.previewUrl
   }
@@ -339,6 +347,7 @@ const buildCanvasConnectionStorageGraphName = (connection: CanvasConnection): st
 
 const isCanvasPayloadKind = (value: unknown): value is CanvasPayloadKind =>
   value === 'website' ||
+  value === 'image' ||
   value === 'heading' ||
   value === 'text' ||
   value === 'sticky' ||
@@ -346,7 +355,12 @@ const isCanvasPayloadKind = (value: unknown): value is CanvasPayloadKind =>
   value === 'connection'
 
 const isRenderableCanvasFrameKind = (value: unknown): value is CanvasFrame['kind'] =>
-  value === 'website' || value === 'heading' || value === 'text' || value === 'sticky' || value === 'chart'
+  value === 'website' ||
+  value === 'image' ||
+  value === 'heading' ||
+  value === 'text' ||
+  value === 'sticky' ||
+  value === 'chart'
 
 const isCanvasChartType = (value: unknown): value is CanvasChartType =>
   value === 'line' || value === 'bar' || value === 'pie' || value === 'table'
@@ -417,6 +431,7 @@ const Canvas = () => {
   const [frames, setFrames] = useState<CanvasFrame[]>([])
   const [connections, setConnections] = useState<CanvasConnection[]>([])
   const [isAddPageModalOpen, setIsAddPageModalOpen] = useState(false)
+  const [isAddImageModalOpen, setIsAddImageModalOpen] = useState(false)
   const [isAddHeadingModalOpen, setIsAddHeadingModalOpen] = useState(false)
   const [isAddTextModalOpen, setIsAddTextModalOpen] = useState(false)
   const [isAddStickyModalOpen, setIsAddStickyModalOpen] = useState(false)
@@ -425,15 +440,21 @@ const Canvas = () => {
   const [renameCanvasError, setRenameCanvasError] = useState<string | null>(null)
   const [isAddChartModalOpen, setIsAddChartModalOpen] = useState(false)
   const [isEditWebsiteModalOpen, setIsEditWebsiteModalOpen] = useState(false)
+  const [isEditImageModalOpen, setIsEditImageModalOpen] = useState(false)
   const [editWebsiteFrameId, setEditWebsiteFrameId] = useState<string | null>(null)
+  const [editImageFrameId, setEditImageFrameId] = useState<string | null>(null)
   const [editWebsitePathInput, setEditWebsitePathInput] = useState('')
+  const [editImageUrlInput, setEditImageUrlInput] = useState('')
   const [editWebsitePreviewUrlInput, setEditWebsitePreviewUrlInput] = useState('')
   const [editWebsiteRenderEnabled, setEditWebsiteRenderEnabled] = useState(true)
   const [newPagePathInput, setNewPagePathInput] = useState('')
+  const [newImageUrlInput, setNewImageUrlInput] = useState('')
   const [newPagePreviewUrlInput, setNewPagePreviewUrlInput] = useState('')
   const [newPageRenderEnabled, setNewPageRenderEnabled] = useState(true)
   const [addPageError, setAddPageError] = useState<string | null>(null)
+  const [addImageError, setAddImageError] = useState<string | null>(null)
   const [editWebsiteError, setEditWebsiteError] = useState<string | null>(null)
+  const [editImageError, setEditImageError] = useState<string | null>(null)
   const [headingTextInput, setHeadingTextInput] = useState('')
   const [addHeadingError, setAddHeadingError] = useState<string | null>(null)
   const [textContentInput, setTextContentInput] = useState('')
@@ -464,6 +485,7 @@ const Canvas = () => {
   const [deleteTarget, setDeleteTarget] = useState<CanvasDeleteTarget | null>(null)
   const [canvasZoom, setCanvasZoom] = useState(1)
   const [activeEditableFrameId, setActiveEditableFrameId] = useState<string | null>(null)
+  const [failedImageFrameIds, setFailedImageFrameIds] = useState<Record<string, boolean>>({})
   const pageInsightsRef = useRef<Record<string, CanvasPageInsight>>({})
   const canvasViewportRef = useRef<HTMLDivElement | null>(null)
   const canvasToolbarRef = useRef<HTMLDivElement | null>(null)
@@ -1037,6 +1059,53 @@ const Canvas = () => {
     }
   }
 
+  const handleAddImage = async () => {
+    const imageUrl = normalizeInputToTargetUrl(newImageUrlInput, selectedWebsite?.domain)
+    if (!imageUrl) {
+      setAddImageError('Legg inn en gyldig bilde-URL, for eksempel https://www.nav.no/bilde.png.')
+      return
+    }
+
+    const comparableUrl = getComparableUrl(imageUrl)
+    if (
+      frames.some(
+        (frame) => frame.kind === 'image' && frame.targetUrl && getComparableUrl(frame.targetUrl) === comparableUrl,
+      )
+    ) {
+      setAddImageError('Bildet er allerede lagt til i canvaset.')
+      return
+    }
+
+    const index = frames.length
+    const column = index % 3
+    const row = Math.floor(index / 3)
+    const newFrame: CanvasFrame = {
+      id: `${Date.now()}-${Math.random()}`,
+      kind: 'image',
+      targetUrl: imageUrl,
+      label: getFrameLabel(imageUrl),
+      x: 80 + column * 460,
+      y: 80 + row * 380,
+      width: 420,
+      height: 420,
+      refreshNonce: 1,
+    }
+
+    try {
+      setIsSavingCanvasItem(true)
+      setSyncError(null)
+      const persistedFrame = await persistFrame(newFrame)
+      setFrames((prev) => [...prev, persistedFrame])
+      setNewImageUrlInput('')
+      setAddImageError(null)
+      setIsAddImageModalOpen(false)
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre bilde i canvas')
+    } finally {
+      setIsSavingCanvasItem(false)
+    }
+  }
+
   const handleOpenEditWebsiteModal = (frame: CanvasFrame) => {
     if (frame.kind !== 'website') return
     setEditWebsiteFrameId(frame.id)
@@ -1045,6 +1114,14 @@ const Canvas = () => {
     setEditWebsiteRenderEnabled(frame.renderWebsite !== false)
     setEditWebsiteError(null)
     setIsEditWebsiteModalOpen(true)
+  }
+
+  const handleOpenEditImageModal = (frame: CanvasFrame) => {
+    if (frame.kind !== 'image') return
+    setEditImageFrameId(frame.id)
+    setEditImageUrlInput(frame.targetUrl || '')
+    setEditImageError(null)
+    setIsEditImageModalOpen(true)
   }
 
   const handleToggleInsightPanel = (frame: CanvasFrame) => {
@@ -1105,6 +1182,61 @@ const Canvas = () => {
       setEditWebsiteError(null)
     } catch (error) {
       setSyncError(error instanceof Error ? error.message : 'Kunne ikke oppdatere nettside')
+    } finally {
+      setIsSavingCanvasItem(false)
+    }
+  }
+
+  const handleSaveEditedImage = async () => {
+    if (!editImageFrameId) return
+
+    const imageUrl = normalizeInputToTargetUrl(editImageUrlInput, selectedWebsite?.domain)
+    if (!imageUrl) {
+      setEditImageError('Legg inn en gyldig bilde-URL, for eksempel https://www.nav.no/bilde.png.')
+      return
+    }
+
+    const comparableUrl = getComparableUrl(imageUrl)
+    if (
+      frames.some(
+        (frame) =>
+          frame.id !== editImageFrameId &&
+          frame.kind === 'image' &&
+          frame.targetUrl &&
+          getComparableUrl(frame.targetUrl) === comparableUrl,
+      )
+    ) {
+      setEditImageError('Bildet er allerede lagt til i canvaset.')
+      return
+    }
+
+    const currentFrame = frames.find((frame) => frame.id === editImageFrameId)
+    if (!currentFrame || currentFrame.kind !== 'image') return
+
+    const updatedFrame: CanvasFrame = {
+      ...currentFrame,
+      targetUrl: imageUrl,
+      label: getFrameLabel(imageUrl),
+      refreshNonce: currentFrame.refreshNonce + 1,
+    }
+
+    try {
+      setIsSavingCanvasItem(true)
+      setSyncError(null)
+      const persistedFrame = await persistFrame(updatedFrame)
+      setFrames((prev) => prev.map((frame) => (frame.id === editImageFrameId ? persistedFrame : frame)))
+      setFailedImageFrameIds((current) => {
+        if (!current[editImageFrameId]) return current
+        const next = { ...current }
+        delete next[editImageFrameId]
+        return next
+      })
+      setIsEditImageModalOpen(false)
+      setEditImageFrameId(null)
+      setEditImageUrlInput('')
+      setEditImageError(null)
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke oppdatere bilde')
     } finally {
       setIsSavingCanvasItem(false)
     }
@@ -1425,6 +1557,7 @@ const Canvas = () => {
     kind: CanvasFrame['kind'],
   ): { width: number; height: number; minWidth: number; minHeight: number } => {
     if (kind === 'website') return { width: 420, height: 560, minWidth: 320, minHeight: 320 }
+    if (kind === 'image') return { width: 420, height: 420, minWidth: 240, minHeight: 200 }
     if (kind === 'chart') return { width: 680, height: 460, minWidth: 420, minHeight: 280 }
     if (kind === 'heading') return { width: 420, height: 72, minWidth: 260, minHeight: 48 }
     if (kind === 'text') return { width: 340, height: 170, minWidth: 240, minHeight: 120 }
@@ -1874,7 +2007,7 @@ const Canvas = () => {
   const handleRefreshFrame = (id: string) => {
     setFrames((prev) =>
       prev.map((frame) =>
-        frame.id === id && frame.kind === 'website'
+        frame.id === id && (frame.kind === 'website' || frame.kind === 'image')
           ? {
               ...frame,
               refreshNonce: frame.refreshNonce + 1,
@@ -1908,7 +2041,7 @@ const Canvas = () => {
 
   const handleEditableFrameBlur = (id: string) => {
     const frame = frames.find((item) => item.id === id)
-    if (!frame || frame.kind === 'website' || frame.kind === 'chart') return
+    if (!frame || frame.kind === 'website' || frame.kind === 'image' || frame.kind === 'chart') return
 
     let nextFrame = frame
     if (frame.kind === 'heading') {
@@ -2031,6 +2164,15 @@ const Canvas = () => {
                       }}
                     >
                       Nettside
+                    </ActionMenu.Item>
+                    <ActionMenu.Item
+                      onClick={() => {
+                        setAddImageError(null)
+                        setNewImageUrlInput('')
+                        setIsAddImageModalOpen(true)
+                      }}
+                    >
+                      Bilde
                     </ActionMenu.Item>
                     <ActionMenu.Item onClick={handleOpenAddChartModal}>Graf</ActionMenu.Item>
                     <ActionMenu.Item
@@ -2236,7 +2378,7 @@ const Canvas = () => {
                       <article
                         key={frame.id}
                         className={
-                          frame.kind === 'website'
+                          frame.kind === 'website' || frame.kind === 'image'
                             ? `group absolute flex flex-col overflow-visible rounded-lg border ${
                                 connectionDragState?.sourceFrameId === frame.id ||
                                 connectionDragState?.currentTargetFrameId === frame.id
@@ -2282,18 +2424,20 @@ const Canvas = () => {
                               </div>
                             </div>
                             <div className="flex items-center gap-1">
-                              <Button
-                                size="xsmall"
-                                variant="tertiary"
-                                icon={<ChartNoAxesCombined size={14} />}
-                                onMouseDown={(event) => event.stopPropagation()}
-                                onClick={() => handleToggleInsightPanel(frame)}
-                                title={selectedWebsite ? 'Vis/skjul innsikt' : 'Velg nettsted først'}
-                                aria-label={activeInsightFrameId === frame.id ? 'Skjul innsikt' : 'Vis innsikt'}
-                                disabled={!selectedWebsite}
-                              >
-                                {activeInsightFrameId === frame.id ? 'Skjul innsikt' : 'Vis innsikt'}
-                              </Button>
+                              {frame.kind === 'website' && (
+                                <Button
+                                  size="xsmall"
+                                  variant="tertiary"
+                                  icon={<ChartNoAxesCombined size={14} />}
+                                  onMouseDown={(event) => event.stopPropagation()}
+                                  onClick={() => handleToggleInsightPanel(frame)}
+                                  title={selectedWebsite ? 'Vis/skjul innsikt' : 'Velg nettsted først'}
+                                  aria-label={activeInsightFrameId === frame.id ? 'Skjul innsikt' : 'Vis innsikt'}
+                                  disabled={!selectedWebsite}
+                                >
+                                  {activeInsightFrameId === frame.id ? 'Skjul innsikt' : 'Vis innsikt'}
+                                </Button>
+                              )}
                               <ActionMenu>
                                 <ActionMenu.Trigger>
                                   <Button
@@ -2312,7 +2456,11 @@ const Canvas = () => {
                                       <span>Last inn på nytt</span>
                                     </span>
                                   </ActionMenu.Item>
-                                  <ActionMenu.Item onClick={() => handleOpenEditWebsiteModal(frame)}>
+                                  <ActionMenu.Item
+                                    onClick={() => {
+                                      handleOpenEditWebsiteModal(frame)
+                                    }}
+                                  >
                                     <span className="inline-flex items-center gap-2">
                                       <Edit2 size={14} aria-hidden="true" />
                                       <span>Rediger nettside</span>
@@ -2336,7 +2484,10 @@ const Canvas = () => {
                             aria-hidden="true"
                           />
                         )}
-                        {(frame.kind === 'sticky' || frame.kind === 'text' || frame.kind === 'heading') && (
+                        {(frame.kind === 'sticky' ||
+                          frame.kind === 'text' ||
+                          frame.kind === 'heading' ||
+                          frame.kind === 'image') && (
                           <>
                             <div
                               className="absolute inset-x-0 top-0 z-20 h-4 cursor-move"
@@ -2348,6 +2499,18 @@ const Canvas = () => {
                                 frame.kind === 'heading' ? 'right-0 -top-10 flex items-center gap-1' : 'right-2 top-2'
                               }`}
                             >
+                              {frame.kind === 'image' && (
+                                <Button
+                                  size="xsmall"
+                                  variant="tertiary"
+                                  icon={<Edit2 size={14} />}
+                                  onMouseDown={(event) => event.stopPropagation()}
+                                  onClick={() => handleOpenEditImageModal(frame)}
+                                  title="Rediger bilde"
+                                  aria-label="Rediger bilde"
+                                  className="pointer-events-auto opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                                />
+                              )}
                               <Button
                                 size="xsmall"
                                 variant="tertiary"
@@ -2369,10 +2532,16 @@ const Canvas = () => {
                             }`}
                           />
                         )}
+                        {frame.kind === 'image' && (
+                          <div
+                            aria-hidden="true"
+                            className="pointer-events-none absolute inset-0 z-10 border-2 border-[#7fb7ff] opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 rounded-xl"
+                          />
+                        )}
 
                         <div
                           className={`relative flex-1 ${
-                            frame.kind === 'website'
+                            frame.kind === 'website' || frame.kind === 'image'
                               ? 'overflow-hidden bg-white'
                               : frame.kind === 'chart'
                                 ? 'overflow-visible bg-transparent'
@@ -2419,6 +2588,37 @@ const Canvas = () => {
                                   }`}
                                 />
                               </button>
+                            </div>
+                          )}
+                          {frame.kind === 'image' && (
+                            <div className="flex h-full flex-col bg-white">
+                              {frame.src && !failedImageFrameIds[frame.id] ? (
+                                <div className="h-full w-full overflow-hidden bg-white p-2">
+                                  <img
+                                    key={`${frame.id}-${frame.refreshNonce}`}
+                                    alt={frame.label}
+                                    src={frame.src}
+                                    className="h-full w-full rounded object-contain"
+                                    loading="lazy"
+                                    referrerPolicy="no-referrer"
+                                    onError={() => {
+                                      setFailedImageFrameIds((current) => ({ ...current, [frame.id]: true }))
+                                    }}
+                                    onLoad={() => {
+                                      setFailedImageFrameIds((current) => {
+                                        if (!current[frame.id]) return current
+                                        const next = { ...current }
+                                        delete next[frame.id]
+                                        return next
+                                      })
+                                    }}
+                                  />
+                                </div>
+                              ) : (
+                                <div className="flex h-full items-center justify-center px-6 text-center text-sm text-[var(--ax-text-subtle)]">
+                                  Kunne ikke laste bilde fra denne URL-en.
+                                </div>
+                              )}
                             </div>
                           )}
                           {frame.kind === 'website' && frame.src && frame.displayUrl ? (
@@ -2749,6 +2949,83 @@ const Canvas = () => {
           </Button>
           <Button variant="secondary" size="small" onClick={() => setIsCanvasSettingsModalOpen(false)}>
             Lukk
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal
+        open={isAddImageModalOpen}
+        onClose={() => {
+          setIsAddImageModalOpen(false)
+          setAddImageError(null)
+        }}
+        header={{ heading: 'Legg til bilde i canvas' }}
+        width="small"
+      >
+        <Modal.Body>
+          <div className="space-y-3">
+            <TextField
+              size="small"
+              label="Bilde-URL"
+              value={newImageUrlInput}
+              onChange={(event) => {
+                setNewImageUrlInput(event.target.value)
+                if (addImageError) setAddImageError(null)
+              }}
+              autoFocus
+            />
+            {addImageError && <Alert variant="error">{addImageError}</Alert>}
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button onClick={() => void handleAddImage()} size="small" loading={isSavingCanvasItem}>
+            Legg til
+          </Button>
+          <Button variant="secondary" size="small" onClick={() => setIsAddImageModalOpen(false)}>
+            Avbryt
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal
+        open={isEditImageModalOpen}
+        onClose={() => {
+          setIsEditImageModalOpen(false)
+          setEditImageFrameId(null)
+          setEditImageError(null)
+        }}
+        header={{ heading: 'Rediger bilde' }}
+        width="small"
+      >
+        <Modal.Body>
+          <div className="space-y-3">
+            <TextField
+              size="small"
+              label="Bilde-URL"
+              value={editImageUrlInput}
+              onChange={(event) => {
+                setEditImageUrlInput(event.target.value)
+                if (editImageError) setEditImageError(null)
+              }}
+              autoFocus
+            />
+            {editImageError && <Alert variant="error">{editImageError}</Alert>}
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button onClick={() => void handleSaveEditedImage()} size="small" loading={isSavingCanvasItem}>
+            Lagre
+          </Button>
+          <Button
+            variant="secondary"
+            size="small"
+            onClick={() => {
+              setIsEditImageModalOpen(false)
+              setEditImageFrameId(null)
+              setEditImageError(null)
+            }}
+          >
+            Avbryt
           </Button>
         </Modal.Footer>
       </Modal>
