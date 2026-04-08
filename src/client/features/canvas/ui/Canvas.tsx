@@ -1,12 +1,21 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ActionMenu, Alert, Button, Link, Modal, Select, Switch, TextField, Textarea } from '@navikt/ds-react'
-import { Edit2, ExternalLink, Move, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { ActionMenu, Alert, Button, Link, Loader, Modal, Select, Switch, TextField, Textarea } from '@navikt/ds-react'
+import { ChartNoAxesCombined, Edit2, ExternalLink, Move, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import { computeFunnelStepMetrics } from '../../analysis/utils/horizontalFunnel.ts'
+import { formatDateRange } from '../../analysis/utils/periodPicker.ts'
+import type { PageMetricRow } from '../../traffic/model/types.ts'
+import { fetchPageMetrics } from '../../traffic/api/trafficApi.ts'
 import { fetchFunnelData } from '../../funnel/api/funnelApi.ts'
 import { splitUrlStepInput } from '../../funnel/utils/stepUtils.ts'
-import { getStoredPeriod, savePeriodPreference } from '../../../shared/lib/utils.ts'
+import {
+  getCookieCountByParams,
+  getDateRangeFromPeriod,
+  getStoredPeriod,
+  normalizeUrlToPath,
+  savePeriodPreference,
+} from '../../../shared/lib/utils.ts'
 import { DashboardWidget } from '../../dashboard'
 import { mapGraphTypeToChart } from '../../oversikt'
 import {
@@ -22,6 +31,7 @@ import {
 } from '../../oversikt/api/oversiktApi.ts'
 import type { FunnelStep } from '../../funnel/model/types.ts'
 import type { Website } from '../../../shared/types/website.ts'
+import { useCookieStartDate, useCookieSupport } from '../../../shared/hooks/useSiteimproveSupport.ts'
 
 type CanvasChartType = 'line' | 'bar' | 'pie' | 'table'
 type CanvasPayloadKind = 'website' | 'heading' | 'text' | 'sticky' | 'chart' | 'connection'
@@ -65,6 +75,25 @@ type CanvasConnection = {
   graphId?: number
   queryId?: number
 }
+
+type CanvasPageInsight = {
+  requestKey: string
+  loading: boolean
+  error: string | null
+  data: PageMetricRow | null
+}
+
+type CanvasDeleteTarget =
+  | {
+      type: 'frame'
+      id: string
+      label: string
+    }
+  | {
+      type: 'connection'
+      id: string
+      label: string
+    }
 
 type ConnectionDragState = {
   sourceFrameId: string
@@ -157,6 +186,25 @@ const getFrameLabel = (targetUrl: string): string => {
   } catch {
     return targetUrl
   }
+}
+
+const getCanvasPeriodLabel = (period: string, customStartDate?: Date, customEndDate?: Date): string => {
+  if (period === 'custom' && customStartDate && customEndDate) {
+    return formatDateRange(customStartDate, customEndDate)
+  }
+
+  const option = [
+    { value: 'today', label: 'I dag' },
+    { value: 'yesterday', label: 'I går' },
+    { value: 'this_week', label: 'Denne uken' },
+    { value: 'last_7_days', label: 'Siste 7 dager' },
+    { value: 'last_week', label: 'Forrige uke' },
+    { value: 'last_28_days', label: 'Siste 28 dager' },
+    { value: 'current_month', label: 'Denne måneden' },
+    { value: 'last_month', label: 'Forrige måned' },
+  ].find((item) => item.value === period)
+
+  return option?.label || period
 }
 
 const buildFunnelStepFromUrl = (targetUrl: string): FunnelStep => {
@@ -309,6 +357,8 @@ const Canvas = () => {
   const [period, setPeriodState] = useState<string>(() =>
     getStoredPeriod(new URLSearchParams(window.location.search).get('period')),
   )
+  const usesCookies = useCookieSupport(selectedWebsite?.domain, selectedWebsite?.id)
+  const cookieStartDate = useCookieStartDate(selectedWebsite?.domain, selectedWebsite?.id)
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined)
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined)
   const [frames, setFrames] = useState<CanvasFrame[]>([])
@@ -351,9 +401,12 @@ const Canvas = () => {
   const [, setIsLoadingCanvasItems] = useState(false)
   const [isSavingCanvasItem, setIsSavingCanvasItem] = useState(false)
   const [connectionMetrics, setConnectionMetrics] = useState<Record<string, CanvasConnectionMetric | null>>({})
-  const [hoveredConnectionId, setHoveredConnectionId] = useState<string | null>(null)
   const [connectionDragState, setConnectionDragState] = useState<ConnectionDragState | null>(null)
   const [toolbarNotice, setToolbarNotice] = useState<string | null>(null)
+  const [pageInsights, setPageInsights] = useState<Record<string, CanvasPageInsight>>({})
+  const [activeInsightFrameId, setActiveInsightFrameId] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<CanvasDeleteTarget | null>(null)
+  const pageInsightsRef = useRef<Record<string, CanvasPageInsight>>({})
   const canvasViewportRef = useRef<HTMLDivElement | null>(null)
   const canvasToolbarRef = useRef<HTMLDivElement | null>(null)
   const connectionMetricRequestSignatureRef = useRef<string | null>(null)
@@ -401,6 +454,21 @@ const Canvas = () => {
     [period, customStartDate, customEndDate],
   )
 
+  const activeInsightFrame = useMemo(
+    () => (activeInsightFrameId ? (frames.find((frame) => frame.id === activeInsightFrameId) ?? null) : null),
+    [activeInsightFrameId, frames],
+  )
+
+  const activeInsightState = activeInsightFrameId ? (pageInsights[activeInsightFrameId] ?? null) : null
+  const activeInsightPeriodLabel = useMemo(
+    () => getCanvasPeriodLabel(period, customStartDate, customEndDate),
+    [period, customStartDate, customEndDate],
+  )
+
+  useEffect(() => {
+    pageInsightsRef.current = pageInsights
+  }, [pageInsights])
+
   const frameItems = useMemo(
     () =>
       frames.map((frame) => {
@@ -429,6 +497,131 @@ const Canvas = () => {
     setCanvasCategoryId(createdCategory.id)
     return createdCategory.id
   }, [canPersistToDashboard, projectId, dashboardId, canvasCategoryId])
+
+  const loadPageInsight = useCallback(
+    async (frame: CanvasFrame) => {
+      if (frame.kind !== 'website') return
+
+      const websiteId = selectedWebsite?.id
+      const pagePath = frame.targetUrl ? normalizeUrlToPath(frame.targetUrl) : ''
+
+      const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
+      if (!websiteId) {
+        setPageInsights((current) => ({
+          ...current,
+          [frame.id]: {
+            requestKey: '',
+            loading: false,
+            error: 'Velg et nettsted først.',
+            data: null,
+          },
+        }))
+        return
+      }
+
+      if (!pagePath) {
+        setPageInsights((current) => ({
+          ...current,
+          [frame.id]: {
+            requestKey: '',
+            loading: false,
+            error: 'Fant ikke en gyldig side-sti for dette kortet.',
+            data: null,
+          },
+        }))
+        return
+      }
+
+      if (!dateRange) {
+        setPageInsights((current) => ({
+          ...current,
+          [frame.id]: {
+            requestKey: '',
+            loading: false,
+            error: 'Ugyldig datoperiode.',
+            data: null,
+          },
+        }))
+        return
+      }
+
+      const { countBy, countBySwitchAt } = getCookieCountByParams(
+        usesCookies,
+        cookieStartDate,
+        dateRange.startDate,
+        dateRange.endDate,
+      )
+      const requestKey = JSON.stringify({
+        websiteId,
+        pagePath,
+        period,
+        customStartDate: customStartDate?.toISOString() ?? null,
+        customEndDate: customEndDate?.toISOString() ?? null,
+        onlyDirectEntry,
+        countBy: countBy ?? null,
+        countBySwitchAt: countBySwitchAt ?? null,
+      })
+
+      const current = pageInsightsRef.current[frame.id]
+      if (current?.requestKey === requestKey && !current.error) {
+        setActiveInsightFrameId(frame.id)
+        return
+      }
+
+      setActiveInsightFrameId(frame.id)
+      setPageInsights((currentState) => ({
+        ...currentState,
+        [frame.id]: {
+          requestKey,
+          loading: true,
+          error: null,
+          data: current?.requestKey === requestKey ? current.data : null,
+        },
+      }))
+
+      try {
+        const result = await fetchPageMetrics(
+          websiteId,
+          dateRange.startDate,
+          dateRange.endDate,
+          pagePath,
+          'equals',
+          'visitors',
+          {
+            countByParams: countBy ? `&countBy=${countBy}` : '',
+            countBySwitchAtParam: countBySwitchAt ? `&countBySwitchAt=${countBySwitchAt}` : '',
+          },
+        )
+
+        const row = result.data?.[0] ?? null
+        setPageInsights((currentState) => ({
+          ...currentState,
+          [frame.id]: {
+            requestKey,
+            loading: false,
+            error: null,
+            data: row,
+          },
+        }))
+      } catch (error) {
+        setPageInsights((currentState) => ({
+          ...currentState,
+          [frame.id]: {
+            requestKey,
+            loading: false,
+            error: error instanceof Error ? error.message : 'Kunne ikke hente innsikt',
+            data: null,
+          },
+        }))
+      }
+    },
+    [cookieStartDate, customEndDate, customStartDate, onlyDirectEntry, period, selectedWebsite?.id, usesCookies],
+  )
+
+  useEffect(() => {
+    if (!activeInsightFrame || activeInsightFrame.kind !== 'website') return
+    void loadPageInsight(activeInsightFrame)
+  }, [activeInsightFrame, loadPageInsight])
 
   const persistFrame = useCallback(
     async (frame: CanvasFrame): Promise<CanvasFrame> => {
@@ -746,6 +939,11 @@ const Canvas = () => {
     setEditWebsiteRenderEnabled(frame.renderWebsite !== false)
     setEditWebsiteError(null)
     setIsEditWebsiteModalOpen(true)
+  }
+
+  const handleOpenInsightModal = (frame: CanvasFrame) => {
+    if (frame.kind !== 'website') return
+    setActiveInsightFrameId(frame.id)
   }
 
   const handleSaveEditedWebsite = async () => {
@@ -1346,6 +1544,33 @@ const Canvas = () => {
     }
   }
 
+  const handleRequestRemoveFrame = (frame: CanvasFrame) => {
+    setDeleteTarget({
+      type: 'frame',
+      id: frame.id,
+      label: frame.label || 'kortet',
+    })
+  }
+
+  const handleRequestRemoveConnection = (connection: CanvasConnectionVisual) => {
+    setDeleteTarget({
+      type: 'connection',
+      id: connection.id,
+      label: `${connection.fromUrl || 'ukjent side'} → ${connection.toUrl || 'ukjent side'}`,
+    })
+  }
+
+  const handleConfirmDeleteTarget = async () => {
+    if (!deleteTarget) return
+    const target = deleteTarget
+    setDeleteTarget(null)
+    if (target.type === 'frame') {
+      await handleRemovePage(target.id)
+      return
+    }
+    await handleRemoveConnection(target.id)
+  }
+
   const resolveConnectionFrame = useCallback(
     (connection: CanvasConnection, role: 'from' | 'to'): CanvasFrame | null => {
       const frameId = role === 'from' ? connection.fromFrameId : connection.toFrameId
@@ -1755,10 +1980,6 @@ const Canvas = () => {
                         strokeWidth={16}
                         fill="none"
                         className="pointer-events-auto cursor-pointer"
-                        onMouseEnter={() => setHoveredConnectionId(segment.id)}
-                        onMouseLeave={() =>
-                          setHoveredConnectionId((current) => (current === segment.id ? null : current))
-                        }
                         onClick={(event) => event.preventDefault()}
                       />
                     </g>
@@ -1811,14 +2032,28 @@ const Canvas = () => {
                 .map((segment) => (
                   <Fragment key={segment.id}>
                     <div
-                      className="pointer-events-none absolute z-[2] -translate-x-1/2 -translate-y-full"
+                      className="group pointer-events-auto absolute z-[2] -translate-x-1/2 -translate-y-full overflow-visible"
                       style={{
                         left: `${segment.labelX}px`,
                         top: `${segment.labelY}px`,
                       }}
                     >
-                      <div className="min-w-[170px] rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-3 py-2 shadow-sm">
-                        <div className="space-y-2 text-[13px] leading-tight">
+                      <div className="absolute inset-x-0 -top-10 z-10 flex items-center justify-between gap-2 rounded-full border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-3 py-2 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                        <div className="flex items-center gap-1.5 text-[13px] font-medium text-[var(--ax-text-default)]">
+                          <ChartNoAxesCombined size={13} className="text-[var(--ax-text-subtle)]" />
+                          <span>Kobling</span>
+                        </div>
+                        <Button
+                          size="xsmall"
+                          variant="tertiary"
+                          icon={<Trash2 size={14} />}
+                          onClick={() => handleRequestRemoveConnection(segment)}
+                          title="Fjern kobling"
+                          aria-label="Fjern kobling"
+                        />
+                      </div>
+                      <div className="min-w-[190px] overflow-hidden rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] shadow-sm">
+                        <div className="space-y-2 px-3 py-2 text-[13px] leading-tight">
                           <div className="space-y-0.5 text-right">
                             <div className="font-semibold text-[14px] text-[var(--ax-text-success)]">
                               {segment.metrics.percentageOfPrev}% gikk videre
@@ -1839,21 +2074,6 @@ const Canvas = () => {
                         </div>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      className={`pointer-events-auto absolute z-[2] grid h-7 w-7 place-items-center rounded-full border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] text-[var(--ax-text-subtle)] opacity-0 shadow-sm transition-all hover:scale-105 hover:border-[var(--ax-border-danger)] hover:text-[var(--ax-text-danger)] focus-visible:opacity-100 ${
-                        hoveredConnectionId === segment.id ? 'opacity-100' : ''
-                      }`}
-                      style={{
-                        left: `${segment.midX - 14}px`,
-                        top: `${segment.midY - 14}px`,
-                      }}
-                      onClick={() => void handleRemoveConnection(segment.id)}
-                      title="Fjern kobling"
-                      aria-label="Fjern kobling"
-                    >
-                      <Trash2 size={14} />
-                    </button>
                   </Fragment>
                 ))}
               {frameItems.map((frame) =>
@@ -1925,6 +2145,18 @@ const Canvas = () => {
                             <Button
                               size="xsmall"
                               variant="tertiary"
+                              icon={<ChartNoAxesCombined size={14} />}
+                              onMouseDown={(event) => event.stopPropagation()}
+                              onClick={() => handleOpenInsightModal(frame)}
+                              title={selectedWebsite ? 'Vis innsikt' : 'Velg nettsted først'}
+                              aria-label="Vis innsikt"
+                              disabled={!selectedWebsite}
+                            />
+                          )}
+                          {frame.kind === 'website' && (
+                            <Button
+                              size="xsmall"
+                              variant="tertiary"
                               icon={<Edit2 size={14} />}
                               onMouseDown={(event) => event.stopPropagation()}
                               onClick={() => handleOpenEditWebsiteModal(frame)}
@@ -1957,7 +2189,7 @@ const Canvas = () => {
                             size="xsmall"
                             variant="tertiary"
                             icon={<Trash2 size={14} />}
-                            onClick={() => void handleRemovePage(frame.id)}
+                            onClick={() => handleRequestRemoveFrame(frame)}
                             title="Fjern kort"
                             aria-label="Fjern kort"
                           />
@@ -2241,6 +2473,102 @@ const Canvas = () => {
             Avbryt
           </Button>
         </Modal.Footer>
+      </Modal>
+
+      <Modal
+        open={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        header={{
+          heading: deleteTarget?.type === 'connection' ? 'Fjern kobling' : 'Fjern kort',
+        }}
+        width="small"
+      >
+        <Modal.Body>
+          <div className="space-y-3">
+            <p>
+              Er du sikker på at du vil fjerne{' '}
+              <strong>{deleteTarget?.type === 'connection' ? 'koblingen' : 'kortet'}</strong>
+              {deleteTarget?.label ? (
+                <>
+                  {' '}
+                  <strong>{deleteTarget.label}</strong>
+                </>
+              ) : null}
+              ?
+            </p>
+            <p className="text-[var(--ax-text-subtle)]">Denne handlingen kan ikke angres.</p>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="danger" onClick={() => void handleConfirmDeleteTarget()} loading={isSavingCanvasItem}>
+            {deleteTarget?.type === 'connection' ? 'Fjern kobling' : 'Fjern kort'}
+          </Button>
+          <Button variant="secondary" onClick={() => setDeleteTarget(null)} disabled={isSavingCanvasItem}>
+            Avbryt
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal
+        open={Boolean(activeInsightFrameId)}
+        onClose={() => setActiveInsightFrameId(null)}
+        header={{ heading: 'Sideinnsikt' }}
+        width="small"
+      >
+        <Modal.Body>
+          {!activeInsightFrame ? (
+            <Alert variant="warning">Fant ikke kortet som skulle vises.</Alert>
+          ) : (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] p-4">
+                <div className="text-xs font-semibold uppercase tracking-wide text-[var(--ax-text-subtle)]">Side</div>
+                <div className="mt-1 break-all text-sm font-semibold text-[var(--ax-text-default)]">
+                  {activeInsightFrame.label}
+                </div>
+                {activeInsightFrame.targetUrl && (
+                  <div className="mt-1 break-all text-xs text-[var(--ax-text-subtle)]">
+                    {activeInsightFrame.targetUrl}
+                  </div>
+                )}
+                <div className="mt-3 text-sm text-[var(--ax-text-subtle)]">Periode: {activeInsightPeriodLabel}</div>
+              </div>
+
+              {activeInsightState?.loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader size="small" title="Henter sideinnsikt..." />
+                </div>
+              ) : activeInsightState?.error ? (
+                <Alert variant="error">{activeInsightState.error}</Alert>
+              ) : activeInsightState?.data ? (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="rounded-xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-4">
+                    <div className="text-sm font-medium text-[var(--ax-text-subtle)]">Brukere</div>
+                    <div className="mt-1 text-2xl font-bold text-[var(--ax-text-default)]">
+                      {activeInsightState.data.visitors.toLocaleString('nb-NO')}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-4">
+                    <div className="text-sm font-medium text-[var(--ax-text-subtle)]">Sidevisninger</div>
+                    <div className="mt-1 text-2xl font-bold text-[var(--ax-text-default)]">
+                      {activeInsightState.data.pageviews.toLocaleString('nb-NO')}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-4">
+                    <div className="text-sm font-medium text-[var(--ax-text-subtle)]">Andel</div>
+                    <div className="mt-1 text-2xl font-bold text-[var(--ax-text-default)]">
+                      {(activeInsightState.data.proportion * 100).toLocaleString('nb-NO', {
+                        maximumFractionDigits: 1,
+                      })}
+                      %
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <Alert variant="warning">Ingen trafikk funnet for denne siden i valgt periode.</Alert>
+              )}
+            </div>
+          )}
+        </Modal.Body>
       </Modal>
 
       <Modal
