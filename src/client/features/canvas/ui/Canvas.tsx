@@ -261,7 +261,7 @@ const CANVAS_TOP_BUFFER = 240
 const HEADING_TEXT_MIN_WIDTH = 140
 const HEADING_TEXT_MAX_WIDTH = 820
 const HEADING_TEXT_EXTRA_WIDTH = 32
-const HEADING_TEXT_VERTICAL_PADDING = 16
+const HEADING_TEXT_VERTICAL_PADDING = 0
 
 const createPreviewProxySrc = (targetUrl: string): string => {
   return `/api/clickmap-preview?url=${encodeURIComponent(targetUrl)}`
@@ -1380,7 +1380,7 @@ const Canvas = () => {
       const lineCount = headingText
         ? headingText.split('\n').reduce((count, line) => count + Math.max(1, Math.ceil(line.length / charsPerLine)), 0)
         : 1
-      return Math.max(48, lineCount * Math.ceil(fontSize * 1.2) + HEADING_TEXT_VERTICAL_PADDING)
+      return Math.max(28, lineCount * Math.ceil(fontSize * 1.05) + HEADING_TEXT_VERTICAL_PADDING)
     },
     [getHeadingFrameFontSize, getHeadingFrameWidth],
   )
@@ -2165,7 +2165,7 @@ const Canvas = () => {
                             : frame.kind === 'chart'
                               ? 'group absolute flex flex-col overflow-hidden rounded-lg border border-[var(--ax-border-neutral-subtle)] bg-white shadow-sm'
                               : frame.kind === 'heading'
-                                ? 'group absolute flex flex-col overflow-hidden rounded-lg border border-transparent bg-transparent shadow-none transition-all hover:border-[var(--ax-border-neutral-subtle)] hover:bg-white/80 hover:shadow-sm focus-within:border-[var(--ax-border-neutral-subtle)] focus-within:bg-white/80 focus-within:shadow-sm'
+                                ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
                                 : frame.kind === 'text'
                                   ? 'group absolute flex flex-col overflow-hidden rounded-xl border border-transparent bg-transparent shadow-none'
                                   : 'group absolute flex flex-col overflow-hidden rounded-xl border border-[#f1dc7d] bg-[#fff5b8] shadow-sm'
@@ -2184,7 +2184,7 @@ const Canvas = () => {
                           minWidth: frame.kind === 'heading' ? `${HEADING_TEXT_MIN_WIDTH}px` : `${defaults.minWidth}px`,
                           minHeight:
                             frame.kind === 'heading'
-                              ? `${HEADING_CARD_HEADER_HEIGHT + 48}px`
+                              ? `${HEADING_CARD_HEADER_HEIGHT + 12}px`
                               : `${defaults.minHeight}px`,
                         }}
                       >
@@ -2195,7 +2195,7 @@ const Canvas = () => {
                               : frame.kind === 'chart'
                                 ? 'flex cursor-move items-center justify-between gap-2 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] px-3 py-2'
                                 : frame.kind === 'heading'
-                                  ? 'flex cursor-move items-center justify-between gap-2 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] px-2 py-2 opacity-0 transition-opacity pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100'
+                                  ? 'flex cursor-move items-center justify-between gap-2 border-b border-[var(--ax-border-neutral-subtle)] bg-[#f1f5f9] px-2 py-2 opacity-0 transition-opacity pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100'
                                   : frame.kind === 'sticky'
                                     ? 'flex cursor-move items-center justify-between gap-2 border-b border-[#ebd56d] bg-[#fff1a6] px-2 py-2'
                                     : 'absolute right-2 top-2 z-10 flex items-center justify-end gap-1 opacity-0 transition-opacity pointer-events-none group-hover:opacity-100 group-focus-within:opacity-100 group-hover:pointer-events-auto group-focus-within:pointer-events-auto'
@@ -2385,7 +2385,7 @@ const Canvas = () => {
                               />
                             </div>
                           ) : frame.kind === 'heading' ? (
-                            <div className="overflow-visible py-2 pr-2">
+                            <div className="overflow-visible pt-0 pr-0 pb-0">
                               <textarea
                                 value={frame.headingText || ''}
                                 onChange={(event) => handleEditableFrameChange(frame.id, event.target.value)}
@@ -2395,7 +2395,7 @@ const Canvas = () => {
                                 className="block w-full resize-none overflow-hidden border-none bg-transparent p-0 text-[var(--ax-text-default)] outline-none placeholder:text-[var(--ax-text-subtle)] [font-family:inherit]"
                                 style={{
                                   fontSize: `${getHeadingFrameFontSize(frame)}px`,
-                                  lineHeight: 1.15,
+                                  lineHeight: 1.05,
                                   fontWeight: 700,
                                 }}
                                 rows={1}
@@ -2429,21 +2429,23 @@ const Canvas = () => {
                             </div>
                           )}
                         </div>
-                        <button
-                          type="button"
-                          onMouseDown={(event) => handleResizeStart(event, frame)}
-                          title="Endre størrelse"
-                          aria-label="Endre størrelse"
-                          className="absolute bottom-1 right-1 h-5 w-5 cursor-se-resize rounded-sm border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
-                        >
-                          <span
-                            className="pointer-events-none absolute bottom-[2px] right-[2px] h-2.5 w-2.5"
-                            style={{
-                              background:
-                                'linear-gradient(135deg, transparent 35%, var(--ax-text-subtle) 35%, var(--ax-text-subtle) 45%, transparent 45%, transparent 55%, var(--ax-text-subtle) 55%, var(--ax-text-subtle) 65%, transparent 65%)',
-                            }}
-                          />
-                        </button>
+                        {frame.kind !== 'heading' && (
+                          <button
+                            type="button"
+                            onMouseDown={(event) => handleResizeStart(event, frame)}
+                            title="Endre størrelse"
+                            aria-label="Endre størrelse"
+                            className="absolute bottom-1 right-1 h-5 w-5 cursor-se-resize rounded-sm border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                          >
+                            <span
+                              className="pointer-events-none absolute bottom-[2px] right-[2px] h-2.5 w-2.5"
+                              style={{
+                                background:
+                                  'linear-gradient(135deg, transparent 35%, var(--ax-text-subtle) 35%, var(--ax-text-subtle) 45%, transparent 45%, transparent 55%, var(--ax-text-subtle) 55%, var(--ax-text-subtle) 65%, transparent 65%)',
+                              }}
+                            />
+                          </button>
+                        )}
                       </article>
                     )
                   })(),
