@@ -78,5 +78,6 @@ All notable changes to this project will be documented in this file.
 - Remove data-host-url reference (#129)
 - Remove data-host-url reference formatting
 - Remove data-host-url reference formatting
+- Remove data-host-url reference formatting
 
 
