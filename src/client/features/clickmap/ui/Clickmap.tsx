@@ -140,6 +140,7 @@ const ROUTE_BY_VISUALIZATION_MODE: Record<VisualizationMode, string> = {
   heatmap: '/klikkoversikt/varmekart',
   scrollmap: '/klikkoversikt/scrollkart',
 }
+const TOP_LIST_MOBILE_MEDIA_QUERY = '(max-width: 639px)'
 
 const cleanText = (value: string): string => value.replace(/\s+/g, ' ').trim().toLowerCase()
 
@@ -361,7 +362,10 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
     : isScrollmap
       ? 'Oppdater scrollmap'
       : 'Oppdater klikkoversikt'
-  const [isTopListOpen, setIsTopListOpen] = useState(true)
+  const [isTopListOpen, setIsTopListOpen] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return true
+    return !window.matchMedia(TOP_LIST_MOBILE_MEDIA_QUERY).matches
+  })
   const showRightSidebar = isClickmap && isTopListOpen
   const [badgeMode, setBadgeMode] = useState<'count' | 'percent'>('count')
   const [urlInput, setUrlInput] = useState(urlPath)
@@ -775,12 +779,22 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
             </Switch>
           )}
           {isClickmap && (
-            <Button size="small" variant="secondary" onClick={() => setIsTopListOpen((current) => !current)}>
-              {isTopListOpen ? 'Skjul toppliste / filter' : 'Vis toppliste / filter'}
-            </Button>
+            <div className="hidden sm:block">
+              <Switch size="small" checked={isTopListOpen} onChange={(event) => setIsTopListOpen(event.target.checked)}>
+                Vis filter
+              </Switch>
+            </div>
           )}
         </div>
       </div>
+
+      {isClickmap && (
+        <div className="mb-4 sm:hidden">
+          <Switch size="small" checked={isTopListOpen} onChange={(event) => setIsTopListOpen(event.target.checked)}>
+            Vis filter
+          </Switch>
+        </div>
+      )}
 
       {isScrollmap && (
         <section className="mb-4 space-y-3">
@@ -967,32 +981,14 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
             </Alert>
           )}
 
-          <section className="border border-[var(--ax-border-neutral-subtle)] rounded-md overflow-hidden bg-white">
-            {iframeSrc ? (
-              <iframe
-                ref={iframeRef}
-                title={
-                  isHeatmap ? 'Varmekart sidevisning' : isScrollmap ? 'Scrollmap sidevisning' : 'Klikk-kart sidevisning'
-                }
-                src={iframeSrc}
-                className="w-full h-[920px]"
-                sandbox="allow-same-origin allow-scripts allow-forms"
-              />
-            ) : (
-              <div className="p-4">
-                <Alert variant="info">Kunne ikke bygge forhåndsvisning for valgt domene/URL.</Alert>
-              </div>
-            )}
-          </section>
-
           <section
-            className={`${showRightSidebar ? '' : 'hidden'} border border-[var(--ax-border-neutral-subtle)] rounded-md p-4 bg-[var(--ax-bg-default)]`}
+            className={`${showRightSidebar ? 'order-1 xl:order-2' : 'hidden'} border border-[var(--ax-border-neutral-subtle)] rounded-md p-4 bg-[var(--ax-bg-default)]`}
           >
             <div className="mb-3">
               <div className="grid gap-3">
                 <Select
                   size="small"
-                  label="Toppliste"
+                  label="Filter"
                   value={listTypeFilter}
                   onChange={(event) => setListTypeFilter(event.target.value)}
                 >
@@ -1065,6 +1061,24 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
                 </div>
               )}
             </div>
+          </section>
+
+          <section className="order-2 xl:order-1 border border-[var(--ax-border-neutral-subtle)] rounded-md overflow-hidden bg-white">
+            {iframeSrc ? (
+              <iframe
+                ref={iframeRef}
+                title={
+                  isHeatmap ? 'Varmekart sidevisning' : isScrollmap ? 'Scrollmap sidevisning' : 'Klikk-kart sidevisning'
+                }
+                src={iframeSrc}
+                className="w-full h-[920px]"
+                sandbox="allow-same-origin allow-scripts allow-forms"
+              />
+            ) : (
+              <div className="p-4">
+                <Alert variant="info">Kunne ikke bygge forhåndsvisning for valgt domene/URL.</Alert>
+              </div>
+            )}
           </section>
         </div>
       )}
