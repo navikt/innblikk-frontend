@@ -10,17 +10,17 @@ const getTrackingScriptUrl = () => {
 
 export const getStandardSnippet = (websiteId: string) => {
   const trackingScriptUrl = getTrackingScriptUrl()
-  return html`<script defer src="${trackingScriptUrl}" data-website-id="${websiteId}"></script>`
+  return html` <script defer src="${trackingScriptUrl}" data-website-id="${websiteId}"></script>`
 }
 
 export const getNextJsSnippet = (websiteId: string) => {
   const trackingScriptUrl = getTrackingScriptUrl()
-  return html`<script defer strategy="afterInteractive" src="${trackingScriptUrl}" data-website-id="${websiteId}" />`
+  return html` <script defer strategy="afterInteractive" src="${trackingScriptUrl}" data-website-id="${websiteId}" />`
 }
 
 export const getReactViteProviderSnippet = () =>
   html`import { createHead, UnheadProvider } from "@unhead/react"; const head = createHead(); function App() { return (
-    <UnheadProvider head="{head}"> {/* Your app content */} </UnheadProvider>
+    <UnheadProvider head="{head}"> {/* Your app content */}</UnheadProvider>
     ); }`
 
 export const getReactViteHeadSnippet = (websiteId: string) => {
@@ -34,7 +34,7 @@ export const getReactViteHeadSnippet = (websiteId: string) => {
 
 export const getAstroSnippet = (websiteId: string) => {
   const trackingScriptUrl = getTrackingScriptUrl()
-  return html`<script
+  return html` <script
     is:inline
     defer
     data-astro-rerun
@@ -45,7 +45,7 @@ export const getAstroSnippet = (websiteId: string) => {
 
 export const getGTMSnippet = (websiteId: string) => {
   const trackingScriptUrl = getTrackingScriptUrl()
-  return html`<script>
+  return html` <script>
     ;(function () {
       var el = document.createElement('script')
       el.setAttribute('src', '${trackingScriptUrl}')
