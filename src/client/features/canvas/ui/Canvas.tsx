@@ -422,6 +422,7 @@ const Canvas = () => {
   const [activeInsightFrameId, setActiveInsightFrameId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<CanvasDeleteTarget | null>(null)
   const [canvasZoom, setCanvasZoom] = useState(1)
+  const [activeEditableFrameId, setActiveEditableFrameId] = useState<string | null>(null)
   const pageInsightsRef = useRef<Record<string, CanvasPageInsight>>({})
   const canvasViewportRef = useRef<HTMLDivElement | null>(null)
   const canvasToolbarRef = useRef<HTMLDivElement | null>(null)
@@ -1872,9 +1873,14 @@ const Canvas = () => {
     }
 
     setFrames((prev) => prev.map((item) => (item.id === id ? nextFrame : item)))
+    setActiveEditableFrameId((current) => (current === id ? null : current))
     void persistFrame(nextFrame).catch((error) => {
       setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre endringer i canvas')
     })
+  }
+
+  const handleStartEditingFrame = (id: string) => {
+    setActiveEditableFrameId(id)
   }
 
   return (
@@ -2386,20 +2392,36 @@ const Canvas = () => {
                             </div>
                           ) : frame.kind === 'heading' ? (
                             <div className="overflow-visible pt-0 pr-0 pb-0">
-                              <textarea
-                                value={frame.headingText || ''}
-                                onChange={(event) => handleEditableFrameChange(frame.id, event.target.value)}
-                                onBlur={() => handleEditableFrameBlur(frame.id)}
-                                onMouseDown={(event) => event.stopPropagation()}
-                                placeholder="Skriv overskrift"
-                                className="block w-full resize-none overflow-hidden border-none bg-transparent p-0 text-[var(--ax-text-default)] outline-none placeholder:text-[var(--ax-text-subtle)] [font-family:inherit]"
-                                style={{
-                                  fontSize: `${getHeadingFrameFontSize(frame)}px`,
-                                  lineHeight: 1.05,
-                                  fontWeight: 700,
-                                }}
-                                rows={1}
-                              />
+                              {activeEditableFrameId === frame.id ? (
+                                <textarea
+                                  value={frame.headingText || ''}
+                                  onChange={(event) => handleEditableFrameChange(frame.id, event.target.value)}
+                                  onBlur={() => handleEditableFrameBlur(frame.id)}
+                                  onMouseDown={(event) => event.stopPropagation()}
+                                  lang="nb-NO"
+                                  placeholder="Skriv overskrift"
+                                  className="block w-full resize-none overflow-hidden border-none bg-transparent p-0 text-[var(--ax-text-default)] outline-none placeholder:text-[var(--ax-text-subtle)] [font-family:inherit]"
+                                  style={{
+                                    fontSize: `${getHeadingFrameFontSize(frame)}px`,
+                                    lineHeight: 1.05,
+                                    fontWeight: 700,
+                                  }}
+                                  rows={1}
+                                  autoFocus
+                                />
+                              ) : (
+                                <div
+                                  className="cursor-text select-text whitespace-pre-wrap break-words text-[var(--ax-text-default)]"
+                                  onClick={() => handleStartEditingFrame(frame.id)}
+                                  style={{
+                                    fontSize: `${getHeadingFrameFontSize(frame)}px`,
+                                    lineHeight: 1.05,
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  {frame.headingText || frame.label || 'Skriv overskrift'}
+                                </div>
+                              )}
                             </div>
                           ) : frame.kind === 'text' ? (
                             <div className="h-full overflow-auto px-2 pb-2">
@@ -2408,6 +2430,7 @@ const Canvas = () => {
                                 onChange={(event) => handleEditableFrameChange(frame.id, event.target.value)}
                                 onBlur={() => handleEditableFrameBlur(frame.id)}
                                 onMouseDown={(event) => event.stopPropagation()}
+                                lang="nb-NO"
                                 placeholder="Skriv tekst"
                                 className="h-full w-full resize-none overflow-auto border-none bg-transparent p-0 text-[var(--ax-text-default)] outline-none placeholder:text-[var(--ax-text-subtle)] [font-family:inherit]"
                                 style={{ fontSize: '24px', lineHeight: 1.3, fontWeight: 500 }}
@@ -2415,13 +2438,25 @@ const Canvas = () => {
                             </div>
                           ) : frame.kind === 'sticky' ? (
                             <div className="h-full overflow-auto p-4">
-                              <textarea
-                                value={frame.textContent || ''}
-                                onChange={(event) => handleEditableFrameChange(frame.id, event.target.value)}
-                                onBlur={() => handleEditableFrameBlur(frame.id)}
-                                placeholder="Skriv sticky note"
-                                className="h-full w-full resize-none overflow-auto border-none bg-transparent p-0 text-base leading-7 text-[#4a3d00] outline-none placeholder:text-[#7a6b2a]"
-                              />
+                              {activeEditableFrameId === frame.id ? (
+                                <textarea
+                                  value={frame.textContent || ''}
+                                  onChange={(event) => handleEditableFrameChange(frame.id, event.target.value)}
+                                  onBlur={() => handleEditableFrameBlur(frame.id)}
+                                  onMouseDown={(event) => event.stopPropagation()}
+                                  lang="nb-NO"
+                                  placeholder="Skriv sticky note"
+                                  className="h-full w-full resize-none overflow-auto border-none bg-transparent p-0 text-base leading-7 text-[#4a3d00] outline-none placeholder:text-[#7a6b2a]"
+                                  autoFocus
+                                />
+                              ) : (
+                                <div
+                                  className="cursor-text whitespace-pre-wrap break-words text-base leading-7 text-[#4a3d00]"
+                                  onClick={() => handleStartEditingFrame(frame.id)}
+                                >
+                                  {frame.textContent || 'Skriv sticky note'}
+                                </div>
+                              )}
                             </div>
                           ) : (
                             <div className="flex h-full items-center justify-center px-6 text-center text-sm text-[var(--ax-text-subtle)]">
