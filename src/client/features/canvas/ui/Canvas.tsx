@@ -7,6 +7,7 @@ import {
   Minus,
   MoreVertical,
   Plus,
+  Copy,
   RefreshCw,
   RotateCcw,
   RotateCw,
@@ -1132,16 +1133,6 @@ const Canvas = () => {
       return
     }
 
-    const comparableUrl = getComparableUrl(targetUrl)
-    if (
-      frames.some(
-        (frame) => frame.kind === 'website' && frame.targetUrl && getComparableUrl(frame.targetUrl) === comparableUrl,
-      )
-    ) {
-      setAddPageError('Siden er allerede lagt til i canvaset.')
-      return
-    }
-
     const index = frames.length
     const column = index % 3
     const row = Math.floor(index / 3)
@@ -1463,6 +1454,15 @@ const Canvas = () => {
     setActiveInsightFrameId((current) => (current === frame.id ? null : frame.id))
   }
 
+  const handleDuplicateWebsiteCard = (frame: CanvasFrame) => {
+    if (frame.kind !== 'website' || frame.isInternalDashboard) return
+    setAddPageError(null)
+    setNewPagePathInput(frame.targetUrl || '')
+    setNewPageRenderEnabled(frame.renderWebsite !== false)
+    setNewPagePreviewUrlInput(frame.previewUrl || '')
+    setIsAddPageModalOpen(true)
+  }
+
   const handleSaveEditedWebsite = async () => {
     if (!editWebsiteFrameId) return
 
@@ -1476,20 +1476,6 @@ const Canvas = () => {
     const previewUrl = previewInput ? normalizeInputToTargetUrl(previewInput, selectedWebsite?.domain) : undefined
     if (!editWebsiteRenderEnabled && previewInput && !previewUrl) {
       setEditWebsiteError('Legg inn en gyldig visnings-URL, for eksempel https://www.nav.no/...')
-      return
-    }
-
-    const comparableUrl = getComparableUrl(targetUrl)
-    if (
-      frames.some(
-        (frame) =>
-          frame.id !== editWebsiteFrameId &&
-          frame.kind === 'website' &&
-          frame.targetUrl &&
-          getComparableUrl(frame.targetUrl) === comparableUrl,
-      )
-    ) {
-      setEditWebsiteError('Siden er allerede lagt til i canvaset.')
       return
     }
 
@@ -3080,6 +3066,12 @@ const Canvas = () => {
                                       <span>Last inn på nytt</span>
                                     </span>
                                   </ActionMenu.Item>
+                                  <ActionMenu.Item onClick={() => handleDuplicateWebsiteCard(frame)}>
+                                    <span className="inline-flex items-center gap-2">
+                                      <Copy size={14} aria-hidden="true" />
+                                      <span>Dupliser</span>
+                                    </span>
+                                  </ActionMenu.Item>
                                   <ActionMenu.Item
                                     onClick={() => {
                                       if (frame.isInternalDashboard) {
@@ -3982,7 +3974,7 @@ const Canvas = () => {
           setNewPagePreviewUrlInput('')
           setNewPageRenderEnabled(true)
         }}
-        header={{ heading: 'Legg til side i canvas' }}
+        header={{ heading: 'Legg til nettside' }}
         width="small"
       >
         <Modal.Body>
