@@ -18,6 +18,7 @@ import {
 } from '../../oversikt/api/oversiktApi.ts'
 
 type CanvasChartType = 'line' | 'bar' | 'pie' | 'table'
+type CanvasPayloadKind = 'website' | 'heading' | 'text' | 'sticky' | 'chart' | 'connection'
 
 type CanvasFrame = {
   id: string
@@ -39,8 +40,19 @@ type CanvasFrame = {
   refreshNonce: number
 }
 
+type CanvasConnection = {
+  id: string
+  fromFrameId?: string
+  toFrameId?: string
+  fromGraphId?: number
+  toGraphId?: number
+  categoryId?: number
+  graphId?: number
+  queryId?: number
+}
+
 type CanvasConfigPayload = {
-  kind: CanvasFrame['kind']
+  kind: CanvasPayloadKind
   x: number
   y: number
   width?: number
@@ -52,6 +64,10 @@ type CanvasConfigPayload = {
   chartType?: CanvasChartType
   chartSql?: string
   label: string
+  fromFrameId?: string
+  toFrameId?: string
+  fromGraphId?: number
+  toGraphId?: number
 }
 
 type CanvasChartOption = {
@@ -118,8 +134,18 @@ const serializeCanvasConfig = (frame: CanvasConfigPayload): string => {
 }
 
 const buildCanvasStorageGraphName = (frame: CanvasFrame): string => `canvas:${frame.kind}:${frame.id}`.slice(0, 200)
+const buildCanvasConnectionStorageGraphName = (connection: CanvasConnection): string =>
+  `canvas:connection:${connection.id}`.slice(0, 200)
 
-const isCanvasFrameKind = (value: unknown): value is CanvasFrame['kind'] =>
+const isCanvasPayloadKind = (value: unknown): value is CanvasPayloadKind =>
+  value === 'website' ||
+  value === 'heading' ||
+  value === 'text' ||
+  value === 'sticky' ||
+  value === 'chart' ||
+  value === 'connection'
+
+const isRenderableCanvasFrameKind = (value: unknown): value is CanvasFrame['kind'] =>
   value === 'website' || value === 'heading' || value === 'text' || value === 'sticky' || value === 'chart'
 
 const isCanvasChartType = (value: unknown): value is CanvasChartType =>
@@ -134,7 +160,7 @@ const parseCanvasConfig = (raw: string): CanvasConfigPayload | null => {
   try {
     const parsed = JSON.parse(jsonCandidate) as Partial<CanvasConfigPayload>
     if (!parsed || typeof parsed !== 'object') return null
-    if (!isCanvasFrameKind(parsed.kind)) return null
+    if (!isCanvasPayloadKind(parsed.kind)) return null
     if (!Number.isFinite(parsed.x) || !Number.isFinite(parsed.y)) return null
     if (!parsed.label || typeof parsed.label !== 'string') return null
 
@@ -151,6 +177,10 @@ const parseCanvasConfig = (raw: string): CanvasConfigPayload | null => {
       chartType: isCanvasChartType(parsed.chartType) ? parsed.chartType : undefined,
       chartSql: typeof parsed.chartSql === 'string' ? parsed.chartSql : undefined,
       label: parsed.label,
+      fromFrameId: typeof parsed.fromFrameId === 'string' ? parsed.fromFrameId : undefined,
+      toFrameId: typeof parsed.toFrameId === 'string' ? parsed.toFrameId : undefined,
+      fromGraphId: Number.isFinite(parsed.fromGraphId) ? Number(parsed.fromGraphId) : undefined,
+      toGraphId: Number.isFinite(parsed.toGraphId) ? Number(parsed.toGraphId) : undefined,
     }
   } catch {
     return null
@@ -177,6 +207,8 @@ const Canvas = () => {
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined)
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined)
   const [frames, setFrames] = useState<CanvasFrame[]>([])
+  const [connections, setConnections] = useState<CanvasConnection[]>([])
+  const [connectSourceFrameId, setConnectSourceFrameId] = useState<string | null>(null)
   const [isAddPageModalOpen, setIsAddPageModalOpen] = useState(false)
   const [isAddHeadingModalOpen, setIsAddHeadingModalOpen] = useState(false)
   const [isAddTextModalOpen, setIsAddTextModalOpen] = useState(false)
@@ -318,6 +350,65 @@ const Canvas = () => {
     [canPersistToDashboard, projectId, dashboardId, ensureCanvasCategory],
   )
 
+  const persistConnection = useCallback(
+    async (connection: CanvasConnection): Promise<CanvasConnection> => {
+      if (!canPersistToDashboard || projectId === null || dashboardId === null) return connection
+
+      const categoryId = connection.categoryId || (await ensureCanvasCategory())
+      if (!categoryId) return connection
+
+      const payload: CanvasConfigPayload = {
+        kind: 'connection',
+        x: 0,
+        y: 0,
+        label: 'Connection',
+        fromFrameId: connection.fromFrameId,
+        toFrameId: connection.toFrameId,
+        fromGraphId: connection.fromGraphId,
+        toGraphId: connection.toGraphId,
+      }
+      const serialized = serializeCanvasConfig(payload)
+
+      if (!connection.graphId) {
+        const createdGraph = await createGraph(projectId, dashboardId, categoryId, {
+          name: buildCanvasConnectionStorageGraphName(connection),
+          graphType: 'TEXT',
+          width: 100,
+          description: CANVAS_DASHBOARD_TOKEN,
+        })
+        const createdQuery = await createQuery(projectId, dashboardId, categoryId, createdGraph.id, {
+          name: CANVAS_QUERY_NAME,
+          sqlText: serialized,
+        })
+        return {
+          ...connection,
+          categoryId,
+          graphId: createdGraph.id,
+          queryId: createdQuery.id,
+        }
+      }
+
+      if (connection.queryId) {
+        await updateQuery(projectId, dashboardId, categoryId, connection.graphId, connection.queryId, {
+          name: CANVAS_QUERY_NAME,
+          sqlText: serialized,
+        })
+        return connection
+      }
+
+      const createdQuery = await createQuery(projectId, dashboardId, categoryId, connection.graphId, {
+        name: CANVAS_QUERY_NAME,
+        sqlText: serialized,
+      })
+      return {
+        ...connection,
+        categoryId,
+        queryId: createdQuery.id,
+      }
+    },
+    [canPersistToDashboard, projectId, dashboardId, ensureCanvasCategory],
+  )
+
   useEffect(() => {
     if (!canPersistToDashboard || projectId === null || dashboardId === null) return
 
@@ -333,6 +424,7 @@ const Canvas = () => {
         }
 
         const framesFromStorage: CanvasFrame[] = []
+        const connectionsFromStorage: CanvasConnection[] = []
         for (const category of categories) {
           const graphs = await fetchGraphs(projectId, dashboardId, category.id)
           for (const graph of graphs) {
@@ -344,6 +436,21 @@ const Canvas = () => {
             const configQuery = queries.find((query) => query.name === CANVAS_QUERY_NAME) ?? queries[0]
             const parsedConfig = parseCanvasConfig(configQuery?.sqlText || '')
             if (!parsedConfig) continue
+
+            if (parsedConfig.kind === 'connection') {
+              connectionsFromStorage.push({
+                id: `stored-connection-${graph.id}`,
+                fromFrameId: parsedConfig.fromFrameId,
+                toFrameId: parsedConfig.toFrameId,
+                fromGraphId: parsedConfig.fromGraphId,
+                toGraphId: parsedConfig.toGraphId,
+                categoryId: category.id,
+                graphId: graph.id,
+                queryId: configQuery?.id,
+              })
+              continue
+            }
+            if (!isRenderableCanvasFrameKind(parsedConfig.kind)) continue
 
             framesFromStorage.push({
               id: `stored-${graph.id}`,
@@ -369,6 +476,7 @@ const Canvas = () => {
 
         if (!isActive) return
         setFrames(framesFromStorage)
+        setConnections(connectionsFromStorage)
       } catch (error) {
         if (!isActive) return
         setSyncError(error instanceof Error ? error.message : 'Kunne ikke laste canvas-data')
@@ -508,6 +616,65 @@ const Canvas = () => {
     } finally {
       setIsSavingCanvasItem(false)
     }
+  }
+
+  const createConnectionBetweenFrames = async (source: CanvasFrame, target: CanvasFrame) => {
+    if (source.kind !== 'website' || target.kind !== 'website') return
+    if (source.id === target.id) return
+
+    if (
+      connections.some(
+        (connection) =>
+          (connection.fromFrameId === source.id && connection.toFrameId === target.id) ||
+          (source.graphId &&
+            target.graphId &&
+            connection.fromGraphId === source.graphId &&
+            connection.toGraphId === target.graphId),
+      )
+    ) {
+      return
+    }
+
+    const newConnection: CanvasConnection = {
+      id: `${Date.now()}-${Math.random()}`,
+      fromFrameId: source.id,
+      toFrameId: target.id,
+      fromGraphId: source.graphId,
+      toGraphId: target.graphId,
+    }
+
+    try {
+      setIsSavingCanvasItem(true)
+      const persisted = await persistConnection(newConnection)
+      setConnections((prev) => [...prev, persisted])
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre kobling')
+    } finally {
+      setIsSavingCanvasItem(false)
+      setConnectSourceFrameId(null)
+    }
+  }
+
+  const handleConnectionDotClick = async (frame: CanvasFrame) => {
+    if (frame.kind !== 'website') return
+
+    if (!connectSourceFrameId) {
+      setConnectSourceFrameId(frame.id)
+      return
+    }
+
+    if (connectSourceFrameId === frame.id) {
+      setConnectSourceFrameId(null)
+      return
+    }
+
+    const source = frames.find((item) => item.id === connectSourceFrameId)
+    if (!source || source.kind !== 'website') {
+      setConnectSourceFrameId(null)
+      return
+    }
+
+    await createConnectionBetweenFrames(source, frame)
   }
 
   const handleAddHeadingCard = async () => {
@@ -827,17 +994,97 @@ const Canvas = () => {
 
   const handleRemovePage = async (id: string) => {
     const frameToDelete = frames.find((frame) => frame.id === id)
+    const linkedConnections = connections.filter(
+      (connection) =>
+        connection.fromFrameId === id ||
+        connection.toFrameId === id ||
+        (frameToDelete?.graphId !== undefined &&
+          (connection.fromGraphId === frameToDelete.graphId || connection.toGraphId === frameToDelete.graphId)),
+    )
     setFrames((prev) => prev.filter((frame) => frame.id !== id))
+    setConnections((prev) => prev.filter((connection) => !linkedConnections.some((item) => item.id === connection.id)))
+    if (connectSourceFrameId === id) {
+      setConnectSourceFrameId(null)
+    }
 
     if (!frameToDelete || !canPersistToDashboard || projectId === null || dashboardId === null) return
     if (!frameToDelete.graphId || !frameToDelete.categoryId) return
 
     try {
       await deleteGraph(projectId, dashboardId, frameToDelete.categoryId, frameToDelete.graphId)
+      await Promise.all(
+        linkedConnections.map((connection) => {
+          if (!connection.graphId || !connection.categoryId) return Promise.resolve()
+          return deleteGraph(projectId, dashboardId, connection.categoryId, connection.graphId)
+        }),
+      )
     } catch (error) {
       setSyncError(error instanceof Error ? error.message : 'Kunne ikke slette element fra canvas')
     }
   }
+
+  const handleRemoveConnection = async (connectionId: string) => {
+    const connection = connections.find((item) => item.id === connectionId)
+    setConnections((prev) => prev.filter((item) => item.id !== connectionId))
+
+    if (!connection || !canPersistToDashboard || projectId === null || dashboardId === null) return
+    if (!connection.graphId || !connection.categoryId) return
+
+    try {
+      await deleteGraph(projectId, dashboardId, connection.categoryId, connection.graphId)
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke slette kobling')
+    }
+  }
+
+  const resolveConnectionFrame = useCallback(
+    (connection: CanvasConnection, role: 'from' | 'to'): CanvasFrame | null => {
+      const frameId = role === 'from' ? connection.fromFrameId : connection.toFrameId
+      const graphId = role === 'from' ? connection.fromGraphId : connection.toGraphId
+      if (frameId) {
+        const byId = frames.find((frame) => frame.id === frameId)
+        if (byId) return byId
+      }
+      if (graphId) {
+        const byGraphId = frames.find((frame) => frame.graphId === graphId)
+        if (byGraphId) return byGraphId
+      }
+      return null
+    },
+    [frames],
+  )
+
+  const connectionSegments = useMemo(
+    () =>
+      connections
+        .map((connection) => {
+          const fromFrame = resolveConnectionFrame(connection, 'from')
+          const toFrame = resolveConnectionFrame(connection, 'to')
+          if (!fromFrame || !toFrame) return null
+
+          const fromDefaults = getDefaultFrameSize(fromFrame.kind)
+          const toDefaults = getDefaultFrameSize(toFrame.kind)
+          const fromWidth = fromFrame.width ?? fromDefaults.width
+          const fromHeight = fromFrame.height ?? fromDefaults.height
+          const fromAnchorY = fromFrame.y + fromHeight / 2
+          const toHeight = toFrame.height ?? toDefaults.height
+          const toAnchorY = toFrame.y + toHeight / 2
+
+          const x1 = fromFrame.x + fromWidth
+          const y1 = fromAnchorY
+          const x2 = toFrame.x
+          const y2 = toAnchorY
+          const delta = Math.max(80, Math.abs(x2 - x1) * 0.45)
+          const path = `M ${x1} ${y1} C ${x1 + delta} ${y1}, ${x2 - delta} ${y2}, ${x2} ${y2}`
+
+          return {
+            id: connection.id,
+            path,
+          }
+        })
+        .filter((item): item is { id: string; path: string } => item !== null),
+    [connections, resolveConnectionFrame],
+  )
 
   const handleRefreshFrame = (id: string) => {
     setFrames((prev) =>
@@ -1015,6 +1262,42 @@ const Canvas = () => {
                 backgroundSize: '24px 24px',
               }}
             >
+              {connectionSegments.length > 0 && (
+                <svg className="pointer-events-none absolute inset-0 z-[1] h-full w-full overflow-visible">
+                  <defs>
+                    <marker
+                      id="canvas-connection-arrow"
+                      markerWidth="10"
+                      markerHeight="8"
+                      refX="9"
+                      refY="4"
+                      orient="auto"
+                      markerUnits="strokeWidth"
+                    >
+                      <path d="M0,0 L10,4 L0,8 z" fill="var(--ax-border-accent)" />
+                    </marker>
+                  </defs>
+                  {connectionSegments.map((segment) => (
+                    <g key={segment.id}>
+                      <path
+                        d={segment.path}
+                        stroke="var(--ax-border-accent)"
+                        strokeWidth={2}
+                        fill="none"
+                        markerEnd="url(#canvas-connection-arrow)"
+                      />
+                      <path
+                        d={segment.path}
+                        stroke="transparent"
+                        strokeWidth={12}
+                        fill="none"
+                        className="pointer-events-auto cursor-pointer"
+                        onClick={() => void handleRemoveConnection(segment.id)}
+                      />
+                    </g>
+                  ))}
+                </svg>
+              )}
               {frameItems.map((frame) =>
                 (() => {
                   const defaults = getDefaultFrameSize(frame.kind)
@@ -1023,7 +1306,7 @@ const Canvas = () => {
                       key={frame.id}
                       className={
                         frame.kind === 'website'
-                          ? 'group absolute flex flex-col overflow-hidden rounded-lg border border-[var(--ax-border-neutral-subtle)] bg-white shadow-sm'
+                          ? `group absolute flex flex-col overflow-visible rounded-lg border ${connectSourceFrameId === frame.id ? 'border-[var(--ax-border-accent)] ring-2 ring-[var(--ax-border-accent)]/20' : 'border-[var(--ax-border-neutral-subtle)]'} bg-white shadow-sm`
                           : frame.kind === 'chart'
                             ? 'group absolute flex flex-col overflow-hidden rounded-lg border border-[var(--ax-border-neutral-subtle)] bg-white shadow-sm'
                             : frame.kind === 'heading'
@@ -1069,6 +1352,7 @@ const Canvas = () => {
                               size="xsmall"
                               variant="tertiary"
                               icon={<Edit2 size={14} />}
+                              onMouseDown={(event) => event.stopPropagation()}
                               onClick={() => handleOpenEditWebsiteModal(frame)}
                               title="Rediger nettside"
                               aria-label="Rediger nettside"
@@ -1079,6 +1363,7 @@ const Canvas = () => {
                               size="xsmall"
                               variant="tertiary"
                               icon={<RefreshCw size={14} />}
+                              onMouseDown={(event) => event.stopPropagation()}
                               onClick={() => handleRefreshFrame(frame.id)}
                               title="Last inn på nytt"
                               aria-label="Last inn på nytt"
@@ -1108,6 +1393,44 @@ const Canvas = () => {
                       <div
                         className={`relative flex-1 ${frame.kind === 'website' || frame.kind === 'chart' ? 'bg-white' : 'px-2 pb-2'}`}
                       >
+                        {frame.kind === 'website' && (
+                          <div className="pointer-events-none absolute inset-y-0 left-0 right-0 z-20 overflow-visible">
+                            <button
+                              type="button"
+                              className={`pointer-events-auto absolute left-[-12px] top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-transparent opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${
+                                connectSourceFrameId === frame.id ? 'opacity-100' : ''
+                              }`}
+                              aria-label="Kobling"
+                              title={connectSourceFrameId ? 'Koble hit' : 'Start kobling'}
+                              onClick={() => void handleConnectionDotClick(frame)}
+                              onMouseDown={(event) => event.stopPropagation()}
+                            >
+                              <span
+                                aria-hidden="true"
+                                className={`pointer-events-none h-3.5 w-3.5 rounded-full border border-[var(--ax-border-accent)] bg-[var(--ax-bg-default)] shadow-sm ${
+                                  connectSourceFrameId === frame.id ? 'bg-[var(--ax-border-accent)]' : ''
+                                }`}
+                              />
+                            </button>
+                            <button
+                              type="button"
+                              className={`pointer-events-auto absolute right-[-12px] top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-transparent opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${
+                                connectSourceFrameId === frame.id ? 'opacity-100' : ''
+                              }`}
+                              aria-label="Kobling"
+                              title={connectSourceFrameId ? 'Koble hit' : 'Start kobling'}
+                              onClick={() => void handleConnectionDotClick(frame)}
+                              onMouseDown={(event) => event.stopPropagation()}
+                            >
+                              <span
+                                aria-hidden="true"
+                                className={`pointer-events-none h-3.5 w-3.5 rounded-full border border-[var(--ax-border-accent)] bg-[var(--ax-bg-default)] shadow-sm ${
+                                  connectSourceFrameId === frame.id ? 'bg-[var(--ax-border-accent)]' : ''
+                                }`}
+                              />
+                            </button>
+                          </div>
+                        )}
                         {frame.kind === 'website' && frame.src && frame.renderWebsite !== false ? (
                           <iframe
                             key={`${frame.id}-${frame.refreshNonce}`}
