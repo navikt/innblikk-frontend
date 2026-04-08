@@ -1234,7 +1234,7 @@ const ProjectManager = () => {
                     </ActionMenu.Trigger>
                   </Tooltip>
                   <ActionMenu.Content align="end">
-                    <ActionMenu.Item onClick={openCreateDashboard}>Legg til dashboard</ActionMenu.Item>
+                    <ActionMenu.Item onClick={() => openCreateDashboard()}>Legg til dashboard</ActionMenu.Item>
                     <ActionMenu.Item onClick={openCreateCanvas}>Legg til canvas</ActionMenu.Item>
                     <ActionMenu.Item as="a" href="/grafbygger">
                       Legg til graf
@@ -1271,7 +1271,7 @@ const ProjectManager = () => {
             <div className="rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] px-3 py-2">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm text-[var(--ax-text-default)]">Teamet er tomt</span>
-                <Button size="xsmall" variant="secondary" onClick={openCreateDashboard}>
+                <Button size="xsmall" variant="secondary" onClick={() => openCreateDashboard()}>
                   Lag nytt dashboard
                 </Button>
               </div>

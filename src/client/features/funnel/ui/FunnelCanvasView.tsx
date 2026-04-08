@@ -121,19 +121,23 @@ const FunnelCanvasView = ({ data, loading, websiteId, period = 'current_month', 
                       {percentageOfPrev}%
                     </div>
                     <div className={`${TRANSITION_SECONDARY_TEXT} text-[var(--ax-text-success)] mt-1`}>gikk videre</div>
+                    <div className="mt-1 text-sm font-semibold text-[var(--ax-text-success)]">
+                      {item.count.toLocaleString('nb-NO')} brukere
+                    </div>
                   </div>
 
-                  {dropoffCount > 0 && (
-                    <>
-                      <div className="mt-1 h-4 w-px bg-[var(--ax-border-danger-subtle)]" />
-                      <div className="rounded-md border border-[var(--ax-border-danger-subtle)] bg-[var(--ax-bg-danger-soft)] px-5 py-4 text-center shadow-sm min-w-[200px]">
-                        <div className={`${TRANSITION_PRIMARY_TEXT} text-[var(--ax-text-danger)]`}>
-                          {dropoffPercentage}%
-                        </div>
-                        <div className={`${TRANSITION_SECONDARY_TEXT} text-[var(--ax-text-danger)] mt-1`}>falt fra</div>
+                  <>
+                    <div className="mt-1 h-4 w-px bg-[var(--ax-border-danger-subtle)]" />
+                    <div className="rounded-md border border-[var(--ax-border-danger-subtle)] bg-[var(--ax-bg-danger-soft)] px-5 py-4 text-center shadow-sm min-w-[200px]">
+                      <div className={`${TRANSITION_PRIMARY_TEXT} text-[var(--ax-text-danger)]`}>
+                        {dropoffPercentage}%
                       </div>
-                    </>
-                  )}
+                      <div className={`${TRANSITION_SECONDARY_TEXT} text-[var(--ax-text-danger)] mt-1`}>falt fra</div>
+                      <div className="mt-1 text-sm font-semibold text-[var(--ax-text-danger)]">
+                        {dropoffCount.toLocaleString('nb-NO')} brukere
+                      </div>
+                    </div>
+                  </>
                 </div>
               </div>
             )
