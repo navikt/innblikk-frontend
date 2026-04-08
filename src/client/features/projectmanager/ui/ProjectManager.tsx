@@ -494,14 +494,11 @@ const ProjectManager = () => {
     )
     const shouldOpenCanvas = isCanvasDashboard(newDashboardDescription)
     setIsCreateDashboardOpen(false)
-    const createdDashboardName = newDashboardName.trim()
     setNewDashboardName('')
     setNewDashboardDescription('')
 
     if (shouldOpenCanvas && createdDashboard) {
-      void navigate(
-        `/canvas?dashboardId=${createdDashboard.id}&projectId=${selectedProject.project.id}&canvasName=${encodeURIComponent(createdDashboardName)}`,
-      )
+      void navigate(`/canvas?dashboardId=${createdDashboard.id}&projectId=${selectedProject.project.id}`)
     }
   }
 
@@ -1299,7 +1296,7 @@ const ProjectManager = () => {
                   const isCanvasRow = row.type === 'dashboard' && isCanvasDashboard(row.dashboardDescription)
                   const rowHref =
                     isCanvasRow && selectedProject
-                      ? `/canvas?dashboardId=${row.dashboardId}&projectId=${selectedProject.project.id}&canvasName=${encodeURIComponent(row.name)}`
+                      ? `/canvas?dashboardId=${row.dashboardId}&projectId=${selectedProject.project.id}`
                       : overviewHref
                   const isDashboardExpanded = expandedDashboards.has(row.dashboardId)
                   const nextRow = visibleFileRows[index + 1]
