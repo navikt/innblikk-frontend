@@ -1,6 +1,6 @@
 import { readFile } from 'fs/promises'
 
-export function registerFrontend(app, { buildPath, UMAMI_BASE_URL, GCP_PROJECT_ID }) {
+export function registerFrontend(app, { buildPath, GCP_PROJECT_ID }) {
   // Serve index.html with injected runtime config
   let cachedHtmlPromise
 
@@ -9,7 +9,6 @@ export function registerFrontend(app, { buildPath, UMAMI_BASE_URL, GCP_PROJECT_I
     const html = await readFile(indexPath, 'utf8')
 
     const runtimeConfig = {
-      UMAMI_BASE_URL,
       GCP_PROJECT_ID,
     }
 
@@ -20,7 +19,6 @@ export function registerFrontend(app, { buildPath, UMAMI_BASE_URL, GCP_PROJECT_I
         <script>
           window.__RUNTIME_CONFIG__ = ${runtimeConfigJson};
           // Legacy globals for main UI code paths
-          window.__UMAMI_BASE_URL__ = window.__UMAMI_BASE_URL__ || window.__RUNTIME_CONFIG__.UMAMI_BASE_URL || "";
           window.__GCP_PROJECT_ID__ = window.__GCP_PROJECT_ID__ || window.__RUNTIME_CONFIG__.GCP_PROJECT_ID || "";
         </script>
       `
