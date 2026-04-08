@@ -161,6 +161,7 @@ const ProjectManager = () => {
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [projectSearch, setProjectSearch] = useState('')
   const [isCreateDashboardOpen, setIsCreateDashboardOpen] = useState(false)
+  const [isCreateCanvas, setIsCreateCanvas] = useState(false)
   const [newDashboardName, setNewDashboardName] = useState('')
   const [newDashboardDescription, setNewDashboardDescription] = useState('')
   const [createDashboardError, setCreateDashboardError] = useState<string | null>(null)
@@ -424,13 +425,18 @@ const ProjectManager = () => {
 
   const openCreateDashboard = (defaults?: { name?: string; description?: string }) => {
     setCreateDashboardError(null)
+    setIsCreateCanvas(false)
     setNewDashboardName(defaults?.name ?? '')
     setNewDashboardDescription(defaults?.description ?? '')
     setIsCreateDashboardOpen(true)
   }
 
   const openCreateCanvas = () => {
-    openCreateDashboard({ description: CANVAS_DASHBOARD_TOKEN })
+    setCreateDashboardError(null)
+    setIsCreateCanvas(true)
+    setNewDashboardName('')
+    setNewDashboardDescription(CANVAS_DASHBOARD_TOKEN)
+    setIsCreateDashboardOpen(true)
   }
 
   const handleSaveDashboard = async (params: { name: string; description?: string }) => {
@@ -492,8 +498,9 @@ const ProjectManager = () => {
       newDashboardName,
       newDashboardDescription || undefined,
     )
-    const shouldOpenCanvas = isCanvasDashboard(newDashboardDescription)
+    const shouldOpenCanvas = isCreateCanvas || isCanvasDashboard(newDashboardDescription)
     setIsCreateDashboardOpen(false)
+    setIsCreateCanvas(false)
     setNewDashboardName('')
     setNewDashboardDescription('')
 
@@ -1892,9 +1899,10 @@ const ProjectManager = () => {
         open={isCreateDashboardOpen}
         onClose={() => {
           setIsCreateDashboardOpen(false)
+          setIsCreateCanvas(false)
           setCreateDashboardError(null)
         }}
-        header={{ heading: isCanvasDashboard(newDashboardDescription) ? 'Nytt canvas' : 'Nytt dashboard' }}
+        header={{ heading: isCreateCanvas ? 'Nytt canvas' : 'Nytt dashboard' }}
         width="small"
       >
         <Modal.Body>
@@ -1910,22 +1918,25 @@ const ProjectManager = () => {
               value={newDashboardName}
               onChange={(event) => setNewDashboardName(event.target.value)}
             />
-            <TextField
-              label="Beskrivelse (valgfri)"
-              size="small"
-              value={newDashboardDescription}
-              onChange={(event) => setNewDashboardDescription(event.target.value)}
-            />
+            {!isCreateCanvas && (
+              <TextField
+                label="Beskrivelse (valgfri)"
+                size="small"
+                value={newDashboardDescription}
+                onChange={(event) => setNewDashboardDescription(event.target.value)}
+              />
+            )}
           </div>
         </Modal.Body>
         <Modal.Footer>
           <Button onClick={() => void handleCreateDashboard()} loading={loading}>
-            {isCanvasDashboard(newDashboardDescription) ? 'Opprett canvas' : 'Opprett'}
+            {isCreateCanvas ? 'Opprett canvas' : 'Opprett'}
           </Button>
           <Button
             variant="secondary"
             onClick={() => {
               setIsCreateDashboardOpen(false)
+              setIsCreateCanvas(false)
               setCreateDashboardError(null)
             }}
             disabled={loading}

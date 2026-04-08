@@ -10,12 +10,17 @@ import { formatPathLabel, parseFormattedPath } from '../../../analysis/utils/url
 import {
   createDashboard,
   createProject,
+  createCategory,
   fetchCategories,
   fetchDashboards,
   fetchProjects,
   saveChartToBackend,
 } from '../../api/chartStorageApi.ts'
 import type { DashboardDto, GraphCategoryDto, ProjectDto } from '../../api/chartStorageApi.ts'
+import {
+  createGraph as createDashboardGraph,
+  createQuery as createDashboardQuery,
+} from '../../../oversikt/api/oversiktApi.ts'
 
 type JsonPrimitive = string | number | boolean | null
 interface JsonObject {
@@ -116,6 +121,10 @@ const getHostPrefix = () => (typeof window === 'undefined' ? 'server' : window.l
 const LAST_PROJECT_ID_KEY = `grafbygger_last_project_id_${getHostPrefix()}`
 const LAST_DASHBOARD_ID_KEY = `grafbygger_last_dashboard_id_${getHostPrefix()}`
 const CANVAS_DASHBOARD_TOKEN = '[canvas]'
+const CANVAS_CHART_DEFAULT_X = 120
+const CANVAS_CHART_DEFAULT_Y = 120
+const CANVAS_CHART_DEFAULT_WIDTH = 680
+const CANVAS_CHART_DEFAULT_HEIGHT = 460
 
 const parseStoredId = (value: string | null): number | null => {
   if (!value) return null
@@ -135,6 +144,20 @@ const getLastDashboardId = (): number | null => {
 
 const isCanvasDashboard = (description?: string): boolean =>
   (description || '').toLowerCase().split(/\s+/).includes(CANVAS_DASHBOARD_TOKEN)
+
+const serializeCanvasConfig = (payload: {
+  kind: 'chart'
+  x: number
+  y: number
+  width: number
+  height: number
+  label: string
+  chartType: 'line' | 'bar' | 'pie' | 'table'
+  chartSql: string
+}): string => {
+  const escaped = JSON.stringify(payload).replace(/'/g, "''")
+  return `SELECT '${escaped}' AS canvas_config`
+}
 
 const saveLastProjectId = (projectId: number | null) => {
   if (typeof window === 'undefined') return
@@ -1060,6 +1083,38 @@ const QueryPreview = ({
         sqlText: getProcessedSql({ preserveMetabasePlaceholders: true }),
         categoryId: selectedCategoryOption ? Number(selectedCategoryOption) : undefined,
       })
+
+      if (isCanvasDashboard(saved.dashboard.description)) {
+        const dashboardCategories = await fetchCategories(saved.project.id, saved.dashboard.id)
+        const targetCategory =
+          (selectedCategoryOption
+            ? dashboardCategories.find((category) => category.id === Number(selectedCategoryOption))
+            : null) ??
+          dashboardCategories[0] ??
+          (await createCategory(saved.project.id, saved.dashboard.id, 'Fane 1'))
+
+        const canvasGraph = await createDashboardGraph(saved.project.id, saved.dashboard.id, targetCategory.id, {
+          name: `canvas:${graphName.trim()}`,
+          graphType: 'TEXT',
+          width: 100,
+          description: CANVAS_DASHBOARD_TOKEN,
+        })
+
+        await createDashboardQuery(saved.project.id, saved.dashboard.id, targetCategory.id, canvasGraph.id, {
+          name: 'canvas-config',
+          sqlText: serializeCanvasConfig({
+            kind: 'chart',
+            x: CANVAS_CHART_DEFAULT_X,
+            y: CANVAS_CHART_DEFAULT_Y,
+            width: CANVAS_CHART_DEFAULT_WIDTH,
+            height: CANVAS_CHART_DEFAULT_HEIGHT,
+            label: graphName.trim(),
+            chartType:
+              graphType === 'LINE' ? 'line' : graphType === 'BAR' ? 'bar' : graphType === 'PIE' ? 'pie' : 'table',
+            chartSql: saved.query.sqlText || getProcessedSql({ preserveMetabasePlaceholders: true }),
+          }),
+        })
+      }
 
       setSaveSuccess('Lagret')
       setSavedLocation({

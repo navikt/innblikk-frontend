@@ -2118,23 +2118,28 @@ const Canvas = () => {
                         className={
                           frame.kind === 'website'
                             ? 'flex cursor-move items-center justify-between gap-2 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] px-3 py-2'
-                            : frame.kind === 'heading'
-                              ? 'flex cursor-move items-center justify-between gap-2 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] px-2 py-2 opacity-0 transition-opacity pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100'
-                              : frame.kind === 'sticky'
-                                ? 'flex cursor-move items-center justify-between gap-2 border-b border-[#ebd56d] bg-[#fff1a6] px-2 py-2'
-                                : 'absolute right-2 top-2 z-10 flex items-center justify-end gap-1 opacity-0 transition-opacity pointer-events-none group-hover:opacity-100 group-focus-within:opacity-100 group-hover:pointer-events-auto group-focus-within:pointer-events-auto'
+                            : frame.kind === 'chart'
+                              ? 'flex cursor-move items-center justify-between gap-2 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] px-3 py-2'
+                              : frame.kind === 'heading'
+                                ? 'flex cursor-move items-center justify-between gap-2 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] px-2 py-2 opacity-0 transition-opacity pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100'
+                                : frame.kind === 'sticky'
+                                  ? 'flex cursor-move items-center justify-between gap-2 border-b border-[#ebd56d] bg-[#fff1a6] px-2 py-2'
+                                  : 'absolute right-2 top-2 z-10 flex items-center justify-end gap-1 opacity-0 transition-opacity pointer-events-none group-hover:opacity-100 group-focus-within:opacity-100 group-hover:pointer-events-auto group-focus-within:pointer-events-auto'
                         }
                         onMouseDown={
-                          frame.kind === 'website' || frame.kind === 'sticky' || frame.kind === 'heading'
+                          frame.kind === 'website' ||
+                          frame.kind === 'sticky' ||
+                          frame.kind === 'heading' ||
+                          frame.kind === 'chart'
                             ? (event) => handleDragStart(event, frame)
                             : undefined
                         }
                       >
                         <div className="flex min-w-0 items-center gap-2">
-                          {(frame.kind === 'website' || frame.kind === 'heading') && (
+                          {(frame.kind === 'website' || frame.kind === 'heading' || frame.kind === 'chart') && (
                             <Move size={14} className="text-[var(--ax-text-subtle)]" />
                           )}
-                          {frame.kind === 'website' && (
+                          {(frame.kind === 'website' || frame.kind === 'chart') && (
                             <div className="min-w-0 text-sm font-semibold text-[var(--ax-text-default)] break-all">
                               {frame.label}
                             </div>
@@ -2173,16 +2178,6 @@ const Canvas = () => {
                               onClick={() => handleRefreshFrame(frame.id)}
                               title="Last inn på nytt"
                               aria-label="Last inn på nytt"
-                            />
-                          )}
-                          {(frame.kind === 'heading' || frame.kind === 'text' || frame.kind === 'chart') && (
-                            <Button
-                              size="xsmall"
-                              variant="tertiary"
-                              icon={<Move size={14} />}
-                              onMouseDown={(event) => handleDragStart(event, frame)}
-                              title="Flytt kort"
-                              aria-label="Flytt kort"
                             />
                           )}
                           <Button
@@ -2394,7 +2389,7 @@ const Canvas = () => {
                   setNewPagePreviewUrlInput(event.target.value)
                   if (addPageError) setAddPageError(null)
                 }}
-                description="Vises i kortet i stedet for nettsiden. Kan være en image- eller innholdsside."
+                description="Vises i kortet i stedet for nettsiden. Kan være en bilde- eller innholdsside."
               />
             )}
             {addPageError && <Alert variant="error">{addPageError}</Alert>}
