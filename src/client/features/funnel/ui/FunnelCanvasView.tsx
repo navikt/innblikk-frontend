@@ -28,7 +28,9 @@ const TRANSITION_SECONDARY_TEXT = 'text-[30px] leading-none font-semibold'
 const buildPreviewTargetUrl = (domain: string | undefined, path: string): string | null => {
   if (!domain || !path) return null
 
-  const normalizedPath = normalizeUrlToPath(path)
+  const queryIndex = path.indexOf('?')
+  const normalizedPath = normalizeUrlToPath(queryIndex === -1 ? path : path.substring(0, queryIndex))
+  const querySuffix = queryIndex === -1 ? '' : path.substring(queryIndex)
   if (!normalizedPath) return null
 
   const withProtocol = domain.startsWith('http://') || domain.startsWith('https://') ? domain : `https://${domain}`
@@ -36,7 +38,7 @@ const buildPreviewTargetUrl = (domain: string | undefined, path: string): string
   try {
     const domainUrl = new URL(withProtocol)
     const finalPath = normalizedPath.startsWith('/') ? normalizedPath : `/${normalizedPath}`
-    return new URL(finalPath, domainUrl.origin).toString()
+    return new URL(`${finalPath}${querySuffix}`, domainUrl.origin).toString()
   } catch {
     return null
   }

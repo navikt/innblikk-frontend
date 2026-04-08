@@ -33,7 +33,9 @@ import {
   addStepParam,
   removeStepParam,
   updateStepParam,
-  normalizeStepUrl,
+  updateStepQuery,
+  splitUrlStepInput,
+  getStepUrlDisplay,
 } from '../utils/stepUtils'
 import {
   formatDuration,
@@ -210,14 +212,18 @@ const Funnel = () => {
                         {/* Value input */}
                         {step.type === 'url' ? (
                           <TextField
-                            label={`URL-sti`}
-                            value={step.value}
-                            onChange={(e) => setSteps(updateStepValue(steps, index, e.target.value))}
-                            onBlur={(e) =>
-                              e.target.value.trim() &&
-                              setSteps(updateStepValue(steps, index, normalizeStepUrl(e.target.value)))
+                            label="URL-sti"
+                            value={step.query ? getStepUrlDisplay(step) : step.value}
+                            onChange={(e) =>
+                              setSteps(updateStepQuery(updateStepValue(steps, index, e.target.value), index, ''))
                             }
+                            onBlur={(e) => {
+                              if (!e.target.value.trim()) return
+                              const next = splitUrlStepInput(e.target.value, step.query ?? '')
+                              setSteps(updateStepQuery(updateStepValue(steps, index, next.value), index, next.query))
+                            }}
                             size="small"
+                            description="Valgfritt. Du kan lime inn hele URL-en med ?query."
                           />
                         ) : (
                           <Combobox

@@ -1,6 +1,52 @@
 import express from 'express'
 import { addAuditLogging, substituteQueryParameters } from '../../bigquery/audit.js'
-import { requireBigQuery, getNavIdent, getDryRunStats, normalizeUrlSql, MAX_BYTES_BILLED } from './helpers.js'
+import {
+  requireBigQuery,
+  getNavIdent,
+  getDryRunStats,
+  normalizeUrlSql,
+  normalizeUrlQuerySql,
+  MAX_BYTES_BILLED,
+} from './helpers.js'
+
+const normalizeStepQuery = (value) => (value ?? '').trim().replace(/^\?/, '').replace(/#.*$/, '')
+
+const splitUrlStepInput = (value, query = '') => {
+  const trimmedValue = (value ?? '').trim()
+  if (!trimmedValue) return { value: '', query: normalizeStepQuery(query) }
+
+  const queryIndex = trimmedValue.indexOf('?')
+  const rawPath = queryIndex === -1 ? trimmedValue : trimmedValue.substring(0, queryIndex)
+  const rawQuery = query.trim() ? query : queryIndex === -1 ? '' : trimmedValue.substring(queryIndex + 1)
+
+  return {
+    value: rawPath,
+    query: normalizeStepQuery(rawQuery),
+  }
+}
+
+const resolveUrlStep = (step) => splitUrlStepInput(step.value, step.query)
+
+const buildUrlStepDisplay = (step) => {
+  const { value: path, query } = resolveUrlStep(step)
+  return query ? `${path}?${query}` : path
+}
+
+const buildUrlStepSqlClause = (step, index, alias = 'e') => {
+  const { value: path, query } = resolveUrlStep(step)
+  const pathParam = `stepPath${index}`
+  const queryParam = `stepQuery${index}`
+  const pathOperator = path.includes('*') ? 'LIKE' : '='
+  const queryValue = query
+  const queryOperator = queryValue.includes('*') ? 'LIKE' : '='
+
+  let clause = `${alias}.url_path_normalized ${pathOperator} @${pathParam}`
+  if (queryValue) {
+    clause += `\n                AND ${alias}.url_query_normalized ${queryOperator} @${queryParam}`
+  }
+
+  return clause
+}
 
 export function createFunnelRoutes({ bigquery, GCP_PROJECT_ID }) {
   const router = express.Router()
@@ -34,21 +80,26 @@ export function createFunnelRoutes({ bigquery, GCP_PROJECT_ID }) {
       const eventTypesList = Array.from(neededEventTypes).join(', ')
 
       const urlNormSql = normalizeUrlSql()
+      const urlQueryNormSql = normalizeUrlQuerySql()
 
       // 1. Base events CTE with step_value calculation
       let query = `
           WITH events_raw AS (
-              SELECT
+              SELECT 
                   session_id,
                   event_id,
                   website_id,
                   event_type,
+                  ${urlNormSql} as url_path_normalized,
+                  ${urlQueryNormSql} as url_query_normalized,
                   CASE
-                      WHEN event_type = 1 THEN ${urlNormSql}
+                      WHEN event_type = 1 THEN CONCAT(
+                          ${urlNormSql},
+                          IF(${urlQueryNormSql} = '', '', CONCAT('?', ${urlQueryNormSql}))
+                      )
                       WHEN event_type = 2 THEN event_name
                       ELSE NULL
                   END as step_value,
-                  ${urlNormSql} as url_path_normalized,
                   created_at
               FROM \`${GCP_PROJECT_ID}.umami.public_website_event\`
               WHERE website_id = @websiteId
@@ -103,6 +154,8 @@ export function createFunnelRoutes({ bigquery, GCP_PROJECT_ID }) {
 
         const isWildcard = step.value.includes('*')
         const operator = isWildcard ? 'LIKE' : '='
+        const stepMatchClause =
+          step.type === 'url' ? buildUrlStepSqlClause(step, index, 'e') : `e.step_value ${operator} @${paramName}`
 
         if (index === 0) {
           return `
@@ -111,7 +164,7 @@ export function createFunnelRoutes({ bigquery, GCP_PROJECT_ID }) {
                      MIN(url_path_normalized) as url_path${index + 1},
                      e.event_id as event_id${index + 1}
               FROM events e
-              WHERE step_value ${operator} @${paramName}
+              WHERE ${stepMatchClause}
                 ${typeCheck}
                 ${paramFilters}
               GROUP BY session_id, e.event_id
@@ -129,7 +182,7 @@ export function createFunnelRoutes({ bigquery, GCP_PROJECT_ID }) {
                      e.event_id as event_id${index + 1}
               FROM events e
               JOIN ${prevStepName} prev ON e.session_id = prev.session_id
-              WHERE e.step_value ${operator} @${paramName}
+              WHERE ${stepMatchClause}
                 ${typeCheck}
                 AND e.created_at > prev.time${index}
                 AND e.prev_step_value ${prevOperator} @${prevParamName}
@@ -145,7 +198,7 @@ export function createFunnelRoutes({ bigquery, GCP_PROJECT_ID }) {
                      e.event_id as event_id${index + 1}
               FROM events e
               JOIN ${prevStepName} prev ON e.session_id = prev.session_id
-              WHERE e.step_value ${operator} @${paramName}
+              WHERE ${stepMatchClause}
                 ${typeCheck}
                 AND e.created_at > prev.time${index}
                 ${eventScopeCheck}
@@ -174,7 +227,27 @@ export function createFunnelRoutes({ bigquery, GCP_PROJECT_ID }) {
       const params = { websiteId, startDate, endDate }
 
       steps.forEach((step, index) => {
-        params[`stepValue${index}`] = step.value.includes('*') ? step.value.replace(/\*/g, '%') : step.value
+        const resolvedUrl = step.type === 'url' ? resolveUrlStep(step) : null
+        const displayValue =
+          step.type === 'url'
+            ? buildUrlStepDisplay(step)
+            : step.value.includes('*')
+              ? step.value.replace(/\*/g, '%')
+              : step.value
+        params[`stepValue${index}`] = displayValue.includes('*') ? displayValue.replace(/\*/g, '%') : displayValue
+
+        if (step.type === 'url') {
+          params[`stepPath${index}`] = resolvedUrl.value.includes('*')
+            ? resolvedUrl.value.replace(/\*/g, '%')
+            : resolvedUrl.value
+          if (resolvedUrl.query) {
+            params[`stepQuery${index}`] = resolvedUrl.query.includes('*')
+              ? resolvedUrl.query.replace(/\*/g, '%')
+              : resolvedUrl.query
+          } else {
+            params[`stepQuery${index}`] = ''
+          }
+        }
 
         if (step.type === 'event' && step.params && Array.isArray(step.params)) {
           step.params.forEach((p, pIdx) => {
@@ -222,7 +295,7 @@ export function createFunnelRoutes({ bigquery, GCP_PROJECT_ID }) {
 
       const data = rows.map((row, index) => ({
         step: index,
-        url: steps[index].value,
+        url: buildUrlStepDisplay(steps[index]),
         type: steps[index].type,
         params: steps[index].params,
         count: parseInt(row.count || 0),
@@ -266,20 +339,25 @@ export function createFunnelRoutes({ bigquery, GCP_PROJECT_ID }) {
       const eventTypesList = Array.from(neededEventTypes).join(', ')
 
       const urlNormSql = normalizeUrlSql()
+      const urlQueryNormSql = normalizeUrlQuerySql()
 
       let query = `
           WITH events_raw AS (
-              SELECT
+              SELECT 
                   session_id,
+                  event_type,
+                  ${urlNormSql} as url_path_normalized,
+                  ${urlQueryNormSql} as url_query_normalized,
                   event_id,
                   website_id,
-                  event_type,
                   CASE
-                      WHEN event_type = 1 THEN ${urlNormSql}
+                      WHEN event_type = 1 THEN CONCAT(
+                          ${urlNormSql},
+                          IF(${urlQueryNormSql} = '', '', CONCAT('?', ${urlQueryNormSql}))
+                      )
                       WHEN event_type = 2 THEN event_name
                       ELSE NULL
                   END as step_value,
-                  ${urlNormSql} as url_path_normalized,
                   created_at
               FROM \`${GCP_PROJECT_ID}.umami.public_website_event\`
               WHERE website_id = @websiteId
@@ -334,6 +412,8 @@ export function createFunnelRoutes({ bigquery, GCP_PROJECT_ID }) {
 
         const isWildcard = step.value.includes('*')
         const operator = isWildcard ? 'LIKE' : '='
+        const stepMatchClause =
+          step.type === 'url' ? buildUrlStepSqlClause(step, index, 'e') : `e.step_value ${operator} @${paramName}`
 
         if (index === 0) {
           return `
@@ -343,7 +423,7 @@ export function createFunnelRoutes({ bigquery, GCP_PROJECT_ID }) {
                   e.created_at as time${index + 1},
                   e.url_path_normalized as url_path${index + 1}
               FROM events e
-              WHERE e.step_value ${operator} @${paramName}
+              WHERE ${stepMatchClause}
                 ${typeCheck}
                 ${paramFilters}
               QUALIFY ROW_NUMBER() OVER (PARTITION BY e.session_id ORDER BY e.created_at) = 1
@@ -364,7 +444,7 @@ export function createFunnelRoutes({ bigquery, GCP_PROJECT_ID }) {
                   e.url_path_normalized as url_path${index + 1}
               FROM events e
               JOIN ${prevStepName} prev ON e.session_id = prev.session_id
-              WHERE e.step_value ${operator} @${paramName}
+              WHERE ${stepMatchClause}
                 ${typeCheck}
                 AND e.created_at > prev.time${index}
                 ${strictCheck}
@@ -418,7 +498,15 @@ export function createFunnelRoutes({ bigquery, GCP_PROJECT_ID }) {
       const params = { websiteId, startDate, endDate }
 
       steps.forEach((step, index) => {
-        params[`stepValue${index}`] = step.value.includes('*') ? step.value.replace(/\*/g, '%') : step.value
+        const resolvedUrl = step.type === 'url' ? resolveUrlStep(step) : null
+        const displayValue = buildUrlStepDisplay(step)
+        params[`stepValue${index}`] = displayValue.includes('*') ? displayValue.replace(/\*/g, '%') : displayValue
+        params[`stepPath${index}`] = resolvedUrl.value.includes('*')
+          ? resolvedUrl.value.replace(/\*/g, '%')
+          : resolvedUrl.value
+        params[`stepQuery${index}`] = resolvedUrl.query.includes('*')
+          ? resolvedUrl.query.replace(/\*/g, '%')
+          : resolvedUrl.query
 
         if (step.type === 'event' && step.params && Array.isArray(step.params)) {
           step.params.forEach((p, pIdx) => {

@@ -5,6 +5,7 @@ export type StepParam = { key: string; value: string; operator: 'equals' | 'cont
 export type FunnelStep = {
   type: 'url' | 'event'
   value: string
+  query?: string
   eventScope?: 'current-path' | 'anywhere'
   params?: StepParam[]
 }

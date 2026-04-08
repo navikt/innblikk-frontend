@@ -1,5 +1,5 @@
 import type { FunnelStep, StepParam } from '../model/types'
-import { normalizeUrlToPath } from '../../../shared/lib/utils'
+import { normalizeUrlToPath, normalizeUrlQuery } from '../../../shared/lib/utils'
 
 const decodeParamToken = (value: string): string => {
   try {
@@ -16,8 +16,8 @@ export function parseStepsFromParams(searchParams: URLSearchParams): FunnelStep[
   const stepParams = searchParams.getAll('step')
   if (stepParams.length === 0)
     return [
-      { type: 'url', value: '' },
-      { type: 'url', value: '' },
+      { type: 'url', value: '', query: '' },
+      { type: 'url', value: '', query: '' },
     ]
 
   return stepParams.map((param) => {
@@ -50,6 +50,16 @@ export function parseStepsFromParams(searchParams: URLSearchParams): FunnelStep[
         params,
       }
     }
+    if (param.startsWith('url:')) {
+      const rawValue = decodeParamToken(param.substring(4))
+      const { value, query } = splitUrlStepInput(rawValue)
+
+      return {
+        type: 'url' as const,
+        value,
+        query,
+      }
+    }
     return { type: 'url' as const, value: param }
   })
 }
@@ -58,7 +68,7 @@ export function parseStepsFromParams(searchParams: URLSearchParams): FunnelStep[
  * Add a new empty step.
  */
 export function addStep(steps: FunnelStep[]): FunnelStep[] {
-  return [...steps, { type: 'url', value: '', eventScope: 'current-path' }]
+  return [...steps, { type: 'url', value: '', query: '', eventScope: 'current-path' }]
 }
 
 /**
@@ -87,6 +97,7 @@ export function updateStepType(steps: FunnelStep[], index: number, type: 'url' |
     ...newSteps[index],
     type,
     value: '',
+    query: type === 'url' ? '' : undefined,
     ...(type === 'event' ? { eventScope: index === 0 ? 'anywhere' : 'current-path' } : {}),
   }
   return newSteps
@@ -102,6 +113,15 @@ export function updateStepEventScope(
 ): FunnelStep[] {
   const newSteps = [...steps]
   newSteps[index] = { ...newSteps[index], eventScope: scope }
+  return newSteps
+}
+
+/**
+ * Update a step's URL query string.
+ */
+export function updateStepQuery(steps: FunnelStep[], index: number, query: string): FunnelStep[] {
+  const newSteps = [...steps]
+  newSteps[index] = { ...newSteps[index], query }
   return newSteps
 }
 
@@ -151,5 +171,38 @@ export function updateStepParam(
  * Normalize a step's URL value on blur.
  */
 export function normalizeStepUrl(value: string): string {
-  return value.trim() ? normalizeUrlToPath(value) : value
+  return splitUrlStepInput(value).value
+}
+
+/**
+ * Normalize a URL query string on blur.
+ */
+export function normalizeStepQuery(value: string): string {
+  return value.trim() ? normalizeUrlQuery(value) : value
+}
+
+/**
+ * Split a URL step input into path and query parts.
+ */
+export function splitUrlStepInput(value: string, query = ''): { value: string; query: string } {
+  if (!value.trim()) return { value: '', query: normalizeUrlQuery(query) }
+
+  const trimmed = value.trim()
+  const queryIndex = trimmed.indexOf('?')
+  const rawPath = queryIndex === -1 ? trimmed : trimmed.substring(0, queryIndex)
+  const rawQuery = query.trim() ? query : queryIndex === -1 ? '' : trimmed.substring(queryIndex + 1)
+
+  return {
+    value: normalizeUrlToPath(rawPath),
+    query: normalizeUrlQuery(rawQuery),
+  }
+}
+
+/**
+ * Build the display value for a URL step.
+ */
+export function getStepUrlDisplay(step: Pick<FunnelStep, 'value' | 'query'>): string {
+  const path = normalizeUrlToPath(step.value)
+  const query = normalizeUrlQuery(step.query ?? '')
+  return query ? `${path}?${query}` : path
 }

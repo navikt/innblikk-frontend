@@ -7,7 +7,8 @@ import type {
   TimingApiResponse,
   EventsApiResponse,
 } from '../model/types'
-import { normalizeUrlToPath, getDateRangeFromPeriod } from '../../../shared/lib/utils'
+import { getDateRangeFromPeriod } from '../../../shared/lib/utils'
+import { getStepUrlDisplay, splitUrlStepInput } from '../utils/stepUtils'
 
 export interface FetchFunnelParams {
   websiteId: string
@@ -30,7 +31,7 @@ export async function fetchFunnelData(params: FetchFunnelParams): Promise<FetchF
   const { websiteId, steps, period, customStartDate, customEndDate, onlyDirectEntry } = params
 
   const normalizedSteps = steps
-    .map((s) => (s.type === 'url' ? { ...s, value: normalizeUrlToPath(s.value) } : s))
+    .map((s) => (s.type === 'url' ? { ...s, ...splitUrlStepInput(s.value, s.query ?? '') } : s))
     .filter((s) => s.value.trim() !== '')
 
   if (normalizedSteps.length < 2) {
@@ -85,7 +86,7 @@ export async function fetchFunnelData(params: FetchFunnelParams): Promise<FetchF
       if (step.type === 'event') {
         paramValue = `event:${step.value}|${step.eventScope || 'current-path'}`
       } else {
-        paramValue = step.value
+        paramValue = `url:${getStepUrlDisplay(step)}`
       }
       newParams.append('step', paramValue)
     })
@@ -145,7 +146,7 @@ export async function fetchTimingData(params: FetchTimingParams): Promise<FetchT
   const normalizedSteps = steps
     .map((s) => {
       if (s.type === 'url') {
-        return { ...s, value: normalizeUrlToPath(s.value) }
+        return { ...s, ...splitUrlStepInput(s.value, s.query ?? '') }
       }
       return s
     })
