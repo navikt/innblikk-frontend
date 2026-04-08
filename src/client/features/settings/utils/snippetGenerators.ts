@@ -1,5 +1,3 @@
-import { getUmamiBaseUrl } from '../../../shared/lib/runtimeConfig'
-
 const html = (strings: TemplateStringsArray, ...values: Array<string | number>) =>
   strings.reduce((acc, part, i) => acc + part + (values[i] ?? ''), '')
 
@@ -11,26 +9,13 @@ const getTrackingScriptUrl = () => {
 }
 
 export const getStandardSnippet = (websiteId: string) => {
-  const baseUrl = getUmamiBaseUrl()
   const trackingScriptUrl = getTrackingScriptUrl()
-  return html`<script
-    defer
-    src="${trackingScriptUrl}"
-    data-host-url="${baseUrl}"
-    data-website-id="${websiteId}"
-  ></script>`
+  return html`<script defer src="${trackingScriptUrl}" data-website-id="${websiteId}"></script>`
 }
 
 export const getNextJsSnippet = (websiteId: string) => {
-  const baseUrl = getUmamiBaseUrl()
   const trackingScriptUrl = getTrackingScriptUrl()
-  return html`<script
-    defer
-    strategy="afterInteractive"
-    src="${trackingScriptUrl}"
-    data-host-url="${baseUrl}"
-    data-website-id="${websiteId}"
-  />`
+  return html`<script defer strategy="afterInteractive" src="${trackingScriptUrl}" data-website-id="${websiteId}" />`
 }
 
 export const getReactViteProviderSnippet = () =>
@@ -39,36 +24,31 @@ export const getReactViteProviderSnippet = () =>
     ); }`
 
 export const getReactViteHeadSnippet = (websiteId: string) => {
-  const baseUrl = getUmamiBaseUrl()
   const trackingScriptUrl = getTrackingScriptUrl()
   return html`import { Head } from "@unhead/react";
 
     <head>
-      <script defer src="${trackingScriptUrl}" data-host-url="${baseUrl}" data-website-id="${websiteId}" />
+      <script defer src="${trackingScriptUrl}" data-website-id="${websiteId}" />
     </head>`
 }
 
 export const getAstroSnippet = (websiteId: string) => {
-  const baseUrl = getUmamiBaseUrl()
   const trackingScriptUrl = getTrackingScriptUrl()
   return html`<script
     is:inline
     defer
     data-astro-rerun
     src="${trackingScriptUrl}"
-    data-host-url="${baseUrl}"
     data-website-id="${websiteId}"
   ></script>`
 }
 
 export const getGTMSnippet = (websiteId: string) => {
-  const baseUrl = getUmamiBaseUrl()
   const trackingScriptUrl = getTrackingScriptUrl()
   return html`<script>
     ;(function () {
       var el = document.createElement('script')
       el.setAttribute('src', '${trackingScriptUrl}')
-      el.setAttribute('data-host-url', '${baseUrl}')
       el.setAttribute('data-website-id', '${websiteId}')
       document.body.appendChild(el)
     })()

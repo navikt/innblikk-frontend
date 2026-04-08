@@ -76,7 +76,6 @@ function App() {
       {
         defer: true,
         src: 'https://cdn.nav.no/team-researchops/sporing/sporing.js',
-        'data-host-url': 'https://umami.nav.no',
         'data-domains': 'innblikk.ansatt.nav.no',
         'data-website-id': '8e935f84-fb1e-4d07-be28-410eb2ab8cb9',
       },
