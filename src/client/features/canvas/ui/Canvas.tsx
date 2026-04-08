@@ -27,6 +27,7 @@ import {
   fetchDashboards,
   fetchGraphs,
   fetchQueries,
+  updateDashboard,
   updateQuery,
 } from '../../oversikt/api/oversiktApi.ts'
 import type { FunnelStep } from '../../funnel/model/types.ts'
@@ -378,6 +379,9 @@ const Canvas = () => {
   const [isAddHeadingModalOpen, setIsAddHeadingModalOpen] = useState(false)
   const [isAddTextModalOpen, setIsAddTextModalOpen] = useState(false)
   const [isAddStickyModalOpen, setIsAddStickyModalOpen] = useState(false)
+  const [isCanvasSettingsModalOpen, setIsCanvasSettingsModalOpen] = useState(false)
+  const [renameCanvasInput, setRenameCanvasInput] = useState('')
+  const [renameCanvasError, setRenameCanvasError] = useState<string | null>(null)
   const [isAddChartModalOpen, setIsAddChartModalOpen] = useState(false)
   const [isEditWebsiteModalOpen, setIsEditWebsiteModalOpen] = useState(false)
   const [editWebsiteFrameId, setEditWebsiteFrameId] = useState<string | null>(null)
@@ -489,6 +493,31 @@ const Canvas = () => {
   useEffect(() => {
     pageInsightsRef.current = pageInsights
   }, [pageInsights])
+
+  useEffect(() => {
+    if (selectedWebsite) return
+    const websiteIdFromUrl = new URLSearchParams(window.location.search).get('websiteId')
+    if (!websiteIdFromUrl) return
+
+    let isActive = true
+    fetch('/api/bigquery/websites')
+      .then((response) => response.json() as Promise<{ data?: Website[] }>)
+      .then((payload) => {
+        if (!isActive) return
+        const websites = Array.isArray(payload?.data) ? payload.data : []
+        const matchedWebsite = websites.find((item) => item.id === websiteIdFromUrl) ?? null
+        if (matchedWebsite) {
+          setSelectedWebsite(matchedWebsite)
+        }
+      })
+      .catch(() => {
+        // Ignore URL bootstrap errors; user can pick website in settings.
+      })
+
+    return () => {
+      isActive = false
+    }
+  }, [selectedWebsite])
 
   const frameItems = useMemo(
     () =>
@@ -1859,6 +1888,39 @@ const Canvas = () => {
     setActiveEditableFrameId(id)
   }
 
+  const handleOpenCanvasSettingsModal = () => {
+    setRenameCanvasInput(canvasTitle)
+    setRenameCanvasError(null)
+    setIsCanvasSettingsModalOpen(true)
+  }
+
+  const handleRenameCanvas = async () => {
+    const nextName = renameCanvasInput.trim()
+    if (!nextName) {
+      setRenameCanvasError('Legg inn et navn.')
+      return
+    }
+
+    if (!canPersistToDashboard || projectId === null || dashboardId === null) {
+      setCanvasTitle(nextName)
+      setIsCanvasSettingsModalOpen(false)
+      return
+    }
+
+    try {
+      setIsSavingCanvasItem(true)
+      setSyncError(null)
+      await updateDashboard(projectId, dashboardId, { name: nextName })
+      setCanvasTitle(nextName)
+      setIsCanvasSettingsModalOpen(false)
+      setRenameCanvasError(null)
+    } catch (error) {
+      setRenameCanvasError(error instanceof Error ? error.message : 'Kunne ikke gi nytt navn')
+    } finally {
+      setIsSavingCanvasItem(false)
+    }
+  }
+
   return (
     <>
       <section className="relative h-[100dvh] min-h-[100dvh] bg-[var(--ax-bg-neutral-soft)]">
@@ -1891,15 +1953,6 @@ const Canvas = () => {
                 </h1>
               </a>
               <div className="flex flex-wrap items-center gap-2">
-                <div className="w-[160px] shrink-0 [&_label]:sr-only">
-                  <WebsitePicker
-                    selectedWebsite={selectedWebsite}
-                    onWebsiteChange={setSelectedWebsite}
-                    variant="minimal"
-                    customLabel="Nettside"
-                    labelClassName="[&_label]:sr-only"
-                  />
-                </div>
                 <div className="w-[152px] shrink-0 [&_label]:sr-only">
                   <PeriodPicker
                     period={period}
@@ -1953,6 +2006,19 @@ const Canvas = () => {
                     >
                       Sticky note
                     </ActionMenu.Item>
+                  </ActionMenu.Content>
+                </ActionMenu>
+                <ActionMenu>
+                  <ActionMenu.Trigger>
+                    <Button
+                      size="small"
+                      variant="tertiary"
+                      icon={<MoreVertical size={16} />}
+                      aria-label="Innstillinger"
+                    />
+                  </ActionMenu.Trigger>
+                  <ActionMenu.Content align="end">
+                    <ActionMenu.Item onClick={handleOpenCanvasSettingsModal}>Innstillinger</ActionMenu.Item>
                   </ActionMenu.Content>
                 </ActionMenu>
                 {toolbarNotice && (
@@ -2596,6 +2662,44 @@ const Canvas = () => {
           </div>
         </div>
       </section>
+
+      <Modal
+        open={isCanvasSettingsModalOpen}
+        onClose={() => {
+          setIsCanvasSettingsModalOpen(false)
+          setRenameCanvasError(null)
+        }}
+        header={{ heading: 'Canvas-innstillinger' }}
+        width="small"
+      >
+        <Modal.Body>
+          <div className="space-y-3">
+            <WebsitePicker
+              selectedWebsite={selectedWebsite}
+              onWebsiteChange={setSelectedWebsite}
+              variant="default"
+              customLabel="Nettside"
+            />
+            <TextField
+              label="Canvas-navn"
+              value={renameCanvasInput}
+              onChange={(event) => {
+                setRenameCanvasInput(event.target.value)
+                if (renameCanvasError) setRenameCanvasError(null)
+              }}
+            />
+            {renameCanvasError && <Alert variant="error">{renameCanvasError}</Alert>}
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button onClick={() => void handleRenameCanvas()} size="small" loading={isSavingCanvasItem}>
+            Lagre
+          </Button>
+          <Button variant="secondary" size="small" onClick={() => setIsCanvasSettingsModalOpen(false)}>
+            Lukk
+          </Button>
+        </Modal.Footer>
+      </Modal>
 
       <Modal
         open={isAddPageModalOpen}
