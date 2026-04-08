@@ -115,6 +115,7 @@ const API_TIMEOUT_MS = 60000 // timeout
 const getHostPrefix = () => (typeof window === 'undefined' ? 'server' : window.location.hostname.replace(/\./g, '_'))
 const LAST_PROJECT_ID_KEY = `grafbygger_last_project_id_${getHostPrefix()}`
 const LAST_DASHBOARD_ID_KEY = `grafbygger_last_dashboard_id_${getHostPrefix()}`
+const CANVAS_DASHBOARD_TOKEN = '[canvas]'
 
 const parseStoredId = (value: string | null): number | null => {
   if (!value) return null
@@ -131,6 +132,9 @@ const getLastDashboardId = (): number | null => {
   if (typeof window === 'undefined') return null
   return parseStoredId(window.localStorage.getItem(LAST_DASHBOARD_ID_KEY))
 }
+
+const isCanvasDashboard = (description?: string): boolean =>
+  (description || '').toLowerCase().split(/\s+/).includes(CANVAS_DASHBOARD_TOKEN)
 
 const saveLastProjectId = (projectId: number | null) => {
   if (typeof window === 'undefined') return
@@ -228,6 +232,7 @@ const QueryPreview = ({
     dashboardId: number
     projectName: string
     dashboardName: string
+    dashboardDescription?: string
   } | null>(null)
   const [projectName, setProjectName] = useState('Start Umami')
   const [dashboardName, setDashboardName] = useState('Grafbygger')
@@ -1062,6 +1067,7 @@ const QueryPreview = ({
         dashboardId: saved.dashboard.id,
         projectName: saved.project.name,
         dashboardName: saved.dashboard.name,
+        dashboardDescription: saved.dashboard.description,
       })
       saveLastProjectId(saved.project.id)
       saveLastDashboardId(saved.dashboard.id)
@@ -1096,7 +1102,14 @@ const QueryPreview = ({
   const selectedProjectLabel = projectOptions.find((option) => option.value === selectedProjectOption)?.label
   const selectedDashboardLabel = dashboardOptions.find((option) => option.value === selectedDashboardOption)?.label
   const savedDashboardUrl = savedLocation
-    ? `/dashboard/${savedLocation.dashboardId}?projectId=${savedLocation.projectId}`
+    ? isCanvasDashboard(savedLocation.dashboardDescription)
+      ? `/canvas?dashboardId=${savedLocation.dashboardId}&projectId=${savedLocation.projectId}`
+      : `/dashboard/${savedLocation.dashboardId}?projectId=${savedLocation.projectId}`
+    : ''
+  const savedDashboardLabel = savedLocation
+    ? isCanvasDashboard(savedLocation.dashboardDescription)
+      ? 'Canvas'
+      : 'Oversikt'
     : ''
 
   const handleGoToSavedDashboard = () => {
@@ -1431,7 +1444,7 @@ const QueryPreview = ({
               {saveSuccess && savedLocation && (
                 <Alert variant="success" size="small">
                   <Link href={savedDashboardUrl}>
-                    Grafen er lagt til i "{savedLocation.dashboardName}". Åpne i Oversikt.
+                    Grafen er lagt til i "{savedLocation.dashboardName}". Åpne i {savedDashboardLabel}.
                   </Link>
                 </Alert>
               )}
@@ -1664,7 +1677,9 @@ const QueryPreview = ({
           {savedLocation && <p>Grafen er lagt til i "{savedLocation.dashboardName}". Hva vil du gjøre nå?</p>}
         </Modal.Body>
         <Modal.Footer>
-          <Button onClick={handleGoToSavedDashboard}>Gå til dashboard</Button>
+          <Button onClick={handleGoToSavedDashboard}>
+            Gå til {savedLocation && isCanvasDashboard(savedLocation.dashboardDescription) ? 'canvas' : 'dashboard'}
+          </Button>
           <Button variant="secondary" onClick={() => setShowSaveSuccessModal(false)}>
             Bli her
           </Button>

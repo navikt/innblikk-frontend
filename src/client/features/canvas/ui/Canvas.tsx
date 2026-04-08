@@ -201,6 +201,22 @@ const createPreviewProxySrc = (targetUrl: string): string => {
   return `/api/clickmap-preview?url=${encodeURIComponent(targetUrl)}`
 }
 
+const getWebsiteFrameDisplayUrl = (frame: CanvasFrame): string | undefined => {
+  if (frame.renderWebsite === false) {
+    return frame.previewUrl
+  }
+
+  return frame.targetUrl
+}
+
+const getWebsiteFrameRenderSrc = (frame: CanvasFrame): string | undefined => {
+  if (frame.renderWebsite === false) {
+    return frame.previewUrl
+  }
+
+  return frame.targetUrl ? createPreviewProxySrc(frame.targetUrl) : undefined
+}
+
 const isImagePreviewUrl = (value: string): boolean => {
   try {
     const url = new URL(value)
@@ -305,6 +321,7 @@ const Canvas = () => {
   const [editWebsiteRenderEnabled, setEditWebsiteRenderEnabled] = useState(true)
   const [newPagePathInput, setNewPagePathInput] = useState('')
   const [newPagePreviewUrlInput, setNewPagePreviewUrlInput] = useState('')
+  const [newPageRenderEnabled, setNewPageRenderEnabled] = useState(true)
   const [addPageError, setAddPageError] = useState<string | null>(null)
   const [editWebsiteError, setEditWebsiteError] = useState<string | null>(null)
   const [headingTextInput, setHeadingTextInput] = useState('')
@@ -382,11 +399,14 @@ const Canvas = () => {
 
   const frameItems = useMemo(
     () =>
-      frames.map((frame) => ({
-        ...frame,
-        src:
-          frame.previewUrl || frame.targetUrl ? createPreviewProxySrc(frame.previewUrl || frame.targetUrl || '') : '',
-      })),
+      frames.map((frame) => {
+        const displayUrl = getWebsiteFrameDisplayUrl(frame)
+        return {
+          ...frame,
+          displayUrl,
+          src: getWebsiteFrameRenderSrc(frame) || '',
+        }
+      }),
     [frames],
   )
 
@@ -664,8 +684,9 @@ const Canvas = () => {
       return
     }
 
-    const previewUrl = newPagePreviewUrlInput.trim() ? normalizeInputToTargetUrl(newPagePreviewUrlInput) : undefined
-    if (newPagePreviewUrlInput.trim() && !previewUrl) {
+    const previewInput = newPagePreviewUrlInput.trim()
+    const previewUrl = previewInput ? normalizeInputToTargetUrl(previewInput) : undefined
+    if (!newPageRenderEnabled && previewInput && !previewUrl) {
       setAddPageError('Legg inn en gyldig visnings-URL, for eksempel https://www.nav.no/...')
       return
     }
@@ -687,14 +708,14 @@ const Canvas = () => {
       id: `${Date.now()}-${Math.random()}`,
       kind: 'website',
       targetUrl,
-      previewUrl,
-      renderWebsite: true,
+      previewUrl: newPageRenderEnabled ? undefined : previewUrl,
+      renderWebsite: newPageRenderEnabled,
       label: getFrameLabel(targetUrl),
       x: 80 + column * 460,
       y: 80 + row * 380,
       width: 420,
       height: 560,
-      refreshNonce: 0,
+      refreshNonce: 1,
     }
 
     try {
@@ -734,7 +755,7 @@ const Canvas = () => {
 
     const previewInput = editWebsitePreviewUrlInput.trim()
     const previewUrl = previewInput ? normalizeInputToTargetUrl(previewInput) : undefined
-    if (previewInput && !previewUrl) {
+    if (!editWebsiteRenderEnabled && previewInput && !previewUrl) {
       setEditWebsiteError('Legg inn en gyldig visnings-URL, for eksempel https://www.nav.no/...')
       return
     }
@@ -759,9 +780,10 @@ const Canvas = () => {
     const updatedFrame: CanvasFrame = {
       ...currentFrame,
       targetUrl,
-      previewUrl,
+      previewUrl: editWebsiteRenderEnabled ? undefined : previewUrl,
       renderWebsite: editWebsiteRenderEnabled,
       label: getFrameLabel(targetUrl),
+      refreshNonce: currentFrame.refreshNonce + 1,
     }
 
     try {
@@ -1630,6 +1652,8 @@ const Canvas = () => {
                     <ActionMenu.Item
                       onClick={() => {
                         setAddPageError(null)
+                        setNewPagePreviewUrlInput('')
+                        setNewPageRenderEnabled(true)
                         setIsAddPageModalOpen(true)
                       }}
                     >
@@ -1975,13 +1999,13 @@ const Canvas = () => {
                             </button>
                           </div>
                         )}
-                        {frame.kind === 'website' && frame.src && frame.renderWebsite !== false ? (
+                        {frame.kind === 'website' && frame.src && frame.displayUrl ? (
                           <div className="h-full w-full overflow-y-auto overflow-x-hidden bg-white">
-                            {isImagePreviewUrl(frame.previewUrl || frame.targetUrl || '') ? (
+                            {isImagePreviewUrl(frame.displayUrl) ? (
                               <img
                                 key={`${frame.id}-${frame.refreshNonce}`}
                                 alt={frame.label}
-                                src={frame.previewUrl || frame.targetUrl}
+                                src={frame.src}
                                 className="block h-auto w-full max-w-full"
                                 loading="lazy"
                               />
@@ -2094,7 +2118,12 @@ const Canvas = () => {
 
       <Modal
         open={isAddPageModalOpen}
-        onClose={() => setIsAddPageModalOpen(false)}
+        onClose={() => {
+          setIsAddPageModalOpen(false)
+          setAddPageError(null)
+          setNewPagePreviewUrlInput('')
+          setNewPageRenderEnabled(true)
+        }}
         header={{ heading: 'Legg til side i canvas' }}
         width="small"
       >
@@ -2110,16 +2139,28 @@ const Canvas = () => {
               }}
               autoFocus
             />
-            <TextField
+            <Switch
               size="small"
-              label="Valgfri visnings-URL"
-              value={newPagePreviewUrlInput}
+              checked={newPageRenderEnabled}
               onChange={(event) => {
-                setNewPagePreviewUrlInput(event.target.value)
+                setNewPageRenderEnabled(event.target.checked)
                 if (addPageError) setAddPageError(null)
               }}
-              helpText="Vises i kortet i stedet for nettsiden. Kan være en image- eller innholdsside."
-            />
+            >
+              Last inn nettsiden
+            </Switch>
+            {!newPageRenderEnabled && (
+              <TextField
+                size="small"
+                label="Valgfri visnings-URL"
+                value={newPagePreviewUrlInput}
+                onChange={(event) => {
+                  setNewPagePreviewUrlInput(event.target.value)
+                  if (addPageError) setAddPageError(null)
+                }}
+                helpText="Vises i kortet i stedet for nettsiden. Kan være en image- eller innholdsside."
+              />
+            )}
             {addPageError && <Alert variant="error">{addPageError}</Alert>}
           </div>
         </Modal.Body>
@@ -2155,23 +2196,28 @@ const Canvas = () => {
               }}
               autoFocus
             />
-            <TextField
-              size="small"
-              label="Valgfri visnings-URL"
-              value={editWebsitePreviewUrlInput}
-              onChange={(event) => {
-                setEditWebsitePreviewUrlInput(event.target.value)
-                if (editWebsiteError) setEditWebsiteError(null)
-              }}
-              helpText="Vises i kortet i stedet for nettsiden. Kan være en image- eller innholdsside."
-            />
             <Switch
               size="small"
               checked={editWebsiteRenderEnabled}
-              onChange={(event) => setEditWebsiteRenderEnabled(event.target.checked)}
+              onChange={(event) => {
+                setEditWebsiteRenderEnabled(event.target.checked)
+                if (editWebsiteError) setEditWebsiteError(null)
+              }}
             >
-              Vis nettsiden i kortet
+              Last inn nettsiden
             </Switch>
+            {!editWebsiteRenderEnabled && (
+              <TextField
+                size="small"
+                label="Valgfri visnings-URL"
+                value={editWebsitePreviewUrlInput}
+                onChange={(event) => {
+                  setEditWebsitePreviewUrlInput(event.target.value)
+                  if (editWebsiteError) setEditWebsiteError(null)
+                }}
+                helpText="Vises i kortet i stedet for nettsiden. Kan være en image- eller innholdsside."
+              />
+            )}
             {editWebsiteError && <Alert variant="error">{editWebsiteError}</Alert>}
           </div>
         </Modal.Body>
