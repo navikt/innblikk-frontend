@@ -1652,21 +1652,21 @@ const Canvas = () => {
 
   const connectionSegments = useMemo(
     () =>
-      connections
-        .map((connection) => {
-          const fromFrame = resolveConnectionFrame(connection, 'from')
-          const toFrame = resolveConnectionFrame(connection, 'to')
-          if (!fromFrame || !toFrame) return null
+      connections.flatMap((connection) => {
+        const fromFrame = resolveConnectionFrame(connection, 'from')
+        const toFrame = resolveConnectionFrame(connection, 'to')
+        if (!fromFrame || !toFrame) return []
 
-          const x1 = getFrameAnchor(fromFrame, 'right').x
-          const y1 = getFrameAnchor(fromFrame, 'right').y
-          const x2 = getFrameAnchor(toFrame, 'left').x
-          const y2 = getFrameAnchor(toFrame, 'left').y
-          const delta = Math.max(80, Math.abs(x2 - x1) * 0.45)
-          const path = `M ${x1} ${y1} C ${x1 + delta} ${y1}, ${x2 - delta} ${y2}, ${x2} ${y2}`
-          const midpoint = computeMidpoint(x1, y1, x2, y2, delta)
+        const x1 = getFrameAnchor(fromFrame, 'right').x
+        const y1 = getFrameAnchor(fromFrame, 'right').y
+        const x2 = getFrameAnchor(toFrame, 'left').x
+        const y2 = getFrameAnchor(toFrame, 'left').y
+        const delta = Math.max(80, Math.abs(x2 - x1) * 0.45)
+        const path = `M ${x1} ${y1} C ${x1 + delta} ${y1}, ${x2 - delta} ${y2}, ${x2} ${y2}`
+        const midpoint = computeMidpoint(x1, y1, x2, y2, delta)
 
-          return {
+        return [
+          {
             id: connection.id,
             path,
             labelX: midpoint.x,
@@ -1677,24 +1677,9 @@ const Canvas = () => {
             endY: y2,
             fromUrl: fromFrame.targetUrl,
             toUrl: toFrame.targetUrl,
-          }
-        })
-        .filter(
-          (
-            item,
-          ): item is {
-            id: string
-            path: string
-            labelX: number
-            labelY: number
-            midX: number
-            midY: number
-            endX: number
-            endY: number
-            fromUrl: string | undefined
-            toUrl: string | undefined
-          } => item !== null,
-        ),
+          },
+        ]
+      }),
     [connections, resolveConnectionFrame, getFrameAnchor],
   )
 
@@ -1726,6 +1711,21 @@ const Canvas = () => {
       targetFrameId: targetFrame?.id ?? null,
     }
   }, [connectionDragState, frames, getFrameAnchor])
+
+  const connectionSegmentsWithMetrics = useMemo(
+    () =>
+      connectionSegments.flatMap((segment) => {
+        const metrics = connectionMetrics[segment.id]
+        if (!metrics) return []
+        return [
+          {
+            ...segment,
+            metrics,
+          },
+        ]
+      }),
+    [connectionMetrics, connectionSegments],
+  )
 
   const connectionMetricRequests = useMemo(
     () =>
@@ -2090,70 +2090,53 @@ const Canvas = () => {
                     />
                   </svg>
                 )}
-                {connectionSegments
-                  .map((segment) => {
-                    const metrics = connectionMetrics[segment.id]
-                    if (!metrics) return null
-
-                    return {
-                      ...segment,
-                      metrics,
-                    }
-                  })
-                  .filter(
-                    (
-                      item,
-                    ): item is CanvasConnectionVisual & {
-                      metrics: CanvasConnectionMetric
-                    } => item !== null,
-                  )
-                  .map((segment) => (
-                    <Fragment key={segment.id}>
-                      <div
-                        className="group pointer-events-auto absolute z-[2] -translate-x-1/2 -translate-y-full overflow-visible"
-                        style={{
-                          left: `${segment.labelX}px`,
-                          top: `${segment.labelY}px`,
-                        }}
-                      >
-                        <div className="absolute inset-x-0 -top-10 z-10 flex items-center justify-between gap-2 rounded-full border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-3 py-2 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-                          <div className="flex items-center gap-1.5 text-[13px] font-medium text-[var(--ax-text-default)]">
-                            <ChartNoAxesCombined size={13} className="text-[var(--ax-text-subtle)]" />
-                            <span>Kobling</span>
-                          </div>
-                          <Button
-                            size="xsmall"
-                            variant="tertiary"
-                            icon={<Trash2 size={14} />}
-                            onClick={() => handleRequestRemoveConnection(segment)}
-                            title="Fjern kobling"
-                            aria-label="Fjern kobling"
-                          />
+                {connectionSegmentsWithMetrics.map((segment) => (
+                  <Fragment key={segment.id}>
+                    <div
+                      className="group pointer-events-auto absolute z-[2] -translate-x-1/2 -translate-y-full overflow-visible"
+                      style={{
+                        left: `${segment.labelX}px`,
+                        top: `${segment.labelY}px`,
+                      }}
+                    >
+                      <div className="absolute inset-x-0 -top-10 z-10 flex items-center justify-between gap-2 rounded-full border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-3 py-2 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                        <div className="flex items-center gap-1.5 text-[13px] font-medium text-[var(--ax-text-default)]">
+                          <ChartNoAxesCombined size={13} className="text-[var(--ax-text-subtle)]" />
+                          <span>Kobling</span>
                         </div>
-                        <div className="min-w-[190px] overflow-hidden rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] shadow-sm">
-                          <div className="space-y-2 px-3 py-2 text-[13px] leading-tight">
-                            <div className="space-y-0.5 text-right">
-                              <div className="font-semibold text-[14px] text-[var(--ax-text-success)]">
-                                {segment.metrics.percentageOfPrev}% gikk videre
-                              </div>
-                              <div className="text-[13px] text-[var(--ax-text-default)]">
-                                {segment.metrics.toCount.toLocaleString('nb-NO')} brukere
-                              </div>
+                        <Button
+                          size="xsmall"
+                          variant="tertiary"
+                          icon={<Trash2 size={14} />}
+                          onClick={() => handleRequestRemoveConnection(segment)}
+                          title="Fjern kobling"
+                          aria-label="Fjern kobling"
+                        />
+                      </div>
+                      <div className="min-w-[190px] overflow-hidden rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] shadow-sm">
+                        <div className="space-y-2 px-3 py-2 text-[13px] leading-tight">
+                          <div className="space-y-0.5 text-right">
+                            <div className="font-semibold text-[14px] text-[var(--ax-text-success)]">
+                              {segment.metrics.percentageOfPrev}% gikk videre
                             </div>
-                            <div className="h-px bg-[var(--ax-border-neutral-subtle)]" />
-                            <div className="space-y-0.5 text-right">
-                              <div className="font-semibold text-[14px] text-[var(--ax-text-danger)]">
-                                {segment.metrics.dropoffPercentage}% falt fra
-                              </div>
-                              <div className="text-[13px] text-[var(--ax-text-default)]">
-                                {segment.metrics.dropoffCount.toLocaleString('nb-NO')} brukere
-                              </div>
+                            <div className="text-[13px] text-[var(--ax-text-default)]">
+                              {segment.metrics.toCount.toLocaleString('nb-NO')} brukere
+                            </div>
+                          </div>
+                          <div className="h-px bg-[var(--ax-border-neutral-subtle)]" />
+                          <div className="space-y-0.5 text-right">
+                            <div className="font-semibold text-[14px] text-[var(--ax-text-danger)]">
+                              {segment.metrics.dropoffPercentage}% falt fra
+                            </div>
+                            <div className="text-[13px] text-[var(--ax-text-default)]">
+                              {segment.metrics.dropoffCount.toLocaleString('nb-NO')} brukere
                             </div>
                           </div>
                         </div>
                       </div>
-                    </Fragment>
-                  ))}
+                    </div>
+                  </Fragment>
+                ))}
                 {frameItems.map((frame) =>
                   (() => {
                     const defaults = getDefaultFrameSize(frame.kind)
