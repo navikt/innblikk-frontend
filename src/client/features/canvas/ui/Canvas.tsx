@@ -262,6 +262,9 @@ const parseDashboardTargetUrl = (
   }
 }
 
+const isCanvasDashboardDescription = (description?: string): boolean =>
+  (description || '').toLowerCase().split(/\s+/).includes(CANVAS_DASHBOARD_TOKEN)
+
 const getCanvasPeriodLabel = (period: string, customStartDate?: Date, customEndDate?: Date): string => {
   if (period === 'custom' && customStartDate && customEndDate) {
     return formatDateRange(customStartDate, customEndDate)
@@ -1166,7 +1169,9 @@ const Canvas = () => {
     setAddDashboardError(null)
 
     try {
-      const dashboards = await fetchDashboards(projectIdToLoad)
+      const dashboards = (await fetchDashboards(projectIdToLoad)).filter(
+        (dashboard) => !isCanvasDashboardDescription(dashboard.description),
+      )
       const options = dashboards.map((dashboard) => ({
         id: dashboard.id,
         name: dashboard.name?.trim() || `Dashboard ${dashboard.id}`,
@@ -1289,7 +1294,9 @@ const Canvas = () => {
     setEditDashboardError(null)
 
     try {
-      const dashboards = await fetchDashboards(projectIdToLoad)
+      const dashboards = (await fetchDashboards(projectIdToLoad)).filter(
+        (dashboard) => !isCanvasDashboardDescription(dashboard.description),
+      )
       const options = dashboards.map((dashboard) => ({
         id: dashboard.id,
         name: dashboard.name?.trim() || `Dashboard ${dashboard.id}`,
@@ -1342,7 +1349,12 @@ const Canvas = () => {
               : (projectOptions[0]?.id ?? null)
         setEditDashboardSelectedProjectId(preferredProjectId ? String(preferredProjectId) : '')
 
-        const dashboards = preferredProjectId !== null ? await fetchDashboards(preferredProjectId) : []
+        const dashboards =
+          preferredProjectId !== null
+            ? (await fetchDashboards(preferredProjectId)).filter(
+                (dashboard) => !isCanvasDashboardDescription(dashboard.description),
+              )
+            : []
         const dashboardOptions = dashboards.map((dashboard) => ({
           id: dashboard.id,
           name: dashboard.name?.trim() || `Dashboard ${dashboard.id}`,
