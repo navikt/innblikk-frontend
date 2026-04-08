@@ -25,8 +25,8 @@ function Sporingskoder() {
 
         <BodyShort style={{ marginTop: '40px', marginBottom: '40px' }}>
           For teknisk dokumentasjon,{' '}
-          <Link target="_blank" href="https://umami.is/docs/tracker-configuration">
-            se Umami sin dokumentasjonsside
+          <Link target="_blank" href="https://reops-docs.ansatt.dev.nav.no/innsamling/sporingsskript.html">
+            se vår sporingsskript-dokumentasjon
           </Link>
           .
         </BodyShort>

@@ -1,5 +1,4 @@
 export type RuntimeConfig = {
-  UMAMI_BASE_URL?: string
   GCP_PROJECT_ID?: string
 }
 
@@ -17,7 +16,6 @@ const readWindowConfig = (): RuntimeConfig => {
 const readViteConfig = (): RuntimeConfig => {
   if (typeof import.meta === 'undefined' || !import.meta.env) return {}
   return {
-    UMAMI_BASE_URL: import.meta.env.VITE_UMAMI_BASE_URL,
     GCP_PROJECT_ID: import.meta.env.VITE_GCP_PROJECT_ID,
   }
 }
@@ -36,7 +34,5 @@ const requireRuntimeValue = (key: keyof RuntimeConfig): string => {
 }
 
 export const getGcpProjectId = (): string => requireRuntimeValue('GCP_PROJECT_ID')
-
-export const getUmamiBaseUrl = (): string => requireRuntimeValue('UMAMI_BASE_URL')
 
 export {}

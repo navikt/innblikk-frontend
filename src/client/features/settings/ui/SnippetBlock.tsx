@@ -35,21 +35,22 @@ export function SnippetBlock({ text, language, wrapLongLines = true }: SnippetBl
   const prismLang = langMap[language.toLowerCase()] || language
 
   return (
-    <div className="relative group snippet-block">
+    <div className="relative group snippet-block min-w-0 max-w-full">
       <style>{`
                 .snippet-block pre {
                     margin: 0 !important;
                     padding: 1rem !important;
                     border-radius: 4px;
                     font-size: 14px;
-                    overflow: auto;
-                    ${wrapLongLines ? 'white-space: pre-wrap; word-break: break-word;' : ''}
+                    overflow-x: auto;
+                    ${wrapLongLines ? 'white-space: pre-wrap !important; word-break: break-word !important; word-wrap: break-word !important;' : ''}
                 }
                 .snippet-block code {
                     font-family: 'Source Code Pro', monospace;
+                    ${wrapLongLines ? 'white-space: pre-wrap !important; word-break: break-word !important; word-wrap: break-word !important;' : ''}
                 }
             `}</style>
-      <Box className="overflow-hidden relative border border-border-subtle rounded-medium">
+      <Box className="relative min-w-0 overflow-hidden border border-border-subtle rounded-medium">
         <div className="absolute top-2 right-2 z-10">
           <CopyButton copyText={text} text="Kopier" activeText="Kopiert!" size="small" />
         </div>

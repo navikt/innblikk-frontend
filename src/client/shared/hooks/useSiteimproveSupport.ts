@@ -126,9 +126,8 @@ export function hasMarketingSupport(
  * @param domain - The domain to check
  * @returns boolean - true if Clickmap is supported (requires explicit true)
  */
-export function hasClickmapSupport(domain: string | null | undefined, websiteId?: string | null): boolean {
-  const team = findTeam(domain, websiteId)
-  return team ? team.supportsClickmaps === true : false
+export function hasClickmapSupport(_domain: string | null | undefined, _websiteId?: string | null): boolean {
+  return true // TODO: temporarily enabled for all pages
 }
 
 /**
