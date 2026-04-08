@@ -12,11 +12,12 @@ import {
   Modal,
   Search,
   Select,
+  Tag,
   Table,
   TextField,
   Tooltip,
 } from '@navikt/ds-react'
-import { Link as RouterLink } from 'react-router-dom'
+import { Link as RouterLink, useNavigate } from 'react-router-dom'
 import DeleteDashboardDialog from '../../oversikt/ui/dialogs/DeleteDashboardDialog.tsx'
 import CopyChartDialog from '../../oversikt/ui/dialogs/CopyChartDialog.tsx'
 import EditChartDialog from '../../oversikt/ui/dialogs/EditChartDialog.tsx'
@@ -37,6 +38,7 @@ type FileTableRow = {
   indentLevel?: 0 | 1 | 2
   dashboardId: number
   dashboardName: string
+  dashboardDescription?: string
   categoryName?: string
   categoryId?: number
   graphType?: string
@@ -75,8 +77,13 @@ type ProjectManagerMoveDashboardSuccessTarget = {
 }
 
 const LAST_PROJECT_STORAGE_KEY = 'projectmanager:lastSelectedProjectId'
+const CANVAS_DASHBOARD_TOKEN = '[canvas]'
+
+const isCanvasDashboard = (description?: string): boolean =>
+  (description || '').toLowerCase().split(/\s+/).includes(CANVAS_DASHBOARD_TOKEN)
 
 const ProjectManager = () => {
+  const navigate = useNavigate()
   const {
     projectSummaries,
     loading,
@@ -238,6 +245,7 @@ const ProjectManager = () => {
         indentLevel: 0,
         dashboardId: dashboard.id,
         dashboardName: dashboard.name,
+        dashboardDescription: dashboard.description,
       }
 
       const hasMultipleCategories = dashboard.categories.length > 1
@@ -414,11 +422,15 @@ const ProjectManager = () => {
     setIsMoveDashboardModalOpen(true)
   }
 
-  const openCreateDashboard = () => {
+  const openCreateDashboard = (defaults?: { name?: string; description?: string }) => {
     setCreateDashboardError(null)
-    setNewDashboardName('')
-    setNewDashboardDescription('')
+    setNewDashboardName(defaults?.name ?? '')
+    setNewDashboardDescription(defaults?.description ?? '')
     setIsCreateDashboardOpen(true)
+  }
+
+  const openCreateCanvas = () => {
+    openCreateDashboard({ description: CANVAS_DASHBOARD_TOKEN })
   }
 
   const handleSaveDashboard = async (params: { name: string; description?: string }) => {
@@ -475,10 +487,22 @@ const ProjectManager = () => {
       return
     }
     setCreateDashboardError(null)
-    await createDashboard(selectedProject.project.id, newDashboardName, newDashboardDescription || undefined)
+    const createdDashboard = await createDashboard(
+      selectedProject.project.id,
+      newDashboardName,
+      newDashboardDescription || undefined,
+    )
+    const shouldOpenCanvas = isCanvasDashboard(newDashboardDescription)
     setIsCreateDashboardOpen(false)
+    const createdDashboardName = newDashboardName.trim()
     setNewDashboardName('')
     setNewDashboardDescription('')
+
+    if (shouldOpenCanvas && createdDashboard) {
+      void navigate(
+        `/canvas?dashboardId=${createdDashboard.id}&projectId=${selectedProject.project.id}&canvasName=${encodeURIComponent(createdDashboardName)}`,
+      )
+    }
   }
 
   const openCreateDashboardTab = (dashboardId: number) => {
@@ -1015,6 +1039,12 @@ const ProjectManager = () => {
       name: dashboard.name,
     }))
   }, [selectedProject])
+  const canvasDashboardIds = useMemo(() => {
+    if (!selectedProject) return new Set<number>()
+    return new Set(
+      selectedProject.dashboards.filter((dashboard) => isCanvasDashboard(dashboard.description)).map((item) => item.id),
+    )
+  }, [selectedProject])
 
   const isInitialLoading = loading && projectSummaries.length === 0 && !error
   const categoryRowKeys = useMemo(() => {
@@ -1049,7 +1079,9 @@ const ProjectManager = () => {
           Legg til graf
         </ActionMenu.Item>
         <ActionMenu.Item onClick={() => openImportChart(dashboardId)}>Importer graf</ActionMenu.Item>
-        <ActionMenu.Item onClick={() => openCreateDashboardTab(dashboardId)}>Legg til fane</ActionMenu.Item>
+        {!canvasDashboardIds.has(dashboardId) && (
+          <ActionMenu.Item onClick={() => openCreateDashboardTab(dashboardId)}>Legg til fane</ActionMenu.Item>
+        )}
       </ActionMenu.Content>
     </ActionMenu>
   )
@@ -1206,6 +1238,7 @@ const ProjectManager = () => {
                   </Tooltip>
                   <ActionMenu.Content align="end">
                     <ActionMenu.Item onClick={openCreateDashboard}>Legg til dashboard</ActionMenu.Item>
+                    <ActionMenu.Item onClick={openCreateCanvas}>Legg til canvas</ActionMenu.Item>
                     <ActionMenu.Item as="a" href="/grafbygger">
                       Legg til graf
                     </ActionMenu.Item>
@@ -1263,6 +1296,11 @@ const ProjectManager = () => {
                   const paddingClass =
                     row.indentLevel === 2 ? 'pl-6 sm:pl-12' : row.indentLevel === 1 ? 'pl-3 sm:pl-6' : ''
                   const overviewHref = `/dashboard/${row.dashboardId}${row.categoryId ? `?categoryId=${row.categoryId}` : ''}`
+                  const isCanvasRow = row.type === 'dashboard' && isCanvasDashboard(row.dashboardDescription)
+                  const rowHref =
+                    isCanvasRow && selectedProject
+                      ? `/canvas?dashboardId=${row.dashboardId}&projectId=${selectedProject.project.id}&canvasName=${encodeURIComponent(row.name)}`
+                      : overviewHref
                   const isDashboardExpanded = expandedDashboards.has(row.dashboardId)
                   const nextRow = visibleFileRows[index + 1]
                   const isLastRowInDashboard = !nextRow || nextRow.dashboardId !== row.dashboardId
@@ -1344,12 +1382,21 @@ const ProjectManager = () => {
                                 </Tooltip>
                               )}
                             </span>
-                            <Link as={RouterLink} to={overviewHref} className="block min-w-0 flex-1 truncate">
-                              {row.type === 'category'
-                                ? getCategoryDisplayName(row.name)
-                                : row.type === 'chart'
-                                  ? `${row.name} ${getVariantCountLabel(row.variantCount) ?? ''}`.trim()
-                                  : row.name}
+                            <Link as={RouterLink} to={rowHref} className="block min-w-0 flex-1 truncate">
+                              {row.type === 'category' ? (
+                                getCategoryDisplayName(row.name)
+                              ) : row.type === 'chart' ? (
+                                `${row.name} ${getVariantCountLabel(row.variantCount) ?? ''}`.trim()
+                              ) : isCanvasRow ? (
+                                <span className="inline-flex items-center gap-2">
+                                  <span className="truncate">{row.name}</span>
+                                  <Tag size="xsmall" variant="outline" data-color="info" className="lowercase">
+                                    canvas
+                                  </Tag>
+                                </span>
+                              ) : (
+                                row.name
+                              )}
                             </Link>
                           </span>
                         </Table.HeaderCell>
@@ -1414,7 +1461,7 @@ const ProjectManager = () => {
                                   </ActionMenu.Trigger>
                                 </Tooltip>
                                 <ActionMenu.Content align="end">
-                                  {selectedProject && (
+                                  {selectedProject && !isCanvasRow && (
                                     <ActionMenu.Item onClick={() => openCreateDashboardTab(row.dashboardId)}>
                                       Legg til fane
                                     </ActionMenu.Item>
@@ -1850,7 +1897,7 @@ const ProjectManager = () => {
           setIsCreateDashboardOpen(false)
           setCreateDashboardError(null)
         }}
-        header={{ heading: 'Nytt dashboard' }}
+        header={{ heading: isCanvasDashboard(newDashboardDescription) ? 'Nytt canvas' : 'Nytt dashboard' }}
         width="small"
       >
         <Modal.Body>
@@ -1876,7 +1923,7 @@ const ProjectManager = () => {
         </Modal.Body>
         <Modal.Footer>
           <Button onClick={() => void handleCreateDashboard()} loading={loading}>
-            Opprett
+            {isCanvasDashboard(newDashboardDescription) ? 'Opprett canvas' : 'Opprett'}
           </Button>
           <Button
             variant="secondary"

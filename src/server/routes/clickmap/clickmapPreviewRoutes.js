@@ -3,23 +3,11 @@ import express from 'express'
 export function createClickmapPreviewRouter() {
   const router = express.Router()
   const CLICKMAP_PREVIEW_DEFAULT_URL = 'https://www.nav.no/'
-  const CLICKMAP_PREVIEW_ALLOWED_HOSTS = new Set(['nav.no'])
-
-  const isAllowedClickmapPreviewHost = (hostname) => {
-    const normalizedHost = hostname.toLowerCase()
-    return CLICKMAP_PREVIEW_ALLOWED_HOSTS.has(normalizedHost) || normalizedHost.endsWith('.nav.no')
-  }
 
   const parseClickmapPreviewTargetUrl = (rawUrl) => {
     const input = typeof rawUrl === 'string' && rawUrl.trim() ? rawUrl.trim() : CLICKMAP_PREVIEW_DEFAULT_URL
     const withProtocol = input.startsWith('http://') || input.startsWith('https://') ? input : `https://${input}`
-    const parsedUrl = new URL(withProtocol)
-
-    if (!isAllowedClickmapPreviewHost(parsedUrl.hostname)) {
-      throw new Error('Only nav.no domains are supported for clickmap preview rendering')
-    }
-
-    return parsedUrl
+    return new URL(withProtocol)
   }
 
   const rewriteRelativeAssets = (html, targetOrigin) => {
@@ -1146,7 +1134,7 @@ export function createClickmapPreviewRouter() {
       res.send(hydratedHtml)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      const statusCode = errorMessage.includes('Only nav.no domains are supported') ? 400 : 500
+      const statusCode = 500
       console.error('Failed to fetch clickmap preview HTML:', error)
       res.status(statusCode).json({ error: 'Failed to fetch clickmap preview HTML', message: errorMessage })
     }

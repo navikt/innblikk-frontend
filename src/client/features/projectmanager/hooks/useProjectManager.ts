@@ -180,9 +180,10 @@ export const useProjectManager = () => {
       run(async () => {
         if (!projectId) throw new Error('Velg prosjekt')
         if (!name.trim()) throw new Error('Dashboardnavn er påkrevd')
-        await api.createDashboard(projectId, name.trim(), description?.trim() || undefined)
+        const createdDashboard = await api.createDashboard(projectId, name.trim(), description?.trim() || undefined)
         await loadProjectSummaries()
         setMessage('Dashboard opprettet')
+        return createdDashboard
       }),
     [run, loadProjectSummaries],
   )
