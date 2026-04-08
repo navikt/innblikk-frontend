@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { DragEvent, KeyboardEvent } from 'react'
 import { GripVertical } from 'lucide-react'
 import {
@@ -124,6 +124,13 @@ const getDashboardConfigEnvironment = (): 'prod' | 'dev' | 'localhost' => {
 }
 
 const Oversikt = () => {
+  const isFocusedMode = useMemo(() => {
+    if (typeof window === 'undefined') return false
+    const params = new URLSearchParams(window.location.search)
+    const value = params.get('focused')
+    return value === '1' || value === 'true'
+  }, [])
+
   const {
     selectedDashboard,
     selectedProjectId,
@@ -282,22 +289,25 @@ const Oversikt = () => {
     })
   }, [charts])
 
-  const getChartWithSelectedVariant = (chart: OversiktChart): OversiktChart => {
-    const variants = chart.variants ?? []
-    if (variants.length <= 1) return chart
+  const getChartWithSelectedVariant = useCallback(
+    (chart: OversiktChart): OversiktChart => {
+      const variants = chart.variants ?? []
+      if (variants.length <= 1) return chart
 
-    const selectedQueryId = selectedVariantByGraphId[chart.graphId]
-    const selectedVariant = variants.find((variant) => variant.queryId === selectedQueryId) ?? variants[0]
+      const selectedQueryId = selectedVariantByGraphId[chart.graphId]
+      const selectedVariant = variants.find((variant) => variant.queryId === selectedQueryId) ?? variants[0]
 
-    if (!selectedVariant) return chart
+      if (!selectedVariant) return chart
 
-    return {
-      ...chart,
-      sql: selectedVariant.sql,
-      queryId: selectedVariant.queryId,
-      queryName: selectedVariant.queryName,
-    }
-  }
+      return {
+        ...chart,
+        sql: selectedVariant.sql,
+        queryId: selectedVariant.queryId,
+        queryName: selectedVariant.queryName,
+      }
+    },
+    [selectedVariantByGraphId],
+  )
 
   const visibleFilterCapabilities = useMemo(() => {
     return charts.reduce(
@@ -311,7 +321,7 @@ const Oversikt = () => {
       },
       { website: false, url: false, date: false },
     )
-  }, [charts, selectedVariantByGraphId])
+  }, [charts, getChartWithSelectedVariant])
 
   const supportsVisibleStandardFilters =
     visibleFilterCapabilities.website || visibleFilterCapabilities.url || visibleFilterCapabilities.date
@@ -1688,6 +1698,7 @@ const Oversikt = () => {
     <DashboardLayout
       title={pageTitle}
       description={selectedDashboard?.description?.trim() ? selectedDashboard.description : undefined}
+      showKontaktSection={!isFocusedMode}
       headerActions={
         selectedDashboard ? (
           <div className="flex justify-end gap-2">

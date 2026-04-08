@@ -25,6 +25,7 @@ import {
   deleteGraph,
   fetchCategories,
   fetchDashboards,
+  fetchProjects,
   fetchGraphs,
   fetchQueries,
   updateDashboard,
@@ -51,6 +52,7 @@ type CanvasFrame = {
   targetUrl?: string
   previewUrl?: string
   renderWebsite?: boolean
+  isInternalDashboard?: boolean
   headingText?: string
   headingFontSize?: number
   textContent?: string
@@ -126,6 +128,7 @@ type CanvasConfigPayload = {
   targetUrl?: string
   previewUrl?: string
   renderWebsite?: boolean
+  isInternalDashboard?: boolean
   headingText?: string
   headingFontSize?: number
   textContent?: string
@@ -235,6 +238,27 @@ const getFrameLabel = (targetUrl: string): string => {
     return `${url.hostname}${url.pathname}${url.search}`
   } catch {
     return targetUrl
+  }
+}
+
+const parseDashboardTargetUrl = (
+  targetUrl?: string,
+): {
+  projectId: number | null
+  dashboardId: number | null
+} => {
+  if (!targetUrl) return { projectId: null, dashboardId: null }
+  try {
+    const url = new URL(targetUrl, window.location.origin)
+    const match = url.pathname.match(/^\/dashboard\/(\d+)\b/)
+    const dashboardId = match ? Number(match[1]) : NaN
+    const projectId = Number(url.searchParams.get('projectId'))
+    return {
+      projectId: Number.isFinite(projectId) ? projectId : null,
+      dashboardId: Number.isFinite(dashboardId) ? dashboardId : null,
+    }
+  } catch {
+    return { projectId: null, dashboardId: null }
   }
 }
 
@@ -387,6 +411,7 @@ const parseCanvasConfig = (raw: string): CanvasConfigPayload | null => {
       targetUrl: typeof parsed.targetUrl === 'string' ? parsed.targetUrl : undefined,
       previewUrl: typeof parsed.previewUrl === 'string' ? parsed.previewUrl : undefined,
       renderWebsite: typeof parsed.renderWebsite === 'boolean' ? parsed.renderWebsite : undefined,
+      isInternalDashboard: typeof parsed.isInternalDashboard === 'boolean' ? parsed.isInternalDashboard : undefined,
       headingText: typeof parsed.headingText === 'string' ? parsed.headingText : undefined,
       headingFontSize: Number.isFinite(parsed.headingFontSize) ? Number(parsed.headingFontSize) : undefined,
       textContent: typeof parsed.textContent === 'string' ? parsed.textContent : undefined,
@@ -432,6 +457,7 @@ const Canvas = () => {
   const [connections, setConnections] = useState<CanvasConnection[]>([])
   const [isAddPageModalOpen, setIsAddPageModalOpen] = useState(false)
   const [isAddImageModalOpen, setIsAddImageModalOpen] = useState(false)
+  const [isAddDashboardModalOpen, setIsAddDashboardModalOpen] = useState(false)
   const [isAddHeadingModalOpen, setIsAddHeadingModalOpen] = useState(false)
   const [isAddTextModalOpen, setIsAddTextModalOpen] = useState(false)
   const [isAddStickyModalOpen, setIsAddStickyModalOpen] = useState(false)
@@ -440,8 +466,10 @@ const Canvas = () => {
   const [renameCanvasError, setRenameCanvasError] = useState<string | null>(null)
   const [isAddChartModalOpen, setIsAddChartModalOpen] = useState(false)
   const [isEditWebsiteModalOpen, setIsEditWebsiteModalOpen] = useState(false)
+  const [isEditDashboardModalOpen, setIsEditDashboardModalOpen] = useState(false)
   const [isEditImageModalOpen, setIsEditImageModalOpen] = useState(false)
   const [editWebsiteFrameId, setEditWebsiteFrameId] = useState<string | null>(null)
+  const [editDashboardFrameId, setEditDashboardFrameId] = useState<string | null>(null)
   const [editImageFrameId, setEditImageFrameId] = useState<string | null>(null)
   const [editWebsitePathInput, setEditWebsitePathInput] = useState('')
   const [editImageUrlInput, setEditImageUrlInput] = useState('')
@@ -453,8 +481,22 @@ const Canvas = () => {
   const [newPageRenderEnabled, setNewPageRenderEnabled] = useState(true)
   const [addPageError, setAddPageError] = useState<string | null>(null)
   const [addImageError, setAddImageError] = useState<string | null>(null)
+  const [addDashboardError, setAddDashboardError] = useState<string | null>(null)
   const [editWebsiteError, setEditWebsiteError] = useState<string | null>(null)
+  const [editDashboardError, setEditDashboardError] = useState<string | null>(null)
   const [editImageError, setEditImageError] = useState<string | null>(null)
+  const [projectOptions, setProjectOptions] = useState<Array<{ id: number; name: string }>>([])
+  const [selectedProjectToAddId, setSelectedProjectToAddId] = useState('')
+  const [dashboardOptions, setDashboardOptions] = useState<Array<{ id: number; name: string }>>([])
+  const [selectedDashboardToAddId, setSelectedDashboardToAddId] = useState('')
+  const [isLoadingDashboardOptions, setIsLoadingDashboardOptions] = useState(false)
+  const [editDashboardProjectOptions, setEditDashboardProjectOptions] = useState<Array<{ id: number; name: string }>>(
+    [],
+  )
+  const [editDashboardSelectedProjectId, setEditDashboardSelectedProjectId] = useState('')
+  const [editDashboardOptions, setEditDashboardOptions] = useState<Array<{ id: number; name: string }>>([])
+  const [editDashboardSelectedDashboardId, setEditDashboardSelectedDashboardId] = useState('')
+  const [isLoadingEditDashboardOptions, setIsLoadingEditDashboardOptions] = useState(false)
   const [headingTextInput, setHeadingTextInput] = useState('')
   const [addHeadingError, setAddHeadingError] = useState<string | null>(null)
   const [textContentInput, setTextContentInput] = useState('')
@@ -487,6 +529,7 @@ const Canvas = () => {
   const [activeEditableFrameId, setActiveEditableFrameId] = useState<string | null>(null)
   const [failedImageFrameIds, setFailedImageFrameIds] = useState<Record<string, boolean>>({})
   const pageInsightsRef = useRef<Record<string, CanvasPageInsight>>({})
+  const framesRef = useRef<CanvasFrame[]>([])
   const canvasViewportRef = useRef<HTMLDivElement | null>(null)
   const canvasToolbarRef = useRef<HTMLDivElement | null>(null)
   const connectionMetricRequestSignatureRef = useRef<string | null>(null)
@@ -558,6 +601,10 @@ const Canvas = () => {
   }, [pageInsights])
 
   useEffect(() => {
+    framesRef.current = frames
+  }, [frames])
+
+  useEffect(() => {
     if (selectedWebsite) return
     const websiteIdFromConfig = canvasConfiguredWebsiteId
     const websiteIdFromUrl = new URLSearchParams(window.location.search).get('websiteId')
@@ -621,7 +668,7 @@ const Canvas = () => {
 
   const loadPageInsight = useCallback(
     async (frame: CanvasFrame) => {
-      if (frame.kind !== 'website') return
+      if (frame.kind !== 'website' || frame.isInternalDashboard) return
 
       const websiteId = selectedWebsite?.id
       const pagePath = frame.targetUrl ? normalizeUrlToPath(frame.targetUrl) : ''
@@ -760,6 +807,7 @@ const Canvas = () => {
         targetUrl: frame.targetUrl,
         previewUrl: frame.previewUrl,
         renderWebsite: frame.renderWebsite,
+        isInternalDashboard: frame.isInternalDashboard,
         headingText: frame.headingText,
         headingFontSize: frame.headingFontSize,
         textContent: frame.textContent,
@@ -917,6 +965,7 @@ const Canvas = () => {
               targetUrl: parsedConfig.targetUrl,
               previewUrl: parsedConfig.previewUrl,
               renderWebsite: parsedConfig.renderWebsite,
+              isInternalDashboard: parsedConfig.isInternalDashboard,
               headingText: parsedConfig.headingText,
               headingFontSize: parsedConfig.headingFontSize,
               textContent: parsedConfig.textContent,
@@ -1106,14 +1155,214 @@ const Canvas = () => {
     }
   }
 
+  const loadDashboardOptions = useCallback(async (projectIdToLoad: number | null) => {
+    if (projectIdToLoad === null) {
+      setDashboardOptions([])
+      setSelectedDashboardToAddId('')
+      return
+    }
+
+    setIsLoadingDashboardOptions(true)
+    setAddDashboardError(null)
+
+    try {
+      const dashboards = await fetchDashboards(projectIdToLoad)
+      const options = dashboards.map((dashboard) => ({
+        id: dashboard.id,
+        name: dashboard.name?.trim() || `Dashboard ${dashboard.id}`,
+      }))
+      setDashboardOptions(options)
+      setSelectedDashboardToAddId((prev) => {
+        if (prev && options.some((option) => String(option.id) === prev)) return prev
+        return options[0] ? String(options[0].id) : ''
+      })
+    } catch (error) {
+      setDashboardOptions([])
+      setSelectedDashboardToAddId('')
+      setAddDashboardError(error instanceof Error ? error.message : 'Kunne ikke laste dashboards')
+    } finally {
+      setIsLoadingDashboardOptions(false)
+    }
+  }, [])
+
+  const handleOpenAddDashboardModal = () => {
+    setAddDashboardError(null)
+    setIsAddDashboardModalOpen(true)
+    void (async () => {
+      setIsLoadingDashboardOptions(true)
+      try {
+        const projects = await fetchProjects()
+        const options = projects.map((item) => ({
+          id: item.id,
+          name: item.name?.trim() || `Team ${item.id}`,
+        }))
+        setProjectOptions(options)
+        const preferredProjectId =
+          projectId !== null && options.some((option) => option.id === projectId) ? projectId : (options[0]?.id ?? null)
+        setSelectedProjectToAddId(preferredProjectId ? String(preferredProjectId) : '')
+        await loadDashboardOptions(preferredProjectId)
+      } catch (error) {
+        setProjectOptions([])
+        setSelectedProjectToAddId('')
+        setDashboardOptions([])
+        setSelectedDashboardToAddId('')
+        setAddDashboardError(error instanceof Error ? error.message : 'Kunne ikke laste team')
+      } finally {
+        setIsLoadingDashboardOptions(false)
+      }
+    })()
+  }
+
+  const handleAddDashboardCard = async () => {
+    const selectedDashboard = dashboardOptions.find((option) => String(option.id) === selectedDashboardToAddId)
+    if (!selectedDashboard) {
+      setAddDashboardError('Velg et dashboard.')
+      return
+    }
+
+    const selectedProjectId = Number(selectedProjectToAddId)
+    const normalizedProjectId = Number.isFinite(selectedProjectId) ? selectedProjectId : null
+    const dashboardUrl =
+      normalizedProjectId !== null
+        ? `/dashboard/${selectedDashboard.id}?projectId=${normalizedProjectId}&focused=true`
+        : null
+    if (!dashboardUrl) {
+      setAddDashboardError('Mangler prosjekt-kontekst. Åpne canvas fra ProjectManager.')
+      return
+    }
+
+    const comparableUrl = getComparableUrl(window.location.origin + dashboardUrl)
+    if (
+      frames.some(
+        (frame) =>
+          frame.kind === 'website' &&
+          frame.targetUrl &&
+          getComparableUrl(
+            frame.targetUrl.startsWith('/') ? window.location.origin + frame.targetUrl : frame.targetUrl,
+          ) === comparableUrl,
+      )
+    ) {
+      setAddDashboardError('Dashboardet er allerede lagt til i canvaset.')
+      return
+    }
+
+    const index = frames.length
+    const column = index % 2
+    const row = Math.floor(index / 2)
+    const newFrame: CanvasFrame = {
+      id: `${Date.now()}-${Math.random()}`,
+      kind: 'website',
+      targetUrl: dashboardUrl,
+      previewUrl: dashboardUrl,
+      renderWebsite: false,
+      isInternalDashboard: true,
+      label: selectedDashboard.name,
+      x: 120 + column * 820,
+      y: 120 + row * 700,
+      width: 760,
+      height: 620,
+      refreshNonce: 1,
+    }
+
+    try {
+      setIsSavingCanvasItem(true)
+      setSyncError(null)
+      const persistedFrame = await persistFrame(newFrame)
+      setFrames((prev) => [...prev, persistedFrame])
+      setAddDashboardError(null)
+      setIsAddDashboardModalOpen(false)
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre dashboard i canvas')
+    } finally {
+      setIsSavingCanvasItem(false)
+    }
+  }
+
+  const loadEditDashboardOptions = useCallback(async (projectIdToLoad: number | null) => {
+    if (projectIdToLoad === null) {
+      setEditDashboardOptions([])
+      setEditDashboardSelectedDashboardId('')
+      return
+    }
+
+    setIsLoadingEditDashboardOptions(true)
+    setEditDashboardError(null)
+
+    try {
+      const dashboards = await fetchDashboards(projectIdToLoad)
+      const options = dashboards.map((dashboard) => ({
+        id: dashboard.id,
+        name: dashboard.name?.trim() || `Dashboard ${dashboard.id}`,
+      }))
+      setEditDashboardOptions(options)
+      setEditDashboardSelectedDashboardId((prev) => {
+        if (prev && options.some((option) => String(option.id) === prev)) return prev
+        return options[0] ? String(options[0].id) : ''
+      })
+    } catch (error) {
+      setEditDashboardOptions([])
+      setEditDashboardSelectedDashboardId('')
+      setEditDashboardError(error instanceof Error ? error.message : 'Kunne ikke laste dashboards')
+    } finally {
+      setIsLoadingEditDashboardOptions(false)
+    }
+  }, [])
+
   const handleOpenEditWebsiteModal = (frame: CanvasFrame) => {
-    if (frame.kind !== 'website') return
+    if (frame.kind !== 'website' || frame.isInternalDashboard) return
     setEditWebsiteFrameId(frame.id)
     setEditWebsitePathInput(frame.targetUrl || '')
     setEditWebsitePreviewUrlInput(frame.previewUrl || '')
     setEditWebsiteRenderEnabled(frame.renderWebsite !== false)
     setEditWebsiteError(null)
     setIsEditWebsiteModalOpen(true)
+  }
+
+  const handleOpenEditDashboardModal = (frame: CanvasFrame) => {
+    if (frame.kind !== 'website' || !frame.isInternalDashboard) return
+    setEditDashboardFrameId(frame.id)
+    setEditDashboardError(null)
+    setIsEditDashboardModalOpen(true)
+
+    void (async () => {
+      setIsLoadingEditDashboardOptions(true)
+      try {
+        const projects = await fetchProjects()
+        const projectOptions = projects.map((item) => ({
+          id: item.id,
+          name: item.name?.trim() || `Team ${item.id}`,
+        }))
+        setEditDashboardProjectOptions(projectOptions)
+        const parsedTarget = parseDashboardTargetUrl(frame.targetUrl)
+        const preferredProjectId =
+          parsedTarget.projectId !== null && projectOptions.some((option) => option.id === parsedTarget.projectId)
+            ? parsedTarget.projectId
+            : projectId !== null && projectOptions.some((option) => option.id === projectId)
+              ? projectId
+              : (projectOptions[0]?.id ?? null)
+        setEditDashboardSelectedProjectId(preferredProjectId ? String(preferredProjectId) : '')
+
+        const dashboards = preferredProjectId !== null ? await fetchDashboards(preferredProjectId) : []
+        const dashboardOptions = dashboards.map((dashboard) => ({
+          id: dashboard.id,
+          name: dashboard.name?.trim() || `Dashboard ${dashboard.id}`,
+        }))
+        setEditDashboardOptions(dashboardOptions)
+        const preferredDashboardId =
+          parsedTarget.dashboardId !== null && dashboardOptions.some((option) => option.id === parsedTarget.dashboardId)
+            ? parsedTarget.dashboardId
+            : (dashboardOptions[0]?.id ?? null)
+        setEditDashboardSelectedDashboardId(preferredDashboardId ? String(preferredDashboardId) : '')
+      } catch (error) {
+        setEditDashboardProjectOptions([])
+        setEditDashboardSelectedProjectId('')
+        setEditDashboardOptions([])
+        setEditDashboardSelectedDashboardId('')
+        setEditDashboardError(error instanceof Error ? error.message : 'Kunne ikke laste team')
+      } finally {
+        setIsLoadingEditDashboardOptions(false)
+      }
+    })()
   }
 
   const handleOpenEditImageModal = (frame: CanvasFrame) => {
@@ -1125,7 +1374,7 @@ const Canvas = () => {
   }
 
   const handleToggleInsightPanel = (frame: CanvasFrame) => {
-    if (frame.kind !== 'website') return
+    if (frame.kind !== 'website' || frame.isInternalDashboard) return
     setActiveInsightFrameId((current) => (current === frame.id ? null : frame.id))
   }
 
@@ -1182,6 +1431,70 @@ const Canvas = () => {
       setEditWebsiteError(null)
     } catch (error) {
       setSyncError(error instanceof Error ? error.message : 'Kunne ikke oppdatere nettside')
+    } finally {
+      setIsSavingCanvasItem(false)
+    }
+  }
+
+  const handleSaveEditedDashboard = async () => {
+    if (!editDashboardFrameId) return
+
+    const selectedProjectId = Number(editDashboardSelectedProjectId)
+    const selectedDashboardId = Number(editDashboardSelectedDashboardId)
+    const normalizedProjectId = Number.isFinite(selectedProjectId) ? selectedProjectId : null
+    const normalizedDashboardId = Number.isFinite(selectedDashboardId) ? selectedDashboardId : null
+
+    if (normalizedProjectId === null || normalizedDashboardId === null) {
+      setEditDashboardError('Velg team og dashboard.')
+      return
+    }
+
+    const selectedDashboard = editDashboardOptions.find((option) => option.id === normalizedDashboardId)
+    if (!selectedDashboard) {
+      setEditDashboardError('Velg et gyldig dashboard.')
+      return
+    }
+
+    const targetUrl = `/dashboard/${normalizedDashboardId}?projectId=${normalizedProjectId}&focused=true`
+    const comparableUrl = getComparableUrl(window.location.origin + targetUrl)
+    if (
+      frames.some(
+        (frame) =>
+          frame.id !== editDashboardFrameId &&
+          frame.kind === 'website' &&
+          frame.targetUrl &&
+          getComparableUrl(
+            frame.targetUrl.startsWith('/') ? window.location.origin + frame.targetUrl : frame.targetUrl,
+          ) === comparableUrl,
+      )
+    ) {
+      setEditDashboardError('Dashboardet er allerede lagt til i canvaset.')
+      return
+    }
+
+    const currentFrame = frames.find((frame) => frame.id === editDashboardFrameId)
+    if (!currentFrame || currentFrame.kind !== 'website' || !currentFrame.isInternalDashboard) return
+
+    const updatedFrame: CanvasFrame = {
+      ...currentFrame,
+      targetUrl,
+      previewUrl: targetUrl,
+      renderWebsite: false,
+      isInternalDashboard: true,
+      label: selectedDashboard.name,
+      refreshNonce: currentFrame.refreshNonce + 1,
+    }
+
+    try {
+      setIsSavingCanvasItem(true)
+      setSyncError(null)
+      const persistedFrame = await persistFrame(updatedFrame)
+      setFrames((prev) => prev.map((frame) => (frame.id === editDashboardFrameId ? persistedFrame : frame)))
+      setIsEditDashboardModalOpen(false)
+      setEditDashboardFrameId(null)
+      setEditDashboardError(null)
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke oppdatere dashboard')
     } finally {
       setIsSavingCanvasItem(false)
     }
@@ -1258,7 +1571,7 @@ const Canvas = () => {
 
   const getFrameBounds = useCallback(
     (frame: CanvasFrame): { left: number; top: number; right: number; bottom: number } => {
-      const defaults = getDefaultFrameSize(frame.kind)
+      const defaults = getDefaultFrameSize(frame)
       const width = frame.width ?? defaults.width
       const height = frame.height ?? defaults.height
       return {
@@ -1272,7 +1585,7 @@ const Canvas = () => {
   )
 
   const getFrameAnchor = useCallback((frame: CanvasFrame, side: 'left' | 'right'): { x: number; y: number } => {
-    const defaults = getDefaultFrameSize(frame.kind)
+    const defaults = getDefaultFrameSize(frame)
     const width = frame.width ?? defaults.width
     const height = frame.height ?? defaults.height
     const headerHeight = frame.kind === 'website' ? WEBSITE_CARD_HEADER_HEIGHT : 0
@@ -1286,6 +1599,7 @@ const Canvas = () => {
   const createConnectionBetweenFrames = useCallback(
     async (source: CanvasFrame, target: CanvasFrame) => {
       if (source.kind !== 'website' || target.kind !== 'website') return
+      if (source.isInternalDashboard || target.isInternalDashboard) return
       if (source.id === target.id) return
 
       if (
@@ -1324,7 +1638,7 @@ const Canvas = () => {
 
   const startConnectionDrag = useCallback(
     (event: React.MouseEvent, frame: CanvasFrame) => {
-      if (frame.kind !== 'website') return
+      if (frame.kind !== 'website' || frame.isInternalDashboard) return
       event.preventDefault()
       event.stopPropagation()
 
@@ -1554,8 +1868,12 @@ const Canvas = () => {
   }
 
   const getDefaultFrameSize = (
-    kind: CanvasFrame['kind'],
+    frameOrKind: CanvasFrame | CanvasFrame['kind'],
   ): { width: number; height: number; minWidth: number; minHeight: number } => {
+    const kind = typeof frameOrKind === 'string' ? frameOrKind : frameOrKind.kind
+    const isInternalDashboard = typeof frameOrKind === 'string' ? false : Boolean(frameOrKind.isInternalDashboard)
+
+    if (kind === 'website' && isInternalDashboard) return { width: 760, height: 620, minWidth: 520, minHeight: 420 }
     if (kind === 'website') return { width: 420, height: 560, minWidth: 320, minHeight: 320 }
     if (kind === 'image') return { width: 420, height: 420, minWidth: 240, minHeight: 200 }
     if (kind === 'chart') return { width: 680, height: 460, minWidth: 420, minHeight: 280 }
@@ -1571,7 +1889,7 @@ const Canvas = () => {
 
   const getHeadingFrameWidth = useCallback(
     (frame: CanvasFrame): number => {
-      if (frame.kind !== 'heading') return frame.width ?? getDefaultFrameSize(frame.kind).width
+      if (frame.kind !== 'heading') return frame.width ?? getDefaultFrameSize(frame).width
 
       const headingText = (frame.headingText || frame.label || '').trim()
       const fontSize = getHeadingFrameFontSize(frame)
@@ -1584,7 +1902,7 @@ const Canvas = () => {
 
   const getHeadingFrameHeight = useCallback(
     (frame: CanvasFrame): number => {
-      if (frame.kind !== 'heading') return frame.height ?? getDefaultFrameSize(frame.kind).height
+      if (frame.kind !== 'heading') return frame.height ?? getDefaultFrameSize(frame).height
 
       const headingText = (frame.headingText || frame.label || '').trim()
       const width = getHeadingFrameWidth(frame)
@@ -1601,7 +1919,7 @@ const Canvas = () => {
 
   const handleResizeStart = (event: React.MouseEvent, frame: CanvasFrame) => {
     event.stopPropagation()
-    const defaults = getDefaultFrameSize(frame.kind)
+    const defaults = getDefaultFrameSize(frame)
     setResizeState({
       id: frame.id,
       startX: event.clientX,
@@ -1632,7 +1950,7 @@ const Canvas = () => {
     }
 
     const onMouseUp = () => {
-      const movedFrame = frames.find((frame) => frame.id === dragState.id)
+      const movedFrame = framesRef.current.find((frame) => frame.id === dragState.id)
       if (movedFrame && movedFrame.graphId) {
         void persistFrame(movedFrame).catch((error) => {
           setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre posisjon i canvas')
@@ -1648,7 +1966,7 @@ const Canvas = () => {
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mouseup', onMouseUp)
     }
-  }, [dragState, frames, getCanvasPointerPosition, persistFrame])
+  }, [dragState, getCanvasPointerPosition, persistFrame])
 
   useEffect(() => {
     if (!resizeState) return
@@ -1657,7 +1975,7 @@ const Canvas = () => {
       setFrames((prev) =>
         prev.map((frame) => {
           if (frame.id !== resizeState.id) return frame
-          const defaults = getDefaultFrameSize(frame.kind)
+          const defaults = getDefaultFrameSize(frame)
           const deltaX = (event.clientX - resizeState.startX) / canvasZoom
           const deltaY = (event.clientY - resizeState.startY) / canvasZoom
           return {
@@ -1670,7 +1988,7 @@ const Canvas = () => {
     }
 
     const onMouseUp = () => {
-      const resizedFrame = frames.find((frame) => frame.id === resizeState.id)
+      const resizedFrame = framesRef.current.find((frame) => frame.id === resizeState.id)
       if (resizedFrame?.graphId) {
         void persistFrame(resizedFrame).catch((error) => {
           setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre størrelse i canvas')
@@ -1685,7 +2003,7 @@ const Canvas = () => {
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mouseup', onMouseUp)
     }
-  }, [canvasZoom, frames, persistFrame, resizeState])
+  }, [canvasZoom, persistFrame, resizeState])
 
   useEffect(() => {
     if (!connectionDragState) return
@@ -1695,7 +2013,7 @@ const Canvas = () => {
       if (!pointer) return
 
       const currentTarget = frames.find((frame) => {
-        if (frame.kind !== 'website') return false
+        if (frame.kind !== 'website' || frame.isInternalDashboard) return false
         if (frame.id === connectionDragState.sourceFrameId) return false
         const bounds = getFrameBounds(frame)
         return (
@@ -2174,6 +2492,7 @@ const Canvas = () => {
                     >
                       Bilde
                     </ActionMenu.Item>
+                    <ActionMenu.Item onClick={handleOpenAddDashboardModal}>Dashboard</ActionMenu.Item>
                     <ActionMenu.Item onClick={handleOpenAddChartModal}>Graf</ActionMenu.Item>
                     <ActionMenu.Item
                       onClick={() => {
@@ -2371,7 +2690,7 @@ const Canvas = () => {
                 ))}
                 {frameItems.map((frame) =>
                   (() => {
-                    const defaults = getDefaultFrameSize(frame.kind)
+                    const defaults = getDefaultFrameSize(frame)
                     const isWebsiteInsightOpen = frame.kind === 'website' && activeInsightFrameId === frame.id
                     const websiteInsight = pageInsights[frame.id]
                     return (
@@ -2411,7 +2730,7 @@ const Canvas = () => {
                               : `${defaults.minHeight}px`,
                         }}
                       >
-                        {frame.kind === 'website' && (
+                        {frame.kind === 'website' && !frame.isInternalDashboard && (
                           <header
                             className={
                               'flex cursor-move items-center justify-between gap-2 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] px-3 py-2'
@@ -2424,7 +2743,7 @@ const Canvas = () => {
                               </div>
                             </div>
                             <div className="flex items-center gap-1">
-                              {frame.kind === 'website' && (
+                              {frame.kind === 'website' && !frame.isInternalDashboard && (
                                 <Button
                                   size="xsmall"
                                   variant="tertiary"
@@ -2458,12 +2777,18 @@ const Canvas = () => {
                                   </ActionMenu.Item>
                                   <ActionMenu.Item
                                     onClick={() => {
-                                      handleOpenEditWebsiteModal(frame)
+                                      if (frame.isInternalDashboard) {
+                                        handleOpenEditDashboardModal(frame)
+                                      } else {
+                                        handleOpenEditWebsiteModal(frame)
+                                      }
                                     }}
                                   >
                                     <span className="inline-flex items-center gap-2">
                                       <Edit2 size={14} aria-hidden="true" />
-                                      <span>Rediger nettside</span>
+                                      <span>
+                                        {frame.isInternalDashboard ? 'Rediger dashboard' : 'Rediger nettside'}
+                                      </span>
                                     </span>
                                   </ActionMenu.Item>
                                   <ActionMenu.Item onClick={() => handleRequestRemoveFrame(frame)}>
@@ -2487,7 +2812,8 @@ const Canvas = () => {
                         {(frame.kind === 'sticky' ||
                           frame.kind === 'text' ||
                           frame.kind === 'heading' ||
-                          frame.kind === 'image') && (
+                          frame.kind === 'image' ||
+                          (frame.kind === 'website' && frame.isInternalDashboard)) && (
                           <>
                             <div
                               className="absolute inset-x-0 top-0 z-20 h-4 cursor-move"
@@ -2499,15 +2825,21 @@ const Canvas = () => {
                                 frame.kind === 'heading' ? 'right-0 -top-10 flex items-center gap-1' : 'right-2 top-2'
                               }`}
                             >
-                              {frame.kind === 'image' && (
+                              {(frame.kind === 'image' || (frame.kind === 'website' && frame.isInternalDashboard)) && (
                                 <Button
                                   size="xsmall"
                                   variant="tertiary"
                                   icon={<Edit2 size={14} />}
                                   onMouseDown={(event) => event.stopPropagation()}
-                                  onClick={() => handleOpenEditImageModal(frame)}
-                                  title="Rediger bilde"
-                                  aria-label="Rediger bilde"
+                                  onClick={() => {
+                                    if (frame.kind === 'image') {
+                                      handleOpenEditImageModal(frame)
+                                    } else {
+                                      handleOpenEditDashboardModal(frame)
+                                    }
+                                  }}
+                                  title={frame.kind === 'image' ? 'Rediger bilde' : 'Rediger dashboard'}
+                                  aria-label={frame.kind === 'image' ? 'Rediger bilde' : 'Rediger dashboard'}
                                   className="pointer-events-auto opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
                                 />
                               )}
@@ -2550,7 +2882,7 @@ const Canvas = () => {
                                   : 'px-2 pb-2'
                           }`}
                         >
-                          {frame.kind === 'website' && (
+                          {frame.kind === 'website' && !frame.isInternalDashboard && (
                             <div className="pointer-events-none absolute inset-y-0 left-0 right-0 z-20 overflow-visible">
                               <button
                                 type="button"
@@ -2982,6 +3314,168 @@ const Canvas = () => {
             Legg til
           </Button>
           <Button variant="secondary" size="small" onClick={() => setIsAddImageModalOpen(false)}>
+            Avbryt
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal
+        open={isAddDashboardModalOpen}
+        onClose={() => {
+          setIsAddDashboardModalOpen(false)
+          setAddDashboardError(null)
+        }}
+        header={{ heading: 'Legg til dashboard i canvas' }}
+        width="small"
+      >
+        <Modal.Body>
+          <div className="space-y-3">
+            <Select
+              label="Team"
+              value={selectedProjectToAddId}
+              onChange={(event) => {
+                const nextProjectId = event.target.value
+                setSelectedProjectToAddId(nextProjectId)
+                setSelectedDashboardToAddId('')
+                if (addDashboardError) setAddDashboardError(null)
+                const parsedProjectId = Number(nextProjectId)
+                void loadDashboardOptions(Number.isFinite(parsedProjectId) ? parsedProjectId : null)
+              }}
+              disabled={isLoadingDashboardOptions}
+            >
+              <option value="" disabled>
+                {isLoadingDashboardOptions ? 'Laster team...' : 'Velg team'}
+              </option>
+              {projectOptions.map((option) => (
+                <option key={option.id} value={String(option.id)}>
+                  {option.name}
+                </option>
+              ))}
+            </Select>
+            {(isLoadingDashboardOptions || dashboardOptions.length > 0) && (
+              <Select
+                label="Dashboard"
+                value={selectedDashboardToAddId}
+                onChange={(event) => {
+                  setSelectedDashboardToAddId(event.target.value)
+                  if (addDashboardError) setAddDashboardError(null)
+                }}
+                disabled={isLoadingDashboardOptions}
+              >
+                <option value="" disabled>
+                  {isLoadingDashboardOptions ? 'Laster dashboards...' : 'Velg dashboard'}
+                </option>
+                {dashboardOptions.map((option) => (
+                  <option key={option.id} value={String(option.id)}>
+                    {option.name}
+                  </option>
+                ))}
+              </Select>
+            )}
+            {addDashboardError && <Alert variant="error">{addDashboardError}</Alert>}
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          {dashboardOptions.length > 0 && (
+            <Button
+              onClick={() => void handleAddDashboardCard()}
+              size="small"
+              loading={isSavingCanvasItem}
+              disabled={!selectedDashboardToAddId}
+            >
+              Legg til
+            </Button>
+          )}
+          <Button
+            variant="secondary"
+            size="small"
+            onClick={() => {
+              setIsAddDashboardModalOpen(false)
+              setAddDashboardError(null)
+            }}
+          >
+            Avbryt
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal
+        open={isEditDashboardModalOpen}
+        onClose={() => {
+          setIsEditDashboardModalOpen(false)
+          setEditDashboardFrameId(null)
+          setEditDashboardError(null)
+        }}
+        header={{ heading: 'Rediger dashboard' }}
+        width="small"
+      >
+        <Modal.Body>
+          <div className="space-y-3">
+            <Select
+              label="Team"
+              value={editDashboardSelectedProjectId}
+              onChange={(event) => {
+                const nextProjectId = event.target.value
+                setEditDashboardSelectedProjectId(nextProjectId)
+                setEditDashboardSelectedDashboardId('')
+                if (editDashboardError) setEditDashboardError(null)
+                const parsedProjectId = Number(nextProjectId)
+                void loadEditDashboardOptions(Number.isFinite(parsedProjectId) ? parsedProjectId : null)
+              }}
+              disabled={isLoadingEditDashboardOptions}
+            >
+              <option value="" disabled>
+                {isLoadingEditDashboardOptions ? 'Laster team...' : 'Velg team'}
+              </option>
+              {editDashboardProjectOptions.map((option) => (
+                <option key={option.id} value={String(option.id)}>
+                  {option.name}
+                </option>
+              ))}
+            </Select>
+            {(isLoadingEditDashboardOptions || editDashboardOptions.length > 0) && (
+              <Select
+                label="Dashboard"
+                value={editDashboardSelectedDashboardId}
+                onChange={(event) => {
+                  setEditDashboardSelectedDashboardId(event.target.value)
+                  if (editDashboardError) setEditDashboardError(null)
+                }}
+                disabled={isLoadingEditDashboardOptions}
+              >
+                <option value="" disabled>
+                  {isLoadingEditDashboardOptions ? 'Laster dashboards...' : 'Velg dashboard'}
+                </option>
+                {editDashboardOptions.map((option) => (
+                  <option key={option.id} value={String(option.id)}>
+                    {option.name}
+                  </option>
+                ))}
+              </Select>
+            )}
+            {editDashboardError && <Alert variant="error">{editDashboardError}</Alert>}
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          {editDashboardOptions.length > 0 && (
+            <Button
+              onClick={() => void handleSaveEditedDashboard()}
+              size="small"
+              loading={isSavingCanvasItem}
+              disabled={!editDashboardSelectedDashboardId}
+            >
+              Lagre
+            </Button>
+          )}
+          <Button
+            variant="secondary"
+            size="small"
+            onClick={() => {
+              setIsEditDashboardModalOpen(false)
+              setEditDashboardFrameId(null)
+              setEditDashboardError(null)
+            }}
+          >
             Avbryt
           </Button>
         </Modal.Footer>
