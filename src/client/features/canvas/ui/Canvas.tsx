@@ -1,6 +1,17 @@
 import { Fragment, createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActionMenu, Alert, Button, Link, Loader, Modal, Select, Switch, TextField, Textarea } from '@navikt/ds-react'
-import { ChartNoAxesCombined, Edit2, ExternalLink, Minus, MoreVertical, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import {
+  ChartNoAxesCombined,
+  Edit2,
+  ExternalLink,
+  Minus,
+  MoreVertical,
+  Plus,
+  RefreshCw,
+  RotateCcw,
+  RotateCw,
+  Trash2,
+} from 'lucide-react'
 import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import { computeFunnelStepMetrics } from '../../analysis/utils/horizontalFunnel.ts'
@@ -18,6 +29,14 @@ import {
 } from '../../../shared/lib/utils.ts'
 import { DashboardWidget } from '../../dashboard'
 import { mapGraphTypeToChart } from '../../oversikt'
+import CanvasIconPicker from './CanvasIconPicker.tsx'
+import {
+  CANVAS_ICON_COLOR_OPTIONS,
+  DEFAULT_CANVAS_ICON_COLOR,
+  DEFAULT_CANVAS_ICON_ID,
+  getCanvasIconColor,
+  getCanvasIconOptionById,
+} from './CanvasIconRegistry.ts'
 import {
   createCategory,
   createGraph,
@@ -39,7 +58,7 @@ import type { Website } from '../../../shared/types/website.ts'
 import { useCookieStartDate, useCookieSupport } from '../../../shared/hooks/useSiteimproveSupport.ts'
 
 type CanvasChartType = 'line' | 'bar' | 'pie' | 'table'
-type CanvasPayloadKind = 'website' | 'image' | 'heading' | 'text' | 'sticky' | 'chart' | 'connection'
+type CanvasPayloadKind = 'website' | 'image' | 'heading' | 'text' | 'sticky' | 'chart' | 'icon' | 'connection'
 type CanvasConnectionMetric = {
   percentageOfPrev: number
   dropoffCount: number
@@ -51,7 +70,7 @@ type CanvasConnectionMetric = {
 
 type CanvasFrame = {
   id: string
-  kind: 'website' | 'image' | 'heading' | 'text' | 'sticky' | 'chart'
+  kind: 'website' | 'image' | 'heading' | 'text' | 'sticky' | 'chart' | 'icon'
   targetUrl?: string
   previewUrl?: string
   renderWebsite?: boolean
@@ -59,6 +78,9 @@ type CanvasFrame = {
   headingText?: string
   headingFontSize?: number
   textContent?: string
+  iconName?: string
+  iconRotationDeg?: number
+  iconColor?: string
   chartType?: CanvasChartType
   chartSql?: string
   label: string
@@ -135,6 +157,9 @@ type CanvasConfigPayload = {
   headingText?: string
   headingFontSize?: number
   textContent?: string
+  iconName?: string
+  iconRotationDeg?: number
+  iconColor?: string
   chartType?: CanvasChartType
   chartSql?: string
   label: string
@@ -161,6 +186,7 @@ const CANVAS_ZOOM_MIN = 0.5
 const CANVAS_ZOOM_MAX = 1.5
 const CANVAS_ZOOM_STEP = 0.1
 const HEADING_FONT_SIZE_DEFAULT = 40
+const ICON_ROTATION_STEP_DEG = 15
 
 const clampCanvasZoom = (value: number): number => Math.min(CANVAS_ZOOM_MAX, Math.max(CANVAS_ZOOM_MIN, value))
 
@@ -328,6 +354,7 @@ const buildConnectionPath = (
 
 const WEBSITE_CARD_HEADER_HEIGHT = 46
 const HEADING_CARD_HEADER_HEIGHT = 0
+const ICON_CARD_HEADER_HEIGHT = 0
 const CANVAS_TOP_BUFFER = 240
 const HEADING_TEXT_MIN_WIDTH = 140
 const HEADING_TEXT_MAX_WIDTH = 820
@@ -389,6 +416,7 @@ const isCanvasPayloadKind = (value: unknown): value is CanvasPayloadKind =>
   value === 'text' ||
   value === 'sticky' ||
   value === 'chart' ||
+  value === 'icon' ||
   value === 'connection'
 
 const isRenderableCanvasFrameKind = (value: unknown): value is CanvasFrame['kind'] =>
@@ -397,7 +425,8 @@ const isRenderableCanvasFrameKind = (value: unknown): value is CanvasFrame['kind
   value === 'heading' ||
   value === 'text' ||
   value === 'sticky' ||
-  value === 'chart'
+  value === 'chart' ||
+  value === 'icon'
 
 const isCanvasChartType = (value: unknown): value is CanvasChartType =>
   value === 'line' || value === 'bar' || value === 'pie' || value === 'table'
@@ -428,6 +457,9 @@ const parseCanvasConfig = (raw: string): CanvasConfigPayload | null => {
       headingText: typeof parsed.headingText === 'string' ? parsed.headingText : undefined,
       headingFontSize: Number.isFinite(parsed.headingFontSize) ? Number(parsed.headingFontSize) : undefined,
       textContent: typeof parsed.textContent === 'string' ? parsed.textContent : undefined,
+      iconName: typeof parsed.iconName === 'string' ? parsed.iconName : undefined,
+      iconRotationDeg: Number.isFinite(parsed.iconRotationDeg) ? Number(parsed.iconRotationDeg) : undefined,
+      iconColor: typeof parsed.iconColor === 'string' ? parsed.iconColor : undefined,
       chartType: isCanvasChartType(parsed.chartType) ? parsed.chartType : undefined,
       chartSql: typeof parsed.chartSql === 'string' ? parsed.chartSql : undefined,
       label: parsed.label,
@@ -474,6 +506,7 @@ const Canvas = () => {
   const [isAddHeadingModalOpen, setIsAddHeadingModalOpen] = useState(false)
   const [isAddTextModalOpen, setIsAddTextModalOpen] = useState(false)
   const [isAddStickyModalOpen, setIsAddStickyModalOpen] = useState(false)
+  const [isAddIconModalOpen, setIsAddIconModalOpen] = useState(false)
   const [isCanvasSettingsModalOpen, setIsCanvasSettingsModalOpen] = useState(false)
   const [renameCanvasInput, setRenameCanvasInput] = useState('')
   const [renameCanvasError, setRenameCanvasError] = useState<string | null>(null)
@@ -481,9 +514,11 @@ const Canvas = () => {
   const [isEditWebsiteModalOpen, setIsEditWebsiteModalOpen] = useState(false)
   const [isEditDashboardModalOpen, setIsEditDashboardModalOpen] = useState(false)
   const [isEditImageModalOpen, setIsEditImageModalOpen] = useState(false)
+  const [isEditIconModalOpen, setIsEditIconModalOpen] = useState(false)
   const [editWebsiteFrameId, setEditWebsiteFrameId] = useState<string | null>(null)
   const [editDashboardFrameId, setEditDashboardFrameId] = useState<string | null>(null)
   const [editImageFrameId, setEditImageFrameId] = useState<string | null>(null)
+  const [editIconFrameId, setEditIconFrameId] = useState<string | null>(null)
   const [editWebsitePathInput, setEditWebsitePathInput] = useState('')
   const [editImageUrlInput, setEditImageUrlInput] = useState('')
   const [editWebsitePreviewUrlInput, setEditWebsitePreviewUrlInput] = useState('')
@@ -516,6 +551,12 @@ const Canvas = () => {
   const [addTextError, setAddTextError] = useState<string | null>(null)
   const [stickyContentInput, setStickyContentInput] = useState('')
   const [addStickyError, setAddStickyError] = useState<string | null>(null)
+  const [selectedIconId, setSelectedIconId] = useState(DEFAULT_CANVAS_ICON_ID)
+  const [selectedIconColor, setSelectedIconColor] = useState(DEFAULT_CANVAS_ICON_COLOR)
+  const [addIconError, setAddIconError] = useState<string | null>(null)
+  const [editIconSelectedId, setEditIconSelectedId] = useState(DEFAULT_CANVAS_ICON_ID)
+  const [editIconSelectedColor, setEditIconSelectedColor] = useState(DEFAULT_CANVAS_ICON_COLOR)
+  const [editIconError, setEditIconError] = useState<string | null>(null)
   const [chartOptions, setChartOptions] = useState<CanvasChartOption[]>([])
   const [selectedChartOptionId, setSelectedChartOptionId] = useState('')
   const [isLoadingChartOptions, setIsLoadingChartOptions] = useState(false)
@@ -831,6 +872,9 @@ const Canvas = () => {
         headingText: frame.headingText,
         headingFontSize: frame.headingFontSize,
         textContent: frame.textContent,
+        iconName: frame.iconName,
+        iconRotationDeg: frame.iconRotationDeg,
+        iconColor: frame.iconColor,
         chartType: frame.chartType,
         chartSql: frame.chartSql,
         label: frame.label,
@@ -989,6 +1033,9 @@ const Canvas = () => {
               headingText: parsedConfig.headingText,
               headingFontSize: parsedConfig.headingFontSize,
               textContent: parsedConfig.textContent,
+              iconName: parsedConfig.iconName,
+              iconRotationDeg: parsedConfig.iconRotationDeg,
+              iconColor: parsedConfig.iconColor,
               chartType: parsedConfig.chartType,
               chartSql: parsedConfig.chartSql,
               label: parsedConfig.label || graph.name,
@@ -1402,6 +1449,15 @@ const Canvas = () => {
     setIsEditImageModalOpen(true)
   }
 
+  const handleOpenEditIconModal = (frame: CanvasFrame) => {
+    if (frame.kind !== 'icon') return
+    setEditIconFrameId(frame.id)
+    setEditIconSelectedId(frame.iconName || DEFAULT_CANVAS_ICON_ID)
+    setEditIconSelectedColor(getCanvasIconColor(frame.iconColor))
+    setEditIconError(null)
+    setIsEditIconModalOpen(true)
+  }
+
   const handleToggleInsightPanel = (frame: CanvasFrame) => {
     if (frame.kind !== 'website' || frame.isInternalDashboard) return
     setActiveInsightFrameId((current) => (current === frame.id ? null : frame.id))
@@ -1584,6 +1640,39 @@ const Canvas = () => {
     }
   }
 
+  const handleSaveEditedIcon = async () => {
+    if (!editIconFrameId) return
+    const currentFrame = frames.find((frame) => frame.id === editIconFrameId)
+    if (!currentFrame || currentFrame.kind !== 'icon') return
+
+    const selectedIcon = getCanvasIconOptionById(editIconSelectedId)
+    if (!selectedIcon) {
+      setEditIconError('Velg et ikon.')
+      return
+    }
+
+    const updatedFrame: CanvasFrame = {
+      ...currentFrame,
+      iconName: selectedIcon.id,
+      iconColor: getCanvasIconColor(editIconSelectedColor),
+      label: selectedIcon.label,
+    }
+
+    try {
+      setIsSavingCanvasItem(true)
+      setSyncError(null)
+      const persistedFrame = await persistFrame(updatedFrame)
+      setFrames((prev) => prev.map((frame) => (frame.id === editIconFrameId ? persistedFrame : frame)))
+      setIsEditIconModalOpen(false)
+      setEditIconFrameId(null)
+      setEditIconError(null)
+    } catch (error) {
+      setEditIconError(error instanceof Error ? error.message : 'Kunne ikke oppdatere ikon')
+    } finally {
+      setIsSavingCanvasItem(false)
+    }
+  }
+
   const getCanvasPointerPosition = useCallback(
     (clientX: number, clientY: number): { x: number; y: number } | null => {
       const viewport = canvasViewportRef.current
@@ -1617,7 +1706,8 @@ const Canvas = () => {
     const defaults = getDefaultFrameSize(frame)
     const width = frame.width ?? defaults.width
     const height = frame.height ?? defaults.height
-    const headerHeight = frame.kind === 'website' ? WEBSITE_CARD_HEADER_HEIGHT : 0
+    const headerHeight =
+      frame.kind === 'website' ? WEBSITE_CARD_HEADER_HEIGHT : frame.kind === 'icon' ? ICON_CARD_HEADER_HEIGHT : 0
     const bodyHeight = Math.max(height - headerHeight, 0)
     return {
       x: side === 'left' ? frame.x : frame.x + width,
@@ -1790,6 +1880,43 @@ const Canvas = () => {
       setIsAddStickyModalOpen(false)
     } catch (error) {
       setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre sticky note i canvas')
+    } finally {
+      setIsSavingCanvasItem(false)
+    }
+  }
+
+  const handleAddIconCard = async () => {
+    const selectedIcon = getCanvasIconOptionById(selectedIconId)
+    if (!selectedIcon) {
+      setAddIconError('Velg et ikon.')
+      return
+    }
+
+    const index = frames.length
+    const column = index % 3
+    const row = Math.floor(index / 3)
+    const newFrame: CanvasFrame = {
+      id: `${Date.now()}-${Math.random()}`,
+      kind: 'icon',
+      iconName: selectedIcon.id,
+      iconRotationDeg: 0,
+      iconColor: getCanvasIconColor(selectedIconColor),
+      label: selectedIcon.label,
+      x: 80 + column * 460,
+      y: 80 + row * 380,
+      width: 280,
+      height: 240,
+      refreshNonce: 0,
+    }
+    try {
+      setIsSavingCanvasItem(true)
+      setSyncError(null)
+      const persistedFrame = await persistFrame(newFrame)
+      setFrames((prev) => [...prev, persistedFrame])
+      setAddIconError(null)
+      setIsAddIconModalOpen(false)
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre ikon i canvas')
     } finally {
       setIsSavingCanvasItem(false)
     }
@@ -2016,6 +2143,7 @@ const Canvas = () => {
     if (kind === 'chart') return { width: 680, height: 460, minWidth: 420, minHeight: 280 }
     if (kind === 'heading') return { width: 420, height: 72, minWidth: 260, minHeight: 48 }
     if (kind === 'text') return { width: 340, height: 170, minWidth: 240, minHeight: 120 }
+    if (kind === 'icon') return { width: 280, height: 240, minWidth: 180, minHeight: 160 }
     return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
   }
 
@@ -2472,6 +2600,23 @@ const Canvas = () => {
     )
   }
 
+  const handleRotateIconFrame = (id: string, delta: number) => {
+    const currentFrame = frames.find((frame) => frame.id === id)
+    if (!currentFrame || currentFrame.kind !== 'icon') return
+
+    const currentRotation = currentFrame.iconRotationDeg ?? 0
+    const nextRotation = (((currentRotation + delta) % 360) + 360) % 360
+    const nextFrame: CanvasFrame = {
+      ...currentFrame,
+      iconRotationDeg: nextRotation,
+    }
+
+    setFrames((prev) => prev.map((frame) => (frame.id === id ? nextFrame : frame)))
+    void persistFrame(nextFrame).catch((error) => {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre ikon-rotasjon')
+    })
+  }
+
   const handleEditableFrameChange = (id: string, nextValue: string) => {
     setFrames((prev) =>
       prev.map((frame) => {
@@ -2496,7 +2641,8 @@ const Canvas = () => {
 
   const handleEditableFrameBlur = (id: string) => {
     const frame = frames.find((item) => item.id === id)
-    if (!frame || frame.kind === 'website' || frame.kind === 'image' || frame.kind === 'chart') return
+    if (!frame || frame.kind === 'website' || frame.kind === 'image' || frame.kind === 'chart' || frame.kind === 'icon')
+      return
 
     let nextFrame = frame
     if (frame.kind === 'heading') {
@@ -2654,6 +2800,16 @@ const Canvas = () => {
                       }}
                     >
                       Sticky note
+                    </ActionMenu.Item>
+                    <ActionMenu.Item
+                      onClick={() => {
+                        setAddIconError(null)
+                        setSelectedIconId((current) => current || DEFAULT_CANVAS_ICON_ID)
+                        setSelectedIconColor((current) => getCanvasIconColor(current))
+                        setIsAddIconModalOpen(true)
+                      }}
+                    >
+                      Ikon
                     </ActionMenu.Item>
                   </ActionMenu.Content>
                 </ActionMenu>
@@ -2847,11 +3003,14 @@ const Canvas = () => {
                                 ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
                                 : frame.kind === 'text'
                                   ? 'group absolute flex flex-col overflow-hidden rounded-xl border border-transparent bg-transparent shadow-none'
-                                  : 'group absolute flex flex-col overflow-hidden rounded-xl border border-[#f1dc7d] bg-[#fff5b8] shadow-sm'
+                                  : frame.kind === 'icon'
+                                    ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
+                                    : 'group absolute flex flex-col overflow-hidden rounded-xl border border-[#f1dc7d] bg-[#fff5b8] shadow-sm'
                         }
                         style={{
                           left: `${frame.x}px`,
                           top: `${frame.y}px`,
+                          zIndex: frame.kind === 'icon' ? 40 : undefined,
                           width:
                             frame.kind === 'heading'
                               ? `${getHeadingFrameWidth(frame)}px`
@@ -2949,6 +3108,7 @@ const Canvas = () => {
                         {(frame.kind === 'sticky' ||
                           frame.kind === 'text' ||
                           frame.kind === 'heading' ||
+                          frame.kind === 'icon' ||
                           frame.kind === 'image' ||
                           (frame.kind === 'website' && frame.isInternalDashboard)) && (
                           <>
@@ -2980,6 +3140,42 @@ const Canvas = () => {
                                   className="pointer-events-auto opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
                                 />
                               )}
+                              {frame.kind === 'icon' && (
+                                <Button
+                                  size="xsmall"
+                                  variant="tertiary"
+                                  icon={<Edit2 size={14} />}
+                                  onMouseDown={(event) => event.stopPropagation()}
+                                  onClick={() => handleOpenEditIconModal(frame)}
+                                  title="Rediger ikon"
+                                  aria-label="Rediger ikon"
+                                  className="pointer-events-auto opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                                />
+                              )}
+                              {frame.kind === 'icon' && (
+                                <>
+                                  <Button
+                                    size="xsmall"
+                                    variant="tertiary"
+                                    icon={<RotateCcw size={14} />}
+                                    onMouseDown={(event) => event.stopPropagation()}
+                                    onClick={() => handleRotateIconFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
+                                    title="Roter venstre"
+                                    aria-label="Roter venstre"
+                                    className="pointer-events-auto opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                                  />
+                                  <Button
+                                    size="xsmall"
+                                    variant="tertiary"
+                                    icon={<RotateCw size={14} />}
+                                    onMouseDown={(event) => event.stopPropagation()}
+                                    onClick={() => handleRotateIconFrame(frame.id, ICON_ROTATION_STEP_DEG)}
+                                    title="Roter hoyre"
+                                    aria-label="Roter hoyre"
+                                    className="pointer-events-auto opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                                  />
+                                </>
+                              )}
                               <Button
                                 size="xsmall"
                                 variant="tertiary"
@@ -2993,11 +3189,11 @@ const Canvas = () => {
                             </div>
                           </>
                         )}
-                        {(frame.kind === 'heading' || frame.kind === 'text') && (
+                        {(frame.kind === 'heading' || frame.kind === 'text' || frame.kind === 'icon') && (
                           <div
                             aria-hidden="true"
                             className={`pointer-events-none absolute inset-0 z-10 border-2 border-[#7fb7ff] opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${
-                              frame.kind === 'heading' ? 'rounded-lg' : 'rounded-xl'
+                              frame.kind === 'heading' || frame.kind === 'icon' ? 'rounded-lg' : 'rounded-xl'
                             }`}
                           />
                         )}
@@ -3014,9 +3210,11 @@ const Canvas = () => {
                               ? 'overflow-hidden bg-white'
                               : frame.kind === 'chart'
                                 ? 'overflow-visible bg-transparent'
-                                : frame.kind === 'heading'
-                                  ? 'pt-1'
-                                  : 'px-2 pb-2'
+                                : frame.kind === 'icon'
+                                  ? 'overflow-visible bg-transparent'
+                                  : frame.kind === 'heading'
+                                    ? 'pt-1'
+                                    : 'px-2 pb-2'
                           }`}
                         >
                           {frame.kind === 'website' && !frame.isInternalDashboard && (
@@ -3248,6 +3446,25 @@ const Canvas = () => {
                                 onDeleteChart={() => handleOpenDeleteChartModal(frame)}
                               />
                             </div>
+                          ) : frame.kind === 'icon' ? (
+                            (() => {
+                              const selectedIcon = getCanvasIconOptionById(frame.iconName)
+                              const Icon = selectedIcon.Icon
+                              const width = frame.width ?? defaults.width
+                              const height = frame.height ?? defaults.height
+                              const iconSize = Math.max(22, Math.floor(Math.min(width, height) * 0.82))
+                              const iconRotationDeg = frame.iconRotationDeg ?? 0
+                              const iconColor = getCanvasIconColor(frame.iconColor)
+                              return (
+                                <div className="flex h-full w-full items-center justify-center p-0">
+                                  <Icon
+                                    fontSize={`${iconSize}px`}
+                                    style={{ transform: `rotate(${iconRotationDeg}deg)`, color: iconColor }}
+                                    aria-hidden="true"
+                                  />
+                                </div>
+                              )
+                            })()
                           ) : frame.kind === 'heading' ? (
                             <div className="overflow-visible pt-0 pr-0 pb-0">
                               {activeEditableFrameId === frame.id ? (
@@ -3663,6 +3880,75 @@ const Canvas = () => {
       </Modal>
 
       <Modal
+        open={isEditIconModalOpen}
+        onClose={() => {
+          setIsEditIconModalOpen(false)
+          setEditIconFrameId(null)
+          setEditIconError(null)
+        }}
+        header={{ heading: 'Rediger ikon' }}
+        width="small"
+      >
+        <Modal.Body>
+          <div className="space-y-3">
+            <CanvasIconPicker
+              selectedIconId={editIconSelectedId}
+              onSelectIcon={(iconId) => {
+                setEditIconSelectedId(iconId)
+                if (editIconError) setEditIconError(null)
+              }}
+            />
+            <div className="space-y-1.5">
+              <div className="text-sm font-medium text-[var(--ax-text-default)]">Farge</div>
+              <div className="flex flex-wrap gap-2">
+                {CANVAS_ICON_COLOR_OPTIONS.map((colorOption) => {
+                  const isSelected = editIconSelectedColor === colorOption.value
+                  return (
+                    <button
+                      key={colorOption.id}
+                      type="button"
+                      onClick={() => {
+                        setEditIconSelectedColor(colorOption.value)
+                        if (editIconError) setEditIconError(null)
+                      }}
+                      className={`flex h-8 w-8 items-center justify-center rounded-full border-2 ${
+                        isSelected ? 'border-[var(--ax-border-accent)]' : 'border-[var(--ax-border-neutral-subtle)]'
+                      }`}
+                      aria-label={`Velg farge ${colorOption.label}`}
+                      title={colorOption.label}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="h-5 w-5 rounded-full border border-black/10"
+                        style={{ backgroundColor: colorOption.value }}
+                      />
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            {editIconError && <Alert variant="error">{editIconError}</Alert>}
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button onClick={() => void handleSaveEditedIcon()} size="small" loading={isSavingCanvasItem}>
+            Lagre
+          </Button>
+          <Button
+            variant="secondary"
+            size="small"
+            onClick={() => {
+              setIsEditIconModalOpen(false)
+              setEditIconFrameId(null)
+              setEditIconError(null)
+            }}
+          >
+            Avbryt
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal
         open={isAddPageModalOpen}
         onClose={() => {
           setIsAddPageModalOpen(false)
@@ -3982,6 +4268,73 @@ const Canvas = () => {
             onClick={() => {
               setIsAddTextModalOpen(false)
               setAddTextError(null)
+            }}
+          >
+            Avbryt
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal
+        open={isAddIconModalOpen}
+        onClose={() => {
+          setIsAddIconModalOpen(false)
+          setAddIconError(null)
+        }}
+        header={{ heading: 'Legg til ikon' }}
+        width="small"
+      >
+        <Modal.Body>
+          <div className="space-y-3">
+            <CanvasIconPicker
+              selectedIconId={selectedIconId}
+              onSelectIcon={(iconId) => {
+                setSelectedIconId(iconId)
+                if (addIconError) setAddIconError(null)
+              }}
+            />
+            <div className="space-y-1.5">
+              <div className="text-sm font-medium text-[var(--ax-text-default)]">Farge</div>
+              <div className="flex flex-wrap gap-2">
+                {CANVAS_ICON_COLOR_OPTIONS.map((colorOption) => {
+                  const isSelected = selectedIconColor === colorOption.value
+                  return (
+                    <button
+                      key={colorOption.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedIconColor(colorOption.value)
+                        if (addIconError) setAddIconError(null)
+                      }}
+                      className={`flex h-8 w-8 items-center justify-center rounded-full border-2 ${
+                        isSelected ? 'border-[var(--ax-border-accent)]' : 'border-[var(--ax-border-neutral-subtle)]'
+                      }`}
+                      aria-label={`Velg farge ${colorOption.label}`}
+                      title={colorOption.label}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="h-5 w-5 rounded-full border border-black/10"
+                        style={{ backgroundColor: colorOption.value }}
+                      />
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            {addIconError && <Alert variant="error">{addIconError}</Alert>}
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button onClick={() => void handleAddIconCard()} size="small" loading={isSavingCanvasItem}>
+            Legg til
+          </Button>
+          <Button
+            variant="secondary"
+            size="small"
+            onClick={() => {
+              setIsAddIconModalOpen(false)
+              setAddIconError(null)
             }}
           >
             Avbryt
