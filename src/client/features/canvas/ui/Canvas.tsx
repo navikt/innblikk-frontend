@@ -2142,7 +2142,7 @@ const Canvas = () => {
     if (kind === 'image') return { width: 420, height: 420, minWidth: 240, minHeight: 200 }
     if (kind === 'chart') return { width: 680, height: 460, minWidth: 420, minHeight: 280 }
     if (kind === 'heading') return { width: 420, height: 72, minWidth: 260, minHeight: 48 }
-    if (kind === 'text') return { width: 340, height: 170, minWidth: 240, minHeight: 120 }
+    if (kind === 'text') return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
     if (kind === 'icon') return { width: 280, height: 240, minWidth: 180, minHeight: 160 }
     return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
   }
@@ -3010,7 +3010,16 @@ const Canvas = () => {
                         style={{
                           left: `${frame.x}px`,
                           top: `${frame.y}px`,
-                          zIndex: frame.kind === 'icon' ? 40 : undefined,
+                          zIndex:
+                            resizeState?.id === frame.id
+                              ? 90
+                              : dragState?.id === frame.id
+                                ? 80
+                                : activeEditableFrameId === frame.id
+                                  ? 70
+                                  : frame.kind === 'icon'
+                                    ? 40
+                                    : undefined,
                           width:
                             frame.kind === 'heading'
                               ? `${getHeadingFrameWidth(frame)}px`
@@ -3192,8 +3201,10 @@ const Canvas = () => {
                         {(frame.kind === 'heading' || frame.kind === 'text' || frame.kind === 'icon') && (
                           <div
                             aria-hidden="true"
-                            className={`pointer-events-none absolute inset-0 z-10 border-2 border-[#7fb7ff] opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${
-                              frame.kind === 'heading' || frame.kind === 'icon' ? 'rounded-lg' : 'rounded-xl'
+                            className={`pointer-events-none absolute z-10 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${
+                              frame.kind === 'text'
+                                ? 'inset-[2px] rounded-lg border border-[#9bc4ff]'
+                                : 'inset-0 rounded-lg border-2 border-[#7fb7ff]'
                             }`}
                           />
                         )}
@@ -3506,16 +3517,27 @@ const Canvas = () => {
                             </div>
                           ) : frame.kind === 'text' ? (
                             <div className="h-full overflow-auto px-2 pb-2">
-                              <textarea
-                                value={frame.textContent || ''}
-                                onChange={(event) => handleEditableFrameChange(frame.id, event.target.value)}
-                                onBlur={() => handleEditableFrameBlur(frame.id)}
-                                onMouseDown={(event) => event.stopPropagation()}
-                                lang="nb-NO"
-                                placeholder="Skriv tekst"
-                                className="h-full w-full resize-none overflow-auto border-none bg-transparent p-0 text-[var(--ax-text-default)] outline-none placeholder:text-[var(--ax-text-subtle)] [font-family:inherit]"
-                                style={{ fontSize: '24px', lineHeight: 1.3, fontWeight: 500 }}
-                              />
+                              {activeEditableFrameId === frame.id ? (
+                                <textarea
+                                  value={frame.textContent || ''}
+                                  onChange={(event) => handleEditableFrameChange(frame.id, event.target.value)}
+                                  onBlur={() => handleEditableFrameBlur(frame.id)}
+                                  onMouseDown={(event) => event.stopPropagation()}
+                                  lang="nb-NO"
+                                  placeholder="Skriv tekst"
+                                  className="h-full w-full resize-none overflow-auto border-none bg-transparent p-0 text-[var(--ax-text-default)] outline-none placeholder:text-[var(--ax-text-subtle)] [font-family:inherit]"
+                                  style={{ fontSize: '24px', lineHeight: 1.3, fontWeight: 500 }}
+                                  autoFocus
+                                />
+                              ) : (
+                                <div
+                                  className="h-full cursor-text overflow-auto whitespace-pre-wrap break-words text-[var(--ax-text-default)]"
+                                  style={{ fontSize: '24px', lineHeight: 1.3, fontWeight: 500 }}
+                                  onClick={() => handleStartEditingFrame(frame.id)}
+                                >
+                                  {frame.textContent || 'Skriv tekst'}
+                                </div>
+                              )}
                             </div>
                           ) : frame.kind === 'sticky' ? (
                             <div className="h-full overflow-auto p-4">
@@ -3551,7 +3573,11 @@ const Canvas = () => {
                             onMouseDown={(event) => handleResizeStart(event, frame)}
                             title="Endre størrelse"
                             aria-label="Endre størrelse"
-                            className="absolute bottom-1 right-1 h-5 w-5 cursor-se-resize rounded-sm border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                            className={`absolute bottom-1 right-1 h-5 w-5 cursor-se-resize rounded-sm border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] transition-opacity ${
+                              frame.kind === 'text'
+                                ? 'opacity-100'
+                                : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
+                            }`}
                           >
                             <span
                               className="pointer-events-none absolute bottom-[2px] right-[2px] h-2.5 w-2.5"
