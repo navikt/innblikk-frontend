@@ -66,8 +66,8 @@ function Komigang() {
           </div>
           <BodyShort spacing className="mt-8">
             For teknisk dokumentasjon,{' '}
-            <Link target="_blank" href={`https://umami.is/docs/tracker-configuration`}>
-              se Umami dokumentasjonssiden (engelsk)
+            <Link target="_blank" href={`https://reops-docs.ansatt.dev.nav.no/innsamling/sporingsskript.html`}>
+              se vår sporingsskript-dokumentasjon
             </Link>
             .
           </BodyShort>

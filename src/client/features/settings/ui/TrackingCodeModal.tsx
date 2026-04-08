@@ -122,14 +122,14 @@ export const TrackingCodeModal = forwardRef<HTMLDialogElement, TrackingCodeModal
           <List.Item>
             Vil du at sporingskoden kun skal kjøre på spesifikke domener, for eksempel ikke på localhost? Da kan du
             legge til{' '}
-            <Link target="_blank" href={`https://umami.is/docs/tracker-configuration`}>
+            <Link target="_blank" href={`https://reops-docs.ansatt.dev.nav.no/innsamling/sporingsskript.html`}>
               attributtet data-domains
             </Link>
             .
           </List.Item>
           <List.Item>
             Umami sporer besøk (sidevisninger) ut av boksen. Ønsker du ikke dette? Da kan du legge til{' '}
-            <Link target="_blank" href={`https://umami.is/docs/tracker-configuration`}>
+            <Link target="_blank" href={`https://reops-docs.ansatt.dev.nav.no/innsamling/sporingsskript.html`}>
               attributtet data-auto-track="false"
             </Link>
             .
