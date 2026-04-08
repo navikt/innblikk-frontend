@@ -1,48 +1,59 @@
 # Innblikk
 
-For å måle brukeradferd effektivt, trenger du verktøy som gir innsikt uten å gå på bekostning av brukervennlighet, datasikkerhet eller personvern..
+Innblikk er et analyseverktøy for å måle brukeradferd, bygget av Team ResearchOps.
 
-Derfor tilbyr Team ResearchOps Umami – en løsning som kombinerer ferdigbygde dashboards, med mulighet for dypere produktanalyser i verktøy som Innblikk, Metabase, Grafana og Knast.
+Spørsmål? Slack: [#researchops](https://nav-it.slack.com/archives/C02UGFS2J4B) eller opprett et issue her på GitHub.
 
 ---
 
-# Utvikling
+## Utvikling
 
-Opprett en `.env`-fil i prosjektets rotmappe med følgende innhold, og erstatt `<value>` med de faktiske verdiene for ditt miljø:
+### 1. Opprett `.env`
 
-```
-BACKEND_BASE_URL=<value>
-SITEIMPROVE_BASE_URL=<value>
-GCP_PROJECT_ID=<value>
-
-# Alternativt kan du bruke VITE_-prefiksene (støttes av både server og Vite):
-VITE_BACKEND_BASE_URL=<value>
-VITE_SITEIMPROVE_BASE_URL=<value>
-VITE_GCP_PROJECT_ID=<value>
+```bash
+cp .env.example .env
 ```
 
-Kjør så:
+> `BACKEND_BASE_URL` trenger du ikke å sette — den peker automatisk mot dev-miljøet lokalt.
 
-```
+### 2. Installer avhengigheter
+
+```bash
 pnpm i
+```
+
+### 3. Start serveren
+
+Serveren krever GCP-autentisering og et mock-nav-ident for lokal utvikling:
+
+```bash
+GOOGLE_APPLICATION_CREDENTIALS="$HOME/.config/gcloud/application_default_credentials.json" \
+  MOCK_NAV_IDENT="Z123456" \
+  pnpm run server
+```
+
+Ikke logget inn i gcloud ennå? Kjør:
+
+```bash
+gcloud auth application-default login
+```
+
+### 4. Start frontend
+
+I et nytt terminalvindu:
+
+```bash
 pnpm run dev
 ```
 
-# Env
+---
 
-- `BACKEND_BASE_URL`: Base URL for the innblikk backend, injected via NAIS (see `.nais/dev/nais-dev.yaml` and `.nais/prod/nais-prod.yaml`) to avoid hardcoded endpoints.
-- `BACKEND_TOKEN_URL`: Optional token endpoint for service-to-service token exchange. In local development, defaults to `http://localhost:8080/issueissue/token`.
-- `BACKEND_TOKEN_CLIENT_ID`, `BACKEND_TOKEN_CLIENT_SECRET`, `BACKEND_TOKEN_AUDIENCE`: Optional token request params. In local development against `issueissue`, defaults are `start-umami`, `unused`, `start-umami`.
-- `BACKEND_TOKEN`: Optional static fallback token used by `/api/backend` only if no incoming auth token exists and dynamic service token fetch is unavailable.
-- `SITEIMPROVE_BASE_URL`: Base URL for the Siteimprove proxy, injected via NAIS (see `.nais/dev/nais-dev.yaml` and `.nais/prod/nais-prod.yaml`) to avoid hardcoded endpoints.
-- `GCP_PROJECT_ID`: GCP Project ID for BigQuery queries, injected via NAIS (see `.nais/dev/nais-dev.yaml` and `.nais/prod/nais-prod.yaml`). Used in SQL Editor and other BigQuery integrations. **Required** - the application will fail to start if not set.
+## Miljøvariabler
 
-# Bruk a KI
-
-Innblikk er utviklet med hjelp av KI.
-
-# Henvendelser og veiledning
-
-Spørsmål knyttet til koden eller arbeidet kan stilles
-som issues her på Github. Henvendelser kan sendes via Slack i
-kanalen [#researchops](https://nav-it.slack.com/archives/C02UGFS2J4B).
+| Variabel                         | Påkrevd | Beskrivelse                                    |
+| -------------------------------- | ------- | ---------------------------------------------- |
+| `GCP_PROJECT_ID`                 | Ja      | GCP-prosjekt-ID for BigQuery-spørringer        |
+| `SITEIMPROVE_BASE_URL`           | Ja      | Base URL for Siteimprove-proxyen               |
+| `BACKEND_BASE_URL`               | Nei     | Overstyrer backend-URL (standard: dev-miljøet) |
+| `MOCK_NAV_IDENT`                 | Lokalt  | Mocker innlogget bruker (f.eks. `Z123456`)     |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Lokalt  | Sti til GCP-nøkkelfil for BigQuery-tilgang     |
