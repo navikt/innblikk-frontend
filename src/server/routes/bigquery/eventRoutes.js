@@ -222,6 +222,10 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
                   WHERE e.website_id = @websiteId
                   AND e.created_at BETWEEN @startDate AND @endDate
                   AND e.event_name IN UNNEST(@eventNames)
+                  AND NOT (
+                      LOWER(e.url_path) = '/api/clickmap-preview'
+                      OR LOWER(e.url_path) LIKE '/api/clickmap-preview?%'
+                  )
                   ${urlFilter}
                   GROUP BY e.event_id, e.url_path
               )

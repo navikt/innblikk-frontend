@@ -361,7 +361,7 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
     : isScrollmap
       ? 'Oppdater scrollmap'
       : 'Oppdater klikkoversikt'
-  const [isTopListOpen, setIsTopListOpen] = useState(false)
+  const [isTopListOpen, setIsTopListOpen] = useState(true)
   const showRightSidebar = isClickmap && isTopListOpen
   const [badgeMode, setBadgeMode] = useState<'count' | 'percent'>('count')
   const [urlInput, setUrlInput] = useState(urlPath)
@@ -402,6 +402,13 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
   }, [urlPath, data])
 
   useEffect(() => {
+    if (isClickmap) return
+    setListTypeFilter('all')
+    setListSearch('')
+    setActiveTopListItemKey(null)
+  }, [isClickmap])
+
+  useEffect(() => {
     if (!isScrollmap) return
     setScrollmapSummary(null)
   }, [isScrollmap, data, urlPath])
@@ -420,9 +427,13 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
 
   const clickmapDataForPreview = useMemo(() => {
     if (!urlPath) return data
-    const filteredByPath = data.filter((item) => matchesSourcePath(item.sourcePath, urlPath))
-    return filteredByPath.length > 0 ? filteredByPath : data
+    return data.filter((item) => matchesSourcePath(item.sourcePath, urlPath))
   }, [data, urlPath])
+
+  const filteredOutBySourcePathCount = useMemo(() => {
+    if (!urlPath) return 0
+    return Math.max(0, data.length - clickmapDataForPreview.length)
+  }, [data, clickmapDataForPreview.length, urlPath])
 
   const totalClicks = useMemo(
     () => clickmapDataForPreview.reduce((sum, item) => sum + (Number.isFinite(item.count) ? item.count : 0), 0),
@@ -445,7 +456,9 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
   const listTypeOptions = useMemo(() => {
     const componentValues = Array.from(
       new Set(clickmapDataForPreview.map((item) => item.component?.trim()).filter((value): value is string => !!value)),
-    ).sort((a, b) => a.localeCompare(b, 'nb'))
+    )
+      .filter((component) => !isAccordionLike(component))
+      .sort((a, b) => a.localeCompare(b, 'nb'))
 
     return [
       { value: 'all', label: 'Alle treff' },
@@ -947,6 +960,13 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
         <div
           className={showRightSidebar ? 'grid gap-6 xl:grid-cols-[minmax(0,1.65fr)_minmax(340px,1fr)]' : 'grid gap-6'}
         >
+          {filteredOutBySourcePathCount > 0 && (
+            <Alert variant="info" className={showRightSidebar ? 'xl:col-span-2' : ''}>
+              {filteredOutBySourcePathCount.toLocaleString('nb-NO')} treff fra andre kildestier er filtrert bort for{' '}
+              <strong>{normalizeComparablePath(urlPath)}</strong>.
+            </Alert>
+          )}
+
           <section className="border border-[var(--ax-border-neutral-subtle)] rounded-md overflow-hidden bg-white">
             {iframeSrc ? (
               <iframe
