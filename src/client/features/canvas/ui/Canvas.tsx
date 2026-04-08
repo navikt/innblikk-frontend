@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActionMenu, Alert, Button, Link, Loader, Modal, Select, Switch, TextField, Textarea } from '@navikt/ds-react'
 import { ChartNoAxesCombined, Edit2, ExternalLink, Minus, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
@@ -152,15 +152,9 @@ const CANVAS_SURFACE_TOP_GAP = 24
 const CANVAS_ZOOM_MIN = 0.5
 const CANVAS_ZOOM_MAX = 1.5
 const CANVAS_ZOOM_STEP = 0.1
-const HEADING_FONT_SIZE_DEFAULT = 24
-const HEADING_FONT_SIZE_MIN = 14
-const HEADING_FONT_SIZE_MAX = 40
-const HEADING_FONT_SIZE_STEP = 2
+const HEADING_FONT_SIZE_DEFAULT = 40
 
 const clampCanvasZoom = (value: number): number => Math.min(CANVAS_ZOOM_MAX, Math.max(CANVAS_ZOOM_MIN, value))
-const clampHeadingFontSize = (value: number): number =>
-  Math.min(HEADING_FONT_SIZE_MAX, Math.max(HEADING_FONT_SIZE_MIN, value))
-
 const normalizeInputToTargetUrl = (value: string): string | null => {
   const trimmed = value.trim()
   if (!trimmed) return null
@@ -256,12 +250,13 @@ const buildConnectionPath = (
 }
 
 const WEBSITE_CARD_HEADER_HEIGHT = 46
-const HEADING_CARD_HEADER_HEIGHT = 46
+const HEADING_CARD_HEADER_HEIGHT = 0
 const CANVAS_TOP_BUFFER = 240
 const HEADING_TEXT_MIN_WIDTH = 140
 const HEADING_TEXT_MAX_WIDTH = 820
-const HEADING_TEXT_EXTRA_WIDTH = 32
+const HEADING_TEXT_EXTRA_WIDTH = 6
 const HEADING_TEXT_VERTICAL_PADDING = 0
+const HEADING_TEXT_CHAR_WIDTH_FACTOR = 0.42
 
 const createPreviewProxySrc = (targetUrl: string): string => {
   return `/api/clickmap-preview?url=${encodeURIComponent(targetUrl)}`
@@ -367,6 +362,7 @@ const Canvas = () => {
   }, [])
   const { onlyDirectEntry, projectId, dashboardId } = routeContext
   const canPersistToDashboard = projectId !== null && dashboardId !== null
+  const projectManagerHref = projectId !== null ? `/dashboard?projectId=${projectId}` : '/dashboard'
   const [canvasTitle, setCanvasTitle] = useState('Canvas')
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
   const [period, setPeriodState] = useState<string>(() =>
@@ -497,14 +493,20 @@ const Canvas = () => {
 
   const frameItems = useMemo(
     () =>
-      frames.map((frame) => {
-        const displayUrl = getWebsiteFrameDisplayUrl(frame)
-        return {
-          ...frame,
-          displayUrl,
-          src: getWebsiteFrameRenderSrc(frame) || '',
-        }
-      }),
+      [...frames]
+        .sort((a, b) => {
+          if (a.y !== b.y) return a.y - b.y
+          if (a.x !== b.x) return a.x - b.x
+          return a.id.localeCompare(b.id)
+        })
+        .map((frame) => {
+          const displayUrl = getWebsiteFrameDisplayUrl(frame)
+          return {
+            ...frame,
+            displayUrl,
+            src: getWebsiteFrameRenderSrc(frame) || '',
+          }
+        }),
     [frames],
   )
 
@@ -1350,11 +1352,12 @@ const Canvas = () => {
     if (kind === 'chart') return { width: 680, height: 460, minWidth: 420, minHeight: 280 }
     if (kind === 'heading') return { width: 420, height: 72, minWidth: 260, minHeight: 48 }
     if (kind === 'text') return { width: 340, height: 170, minWidth: 240, minHeight: 120 }
-    return { width: 360, height: 180, minWidth: 280, minHeight: 120 }
+    return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
   }
 
   const getHeadingFrameFontSize = useCallback((frame: CanvasFrame): number => {
-    return clampHeadingFontSize(frame.headingFontSize ?? HEADING_FONT_SIZE_DEFAULT)
+    if (frame.kind !== 'heading') return HEADING_FONT_SIZE_DEFAULT
+    return HEADING_FONT_SIZE_DEFAULT
   }, [])
 
   const getHeadingFrameWidth = useCallback(
@@ -1363,7 +1366,8 @@ const Canvas = () => {
 
       const headingText = (frame.headingText || frame.label || '').trim()
       const fontSize = getHeadingFrameFontSize(frame)
-      const estimatedTextWidth = Math.ceil(headingText.length * (fontSize * 0.52)) + HEADING_TEXT_EXTRA_WIDTH
+      const estimatedTextWidth =
+        Math.ceil(headingText.length * (fontSize * HEADING_TEXT_CHAR_WIDTH_FACTOR)) + HEADING_TEXT_EXTRA_WIDTH
       return Math.min(HEADING_TEXT_MAX_WIDTH, Math.max(HEADING_TEXT_MIN_WIDTH, estimatedTextWidth))
     },
     [getHeadingFrameFontSize],
@@ -1376,41 +1380,14 @@ const Canvas = () => {
       const headingText = (frame.headingText || frame.label || '').trim()
       const width = getHeadingFrameWidth(frame)
       const fontSize = getHeadingFrameFontSize(frame)
-      const usableWidth = Math.max(width - 24, HEADING_TEXT_MIN_WIDTH)
-      const charsPerLine = Math.max(12, Math.floor(usableWidth / (fontSize * 0.52)))
+      const usableWidth = Math.max(width - 4, HEADING_TEXT_MIN_WIDTH)
+      const charsPerLine = Math.max(12, Math.floor(usableWidth / (fontSize * HEADING_TEXT_CHAR_WIDTH_FACTOR)))
       const lineCount = headingText
         ? headingText.split('\n').reduce((count, line) => count + Math.max(1, Math.ceil(line.length / charsPerLine)), 0)
         : 1
       return Math.max(28, lineCount * Math.ceil(fontSize * 1.05) + HEADING_TEXT_VERTICAL_PADDING)
     },
     [getHeadingFrameFontSize, getHeadingFrameWidth],
-  )
-
-  const updateHeadingFontSize = useCallback(
-    async (frameId: string, delta: number) => {
-      const currentFrame = frames.find((frame) => frame.id === frameId)
-      if (!currentFrame || currentFrame.kind !== 'heading') return
-
-      const nextFontSize = clampHeadingFontSize(getHeadingFrameFontSize(currentFrame) + delta)
-      const updatedFrame: CanvasFrame = {
-        ...currentFrame,
-        headingFontSize: nextFontSize,
-      }
-
-      setFrames((prev) => prev.map((frame) => (frame.id === frameId ? updatedFrame : frame)))
-
-      try {
-        setIsSavingCanvasItem(true)
-        setSyncError(null)
-        const persistedFrame = await persistFrame(updatedFrame)
-        setFrames((prev) => prev.map((frame) => (frame.id === frameId ? persistedFrame : frame)))
-      } catch (error) {
-        setSyncError(error instanceof Error ? error.message : 'Kunne ikke oppdatere overskrift')
-      } finally {
-        setIsSavingCanvasItem(false)
-      }
-    },
-    [frames, getHeadingFrameFontSize, persistFrame],
   )
 
   const handleResizeStart = (event: React.MouseEvent, frame: CanvasFrame) => {
@@ -1889,12 +1866,12 @@ const Canvas = () => {
         <div ref={canvasToolbarRef} className="pointer-events-none fixed left-4 right-4 top-4 z-30">
           <div className="pointer-events-auto rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="min-w-0 flex flex-1 items-center gap-1.5">
-                <a
-                  href="/"
-                  aria-label="Gå til forsiden"
-                  className="grid h-7 w-7 shrink-0 place-items-center rounded-sm text-[var(--ax-text-default)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-border-accent)]"
-                >
+              <a
+                href={projectManagerHref}
+                aria-label={`Tilbake til ProjectManager${projectId !== null ? ` for prosjekt ${projectId}` : ''}`}
+                className="min-w-0 flex flex-1 items-center gap-1.5 rounded-sm text-[var(--ax-text-default)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-border-accent)]"
+              >
+                <span className="grid h-7 w-7 shrink-0 place-items-center">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path
                       d="M16.5 10.5C16.5 13.8137 13.8137 16.5 10.5 16.5C7.18629 16.5 4.5 13.8137 4.5 10.5C4.5 7.18629 7.18629 4.5 10.5 4.5C13.8137 4.5 16.5 7.18629 16.5 10.5Z"
@@ -1909,14 +1886,11 @@ const Canvas = () => {
                       strokeLinecap="round"
                     />
                   </svg>
-                </a>
-                <div
-                  className="truncate text-[20px] font-semibold leading-none text-[var(--ax-text-default)]"
-                  title={canvasTitle}
-                >
+                </span>
+                <h1 className="m-0 truncate text-[20px] font-semibold leading-none" title={canvasTitle}>
                   {canvasTitle}
-                </div>
-              </div>
+                </h1>
+              </a>
               <div className="flex flex-wrap items-center gap-2">
                 <div className="w-[160px] shrink-0 [&_label]:sr-only">
                   <WebsitePicker
@@ -2152,7 +2126,7 @@ const Canvas = () => {
                                   : 'border-[var(--ax-border-neutral-subtle)]'
                               } bg-white shadow-sm`
                             : frame.kind === 'chart'
-                              ? 'group absolute flex flex-col overflow-hidden rounded-lg border border-[var(--ax-border-neutral-subtle)] bg-white shadow-sm'
+                              ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
                               : frame.kind === 'heading'
                                 ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
                                 : frame.kind === 'text'
@@ -2177,60 +2151,19 @@ const Canvas = () => {
                               : `${defaults.minHeight}px`,
                         }}
                       >
-                        <header
-                          className={
-                            frame.kind === 'website'
-                              ? 'flex cursor-move items-center justify-between gap-2 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] px-3 py-2'
-                              : frame.kind === 'chart'
-                                ? 'flex cursor-move items-center justify-between gap-2 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] px-3 py-2'
-                                : frame.kind === 'heading'
-                                  ? 'flex cursor-move items-center justify-between gap-2 border-b border-[var(--ax-border-neutral-subtle)] bg-[#f1f5f9] px-2 py-2 opacity-0 transition-opacity pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100'
-                                  : frame.kind === 'sticky'
-                                    ? 'flex cursor-move items-center justify-between gap-2 border-b border-[#ebd56d] bg-[#fff1a6] px-2 py-2'
-                                    : 'absolute right-2 top-2 z-10 flex items-center justify-end gap-1 opacity-0 transition-opacity pointer-events-none group-hover:opacity-100 group-focus-within:opacity-100 group-hover:pointer-events-auto group-focus-within:pointer-events-auto'
-                          }
-                          onMouseDown={
-                            frame.kind === 'website' ||
-                            frame.kind === 'sticky' ||
-                            frame.kind === 'heading' ||
-                            frame.kind === 'chart'
-                              ? (event) => handleDragStart(event, frame)
-                              : undefined
-                          }
-                        >
-                          <div className="flex min-w-0 items-center gap-2">
-                            {(frame.kind === 'website' || frame.kind === 'chart') && (
+                        {frame.kind === 'website' && (
+                          <header
+                            className={
+                              'flex cursor-move items-center justify-between gap-2 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] px-3 py-2'
+                            }
+                            onMouseDown={(event) => handleDragStart(event, frame)}
+                          >
+                            <div className="flex min-w-0 items-center gap-2">
                               <div className="min-w-0 text-sm font-semibold text-[var(--ax-text-default)] break-all">
                                 {frame.label}
                               </div>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            {frame.kind === 'heading' && (
-                              <>
-                                <Button
-                                  size="xsmall"
-                                  variant="tertiary"
-                                  icon={<Minus size={14} />}
-                                  onMouseDown={(event) => event.stopPropagation()}
-                                  onClick={() => void updateHeadingFontSize(frame.id, -HEADING_FONT_SIZE_STEP)}
-                                  title="Mindre overskrift"
-                                  aria-label="Mindre overskrift"
-                                  disabled={getHeadingFrameFontSize(frame) <= HEADING_FONT_SIZE_MIN}
-                                />
-                                <Button
-                                  size="xsmall"
-                                  variant="tertiary"
-                                  icon={<Plus size={14} />}
-                                  onMouseDown={(event) => event.stopPropagation()}
-                                  onClick={() => void updateHeadingFontSize(frame.id, HEADING_FONT_SIZE_STEP)}
-                                  title="Større overskrift"
-                                  aria-label="Større overskrift"
-                                  disabled={getHeadingFrameFontSize(frame) >= HEADING_FONT_SIZE_MAX}
-                                />
-                              </>
-                            )}
-                            {frame.kind === 'website' && (
+                            </div>
+                            <div className="flex items-center gap-1">
                               <Button
                                 size="xsmall"
                                 variant="tertiary"
@@ -2241,8 +2174,6 @@ const Canvas = () => {
                                 aria-label="Vis innsikt"
                                 disabled={!selectedWebsite}
                               />
-                            )}
-                            {frame.kind === 'website' && (
                               <Button
                                 size="xsmall"
                                 variant="tertiary"
@@ -2252,8 +2183,6 @@ const Canvas = () => {
                                 title="Rediger nettside"
                                 aria-label="Rediger nettside"
                               />
-                            )}
-                            {frame.kind === 'website' && (
                               <Button
                                 size="xsmall"
                                 variant="tertiary"
@@ -2263,20 +2192,68 @@ const Canvas = () => {
                                 title="Last inn på nytt"
                                 aria-label="Last inn på nytt"
                               />
-                            )}
-                            <Button
-                              size="xsmall"
-                              variant="tertiary"
-                              icon={<Trash2 size={14} />}
-                              onClick={() => handleRequestRemoveFrame(frame)}
-                              title="Fjern kort"
-                              aria-label="Fjern kort"
+                              <Button
+                                size="xsmall"
+                                variant="tertiary"
+                                icon={<Trash2 size={14} />}
+                                onClick={() => handleRequestRemoveFrame(frame)}
+                                title="Fjern kort"
+                                aria-label="Fjern kort"
+                              />
+                            </div>
+                          </header>
+                        )}
+                        {frame.kind === 'chart' && (
+                          <div
+                            className="absolute inset-x-0 top-0 z-20 h-4 cursor-move"
+                            onMouseDown={(event) => handleDragStart(event, frame)}
+                            aria-hidden="true"
+                          />
+                        )}
+                        {(frame.kind === 'sticky' || frame.kind === 'text' || frame.kind === 'heading') && (
+                          <>
+                            <div
+                              className="absolute inset-x-0 top-0 z-20 h-4 cursor-move"
+                              onMouseDown={(event) => handleDragStart(event, frame)}
+                              aria-hidden="true"
                             />
-                          </div>
-                        </header>
+                            <div
+                              className={`pointer-events-none absolute z-30 ${
+                                frame.kind === 'heading' ? 'right-0 -top-10 flex items-center gap-1' : 'right-2 top-2'
+                              }`}
+                            >
+                              <Button
+                                size="xsmall"
+                                variant="tertiary"
+                                icon={<Trash2 size={14} />}
+                                onMouseDown={(event) => event.stopPropagation()}
+                                onClick={() => handleRequestRemoveFrame(frame)}
+                                title="Fjern kort"
+                                aria-label="Fjern kort"
+                                className="pointer-events-auto opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                              />
+                            </div>
+                          </>
+                        )}
+                        {(frame.kind === 'heading' || frame.kind === 'text') && (
+                          <div
+                            aria-hidden="true"
+                            className={`pointer-events-none absolute inset-0 z-10 border-2 border-[#7fb7ff] opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${
+                              frame.kind === 'heading' ? 'rounded-lg' : 'rounded-xl'
+                            }`}
+                          />
+                        )}
 
                         <div
-                          className={`relative flex-1 ${frame.kind === 'website' || frame.kind === 'chart' ? 'overflow-hidden bg-white' : 'px-2 pb-2'}`}
+                          className={`relative flex-1 ${
+                            frame.kind === 'website'
+                              ? 'overflow-hidden bg-white'
+                              : frame.kind === 'chart'
+                                ? 'overflow-visible bg-transparent'
+                                : frame.kind === 'heading'
+                                  ? 'pt-1'
+                                  : 'px-2 pb-2'
+                          }`}
                         >
                           {frame.kind === 'website' && (
                             <div className="pointer-events-none absolute inset-y-0 left-0 right-0 z-20 overflow-visible">
@@ -2368,6 +2345,7 @@ const Canvas = () => {
                                 websiteId={selectedWebsite?.id ?? ''}
                                 filters={dashboardWidgetFilters}
                                 chartLinksEnabled={false}
+                                onDeleteChart={() => handleRequestRemoveFrame(frame)}
                               />
                             </div>
                           ) : frame.kind === 'heading' ? (
@@ -2390,17 +2368,23 @@ const Canvas = () => {
                                   autoFocus
                                 />
                               ) : (
-                                <div
-                                  className="cursor-text select-text whitespace-pre-wrap break-words text-[var(--ax-text-default)]"
-                                  onClick={() => handleStartEditingFrame(frame.id)}
-                                  style={{
-                                    fontSize: `${getHeadingFrameFontSize(frame)}px`,
-                                    lineHeight: 1.05,
-                                    fontWeight: 700,
-                                  }}
-                                >
-                                  {frame.headingText || frame.label || 'Skriv overskrift'}
-                                </div>
+                                (() => {
+                                  const headingTag = 'h2'
+                                  return createElement(
+                                    headingTag,
+                                    {
+                                      className:
+                                        'cursor-text select-text whitespace-pre-wrap break-words text-[var(--ax-text-default)] m-0',
+                                      onClick: () => handleStartEditingFrame(frame.id),
+                                      style: {
+                                        fontSize: `${getHeadingFrameFontSize(frame)}px`,
+                                        lineHeight: 1.05,
+                                        fontWeight: 700,
+                                      },
+                                    },
+                                    frame.headingText || frame.label || 'Skriv overskrift',
+                                  )
+                                })()
                               )}
                             </div>
                           ) : frame.kind === 'text' ? (
