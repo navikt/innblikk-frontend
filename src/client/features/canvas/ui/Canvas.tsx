@@ -1849,7 +1849,7 @@ const Canvas = () => {
       id: `${Date.now()}-${Math.random()}`,
       kind: 'sticky',
       textContent: content,
-      label: 'Sticky note',
+      label: 'Post-it-lapp',
       x: 80 + column * 460,
       y: 80 + row * 380,
       width: 360,
@@ -1865,7 +1865,7 @@ const Canvas = () => {
       setAddStickyError(null)
       setIsAddStickyModalOpen(false)
     } catch (error) {
-      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre sticky note i canvas')
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre Post-it-lapp i canvas')
     } finally {
       setIsSavingCanvasItem(false)
     }
@@ -2785,7 +2785,7 @@ const Canvas = () => {
                         setIsAddStickyModalOpen(true)
                       }}
                     >
-                      Sticky note
+                      Post-it-lapp
                     </ActionMenu.Item>
                     <ActionMenu.Item
                       onClick={() => {
@@ -3540,7 +3540,7 @@ const Canvas = () => {
                                   onBlur={() => handleEditableFrameBlur(frame.id)}
                                   onMouseDown={(event) => event.stopPropagation()}
                                   lang="nb-NO"
-                                  placeholder="Skriv sticky note"
+                                  placeholder="Skriv Post-it-lapp"
                                   className="h-full w-full resize-none overflow-auto border-none bg-transparent p-0 text-base leading-7 text-[#4a3d00] outline-none placeholder:text-[#7a6b2a]"
                                   autoFocus
                                 />
@@ -3549,7 +3549,7 @@ const Canvas = () => {
                                   className="cursor-text whitespace-pre-wrap break-words text-base leading-7 text-[#4a3d00]"
                                   onClick={() => handleStartEditingFrame(frame.id)}
                                 >
-                                  {frame.textContent || 'Skriv sticky note'}
+                                  {frame.textContent || 'Skriv Post-it-lapp'}
                                 </div>
                               )}
                             </div>
@@ -4366,11 +4366,11 @@ const Canvas = () => {
           setIsAddStickyModalOpen(false)
           setAddStickyError(null)
         }}
-        header={{ heading: 'Legg til sticky note' }}
+        header={{ heading: 'Legg til Post-it-lapp' }}
         width="small"
       >
         <Modal.Body>
-          <div className="space-y-3">
+          <div className="space-y-3 rounded-xl border border-[#f1dc7d] bg-[#fff5b8] p-3">
             <Textarea
               label="Tekst"
               minRows={6}
@@ -4379,6 +4379,7 @@ const Canvas = () => {
                 setStickyContentInput(event.target.value)
                 if (addStickyError) setAddStickyError(null)
               }}
+              className="[&_label]:text-[#4a3d00] [&_textarea]:border-[#e5cd69] [&_textarea]:bg-[#fff7ca] [&_textarea]:text-[#4a3d00] [&_textarea::placeholder]:text-[#7a6b2a]"
             />
             {addStickyError && <Alert variant="error">{addStickyError}</Alert>}
           </div>
