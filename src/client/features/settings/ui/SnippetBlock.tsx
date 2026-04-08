@@ -43,10 +43,11 @@ export function SnippetBlock({ text, language, wrapLongLines = true }: SnippetBl
                     border-radius: 4px;
                     font-size: 14px;
                     overflow-x: auto;
-                    ${wrapLongLines ? 'white-space: pre-wrap; word-break: break-word;' : ''}
+                    ${wrapLongLines ? 'white-space: pre-wrap !important; word-break: break-word !important; word-wrap: break-word !important;' : ''}
                 }
                 .snippet-block code {
                     font-family: 'Source Code Pro', monospace;
+                    ${wrapLongLines ? 'white-space: pre-wrap !important; word-break: break-word !important; word-wrap: break-word !important;' : ''}
                 }
             `}</style>
       <Box className="relative min-w-0 overflow-hidden border border-border-subtle rounded-medium">
