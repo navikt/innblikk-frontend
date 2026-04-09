@@ -75,12 +75,14 @@ export const PeriodPicker = ({
                 <DatePicker.Input
                   id="custom-start-date"
                   label="Fra dato"
+                  aria-label="Fra dato"
                   size="small"
                   value={startDate ? format(startDate, 'dd.MM.yyyy') : ''}
                 />
                 <DatePicker.Input
                   id="custom-end-date"
                   label="Til dato"
+                  aria-label="Til dato"
                   size="small"
                   value={endDate ? format(endDate, 'dd.MM.yyyy') : ''}
                 />

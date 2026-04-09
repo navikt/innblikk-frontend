@@ -3958,6 +3958,7 @@ const Canvas = () => {
   return (
     <>
       <section
+        aria-label="Canvas arbeidsflate"
         className="relative h-[100dvh] min-h-[100dvh] bg-[var(--ax-bg-neutral-soft)]"
         style={canvasFrontpageBackgroundStyle}
       >
@@ -4239,6 +4240,7 @@ const Canvas = () => {
                     return (
                       <article
                         key={frame.id}
+                        tabIndex={0}
                         className={
                           frame.kind === 'website' || frame.kind === 'image'
                             ? `group absolute flex flex-col overflow-visible rounded-lg border ${
@@ -5074,7 +5076,7 @@ const Canvas = () => {
             </div>
           </div>
         )}
-        <div className="pointer-events-none fixed bottom-4 right-4 z-30">
+        <aside aria-label="Canvas-handlinger" className="pointer-events-none fixed bottom-4 right-4 z-30">
           <div className="pointer-events-auto flex items-center gap-2">
             {!isGrafbyggerEmbedded && !isProjectManagerEmbedded && (
               <>
@@ -5119,7 +5121,7 @@ const Canvas = () => {
                     variant="tertiary"
                     onClick={handleCanvasZoomReset}
                     title="Tilbakestill zoom"
-                    aria-label="Tilbakestill zoom"
+                    aria-label={`${Math.round(canvasZoom * 100)}% Tilbakestill zoom`}
                   >
                     {Math.round(canvasZoom * 100)}%
                   </Button>
@@ -5135,7 +5137,7 @@ const Canvas = () => {
               </>
             )}
           </div>
-        </div>
+        </aside>
       </section>
 
       <Modal
