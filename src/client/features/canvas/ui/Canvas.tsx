@@ -179,6 +179,11 @@ type CanvasDeleteTarget =
       label: string
     }
   | {
+      type: 'frames'
+      ids: string[]
+      label: string
+    }
+  | {
       type: 'connection'
       id: string
       label: string
@@ -275,6 +280,7 @@ const CANVAS_FIGURE_OPTIONS: CanvasFigureOption[] = [
 const CLICKMAP_EVENTS = ['navigere', 'accordion åpnet']
 const DRAWING_STROKE_WIDTH_OPTIONS = [6, 10, 14]
 const DEFAULT_DRAWING_STROKE_WIDTH = 10
+const PLANNER_COLUMN_LABEL_PREFIX = 'planner-column:'
 const CARD_ACTION_BUTTON_CLASSNAME =
   'pointer-events-auto bg-[var(--ax-bg-default)]/95 shadow-sm opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100'
 
@@ -634,6 +640,103 @@ type CanvasChartReadyMessage = {
   }
 }
 
+type CanvasCsvImportRow = Record<string, string>
+
+const parseDelimitedCsvMatrix = (input: string, delimiter: string): string[][] => {
+  const normalized = input.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n')
+  const rows: string[][] = []
+  let row: string[] = []
+  let cell = ''
+  let inQuotes = false
+
+  for (let index = 0; index <= normalized.length; index += 1) {
+    const character = index === normalized.length ? '\n' : normalized[index]
+
+    if (inQuotes) {
+      if (character === '"') {
+        if (normalized[index + 1] === '"') {
+          cell += '"'
+          index += 1
+        } else {
+          inQuotes = false
+        }
+      } else {
+        cell += character
+      }
+      continue
+    }
+
+    if (character === '"') {
+      inQuotes = true
+      continue
+    }
+
+    if (character === delimiter) {
+      row.push(cell)
+      cell = ''
+      continue
+    }
+
+    if (character === '\n') {
+      row.push(cell)
+      if (row.some((item) => item.trim() !== '')) {
+        rows.push(row)
+      }
+      row = []
+      cell = ''
+      continue
+    }
+
+    cell += character
+  }
+
+  return rows
+}
+
+const parseCsvImportText = (input: string): { headers: string[]; rows: CanvasCsvImportRow[]; error?: string } => {
+  const delimiterCandidates = [',', ';', '\t']
+  const matrix = delimiterCandidates
+    .map((delimiter) => parseDelimitedCsvMatrix(input, delimiter))
+    .sort((a, b) => (b[0]?.length ?? 0) - (a[0]?.length ?? 0))[0]
+
+  if (!matrix || matrix.length === 0) {
+    return { headers: [], rows: [] }
+  }
+
+  const [rawHeaderRow, ...rawRows] = matrix
+  if (rawHeaderRow.some((header) => !header.trim())) {
+    return {
+      headers: [],
+      rows: [],
+      error: 'CSV-filen må ha overskrift i alle kolonner på første rad.',
+    }
+  }
+  const usedHeaders = new Set<string>()
+  const headers = rawHeaderRow.map((header) => {
+    const baseName = header.trim()
+    let uniqueName = baseName
+    let suffix = 2
+    while (usedHeaders.has(uniqueName)) {
+      uniqueName = `${baseName} (${suffix})`
+      suffix += 1
+    }
+    usedHeaders.add(uniqueName)
+    return uniqueName
+  })
+
+  const rows = rawRows
+    .map((rawRow) => {
+      const parsedRow: CanvasCsvImportRow = {}
+      headers.forEach((header, index) => {
+        parsedRow[header] = (rawRow[index] ?? '').trim()
+      })
+      return parsedRow
+    })
+    .filter((row) => headers.some((header) => row[header]?.trim()))
+
+  return { headers, rows }
+}
+
 const parseDrawingPath = (rawPath?: string): CanvasDrawingPoint[] => {
   if (!rawPath) return []
   return rawPath
@@ -696,6 +799,7 @@ const Canvas = () => {
   const [isAddHeadingModalOpen, setIsAddHeadingModalOpen] = useState(false)
   const [isAddTextModalOpen, setIsAddTextModalOpen] = useState(false)
   const [isAddStickyModalOpen, setIsAddStickyModalOpen] = useState(false)
+  const [isImportStickyCsvModalOpen, setIsImportStickyCsvModalOpen] = useState(false)
   const [isAddIconModalOpen, setIsAddIconModalOpen] = useState(false)
   const [isAddFigureModalOpen, setIsAddFigureModalOpen] = useState(false)
   const [isCanvasSettingsModalOpen, setIsCanvasSettingsModalOpen] = useState(false)
@@ -764,6 +868,13 @@ const Canvas = () => {
   const [addTextError, setAddTextError] = useState<string | null>(null)
   const [stickyContentInput, setStickyContentInput] = useState('')
   const [addStickyError, setAddStickyError] = useState<string | null>(null)
+  const [importStickyCsvFileName, setImportStickyCsvFileName] = useState('')
+  const [importStickyCsvHeaders, setImportStickyCsvHeaders] = useState<string[]>([])
+  const [importStickyCsvRows, setImportStickyCsvRows] = useState<CanvasCsvImportRow[]>([])
+  const [importStickyContentColumn, setImportStickyContentColumn] = useState('')
+  const [importStickySectionTitle, setImportStickySectionTitle] = useState('')
+  const [importStickyExcludedRowIndexes, setImportStickyExcludedRowIndexes] = useState<number[]>([])
+  const [importStickyCsvError, setImportStickyCsvError] = useState<string | null>(null)
   const [selectedIconId, setSelectedIconId] = useState(DEFAULT_CANVAS_ICON_ID)
   const [selectedIconColor, setSelectedIconColor] = useState(DEFAULT_CANVAS_ICON_COLOR)
   const [addIconError, setAddIconError] = useState<string | null>(null)
@@ -793,7 +904,20 @@ const Canvas = () => {
   const [chartMutationError, setChartMutationError] = useState<string | null>(null)
   const [savingEditChart, setSavingEditChart] = useState(false)
   const [deletingChart, setDeletingChart] = useState(false)
-  const [dragState, setDragState] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null)
+  const [dragState, setDragState] = useState<{
+    ids: string[]
+    pointerStartX: number
+    pointerStartY: number
+    frameStartPositions: Record<string, { x: number; y: number }>
+  } | null>(null)
+  const [selectedFrameIds, setSelectedFrameIds] = useState<string[]>([])
+  const [selectionBox, setSelectionBox] = useState<{
+    startX: number
+    startY: number
+    currentX: number
+    currentY: number
+    additive: boolean
+  } | null>(null)
   const [resizeState, setResizeState] = useState<{
     id: string
     startX: number
@@ -823,6 +947,7 @@ const Canvas = () => {
   const activeDrawingPointsRef = useRef<CanvasDrawingPoint[] | null>(null)
   const frameVisualizationDataRef = useRef<Record<string, CanvasFrameVisualizationData>>({})
   const websiteIframeRefs = useRef<Record<string, HTMLIFrameElement | null>>({})
+  const importStickyCsvFileInputRef = useRef<HTMLInputElement | null>(null)
   const canvasViewportRef = useRef<HTMLDivElement | null>(null)
   const canvasToolbarRef = useRef<HTMLDivElement | null>(null)
   const connectionMetricRequestSignatureRef = useRef<string | null>(null)
@@ -877,6 +1002,10 @@ const Canvas = () => {
 
   useEffect(() => {
     framesRef.current = frames
+  }, [frames])
+
+  useEffect(() => {
+    setSelectedFrameIds((current) => current.filter((id) => frames.some((frame) => frame.id === id)))
   }, [frames])
 
   useEffect(() => {
@@ -972,6 +1101,20 @@ const Canvas = () => {
     () =>
       frameItems.some((frame) => frame.kind === 'chart' || (frame.kind === 'website' && !frame.isInternalDashboard)),
     [frameItems],
+  )
+
+  const importStickyPreviewNotes = useMemo(
+    () =>
+      importStickyContentColumn
+        ? importStickyCsvRows
+            .map((row, index) => ({
+              rowIndex: index,
+              text: (row[importStickyContentColumn] || '').trim(),
+            }))
+            .filter((item) => Boolean(item.text))
+            .filter((item) => !importStickyExcludedRowIndexes.includes(item.rowIndex))
+        : [],
+    [importStickyContentColumn, importStickyCsvRows, importStickyExcludedRowIndexes],
   )
 
   const visualizationWebsiteFrames = useMemo(
@@ -2453,17 +2596,34 @@ const Canvas = () => {
 
   const handleCanvasSurfaceMouseDown = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
-      if (event.target !== event.currentTarget) return
+      const target = event.target as HTMLElement
+      const clickedInsideFrame = Boolean(target.closest('article'))
+      const clickedInteractiveControl = Boolean(target.closest('button, a, input, textarea, select'))
+      if (clickedInsideFrame || clickedInteractiveControl) return
       if (pendingFrameDraft) {
         event.preventDefault()
         event.stopPropagation()
         void handlePlacePendingFrame(event.clientX, event.clientY)
         return
       }
-      if (!isDrawingMode) return
-
       const pointer = getCanvasPointerPosition(event.clientX, event.clientY)
       if (!pointer) return
+
+      if (!isDrawingMode) {
+        const additive = event.metaKey || event.ctrlKey
+        if (!additive) setSelectedFrameIds([])
+        event.preventDefault()
+        event.stopPropagation()
+        setSelectionBox({
+          startX: pointer.x,
+          startY: pointer.y,
+          currentX: pointer.x,
+          currentY: pointer.y,
+          additive,
+        })
+        return
+      }
+
       event.preventDefault()
       event.stopPropagation()
       setActiveDrawingPoints([pointer])
@@ -2473,12 +2633,16 @@ const Canvas = () => {
 
   const handleCanvasSurfaceMouseMove = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
-      if (!pendingFrameDraft) return
       const pointer = getCanvasPointerPosition(event.clientX, event.clientY)
       if (!pointer) return
-      setPendingFramePointer(pointer)
+      if (pendingFrameDraft) {
+        setPendingFramePointer(pointer)
+      }
+      if (selectionBox) {
+        setSelectionBox((current) => (current ? { ...current, currentX: pointer.x, currentY: pointer.y } : current))
+      }
     },
-    [getCanvasPointerPosition, pendingFrameDraft],
+    [getCanvasPointerPosition, pendingFrameDraft, selectionBox],
   )
 
   const handleCanvasSurfaceMouseLeave = useCallback(() => {
@@ -3020,13 +3184,30 @@ const Canvas = () => {
   }
 
   const handleDragStart = (event: React.MouseEvent, frame: CanvasFrame) => {
+    if (event.button !== 0) return
+    const isAdditiveSelection = event.metaKey || event.ctrlKey
+    if (isAdditiveSelection) {
+      event.preventDefault()
+      event.stopPropagation()
+      setSelectedFrameIds((current) =>
+        current.includes(frame.id) ? current.filter((id) => id !== frame.id) : [...current, frame.id],
+      )
+      return
+    }
+
     const pointer = getCanvasPointerPosition(event.clientX, event.clientY)
     if (!pointer) return
 
+    const idsToMove = selectedFrameIds.includes(frame.id) ? selectedFrameIds : [frame.id]
+    const frameStartPositions = Object.fromEntries(
+      frames.filter((item) => idsToMove.includes(item.id)).map((item) => [item.id, { x: item.x, y: item.y }] as const),
+    )
+    setSelectedFrameIds(idsToMove)
     setDragState({
-      id: frame.id,
-      offsetX: pointer.x - frame.x,
-      offsetY: pointer.y - frame.y,
+      ids: idsToMove,
+      pointerStartX: pointer.x,
+      pointerStartY: pointer.y,
+      frameStartPositions,
     })
   }
 
@@ -3130,14 +3311,16 @@ const Canvas = () => {
     const onMouseMove = (event: MouseEvent) => {
       const pointer = getCanvasPointerPosition(event.clientX, event.clientY)
       if (!pointer) return
+      const deltaX = pointer.x - dragState.pointerStartX
+      const deltaY = pointer.y - dragState.pointerStartY
 
       setFrames((prev) =>
         prev.map((frame) =>
-          frame.id === dragState.id
+          dragState.ids.includes(frame.id)
             ? {
                 ...frame,
-                x: Math.max(0, pointer.x - dragState.offsetX),
-                y: Math.max(-CANVAS_TOP_BUFFER, pointer.y - dragState.offsetY),
+                x: Math.max(0, (dragState.frameStartPositions[frame.id]?.x ?? frame.x) + deltaX),
+                y: Math.max(-CANVAS_TOP_BUFFER, (dragState.frameStartPositions[frame.id]?.y ?? frame.y) + deltaY),
               }
             : frame,
         ),
@@ -3145,12 +3328,103 @@ const Canvas = () => {
     }
 
     const onMouseUp = () => {
-      const movedFrame = framesRef.current.find((frame) => frame.id === dragState.id)
-      if (movedFrame && movedFrame.graphId) {
-        void persistFrame(movedFrame).catch((error) => {
-          setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre posisjon i canvas')
+      const movedFrames = framesRef.current.filter((frame) => dragState.ids.includes(frame.id))
+      const framesToPersistById = new Map(movedFrames.map((frame) => [frame.id, frame]))
+
+      const applyStickyColumnSnap = (movedFrame: CanvasFrame): CanvasFrame => {
+        if (movedFrame.kind !== 'sticky') return movedFrame
+        const getFrameRect = (frame: CanvasFrame) => {
+          const fallbackSize =
+            frame.kind === 'figure'
+              ? { width: 240, height: 200 }
+              : frame.kind === 'sticky'
+                ? { width: 360, height: 180 }
+                : { width: 320, height: 200 }
+          const width = frame.width ?? fallbackSize.width
+          const height = frame.height ?? fallbackSize.height
+          return {
+            left: frame.x,
+            top: frame.y,
+            right: frame.x + width,
+            bottom: frame.y + height,
+            width,
+            height,
+          }
+        }
+        const movedRect = getFrameRect(movedFrame)
+        const movedCenterX = movedRect.left + movedRect.width / 2
+        const movedCenterY = movedRect.top + movedRect.height / 2
+
+        const targetColumn = framesRef.current.find((frame) => {
+          if (
+            frame.kind !== 'figure' ||
+            frame.figureType !== 'rectangle' ||
+            !frame.label.startsWith(PLANNER_COLUMN_LABEL_PREFIX)
+          )
+            return false
+          const columnRect = getFrameRect(frame)
+          return (
+            movedCenterX >= columnRect.left &&
+            movedCenterX <= columnRect.right &&
+            movedCenterY >= columnRect.top &&
+            movedCenterY <= columnRect.bottom
+          )
         })
+
+        if (!targetColumn) return movedFrame
+        {
+          const targetRect = getFrameRect(targetColumn)
+          const stickyGap = 14
+          const columnPaddingX = 16
+          const columnPaddingTop = 72
+          const stickyFramesInColumn = framesRef.current
+            .filter((frame) => {
+              if (frame.id === movedFrame.id || frame.kind !== 'sticky') return false
+              const stickyRect = getFrameRect(frame)
+              const stickyCenterX = stickyRect.left + stickyRect.width / 2
+              const stickyCenterY = stickyRect.top + stickyRect.height / 2
+              return (
+                stickyCenterX >= targetRect.left &&
+                stickyCenterX <= targetRect.right &&
+                stickyCenterY >= targetRect.top &&
+                stickyCenterY <= targetRect.bottom
+              )
+            })
+            .sort((a, b) => a.y - b.y)
+          const stickyHeight = movedRect.height
+          return {
+            ...movedFrame,
+            x: Math.max(0, targetRect.left + columnPaddingX),
+            y: Math.max(
+              -CANVAS_TOP_BUFFER,
+              targetRect.top + columnPaddingTop + stickyFramesInColumn.length * (stickyHeight + stickyGap),
+            ),
+          }
+        }
       }
+
+      movedFrames.forEach((movedFrame) => {
+        const snapped = applyStickyColumnSnap(movedFrame)
+        framesToPersistById.set(movedFrame.id, snapped)
+      })
+
+      const framesToPersist = [...framesToPersistById.values()]
+      setFrames((prev) =>
+        prev.map((frame) => {
+          const replacement = framesToPersistById.get(frame.id)
+          return replacement ?? frame
+        }),
+      )
+      void Promise.all(
+        framesToPersist
+          .filter((frame) => Boolean(frame.graphId))
+          .map((frame) =>
+            persistFrame(frame).catch((error) => {
+              setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre posisjon i canvas')
+              return frame
+            }),
+          ),
+      )
       setDragState(null)
     }
 
@@ -3226,6 +3500,79 @@ const Canvas = () => {
   }, [canvasZoom, persistFrame, resizeState])
 
   useEffect(() => {
+    if (!selectionBox) return
+
+    const updateSelectionBox = (event: MouseEvent) => {
+      const pointer = getCanvasPointerPosition(event.clientX, event.clientY)
+      if (!pointer) return
+      setSelectionBox((current) => (current ? { ...current, currentX: pointer.x, currentY: pointer.y } : current))
+    }
+
+    const finalizeSelection = () => {
+      const left = Math.min(selectionBox.startX, selectionBox.currentX)
+      const right = Math.max(selectionBox.startX, selectionBox.currentX)
+      const top = Math.min(selectionBox.startY, selectionBox.currentY)
+      const bottom = Math.max(selectionBox.startY, selectionBox.currentY)
+      const hasVisibleBox = right - left > 4 || bottom - top > 4
+      const selectedIds = hasVisibleBox
+        ? visibleFrames
+            .filter((frame) => {
+              const bounds = getFrameBounds(frame)
+              return !(bounds.right < left || bounds.left > right || bounds.bottom < top || bounds.top > bottom)
+            })
+            .map((frame) => frame.id)
+        : []
+      setSelectedFrameIds((current) =>
+        selectionBox.additive ? [...new Set([...current, ...selectedIds])] : selectedIds,
+      )
+      setSelectionBox(null)
+    }
+
+    window.addEventListener('mousemove', updateSelectionBox)
+    window.addEventListener('mouseup', finalizeSelection)
+    return () => {
+      window.removeEventListener('mousemove', updateSelectionBox)
+      window.removeEventListener('mouseup', finalizeSelection)
+    }
+  }, [getCanvasPointerPosition, getFrameBounds, selectionBox, visibleFrames])
+
+  useEffect(() => {
+    if (selectedFrameIds.length === 0) return
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null
+      const isTypingTarget =
+        target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable || false
+      if (isTypingTarget) return
+      if (event.key !== 'Delete' && event.key !== 'Backspace') return
+      event.preventDefault()
+      setDeleteTarget({
+        type: 'frames',
+        ids: selectedFrameIds,
+        label: `${selectedFrameIds.length} valgte kort`,
+      })
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [selectedFrameIds])
+
+  useEffect(() => {
+    if (selectedFrameIds.length === 0) return
+
+    const onWindowMouseDown = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null
+      if (!target) return
+      if (target.closest('article')) return
+      if (target.closest('button, a, input, textarea, select, [role="menu"], [role="menuitem"]')) return
+      setSelectedFrameIds([])
+    }
+
+    window.addEventListener('mousedown', onWindowMouseDown)
+    return () => window.removeEventListener('mousedown', onWindowMouseDown)
+  }, [selectedFrameIds])
+
+  useEffect(() => {
     if (!connectionDragState) return
 
     const updateConnectionDrag = (event: MouseEvent) => {
@@ -3295,6 +3642,7 @@ const Canvas = () => {
           (connection.fromGraphId === frameToDelete.graphId || connection.toGraphId === frameToDelete.graphId)),
     )
     setFrames((prev) => prev.filter((frame) => frame.id !== id))
+    setSelectedFrameIds((prev) => prev.filter((frameId) => frameId !== id))
     setConnections((prev) => prev.filter((connection) => !linkedConnections.some((item) => item.id === connection.id)))
     if (connectionDragState?.sourceFrameId === id) {
       setConnectionDragState(null)
@@ -3346,12 +3694,27 @@ const Canvas = () => {
     })
   }
 
+  const handleRequestRemoveSelectedFrames = () => {
+    if (selectedFrameIds.length === 0) return
+    setDeleteTarget({
+      type: 'frames',
+      ids: selectedFrameIds,
+      label: `${selectedFrameIds.length} valgte kort`,
+    })
+  }
+
   const handleConfirmDeleteTarget = async () => {
     if (!deleteTarget) return
     const target = deleteTarget
     setDeleteTarget(null)
     if (target.type === 'frame') {
       await handleRemovePage(target.id)
+      return
+    }
+    if (target.type === 'frames') {
+      for (const id of target.ids) {
+        await handleRemovePage(id)
+      }
       return
     }
     await handleRemoveConnection(target.id)
@@ -3886,9 +4249,156 @@ const Canvas = () => {
     setIsAddTextModalOpen(true)
   }
 
+  const handleImportStickyCsvFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = event.target.files
+    if (!selectedFiles || selectedFiles.length === 0) return
+    if (selectedFiles.length > 1) {
+      setImportStickyCsvError('Velg kun én CSV-fil.')
+      return
+    }
+    const selectedFile = selectedFiles[0]
+    if (!selectedFile) return
+
+    try {
+      const content = await selectedFile.text()
+      const parsed = parseCsvImportText(content)
+      if (parsed.headers.length === 0) {
+        setImportStickyCsvError(parsed.error ?? 'Filen ser ikke ut som en CSV med kolonneoverskrifter.')
+        setImportStickyCsvFileName(selectedFile.name)
+        setImportStickyCsvHeaders([])
+        setImportStickyCsvRows([])
+        setImportStickyContentColumn('')
+        return
+      }
+
+      setImportStickyCsvFileName(selectedFile.name)
+      setImportStickyCsvHeaders(parsed.headers)
+      setImportStickyCsvRows(parsed.rows)
+      setImportStickyExcludedRowIndexes([])
+      const resolvedContentColumn =
+        importStickyContentColumn && parsed.headers.includes(importStickyContentColumn)
+          ? importStickyContentColumn
+          : (parsed.headers[0] ?? '')
+      setImportStickyContentColumn(resolvedContentColumn)
+      setImportStickySectionTitle(resolvedContentColumn)
+      setImportStickyCsvError(parsed.rows.length === 0 ? 'CSV-filen har ingen rader med innhold.' : null)
+    } catch {
+      setImportStickyCsvError('Kunne ikke lese CSV-filen.')
+      setImportStickyCsvFileName('')
+      setImportStickyCsvHeaders([])
+      setImportStickyCsvRows([])
+      setImportStickyContentColumn('')
+      setImportStickyExcludedRowIndexes([])
+    }
+  }
+
+  const handleImportStickyCsv = async () => {
+    const contentColumn =
+      importStickyContentColumn && importStickyCsvHeaders.includes(importStickyContentColumn)
+        ? importStickyContentColumn
+        : ''
+    if (!contentColumn) {
+      setImportStickyCsvError('Velg kolonnen som skal brukes i Post-it-lappene.')
+      return
+    }
+
+    if (importStickyCsvRows.length === 0) {
+      setImportStickyCsvError('CSV-filen har ingen rader med innhold.')
+      return
+    }
+
+    const noteTexts = importStickyPreviewNotes.map((item) => item.text)
+    if (noteTexts.length === 0) {
+      setImportStickyCsvError('Fant ingen rader med innhold i valgt kolonne.')
+      return
+    }
+
+    const stickyWidth = 320
+    const stickyHeight = 180
+    const columnGap = 24
+    const stickyGap = 18
+    const columnX = 80
+    const cardsPerRow = 2
+    const sectionTitle = importStickySectionTitle.trim()
+    const titleBlockHeight = sectionTitle ? 110 : 0
+    const currentBottom = frames.reduce((maxBottom, frame) => {
+      const defaults = getDefaultFrameSize(frame)
+      const frameHeight = frame.height ?? defaults.height
+      return Math.max(maxBottom, frame.y + frameHeight)
+    }, -CANVAS_TOP_BUFFER)
+    const sectionY = Math.max(48, currentBottom + 64)
+    const stickyStartY = sectionY + titleBlockHeight
+    const timestampSeed = Date.now()
+    const framesToPersist: CanvasFrame[] = []
+
+    if (sectionTitle) {
+      framesToPersist.push({
+        id: `csv-section-title-${timestampSeed}`,
+        kind: 'heading',
+        headingText: sectionTitle,
+        headingFontSize: HEADING_FONT_SIZE_DEFAULT,
+        label: sectionTitle,
+        x: columnX,
+        y: sectionY,
+        width: stickyWidth * 2 + columnGap,
+        height: 86,
+        refreshNonce: 0,
+      })
+    }
+
+    noteTexts.forEach((content, rowIndex) => {
+      const columnIndex = rowIndex % cardsPerRow
+      const gridRowIndex = Math.floor(rowIndex / cardsPerRow)
+      framesToPersist.push({
+        id: `csv-sticky-${timestampSeed}-${rowIndex}`,
+        kind: 'sticky',
+        textContent: content,
+        label: 'Post-it-lapp',
+        x: columnX + columnIndex * (stickyWidth + columnGap),
+        y: stickyStartY + gridRowIndex * (stickyHeight + stickyGap),
+        width: stickyWidth,
+        height: stickyHeight,
+        refreshNonce: 0,
+      })
+    })
+
+    try {
+      setIsSavingCanvasItem(true)
+      setSyncError(null)
+      setImportStickyCsvError(null)
+
+      const persistedFrames: CanvasFrame[] = []
+      for (const frame of framesToPersist) {
+        const persistedFrame = await persistFrame(frame)
+        persistedFrames.push(persistedFrame)
+      }
+      setFrames((prev) => [...prev, ...persistedFrames])
+      setIsImportStickyCsvModalOpen(false)
+      setImportStickyCsvError(null)
+    } catch (error) {
+      setImportStickyCsvError(error instanceof Error ? error.message : 'Kunne ikke importere CSV til canvas')
+    } finally {
+      setIsSavingCanvasItem(false)
+    }
+  }
+
   const handleOpenAddStickyModal = () => {
     setAddStickyError(null)
     setIsAddStickyModalOpen(true)
+  }
+
+  const handleOpenImportStickyCsvModal = () => {
+    setImportStickyCsvError(null)
+    setImportStickyCsvFileName('')
+    setImportStickyCsvHeaders([])
+    setImportStickyCsvRows([])
+    setImportStickyContentColumn('')
+    setImportStickySectionTitle('')
+    setImportStickyExcludedRowIndexes([])
+    if (importStickyCsvFileInputRef.current) {
+      importStickyCsvFileInputRef.current.value = ''
+    }
+    setIsImportStickyCsvModalOpen(true)
   }
 
   const handleOpenAddImageModal = () => {
@@ -3978,6 +4488,7 @@ const Canvas = () => {
           onOpenAddHeading={handleOpenAddHeadingModal}
           onOpenAddText={handleOpenAddTextModal}
           onOpenAddSticky={handleOpenAddStickyModal}
+          onOpenImportStickyCsv={handleOpenImportStickyCsvModal}
           onOpenAddImage={handleOpenAddImageModal}
           onOpenAddIcon={handleOpenAddIconModal}
           onOpenAddFigure={handleOpenAddFigureModal}
@@ -4108,6 +4619,17 @@ const Canvas = () => {
                     </span>
                   </div>
                 )}
+                {selectionBox && (
+                  <div
+                    className="pointer-events-none absolute z-[45] border border-[var(--ax-border-accent)] bg-[var(--ax-bg-accent-soft)]/30"
+                    style={{
+                      left: `${Math.min(selectionBox.startX, selectionBox.currentX)}px`,
+                      top: `${Math.min(selectionBox.startY, selectionBox.currentY)}px`,
+                      width: `${Math.abs(selectionBox.currentX - selectionBox.startX)}px`,
+                      height: `${Math.abs(selectionBox.currentY - selectionBox.startY)}px`,
+                    }}
+                  />
+                )}
                 {connectionSegments.length > 0 && (
                   <svg className="pointer-events-none absolute inset-0 z-[1] h-full w-full overflow-visible">
                     <defs>
@@ -4233,6 +4755,7 @@ const Canvas = () => {
                   (() => {
                     const defaults = getDefaultFrameSize(frame)
                     const isIllustrationFrame = isIllustrationImageFrame(frame)
+                    const isSelectedFrame = selectedFrameIds.includes(frame.id)
                     const isWebsiteInsightOpen = frame.kind === 'website' && activeInsightFrameId === frame.id
                     const websiteInsight = pageInsights[frame.id]
                     const visualizationMode = frame.kind === 'website' ? getCanvasFrameVisualizationMode(frame) : ''
@@ -4241,7 +4764,7 @@ const Canvas = () => {
                       <article
                         key={frame.id}
                         tabIndex={0}
-                        className={
+                        className={`${
                           frame.kind === 'website' || frame.kind === 'image'
                             ? `group absolute flex flex-col overflow-visible rounded-lg border ${
                                 connectionDragState?.sourceFrameId === frame.id ||
@@ -4264,24 +4787,26 @@ const Canvas = () => {
                                       : frame.kind === 'drawing'
                                         ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
                                         : 'group absolute flex flex-col overflow-hidden rounded-xl border border-[#f1dc7d] bg-[#fff5b8] shadow-sm'
-                        }
+                        } ${isSelectedFrame ? 'ring-2 ring-[var(--ax-border-accent)]/60' : ''}`}
                         style={{
                           left: `${frame.x}px`,
                           top: `${frame.y}px`,
                           zIndex:
                             resizeState?.id === frame.id
                               ? 90
-                              : dragState?.id === frame.id
+                              : dragState?.ids.includes(frame.id)
                                 ? 80
-                                : activeEditableFrameId === frame.id
-                                  ? 70
-                                  : isIllustrationFrame
-                                    ? 50
-                                    : frame.kind === 'icon'
-                                      ? 60
-                                      : frame.kind === 'figure' || frame.kind === 'drawing'
+                                : isSelectedFrame
+                                  ? 72
+                                  : activeEditableFrameId === frame.id
+                                    ? 70
+                                    : isIllustrationFrame
+                                      ? 50
+                                      : frame.kind === 'icon'
                                         ? 60
-                                        : undefined,
+                                        : frame.kind === 'figure' || frame.kind === 'drawing'
+                                          ? 60
+                                          : undefined,
                           width:
                             frame.kind === 'heading'
                               ? `${getHeadingFrameWidth(frame)}px`
@@ -5080,6 +5605,20 @@ const Canvas = () => {
           <div className="pointer-events-auto flex items-center gap-2">
             {!isGrafbyggerEmbedded && !isProjectManagerEmbedded && (
               <>
+                {selectedFrameIds.length > 0 && (
+                  <div className="rounded-full border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-1 shadow-sm">
+                    <Button
+                      size="xsmall"
+                      variant="tertiary"
+                      onClick={handleRequestRemoveSelectedFrames}
+                      title="Fjern valgte kort"
+                      icon={<Trash2 size={14} />}
+                      className="rounded-full px-2"
+                    >
+                      Fjern valgte ({selectedFrameIds.length})
+                    </Button>
+                  </div>
+                )}
                 <ActionMenu>
                   <ActionMenu.Trigger>
                     <div className="rounded-full border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-1 shadow-sm">
@@ -5097,6 +5636,7 @@ const Canvas = () => {
                     <ActionMenu.Item onClick={handleOpenAddHeadingModal}>Overskrift</ActionMenu.Item>
                     <ActionMenu.Item onClick={handleOpenAddTextModal}>Tekst</ActionMenu.Item>
                     <ActionMenu.Item onClick={handleOpenAddStickyModal}>Post-it-lapp</ActionMenu.Item>
+                    <ActionMenu.Item onClick={handleOpenImportStickyCsvModal}>CSV-feedback (Post-it)</ActionMenu.Item>
                     <ActionMenu.Divider />
                     <ActionMenu.Item onClick={handleOpenAddImageModal}>Bilde</ActionMenu.Item>
                     <ActionMenu.Item onClick={handleOpenAddIconModal}>Ikon</ActionMenu.Item>
@@ -5910,7 +6450,12 @@ const Canvas = () => {
         open={Boolean(deleteTarget)}
         onClose={() => setDeleteTarget(null)}
         header={{
-          heading: deleteTarget?.type === 'connection' ? 'Fjern kobling' : 'Fjern kort',
+          heading:
+            deleteTarget?.type === 'connection'
+              ? 'Fjern kobling'
+              : deleteTarget?.type === 'frames'
+                ? 'Fjern valgte kort'
+                : 'Fjern kort',
         }}
         width="small"
       >
@@ -5918,7 +6463,13 @@ const Canvas = () => {
           <div className="space-y-3">
             <p>
               Er du sikker på at du vil fjerne{' '}
-              <strong>{deleteTarget?.type === 'connection' ? 'koblingen' : 'kortet'}</strong>
+              <strong>
+                {deleteTarget?.type === 'connection'
+                  ? 'koblingen'
+                  : deleteTarget?.type === 'frames'
+                    ? 'de valgte kortene'
+                    : 'kortet'}
+              </strong>
               {deleteTarget?.label ? (
                 <>
                   {' '}
@@ -5932,7 +6483,11 @@ const Canvas = () => {
         </Modal.Body>
         <Modal.Footer>
           <Button variant="danger" onClick={() => void handleConfirmDeleteTarget()} loading={isSavingCanvasItem}>
-            {deleteTarget?.type === 'connection' ? 'Fjern kobling' : 'Fjern kort'}
+            {deleteTarget?.type === 'connection'
+              ? 'Fjern kobling'
+              : deleteTarget?.type === 'frames'
+                ? 'Fjern valgte'
+                : 'Fjern kort'}
           </Button>
           <Button variant="secondary" onClick={() => setDeleteTarget(null)} disabled={isSavingCanvasItem}>
             Avbryt
@@ -6138,6 +6693,163 @@ const Canvas = () => {
             onClick={() => {
               setIsAddIconModalOpen(false)
               setAddIconError(null)
+            }}
+          >
+            Avbryt
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal
+        open={isImportStickyCsvModalOpen}
+        onClose={() => {
+          setIsImportStickyCsvModalOpen(false)
+          setImportStickyCsvError(null)
+        }}
+        header={{ heading: 'Importer fritekst fra CSV' }}
+        width="medium"
+      >
+        <Modal.Body>
+          <section aria-label="CSV-import for brukerfeedback" className="grid gap-4 md:grid-cols-[minmax(0,1fr)_300px]">
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label htmlFor="canvas-feedback-csv-file" className="text-sm font-medium text-[var(--ax-text-default)]">
+                  CSV-fil
+                </label>
+                <input
+                  ref={importStickyCsvFileInputRef}
+                  id="canvas-feedback-csv-file"
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={(event) => {
+                    void handleImportStickyCsvFileChange(event)
+                  }}
+                  className="sr-only"
+                />
+                <div className="flex items-center gap-2">
+                  <Button size="small" variant="secondary" onClick={() => importStickyCsvFileInputRef.current?.click()}>
+                    {importStickyCsvFileName ? 'Bytt CSV-fil' : 'Velg CSV-fil'}
+                  </Button>
+                  {importStickyCsvFileName && (
+                    <Button
+                      size="small"
+                      variant="tertiary"
+                      onClick={() => {
+                        setImportStickyCsvFileName('')
+                        setImportStickyCsvHeaders([])
+                        setImportStickyCsvRows([])
+                        setImportStickyContentColumn('')
+                        setImportStickySectionTitle('')
+                        setImportStickyExcludedRowIndexes([])
+                        setImportStickyCsvError(null)
+                        if (importStickyCsvFileInputRef.current) {
+                          importStickyCsvFileInputRef.current.value = ''
+                        }
+                      }}
+                    >
+                      Fjern fil
+                    </Button>
+                  )}
+                </div>
+                {importStickyCsvFileName && (
+                  <p className="text-xs text-[var(--ax-text-subtle)]">
+                    <strong>{importStickyCsvFileName}</strong> ({importStickyCsvRows.length} rader)
+                  </p>
+                )}
+              </div>
+
+              {importStickyCsvHeaders.length > 0 && (
+                <Select
+                  label="Kolonne"
+                  value={importStickyContentColumn}
+                  onChange={(event) => {
+                    const nextColumn = event.target.value
+                    setImportStickyContentColumn(nextColumn)
+                    setImportStickySectionTitle(nextColumn)
+                    setImportStickyExcludedRowIndexes([])
+                    if (importStickyCsvError) setImportStickyCsvError(null)
+                  }}
+                >
+                  <option value="" disabled>
+                    Velg kolonne
+                  </option>
+                  {importStickyCsvHeaders.map((header) => (
+                    <option key={header} value={header}>
+                      {header}
+                    </option>
+                  ))}
+                </Select>
+              )}
+              {importStickyCsvFileName && importStickyContentColumn && (
+                <Alert variant="warning" size="small">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Sjekk personopplysninger før import</p>
+                    <ul className="list-disc space-y-1 pl-5 text-sm">
+                      <li>Skann teksten for navn, fødselsnummer, telefonnummer, e-post og adresser.</li>
+                      <li>Fjern eller anonymiser fritekst som kan identifisere en person.</li>
+                      <li>Bruk forhåndsvisningen til høyre og fjern lapper som inneholder PII.</li>
+                    </ul>
+                    <p className="text-xs text-[var(--ax-text-subtle)]">
+                      Canvas kan være tilgjengelig for flere i Nav. Importer kun data som er trygt å dele.
+                    </p>
+                  </div>
+                </Alert>
+              )}
+              {importStickyCsvError && <Alert variant="error">{importStickyCsvError}</Alert>}
+            </div>
+
+            <aside className="rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] p-3">
+              <div className="mb-2 text-sm font-semibold text-[var(--ax-text-default)]">Forhåndsvisning</div>
+              <div className="mb-2 text-xs text-[var(--ax-text-subtle)]">
+                {importStickySectionTitle || 'Kolonne'} • {importStickyPreviewNotes.length} lapper
+              </div>
+              <div className="max-h-[360px] space-y-2 overflow-auto pr-1">
+                {importStickyPreviewNotes.map((note) => (
+                  <div
+                    key={`import-preview-note-${note.rowIndex}`}
+                    className="rounded-md border border-[#e5cd69] bg-[#fff7ca] px-2 py-1.5 text-xs leading-4 text-[#4a3d00]"
+                    title={note.text}
+                  >
+                    <div className="mb-1.5 whitespace-pre-wrap break-words">{note.text}</div>
+                    <div className="flex justify-end">
+                      <Button
+                        size="xsmall"
+                        variant="tertiary"
+                        onClick={() =>
+                          setImportStickyExcludedRowIndexes((current) =>
+                            current.includes(note.rowIndex) ? current : [...current, note.rowIndex],
+                          )
+                        }
+                      >
+                        Fjern
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                {importStickyPreviewNotes.length === 0 && (
+                  <div className="rounded-md border border-dashed border-[var(--ax-border-neutral-subtle)] p-3 text-xs text-[var(--ax-text-subtle)]">
+                    Velg fil og kolonne for å se lappene før import.
+                  </div>
+                )}
+              </div>
+            </aside>
+          </section>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            onClick={() => void handleImportStickyCsv()}
+            size="small"
+            loading={isSavingCanvasItem}
+            disabled={importStickyCsvHeaders.length === 0 || !importStickyContentColumn}
+          >
+            Importer til canvas
+          </Button>
+          <Button
+            variant="secondary"
+            size="small"
+            onClick={() => {
+              setIsImportStickyCsvModalOpen(false)
+              setImportStickyCsvError(null)
             }}
           >
             Avbryt

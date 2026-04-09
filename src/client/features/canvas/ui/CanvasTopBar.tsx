@@ -22,6 +22,7 @@ type CanvasTopBarProps = {
   onOpenAddHeading: () => void
   onOpenAddText: () => void
   onOpenAddSticky: () => void
+  onOpenImportStickyCsv: () => void
   onOpenAddImage: () => void
   onOpenAddIcon: () => void
   onOpenAddFigure: () => void
@@ -66,6 +67,7 @@ const CanvasTopBar = ({
   onOpenAddHeading,
   onOpenAddText,
   onOpenAddSticky,
+  onOpenImportStickyCsv,
   onOpenAddImage,
   onOpenAddIcon,
   onOpenAddFigure,
@@ -160,6 +162,7 @@ const CanvasTopBar = ({
                   <ActionMenu.Item onClick={onOpenAddHeading}>Overskrift</ActionMenu.Item>
                   <ActionMenu.Item onClick={onOpenAddText}>Tekst</ActionMenu.Item>
                   <ActionMenu.Item onClick={onOpenAddSticky}>Post-it-lapp</ActionMenu.Item>
+                  <ActionMenu.Item onClick={onOpenImportStickyCsv}>Lappesortering (CSV)</ActionMenu.Item>
                   <ActionMenu.Divider />
                   <ActionMenu.Item onClick={onOpenAddImage}>Bilde</ActionMenu.Item>
                   <ActionMenu.Item onClick={onOpenAddIcon}>Ikon</ActionMenu.Item>
