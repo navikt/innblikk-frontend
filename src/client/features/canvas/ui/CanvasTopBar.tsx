@@ -6,7 +6,6 @@ import type { GraphCategoryDto } from '../../oversikt/model/types.ts'
 
 type CanvasTopBarProps = {
   canvasToolbarRef: RefObject<HTMLDivElement>
-  projectManagerHref: string
   projectId: number | null
   canvasTitle: string
   period: string
@@ -30,6 +29,9 @@ type CanvasTopBarProps = {
   onOpenAddIllustration: () => void
   isGrafbyggerEmbedded: boolean
   onCloseGrafbygger: () => void
+  isProjectManagerEmbedded: boolean
+  onOpenProjectManagerWorkspace: () => void
+  onCloseProjectManagerWorkspace: () => void
   onOpenCreateTab: () => void
   onOpenManageTabs: () => void
   onOpenCanvasSettings: () => void
@@ -42,11 +44,11 @@ type CanvasTopBarProps = {
   activeCanvasCategoryId: number | null
   onChangeActiveCanvasCategory: (categoryId: number) => void
   getCanvasCategoryDisplayName: (name?: string) => string
+  isCanvasFrontpage: boolean
 }
 
 const CanvasTopBar = ({
   canvasToolbarRef,
-  projectManagerHref,
   projectId,
   canvasTitle,
   period,
@@ -70,6 +72,9 @@ const CanvasTopBar = ({
   onOpenAddIllustration,
   isGrafbyggerEmbedded,
   onCloseGrafbygger,
+  isProjectManagerEmbedded,
+  onOpenProjectManagerWorkspace,
+  onCloseProjectManagerWorkspace,
   onOpenCreateTab,
   onOpenManageTabs,
   onOpenCanvasSettings,
@@ -82,14 +87,15 @@ const CanvasTopBar = ({
   activeCanvasCategoryId,
   onChangeActiveCanvasCategory,
   getCanvasCategoryDisplayName,
+  isCanvasFrontpage,
 }: CanvasTopBarProps) => (
   <div ref={canvasToolbarRef} className="pointer-events-none fixed left-4 right-4 top-4 z-30">
     <div className="pointer-events-auto rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <a
-          href={projectManagerHref}
-          aria-label={`Tilbake til ProjectManager${projectId !== null ? ` for prosjekt ${projectId}` : ''}`}
-          className="min-w-0 flex flex-1 items-center gap-1.5 rounded-sm text-[var(--ax-text-default)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-border-accent)]"
+          href="/canvas"
+          aria-label={`Til canvas-forside${projectId !== null ? ` fra prosjekt ${projectId}` : ''}`}
+          className="min-w-0 flex flex-1 items-center gap-1.5 rounded-sm border-0 bg-transparent p-0 text-left text-[var(--ax-text-default)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-border-accent)]"
         >
           <span className="grid h-7 w-7 shrink-0 place-items-center">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -111,71 +117,79 @@ const CanvasTopBar = ({
             {canvasTitle}
           </h1>
         </a>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="w-[152px] shrink-0 [&_label]:sr-only">
-            <PeriodPicker
-              period={period}
-              onPeriodChange={onPeriodChange}
-              startDate={customStartDate}
-              onStartDateChange={onCustomStartDateChange}
-              endDate={customEndDate}
-              onEndDateChange={onCustomEndDateChange}
-              className="w-full sm:w-auto min-w-[152px]"
-            />
-          </div>
-          <ActionMenu>
-            <ActionMenu.Trigger>
-              <Button
-                size="small"
-                icon={<Plus size={16} />}
-                className="shrink-0 whitespace-nowrap"
-                disabled={canvasInitMode !== 'existing'}
-              >
-                Legg til
-              </Button>
-            </ActionMenu.Trigger>
-            <ActionMenu.Content align="end">
-              <ActionMenu.Item onClick={onOpenAddPage}>Nettside</ActionMenu.Item>
-              <ActionMenu.Item onClick={onOpenCreateChart}>Lag ny graf</ActionMenu.Item>
-              <ActionMenu.Item onClick={onOpenImportChart}>Importer graf</ActionMenu.Item>
-              <ActionMenu.Item onClick={onOpenAddDashboard}>Dashboard</ActionMenu.Item>
-              <ActionMenu.Divider />
-              <ActionMenu.Item onClick={onOpenAddHeading}>Overskrift</ActionMenu.Item>
-              <ActionMenu.Item onClick={onOpenAddText}>Tekst</ActionMenu.Item>
-              <ActionMenu.Item onClick={onOpenAddSticky}>Post-it-lapp</ActionMenu.Item>
-              <ActionMenu.Divider />
-              <ActionMenu.Item onClick={onOpenAddImage}>Bilde</ActionMenu.Item>
-              <ActionMenu.Item onClick={onOpenAddIcon}>Ikon</ActionMenu.Item>
-              <ActionMenu.Item onClick={onOpenAddFigure}>Figur</ActionMenu.Item>
-              <ActionMenu.Item onClick={onOpenAddDrawing}>Tegning</ActionMenu.Item>
-              <ActionMenu.Item onClick={onOpenAddIllustration}>Illustrasjoner</ActionMenu.Item>
-              <ActionMenu.Divider />
-              <ActionMenu.Item onClick={onOpenCreateTab}>Legg til fane</ActionMenu.Item>
-            </ActionMenu.Content>
-          </ActionMenu>
-          {isGrafbyggerEmbedded && (
-            <Button size="small" variant="secondary" onClick={onCloseGrafbygger}>
-              Lukk grafbygger
-            </Button>
-          )}
-          <ActionMenu>
-            <ActionMenu.Trigger>
-              <Button
-                size="small"
-                variant="tertiary"
-                icon={<MoreVertical size={16} />}
-                aria-label="Innstillinger"
-                disabled={canvasInitMode !== 'existing'}
+        {!isCanvasFrontpage && (
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="w-[152px] shrink-0 [&_label]:sr-only">
+              <PeriodPicker
+                period={period}
+                onPeriodChange={onPeriodChange}
+                startDate={customStartDate}
+                onStartDateChange={onCustomStartDateChange}
+                endDate={customEndDate}
+                onEndDateChange={onCustomEndDateChange}
+                className="w-full sm:w-auto min-w-[152px]"
               />
-            </ActionMenu.Trigger>
-            <ActionMenu.Content align="end">
-              {canManageTabs && <ActionMenu.Item onClick={onOpenManageTabs}>Administrer faner</ActionMenu.Item>}
-              <ActionMenu.Item onClick={onOpenCanvasSettings}>Innstillinger</ActionMenu.Item>
-            </ActionMenu.Content>
-          </ActionMenu>
-        </div>
+            </div>
+            <ActionMenu>
+              <ActionMenu.Trigger>
+                <Button
+                  size="small"
+                  icon={<Plus size={16} />}
+                  className="shrink-0 whitespace-nowrap"
+                  disabled={canvasInitMode !== 'existing'}
+                >
+                  Legg til
+                </Button>
+              </ActionMenu.Trigger>
+              <ActionMenu.Content align="end">
+                <ActionMenu.Item onClick={onOpenAddPage}>Nettside</ActionMenu.Item>
+                <ActionMenu.Item onClick={onOpenCreateChart}>Lag ny graf</ActionMenu.Item>
+                <ActionMenu.Item onClick={onOpenImportChart}>Importer graf</ActionMenu.Item>
+                <ActionMenu.Item onClick={onOpenAddDashboard}>Dashboard</ActionMenu.Item>
+                <ActionMenu.Divider />
+                <ActionMenu.Item onClick={onOpenAddHeading}>Overskrift</ActionMenu.Item>
+                <ActionMenu.Item onClick={onOpenAddText}>Tekst</ActionMenu.Item>
+                <ActionMenu.Item onClick={onOpenAddSticky}>Post-it-lapp</ActionMenu.Item>
+                <ActionMenu.Divider />
+                <ActionMenu.Item onClick={onOpenAddImage}>Bilde</ActionMenu.Item>
+                <ActionMenu.Item onClick={onOpenAddIcon}>Ikon</ActionMenu.Item>
+                <ActionMenu.Item onClick={onOpenAddFigure}>Figur</ActionMenu.Item>
+                <ActionMenu.Item onClick={onOpenAddDrawing}>Tegning</ActionMenu.Item>
+                <ActionMenu.Item onClick={onOpenAddIllustration}>Illustrasjoner</ActionMenu.Item>
+                <ActionMenu.Divider />
+                <ActionMenu.Item onClick={onOpenCreateTab}>Legg til fane</ActionMenu.Item>
+              </ActionMenu.Content>
+            </ActionMenu>
+            {isGrafbyggerEmbedded && (
+              <Button size="small" variant="secondary" onClick={onCloseGrafbygger}>
+                Lukk grafbygger
+              </Button>
+            )}
+            {isProjectManagerEmbedded && (
+              <Button size="small" variant="secondary" onClick={onCloseProjectManagerWorkspace}>
+                Lukk teamområde
+              </Button>
+            )}
+            <ActionMenu>
+              <ActionMenu.Trigger>
+                <Button
+                  size="small"
+                  variant="tertiary"
+                  icon={<MoreVertical size={16} />}
+                  aria-label="Innstillinger"
+                  disabled={canvasInitMode !== 'existing'}
+                />
+              </ActionMenu.Trigger>
+              <ActionMenu.Content align="end">
+                <ActionMenu.Item onClick={onOpenProjectManagerWorkspace}>Teamområde</ActionMenu.Item>
+                {canManageTabs && <ActionMenu.Item onClick={onOpenManageTabs}>Administrer faner</ActionMenu.Item>}
+                <ActionMenu.Item onClick={onOpenCanvasSettings}>Innstillinger</ActionMenu.Item>
+              </ActionMenu.Content>
+            </ActionMenu>
+          </div>
+        )}
       </div>
-      {!canPersistToDashboard && !shouldShowCreateCanvasModal && (
+      {!isCanvasFrontpage && !canPersistToDashboard && !shouldShowCreateCanvasModal && (
         <div className="mt-2">
           <Alert variant="warning" size="small">
             Canvas er ikke koblet til et dashboard. Åpne canvas fra ProjectManager for lagring.

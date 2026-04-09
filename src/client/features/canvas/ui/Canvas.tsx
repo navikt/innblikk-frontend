@@ -56,6 +56,7 @@ import CanvasIconPicker from './CanvasIconPicker.tsx'
 import CanvasFrameActionPoints from './CanvasFrameActionPoints.tsx'
 import CanvasAdminModals from './CanvasAdminModals.tsx'
 import CanvasTopBar from './CanvasTopBar.tsx'
+import CanvasProjectManager from '../../projectmanager/ui/CanvasProjectManager.tsx'
 import {
   CANVAS_ICON_COLOR_OPTIONS,
   DEFAULT_CANVAS_ICON_COLOR,
@@ -85,6 +86,7 @@ import DeleteChartDialog from '../../oversikt/ui/dialogs/DeleteChartDialog.tsx'
 import type { FunnelStep } from '../../funnel/model/types.ts'
 import type { Website } from '../../../shared/types/website.ts'
 import { useCookieStartDate, useCookieSupport } from '../../../shared/hooks/useSiteimproveSupport.ts'
+import { useLocation } from 'react-router-dom'
 
 type CanvasChartType = 'line' | 'bar' | 'pie' | 'table'
 type CanvasFigureType = 'rectangle' | 'circle' | 'line' | 'arrow'
@@ -648,26 +650,33 @@ const parseDrawingPath = (rawPath?: string): CanvasDrawingPoint[] => {
 }
 
 const Canvas = () => {
+  const location = useLocation()
   const routeContext = useMemo(() => {
-    const params = new URLSearchParams(window.location.search)
-    const projectId = Number(params.get('projectId'))
-    const dashboardId = Number(params.get('dashboardId'))
-    const categoryId = Number(params.get('categoryId'))
+    const params = new URLSearchParams(location.search)
+    const parseNumberParam = (value: string | null): number | null => {
+      if (value === null) return null
+      const parsed = Number(value)
+      return Number.isFinite(parsed) ? parsed : null
+    }
+    const projectId = parseNumberParam(params.get('projectId'))
+    const dashboardId = parseNumberParam(params.get('dashboardId'))
+    const categoryId = parseNumberParam(params.get('categoryId'))
     return {
       onlyDirectEntry: params.get('strict') ? params.get('strict') === 'true' : false,
-      projectId: Number.isFinite(projectId) ? projectId : null,
-      dashboardId: Number.isFinite(dashboardId) ? dashboardId : null,
-      categoryId: Number.isFinite(categoryId) ? categoryId : null,
+      projectId,
+      dashboardId,
+      categoryId,
     }
-  }, [])
+  }, [location.search])
   const { onlyDirectEntry, projectId, dashboardId, categoryId: initialCategoryId } = routeContext
   const canPersistToDashboard = projectId !== null && dashboardId !== null
+  const isCanvasFrontpage = projectId === null && dashboardId === null
   const projectManagerHref = projectId !== null ? `/dashboard?projectId=${projectId}` : '/dashboard'
-  const [canvasTitle, setCanvasTitle] = useState('Canvas')
+  const [canvasTitle, setCanvasTitle] = useState('Innblikk: Canvas')
   const [canvasDashboardDescription, setCanvasDashboardDescription] = useState(CANVAS_DASHBOARD_TOKEN)
   const [canvasConfiguredWebsiteId, setCanvasConfiguredWebsiteId] = useState<string | null>(null)
   const [canvasInitMode, setCanvasInitMode] = useState<'checking' | 'existing' | 'create'>(
-    canPersistToDashboard ? 'checking' : 'create',
+    canPersistToDashboard ? 'checking' : isCanvasFrontpage ? 'existing' : 'create',
   )
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
   const [availableWebsites, setAvailableWebsites] = useState<Website[]>([])
@@ -776,6 +785,7 @@ const Canvas = () => {
   const [isLoadingChartOptions, setIsLoadingChartOptions] = useState(false)
   const [addChartError, setAddChartError] = useState<string | null>(null)
   const [isGrafbyggerEmbedded, setIsGrafbyggerEmbedded] = useState(false)
+  const [isProjectManagerEmbedded, setIsProjectManagerEmbedded] = useState(isCanvasFrontpage)
   const [editChartFrameId, setEditChartFrameId] = useState<string | null>(null)
   const [editChartTarget, setEditChartTarget] = useState<OversiktChart | null>(null)
   const [deleteChartFrameId, setDeleteChartFrameId] = useState<string | null>(null)
@@ -818,7 +828,13 @@ const Canvas = () => {
   const connectionMetricRequestSignatureRef = useRef<string | null>(null)
   const [canvasToolbarHeight, setCanvasToolbarHeight] = useState(120)
   const canvasCanvasTopOffset = canvasToolbarHeight + CANVAS_SURFACE_TOP_GAP
-  const shouldShowCreateCanvasModal = canvasInitMode === 'create'
+  const shouldShowCreateCanvasModal = canvasInitMode === 'create' && !isCanvasFrontpage
+  const canvasFrontpageBackgroundStyle = isCanvasFrontpage
+    ? {
+        backgroundImage: 'radial-gradient(circle at 1px 1px, var(--ax-border-neutral-subtle) 1px, transparent 0)',
+        backgroundSize: '24px 24px',
+      }
+    : undefined
 
   const handleCanvasZoomChange = useCallback((nextZoom: number) => {
     setCanvasZoom(clampCanvasZoom(nextZoom))
@@ -1597,8 +1613,8 @@ const Canvas = () => {
 
   useEffect(() => {
     if (!canPersistToDashboard || projectId === null || dashboardId === null) {
-      setCanvasInitMode('create')
-      setCanvasTitle('Canvas')
+      setCanvasInitMode(isCanvasFrontpage ? 'existing' : 'create')
+      setCanvasTitle('Canvas - et konsept fra Innblikk')
       setCanvasDashboardDescription(CANVAS_DASHBOARD_TOKEN)
       setCanvasConfiguredWebsiteId(null)
       return
@@ -1613,7 +1629,7 @@ const Canvas = () => {
         const dashboard = dashboards.find((item) => item.id === dashboardId)
         if (!dashboard) {
           setCanvasInitMode('create')
-          setCanvasTitle('Canvas')
+          setCanvasTitle('Innblikk: Canvas')
           setCanvasDashboardDescription(CANVAS_DASHBOARD_TOKEN)
           setCanvasConfiguredWebsiteId(null)
           return
@@ -1626,7 +1642,7 @@ const Canvas = () => {
       } catch {
         if (!isActive) return
         setCanvasInitMode('create')
-        setCanvasTitle('Canvas')
+        setCanvasTitle('Innblikk: Canvas')
         setCanvasDashboardDescription(CANVAS_DASHBOARD_TOKEN)
         setCanvasConfiguredWebsiteId(null)
       }
@@ -1636,7 +1652,16 @@ const Canvas = () => {
     return () => {
       isActive = false
     }
-  }, [canPersistToDashboard, projectId, dashboardId])
+  }, [canPersistToDashboard, isCanvasFrontpage, projectId, dashboardId])
+
+  useEffect(() => {
+    if (isCanvasFrontpage) {
+      setIsGrafbyggerEmbedded(false)
+      setIsProjectManagerEmbedded(true)
+      return
+    }
+    setIsProjectManagerEmbedded(false)
+  }, [isCanvasFrontpage])
 
   useEffect(() => {
     if (!shouldShowCreateCanvasModal) return
@@ -2842,6 +2867,7 @@ const Canvas = () => {
   const handleOpenAddChartModal = () => {
     setAddChartError(null)
     setIsGrafbyggerEmbedded(false)
+    setIsProjectManagerEmbedded(false)
     setIsAddChartModalOpen(true)
     void loadChartOptions()
   }
@@ -2849,7 +2875,13 @@ const Canvas = () => {
   const handleOpenGrafbyggerFromAddMenu = () => {
     setAddChartError(null)
     setIsAddChartModalOpen(false)
+    setIsProjectManagerEmbedded(false)
     setIsGrafbyggerEmbedded(true)
+  }
+
+  const handleOpenProjectManagerWorkspace = () => {
+    setIsGrafbyggerEmbedded(false)
+    setIsProjectManagerEmbedded(true)
   }
 
   const handleAddChartCard = () => {
@@ -3919,10 +3951,12 @@ const Canvas = () => {
 
   return (
     <>
-      <section className="relative h-[100dvh] min-h-[100dvh] bg-[var(--ax-bg-neutral-soft)]">
+      <section
+        className="relative h-[100dvh] min-h-[100dvh] bg-[var(--ax-bg-neutral-soft)]"
+        style={canvasFrontpageBackgroundStyle}
+      >
         <CanvasTopBar
           canvasToolbarRef={canvasToolbarRef}
-          projectManagerHref={projectManagerHref}
           projectId={projectId}
           canvasTitle={canvasTitle}
           period={period}
@@ -3946,6 +3980,9 @@ const Canvas = () => {
           onOpenImportChart={handleOpenAddChartModal}
           isGrafbyggerEmbedded={isGrafbyggerEmbedded}
           onCloseGrafbygger={() => setIsGrafbyggerEmbedded(false)}
+          isProjectManagerEmbedded={isProjectManagerEmbedded}
+          onOpenProjectManagerWorkspace={handleOpenProjectManagerWorkspace}
+          onCloseProjectManagerWorkspace={() => setIsProjectManagerEmbedded(false)}
           onOpenCreateTab={handleOpenCreateTabModal}
           onOpenManageTabs={handleOpenManageTabsModal}
           onOpenCanvasSettings={handleOpenCanvasSettingsModal}
@@ -3958,6 +3995,7 @@ const Canvas = () => {
           activeCanvasCategoryId={activeCanvasCategoryId}
           onChangeActiveCanvasCategory={handleToolbarCategoryChange}
           getCanvasCategoryDisplayName={getCanvasCategoryDisplayName}
+          isCanvasFrontpage={isCanvasFrontpage}
         />
 
         <div className="flex h-full">
@@ -5017,9 +5055,21 @@ const Canvas = () => {
             </div>
           </div>
         )}
+        {isProjectManagerEmbedded && (
+          <div
+            className="absolute bottom-0 left-0 right-0 z-40 overflow-hidden bg-[var(--ax-bg-default)]"
+            style={{ top: `${canvasCanvasTopOffset}px` }}
+          >
+            <div className="h-full">
+              <div className="h-full overflow-auto bg-transparent">
+                <CanvasProjectManager />
+              </div>
+            </div>
+          </div>
+        )}
         <div className="pointer-events-none fixed bottom-4 right-4 z-30">
           <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-1 shadow-sm">
-            {!isGrafbyggerEmbedded && (
+            {!isGrafbyggerEmbedded && !isProjectManagerEmbedded && (
               <>
                 <Button
                   size="xsmall"
