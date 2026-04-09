@@ -14,12 +14,16 @@ import {
   Textarea,
 } from '@navikt/ds-react'
 import {
+  ArrowRight,
   ChartNoAxesCombined,
+  Circle,
   Edit2,
   ExternalLink,
   Minus,
   MoreVertical,
   Plus,
+  Slash,
+  Square,
   Copy,
   RefreshCw,
   RotateCcw,
@@ -85,7 +89,17 @@ import type { Website } from '../../../shared/types/website.ts'
 import { useCookieStartDate, useCookieSupport } from '../../../shared/hooks/useSiteimproveSupport.ts'
 
 type CanvasChartType = 'line' | 'bar' | 'pie' | 'table'
-type CanvasPayloadKind = 'website' | 'image' | 'heading' | 'text' | 'sticky' | 'chart' | 'icon' | 'connection'
+type CanvasFigureType = 'rectangle' | 'circle' | 'line' | 'arrow'
+type CanvasPayloadKind =
+  | 'website'
+  | 'image'
+  | 'heading'
+  | 'text'
+  | 'sticky'
+  | 'chart'
+  | 'icon'
+  | 'figure'
+  | 'connection'
 type CanvasConnectionMetric = {
   percentageOfPrev: number
   dropoffCount: number
@@ -97,7 +111,7 @@ type CanvasConnectionMetric = {
 
 type CanvasFrame = {
   id: string
-  kind: 'website' | 'image' | 'heading' | 'text' | 'sticky' | 'chart' | 'icon'
+  kind: 'website' | 'image' | 'heading' | 'text' | 'sticky' | 'chart' | 'icon' | 'figure'
   websiteId?: string
   targetUrl?: string
   previewUrl?: string
@@ -110,6 +124,8 @@ type CanvasFrame = {
   iconName?: string
   iconRotationDeg?: number
   iconColor?: string
+  figureType?: CanvasFigureType
+  figureColor?: string
   isIllustration?: boolean
   imageRotationDeg?: number
   chartType?: CanvasChartType
@@ -203,6 +219,8 @@ type CanvasConfigPayload = {
   iconName?: string
   iconRotationDeg?: number
   iconColor?: string
+  figureType?: CanvasFigureType
+  figureColor?: string
   isIllustration?: boolean
   imageRotationDeg?: number
   chartType?: CanvasChartType
@@ -220,6 +238,11 @@ type CanvasChartOption = {
   chartType: CanvasChartType
   sql: string
 }
+type CanvasFigureOption = {
+  id: CanvasFigureType
+  label: string
+  Icon: typeof Square
+}
 
 const CANVAS_DASHBOARD_TOKEN = '[canvas]'
 const CANVAS_WEBSITE_ID_TOKEN_REGEX = /\[websiteId:([^\]]+)\]/i
@@ -235,6 +258,12 @@ const HEADING_FONT_SIZE_MIN = 20
 const HEADING_FONT_SIZE_MAX = 96
 const HEADING_FONT_SIZE_STEP = 2
 const ICON_ROTATION_STEP_DEG = 15
+const CANVAS_FIGURE_OPTIONS: CanvasFigureOption[] = [
+  { id: 'rectangle', label: 'Rektangel', Icon: Square },
+  { id: 'circle', label: 'Sirkel', Icon: Circle },
+  { id: 'line', label: 'Linje', Icon: Slash },
+  { id: 'arrow', label: 'Pil', Icon: ArrowRight },
+]
 const CLICKMAP_EVENTS = ['navigere', 'accordion åpnet']
 const CARD_ACTION_BUTTON_CLASSNAME =
   'pointer-events-auto bg-[var(--ax-bg-default)]/95 shadow-sm opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100'
@@ -513,6 +542,7 @@ const isCanvasPayloadKind = (value: unknown): value is CanvasPayloadKind =>
   value === 'sticky' ||
   value === 'chart' ||
   value === 'icon' ||
+  value === 'figure' ||
   value === 'connection'
 
 const isRenderableCanvasFrameKind = (value: unknown): value is CanvasFrame['kind'] =>
@@ -522,10 +552,14 @@ const isRenderableCanvasFrameKind = (value: unknown): value is CanvasFrame['kind
   value === 'text' ||
   value === 'sticky' ||
   value === 'chart' ||
-  value === 'icon'
+  value === 'icon' ||
+  value === 'figure'
 
 const isCanvasChartType = (value: unknown): value is CanvasChartType =>
   value === 'line' || value === 'bar' || value === 'pie' || value === 'table'
+
+const isCanvasFigureType = (value: unknown): value is CanvasFigureType =>
+  value === 'rectangle' || value === 'circle' || value === 'line' || value === 'arrow'
 
 const parseCanvasConfig = (raw: string): CanvasConfigPayload | null => {
   if (!raw) return null
@@ -558,6 +592,8 @@ const parseCanvasConfig = (raw: string): CanvasConfigPayload | null => {
       iconName: typeof parsed.iconName === 'string' ? parsed.iconName : undefined,
       iconRotationDeg: Number.isFinite(parsed.iconRotationDeg) ? Number(parsed.iconRotationDeg) : undefined,
       iconColor: typeof parsed.iconColor === 'string' ? parsed.iconColor : undefined,
+      figureType: isCanvasFigureType(parsed.figureType) ? parsed.figureType : undefined,
+      figureColor: typeof parsed.figureColor === 'string' ? parsed.figureColor : undefined,
       isIllustration: typeof parsed.isIllustration === 'boolean' ? parsed.isIllustration : undefined,
       imageRotationDeg: Number.isFinite(parsed.imageRotationDeg) ? Number(parsed.imageRotationDeg) : undefined,
       chartType: isCanvasChartType(parsed.chartType) ? parsed.chartType : undefined,
@@ -614,6 +650,7 @@ const Canvas = () => {
   const [isAddTextModalOpen, setIsAddTextModalOpen] = useState(false)
   const [isAddStickyModalOpen, setIsAddStickyModalOpen] = useState(false)
   const [isAddIconModalOpen, setIsAddIconModalOpen] = useState(false)
+  const [isAddFigureModalOpen, setIsAddFigureModalOpen] = useState(false)
   const [isCanvasSettingsModalOpen, setIsCanvasSettingsModalOpen] = useState(false)
   const [renameCanvasInput, setRenameCanvasInput] = useState('')
   const [renameCanvasError, setRenameCanvasError] = useState<string | null>(null)
@@ -632,10 +669,12 @@ const Canvas = () => {
   const [isEditDashboardModalOpen, setIsEditDashboardModalOpen] = useState(false)
   const [isEditImageModalOpen, setIsEditImageModalOpen] = useState(false)
   const [isEditIconModalOpen, setIsEditIconModalOpen] = useState(false)
+  const [isEditFigureModalOpen, setIsEditFigureModalOpen] = useState(false)
   const [editWebsiteFrameId, setEditWebsiteFrameId] = useState<string | null>(null)
   const [editDashboardFrameId, setEditDashboardFrameId] = useState<string | null>(null)
   const [editImageFrameId, setEditImageFrameId] = useState<string | null>(null)
   const [editIconFrameId, setEditIconFrameId] = useState<string | null>(null)
+  const [editFigureFrameId, setEditFigureFrameId] = useState<string | null>(null)
   const [editIllustrationFrameId, setEditIllustrationFrameId] = useState<string | null>(null)
   const [editWebsitePathInput, setEditWebsitePathInput] = useState('')
   const [editImageUrlInput, setEditImageUrlInput] = useState('')
@@ -684,6 +723,12 @@ const Canvas = () => {
   const [editIconSelectedId, setEditIconSelectedId] = useState(DEFAULT_CANVAS_ICON_ID)
   const [editIconSelectedColor, setEditIconSelectedColor] = useState(DEFAULT_CANVAS_ICON_COLOR)
   const [editIconError, setEditIconError] = useState<string | null>(null)
+  const [selectedFigureType, setSelectedFigureType] = useState<CanvasFigureType>('rectangle')
+  const [selectedFigureColor, setSelectedFigureColor] = useState(DEFAULT_CANVAS_ICON_COLOR)
+  const [addFigureError, setAddFigureError] = useState<string | null>(null)
+  const [editFigureSelectedType, setEditFigureSelectedType] = useState<CanvasFigureType>('rectangle')
+  const [editFigureSelectedColor, setEditFigureSelectedColor] = useState(DEFAULT_CANVAS_ICON_COLOR)
+  const [editFigureError, setEditFigureError] = useState<string | null>(null)
   const [chartOptions, setChartOptions] = useState<CanvasChartOption[]>([])
   const [selectedChartOptionId, setSelectedChartOptionId] = useState('')
   const [isLoadingChartOptions, setIsLoadingChartOptions] = useState(false)
@@ -1268,6 +1313,8 @@ const Canvas = () => {
         iconName: frame.iconName,
         iconRotationDeg: frame.iconRotationDeg,
         iconColor: frame.iconColor,
+        figureType: frame.figureType,
+        figureColor: frame.figureColor,
         isIllustration: frame.isIllustration,
         imageRotationDeg: frame.imageRotationDeg,
         chartType: frame.chartType,
@@ -1448,6 +1495,8 @@ const Canvas = () => {
               iconName: parsedConfig.iconName,
               iconRotationDeg: parsedConfig.iconRotationDeg,
               iconColor: parsedConfig.iconColor,
+              figureType: parsedConfig.figureType,
+              figureColor: parsedConfig.figureColor,
               isIllustration:
                 typeof parsedConfig.isIllustration === 'boolean'
                   ? parsedConfig.isIllustration
@@ -2012,6 +2061,15 @@ const Canvas = () => {
     setIsEditIconModalOpen(true)
   }
 
+  const handleOpenEditFigureModal = (frame: CanvasFrame) => {
+    if (frame.kind !== 'figure') return
+    setEditFigureFrameId(frame.id)
+    setEditFigureSelectedType(frame.figureType ?? 'rectangle')
+    setEditFigureSelectedColor(getCanvasIconColor(frame.figureColor))
+    setEditFigureError(null)
+    setIsEditFigureModalOpen(true)
+  }
+
   const handleToggleInsightPanel = (frame: CanvasFrame) => {
     if (frame.kind !== 'website' || frame.isInternalDashboard) return
     setActiveInsightFrameId((current) => (current === frame.id ? null : frame.id))
@@ -2025,6 +2083,58 @@ const Canvas = () => {
     setNewPagePreviewUrlInput(frame.previewUrl || '')
     setNewPageVisualizationMode(getCanvasFrameVisualizationMode(frame))
     setIsAddPageModalOpen(true)
+  }
+
+  const handleDuplicateIconCard = async (frame: CanvasFrame) => {
+    if (frame.kind !== 'icon') return
+
+    const defaults = getDefaultFrameSize(frame)
+    const duplicatedFrame: CanvasFrame = {
+      ...frame,
+      id: `${Date.now()}-${Math.random()}`,
+      x: frame.x + 36,
+      y: frame.y + 36,
+      width: frame.width ?? defaults.width,
+      height: frame.height ?? defaults.height,
+      refreshNonce: 0,
+    }
+
+    try {
+      setIsSavingCanvasItem(true)
+      setSyncError(null)
+      const persistedFrame = await persistFrame(duplicatedFrame)
+      setFrames((prev) => [...prev, persistedFrame])
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke duplisere ikon')
+    } finally {
+      setIsSavingCanvasItem(false)
+    }
+  }
+
+  const handleDuplicateFigureCard = async (frame: CanvasFrame) => {
+    if (frame.kind !== 'figure') return
+
+    const defaults = getDefaultFrameSize(frame)
+    const duplicatedFrame: CanvasFrame = {
+      ...frame,
+      id: `${Date.now()}-${Math.random()}`,
+      x: frame.x + 36,
+      y: frame.y + 36,
+      width: frame.width ?? defaults.width,
+      height: frame.height ?? defaults.height,
+      refreshNonce: 0,
+    }
+
+    try {
+      setIsSavingCanvasItem(true)
+      setSyncError(null)
+      const persistedFrame = await persistFrame(duplicatedFrame)
+      setFrames((prev) => [...prev, persistedFrame])
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke duplisere figur')
+    } finally {
+      setIsSavingCanvasItem(false)
+    }
   }
 
   const handleSaveEditedWebsite = async () => {
@@ -2221,6 +2331,39 @@ const Canvas = () => {
       setEditIconError(null)
     } catch (error) {
       setEditIconError(error instanceof Error ? error.message : 'Kunne ikke oppdatere ikon')
+    } finally {
+      setIsSavingCanvasItem(false)
+    }
+  }
+
+  const handleSaveEditedFigure = async () => {
+    if (!editFigureFrameId) return
+    const currentFrame = frames.find((frame) => frame.id === editFigureFrameId)
+    if (!currentFrame || currentFrame.kind !== 'figure') return
+
+    const selectedFigure = CANVAS_FIGURE_OPTIONS.find((option) => option.id === editFigureSelectedType)
+    if (!selectedFigure) {
+      setEditFigureError('Velg en figur.')
+      return
+    }
+
+    const updatedFrame: CanvasFrame = {
+      ...currentFrame,
+      figureType: selectedFigure.id,
+      figureColor: getCanvasIconColor(editFigureSelectedColor),
+      label: selectedFigure.label,
+    }
+
+    try {
+      setIsSavingCanvasItem(true)
+      setSyncError(null)
+      const persistedFrame = await persistFrame(updatedFrame)
+      setFrames((prev) => prev.map((frame) => (frame.id === editFigureFrameId ? persistedFrame : frame)))
+      setIsEditFigureModalOpen(false)
+      setEditFigureFrameId(null)
+      setEditFigureError(null)
+    } catch (error) {
+      setEditFigureError(error instanceof Error ? error.message : 'Kunne ikke oppdatere figur')
     } finally {
       setIsSavingCanvasItem(false)
     }
@@ -2512,6 +2655,42 @@ const Canvas = () => {
     }
   }
 
+  const handleAddFigureCard = async () => {
+    const selectedFigure = CANVAS_FIGURE_OPTIONS.find((option) => option.id === selectedFigureType)
+    if (!selectedFigure) {
+      setAddFigureError('Velg en figur.')
+      return
+    }
+
+    const index = frames.length
+    const column = index % 3
+    const row = Math.floor(index / 3)
+    const newFrame: CanvasFrame = {
+      id: `${Date.now()}-${Math.random()}`,
+      kind: 'figure',
+      figureType: selectedFigure.id,
+      figureColor: getCanvasIconColor(selectedFigureColor),
+      label: selectedFigure.label,
+      x: 80 + column * 460,
+      y: 80 + row * 380,
+      width: selectedFigure.id === 'line' || selectedFigure.id === 'arrow' ? 320 : 240,
+      height: selectedFigure.id === 'line' || selectedFigure.id === 'arrow' ? 120 : 200,
+      refreshNonce: 0,
+    }
+    try {
+      setIsSavingCanvasItem(true)
+      setSyncError(null)
+      const persistedFrame = await persistFrame(newFrame)
+      setFrames((prev) => [...prev, persistedFrame])
+      setAddFigureError(null)
+      setIsAddFigureModalOpen(false)
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre figur i canvas')
+    } finally {
+      setIsSavingCanvasItem(false)
+    }
+  }
+
   const loadChartOptions = useCallback(async () => {
     if (!canPersistToDashboard || projectId === null || dashboardId === null) {
       setChartOptions([])
@@ -2736,6 +2915,7 @@ const Canvas = () => {
     if (kind === 'heading') return { width: 420, height: 72, minWidth: 260, minHeight: 48 }
     if (kind === 'text') return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
     if (kind === 'icon') return { width: 280, height: 240, minWidth: 72, minHeight: 72 }
+    if (kind === 'figure') return { width: 240, height: 200, minWidth: 120, minHeight: 72 }
     return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
   }
 
@@ -3330,7 +3510,14 @@ const Canvas = () => {
 
   const handleEditableFrameBlur = (id: string) => {
     const frame = frames.find((item) => item.id === id)
-    if (!frame || frame.kind === 'website' || frame.kind === 'image' || frame.kind === 'chart' || frame.kind === 'icon')
+    if (
+      !frame ||
+      frame.kind === 'website' ||
+      frame.kind === 'image' ||
+      frame.kind === 'chart' ||
+      frame.kind === 'icon' ||
+      frame.kind === 'figure'
+    )
       return
 
     let nextFrame = frame
@@ -3627,6 +3814,16 @@ const Canvas = () => {
                     </ActionMenu.Item>
                     <ActionMenu.Item
                       onClick={() => {
+                        setSelectedFigureType('rectangle')
+                        setSelectedFigureColor(DEFAULT_CANVAS_ICON_COLOR)
+                        setAddFigureError(null)
+                        setIsAddFigureModalOpen(true)
+                      }}
+                    >
+                      Figur
+                    </ActionMenu.Item>
+                    <ActionMenu.Item
+                      onClick={() => {
                         setEditIllustrationFrameId(null)
                         setAddIllustrationError(null)
                         setSelectedIllustrationPath((current) => current || DEFAULT_CANVAS_ILLUSTRATION_PATH)
@@ -3898,7 +4095,9 @@ const Canvas = () => {
                                   ? 'group absolute flex flex-col overflow-hidden rounded-xl border border-transparent bg-transparent shadow-none'
                                   : frame.kind === 'icon'
                                     ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
-                                    : 'group absolute flex flex-col overflow-hidden rounded-xl border border-[#f1dc7d] bg-[#fff5b8] shadow-sm'
+                                    : frame.kind === 'figure'
+                                      ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
+                                      : 'group absolute flex flex-col overflow-hidden rounded-xl border border-[#f1dc7d] bg-[#fff5b8] shadow-sm'
                         }
                         style={{
                           left: `${frame.x}px`,
@@ -3914,7 +4113,9 @@ const Canvas = () => {
                                     ? 50
                                     : frame.kind === 'icon'
                                       ? 60
-                                      : undefined,
+                                      : frame.kind === 'figure'
+                                        ? 60
+                                        : undefined,
                           width:
                             frame.kind === 'heading'
                               ? `${getHeadingFrameWidth(frame)}px`
@@ -4061,6 +4262,7 @@ const Canvas = () => {
                           frame.kind === 'text' ||
                           frame.kind === 'heading' ||
                           frame.kind === 'icon' ||
+                          frame.kind === 'figure' ||
                           frame.kind === 'image' ||
                           (frame.kind === 'website' && frame.isInternalDashboard)) && (
                           <>
@@ -4087,7 +4289,10 @@ const Canvas = () => {
                             </div>
                             <div
                               className={`pointer-events-none absolute z-30 ${
-                                frame.kind === 'heading' || frame.kind === 'icon' || isIllustrationFrame
+                                frame.kind === 'heading' ||
+                                frame.kind === 'icon' ||
+                                frame.kind === 'figure' ||
+                                isIllustrationFrame
                                   ? 'right-0 -top-6 flex items-center gap-1'
                                   : 'right-2 top-2'
                               }`}
@@ -4138,8 +4343,30 @@ const Canvas = () => {
                                   className={CARD_ACTION_BUTTON_CLASSNAME}
                                 />
                               )}
+                              {frame.kind === 'figure' && (
+                                <Button
+                                  size="xsmall"
+                                  variant="tertiary"
+                                  icon={<Edit2 size={14} />}
+                                  onMouseDown={(event) => event.stopPropagation()}
+                                  onClick={() => handleOpenEditFigureModal(frame)}
+                                  title="Rediger figur"
+                                  aria-label="Rediger figur"
+                                  className={CARD_ACTION_BUTTON_CLASSNAME}
+                                />
+                              )}
                               {frame.kind === 'icon' && (
                                 <>
+                                  <Button
+                                    size="xsmall"
+                                    variant="tertiary"
+                                    icon={<Copy size={14} />}
+                                    onMouseDown={(event) => event.stopPropagation()}
+                                    onClick={() => void handleDuplicateIconCard(frame)}
+                                    title="Dupliser ikon"
+                                    aria-label="Dupliser ikon"
+                                    className={CARD_ACTION_BUTTON_CLASSNAME}
+                                  />
                                   <Button
                                     size="xsmall"
                                     variant="tertiary"
@@ -4161,6 +4388,18 @@ const Canvas = () => {
                                     className={CARD_ACTION_BUTTON_CLASSNAME}
                                   />
                                 </>
+                              )}
+                              {frame.kind === 'figure' && (
+                                <Button
+                                  size="xsmall"
+                                  variant="tertiary"
+                                  icon={<Copy size={14} />}
+                                  onMouseDown={(event) => event.stopPropagation()}
+                                  onClick={() => void handleDuplicateFigureCard(frame)}
+                                  title="Dupliser figur"
+                                  aria-label="Dupliser figur"
+                                  className={CARD_ACTION_BUTTON_CLASSNAME}
+                                />
                               )}
                               {frame.kind === 'heading' && (
                                 <>
@@ -4225,7 +4464,10 @@ const Canvas = () => {
                             </div>
                           </>
                         )}
-                        {(frame.kind === 'heading' || frame.kind === 'text' || frame.kind === 'icon') && (
+                        {(frame.kind === 'heading' ||
+                          frame.kind === 'text' ||
+                          frame.kind === 'icon' ||
+                          frame.kind === 'figure') && (
                           <div
                             aria-hidden="true"
                             className={`pointer-events-none absolute z-10 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${
@@ -4250,9 +4492,11 @@ const Canvas = () => {
                                 ? 'overflow-visible bg-transparent'
                                 : frame.kind === 'icon'
                                   ? 'overflow-visible bg-transparent'
-                                  : frame.kind === 'heading'
-                                    ? 'pt-1'
-                                    : 'px-2 pb-2'
+                                  : frame.kind === 'figure'
+                                    ? 'overflow-visible bg-transparent'
+                                    : frame.kind === 'heading'
+                                      ? 'pt-1'
+                                      : 'px-2 pb-2'
                           }`}
                         >
                           {frame.kind === 'website' && !frame.isInternalDashboard && (
@@ -4549,6 +4793,87 @@ const Canvas = () => {
                                     aria-hidden="true"
                                   />
                                 </div>
+                              )
+                            })()
+                          ) : frame.kind === 'figure' ? (
+                            (() => {
+                              const width = frame.width ?? defaults.width
+                              const height = frame.height ?? defaults.height
+                              const figureType = frame.figureType ?? 'rectangle'
+                              const strokeWidth = Math.max(2, Math.floor(Math.min(width, height) * 0.035))
+                              const strokeColor = getCanvasIconColor(frame.figureColor)
+                              const markerId = `canvas-figure-arrow-${frame.id}`
+                              return (
+                                <svg
+                                  width={width}
+                                  height={height}
+                                  viewBox={`0 0 ${width} ${height}`}
+                                  className="block h-full w-full"
+                                  aria-label={frame.label}
+                                  role="img"
+                                >
+                                  {figureType === 'arrow' && (
+                                    <defs>
+                                      <marker
+                                        id={markerId}
+                                        markerWidth="10"
+                                        markerHeight="8"
+                                        refX="9"
+                                        refY="4"
+                                        orient="auto"
+                                        markerUnits="strokeWidth"
+                                      >
+                                        <path d="M0,0 L10,4 L0,8 z" fill={strokeColor} />
+                                      </marker>
+                                    </defs>
+                                  )}
+                                  {figureType === 'rectangle' && (
+                                    <rect
+                                      x={strokeWidth}
+                                      y={strokeWidth}
+                                      width={Math.max(0, width - strokeWidth * 2)}
+                                      height={Math.max(0, height - strokeWidth * 2)}
+                                      rx={Math.min(14, Math.floor(Math.min(width, height) * 0.1))}
+                                      fill="none"
+                                      stroke={strokeColor}
+                                      strokeWidth={strokeWidth}
+                                    />
+                                  )}
+                                  {figureType === 'circle' && (
+                                    <ellipse
+                                      cx={width / 2}
+                                      cy={height / 2}
+                                      rx={Math.max(0, width / 2 - strokeWidth)}
+                                      ry={Math.max(0, height / 2 - strokeWidth)}
+                                      fill="none"
+                                      stroke={strokeColor}
+                                      strokeWidth={strokeWidth}
+                                    />
+                                  )}
+                                  {figureType === 'line' && (
+                                    <line
+                                      x1={strokeWidth}
+                                      y1={height / 2}
+                                      x2={Math.max(strokeWidth, width - strokeWidth)}
+                                      y2={height / 2}
+                                      stroke={strokeColor}
+                                      strokeWidth={strokeWidth}
+                                      strokeLinecap="round"
+                                    />
+                                  )}
+                                  {figureType === 'arrow' && (
+                                    <line
+                                      x1={strokeWidth}
+                                      y1={height / 2}
+                                      x2={Math.max(strokeWidth, width - strokeWidth * 1.8)}
+                                      y2={height / 2}
+                                      stroke={strokeColor}
+                                      strokeWidth={strokeWidth}
+                                      strokeLinecap="round"
+                                      markerEnd={`url(#${markerId})`}
+                                    />
+                                  )}
+                                </svg>
                               )
                             })()
                           ) : frame.kind === 'heading' ? (
@@ -5262,6 +5587,95 @@ const Canvas = () => {
       </Modal>
 
       <Modal
+        open={isEditFigureModalOpen}
+        onClose={() => {
+          setIsEditFigureModalOpen(false)
+          setEditFigureFrameId(null)
+          setEditFigureError(null)
+        }}
+        header={{ heading: 'Rediger figur' }}
+        width="small"
+      >
+        <Modal.Body>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <div className="text-sm font-medium text-[var(--ax-text-default)]">Figurtype</div>
+              <div className="grid grid-cols-2 gap-2">
+                {CANVAS_FIGURE_OPTIONS.map((figureOption) => {
+                  const isSelected = editFigureSelectedType === figureOption.id
+                  const FigureIcon = figureOption.Icon
+                  return (
+                    <button
+                      key={figureOption.id}
+                      type="button"
+                      onClick={() => {
+                        setEditFigureSelectedType(figureOption.id)
+                        if (editFigureError) setEditFigureError(null)
+                      }}
+                      className={`flex items-center gap-2 rounded-md border px-3 py-2 text-left ${
+                        isSelected
+                          ? 'border-[var(--ax-border-accent)] bg-[var(--ax-bg-accent-soft)]'
+                          : 'border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)]'
+                      }`}
+                    >
+                      <FigureIcon size={16} aria-hidden="true" />
+                      <span className="text-sm text-[var(--ax-text-default)]">{figureOption.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <div className="text-sm font-medium text-[var(--ax-text-default)]">Farge</div>
+              <div className="flex flex-wrap gap-2">
+                {CANVAS_ICON_COLOR_OPTIONS.map((colorOption) => {
+                  const isSelected = editFigureSelectedColor === colorOption.value
+                  return (
+                    <button
+                      key={colorOption.id}
+                      type="button"
+                      onClick={() => {
+                        setEditFigureSelectedColor(colorOption.value)
+                        if (editFigureError) setEditFigureError(null)
+                      }}
+                      className={`flex h-8 w-8 items-center justify-center rounded-full border-2 ${
+                        isSelected ? 'border-[var(--ax-border-accent)]' : 'border-[var(--ax-border-neutral-subtle)]'
+                      }`}
+                      aria-label={`Velg farge ${colorOption.label}`}
+                      title={colorOption.label}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="h-5 w-5 rounded-full border border-black/10"
+                        style={{ backgroundColor: colorOption.value }}
+                      />
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            {editFigureError && <Alert variant="error">{editFigureError}</Alert>}
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button onClick={() => void handleSaveEditedFigure()} size="small" loading={isSavingCanvasItem}>
+            Lagre
+          </Button>
+          <Button
+            variant="secondary"
+            size="small"
+            onClick={() => {
+              setIsEditFigureModalOpen(false)
+              setEditFigureFrameId(null)
+              setEditFigureError(null)
+            }}
+          >
+            Avbryt
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal
         open={isAddPageModalOpen}
         onClose={() => {
           setIsAddPageModalOpen(false)
@@ -5744,6 +6158,93 @@ const Canvas = () => {
             onClick={() => {
               setIsAddStickyModalOpen(false)
               setAddStickyError(null)
+            }}
+          >
+            Avbryt
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal
+        open={isAddFigureModalOpen}
+        onClose={() => {
+          setIsAddFigureModalOpen(false)
+          setAddFigureError(null)
+        }}
+        header={{ heading: 'Legg til figur' }}
+        width="small"
+      >
+        <Modal.Body>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <div className="text-sm font-medium text-[var(--ax-text-default)]">Figurtype</div>
+              <div className="grid grid-cols-2 gap-2">
+                {CANVAS_FIGURE_OPTIONS.map((figureOption) => {
+                  const isSelected = selectedFigureType === figureOption.id
+                  const FigureIcon = figureOption.Icon
+                  return (
+                    <button
+                      key={figureOption.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedFigureType(figureOption.id)
+                        if (addFigureError) setAddFigureError(null)
+                      }}
+                      className={`flex items-center gap-2 rounded-md border px-3 py-2 text-left ${
+                        isSelected
+                          ? 'border-[var(--ax-border-accent)] bg-[var(--ax-bg-accent-soft)]'
+                          : 'border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)]'
+                      }`}
+                    >
+                      <FigureIcon size={16} aria-hidden="true" />
+                      <span className="text-sm text-[var(--ax-text-default)]">{figureOption.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <div className="text-sm font-medium text-[var(--ax-text-default)]">Farge</div>
+              <div className="flex flex-wrap gap-2">
+                {CANVAS_ICON_COLOR_OPTIONS.map((colorOption) => {
+                  const isSelected = selectedFigureColor === colorOption.value
+                  return (
+                    <button
+                      key={colorOption.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedFigureColor(colorOption.value)
+                        if (addFigureError) setAddFigureError(null)
+                      }}
+                      className={`flex h-8 w-8 items-center justify-center rounded-full border-2 ${
+                        isSelected ? 'border-[var(--ax-border-accent)]' : 'border-[var(--ax-border-neutral-subtle)]'
+                      }`}
+                      aria-label={`Velg farge ${colorOption.label}`}
+                      title={colorOption.label}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="h-5 w-5 rounded-full border border-black/10"
+                        style={{ backgroundColor: colorOption.value }}
+                      />
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            {addFigureError && <Alert variant="error">{addFigureError}</Alert>}
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button onClick={() => void handleAddFigureCard()} size="small" loading={isSavingCanvasItem}>
+            Legg til
+          </Button>
+          <Button
+            variant="secondary"
+            size="small"
+            onClick={() => {
+              setIsAddFigureModalOpen(false)
+              setAddFigureError(null)
             }}
           >
             Avbryt
