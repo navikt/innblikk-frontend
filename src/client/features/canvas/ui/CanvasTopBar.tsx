@@ -181,6 +181,7 @@ const CanvasTopBar = ({
                 />
               </ActionMenu.Trigger>
               <ActionMenu.Content align="end">
+                <ActionMenu.Item onClick={() => window.location.assign('/')}>Til Innblikk</ActionMenu.Item>
                 <ActionMenu.Item onClick={onOpenProjectManagerWorkspace}>Teamområde</ActionMenu.Item>
                 {canManageTabs && <ActionMenu.Item onClick={onOpenManageTabs}>Administrer faner</ActionMenu.Item>}
                 <ActionMenu.Item onClick={onOpenCanvasSettings}>Innstillinger</ActionMenu.Item>

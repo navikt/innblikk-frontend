@@ -280,7 +280,7 @@ const CanvasProjectManager = () => {
               {selectedProject ? (
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-1 min-w-0">
-                    <Heading level="2" size="small">
+                    <Heading level="2" size="medium">
                       {selectedProject.project.name}
                     </Heading>
                     {selectedProject.project.description && (
@@ -307,7 +307,7 @@ const CanvasProjectManager = () => {
                   </div>
                 </div>
               ) : (
-                <Heading level="2" size="small">
+                <Heading level="2" size="medium">
                   Team
                 </Heading>
               )}
@@ -319,15 +319,15 @@ const CanvasProjectManager = () => {
               {localError && <Alert variant="error">{localError}</Alert>}
 
               {selectedProject && (
-                <section className="space-y-5">
-                  <Heading level="3" size="xsmall">
+                <section className="space-y-0">
+                  <h3 className="mt-0 mb-2 text-[1.25rem] font-semibold leading-none text-[var(--ax-text-default)]">
                     Canvas
-                  </Heading>
-                  <div className="grid gap-3 pt-1 md:grid-cols-2 xl:grid-cols-3">
+                  </h3>
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                     {canvasDashboards.map((dashboard) => (
                       <article
                         key={dashboard.id}
-                        className="group rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-5 py-4 shadow-sm transition hover:border-[var(--ax-border-neutral)] hover:shadow"
+                        className="group rounded-xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-5 py-4 shadow-none transition hover:border-[var(--ax-border-neutral)]"
                       >
                         <div className="flex items-center justify-between gap-2">
                           <button
@@ -366,7 +366,7 @@ const CanvasProjectManager = () => {
                     <button
                       type="button"
                       onClick={() => setIsCreateCanvasOpen(true)}
-                      className="rounded-2xl border border-dashed border-[var(--ax-border-neutral)] bg-[var(--ax-bg-default)] px-5 py-4 text-left transition-colors hover:bg-[var(--ax-bg-neutral-moderate)]"
+                      className="rounded-xl border border-dashed border-[var(--ax-border-neutral)] bg-[var(--ax-bg-default)] px-5 py-4 text-left transition-colors hover:bg-[var(--ax-bg-accent-soft)]"
                     >
                       <div className="flex items-center gap-2">
                         <Plus size={18} />
@@ -378,15 +378,15 @@ const CanvasProjectManager = () => {
               )}
 
               {selectedProject && (
-                <section className="space-y-5">
-                  <Heading level="3" size="xsmall">
+                <section className="space-y-0">
+                  <h3 className="mt-0 mb-2 text-[1.1rem] font-semibold leading-none text-[var(--ax-text-default)]">
                     Dashboards
-                  </Heading>
-                  <div className="grid gap-3 pt-1 md:grid-cols-2 xl:grid-cols-3">
+                  </h3>
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                     {regularDashboards.map((dashboard) => (
                       <article
                         key={dashboard.id}
-                        className="group rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-5 py-4 shadow-sm transition hover:border-[var(--ax-border-neutral)] hover:shadow"
+                        className="group rounded-xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-5 py-4 shadow-none transition hover:border-[var(--ax-border-neutral)]"
                       >
                         <div className="flex items-center justify-between gap-2">
                           <button
@@ -423,7 +423,7 @@ const CanvasProjectManager = () => {
                     <button
                       type="button"
                       onClick={() => setIsCreateDashboardOpen(true)}
-                      className="rounded-2xl border border-dashed border-[var(--ax-border-neutral)] bg-[var(--ax-bg-default)] px-5 py-4 text-left transition-colors hover:bg-[var(--ax-bg-neutral-moderate)]"
+                      className="rounded-xl border border-dashed border-[var(--ax-border-neutral)] bg-[var(--ax-bg-default)] px-5 py-4 text-left transition-colors hover:bg-[var(--ax-bg-accent-soft)]"
                     >
                       <div className="flex items-center gap-2">
                         <Plus size={18} />
