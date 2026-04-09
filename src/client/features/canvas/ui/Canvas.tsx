@@ -1,5 +1,17 @@
 import { Fragment, createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ActionMenu, Alert, Button, Link, Loader, Modal, Select, Switch, TextField, Textarea } from '@navikt/ds-react'
+import {
+  ActionMenu,
+  Alert,
+  Button,
+  Link,
+  Loader,
+  Modal,
+  Select,
+  Switch,
+  Tabs,
+  TextField,
+  Textarea,
+} from '@navikt/ds-react'
 import {
   ChartNoAxesCombined,
   Edit2,
@@ -43,6 +55,7 @@ import {
 import {
   createCategory,
   createDashboard,
+  deleteCategory,
   createGraph,
   createQuery,
   deleteGraph,
@@ -51,10 +64,11 @@ import {
   fetchProjects,
   fetchGraphs,
   fetchQueries,
+  updateCategory,
   updateDashboard,
   updateQuery,
 } from '../../oversikt/api/oversiktApi.ts'
-import type { GraphType, OversiktChart } from '../../oversikt/model/types.ts'
+import type { GraphCategoryDto, GraphType, OversiktChart } from '../../oversikt/model/types.ts'
 import EditChartDialog from '../../oversikt/ui/dialogs/EditChartDialog.tsx'
 import DeleteChartDialog from '../../oversikt/ui/dialogs/DeleteChartDialog.tsx'
 import type { FunnelStep } from '../../funnel/model/types.ts'
@@ -208,6 +222,13 @@ const mapCanvasChartTypeToGraphType = (chartType: CanvasChartType): GraphType =>
   if (chartType === 'bar') return 'BAR'
   if (chartType === 'pie') return 'PIE'
   return 'TABLE'
+}
+
+const getCanvasCategoryDisplayName = (name?: string): string => {
+  const trimmed = name?.trim() ?? ''
+  if (!trimmed) return 'Fane 1'
+  if (trimmed.toLowerCase() === 'general') return 'Fane 1'
+  return trimmed
 }
 
 const extractCanvasWebsiteIdFromDescription = (description?: string): string | null => {
@@ -498,13 +519,15 @@ const Canvas = () => {
     const params = new URLSearchParams(window.location.search)
     const projectId = Number(params.get('projectId'))
     const dashboardId = Number(params.get('dashboardId'))
+    const categoryId = Number(params.get('categoryId'))
     return {
       onlyDirectEntry: params.get('strict') ? params.get('strict') === 'true' : false,
       projectId: Number.isFinite(projectId) ? projectId : null,
       dashboardId: Number.isFinite(dashboardId) ? dashboardId : null,
+      categoryId: Number.isFinite(categoryId) ? categoryId : null,
     }
   }, [])
-  const { onlyDirectEntry, projectId, dashboardId } = routeContext
+  const { onlyDirectEntry, projectId, dashboardId, categoryId: initialCategoryId } = routeContext
   const canPersistToDashboard = projectId !== null && dashboardId !== null
   const projectManagerHref = projectId !== null ? `/dashboard?projectId=${projectId}` : '/dashboard'
   const [canvasTitle, setCanvasTitle] = useState('Canvas')
@@ -535,6 +558,16 @@ const Canvas = () => {
   const [renameCanvasInput, setRenameCanvasInput] = useState('')
   const [renameCanvasError, setRenameCanvasError] = useState<string | null>(null)
   const [isAddChartModalOpen, setIsAddChartModalOpen] = useState(false)
+  const [isCreateTabModalOpen, setIsCreateTabModalOpen] = useState(false)
+  const [newTabName, setNewTabName] = useState('')
+  const [createTabError, setCreateTabError] = useState<string | null>(null)
+  const [creatingTab, setCreatingTab] = useState(false)
+  const [isManageTabsModalOpen, setIsManageTabsModalOpen] = useState(false)
+  const [manageTabId, setManageTabId] = useState('')
+  const [manageTabName, setManageTabName] = useState('')
+  const [manageTabError, setManageTabError] = useState<string | null>(null)
+  const [savingManageTab, setSavingManageTab] = useState(false)
+  const [deletingManageTab, setDeletingManageTab] = useState(false)
   const [isEditWebsiteModalOpen, setIsEditWebsiteModalOpen] = useState(false)
   const [isEditDashboardModalOpen, setIsEditDashboardModalOpen] = useState(false)
   const [isEditImageModalOpen, setIsEditImageModalOpen] = useState(false)
@@ -608,7 +641,8 @@ const Canvas = () => {
     startWidth: number
     startHeight: number
   } | null>(null)
-  const [canvasCategoryId, setCanvasCategoryId] = useState<number | null>(null)
+  const [canvasCategories, setCanvasCategories] = useState<GraphCategoryDto[]>([])
+  const [activeCanvasCategoryId, setActiveCanvasCategoryId] = useState<number | null>(null)
   const [syncError, setSyncError] = useState<string | null>(null)
   const [, setIsLoadingCanvasItems] = useState(false)
   const [isSavingCanvasItem, setIsSavingCanvasItem] = useState(false)
@@ -725,9 +759,25 @@ const Canvas = () => {
     }
   }, [canvasConfiguredWebsiteId, selectedWebsite])
 
+  const visibleFrames = useMemo(
+    () =>
+      activeCanvasCategoryId === null
+        ? frames
+        : frames.filter((frame) => (frame.categoryId ?? null) === activeCanvasCategoryId),
+    [activeCanvasCategoryId, frames],
+  )
+
+  const visibleConnections = useMemo(
+    () =>
+      activeCanvasCategoryId === null
+        ? connections
+        : connections.filter((connection) => (connection.categoryId ?? null) === activeCanvasCategoryId),
+    [activeCanvasCategoryId, connections],
+  )
+
   const frameItems = useMemo(
     () =>
-      [...frames]
+      [...visibleFrames]
         .sort((a, b) => {
           if (a.y !== b.y) return a.y - b.y
           if (a.x !== b.x) return a.x - b.x
@@ -741,24 +791,26 @@ const Canvas = () => {
             src: getWebsiteFrameRenderSrc(frame) || '',
           }
         }),
-    [frames],
+    [visibleFrames],
   )
 
   const ensureCanvasCategory = useCallback(async (): Promise<number | null> => {
     if (!canPersistToDashboard || projectId === null || dashboardId === null) return null
-    if (canvasCategoryId) return canvasCategoryId
+    if (activeCanvasCategoryId !== null) return activeCanvasCategoryId
 
     const categories = await fetchCategories(projectId, dashboardId)
+    setCanvasCategories(categories)
     if (categories.length > 0) {
       const firstCategoryId = categories[0].id
-      setCanvasCategoryId(firstCategoryId)
+      setActiveCanvasCategoryId(firstCategoryId)
       return firstCategoryId
     }
 
     const createdCategory = await createCategory(projectId, dashboardId, 'Fane 1')
-    setCanvasCategoryId(createdCategory.id)
+    setCanvasCategories([createdCategory])
+    setActiveCanvasCategoryId(createdCategory.id)
     return createdCategory.id
-  }, [canPersistToDashboard, projectId, dashboardId, canvasCategoryId])
+  }, [activeCanvasCategoryId, canPersistToDashboard, projectId, dashboardId])
 
   const loadPageInsight = useCallback(
     async (frame: CanvasFrame) => {
@@ -1019,6 +1071,8 @@ const Canvas = () => {
     if (!canPersistToDashboard || projectId === null || dashboardId === null || canvasInitMode !== 'existing') {
       setFrames((prev) => (prev.length > 0 ? [] : prev))
       setConnections((prev) => (prev.length > 0 ? [] : prev))
+      setCanvasCategories([])
+      setActiveCanvasCategoryId(null)
       return
     }
 
@@ -1029,8 +1083,17 @@ const Canvas = () => {
       try {
         const categories = await fetchCategories(projectId, dashboardId)
         if (!isActive) return
+        setCanvasCategories(categories)
         if (categories.length > 0) {
-          setCanvasCategoryId(categories[0].id)
+          setActiveCanvasCategoryId((current) =>
+            current && categories.some((category) => category.id === current)
+              ? current
+              : initialCategoryId && categories.some((category) => category.id === initialCategoryId)
+                ? initialCategoryId
+                : categories[0].id,
+          )
+        } else {
+          setActiveCanvasCategoryId(null)
         }
 
         const framesFromStorage: CanvasFrame[] = []
@@ -1110,7 +1173,37 @@ const Canvas = () => {
     return () => {
       isActive = false
     }
-  }, [canPersistToDashboard, projectId, dashboardId, canvasInitMode])
+  }, [canPersistToDashboard, projectId, dashboardId, canvasInitMode, initialCategoryId])
+
+  useEffect(() => {
+    if (!canPersistToDashboard) return
+    const firstCategoryId = canvasCategories[0]?.id ?? null
+    const shouldPersistCategoryId =
+      activeCanvasCategoryId !== null && firstCategoryId !== null && activeCanvasCategoryId !== firstCategoryId
+    const nextCategoryId = shouldPersistCategoryId ? String(activeCanvasCategoryId) : null
+    const params = new URLSearchParams(window.location.search)
+    const currentCategoryId = params.get('categoryId')
+    if (currentCategoryId === nextCategoryId) return
+
+    if (nextCategoryId) params.set('categoryId', nextCategoryId)
+    else params.delete('categoryId')
+
+    const nextSearch = params.toString()
+    const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}${window.location.hash}`
+    window.history.replaceState(window.history.state, '', nextUrl)
+  }, [activeCanvasCategoryId, canPersistToDashboard, canvasCategories])
+
+  useEffect(() => {
+    if (canvasCategories.length === 0) {
+      if (activeCanvasCategoryId !== null) {
+        setActiveCanvasCategoryId(null)
+      }
+      return
+    }
+    if (activeCanvasCategoryId !== null && canvasCategories.some((category) => category.id === activeCanvasCategoryId))
+      return
+    setActiveCanvasCategoryId(canvasCategories[0].id)
+  }, [activeCanvasCategoryId, canvasCategories])
 
   useEffect(() => {
     if (!canPersistToDashboard || projectId === null || dashboardId === null) {
@@ -2167,10 +2260,10 @@ const Canvas = () => {
         graphType: mapCanvasChartTypeToGraphType(frame.chartType),
         queryId: frame.queryId ?? 1,
         queryName: CANVAS_QUERY_NAME,
-        categoryId: frame.categoryId ?? canvasCategoryId ?? 0,
+        categoryId: frame.categoryId ?? activeCanvasCategoryId ?? 0,
       }
     },
-    [canvasCategoryId],
+    [activeCanvasCategoryId],
   )
 
   const handleOpenEditChartModal = (frame: CanvasFrame) => {
@@ -2456,7 +2549,7 @@ const Canvas = () => {
       const pointer = getCanvasPointerPosition(event.clientX, event.clientY)
       if (!pointer) return
 
-      const currentTarget = frames.find((frame) => {
+      const currentTarget = visibleFrames.find((frame) => {
         if (frame.kind !== 'website' || frame.isInternalDashboard) return false
         if (frame.id === connectionDragState.sourceFrameId) return false
         const bounds = getFrameBounds(frame)
@@ -2479,13 +2572,13 @@ const Canvas = () => {
 
     const finishConnectionDrag = async (event: MouseEvent) => {
       const pointer = getCanvasPointerPosition(event.clientX, event.clientY)
-      const sourceFrame = frames.find((frame) => frame.id === connectionDragState.sourceFrameId)
+      const sourceFrame = visibleFrames.find((frame) => frame.id === connectionDragState.sourceFrameId)
       if (!pointer || !sourceFrame || sourceFrame.kind !== 'website') {
         setConnectionDragState(null)
         return
       }
 
-      const targetFrame = frames.find((frame) => {
+      const targetFrame = visibleFrames.find((frame) => {
         if (frame.kind !== 'website') return false
         if (frame.id === sourceFrame.id) return false
         const bounds = getFrameBounds(frame)
@@ -2507,7 +2600,7 @@ const Canvas = () => {
       window.removeEventListener('mousemove', updateConnectionDrag)
       window.removeEventListener('mouseup', finishConnectionDrag)
     }
-  }, [connectionDragState, createConnectionBetweenFrames, frames, getCanvasPointerPosition, getFrameBounds])
+  }, [connectionDragState, createConnectionBetweenFrames, getCanvasPointerPosition, getFrameBounds, visibleFrames])
 
   const handleRemovePage = async (id: string) => {
     const frameToDelete = frames.find((frame) => frame.id === id)
@@ -2586,21 +2679,21 @@ const Canvas = () => {
       const frameId = role === 'from' ? connection.fromFrameId : connection.toFrameId
       const graphId = role === 'from' ? connection.fromGraphId : connection.toGraphId
       if (frameId) {
-        const byId = frames.find((frame) => frame.id === frameId)
+        const byId = visibleFrames.find((frame) => frame.id === frameId)
         if (byId) return byId
       }
       if (graphId) {
-        const byGraphId = frames.find((frame) => frame.graphId === graphId)
+        const byGraphId = visibleFrames.find((frame) => frame.graphId === graphId)
         if (byGraphId) return byGraphId
       }
       return null
     },
-    [frames],
+    [visibleFrames],
   )
 
   const connectionSegments = useMemo(
     () =>
-      connections.flatMap((connection) => {
+      visibleConnections.flatMap((connection) => {
         const fromFrame = resolveConnectionFrame(connection, 'from')
         const toFrame = resolveConnectionFrame(connection, 'to')
         if (!fromFrame || !toFrame) return []
@@ -2628,17 +2721,17 @@ const Canvas = () => {
           },
         ]
       }),
-    [connections, resolveConnectionFrame, getFrameAnchor],
+    [visibleConnections, resolveConnectionFrame, getFrameAnchor],
   )
 
   const connectionPreview = useMemo(() => {
     if (!connectionDragState) return null
 
-    const sourceFrame = frames.find((frame) => frame.id === connectionDragState.sourceFrameId)
+    const sourceFrame = visibleFrames.find((frame) => frame.id === connectionDragState.sourceFrameId)
     if (!sourceFrame || sourceFrame.kind !== 'website') return null
 
     const targetFrame = connectionDragState.currentTargetFrameId
-      ? frames.find((frame) => frame.id === connectionDragState.currentTargetFrameId)
+      ? visibleFrames.find((frame) => frame.id === connectionDragState.currentTargetFrameId)
       : null
     const fromAnchor = getFrameAnchor(sourceFrame, 'right')
     const toAnchor =
@@ -2658,7 +2751,7 @@ const Canvas = () => {
       midY: midpoint.y,
       targetFrameId: targetFrame?.id ?? null,
     }
-  }, [connectionDragState, frames, getFrameAnchor])
+  }, [connectionDragState, visibleFrames, getFrameAnchor])
 
   const connectionSegmentsWithMetrics = useMemo(
     () =>
@@ -2677,7 +2770,7 @@ const Canvas = () => {
 
   const connectionMetricRequests = useMemo(
     () =>
-      connections
+      visibleConnections
         .map((connection) => {
           const fromFrame = resolveConnectionFrame(connection, 'from')
           const toFrame = resolveConnectionFrame(connection, 'to')
@@ -2689,7 +2782,7 @@ const Canvas = () => {
           }
         })
         .filter((item): item is { id: string; fromUrl: string; toUrl: string } => item !== null),
-    [connections, resolveConnectionFrame],
+    [resolveConnectionFrame, visibleConnections],
   )
 
   // Request the funnel data only when the connected URLs change. Frame movement
@@ -2870,6 +2963,135 @@ const Canvas = () => {
     setRenameCanvasInput(canvasTitle)
     setRenameCanvasError(null)
     setIsCanvasSettingsModalOpen(true)
+  }
+
+  const handleOpenCreateTabModal = () => {
+    setNewTabName('')
+    setCreateTabError(null)
+    setIsCreateTabModalOpen(true)
+  }
+
+  const handleCreateTab = async () => {
+    const nextTabName = newTabName.trim()
+    if (!nextTabName) {
+      setCreateTabError('Legg inn et fanenavn.')
+      return
+    }
+    if (projectId === null || dashboardId === null) {
+      setCreateTabError('Mangler prosjekt- eller dashboard-kontekst.')
+      return
+    }
+
+    try {
+      setCreatingTab(true)
+      setCreateTabError(null)
+      const createdCategory = await createCategory(projectId, dashboardId, nextTabName)
+      const categories = await fetchCategories(projectId, dashboardId)
+      setCanvasCategories(categories)
+      setActiveCanvasCategoryId(createdCategory.id)
+      setIsCreateTabModalOpen(false)
+      setNewTabName('')
+    } catch (error) {
+      setCreateTabError(error instanceof Error ? error.message : 'Kunne ikke opprette fane')
+    } finally {
+      setCreatingTab(false)
+    }
+  }
+
+  const handleOpenManageTabsModal = () => {
+    const selectedTabId =
+      activeCanvasCategoryId !== null && canvasCategories.some((category) => category.id === activeCanvasCategoryId)
+        ? activeCanvasCategoryId
+        : (canvasCategories[0]?.id ?? null)
+    const selectedTab = selectedTabId ? canvasCategories.find((category) => category.id === selectedTabId) : null
+    setManageTabId(selectedTab ? String(selectedTab.id) : '')
+    setManageTabName(selectedTab?.name ?? '')
+    setManageTabError(null)
+    setIsManageTabsModalOpen(true)
+  }
+
+  const manageTabCategoryId = Number(manageTabId)
+  const selectedManageTab =
+    Number.isFinite(manageTabCategoryId) && manageTabCategoryId > 0
+      ? (canvasCategories.find((category) => category.id === manageTabCategoryId) ?? null)
+      : null
+  const firstCanvasCategoryId = canvasCategories[0]?.id ?? null
+  const selectedManageTabIsFirst =
+    selectedManageTab !== null && firstCanvasCategoryId !== null && selectedManageTab.id === firstCanvasCategoryId
+  const selectedManageTabItemCount =
+    selectedManageTab === null
+      ? 0
+      : frames.filter((frame) => frame.categoryId === selectedManageTab.id).length +
+        connections.filter((connection) => connection.categoryId === selectedManageTab.id).length
+  const selectedManageTabIsEmpty = selectedManageTab !== null && selectedManageTabItemCount === 0
+
+  const handleRenameTab = async () => {
+    const categoryId = Number(manageTabId)
+    const nextName = manageTabName.trim()
+    if (!Number.isFinite(categoryId)) {
+      setManageTabError('Velg en fane.')
+      return
+    }
+    if (!nextName) {
+      setManageTabError('Legg inn et fanenavn.')
+      return
+    }
+    if (projectId === null || dashboardId === null) {
+      setManageTabError('Mangler prosjekt- eller dashboard-kontekst.')
+      return
+    }
+
+    try {
+      setSavingManageTab(true)
+      setManageTabError(null)
+      await updateCategory(projectId, dashboardId, categoryId, { name: nextName })
+      const categories = await fetchCategories(projectId, dashboardId)
+      setCanvasCategories(categories)
+      setActiveCanvasCategoryId(categoryId)
+      setIsManageTabsModalOpen(false)
+    } catch (error) {
+      setManageTabError(error instanceof Error ? error.message : 'Kunne ikke endre navn på fane')
+    } finally {
+      setSavingManageTab(false)
+    }
+  }
+
+  const handleDeleteTab = async () => {
+    if (!selectedManageTab) {
+      setManageTabError('Velg en fane.')
+      return
+    }
+    if (selectedManageTabIsFirst) {
+      setManageTabError('Den første fanen kan ikke slettes.')
+      return
+    }
+    if (!selectedManageTabIsEmpty) {
+      setManageTabError('Fanen må være tom før den kan slettes.')
+      return
+    }
+    if (projectId === null || dashboardId === null) {
+      setManageTabError('Mangler prosjekt- eller dashboard-kontekst.')
+      return
+    }
+
+    try {
+      setDeletingManageTab(true)
+      setManageTabError(null)
+      await deleteCategory(projectId, dashboardId, selectedManageTab.id)
+      const categories = await fetchCategories(projectId, dashboardId)
+      setCanvasCategories(categories)
+      setFrames((prev) => prev.filter((frame) => frame.categoryId !== selectedManageTab.id))
+      setConnections((prev) => prev.filter((connection) => connection.categoryId !== selectedManageTab.id))
+      setActiveCanvasCategoryId((current) => {
+        if (current !== selectedManageTab.id) return current
+        return categories[0]?.id ?? null
+      })
+      setIsManageTabsModalOpen(false)
+    } catch (error) {
+      setManageTabError(error instanceof Error ? error.message : 'Kunne ikke slette fane')
+    } finally {
+      setDeletingManageTab(false)
+    }
   }
 
   const handleRenameCanvas = async () => {
@@ -3060,6 +3282,10 @@ const Canvas = () => {
                     />
                   </ActionMenu.Trigger>
                   <ActionMenu.Content align="end">
+                    <ActionMenu.Item onClick={handleOpenCreateTabModal}>Legg til fane</ActionMenu.Item>
+                    {canvasCategories.length > 1 && (
+                      <ActionMenu.Item onClick={handleOpenManageTabsModal}>Administrer faner</ActionMenu.Item>
+                    )}
                     <ActionMenu.Item onClick={handleOpenCanvasSettingsModal}>Innstillinger</ActionMenu.Item>
                   </ActionMenu.Content>
                 </ActionMenu>
@@ -3082,6 +3308,30 @@ const Canvas = () => {
                 <Alert variant="error" size="small" closeButton onClose={() => setSyncError(null)}>
                   {syncError}
                 </Alert>
+              </div>
+            )}
+            {canvasCategories.length > 1 && (
+              <div className="mt-2">
+                <Tabs
+                  value={activeCanvasCategoryId !== null ? String(activeCanvasCategoryId) : undefined}
+                  onChange={(value) => {
+                    const categoryId = Number(value)
+                    if (!Number.isFinite(categoryId)) return
+                    setActiveCanvasCategoryId(categoryId)
+                    setActiveInsightFrameId(null)
+                    setConnectionDragState(null)
+                  }}
+                >
+                  <Tabs.List>
+                    {canvasCategories.map((category) => (
+                      <Tabs.Tab
+                        key={category.id}
+                        value={String(category.id)}
+                        label={getCanvasCategoryDisplayName(category.name)}
+                      />
+                    ))}
+                  </Tabs.List>
+                </Tabs>
               </div>
             )}
           </div>
@@ -4071,6 +4321,126 @@ const Canvas = () => {
           </Button>
           <Button variant="secondary" size="small" onClick={() => setIsCanvasSettingsModalOpen(false)}>
             Lukk
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal
+        open={isCreateTabModalOpen}
+        onClose={() => {
+          setIsCreateTabModalOpen(false)
+          setCreateTabError(null)
+        }}
+        header={{ heading: 'Legg til fane' }}
+        width="small"
+      >
+        <Modal.Body>
+          <div className="space-y-3">
+            <TextField
+              label="Fanenavn"
+              value={newTabName}
+              onChange={(event) => {
+                setNewTabName(event.target.value)
+                if (createTabError) setCreateTabError(null)
+              }}
+              autoFocus
+            />
+            {createTabError && <Alert variant="error">{createTabError}</Alert>}
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button onClick={() => void handleCreateTab()} size="small" loading={creatingTab}>
+            Legg til
+          </Button>
+          <Button
+            variant="secondary"
+            size="small"
+            onClick={() => setIsCreateTabModalOpen(false)}
+            disabled={creatingTab}
+          >
+            Avbryt
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal
+        open={isManageTabsModalOpen}
+        onClose={() => {
+          setIsManageTabsModalOpen(false)
+          setManageTabError(null)
+        }}
+        header={{ heading: 'Administrer faner' }}
+        width="small"
+      >
+        <Modal.Body>
+          <div className="space-y-3">
+            <Select
+              label="Hvilken fane vil du endre?"
+              value={manageTabId}
+              onChange={(event) => {
+                const nextId = event.target.value
+                setManageTabId(nextId)
+                const selected = canvasCategories.find((category) => String(category.id) === nextId)
+                setManageTabName(selected?.name ?? '')
+                if (manageTabError) setManageTabError(null)
+              }}
+              disabled={savingManageTab || deletingManageTab || canvasCategories.length === 0}
+            >
+              <option value="" disabled>
+                {canvasCategories.length === 0 ? 'Ingen faner funnet' : 'Velg fane'}
+              </option>
+              {canvasCategories.map((category) => (
+                <option key={category.id} value={String(category.id)}>
+                  {getCanvasCategoryDisplayName(category.name)}
+                </option>
+              ))}
+            </Select>
+            <TextField
+              label="Fanenavn"
+              value={manageTabName}
+              onChange={(event) => {
+                setManageTabName(event.target.value)
+                if (manageTabError) setManageTabError(null)
+              }}
+              disabled={savingManageTab || deletingManageTab || canvasCategories.length === 0}
+            />
+            {selectedManageTab && (
+              <div className="text-sm text-[var(--ax-text-subtle)]">
+                {selectedManageTabIsFirst
+                  ? 'Første fane kan ikke slettes.'
+                  : selectedManageTabIsEmpty
+                    ? 'Denne fanen er tom og kan slettes.'
+                    : `Fanen inneholder ${selectedManageTabItemCount} element(er) og kan ikke slettes.`}
+              </div>
+            )}
+            {manageTabError && <Alert variant="error">{manageTabError}</Alert>}
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            onClick={() => void handleRenameTab()}
+            size="small"
+            loading={savingManageTab}
+            disabled={deletingManageTab || !manageTabId || canvasCategories.length === 0}
+          >
+            Lagre navn
+          </Button>
+          <Button
+            variant="danger"
+            size="small"
+            onClick={() => void handleDeleteTab()}
+            loading={deletingManageTab}
+            disabled={savingManageTab || !selectedManageTab || selectedManageTabIsFirst || !selectedManageTabIsEmpty}
+          >
+            Slett fane
+          </Button>
+          <Button
+            variant="secondary"
+            size="small"
+            onClick={() => setIsManageTabsModalOpen(false)}
+            disabled={savingManageTab || deletingManageTab}
+          >
+            Avbryt
           </Button>
         </Modal.Footer>
       </Modal>

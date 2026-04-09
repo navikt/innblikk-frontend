@@ -1053,13 +1053,6 @@ const ProjectManager = () => {
       name: dashboard.name,
     }))
   }, [selectedProject])
-  const canvasDashboardIds = useMemo(() => {
-    if (!selectedProject) return new Set<number>()
-    return new Set(
-      selectedProject.dashboards.filter((dashboard) => isCanvasDashboard(dashboard.description)).map((item) => item.id),
-    )
-  }, [selectedProject])
-
   const isInitialLoading = loading && projectSummaries.length === 0 && !error
   const categoryRowKeys = useMemo(() => {
     const keys = new Set<string>()
@@ -1118,9 +1111,7 @@ const ProjectManager = () => {
           Legg til graf
         </ActionMenu.Item>
         <ActionMenu.Item onClick={() => openImportChart(dashboardId)}>Importer graf</ActionMenu.Item>
-        {!canvasDashboardIds.has(dashboardId) && (
-          <ActionMenu.Item onClick={() => openCreateDashboardTab(dashboardId)}>Legg til fane</ActionMenu.Item>
-        )}
+        <ActionMenu.Item onClick={() => openCreateDashboardTab(dashboardId)}>Legg til fane</ActionMenu.Item>
       </ActionMenu.Content>
     </ActionMenu>
   )
@@ -1477,7 +1468,7 @@ const ProjectManager = () => {
                                   </ActionMenu.Trigger>
                                 </Tooltip>
                                 <ActionMenu.Content align="end">
-                                  {selectedProject && !isCanvasRow && (
+                                  {selectedProject && (
                                     <ActionMenu.Item onClick={() => openCreateDashboardTab(row.dashboardId)}>
                                       Legg til fane
                                     </ActionMenu.Item>
