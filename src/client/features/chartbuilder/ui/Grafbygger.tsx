@@ -20,6 +20,12 @@ import { sanitizeColumnName } from '../utils/sanitize.ts'
 import { useChartConfig } from '../hooks/useChartConfig.ts'
 
 const ChartsPage = () => {
+  const isFocusedMode = (() => {
+    if (typeof window === 'undefined') return false
+    const params = new URLSearchParams(window.location.search)
+    const value = params.get('focused')
+    return value === '1' || value === 'true'
+  })()
   const [interactiveDateFilterEnabled, setInteractiveDateFilterEnabled] = useState<boolean>(true)
   const [isWebsitePickerInitializing, setIsWebsitePickerInitializing] = useState<boolean>(true)
   const [groupingResetSignal, setGroupingResetSignal] = useState<number>(0)
@@ -139,6 +145,8 @@ const ChartsPage = () => {
       currentPage="grafbygger"
       wideSidebar={true}
       sidebarFilterGap="space-16"
+      showPageHeader={!isFocusedMode}
+      showKontaktSection={!isFocusedMode}
       filters={
         <>
           {/* ── Nettside ───────────────────────────────────────── */}

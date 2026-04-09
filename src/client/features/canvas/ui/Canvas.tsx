@@ -623,6 +623,14 @@ const parseCanvasConfig = (raw: string): CanvasConfigPayload | null => {
 }
 
 type CanvasDrawingPoint = { x: number; y: number }
+type CanvasChartReadyMessage = {
+  type: 'umami-canvas-chart-ready'
+  payload: {
+    label?: string
+    chartType?: CanvasChartType
+    chartSql?: string
+  }
+}
 
 const parseDrawingPath = (rawPath?: string): CanvasDrawingPoint[] => {
   if (!rawPath) return []
@@ -767,6 +775,7 @@ const Canvas = () => {
   const [selectedChartOptionId, setSelectedChartOptionId] = useState('')
   const [isLoadingChartOptions, setIsLoadingChartOptions] = useState(false)
   const [addChartError, setAddChartError] = useState<string | null>(null)
+  const [isGrafbyggerEmbedded, setIsGrafbyggerEmbedded] = useState(false)
   const [editChartFrameId, setEditChartFrameId] = useState<string | null>(null)
   const [editChartTarget, setEditChartTarget] = useState<OversiktChart | null>(null)
   const [deleteChartFrameId, setDeleteChartFrameId] = useState<string | null>(null)
@@ -2832,8 +2841,15 @@ const Canvas = () => {
 
   const handleOpenAddChartModal = () => {
     setAddChartError(null)
+    setIsGrafbyggerEmbedded(false)
     setIsAddChartModalOpen(true)
     void loadChartOptions()
+  }
+
+  const handleOpenGrafbyggerFromAddMenu = () => {
+    setAddChartError(null)
+    setIsAddChartModalOpen(false)
+    setIsGrafbyggerEmbedded(true)
   }
 
   const handleAddChartCard = () => {
@@ -3862,6 +3878,32 @@ const Canvas = () => {
     setIsDrawingMode(true)
   }
 
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return
+      const data = event.data as CanvasChartReadyMessage | null
+      if (!data || data.type !== 'umami-canvas-chart-ready') return
+      if (!data.payload?.chartSql || !data.payload?.chartType) return
+
+      setIsGrafbyggerEmbedded(false)
+      queueFrameForPlacement(
+        {
+          kind: 'chart',
+          label: data.payload.label?.trim() || 'Graf',
+          chartType: data.payload.chartType,
+          chartSql: data.payload.chartSql,
+          width: 560,
+          height: 360,
+          refreshNonce: 0,
+        },
+        'graf',
+      )
+    }
+
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
+  }, [queueFrameForPlacement])
+
   const handleOpenAddIllustrationModal = () => {
     setEditIllustrationFrameId(null)
     setAddIllustrationError(null)
@@ -3891,7 +3933,6 @@ const Canvas = () => {
           onCustomEndDateChange={setCustomEndDate}
           canvasInitMode={canvasInitMode}
           onOpenAddPage={handleOpenAddPageModal}
-          onOpenAddChart={handleOpenAddChartModal}
           onOpenAddDashboard={handleOpenAddDashboardModal}
           onOpenAddHeading={handleOpenAddHeadingModal}
           onOpenAddText={handleOpenAddTextModal}
@@ -3901,6 +3942,10 @@ const Canvas = () => {
           onOpenAddFigure={handleOpenAddFigureModal}
           onOpenAddDrawing={handleOpenAddDrawing}
           onOpenAddIllustration={handleOpenAddIllustrationModal}
+          onOpenCreateChart={handleOpenGrafbyggerFromAddMenu}
+          onOpenImportChart={handleOpenAddChartModal}
+          isGrafbyggerEmbedded={isGrafbyggerEmbedded}
+          onCloseGrafbygger={() => setIsGrafbyggerEmbedded(false)}
           onOpenCreateTab={handleOpenCreateTabModal}
           onOpenManageTabs={handleOpenManageTabsModal}
           onOpenCanvasSettings={handleOpenCanvasSettingsModal}
@@ -4954,33 +4999,55 @@ const Canvas = () => {
             </div>
           </main>
         </div>
+        {isGrafbyggerEmbedded && (
+          <div
+            className="absolute bottom-0 left-0 right-0 z-40 overflow-hidden bg-[var(--ax-bg-default)]"
+            style={{ top: `${canvasCanvasTopOffset}px` }}
+          >
+            <div className="h-full p-3">
+              <div className="h-full overflow-hidden rounded-xl border border-[var(--ax-border-neutral-subtle)] bg-white shadow-sm">
+                <iframe
+                  title="Grafbygger i canvas"
+                  src="/grafbygger?focused=true&canvasEmbed=true"
+                  className="h-full w-full"
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+            </div>
+          </div>
+        )}
         <div className="pointer-events-none fixed bottom-4 right-4 z-30">
           <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-1 shadow-sm">
-            <Button
-              size="xsmall"
-              variant="tertiary"
-              icon={<Minus size={14} />}
-              onClick={() => handleCanvasZoomChange(canvasZoom - CANVAS_ZOOM_STEP)}
-              title="Zoom ut"
-              aria-label="Zoom ut"
-            />
-            <Button
-              size="xsmall"
-              variant="tertiary"
-              onClick={handleCanvasZoomReset}
-              title="Tilbakestill zoom"
-              aria-label="Tilbakestill zoom"
-            >
-              {Math.round(canvasZoom * 100)}%
-            </Button>
-            <Button
-              size="xsmall"
-              variant="tertiary"
-              icon={<Plus size={14} />}
-              onClick={() => handleCanvasZoomChange(canvasZoom + CANVAS_ZOOM_STEP)}
-              title="Zoom inn"
-              aria-label="Zoom inn"
-            />
+            {!isGrafbyggerEmbedded && (
+              <>
+                <Button
+                  size="xsmall"
+                  variant="tertiary"
+                  icon={<Minus size={14} />}
+                  onClick={() => handleCanvasZoomChange(canvasZoom - CANVAS_ZOOM_STEP)}
+                  title="Zoom ut"
+                  aria-label="Zoom ut"
+                />
+                <Button
+                  size="xsmall"
+                  variant="tertiary"
+                  onClick={handleCanvasZoomReset}
+                  title="Tilbakestill zoom"
+                  aria-label="Tilbakestill zoom"
+                >
+                  {Math.round(canvasZoom * 100)}%
+                </Button>
+                <Button
+                  size="xsmall"
+                  variant="tertiary"
+                  icon={<Plus size={14} />}
+                  onClick={() => handleCanvasZoomChange(canvasZoom + CANVAS_ZOOM_STEP)}
+                  title="Zoom inn"
+                  aria-label="Zoom inn"
+                />
+              </>
+            )}
           </div>
         </div>
       </section>
@@ -5791,7 +5858,7 @@ const Canvas = () => {
           setIsAddChartModalOpen(false)
           setAddChartError(null)
         }}
-        header={{ heading: 'Legg til graf' }}
+        header={{ heading: 'Importer graf' }}
         width="small"
       >
         <Modal.Body>
@@ -5817,9 +5884,6 @@ const Canvas = () => {
               </Select>
             )}
             {addChartError && <Alert variant="error">{addChartError}</Alert>}
-            <Link href="/grafbygger" target="_blank" rel="noopener noreferrer">
-              Lag en graf i Grafbyggeren (åpnes i ny fane)
-            </Link>
           </div>
         </Modal.Body>
         <Modal.Footer>

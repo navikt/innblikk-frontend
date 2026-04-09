@@ -65,6 +65,7 @@ interface ResultsPanelProps {
   websiteId?: string
   period?: string
   onAddToDashboard?: () => void
+  onGraphTypeSuggestionChange?: (graphType: 'LINE' | 'BAR' | 'PIE' | 'TABLE') => void
 }
 
 const ResultsPanel = ({
@@ -94,6 +95,7 @@ const ResultsPanel = ({
   websiteId,
   period,
   onAddToDashboard,
+  onGraphTypeSuggestionChange,
 }: ResultsPanelProps) => {
   // Read initial tab from URL parameter
   const [activeTab, setActiveTab] = useState<string>(() => {
@@ -236,6 +238,19 @@ const ResultsPanel = ({
     const newUrl = `${window.location.pathname}?${urlParams.toString()}`
     window.history.replaceState({}, '', newUrl)
   }
+
+  useEffect(() => {
+    if (!onGraphTypeSuggestionChange) return
+    const suggestedType =
+      activeTab === 'barchart'
+        ? 'BAR'
+        : activeTab === 'piechart'
+          ? 'PIE'
+          : activeTab === 'linechart' || activeTab === 'areachart'
+            ? 'LINE'
+            : 'TABLE'
+    onGraphTypeSuggestionChange(suggestedType)
+  }, [activeTab, onGraphTypeSuggestionChange])
 
   // Handler for executing search
   const handleSearch = () => {

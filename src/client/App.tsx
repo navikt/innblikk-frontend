@@ -56,8 +56,9 @@ const AppShell = ({ theme }: { theme: 'light' | 'dark' }) => {
   const location = useLocation()
   const isCanvasPage = location.pathname.startsWith('/canvas')
   const focusedParam = new URLSearchParams(location.search).get('focused')
-  const isFocusedDashboardPage =
-    location.pathname.startsWith('/dashboard') && (focusedParam === 'true' || focusedParam === '1')
+  const isFocusedParam = focusedParam === 'true' || focusedParam === '1'
+  const isFocusedDashboardPage = location.pathname.startsWith('/dashboard') && isFocusedParam
+  const isFocusedGrafbyggerPage = location.pathname.startsWith('/grafbygger') && isFocusedParam
 
   const appRoutes = (
     <Routes>
@@ -68,7 +69,7 @@ const AppShell = ({ theme }: { theme: 'light' | 'dark' }) => {
     </Routes>
   )
 
-  if (isCanvasPage || isFocusedDashboardPage) {
+  if (isCanvasPage || isFocusedDashboardPage || isFocusedGrafbyggerPage) {
     return (
       <ErrorBoundary>
         <Suspense fallback={<PageLoader />}>{appRoutes}</Suspense>

@@ -18,6 +18,8 @@ interface ChartLayoutProps {
   hideSidebar?: boolean
   hideAnalysisSelector?: boolean
   sidebarFilterGap?: VStackProps['gap']
+  showPageHeader?: boolean
+  showKontaktSection?: boolean
 }
 
 const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
@@ -30,8 +32,11 @@ const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
   hideSidebar = false,
   hideAnalysisSelector = true,
   sidebarFilterGap = 'space-32',
+  showPageHeader = true,
+  showKontaktSection = true,
 }) => {
   const { isSidebarOpen, setIsSidebarOpen, handleChartChange } = useChartLayoutOriginal(hideSidebar)
+  const isFocusedEmbedLayout = !showPageHeader && !showKontaktSection
 
   // Define width classes based on wideSidebar prop
   const sidebarWidth = wideSidebar ? 'md:w-1/2' : 'md:w-1/3'
@@ -40,14 +45,18 @@ const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
 
   return (
     <>
-      <PageHeader title={title} description={description} />
+      {showPageHeader && <PageHeader title={title} description={description} />}
 
-      <AppBlock className="pb-16">
+      <AppBlock className={isFocusedEmbedLayout ? 'pb-0' : 'pb-16'} gutters={!isFocusedEmbedLayout}>
         <div
           className={
             hideSidebar
-              ? 'mb-8'
-              : 'rounded-lg shadow-sm border border-[var(--ax-border-neutral-subtle)] mb-8 bg-[var(--ax-bg-default)]'
+              ? isFocusedEmbedLayout
+                ? ''
+                : 'mb-8'
+              : isFocusedEmbedLayout
+                ? 'bg-[var(--ax-bg-default)]'
+                : 'rounded-lg shadow-sm border border-[var(--ax-border-neutral-subtle)] mb-8 bg-[var(--ax-bg-default)]'
           }
         >
           <div className={hideSidebar ? '' : 'flex flex-col md:flex-row min-h-[600px] relative'}>
@@ -122,7 +131,7 @@ const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
           </div>
         </div>
       </AppBlock>
-      <KontaktSeksjon showMarginBottom={true} />
+      {showKontaktSection && <KontaktSeksjon showMarginBottom={true} />}
     </>
   )
 }

@@ -126,6 +126,13 @@ const CANVAS_CHART_DEFAULT_Y = 120
 const CANVAS_CHART_DEFAULT_WIDTH = 680
 const CANVAS_CHART_DEFAULT_HEIGHT = 460
 
+const mapGraphTypeToCanvasChartType = (value: string): 'line' | 'bar' | 'pie' | 'table' => {
+  if (value === 'LINE') return 'line'
+  if (value === 'BAR') return 'bar'
+  if (value === 'PIE') return 'pie'
+  return 'table'
+}
+
 const parseStoredId = (value: string | null): number | null => {
   if (!value) return null
   const parsed = Number(value)
@@ -270,6 +277,13 @@ const QueryPreview = ({
   const [isCreatingProject, setIsCreatingProject] = useState(false)
   const [isCreatingDashboard, setIsCreatingDashboard] = useState(false)
   const [showMetabaseInstructions, setShowMetabaseInstructions] = useState(false)
+  const [canvasAddSuccess, setCanvasAddSuccess] = useState<string | null>(null)
+  const [canvasAddError, setCanvasAddError] = useState<string | null>(null)
+  const isCanvasEmbedMode = useMemo(() => {
+    if (typeof window === 'undefined') return false
+    const value = new URLSearchParams(window.location.search).get('canvasEmbed')
+    return value === '1' || value === 'true'
+  }, [])
 
   const availablePaths = useMemo(() => {
     const paths = new Set<string>()
@@ -901,6 +915,7 @@ const QueryPreview = ({
   const openSaveModal = () => {
     setSaveError(null)
     setSaveSuccess(null)
+    setCanvasAddSuccess(null)
     setSavedLocation(null)
 
     const loadSaveData = async () => {
@@ -955,6 +970,34 @@ const QueryPreview = ({
 
     setShowSaveModal(true)
     void loadSaveData()
+  }
+
+  const handleAddToCanvas = () => {
+    if (!isCanvasEmbedMode) return
+    setCanvasAddError(null)
+    setCanvasAddSuccess(null)
+    if (!graphName.trim()) {
+      setCanvasAddError('Gi grafen et navn før du legger den til i canvas.')
+      return
+    }
+    const chartSql = getProcessedSql({ preserveMetabasePlaceholders: true }).trim()
+    if (!chartSql) {
+      setCanvasAddError('Fant ingen gyldig SQL å legge til i canvas.')
+      return
+    }
+
+    window.parent?.postMessage(
+      {
+        type: 'umami-canvas-chart-ready',
+        payload: {
+          label: graphName.trim(),
+          chartType: mapGraphTypeToCanvasChartType(graphType),
+          chartSql,
+        },
+      },
+      window.location.origin,
+    )
+    setCanvasAddSuccess('Grafen er klar for plassering i canvas.')
   }
 
   const handleProjectSelection = async (option: string, isSelected: boolean) => {
@@ -1084,7 +1127,23 @@ const QueryPreview = ({
         categoryId: selectedCategoryOption ? Number(selectedCategoryOption) : undefined,
       })
 
-      if (isCanvasDashboard(saved.dashboard.description)) {
+      const canvasChartType = mapGraphTypeToCanvasChartType(graphType)
+      const canvasChartSql = saved.query.sqlText || getProcessedSql({ preserveMetabasePlaceholders: true })
+      const shouldPlaceViaCanvasParent = isCanvasEmbedMode && isCanvasDashboard(saved.dashboard.description)
+
+      if (shouldPlaceViaCanvasParent) {
+        window.parent?.postMessage(
+          {
+            type: 'umami-canvas-chart-ready',
+            payload: {
+              label: graphName.trim(),
+              chartType: canvasChartType,
+              chartSql: canvasChartSql,
+            },
+          },
+          window.location.origin,
+        )
+      } else if (isCanvasDashboard(saved.dashboard.description)) {
         const dashboardCategories = await fetchCategories(saved.project.id, saved.dashboard.id)
         const targetCategory =
           (selectedCategoryOption
@@ -1109,9 +1168,8 @@ const QueryPreview = ({
             width: CANVAS_CHART_DEFAULT_WIDTH,
             height: CANVAS_CHART_DEFAULT_HEIGHT,
             label: graphName.trim(),
-            chartType:
-              graphType === 'LINE' ? 'line' : graphType === 'BAR' ? 'bar' : graphType === 'PIE' ? 'pie' : 'table',
-            chartSql: saved.query.sqlText || getProcessedSql({ preserveMetabasePlaceholders: true }),
+            chartType: canvasChartType,
+            chartSql: canvasChartSql,
           }),
         })
       }
@@ -1127,7 +1185,7 @@ const QueryPreview = ({
       saveLastProjectId(saved.project.id)
       saveLastDashboardId(saved.dashboard.id)
       setShowSaveModal(false)
-      setShowSaveSuccessModal(true)
+      setShowSaveSuccessModal(!shouldPlaceViaCanvasParent)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Klarte ikke lagre grafen'
       setSaveError(message)
@@ -1482,11 +1540,56 @@ const QueryPreview = ({
                 websiteId={websiteId}
                 showDownloadReadMore={showDownloadReadMore}
                 hiddenTabs={hiddenResultTabs}
+                onGraphTypeSuggestionChange={setGraphType}
               />
             </div>
 
             {/* Save + Metabase Section */}
             <div className="space-y-3 mb-4">
+              {isCanvasEmbedMode && (
+                <div className="mb-2 rounded-md border border-[var(--ax-border-accent)] bg-[var(--ax-bg-accent-soft)] p-3">
+                  <div className="space-y-3">
+                    <Heading level="2" size="small">
+                      Legg til i canvas
+                    </Heading>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <TextField
+                        label="Navn"
+                        value={graphName}
+                        onChange={(e) => setGraphName(e.target.value)}
+                        size="small"
+                      />
+                      <Select
+                        label="Presentasjon"
+                        value={graphType}
+                        onChange={(e) => setGraphType(e.target.value)}
+                        size="small"
+                      >
+                        <option value="LINE">Linjediagram</option>
+                        <option value="BAR">Stolpediagram</option>
+                        <option value="PIE">Kakediagram</option>
+                        <option value="TABLE">Tabell</option>
+                      </Select>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button size="medium" variant="primary" onClick={handleAddToCanvas}>
+                        Legg til i canvas
+                      </Button>
+                    </div>
+                    {canvasAddError && (
+                      <Alert variant="error" size="small">
+                        {canvasAddError}
+                      </Alert>
+                    )}
+                    {canvasAddSuccess && (
+                      <Alert variant="success" size="small">
+                        {canvasAddSuccess}
+                      </Alert>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="flex flex-wrap gap-2">
                 <Button size="small" variant="primary" onClick={openSaveModal}>
                   Legg til i dashboard

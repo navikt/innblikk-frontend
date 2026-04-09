@@ -17,7 +17,8 @@ type CanvasTopBarProps = {
   onCustomEndDateChange: (date?: Date) => void
   canvasInitMode: 'checking' | 'existing' | 'create'
   onOpenAddPage: () => void
-  onOpenAddChart: () => void
+  onOpenCreateChart: () => void
+  onOpenImportChart: () => void
   onOpenAddDashboard: () => void
   onOpenAddHeading: () => void
   onOpenAddText: () => void
@@ -27,6 +28,8 @@ type CanvasTopBarProps = {
   onOpenAddFigure: () => void
   onOpenAddDrawing: () => void
   onOpenAddIllustration: () => void
+  isGrafbyggerEmbedded: boolean
+  onCloseGrafbygger: () => void
   onOpenCreateTab: () => void
   onOpenManageTabs: () => void
   onOpenCanvasSettings: () => void
@@ -54,7 +57,8 @@ const CanvasTopBar = ({
   onCustomEndDateChange,
   canvasInitMode,
   onOpenAddPage,
-  onOpenAddChart,
+  onOpenCreateChart,
+  onOpenImportChart,
   onOpenAddDashboard,
   onOpenAddHeading,
   onOpenAddText,
@@ -64,6 +68,8 @@ const CanvasTopBar = ({
   onOpenAddFigure,
   onOpenAddDrawing,
   onOpenAddIllustration,
+  isGrafbyggerEmbedded,
+  onCloseGrafbygger,
   onOpenCreateTab,
   onOpenManageTabs,
   onOpenCanvasSettings,
@@ -130,7 +136,8 @@ const CanvasTopBar = ({
             </ActionMenu.Trigger>
             <ActionMenu.Content align="end">
               <ActionMenu.Item onClick={onOpenAddPage}>Nettside</ActionMenu.Item>
-              <ActionMenu.Item onClick={onOpenAddChart}>Graf</ActionMenu.Item>
+              <ActionMenu.Item onClick={onOpenCreateChart}>Lag ny graf</ActionMenu.Item>
+              <ActionMenu.Item onClick={onOpenImportChart}>Importer graf</ActionMenu.Item>
               <ActionMenu.Item onClick={onOpenAddDashboard}>Dashboard</ActionMenu.Item>
               <ActionMenu.Divider />
               <ActionMenu.Item onClick={onOpenAddHeading}>Overskrift</ActionMenu.Item>
@@ -142,8 +149,15 @@ const CanvasTopBar = ({
               <ActionMenu.Item onClick={onOpenAddFigure}>Figur</ActionMenu.Item>
               <ActionMenu.Item onClick={onOpenAddDrawing}>Tegning</ActionMenu.Item>
               <ActionMenu.Item onClick={onOpenAddIllustration}>Illustrasjoner</ActionMenu.Item>
+              <ActionMenu.Divider />
+              <ActionMenu.Item onClick={onOpenCreateTab}>Legg til fane</ActionMenu.Item>
             </ActionMenu.Content>
           </ActionMenu>
+          {isGrafbyggerEmbedded && (
+            <Button size="small" variant="secondary" onClick={onCloseGrafbygger}>
+              Lukk grafbygger
+            </Button>
+          )}
           <ActionMenu>
             <ActionMenu.Trigger>
               <Button
@@ -155,7 +169,6 @@ const CanvasTopBar = ({
               />
             </ActionMenu.Trigger>
             <ActionMenu.Content align="end">
-              <ActionMenu.Item onClick={onOpenCreateTab}>Legg til fane</ActionMenu.Item>
               {canManageTabs && <ActionMenu.Item onClick={onOpenManageTabs}>Administrer faner</ActionMenu.Item>}
               <ActionMenu.Item onClick={onOpenCanvasSettings}>Innstillinger</ActionMenu.Item>
             </ActionMenu.Content>
