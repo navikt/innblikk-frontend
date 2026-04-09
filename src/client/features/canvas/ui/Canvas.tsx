@@ -30,6 +30,8 @@ import {
 } from '../../../shared/lib/utils.ts'
 import { DashboardWidget } from '../../dashboard'
 import { mapGraphTypeToChart } from '../../oversikt'
+import CanvasIllustrationPicker from './CanvasIllustrationPicker.tsx'
+import { DEFAULT_CANVAS_ILLUSTRATION_PATH, getCanvasIllustrationOptionByPath } from './CanvasIllustrationRegistry.ts'
 import CanvasIconPicker from './CanvasIconPicker.tsx'
 import {
   CANVAS_ICON_COLOR_OPTIONS,
@@ -82,6 +84,8 @@ type CanvasFrame = {
   iconName?: string
   iconRotationDeg?: number
   iconColor?: string
+  isIllustration?: boolean
+  imageRotationDeg?: number
   chartType?: CanvasChartType
   chartSql?: string
   label: string
@@ -161,6 +165,8 @@ type CanvasConfigPayload = {
   iconName?: string
   iconRotationDeg?: number
   iconColor?: string
+  isIllustration?: boolean
+  imageRotationDeg?: number
   chartType?: CanvasChartType
   chartSql?: string
   label: string
@@ -188,6 +194,8 @@ const CANVAS_ZOOM_MAX = 1.5
 const CANVAS_ZOOM_STEP = 0.1
 const HEADING_FONT_SIZE_DEFAULT = 40
 const ICON_ROTATION_STEP_DEG = 15
+const CARD_ACTION_BUTTON_CLASSNAME =
+  'pointer-events-auto bg-[var(--ax-bg-default)]/95 shadow-sm opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100'
 
 const clampCanvasZoom = (value: number): number => Math.min(CANVAS_ZOOM_MAX, Math.max(CANVAS_ZOOM_MIN, value))
 
@@ -400,6 +408,11 @@ const isImagePreviewUrl = (value: string): boolean => {
   }
 }
 
+const isIllustrationPath = (targetUrl?: string): boolean => Boolean(targetUrl?.startsWith('/illustrasjoner/'))
+
+const isIllustrationImageFrame = (frame: Pick<CanvasFrame, 'kind' | 'targetUrl' | 'isIllustration'>): boolean =>
+  frame.kind === 'image' && (Boolean(frame.isIllustration) || isIllustrationPath(frame.targetUrl))
+
 const serializeCanvasConfig = (frame: CanvasConfigPayload): string => {
   const json = JSON.stringify(frame)
   const escaped = json.replace(/'/g, "''")
@@ -461,6 +474,8 @@ const parseCanvasConfig = (raw: string): CanvasConfigPayload | null => {
       iconName: typeof parsed.iconName === 'string' ? parsed.iconName : undefined,
       iconRotationDeg: Number.isFinite(parsed.iconRotationDeg) ? Number(parsed.iconRotationDeg) : undefined,
       iconColor: typeof parsed.iconColor === 'string' ? parsed.iconColor : undefined,
+      isIllustration: typeof parsed.isIllustration === 'boolean' ? parsed.isIllustration : undefined,
+      imageRotationDeg: Number.isFinite(parsed.imageRotationDeg) ? Number(parsed.imageRotationDeg) : undefined,
       chartType: isCanvasChartType(parsed.chartType) ? parsed.chartType : undefined,
       chartSql: typeof parsed.chartSql === 'string' ? parsed.chartSql : undefined,
       label: parsed.label,
@@ -503,6 +518,7 @@ const Canvas = () => {
   const [connections, setConnections] = useState<CanvasConnection[]>([])
   const [isAddPageModalOpen, setIsAddPageModalOpen] = useState(false)
   const [isAddImageModalOpen, setIsAddImageModalOpen] = useState(false)
+  const [isAddIllustrationModalOpen, setIsAddIllustrationModalOpen] = useState(false)
   const [isAddDashboardModalOpen, setIsAddDashboardModalOpen] = useState(false)
   const [isAddHeadingModalOpen, setIsAddHeadingModalOpen] = useState(false)
   const [isAddTextModalOpen, setIsAddTextModalOpen] = useState(false)
@@ -520,16 +536,19 @@ const Canvas = () => {
   const [editDashboardFrameId, setEditDashboardFrameId] = useState<string | null>(null)
   const [editImageFrameId, setEditImageFrameId] = useState<string | null>(null)
   const [editIconFrameId, setEditIconFrameId] = useState<string | null>(null)
+  const [editIllustrationFrameId, setEditIllustrationFrameId] = useState<string | null>(null)
   const [editWebsitePathInput, setEditWebsitePathInput] = useState('')
   const [editImageUrlInput, setEditImageUrlInput] = useState('')
   const [editWebsitePreviewUrlInput, setEditWebsitePreviewUrlInput] = useState('')
   const [editWebsiteRenderEnabled, setEditWebsiteRenderEnabled] = useState(true)
   const [newPagePathInput, setNewPagePathInput] = useState('')
   const [newImageUrlInput, setNewImageUrlInput] = useState('')
+  const [selectedIllustrationPath, setSelectedIllustrationPath] = useState(DEFAULT_CANVAS_ILLUSTRATION_PATH)
   const [newPagePreviewUrlInput, setNewPagePreviewUrlInput] = useState('')
   const [newPageRenderEnabled, setNewPageRenderEnabled] = useState(true)
   const [addPageError, setAddPageError] = useState<string | null>(null)
   const [addImageError, setAddImageError] = useState<string | null>(null)
+  const [addIllustrationError, setAddIllustrationError] = useState<string | null>(null)
   const [addDashboardError, setAddDashboardError] = useState<string | null>(null)
   const [editWebsiteError, setEditWebsiteError] = useState<string | null>(null)
   const [editDashboardError, setEditDashboardError] = useState<string | null>(null)
@@ -876,6 +895,8 @@ const Canvas = () => {
         iconName: frame.iconName,
         iconRotationDeg: frame.iconRotationDeg,
         iconColor: frame.iconColor,
+        isIllustration: frame.isIllustration,
+        imageRotationDeg: frame.imageRotationDeg,
         chartType: frame.chartType,
         chartSql: frame.chartSql,
         label: frame.label,
@@ -1037,6 +1058,11 @@ const Canvas = () => {
               iconName: parsedConfig.iconName,
               iconRotationDeg: parsedConfig.iconRotationDeg,
               iconColor: parsedConfig.iconColor,
+              isIllustration:
+                typeof parsedConfig.isIllustration === 'boolean'
+                  ? parsedConfig.isIllustration
+                  : parsedConfig.kind === 'image' && isIllustrationPath(parsedConfig.targetUrl),
+              imageRotationDeg: parsedConfig.imageRotationDeg,
               chartType: parsedConfig.chartType,
               chartSql: parsedConfig.chartSql,
               label: parsedConfig.label || graph.name,
@@ -1208,6 +1234,59 @@ const Canvas = () => {
       setIsAddImageModalOpen(false)
     } catch (error) {
       setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre bilde i canvas')
+    } finally {
+      setIsSavingCanvasItem(false)
+    }
+  }
+
+  const handleAddIllustration = async () => {
+    const selectedIllustration = getCanvasIllustrationOptionByPath(selectedIllustrationPath)
+    if (!selectedIllustration) {
+      setAddIllustrationError('Fant ingen illustrasjon å legge til.')
+      return
+    }
+
+    try {
+      setIsSavingCanvasItem(true)
+      setSyncError(null)
+      if (editIllustrationFrameId) {
+        const currentFrame = frames.find((frame) => frame.id === editIllustrationFrameId)
+        if (!currentFrame || currentFrame.kind !== 'image') return
+        const updatedFrame: CanvasFrame = {
+          ...currentFrame,
+          targetUrl: selectedIllustration.path,
+          label: selectedIllustration.label,
+          isIllustration: true,
+          imageRotationDeg: currentFrame.imageRotationDeg ?? 0,
+          refreshNonce: currentFrame.refreshNonce + 1,
+        }
+        const persistedFrame = await persistFrame(updatedFrame)
+        setFrames((prev) => prev.map((frame) => (frame.id === editIllustrationFrameId ? persistedFrame : frame)))
+      } else {
+        const index = frames.length
+        const column = index % 3
+        const row = Math.floor(index / 3)
+        const newFrame: CanvasFrame = {
+          id: `${Date.now()}-${Math.random()}`,
+          kind: 'image',
+          targetUrl: selectedIllustration.path,
+          label: selectedIllustration.label,
+          isIllustration: true,
+          imageRotationDeg: 0,
+          x: 80 + column * 460,
+          y: 80 + row * 380,
+          width: 420,
+          height: 420,
+          refreshNonce: 1,
+        }
+        const persistedFrame = await persistFrame(newFrame)
+        setFrames((prev) => [...prev, persistedFrame])
+      }
+      setAddIllustrationError(null)
+      setEditIllustrationFrameId(null)
+      setIsAddIllustrationModalOpen(false)
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre illustrasjon i canvas')
     } finally {
       setIsSavingCanvasItem(false)
     }
@@ -1438,6 +1517,14 @@ const Canvas = () => {
     setEditImageUrlInput(frame.targetUrl || '')
     setEditImageError(null)
     setIsEditImageModalOpen(true)
+  }
+
+  const handleOpenEditIllustrationModal = (frame: CanvasFrame) => {
+    if (!isIllustrationImageFrame(frame)) return
+    setEditIllustrationFrameId(frame.id)
+    setSelectedIllustrationPath(frame.targetUrl || DEFAULT_CANVAS_ILLUSTRATION_PATH)
+    setAddIllustrationError(null)
+    setIsAddIllustrationModalOpen(true)
   }
 
   const handleOpenEditIconModal = (frame: CanvasFrame) => {
@@ -2122,9 +2209,11 @@ const Canvas = () => {
   ): { width: number; height: number; minWidth: number; minHeight: number } => {
     const kind = typeof frameOrKind === 'string' ? frameOrKind : frameOrKind.kind
     const isInternalDashboard = typeof frameOrKind === 'string' ? false : Boolean(frameOrKind.isInternalDashboard)
+    const isIllustration = typeof frameOrKind === 'string' ? false : isIllustrationImageFrame(frameOrKind)
 
     if (kind === 'website' && isInternalDashboard) return { width: 760, height: 620, minWidth: 520, minHeight: 420 }
     if (kind === 'website') return { width: 420, height: 560, minWidth: 320, minHeight: 320 }
+    if (kind === 'image' && isIllustration) return { width: 420, height: 420, minWidth: 96, minHeight: 96 }
     if (kind === 'image') return { width: 420, height: 420, minWidth: 240, minHeight: 200 }
     if (kind === 'chart') return { width: 680, height: 460, minWidth: 420, minHeight: 280 }
     if (kind === 'heading') return { width: 420, height: 72, minWidth: 260, minHeight: 48 }
@@ -2603,6 +2692,23 @@ const Canvas = () => {
     })
   }
 
+  const handleRotateIllustrationFrame = (id: string, delta: number) => {
+    const currentFrame = frames.find((frame) => frame.id === id)
+    if (!currentFrame || !isIllustrationImageFrame(currentFrame)) return
+
+    const currentRotation = currentFrame.imageRotationDeg ?? 0
+    const nextRotation = (((currentRotation + delta) % 360) + 360) % 360
+    const nextFrame: CanvasFrame = {
+      ...currentFrame,
+      imageRotationDeg: nextRotation,
+    }
+
+    setFrames((prev) => prev.map((frame) => (frame.id === id ? nextFrame : frame)))
+    void persistFrame(nextFrame).catch((error) => {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre illustrasjons-rotasjon')
+    })
+  }
+
   const handleEditableFrameChange = (id: string, nextValue: string) => {
     setFrames((prev) =>
       prev.map((frame) => {
@@ -2744,16 +2850,6 @@ const Canvas = () => {
                   <ActionMenu.Content align="end">
                     <ActionMenu.Item
                       onClick={() => {
-                        setAddPageError(null)
-                        setNewPagePreviewUrlInput('')
-                        setNewPageRenderEnabled(true)
-                        setIsAddPageModalOpen(true)
-                      }}
-                    >
-                      Nettside
-                    </ActionMenu.Item>
-                    <ActionMenu.Item
-                      onClick={() => {
                         setAddImageError(null)
                         setNewImageUrlInput('')
                         setIsAddImageModalOpen(true)
@@ -2765,19 +2861,41 @@ const Canvas = () => {
                     <ActionMenu.Item onClick={handleOpenAddChartModal}>Graf</ActionMenu.Item>
                     <ActionMenu.Item
                       onClick={() => {
+                        setAddIconError(null)
+                        setSelectedIconId((current) => current || DEFAULT_CANVAS_ICON_ID)
+                        setSelectedIconColor((current) => getCanvasIconColor(current))
+                        setIsAddIconModalOpen(true)
+                      }}
+                    >
+                      Ikon
+                    </ActionMenu.Item>
+                    <ActionMenu.Item
+                      onClick={() => {
+                        setEditIllustrationFrameId(null)
+                        setAddIllustrationError(null)
+                        setSelectedIllustrationPath((current) => current || DEFAULT_CANVAS_ILLUSTRATION_PATH)
+                        setIsAddIllustrationModalOpen(true)
+                      }}
+                    >
+                      Nav-illustrasjoner
+                    </ActionMenu.Item>
+                    <ActionMenu.Item
+                      onClick={() => {
+                        setAddPageError(null)
+                        setNewPagePreviewUrlInput('')
+                        setNewPageRenderEnabled(true)
+                        setIsAddPageModalOpen(true)
+                      }}
+                    >
+                      Nettside
+                    </ActionMenu.Item>
+                    <ActionMenu.Item
+                      onClick={() => {
                         setAddHeadingError(null)
                         setIsAddHeadingModalOpen(true)
                       }}
                     >
                       Overskrift
-                    </ActionMenu.Item>
-                    <ActionMenu.Item
-                      onClick={() => {
-                        setAddTextError(null)
-                        setIsAddTextModalOpen(true)
-                      }}
-                    >
-                      Tekst
                     </ActionMenu.Item>
                     <ActionMenu.Item
                       onClick={() => {
@@ -2789,13 +2907,11 @@ const Canvas = () => {
                     </ActionMenu.Item>
                     <ActionMenu.Item
                       onClick={() => {
-                        setAddIconError(null)
-                        setSelectedIconId((current) => current || DEFAULT_CANVAS_ICON_ID)
-                        setSelectedIconColor((current) => getCanvasIconColor(current))
-                        setIsAddIconModalOpen(true)
+                        setAddTextError(null)
+                        setIsAddTextModalOpen(true)
                       }}
                     >
-                      Ikon
+                      Tekst
                     </ActionMenu.Item>
                   </ActionMenu.Content>
                 </ActionMenu>
@@ -2970,6 +3086,7 @@ const Canvas = () => {
                 {frameItems.map((frame) =>
                   (() => {
                     const defaults = getDefaultFrameSize(frame)
+                    const isIllustrationFrame = isIllustrationImageFrame(frame)
                     const isWebsiteInsightOpen = frame.kind === 'website' && activeInsightFrameId === frame.id
                     const websiteInsight = pageInsights[frame.id]
                     return (
@@ -2981,8 +3098,10 @@ const Canvas = () => {
                                 connectionDragState?.sourceFrameId === frame.id ||
                                 connectionDragState?.currentTargetFrameId === frame.id
                                   ? 'border-[var(--ax-border-accent)] ring-2 ring-[var(--ax-border-accent)]/20'
-                                  : 'border-[var(--ax-border-neutral-subtle)]'
-                              } bg-white shadow-sm`
+                                  : isIllustrationFrame
+                                    ? 'border-transparent'
+                                    : 'border-[var(--ax-border-neutral-subtle)]'
+                              } ${isIllustrationFrame ? 'bg-transparent shadow-none' : 'bg-white shadow-sm'}`
                             : frame.kind === 'chart'
                               ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
                               : frame.kind === 'heading'
@@ -3003,9 +3122,11 @@ const Canvas = () => {
                                 ? 80
                                 : activeEditableFrameId === frame.id
                                   ? 70
-                                  : frame.kind === 'icon'
-                                    ? 40
-                                    : undefined,
+                                  : isIllustrationFrame
+                                    ? 50
+                                    : frame.kind === 'icon'
+                                      ? 40
+                                      : undefined,
                           width:
                             frame.kind === 'heading'
                               ? `${getHeadingFrameWidth(frame)}px`
@@ -3101,10 +3222,26 @@ const Canvas = () => {
                         )}
                         {frame.kind === 'chart' && (
                           <div
-                            className="absolute inset-x-0 top-0 z-20 h-4 cursor-move"
-                            onMouseDown={(event) => handleDragStart(event, frame)}
+                            className="pointer-events-none absolute inset-0 z-20 overflow-visible"
                             aria-hidden="true"
-                          />
+                          >
+                            <div
+                              className="pointer-events-auto absolute inset-x-2 top-0 h-2 cursor-move"
+                              onMouseDown={(event) => handleDragStart(event, frame)}
+                            />
+                            <div
+                              className="pointer-events-auto absolute inset-x-2 bottom-0 h-2 cursor-move"
+                              onMouseDown={(event) => handleDragStart(event, frame)}
+                            />
+                            <div
+                              className="pointer-events-auto absolute inset-y-2 left-0 w-2 cursor-move"
+                              onMouseDown={(event) => handleDragStart(event, frame)}
+                            />
+                            <div
+                              className="pointer-events-auto absolute inset-y-2 right-0 w-2 cursor-move"
+                              onMouseDown={(event) => handleDragStart(event, frame)}
+                            />
+                          </div>
                         )}
                         {(frame.kind === 'sticky' ||
                           frame.kind === 'text' ||
@@ -3114,13 +3251,31 @@ const Canvas = () => {
                           (frame.kind === 'website' && frame.isInternalDashboard)) && (
                           <>
                             <div
-                              className="absolute inset-x-0 top-0 z-20 h-4 cursor-move"
-                              onMouseDown={(event) => handleDragStart(event, frame)}
+                              className="pointer-events-none absolute inset-0 z-20 overflow-visible"
                               aria-hidden="true"
-                            />
+                            >
+                              <div
+                                className="pointer-events-auto absolute inset-x-2 top-0 h-2 cursor-move"
+                                onMouseDown={(event) => handleDragStart(event, frame)}
+                              />
+                              <div
+                                className="pointer-events-auto absolute inset-x-2 bottom-0 h-2 cursor-move"
+                                onMouseDown={(event) => handleDragStart(event, frame)}
+                              />
+                              <div
+                                className="pointer-events-auto absolute inset-y-2 left-0 w-2 cursor-move"
+                                onMouseDown={(event) => handleDragStart(event, frame)}
+                              />
+                              <div
+                                className="pointer-events-auto absolute inset-y-2 right-0 w-2 cursor-move"
+                                onMouseDown={(event) => handleDragStart(event, frame)}
+                              />
+                            </div>
                             <div
                               className={`pointer-events-none absolute z-30 ${
-                                frame.kind === 'heading' ? 'right-0 -top-6 flex items-center gap-1' : 'right-2 top-2'
+                                frame.kind === 'heading' || frame.kind === 'icon' || isIllustrationFrame
+                                  ? 'right-0 -top-6 flex items-center gap-1'
+                                  : 'right-2 top-2'
                               }`}
                             >
                               {(frame.kind === 'image' || (frame.kind === 'website' && frame.isInternalDashboard)) && (
@@ -3131,14 +3286,30 @@ const Canvas = () => {
                                   onMouseDown={(event) => event.stopPropagation()}
                                   onClick={() => {
                                     if (frame.kind === 'image') {
-                                      handleOpenEditImageModal(frame)
+                                      if (isIllustrationFrame) {
+                                        handleOpenEditIllustrationModal(frame)
+                                      } else {
+                                        handleOpenEditImageModal(frame)
+                                      }
                                     } else {
                                       handleOpenEditDashboardModal(frame)
                                     }
                                   }}
-                                  title={frame.kind === 'image' ? 'Rediger bilde' : 'Rediger dashboard'}
-                                  aria-label={frame.kind === 'image' ? 'Rediger bilde' : 'Rediger dashboard'}
-                                  className="pointer-events-auto opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                                  title={
+                                    frame.kind === 'image'
+                                      ? isIllustrationFrame
+                                        ? 'Rediger illustrasjon'
+                                        : 'Rediger bilde'
+                                      : 'Rediger dashboard'
+                                  }
+                                  aria-label={
+                                    frame.kind === 'image'
+                                      ? isIllustrationFrame
+                                        ? 'Rediger illustrasjon'
+                                        : 'Rediger bilde'
+                                      : 'Rediger dashboard'
+                                  }
+                                  className={CARD_ACTION_BUTTON_CLASSNAME}
                                 />
                               )}
                               {frame.kind === 'icon' && (
@@ -3150,7 +3321,7 @@ const Canvas = () => {
                                   onClick={() => handleOpenEditIconModal(frame)}
                                   title="Rediger ikon"
                                   aria-label="Rediger ikon"
-                                  className="pointer-events-auto opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                                  className={CARD_ACTION_BUTTON_CLASSNAME}
                                 />
                               )}
                               {frame.kind === 'icon' && (
@@ -3163,7 +3334,7 @@ const Canvas = () => {
                                     onClick={() => handleRotateIconFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
                                     title="Roter venstre"
                                     aria-label="Roter venstre"
-                                    className="pointer-events-auto opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                                    className={CARD_ACTION_BUTTON_CLASSNAME}
                                   />
                                   <Button
                                     size="xsmall"
@@ -3173,7 +3344,31 @@ const Canvas = () => {
                                     onClick={() => handleRotateIconFrame(frame.id, ICON_ROTATION_STEP_DEG)}
                                     title="Roter hoyre"
                                     aria-label="Roter hoyre"
-                                    className="pointer-events-auto opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                                    className={CARD_ACTION_BUTTON_CLASSNAME}
+                                  />
+                                </>
+                              )}
+                              {isIllustrationFrame && (
+                                <>
+                                  <Button
+                                    size="xsmall"
+                                    variant="tertiary"
+                                    icon={<RotateCcw size={14} />}
+                                    onMouseDown={(event) => event.stopPropagation()}
+                                    onClick={() => handleRotateIllustrationFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
+                                    title="Roter venstre"
+                                    aria-label="Roter venstre"
+                                    className={CARD_ACTION_BUTTON_CLASSNAME}
+                                  />
+                                  <Button
+                                    size="xsmall"
+                                    variant="tertiary"
+                                    icon={<RotateCw size={14} />}
+                                    onMouseDown={(event) => event.stopPropagation()}
+                                    onClick={() => handleRotateIllustrationFrame(frame.id, ICON_ROTATION_STEP_DEG)}
+                                    title="Roter hoyre"
+                                    aria-label="Roter hoyre"
+                                    className={CARD_ACTION_BUTTON_CLASSNAME}
                                   />
                                 </>
                               )}
@@ -3185,7 +3380,7 @@ const Canvas = () => {
                                 onClick={() => handleRequestRemoveFrame(frame)}
                                 title="Fjern kort"
                                 aria-label="Fjern kort"
-                                className="pointer-events-auto opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                                className={CARD_ACTION_BUTTON_CLASSNAME}
                               />
                             </div>
                           </>
@@ -3210,7 +3405,7 @@ const Canvas = () => {
                         <div
                           className={`relative flex-1 ${
                             frame.kind === 'website' || frame.kind === 'image'
-                              ? 'overflow-hidden bg-white'
+                              ? `overflow-hidden ${isIllustrationFrame ? 'bg-transparent' : 'bg-white'}`
                               : frame.kind === 'chart'
                                 ? 'overflow-visible bg-transparent'
                                 : frame.kind === 'icon'
@@ -3261,14 +3456,23 @@ const Canvas = () => {
                             </div>
                           )}
                           {frame.kind === 'image' && (
-                            <div className="flex h-full flex-col bg-white">
+                            <div
+                              className={`flex h-full flex-col ${isIllustrationFrame ? 'bg-transparent' : 'bg-white'}`}
+                            >
                               {frame.src && !failedImageFrameIds[frame.id] ? (
-                                <div className="h-full w-full overflow-hidden bg-white p-2">
+                                <div
+                                  className={`h-full w-full overflow-hidden ${isIllustrationFrame ? 'bg-transparent p-0' : 'bg-white p-2'}`}
+                                >
                                   <img
                                     key={`${frame.id}-${frame.refreshNonce}`}
                                     alt={frame.label}
                                     src={frame.src}
-                                    className="h-full w-full rounded object-contain"
+                                    className={`h-full w-full object-contain ${isIllustrationFrame ? '' : 'rounded'}`}
+                                    style={
+                                      isIllustrationFrame
+                                        ? { transform: `rotate(${frame.imageRotationDeg ?? 0}deg)` }
+                                        : undefined
+                                    }
                                     loading="lazy"
                                     referrerPolicy="no-referrer"
                                     onError={() => {
@@ -3687,6 +3891,46 @@ const Canvas = () => {
             Legg til
           </Button>
           <Button variant="secondary" size="small" onClick={() => setIsAddImageModalOpen(false)}>
+            Avbryt
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal
+        open={isAddIllustrationModalOpen}
+        onClose={() => {
+          setIsAddIllustrationModalOpen(false)
+          setEditIllustrationFrameId(null)
+          setAddIllustrationError(null)
+        }}
+        header={{ heading: editIllustrationFrameId ? 'Rediger Nav-illustrasjon' : 'Legg til Nav-illustrasjon' }}
+        width="small"
+      >
+        <Modal.Body>
+          <div className="space-y-3">
+            <CanvasIllustrationPicker
+              selectedPath={selectedIllustrationPath}
+              onSelectPath={(path) => {
+                setSelectedIllustrationPath(path)
+                if (addIllustrationError) setAddIllustrationError(null)
+              }}
+            />
+            {addIllustrationError && <Alert variant="error">{addIllustrationError}</Alert>}
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button onClick={() => void handleAddIllustration()} size="small" loading={isSavingCanvasItem}>
+            {editIllustrationFrameId ? 'Lagre' : 'Legg til'}
+          </Button>
+          <Button
+            variant="secondary"
+            size="small"
+            onClick={() => {
+              setIsAddIllustrationModalOpen(false)
+              setEditIllustrationFrameId(null)
+              setAddIllustrationError(null)
+            }}
+          >
             Avbryt
           </Button>
         </Modal.Footer>
