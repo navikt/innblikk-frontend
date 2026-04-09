@@ -267,6 +267,7 @@ const CANVAS_QUERY_NAME = 'canvas-config'
 const CANVAS_SURFACE_WIDTH = 2200
 const CANVAS_SURFACE_HEIGHT = 1500
 const CANVAS_SURFACE_TOP_GAP = 24
+const CANVAS_SURFACE_BOTTOM_BUFFER = 420
 const CANVAS_ZOOM_MIN = 0.5
 const CANVAS_ZOOM_MAX = 1.5
 const CANVAS_ZOOM_STEP = 0.1
@@ -4494,6 +4495,19 @@ const Canvas = () => {
     setConnectionDragState(null)
   }
 
+  const canvasSurfaceHeight = useMemo(() => {
+    const lowestFrameEdge = frameItems.reduce((maxBottom, frame) => {
+      const defaults = getDefaultFrameSize(frame)
+      const frameHeight =
+        frame.kind === 'heading'
+          ? getHeadingFrameHeight(frame) + HEADING_CARD_HEADER_HEIGHT
+          : (frame.height ?? defaults.height)
+      return Math.max(maxBottom, frame.y + frameHeight)
+    }, 0)
+
+    return Math.max(CANVAS_SURFACE_HEIGHT, Math.ceil(lowestFrameEdge + CANVAS_SURFACE_BOTTOM_BUFFER))
+  }, [frameItems, getHeadingFrameHeight])
+
   return (
     <>
       <section
@@ -4611,7 +4625,7 @@ const Canvas = () => {
               className="relative"
               style={{
                 width: `${CANVAS_SURFACE_WIDTH * canvasZoom}px`,
-                minHeight: `${canvasCanvasTopOffset + CANVAS_SURFACE_HEIGHT * canvasZoom}px`,
+                minHeight: `${canvasCanvasTopOffset + canvasSurfaceHeight * canvasZoom}px`,
               }}
             >
               <div
@@ -4622,7 +4636,7 @@ const Canvas = () => {
                 style={{
                   top: `${canvasCanvasTopOffset}px`,
                   width: `${CANVAS_SURFACE_WIDTH}px`,
-                  height: `${CANVAS_SURFACE_HEIGHT}px`,
+                  height: `${canvasSurfaceHeight}px`,
                   transform: `scale(${canvasZoom})`,
                   transformOrigin: 'top left',
                   backgroundImage:
