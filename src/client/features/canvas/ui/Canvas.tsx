@@ -2691,8 +2691,8 @@ const Canvas = () => {
       label: selectedOption.title,
       chartType: selectedOption.chartType,
       chartSql: selectedOption.sql,
-      width: 680,
-      height: 460,
+      width: 560,
+      height: 360,
       refreshNonce: 0,
     }
     queueFrameForPlacement(frameDraft, 'graf')
@@ -2830,7 +2830,7 @@ const Canvas = () => {
     if (kind === 'website') return { width: 420, height: 560, minWidth: 220, minHeight: 160 }
     if (kind === 'image' && isIllustration) return { width: 420, height: 420, minWidth: 96, minHeight: 96 }
     if (kind === 'image') return { width: 420, height: 420, minWidth: 240, minHeight: 200 }
-    if (kind === 'chart') return { width: 680, height: 460, minWidth: 420, minHeight: 280 }
+    if (kind === 'chart') return { width: 560, height: 360, minWidth: 280, minHeight: 200 }
     if (kind === 'heading') return { width: 420, height: 72, minWidth: 260, minHeight: 48 }
     if (kind === 'text') return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
     if (kind === 'icon') return { width: 280, height: 240, minWidth: 72, minHeight: 72 }
@@ -3712,6 +3712,45 @@ const Canvas = () => {
                   <ActionMenu.Content align="end">
                     <ActionMenu.Item
                       onClick={() => {
+                        setAddPageError(null)
+                        setNewPagePreviewUrlInput('')
+                        setNewPageRenderEnabled(true)
+                        setNewPageVisualizationMode('')
+                        setIsAddPageModalOpen(true)
+                      }}
+                    >
+                      Nettside
+                    </ActionMenu.Item>
+                    <ActionMenu.Item onClick={handleOpenAddChartModal}>Graf</ActionMenu.Item>
+                    <ActionMenu.Item onClick={handleOpenAddDashboardModal}>Dashboard</ActionMenu.Item>
+                    <ActionMenu.Divider />
+                    <ActionMenu.Item
+                      onClick={() => {
+                        setAddHeadingError(null)
+                        setIsAddHeadingModalOpen(true)
+                      }}
+                    >
+                      Overskrift
+                    </ActionMenu.Item>
+                    <ActionMenu.Item
+                      onClick={() => {
+                        setAddTextError(null)
+                        setIsAddTextModalOpen(true)
+                      }}
+                    >
+                      Tekst
+                    </ActionMenu.Item>
+                    <ActionMenu.Item
+                      onClick={() => {
+                        setAddStickyError(null)
+                        setIsAddStickyModalOpen(true)
+                      }}
+                    >
+                      Post-it-lapp
+                    </ActionMenu.Item>
+                    <ActionMenu.Divider />
+                    <ActionMenu.Item
+                      onClick={() => {
                         setAddImageError(null)
                         setNewImageUrlInput('')
                         setIsAddImageModalOpen(true)
@@ -3719,8 +3758,6 @@ const Canvas = () => {
                     >
                       Bilde
                     </ActionMenu.Item>
-                    <ActionMenu.Item onClick={handleOpenAddDashboardModal}>Dashboard</ActionMenu.Item>
-                    <ActionMenu.Item onClick={handleOpenAddChartModal}>Graf</ActionMenu.Item>
                     <ActionMenu.Item
                       onClick={() => {
                         setAddIconError(null)
@@ -3749,42 +3786,7 @@ const Canvas = () => {
                         setIsAddIllustrationModalOpen(true)
                       }}
                     >
-                      Nav-illustrasjoner
-                    </ActionMenu.Item>
-                    <ActionMenu.Item
-                      onClick={() => {
-                        setAddPageError(null)
-                        setNewPagePreviewUrlInput('')
-                        setNewPageRenderEnabled(true)
-                        setNewPageVisualizationMode('')
-                        setIsAddPageModalOpen(true)
-                      }}
-                    >
-                      Nettside
-                    </ActionMenu.Item>
-                    <ActionMenu.Item
-                      onClick={() => {
-                        setAddHeadingError(null)
-                        setIsAddHeadingModalOpen(true)
-                      }}
-                    >
-                      Overskrift
-                    </ActionMenu.Item>
-                    <ActionMenu.Item
-                      onClick={() => {
-                        setAddStickyError(null)
-                        setIsAddStickyModalOpen(true)
-                      }}
-                    >
-                      Post-it-lapp
-                    </ActionMenu.Item>
-                    <ActionMenu.Item
-                      onClick={() => {
-                        setAddTextError(null)
-                        setIsAddTextModalOpen(true)
-                      }}
-                    >
-                      Tekst
+                      Illustrasjoner
                     </ActionMenu.Item>
                   </ActionMenu.Content>
                 </ActionMenu>
@@ -4716,6 +4718,8 @@ const Canvas = () => {
                                 websiteId={selectedWebsite?.id ?? ''}
                                 filters={dashboardWidgetFilters}
                                 chartLinksEnabled={false}
+                                compactMode
+                                chartHeightPx={Math.max(160, (frame.height ?? defaults.height) - 116)}
                                 onEditChart={() => handleOpenEditChartModal(frame)}
                                 onDeleteChart={() => handleOpenDeleteChartModal(frame)}
                               />

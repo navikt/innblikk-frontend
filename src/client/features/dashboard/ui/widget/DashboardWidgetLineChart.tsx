@@ -7,9 +7,11 @@ import { extractJsonValue } from '../../utils/widgetUtils.ts'
 interface DashboardWidgetLineChartProps {
   data: DashboardRow[]
   title: string
+  heightPx?: number
 }
 
-const DashboardWidgetLineChart = ({ data, title }: DashboardWidgetLineChartProps) => {
+const DashboardWidgetLineChart = ({ data, title, heightPx }: DashboardWidgetLineChartProps) => {
+  const chartHeight = Math.max(160, heightPx ?? 350)
   const keys = Object.keys(data[0] ?? {})
 
   const toChartX = (xVal: unknown, fallbackIndex: number): Date | number => {
@@ -67,7 +69,7 @@ const DashboardWidgetLineChart = ({ data, title }: DashboardWidgetLineChartProps
     }))
 
     return (
-      <div style={{ width: '100%', height: '350px' }}>
+      <div style={{ width: '100%', height: `${chartHeight}px` }}>
         <ResponsiveContainer>
           <LineChart
             key={`line-multi-${lines.length}-${data.length}`}
@@ -119,7 +121,7 @@ const DashboardWidgetLineChart = ({ data, title }: DashboardWidgetLineChartProps
   const chartKey = `line-${points.length}-${firstX instanceof Date ? firstX.getTime() : firstX || 0}-${lastX instanceof Date ? lastX.getTime() : lastX || 0}`
 
   return (
-    <div style={{ width: '100%', height: '350px' }}>
+    <div style={{ width: '100%', height: `${chartHeight}px` }}>
       <ResponsiveContainer>
         <LineChart
           key={chartKey}

@@ -287,6 +287,8 @@ interface DashboardWidgetProps {
   titlePrefix?: ReactNode
   titleBelow?: ReactNode
   chartLinksEnabled?: boolean
+  compactMode?: boolean
+  chartHeightPx?: number
 }
 
 export const DashboardWidget = ({
@@ -307,6 +309,8 @@ export const DashboardWidget = ({
   titlePrefix,
   titleBelow,
   chartLinksEnabled = true,
+  compactMode = false,
+  chartHeightPx,
 }: DashboardWidgetProps) => {
   const [loading, setLoading] = useState(shouldWaitForBatch ?? false)
   const [error, setError] = useState<string | null>(null)
@@ -458,11 +462,11 @@ export const DashboardWidget = ({
       return <div className="text-[var(--ax-text-subtle)] p-8 text-center">Ingen data funnet</div>
 
     if (chart.type === 'line') {
-      return <DashboardWidgetLineChart data={data} title={chart.title} />
+      return <DashboardWidgetLineChart data={data} title={chart.title} heightPx={chartHeightPx} />
     } else if (chart.type === 'bar') {
-      return <DashboardWidgetBarChart data={data} />
+      return <DashboardWidgetBarChart data={data} heightPx={chartHeightPx} />
     } else if (chart.type === 'pie') {
-      return <DashboardWidgetPieChart data={data} />
+      return <DashboardWidgetPieChart data={data} heightPx={chartHeightPx} />
     } else if (chart.type === 'table') {
       return (
         <DashboardWidgetTable
@@ -603,8 +607,8 @@ export const DashboardWidget = ({
 
   const containerClass =
     chart.type === 'table'
-      ? `h-full bg-[var(--ax-bg-default)] p-6 rounded-lg border border-[var(--ax-border-neutral-subtle)] min-h-[400px] ${colClass}`
-      : `h-full bg-[var(--ax-bg-default)] p-6 rounded-lg border border-[var(--ax-border-neutral-subtle)] shadow-sm min-h-[400px] ${colClass}`
+      ? `h-full bg-[var(--ax-bg-default)] p-6 rounded-lg border border-[var(--ax-border-neutral-subtle)] ${compactMode ? 'min-h-0' : 'min-h-[400px]'} ${colClass}`
+      : `h-full bg-[var(--ax-bg-default)] p-6 rounded-lg border border-[var(--ax-border-neutral-subtle)] shadow-sm ${compactMode ? 'min-h-0 flex flex-col' : 'min-h-[400px]'} ${colClass}`
 
   return (
     <>
@@ -662,7 +666,7 @@ export const DashboardWidget = ({
             </>
           )}
         </div>
-        {renderContent()}
+        <div className={compactMode ? 'min-h-0 flex-1 overflow-hidden' : ''}>{renderContent()}</div>
       </div>
 
       <AnalysisActionModal

@@ -5,6 +5,7 @@ import { extractJsonValue } from '../../utils/widgetUtils.ts'
 
 interface DashboardWidgetBarChartProps {
   data: DashboardRow[]
+  heightPx?: number
 }
 
 const MAX_CATEGORIES = 12
@@ -15,7 +16,8 @@ const toNumber = (value: unknown): number => {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
-const DashboardWidgetBarChart = ({ data }: DashboardWidgetBarChartProps) => {
+const DashboardWidgetBarChart = ({ data, heightPx }: DashboardWidgetBarChartProps) => {
+  const chartHeight = Math.max(160, heightPx ?? 350)
   const keys = Object.keys(data[0] ?? {})
   if (keys.length < 2) {
     return <div className="text-[var(--ax-text-subtle)]">Trenger minst to kolonner (kategori og verdi)</div>
@@ -46,7 +48,7 @@ const DashboardWidgetBarChart = ({ data }: DashboardWidgetBarChartProps) => {
   }
 
   return (
-    <div style={{ width: '100%', height: '350px' }}>
+    <div style={{ width: '100%', height: `${chartHeight}px` }}>
       <ResponsiveContainer>
         <VerticalBarChart
           data={displayData}
