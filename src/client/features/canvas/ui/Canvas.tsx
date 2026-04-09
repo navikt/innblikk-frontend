@@ -9,7 +9,6 @@ import {
   Modal,
   Select,
   Switch,
-  Tabs,
   TextField,
   Textarea,
 } from '@navikt/ds-react'
@@ -26,12 +25,8 @@ import {
   Square,
   Copy,
   RefreshCw,
-  RotateCcw,
-  RotateCw,
   Trash2,
 } from 'lucide-react'
-import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
-import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import { computeFunnelStepMetrics } from '../../analysis/utils/horizontalFunnel.ts'
 import { formatDateRange } from '../../analysis/utils/periodPicker.ts'
 import type { PageMetricRow } from '../../traffic/model/types.ts'
@@ -58,6 +53,9 @@ import { mapGraphTypeToChart } from '../../oversikt'
 import CanvasIllustrationPicker from './CanvasIllustrationPicker.tsx'
 import { DEFAULT_CANVAS_ILLUSTRATION_PATH, getCanvasIllustrationOptionByPath } from './CanvasIllustrationRegistry.ts'
 import CanvasIconPicker from './CanvasIconPicker.tsx'
+import CanvasFrameActionPoints from './CanvasFrameActionPoints.tsx'
+import CanvasAdminModals from './CanvasAdminModals.tsx'
+import CanvasTopBar from './CanvasTopBar.tsx'
 import {
   CANVAS_ICON_COLOR_OPTIONS,
   DEFAULT_CANVAS_ICON_COLOR,
@@ -3655,201 +3653,100 @@ const Canvas = () => {
     }
   }
 
+  const handleOpenAddPageModal = () => {
+    setAddPageError(null)
+    setNewPagePreviewUrlInput('')
+    setNewPageRenderEnabled(true)
+    setNewPageVisualizationMode('')
+    setIsAddPageModalOpen(true)
+  }
+
+  const handleOpenAddHeadingModal = () => {
+    setAddHeadingError(null)
+    setIsAddHeadingModalOpen(true)
+  }
+
+  const handleOpenAddTextModal = () => {
+    setAddTextError(null)
+    setIsAddTextModalOpen(true)
+  }
+
+  const handleOpenAddStickyModal = () => {
+    setAddStickyError(null)
+    setIsAddStickyModalOpen(true)
+  }
+
+  const handleOpenAddImageModal = () => {
+    setAddImageError(null)
+    setNewImageUrlInput('')
+    setIsAddImageModalOpen(true)
+  }
+
+  const handleOpenAddIconModal = () => {
+    setAddIconError(null)
+    setSelectedIconId((current) => current || DEFAULT_CANVAS_ICON_ID)
+    setSelectedIconColor((current) => getCanvasIconColor(current))
+    setIsAddIconModalOpen(true)
+  }
+
+  const handleOpenAddFigureModal = () => {
+    setSelectedFigureType('rectangle')
+    setSelectedFigureColor(DEFAULT_CANVAS_ICON_COLOR)
+    setAddFigureError(null)
+    setIsAddFigureModalOpen(true)
+  }
+
+  const handleOpenAddIllustrationModal = () => {
+    setEditIllustrationFrameId(null)
+    setAddIllustrationError(null)
+    setSelectedIllustrationPath((current) => current || DEFAULT_CANVAS_ILLUSTRATION_PATH)
+    setIsAddIllustrationModalOpen(true)
+  }
+
+  const handleToolbarCategoryChange = (nextCategoryId: number) => {
+    setActiveCanvasCategoryId(nextCategoryId)
+    setActiveInsightFrameId(null)
+    setConnectionDragState(null)
+  }
+
   return (
     <>
       <section className="relative h-[100dvh] min-h-[100dvh] bg-[var(--ax-bg-neutral-soft)]">
-        <div ref={canvasToolbarRef} className="pointer-events-none fixed left-4 right-4 top-4 z-30">
-          <div className="pointer-events-auto rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <a
-                href={projectManagerHref}
-                aria-label={`Tilbake til ProjectManager${projectId !== null ? ` for prosjekt ${projectId}` : ''}`}
-                className="min-w-0 flex flex-1 items-center gap-1.5 rounded-sm text-[var(--ax-text-default)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-border-accent)]"
-              >
-                <span className="grid h-7 w-7 shrink-0 place-items-center">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path
-                      d="M16.5 10.5C16.5 13.8137 13.8137 16.5 10.5 16.5C7.18629 16.5 4.5 13.8137 4.5 10.5C4.5 7.18629 7.18629 4.5 10.5 4.5C13.8137 4.5 16.5 7.18629 16.5 10.5Z"
-                      stroke="currentColor"
-                      strokeWidth="1.9"
-                    />
-                    <path d="M15.2 15.2L20.5 20.5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
-                    <path
-                      d="M7.9 12.5V10.2M10.5 12.5V8.5M13.1 12.5V9.3"
-                      stroke="currentColor"
-                      strokeWidth="1.9"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </span>
-                <h1 className="m-0 truncate text-[20px] font-semibold leading-none" title={canvasTitle}>
-                  {canvasTitle}
-                </h1>
-              </a>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="w-[152px] shrink-0 [&_label]:sr-only">
-                  <PeriodPicker
-                    period={period}
-                    onPeriodChange={setPeriod}
-                    startDate={customStartDate}
-                    onStartDateChange={setCustomStartDate}
-                    endDate={customEndDate}
-                    onEndDateChange={setCustomEndDate}
-                    className="w-full sm:w-auto min-w-[152px]"
-                  />
-                </div>
-                <ActionMenu>
-                  <ActionMenu.Trigger>
-                    <Button
-                      size="small"
-                      icon={<Plus size={16} />}
-                      className="shrink-0 whitespace-nowrap"
-                      disabled={canvasInitMode !== 'existing'}
-                    >
-                      Legg til
-                    </Button>
-                  </ActionMenu.Trigger>
-                  <ActionMenu.Content align="end">
-                    <ActionMenu.Item
-                      onClick={() => {
-                        setAddPageError(null)
-                        setNewPagePreviewUrlInput('')
-                        setNewPageRenderEnabled(true)
-                        setNewPageVisualizationMode('')
-                        setIsAddPageModalOpen(true)
-                      }}
-                    >
-                      Nettside
-                    </ActionMenu.Item>
-                    <ActionMenu.Item onClick={handleOpenAddChartModal}>Graf</ActionMenu.Item>
-                    <ActionMenu.Item onClick={handleOpenAddDashboardModal}>Dashboard</ActionMenu.Item>
-                    <ActionMenu.Divider />
-                    <ActionMenu.Item
-                      onClick={() => {
-                        setAddHeadingError(null)
-                        setIsAddHeadingModalOpen(true)
-                      }}
-                    >
-                      Overskrift
-                    </ActionMenu.Item>
-                    <ActionMenu.Item
-                      onClick={() => {
-                        setAddTextError(null)
-                        setIsAddTextModalOpen(true)
-                      }}
-                    >
-                      Tekst
-                    </ActionMenu.Item>
-                    <ActionMenu.Item
-                      onClick={() => {
-                        setAddStickyError(null)
-                        setIsAddStickyModalOpen(true)
-                      }}
-                    >
-                      Post-it-lapp
-                    </ActionMenu.Item>
-                    <ActionMenu.Divider />
-                    <ActionMenu.Item
-                      onClick={() => {
-                        setAddImageError(null)
-                        setNewImageUrlInput('')
-                        setIsAddImageModalOpen(true)
-                      }}
-                    >
-                      Bilde
-                    </ActionMenu.Item>
-                    <ActionMenu.Item
-                      onClick={() => {
-                        setAddIconError(null)
-                        setSelectedIconId((current) => current || DEFAULT_CANVAS_ICON_ID)
-                        setSelectedIconColor((current) => getCanvasIconColor(current))
-                        setIsAddIconModalOpen(true)
-                      }}
-                    >
-                      Ikon
-                    </ActionMenu.Item>
-                    <ActionMenu.Item
-                      onClick={() => {
-                        setSelectedFigureType('rectangle')
-                        setSelectedFigureColor(DEFAULT_CANVAS_ICON_COLOR)
-                        setAddFigureError(null)
-                        setIsAddFigureModalOpen(true)
-                      }}
-                    >
-                      Figur
-                    </ActionMenu.Item>
-                    <ActionMenu.Item
-                      onClick={() => {
-                        setEditIllustrationFrameId(null)
-                        setAddIllustrationError(null)
-                        setSelectedIllustrationPath((current) => current || DEFAULT_CANVAS_ILLUSTRATION_PATH)
-                        setIsAddIllustrationModalOpen(true)
-                      }}
-                    >
-                      Illustrasjoner
-                    </ActionMenu.Item>
-                  </ActionMenu.Content>
-                </ActionMenu>
-                <ActionMenu>
-                  <ActionMenu.Trigger>
-                    <Button
-                      size="small"
-                      variant="tertiary"
-                      icon={<MoreVertical size={16} />}
-                      aria-label="Innstillinger"
-                      disabled={canvasInitMode !== 'existing'}
-                    />
-                  </ActionMenu.Trigger>
-                  <ActionMenu.Content align="end">
-                    <ActionMenu.Item onClick={handleOpenCreateTabModal}>Legg til fane</ActionMenu.Item>
-                    {canvasCategories.length > 1 && (
-                      <ActionMenu.Item onClick={handleOpenManageTabsModal}>Administrer faner</ActionMenu.Item>
-                    )}
-                    <ActionMenu.Item onClick={handleOpenCanvasSettingsModal}>Innstillinger</ActionMenu.Item>
-                  </ActionMenu.Content>
-                </ActionMenu>
-              </div>
-            </div>
-            {!canPersistToDashboard && !shouldShowCreateCanvasModal && (
-              <div className="mt-2">
-                <Alert variant="warning" size="small">
-                  Canvas er ikke koblet til et dashboard. Åpne canvas fra ProjectManager for lagring.
-                </Alert>
-              </div>
-            )}
-            {syncError && (
-              <div className="mt-2">
-                <Alert variant="error" size="small" closeButton onClose={() => setSyncError(null)}>
-                  {syncError}
-                </Alert>
-              </div>
-            )}
-            {canvasCategories.length > 1 && (
-              <div className="mt-2">
-                <Tabs
-                  value={activeCanvasCategoryId !== null ? String(activeCanvasCategoryId) : undefined}
-                  onChange={(value) => {
-                    const categoryId = Number(value)
-                    if (!Number.isFinite(categoryId)) return
-                    setActiveCanvasCategoryId(categoryId)
-                    setActiveInsightFrameId(null)
-                    setConnectionDragState(null)
-                  }}
-                >
-                  <Tabs.List>
-                    {canvasCategories.map((category) => (
-                      <Tabs.Tab
-                        key={category.id}
-                        value={String(category.id)}
-                        label={getCanvasCategoryDisplayName(category.name)}
-                      />
-                    ))}
-                  </Tabs.List>
-                </Tabs>
-              </div>
-            )}
-          </div>
-        </div>
+        <CanvasTopBar
+          canvasToolbarRef={canvasToolbarRef}
+          projectManagerHref={projectManagerHref}
+          projectId={projectId}
+          canvasTitle={canvasTitle}
+          period={period}
+          customStartDate={customStartDate}
+          customEndDate={customEndDate}
+          onPeriodChange={setPeriod}
+          onCustomStartDateChange={setCustomStartDate}
+          onCustomEndDateChange={setCustomEndDate}
+          canvasInitMode={canvasInitMode}
+          onOpenAddPage={handleOpenAddPageModal}
+          onOpenAddChart={handleOpenAddChartModal}
+          onOpenAddDashboard={handleOpenAddDashboardModal}
+          onOpenAddHeading={handleOpenAddHeadingModal}
+          onOpenAddText={handleOpenAddTextModal}
+          onOpenAddSticky={handleOpenAddStickyModal}
+          onOpenAddImage={handleOpenAddImageModal}
+          onOpenAddIcon={handleOpenAddIconModal}
+          onOpenAddFigure={handleOpenAddFigureModal}
+          onOpenAddIllustration={handleOpenAddIllustrationModal}
+          onOpenCreateTab={handleOpenCreateTabModal}
+          onOpenManageTabs={handleOpenManageTabsModal}
+          onOpenCanvasSettings={handleOpenCanvasSettingsModal}
+          canManageTabs={canvasCategories.length > 1}
+          canPersistToDashboard={canPersistToDashboard}
+          shouldShowCreateCanvasModal={shouldShowCreateCanvasModal}
+          syncError={syncError}
+          onDismissSyncError={() => setSyncError(null)}
+          canvasCategories={canvasCategories}
+          activeCanvasCategoryId={activeCanvasCategoryId}
+          onChangeActiveCanvasCategory={handleToolbarCategoryChange}
+          getCanvasCategoryDisplayName={getCanvasCategoryDisplayName}
+        />
 
         <div className="flex h-full">
           <main ref={canvasViewportRef} className="relative flex-1 overflow-auto">
@@ -4233,181 +4130,34 @@ const Canvas = () => {
                                 onMouseDown={(event) => handleDragStart(event, frame)}
                               />
                             </div>
-                            <div
-                              className={`pointer-events-none absolute z-30 ${
-                                frame.kind === 'heading' ||
-                                frame.kind === 'icon' ||
-                                frame.kind === 'figure' ||
-                                isIllustrationFrame
-                                  ? 'right-0 -top-6 flex items-center gap-1'
-                                  : 'right-2 top-2'
-                              }`}
-                            >
-                              {(frame.kind === 'image' || (frame.kind === 'website' && frame.isInternalDashboard)) && (
-                                <Button
-                                  size="xsmall"
-                                  variant="tertiary"
-                                  icon={<Edit2 size={14} />}
-                                  onMouseDown={(event) => event.stopPropagation()}
-                                  onClick={() => {
-                                    if (frame.kind === 'image') {
-                                      if (isIllustrationFrame) {
-                                        handleOpenEditIllustrationModal(frame)
-                                      } else {
-                                        handleOpenEditImageModal(frame)
-                                      }
-                                    } else {
-                                      handleOpenEditDashboardModal(frame)
-                                    }
-                                  }}
-                                  title={
-                                    frame.kind === 'image'
-                                      ? isIllustrationFrame
-                                        ? 'Rediger illustrasjon'
-                                        : 'Rediger bilde'
-                                      : 'Rediger dashboard'
-                                  }
-                                  aria-label={
-                                    frame.kind === 'image'
-                                      ? isIllustrationFrame
-                                        ? 'Rediger illustrasjon'
-                                        : 'Rediger bilde'
-                                      : 'Rediger dashboard'
-                                  }
-                                  className={CARD_ACTION_BUTTON_CLASSNAME}
-                                />
-                              )}
-                              {frame.kind === 'icon' && (
-                                <Button
-                                  size="xsmall"
-                                  variant="tertiary"
-                                  icon={<Edit2 size={14} />}
-                                  onMouseDown={(event) => event.stopPropagation()}
-                                  onClick={() => handleOpenEditIconModal(frame)}
-                                  title="Rediger ikon"
-                                  aria-label="Rediger ikon"
-                                  className={CARD_ACTION_BUTTON_CLASSNAME}
-                                />
-                              )}
-                              {frame.kind === 'figure' && (
-                                <Button
-                                  size="xsmall"
-                                  variant="tertiary"
-                                  icon={<Edit2 size={14} />}
-                                  onMouseDown={(event) => event.stopPropagation()}
-                                  onClick={() => handleOpenEditFigureModal(frame)}
-                                  title="Rediger figur"
-                                  aria-label="Rediger figur"
-                                  className={CARD_ACTION_BUTTON_CLASSNAME}
-                                />
-                              )}
-                              {frame.kind === 'icon' && (
-                                <>
-                                  <Button
-                                    size="xsmall"
-                                    variant="tertiary"
-                                    icon={<Copy size={14} />}
-                                    onMouseDown={(event) => event.stopPropagation()}
-                                    onClick={() => void handleDuplicateIconCard(frame)}
-                                    title="Dupliser ikon"
-                                    aria-label="Dupliser ikon"
-                                    className={CARD_ACTION_BUTTON_CLASSNAME}
-                                  />
-                                  <Button
-                                    size="xsmall"
-                                    variant="tertiary"
-                                    icon={<RotateCcw size={14} />}
-                                    onMouseDown={(event) => event.stopPropagation()}
-                                    onClick={() => handleRotateIconFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
-                                    title="Roter venstre"
-                                    aria-label="Roter venstre"
-                                    className={CARD_ACTION_BUTTON_CLASSNAME}
-                                  />
-                                  <Button
-                                    size="xsmall"
-                                    variant="tertiary"
-                                    icon={<RotateCw size={14} />}
-                                    onMouseDown={(event) => event.stopPropagation()}
-                                    onClick={() => handleRotateIconFrame(frame.id, ICON_ROTATION_STEP_DEG)}
-                                    title="Roter hoyre"
-                                    aria-label="Roter hoyre"
-                                    className={CARD_ACTION_BUTTON_CLASSNAME}
-                                  />
-                                </>
-                              )}
-                              {frame.kind === 'figure' && (
-                                <Button
-                                  size="xsmall"
-                                  variant="tertiary"
-                                  icon={<Copy size={14} />}
-                                  onMouseDown={(event) => event.stopPropagation()}
-                                  onClick={() => void handleDuplicateFigureCard(frame)}
-                                  title="Dupliser figur"
-                                  aria-label="Dupliser figur"
-                                  className={CARD_ACTION_BUTTON_CLASSNAME}
-                                />
-                              )}
-                              {frame.kind === 'heading' && (
-                                <>
-                                  <Button
-                                    size="xsmall"
-                                    variant="tertiary"
-                                    onMouseDown={(event) => event.stopPropagation()}
-                                    onClick={() => handleAdjustHeadingFontSize(frame.id, -HEADING_FONT_SIZE_STEP)}
-                                    title="Mindre tekststorrelse"
-                                    aria-label="Mindre tekststorrelse"
-                                    className={CARD_ACTION_BUTTON_CLASSNAME}
-                                  >
-                                    A-
-                                  </Button>
-                                  <Button
-                                    size="xsmall"
-                                    variant="tertiary"
-                                    onMouseDown={(event) => event.stopPropagation()}
-                                    onClick={() => handleAdjustHeadingFontSize(frame.id, HEADING_FONT_SIZE_STEP)}
-                                    title="Storre tekststorrelse"
-                                    aria-label="Storre tekststorrelse"
-                                    className={CARD_ACTION_BUTTON_CLASSNAME}
-                                  >
-                                    A+
-                                  </Button>
-                                </>
-                              )}
-                              {isIllustrationFrame && (
-                                <>
-                                  <Button
-                                    size="xsmall"
-                                    variant="tertiary"
-                                    icon={<RotateCcw size={14} />}
-                                    onMouseDown={(event) => event.stopPropagation()}
-                                    onClick={() => handleRotateIllustrationFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
-                                    title="Roter venstre"
-                                    aria-label="Roter venstre"
-                                    className={CARD_ACTION_BUTTON_CLASSNAME}
-                                  />
-                                  <Button
-                                    size="xsmall"
-                                    variant="tertiary"
-                                    icon={<RotateCw size={14} />}
-                                    onMouseDown={(event) => event.stopPropagation()}
-                                    onClick={() => handleRotateIllustrationFrame(frame.id, ICON_ROTATION_STEP_DEG)}
-                                    title="Roter hoyre"
-                                    aria-label="Roter hoyre"
-                                    className={CARD_ACTION_BUTTON_CLASSNAME}
-                                  />
-                                </>
-                              )}
-                              <Button
-                                size="xsmall"
-                                variant="tertiary"
-                                icon={<Trash2 size={14} />}
-                                onMouseDown={(event) => event.stopPropagation()}
-                                onClick={() => handleRequestRemoveFrame(frame)}
-                                title="Fjern kort"
-                                aria-label="Fjern kort"
-                                className={CARD_ACTION_BUTTON_CLASSNAME}
-                              />
-                            </div>
+                            <CanvasFrameActionPoints
+                              frameKind={frame.kind}
+                              isInternalDashboard={frame.isInternalDashboard}
+                              isIllustrationFrame={isIllustrationFrame}
+                              actionButtonClassName={CARD_ACTION_BUTTON_CLASSNAME}
+                              onEditImage={() => handleOpenEditImageModal(frame)}
+                              onEditIllustration={() => handleOpenEditIllustrationModal(frame)}
+                              onEditDashboard={() => handleOpenEditDashboardModal(frame)}
+                              onEditIcon={() => handleOpenEditIconModal(frame)}
+                              onDuplicateIcon={() => void handleDuplicateIconCard(frame)}
+                              onRotateIconLeft={() => handleRotateIconFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
+                              onRotateIconRight={() => handleRotateIconFrame(frame.id, ICON_ROTATION_STEP_DEG)}
+                              onEditFigure={() => handleOpenEditFigureModal(frame)}
+                              onDuplicateFigure={() => void handleDuplicateFigureCard(frame)}
+                              onDecreaseHeadingFontSize={() =>
+                                handleAdjustHeadingFontSize(frame.id, -HEADING_FONT_SIZE_STEP)
+                              }
+                              onIncreaseHeadingFontSize={() =>
+                                handleAdjustHeadingFontSize(frame.id, HEADING_FONT_SIZE_STEP)
+                              }
+                              onRotateIllustrationLeft={() =>
+                                handleRotateIllustrationFrame(frame.id, -ICON_ROTATION_STEP_DEG)
+                              }
+                              onRotateIllustrationRight={() =>
+                                handleRotateIllustrationFrame(frame.id, ICON_ROTATION_STEP_DEG)
+                              }
+                              onRemoveFrame={() => handleRequestRemoveFrame(frame)}
+                            />
                           </>
                         )}
                         {(frame.kind === 'heading' ||
@@ -5027,164 +4777,73 @@ const Canvas = () => {
         </Modal.Footer>
       </Modal>
 
-      <Modal
-        open={isCanvasSettingsModalOpen}
-        onClose={() => {
+      <CanvasAdminModals
+        isCanvasSettingsModalOpen={isCanvasSettingsModalOpen}
+        onCloseCanvasSettings={() => {
           setIsCanvasSettingsModalOpen(false)
           setRenameCanvasError(null)
         }}
-        header={{ heading: 'Canvas-innstillinger' }}
-        width="small"
-      >
-        <Modal.Body>
-          <div className="space-y-3">
-            <WebsitePicker
-              selectedWebsite={selectedWebsite}
-              onWebsiteChange={setSelectedWebsite}
-              disableAutoRestore
-              variant="default"
-              customLabel="Nettside"
-            />
-            <TextField
-              label="Canvas-navn"
-              value={renameCanvasInput}
-              onChange={(event) => {
-                setRenameCanvasInput(event.target.value)
-                if (renameCanvasError) setRenameCanvasError(null)
-              }}
-            />
-            {renameCanvasError && <Alert variant="error">{renameCanvasError}</Alert>}
-          </div>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button onClick={() => void handleRenameCanvas()} size="small" loading={isSavingCanvasItem}>
-            Lagre
-          </Button>
-          <Button variant="secondary" size="small" onClick={() => setIsCanvasSettingsModalOpen(false)}>
-            Lukk
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-      <Modal
-        open={isCreateTabModalOpen}
-        onClose={() => {
+        selectedWebsite={selectedWebsite}
+        onSelectedWebsiteChange={setSelectedWebsite}
+        renameCanvasInput={renameCanvasInput}
+        onRenameCanvasInputChange={(value) => {
+          setRenameCanvasInput(value)
+          if (renameCanvasError) setRenameCanvasError(null)
+        }}
+        renameCanvasError={renameCanvasError}
+        onRenameCanvas={() => void handleRenameCanvas()}
+        isSavingCanvasItem={isSavingCanvasItem}
+        isCreateTabModalOpen={isCreateTabModalOpen}
+        onCloseCreateTab={() => {
           setIsCreateTabModalOpen(false)
           setCreateTabError(null)
         }}
-        header={{ heading: 'Legg til fane' }}
-        width="small"
-      >
-        <Modal.Body>
-          <div className="space-y-3">
-            <TextField
-              label="Fanenavn"
-              value={newTabName}
-              onChange={(event) => {
-                setNewTabName(event.target.value)
-                if (createTabError) setCreateTabError(null)
-              }}
-              autoFocus
-            />
-            {createTabError && <Alert variant="error">{createTabError}</Alert>}
-          </div>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button onClick={() => void handleCreateTab()} size="small" loading={creatingTab}>
-            Legg til
-          </Button>
-          <Button
-            variant="secondary"
-            size="small"
-            onClick={() => setIsCreateTabModalOpen(false)}
-            disabled={creatingTab}
-          >
-            Avbryt
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-      <Modal
-        open={isManageTabsModalOpen}
-        onClose={() => {
+        newTabName={newTabName}
+        onNewTabNameChange={(value) => {
+          setNewTabName(value)
+          if (createTabError) setCreateTabError(null)
+        }}
+        createTabError={createTabError}
+        onCreateTab={() => void handleCreateTab()}
+        creatingTab={creatingTab}
+        isManageTabsModalOpen={isManageTabsModalOpen}
+        onCloseManageTabs={() => {
           setIsManageTabsModalOpen(false)
           setManageTabError(null)
         }}
-        header={{ heading: 'Administrer faner' }}
-        width="small"
-      >
-        <Modal.Body>
-          <div className="space-y-3">
-            <Select
-              label="Hvilken fane vil du endre?"
-              value={manageTabId}
-              onChange={(event) => {
-                const nextId = event.target.value
-                setManageTabId(nextId)
-                const selected = canvasCategories.find((category) => String(category.id) === nextId)
-                setManageTabName(selected?.name ?? '')
-                if (manageTabError) setManageTabError(null)
-              }}
-              disabled={savingManageTab || deletingManageTab || canvasCategories.length === 0}
-            >
-              <option value="" disabled>
-                {canvasCategories.length === 0 ? 'Ingen faner funnet' : 'Velg fane'}
-              </option>
-              {canvasCategories.map((category) => (
-                <option key={category.id} value={String(category.id)}>
-                  {getCanvasCategoryDisplayName(category.name)}
-                </option>
-              ))}
-            </Select>
-            <TextField
-              label="Fanenavn"
-              value={manageTabName}
-              onChange={(event) => {
-                setManageTabName(event.target.value)
-                if (manageTabError) setManageTabError(null)
-              }}
-              disabled={savingManageTab || deletingManageTab || canvasCategories.length === 0}
-            />
-            {selectedManageTab && (
-              <div className="text-sm text-[var(--ax-text-subtle)]">
-                {selectedManageTabIsFirst
-                  ? 'Første fane kan ikke slettes.'
-                  : selectedManageTabIsEmpty
-                    ? 'Denne fanen er tom og kan slettes.'
-                    : `Fanen inneholder ${selectedManageTabItemCount} element(er) og kan ikke slettes.`}
-              </div>
-            )}
-            {manageTabError && <Alert variant="error">{manageTabError}</Alert>}
-          </div>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button
-            onClick={() => void handleRenameTab()}
-            size="small"
-            loading={savingManageTab}
-            disabled={deletingManageTab || !manageTabId || canvasCategories.length === 0}
-          >
-            Lagre navn
-          </Button>
-          <Button
-            variant="danger"
-            size="small"
-            onClick={() => void handleDeleteTab()}
-            loading={deletingManageTab}
-            disabled={savingManageTab || !selectedManageTab || selectedManageTabIsFirst || !selectedManageTabIsEmpty}
-          >
-            Slett fane
-          </Button>
-          <Button
-            variant="secondary"
-            size="small"
-            onClick={() => setIsManageTabsModalOpen(false)}
-            disabled={savingManageTab || deletingManageTab}
-          >
-            Avbryt
-          </Button>
-        </Modal.Footer>
-      </Modal>
+        manageTabId={manageTabId}
+        onManageTabSelect={(nextId) => {
+          setManageTabId(nextId)
+          const selected = canvasCategories.find((category) => String(category.id) === nextId)
+          setManageTabName(selected?.name ?? '')
+          if (manageTabError) setManageTabError(null)
+        }}
+        manageTabName={manageTabName}
+        onManageTabNameChange={(value) => {
+          setManageTabName(value)
+          if (manageTabError) setManageTabError(null)
+        }}
+        manageTabError={manageTabError}
+        canvasCategories={canvasCategories}
+        getCanvasCategoryDisplayName={getCanvasCategoryDisplayName}
+        selectedManageTabInfoText={
+          selectedManageTab
+            ? selectedManageTabIsFirst
+              ? 'Første fane kan ikke slettes.'
+              : selectedManageTabIsEmpty
+                ? 'Denne fanen er tom og kan slettes.'
+                : `Fanen inneholder ${selectedManageTabItemCount} element(er) og kan ikke slettes.`
+            : null
+        }
+        savingManageTab={savingManageTab}
+        deletingManageTab={deletingManageTab}
+        canSaveManageTab={!deletingManageTab && Boolean(manageTabId) && canvasCategories.length > 0}
+        canDeleteManageTab={Boolean(
+          !savingManageTab && selectedManageTab && !selectedManageTabIsFirst && selectedManageTabIsEmpty,
+        )}
+        onRenameTab={() => void handleRenameTab()}
+        onDeleteTab={() => void handleDeleteTab()}
+      />
 
       <Modal
         open={isAddImageModalOpen}
