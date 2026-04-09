@@ -3125,7 +3125,7 @@ const Canvas = () => {
                                   : isIllustrationFrame
                                     ? 50
                                     : frame.kind === 'icon'
-                                      ? 40
+                                      ? 60
                                       : undefined,
                           width:
                             frame.kind === 'heading'
