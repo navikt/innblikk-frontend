@@ -3,6 +3,7 @@ import {
   ActionMenu,
   Alert,
   Button,
+  HelpText,
   Link,
   Loader,
   Modal,
@@ -448,6 +449,13 @@ const getWebsiteFrameRenderSrc = (frame: CanvasFrame): string | undefined => {
 
 const getCanvasFrameVisualizationMode = (frame: Pick<CanvasFrame, 'visualizationMode'>): VisualizationMode | '' =>
   isVisualizationMode(frame.visualizationMode) ? frame.visualizationMode : ''
+
+const getVisualizationModeLabel = (mode: VisualizationMode | ''): string => {
+  if (mode === 'clickmap') return 'Klikkkart'
+  if (mode === 'heatmap') return 'Varmekart'
+  if (mode === 'scrollmap') return 'Scrollkart'
+  return ''
+}
 
 const normalizeDomainForComparison = (value: string): string =>
   value.replace(/^https?:\/\//i, '').replace(/^www\./i, '')
@@ -3844,8 +3852,21 @@ const Canvas = () => {
                             onMouseDown={(event) => handleDragStart(event, frame)}
                           >
                             <div className="flex min-w-0 items-center gap-2">
-                              <div className="min-w-0 text-sm font-semibold text-[var(--ax-text-default)] break-all">
-                                {frame.label}
+                              <div className="min-w-0">
+                                <div className="min-w-0 text-sm font-semibold text-[var(--ax-text-default)] break-all">
+                                  {frame.label}
+                                </div>
+                                {visualizationMode && (
+                                  <div className="flex items-center gap-1 text-xs text-[var(--ax-text-subtle)]">
+                                    <span>Visualisering: {getVisualizationModeLabel(visualizationMode)}</span>
+                                    <div onMouseDown={(event) => event.stopPropagation()}>
+                                      <HelpText title="Datagrunnlag" strategy="fixed" placement="top">
+                                        Visualiseringen er basert på totale klikk på interaktive elementer, ikke antall
+                                        brukere.
+                                      </HelpText>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                               {visualizationMode && (
                                 <div className="flex h-4 w-4 items-center justify-center">
