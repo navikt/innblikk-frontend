@@ -5068,34 +5068,63 @@ const Canvas = () => {
           </div>
         )}
         <div className="pointer-events-none fixed bottom-4 right-4 z-30">
-          <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-1 shadow-sm">
+          <div className="pointer-events-auto flex items-center gap-2">
             {!isGrafbyggerEmbedded && !isProjectManagerEmbedded && (
               <>
-                <Button
-                  size="xsmall"
-                  variant="tertiary"
-                  icon={<Minus size={14} />}
-                  onClick={() => handleCanvasZoomChange(canvasZoom - CANVAS_ZOOM_STEP)}
-                  title="Zoom ut"
-                  aria-label="Zoom ut"
-                />
-                <Button
-                  size="xsmall"
-                  variant="tertiary"
-                  onClick={handleCanvasZoomReset}
-                  title="Tilbakestill zoom"
-                  aria-label="Tilbakestill zoom"
-                >
-                  {Math.round(canvasZoom * 100)}%
-                </Button>
-                <Button
-                  size="xsmall"
-                  variant="tertiary"
-                  icon={<Plus size={14} />}
-                  onClick={() => handleCanvasZoomChange(canvasZoom + CANVAS_ZOOM_STEP)}
-                  title="Zoom inn"
-                  aria-label="Zoom inn"
-                />
+                <ActionMenu>
+                  <ActionMenu.Trigger>
+                    <div className="rounded-full border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-1 shadow-sm">
+                      <Button size="xsmall" variant="tertiary" icon={<Plus size={14} />} className="rounded-full px-2">
+                        Legg til
+                      </Button>
+                    </div>
+                  </ActionMenu.Trigger>
+                  <ActionMenu.Content align="end">
+                    <ActionMenu.Item onClick={handleOpenAddPageModal}>Nettside</ActionMenu.Item>
+                    <ActionMenu.Item onClick={handleOpenGrafbyggerFromAddMenu}>Lag ny graf</ActionMenu.Item>
+                    <ActionMenu.Item onClick={handleOpenAddChartModal}>Importer graf</ActionMenu.Item>
+                    <ActionMenu.Item onClick={handleOpenAddDashboardModal}>Dashboard</ActionMenu.Item>
+                    <ActionMenu.Divider />
+                    <ActionMenu.Item onClick={handleOpenAddHeadingModal}>Overskrift</ActionMenu.Item>
+                    <ActionMenu.Item onClick={handleOpenAddTextModal}>Tekst</ActionMenu.Item>
+                    <ActionMenu.Item onClick={handleOpenAddStickyModal}>Post-it-lapp</ActionMenu.Item>
+                    <ActionMenu.Divider />
+                    <ActionMenu.Item onClick={handleOpenAddImageModal}>Bilde</ActionMenu.Item>
+                    <ActionMenu.Item onClick={handleOpenAddIconModal}>Ikon</ActionMenu.Item>
+                    <ActionMenu.Item onClick={handleOpenAddFigureModal}>Figur</ActionMenu.Item>
+                    <ActionMenu.Item onClick={handleOpenAddDrawing}>Tegning</ActionMenu.Item>
+                    <ActionMenu.Item onClick={handleOpenAddIllustrationModal}>Illustrasjoner</ActionMenu.Item>
+                    <ActionMenu.Divider />
+                    <ActionMenu.Item onClick={handleOpenCreateTabModal}>Legg til fane</ActionMenu.Item>
+                  </ActionMenu.Content>
+                </ActionMenu>
+                <div className="flex items-center gap-1 rounded-full border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-1 shadow-sm">
+                  <Button
+                    size="xsmall"
+                    variant="tertiary"
+                    icon={<Minus size={14} />}
+                    onClick={() => handleCanvasZoomChange(canvasZoom - CANVAS_ZOOM_STEP)}
+                    title="Zoom ut"
+                    aria-label="Zoom ut"
+                  />
+                  <Button
+                    size="xsmall"
+                    variant="tertiary"
+                    onClick={handleCanvasZoomReset}
+                    title="Tilbakestill zoom"
+                    aria-label="Tilbakestill zoom"
+                  >
+                    {Math.round(canvasZoom * 100)}%
+                  </Button>
+                  <Button
+                    size="xsmall"
+                    variant="tertiary"
+                    icon={<Plus size={14} />}
+                    onClick={() => handleCanvasZoomChange(canvasZoom + CANVAS_ZOOM_STEP)}
+                    title="Zoom inn"
+                    aria-label="Zoom inn"
+                  />
+                </div>
               </>
             )}
           </div>
