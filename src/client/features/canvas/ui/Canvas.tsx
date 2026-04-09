@@ -42,6 +42,7 @@ import {
 } from './CanvasIconRegistry.ts'
 import {
   createCategory,
+  createDashboard,
   createGraph,
   createQuery,
   deleteGraph,
@@ -193,6 +194,9 @@ const CANVAS_ZOOM_MIN = 0.5
 const CANVAS_ZOOM_MAX = 1.5
 const CANVAS_ZOOM_STEP = 0.1
 const HEADING_FONT_SIZE_DEFAULT = 40
+const HEADING_FONT_SIZE_MIN = 20
+const HEADING_FONT_SIZE_MAX = 96
+const HEADING_FONT_SIZE_STEP = 2
 const ICON_ROTATION_STEP_DEG = 15
 const CARD_ACTION_BUTTON_CLASSNAME =
   'pointer-events-auto bg-[var(--ax-bg-default)]/95 shadow-sm opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100'
@@ -506,6 +510,9 @@ const Canvas = () => {
   const [canvasTitle, setCanvasTitle] = useState('Canvas')
   const [canvasDashboardDescription, setCanvasDashboardDescription] = useState(CANVAS_DASHBOARD_TOKEN)
   const [canvasConfiguredWebsiteId, setCanvasConfiguredWebsiteId] = useState<string | null>(null)
+  const [canvasInitMode, setCanvasInitMode] = useState<'checking' | 'existing' | 'create'>(
+    canPersistToDashboard ? 'checking' : 'create',
+  )
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
   const [period, setPeriodState] = useState<string>(() =>
     getStoredPeriod(new URLSearchParams(window.location.search).get('period')),
@@ -558,6 +565,11 @@ const Canvas = () => {
   const [dashboardOptions, setDashboardOptions] = useState<Array<{ id: number; name: string }>>([])
   const [selectedDashboardToAddId, setSelectedDashboardToAddId] = useState('')
   const [isLoadingDashboardOptions, setIsLoadingDashboardOptions] = useState(false)
+  const [createCanvasProjectOptions, setCreateCanvasProjectOptions] = useState<Array<{ id: number; name: string }>>([])
+  const [createCanvasProjectId, setCreateCanvasProjectId] = useState('')
+  const [createCanvasNameInput, setCreateCanvasNameInput] = useState('Canvas')
+  const [createCanvasError, setCreateCanvasError] = useState<string | null>(null)
+  const [isCreatingCanvas, setIsCreatingCanvas] = useState(false)
   const [editDashboardProjectOptions, setEditDashboardProjectOptions] = useState<Array<{ id: number; name: string }>>(
     [],
   )
@@ -618,6 +630,7 @@ const Canvas = () => {
   const toolbarNoticeTimerRef = useRef<number | null>(null)
   const toolbarNoticeReadyRef = useRef(false)
   const canvasCanvasTopOffset = canvasToolbarHeight + CANVAS_SURFACE_TOP_GAP
+  const shouldShowCreateCanvasModal = canvasInitMode === 'create'
 
   const handleCanvasZoomChange = useCallback((nextZoom: number) => {
     setCanvasZoom(clampCanvasZoom(nextZoom))
@@ -1003,7 +1016,11 @@ const Canvas = () => {
   )
 
   useEffect(() => {
-    if (!canPersistToDashboard || projectId === null || dashboardId === null) return
+    if (!canPersistToDashboard || projectId === null || dashboardId === null || canvasInitMode !== 'existing') {
+      setFrames((prev) => (prev.length > 0 ? [] : prev))
+      setConnections((prev) => (prev.length > 0 ? [] : prev))
+      return
+    }
 
     let isActive = true
     const loadCanvasItems = async () => {
@@ -1093,23 +1110,39 @@ const Canvas = () => {
     return () => {
       isActive = false
     }
-  }, [canPersistToDashboard, projectId, dashboardId])
+  }, [canPersistToDashboard, projectId, dashboardId, canvasInitMode])
 
   useEffect(() => {
-    if (!canPersistToDashboard || projectId === null || dashboardId === null) return
+    if (!canPersistToDashboard || projectId === null || dashboardId === null) {
+      setCanvasInitMode('create')
+      setCanvasTitle('Canvas')
+      setCanvasDashboardDescription(CANVAS_DASHBOARD_TOKEN)
+      setCanvasConfiguredWebsiteId(null)
+      return
+    }
     let isActive = true
+    setCanvasInitMode('checking')
 
     const loadCanvasTitle = async () => {
       try {
         const dashboards = await fetchDashboards(projectId)
         if (!isActive) return
         const dashboard = dashboards.find((item) => item.id === dashboardId)
-        setCanvasTitle(dashboard?.name?.trim() || 'Canvas')
-        const dashboardDescription = dashboard?.description || CANVAS_DASHBOARD_TOKEN
+        if (!dashboard) {
+          setCanvasInitMode('create')
+          setCanvasTitle('Canvas')
+          setCanvasDashboardDescription(CANVAS_DASHBOARD_TOKEN)
+          setCanvasConfiguredWebsiteId(null)
+          return
+        }
+        setCanvasInitMode('existing')
+        setCanvasTitle(dashboard.name?.trim() || 'Canvas')
+        const dashboardDescription = dashboard.description || CANVAS_DASHBOARD_TOKEN
         setCanvasDashboardDescription(dashboardDescription)
         setCanvasConfiguredWebsiteId(extractCanvasWebsiteIdFromDescription(dashboardDescription))
       } catch {
         if (!isActive) return
+        setCanvasInitMode('create')
         setCanvasTitle('Canvas')
         setCanvasDashboardDescription(CANVAS_DASHBOARD_TOKEN)
         setCanvasConfiguredWebsiteId(null)
@@ -1121,6 +1154,42 @@ const Canvas = () => {
       isActive = false
     }
   }, [canPersistToDashboard, projectId, dashboardId])
+
+  useEffect(() => {
+    if (!shouldShowCreateCanvasModal) return
+    let isActive = true
+    setCreateCanvasError(null)
+    void (async () => {
+      try {
+        const projects = await fetchProjects()
+        if (!isActive) return
+        const options = projects.map((item) => ({
+          id: item.id,
+          name: item.name?.trim() || `Team ${item.id}`,
+        }))
+        setCreateCanvasProjectOptions(options)
+        setCreateCanvasProjectId((current) => {
+          if (current && options.some((option) => String(option.id) === current)) return current
+          if (projectId !== null && options.some((option) => option.id === projectId)) return String(projectId)
+          return options[0] ? String(options[0].id) : ''
+        })
+      } catch (error) {
+        if (!isActive) return
+        setCreateCanvasProjectOptions([])
+        setCreateCanvasProjectId('')
+        setCreateCanvasError(error instanceof Error ? error.message : 'Kunne ikke laste team')
+      }
+    })()
+    return () => {
+      isActive = false
+    }
+  }, [projectId, shouldShowCreateCanvasModal])
+
+  useEffect(() => {
+    if (canvasInitMode !== 'existing') {
+      setSyncError(null)
+    }
+  }, [canvasInitMode])
 
   useEffect(() => {
     const toolbar = canvasToolbarRef.current
@@ -2224,12 +2293,18 @@ const Canvas = () => {
 
   const getHeadingFrameFontSize = useCallback((frame: CanvasFrame): number => {
     if (frame.kind !== 'heading') return HEADING_FONT_SIZE_DEFAULT
-    return HEADING_FONT_SIZE_DEFAULT
+    return Math.max(
+      HEADING_FONT_SIZE_MIN,
+      Math.min(HEADING_FONT_SIZE_MAX, frame.headingFontSize ?? HEADING_FONT_SIZE_DEFAULT),
+    )
   }, [])
 
   const getHeadingFrameWidth = useCallback(
     (frame: CanvasFrame): number => {
       if (frame.kind !== 'heading') return frame.width ?? getDefaultFrameSize(frame).width
+      if (Number.isFinite(frame.width)) {
+        return Math.min(HEADING_TEXT_MAX_WIDTH, Math.max(HEADING_TEXT_MIN_WIDTH, Number(frame.width)))
+      }
 
       const headingText = (frame.headingText || frame.label || '').trim()
       const fontSize = getHeadingFrameFontSize(frame)
@@ -2266,6 +2341,26 @@ const Canvas = () => {
       startY: event.clientY,
       startWidth: frame.width ?? defaults.width,
       startHeight: frame.height ?? defaults.height,
+    })
+  }
+
+  const handleAdjustHeadingFontSize = (id: string, delta: number) => {
+    const currentFrame = frames.find((frame) => frame.id === id)
+    if (!currentFrame || currentFrame.kind !== 'heading') return
+
+    const currentSize = currentFrame.headingFontSize ?? HEADING_FONT_SIZE_DEFAULT
+    const nextSize = Math.max(HEADING_FONT_SIZE_MIN, Math.min(HEADING_FONT_SIZE_MAX, currentSize + delta))
+    if (nextSize === currentSize) return
+
+    const nextFrame: CanvasFrame = {
+      ...currentFrame,
+      headingFontSize: nextSize,
+      refreshNonce: currentFrame.refreshNonce + 1,
+    }
+
+    setFrames((prev) => prev.map((frame) => (frame.id === id ? nextFrame : frame)))
+    void persistFrame(nextFrame).catch((error) => {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre skriftstorrelse')
     })
   }
 
@@ -2318,6 +2413,15 @@ const Canvas = () => {
           const defaults = getDefaultFrameSize(frame)
           const deltaX = (event.clientX - resizeState.startX) / canvasZoom
           const deltaY = (event.clientY - resizeState.startY) / canvasZoom
+          if (frame.kind === 'heading') {
+            return {
+              ...frame,
+              width: Math.min(
+                HEADING_TEXT_MAX_WIDTH,
+                Math.max(HEADING_TEXT_MIN_WIDTH, resizeState.startWidth + deltaX),
+              ),
+            }
+          }
           return {
             ...frame,
             width: Math.max(defaults.minWidth, resizeState.startWidth + deltaX),
@@ -2798,6 +2902,31 @@ const Canvas = () => {
     }
   }
 
+  const handleCreateCanvas = async () => {
+    const selectedProjectId = Number(createCanvasProjectId)
+    const canvasName = createCanvasNameInput.trim()
+
+    if (!Number.isFinite(selectedProjectId)) {
+      setCreateCanvasError('Velg et team.')
+      return
+    }
+    if (!canvasName) {
+      setCreateCanvasError('Legg inn et canvas-navn.')
+      return
+    }
+
+    try {
+      setIsCreatingCanvas(true)
+      setCreateCanvasError(null)
+      const createdDashboard = await createDashboard(selectedProjectId, canvasName, CANVAS_DASHBOARD_TOKEN)
+      window.location.href = `/canvas?projectId=${selectedProjectId}&dashboardId=${createdDashboard.id}`
+    } catch (error) {
+      setCreateCanvasError(error instanceof Error ? error.message : 'Kunne ikke opprette canvas')
+    } finally {
+      setIsCreatingCanvas(false)
+    }
+  }
+
   return (
     <>
       <section className="relative h-[100dvh] min-h-[100dvh] bg-[var(--ax-bg-neutral-soft)]">
@@ -2843,7 +2972,12 @@ const Canvas = () => {
                 </div>
                 <ActionMenu>
                   <ActionMenu.Trigger>
-                    <Button size="small" icon={<Plus size={16} />} className="shrink-0 whitespace-nowrap">
+                    <Button
+                      size="small"
+                      icon={<Plus size={16} />}
+                      className="shrink-0 whitespace-nowrap"
+                      disabled={canvasInitMode !== 'existing'}
+                    >
                       Legg til
                     </Button>
                   </ActionMenu.Trigger>
@@ -2922,6 +3056,7 @@ const Canvas = () => {
                       variant="tertiary"
                       icon={<MoreVertical size={16} />}
                       aria-label="Innstillinger"
+                      disabled={canvasInitMode !== 'existing'}
                     />
                   </ActionMenu.Trigger>
                   <ActionMenu.Content align="end">
@@ -2935,7 +3070,7 @@ const Canvas = () => {
                 )}
               </div>
             </div>
-            {!canPersistToDashboard && (
+            {!canPersistToDashboard && !shouldShowCreateCanvasModal && (
               <div className="mt-2">
                 <Alert variant="warning" size="small">
                   Canvas er ikke koblet til et dashboard. Åpne canvas fra ProjectManager for lagring.
@@ -3346,6 +3481,32 @@ const Canvas = () => {
                                     aria-label="Roter hoyre"
                                     className={CARD_ACTION_BUTTON_CLASSNAME}
                                   />
+                                </>
+                              )}
+                              {frame.kind === 'heading' && (
+                                <>
+                                  <Button
+                                    size="xsmall"
+                                    variant="tertiary"
+                                    onMouseDown={(event) => event.stopPropagation()}
+                                    onClick={() => handleAdjustHeadingFontSize(frame.id, -HEADING_FONT_SIZE_STEP)}
+                                    title="Mindre tekststorrelse"
+                                    aria-label="Mindre tekststorrelse"
+                                    className={CARD_ACTION_BUTTON_CLASSNAME}
+                                  >
+                                    A-
+                                  </Button>
+                                  <Button
+                                    size="xsmall"
+                                    variant="tertiary"
+                                    onMouseDown={(event) => event.stopPropagation()}
+                                    onClick={() => handleAdjustHeadingFontSize(frame.id, HEADING_FONT_SIZE_STEP)}
+                                    title="Storre tekststorrelse"
+                                    aria-label="Storre tekststorrelse"
+                                    className={CARD_ACTION_BUTTON_CLASSNAME}
+                                  >
+                                    A+
+                                  </Button>
                                 </>
                               )}
                               {isIllustrationFrame && (
@@ -3763,27 +3924,25 @@ const Canvas = () => {
                             </div>
                           )}
                         </div>
-                        {frame.kind !== 'heading' && (
-                          <button
-                            type="button"
-                            onMouseDown={(event) => handleResizeStart(event, frame)}
-                            title="Endre størrelse"
-                            aria-label="Endre størrelse"
-                            className={`absolute bottom-1 right-1 h-5 w-5 cursor-se-resize rounded-sm border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] transition-opacity ${
-                              frame.kind === 'text'
-                                ? 'opacity-100'
-                                : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
-                            }`}
-                          >
-                            <span
-                              className="pointer-events-none absolute bottom-[2px] right-[2px] h-2.5 w-2.5"
-                              style={{
-                                background:
-                                  'linear-gradient(135deg, transparent 35%, var(--ax-text-subtle) 35%, var(--ax-text-subtle) 45%, transparent 45%, transparent 55%, var(--ax-text-subtle) 55%, var(--ax-text-subtle) 65%, transparent 65%)',
-                              }}
-                            />
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onMouseDown={(event) => handleResizeStart(event, frame)}
+                          title="Endre størrelse"
+                          aria-label="Endre størrelse"
+                          className={`absolute bottom-1 right-1 h-5 w-5 cursor-se-resize rounded-sm border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] transition-opacity ${
+                            frame.kind === 'text'
+                              ? 'opacity-100'
+                              : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
+                          }`}
+                        >
+                          <span
+                            className="pointer-events-none absolute bottom-[2px] right-[2px] h-2.5 w-2.5"
+                            style={{
+                              background:
+                                'linear-gradient(135deg, transparent 35%, var(--ax-text-subtle) 35%, var(--ax-text-subtle) 45%, transparent 45%, transparent 55%, var(--ax-text-subtle) 55%, var(--ax-text-subtle) 65%, transparent 65%)',
+                            }}
+                          />
+                        </button>
                       </article>
                     )
                   })(),
@@ -3822,6 +3981,60 @@ const Canvas = () => {
           </div>
         </div>
       </section>
+
+      <Modal
+        open={shouldShowCreateCanvasModal}
+        onClose={() => {
+          // Keep modal open until user creates or navigates away.
+        }}
+        header={{ heading: 'Opprett canvas' }}
+        width="small"
+        closeOnBackdropClick={false}
+      >
+        <Modal.Body>
+          <div className="space-y-3">
+            <div className="text-sm text-[var(--ax-text-subtle)]">
+              Fant ikke et gyldig canvas for denne URL-en. Opprett et nytt canvas for å fortsette.
+            </div>
+            <Select
+              label="Team"
+              value={createCanvasProjectId}
+              onChange={(event) => {
+                setCreateCanvasProjectId(event.target.value)
+                if (createCanvasError) setCreateCanvasError(null)
+              }}
+              disabled={isCreatingCanvas}
+            >
+              <option value="" disabled>
+                {createCanvasProjectOptions.length === 0 ? 'Laster team...' : 'Velg team'}
+              </option>
+              {createCanvasProjectOptions.map((option) => (
+                <option key={option.id} value={String(option.id)}>
+                  {option.name}
+                </option>
+              ))}
+            </Select>
+            <TextField
+              label="Canvas-navn"
+              value={createCanvasNameInput}
+              onChange={(event) => {
+                setCreateCanvasNameInput(event.target.value)
+                if (createCanvasError) setCreateCanvasError(null)
+              }}
+              disabled={isCreatingCanvas}
+            />
+            {createCanvasError && <Alert variant="error">{createCanvasError}</Alert>}
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button onClick={() => void handleCreateCanvas()} size="small" loading={isCreatingCanvas}>
+            Opprett canvas
+          </Button>
+          <Button variant="secondary" size="small" as="a" href={projectManagerHref} disabled={isCreatingCanvas}>
+            Til ProjectManager
+          </Button>
+        </Modal.Footer>
+      </Modal>
 
       <Modal
         open={isCanvasSettingsModalOpen}
