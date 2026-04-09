@@ -3844,14 +3844,16 @@ const Canvas = () => {
                             onMouseDown={(event) => handleDragStart(event, frame)}
                           >
                             <div className="flex min-w-0 items-center gap-2">
-                              <div className="min-w-0">
-                                <div className="min-w-0 text-sm font-semibold text-[var(--ax-text-default)] break-all">
-                                  {frame.label}
-                                </div>
-                                {visualizationMode && visualizationData?.loading && (
-                                  <div className="text-xs text-[var(--ax-text-subtle)]">Henter kartdata ...</div>
-                                )}
+                              <div className="min-w-0 text-sm font-semibold text-[var(--ax-text-default)] break-all">
+                                {frame.label}
                               </div>
+                              {visualizationMode && (
+                                <div className="flex h-4 w-4 items-center justify-center">
+                                  {visualizationData?.loading ? (
+                                    <Loader size="xsmall" title="Henter kartdata..." />
+                                  ) : null}
+                                </div>
+                              )}
                             </div>
                             <div className="flex items-center gap-1">
                               {frame.kind === 'website' && !frame.isInternalDashboard && (
