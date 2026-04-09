@@ -25,6 +25,7 @@ type CanvasTopBarProps = {
   onOpenAddImage: () => void
   onOpenAddIcon: () => void
   onOpenAddFigure: () => void
+  onOpenAddDrawing: () => void
   onOpenAddIllustration: () => void
   onOpenCreateTab: () => void
   onOpenManageTabs: () => void
@@ -61,6 +62,7 @@ const CanvasTopBar = ({
   onOpenAddImage,
   onOpenAddIcon,
   onOpenAddFigure,
+  onOpenAddDrawing,
   onOpenAddIllustration,
   onOpenCreateTab,
   onOpenManageTabs,
@@ -138,6 +140,7 @@ const CanvasTopBar = ({
               <ActionMenu.Item onClick={onOpenAddImage}>Bilde</ActionMenu.Item>
               <ActionMenu.Item onClick={onOpenAddIcon}>Ikon</ActionMenu.Item>
               <ActionMenu.Item onClick={onOpenAddFigure}>Figur</ActionMenu.Item>
+              <ActionMenu.Item onClick={onOpenAddDrawing}>Tegning</ActionMenu.Item>
               <ActionMenu.Item onClick={onOpenAddIllustration}>Illustrasjoner</ActionMenu.Item>
             </ActionMenu.Content>
           </ActionMenu>

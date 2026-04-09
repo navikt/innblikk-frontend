@@ -97,6 +97,7 @@ type CanvasPayloadKind =
   | 'chart'
   | 'icon'
   | 'figure'
+  | 'drawing'
   | 'connection'
 type CanvasConnectionMetric = {
   percentageOfPrev: number
@@ -109,7 +110,7 @@ type CanvasConnectionMetric = {
 
 type CanvasFrame = {
   id: string
-  kind: 'website' | 'image' | 'heading' | 'text' | 'sticky' | 'chart' | 'icon' | 'figure'
+  kind: 'website' | 'image' | 'heading' | 'text' | 'sticky' | 'chart' | 'icon' | 'figure' | 'drawing'
   websiteId?: string
   targetUrl?: string
   previewUrl?: string
@@ -124,6 +125,9 @@ type CanvasFrame = {
   iconColor?: string
   figureType?: CanvasFigureType
   figureColor?: string
+  drawingPath?: string
+  drawingStrokeWidth?: number
+  drawingColor?: string
   isIllustration?: boolean
   imageRotationDeg?: number
   chartType?: CanvasChartType
@@ -219,6 +223,9 @@ type CanvasConfigPayload = {
   iconColor?: string
   figureType?: CanvasFigureType
   figureColor?: string
+  drawingPath?: string
+  drawingStrokeWidth?: number
+  drawingColor?: string
   isIllustration?: boolean
   imageRotationDeg?: number
   chartType?: CanvasChartType
@@ -264,6 +271,8 @@ const CANVAS_FIGURE_OPTIONS: CanvasFigureOption[] = [
   { id: 'arrow', label: 'Pil', Icon: ArrowRight },
 ]
 const CLICKMAP_EVENTS = ['navigere', 'accordion åpnet']
+const DRAWING_STROKE_WIDTH_OPTIONS = [6, 10, 14]
+const DEFAULT_DRAWING_STROKE_WIDTH = 10
 const CARD_ACTION_BUTTON_CLASSNAME =
   'pointer-events-auto bg-[var(--ax-bg-default)]/95 shadow-sm opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100'
 
@@ -542,6 +551,7 @@ const isCanvasPayloadKind = (value: unknown): value is CanvasPayloadKind =>
   value === 'chart' ||
   value === 'icon' ||
   value === 'figure' ||
+  value === 'drawing' ||
   value === 'connection'
 
 const isRenderableCanvasFrameKind = (value: unknown): value is CanvasFrame['kind'] =>
@@ -552,7 +562,8 @@ const isRenderableCanvasFrameKind = (value: unknown): value is CanvasFrame['kind
   value === 'sticky' ||
   value === 'chart' ||
   value === 'icon' ||
-  value === 'figure'
+  value === 'figure' ||
+  value === 'drawing'
 
 const isCanvasChartType = (value: unknown): value is CanvasChartType =>
   value === 'line' || value === 'bar' || value === 'pie' || value === 'table'
@@ -593,6 +604,9 @@ const parseCanvasConfig = (raw: string): CanvasConfigPayload | null => {
       iconColor: typeof parsed.iconColor === 'string' ? parsed.iconColor : undefined,
       figureType: isCanvasFigureType(parsed.figureType) ? parsed.figureType : undefined,
       figureColor: typeof parsed.figureColor === 'string' ? parsed.figureColor : undefined,
+      drawingPath: typeof parsed.drawingPath === 'string' ? parsed.drawingPath : undefined,
+      drawingStrokeWidth: Number.isFinite(parsed.drawingStrokeWidth) ? Number(parsed.drawingStrokeWidth) : undefined,
+      drawingColor: typeof parsed.drawingColor === 'string' ? parsed.drawingColor : undefined,
       isIllustration: typeof parsed.isIllustration === 'boolean' ? parsed.isIllustration : undefined,
       imageRotationDeg: Number.isFinite(parsed.imageRotationDeg) ? Number(parsed.imageRotationDeg) : undefined,
       chartType: isCanvasChartType(parsed.chartType) ? parsed.chartType : undefined,
@@ -606,6 +620,23 @@ const parseCanvasConfig = (raw: string): CanvasConfigPayload | null => {
   } catch {
     return null
   }
+}
+
+type CanvasDrawingPoint = { x: number; y: number }
+
+const parseDrawingPath = (rawPath?: string): CanvasDrawingPoint[] => {
+  if (!rawPath) return []
+  return rawPath
+    .trim()
+    .split(/\s+/)
+    .map((point) => {
+      const [xValue, yValue] = point.split(',')
+      const x = Number(xValue)
+      const y = Number(yValue)
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return null
+      return { x, y }
+    })
+    .filter((point): point is CanvasDrawingPoint => point !== null)
 }
 
 const Canvas = () => {
@@ -725,6 +756,10 @@ const Canvas = () => {
   const [selectedFigureType, setSelectedFigureType] = useState<CanvasFigureType>('rectangle')
   const [selectedFigureColor, setSelectedFigureColor] = useState(DEFAULT_CANVAS_ICON_COLOR)
   const [addFigureError, setAddFigureError] = useState<string | null>(null)
+  const [isDrawingMode, setIsDrawingMode] = useState(false)
+  const [drawingStrokeColor, setDrawingStrokeColor] = useState(DEFAULT_CANVAS_ICON_COLOR)
+  const [drawingStrokeWidth, setDrawingStrokeWidth] = useState(DEFAULT_DRAWING_STROKE_WIDTH)
+  const [activeDrawingPoints, setActiveDrawingPoints] = useState<CanvasDrawingPoint[] | null>(null)
   const [editFigureSelectedType, setEditFigureSelectedType] = useState<CanvasFigureType>('rectangle')
   const [editFigureSelectedColor, setEditFigureSelectedColor] = useState(DEFAULT_CANVAS_ICON_COLOR)
   const [editFigureError, setEditFigureError] = useState<string | null>(null)
@@ -766,6 +801,7 @@ const Canvas = () => {
   const [pendingFramePointer, setPendingFramePointer] = useState<{ x: number; y: number } | null>(null)
   const pageInsightsRef = useRef<Record<string, CanvasPageInsight>>({})
   const framesRef = useRef<CanvasFrame[]>([])
+  const activeDrawingPointsRef = useRef<CanvasDrawingPoint[] | null>(null)
   const frameVisualizationDataRef = useRef<Record<string, CanvasFrameVisualizationData>>({})
   const websiteIframeRefs = useRef<Record<string, HTMLIFrameElement | null>>({})
   const canvasViewportRef = useRef<HTMLDivElement | null>(null)
@@ -817,6 +853,10 @@ const Canvas = () => {
   useEffect(() => {
     framesRef.current = frames
   }, [frames])
+
+  useEffect(() => {
+    activeDrawingPointsRef.current = activeDrawingPoints
+  }, [activeDrawingPoints])
 
   useEffect(() => {
     frameVisualizationDataRef.current = frameVisualizationData
@@ -1291,6 +1331,9 @@ const Canvas = () => {
         iconColor: frame.iconColor,
         figureType: frame.figureType,
         figureColor: frame.figureColor,
+        drawingPath: frame.drawingPath,
+        drawingStrokeWidth: frame.drawingStrokeWidth,
+        drawingColor: frame.drawingColor,
         isIllustration: frame.isIllustration,
         imageRotationDeg: frame.imageRotationDeg,
         chartType: frame.chartType,
@@ -1473,6 +1516,9 @@ const Canvas = () => {
               iconColor: parsedConfig.iconColor,
               figureType: parsedConfig.figureType,
               figureColor: parsedConfig.figureColor,
+              drawingPath: parsedConfig.drawingPath,
+              drawingStrokeWidth: parsedConfig.drawingStrokeWidth,
+              drawingColor: parsedConfig.drawingColor,
               isIllustration:
                 typeof parsedConfig.isIllustration === 'boolean'
                   ? parsedConfig.isIllustration
@@ -2367,13 +2413,22 @@ const Canvas = () => {
 
   const handleCanvasSurfaceMouseDown = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
-      if (!pendingFrameDraft) return
       if (event.target !== event.currentTarget) return
+      if (pendingFrameDraft) {
+        event.preventDefault()
+        event.stopPropagation()
+        void handlePlacePendingFrame(event.clientX, event.clientY)
+        return
+      }
+      if (!isDrawingMode) return
+
+      const pointer = getCanvasPointerPosition(event.clientX, event.clientY)
+      if (!pointer) return
       event.preventDefault()
       event.stopPropagation()
-      void handlePlacePendingFrame(event.clientX, event.clientY)
+      setActiveDrawingPoints([pointer])
     },
-    [handlePlacePendingFrame, pendingFrameDraft],
+    [getCanvasPointerPosition, handlePlacePendingFrame, isDrawingMode, pendingFrameDraft],
   )
 
   const handleCanvasSurfaceMouseMove = useCallback(
@@ -2387,9 +2442,10 @@ const Canvas = () => {
   )
 
   const handleCanvasSurfaceMouseLeave = useCallback(() => {
+    if (isDrawingMode) return
     if (!pendingFrameDraft) return
     setPendingFramePointer(null)
-  }, [pendingFrameDraft])
+  }, [isDrawingMode, pendingFrameDraft])
 
   const getFrameBounds = useCallback(
     (frame: CanvasFrame): { left: number; top: number; right: number; bottom: number } => {
@@ -2624,6 +2680,109 @@ const Canvas = () => {
     setIsAddFigureModalOpen(false)
   }
 
+  const handleFinalizeDrawing = useCallback(
+    async (points: CanvasDrawingPoint[]) => {
+      if (points.length === 0) return
+
+      const normalizedPoints = points.length === 1 ? [points[0], points[0]] : points
+      const minX = Math.min(...normalizedPoints.map((point) => point.x))
+      const maxX = Math.max(...normalizedPoints.map((point) => point.x))
+      const minY = Math.min(...normalizedPoints.map((point) => point.y))
+      const maxY = Math.max(...normalizedPoints.map((point) => point.y))
+      const padding = Math.max(4, drawingStrokeWidth)
+      const baseX = minX - padding
+      const baseY = minY - padding
+      const width = Math.max(28, maxX - minX + padding * 2)
+      const height = Math.max(28, maxY - minY + padding * 2)
+      const drawingPath = normalizedPoints
+        .map((point) => `${(point.x - baseX).toFixed(2)},${(point.y - baseY).toFixed(2)}`)
+        .join(' ')
+
+      const nextFrame: CanvasFrame = {
+        id: `${Date.now()}-${Math.random()}`,
+        kind: 'drawing',
+        drawingPath,
+        drawingStrokeWidth,
+        drawingColor: getCanvasIconColor(drawingStrokeColor),
+        label: 'Tegning',
+        x: Math.max(0, baseX),
+        y: Math.max(-CANVAS_TOP_BUFFER, baseY),
+        width,
+        height,
+        refreshNonce: 0,
+      }
+
+      try {
+        setIsSavingCanvasItem(true)
+        setSyncError(null)
+        const persistedFrame = await persistFrame(nextFrame)
+        setFrames((prev) => [...prev, persistedFrame])
+      } catch (error) {
+        setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre tegning')
+      } finally {
+        setIsSavingCanvasItem(false)
+      }
+    },
+    [drawingStrokeColor, drawingStrokeWidth, persistFrame],
+  )
+
+  useEffect(() => {
+    if (!isDrawingMode) return
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      if (activeDrawingPointsRef.current?.length) {
+        setActiveDrawingPoints(null)
+        return
+      }
+      setIsDrawingMode(false)
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [isDrawingMode])
+
+  useEffect(() => {
+    if (!isDrawingMode || !activeDrawingPoints) return
+
+    const onMouseMove = (event: MouseEvent) => {
+      const pointer = getCanvasPointerPosition(event.clientX, event.clientY)
+      if (!pointer) return
+
+      setActiveDrawingPoints((current) => {
+        if (!current || current.length === 0) return current
+        const lastPoint = current[current.length - 1]
+        if (!lastPoint) return current
+        const deltaX = pointer.x - lastPoint.x
+        const deltaY = pointer.y - lastPoint.y
+        if (Math.hypot(deltaX, deltaY) < 1) return current
+        return [...current, pointer]
+      })
+    }
+
+    const onMouseUp = () => {
+      const points = activeDrawingPointsRef.current
+      setActiveDrawingPoints(null)
+      if (points?.length) {
+        void handleFinalizeDrawing(points)
+      }
+    }
+
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [activeDrawingPoints, getCanvasPointerPosition, handleFinalizeDrawing, isDrawingMode])
+
+  useEffect(() => {
+    if (isDrawingMode) return
+    if (activeDrawingPoints) {
+      setActiveDrawingPoints(null)
+    }
+  }, [activeDrawingPoints, isDrawingMode])
+
   const loadChartOptions = useCallback(async () => {
     if (!canPersistToDashboard || projectId === null || dashboardId === null) {
       setChartOptions([])
@@ -2833,6 +2992,7 @@ const Canvas = () => {
     if (kind === 'text') return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
     if (kind === 'icon') return { width: 280, height: 240, minWidth: 72, minHeight: 72 }
     if (kind === 'figure') return { width: 240, height: 200, minWidth: 120, minHeight: 72 }
+    if (kind === 'drawing') return { width: 240, height: 160, minWidth: 28, minHeight: 28 }
     return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
   }
 
@@ -3433,7 +3593,8 @@ const Canvas = () => {
       frame.kind === 'image' ||
       frame.kind === 'chart' ||
       frame.kind === 'icon' ||
-      frame.kind === 'figure'
+      frame.kind === 'figure' ||
+      frame.kind === 'drawing'
     )
       return
 
@@ -3696,6 +3857,11 @@ const Canvas = () => {
     setIsAddFigureModalOpen(true)
   }
 
+  const handleOpenAddDrawing = () => {
+    cancelPendingFramePlacement()
+    setIsDrawingMode(true)
+  }
+
   const handleOpenAddIllustrationModal = () => {
     setEditIllustrationFrameId(null)
     setAddIllustrationError(null)
@@ -3733,6 +3899,7 @@ const Canvas = () => {
           onOpenAddImage={handleOpenAddImageModal}
           onOpenAddIcon={handleOpenAddIconModal}
           onOpenAddFigure={handleOpenAddFigureModal}
+          onOpenAddDrawing={handleOpenAddDrawing}
           onOpenAddIllustration={handleOpenAddIllustrationModal}
           onOpenCreateTab={handleOpenCreateTabModal}
           onOpenManageTabs={handleOpenManageTabsModal}
@@ -3759,6 +3926,56 @@ const Canvas = () => {
                 avbryte.
               </div>
             )}
+            {isDrawingMode && (
+              <div
+                className="absolute left-1/2 z-[45] -translate-x-1/2 rounded-xl border border-[var(--ax-border-accent)] bg-[var(--ax-bg-default)] px-3 py-2 shadow-lg"
+                style={{ top: `${canvasCanvasTopOffset + 20}px` }}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium text-[var(--ax-text-default)]">Tegnemodus: dra for å tegne</span>
+                  <div className="flex items-center gap-1">
+                    {CANVAS_ICON_COLOR_OPTIONS.map((colorOption) => {
+                      const isSelected = drawingStrokeColor === colorOption.value
+                      return (
+                        <button
+                          key={colorOption.id}
+                          type="button"
+                          onClick={() => setDrawingStrokeColor(colorOption.value)}
+                          className={`h-6 w-6 rounded-full border-2 ${
+                            isSelected ? 'border-[var(--ax-border-accent)]' : 'border-[var(--ax-border-neutral-subtle)]'
+                          }`}
+                          aria-label={`Velg farge ${colorOption.label}`}
+                          title={colorOption.label}
+                        >
+                          <span
+                            aria-hidden="true"
+                            className="block h-full w-full rounded-full border border-black/10"
+                            style={{ backgroundColor: colorOption.value }}
+                          />
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <label className="flex items-center gap-1 text-xs text-[var(--ax-text-subtle)]">
+                    <span>Tykkelse</span>
+                    <select
+                      value={String(drawingStrokeWidth)}
+                      onChange={(event) => setDrawingStrokeWidth(Number(event.target.value))}
+                      className="rounded border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-2 py-1 text-sm text-[var(--ax-text-default)]"
+                    >
+                      {DRAWING_STROKE_WIDTH_OPTIONS.map((strokeWidth) => (
+                        <option key={strokeWidth} value={String(strokeWidth)}>
+                          {strokeWidth}px
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <Button size="xsmall" variant="secondary" onClick={() => setIsDrawingMode(false)}>
+                    Avslutt
+                  </Button>
+                </div>
+              </div>
+            )}
             <div
               className="relative"
               style={{
@@ -3767,7 +3984,7 @@ const Canvas = () => {
               }}
             >
               <div
-                className={`absolute left-0 top-0 origin-top-left ${pendingFrameDraft ? 'cursor-crosshair' : ''}`}
+                className={`absolute left-0 top-0 origin-top-left ${pendingFrameDraft || isDrawingMode ? 'cursor-crosshair' : ''}`}
                 onMouseDown={handleCanvasSurfaceMouseDown}
                 onMouseMove={handleCanvasSurfaceMouseMove}
                 onMouseLeave={handleCanvasSurfaceMouseLeave}
@@ -3862,6 +4079,18 @@ const Canvas = () => {
                     />
                   </svg>
                 )}
+                {activeDrawingPoints && activeDrawingPoints.length > 0 && (
+                  <svg className="pointer-events-none absolute inset-0 z-[3] h-full w-full overflow-visible">
+                    <polyline
+                      points={activeDrawingPoints.map((point) => `${point.x},${point.y}`).join(' ')}
+                      fill="none"
+                      stroke={getCanvasIconColor(drawingStrokeColor)}
+                      strokeWidth={drawingStrokeWidth}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                )}
                 {connectionSegmentsWithMetrics.map((segment) => (
                   <Fragment key={segment.id}>
                     <div
@@ -3940,7 +4169,9 @@ const Canvas = () => {
                                     ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
                                     : frame.kind === 'figure'
                                       ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
-                                      : 'group absolute flex flex-col overflow-hidden rounded-xl border border-[#f1dc7d] bg-[#fff5b8] shadow-sm'
+                                      : frame.kind === 'drawing'
+                                        ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
+                                        : 'group absolute flex flex-col overflow-hidden rounded-xl border border-[#f1dc7d] bg-[#fff5b8] shadow-sm'
                         }
                         style={{
                           left: `${frame.x}px`,
@@ -3956,7 +4187,7 @@ const Canvas = () => {
                                     ? 50
                                     : frame.kind === 'icon'
                                       ? 60
-                                      : frame.kind === 'figure'
+                                      : frame.kind === 'figure' || frame.kind === 'drawing'
                                         ? 60
                                         : undefined,
                           width:
@@ -4106,6 +4337,7 @@ const Canvas = () => {
                           frame.kind === 'heading' ||
                           frame.kind === 'icon' ||
                           frame.kind === 'figure' ||
+                          frame.kind === 'drawing' ||
                           frame.kind === 'image' ||
                           (frame.kind === 'website' && frame.isInternalDashboard)) && (
                           <>
@@ -4163,7 +4395,8 @@ const Canvas = () => {
                         {(frame.kind === 'heading' ||
                           frame.kind === 'text' ||
                           frame.kind === 'icon' ||
-                          frame.kind === 'figure') && (
+                          frame.kind === 'figure' ||
+                          frame.kind === 'drawing') && (
                           <div
                             aria-hidden="true"
                             className={`pointer-events-none absolute z-10 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${
@@ -4190,9 +4423,11 @@ const Canvas = () => {
                                   ? 'overflow-visible bg-transparent'
                                   : frame.kind === 'figure'
                                     ? 'overflow-visible bg-transparent'
-                                    : frame.kind === 'heading'
-                                      ? 'pt-1'
-                                      : 'px-2 pb-2'
+                                    : frame.kind === 'drawing'
+                                      ? 'overflow-visible bg-transparent'
+                                      : frame.kind === 'heading'
+                                        ? 'pt-1'
+                                        : 'px-2 pb-2'
                           }`}
                         >
                           {frame.kind === 'website' && !frame.isInternalDashboard && (
@@ -4571,6 +4806,33 @@ const Canvas = () => {
                                       markerEnd={`url(#${markerId})`}
                                     />
                                   )}
+                                </svg>
+                              )
+                            })()
+                          ) : frame.kind === 'drawing' ? (
+                            (() => {
+                              const width = frame.width ?? defaults.width
+                              const height = frame.height ?? defaults.height
+                              const points = parseDrawingPath(frame.drawingPath)
+                              const strokeColor = getCanvasIconColor(frame.drawingColor)
+                              const strokeWidth = frame.drawingStrokeWidth ?? DEFAULT_DRAWING_STROKE_WIDTH
+                              return (
+                                <svg
+                                  width={width}
+                                  height={height}
+                                  viewBox={`0 0 ${width} ${height}`}
+                                  className="block h-full w-full"
+                                  aria-label={frame.label}
+                                  role="img"
+                                >
+                                  <polyline
+                                    points={points.map((point) => `${point.x},${point.y}`).join(' ')}
+                                    fill="none"
+                                    stroke={strokeColor}
+                                    strokeWidth={strokeWidth}
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
                                 </svg>
                               )
                             })()

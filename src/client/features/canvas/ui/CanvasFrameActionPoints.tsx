@@ -7,7 +7,7 @@ const stopMouseDownPropagation = (event: MouseEvent<HTMLElement>) => {
 }
 
 type CanvasFrameActionPointsProps = {
-  frameKind: 'website' | 'image' | 'heading' | 'text' | 'sticky' | 'chart' | 'icon' | 'figure'
+  frameKind: 'website' | 'image' | 'heading' | 'text' | 'sticky' | 'chart' | 'icon' | 'figure' | 'drawing'
   isInternalDashboard?: boolean
   isIllustrationFrame: boolean
   actionButtonClassName: string
@@ -262,7 +262,11 @@ const CanvasFrameActionPoints = ({
 }: CanvasFrameActionPointsProps) => (
   <div
     className={`pointer-events-none absolute z-30 ${
-      frameKind === 'heading' || frameKind === 'icon' || frameKind === 'figure' || isIllustrationFrame
+      frameKind === 'heading' ||
+      frameKind === 'icon' ||
+      frameKind === 'figure' ||
+      frameKind === 'drawing' ||
+      isIllustrationFrame
         ? 'right-0 -top-6 flex items-center gap-1'
         : 'right-2 top-2'
     }`}
