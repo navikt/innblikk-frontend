@@ -243,6 +243,7 @@ type CanvasFigureOption = {
   label: string
   Icon: typeof Square
 }
+type PendingCanvasFrameDraft = Omit<CanvasFrame, 'id' | 'x' | 'y' | 'categoryId' | 'graphId' | 'queryId'>
 
 const CANVAS_DASHBOARD_TOKEN = '[canvas]'
 const CANVAS_WEBSITE_ID_TOKEN_REGEX = /\[websiteId:([^\]]+)\]/i
@@ -756,13 +757,15 @@ const Canvas = () => {
   const [connectionMetrics, setConnectionMetrics] = useState<Record<string, CanvasConnectionMetric | null>>({})
   const [frameVisualizationData, setFrameVisualizationData] = useState<Record<string, CanvasFrameVisualizationData>>({})
   const [connectionDragState, setConnectionDragState] = useState<ConnectionDragState | null>(null)
-  const [toolbarNotice, setToolbarNotice] = useState<string | null>(null)
   const [pageInsights, setPageInsights] = useState<Record<string, CanvasPageInsight>>({})
   const [activeInsightFrameId, setActiveInsightFrameId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<CanvasDeleteTarget | null>(null)
   const [canvasZoom, setCanvasZoom] = useState(1)
   const [activeEditableFrameId, setActiveEditableFrameId] = useState<string | null>(null)
   const [failedImageFrameIds, setFailedImageFrameIds] = useState<Record<string, boolean>>({})
+  const [pendingFrameDraft, setPendingFrameDraft] = useState<PendingCanvasFrameDraft | null>(null)
+  const [pendingFramePlacementLabel, setPendingFramePlacementLabel] = useState<string | null>(null)
+  const [pendingFramePointer, setPendingFramePointer] = useState<{ x: number; y: number } | null>(null)
   const pageInsightsRef = useRef<Record<string, CanvasPageInsight>>({})
   const framesRef = useRef<CanvasFrame[]>([])
   const frameVisualizationDataRef = useRef<Record<string, CanvasFrameVisualizationData>>({})
@@ -771,8 +774,6 @@ const Canvas = () => {
   const canvasToolbarRef = useRef<HTMLDivElement | null>(null)
   const connectionMetricRequestSignatureRef = useRef<string | null>(null)
   const [canvasToolbarHeight, setCanvasToolbarHeight] = useState(120)
-  const toolbarNoticeTimerRef = useRef<number | null>(null)
-  const toolbarNoticeReadyRef = useRef(false)
   const canvasCanvasTopOffset = canvasToolbarHeight + CANVAS_SURFACE_TOP_GAP
   const shouldShowCreateCanvasModal = canvasInitMode === 'create'
 
@@ -787,30 +788,7 @@ const Canvas = () => {
   const setPeriod = (nextPeriod: string) => {
     setPeriodState(nextPeriod)
     savePeriodPreference(nextPeriod)
-    if (toolbarNoticeReadyRef.current) {
-      if (toolbarNoticeTimerRef.current) {
-        window.clearTimeout(toolbarNoticeTimerRef.current)
-      }
-      setToolbarNotice('Filter oppdatert')
-      toolbarNoticeTimerRef.current = window.setTimeout(() => {
-        setToolbarNotice(null)
-        toolbarNoticeTimerRef.current = null
-      }, 1800)
-    }
   }
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      toolbarNoticeReadyRef.current = true
-    }, 1200)
-
-    return () => {
-      window.clearTimeout(timer)
-      if (toolbarNoticeTimerRef.current) {
-        window.clearTimeout(toolbarNoticeTimerRef.current)
-      }
-    }
-  }, [])
 
   const dashboardWidgetFilters = useMemo(
     () => ({
@@ -1666,7 +1644,32 @@ const Canvas = () => {
     }
   }, [])
 
-  const handleAddPage = async () => {
+  const queueFrameForPlacement = useCallback((draft: PendingCanvasFrameDraft, label: string) => {
+    setPendingFrameDraft(draft)
+    setPendingFramePlacementLabel(label)
+    setPendingFramePointer(null)
+  }, [])
+
+  const cancelPendingFramePlacement = useCallback(() => {
+    setPendingFrameDraft(null)
+    setPendingFramePlacementLabel(null)
+    setPendingFramePointer(null)
+  }, [])
+
+  useEffect(() => {
+    if (!pendingFrameDraft) return
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        cancelPendingFramePlacement()
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [cancelPendingFramePlacement, pendingFrameDraft])
+
+  const handleAddPage = () => {
     const targetUrl = normalizeInputToTargetUrl(newPagePathInput, selectedWebsite?.domain)
     if (!targetUrl) {
       setAddPageError('Legg inn en gyldig URL, for eksempel https://www.nav.no/aap.')
@@ -1680,11 +1683,7 @@ const Canvas = () => {
       return
     }
 
-    const index = frames.length
-    const column = index % 3
-    const row = Math.floor(index / 3)
-    const newFrame: CanvasFrame = {
-      id: `${Date.now()}-${Math.random()}`,
+    const frameDraft: PendingCanvasFrameDraft = {
       kind: 'website',
       websiteId: selectedWebsite?.id || canvasConfiguredWebsiteId || undefined,
       targetUrl,
@@ -1692,31 +1691,19 @@ const Canvas = () => {
       renderWebsite: newPageRenderEnabled,
       visualizationMode: newPageVisualizationMode || undefined,
       label: getFrameLabel(targetUrl),
-      x: 80 + column * 460,
-      y: 80 + row * 380,
       width: 420,
       height: 560,
       refreshNonce: 1,
     }
-
-    try {
-      setIsSavingCanvasItem(true)
-      setSyncError(null)
-      const persistedFrame = await persistFrame(newFrame)
-      setFrames((prev) => [...prev, persistedFrame])
-      setNewPagePathInput('')
-      setNewPagePreviewUrlInput('')
-      setNewPageVisualizationMode('')
-      setAddPageError(null)
-      setIsAddPageModalOpen(false)
-    } catch (error) {
-      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre nettside i canvas')
-    } finally {
-      setIsSavingCanvasItem(false)
-    }
+    queueFrameForPlacement(frameDraft, 'nettside')
+    setNewPagePathInput('')
+    setNewPagePreviewUrlInput('')
+    setNewPageVisualizationMode('')
+    setAddPageError(null)
+    setIsAddPageModalOpen(false)
   }
 
-  const handleAddImage = async () => {
+  const handleAddImage = () => {
     const imageUrl = normalizeInputToTargetUrl(newImageUrlInput, selectedWebsite?.domain)
     if (!imageUrl) {
       setAddImageError('Legg inn en gyldig bilde-URL, for eksempel https://www.nav.no/bilde.png.')
@@ -1733,34 +1720,18 @@ const Canvas = () => {
       return
     }
 
-    const index = frames.length
-    const column = index % 3
-    const row = Math.floor(index / 3)
-    const newFrame: CanvasFrame = {
-      id: `${Date.now()}-${Math.random()}`,
+    const frameDraft: PendingCanvasFrameDraft = {
       kind: 'image',
       targetUrl: imageUrl,
       label: getFrameLabel(imageUrl),
-      x: 80 + column * 460,
-      y: 80 + row * 380,
       width: 420,
       height: 420,
       refreshNonce: 1,
     }
-
-    try {
-      setIsSavingCanvasItem(true)
-      setSyncError(null)
-      const persistedFrame = await persistFrame(newFrame)
-      setFrames((prev) => [...prev, persistedFrame])
-      setNewImageUrlInput('')
-      setAddImageError(null)
-      setIsAddImageModalOpen(false)
-    } catch (error) {
-      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre bilde i canvas')
-    } finally {
-      setIsSavingCanvasItem(false)
-    }
+    queueFrameForPlacement(frameDraft, 'bilde')
+    setNewImageUrlInput('')
+    setAddImageError(null)
+    setIsAddImageModalOpen(false)
   }
 
   const handleAddIllustration = async () => {
@@ -1787,24 +1758,17 @@ const Canvas = () => {
         const persistedFrame = await persistFrame(updatedFrame)
         setFrames((prev) => prev.map((frame) => (frame.id === editIllustrationFrameId ? persistedFrame : frame)))
       } else {
-        const index = frames.length
-        const column = index % 3
-        const row = Math.floor(index / 3)
-        const newFrame: CanvasFrame = {
-          id: `${Date.now()}-${Math.random()}`,
+        const frameDraft: PendingCanvasFrameDraft = {
           kind: 'image',
           targetUrl: selectedIllustration.path,
           label: selectedIllustration.label,
           isIllustration: true,
           imageRotationDeg: 0,
-          x: 80 + column * 460,
-          y: 80 + row * 380,
           width: 420,
           height: 420,
           refreshNonce: 1,
         }
-        const persistedFrame = await persistFrame(newFrame)
-        setFrames((prev) => [...prev, persistedFrame])
+        queueFrameForPlacement(frameDraft, 'illustrasjon')
       }
       setAddIllustrationError(null)
       setEditIllustrationFrameId(null)
@@ -1876,7 +1840,7 @@ const Canvas = () => {
     })()
   }
 
-  const handleAddDashboardCard = async () => {
+  const handleAddDashboardCard = () => {
     const selectedDashboard = dashboardOptions.find((option) => String(option.id) === selectedDashboardToAddId)
     if (!selectedDashboard) {
       setAddDashboardError('Velg et dashboard.')
@@ -1909,36 +1873,20 @@ const Canvas = () => {
       return
     }
 
-    const index = frames.length
-    const column = index % 2
-    const row = Math.floor(index / 2)
-    const newFrame: CanvasFrame = {
-      id: `${Date.now()}-${Math.random()}`,
+    const frameDraft: PendingCanvasFrameDraft = {
       kind: 'website',
       targetUrl: dashboardUrl,
       previewUrl: dashboardUrl,
       renderWebsite: false,
       isInternalDashboard: true,
       label: selectedDashboard.name,
-      x: 120 + column * 820,
-      y: 120 + row * 700,
       width: 760,
       height: 620,
       refreshNonce: 1,
     }
-
-    try {
-      setIsSavingCanvasItem(true)
-      setSyncError(null)
-      const persistedFrame = await persistFrame(newFrame)
-      setFrames((prev) => [...prev, persistedFrame])
-      setAddDashboardError(null)
-      setIsAddDashboardModalOpen(false)
-    } catch (error) {
-      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre dashboard i canvas')
-    } finally {
-      setIsSavingCanvasItem(false)
-    }
+    queueFrameForPlacement(frameDraft, 'dashboard')
+    setAddDashboardError(null)
+    setIsAddDashboardModalOpen(false)
   }
 
   const loadEditDashboardOptions = useCallback(async (projectIdToLoad: number | null) => {
@@ -2096,6 +2044,8 @@ const Canvas = () => {
       y: frame.y + 36,
       width: frame.width ?? defaults.width,
       height: frame.height ?? defaults.height,
+      graphId: undefined,
+      queryId: undefined,
       refreshNonce: 0,
     }
 
@@ -2122,6 +2072,8 @@ const Canvas = () => {
       y: frame.y + 36,
       width: frame.width ?? defaults.width,
       height: frame.height ?? defaults.height,
+      graphId: undefined,
+      queryId: undefined,
       refreshNonce: 0,
     }
 
@@ -2383,6 +2335,64 @@ const Canvas = () => {
     [canvasCanvasTopOffset, canvasZoom],
   )
 
+  const handlePlacePendingFrame = useCallback(
+    async (clientX: number, clientY: number) => {
+      if (!pendingFrameDraft) return
+      const pointer = getCanvasPointerPosition(clientX, clientY)
+      if (!pointer) return
+
+      const width = pendingFrameDraft.width ?? 240
+      const height = pendingFrameDraft.height ?? 180
+      const nextFrame: CanvasFrame = {
+        ...pendingFrameDraft,
+        id: `${Date.now()}-${Math.random()}`,
+        x: Math.max(0, pointer.x - width / 2),
+        y: Math.max(-CANVAS_TOP_BUFFER, pointer.y - height / 2),
+      }
+
+      try {
+        setIsSavingCanvasItem(true)
+        setSyncError(null)
+        const persistedFrame = await persistFrame(nextFrame)
+        setFrames((prev) => [...prev, persistedFrame])
+        setPendingFrameDraft(null)
+        setPendingFramePlacementLabel(null)
+        setPendingFramePointer(null)
+      } catch (error) {
+        setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre element i canvas')
+      } finally {
+        setIsSavingCanvasItem(false)
+      }
+    },
+    [getCanvasPointerPosition, pendingFrameDraft, persistFrame],
+  )
+
+  const handleCanvasSurfaceMouseDown = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (!pendingFrameDraft) return
+      if (event.target !== event.currentTarget) return
+      event.preventDefault()
+      event.stopPropagation()
+      void handlePlacePendingFrame(event.clientX, event.clientY)
+    },
+    [handlePlacePendingFrame, pendingFrameDraft],
+  )
+
+  const handleCanvasSurfaceMouseMove = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (!pendingFrameDraft) return
+      const pointer = getCanvasPointerPosition(event.clientX, event.clientY)
+      if (!pointer) return
+      setPendingFramePointer(pointer)
+    },
+    [getCanvasPointerPosition, pendingFrameDraft],
+  )
+
+  const handleCanvasSurfaceMouseLeave = useCallback(() => {
+    if (!pendingFrameDraft) return
+    setPendingFramePointer(null)
+  }, [pendingFrameDraft])
+
   const getFrameBounds = useCallback(
     (frame: CanvasFrame): { left: number; top: number; right: number; bottom: number } => {
       const defaults = getDefaultFrameSize(frame)
@@ -2507,44 +2517,29 @@ const Canvas = () => {
     [getCanvasPointerPosition],
   )
 
-  const handleAddHeadingCard = async () => {
+  const handleAddHeadingCard = () => {
     const heading = headingTextInput.trim()
     if (!heading) {
       setAddHeadingError('Legg inn overskrift.')
       return
     }
 
-    const index = frames.length
-    const column = index % 3
-    const row = Math.floor(index / 3)
-    const newFrame: CanvasFrame = {
-      id: `${Date.now()}-${Math.random()}`,
+    const frameDraft: PendingCanvasFrameDraft = {
       kind: 'heading',
       headingText: heading,
       headingFontSize: HEADING_FONT_SIZE_DEFAULT,
       label: heading,
-      x: 80 + column * 460,
-      y: 80 + row * 380,
       width: 420,
       height: 160,
       refreshNonce: 0,
     }
-    try {
-      setIsSavingCanvasItem(true)
-      setSyncError(null)
-      const persistedFrame = await persistFrame(newFrame)
-      setFrames((prev) => [...prev, persistedFrame])
-      setHeadingTextInput('')
-      setAddHeadingError(null)
-      setIsAddHeadingModalOpen(false)
-    } catch (error) {
-      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre overskrift i canvas')
-    } finally {
-      setIsSavingCanvasItem(false)
-    }
+    queueFrameForPlacement(frameDraft, 'overskrift')
+    setHeadingTextInput('')
+    setAddHeadingError(null)
+    setIsAddHeadingModalOpen(false)
   }
 
-  const handleAddTextCard = async () => {
+  const handleAddTextCard = () => {
     const content = textContentInput.trim()
 
     if (!content) {
@@ -2552,36 +2547,21 @@ const Canvas = () => {
       return
     }
 
-    const index = frames.length
-    const column = index % 3
-    const row = Math.floor(index / 3)
-    const newFrame: CanvasFrame = {
-      id: `${Date.now()}-${Math.random()}`,
+    const frameDraft: PendingCanvasFrameDraft = {
       kind: 'text',
       textContent: content,
       label: 'Tekst',
-      x: 80 + column * 460,
-      y: 80 + row * 380,
       width: 340,
       height: 170,
       refreshNonce: 0,
     }
-    try {
-      setIsSavingCanvasItem(true)
-      setSyncError(null)
-      const persistedFrame = await persistFrame(newFrame)
-      setFrames((prev) => [...prev, persistedFrame])
-      setTextContentInput('')
-      setAddTextError(null)
-      setIsAddTextModalOpen(false)
-    } catch (error) {
-      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre tekst i canvas')
-    } finally {
-      setIsSavingCanvasItem(false)
-    }
+    queueFrameForPlacement(frameDraft, 'tekst')
+    setTextContentInput('')
+    setAddTextError(null)
+    setIsAddTextModalOpen(false)
   }
 
-  const handleAddStickyCard = async () => {
+  const handleAddStickyCard = () => {
     const content = stickyContentInput.trim()
 
     if (!content) {
@@ -2589,106 +2569,61 @@ const Canvas = () => {
       return
     }
 
-    const index = frames.length
-    const column = index % 3
-    const row = Math.floor(index / 3)
-    const newFrame: CanvasFrame = {
-      id: `${Date.now()}-${Math.random()}`,
+    const frameDraft: PendingCanvasFrameDraft = {
       kind: 'sticky',
       textContent: content,
       label: 'Post-it-lapp',
-      x: 80 + column * 460,
-      y: 80 + row * 380,
       width: 360,
       height: 180,
       refreshNonce: 0,
     }
-    try {
-      setIsSavingCanvasItem(true)
-      setSyncError(null)
-      const persistedFrame = await persistFrame(newFrame)
-      setFrames((prev) => [...prev, persistedFrame])
-      setStickyContentInput('')
-      setAddStickyError(null)
-      setIsAddStickyModalOpen(false)
-    } catch (error) {
-      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre Post-it-lapp i canvas')
-    } finally {
-      setIsSavingCanvasItem(false)
-    }
+    queueFrameForPlacement(frameDraft, 'Post-it-lapp')
+    setStickyContentInput('')
+    setAddStickyError(null)
+    setIsAddStickyModalOpen(false)
   }
 
-  const handleAddIconCard = async () => {
+  const handleAddIconCard = () => {
     const selectedIcon = getCanvasIconOptionById(selectedIconId)
     if (!selectedIcon) {
       setAddIconError('Velg et ikon.')
       return
     }
 
-    const index = frames.length
-    const column = index % 3
-    const row = Math.floor(index / 3)
-    const newFrame: CanvasFrame = {
-      id: `${Date.now()}-${Math.random()}`,
+    const frameDraft: PendingCanvasFrameDraft = {
       kind: 'icon',
       iconName: selectedIcon.id,
       iconRotationDeg: 0,
       iconColor: getCanvasIconColor(selectedIconColor),
       label: selectedIcon.label,
-      x: 80 + column * 460,
-      y: 80 + row * 380,
       width: 280,
       height: 240,
       refreshNonce: 0,
     }
-    try {
-      setIsSavingCanvasItem(true)
-      setSyncError(null)
-      const persistedFrame = await persistFrame(newFrame)
-      setFrames((prev) => [...prev, persistedFrame])
-      setAddIconError(null)
-      setIsAddIconModalOpen(false)
-    } catch (error) {
-      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre ikon i canvas')
-    } finally {
-      setIsSavingCanvasItem(false)
-    }
+    queueFrameForPlacement(frameDraft, 'ikon')
+    setAddIconError(null)
+    setIsAddIconModalOpen(false)
   }
 
-  const handleAddFigureCard = async () => {
+  const handleAddFigureCard = () => {
     const selectedFigure = CANVAS_FIGURE_OPTIONS.find((option) => option.id === selectedFigureType)
     if (!selectedFigure) {
       setAddFigureError('Velg en figur.')
       return
     }
 
-    const index = frames.length
-    const column = index % 3
-    const row = Math.floor(index / 3)
-    const newFrame: CanvasFrame = {
-      id: `${Date.now()}-${Math.random()}`,
+    const frameDraft: PendingCanvasFrameDraft = {
       kind: 'figure',
       figureType: selectedFigure.id,
       figureColor: getCanvasIconColor(selectedFigureColor),
       label: selectedFigure.label,
-      x: 80 + column * 460,
-      y: 80 + row * 380,
       width: selectedFigure.id === 'line' || selectedFigure.id === 'arrow' ? 320 : 240,
       height: selectedFigure.id === 'line' || selectedFigure.id === 'arrow' ? 120 : 200,
       refreshNonce: 0,
     }
-    try {
-      setIsSavingCanvasItem(true)
-      setSyncError(null)
-      const persistedFrame = await persistFrame(newFrame)
-      setFrames((prev) => [...prev, persistedFrame])
-      setAddFigureError(null)
-      setIsAddFigureModalOpen(false)
-    } catch (error) {
-      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre figur i canvas')
-    } finally {
-      setIsSavingCanvasItem(false)
-    }
+    queueFrameForPlacement(frameDraft, 'figur')
+    setAddFigureError(null)
+    setIsAddFigureModalOpen(false)
   }
 
   const loadChartOptions = useCallback(async () => {
@@ -2744,41 +2679,25 @@ const Canvas = () => {
     void loadChartOptions()
   }
 
-  const handleAddChartCard = async () => {
+  const handleAddChartCard = () => {
     const selectedOption = chartOptions.find((option) => option.id === selectedChartOptionId)
     if (!selectedOption) {
       setAddChartError('Velg en graf.')
       return
     }
 
-    const index = frames.length
-    const column = index % 2
-    const row = Math.floor(index / 2)
-    const newFrame: CanvasFrame = {
-      id: `${Date.now()}-${Math.random()}`,
+    const frameDraft: PendingCanvasFrameDraft = {
       kind: 'chart',
       label: selectedOption.title,
       chartType: selectedOption.chartType,
       chartSql: selectedOption.sql,
-      x: 120 + column * 720,
-      y: 120 + row * 520,
       width: 680,
       height: 460,
       refreshNonce: 0,
     }
-
-    try {
-      setIsSavingCanvasItem(true)
-      setSyncError(null)
-      const persistedFrame = await persistFrame(newFrame)
-      setFrames((prev) => [...prev, persistedFrame])
-      setAddChartError(null)
-      setIsAddChartModalOpen(false)
-    } catch (error) {
-      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre graf i canvas')
-    } finally {
-      setIsSavingCanvasItem(false)
-    }
+    queueFrameForPlacement(frameDraft, 'graf')
+    setAddChartError(null)
+    setIsAddChartModalOpen(false)
   }
 
   const getOversiktChartFromCanvasFrame = useCallback(
@@ -3887,11 +3806,6 @@ const Canvas = () => {
                     <ActionMenu.Item onClick={handleOpenCanvasSettingsModal}>Innstillinger</ActionMenu.Item>
                   </ActionMenu.Content>
                 </ActionMenu>
-                {toolbarNotice && (
-                  <div className="shrink-0 rounded-full bg-[var(--ax-bg-success-soft)] px-2 py-1 text-[12px] font-medium text-[var(--ax-text-success)]">
-                    {toolbarNotice}
-                  </div>
-                )}
               </div>
             </div>
             {!canPersistToDashboard && !shouldShowCreateCanvasModal && (
@@ -3937,6 +3851,15 @@ const Canvas = () => {
 
         <div className="flex h-full">
           <main ref={canvasViewportRef} className="relative flex-1 overflow-auto">
+            {pendingFrameDraft && (
+              <div
+                className="pointer-events-none absolute left-1/2 z-[45] -translate-x-1/2 rounded-xl border-2 border-[var(--ax-border-accent)] bg-[var(--ax-bg-default)] px-5 py-3 text-base font-semibold text-[var(--ax-text-default)] shadow-lg"
+                style={{ top: `${canvasCanvasTopOffset + 20}px` }}
+              >
+                Plasseringsmodus: klikk for å plassere {pendingFramePlacementLabel || 'element'}. Trykk Esc for å
+                avbryte.
+              </div>
+            )}
             <div
               className="relative"
               style={{
@@ -3945,7 +3868,10 @@ const Canvas = () => {
               }}
             >
               <div
-                className="absolute left-0 top-0 origin-top-left"
+                className={`absolute left-0 top-0 origin-top-left ${pendingFrameDraft ? 'cursor-crosshair' : ''}`}
+                onMouseDown={handleCanvasSurfaceMouseDown}
+                onMouseMove={handleCanvasSurfaceMouseMove}
+                onMouseLeave={handleCanvasSurfaceMouseLeave}
                 style={{
                   top: `${canvasCanvasTopOffset}px`,
                   width: `${CANVAS_SURFACE_WIDTH}px`,
@@ -3957,6 +3883,24 @@ const Canvas = () => {
                   backgroundSize: '24px 24px',
                 }}
               >
+                {pendingFrameDraft && (
+                  <>
+                    <div className="pointer-events-none absolute inset-0 z-[44] bg-black/10" />
+                  </>
+                )}
+                {pendingFrameDraft && pendingFramePointer && (
+                  <div
+                    className="pointer-events-none absolute z-[46] -translate-x-1/2 -translate-y-1/2"
+                    style={{
+                      left: `${pendingFramePointer.x}px`,
+                      top: `${pendingFramePointer.y}px`,
+                    }}
+                  >
+                    <span className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-[var(--ax-border-accent)] bg-[var(--ax-bg-default)] text-[var(--ax-text-default)] shadow-lg">
+                      <Plus size={20} />
+                    </span>
+                  </div>
+                )}
                 {connectionSegments.length > 0 && (
                   <svg className="pointer-events-none absolute inset-0 z-[1] h-full w-full overflow-visible">
                     <defs>
