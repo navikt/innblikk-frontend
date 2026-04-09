@@ -5,7 +5,7 @@ import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
 import type { GraphCategoryDto } from '../../oversikt/model/types.ts'
 
 type CanvasTopBarProps = {
-  canvasToolbarRef: RefObject<HTMLDivElement>
+  canvasToolbarRef: RefObject<HTMLDivElement | null>
   projectId: number | null
   canvasTitle: string
   period: string
