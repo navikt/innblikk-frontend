@@ -968,6 +968,12 @@ const Canvas = () => {
     [visibleFrames],
   )
 
+  const showDateFilter = useMemo(
+    () =>
+      frameItems.some((frame) => frame.kind === 'chart' || (frame.kind === 'website' && !frame.isInternalDashboard)),
+    [frameItems],
+  )
+
   const visualizationWebsiteFrames = useMemo(
     () =>
       frameItems
@@ -3996,6 +4002,7 @@ const Canvas = () => {
           onChangeActiveCanvasCategory={handleToolbarCategoryChange}
           getCanvasCategoryDisplayName={getCanvasCategoryDisplayName}
           isCanvasFrontpage={isCanvasFrontpage}
+          showDateFilter={showDateFilter}
         />
 
         <div className="flex h-full">

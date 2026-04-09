@@ -45,6 +45,7 @@ type CanvasTopBarProps = {
   onChangeActiveCanvasCategory: (categoryId: number) => void
   getCanvasCategoryDisplayName: (name?: string) => string
   isCanvasFrontpage: boolean
+  showDateFilter: boolean
 }
 
 const CanvasTopBar = ({
@@ -87,6 +88,7 @@ const CanvasTopBar = ({
   onChangeActiveCanvasCategory,
   getCanvasCategoryDisplayName,
   isCanvasFrontpage,
+  showDateFilter,
 }: CanvasTopBarProps) => (
   <div ref={canvasToolbarRef} className="pointer-events-none fixed left-4 right-4 top-4 z-30">
     <div className="pointer-events-auto rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2 shadow-sm">
@@ -118,17 +120,19 @@ const CanvasTopBar = ({
         </a>
         {!isCanvasFrontpage && (
           <div className="flex flex-wrap items-center gap-2">
-            <div className="w-[152px] shrink-0 [&_label]:sr-only">
-              <PeriodPicker
-                period={period}
-                onPeriodChange={onPeriodChange}
-                startDate={customStartDate}
-                onStartDateChange={onCustomStartDateChange}
-                endDate={customEndDate}
-                onEndDateChange={onCustomEndDateChange}
-                className="w-full sm:w-auto min-w-[152px]"
-              />
-            </div>
+            {showDateFilter && (
+              <div className="w-[152px] shrink-0 [&_label]:sr-only">
+                <PeriodPicker
+                  period={period}
+                  onPeriodChange={onPeriodChange}
+                  startDate={customStartDate}
+                  onStartDateChange={onCustomStartDateChange}
+                  endDate={customEndDate}
+                  onEndDateChange={onCustomEndDateChange}
+                  className="w-full sm:w-auto min-w-[152px]"
+                />
+              </div>
+            )}
             <ActionMenu>
               <ActionMenu.Trigger>
                 <Button
