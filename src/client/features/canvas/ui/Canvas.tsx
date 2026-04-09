@@ -256,6 +256,10 @@ type CanvasFigureOption = {
   Icon: typeof Square
 }
 type PendingCanvasFrameDraft = Omit<CanvasFrame, 'id' | 'x' | 'y' | 'categoryId' | 'graphId' | 'queryId'>
+type PendingCsvStickyImport = {
+  sectionTitle: string
+  noteTexts: string[]
+}
 
 const CANVAS_DASHBOARD_TOKEN = '[canvas]'
 const CANVAS_WEBSITE_ID_TOKEN_REGEX = /\[websiteId:([^\]]+)\]/i
@@ -940,6 +944,7 @@ const Canvas = () => {
   const [activeEditableFrameId, setActiveEditableFrameId] = useState<string | null>(null)
   const [failedImageFrameIds, setFailedImageFrameIds] = useState<Record<string, boolean>>({})
   const [pendingFrameDraft, setPendingFrameDraft] = useState<PendingCanvasFrameDraft | null>(null)
+  const [pendingCsvStickyImport, setPendingCsvStickyImport] = useState<PendingCsvStickyImport | null>(null)
   const [pendingFramePlacementLabel, setPendingFramePlacementLabel] = useState<string | null>(null)
   const [pendingFramePointer, setPendingFramePointer] = useState<{ x: number; y: number } | null>(null)
   const pageInsightsRef = useRef<Record<string, CanvasPageInsight>>({})
@@ -1879,12 +1884,13 @@ const Canvas = () => {
 
   const cancelPendingFramePlacement = useCallback(() => {
     setPendingFrameDraft(null)
+    setPendingCsvStickyImport(null)
     setPendingFramePlacementLabel(null)
     setPendingFramePointer(null)
   }, [])
 
   useEffect(() => {
-    if (!pendingFrameDraft) return
+    if (!pendingFrameDraft && !pendingCsvStickyImport) return
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -1894,7 +1900,7 @@ const Canvas = () => {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [cancelPendingFramePlacement, pendingFrameDraft])
+  }, [cancelPendingFramePlacement, pendingCsvStickyImport, pendingFrameDraft])
 
   const handleAddPage = () => {
     const targetUrl = normalizeInputToTargetUrl(newPagePathInput, selectedWebsite?.domain)
@@ -2594,6 +2600,75 @@ const Canvas = () => {
     [getCanvasPointerPosition, pendingFrameDraft, persistFrame],
   )
 
+  const handlePlacePendingCsvImport = useCallback(
+    async (clientX: number, clientY: number) => {
+      if (!pendingCsvStickyImport) return
+      const pointer = getCanvasPointerPosition(clientX, clientY)
+      if (!pointer) return
+
+      const stickyWidth = 320
+      const stickyHeight = 180
+      const columnGap = 24
+      const stickyGap = 18
+      const cardsPerRow = 2
+      const sectionTitle = pendingCsvStickyImport.sectionTitle.trim()
+      const titleBlockHeight = sectionTitle ? 110 : 0
+      const baseX = Math.max(0, pointer.x)
+      const baseY = Math.max(-CANVAS_TOP_BUFFER, pointer.y)
+      const stickyStartY = baseY + titleBlockHeight
+      const timestampSeed = Date.now()
+      const framesToPersist: CanvasFrame[] = []
+
+      if (sectionTitle) {
+        framesToPersist.push({
+          id: `csv-section-title-${timestampSeed}`,
+          kind: 'heading',
+          headingText: sectionTitle,
+          headingFontSize: HEADING_FONT_SIZE_DEFAULT,
+          label: sectionTitle,
+          x: baseX,
+          y: baseY,
+          width: stickyWidth * 2 + columnGap,
+          height: 86,
+          refreshNonce: 0,
+        })
+      }
+
+      pendingCsvStickyImport.noteTexts.forEach((content, rowIndex) => {
+        const columnIndex = rowIndex % cardsPerRow
+        const gridRowIndex = Math.floor(rowIndex / cardsPerRow)
+        framesToPersist.push({
+          id: `csv-sticky-${timestampSeed}-${rowIndex}`,
+          kind: 'sticky',
+          textContent: content,
+          label: 'Post-it-lapp',
+          x: baseX + columnIndex * (stickyWidth + columnGap),
+          y: stickyStartY + gridRowIndex * (stickyHeight + stickyGap),
+          width: stickyWidth,
+          height: stickyHeight,
+          refreshNonce: 0,
+        })
+      })
+
+      try {
+        setIsSavingCanvasItem(true)
+        setSyncError(null)
+        const persistedFrames: CanvasFrame[] = []
+        for (const frame of framesToPersist) {
+          const persistedFrame = await persistFrame(frame)
+          persistedFrames.push(persistedFrame)
+        }
+        setFrames((prev) => [...prev, ...persistedFrames])
+        cancelPendingFramePlacement()
+      } catch (error) {
+        setSyncError(error instanceof Error ? error.message : 'Kunne ikke importere CSV til canvas')
+      } finally {
+        setIsSavingCanvasItem(false)
+      }
+    },
+    [cancelPendingFramePlacement, getCanvasPointerPosition, pendingCsvStickyImport, persistFrame],
+  )
+
   const handleCanvasSurfaceMouseDown = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
       const target = event.target as HTMLElement
@@ -2604,6 +2679,12 @@ const Canvas = () => {
         event.preventDefault()
         event.stopPropagation()
         void handlePlacePendingFrame(event.clientX, event.clientY)
+        return
+      }
+      if (pendingCsvStickyImport) {
+        event.preventDefault()
+        event.stopPropagation()
+        void handlePlacePendingCsvImport(event.clientX, event.clientY)
         return
       }
       const pointer = getCanvasPointerPosition(event.clientX, event.clientY)
@@ -2628,28 +2709,35 @@ const Canvas = () => {
       event.stopPropagation()
       setActiveDrawingPoints([pointer])
     },
-    [getCanvasPointerPosition, handlePlacePendingFrame, isDrawingMode, pendingFrameDraft],
+    [
+      getCanvasPointerPosition,
+      handlePlacePendingCsvImport,
+      handlePlacePendingFrame,
+      isDrawingMode,
+      pendingCsvStickyImport,
+      pendingFrameDraft,
+    ],
   )
 
   const handleCanvasSurfaceMouseMove = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
       const pointer = getCanvasPointerPosition(event.clientX, event.clientY)
       if (!pointer) return
-      if (pendingFrameDraft) {
+      if (pendingFrameDraft || pendingCsvStickyImport) {
         setPendingFramePointer(pointer)
       }
       if (selectionBox) {
         setSelectionBox((current) => (current ? { ...current, currentX: pointer.x, currentY: pointer.y } : current))
       }
     },
-    [getCanvasPointerPosition, pendingFrameDraft, selectionBox],
+    [getCanvasPointerPosition, pendingCsvStickyImport, pendingFrameDraft, selectionBox],
   )
 
   const handleCanvasSurfaceMouseLeave = useCallback(() => {
     if (isDrawingMode) return
-    if (!pendingFrameDraft) return
+    if (!pendingFrameDraft && !pendingCsvStickyImport) return
     setPendingFramePointer(null)
-  }, [isDrawingMode, pendingFrameDraft])
+  }, [isDrawingMode, pendingCsvStickyImport, pendingFrameDraft])
 
   const getFrameBounds = useCallback(
     (frame: CanvasFrame): { left: number; top: number; right: number; bottom: number } => {
@@ -4292,7 +4380,7 @@ const Canvas = () => {
     }
   }
 
-  const handleImportStickyCsv = async () => {
+  const handleImportStickyCsv = () => {
     const contentColumn =
       importStickyContentColumn && importStickyCsvHeaders.includes(importStickyContentColumn)
         ? importStickyContentColumn
@@ -4313,73 +4401,14 @@ const Canvas = () => {
       return
     }
 
-    const stickyWidth = 320
-    const stickyHeight = 180
-    const columnGap = 24
-    const stickyGap = 18
-    const columnX = 80
-    const cardsPerRow = 2
-    const sectionTitle = importStickySectionTitle.trim()
-    const titleBlockHeight = sectionTitle ? 110 : 0
-    const currentBottom = frames.reduce((maxBottom, frame) => {
-      const defaults = getDefaultFrameSize(frame)
-      const frameHeight = frame.height ?? defaults.height
-      return Math.max(maxBottom, frame.y + frameHeight)
-    }, -CANVAS_TOP_BUFFER)
-    const sectionY = Math.max(48, currentBottom + 64)
-    const stickyStartY = sectionY + titleBlockHeight
-    const timestampSeed = Date.now()
-    const framesToPersist: CanvasFrame[] = []
-
-    if (sectionTitle) {
-      framesToPersist.push({
-        id: `csv-section-title-${timestampSeed}`,
-        kind: 'heading',
-        headingText: sectionTitle,
-        headingFontSize: HEADING_FONT_SIZE_DEFAULT,
-        label: sectionTitle,
-        x: columnX,
-        y: sectionY,
-        width: stickyWidth * 2 + columnGap,
-        height: 86,
-        refreshNonce: 0,
-      })
-    }
-
-    noteTexts.forEach((content, rowIndex) => {
-      const columnIndex = rowIndex % cardsPerRow
-      const gridRowIndex = Math.floor(rowIndex / cardsPerRow)
-      framesToPersist.push({
-        id: `csv-sticky-${timestampSeed}-${rowIndex}`,
-        kind: 'sticky',
-        textContent: content,
-        label: 'Post-it-lapp',
-        x: columnX + columnIndex * (stickyWidth + columnGap),
-        y: stickyStartY + gridRowIndex * (stickyHeight + stickyGap),
-        width: stickyWidth,
-        height: stickyHeight,
-        refreshNonce: 0,
-      })
+    setImportStickyCsvError(null)
+    setPendingCsvStickyImport({
+      sectionTitle: importStickySectionTitle.trim(),
+      noteTexts,
     })
-
-    try {
-      setIsSavingCanvasItem(true)
-      setSyncError(null)
-      setImportStickyCsvError(null)
-
-      const persistedFrames: CanvasFrame[] = []
-      for (const frame of framesToPersist) {
-        const persistedFrame = await persistFrame(frame)
-        persistedFrames.push(persistedFrame)
-      }
-      setFrames((prev) => [...prev, ...persistedFrames])
-      setIsImportStickyCsvModalOpen(false)
-      setImportStickyCsvError(null)
-    } catch (error) {
-      setImportStickyCsvError(error instanceof Error ? error.message : 'Kunne ikke importere CSV til canvas')
-    } finally {
-      setIsSavingCanvasItem(false)
-    }
+    setPendingFramePlacementLabel('CSV-lapper')
+    setPendingFramePointer(null)
+    setIsImportStickyCsvModalOpen(false)
   }
 
   const handleOpenAddStickyModal = () => {
@@ -4519,7 +4548,7 @@ const Canvas = () => {
 
         <div className="flex h-full">
           <main ref={canvasViewportRef} className="relative flex-1 overflow-auto">
-            {pendingFrameDraft && (
+            {(pendingFrameDraft || pendingCsvStickyImport) && (
               <div
                 className="pointer-events-none absolute left-1/2 z-[45] -translate-x-1/2 rounded-xl border-2 border-[var(--ax-border-accent)] bg-[var(--ax-bg-default)] px-5 py-3 text-base font-semibold text-[var(--ax-text-default)] shadow-lg"
                 style={{ top: `${canvasCanvasTopOffset + 20}px` }}
@@ -4586,7 +4615,7 @@ const Canvas = () => {
               }}
             >
               <div
-                className={`absolute left-0 top-0 origin-top-left ${pendingFrameDraft || isDrawingMode ? 'cursor-crosshair' : ''}`}
+                className={`absolute left-0 top-0 origin-top-left ${pendingFrameDraft || pendingCsvStickyImport || isDrawingMode ? 'cursor-crosshair' : ''}`}
                 onMouseDown={handleCanvasSurfaceMouseDown}
                 onMouseMove={handleCanvasSurfaceMouseMove}
                 onMouseLeave={handleCanvasSurfaceMouseLeave}
@@ -4601,12 +4630,12 @@ const Canvas = () => {
                   backgroundSize: '24px 24px',
                 }}
               >
-                {pendingFrameDraft && (
+                {(pendingFrameDraft || pendingCsvStickyImport) && (
                   <>
                     <div className="pointer-events-none absolute inset-0 z-[44] bg-black/10" />
                   </>
                 )}
-                {pendingFrameDraft && pendingFramePointer && (
+                {(pendingFrameDraft || pendingCsvStickyImport) && pendingFramePointer && (
                   <div
                     className="pointer-events-none absolute z-[46] -translate-x-1/2 -translate-y-1/2"
                     style={{
