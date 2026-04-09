@@ -114,8 +114,8 @@ const CanvasTopBar = ({
               />
             </svg>
           </span>
-          <h1 className="m-0 truncate text-[20px] font-semibold leading-none" title={canvasTitle}>
-            {canvasTitle}
+          <h1 className="m-0 truncate text-[20px] font-semibold leading-none" title={`Innblikk: ${canvasTitle}`}>
+            {`Innblikk: ${canvasTitle}`}
           </h1>
         </a>
         {!isCanvasFrontpage && (
