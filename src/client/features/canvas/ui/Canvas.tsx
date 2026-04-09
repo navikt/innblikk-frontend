@@ -33,6 +33,14 @@ import type { PageMetricRow } from '../../traffic/model/types.ts'
 import { fetchPageMetrics } from '../../traffic/api/trafficApi.ts'
 import { fetchFunnelData } from '../../funnel/api/funnelApi.ts'
 import { splitUrlStepInput } from '../../funnel/utils/stepUtils.ts'
+import type { ClickmapItem } from '../../clickmap/model/types.ts'
+import { fetchClickmap } from '../../clickmap/api/clickmapApi.ts'
+import {
+  getClickmapDatasetFromVisualizationMode,
+  isVisualizationMode,
+  type VisualizationMode,
+} from '../../clickmap/model/visualizationMode.ts'
+import VisualizationModeSelect from '../../clickmap/ui/VisualizationModeSelect.tsx'
 import {
   getCookieCountByParams,
   getDateRangeFromPeriod,
@@ -89,10 +97,12 @@ type CanvasConnectionMetric = {
 type CanvasFrame = {
   id: string
   kind: 'website' | 'image' | 'heading' | 'text' | 'sticky' | 'chart' | 'icon'
+  websiteId?: string
   targetUrl?: string
   previewUrl?: string
   renderWebsite?: boolean
   isInternalDashboard?: boolean
+  visualizationMode?: VisualizationMode
   headingText?: string
   headingFontSize?: number
   textContent?: string
@@ -132,6 +142,15 @@ type CanvasPageInsight = {
   data: PageMetricRow | null
 }
 
+type CanvasFrameVisualizationData = {
+  requestKey: string
+  loading: boolean
+  error: string | null
+  items: ClickmapItem[]
+  websiteId?: string
+  path?: string
+}
+
 type CanvasDeleteTarget =
   | {
       type: 'frame'
@@ -168,12 +187,14 @@ type CanvasConfigPayload = {
   kind: CanvasPayloadKind
   x: number
   y: number
+  websiteId?: string
   width?: number
   height?: number
   targetUrl?: string
   previewUrl?: string
   renderWebsite?: boolean
   isInternalDashboard?: boolean
+  visualizationMode?: VisualizationMode
   headingText?: string
   headingFontSize?: number
   textContent?: string
@@ -212,6 +233,7 @@ const HEADING_FONT_SIZE_MIN = 20
 const HEADING_FONT_SIZE_MAX = 96
 const HEADING_FONT_SIZE_STEP = 2
 const ICON_ROTATION_STEP_DEG = 15
+const CLICKMAP_EVENTS = ['navigere', 'accordion åpnet']
 const CARD_ACTION_BUTTON_CLASSNAME =
   'pointer-events-auto bg-[var(--ax-bg-default)]/95 shadow-sm opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100'
 
@@ -424,6 +446,12 @@ const getWebsiteFrameRenderSrc = (frame: CanvasFrame): string | undefined => {
   return frame.targetUrl ? createPreviewProxySrc(frame.targetUrl) : undefined
 }
 
+const getCanvasFrameVisualizationMode = (frame: Pick<CanvasFrame, 'visualizationMode'>): VisualizationMode | '' =>
+  isVisualizationMode(frame.visualizationMode) ? frame.visualizationMode : ''
+
+const normalizeDomainForComparison = (value: string): string =>
+  value.replace(/^https?:\/\//i, '').replace(/^www\./i, '')
+
 const isImagePreviewUrl = (value: string): boolean => {
   try {
     const url = new URL(value)
@@ -489,10 +517,12 @@ const parseCanvasConfig = (raw: string): CanvasConfigPayload | null => {
       y: Number(parsed.y),
       width: Number.isFinite(parsed.width) ? Number(parsed.width) : undefined,
       height: Number.isFinite(parsed.height) ? Number(parsed.height) : undefined,
+      websiteId: typeof parsed.websiteId === 'string' ? parsed.websiteId : undefined,
       targetUrl: typeof parsed.targetUrl === 'string' ? parsed.targetUrl : undefined,
       previewUrl: typeof parsed.previewUrl === 'string' ? parsed.previewUrl : undefined,
       renderWebsite: typeof parsed.renderWebsite === 'boolean' ? parsed.renderWebsite : undefined,
       isInternalDashboard: typeof parsed.isInternalDashboard === 'boolean' ? parsed.isInternalDashboard : undefined,
+      visualizationMode: isVisualizationMode(parsed.visualizationMode) ? parsed.visualizationMode : undefined,
       headingText: typeof parsed.headingText === 'string' ? parsed.headingText : undefined,
       headingFontSize: Number.isFinite(parsed.headingFontSize) ? Number(parsed.headingFontSize) : undefined,
       textContent: typeof parsed.textContent === 'string' ? parsed.textContent : undefined,
@@ -537,6 +567,7 @@ const Canvas = () => {
     canPersistToDashboard ? 'checking' : 'create',
   )
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
+  const [availableWebsites, setAvailableWebsites] = useState<Website[]>([])
   const [period, setPeriodState] = useState<string>(() =>
     getStoredPeriod(new URLSearchParams(window.location.search).get('period')),
   )
@@ -581,11 +612,13 @@ const Canvas = () => {
   const [editImageUrlInput, setEditImageUrlInput] = useState('')
   const [editWebsitePreviewUrlInput, setEditWebsitePreviewUrlInput] = useState('')
   const [editWebsiteRenderEnabled, setEditWebsiteRenderEnabled] = useState(true)
+  const [editWebsiteVisualizationMode, setEditWebsiteVisualizationMode] = useState<VisualizationMode | ''>('')
   const [newPagePathInput, setNewPagePathInput] = useState('')
   const [newImageUrlInput, setNewImageUrlInput] = useState('')
   const [selectedIllustrationPath, setSelectedIllustrationPath] = useState(DEFAULT_CANVAS_ILLUSTRATION_PATH)
   const [newPagePreviewUrlInput, setNewPagePreviewUrlInput] = useState('')
   const [newPageRenderEnabled, setNewPageRenderEnabled] = useState(true)
+  const [newPageVisualizationMode, setNewPageVisualizationMode] = useState<VisualizationMode | ''>('')
   const [addPageError, setAddPageError] = useState<string | null>(null)
   const [addImageError, setAddImageError] = useState<string | null>(null)
   const [addIllustrationError, setAddIllustrationError] = useState<string | null>(null)
@@ -647,6 +680,7 @@ const Canvas = () => {
   const [, setIsLoadingCanvasItems] = useState(false)
   const [isSavingCanvasItem, setIsSavingCanvasItem] = useState(false)
   const [connectionMetrics, setConnectionMetrics] = useState<Record<string, CanvasConnectionMetric | null>>({})
+  const [frameVisualizationData, setFrameVisualizationData] = useState<Record<string, CanvasFrameVisualizationData>>({})
   const [connectionDragState, setConnectionDragState] = useState<ConnectionDragState | null>(null)
   const [toolbarNotice, setToolbarNotice] = useState<string | null>(null)
   const [pageInsights, setPageInsights] = useState<Record<string, CanvasPageInsight>>({})
@@ -657,6 +691,8 @@ const Canvas = () => {
   const [failedImageFrameIds, setFailedImageFrameIds] = useState<Record<string, boolean>>({})
   const pageInsightsRef = useRef<Record<string, CanvasPageInsight>>({})
   const framesRef = useRef<CanvasFrame[]>([])
+  const frameVisualizationDataRef = useRef<Record<string, CanvasFrameVisualizationData>>({})
+  const websiteIframeRefs = useRef<Record<string, HTMLIFrameElement | null>>({})
   const canvasViewportRef = useRef<HTMLDivElement | null>(null)
   const canvasToolbarRef = useRef<HTMLDivElement | null>(null)
   const connectionMetricRequestSignatureRef = useRef<string | null>(null)
@@ -733,6 +769,28 @@ const Canvas = () => {
   }, [frames])
 
   useEffect(() => {
+    frameVisualizationDataRef.current = frameVisualizationData
+  }, [frameVisualizationData])
+
+  useEffect(() => {
+    let isActive = true
+    fetch('/api/bigquery/websites')
+      .then((response) => response.json() as Promise<{ data?: Website[] }>)
+      .then((payload) => {
+        if (!isActive) return
+        const websites = Array.isArray(payload?.data) ? payload.data : []
+        setAvailableWebsites(websites)
+      })
+      .catch(() => {
+        // Ignore, manual website picker can still be used.
+      })
+
+    return () => {
+      isActive = false
+    }
+  }, [])
+
+  useEffect(() => {
     if (selectedWebsite) return
     const websiteIdFromConfig = canvasConfiguredWebsiteId
     const websiteIdFromUrl = new URLSearchParams(window.location.search).get('websiteId')
@@ -745,6 +803,7 @@ const Canvas = () => {
       .then((payload) => {
         if (!isActive) return
         const websites = Array.isArray(payload?.data) ? payload.data : []
+        setAvailableWebsites(websites)
         const matchedWebsite = websites.find((item) => item.id === websiteIdToUse) ?? null
         if (matchedWebsite) {
           setSelectedWebsite(matchedWebsite)
@@ -793,6 +852,224 @@ const Canvas = () => {
         }),
     [visibleFrames],
   )
+
+  const visualizationWebsiteFrames = useMemo(
+    () =>
+      frameItems
+        .filter((frame) => frame.kind === 'website' && !frame.isInternalDashboard && frame.renderWebsite !== false)
+        .map((frame) => ({
+          id: frame.id,
+          kind: frame.kind,
+          websiteId: frame.websiteId,
+          targetUrl: frame.targetUrl,
+          renderWebsite: frame.renderWebsite,
+          isInternalDashboard: frame.isInternalDashboard,
+          visualizationMode: frame.visualizationMode,
+        })),
+    [frameItems],
+  )
+
+  const visualizationWebsiteFramesKey = useMemo(
+    () => JSON.stringify(visualizationWebsiteFrames),
+    [visualizationWebsiteFrames],
+  )
+
+  const visualizationWebsiteFramesRef = useRef(visualizationWebsiteFrames)
+
+  useEffect(() => {
+    visualizationWebsiteFramesRef.current = visualizationWebsiteFrames
+  }, [visualizationWebsiteFrames])
+
+  const sendVisualizationDataToWebsiteFrame = useCallback(
+    (frame: Pick<CanvasFrame, 'id' | 'kind' | 'isInternalDashboard' | 'renderWebsite' | 'visualizationMode'>) => {
+      if (frame.kind !== 'website' || frame.isInternalDashboard || frame.renderWebsite === false) return
+      const contentWindow = websiteIframeRefs.current[frame.id]?.contentWindow
+      if (!contentWindow) return
+
+      const viewMode = getCanvasFrameVisualizationMode(frame)
+      const frameData = frameVisualizationData[frame.id]
+      const items = viewMode ? (frameData?.items ?? []) : []
+      const payloadItems = items.map((item) => ({
+        ...item,
+        badgeLabel: item.count.toLocaleString('nb-NO'),
+      }))
+
+      contentWindow.postMessage(
+        {
+          type: 'umami-clickmap-data',
+          items: payloadItems,
+          zeroBadgeLabel: '0',
+          viewMode: viewMode || 'clickmap',
+          includeUnmatched: viewMode === 'clickmap',
+        },
+        '*',
+      )
+    },
+    [frameVisualizationData],
+  )
+
+  useEffect(() => {
+    const websiteFrames = visualizationWebsiteFramesRef.current
+
+    setFrameVisualizationData((current) => {
+      const validIds = new Set(websiteFrames.map((frame) => frame.id))
+      const next = Object.fromEntries(Object.entries(current).filter(([frameId]) => validIds.has(frameId)))
+      return Object.keys(next).length === Object.keys(current).length ? current : next
+    })
+
+    const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
+    if (!dateRange) return
+
+    const normalizedSelectedDomain = normalizeDomainForComparison(selectedWebsite?.domain || '')
+    const websiteByDomain = new Map<string, string>()
+    availableWebsites.forEach((website) => {
+      const normalizedDomain = normalizeDomainForComparison(website.domain || '')
+      if (normalizedDomain && !websiteByDomain.has(normalizedDomain)) {
+        websiteByDomain.set(normalizedDomain, website.id)
+      }
+    })
+
+    let isActive = true
+
+    const loadVisualizationData = async () => {
+      await Promise.all(
+        websiteFrames.map(async (frame) => {
+          const pagePath = frame.targetUrl ? normalizeUrlToPath(frame.targetUrl) : ''
+          if (!pagePath) {
+            setFrameVisualizationData((current) => ({
+              ...current,
+              [frame.id]: {
+                requestKey: '',
+                loading: false,
+                error: 'Fant ikke gyldig URL-sti for kortet.',
+                items: [],
+                path: '',
+              },
+            }))
+            return
+          }
+
+          let websiteId = frame.websiteId || selectedWebsite?.id || canvasConfiguredWebsiteId || ''
+          if (!websiteId && frame.targetUrl) {
+            try {
+              const targetDomain = normalizeDomainForComparison(new URL(frame.targetUrl).hostname)
+              websiteId = websiteByDomain.get(targetDomain) || ''
+            } catch {
+              // Ignore invalid target URL.
+            }
+          }
+          if (!websiteId && normalizedSelectedDomain) {
+            websiteId = websiteByDomain.get(normalizedSelectedDomain) || ''
+          }
+          if (!websiteId) {
+            setFrameVisualizationData((current) => ({
+              ...current,
+              [frame.id]: {
+                requestKey: '',
+                loading: false,
+                error: 'Fant ikke nettsted for URL-en i kortet.',
+                items: [],
+                websiteId: '',
+                path: pagePath,
+              },
+            }))
+            return
+          }
+
+          const mode = getCanvasFrameVisualizationMode(frame)
+          if (!mode) return
+          const dataset = getClickmapDatasetFromVisualizationMode(mode)
+          const requestKey = JSON.stringify({
+            websiteId,
+            pagePath,
+            period,
+            customStartDate: customStartDate?.toISOString() ?? null,
+            customEndDate: customEndDate?.toISOString() ?? null,
+            mode,
+            dataset,
+          })
+
+          const existing = frameVisualizationDataRef.current[frame.id]
+          const hasCompletedSuccessfulResult =
+            existing?.requestKey === requestKey && existing.loading === false && existing.error === null
+          if (hasCompletedSuccessfulResult) return
+
+          setFrameVisualizationData((current) => ({
+            ...current,
+            [frame.id]: {
+              requestKey,
+              loading: true,
+              error: null,
+              items: existing?.requestKey === requestKey ? existing.items : [],
+              websiteId,
+              path: pagePath,
+            },
+          }))
+
+          try {
+            const result = await fetchClickmap({
+              websiteId,
+              startAt: dateRange.startDate.getTime(),
+              endAt: dateRange.endDate.getTime(),
+              urlPath: pagePath,
+              pathOperator: 'equals',
+              eventNames: CLICKMAP_EVENTS,
+              limit: 400,
+              dataset,
+            })
+
+            if (!isActive) return
+            setFrameVisualizationData((current) => ({
+              ...current,
+              [frame.id]: {
+                requestKey,
+                loading: false,
+                error: null,
+                items: result.data ?? [],
+                websiteId,
+                path: pagePath,
+              },
+            }))
+          } catch (error) {
+            if (!isActive) return
+            setFrameVisualizationData((current) => ({
+              ...current,
+              [frame.id]: {
+                requestKey,
+                loading: false,
+                error: error instanceof Error ? error.message : 'Kunne ikke hente visualiseringsdata',
+                items: [],
+                websiteId,
+                path: pagePath,
+              },
+            }))
+          }
+        }),
+      )
+    }
+
+    void loadVisualizationData()
+
+    return () => {
+      isActive = false
+    }
+  }, [
+    availableWebsites,
+    canvasConfiguredWebsiteId,
+    customEndDate,
+    customStartDate,
+    period,
+    selectedWebsite?.domain,
+    selectedWebsite?.id,
+    visualizationWebsiteFramesKey,
+  ])
+
+  useEffect(() => {
+    const websiteFrames = visualizationWebsiteFramesRef.current
+    websiteFrames.forEach((frame) => {
+      sendVisualizationDataToWebsiteFrame(frame)
+    })
+  }, [frameVisualizationData, sendVisualizationDataToWebsiteFrame, visualizationWebsiteFramesKey])
 
   const ensureCanvasCategory = useCallback(async (): Promise<number | null> => {
     if (!canPersistToDashboard || projectId === null || dashboardId === null) return null
@@ -950,10 +1227,12 @@ const Canvas = () => {
         y: frame.y,
         width: frame.width,
         height: frame.height,
+        websiteId: frame.websiteId,
         targetUrl: frame.targetUrl,
         previewUrl: frame.previewUrl,
         renderWebsite: frame.renderWebsite,
         isInternalDashboard: frame.isInternalDashboard,
+        visualizationMode: frame.visualizationMode,
         headingText: frame.headingText,
         headingFontSize: frame.headingFontSize,
         textContent: frame.textContent,
@@ -1128,10 +1407,12 @@ const Canvas = () => {
             framesFromStorage.push({
               id: `stored-${graph.id}`,
               kind: parsedConfig.kind,
+              websiteId: parsedConfig.websiteId,
               targetUrl: parsedConfig.targetUrl,
               previewUrl: parsedConfig.previewUrl,
               renderWebsite: parsedConfig.renderWebsite,
               isInternalDashboard: parsedConfig.isInternalDashboard,
+              visualizationMode: parsedConfig.visualizationMode,
               headingText: parsedConfig.headingText,
               headingFontSize: parsedConfig.headingFontSize,
               textContent: parsedConfig.textContent,
@@ -1327,9 +1608,11 @@ const Canvas = () => {
     const newFrame: CanvasFrame = {
       id: `${Date.now()}-${Math.random()}`,
       kind: 'website',
+      websiteId: selectedWebsite?.id || canvasConfiguredWebsiteId || undefined,
       targetUrl,
       previewUrl: newPageRenderEnabled ? undefined : (previewUrl ?? undefined),
       renderWebsite: newPageRenderEnabled,
+      visualizationMode: newPageVisualizationMode || undefined,
       label: getFrameLabel(targetUrl),
       x: 80 + column * 460,
       y: 80 + row * 380,
@@ -1345,6 +1628,7 @@ const Canvas = () => {
       setFrames((prev) => [...prev, persistedFrame])
       setNewPagePathInput('')
       setNewPagePreviewUrlInput('')
+      setNewPageVisualizationMode('')
       setAddPageError(null)
       setIsAddPageModalOpen(false)
     } catch (error) {
@@ -1617,6 +1901,7 @@ const Canvas = () => {
     setEditWebsitePathInput(frame.targetUrl || '')
     setEditWebsitePreviewUrlInput(frame.previewUrl || '')
     setEditWebsiteRenderEnabled(frame.renderWebsite !== false)
+    setEditWebsiteVisualizationMode(getCanvasFrameVisualizationMode(frame))
     setEditWebsiteError(null)
     setIsEditWebsiteModalOpen(true)
   }
@@ -1709,6 +1994,7 @@ const Canvas = () => {
     setNewPagePathInput(frame.targetUrl || '')
     setNewPageRenderEnabled(frame.renderWebsite !== false)
     setNewPagePreviewUrlInput(frame.previewUrl || '')
+    setNewPageVisualizationMode(getCanvasFrameVisualizationMode(frame))
     setIsAddPageModalOpen(true)
   }
 
@@ -1733,9 +2019,11 @@ const Canvas = () => {
 
     const updatedFrame: CanvasFrame = {
       ...currentFrame,
+      websiteId: selectedWebsite?.id || currentFrame.websiteId || canvasConfiguredWebsiteId || undefined,
       targetUrl,
       previewUrl: editWebsiteRenderEnabled ? undefined : (previewUrl ?? undefined),
       renderWebsite: editWebsiteRenderEnabled,
+      visualizationMode: editWebsiteVisualizationMode || undefined,
       label: getFrameLabel(targetUrl),
       refreshNonce: currentFrame.refreshNonce + 1,
     }
@@ -1748,6 +2036,7 @@ const Canvas = () => {
       setIsEditWebsiteModalOpen(false)
       setEditWebsiteFrameId(null)
       setEditWebsitePreviewUrlInput('')
+      setEditWebsiteVisualizationMode('')
       setEditWebsiteError(null)
     } catch (error) {
       setSyncError(error instanceof Error ? error.message : 'Kunne ikke oppdatere nettside')
@@ -2426,6 +2715,7 @@ const Canvas = () => {
   )
 
   const handleResizeStart = (event: React.MouseEvent, frame: CanvasFrame) => {
+    event.preventDefault()
     event.stopPropagation()
     const defaults = getDefaultFrameSize(frame)
     setResizeState({
@@ -2499,7 +2789,24 @@ const Canvas = () => {
   useEffect(() => {
     if (!resizeState) return
 
+    let hasStopped = false
+    const stopResize = () => {
+      if (hasStopped) return
+      hasStopped = true
+      const resizedFrame = framesRef.current.find((frame) => frame.id === resizeState.id)
+      if (resizedFrame?.graphId) {
+        void persistFrame(resizedFrame).catch((error) => {
+          setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre størrelse i canvas')
+        })
+      }
+      setResizeState(null)
+    }
+
     const onMouseMove = (event: MouseEvent) => {
+      if (event.buttons === 0) {
+        stopResize()
+        return
+      }
       setFrames((prev) =>
         prev.map((frame) => {
           if (frame.id !== resizeState.id) return frame
@@ -2524,21 +2831,20 @@ const Canvas = () => {
       )
     }
 
-    const onMouseUp = () => {
-      const resizedFrame = framesRef.current.find((frame) => frame.id === resizeState.id)
-      if (resizedFrame?.graphId) {
-        void persistFrame(resizedFrame).catch((error) => {
-          setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre størrelse i canvas')
-        })
-      }
-      setResizeState(null)
-    }
+    const onMouseUp = () => stopResize()
+    const onWindowBlur = () => stopResize()
 
     window.addEventListener('mousemove', onMouseMove)
     window.addEventListener('mouseup', onMouseUp)
+    document.addEventListener('mousemove', onMouseMove, true)
+    document.addEventListener('mouseup', onMouseUp, true)
+    window.addEventListener('blur', onWindowBlur)
     return () => {
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mouseup', onMouseUp)
+      document.removeEventListener('mousemove', onMouseMove, true)
+      document.removeEventListener('mouseup', onMouseUp, true)
+      window.removeEventListener('blur', onWindowBlur)
     }
   }, [canvasZoom, persistFrame, resizeState])
 
@@ -3240,6 +3546,7 @@ const Canvas = () => {
                         setAddPageError(null)
                         setNewPagePreviewUrlInput('')
                         setNewPageRenderEnabled(true)
+                        setNewPageVisualizationMode('')
                         setIsAddPageModalOpen(true)
                       }}
                     >
@@ -3474,6 +3781,8 @@ const Canvas = () => {
                     const isIllustrationFrame = isIllustrationImageFrame(frame)
                     const isWebsiteInsightOpen = frame.kind === 'website' && activeInsightFrameId === frame.id
                     const websiteInsight = pageInsights[frame.id]
+                    const visualizationMode = frame.kind === 'website' ? getCanvasFrameVisualizationMode(frame) : ''
+                    const visualizationData = frame.kind === 'website' ? frameVisualizationData[frame.id] : undefined
                     return (
                       <article
                         key={frame.id}
@@ -3535,8 +3844,13 @@ const Canvas = () => {
                             onMouseDown={(event) => handleDragStart(event, frame)}
                           >
                             <div className="flex min-w-0 items-center gap-2">
-                              <div className="min-w-0 text-sm font-semibold text-[var(--ax-text-default)] break-all">
-                                {frame.label}
+                              <div className="min-w-0">
+                                <div className="min-w-0 text-sm font-semibold text-[var(--ax-text-default)] break-all">
+                                  {frame.label}
+                                </div>
+                                {visualizationMode && visualizationData?.loading && (
+                                  <div className="text-xs text-[var(--ax-text-subtle)]">Henter kartdata ...</div>
+                                )}
                               </div>
                             </div>
                             <div className="flex items-center gap-1">
@@ -3975,6 +4289,10 @@ const Canvas = () => {
                                     className="h-full w-full"
                                     loading="lazy"
                                     sandbox="allow-same-origin allow-scripts allow-forms"
+                                    ref={(node) => {
+                                      websiteIframeRefs.current[frame.id] = node
+                                    }}
+                                    onLoad={() => sendVisualizationDataToWebsiteFrame(frame)}
                                   />
                                 )}
                               </div>
@@ -4800,6 +5118,7 @@ const Canvas = () => {
           setAddPageError(null)
           setNewPagePreviewUrlInput('')
           setNewPageRenderEnabled(true)
+          setNewPageVisualizationMode('')
         }}
         header={{ heading: 'Legg til nettside' }}
         width="small"
@@ -4826,6 +5145,20 @@ const Canvas = () => {
             >
               Last inn nettsiden
             </Switch>
+            <VisualizationModeSelect
+              value={newPageVisualizationMode}
+              onChange={(nextMode) => {
+                setNewPageVisualizationMode(nextMode)
+                if (addPageError) setAddPageError(null)
+              }}
+              size="small"
+              label="Visualisering"
+              allowNoneOption
+              noneOptionLabel="Ingen"
+            />
+            <p className="text-xs text-[var(--ax-text-subtle)]">
+              Velg hvordan klikkdata vises over nettsiden i kortet (klikkkart, varmekart eller scrollkart).
+            </p>
             {!newPageRenderEnabled && (
               <TextField
                 size="small"
@@ -4845,7 +5178,14 @@ const Canvas = () => {
           <Button onClick={() => void handleAddPage()} size="small" loading={isSavingCanvasItem}>
             Legg til
           </Button>
-          <Button variant="secondary" size="small" onClick={() => setIsAddPageModalOpen(false)}>
+          <Button
+            variant="secondary"
+            size="small"
+            onClick={() => {
+              setIsAddPageModalOpen(false)
+              setNewPageVisualizationMode('')
+            }}
+          >
             Avbryt
           </Button>
         </Modal.Footer>
@@ -4857,6 +5197,7 @@ const Canvas = () => {
           setIsEditWebsiteModalOpen(false)
           setEditWebsiteFrameId(null)
           setEditWebsiteError(null)
+          setEditWebsiteVisualizationMode('')
         }}
         header={{ heading: 'Rediger nettside' }}
         width="small"
@@ -4883,6 +5224,20 @@ const Canvas = () => {
             >
               Last inn nettsiden
             </Switch>
+            <VisualizationModeSelect
+              value={editWebsiteVisualizationMode}
+              onChange={(nextMode) => {
+                setEditWebsiteVisualizationMode(nextMode)
+                if (editWebsiteError) setEditWebsiteError(null)
+              }}
+              size="small"
+              label="Visualisering"
+              allowNoneOption
+              noneOptionLabel="Ingen"
+            />
+            <p className="text-xs text-[var(--ax-text-subtle)]">
+              Velg hvordan klikkdata vises over nettsiden i kortet (klikkkart, varmekart eller scrollkart).
+            </p>
             {!editWebsiteRenderEnabled && (
               <TextField
                 size="small"
@@ -4909,6 +5264,7 @@ const Canvas = () => {
               setIsEditWebsiteModalOpen(false)
               setEditWebsiteFrameId(null)
               setEditWebsiteError(null)
+              setEditWebsiteVisualizationMode('')
             }}
           >
             Avbryt

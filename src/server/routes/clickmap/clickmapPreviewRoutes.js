@@ -549,54 +549,55 @@ export function createClickmapPreviewRouter() {
       return candidates
     }
 
-    const findBestMatch = (candidate, preparedItems) => {
+    const getMatchScore = (candidate, item) => {
       const elementText =
         candidate.kind === 'accordion'
           ? getAccordionText(candidate.element)
           : cleanText(candidate.element.textContent || candidate.element.getAttribute('aria-label') || '')
       const elementDestination = candidate.kind === 'link' ? normalizeDestination(candidate.element.getAttribute('href') || '') : null
+      const itemIntent = getComponentIntent(item.componentKey)
+      const itemIsAccordion = itemIntent === 'accordion'
+      const itemIsInternalNavigation = isInternalNavigationComponent(item.componentKey)
+      const matchesIntent = candidateMatchesIntent(candidate.kind, itemIntent)
+      if (itemIsAccordion && candidate.kind !== 'accordion') return -1
+      if (candidate.kind === 'link' && isHeadingLink(candidate.element)) return -1
+      if (candidate.kind === 'link' && isInPageHashLink(candidate.element) && !isNavigationMenuLink(candidate.element)) return -1
+      if (itemIsInternalNavigation && candidate.kind === 'link' && !isNavigationMenuLink(candidate.element)) return -1
+
+      const textExactMatch = !!item.linkTextKey && item.linkTextKey === elementText
+      const textContainsMatch =
+        !!item.linkTextKey && !textExactMatch && (elementText.includes(item.linkTextKey) || item.linkTextKey.includes(elementText))
+      const textMatches = textExactMatch || textContainsMatch
+      const sectionExactMatch = !!item.sectionKey && item.sectionKey === candidate.sectionKey
+      const sectionContainsMatch =
+        !!item.sectionKey &&
+        !sectionExactMatch &&
+        (item.sectionKey.includes(candidate.sectionKey) || candidate.sectionKey.includes(item.sectionKey))
+      const destinationMatches =
+        candidate.kind === 'link' &&
+        !!elementDestination &&
+        (item.destinationHasHost
+          ? !!item.destinationFullKey && item.destinationFullKey === elementDestination.full
+          : !!item.destinationPathKey && item.destinationPathKey === elementDestination.path)
+      if (itemIntent !== 'any' && !destinationMatches && !matchesIntent) return -1
+      if (!textMatches && !destinationMatches) return -1
+
+      return (
+        (destinationMatches ? 3 : 0) +
+        (sectionExactMatch ? 4 : sectionContainsMatch ? 1 : 0) +
+        (textExactMatch ? 2 : textContainsMatch ? 1 : 0) +
+        (matchesIntent ? 2 : 0) +
+        (itemIsAccordion && candidate.kind === 'accordion' ? 2 : 0) +
+        (candidate.kind === 'link' ? 0.1 : 0)
+      )
+    }
+
+    const findBestMatch = (candidate, preparedItems) => {
       let bestMatch = null
       let bestScore = -1
-
       for (const item of preparedItems) {
-        const itemIntent = getComponentIntent(item.componentKey)
-        const itemIsAccordion = itemIntent === 'accordion'
-        const itemIsInternalNavigation = isInternalNavigationComponent(item.componentKey)
-        const matchesIntent = candidateMatchesIntent(candidate.kind, itemIntent)
-        if (itemIsAccordion && candidate.kind !== 'accordion') continue
-        if (candidate.kind === 'link' && isHeadingLink(candidate.element)) continue
-        if (candidate.kind === 'link' && isInPageHashLink(candidate.element) && !isNavigationMenuLink(candidate.element))
-          continue
-        if (itemIsInternalNavigation && candidate.kind === 'link' && !isNavigationMenuLink(candidate.element)) continue
-
-        const textExactMatch = !!item.linkTextKey && item.linkTextKey === elementText
-        const textContainsMatch =
-          !!item.linkTextKey &&
-          !textExactMatch &&
-          (elementText.includes(item.linkTextKey) || item.linkTextKey.includes(elementText))
-        const textMatches = textExactMatch || textContainsMatch
-        const sectionExactMatch = !!item.sectionKey && item.sectionKey === candidate.sectionKey
-        const sectionContainsMatch =
-          !!item.sectionKey &&
-          !sectionExactMatch &&
-          (item.sectionKey.includes(candidate.sectionKey) || candidate.sectionKey.includes(item.sectionKey))
-        const sectionMatches = sectionExactMatch || sectionContainsMatch
-        const destinationMatches =
-          candidate.kind === 'link' &&
-          !!elementDestination &&
-          (item.destinationHasHost
-            ? !!item.destinationFullKey && item.destinationFullKey === elementDestination.full
-            : !!item.destinationPathKey && item.destinationPathKey === elementDestination.path)
-        if (itemIntent !== 'any' && !destinationMatches && !matchesIntent) continue
-        if (!textMatches && !destinationMatches) continue
-
-        const score =
-          (destinationMatches ? 3 : 0) +
-          (sectionExactMatch ? 4 : sectionContainsMatch ? 1 : 0) +
-          (textExactMatch ? 2 : textContainsMatch ? 1 : 0) +
-          (matchesIntent ? 2 : 0) +
-          (itemIsAccordion && candidate.kind === 'accordion' ? 2 : 0) +
-          (candidate.kind === 'link' ? 0.1 : 0)
+        const score = getMatchScore(candidate, item)
+        if (score < 0) continue
         if (!bestMatch || score > bestScore || (score === bestScore && item.count > bestMatch.count)) {
           bestMatch = item
           bestScore = score
@@ -604,6 +605,31 @@ export function createClickmapPreviewRouter() {
       }
   
       return bestMatch
+    }
+
+    const assignPreparedItemsToCandidates = (preparedItems, candidates) => {
+      const assignments = []
+
+      for (const item of preparedItems) {
+        if ((item.count || 0) <= 0) continue
+        let bestCandidate = null
+        let bestScore = -1
+
+        for (const candidate of candidates) {
+          const score = getMatchScore(candidate, item)
+          if (score < 0) continue
+          if (!bestCandidate || score > bestScore) {
+            bestCandidate = candidate
+            bestScore = score
+          }
+        }
+
+        if (bestCandidate) {
+          assignments.push({ item, candidate: bestCandidate })
+        }
+      }
+
+      return assignments
     }
   
     const applyHeatmap = (payload) => {
@@ -657,9 +683,10 @@ export function createClickmapPreviewRouter() {
         const documentHeight = Math.max(resolveDocumentHeight(), 1)
         const foldRatio = Math.min(1, Math.max(0, window.innerHeight / documentHeight))
 
-        for (const candidate of candidates) {
-          const match = findBestMatch(candidate, preparedItems)
-          if (!match || (match.count || 0) <= 0) continue
+        const assignments = assignPreparedItemsToCandidates(preparedItems, candidates)
+        for (const assignment of assignments) {
+          const match = assignment.item
+          const candidate = assignment.candidate
           const rect = candidate.element.getBoundingClientRect()
           const elementCenterY = window.scrollY + rect.top + rect.height / 2
           const normalizedDepth = Math.min(1, Math.max(0, elementCenterY / documentHeight))

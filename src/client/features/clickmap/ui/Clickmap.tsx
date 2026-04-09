@@ -18,6 +18,8 @@ import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
 import { normalizeUrlToPath } from '../../../shared/lib/utils.ts'
 import { useClickmap } from '../hooks/useClickmap.ts'
 import type { ClickmapItem } from '../model/types.ts'
+import { ROUTE_BY_VISUALIZATION_MODE, type VisualizationMode } from '../model/visualizationMode.ts'
+import VisualizationModeSelect from './VisualizationModeSelect.tsx'
 
 const normalizeComparablePath = (value: string): string => {
   const normalizedValue = normalizeUrlToPath(value || '')
@@ -121,8 +123,6 @@ type PreviewNotice = {
   details?: string
 }
 
-type VisualizationMode = 'clickmap' | 'heatmap' | 'scrollmap'
-
 type ClickmapProps = {
   visualizationMode?: VisualizationMode
 }
@@ -135,11 +135,6 @@ type ClickmapFocusLinkPayload = {
   section?: string
 }
 
-const ROUTE_BY_VISUALIZATION_MODE: Record<VisualizationMode, string> = {
-  clickmap: '/klikkoversikt',
-  heatmap: '/klikkoversikt/varmekart',
-  scrollmap: '/klikkoversikt/scrollkart',
-}
 const TOP_LIST_MOBILE_MEDIA_QUERY = '(max-width: 639px)'
 
 const cleanText = (value: string): string => value.replace(/\s+/g, ' ').trim().toLowerCase()
@@ -728,16 +723,15 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
           />
 
           <div className="w-full sm:w-auto min-w-[180px]">
-            <Select
+            <VisualizationModeSelect
+              value={visualizationMode}
+              onChange={(nextMode) => {
+                if (!nextMode) return
+                handleVisualizationModeChange(nextMode)
+              }}
               size="small"
               label="Karttype"
-              value={visualizationMode}
-              onChange={(event) => handleVisualizationModeChange(event.target.value as VisualizationMode)}
-            >
-              <option value="clickmap">Klikkkart</option>
-              <option value="heatmap">Varmekart</option>
-              <option value="scrollmap">Scrollkart</option>
-            </Select>
+            />
           </div>
 
           <div className="self-end pb-[2px]">
