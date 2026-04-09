@@ -567,7 +567,7 @@ const Canvas = () => {
   const [isLoadingDashboardOptions, setIsLoadingDashboardOptions] = useState(false)
   const [createCanvasProjectOptions, setCreateCanvasProjectOptions] = useState<Array<{ id: number; name: string }>>([])
   const [createCanvasProjectId, setCreateCanvasProjectId] = useState('')
-  const [createCanvasNameInput, setCreateCanvasNameInput] = useState('Canvas')
+  const [createCanvasNameInput, setCreateCanvasNameInput] = useState('')
   const [createCanvasError, setCreateCanvasError] = useState<string | null>(null)
   const [isCreatingCanvas, setIsCreatingCanvas] = useState(false)
   const [editDashboardProjectOptions, setEditDashboardProjectOptions] = useState<Array<{ id: number; name: string }>>(
