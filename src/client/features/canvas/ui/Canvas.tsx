@@ -2735,7 +2735,7 @@ const Canvas = () => {
     if (kind === 'chart') return { width: 680, height: 460, minWidth: 420, minHeight: 280 }
     if (kind === 'heading') return { width: 420, height: 72, minWidth: 260, minHeight: 48 }
     if (kind === 'text') return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
-    if (kind === 'icon') return { width: 280, height: 240, minWidth: 180, minHeight: 160 }
+    if (kind === 'icon') return { width: 280, height: 240, minWidth: 72, minHeight: 72 }
     return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
   }
 
