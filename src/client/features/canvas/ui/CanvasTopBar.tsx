@@ -93,8 +93,8 @@ const CanvasTopBar = ({
     <div className="pointer-events-auto rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <a
-          href="/canvas"
-          aria-label={`Til canvas-forside${projectId !== null ? ` fra prosjekt ${projectId}` : ''}`}
+          href="/dashboard"
+          aria-label={`Til dashboard-oversikt${projectId !== null ? ` fra prosjekt ${projectId}` : ''}`}
           className="min-w-0 flex flex-1 items-center gap-1.5 rounded-sm border-0 bg-transparent p-0 text-left text-[var(--ax-text-default)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-border-accent)]"
         >
           <span className="grid h-7 w-7 shrink-0 place-items-center">
