@@ -166,6 +166,7 @@ type CanvasDeleteTarget =
 
 type ConnectionDragState = {
   sourceFrameId: string
+  sourceAnchorSide: ConnectionAnchorSide
   pointerX: number
   pointerY: number
   currentTargetFrameId: string | null
@@ -382,11 +383,18 @@ const buildFunnelStepFromUrl = (targetUrl: string): FunnelStep => {
   return { type: 'url', value, query }
 }
 
-const computeMidpoint = (x1: number, y1: number, x2: number, y2: number, delta: number): { x: number; y: number } => {
-  const c1x = x1 + delta
-  const c1y = y1
-  const c2x = x2 - delta
-  const c2y = y2
+type ConnectionAnchorSide = 'left' | 'right' | 'top' | 'bottom'
+
+const computeMidpoint = (
+  x1: number,
+  y1: number,
+  c1x: number,
+  c1y: number,
+  c2x: number,
+  c2y: number,
+  x2: number,
+  y2: number,
+): { x: number; y: number } => {
   const t = 0.5
   const mt = 1 - t
 
@@ -399,13 +407,20 @@ const computeMidpoint = (x1: number, y1: number, x2: number, y2: number, delta: 
 const buildConnectionPath = (
   x1: number,
   y1: number,
+  fromSide: ConnectionAnchorSide,
   x2: number,
   y2: number,
+  toSide: ConnectionAnchorSide,
 ): { path: string; midpoint: { x: number; y: number } } => {
-  const delta = Math.max(80, Math.abs(x2 - x1) * 0.45)
+  const horizontalDelta = Math.max(80, Math.abs(x2 - x1) * 0.45)
+  const verticalDelta = Math.max(80, Math.abs(y2 - y1) * 0.45)
+  const c1x = fromSide === 'right' ? x1 + horizontalDelta : fromSide === 'left' ? x1 - horizontalDelta : x1
+  const c1y = fromSide === 'bottom' ? y1 + verticalDelta : fromSide === 'top' ? y1 - verticalDelta : y1
+  const c2x = toSide === 'right' ? x2 + horizontalDelta : toSide === 'left' ? x2 - horizontalDelta : x2
+  const c2y = toSide === 'bottom' ? y2 + verticalDelta : toSide === 'top' ? y2 - verticalDelta : y2
   return {
-    path: `M ${x1} ${y1} C ${x1 + delta} ${y1}, ${x2 - delta} ${y2}, ${x2} ${y2}`,
-    midpoint: computeMidpoint(x1, y1, x2, y2, delta),
+    path: `M ${x1} ${y1} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${x2} ${y2}`,
+    midpoint: computeMidpoint(x1, y1, c1x, c1y, c2x, c2y, x2, y2),
   }
 }
 
@@ -455,6 +470,12 @@ const getVisualizationModeLabel = (mode: VisualizationMode | ''): string => {
   if (mode === 'heatmap') return 'Varmekart'
   if (mode === 'scrollmap') return 'Scrollkart'
   return ''
+}
+
+const formatCanvasPathLabel = (targetUrl?: string, fallbackText?: string): string => {
+  const normalizedPath = targetUrl ? normalizeUrlToPath(targetUrl) : ''
+  if (normalizedPath === '/') return '/ (forside)'
+  return normalizedPath || fallbackText || targetUrl || ''
 }
 
 const normalizeDomainForComparison = (value: string): string =>
@@ -2234,18 +2255,54 @@ const Canvas = () => {
     [],
   )
 
-  const getFrameAnchor = useCallback((frame: CanvasFrame, side: 'left' | 'right'): { x: number; y: number } => {
+  const getFrameAnchor = useCallback((frame: CanvasFrame, side: ConnectionAnchorSide): { x: number; y: number } => {
     const defaults = getDefaultFrameSize(frame)
     const width = frame.width ?? defaults.width
     const height = frame.height ?? defaults.height
     const headerHeight =
       frame.kind === 'website' ? WEBSITE_CARD_HEADER_HEIGHT : frame.kind === 'icon' ? ICON_CARD_HEADER_HEIGHT : 0
+    const bodyTop = frame.y + headerHeight
     const bodyHeight = Math.max(height - headerHeight, 0)
-    return {
-      x: side === 'left' ? frame.x : frame.x + width,
-      y: frame.y + headerHeight + bodyHeight / 2,
-    }
+    const centerX = frame.x + width / 2
+    const centerY = bodyTop + bodyHeight / 2
+
+    if (side === 'top') return { x: centerX, y: bodyTop }
+    if (side === 'bottom') return { x: centerX, y: frame.y + height }
+    if (side === 'left') return { x: frame.x, y: centerY }
+    return { x: frame.x + width, y: centerY }
   }, [])
+
+  const getDominantDirectionSide = useCallback(
+    (fromX: number, fromY: number, toX: number, toY: number): ConnectionAnchorSide => {
+      const dx = toX - fromX
+      const dy = toY - fromY
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        return dx >= 0 ? 'right' : 'left'
+      }
+      return dy >= 0 ? 'bottom' : 'top'
+    },
+    [],
+  )
+
+  const getNearestAnchorSide = useCallback(
+    (frame: CanvasFrame, pointX: number, pointY: number): ConnectionAnchorSide => {
+      const defaults = getDefaultFrameSize(frame)
+      const width = frame.width ?? defaults.width
+      const height = frame.height ?? defaults.height
+      const headerHeight =
+        frame.kind === 'website' ? WEBSITE_CARD_HEADER_HEIGHT : frame.kind === 'icon' ? ICON_CARD_HEADER_HEIGHT : 0
+      const bodyTop = frame.y + headerHeight
+      const distances: Array<{ side: ConnectionAnchorSide; distance: number }> = [
+        { side: 'left', distance: Math.abs(pointX - frame.x) },
+        { side: 'right', distance: Math.abs(pointX - (frame.x + width)) },
+        { side: 'top', distance: Math.abs(pointY - bodyTop) },
+        { side: 'bottom', distance: Math.abs(pointY - (frame.y + height)) },
+      ]
+      distances.sort((a, b) => a.distance - b.distance)
+      return distances[0]?.side ?? 'left'
+    },
+    [],
+  )
 
   const createConnectionBetweenFrames = useCallback(
     async (source: CanvasFrame, target: CanvasFrame) => {
@@ -2288,7 +2345,7 @@ const Canvas = () => {
   )
 
   const startConnectionDrag = useCallback(
-    (event: React.MouseEvent, frame: CanvasFrame) => {
+    (event: React.MouseEvent, frame: CanvasFrame, side: ConnectionAnchorSide) => {
       if (frame.kind !== 'website' || frame.isInternalDashboard) return
       event.preventDefault()
       event.stopPropagation()
@@ -2298,6 +2355,7 @@ const Canvas = () => {
 
       setConnectionDragState({
         sourceFrameId: frame.id,
+        sourceAnchorSide: side,
         pointerX: pointer.x,
         pointerY: pointer.y,
         currentTargetFrameId: null,
@@ -2671,7 +2729,7 @@ const Canvas = () => {
     const isIllustration = typeof frameOrKind === 'string' ? false : isIllustrationImageFrame(frameOrKind)
 
     if (kind === 'website' && isInternalDashboard) return { width: 760, height: 620, minWidth: 520, minHeight: 420 }
-    if (kind === 'website') return { width: 420, height: 560, minWidth: 320, minHeight: 320 }
+    if (kind === 'website') return { width: 420, height: 560, minWidth: 220, minHeight: 160 }
     if (kind === 'image' && isIllustration) return { width: 420, height: 420, minWidth: 96, minHeight: 96 }
     if (kind === 'image') return { width: 420, height: 420, minWidth: 240, minHeight: 200 }
     if (kind === 'chart') return { width: 680, height: 460, minWidth: 420, minHeight: 280 }
@@ -3012,30 +3070,41 @@ const Canvas = () => {
         const toFrame = resolveConnectionFrame(connection, 'to')
         if (!fromFrame || !toFrame) return []
 
-        const x1 = getFrameAnchor(fromFrame, 'right').x
-        const y1 = getFrameAnchor(fromFrame, 'right').y
-        const x2 = getFrameAnchor(toFrame, 'left').x
-        const y2 = getFrameAnchor(toFrame, 'left').y
-        const delta = Math.max(80, Math.abs(x2 - x1) * 0.45)
-        const path = `M ${x1} ${y1} C ${x1 + delta} ${y1}, ${x2 - delta} ${y2}, ${x2} ${y2}`
-        const midpoint = computeMidpoint(x1, y1, x2, y2, delta)
+        const fromBounds = getFrameBounds(fromFrame)
+        const toBounds = getFrameBounds(toFrame)
+        const fromCenterX = (fromBounds.left + fromBounds.right) / 2
+        const fromCenterY = (fromBounds.top + fromBounds.bottom) / 2
+        const toCenterX = (toBounds.left + toBounds.right) / 2
+        const toCenterY = (toBounds.top + toBounds.bottom) / 2
+        const fromSide = getDominantDirectionSide(fromCenterX, fromCenterY, toCenterX, toCenterY)
+        const toSide = getDominantDirectionSide(toCenterX, toCenterY, fromCenterX, fromCenterY)
+        const fromAnchor = getFrameAnchor(fromFrame, fromSide)
+        const toAnchor = getFrameAnchor(toFrame, toSide)
+        const { path, midpoint } = buildConnectionPath(
+          fromAnchor.x,
+          fromAnchor.y,
+          fromSide,
+          toAnchor.x,
+          toAnchor.y,
+          toSide,
+        )
 
         return [
           {
             id: connection.id,
             path,
             labelX: midpoint.x,
-            labelY: midpoint.y - 24,
+            labelY: midpoint.y,
             midX: midpoint.x,
             midY: midpoint.y,
-            endX: x2,
-            endY: y2,
+            endX: toAnchor.x,
+            endY: toAnchor.y,
             fromUrl: fromFrame.targetUrl,
             toUrl: toFrame.targetUrl,
           },
         ]
       }),
-    [visibleConnections, resolveConnectionFrame, getFrameAnchor],
+    [visibleConnections, resolveConnectionFrame, getFrameAnchor, getFrameBounds, getDominantDirectionSide],
   )
 
   const connectionPreview = useMemo(() => {
@@ -3044,28 +3113,45 @@ const Canvas = () => {
     const sourceFrame = visibleFrames.find((frame) => frame.id === connectionDragState.sourceFrameId)
     if (!sourceFrame || sourceFrame.kind !== 'website') return null
 
+    const sourceAnchor = getFrameAnchor(sourceFrame, connectionDragState.sourceAnchorSide)
     const targetFrame = connectionDragState.currentTargetFrameId
       ? visibleFrames.find((frame) => frame.id === connectionDragState.currentTargetFrameId)
       : null
-    const fromAnchor = getFrameAnchor(sourceFrame, 'right')
+    const fallbackTargetSide = getDominantDirectionSide(
+      sourceAnchor.x,
+      sourceAnchor.y,
+      connectionDragState.pointerX,
+      connectionDragState.pointerY,
+    )
+    const targetSide =
+      targetFrame?.kind === 'website'
+        ? getNearestAnchorSide(targetFrame, sourceAnchor.x, sourceAnchor.y)
+        : fallbackTargetSide
     const toAnchor =
       targetFrame?.kind === 'website'
-        ? getFrameAnchor(targetFrame, 'left')
+        ? getFrameAnchor(targetFrame, targetSide)
         : {
             x: connectionDragState.pointerX,
             y: connectionDragState.pointerY,
           }
-    const { path, midpoint } = buildConnectionPath(fromAnchor.x, fromAnchor.y, toAnchor.x, toAnchor.y)
+    const { path, midpoint } = buildConnectionPath(
+      sourceAnchor.x,
+      sourceAnchor.y,
+      connectionDragState.sourceAnchorSide,
+      toAnchor.x,
+      toAnchor.y,
+      targetSide,
+    )
 
     return {
       path,
       labelX: midpoint.x,
-      labelY: midpoint.y - 24,
+      labelY: midpoint.y,
       midX: midpoint.x,
       midY: midpoint.y,
       targetFrameId: targetFrame?.id ?? null,
     }
-  }, [connectionDragState, visibleFrames, getFrameAnchor])
+  }, [connectionDragState, visibleFrames, getFrameAnchor, getDominantDirectionSide, getNearestAnchorSide])
 
   const connectionSegmentsWithMetrics = useMemo(
     () =>
@@ -3739,7 +3825,7 @@ const Canvas = () => {
                 {connectionSegmentsWithMetrics.map((segment) => (
                   <Fragment key={segment.id}>
                     <div
-                      className="group pointer-events-auto absolute z-[2] -translate-x-1/2 -translate-y-full overflow-visible"
+                      className="group pointer-events-auto absolute z-[2] -translate-x-1/2 -translate-y-1/2 overflow-visible"
                       style={{
                         left: `${segment.labelX}px`,
                         top: `${segment.labelY}px`,
@@ -3847,18 +3933,23 @@ const Canvas = () => {
                         {frame.kind === 'website' && !frame.isInternalDashboard && (
                           <header
                             className={
-                              'flex cursor-move items-center justify-between gap-2 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] px-3 py-2'
+                              'flex cursor-move items-start justify-between gap-2 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] px-3 py-2'
                             }
                             onMouseDown={(event) => handleDragStart(event, frame)}
                           >
-                            <div className="flex min-w-0 items-center gap-2">
+                            <div className="flex min-w-0 flex-1 items-start gap-2">
                               <div className="min-w-0">
-                                <div className="min-w-0 text-sm font-semibold text-[var(--ax-text-default)] break-all">
+                                <div
+                                  className="min-w-0 break-words text-sm font-semibold leading-tight text-[var(--ax-text-default)]"
+                                  title={frame.label}
+                                >
                                   {frame.label}
                                 </div>
                                 {visualizationMode && (
-                                  <div className="flex items-center gap-1 text-xs text-[var(--ax-text-subtle)]">
-                                    <span>Visualisering: {getVisualizationModeLabel(visualizationMode)}</span>
+                                  <div className="flex min-w-0 items-center gap-1 text-xs text-[var(--ax-text-subtle)]">
+                                    <span className="break-words">
+                                      Visualisering: {getVisualizationModeLabel(visualizationMode)}
+                                    </span>
                                     <div onMouseDown={(event) => event.stopPropagation()}>
                                       <HelpText title="Datagrunnlag" strategy="fixed" placement="top">
                                         Visualiseringen er basert på totale klikk på interaktive elementer, ikke antall
@@ -3876,19 +3967,20 @@ const Canvas = () => {
                                 </div>
                               )}
                             </div>
-                            <div className="flex items-center gap-1">
+                            <div className="flex shrink-0 items-center gap-1">
                               {frame.kind === 'website' && !frame.isInternalDashboard && (
                                 <Button
                                   size="xsmall"
                                   variant="tertiary"
                                   icon={<ChartNoAxesCombined size={14} />}
+                                  className="whitespace-nowrap"
                                   onMouseDown={(event) => event.stopPropagation()}
                                   onClick={() => handleToggleInsightPanel(frame)}
                                   title={selectedWebsite ? 'Vis/skjul innsikt' : 'Velg nettsted først'}
                                   aria-label={activeInsightFrameId === frame.id ? 'Skjul innsikt' : 'Vis innsikt'}
                                   disabled={!selectedWebsite}
                                 >
-                                  {activeInsightFrameId === frame.id ? 'Skjul innsikt' : 'Vis innsikt'}
+                                  {activeInsightFrameId === frame.id ? 'Skjul' : 'Innsikt'}
                                 </Button>
                               )}
                               <ActionMenu>
@@ -4172,7 +4264,7 @@ const Canvas = () => {
                                 }`}
                                 aria-label="Kobling"
                                 title="Dra for å koble"
-                                onMouseDown={(event) => startConnectionDrag(event, frame)}
+                                onMouseDown={(event) => startConnectionDrag(event, frame, 'left')}
                               >
                                 <span
                                   aria-hidden="true"
@@ -4190,7 +4282,43 @@ const Canvas = () => {
                                 }`}
                                 aria-label="Kobling"
                                 title="Dra for å koble"
-                                onMouseDown={(event) => startConnectionDrag(event, frame)}
+                                onMouseDown={(event) => startConnectionDrag(event, frame, 'right')}
+                              >
+                                <span
+                                  aria-hidden="true"
+                                  className={`pointer-events-none h-3.5 w-3.5 rounded-full border border-[var(--ax-border-accent)] bg-[var(--ax-bg-default)] shadow-sm ${
+                                    connectionDragState?.sourceFrameId === frame.id
+                                      ? 'bg-[var(--ax-border-accent)]'
+                                      : ''
+                                  }`}
+                                />
+                              </button>
+                              <button
+                                type="button"
+                                className={`pointer-events-auto absolute left-1/2 top-[-12px] flex h-6 w-6 -translate-x-1/2 cursor-grab items-center justify-center rounded-full bg-transparent opacity-0 transition-opacity active:cursor-grabbing group-hover:opacity-100 group-focus-within:opacity-100 ${
+                                  connectionDragState?.sourceFrameId === frame.id ? 'opacity-100' : ''
+                                }`}
+                                aria-label="Kobling"
+                                title="Dra for å koble"
+                                onMouseDown={(event) => startConnectionDrag(event, frame, 'top')}
+                              >
+                                <span
+                                  aria-hidden="true"
+                                  className={`pointer-events-none h-3.5 w-3.5 rounded-full border border-[var(--ax-border-accent)] bg-[var(--ax-bg-default)] shadow-sm ${
+                                    connectionDragState?.sourceFrameId === frame.id
+                                      ? 'bg-[var(--ax-border-accent)]'
+                                      : ''
+                                  }`}
+                                />
+                              </button>
+                              <button
+                                type="button"
+                                className={`pointer-events-auto absolute bottom-[-12px] left-1/2 flex h-6 w-6 -translate-x-1/2 cursor-grab items-center justify-center rounded-full bg-transparent opacity-0 transition-opacity active:cursor-grabbing group-hover:opacity-100 group-focus-within:opacity-100 ${
+                                  connectionDragState?.sourceFrameId === frame.id ? 'opacity-100' : ''
+                                }`}
+                                aria-label="Kobling"
+                                title="Dra for å koble"
+                                onMouseDown={(event) => startConnectionDrag(event, frame, 'bottom')}
                               >
                                 <span
                                   aria-hidden="true"
@@ -4373,16 +4501,15 @@ const Canvas = () => {
                                 </div>
                               )}
                               <div className="flex h-full items-center justify-center px-6 text-center">
-                                <div className="space-y-2">
-                                  <p className="text-sm font-semibold text-[var(--ax-text-default)]">{frame.label}</p>
+                                <div className="w-full max-w-none space-y-2">
                                   {frame.targetUrl && (
                                     <Link
                                       href={frame.targetUrl}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-1.5"
+                                      className="inline-flex max-w-full items-center gap-1.5 text-sm font-medium break-words text-left"
                                     >
-                                      <span>Åpne nettside</span>
+                                      <span>{formatCanvasPathLabel(frame.targetUrl, frame.displayUrl)}</span>
                                       <ExternalLink size={14} aria-hidden="true" />
                                     </Link>
                                   )}
@@ -5168,20 +5295,33 @@ const Canvas = () => {
             >
               Last inn nettsiden
             </Switch>
-            <VisualizationModeSelect
-              value={newPageVisualizationMode}
-              onChange={(nextMode) => {
-                setNewPageVisualizationMode(nextMode)
+            <Switch
+              size="small"
+              checked={Boolean(newPageVisualizationMode)}
+              onChange={(event) => {
+                setNewPageVisualizationMode(event.target.checked ? 'clickmap' : '')
                 if (addPageError) setAddPageError(null)
               }}
-              size="small"
-              label="Visualisering"
-              allowNoneOption
-              noneOptionLabel="Ingen"
-            />
-            <p className="text-xs text-[var(--ax-text-subtle)]">
-              Velg hvordan klikkdata vises over nettsiden i kortet (klikkkart, varmekart eller scrollkart).
-            </p>
+            >
+              Legg til visualisering
+            </Switch>
+            {newPageVisualizationMode && (
+              <>
+                <VisualizationModeSelect
+                  value={newPageVisualizationMode}
+                  onChange={(nextMode) => {
+                    setNewPageVisualizationMode(nextMode)
+                    if (addPageError) setAddPageError(null)
+                  }}
+                  size="small"
+                  label="Visualisering"
+                  allowNoneOption={false}
+                />
+                <p className="text-xs text-[var(--ax-text-subtle)]">
+                  Velg hvordan klikkdata vises over nettsiden i kortet (klikkkart, varmekart eller scrollkart).
+                </p>
+              </>
+            )}
             {!newPageRenderEnabled && (
               <TextField
                 size="small"
@@ -5247,20 +5387,24 @@ const Canvas = () => {
             >
               Last inn nettsiden
             </Switch>
-            <VisualizationModeSelect
-              value={editWebsiteVisualizationMode}
-              onChange={(nextMode) => {
-                setEditWebsiteVisualizationMode(nextMode)
-                if (editWebsiteError) setEditWebsiteError(null)
-              }}
-              size="small"
-              label="Visualisering"
-              allowNoneOption
-              noneOptionLabel="Ingen"
-            />
-            <p className="text-xs text-[var(--ax-text-subtle)]">
-              Velg hvordan klikkdata vises over nettsiden i kortet (klikkkart, varmekart eller scrollkart).
-            </p>
+            {editWebsiteRenderEnabled && (
+              <>
+                <VisualizationModeSelect
+                  value={editWebsiteVisualizationMode}
+                  onChange={(nextMode) => {
+                    setEditWebsiteVisualizationMode(nextMode)
+                    if (editWebsiteError) setEditWebsiteError(null)
+                  }}
+                  size="small"
+                  label="Visualisering"
+                  allowNoneOption
+                  noneOptionLabel="Ingen"
+                />
+                <p className="text-xs text-[var(--ax-text-subtle)]">
+                  Velg hvordan klikkdata vises over nettsiden i kortet (klikkkart, varmekart eller scrollkart).
+                </p>
+              </>
+            )}
             {!editWebsiteRenderEnabled && (
               <TextField
                 size="small"
