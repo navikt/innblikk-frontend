@@ -3987,7 +3987,7 @@ const Canvas = () => {
         onClose={() => {
           // Keep modal open until user creates or navigates away.
         }}
-        header={{ heading: 'Opprett canvas' }}
+        header={{ heading: 'Opprett canvas', closeButton: false }}
         width="small"
         closeOnBackdropClick={false}
       >
@@ -4031,7 +4031,7 @@ const Canvas = () => {
             Opprett canvas
           </Button>
           <Button variant="secondary" size="small" as="a" href={projectManagerHref} disabled={isCreatingCanvas}>
-            Til ProjectManager
+            Til Dashboard
           </Button>
         </Modal.Footer>
       </Modal>
