@@ -4197,7 +4197,7 @@ const Canvas = () => {
                           aria-label="Fjern kobling"
                         />
                       </div>
-                      <div className="min-w-[190px] overflow-hidden rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] shadow-sm">
+                      <div className="min-w-[165px] overflow-hidden rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] shadow-sm">
                         <div className="space-y-2 px-3 py-2 text-[13px] leading-tight">
                           <div className="space-y-0.5 text-right">
                             <div className="font-semibold text-[14px] text-[var(--ax-text-success)]">
