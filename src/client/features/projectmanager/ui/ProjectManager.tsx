@@ -12,7 +12,6 @@ import {
   Modal,
   Search,
   Select,
-  Tag,
   Table,
   TextField,
   Tooltip,
@@ -39,7 +38,6 @@ type FileTableRow = {
   indentLevel?: 0 | 1 | 2
   dashboardId: number
   dashboardName: string
-  dashboardDescription?: string
   categoryName?: string
   categoryId?: number
   graphType?: string
@@ -75,6 +73,7 @@ type ProjectManagerMoveDashboardSuccessTarget = {
   projectId: number
   dashboardName: string
   projectName: string
+  type: 'dashboard' | 'canvas'
 }
 
 const LAST_PROJECT_STORAGE_KEY = 'projectmanager:lastSelectedProjectId'
@@ -237,10 +236,20 @@ const ProjectManager = () => {
     return [...filtered].sort((a, b) => a.project.name.localeCompare(b.project.name, 'nb', { sensitivity: 'base' }))
   }, [projectSummaries, projectSearch])
 
+  const regularDashboards = useMemo(
+    () => selectedProject?.dashboards.filter((dashboard) => !isCanvasDashboard(dashboard.description)) ?? [],
+    [selectedProject],
+  )
+
+  const canvasDashboards = useMemo(
+    () => selectedProject?.dashboards.filter((dashboard) => isCanvasDashboard(dashboard.description)) ?? [],
+    [selectedProject],
+  )
+
   const fileRows = useMemo<FileTableRow[]>(() => {
     if (!selectedProject) return []
 
-    return selectedProject.dashboards.flatMap((dashboard) => {
+    return regularDashboards.flatMap((dashboard) => {
       const dashboardRow: FileTableRow = {
         id: `dashboard-${dashboard.id}`,
         type: 'dashboard',
@@ -248,7 +257,6 @@ const ProjectManager = () => {
         indentLevel: 0,
         dashboardId: dashboard.id,
         dashboardName: dashboard.name,
-        dashboardDescription: dashboard.description,
       }
 
       const hasMultipleCategories = dashboard.categories.length > 1
@@ -306,7 +314,7 @@ const ProjectManager = () => {
 
       return rows
     })
-  }, [selectedProject])
+  }, [regularDashboards, selectedProject])
 
   const getCategoryDisplayName = (name?: string) => {
     const trimmed = name?.trim() ?? ''
@@ -408,7 +416,14 @@ const ProjectManager = () => {
 
   const openDeleteDashboard = (projectId: number, dashboardId: number, name: string) => {
     setDashboardMutationError(null)
-    setDeleteDashboardTarget({ id: dashboardId, projectId, name })
+    const projectSummary = projectSummaries.find((summary) => summary.project.id === projectId)
+    const dashboardSummary = projectSummary?.dashboards.find((dashboard) => dashboard.id === dashboardId)
+    setDeleteDashboardTarget({
+      id: dashboardId,
+      projectId,
+      name,
+      description: dashboardSummary?.description,
+    })
   }
 
   const openMoveDashboard = (projectId: number, dashboardId: number, name: string) => {
@@ -485,6 +500,7 @@ const ProjectManager = () => {
       projectId: moveDashboardTargetProjectId,
       dashboardName: moveDashboardTarget.name,
       projectName: targetProject?.name ?? 'valgt team',
+      type: isCanvasDashboard(moveDashboardTarget.description) ? 'canvas' : 'dashboard',
     })
   }
 
@@ -1053,6 +1069,12 @@ const ProjectManager = () => {
       name: dashboard.name,
     }))
   }, [selectedProject])
+  const moveTargetType: 'dashboard' | 'canvas' = isCanvasDashboard(moveDashboardTarget?.description)
+    ? 'canvas'
+    : 'dashboard'
+  const deleteTargetType: 'dashboard' | 'canvas' = isCanvasDashboard(deleteDashboardTarget?.description)
+    ? 'canvas'
+    : 'dashboard'
   const isInitialLoading = loading && projectSummaries.length === 0 && !error
   const categoryRowKeys = useMemo(() => {
     const keys = new Set<string>()
@@ -1120,7 +1142,7 @@ const ProjectManager = () => {
     <>
       <ProjectManagerLayout
         title="Dashboard"
-        description="Oversikt over dashboard og grafer."
+        description="Oversikt over dashboard, canvas og grafer."
         sidebar={
           <div className="space-y-2">
             <form role="search" className="mb-3 flex items-end gap-2">
@@ -1279,7 +1301,7 @@ const ProjectManager = () => {
             </div>
           )}
 
-          {!isInitialLoading && selectedProject && fileRows.length === 0 && (
+          {!isInitialLoading && selectedProject && regularDashboards.length === 0 && canvasDashboards.length === 0 && (
             <div className="rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] px-3 py-2">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm text-[var(--ax-text-default)]">Teamet er tomt</span>
@@ -1303,11 +1325,7 @@ const ProjectManager = () => {
                   const paddingClass =
                     row.indentLevel === 2 ? 'pl-6 sm:pl-12' : row.indentLevel === 1 ? 'pl-3 sm:pl-6' : ''
                   const overviewHref = `/dashboard/${row.dashboardId}${row.categoryId ? `?categoryId=${row.categoryId}` : ''}`
-                  const isCanvasRow = row.type === 'dashboard' && isCanvasDashboard(row.dashboardDescription)
-                  const rowHref =
-                    isCanvasRow && selectedProject
-                      ? `/canvas?dashboardId=${row.dashboardId}&projectId=${selectedProject.project.id}`
-                      : overviewHref
+                  const rowHref = overviewHref
                   const isDashboardExpanded = expandedDashboards.has(row.dashboardId)
                   const nextRow = visibleFileRows[index + 1]
                   const isLastRowInDashboard = !nextRow || nextRow.dashboardId !== row.dashboardId
@@ -1390,20 +1408,11 @@ const ProjectManager = () => {
                               )}
                             </span>
                             <Link as={RouterLink} to={rowHref} className="block min-w-0 flex-1 truncate">
-                              {row.type === 'category' ? (
-                                getCategoryDisplayName(row.name)
-                              ) : row.type === 'chart' ? (
-                                `${row.name} ${getVariantCountLabel(row.variantCount) ?? ''}`.trim()
-                              ) : isCanvasRow ? (
-                                <span className="inline-flex items-center gap-2">
-                                  <span className="truncate">{row.name}</span>
-                                  <Tag size="xsmall" variant="outline" data-color="info" className="lowercase">
-                                    canvas
-                                  </Tag>
-                                </span>
-                              ) : (
-                                row.name
-                              )}
+                              {row.type === 'category'
+                                ? getCategoryDisplayName(row.name)
+                                : row.type === 'chart'
+                                  ? `${row.name} ${getVariantCountLabel(row.variantCount) ?? ''}`.trim()
+                                  : row.name}
                             </Link>
                           </span>
                         </Table.HeaderCell>
@@ -1562,6 +1571,74 @@ const ProjectManager = () => {
               </Table.Body>
             </Table>
           )}
+          {!isInitialLoading && selectedProject && canvasDashboards.length > 0 && (
+            <Table size="small" className="w-full">
+              <Table.Header>
+                <Table.Row>
+                  <Table.HeaderCell scope="col">Canvas</Table.HeaderCell>
+                  <Table.HeaderCell scope="col" className="w-12 sm:w-14 text-right">
+                    <span className="sr-only">Handlinger</span>
+                  </Table.HeaderCell>
+                </Table.Row>
+              </Table.Header>
+              <Table.Body>
+                {canvasDashboards.map((dashboard) => {
+                  const canvasHref = `/canvas?dashboardId=${dashboard.id}&projectId=${selectedProject.project.id}`
+                  return (
+                    <Table.Row key={`canvas-${dashboard.id}`}>
+                      <Table.HeaderCell scope="row" className="w-full min-w-0">
+                        <Link as={RouterLink} to={canvasHref} className="block min-w-0 flex-1 truncate">
+                          {dashboard.name}
+                        </Link>
+                      </Table.HeaderCell>
+                      <Table.DataCell className="w-12 sm:w-14 text-right">
+                        <div className="flex justify-end">
+                          <ActionMenu>
+                            <Tooltip content="Flere valg" describesChild>
+                              <ActionMenu.Trigger>
+                                <Button
+                                  variant="tertiary"
+                                  size="xsmall"
+                                  icon={<MoreVertical aria-hidden />}
+                                  aria-label={`Flere valg for ${dashboard.name}`}
+                                />
+                              </ActionMenu.Trigger>
+                            </Tooltip>
+                            <ActionMenu.Content align="end">
+                              <ActionMenu.Item as={RouterLink} to={canvasHref}>
+                                Åpne canvas
+                              </ActionMenu.Item>
+                              <ActionMenu.Item
+                                onClick={() =>
+                                  openEditDashboard(selectedProject.project.id, dashboard.id, dashboard.name)
+                                }
+                              >
+                                Endre info
+                              </ActionMenu.Item>
+                              <ActionMenu.Item
+                                onClick={() =>
+                                  openMoveDashboard(selectedProject.project.id, dashboard.id, dashboard.name)
+                                }
+                              >
+                                Flytt canvas
+                              </ActionMenu.Item>
+                              <ActionMenu.Item
+                                onClick={() =>
+                                  openDeleteDashboard(selectedProject.project.id, dashboard.id, dashboard.name)
+                                }
+                              >
+                                Slett canvas
+                              </ActionMenu.Item>
+                            </ActionMenu.Content>
+                          </ActionMenu>
+                        </div>
+                      </Table.DataCell>
+                    </Table.Row>
+                  )
+                })}
+              </Table.Body>
+            </Table>
+          )}
         </div>
       </ProjectManagerLayout>
 
@@ -1665,7 +1742,7 @@ const ProjectManager = () => {
           setMoveDashboardTargetProjectId(0)
           setMoveDashboardError(null)
         }}
-        header={{ heading: 'Flytt dashboard' }}
+        header={{ heading: moveTargetType === 'canvas' ? 'Flytt canvas' : 'Flytt dashboard' }}
         width="small"
       >
         <Modal.Body>
@@ -1677,7 +1754,7 @@ const ProjectManager = () => {
             )}
             {moveDashboardTarget && (
               <BodyShort size="small" className="text-[var(--ax-text-subtle)]">
-                Dashboard: <strong>{moveDashboardTarget.name}</strong>
+                {moveTargetType === 'canvas' ? 'Canvas' : 'Dashboard'}: <strong>{moveDashboardTarget.name}</strong>
               </BodyShort>
             )}
             <Select
@@ -1700,7 +1777,7 @@ const ProjectManager = () => {
         </Modal.Body>
         <Modal.Footer>
           <Button onClick={() => void handleMoveDashboard()} loading={loading}>
-            Flytt dashboard
+            {moveTargetType === 'canvas' ? 'Flytt canvas' : 'Flytt dashboard'}
           </Button>
           <Button
             variant="secondary"
@@ -1720,13 +1797,14 @@ const ProjectManager = () => {
       <Modal
         open={!!moveDashboardSuccessTarget}
         onClose={() => setMoveDashboardSuccessTarget(null)}
-        header={{ heading: 'Dashboard flyttet' }}
+        header={{ heading: moveDashboardSuccessTarget?.type === 'canvas' ? 'Canvas flyttet' : 'Dashboard flyttet' }}
         width="small"
       >
         <Modal.Body>
           <div className="space-y-3">
             <BodyShort>
-              Dashboard <strong>{moveDashboardSuccessTarget?.dashboardName}</strong> ble flyttet til{' '}
+              {moveDashboardSuccessTarget?.type === 'canvas' ? 'Canvas' : 'Dashboard'}{' '}
+              <strong>{moveDashboardSuccessTarget?.dashboardName}</strong> ble flyttet til{' '}
               <strong>{moveDashboardSuccessTarget?.projectName}</strong>.
             </BodyShort>
             <BodyShort size="small" className="text-[var(--ax-text-subtle)]">
@@ -2106,6 +2184,7 @@ const ProjectManager = () => {
       <DeleteDashboardDialog
         open={!!deleteDashboardTarget}
         dashboard={deleteDashboardTarget}
+        type={deleteTargetType}
         hasCharts={selectedDashboardHasCharts}
         loading={loading}
         error={dashboardMutationError}
