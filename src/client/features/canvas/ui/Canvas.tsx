@@ -1614,7 +1614,7 @@ const Canvas = () => {
   useEffect(() => {
     if (!canPersistToDashboard || projectId === null || dashboardId === null) {
       setCanvasInitMode(isCanvasFrontpage ? 'existing' : 'create')
-      setCanvasTitle('Canvas - et konsept fra Innblikk')
+      setCanvasTitle('Innblikk')
       setCanvasDashboardDescription(CANVAS_DASHBOARD_TOKEN)
       setCanvasConfiguredWebsiteId(null)
       return
