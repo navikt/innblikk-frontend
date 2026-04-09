@@ -1,44 +1,25 @@
+import * as AkselIcons from '@navikt/aksel-icons'
 import type { ComponentType, SVGProps } from 'react'
-import {
-  BellIcon,
-  BriefcaseIcon,
-  CalendarIcon,
-  ChatIcon,
-  CheckmarkCircleIcon,
-  ClockIcon,
-  CogIcon,
-  EnvelopeClosedIcon,
-  FileTextIcon,
-  GlobeIcon,
-  HeartIcon,
-  HouseIcon,
-  ImageIcon,
-  LightBulbIcon,
-  LinkIcon,
-  LocationPinIcon,
-  MagnifyingGlassIcon,
-  PersonIcon,
-  PhoneIcon,
-  RocketIcon,
-  SparklesIcon,
-  StarIcon,
-  TasklistIcon,
-  ThumbUpIcon,
-  ArrowDownIcon,
-  ArrowLeftIcon,
-  ArrowRightIcon,
-  ArrowRightLeftIcon,
-  ArrowUpIcon,
-  ArrowsAllDirectionsIcon,
-  ArrowsUpDownIcon,
-} from '@navikt/aksel-icons'
+import akselIconMetadata from '../../../../data/aksel-icon-medatata.json'
 
 type CanvasIconComponent = ComponentType<SVGProps<SVGSVGElement>>
+
+type AkselIconMetadataEntry = {
+  id: string
+  name: string
+  category?: string
+  sub_category?: string
+  keywords?: string[]
+  variant?: string
+}
 
 export type CanvasIconOption = {
   id: string
   label: string
   keywords: string
+  category: string
+  subCategory: string
+  variant: 'Stroke' | 'Fill'
   Icon: CanvasIconComponent
 }
 
@@ -48,44 +29,90 @@ export type CanvasIconColorOption = {
   value: string
 }
 
-export const CANVAS_ICON_OPTIONS: CanvasIconOption[] = [
-  { id: 'sparkles', label: 'Sparkles', keywords: 'glitter feiring', Icon: SparklesIcon },
-  { id: 'house', label: 'Hus', keywords: 'hjem bolig', Icon: HouseIcon },
-  { id: 'person', label: 'Person', keywords: 'bruker profil', Icon: PersonIcon },
-  { id: 'calendar', label: 'Kalender', keywords: 'dato plan', Icon: CalendarIcon },
-  { id: 'clock', label: 'Klokke', keywords: 'tid frist', Icon: ClockIcon },
-  { id: 'tasklist', label: 'Oppgaver', keywords: 'to-do sjekkliste', Icon: TasklistIcon },
-  { id: 'checkmark-circle', label: 'Fullført', keywords: 'ok ferdig', Icon: CheckmarkCircleIcon },
-  { id: 'file-text', label: 'Dokument', keywords: 'tekst notat', Icon: FileTextIcon },
-  { id: 'image', label: 'Bilde', keywords: 'foto illustrasjon', Icon: ImageIcon },
-  { id: 'chat', label: 'Chat', keywords: 'melding dialog', Icon: ChatIcon },
-  { id: 'envelope-closed', label: 'E-post', keywords: 'mail brev', Icon: EnvelopeClosedIcon },
-  { id: 'phone', label: 'Telefon', keywords: 'ring kontakt', Icon: PhoneIcon },
-  { id: 'bell', label: 'Varsel', keywords: 'notifikasjon alarm', Icon: BellIcon },
-  { id: 'magnifying-glass', label: 'Søk', keywords: 'finn analyse', Icon: MagnifyingGlassIcon },
-  { id: 'location-pin', label: 'Lokasjon', keywords: 'sted kart', Icon: LocationPinIcon },
-  { id: 'globe', label: 'Nettsted', keywords: 'web internett', Icon: GlobeIcon },
-  { id: 'briefcase', label: 'Arbeid', keywords: 'jobb prosjekt', Icon: BriefcaseIcon },
-  { id: 'light-bulb', label: 'Ide', keywords: 'forslag innsikt', Icon: LightBulbIcon },
-  { id: 'thumb-up', label: 'Anbefalt', keywords: 'like bra', Icon: ThumbUpIcon },
-  { id: 'heart', label: 'Favoritt', keywords: 'elsker prioritet', Icon: HeartIcon },
-  { id: 'star', label: 'Viktig', keywords: 'stjerne markering', Icon: StarIcon },
-  { id: 'link', label: 'Lenke', keywords: 'kobling URL', Icon: LinkIcon },
-  { id: 'cog', label: 'Innstillinger', keywords: 'opsjoner oppsett', Icon: CogIcon },
-  { id: 'rocket', label: 'Lansering', keywords: 'start vekst', Icon: RocketIcon },
-  { id: 'arrow-right', label: 'Pil hoyre', keywords: 'arrow fremover retning', Icon: ArrowRightIcon },
-  { id: 'arrow-left', label: 'Pil venstre', keywords: 'arrow tilbake retning', Icon: ArrowLeftIcon },
-  { id: 'arrow-up', label: 'Pil opp', keywords: 'arrow opp retning', Icon: ArrowUpIcon },
-  { id: 'arrow-down', label: 'Pil ned', keywords: 'arrow ned retning', Icon: ArrowDownIcon },
-  { id: 'arrow-right-left', label: 'Pil hoyre venstre', keywords: 'arrow begge retninger', Icon: ArrowRightLeftIcon },
-  { id: 'arrows-up-down', label: 'Pil opp ned', keywords: 'arrow vertikal begge retninger', Icon: ArrowsUpDownIcon },
-  {
-    id: 'arrows-all-directions',
-    label: 'Piler alle retninger',
-    keywords: 'arrow flytt navigasjon',
-    Icon: ArrowsAllDirectionsIcon,
-  },
-]
+const LEGACY_ICON_ID_ALIASES: Record<string, string> = {
+  sparkles: 'Sparkles',
+  house: 'House',
+  person: 'Person',
+  calendar: 'Calendar',
+  clock: 'Clock',
+  tasklist: 'Tasklist',
+  'checkmark-circle': 'CheckmarkCircle',
+  'file-text': 'FileText',
+  image: 'Image',
+  chat: 'Chat',
+  'envelope-closed': 'EnvelopeClosed',
+  phone: 'Phone',
+  bell: 'Bell',
+  'magnifying-glass': 'MagnifyingGlass',
+  'location-pin': 'LocationPin',
+  globe: 'Globe',
+  briefcase: 'Briefcase',
+  'light-bulb': 'LightBulb',
+  'thumb-up': 'ThumbUp',
+  heart: 'Heart',
+  star: 'Star',
+  link: 'Link',
+  cog: 'Cog',
+  rocket: 'Rocket',
+  'arrow-right': 'ArrowRight',
+  'arrow-left': 'ArrowLeft',
+  'arrow-up': 'ArrowUp',
+  'arrow-down': 'ArrowDown',
+  'arrow-right-left': 'ArrowRightLeft',
+  'arrows-up-down': 'ArrowsUpDown',
+  'arrows-all-directions': 'ArrowsAllDirections',
+}
+
+const formatIconLabel = (value: string): string =>
+  value
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+const metadataEntries = Object.values(akselIconMetadata as Record<string, AkselIconMetadataEntry>)
+
+export const CANVAS_ICON_OPTIONS: CanvasIconOption[] = metadataEntries
+  .map((entry) => {
+    const componentName = `${entry.id}Icon` as keyof typeof AkselIcons
+    const Icon = AkselIcons[componentName] as CanvasIconComponent | undefined
+    if (!Icon) return null
+
+    const label = formatIconLabel(entry.name || entry.id)
+    const keywords = [
+      entry.id,
+      entry.name,
+      label,
+      entry.category,
+      entry.sub_category,
+      ...(entry.keywords ?? []),
+      entry.variant,
+    ]
+      .filter((value): value is string => Boolean(value))
+      .join(' ')
+      .toLowerCase()
+
+    return {
+      id: entry.id,
+      label,
+      keywords,
+      category: entry.category || 'Other',
+      subCategory: entry.sub_category || 'General',
+      variant: entry.variant === 'Fill' ? 'Fill' : 'Stroke',
+      Icon,
+    }
+  })
+  .filter((option): option is CanvasIconOption => option !== null)
+  .sort((a, b) => a.label.localeCompare(b.label, 'nb-NO'))
+
+const FALLBACK_CANVAS_ICON_OPTION: CanvasIconOption = {
+  id: 'Sparkles',
+  label: 'Sparkles',
+  keywords: 'sparkles glitter feiring',
+  category: 'Other',
+  subCategory: 'General',
+  variant: 'Stroke',
+  Icon: AkselIcons.SparklesIcon,
+}
 
 export const CANVAS_ICON_COLOR_OPTIONS: CanvasIconColorOption[] = [
   { id: 'black', label: 'Svart', value: '#111111' },
@@ -97,18 +124,14 @@ export const CANVAS_ICON_COLOR_OPTIONS: CanvasIconColorOption[] = [
   { id: 'sky', label: 'Lysebla', value: '#56B4E9' },
 ]
 
-const FALLBACK_CANVAS_ICON_OPTION: CanvasIconOption = {
-  id: 'sparkles',
-  label: 'Sparkles',
-  keywords: 'glitter feiring',
-  Icon: SparklesIcon,
-}
-
-export const DEFAULT_CANVAS_ICON_ID = CANVAS_ICON_OPTIONS[0]?.id ?? FALLBACK_CANVAS_ICON_OPTION.id
+export const DEFAULT_CANVAS_ICON_ID = CANVAS_ICON_OPTIONS.find((option) => option.id === 'Sparkles')?.id ?? 'Sparkles'
 export const DEFAULT_CANVAS_ICON_COLOR = CANVAS_ICON_COLOR_OPTIONS[0]?.value ?? '#111111'
 
 export const getCanvasIconOptionById = (id?: string | null): CanvasIconOption => {
-  const matched = CANVAS_ICON_OPTIONS.find((option) => option.id === id)
+  if (!id) return CANVAS_ICON_OPTIONS[0] ?? FALLBACK_CANVAS_ICON_OPTION
+
+  const normalizedId = LEGACY_ICON_ID_ALIASES[id] ?? id
+  const matched = CANVAS_ICON_OPTIONS.find((option) => option.id === normalizedId)
   return matched ?? CANVAS_ICON_OPTIONS[0] ?? FALLBACK_CANVAS_ICON_OPTION
 }
 
