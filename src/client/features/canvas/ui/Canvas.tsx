@@ -700,6 +700,36 @@ type CanvasCategoricalSummaryRow = {
   percentage: number
 }
 
+type CanvasPrivacyPattern = {
+  name: string
+  regex: RegExp
+}
+
+type CanvasPrivacyFinding = {
+  rowIndex: number
+  text: string
+  patternNames: string[]
+}
+
+const CSV_IMPORT_PRIVACY_PATTERNS: CanvasPrivacyPattern[] = [
+  { name: 'Fødselsnummer', regex: /(?:^|[^\d])\d{11}(?!\d)/ },
+  { name: 'Navident', regex: /(?:^|[^a-zA-Z0-9])[a-zA-Z]\d{6}(?!\d)/ },
+  { name: 'E-post', regex: /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/ },
+  { name: 'IP-adresse', regex: /(?:^|[^\d])\d{1,3}(?:\.\d{1,3}){3}(?!\d)/ },
+  { name: 'Telefonnummer', regex: /(?:^|[^\d])[2-9](?:\s?\d){7}(?!\d)/ },
+  {
+    name: 'Mulig navn',
+    regex:
+      /\b(?!Norge\b)[A-ZÆØÅ][a-zæøå]{1,20}\s(?!Norge\b)[A-ZÆØÅ][a-zæøå]{1,20}(?:\s(?!Norge\b)[A-ZÆØÅ][a-zæøå]{1,20})?\b/,
+  },
+  { name: 'Mulig adresse', regex: /\b\d{4}\s[A-ZÆØÅ][A-ZÆØÅa-zæøå]+(?:\s[A-ZÆØÅa-zæøå]+)*\b/ },
+  { name: 'Hemmelig adresse', regex: /hemmelig(?:%20|\s+)(?:20\s*%(?:%20|\s+))?adresse/i },
+  { name: 'Kontonummer', regex: /(?:^|[^\d])\d{4}\.?\d{2}\.?\d{5}(?!\d)/ },
+  { name: 'Organisasjonsnummer', regex: /(?:^|[^\d])\d{9}(?!\d)/ },
+  { name: 'Bilnummer', regex: /(?:^|[^a-zA-Z])[A-Z]{2}\s?\d{5}(?!\d)/ },
+  { name: 'Mulig søk', regex: /[?&](?:q|query|search|k|ord)=[^&]+/i },
+]
+
 const parseDelimitedCsvMatrix = (input: string, delimiter: string): string[][] => {
   const normalized = input.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n')
   const rows: string[][] = []
@@ -814,6 +844,15 @@ const summarizeCategoricalValues = (inputs: string[]): CanvasCategoricalSummaryR
       if (b.count !== a.count) return b.count - a.count
       return a.value.localeCompare(b.value, 'nb')
     })
+}
+
+const findPrivacyPatternNames = (text: string): string[] => {
+  const matches = CSV_IMPORT_PRIVACY_PATTERNS.filter((pattern) => {
+    const regex = new RegExp(pattern.regex.source, pattern.regex.flags)
+    return regex.test(text)
+  }).map((pattern) => pattern.name)
+
+  return Array.from(new Set(matches))
 }
 
 const isStringArray = (value: unknown): value is string[] =>
@@ -1050,6 +1089,7 @@ const Canvas = () => {
   const [importStickyTablePreviewPage, setImportStickyTablePreviewPage] = useState(1)
   const [importStickySectionTitle, setImportStickySectionTitle] = useState('')
   const [importStickyExcludedRowIndexes, setImportStickyExcludedRowIndexes] = useState<number[]>([])
+  const [importStickyPrivacyReviewed, setImportStickyPrivacyReviewed] = useState(false)
   const [importStickyCsvError, setImportStickyCsvError] = useState<string | null>(null)
   const [frameTablePages, setFrameTablePages] = useState<Record<string, number>>({})
   const [selectedIconId, setSelectedIconId] = useState(DEFAULT_CANVAS_ICON_ID)
@@ -1371,6 +1411,18 @@ const Canvas = () => {
         : [],
     [importStickyNumericSummary],
   )
+  const importStickyPrivacyFindings = useMemo<CanvasPrivacyFinding[]>(
+    () =>
+      importStickyPreviewNotes
+        .map((item) => ({
+          rowIndex: item.rowIndex,
+          text: item.text,
+          patternNames: findPrivacyPatternNames(item.text),
+        }))
+        .filter((item) => item.patternNames.length > 0),
+    [importStickyPreviewNotes],
+  )
+  const hasImportStickyPrivacyFindings = importStickyPrivacyFindings.length > 0
   const importStickyTablePreviewPageCount = Math.max(
     1,
     Math.ceil(
@@ -1399,6 +1451,10 @@ const Canvas = () => {
     if (importStickyTablePreviewPage <= importStickyTablePreviewPageCount) return
     setImportStickyTablePreviewPage(importStickyTablePreviewPageCount)
   }, [importStickyTablePreviewPage, importStickyTablePreviewPageCount])
+
+  useEffect(() => {
+    setImportStickyPrivacyReviewed(false)
+  }, [importStickyContentColumn, importStickyExcludedRowIndexes, importStickyCsvRows])
 
   const visualizationWebsiteFrames = useMemo(
     () =>
@@ -4766,6 +4822,7 @@ const Canvas = () => {
       setImportStickyStyle('sticky')
       setImportStickyTableMode('rows')
       setImportStickyTablePreviewPage(1)
+      setImportStickyPrivacyReviewed(false)
       const resolvedContentColumn =
         importStickyContentColumn && parsed.headers.includes(importStickyContentColumn)
           ? importStickyContentColumn
@@ -4783,6 +4840,7 @@ const Canvas = () => {
       setImportStickyTableMode('rows')
       setImportStickyTablePreviewPage(1)
       setImportStickyExcludedRowIndexes([])
+      setImportStickyPrivacyReviewed(false)
     }
   }
 
@@ -4804,6 +4862,10 @@ const Canvas = () => {
     const noteTexts = importStickyPreviewNotes.map((item) => item.text)
     if (noteTexts.length === 0) {
       setImportStickyCsvError('Fant ingen rader med innhold i valgt kolonne.')
+      return
+    }
+    if (hasImportStickyPrivacyFindings && !importStickyPrivacyReviewed) {
+      setImportStickyCsvError('Mulige personopplysninger funnet. Gå gjennom treffene før import.')
       return
     }
 
@@ -4864,6 +4926,7 @@ const Canvas = () => {
     setImportStickyTablePreviewPage(1)
     setImportStickySectionTitle('')
     setImportStickyExcludedRowIndexes([])
+    setImportStickyPrivacyReviewed(false)
     if (importStickyCsvFileInputRef.current) {
       importStickyCsvFileInputRef.current.value = ''
     }
@@ -7321,7 +7384,10 @@ const Canvas = () => {
         width="large"
       >
         <Modal.Body>
-          <section aria-label="CSV-import for brukerfeedback" className="grid gap-4 md:grid-cols-[340px_minmax(0,1fr)]">
+          <section
+            aria-label="CSV-import for brukerfeedback"
+            className="grid gap-4 md:grid-cols-[340px_minmax(380px,1fr)]"
+          >
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <label htmlFor="canvas-feedback-csv-file" className="text-sm font-medium text-[var(--ax-text-default)]">
@@ -7355,6 +7421,7 @@ const Canvas = () => {
                         setImportStickyTablePreviewPage(1)
                         setImportStickySectionTitle('')
                         setImportStickyExcludedRowIndexes([])
+                        setImportStickyPrivacyReviewed(false)
                         setImportStickyCsvError(null)
                         if (importStickyCsvFileInputRef.current) {
                           importStickyCsvFileInputRef.current.value = ''
@@ -7431,6 +7498,59 @@ const Canvas = () => {
               {importStickyNumericSummary && (
                 <Alert variant="info" size="small">
                   Denne kolonnen inneholder bare tall. Importen blir en aggregert vurdering i stedet for Post-it-lapper.
+                </Alert>
+              )}
+              {hasImportStickyPrivacyFindings && (
+                <Alert variant="error" size="small">
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium">
+                      Fant mulig persondata i {importStickyPrivacyFindings.length} rader
+                    </p>
+                    <div className="max-h-48 space-y-2 overflow-auto rounded border border-[var(--ax-border-danger)]/30 bg-[var(--ax-bg-default)] p-2">
+                      {importStickyPrivacyFindings.slice(0, 8).map((finding) => (
+                        <div
+                          key={`privacy-finding-row-${finding.rowIndex}`}
+                          className="rounded border border-[var(--ax-border-danger)]/20 bg-[var(--ax-bg-default)] p-2"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 space-y-0.5">
+                              <div className="text-xs font-semibold text-[var(--ax-text-default)]">
+                                Rad {finding.rowIndex + 1}
+                              </div>
+                              <div className="text-xs text-[var(--ax-text-subtle)]">
+                                {finding.patternNames.join(', ')}
+                              </div>
+                            </div>
+                            <Button
+                              size="xsmall"
+                              variant="secondary"
+                              className="shrink-0"
+                              onClick={() =>
+                                setImportStickyExcludedRowIndexes((current) =>
+                                  current.includes(finding.rowIndex) ? current : [...current, finding.rowIndex],
+                                )
+                              }
+                            >
+                              Fjern
+                            </Button>
+                          </div>
+                          <div className="mt-1 break-all text-xs text-[var(--ax-text-subtle)]">{finding.text}</div>
+                        </div>
+                      ))}
+                      {importStickyPrivacyFindings.length > 8 && (
+                        <p className="text-xs text-[var(--ax-text-subtle)]">
+                          + {importStickyPrivacyFindings.length - 8} flere rader med treff.
+                        </p>
+                      )}
+                    </div>
+                    <Switch
+                      size="small"
+                      checked={importStickyPrivacyReviewed}
+                      onChange={(event) => setImportStickyPrivacyReviewed(event.target.checked)}
+                    >
+                      Jeg har gått gjennom radene med treff og vil fortsette import.
+                    </Switch>
+                  </div>
                 </Alert>
               )}
               {importStickyCsvFileName && importStickyContentColumn && !shouldImportStickyAsAggregated && (
@@ -7595,7 +7715,11 @@ const Canvas = () => {
             onClick={() => void handleImportStickyCsv()}
             size="small"
             loading={isSavingCanvasItem}
-            disabled={importStickyCsvHeaders.length === 0 || !importStickyContentColumn}
+            disabled={
+              importStickyCsvHeaders.length === 0 ||
+              !importStickyContentColumn ||
+              (hasImportStickyPrivacyFindings && !importStickyPrivacyReviewed)
+            }
           >
             Importer
           </Button>
