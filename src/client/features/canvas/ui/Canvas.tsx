@@ -6123,7 +6123,7 @@ const Canvas = () => {
                                       <Table size="small" zebraStripes className="w-full">
                                         <Table.Header>
                                           <Table.Row>
-                                            {frame.tableHeaders.map((header, headerIndex) => (
+                                            {(frame.tableHeaders ?? []).map((header, headerIndex) => (
                                               <Table.HeaderCell key={`canvas-table-header-${frame.id}-${headerIndex}`}>
                                                 {header}
                                               </Table.HeaderCell>
@@ -6133,7 +6133,7 @@ const Canvas = () => {
                                         <Table.Body>
                                           {visibleRows.map((row, rowIndex) => (
                                             <Table.Row key={`canvas-table-row-${frame.id}-${pageStart + rowIndex}`}>
-                                              {frame.tableHeaders.map((_, columnIndex) => (
+                                              {(frame.tableHeaders ?? []).map((_, columnIndex) => (
                                                 <Table.DataCell
                                                   key={`canvas-table-cell-${frame.id}-${pageStart + rowIndex}-${columnIndex}`}
                                                 >
@@ -7408,7 +7408,7 @@ const Canvas = () => {
           setImportStickyCsvError(null)
         }}
         header={{ heading: 'Importer fra Skyra / Lumi' }}
-        width="large"
+        width={1100}
       >
         <Modal.Body>
           <section
