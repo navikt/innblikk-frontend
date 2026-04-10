@@ -89,6 +89,7 @@ import type { FunnelStep } from '../../funnel/model/types.ts'
 import type { Website } from '../../../shared/types/website.ts'
 import { useCookieStartDate, useCookieSupport } from '../../../shared/hooks/useSiteimproveSupport.ts'
 import { useLocation } from 'react-router-dom'
+import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 
 type CanvasChartType = 'line' | 'bar' | 'pie' | 'table'
 type CanvasFigureType = 'rectangle' | 'circle' | 'line' | 'arrow'
@@ -675,6 +676,7 @@ type CanvasChartReadyMessage = {
     label?: string
     chartType?: CanvasChartType
     chartSql?: string
+    websiteId?: string
   }
 }
 
@@ -1014,6 +1016,7 @@ const Canvas = () => {
   const [isAddIconModalOpen, setIsAddIconModalOpen] = useState(false)
   const [isAddFigureModalOpen, setIsAddFigureModalOpen] = useState(false)
   const [isCanvasSettingsModalOpen, setIsCanvasSettingsModalOpen] = useState(false)
+  const [canvasSettingsInfo, setCanvasSettingsInfo] = useState<string | null>(null)
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false)
   const [renameCanvasInput, setRenameCanvasInput] = useState('')
   const [renameCanvasError, setRenameCanvasError] = useState<string | null>(null)
@@ -1072,6 +1075,7 @@ const Canvas = () => {
   const [createTeamDescriptionInput, setCreateTeamDescriptionInput] = useState('')
   const [createTeamError, setCreateTeamError] = useState<string | null>(null)
   const [isCreatingTeam, setIsCreatingTeam] = useState(false)
+  const [pendingChartWebsiteByFrameId, setPendingChartWebsiteByFrameId] = useState<Record<string, Website | null>>({})
   const [editDashboardProjectOptions, setEditDashboardProjectOptions] = useState<Array<{ id: number; name: string }>>(
     [],
   )
@@ -1173,6 +1177,7 @@ const Canvas = () => {
   const drawingDraftStrokesRef = useRef<CanvasDrawingPoint[][]>([])
   const frameVisualizationDataRef = useRef<Record<string, CanvasFrameVisualizationData>>({})
   const websiteIframeRefs = useRef<Record<string, HTMLIFrameElement | null>>({})
+  const chartContentRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const importStickyCsvFileInputRef = useRef<HTMLInputElement | null>(null)
   const isImportingStickyCsvRef = useRef(false)
   const canvasViewportRef = useRef<HTMLDivElement | null>(null)
@@ -2237,6 +2242,12 @@ const Canvas = () => {
   }, [cancelPendingFramePlacement, pendingCsvStickyImport, pendingFrameDraft])
 
   const handleAddPage = () => {
+    const websiteId = selectedWebsite?.id || canvasConfiguredWebsiteId
+    if (!websiteId) {
+      setAddPageError('Velg nettside.')
+      return
+    }
+
     const targetUrl = normalizeInputToTargetUrl(newPagePathInput, selectedWebsite?.domain)
     if (!targetUrl) {
       setAddPageError('Legg inn en gyldig URL, for eksempel https://www.nav.no/aap.')
@@ -2252,7 +2263,7 @@ const Canvas = () => {
 
     const frameDraft: PendingCanvasFrameDraft = {
       kind: 'website',
-      websiteId: selectedWebsite?.id || canvasConfiguredWebsiteId || undefined,
+      websiteId,
       targetUrl,
       previewUrl: newPageRenderEnabled ? undefined : (previewUrl ?? undefined),
       renderWebsite: newPageRenderEnabled,
@@ -3531,16 +3542,26 @@ const Canvas = () => {
   }, [canPersistToDashboard, projectId, dashboardId])
 
   const handleOpenAddChartModal = () => {
+    const hasWebsiteContext = Boolean(selectedWebsite?.id || canvasConfiguredWebsiteId)
+    if (!hasWebsiteContext) {
+      setCanvasSettingsInfo('Velg nettside i canvas-innstillinger før du importerer graf.')
+      setIsCanvasSettingsModalOpen(true)
+      return
+    }
     setAddChartError(null)
     setIsGrafbyggerEmbedded(false)
     setIsAddChartModalOpen(true)
     void loadChartOptions()
   }
 
-  const handleOpenGrafbyggerFromAddMenu = () => {
+  const openGrafbyggerFromAddMenuDirect = () => {
     setAddChartError(null)
     setIsAddChartModalOpen(false)
     setIsGrafbyggerEmbedded(true)
+  }
+
+  const handleOpenGrafbyggerFromAddMenu = () => {
+    openGrafbyggerFromAddMenuDirect()
   }
 
   const handleAddChartCard = () => {
@@ -3555,6 +3576,7 @@ const Canvas = () => {
       label: selectedOption.title,
       chartType: selectedOption.chartType,
       chartSql: selectedOption.sql,
+      websiteId: selectedWebsite?.id || canvasConfiguredWebsiteId || undefined,
       width: 560,
       height: 360,
       refreshNonce: 0,
@@ -3639,6 +3661,7 @@ const Canvas = () => {
       label: params.name.trim() || currentFrame.label,
       chartType: nextChartType,
       chartSql: sqlText,
+      websiteId: params.websiteId?.trim() || currentFrame.websiteId,
       refreshNonce: currentFrame.refreshNonce + 1,
     }
 
@@ -3719,6 +3742,57 @@ const Canvas = () => {
     if (kind === 'drawing') return { width: 240, height: 160, minWidth: 28, minHeight: 28 }
     return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
   }
+
+  const autoSizeChartFrame = useCallback(
+    (frameId: string, contentHeight: number) => {
+      if (!Number.isFinite(contentHeight) || contentHeight <= 0) return
+
+      let frameToPersist: CanvasFrame | null = null
+      setFrames((prev) => {
+        const target = prev.find((frame) => frame.id === frameId)
+        if (!target || target.kind !== 'chart') return prev
+        if (resizeState?.id === frameId) return prev
+
+        const defaults = getDefaultFrameSize(target)
+        const currentHeight = target.height ?? defaults.height
+        const requiredHeight = Math.max(defaults.minHeight, Math.ceil(contentHeight))
+        if (requiredHeight <= currentHeight + 1) return prev
+
+        const updatedFrame: CanvasFrame = {
+          ...target,
+          height: requiredHeight,
+        }
+        frameToPersist = updatedFrame
+        return prev.map((frame) => (frame.id === frameId ? updatedFrame : frame))
+      })
+
+      if (frameToPersist) {
+        void persistFrame(frameToPersist).catch((error) => {
+          setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre automatisk høyde for graf')
+        })
+      }
+    },
+    [persistFrame, resizeState?.id],
+  )
+
+  useEffect(() => {
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver((entries) => {
+      entries.forEach((entry) => {
+        const frameId = (entry.target as HTMLElement).dataset.chartFrameId
+        if (!frameId) return
+        autoSizeChartFrame(frameId, entry.target.scrollHeight)
+      })
+    })
+
+    Object.entries(chartContentRefs.current).forEach(([frameId, node]) => {
+      if (!node) return
+      observer.observe(node)
+      autoSizeChartFrame(frameId, node.scrollHeight)
+    })
+
+    return () => observer.disconnect()
+  }, [autoSizeChartFrame, frameItems])
 
   const getHeadingFrameFontSize = useCallback((frame: CanvasFrame): number => {
     if (frame.kind !== 'heading') return HEADING_FONT_SIZE_DEFAULT
@@ -4572,6 +4646,7 @@ const Canvas = () => {
   const handleOpenCanvasSettingsModal = () => {
     setRenameCanvasInput(canvasTitle)
     setRenameCanvasError(null)
+    setCanvasSettingsInfo(null)
     setIsCanvasSettingsModalOpen(true)
   }
 
@@ -4808,12 +4883,43 @@ const Canvas = () => {
     }
   }
 
-  const handleOpenAddPageModal = () => {
+  const openAddPageModalDirect = () => {
     setAddPageError(null)
     setNewPagePreviewUrlInput('')
     setNewPageRenderEnabled(true)
     setNewPageVisualizationMode('')
     setIsAddPageModalOpen(true)
+  }
+
+  const handleOpenAddPageModal = () => {
+    openAddPageModalDirect()
+  }
+
+  const handleAssignWebsiteToChart = async (frame: CanvasFrame, website: Website | null) => {
+    if (frame.kind !== 'chart' || !website?.id) return
+
+    const updatedFrame: CanvasFrame = {
+      ...frame,
+      websiteId: website.id,
+      refreshNonce: frame.refreshNonce + 1,
+    }
+
+    setFrames((prev) => prev.map((item) => (item.id === frame.id ? updatedFrame : item)))
+    setSelectedWebsite(website)
+
+    try {
+      const persistedFrame = await persistFrame(updatedFrame)
+      setFrames((prev) => prev.map((item) => (item.id === frame.id ? persistedFrame : item)))
+      setPendingChartWebsiteByFrameId((current) => {
+        if (!(frame.id in current)) return current
+        const next = { ...current }
+        delete next[frame.id]
+        return next
+      })
+    } catch (error) {
+      setFrames((prev) => prev.map((item) => (item.id === frame.id ? frame : item)))
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre nettside for graf')
+    }
   }
 
   const handleOpenAddHeadingModal = () => {
@@ -5000,6 +5106,17 @@ const Canvas = () => {
       if (!data || data.type !== 'umami-canvas-chart-ready') return
       if (!data.payload?.chartSql || !data.payload?.chartType) return
 
+      const payloadWebsiteId = data.payload.websiteId?.trim()
+      if (payloadWebsiteId) {
+        if (!selectedWebsite?.id) {
+          const matchedWebsite = availableWebsites.find((item) => item.id === payloadWebsiteId) ?? null
+          if (matchedWebsite) {
+            setSelectedWebsite(matchedWebsite)
+          }
+        }
+        setCanvasConfiguredWebsiteId((current) => current || payloadWebsiteId)
+      }
+
       setIsGrafbyggerEmbedded(false)
       queueFrameForPlacement(
         {
@@ -5007,6 +5124,7 @@ const Canvas = () => {
           label: data.payload.label?.trim() || 'Graf',
           chartType: data.payload.chartType,
           chartSql: data.payload.chartSql,
+          websiteId: payloadWebsiteId || undefined,
           width: 560,
           height: 360,
           refreshNonce: 0,
@@ -5017,7 +5135,7 @@ const Canvas = () => {
 
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
-  }, [queueFrameForPlacement])
+  }, [availableWebsites, queueFrameForPlacement, selectedWebsite?.id])
 
   const handleOpenAddIllustrationModal = () => {
     setEditIllustrationFrameId(null)
@@ -5044,6 +5162,30 @@ const Canvas = () => {
 
     return Math.max(CANVAS_SURFACE_HEIGHT, Math.ceil(lowestFrameEdge + CANVAS_SURFACE_BOTTOM_BUFFER))
   }, [frameItems, getHeadingFrameHeight])
+
+  const grafbyggerWebsite = useMemo(() => {
+    if (selectedWebsite) return selectedWebsite
+    if (!canvasConfiguredWebsiteId) return null
+    return availableWebsites.find((item) => item.id === canvasConfiguredWebsiteId) ?? null
+  }, [availableWebsites, canvasConfiguredWebsiteId, selectedWebsite])
+
+  const grafbyggerSrc = useMemo(() => {
+    const params = new URLSearchParams({
+      focused: 'true',
+      canvasEmbed: 'true',
+    })
+
+    const websiteId = selectedWebsite?.id || canvasConfiguredWebsiteId
+    if (websiteId) params.set('websiteId', websiteId)
+
+    const websiteDomain = grafbyggerWebsite?.domain?.trim()
+    if (websiteDomain) params.set('domain', websiteDomain)
+
+    const websiteName = grafbyggerWebsite?.name?.trim()
+    if (websiteName) params.set('websiteName', websiteName)
+
+    return `/grafbygger?${params.toString()}`
+  }, [canvasConfiguredWebsiteId, grafbyggerWebsite?.domain, grafbyggerWebsite?.name, selectedWebsite?.id])
 
   return (
     <>
@@ -5407,7 +5549,7 @@ const Canvas = () => {
                                     : 'border-[var(--ax-border-neutral-subtle)]'
                               } ${isIllustrationFrame ? 'bg-transparent shadow-none' : 'bg-white shadow-sm'}`
                             : frame.kind === 'chart'
-                              ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
+                              ? 'group absolute flex flex-col overflow-hidden rounded-lg border border-transparent bg-transparent shadow-none'
                               : frame.kind === 'heading'
                                 ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
                                 : frame.kind === 'text'
@@ -5588,7 +5730,7 @@ const Canvas = () => {
                           frame.kind === 'figure' ||
                           frame.kind === 'drawing' ||
                           frame.kind === 'image' ||
-                          (frame.kind === 'website' && frame.isInternalDashboard)) && (
+                          frame.kind === 'website') && (
                           <>
                             <div
                               className="pointer-events-none absolute inset-0 z-20 overflow-visible"
@@ -5941,23 +6083,109 @@ const Canvas = () => {
                               </div>
                             </div>
                           ) : frame.kind === 'chart' && frame.chartSql && frame.chartType ? (
-                            <div className="h-full p-2">
-                              <DashboardWidget
-                                chart={{
-                                  id: `canvas-chart-${frame.id}`,
-                                  title: frame.label,
-                                  type: frame.chartType,
-                                  sql: frame.chartSql,
-                                }}
-                                websiteId={selectedWebsite?.id ?? ''}
-                                filters={dashboardWidgetFilters}
-                                chartLinksEnabled={false}
-                                compactMode
-                                chartHeightPx={Math.max(160, (frame.height ?? defaults.height) - 116)}
-                                onEditChart={() => handleOpenEditChartModal(frame)}
-                                onDeleteChart={() => handleOpenDeleteChartModal(frame)}
-                              />
-                            </div>
+                            (() => {
+                              const chartWebsiteId = frame.websiteId?.trim() || ''
+                              if (!chartWebsiteId) {
+                                const frameSelectedWebsite = frame.websiteId
+                                  ? (availableWebsites.find((website) => website.id === frame.websiteId) ?? null)
+                                  : null
+                                const pendingSelectedWebsite = pendingChartWebsiteByFrameId[frame.id]
+                                const pickerSelectedWebsite = pendingSelectedWebsite ?? frameSelectedWebsite
+                                return (
+                                  <div
+                                    className="h-full p-3"
+                                    data-chart-frame-id={frame.id}
+                                    ref={(node) => {
+                                      chartContentRefs.current[frame.id] = node
+                                    }}
+                                  >
+                                    <div className="flex h-full items-center justify-center rounded-xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-4 py-5 shadow-sm">
+                                      <div className="w-full max-w-sm space-y-4 text-left">
+                                        <div className="space-y-1.5">
+                                          <span className="inline-flex rounded-full bg-[var(--ax-bg-neutral-moderate)] px-2.5 py-1 text-xs font-medium text-[var(--ax-text-subtle)]">
+                                            Mangler nettside
+                                          </span>
+                                          <div
+                                            className="truncate text-base font-semibold text-[var(--ax-text-default)]"
+                                            title={frame.label}
+                                          >
+                                            {frame.label || 'Graf'}
+                                          </div>
+                                          <p className="text-sm text-[var(--ax-text-subtle)]">
+                                            Velg nettside for å vise grafdata.
+                                          </p>
+                                        </div>
+                                        <div>
+                                          <WebsitePicker
+                                            selectedWebsite={pickerSelectedWebsite}
+                                            onWebsiteChange={(website) => {
+                                              setPendingChartWebsiteByFrameId((current) => ({
+                                                ...current,
+                                                [frame.id]: website,
+                                              }))
+                                            }}
+                                            disableAutoRestore
+                                            variant="default"
+                                            customLabel="Velg nettside"
+                                          />
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <Button
+                                            size="xsmall"
+                                            onClick={() =>
+                                              void handleAssignWebsiteToChart(frame, pickerSelectedWebsite ?? null)
+                                            }
+                                            disabled={!pickerSelectedWebsite?.id}
+                                          >
+                                            Velg nettside
+                                          </Button>
+                                          <Button
+                                            size="xsmall"
+                                            variant="tertiary"
+                                            onClick={() => handleOpenEditChartModal(frame)}
+                                          >
+                                            Rediger graf
+                                          </Button>
+                                          <Button
+                                            size="xsmall"
+                                            variant="secondary"
+                                            onClick={() => handleRequestRemoveFrame(frame)}
+                                          >
+                                            Fjern graf
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )
+                              }
+
+                              return (
+                                <div
+                                  className="h-full p-2"
+                                  data-chart-frame-id={frame.id}
+                                  ref={(node) => {
+                                    chartContentRefs.current[frame.id] = node
+                                  }}
+                                >
+                                  <DashboardWidget
+                                    chart={{
+                                      id: `canvas-chart-${frame.id}`,
+                                      title: frame.label,
+                                      type: frame.chartType,
+                                      sql: frame.chartSql,
+                                    }}
+                                    websiteId={chartWebsiteId}
+                                    filters={dashboardWidgetFilters}
+                                    chartLinksEnabled={false}
+                                    compactMode
+                                    chartHeightPx={Math.max(160, (frame.height ?? defaults.height) - 116)}
+                                    onEditChart={() => handleOpenEditChartModal(frame)}
+                                    onDeleteChart={() => handleOpenDeleteChartModal(frame)}
+                                  />
+                                </div>
+                              )
+                            })()
                           ) : frame.kind === 'icon' ? (
                             (() => {
                               const selectedIcon = getCanvasIconOptionById(frame.iconName)
@@ -6289,7 +6517,7 @@ const Canvas = () => {
               <div className="h-full overflow-hidden rounded-xl border border-[var(--ax-border-neutral-subtle)] bg-white shadow-sm">
                 <iframe
                   title="Grafbygger i canvas"
-                  src="/grafbygger?focused=true&canvasEmbed=true"
+                  src={grafbyggerSrc}
                   className="h-full w-full"
                   loading="lazy"
                   referrerPolicy="no-referrer"
@@ -6501,9 +6729,9 @@ const Canvas = () => {
         onCloseCanvasSettings={() => {
           setIsCanvasSettingsModalOpen(false)
           setRenameCanvasError(null)
+          setCanvasSettingsInfo(null)
         }}
-        selectedWebsite={selectedWebsite}
-        onSelectedWebsiteChange={setSelectedWebsite}
+        canvasSettingsInfo={canvasSettingsInfo}
         renameCanvasInput={renameCanvasInput}
         onRenameCanvasInputChange={(value) => {
           setRenameCanvasInput(value)
@@ -7020,6 +7248,16 @@ const Canvas = () => {
       >
         <Modal.Body>
           <div className="space-y-3">
+            <WebsitePicker
+              selectedWebsite={selectedWebsite}
+              onWebsiteChange={(website) => {
+                setSelectedWebsite(website)
+                if (addPageError) setAddPageError(null)
+              }}
+              disableAutoRestore
+              variant="default"
+              customLabel="Velg nettside"
+            />
             <TextField
               size="small"
               label="URL"
@@ -7188,7 +7426,10 @@ const Canvas = () => {
         key={editChartTarget?.id ?? 'canvas-edit-chart-dialog'}
         open={Boolean(editChartTarget)}
         chart={editChartTarget}
-        defaultWebsiteId={selectedWebsite?.id}
+        defaultWebsiteId={
+          frames.find((frame) => frame.id === editChartFrameId && frame.kind === 'chart')?.websiteId ??
+          selectedWebsite?.id
+        }
         loading={savingEditChart}
         error={chartMutationError}
         defaultShowSql

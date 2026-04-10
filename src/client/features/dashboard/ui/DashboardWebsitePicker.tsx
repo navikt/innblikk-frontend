@@ -68,6 +68,7 @@ const DashboardWebsitePicker = ({
   const prevShouldReload = useRef<boolean>(shouldReload)
 
   const [error, setError] = useState<string | null>(null)
+  const [comboboxInputValue, setComboboxInputValue] = useState<string>('')
   const [includeParams, setIncludeParams] = useState<boolean>(false)
   const prevIncludeParams = useRef<boolean>(false)
   const [fullEventsLoadedId, setFullEventsLoadedId] = useState<string | null>(null)
@@ -264,6 +265,8 @@ const DashboardWebsitePicker = ({
               handleWebsiteChange(null)
             }
           }}
+          value={comboboxInputValue}
+          onChange={(value) => setComboboxInputValue(value)}
           clearButton
           isMultiSelect={false}
         />

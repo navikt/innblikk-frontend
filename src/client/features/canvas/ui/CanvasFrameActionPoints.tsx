@@ -259,68 +259,74 @@ const CanvasFrameActionPoints = ({
   onRotateIllustrationLeft,
   onRotateIllustrationRight,
   onRemoveFrame,
-}: CanvasFrameActionPointsProps) => (
-  <div
-    className={`pointer-events-none absolute z-30 ${
-      frameKind === 'heading' ||
-      frameKind === 'icon' ||
-      frameKind === 'figure' ||
-      frameKind === 'drawing' ||
-      isIllustrationFrame
-        ? 'right-0 -top-6 flex items-center gap-1'
-        : 'right-2 top-2'
-    }`}
-  >
-    <ImageOrDashboardEditActionPoint
-      frameKind={frameKind}
-      isInternalDashboard={isInternalDashboard}
-      isIllustrationFrame={isIllustrationFrame}
-      actionButtonClassName={actionButtonClassName}
-      onEditImage={onEditImage}
-      onEditIllustration={onEditIllustration}
-      onEditDashboard={onEditDashboard}
-    />
-    {frameKind === 'icon' && (
-      <IconBoxActionPoints
+}: CanvasFrameActionPointsProps) => {
+  const showRemoveButton = frameKind !== 'website' || Boolean(isInternalDashboard)
+
+  return (
+    <div
+      className={`pointer-events-none absolute z-30 ${
+        frameKind === 'heading' ||
+        frameKind === 'icon' ||
+        frameKind === 'figure' ||
+        frameKind === 'drawing' ||
+        isIllustrationFrame
+          ? 'right-0 -top-6 flex items-center gap-1'
+          : 'right-2 top-2'
+      }`}
+    >
+      <ImageOrDashboardEditActionPoint
+        frameKind={frameKind}
+        isInternalDashboard={isInternalDashboard}
+        isIllustrationFrame={isIllustrationFrame}
         actionButtonClassName={actionButtonClassName}
-        onEditIcon={onEditIcon}
-        onDuplicateIcon={onDuplicateIcon}
-        onRotateIconLeft={onRotateIconLeft}
-        onRotateIconRight={onRotateIconRight}
+        onEditImage={onEditImage}
+        onEditIllustration={onEditIllustration}
+        onEditDashboard={onEditDashboard}
       />
-    )}
-    {frameKind === 'figure' && (
-      <FigureBoxActionPoints
-        actionButtonClassName={actionButtonClassName}
-        onEditFigure={onEditFigure}
-        onDuplicateFigure={onDuplicateFigure}
-      />
-    )}
-    {frameKind === 'heading' && (
-      <HeadingBoxActionPoints
-        actionButtonClassName={actionButtonClassName}
-        onDecreaseHeadingFontSize={onDecreaseHeadingFontSize}
-        onIncreaseHeadingFontSize={onIncreaseHeadingFontSize}
-      />
-    )}
-    {isIllustrationFrame && (
-      <IllustrationActionPoints
-        actionButtonClassName={actionButtonClassName}
-        onRotateIllustrationLeft={onRotateIllustrationLeft}
-        onRotateIllustrationRight={onRotateIllustrationRight}
-      />
-    )}
-    <Button
-      size="xsmall"
-      variant="tertiary"
-      icon={<Trash2 size={14} />}
-      onMouseDown={stopMouseDownPropagation}
-      onClick={onRemoveFrame}
-      title="Fjern kort"
-      aria-label="Fjern kort"
-      className={actionButtonClassName}
-    />
-  </div>
-)
+      {frameKind === 'icon' && (
+        <IconBoxActionPoints
+          actionButtonClassName={actionButtonClassName}
+          onEditIcon={onEditIcon}
+          onDuplicateIcon={onDuplicateIcon}
+          onRotateIconLeft={onRotateIconLeft}
+          onRotateIconRight={onRotateIconRight}
+        />
+      )}
+      {frameKind === 'figure' && (
+        <FigureBoxActionPoints
+          actionButtonClassName={actionButtonClassName}
+          onEditFigure={onEditFigure}
+          onDuplicateFigure={onDuplicateFigure}
+        />
+      )}
+      {frameKind === 'heading' && (
+        <HeadingBoxActionPoints
+          actionButtonClassName={actionButtonClassName}
+          onDecreaseHeadingFontSize={onDecreaseHeadingFontSize}
+          onIncreaseHeadingFontSize={onIncreaseHeadingFontSize}
+        />
+      )}
+      {isIllustrationFrame && (
+        <IllustrationActionPoints
+          actionButtonClassName={actionButtonClassName}
+          onRotateIllustrationLeft={onRotateIllustrationLeft}
+          onRotateIllustrationRight={onRotateIllustrationRight}
+        />
+      )}
+      {showRemoveButton && (
+        <Button
+          size="xsmall"
+          variant="tertiary"
+          icon={<Trash2 size={14} />}
+          onMouseDown={stopMouseDownPropagation}
+          onClick={onRemoveFrame}
+          title="Fjern kort"
+          aria-label="Fjern kort"
+          className={actionButtonClassName}
+        />
+      )}
+    </div>
+  )
+}
 
 export default CanvasFrameActionPoints

@@ -29,7 +29,6 @@ import type { DashboardDto, ProjectDto } from '../model/types.ts'
 import ProjectManagerLayout from './ProjectManagerLayout.tsx'
 import { extractWebsiteId } from '../../sql/utils/sqlProcessing.ts'
 import type { GraphType, OversiktChart } from '../../oversikt'
-import WebsitePicker, { type Website } from '../../analysis/ui/WebsitePicker.tsx'
 
 type FileTableRow = {
   id: string
@@ -187,7 +186,6 @@ const ProjectManager = () => {
   const [isCreateCanvas, setIsCreateCanvas] = useState(false)
   const [newDashboardName, setNewDashboardName] = useState('')
   const [newDashboardDescription, setNewDashboardDescription] = useState('')
-  const [newCanvasWebsite, setNewCanvasWebsite] = useState<Website | null>(null)
   const [createDashboardError, setCreateDashboardError] = useState<string | null>(null)
   const [createTabTarget, setCreateTabTarget] = useState<{ dashboardId: number; dashboardName: string } | null>(null)
   const [newTabName, setNewTabName] = useState('')
@@ -614,16 +612,12 @@ const ProjectManager = () => {
     setIsCreateCanvas(false)
     setNewDashboardName('')
     setNewDashboardDescription('')
-    setNewCanvasWebsite(null)
 
     if (shouldOpenCanvas && createdDashboard) {
       const params = new URLSearchParams({
         dashboardId: String(createdDashboard.id),
         projectId: String(selectedProject.project.id),
       })
-      if (newCanvasWebsite?.id) {
-        params.set('websiteId', newCanvasWebsite.id)
-      }
       void navigate(`/canvas?${params.toString()}`)
     }
   }
@@ -2183,7 +2177,6 @@ const ProjectManager = () => {
         onClose={() => {
           setIsCreateDashboardOpen(false)
           setIsCreateCanvas(false)
-          setNewCanvasWebsite(null)
           setCreateDashboardError(null)
         }}
         header={{ heading: isCreateCanvas ? 'Nytt canvas' : 'Nytt dashboard' }}
@@ -2210,14 +2203,6 @@ const ProjectManager = () => {
                 onChange={(event) => setNewDashboardDescription(event.target.value)}
               />
             )}
-            {isCreateCanvas && (
-              <WebsitePicker
-                selectedWebsite={newCanvasWebsite}
-                onWebsiteChange={setNewCanvasWebsite}
-                variant="default"
-                customLabel="Nettside (valgfri)"
-              />
-            )}
           </div>
         </Modal.Body>
         <Modal.Footer>
@@ -2229,7 +2214,6 @@ const ProjectManager = () => {
             onClick={() => {
               setIsCreateDashboardOpen(false)
               setIsCreateCanvas(false)
-              setNewCanvasWebsite(null)
               setCreateDashboardError(null)
             }}
             disabled={loading}

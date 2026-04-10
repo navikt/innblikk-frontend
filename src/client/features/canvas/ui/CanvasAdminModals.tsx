@@ -1,14 +1,11 @@
 import { Alert, Button, Checkbox, Modal, Pagination, Select, Table, TextField } from '@navikt/ds-react'
 import { useState } from 'react'
-import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import type { GraphCategoryDto } from '../../oversikt/model/types.ts'
-import type { Website } from '../../../shared/types/website.ts'
 
 type CanvasAdminModalsProps = {
   isCanvasSettingsModalOpen: boolean
   onCloseCanvasSettings: () => void
-  selectedWebsite: Website | null
-  onSelectedWebsiteChange: (website: Website | null) => void
+  canvasSettingsInfo: string | null
   renameCanvasInput: string
   onRenameCanvasInputChange: (value: string) => void
   renameCanvasError: string | null
@@ -53,8 +50,7 @@ type CanvasAdminModalsProps = {
 const CanvasAdminModals = ({
   isCanvasSettingsModalOpen,
   onCloseCanvasSettings,
-  selectedWebsite,
-  onSelectedWebsiteChange,
+  canvasSettingsInfo,
   renameCanvasInput,
   onRenameCanvasInputChange,
   renameCanvasError,
@@ -120,13 +116,11 @@ const CanvasAdminModals = ({
       >
         <Modal.Body>
           <div className="space-y-3">
-            <WebsitePicker
-              selectedWebsite={selectedWebsite}
-              onWebsiteChange={onSelectedWebsiteChange}
-              disableAutoRestore
-              variant="default"
-              customLabel="Nettside"
-            />
+            {canvasSettingsInfo && (
+              <Alert variant="info" size="small">
+                {canvasSettingsInfo}
+              </Alert>
+            )}
             <TextField
               label="Canvas-navn"
               value={renameCanvasInput}
