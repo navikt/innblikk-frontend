@@ -19,13 +19,7 @@ import type { PageMetricRow } from '../../traffic/model/types.ts'
 import { fetchPageMetrics } from '../../traffic/api/trafficApi.ts'
 import { fetchFunnelData } from '../../funnel/api/funnelApi.ts'
 import { splitUrlStepInput } from '../../funnel/utils/stepUtils.ts'
-import type { ClickmapItem } from '../../clickmap/model/types.ts'
-import { fetchClickmap } from '../../clickmap/api/clickmapApi.ts'
-import {
-  getClickmapDatasetFromVisualizationMode,
-  isVisualizationMode,
-  type VisualizationMode,
-} from '../../clickmap/model/visualizationMode.ts'
+import { isVisualizationMode, type VisualizationMode } from '../../clickmap/model/visualizationMode.ts'
 import VisualizationModeSelect from '../../clickmap/ui/VisualizationModeSelect.tsx'
 import {
   getCookieCountByParams,
@@ -57,6 +51,7 @@ import CanvasStickyFrame from './sticky/CanvasStickyFrame.tsx'
 import CanvasImportStickyCsvModal from './sticky/CanvasImportStickyCsvModal.tsx'
 import CanvasWebsiteFrame from './website/CanvasWebsiteFrame.tsx'
 import CanvasWebsiteActionMenu from './website/CanvasWebsiteActionMenu.tsx'
+import useCanvasWebsiteVisualization from './website/useCanvasWebsiteVisualization.ts'
 import useCanvasDrawingTool, { type CanvasDrawingStroke } from './drawing/useCanvasDrawingTool.ts'
 import { isIllustrationImageFrame, isIllustrationPath } from './image/CanvasImageUtils.ts'
 import {
@@ -170,15 +165,6 @@ type CanvasPageInsight = {
   loading: boolean
   error: string | null
   data: PageMetricRow | null
-}
-
-type CanvasFrameVisualizationData = {
-  requestKey: string
-  loading: boolean
-  error: string | null
-  items: ClickmapItem[]
-  websiteId?: string
-  path?: string
 }
 
 type CanvasDeleteTarget =
@@ -562,9 +548,6 @@ const formatCanvasPathLabel = (targetUrl?: string, fallbackText?: string): strin
   if (normalizedPath === '/') return '/ (forside)'
   return normalizedPath || fallbackText || targetUrl || ''
 }
-
-const normalizeDomainForComparison = (value: string): string =>
-  value.replace(/^https?:\/\//i, '').replace(/^www\./i, '')
 
 const isImagePreviewUrl = (value: string): boolean => {
   try {
@@ -1131,7 +1114,6 @@ const Canvas = () => {
   const [isSavingCanvasItem, setIsSavingCanvasItem] = useState(false)
   const [isImportingStickyCsv, setIsImportingStickyCsv] = useState(false)
   const [connectionMetrics, setConnectionMetrics] = useState<Record<string, CanvasConnectionMetric | null>>({})
-  const [frameVisualizationData, setFrameVisualizationData] = useState<Record<string, CanvasFrameVisualizationData>>({})
   const [connectionDragState, setConnectionDragState] = useState<ConnectionDragState | null>(null)
   const [pageInsights, setPageInsights] = useState<Record<string, CanvasPageInsight>>({})
   const [activeInsightFrameId, setActiveInsightFrameId] = useState<string | null>(null)
@@ -1146,8 +1128,6 @@ const Canvas = () => {
   const [pendingFramePointer, setPendingFramePointer] = useState<{ x: number; y: number } | null>(null)
   const pageInsightsRef = useRef<Record<string, CanvasPageInsight>>({})
   const framesRef = useRef<CanvasFrame[]>([])
-  const frameVisualizationDataRef = useRef<Record<string, CanvasFrameVisualizationData>>({})
-  const websiteIframeRefs = useRef<Record<string, HTMLIFrameElement | null>>({})
   const chartContentRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const importStickyCsvFileInputRef = useRef<HTMLInputElement | null>(null)
   const isImportingStickyCsvRef = useRef(false)
@@ -1210,10 +1190,6 @@ const Canvas = () => {
   useEffect(() => {
     setSelectedFrameIds((current) => current.filter((id) => frames.some((frame) => frame.id === id)))
   }, [frames])
-
-  useEffect(() => {
-    frameVisualizationDataRef.current = frameVisualizationData
-  }, [frameVisualizationData])
 
   useEffect(() => {
     let isActive = true
@@ -1429,223 +1405,17 @@ const Canvas = () => {
     setImportStickyPrivacyReviewed(false)
   }, [importStickyContentColumn, importStickyExcludedRowIndexes, importStickyCsvRows])
 
-  const visualizationWebsiteFrames = useMemo(
-    () =>
-      frameItems
-        .filter((frame) => frame.kind === 'website' && !frame.isInternalDashboard && frame.renderWebsite !== false)
-        .map((frame) => ({
-          id: frame.id,
-          kind: frame.kind,
-          websiteId: frame.websiteId,
-          targetUrl: frame.targetUrl,
-          renderWebsite: frame.renderWebsite,
-          isInternalDashboard: frame.isInternalDashboard,
-          visualizationMode: frame.visualizationMode,
-        })),
-    [frameItems],
-  )
-
-  const visualizationWebsiteFramesKey = useMemo(
-    () => JSON.stringify(visualizationWebsiteFrames),
-    [visualizationWebsiteFrames],
-  )
-
-  const visualizationWebsiteFramesRef = useRef(visualizationWebsiteFrames)
-
-  useEffect(() => {
-    visualizationWebsiteFramesRef.current = visualizationWebsiteFrames
-  }, [visualizationWebsiteFrames])
-
-  const sendVisualizationDataToWebsiteFrame = useCallback(
-    (frame: Pick<CanvasFrame, 'id' | 'kind' | 'isInternalDashboard' | 'renderWebsite' | 'visualizationMode'>) => {
-      if (frame.kind !== 'website' || frame.isInternalDashboard || frame.renderWebsite === false) return
-      const contentWindow = websiteIframeRefs.current[frame.id]?.contentWindow
-      if (!contentWindow) return
-
-      const viewMode = getCanvasFrameVisualizationMode(frame)
-      const frameData = frameVisualizationData[frame.id]
-      const items = viewMode ? (frameData?.items ?? []) : []
-      const payloadItems = items.map((item) => ({
-        ...item,
-        badgeLabel: item.count.toLocaleString('nb-NO'),
-      }))
-
-      contentWindow.postMessage(
-        {
-          type: 'umami-clickmap-data',
-          items: payloadItems,
-          zeroBadgeLabel: '0',
-          viewMode: viewMode || 'clickmap',
-          includeUnmatched: viewMode === 'clickmap',
-        },
-        '*',
-      )
-    },
-    [frameVisualizationData],
-  )
-
-  useEffect(() => {
-    const websiteFrames = visualizationWebsiteFramesRef.current
-
-    setFrameVisualizationData((current) => {
-      const validIds = new Set(websiteFrames.map((frame) => frame.id))
-      const next = Object.fromEntries(Object.entries(current).filter(([frameId]) => validIds.has(frameId)))
-      return Object.keys(next).length === Object.keys(current).length ? current : next
-    })
-
-    const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
-    if (!dateRange) return
-
-    const normalizedSelectedDomain = normalizeDomainForComparison(selectedWebsite?.domain || '')
-    const websiteByDomain = new Map<string, string>()
-    availableWebsites.forEach((website) => {
-      const normalizedDomain = normalizeDomainForComparison(website.domain || '')
-      if (normalizedDomain && !websiteByDomain.has(normalizedDomain)) {
-        websiteByDomain.set(normalizedDomain, website.id)
-      }
-    })
-
-    let isActive = true
-
-    const loadVisualizationData = async () => {
-      await Promise.all(
-        websiteFrames.map(async (frame) => {
-          const pagePath = frame.targetUrl ? normalizeUrlToPath(frame.targetUrl) : ''
-          if (!pagePath) {
-            setFrameVisualizationData((current) => ({
-              ...current,
-              [frame.id]: {
-                requestKey: '',
-                loading: false,
-                error: 'Fant ikke gyldig URL-sti for kortet.',
-                items: [],
-                path: '',
-              },
-            }))
-            return
-          }
-
-          let websiteId = frame.websiteId || selectedWebsite?.id || canvasConfiguredWebsiteId || ''
-          if (!websiteId && frame.targetUrl) {
-            try {
-              const targetDomain = normalizeDomainForComparison(new URL(frame.targetUrl).hostname)
-              websiteId = websiteByDomain.get(targetDomain) || ''
-            } catch {
-              // Ignore invalid target URL.
-            }
-          }
-          if (!websiteId && normalizedSelectedDomain) {
-            websiteId = websiteByDomain.get(normalizedSelectedDomain) || ''
-          }
-          if (!websiteId) {
-            setFrameVisualizationData((current) => ({
-              ...current,
-              [frame.id]: {
-                requestKey: '',
-                loading: false,
-                error: 'Fant ikke nettsted for URL-en i kortet.',
-                items: [],
-                websiteId: '',
-                path: pagePath,
-              },
-            }))
-            return
-          }
-
-          const mode = getCanvasFrameVisualizationMode(frame)
-          if (!mode) return
-          const dataset = getClickmapDatasetFromVisualizationMode(mode)
-          const requestKey = JSON.stringify({
-            websiteId,
-            pagePath,
-            period,
-            customStartDate: customStartDate?.toISOString() ?? null,
-            customEndDate: customEndDate?.toISOString() ?? null,
-            mode,
-            dataset,
-          })
-
-          const existing = frameVisualizationDataRef.current[frame.id]
-          const hasCompletedSuccessfulResult =
-            existing?.requestKey === requestKey && existing.loading === false && existing.error === null
-          if (hasCompletedSuccessfulResult) return
-
-          setFrameVisualizationData((current) => ({
-            ...current,
-            [frame.id]: {
-              requestKey,
-              loading: true,
-              error: null,
-              items: existing?.requestKey === requestKey ? existing.items : [],
-              websiteId,
-              path: pagePath,
-            },
-          }))
-
-          try {
-            const result = await fetchClickmap({
-              websiteId,
-              startAt: dateRange.startDate.getTime(),
-              endAt: dateRange.endDate.getTime(),
-              urlPath: pagePath,
-              pathOperator: 'equals',
-              eventNames: CLICKMAP_EVENTS,
-              limit: 400,
-              dataset,
-            })
-
-            if (!isActive) return
-            setFrameVisualizationData((current) => ({
-              ...current,
-              [frame.id]: {
-                requestKey,
-                loading: false,
-                error: null,
-                items: result.data ?? [],
-                websiteId,
-                path: pagePath,
-              },
-            }))
-          } catch (error) {
-            if (!isActive) return
-            setFrameVisualizationData((current) => ({
-              ...current,
-              [frame.id]: {
-                requestKey,
-                loading: false,
-                error: error instanceof Error ? error.message : 'Kunne ikke hente visualiseringsdata',
-                items: [],
-                websiteId,
-                path: pagePath,
-              },
-            }))
-          }
-        }),
-      )
-    }
-
-    void loadVisualizationData()
-
-    return () => {
-      isActive = false
-    }
-  }, [
+  const { frameVisualizationData, setWebsiteIframeRef, handleWebsiteFrameLoad } = useCanvasWebsiteVisualization({
+    frameItems,
     availableWebsites,
+    selectedWebsiteId: selectedWebsite?.id,
+    selectedWebsiteDomain: selectedWebsite?.domain,
     canvasConfiguredWebsiteId,
-    customEndDate,
-    customStartDate,
     period,
-    selectedWebsite?.domain,
-    selectedWebsite?.id,
-    visualizationWebsiteFramesKey,
-  ])
-
-  useEffect(() => {
-    const websiteFrames = visualizationWebsiteFramesRef.current
-    websiteFrames.forEach((frame) => {
-      sendVisualizationDataToWebsiteFrame(frame)
-    })
-  }, [frameVisualizationData, sendVisualizationDataToWebsiteFrame, visualizationWebsiteFramesKey])
+    customStartDate,
+    customEndDate,
+    clickmapEvents: CLICKMAP_EVENTS,
+  })
 
   const ensureCanvasCategory = useCallback(async (): Promise<number | null> => {
     if (!canPersistToDashboard || projectId === null || dashboardId === null) return null
@@ -5752,10 +5522,8 @@ const Canvas = () => {
                               isInsightOpen={isWebsiteInsightOpen}
                               activeInsightPeriodLabel={activeInsightPeriodLabel}
                               websiteInsight={websiteInsight}
-                              onIframeRef={(frameId, node) => {
-                                websiteIframeRefs.current[frameId] = node
-                              }}
-                              onIframeLoad={() => sendVisualizationDataToWebsiteFrame(frame)}
+                              onIframeRef={setWebsiteIframeRef}
+                              onIframeLoad={() => handleWebsiteFrameLoad(frame)}
                               formatCanvasPathLabel={formatCanvasPathLabel}
                               isImagePreviewUrl={isImagePreviewUrl}
                             />
