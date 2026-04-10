@@ -5,30 +5,14 @@ import {
   Button,
   HelpText,
   Label,
-  Link,
   Loader,
   Modal,
   Select,
   Switch,
-  Table,
   TextField,
   Textarea,
 } from '@navikt/ds-react'
-import {
-  ArrowRight,
-  ChartNoAxesCombined,
-  Circle,
-  Edit2,
-  ExternalLink,
-  Minus,
-  MoreVertical,
-  Plus,
-  Slash,
-  Square,
-  Copy,
-  RefreshCw,
-  Trash2,
-} from 'lucide-react'
+import { ArrowRight, ChartNoAxesCombined, Circle, Minus, Plus, Slash, Square, Trash2 } from 'lucide-react'
 import { computeFunnelStepMetrics } from '../../analysis/utils/horizontalFunnel.ts'
 import { formatDateRange } from '../../analysis/utils/periodPicker.ts'
 import type { PageMetricRow } from '../../traffic/model/types.ts'
@@ -70,6 +54,9 @@ import CanvasFigureFrame from './figure/CanvasFigureFrame.tsx'
 import CanvasHeadingFrame from './heading/CanvasHeadingFrame.tsx'
 import CanvasTextFrame from './text/CanvasTextFrame.tsx'
 import CanvasStickyFrame from './sticky/CanvasStickyFrame.tsx'
+import CanvasImportStickyCsvModal from './sticky/CanvasImportStickyCsvModal.tsx'
+import CanvasWebsiteFrame from './website/CanvasWebsiteFrame.tsx'
+import CanvasWebsiteActionMenu from './website/CanvasWebsiteActionMenu.tsx'
 import useCanvasDrawingTool, { type CanvasDrawingStroke } from './drawing/useCanvasDrawingTool.ts'
 import { isIllustrationImageFrame, isIllustrationPath } from './image/CanvasImageUtils.ts'
 import {
@@ -4871,6 +4858,28 @@ const Canvas = () => {
     setIsAddTextModalOpen(true)
   }
 
+  const handleClearImportStickyCsvFile = useCallback(() => {
+    setImportStickyCsvFileName('')
+    setImportStickyCsvHeaders([])
+    setImportStickyCsvRows([])
+    setImportStickyContentColumn('')
+    setImportStickyStyle('sticky')
+    setImportStickyTableMode('rows')
+    setImportStickyTablePreviewPage(1)
+    setImportStickySectionTitle('')
+    setImportStickyExcludedRowIndexes([])
+    setImportStickyPrivacyReviewed(false)
+    setImportStickyCsvError(null)
+    if (importStickyCsvFileInputRef.current) {
+      importStickyCsvFileInputRef.current.value = ''
+    }
+  }, [])
+
+  const handleCloseImportStickyCsvModal = useCallback(() => {
+    setIsImportStickyCsvModalOpen(false)
+    setImportStickyCsvError(null)
+  }, [])
+
   const handleImportStickyCsvFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = event.target.files
     if (!selectedFiles || selectedFiles.length === 0) return
@@ -4994,20 +5003,7 @@ const Canvas = () => {
   }
 
   const handleOpenImportStickyCsvModal = () => {
-    setImportStickyCsvError(null)
-    setImportStickyCsvFileName('')
-    setImportStickyCsvHeaders([])
-    setImportStickyCsvRows([])
-    setImportStickyContentColumn('')
-    setImportStickyStyle('sticky')
-    setImportStickyTableMode('rows')
-    setImportStickyTablePreviewPage(1)
-    setImportStickySectionTitle('')
-    setImportStickyExcludedRowIndexes([])
-    setImportStickyPrivacyReviewed(false)
-    if (importStickyCsvFileInputRef.current) {
-      importStickyCsvFileInputRef.current.value = ''
-    }
+    handleClearImportStickyCsvFile()
     setIsImportStickyCsvModalOpen(true)
   }
 
@@ -5515,54 +5511,19 @@ const Canvas = () => {
                                   {activeInsightFrameId === frame.id ? 'Skjul' : 'Innsikt'}
                                 </Button>
                               )}
-                              <ActionMenu>
-                                <ActionMenu.Trigger>
-                                  <Button
-                                    size="xsmall"
-                                    variant="tertiary"
-                                    icon={<MoreVertical size={14} />}
-                                    onMouseDown={(event) => event.stopPropagation()}
-                                    title="Flere valg"
-                                    aria-label="Flere valg"
-                                  />
-                                </ActionMenu.Trigger>
-                                <ActionMenu.Content align="end">
-                                  <ActionMenu.Item onClick={() => handleRefreshFrame(frame.id)}>
-                                    <span className="inline-flex items-center gap-2">
-                                      <RefreshCw size={14} aria-hidden="true" />
-                                      <span>Last inn på nytt</span>
-                                    </span>
-                                  </ActionMenu.Item>
-                                  <ActionMenu.Item onClick={() => handleDuplicateWebsiteCard(frame)}>
-                                    <span className="inline-flex items-center gap-2">
-                                      <Copy size={14} aria-hidden="true" />
-                                      <span>Dupliser</span>
-                                    </span>
-                                  </ActionMenu.Item>
-                                  <ActionMenu.Item
-                                    onClick={() => {
-                                      if (frame.isInternalDashboard) {
-                                        handleOpenEditDashboardModal(frame)
-                                      } else {
-                                        handleOpenEditWebsiteModal(frame)
-                                      }
-                                    }}
-                                  >
-                                    <span className="inline-flex items-center gap-2">
-                                      <Edit2 size={14} aria-hidden="true" />
-                                      <span>
-                                        {frame.isInternalDashboard ? 'Rediger dashboard' : 'Rediger nettside'}
-                                      </span>
-                                    </span>
-                                  </ActionMenu.Item>
-                                  <ActionMenu.Item onClick={() => handleRequestRemoveFrame(frame)}>
-                                    <span className="inline-flex items-center gap-2">
-                                      <Trash2 size={14} aria-hidden="true" />
-                                      <span>Fjern kort</span>
-                                    </span>
-                                  </ActionMenu.Item>
-                                </ActionMenu.Content>
-                              </ActionMenu>
+                              <CanvasWebsiteActionMenu
+                                isInternalDashboard={frame.isInternalDashboard}
+                                onRefresh={() => handleRefreshFrame(frame.id)}
+                                onDuplicate={() => handleDuplicateWebsiteCard(frame)}
+                                onEdit={() => {
+                                  if (frame.isInternalDashboard) {
+                                    handleOpenEditDashboardModal(frame)
+                                  } else {
+                                    handleOpenEditWebsiteModal(frame)
+                                  }
+                                }}
+                                onRemove={() => handleRequestRemoveFrame(frame)}
+                              />
                             </div>
                           </header>
                         )}
@@ -5785,151 +5746,19 @@ const Canvas = () => {
                               }}
                             />
                           )}
-                          {frame.kind === 'website' && frame.src && frame.displayUrl ? (
-                            <div className="flex h-full flex-col bg-white">
-                              {isWebsiteInsightOpen && (
-                                <div className="shrink-0 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] p-3">
-                                  <div className="text-xs font-semibold uppercase tracking-wide text-[var(--ax-text-subtle)]">
-                                    Sideinnsikt
-                                  </div>
-                                  <div className="mt-1 text-sm text-[var(--ax-text-subtle)]">
-                                    Periode: {activeInsightPeriodLabel}
-                                  </div>
-                                  {websiteInsight?.loading ? (
-                                    <div className="mt-2 flex items-center gap-2 text-sm text-[var(--ax-text-subtle)]">
-                                      <Loader size="xsmall" />
-                                      <span>Henter innsikt...</span>
-                                    </div>
-                                  ) : websiteInsight?.error ? (
-                                    <div className="mt-2">
-                                      <Alert variant="error" size="small">
-                                        {websiteInsight.error}
-                                      </Alert>
-                                    </div>
-                                  ) : websiteInsight?.data ? (
-                                    <div className="mt-2 grid grid-cols-3 gap-2">
-                                      <div className="rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2">
-                                        <div className="text-xs text-[var(--ax-text-subtle)]">Brukere</div>
-                                        <div className="text-sm font-semibold text-[var(--ax-text-default)]">
-                                          {websiteInsight.data.visitors.toLocaleString('nb-NO')}
-                                        </div>
-                                      </div>
-                                      <div className="rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2">
-                                        <div className="text-xs text-[var(--ax-text-subtle)]">Sidevisninger</div>
-                                        <div className="text-sm font-semibold text-[var(--ax-text-default)]">
-                                          {websiteInsight.data.pageviews.toLocaleString('nb-NO')}
-                                        </div>
-                                      </div>
-                                      <div className="rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2">
-                                        <div className="text-xs text-[var(--ax-text-subtle)]">Andel</div>
-                                        <div className="text-sm font-semibold text-[var(--ax-text-default)]">
-                                          {(websiteInsight.data.proportion * 100).toLocaleString('nb-NO', {
-                                            maximumFractionDigits: 1,
-                                          })}
-                                          %
-                                        </div>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div className="mt-2 text-sm text-[var(--ax-text-subtle)]">
-                                      Ingen trafikk funnet for denne siden i valgt periode.
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                              <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-white">
-                                {isImagePreviewUrl(frame.displayUrl) ? (
-                                  <img
-                                    key={`${frame.id}-${frame.refreshNonce}`}
-                                    alt={frame.label}
-                                    src={frame.src}
-                                    className="block h-auto w-full max-w-full"
-                                    loading="lazy"
-                                  />
-                                ) : (
-                                  <iframe
-                                    key={`${frame.id}-${frame.refreshNonce}`}
-                                    title={`Canvas-side ${frame.label}`}
-                                    src={frame.src}
-                                    className="h-full w-full"
-                                    loading="lazy"
-                                    sandbox="allow-same-origin allow-scripts allow-forms"
-                                    ref={(node) => {
-                                      websiteIframeRefs.current[frame.id] = node
-                                    }}
-                                    onLoad={() => sendVisualizationDataToWebsiteFrame(frame)}
-                                  />
-                                )}
-                              </div>
-                            </div>
-                          ) : frame.kind === 'website' ? (
-                            <div className="flex h-full flex-col bg-white">
-                              {isWebsiteInsightOpen && (
-                                <div className="shrink-0 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] p-3">
-                                  <div className="text-xs font-semibold uppercase tracking-wide text-[var(--ax-text-subtle)]">
-                                    Sideinnsikt
-                                  </div>
-                                  <div className="mt-1 text-sm text-[var(--ax-text-subtle)]">
-                                    Periode: {activeInsightPeriodLabel}
-                                  </div>
-                                  {websiteInsight?.loading ? (
-                                    <div className="mt-2 flex items-center gap-2 text-sm text-[var(--ax-text-subtle)]">
-                                      <Loader size="xsmall" />
-                                      <span>Henter innsikt...</span>
-                                    </div>
-                                  ) : websiteInsight?.error ? (
-                                    <div className="mt-2">
-                                      <Alert variant="error" size="small">
-                                        {websiteInsight.error}
-                                      </Alert>
-                                    </div>
-                                  ) : websiteInsight?.data ? (
-                                    <div className="mt-2 grid grid-cols-3 gap-2">
-                                      <div className="rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2">
-                                        <div className="text-xs text-[var(--ax-text-subtle)]">Brukere</div>
-                                        <div className="text-sm font-semibold text-[var(--ax-text-default)]">
-                                          {websiteInsight.data.visitors.toLocaleString('nb-NO')}
-                                        </div>
-                                      </div>
-                                      <div className="rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2">
-                                        <div className="text-xs text-[var(--ax-text-subtle)]">Sidevisninger</div>
-                                        <div className="text-sm font-semibold text-[var(--ax-text-default)]">
-                                          {websiteInsight.data.pageviews.toLocaleString('nb-NO')}
-                                        </div>
-                                      </div>
-                                      <div className="rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2">
-                                        <div className="text-xs text-[var(--ax-text-subtle)]">Andel</div>
-                                        <div className="text-sm font-semibold text-[var(--ax-text-default)]">
-                                          {(websiteInsight.data.proportion * 100).toLocaleString('nb-NO', {
-                                            maximumFractionDigits: 1,
-                                          })}
-                                          %
-                                        </div>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div className="mt-2 text-sm text-[var(--ax-text-subtle)]">
-                                      Ingen trafikk funnet for denne siden i valgt periode.
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                              <div className="flex h-full items-center justify-center px-6 text-center">
-                                <div className="w-full max-w-none space-y-2">
-                                  {frame.targetUrl && (
-                                    <Link
-                                      href={frame.targetUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex max-w-full items-center gap-1.5 text-sm font-medium break-words text-left"
-                                    >
-                                      <span>{formatCanvasPathLabel(frame.targetUrl, frame.displayUrl)}</span>
-                                      <ExternalLink size={14} aria-hidden="true" />
-                                    </Link>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
+                          {frame.kind === 'website' ? (
+                            <CanvasWebsiteFrame
+                              frame={frame}
+                              isInsightOpen={isWebsiteInsightOpen}
+                              activeInsightPeriodLabel={activeInsightPeriodLabel}
+                              websiteInsight={websiteInsight}
+                              onIframeRef={(frameId, node) => {
+                                websiteIframeRefs.current[frameId] = node
+                              }}
+                              onIframeLoad={() => sendVisualizationDataToWebsiteFrame(frame)}
+                              formatCanvasPathLabel={formatCanvasPathLabel}
+                              isImagePreviewUrl={isImagePreviewUrl}
+                            />
                           ) : frame.kind === 'chart' && frame.chartSql && frame.chartType ? (
                             (() => {
                               const chartWebsiteId = frame.websiteId?.trim() || ''
@@ -7361,367 +7190,65 @@ const Canvas = () => {
         </Modal.Footer>
       </Modal>
 
-      <Modal
+      <CanvasImportStickyCsvModal
         open={isImportStickyCsvModalOpen}
-        onClose={() => {
-          setIsImportStickyCsvModalOpen(false)
-          setImportStickyCsvError(null)
+        onClose={handleCloseImportStickyCsvModal}
+        onImport={() => void handleImportStickyCsv()}
+        isSaving={isSavingCanvasItem}
+        fileInputRef={importStickyCsvFileInputRef}
+        onFileChange={handleImportStickyCsvFileChange}
+        onClearFile={handleClearImportStickyCsvFile}
+        fileName={importStickyCsvFileName}
+        rowCount={importStickyCsvRows.length}
+        headers={importStickyCsvHeaders}
+        contentColumn={importStickyContentColumn}
+        onContentColumnChange={(nextColumn) => {
+          setImportStickyContentColumn(nextColumn)
+          setImportStickySectionTitle(nextColumn)
+          setImportStickyExcludedRowIndexes([])
+          setImportStickyTableMode('rows')
+          setImportStickyTablePreviewPage(1)
+          if (importStickyCsvError) setImportStickyCsvError(null)
         }}
-        header={{ heading: 'Importer fra Skyra / Lumi' }}
-        width={1100}
-      >
-        <Modal.Body>
-          <section
-            aria-label="CSV-import for brukerfeedback"
-            className="grid gap-4 md:grid-cols-[340px_minmax(380px,1fr)]"
-          >
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label htmlFor="canvas-feedback-csv-file" className="text-sm font-medium text-[var(--ax-text-default)]">
-                  CSV-fil
-                </label>
-                <input
-                  ref={importStickyCsvFileInputRef}
-                  id="canvas-feedback-csv-file"
-                  type="file"
-                  accept=".csv,text/csv"
-                  onChange={(event) => {
-                    void handleImportStickyCsvFileChange(event)
-                  }}
-                  className="sr-only"
-                />
-                <div className="flex items-center gap-2">
-                  <Button size="small" variant="secondary" onClick={() => importStickyCsvFileInputRef.current?.click()}>
-                    {importStickyCsvFileName ? 'Bytt CSV-fil' : 'Velg CSV-fil'}
-                  </Button>
-                  {importStickyCsvFileName && (
-                    <Button
-                      size="small"
-                      variant="tertiary"
-                      onClick={() => {
-                        setImportStickyCsvFileName('')
-                        setImportStickyCsvHeaders([])
-                        setImportStickyCsvRows([])
-                        setImportStickyContentColumn('')
-                        setImportStickyStyle('sticky')
-                        setImportStickyTableMode('rows')
-                        setImportStickyTablePreviewPage(1)
-                        setImportStickySectionTitle('')
-                        setImportStickyExcludedRowIndexes([])
-                        setImportStickyPrivacyReviewed(false)
-                        setImportStickyCsvError(null)
-                        if (importStickyCsvFileInputRef.current) {
-                          importStickyCsvFileInputRef.current.value = ''
-                        }
-                      }}
-                    >
-                      Fjern fil
-                    </Button>
-                  )}
-                </div>
-                {importStickyCsvFileName && (
-                  <p className="text-xs text-[var(--ax-text-subtle)]">
-                    <strong>{importStickyCsvFileName}</strong> ({importStickyCsvRows.length} rader)
-                  </p>
-                )}
-              </div>
-
-              {importStickyCsvHeaders.length > 0 && (
-                <div className="space-y-3">
-                  <Select
-                    label="Velg kolonne"
-                    value={importStickyContentColumn}
-                    onChange={(event) => {
-                      const nextColumn = event.target.value
-                      setImportStickyContentColumn(nextColumn)
-                      setImportStickySectionTitle(nextColumn)
-                      setImportStickyExcludedRowIndexes([])
-                      setImportStickyTableMode('rows')
-                      setImportStickyTablePreviewPage(1)
-                      if (importStickyCsvError) setImportStickyCsvError(null)
-                    }}
-                  >
-                    <option value="" disabled>
-                      Velg kolonne
-                    </option>
-                    {importStickyCsvHeaders.map((header) => (
-                      <option key={header} value={header}>
-                        {header}
-                      </option>
-                    ))}
-                  </Select>
-                  {canChooseNonNumericImportStyle && (
-                    <div className="space-y-3">
-                      <Select
-                        label="Importer som"
-                        value={importStickyStyle}
-                        onChange={(event) => {
-                          setImportStickyStyle(event.target.value as CanvasCsvImportStyle)
-                          setImportStickyTableMode('rows')
-                          setImportStickyTablePreviewPage(1)
-                          if (importStickyCsvError) setImportStickyCsvError(null)
-                        }}
-                      >
-                        <option value="sticky">Post-it-lapper</option>
-                        <option value="table">Tabell</option>
-                      </Select>
-                      {importStickyStyle === 'table' && (
-                        <Select
-                          label="Tabellvisning"
-                          value={importStickyTableMode}
-                          onChange={(event) => {
-                            setImportStickyTableMode(event.target.value as CanvasCsvTableMode)
-                            setImportStickyTablePreviewPage(1)
-                          }}
-                        >
-                          <option value="rows">Rader</option>
-                          <option value="summary">Oppsummering</option>
-                        </Select>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-              {importStickyNumericSummary && (
-                <Alert variant="info" size="small">
-                  Denne kolonnen inneholder bare tall. Importen blir en aggregert vurdering i stedet for Post-it-lapper.
-                </Alert>
-              )}
-              {hasImportStickyPrivacyFindings && (
-                <Alert variant="error" size="small">
-                  <div className="space-y-3">
-                    <p className="text-sm font-medium">
-                      Fant mulig persondata i {importStickyPrivacyFindings.length} rader
-                    </p>
-                    <div className="max-h-48 space-y-2 overflow-auto rounded border border-[var(--ax-border-danger)]/30 bg-[var(--ax-bg-default)] p-2">
-                      {importStickyPrivacyFindings.slice(0, 8).map((finding) => (
-                        <div
-                          key={`privacy-finding-row-${finding.rowIndex}`}
-                          className="rounded border border-[var(--ax-border-danger)]/20 bg-[var(--ax-bg-default)] p-2"
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0 space-y-0.5">
-                              <div className="text-xs font-semibold text-[var(--ax-text-default)]">
-                                Rad {finding.rowIndex + 1}
-                              </div>
-                              <div className="text-xs text-[var(--ax-text-subtle)]">
-                                {finding.patternNames.join(', ')}
-                              </div>
-                            </div>
-                            <Button
-                              size="xsmall"
-                              variant="secondary"
-                              className="shrink-0"
-                              onClick={() =>
-                                setImportStickyExcludedRowIndexes((current) =>
-                                  current.includes(finding.rowIndex) ? current : [...current, finding.rowIndex],
-                                )
-                              }
-                            >
-                              Fjern
-                            </Button>
-                          </div>
-                          <div className="mt-1 break-all text-xs text-[var(--ax-text-subtle)]">{finding.text}</div>
-                        </div>
-                      ))}
-                      {importStickyPrivacyFindings.length > 8 && (
-                        <p className="text-xs text-[var(--ax-text-subtle)]">
-                          + {importStickyPrivacyFindings.length - 8} flere rader med treff.
-                        </p>
-                      )}
-                    </div>
-                    <Switch
-                      size="small"
-                      checked={importStickyPrivacyReviewed}
-                      onChange={(event) => setImportStickyPrivacyReviewed(event.target.checked)}
-                    >
-                      Jeg har gått gjennom radene med treff og vil fortsette import.
-                    </Switch>
-                  </div>
-                </Alert>
-              )}
-              {importStickyCsvFileName && importStickyContentColumn && !shouldImportStickyAsAggregated && (
-                <Alert variant="warning" size="small">
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">Gjør en personversjekk før import</p>
-                    <p className="text-xs">
-                      Innblikk er tilgjengelig for alle i Nav. Importer kun data som er trygt å dele.
-                    </p>
-                    <ul className="list-disc space-y-1 pl-5 text-sm">
-                      <li>Skann teksten for navn, fødselsnummer, telefonnummer, e-post og adresser.</li>
-                      <li>
-                        Bruk forhåndsvisningen til høyre og fjern {importStickyStyle === 'table' ? 'rader' : 'lapper'}{' '}
-                        med sensitive opplysninger.
-                      </li>
-                    </ul>
-                  </div>
-                </Alert>
-              )}
-              {importStickyCsvError && <Alert variant="error">{importStickyCsvError}</Alert>}
-            </div>
-
-            <aside className="min-w-0 overflow-hidden rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] p-3">
-              <div className="mb-2 text-sm font-semibold text-[var(--ax-text-default)]">Forhåndsvisning</div>
-              <div className="mb-2 text-xs text-[var(--ax-text-subtle)]">
-                {importStickyPreviewNotes.length === 0
-                  ? 'Du kan forhåndsvise innholdet her før import.'
-                  : `${importStickySectionTitle || 'Kolonne'} • ${
-                      shouldImportStickyAsAggregated && importStickyNumericSummary
-                        ? `${importStickyNumericSummaryRows.length} verdier (oppsummert)`
-                        : importStickyStyle === 'table'
-                          ? importStickyTableMode === 'summary'
-                            ? `${importStickyCategoricalSummaryRows.length} verdier (oppsummert)`
-                            : `${importStickyPreviewNotes.length} rader (tabell)`
-                          : `${importStickyPreviewNotes.length} lapper`
-                    }`}
-              </div>
-              {(shouldImportStickyAsAggregated || importStickyStyle === 'table') && (
-                <div className="space-y-2">
-                  <Table size="small" zebraStripes className="w-full table-fixed">
-                    <Table.Header>
-                      <Table.Row>
-                        <Table.HeaderCell className="w-[70%]">
-                          {importStickyContentColumn || 'Kolonne'}
-                        </Table.HeaderCell>
-                        {shouldImportStickyAsAggregated || importStickyTableMode === 'summary' ? (
-                          <>
-                            <Table.HeaderCell className="w-[90px]">Antall</Table.HeaderCell>
-                            <Table.HeaderCell className="w-[90px]">Andel</Table.HeaderCell>
-                          </>
-                        ) : (
-                          <Table.HeaderCell className="w-[90px]">Handling</Table.HeaderCell>
-                        )}
-                      </Table.Row>
-                    </Table.Header>
-                    <Table.Body>
-                      {shouldImportStickyAsAggregated
-                        ? importStickyTablePreviewNumericSummaryRows.map((item) => (
-                            <Table.Row key={`import-preview-numeric-summary-row-${item.value}`}>
-                              <Table.DataCell className="break-all">{item.value}</Table.DataCell>
-                              <Table.DataCell>{item.count.toLocaleString('nb-NO')}</Table.DataCell>
-                              <Table.DataCell>
-                                {item.percentage.toLocaleString('nb-NO', { maximumFractionDigits: 1 })} %
-                              </Table.DataCell>
-                            </Table.Row>
-                          ))
-                        : importStickyTableMode === 'summary'
-                          ? importStickyTablePreviewSummaryRows.map((item) => (
-                              <Table.Row key={`import-preview-summary-row-${item.value}`}>
-                                <Table.DataCell className="break-all">{item.value}</Table.DataCell>
-                                <Table.DataCell>{item.count.toLocaleString('nb-NO')}</Table.DataCell>
-                                <Table.DataCell>
-                                  {item.percentage.toLocaleString('nb-NO', { maximumFractionDigits: 1 })} %
-                                </Table.DataCell>
-                              </Table.Row>
-                            ))
-                          : importStickyTablePreviewNoteRows.map((note) => (
-                              <Table.Row key={`import-preview-row-${note.rowIndex}`}>
-                                <Table.DataCell className="break-all">{note.text}</Table.DataCell>
-                                <Table.DataCell>
-                                  <Button
-                                    size="xsmall"
-                                    variant="tertiary"
-                                    onClick={() =>
-                                      setImportStickyExcludedRowIndexes((current) =>
-                                        current.includes(note.rowIndex) ? current : [...current, note.rowIndex],
-                                      )
-                                    }
-                                  >
-                                    Fjern
-                                  </Button>
-                                </Table.DataCell>
-                              </Table.Row>
-                            ))}
-                    </Table.Body>
-                  </Table>
-                  {importStickyTablePreviewPageCount > 1 && (
-                    <div className="flex items-center justify-end gap-2">
-                      <Button
-                        size="xsmall"
-                        variant="tertiary"
-                        disabled={currentImportStickyTablePreviewPage <= 1}
-                        onClick={() => setImportStickyTablePreviewPage((current) => Math.max(1, current - 1))}
-                      >
-                        Forrige
-                      </Button>
-                      <span className="text-xs text-[var(--ax-text-subtle)]">
-                        Side {currentImportStickyTablePreviewPage} av {importStickyTablePreviewPageCount}
-                      </span>
-                      <Button
-                        size="xsmall"
-                        variant="tertiary"
-                        disabled={currentImportStickyTablePreviewPage >= importStickyTablePreviewPageCount}
-                        onClick={() =>
-                          setImportStickyTablePreviewPage((current) =>
-                            Math.min(importStickyTablePreviewPageCount, current + 1),
-                          )
-                        }
-                      >
-                        Neste
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              )}
-              {!shouldImportStickyAsAggregated && importStickyStyle === 'sticky' && (
-                <div className="max-h-[360px] space-y-2 overflow-auto pr-1">
-                  {importStickyPreviewNotes.map((note) => (
-                    <div
-                      key={`import-preview-note-${note.rowIndex}`}
-                      className="rounded-md border border-[#e5cd69] bg-[#fff7ca] px-2 py-1.5 text-xs leading-4 text-[#4a3d00]"
-                      title={note.text}
-                    >
-                      <div className="mb-1.5 whitespace-pre-wrap break-words">{note.text}</div>
-                      <div className="flex justify-end">
-                        <Button
-                          size="xsmall"
-                          variant="tertiary"
-                          onClick={() =>
-                            setImportStickyExcludedRowIndexes((current) =>
-                              current.includes(note.rowIndex) ? current : [...current, note.rowIndex],
-                            )
-                          }
-                        >
-                          Fjern
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {importStickyPreviewNotes.length === 0 && (
-                <div className="rounded-md border border-dashed border-[var(--ax-border-neutral-subtle)] p-3 text-xs text-[var(--ax-text-subtle)]">
-                  Velg fil og kolonne. Du kan forhåndsvise innholdet før du importerer.
-                </div>
-              )}
-            </aside>
-          </section>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button
-            onClick={() => void handleImportStickyCsv()}
-            size="small"
-            loading={isSavingCanvasItem}
-            disabled={
-              importStickyCsvHeaders.length === 0 ||
-              !importStickyContentColumn ||
-              (hasImportStickyPrivacyFindings && !importStickyPrivacyReviewed)
-            }
-          >
-            Importer
-          </Button>
-          <Button
-            variant="secondary"
-            size="small"
-            onClick={() => {
-              setIsImportStickyCsvModalOpen(false)
-              setImportStickyCsvError(null)
-            }}
-          >
-            Avbryt
-          </Button>
-        </Modal.Footer>
-      </Modal>
+        canChooseNonNumericImportStyle={canChooseNonNumericImportStyle}
+        importStyle={importStickyStyle}
+        onImportStyleChange={(nextStyle) => {
+          setImportStickyStyle(nextStyle)
+          setImportStickyTableMode('rows')
+          setImportStickyTablePreviewPage(1)
+          if (importStickyCsvError) setImportStickyCsvError(null)
+        }}
+        tableMode={importStickyTableMode}
+        onTableModeChange={(nextMode) => {
+          setImportStickyTableMode(nextMode)
+          setImportStickyTablePreviewPage(1)
+        }}
+        hasNumericSummary={Boolean(importStickyNumericSummary)}
+        hasPrivacyFindings={hasImportStickyPrivacyFindings}
+        privacyFindings={importStickyPrivacyFindings}
+        privacyReviewed={importStickyPrivacyReviewed}
+        onPrivacyReviewedChange={setImportStickyPrivacyReviewed}
+        shouldImportAsAggregated={shouldImportStickyAsAggregated}
+        error={importStickyCsvError}
+        previewNotes={importStickyPreviewNotes}
+        sectionTitle={importStickySectionTitle}
+        numericSummaryRows={importStickyNumericSummaryRows}
+        categoricalSummaryRows={importStickyCategoricalSummaryRows}
+        tablePreviewNumericSummaryRows={importStickyTablePreviewNumericSummaryRows}
+        tablePreviewSummaryRows={importStickyTablePreviewSummaryRows}
+        tablePreviewNoteRows={importStickyTablePreviewNoteRows}
+        tablePreviewPageCount={importStickyTablePreviewPageCount}
+        currentTablePreviewPage={currentImportStickyTablePreviewPage}
+        onPrevTablePreviewPage={() => setImportStickyTablePreviewPage((current) => Math.max(1, current - 1))}
+        onNextTablePreviewPage={() =>
+          setImportStickyTablePreviewPage((current) => Math.min(importStickyTablePreviewPageCount, current + 1))
+        }
+        onExcludeRow={(rowIndex) =>
+          setImportStickyExcludedRowIndexes((current) =>
+            current.includes(rowIndex) ? current : [...current, rowIndex],
+          )
+        }
+      />
 
       <Modal
         open={isAddStickyModalOpen}
