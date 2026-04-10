@@ -572,7 +572,7 @@ const parseRatingValue = (input: string): number | null => {
   return Number.isFinite(parsed) ? parsed : null
 }
 
-const formatRatingValue = (value: number): string =>
+export const formatRatingValue = (value: number): string =>
   Number.isInteger(value) ? value.toString() : value.toLocaleString('nb-NO', { maximumFractionDigits: 2 })
 
 export const summarizeNumericRatings = (inputs: string[]): CanvasNumericRatingSummary | null => {

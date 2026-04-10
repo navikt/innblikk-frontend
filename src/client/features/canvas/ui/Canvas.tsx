@@ -9,6 +9,7 @@ import {
   getCookieCountByParams,
   getDateRangeFromPeriod,
   getStoredPeriod,
+  normalizeUrlToPath,
   savePeriodPreference,
 } from '../../../shared/lib/utils.ts'
 import { DashboardWidget } from '../../dashboard'
@@ -84,6 +85,7 @@ import type {
   CanvasConnectionMetric,
   CanvasConnectionVisual,
   CanvasCsvImportStyle,
+  CanvasCsvImportRow,
   CanvasCsvTableMode,
   CanvasDeleteTarget,
   CanvasFigureType,
@@ -137,6 +139,7 @@ import {
   estimateTableFrameHeight,
   extractCanvasWebsiteIdFromDescription,
   findPrivacyPatternNames,
+  formatRatingValue,
   formatCanvasPathLabel,
   getCanvasCategoryDisplayName,
   getCanvasFrameVisualizationMode,
