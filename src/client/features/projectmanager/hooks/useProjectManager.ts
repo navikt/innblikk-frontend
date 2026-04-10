@@ -27,7 +27,7 @@ type ProjectSummary = {
         name: string
         graphType?: string
         categoryId: number
-        variantCount: number
+        variantCount?: number
       }>
     }>
     charts: Array<{
@@ -35,7 +35,7 @@ type ProjectSummary = {
       name: string
       graphType?: string
       categoryId: number
-      variantCount: number
+      variantCount?: number
     }>
   }>
 }
@@ -75,18 +75,12 @@ export const useProjectManager = () => {
             const categoryData = await Promise.all(
               categories.map(async (category) => {
                 const graphs = await api.fetchGraphs(project.id, dashboard.id, category.id)
-                const charts = await Promise.all(
-                  graphs.map(async (graph) => {
-                    const queries = await api.fetchQueries(project.id, dashboard.id, category.id, graph.id)
-                    return {
-                      id: graph.id,
-                      name: graph.name,
-                      graphType: graph.graphType,
-                      categoryId: category.id,
-                      variantCount: queries.length,
-                    }
-                  }),
-                )
+                const charts = graphs.map((graph) => ({
+                  id: graph.id,
+                  name: graph.name,
+                  graphType: graph.graphType,
+                  categoryId: category.id,
+                }))
                 return {
                   id: category.id,
                   name: category.name,
