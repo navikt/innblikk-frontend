@@ -1,4 +1,4 @@
-import illustrationData from '../../../../data/nav-illustrasjoner.json'
+import illustrationData from '../../../../../data/nav-illustrasjoner.json'
 
 export type CanvasIllustrationOption = {
   id: string

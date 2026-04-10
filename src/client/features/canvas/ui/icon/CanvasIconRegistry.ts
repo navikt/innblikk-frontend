@@ -1,6 +1,6 @@
 import * as AkselIcons from '@navikt/aksel-icons'
 import type { ComponentType, SVGProps } from 'react'
-import akselIconMetadata from '../../../../data/aksel-icon-medatata.json'
+import akselIconMetadata from '../../../../../data/aksel-icon-medatata.json'
 
 type CanvasIconComponent = ComponentType<SVGProps<SVGSVGElement>>
 

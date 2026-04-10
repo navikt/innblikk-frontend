@@ -1,4 +1,4 @@
-import { Fragment, createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActionMenu,
   Alert,
@@ -64,9 +64,14 @@ import CanvasTopBar from './CanvasTopBar.tsx'
 import CanvasDrawingToolbar from './drawing/CanvasDrawingToolbar.tsx'
 import CanvasDrawingDraftOverlay from './drawing/CanvasDrawingDraftOverlay.tsx'
 import CanvasDrawingFrame from './drawing/CanvasDrawingFrame.tsx'
+import CanvasImageFrame from './image/CanvasImageFrame.tsx'
 import CanvasIconFrame from './icon/CanvasIconFrame.tsx'
 import CanvasFigureFrame from './figure/CanvasFigureFrame.tsx'
+import CanvasHeadingFrame from './heading/CanvasHeadingFrame.tsx'
+import CanvasTextFrame from './text/CanvasTextFrame.tsx'
+import CanvasStickyFrame from './sticky/CanvasStickyFrame.tsx'
 import useCanvasDrawingTool, { type CanvasDrawingStroke } from './drawing/useCanvasDrawingTool.ts'
+import { isIllustrationImageFrame, isIllustrationPath } from './image/CanvasImageUtils.ts'
 import {
   CANVAS_ICON_COLOR_OPTIONS,
   DEFAULT_CANVAS_ICON_COLOR,
@@ -582,11 +587,6 @@ const isImagePreviewUrl = (value: string): boolean => {
     return /\.(png|jpe?g|gif|webp|avif|svg)$/i.test(value)
   }
 }
-
-const isIllustrationPath = (targetUrl?: string): boolean => Boolean(targetUrl?.startsWith('/illustrasjoner/'))
-
-const isIllustrationImageFrame = (frame: Pick<CanvasFrame, 'kind' | 'targetUrl' | 'isIllustration'>): boolean =>
-  frame.kind === 'image' && (Boolean(frame.isIllustration) || isIllustrationPath(frame.targetUrl))
 
 const serializeCanvasConfig = (frame: CanvasConfigPayload): string => {
   const json = JSON.stringify(frame)
@@ -5764,44 +5764,26 @@ const Canvas = () => {
                             </div>
                           )}
                           {frame.kind === 'image' && (
-                            <div
-                              className={`flex h-full flex-col ${isIllustrationFrame ? 'bg-transparent' : 'bg-white'}`}
-                            >
-                              {frame.src && !failedImageFrameIds[frame.id] ? (
-                                <div
-                                  className={`h-full w-full overflow-hidden ${isIllustrationFrame ? 'bg-transparent p-0' : 'bg-white p-2'}`}
-                                >
-                                  <img
-                                    key={`${frame.id}-${frame.refreshNonce}`}
-                                    alt={frame.label}
-                                    src={frame.src}
-                                    className={`h-full w-full object-contain ${isIllustrationFrame ? '' : 'rounded'}`}
-                                    style={
-                                      isIllustrationFrame
-                                        ? { transform: `rotate(${frame.imageRotationDeg ?? 0}deg)` }
-                                        : undefined
-                                    }
-                                    loading="lazy"
-                                    referrerPolicy="no-referrer"
-                                    onError={() => {
-                                      setFailedImageFrameIds((current) => ({ ...current, [frame.id]: true }))
-                                    }}
-                                    onLoad={() => {
-                                      setFailedImageFrameIds((current) => {
-                                        if (!current[frame.id]) return current
-                                        const next = { ...current }
-                                        delete next[frame.id]
-                                        return next
-                                      })
-                                    }}
-                                  />
-                                </div>
-                              ) : (
-                                <div className="flex h-full items-center justify-center px-6 text-center text-sm text-[var(--ax-text-subtle)]">
-                                  Kunne ikke laste bilde fra denne URL-en.
-                                </div>
-                              )}
-                            </div>
+                            <CanvasImageFrame
+                              id={frame.id}
+                              src={frame.src || ''}
+                              label={frame.label}
+                              refreshNonce={frame.refreshNonce}
+                              isIllustrationFrame={isIllustrationFrame}
+                              imageRotationDeg={frame.imageRotationDeg}
+                              hasFailedImage={Boolean(failedImageFrameIds[frame.id])}
+                              onLoadError={(imageFrameId) => {
+                                setFailedImageFrameIds((current) => ({ ...current, [imageFrameId]: true }))
+                              }}
+                              onLoadSuccess={(imageFrameId) => {
+                                setFailedImageFrameIds((current) => {
+                                  if (!current[imageFrameId]) return current
+                                  const next = { ...current }
+                                  delete next[imageFrameId]
+                                  return next
+                                })
+                              }}
+                            />
                           )}
                           {frame.kind === 'website' && frame.src && frame.displayUrl ? (
                             <div className="flex h-full flex-col bg-white">
@@ -6098,164 +6080,44 @@ const Canvas = () => {
                               )
                             })()
                           ) : frame.kind === 'heading' ? (
-                            <div className="overflow-visible pt-0 pr-0 pb-0">
-                              {activeEditableFrameId === frame.id ? (
-                                <textarea
-                                  value={frame.headingText || ''}
-                                  onChange={(event) => handleEditableFrameChange(frame.id, event.target.value)}
-                                  onBlur={() => handleEditableFrameBlur(frame.id)}
-                                  onMouseDown={(event) => event.stopPropagation()}
-                                  lang="nb-NO"
-                                  placeholder="Skriv overskrift"
-                                  className="block w-full resize-none overflow-hidden border-none bg-transparent p-0 text-[var(--ax-text-default)] outline-none placeholder:text-[var(--ax-text-subtle)] [font-family:inherit]"
-                                  style={{
-                                    fontSize: `${getHeadingFrameFontSize(frame)}px`,
-                                    lineHeight: 1.05,
-                                    fontWeight: 700,
-                                  }}
-                                  rows={1}
-                                  autoFocus
-                                />
-                              ) : (
-                                (() => {
-                                  const headingTag = 'h2'
-                                  return createElement(
-                                    headingTag,
-                                    {
-                                      className:
-                                        'cursor-text select-text whitespace-pre-wrap break-words text-[var(--ax-text-default)] m-0',
-                                      onClick: () => handleStartEditingFrame(frame.id),
-                                      style: {
-                                        fontSize: `${getHeadingFrameFontSize(frame)}px`,
-                                        lineHeight: 1.05,
-                                        fontWeight: 700,
-                                      },
-                                    },
-                                    frame.headingText || frame.label || 'Skriv overskrift',
-                                  )
-                                })()
-                              )}
-                            </div>
+                            <CanvasHeadingFrame
+                              id={frame.id}
+                              headingText={frame.headingText}
+                              label={frame.label}
+                              fontSizePx={getHeadingFrameFontSize(frame)}
+                              isEditing={activeEditableFrameId === frame.id}
+                              onChange={handleEditableFrameChange}
+                              onBlur={handleEditableFrameBlur}
+                              onStartEditing={handleStartEditingFrame}
+                            />
                           ) : frame.kind === 'text' ? (
-                            <div className="h-full overflow-auto px-2 pb-2">
-                              {isTableTextFrame ? (
-                                (() => {
-                                  const tableRows = frame.tableRows ?? []
-                                  const tableHeaders = frame.tableHeaders ?? []
-                                  const totalPages = Math.max(
-                                    1,
-                                    Math.ceil(tableRows.length / CANVAS_TABLE_ROWS_PER_PAGE),
-                                  )
-                                  const currentPage = Math.min(frameTablePages[frame.id] ?? 1, totalPages)
-                                  const pageStart = (currentPage - 1) * CANVAS_TABLE_ROWS_PER_PAGE
-                                  const visibleRows = tableRows.slice(pageStart, pageStart + CANVAS_TABLE_ROWS_PER_PAGE)
-
-                                  return (
-                                    <div className="space-y-2" onMouseDown={(event) => event.stopPropagation()}>
-                                      <Table size="small" zebraStripes className="w-full">
-                                        <Table.Header>
-                                          <Table.Row>
-                                            {tableHeaders.map((header, headerIndex) => (
-                                              <Table.HeaderCell key={`canvas-table-header-${frame.id}-${headerIndex}`}>
-                                                {header}
-                                              </Table.HeaderCell>
-                                            ))}
-                                          </Table.Row>
-                                        </Table.Header>
-                                        <Table.Body>
-                                          {visibleRows.map((row, rowIndex) => (
-                                            <Table.Row key={`canvas-table-row-${frame.id}-${pageStart + rowIndex}`}>
-                                              {tableHeaders.map((_, columnIndex) => (
-                                                <Table.DataCell
-                                                  key={`canvas-table-cell-${frame.id}-${pageStart + rowIndex}-${columnIndex}`}
-                                                >
-                                                  {row[columnIndex] || ''}
-                                                </Table.DataCell>
-                                              ))}
-                                            </Table.Row>
-                                          ))}
-                                        </Table.Body>
-                                      </Table>
-                                      {totalPages > 1 && (
-                                        <div className="flex items-center justify-end gap-2">
-                                          <Button
-                                            size="xsmall"
-                                            variant="tertiary"
-                                            disabled={currentPage <= 1}
-                                            onClick={() =>
-                                              setFrameTablePages((current) => ({
-                                                ...current,
-                                                [frame.id]: Math.max(1, (current[frame.id] ?? 1) - 1),
-                                              }))
-                                            }
-                                          >
-                                            Forrige
-                                          </Button>
-                                          <span className="text-xs text-[var(--ax-text-subtle)]">
-                                            Side {currentPage} av {totalPages}
-                                          </span>
-                                          <Button
-                                            size="xsmall"
-                                            variant="tertiary"
-                                            disabled={currentPage >= totalPages}
-                                            onClick={() =>
-                                              setFrameTablePages((current) => ({
-                                                ...current,
-                                                [frame.id]: Math.min(totalPages, (current[frame.id] ?? 1) + 1),
-                                              }))
-                                            }
-                                          >
-                                            Neste
-                                          </Button>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )
-                                })()
-                              ) : activeEditableFrameId === frame.id ? (
-                                <textarea
-                                  value={frame.textContent || ''}
-                                  onChange={(event) => handleEditableFrameChange(frame.id, event.target.value)}
-                                  onBlur={() => handleEditableFrameBlur(frame.id)}
-                                  onMouseDown={(event) => event.stopPropagation()}
-                                  lang="nb-NO"
-                                  placeholder="Skriv tekst"
-                                  className="h-full w-full resize-none overflow-auto border-none bg-transparent p-0 text-[var(--ax-text-default)] outline-none placeholder:text-[var(--ax-text-subtle)] [font-family:inherit]"
-                                  style={{ fontSize: '24px', lineHeight: 1.3, fontWeight: 500 }}
-                                  autoFocus
-                                />
-                              ) : (
-                                <div
-                                  className="h-full cursor-text overflow-auto whitespace-pre-wrap break-words text-[var(--ax-text-default)]"
-                                  style={{ fontSize: '24px', lineHeight: 1.3, fontWeight: 500 }}
-                                  onClick={() => handleStartEditingFrame(frame.id)}
-                                >
-                                  {frame.textContent || 'Skriv tekst'}
-                                </div>
-                              )}
-                            </div>
+                            <CanvasTextFrame
+                              id={frame.id}
+                              textContent={frame.textContent}
+                              tableHeaders={frame.tableHeaders}
+                              tableRows={frame.tableRows}
+                              isEditing={activeEditableFrameId === frame.id}
+                              tableRowsPerPage={CANVAS_TABLE_ROWS_PER_PAGE}
+                              tablePage={frameTablePages[frame.id] ?? 1}
+                              onTablePageChange={(id, nextPage) =>
+                                setFrameTablePages((current) => ({
+                                  ...current,
+                                  [id]: nextPage,
+                                }))
+                              }
+                              onChange={handleEditableFrameChange}
+                              onBlur={handleEditableFrameBlur}
+                              onStartEditing={handleStartEditingFrame}
+                            />
                           ) : frame.kind === 'sticky' ? (
-                            <div className="h-full overflow-auto p-4">
-                              {activeEditableFrameId === frame.id ? (
-                                <textarea
-                                  value={frame.textContent || ''}
-                                  onChange={(event) => handleEditableFrameChange(frame.id, event.target.value)}
-                                  onBlur={() => handleEditableFrameBlur(frame.id)}
-                                  onMouseDown={(event) => event.stopPropagation()}
-                                  lang="nb-NO"
-                                  placeholder="Skriv Post-it-lapp"
-                                  className="h-full w-full resize-none overflow-auto border-none bg-transparent p-0 text-base leading-7 text-[#4a3d00] outline-none placeholder:text-[#7a6b2a]"
-                                  autoFocus
-                                />
-                              ) : (
-                                <div
-                                  className="cursor-text whitespace-pre-wrap break-words text-base leading-7 text-[#4a3d00]"
-                                  onClick={() => handleStartEditingFrame(frame.id)}
-                                >
-                                  {frame.textContent || 'Skriv Post-it-lapp'}
-                                </div>
-                              )}
-                            </div>
+                            <CanvasStickyFrame
+                              id={frame.id}
+                              textContent={frame.textContent}
+                              isEditing={activeEditableFrameId === frame.id}
+                              onChange={handleEditableFrameChange}
+                              onBlur={handleEditableFrameBlur}
+                              onStartEditing={handleStartEditingFrame}
+                            />
                           ) : (
                             <div className="flex h-full items-center justify-center px-6 text-center text-sm text-[var(--ax-text-subtle)]">
                               Kunne ikke lage forhåndsvisning for denne siden.
