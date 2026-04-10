@@ -3672,6 +3672,25 @@ const Canvas = () => {
   }, [getCanvasPointerPosition, getFrameBounds, selectionBox, visibleFrames])
 
   useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const isSelectAllShortcut =
+        (event.key === 'a' || event.key === 'A') && (event.metaKey || event.ctrlKey) && !event.altKey
+      if (!isSelectAllShortcut) return
+
+      const target = event.target as HTMLElement | null
+      const isTypingTarget =
+        target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable || false
+      if (isTypingTarget) return
+
+      event.preventDefault()
+      setSelectedFrameIds(visibleFrames.map((frame) => frame.id))
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [visibleFrames])
+
+  useEffect(() => {
     if (selectedFrameIds.length === 0) return
 
     const onKeyDown = (event: KeyboardEvent) => {
