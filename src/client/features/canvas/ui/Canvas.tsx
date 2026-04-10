@@ -58,6 +58,10 @@ import CanvasIconPicker from './CanvasIconPicker.tsx'
 import CanvasFrameActionPoints from './CanvasFrameActionPoints.tsx'
 import CanvasAdminModals from './CanvasAdminModals.tsx'
 import CanvasTopBar from './CanvasTopBar.tsx'
+import CanvasDrawingToolbar from './drawing/CanvasDrawingToolbar.tsx'
+import CanvasDrawingDraftOverlay from './drawing/CanvasDrawingDraftOverlay.tsx'
+import CanvasDrawingFrame from './drawing/CanvasDrawingFrame.tsx'
+import useCanvasDrawingTool, { type CanvasDrawingStroke } from './drawing/useCanvasDrawingTool.ts'
 import {
   CANVAS_ICON_COLOR_OPTIONS,
   DEFAULT_CANVAS_ICON_COLOR,
@@ -135,6 +139,7 @@ type CanvasFrame = {
   figureType?: CanvasFigureType
   figureColor?: string
   drawingPath?: string
+  drawingStrokeStyles?: string
   drawingStrokeWidth?: number
   drawingColor?: string
   isIllustration?: boolean
@@ -240,6 +245,7 @@ type CanvasConfigPayload = {
   figureType?: CanvasFigureType
   figureColor?: string
   drawingPath?: string
+  drawingStrokeStyles?: string
   drawingStrokeWidth?: number
   drawingColor?: string
   isIllustration?: boolean
@@ -652,6 +658,7 @@ const parseCanvasConfig = (raw: string): CanvasConfigPayload | null => {
       figureType: isCanvasFigureType(parsed.figureType) ? parsed.figureType : undefined,
       figureColor: typeof parsed.figureColor === 'string' ? parsed.figureColor : undefined,
       drawingPath: typeof parsed.drawingPath === 'string' ? parsed.drawingPath : undefined,
+      drawingStrokeStyles: typeof parsed.drawingStrokeStyles === 'string' ? parsed.drawingStrokeStyles : undefined,
       drawingStrokeWidth: Number.isFinite(parsed.drawingStrokeWidth) ? Number(parsed.drawingStrokeWidth) : undefined,
       drawingColor: typeof parsed.drawingColor === 'string' ? parsed.drawingColor : undefined,
       isIllustration: typeof parsed.isIllustration === 'boolean' ? parsed.isIllustration : undefined,
@@ -669,7 +676,6 @@ const parseCanvasConfig = (raw: string): CanvasConfigPayload | null => {
   }
 }
 
-type CanvasDrawingPoint = { x: number; y: number }
 type CanvasChartReadyMessage = {
   type: 'umami-canvas-chart-ready'
   payload: {
@@ -946,26 +952,6 @@ const estimateTableFrameHeight = (rowCount: number): number => {
   return Math.max(TABLE_FRAME_MIN_HEIGHT, Math.min(TABLE_FRAME_MAX_HEIGHT, estimatedHeight))
 }
 
-const parseDrawingPath = (rawPath?: string): CanvasDrawingPoint[][] => {
-  if (!rawPath) return []
-  return rawPath
-    .split('|')
-    .map((stroke) =>
-      stroke
-        .trim()
-        .split(/\s+/)
-        .map((point) => {
-          const [xValue, yValue] = point.split(',')
-          const x = Number(xValue)
-          const y = Number(yValue)
-          if (!Number.isFinite(x) || !Number.isFinite(y)) return null
-          return { x, y }
-        })
-        .filter((point): point is CanvasDrawingPoint => point !== null),
-    )
-    .filter((stroke) => stroke.length > 0)
-}
-
 const Canvas = () => {
   const location = useLocation()
   const routeContext = useMemo(() => {
@@ -1110,11 +1096,6 @@ const Canvas = () => {
   const [selectedFigureType, setSelectedFigureType] = useState<CanvasFigureType>('rectangle')
   const [selectedFigureColor, setSelectedFigureColor] = useState(DEFAULT_CANVAS_ICON_COLOR)
   const [addFigureError, setAddFigureError] = useState<string | null>(null)
-  const [isDrawingMode, setIsDrawingMode] = useState(false)
-  const [drawingStrokeColor, setDrawingStrokeColor] = useState(DEFAULT_CANVAS_ICON_COLOR)
-  const [drawingStrokeWidth, setDrawingStrokeWidth] = useState(DEFAULT_DRAWING_STROKE_WIDTH)
-  const [activeDrawingPoints, setActiveDrawingPoints] = useState<CanvasDrawingPoint[] | null>(null)
-  const [drawingDraftStrokes, setDrawingDraftStrokes] = useState<CanvasDrawingPoint[][]>([])
   const [editFigureSelectedType, setEditFigureSelectedType] = useState<CanvasFigureType>('rectangle')
   const [editFigureSelectedColor, setEditFigureSelectedColor] = useState(DEFAULT_CANVAS_ICON_COLOR)
   const [editFigureError, setEditFigureError] = useState<string | null>(null)
@@ -1173,8 +1154,6 @@ const Canvas = () => {
   const [pendingFramePointer, setPendingFramePointer] = useState<{ x: number; y: number } | null>(null)
   const pageInsightsRef = useRef<Record<string, CanvasPageInsight>>({})
   const framesRef = useRef<CanvasFrame[]>([])
-  const activeDrawingPointsRef = useRef<CanvasDrawingPoint[] | null>(null)
-  const drawingDraftStrokesRef = useRef<CanvasDrawingPoint[][]>([])
   const frameVisualizationDataRef = useRef<Record<string, CanvasFrameVisualizationData>>({})
   const websiteIframeRefs = useRef<Record<string, HTMLIFrameElement | null>>({})
   const chartContentRefs = useRef<Record<string, HTMLDivElement | null>>({})
@@ -1239,14 +1218,6 @@ const Canvas = () => {
   useEffect(() => {
     setSelectedFrameIds((current) => current.filter((id) => frames.some((frame) => frame.id === id)))
   }, [frames])
-
-  useEffect(() => {
-    activeDrawingPointsRef.current = activeDrawingPoints
-  }, [activeDrawingPoints])
-
-  useEffect(() => {
-    drawingDraftStrokesRef.current = drawingDraftStrokes
-  }, [drawingDraftStrokes])
 
   useEffect(() => {
     frameVisualizationDataRef.current = frameVisualizationData
@@ -1857,6 +1828,7 @@ const Canvas = () => {
         figureType: frame.figureType,
         figureColor: frame.figureColor,
         drawingPath: frame.drawingPath,
+        drawingStrokeStyles: frame.drawingStrokeStyles,
         drawingStrokeWidth: frame.drawingStrokeWidth,
         drawingColor: frame.drawingColor,
         isIllustration: frame.isIllustration,
@@ -2044,6 +2016,7 @@ const Canvas = () => {
               figureType: parsedConfig.figureType,
               figureColor: parsedConfig.figureColor,
               drawingPath: parsedConfig.drawingPath,
+              drawingStrokeStyles: parsedConfig.drawingStrokeStyles,
               drawingStrokeWidth: parsedConfig.drawingStrokeWidth,
               drawingColor: parsedConfig.drawingColor,
               isIllustration:
@@ -2913,6 +2886,89 @@ const Canvas = () => {
     [canvasCanvasTopOffset, canvasZoom],
   )
 
+  const handleFinalizeDrawing = useCallback(
+    async ({ strokes }: { strokes: CanvasDrawingStroke[] }) => {
+      const normalizedStrokes = strokes
+        .map((stroke) => ({
+          ...stroke,
+          points: stroke.points.length === 1 ? [stroke.points[0], stroke.points[0]] : stroke.points,
+        }))
+        .filter((stroke) => stroke.points.length > 0)
+      const allPoints = normalizedStrokes.flatMap((stroke) => stroke.points)
+      if (allPoints.length === 0) return
+
+      const minX = Math.min(...allPoints.map((point) => point.x))
+      const maxX = Math.max(...allPoints.map((point) => point.x))
+      const minY = Math.min(...allPoints.map((point) => point.y))
+      const maxY = Math.max(...allPoints.map((point) => point.y))
+      const maxStrokeWidth = normalizedStrokes.reduce((maxValue, stroke) => Math.max(maxValue, stroke.strokeWidth), 0)
+      const padding = Math.max(4, maxStrokeWidth)
+      const baseX = minX - padding
+      const baseY = minY - padding
+      const width = Math.max(28, maxX - minX + padding * 2)
+      const height = Math.max(28, maxY - minY + padding * 2)
+      const drawingPath = normalizedStrokes
+        .map((stroke) =>
+          stroke.points.map((point) => `${(point.x - baseX).toFixed(2)},${(point.y - baseY).toFixed(2)}`).join(' '),
+        )
+        .join(' | ')
+      const drawingStrokeStyles = JSON.stringify(
+        normalizedStrokes.map((stroke) => ({
+          color: getCanvasIconColor(stroke.color),
+          strokeWidth: stroke.strokeWidth,
+        })),
+      )
+
+      const nextFrame: CanvasFrame = {
+        id: `${Date.now()}-${Math.random()}`,
+        kind: 'drawing',
+        drawingPath,
+        drawingStrokeStyles,
+        drawingStrokeWidth: normalizedStrokes[0]?.strokeWidth ?? DEFAULT_DRAWING_STROKE_WIDTH,
+        drawingColor: getCanvasIconColor(normalizedStrokes[0]?.color),
+        label: 'Tegning',
+        x: Math.max(0, baseX),
+        y: Math.max(-CANVAS_TOP_BUFFER, baseY),
+        width,
+        height,
+        refreshNonce: 0,
+      }
+
+      try {
+        setIsSavingCanvasItem(true)
+        setSyncError(null)
+        const persistedFrame = await persistFrame(nextFrame)
+        setFrames((prev) => [...prev, persistedFrame])
+      } catch (error) {
+        setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre tegning')
+      } finally {
+        setIsSavingCanvasItem(false)
+      }
+    },
+    [persistFrame],
+  )
+
+  const {
+    isDrawingMode,
+    drawingStrokeColor,
+    drawingStrokeWidth,
+    activeDrawingStroke,
+    drawingDraftStrokes,
+    setDrawingStrokeColor,
+    setDrawingStrokeWidth,
+    openDrawingMode,
+    exitDrawingMode: handleExitDrawingMode,
+    undoDrawingStroke: handleUndoDrawingStroke,
+    startDrawingAt,
+    continueDrawingAt,
+    completeDrawing: handleCompleteDrawing,
+  } = useCanvasDrawingTool({
+    getCanvasPointerPosition,
+    onCompleteDrawing: handleFinalizeDrawing,
+    defaultColor: DEFAULT_CANVAS_ICON_COLOR,
+    defaultStrokeWidth: DEFAULT_DRAWING_STROKE_WIDTH,
+  })
+
   const handlePlacePendingFrame = useCallback(
     async (clientX: number, clientY: number) => {
       if (!pendingFrameDraft) return
@@ -3095,7 +3151,7 @@ const Canvas = () => {
 
       event.preventDefault()
       event.stopPropagation()
-      setActiveDrawingPoints([pointer])
+      startDrawingAt(pointer)
     },
     [
       getCanvasPointerPosition,
@@ -3104,6 +3160,7 @@ const Canvas = () => {
       isDrawingMode,
       pendingCsvStickyImport,
       pendingFrameDraft,
+      startDrawingAt,
     ],
   )
 
@@ -3111,6 +3168,10 @@ const Canvas = () => {
     (event: React.MouseEvent<HTMLDivElement>) => {
       const pointer = getCanvasPointerPosition(event.clientX, event.clientY)
       if (!pointer) return
+      if (isDrawingMode) {
+        continueDrawingAt(pointer)
+        return
+      }
       if (pendingFrameDraft || pendingCsvStickyImport) {
         setPendingFramePointer(pointer)
       }
@@ -3118,7 +3179,14 @@ const Canvas = () => {
         setSelectionBox((current) => (current ? { ...current, currentX: pointer.x, currentY: pointer.y } : current))
       }
     },
-    [getCanvasPointerPosition, pendingCsvStickyImport, pendingFrameDraft, selectionBox],
+    [
+      continueDrawingAt,
+      getCanvasPointerPosition,
+      isDrawingMode,
+      pendingCsvStickyImport,
+      pendingFrameDraft,
+      selectionBox,
+    ],
   )
 
   const handleCanvasSurfaceMouseLeave = useCallback(() => {
@@ -3359,154 +3427,6 @@ const Canvas = () => {
     setAddFigureError(null)
     setIsAddFigureModalOpen(false)
   }
-
-  const handleFinalizeDrawing = useCallback(
-    async (strokes: CanvasDrawingPoint[][]) => {
-      const normalizedStrokes = strokes
-        .map((stroke) => (stroke.length === 1 ? [stroke[0], stroke[0]] : stroke))
-        .filter((stroke) => stroke.length > 0)
-      const allPoints = normalizedStrokes.flat()
-      if (allPoints.length === 0) return
-
-      const minX = Math.min(...allPoints.map((point) => point.x))
-      const maxX = Math.max(...allPoints.map((point) => point.x))
-      const minY = Math.min(...allPoints.map((point) => point.y))
-      const maxY = Math.max(...allPoints.map((point) => point.y))
-      const padding = Math.max(4, drawingStrokeWidth)
-      const baseX = minX - padding
-      const baseY = minY - padding
-      const width = Math.max(28, maxX - minX + padding * 2)
-      const height = Math.max(28, maxY - minY + padding * 2)
-      const drawingPath = normalizedStrokes
-        .map((stroke) =>
-          stroke.map((point) => `${(point.x - baseX).toFixed(2)},${(point.y - baseY).toFixed(2)}`).join(' '),
-        )
-        .join(' | ')
-
-      const nextFrame: CanvasFrame = {
-        id: `${Date.now()}-${Math.random()}`,
-        kind: 'drawing',
-        drawingPath,
-        drawingStrokeWidth,
-        drawingColor: getCanvasIconColor(drawingStrokeColor),
-        label: 'Tegning',
-        x: Math.max(0, baseX),
-        y: Math.max(-CANVAS_TOP_BUFFER, baseY),
-        width,
-        height,
-        refreshNonce: 0,
-      }
-
-      try {
-        setIsSavingCanvasItem(true)
-        setSyncError(null)
-        const persistedFrame = await persistFrame(nextFrame)
-        setFrames((prev) => [...prev, persistedFrame])
-      } catch (error) {
-        setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre tegning')
-      } finally {
-        setIsSavingCanvasItem(false)
-      }
-    },
-    [drawingStrokeColor, drawingStrokeWidth, persistFrame],
-  )
-
-  const handleCompleteDrawing = useCallback(async () => {
-    const completedStrokes = [
-      ...drawingDraftStrokesRef.current,
-      ...(activeDrawingPointsRef.current?.length ? [activeDrawingPointsRef.current] : []),
-    ]
-    if (completedStrokes.length > 0) {
-      await handleFinalizeDrawing(completedStrokes)
-    }
-    setActiveDrawingPoints(null)
-    setDrawingDraftStrokes([])
-    setIsDrawingMode(false)
-  }, [handleFinalizeDrawing])
-
-  const handleExitDrawingMode = useCallback(() => {
-    setActiveDrawingPoints(null)
-    setDrawingDraftStrokes([])
-    setIsDrawingMode(false)
-  }, [])
-
-  const handleUndoDrawingStroke = useCallback(() => {
-    if (activeDrawingPointsRef.current?.length) {
-      setActiveDrawingPoints(null)
-      return
-    }
-    setDrawingDraftStrokes((current) => current.slice(0, -1))
-  }, [])
-
-  useEffect(() => {
-    if (!isDrawingMode) return
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      const isUndoShortcut = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !event.shiftKey
-      if (isUndoShortcut) {
-        event.preventDefault()
-        handleUndoDrawingStroke()
-        return
-      }
-      if (event.key !== 'Escape') return
-      if (activeDrawingPointsRef.current?.length) {
-        setActiveDrawingPoints(null)
-        return
-      }
-      if (drawingDraftStrokesRef.current.length > 0) {
-        setDrawingDraftStrokes([])
-        return
-      }
-      handleExitDrawingMode()
-    }
-
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [handleExitDrawingMode, handleUndoDrawingStroke, isDrawingMode])
-
-  useEffect(() => {
-    if (!isDrawingMode || !activeDrawingPoints) return
-
-    const onMouseMove = (event: MouseEvent) => {
-      const pointer = getCanvasPointerPosition(event.clientX, event.clientY)
-      if (!pointer) return
-
-      setActiveDrawingPoints((current) => {
-        if (!current || current.length === 0) return current
-        const lastPoint = current[current.length - 1]
-        if (!lastPoint) return current
-        const deltaX = pointer.x - lastPoint.x
-        const deltaY = pointer.y - lastPoint.y
-        if (Math.hypot(deltaX, deltaY) < 1) return current
-        return [...current, pointer]
-      })
-    }
-
-    const onMouseUp = () => {
-      const points = activeDrawingPointsRef.current
-      setActiveDrawingPoints(null)
-      if (points?.length) {
-        setDrawingDraftStrokes((current) => [...current, points])
-      }
-    }
-
-    window.addEventListener('mousemove', onMouseMove)
-    window.addEventListener('mouseup', onMouseUp)
-    return () => {
-      window.removeEventListener('mousemove', onMouseMove)
-      window.removeEventListener('mouseup', onMouseUp)
-    }
-  }, [activeDrawingPoints, getCanvasPointerPosition, isDrawingMode])
-
-  useEffect(() => {
-    if (isDrawingMode) return
-    if (activeDrawingPoints) {
-      setActiveDrawingPoints(null)
-    }
-    if (drawingDraftStrokes.length > 0) {
-      setDrawingDraftStrokes([])
-    }
-  }, [activeDrawingPoints, drawingDraftStrokes, isDrawingMode])
 
   const loadChartOptions = useCallback(async () => {
     if (!canPersistToDashboard || projectId === null || dashboardId === null) {
@@ -5108,9 +5028,7 @@ const Canvas = () => {
 
   const handleOpenAddDrawing = () => {
     cancelPendingFramePlacement()
-    setActiveDrawingPoints(null)
-    setDrawingDraftStrokes([])
-    setIsDrawingMode(true)
+    openDrawingMode()
   }
 
   useEffect(() => {
@@ -5276,77 +5194,19 @@ const Canvas = () => {
               </div>
             )}
             {isDrawingMode && (
-              <div
-                className="absolute left-1/2 z-[110] -translate-x-1/2 rounded-xl border border-[var(--ax-border-accent)] bg-[var(--ax-bg-default)] px-3 py-2 shadow-lg"
-                style={{ top: `${canvasCanvasTopOffset + 20}px` }}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-[var(--ax-text-default)]">
-                    Tegnemodus: tegn flere strøk og velg Ferdig
-                  </span>
-                  <div className="flex items-center gap-1">
-                    {CANVAS_ICON_COLOR_OPTIONS.map((colorOption) => {
-                      const isSelected = drawingStrokeColor === colorOption.value
-                      return (
-                        <button
-                          key={colorOption.id}
-                          type="button"
-                          onClick={() => setDrawingStrokeColor(colorOption.value)}
-                          className={`h-6 w-6 rounded-full border-2 ${
-                            isSelected ? 'border-[var(--ax-border-accent)]' : 'border-[var(--ax-border-neutral-subtle)]'
-                          }`}
-                          aria-label={`Velg farge ${colorOption.label}`}
-                          title={colorOption.label}
-                        >
-                          <span
-                            aria-hidden="true"
-                            className="block h-full w-full rounded-full border border-black/10"
-                            style={{ backgroundColor: colorOption.value }}
-                          />
-                        </button>
-                      )
-                    })}
-                  </div>
-                  <label className="flex items-center gap-1 text-xs text-[var(--ax-text-subtle)]">
-                    <span>Tykkelse</span>
-                    <select
-                      value={String(drawingStrokeWidth)}
-                      onChange={(event) => setDrawingStrokeWidth(Number(event.target.value))}
-                      className="rounded border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-2 py-1 text-sm text-[var(--ax-text-default)]"
-                    >
-                      {DRAWING_STROKE_WIDTH_OPTIONS.map((strokeWidth) => (
-                        <option key={strokeWidth} value={String(strokeWidth)}>
-                          {strokeWidth}px
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <Button size="xsmall" onClick={() => void handleCompleteDrawing()}>
-                    Ferdig
-                  </Button>
-                  <Button
-                    size="xsmall"
-                    variant="secondary"
-                    onClick={() => {
-                      setActiveDrawingPoints(null)
-                      setDrawingDraftStrokes([])
-                    }}
-                  >
-                    Tom
-                  </Button>
-                  <Button
-                    size="xsmall"
-                    variant="secondary"
-                    onClick={handleUndoDrawingStroke}
-                    disabled={drawingDraftStrokes.length === 0 && !activeDrawingPoints?.length}
-                  >
-                    Angre
-                  </Button>
-                  <Button size="xsmall" variant="secondary" onClick={handleExitDrawingMode}>
-                    Avbryt
-                  </Button>
-                </div>
-              </div>
+              <CanvasDrawingToolbar
+                topOffsetPx={canvasCanvasTopOffset + 20}
+                colorOptions={CANVAS_ICON_COLOR_OPTIONS}
+                strokeWidthOptions={DRAWING_STROKE_WIDTH_OPTIONS}
+                drawingStrokeColor={drawingStrokeColor}
+                drawingStrokeWidth={drawingStrokeWidth}
+                hasAnyStroke={drawingDraftStrokes.length > 0 || Boolean(activeDrawingStroke?.points.length)}
+                onStrokeColorChange={setDrawingStrokeColor}
+                onStrokeWidthChange={setDrawingStrokeWidth}
+                onComplete={handleCompleteDrawing}
+                onUndo={handleUndoDrawingStroke}
+                onCancel={handleExitDrawingMode}
+              />
             )}
             <div
               className="relative"
@@ -5470,31 +5330,10 @@ const Canvas = () => {
                     />
                   </svg>
                 )}
-                {(drawingDraftStrokes.length > 0 || (activeDrawingPoints && activeDrawingPoints.length > 0)) && (
-                  <svg className="pointer-events-none absolute inset-0 z-[3] h-full w-full overflow-visible">
-                    {drawingDraftStrokes.map((stroke, index) => (
-                      <polyline
-                        key={`draft-stroke-${index}`}
-                        points={stroke.map((point) => `${point.x},${point.y}`).join(' ')}
-                        fill="none"
-                        stroke={getCanvasIconColor(drawingStrokeColor)}
-                        strokeWidth={drawingStrokeWidth}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    ))}
-                    {activeDrawingPoints && activeDrawingPoints.length > 0 && (
-                      <polyline
-                        points={activeDrawingPoints.map((point) => `${point.x},${point.y}`).join(' ')}
-                        fill="none"
-                        stroke={getCanvasIconColor(drawingStrokeColor)}
-                        strokeWidth={drawingStrokeWidth}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    )}
-                  </svg>
-                )}
+                <CanvasDrawingDraftOverlay
+                  drawingDraftStrokes={drawingDraftStrokes}
+                  activeDrawingStroke={activeDrawingStroke}
+                />
                 {connectionSegmentsWithMetrics.map((segment) => (
                   <Fragment key={segment.id}>
                     <div
@@ -6312,30 +6151,16 @@ const Canvas = () => {
                             (() => {
                               const width = frame.width ?? defaults.width
                               const height = frame.height ?? defaults.height
-                              const strokes = parseDrawingPath(frame.drawingPath)
-                              const strokeColor = getCanvasIconColor(frame.drawingColor)
-                              const strokeWidth = frame.drawingStrokeWidth ?? DEFAULT_DRAWING_STROKE_WIDTH
                               return (
-                                <svg
+                                <CanvasDrawingFrame
                                   width={width}
                                   height={height}
-                                  viewBox={`0 0 ${width} ${height}`}
-                                  className="block h-full w-full"
-                                  aria-label={frame.label}
-                                  role="img"
-                                >
-                                  {strokes.map((stroke, index) => (
-                                    <polyline
-                                      key={`drawing-stroke-${index}`}
-                                      points={stroke.map((point) => `${point.x},${point.y}`).join(' ')}
-                                      fill="none"
-                                      stroke={strokeColor}
-                                      strokeWidth={strokeWidth}
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                    />
-                                  ))}
-                                </svg>
+                                  drawingPath={frame.drawingPath}
+                                  drawingStrokeStyles={frame.drawingStrokeStyles}
+                                  strokeColor={getCanvasIconColor(frame.drawingColor)}
+                                  strokeWidth={frame.drawingStrokeWidth ?? DEFAULT_DRAWING_STROKE_WIDTH}
+                                  label={frame.label}
+                                />
                               )
                             })()
                           ) : frame.kind === 'heading' ? (
