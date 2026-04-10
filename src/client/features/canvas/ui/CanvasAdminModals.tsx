@@ -1,5 +1,5 @@
-import { Alert, Button, Modal, Select, TextField } from '@navikt/ds-react'
-import { Fragment, useState } from 'react'
+import { Alert, Button, Checkbox, Modal, Pagination, Select, Table, TextField } from '@navikt/ds-react'
+import { useState } from 'react'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import type { GraphCategoryDto } from '../../oversikt/model/types.ts'
 import type { Website } from '../../../shared/types/website.ts'
@@ -89,16 +89,25 @@ const CanvasAdminModals = ({
   onDeleteInventoryType,
   onSelectInventoryFrames,
 }: CanvasAdminModalsProps) => {
-  const [expandedInventoryTypeKeys, setExpandedInventoryTypeKeys] = useState<string[]>([])
+  const INVENTORY_PAGE_SIZE = 20
+  const [selectedInventoryFrameIdsByType, setSelectedInventoryFrameIdsByType] = useState<Record<string, string[]>>({})
+  const [inventoryPageByType, setInventoryPageByType] = useState<Record<string, number>>({})
+
   const closeInventory = () => {
-    setExpandedInventoryTypeKeys([])
+    setSelectedInventoryFrameIdsByType({})
+    setInventoryPageByType({})
     onCloseInventory()
   }
 
-  const toggleExpandedInventoryType = (key: string) => {
-    setExpandedInventoryTypeKeys((current) =>
-      current.includes(key) ? current.filter((item) => item !== key) : [...current, key],
-    )
+  const toggleSelectedInventoryFrame = (typeKey: string, frameId: string, checked: boolean) => {
+    setSelectedInventoryFrameIdsByType((current) => {
+      const currentFrameIds = current[typeKey] ?? []
+      if (checked) {
+        if (currentFrameIds.includes(frameId)) return current
+        return { ...current, [typeKey]: [...currentFrameIds, frameId] }
+      }
+      return { ...current, [typeKey]: currentFrameIds.filter((id) => id !== frameId) }
+    })
   }
 
   return (
@@ -230,90 +239,136 @@ const CanvasAdminModals = ({
               <strong>{inventoryItems.reduce((total, item) => total + item.count, 0)}</strong>
             </p>
             <div className="overflow-auto rounded-md border border-[var(--ax-border-neutral-subtle)]">
-              <table className="w-full border-collapse text-sm">
-                <thead className="bg-[var(--ax-bg-neutral-soft)] text-left">
-                  <tr>
-                    <th className="px-3 py-2 font-semibold">Type</th>
-                    <th className="px-3 py-2 text-right font-semibold">Antall</th>
-                    <th className="px-3 py-2 text-right font-semibold">Handlinger</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <Table size="small">
+                <Table.Header>
+                  <Table.Row>
+                    <Table.HeaderCell />
+                    <Table.HeaderCell scope="col">Type</Table.HeaderCell>
+                    <Table.HeaderCell scope="col" align="right">
+                      Antall
+                    </Table.HeaderCell>
+                    <Table.HeaderCell scope="col" align="right">
+                      Handlinger
+                    </Table.HeaderCell>
+                  </Table.Row>
+                </Table.Header>
+                <Table.Body>
                   {inventoryItems.map((item) => {
-                    const isExpanded = expandedInventoryTypeKeys.includes(item.key)
+                    const selectedFrameIds = selectedInventoryFrameIdsByType[item.key] ?? []
+                    const selectedFrameIdSet = new Set(selectedFrameIds)
+                    const selectedCount = item.frames.filter((frame) => selectedFrameIdSet.has(frame.id)).length
+                    const totalPages = Math.max(1, Math.ceil(item.frames.length / INVENTORY_PAGE_SIZE))
+                    const requestedPage = inventoryPageByType[item.key] ?? 1
+                    const currentPage = Math.min(requestedPage, totalPages)
+                    const startIndex = (currentPage - 1) * INVENTORY_PAGE_SIZE
+                    const paginatedFrames = item.frames.slice(startIndex, startIndex + INVENTORY_PAGE_SIZE)
+                    const fromRow = item.frames.length === 0 ? 0 : startIndex + 1
+                    const toRow = Math.min(startIndex + INVENTORY_PAGE_SIZE, item.frames.length)
+
                     return (
-                      <Fragment key={item.key}>
-                        <tr className="border-t border-[var(--ax-border-neutral-subtle)] align-top">
-                          <td className="px-3 py-2 font-medium text-[var(--ax-text-default)]">{item.label}</td>
-                          <td className="px-3 py-2 text-right text-[var(--ax-text-default)]">{item.count}</td>
-                          <td className="px-3 py-2">
-                            <div className="flex justify-end gap-2">
+                      <Table.ExpandableRow
+                        key={item.key}
+                        togglePlacement="left"
+                        content={
+                          <div className="space-y-2 bg-[var(--ax-bg-neutral-soft)]">
+                            <div className="flex flex-wrap justify-end gap-2">
                               <Button
                                 variant="secondary"
                                 size="xsmall"
-                                disabled={item.count === 0}
-                                onClick={() => toggleExpandedInventoryType(item.key)}
+                                disabled={selectedCount === 0}
+                                onClick={() => onSelectInventoryFrames(selectedFrameIds)}
                               >
-                                {isExpanded ? 'Skjul' : 'Vis'}
-                              </Button>
-                              <Button
-                                variant="secondary"
-                                size="xsmall"
-                                disabled={item.count === 0}
-                                onClick={() => onSelectInventoryFrames(item.frameIds)}
-                              >
-                                Velg alle
-                              </Button>
-                              <Button
-                                variant="danger"
-                                size="xsmall"
-                                disabled={item.count === 0 || isSavingCanvasItem}
-                                onClick={() =>
-                                  onDeleteInventoryType({
-                                    label: item.label,
-                                    count: item.count,
-                                    frameIds: item.frameIds,
-                                  })
-                                }
-                              >
-                                Slett alle
+                                Velg markerte {selectedCount > 0 ? `(${selectedCount})` : ''}
                               </Button>
                             </div>
-                          </td>
-                        </tr>
-                        {isExpanded && (
-                          <tr className="border-t border-[var(--ax-border-neutral-subtle)]">
-                            <td colSpan={3} className="bg-[var(--ax-bg-neutral-soft)] px-3 py-2">
+                            <div className="overflow-auto rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)]">
                               {item.frames.length === 0 ? (
-                                <div className="text-xs text-[var(--ax-text-subtle)]">
+                                <div className="px-3 py-2 text-xs text-[var(--ax-text-subtle)]">
                                   Ingen elementer av denne typen.
                                 </div>
                               ) : (
-                                <div className="space-y-1">
-                                  {item.frames.map((frame) => (
-                                    <div key={frame.id} className="flex items-center justify-between gap-2 text-xs">
-                                      <span className="truncate text-[var(--ax-text-default)]">
-                                        {frame.label || frame.id}
-                                      </span>
-                                      <Button
-                                        variant="tertiary"
-                                        size="xsmall"
-                                        onClick={() => onSelectInventoryFrames([frame.id])}
-                                      >
-                                        Velg
-                                      </Button>
+                                <div className="space-y-2">
+                                  <div className="px-3 pt-2 text-xs text-[var(--ax-text-subtle)]">
+                                    Viser {fromRow}-{toRow} av {item.frames.length}
+                                  </div>
+                                  <Table size="small">
+                                    <Table.Header>
+                                      <Table.Row>
+                                        <Table.HeaderCell scope="col" className="w-20">
+                                          Velg
+                                        </Table.HeaderCell>
+                                        <Table.HeaderCell scope="col">Element</Table.HeaderCell>
+                                      </Table.Row>
+                                    </Table.Header>
+                                    <Table.Body>
+                                      {paginatedFrames.map((frame) => (
+                                        <Table.Row key={frame.id}>
+                                          <Table.DataCell>
+                                            <Checkbox
+                                              size="small"
+                                              hideLabel
+                                              checked={selectedFrameIdSet.has(frame.id)}
+                                              onChange={(event) =>
+                                                toggleSelectedInventoryFrame(item.key, frame.id, event.target.checked)
+                                              }
+                                            >
+                                              Velg {frame.label || frame.id}
+                                            </Checkbox>
+                                          </Table.DataCell>
+                                          <Table.HeaderCell scope="row" className="min-w-0">
+                                            <div className="min-w-0">
+                                              <div className="truncate text-sm text-[var(--ax-text-default)]">
+                                                {frame.label || item.label}
+                                              </div>
+                                            </div>
+                                          </Table.HeaderCell>
+                                        </Table.Row>
+                                      ))}
+                                    </Table.Body>
+                                  </Table>
+                                  {totalPages > 1 && (
+                                    <div className="flex justify-end px-2 pb-2">
+                                      <Pagination
+                                        page={currentPage}
+                                        onPageChange={(page) =>
+                                          setInventoryPageByType((current) => ({ ...current, [item.key]: page }))
+                                        }
+                                        count={totalPages}
+                                        size="small"
+                                      />
                                     </div>
-                                  ))}
+                                  )}
                                 </div>
                               )}
-                            </td>
-                          </tr>
-                        )}
-                      </Fragment>
+                            </div>
+                          </div>
+                        }
+                      >
+                        <Table.HeaderCell scope="row">{item.label}</Table.HeaderCell>
+                        <Table.DataCell align="right">{item.count}</Table.DataCell>
+                        <Table.DataCell align="right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="danger"
+                              size="xsmall"
+                              disabled={item.count === 0 || isSavingCanvasItem}
+                              onClick={() =>
+                                onDeleteInventoryType({
+                                  label: item.label,
+                                  count: item.count,
+                                  frameIds: item.frameIds,
+                                })
+                              }
+                            >
+                              Slett alle
+                            </Button>
+                          </div>
+                        </Table.DataCell>
+                      </Table.ExpandableRow>
                     )
                   })}
-                </tbody>
-              </table>
+                </Table.Body>
+              </Table>
             </div>
           </div>
         </Modal.Body>

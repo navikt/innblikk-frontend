@@ -1120,7 +1120,17 @@ const Canvas = () => {
           frameIds: matchingFrames.map((frame) => frame.id),
           frames: matchingFrames.map((frame) => ({
             id: frame.id,
-            label: frame.label || `${option.label} ${frame.id}`,
+            label: (() => {
+              const normalizedLabel = frame.label.trim()
+              const fallbackLabel = normalizedLabel || `${option.label} ${frame.id}`
+              if (frame.kind === 'heading') {
+                return frame.headingText?.trim() || fallbackLabel
+              }
+              if (frame.kind === 'text' || frame.kind === 'sticky') {
+                return frame.textContent?.trim() || fallbackLabel
+              }
+              return fallbackLabel
+            })(),
           })),
         }
       }),
