@@ -9,6 +9,7 @@ import {
   Modal,
   Select,
   Switch,
+  Table,
   TextField,
   Textarea,
 } from '@navikt/ds-react'
@@ -90,6 +91,8 @@ import { useLocation } from 'react-router-dom'
 
 type CanvasChartType = 'line' | 'bar' | 'pie' | 'table'
 type CanvasFigureType = 'rectangle' | 'circle' | 'line' | 'arrow'
+type CanvasCsvImportStyle = 'sticky' | 'table'
+type CanvasCsvTableMode = 'rows' | 'summary'
 type CanvasPayloadKind =
   | 'website'
   | 'image'
@@ -122,6 +125,8 @@ type CanvasFrame = {
   headingText?: string
   headingFontSize?: number
   textContent?: string
+  tableHeaders?: string[]
+  tableRows?: string[][]
   iconName?: string
   iconRotationDeg?: number
   iconColor?: string
@@ -225,6 +230,8 @@ type CanvasConfigPayload = {
   headingText?: string
   headingFontSize?: number
   textContent?: string
+  tableHeaders?: string[]
+  tableRows?: string[][]
   iconName?: string
   iconRotationDeg?: number
   iconColor?: string
@@ -259,6 +266,9 @@ type PendingCanvasFrameDraft = Omit<CanvasFrame, 'id' | 'x' | 'y' | 'categoryId'
 type PendingCsvStickyImport = {
   sectionTitle: string
   noteTexts: string[]
+  aggregatedRatingsText?: string
+  tableHeaders?: string[]
+  tableRows?: string[][]
 }
 
 const CANVAS_DASHBOARD_TOKEN = '[canvas]'
@@ -297,6 +307,14 @@ const CANVAS_INVENTORY_DETAIL_LIMIT_PER_TYPE = 500
 const CLICKMAP_EVENTS = ['navigere', 'accordion åpnet']
 const DRAWING_STROKE_WIDTH_OPTIONS = [6, 10, 14]
 const DEFAULT_DRAWING_STROKE_WIDTH = 10
+const IMPORT_TABLE_PREVIEW_ROWS_PER_PAGE = 8
+const CANVAS_TABLE_ROWS_PER_PAGE = 10
+const TABLE_FRAME_MIN_HEIGHT = 180
+const TABLE_FRAME_MAX_HEIGHT = 520
+const TABLE_FRAME_HEADER_HEIGHT = 42
+const TABLE_FRAME_ROW_HEIGHT = 44
+const TABLE_FRAME_VERTICAL_CHROME = 28
+const TABLE_FRAME_PAGINATION_HEIGHT = 32
 const PLANNER_COLUMN_LABEL_PREFIX = 'planner-column:'
 const CARD_ACTION_BUTTON_CLASSNAME =
   'pointer-events-auto bg-[var(--ax-bg-default)]/95 shadow-sm opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100'
@@ -624,6 +642,8 @@ const parseCanvasConfig = (raw: string): CanvasConfigPayload | null => {
       headingText: typeof parsed.headingText === 'string' ? parsed.headingText : undefined,
       headingFontSize: Number.isFinite(parsed.headingFontSize) ? Number(parsed.headingFontSize) : undefined,
       textContent: typeof parsed.textContent === 'string' ? parsed.textContent : undefined,
+      tableHeaders: isStringArray(parsed.tableHeaders) ? parsed.tableHeaders : undefined,
+      tableRows: isStringMatrix(parsed.tableRows) ? parsed.tableRows : undefined,
       iconName: typeof parsed.iconName === 'string' ? parsed.iconName : undefined,
       iconRotationDeg: Number.isFinite(parsed.iconRotationDeg) ? Number(parsed.iconRotationDeg) : undefined,
       iconColor: typeof parsed.iconColor === 'string' ? parsed.iconColor : undefined,
@@ -658,6 +678,27 @@ type CanvasChartReadyMessage = {
 }
 
 type CanvasCsvImportRow = Record<string, string>
+
+type CanvasRatingDistributionItem = {
+  value: number
+  count: number
+  percentage: number
+}
+
+type CanvasNumericRatingSummary = {
+  count: number
+  average: number
+  median: number
+  min: number
+  max: number
+  distribution: CanvasRatingDistributionItem[]
+}
+
+type CanvasCategoricalSummaryRow = {
+  value: string
+  count: number
+  percentage: number
+}
 
 const parseDelimitedCsvMatrix = (input: string, delimiter: string): string[][] => {
   const normalized = input.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n')
@@ -752,6 +793,115 @@ const parseCsvImportText = (input: string): { headers: string[]; rows: CanvasCsv
     .filter((row) => headers.some((header) => row[header]?.trim()))
 
   return { headers, rows }
+}
+
+const summarizeCategoricalValues = (inputs: string[]): CanvasCategoricalSummaryRow[] => {
+  if (inputs.length === 0) return []
+
+  const grouped = new Map<string, number>()
+  inputs.forEach((value) => {
+    grouped.set(value, (grouped.get(value) ?? 0) + 1)
+  })
+
+  const total = inputs.length
+  return Array.from(grouped.entries())
+    .map(([value, count]) => ({
+      value,
+      count,
+      percentage: (count / total) * 100,
+    }))
+    .sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count
+      return a.value.localeCompare(b.value, 'nb')
+    })
+}
+
+const isStringArray = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((item) => typeof item === 'string')
+
+const isStringMatrix = (value: unknown): value is string[][] =>
+  Array.isArray(value) && value.every((row) => isStringArray(row))
+
+const parseRatingValue = (input: string): number | null => {
+  const normalized = input.trim().replace(',', '.')
+  if (!normalized) return null
+  if (!/^-?\d+(?:\.\d+)?$/.test(normalized)) return null
+  const parsed = Number.parseFloat(normalized)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+const formatRatingValue = (value: number): string =>
+  Number.isInteger(value) ? value.toString() : value.toLocaleString('nb-NO', { maximumFractionDigits: 2 })
+
+const summarizeNumericRatings = (inputs: string[]): CanvasNumericRatingSummary | null => {
+  if (inputs.length === 0) return null
+  const numericValues = inputs.map((value) => parseRatingValue(value))
+  if (numericValues.some((value) => value === null)) return null
+
+  const values = numericValues.filter((value): value is number => value !== null)
+  if (values.length === 0) return null
+
+  const sortedValues = [...values].sort((a, b) => a - b)
+  const total = values.length
+  const sum = values.reduce((accumulator, value) => accumulator + value, 0)
+  const middleIndex = Math.floor(total / 2)
+  const median =
+    total % 2 === 0 ? (sortedValues[middleIndex - 1] + sortedValues[middleIndex]) / 2 : sortedValues[middleIndex] || 0
+
+  const distributionMap = new Map<number, number>()
+  values.forEach((value) => {
+    distributionMap.set(value, (distributionMap.get(value) ?? 0) + 1)
+  })
+
+  const distribution: CanvasRatingDistributionItem[] = Array.from(distributionMap.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([value, count]) => ({
+      value,
+      count,
+      percentage: (count / total) * 100,
+    }))
+
+  return {
+    count: total,
+    average: sum / total,
+    median,
+    min: sortedValues[0] || 0,
+    max: sortedValues[sortedValues.length - 1] || 0,
+    distribution,
+  }
+}
+
+const buildNumericRatingSummaryText = (summary: CanvasNumericRatingSummary): string => {
+  const lines = [
+    `Antall svar: ${summary.count.toLocaleString('nb-NO')}`,
+    `Snitt: ${summary.average.toLocaleString('nb-NO', { maximumFractionDigits: 2 })}`,
+    `Median: ${summary.median.toLocaleString('nb-NO', { maximumFractionDigits: 2 })}`,
+    `Min/maks: ${formatRatingValue(summary.min)} - ${formatRatingValue(summary.max)}`,
+    '',
+    'Fordeling:',
+    ...summary.distribution.map(
+      (item) =>
+        `${formatRatingValue(item.value)}: ${item.count.toLocaleString('nb-NO')} svar (${item.percentage.toLocaleString(
+          'nb-NO',
+          {
+            maximumFractionDigits: 1,
+          },
+        )} %)`,
+    ),
+  ]
+  return lines.join('\n')
+}
+
+const estimateTableFrameHeight = (rowCount: number): number => {
+  const visibleRows = Math.max(1, Math.min(CANVAS_TABLE_ROWS_PER_PAGE, rowCount))
+  const includesPagination = rowCount > CANVAS_TABLE_ROWS_PER_PAGE
+  const estimatedHeight =
+    TABLE_FRAME_HEADER_HEIGHT +
+    visibleRows * TABLE_FRAME_ROW_HEIGHT +
+    TABLE_FRAME_VERTICAL_CHROME +
+    (includesPagination ? TABLE_FRAME_PAGINATION_HEIGHT : 0)
+
+  return Math.max(TABLE_FRAME_MIN_HEIGHT, Math.min(TABLE_FRAME_MAX_HEIGHT, estimatedHeight))
 }
 
 const parseDrawingPath = (rawPath?: string): CanvasDrawingPoint[][] => {
@@ -895,9 +1045,13 @@ const Canvas = () => {
   const [importStickyCsvHeaders, setImportStickyCsvHeaders] = useState<string[]>([])
   const [importStickyCsvRows, setImportStickyCsvRows] = useState<CanvasCsvImportRow[]>([])
   const [importStickyContentColumn, setImportStickyContentColumn] = useState('')
+  const [importStickyStyle, setImportStickyStyle] = useState<CanvasCsvImportStyle>('sticky')
+  const [importStickyTableMode, setImportStickyTableMode] = useState<CanvasCsvTableMode>('rows')
+  const [importStickyTablePreviewPage, setImportStickyTablePreviewPage] = useState(1)
   const [importStickySectionTitle, setImportStickySectionTitle] = useState('')
   const [importStickyExcludedRowIndexes, setImportStickyExcludedRowIndexes] = useState<number[]>([])
   const [importStickyCsvError, setImportStickyCsvError] = useState<string | null>(null)
+  const [frameTablePages, setFrameTablePages] = useState<Record<string, number>>({})
   const [selectedIconId, setSelectedIconId] = useState(DEFAULT_CANVAS_ICON_ID)
   const [selectedIconColor, setSelectedIconColor] = useState(DEFAULT_CANVAS_ICON_COLOR)
   const [addIconError, setAddIconError] = useState<string | null>(null)
@@ -1194,6 +1348,57 @@ const Canvas = () => {
         : [],
     [importStickyContentColumn, importStickyCsvRows, importStickyExcludedRowIndexes],
   )
+
+  const importStickyNumericSummary = useMemo(
+    () => summarizeNumericRatings(importStickyPreviewNotes.map((item) => item.text)),
+    [importStickyPreviewNotes],
+  )
+
+  const canChooseNonNumericImportStyle = importStickyPreviewNotes.length > 0 && !importStickyNumericSummary
+  const shouldImportStickyAsAggregated = Boolean(importStickyNumericSummary)
+  const importStickyCategoricalSummaryRows = useMemo(
+    () => summarizeCategoricalValues(importStickyPreviewNotes.map((item) => item.text)),
+    [importStickyPreviewNotes],
+  )
+  const importStickyNumericSummaryRows = useMemo(
+    () =>
+      importStickyNumericSummary
+        ? importStickyNumericSummary.distribution.map((item) => ({
+            value: formatRatingValue(item.value),
+            count: item.count,
+            percentage: item.percentage,
+          }))
+        : [],
+    [importStickyNumericSummary],
+  )
+  const importStickyTablePreviewPageCount = Math.max(
+    1,
+    Math.ceil(
+      (shouldImportStickyAsAggregated
+        ? importStickyNumericSummaryRows.length
+        : importStickyStyle === 'table' && importStickyTableMode === 'summary'
+          ? importStickyCategoricalSummaryRows.length
+          : importStickyPreviewNotes.length) / IMPORT_TABLE_PREVIEW_ROWS_PER_PAGE,
+    ),
+  )
+  const currentImportStickyTablePreviewPage = Math.min(importStickyTablePreviewPage, importStickyTablePreviewPageCount)
+  const importStickyTablePreviewNoteRows = useMemo(() => {
+    const startIndex = (currentImportStickyTablePreviewPage - 1) * IMPORT_TABLE_PREVIEW_ROWS_PER_PAGE
+    return importStickyPreviewNotes.slice(startIndex, startIndex + IMPORT_TABLE_PREVIEW_ROWS_PER_PAGE)
+  }, [currentImportStickyTablePreviewPage, importStickyPreviewNotes])
+  const importStickyTablePreviewSummaryRows = useMemo(() => {
+    const startIndex = (currentImportStickyTablePreviewPage - 1) * IMPORT_TABLE_PREVIEW_ROWS_PER_PAGE
+    return importStickyCategoricalSummaryRows.slice(startIndex, startIndex + IMPORT_TABLE_PREVIEW_ROWS_PER_PAGE)
+  }, [currentImportStickyTablePreviewPage, importStickyCategoricalSummaryRows])
+  const importStickyTablePreviewNumericSummaryRows = useMemo(() => {
+    const startIndex = (currentImportStickyTablePreviewPage - 1) * IMPORT_TABLE_PREVIEW_ROWS_PER_PAGE
+    return importStickyNumericSummaryRows.slice(startIndex, startIndex + IMPORT_TABLE_PREVIEW_ROWS_PER_PAGE)
+  }, [currentImportStickyTablePreviewPage, importStickyNumericSummaryRows])
+
+  useEffect(() => {
+    if (importStickyTablePreviewPage <= importStickyTablePreviewPageCount) return
+    setImportStickyTablePreviewPage(importStickyTablePreviewPageCount)
+  }, [importStickyTablePreviewPage, importStickyTablePreviewPageCount])
 
   const visualizationWebsiteFrames = useMemo(
     () =>
@@ -1578,6 +1783,8 @@ const Canvas = () => {
         headingText: frame.headingText,
         headingFontSize: frame.headingFontSize,
         textContent: frame.textContent,
+        tableHeaders: frame.tableHeaders,
+        tableRows: frame.tableRows,
         iconName: frame.iconName,
         iconRotationDeg: frame.iconRotationDeg,
         iconColor: frame.iconColor,
@@ -1763,6 +1970,8 @@ const Canvas = () => {
               headingText: parsedConfig.headingText,
               headingFontSize: parsedConfig.headingFontSize,
               textContent: parsedConfig.textContent,
+              tableHeaders: parsedConfig.tableHeaders,
+              tableRows: parsedConfig.tableRows,
               iconName: parsedConfig.iconName,
               iconRotationDeg: parsedConfig.iconRotationDeg,
               iconColor: parsedConfig.iconColor,
@@ -2692,6 +2901,10 @@ const Canvas = () => {
       const stickyStartY = baseY + titleBlockHeight
       const timestampSeed = Date.now()
       const framesToPersist: CanvasFrame[] = []
+      const isTableImport =
+        Array.isArray(pendingCsvStickyImport.tableHeaders) &&
+        pendingCsvStickyImport.tableHeaders.length > 0 &&
+        Array.isArray(pendingCsvStickyImport.tableRows)
 
       if (sectionTitle) {
         framesToPersist.push({
@@ -2708,21 +2921,50 @@ const Canvas = () => {
         })
       }
 
-      pendingCsvStickyImport.noteTexts.forEach((content, rowIndex) => {
-        const columnIndex = rowIndex % cardsPerRow
-        const gridRowIndex = Math.floor(rowIndex / cardsPerRow)
+      if (isTableImport) {
+        const tableRowCount = pendingCsvStickyImport.tableRows?.length ?? 0
         framesToPersist.push({
-          id: `csv-sticky-${timestampSeed}-${rowIndex}`,
-          kind: 'sticky',
-          textContent: content,
-          label: 'Post-it-lapp',
-          x: baseX + columnIndex * (stickyWidth + columnGap),
-          y: stickyStartY + gridRowIndex * (stickyHeight + stickyGap),
-          width: stickyWidth,
-          height: stickyHeight,
+          id: `csv-table-${timestampSeed}`,
+          kind: 'text',
+          tableHeaders: pendingCsvStickyImport.tableHeaders,
+          tableRows: pendingCsvStickyImport.tableRows,
+          label: 'Tabell',
+          x: baseX,
+          y: stickyStartY,
+          width: 700,
+          height: estimateTableFrameHeight(tableRowCount),
           refreshNonce: 0,
         })
-      })
+      } else if (pendingCsvStickyImport.aggregatedRatingsText) {
+        const summaryText = pendingCsvStickyImport.aggregatedRatingsText || ''
+        framesToPersist.push({
+          id: `csv-rating-summary-${timestampSeed}`,
+          kind: 'sticky',
+          textContent: summaryText,
+          label: 'Post-it-lapp',
+          x: baseX,
+          y: stickyStartY,
+          width: stickyWidth,
+          height: 320,
+          refreshNonce: 0,
+        })
+      } else {
+        pendingCsvStickyImport.noteTexts.forEach((content, rowIndex) => {
+          const columnIndex = rowIndex % cardsPerRow
+          const gridRowIndex = Math.floor(rowIndex / cardsPerRow)
+          framesToPersist.push({
+            id: `csv-sticky-${timestampSeed}-${rowIndex}`,
+            kind: 'sticky',
+            textContent: content,
+            label: 'Post-it-lapp',
+            x: baseX + columnIndex * (stickyWidth + columnGap),
+            y: stickyStartY + gridRowIndex * (stickyHeight + stickyGap),
+            width: stickyWidth,
+            height: stickyHeight,
+            refreshNonce: 0,
+          })
+        })
+      }
 
       try {
         isImportingStickyCsvRef.current = true
@@ -4521,6 +4763,9 @@ const Canvas = () => {
       setImportStickyCsvHeaders(parsed.headers)
       setImportStickyCsvRows(parsed.rows)
       setImportStickyExcludedRowIndexes([])
+      setImportStickyStyle('sticky')
+      setImportStickyTableMode('rows')
+      setImportStickyTablePreviewPage(1)
       const resolvedContentColumn =
         importStickyContentColumn && parsed.headers.includes(importStickyContentColumn)
           ? importStickyContentColumn
@@ -4534,6 +4779,9 @@ const Canvas = () => {
       setImportStickyCsvHeaders([])
       setImportStickyCsvRows([])
       setImportStickyContentColumn('')
+      setImportStickyStyle('sticky')
+      setImportStickyTableMode('rows')
+      setImportStickyTablePreviewPage(1)
       setImportStickyExcludedRowIndexes([])
     }
   }
@@ -4544,7 +4792,7 @@ const Canvas = () => {
         ? importStickyContentColumn
         : ''
     if (!contentColumn) {
-      setImportStickyCsvError('Velg kolonnen som skal brukes i Post-it-lappene.')
+      setImportStickyCsvError('Velg kolonnen som skal importeres.')
       return
     }
 
@@ -4559,12 +4807,43 @@ const Canvas = () => {
       return
     }
 
+    const numericSummary = summarizeNumericRatings(noteTexts)
+    const aggregatedRatingsText = numericSummary ? buildNumericRatingSummaryText(numericSummary) : undefined
+    const categoricalSummaryRows = summarizeCategoricalValues(noteTexts)
+    const tableHeaders = numericSummary
+      ? [contentColumn, 'Antall', 'Andel']
+      : importStickyStyle === 'table'
+        ? importStickyTableMode === 'summary'
+          ? [contentColumn, 'Antall', 'Andel']
+          : [contentColumn]
+        : undefined
+    const tableRows = numericSummary
+      ? numericSummary.distribution.map((item) => [
+          formatRatingValue(item.value),
+          item.count.toLocaleString('nb-NO'),
+          `${item.percentage.toLocaleString('nb-NO', { maximumFractionDigits: 1 })} %`,
+        ])
+      : importStickyStyle === 'table'
+        ? importStickyTableMode === 'summary'
+          ? categoricalSummaryRows.map((item) => [
+              item.value,
+              item.count.toLocaleString('nb-NO'),
+              `${item.percentage.toLocaleString('nb-NO', { maximumFractionDigits: 1 })} %`,
+            ])
+          : noteTexts.map((text) => [text])
+        : undefined
+
     setImportStickyCsvError(null)
     setPendingCsvStickyImport({
       sectionTitle: importStickySectionTitle.trim(),
       noteTexts,
+      aggregatedRatingsText,
+      tableHeaders,
+      tableRows,
     })
-    setPendingFramePlacementLabel('CSV-lapper')
+    setPendingFramePlacementLabel(
+      tableHeaders && tableRows ? 'tabell' : aggregatedRatingsText ? 'aggregert vurdering' : 'CSV-lapper',
+    )
     setPendingFramePointer(null)
     setIsImportStickyCsvModalOpen(false)
   }
@@ -4580,6 +4859,9 @@ const Canvas = () => {
     setImportStickyCsvHeaders([])
     setImportStickyCsvRows([])
     setImportStickyContentColumn('')
+    setImportStickyStyle('sticky')
+    setImportStickyTableMode('rows')
+    setImportStickyTablePreviewPage(1)
     setImportStickySectionTitle('')
     setImportStickyExcludedRowIndexes([])
     if (importStickyCsvFileInputRef.current) {
@@ -4730,7 +5012,11 @@ const Canvas = () => {
                 {pendingCsvStickyImport && isImportingStickyCsv ? (
                   <span className="inline-flex items-center gap-2">
                     <Loader size="xsmall" />
-                    Importerer CSV-lapper til canvas...
+                    {pendingCsvStickyImport.tableHeaders && pendingCsvStickyImport.tableRows
+                      ? 'Importerer tabell til canvas...'
+                      : pendingCsvStickyImport.aggregatedRatingsText
+                        ? 'Importerer aggregert vurdering til canvas...'
+                        : 'Importerer CSV-lapper til canvas...'}
                   </span>
                 ) : (
                   <>
@@ -5737,7 +6023,84 @@ const Canvas = () => {
                             </div>
                           ) : frame.kind === 'text' ? (
                             <div className="h-full overflow-auto px-2 pb-2">
-                              {activeEditableFrameId === frame.id ? (
+                              {Array.isArray(frame.tableHeaders) &&
+                              frame.tableHeaders.length > 0 &&
+                              Array.isArray(frame.tableRows) ? (
+                                (() => {
+                                  const totalPages = Math.max(
+                                    1,
+                                    Math.ceil(frame.tableRows.length / CANVAS_TABLE_ROWS_PER_PAGE),
+                                  )
+                                  const currentPage = Math.min(frameTablePages[frame.id] ?? 1, totalPages)
+                                  const pageStart = (currentPage - 1) * CANVAS_TABLE_ROWS_PER_PAGE
+                                  const visibleRows = frame.tableRows.slice(
+                                    pageStart,
+                                    pageStart + CANVAS_TABLE_ROWS_PER_PAGE,
+                                  )
+
+                                  return (
+                                    <div className="space-y-2" onMouseDown={(event) => event.stopPropagation()}>
+                                      <Table size="small" zebraStripes className="w-full">
+                                        <Table.Header>
+                                          <Table.Row>
+                                            {frame.tableHeaders.map((header, headerIndex) => (
+                                              <Table.HeaderCell key={`canvas-table-header-${frame.id}-${headerIndex}`}>
+                                                {header}
+                                              </Table.HeaderCell>
+                                            ))}
+                                          </Table.Row>
+                                        </Table.Header>
+                                        <Table.Body>
+                                          {visibleRows.map((row, rowIndex) => (
+                                            <Table.Row key={`canvas-table-row-${frame.id}-${pageStart + rowIndex}`}>
+                                              {frame.tableHeaders.map((_, columnIndex) => (
+                                                <Table.DataCell
+                                                  key={`canvas-table-cell-${frame.id}-${pageStart + rowIndex}-${columnIndex}`}
+                                                >
+                                                  {row[columnIndex] || ''}
+                                                </Table.DataCell>
+                                              ))}
+                                            </Table.Row>
+                                          ))}
+                                        </Table.Body>
+                                      </Table>
+                                      {totalPages > 1 && (
+                                        <div className="flex items-center justify-end gap-2">
+                                          <Button
+                                            size="xsmall"
+                                            variant="tertiary"
+                                            disabled={currentPage <= 1}
+                                            onClick={() =>
+                                              setFrameTablePages((current) => ({
+                                                ...current,
+                                                [frame.id]: Math.max(1, (current[frame.id] ?? 1) - 1),
+                                              }))
+                                            }
+                                          >
+                                            Forrige
+                                          </Button>
+                                          <span className="text-xs text-[var(--ax-text-subtle)]">
+                                            Side {currentPage} av {totalPages}
+                                          </span>
+                                          <Button
+                                            size="xsmall"
+                                            variant="tertiary"
+                                            disabled={currentPage >= totalPages}
+                                            onClick={() =>
+                                              setFrameTablePages((current) => ({
+                                                ...current,
+                                                [frame.id]: Math.min(totalPages, (current[frame.id] ?? 1) + 1),
+                                              }))
+                                            }
+                                          >
+                                            Neste
+                                          </Button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )
+                                })()
+                              ) : activeEditableFrameId === frame.id ? (
                                 <textarea
                                   value={frame.textContent || ''}
                                   onChange={(event) => handleEditableFrameChange(frame.id, event.target.value)}
@@ -6987,6 +7350,9 @@ const Canvas = () => {
                         setImportStickyCsvHeaders([])
                         setImportStickyCsvRows([])
                         setImportStickyContentColumn('')
+                        setImportStickyStyle('sticky')
+                        setImportStickyTableMode('rows')
+                        setImportStickyTablePreviewPage(1)
                         setImportStickySectionTitle('')
                         setImportStickyExcludedRowIndexes([])
                         setImportStickyCsvError(null)
@@ -7007,28 +7373,67 @@ const Canvas = () => {
               </div>
 
               {importStickyCsvHeaders.length > 0 && (
-                <Select
-                  label="Velg kolonne"
-                  value={importStickyContentColumn}
-                  onChange={(event) => {
-                    const nextColumn = event.target.value
-                    setImportStickyContentColumn(nextColumn)
-                    setImportStickySectionTitle(nextColumn)
-                    setImportStickyExcludedRowIndexes([])
-                    if (importStickyCsvError) setImportStickyCsvError(null)
-                  }}
-                >
-                  <option value="" disabled>
-                    Velg kolonne
-                  </option>
-                  {importStickyCsvHeaders.map((header) => (
-                    <option key={header} value={header}>
-                      {header}
+                <div className="space-y-3">
+                  <Select
+                    label="Velg kolonne"
+                    value={importStickyContentColumn}
+                    onChange={(event) => {
+                      const nextColumn = event.target.value
+                      setImportStickyContentColumn(nextColumn)
+                      setImportStickySectionTitle(nextColumn)
+                      setImportStickyExcludedRowIndexes([])
+                      setImportStickyTableMode('rows')
+                      setImportStickyTablePreviewPage(1)
+                      if (importStickyCsvError) setImportStickyCsvError(null)
+                    }}
+                  >
+                    <option value="" disabled>
+                      Velg kolonne
                     </option>
-                  ))}
-                </Select>
+                    {importStickyCsvHeaders.map((header) => (
+                      <option key={header} value={header}>
+                        {header}
+                      </option>
+                    ))}
+                  </Select>
+                  {canChooseNonNumericImportStyle && (
+                    <div className="space-y-3">
+                      <Select
+                        label="Importer som"
+                        value={importStickyStyle}
+                        onChange={(event) => {
+                          setImportStickyStyle(event.target.value as CanvasCsvImportStyle)
+                          setImportStickyTableMode('rows')
+                          setImportStickyTablePreviewPage(1)
+                          if (importStickyCsvError) setImportStickyCsvError(null)
+                        }}
+                      >
+                        <option value="sticky">Post-it-lapper</option>
+                        <option value="table">Tabell</option>
+                      </Select>
+                      {importStickyStyle === 'table' && (
+                        <Select
+                          label="Tabellvisning"
+                          value={importStickyTableMode}
+                          onChange={(event) => {
+                            setImportStickyTableMode(event.target.value as CanvasCsvTableMode)
+                            setImportStickyTablePreviewPage(1)
+                          }}
+                        >
+                          <option value="rows">Rader</option>
+                          <option value="summary">Oppsummering</option>
+                        </Select>
+                      )}
+                    </div>
+                  )}
+                </div>
               )}
-              {importStickyCsvFileName && importStickyContentColumn && (
+              {importStickyNumericSummary && (
+                <Alert variant="info" size="small">
+                  Denne kolonnen inneholder bare tall. Importen blir en aggregert vurdering i stedet for Post-it-lapper.
+                </Alert>
+              )}
+              {importStickyCsvFileName && importStickyContentColumn && !shouldImportStickyAsAggregated && (
                 <Alert variant="warning" size="small">
                   <div className="space-y-2">
                     <p className="text-sm font-medium">Gjør en personversjekk før import</p>
@@ -7037,7 +7442,10 @@ const Canvas = () => {
                     </p>
                     <ul className="list-disc space-y-1 pl-5 text-sm">
                       <li>Skann teksten for navn, fødselsnummer, telefonnummer, e-post og adresser.</li>
-                      <li>Bruk forhåndsvisningen til høyre og fjern lapper som inneholder sensitive opplysninger.</li>
+                      <li>
+                        Bruk forhåndsvisningen til høyre og fjern {importStickyStyle === 'table' ? 'rader' : 'lapper'}{' '}
+                        med sensitive opplysninger.
+                      </li>
                     </ul>
                   </div>
                 </Alert>
@@ -7048,37 +7456,135 @@ const Canvas = () => {
             <aside className="rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] p-3">
               <div className="mb-2 text-sm font-semibold text-[var(--ax-text-default)]">Forhåndsvisning</div>
               <div className="mb-2 text-xs text-[var(--ax-text-subtle)]">
-                {importStickySectionTitle || 'Kolonne'} • {importStickyPreviewNotes.length} lapper
+                {importStickyPreviewNotes.length === 0
+                  ? 'Du kan forhåndsvise innholdet her før import.'
+                  : `${importStickySectionTitle || 'Kolonne'} • ${
+                      shouldImportStickyAsAggregated && importStickyNumericSummary
+                        ? `${importStickyNumericSummaryRows.length} verdier (oppsummert)`
+                        : importStickyStyle === 'table'
+                          ? importStickyTableMode === 'summary'
+                            ? `${importStickyCategoricalSummaryRows.length} verdier (oppsummert)`
+                            : `${importStickyPreviewNotes.length} rader (tabell)`
+                          : `${importStickyPreviewNotes.length} lapper`
+                    }`}
               </div>
-              <div className="max-h-[360px] space-y-2 overflow-auto pr-1">
-                {importStickyPreviewNotes.map((note) => (
-                  <div
-                    key={`import-preview-note-${note.rowIndex}`}
-                    className="rounded-md border border-[#e5cd69] bg-[#fff7ca] px-2 py-1.5 text-xs leading-4 text-[#4a3d00]"
-                    title={note.text}
-                  >
-                    <div className="mb-1.5 whitespace-pre-wrap break-words">{note.text}</div>
-                    <div className="flex justify-end">
+              {(shouldImportStickyAsAggregated || importStickyStyle === 'table') && (
+                <div className="space-y-2">
+                  <Table size="small" zebraStripes className="w-full">
+                    <Table.Header>
+                      <Table.Row>
+                        <Table.HeaderCell>{importStickyContentColumn || 'Kolonne'}</Table.HeaderCell>
+                        {shouldImportStickyAsAggregated || importStickyTableMode === 'summary' ? (
+                          <>
+                            <Table.HeaderCell>Antall</Table.HeaderCell>
+                            <Table.HeaderCell>Andel</Table.HeaderCell>
+                          </>
+                        ) : (
+                          <Table.HeaderCell className="w-[76px]">Handling</Table.HeaderCell>
+                        )}
+                      </Table.Row>
+                    </Table.Header>
+                    <Table.Body>
+                      {shouldImportStickyAsAggregated
+                        ? importStickyTablePreviewNumericSummaryRows.map((item) => (
+                            <Table.Row key={`import-preview-numeric-summary-row-${item.value}`}>
+                              <Table.DataCell>{item.value}</Table.DataCell>
+                              <Table.DataCell>{item.count.toLocaleString('nb-NO')}</Table.DataCell>
+                              <Table.DataCell>
+                                {item.percentage.toLocaleString('nb-NO', { maximumFractionDigits: 1 })} %
+                              </Table.DataCell>
+                            </Table.Row>
+                          ))
+                        : importStickyTableMode === 'summary'
+                          ? importStickyTablePreviewSummaryRows.map((item) => (
+                              <Table.Row key={`import-preview-summary-row-${item.value}`}>
+                                <Table.DataCell>{item.value}</Table.DataCell>
+                                <Table.DataCell>{item.count.toLocaleString('nb-NO')}</Table.DataCell>
+                                <Table.DataCell>
+                                  {item.percentage.toLocaleString('nb-NO', { maximumFractionDigits: 1 })} %
+                                </Table.DataCell>
+                              </Table.Row>
+                            ))
+                          : importStickyTablePreviewNoteRows.map((note) => (
+                              <Table.Row key={`import-preview-row-${note.rowIndex}`}>
+                                <Table.DataCell>{note.text}</Table.DataCell>
+                                <Table.DataCell>
+                                  <Button
+                                    size="xsmall"
+                                    variant="tertiary"
+                                    onClick={() =>
+                                      setImportStickyExcludedRowIndexes((current) =>
+                                        current.includes(note.rowIndex) ? current : [...current, note.rowIndex],
+                                      )
+                                    }
+                                  >
+                                    Fjern
+                                  </Button>
+                                </Table.DataCell>
+                              </Table.Row>
+                            ))}
+                    </Table.Body>
+                  </Table>
+                  {importStickyTablePreviewPageCount > 1 && (
+                    <div className="flex items-center justify-end gap-2">
                       <Button
                         size="xsmall"
                         variant="tertiary"
+                        disabled={currentImportStickyTablePreviewPage <= 1}
+                        onClick={() => setImportStickyTablePreviewPage((current) => Math.max(1, current - 1))}
+                      >
+                        Forrige
+                      </Button>
+                      <span className="text-xs text-[var(--ax-text-subtle)]">
+                        Side {currentImportStickyTablePreviewPage} av {importStickyTablePreviewPageCount}
+                      </span>
+                      <Button
+                        size="xsmall"
+                        variant="tertiary"
+                        disabled={currentImportStickyTablePreviewPage >= importStickyTablePreviewPageCount}
                         onClick={() =>
-                          setImportStickyExcludedRowIndexes((current) =>
-                            current.includes(note.rowIndex) ? current : [...current, note.rowIndex],
+                          setImportStickyTablePreviewPage((current) =>
+                            Math.min(importStickyTablePreviewPageCount, current + 1),
                           )
                         }
                       >
-                        Fjern
+                        Neste
                       </Button>
                     </div>
-                  </div>
-                ))}
-                {importStickyPreviewNotes.length === 0 && (
-                  <div className="rounded-md border border-dashed border-[var(--ax-border-neutral-subtle)] p-3 text-xs text-[var(--ax-text-subtle)]">
-                    Velg fil og kolonne for å se lappene før import.
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
+              {!shouldImportStickyAsAggregated && importStickyStyle === 'sticky' && (
+                <div className="max-h-[360px] space-y-2 overflow-auto pr-1">
+                  {importStickyPreviewNotes.map((note) => (
+                    <div
+                      key={`import-preview-note-${note.rowIndex}`}
+                      className="rounded-md border border-[#e5cd69] bg-[#fff7ca] px-2 py-1.5 text-xs leading-4 text-[#4a3d00]"
+                      title={note.text}
+                    >
+                      <div className="mb-1.5 whitespace-pre-wrap break-words">{note.text}</div>
+                      <div className="flex justify-end">
+                        <Button
+                          size="xsmall"
+                          variant="tertiary"
+                          onClick={() =>
+                            setImportStickyExcludedRowIndexes((current) =>
+                              current.includes(note.rowIndex) ? current : [...current, note.rowIndex],
+                            )
+                          }
+                        >
+                          Fjern
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {importStickyPreviewNotes.length === 0 && (
+                <div className="rounded-md border border-dashed border-[var(--ax-border-neutral-subtle)] p-3 text-xs text-[var(--ax-text-subtle)]">
+                  Velg fil og kolonne. Du kan forhåndsvise innholdet før du importerer.
+                </div>
+              )}
             </aside>
           </section>
         </Modal.Body>
