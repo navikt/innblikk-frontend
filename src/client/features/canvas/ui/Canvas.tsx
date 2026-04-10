@@ -293,6 +293,7 @@ const CANVAS_INVENTORY_KIND_OPTIONS: Array<{ kind: CanvasFrame['kind']; label: s
   { kind: 'figure', label: 'Figurer' },
   { kind: 'drawing', label: 'Tegninger' },
 ]
+const CANVAS_INVENTORY_DETAIL_LIMIT_PER_TYPE = 500
 const CLICKMAP_EVENTS = ['navigere', 'accordion åpnet']
 const DRAWING_STROKE_WIDTH_OPTIONS = [6, 10, 14]
 const DEFAULT_DRAWING_STROKE_WIDTH = 10
@@ -1109,33 +1110,51 @@ const Canvas = () => {
     [activeCanvasCategoryId, connections],
   )
 
-  const inventoryItems = useMemo(
-    () =>
-      CANVAS_INVENTORY_KIND_OPTIONS.map((option) => {
-        const matchingFrames = visibleFrames.filter((frame) => frame.kind === option.kind)
-        return {
-          key: option.kind,
-          label: option.label,
-          count: matchingFrames.length,
-          frameIds: matchingFrames.map((frame) => frame.id),
-          frames: matchingFrames.map((frame) => ({
-            id: frame.id,
-            label: (() => {
-              const normalizedLabel = frame.label.trim()
-              const fallbackLabel = normalizedLabel || `${option.label} ${frame.id}`
-              if (frame.kind === 'heading') {
-                return frame.headingText?.trim() || fallbackLabel
-              }
-              if (frame.kind === 'text' || frame.kind === 'sticky') {
-                return frame.textContent?.trim() || fallbackLabel
-              }
-              return fallbackLabel
-            })(),
-          })),
-        }
-      }),
-    [visibleFrames],
-  )
+  const inventoryItems = useMemo(() => {
+    const byKind = new Map<
+      CanvasFrame['kind'],
+      {
+        count: number
+        frames: Array<{ id: string; label: string }>
+      }
+    >()
+
+    for (const option of CANVAS_INVENTORY_KIND_OPTIONS) {
+      byKind.set(option.kind, { count: 0, frames: [] })
+    }
+
+    for (const frame of visibleFrames) {
+      const entry = byKind.get(frame.kind)
+      if (!entry) continue
+      entry.count += 1
+      if (entry.frames.length >= CANVAS_INVENTORY_DETAIL_LIMIT_PER_TYPE) continue
+
+      const fallbackLabel = frame.label.trim() || `${frame.kind} ${frame.id}`
+      let label = fallbackLabel
+      if (frame.kind === 'heading') {
+        label = frame.headingText?.trim() || fallbackLabel
+      } else if (frame.kind === 'text' || frame.kind === 'sticky') {
+        label = frame.textContent?.trim() || fallbackLabel
+      }
+      entry.frames.push({
+        id: frame.id,
+        label,
+      })
+    }
+
+    return CANVAS_INVENTORY_KIND_OPTIONS.map((option) => {
+      const entry = byKind.get(option.kind)
+      const count = entry?.count ?? 0
+      const frames = entry?.frames ?? []
+      return {
+        key: option.kind,
+        label: option.label,
+        count,
+        hasMore: count > frames.length,
+        frames,
+      }
+    })
+  }, [visibleFrames])
 
   const frameItems = useMemo(
     () =>
@@ -4257,14 +4276,18 @@ const Canvas = () => {
     setIsInventoryModalOpen(true)
   }
 
-  const handleDeleteInventoryType = useCallback((params: { label: string; count: number; frameIds: string[] }) => {
-    if (params.frameIds.length === 0) return
-    setDeleteTarget({
-      type: 'frames',
-      ids: params.frameIds,
-      label: `${params.count} ${params.label.toLowerCase()}`,
-    })
-  }, [])
+  const handleDeleteInventoryType = useCallback(
+    (params: { key: string; label: string; count: number }) => {
+      const frameIds = visibleFrames.filter((frame) => frame.kind === params.key).map((frame) => frame.id)
+      if (frameIds.length === 0) return
+      setDeleteTarget({
+        type: 'frames',
+        ids: frameIds,
+        label: `${params.count} ${params.label.toLowerCase()}`,
+      })
+    },
+    [visibleFrames],
+  )
 
   const handleSelectInventoryFrames = useCallback((frameIds: string[]) => {
     setSelectedFrameIds(frameIds)

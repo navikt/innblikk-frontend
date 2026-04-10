@@ -242,6 +242,25 @@ export const useProjectManager = () => {
     [run, loadProjectSummaries],
   )
 
+  const deleteChartsBulk = useCallback(
+    (
+      projectId: number,
+      dashboardId: number,
+      charts: Array<{ categoryId: number; graphId: number }>,
+      successMessage = 'Elementer slettet',
+    ) =>
+      run(async () => {
+        if (charts.length === 0) return 0
+        for (const chart of charts) {
+          await api.deleteGraph(projectId, dashboardId, chart.categoryId, chart.graphId)
+        }
+        await loadProjectSummaries()
+        setMessage(successMessage)
+        return charts.length
+      }),
+    [run, loadProjectSummaries],
+  )
+
   const importChart = useCallback(
     (
       projectId: number,
@@ -747,6 +766,7 @@ export const useProjectManager = () => {
     deleteCategory,
     deleteDashboard,
     deleteChart,
+    deleteChartsBulk,
     editChart,
     importChart,
     copyChart,

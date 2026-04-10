@@ -43,10 +43,10 @@ type CanvasAdminModalsProps = {
     key: string
     label: string
     count: number
-    frameIds: string[]
+    hasMore: boolean
     frames: Array<{ id: string; label: string }>
   }>
-  onDeleteInventoryType: (params: { label: string; count: number; frameIds: string[] }) => void
+  onDeleteInventoryType: (params: { key: string; label: string; count: number }) => void
   onSelectInventoryFrames: (frameIds: string[]) => void
 }
 
@@ -289,7 +289,9 @@ const CanvasAdminModals = ({
                               ) : (
                                 <div className="space-y-2">
                                   <div className="px-3 pt-2 text-xs text-[var(--ax-text-subtle)]">
-                                    Viser {fromRow}-{toRow} av {item.frames.length}
+                                    {item.hasMore
+                                      ? `Viser ${fromRow}-${toRow} av de første ${item.frames.length} elementene (totalt ${item.count}).`
+                                      : `Viser ${fromRow}-${toRow} av ${item.frames.length}`}
                                   </div>
                                   <Table size="small">
                                     <Table.Header>
@@ -354,9 +356,9 @@ const CanvasAdminModals = ({
                               disabled={item.count === 0 || isSavingCanvasItem}
                               onClick={() =>
                                 onDeleteInventoryType({
+                                  key: item.key,
                                   label: item.label,
                                   count: item.count,
-                                  frameIds: item.frameIds,
                                 })
                               }
                             >

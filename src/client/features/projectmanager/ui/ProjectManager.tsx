@@ -78,9 +78,31 @@ type ProjectManagerMoveDashboardSuccessTarget = {
 
 const LAST_PROJECT_STORAGE_KEY = 'projectmanager:lastSelectedProjectId'
 const CANVAS_DASHBOARD_TOKEN = '[canvas]'
+const CANVAS_STORAGE_GRAPH_NAME_REGEX = /^canvas:([^:]+):/i
+const CANVAS_STORAGE_KIND_OPTIONS: Array<{ key: string; label: string }> = [
+  { key: 'website', label: 'Nettsider' },
+  { key: 'image', label: 'Bilder' },
+  { key: 'heading', label: 'Overskrifter' },
+  { key: 'text', label: 'Tekstblokker' },
+  { key: 'sticky', label: 'Post-it-lapper' },
+  { key: 'chart', label: 'Grafer' },
+  { key: 'icon', label: 'Ikoner' },
+  { key: 'figure', label: 'Figurer' },
+  { key: 'drawing', label: 'Tegninger' },
+  { key: 'connection', label: 'Koblinger' },
+  { key: 'unknown', label: 'Ukjente canvas-elementer' },
+]
 
 const isCanvasDashboard = (description?: string): boolean =>
   (description || '').toLowerCase().split(/\s+/).includes(CANVAS_DASHBOARD_TOKEN)
+
+const getCanvasStorageKindFromGraphName = (name: string): string | null => {
+  const match = name.match(CANVAS_STORAGE_GRAPH_NAME_REGEX)
+  const parsedKind = match?.[1]?.toLowerCase()
+  if (!parsedKind) return null
+  const isKnownKind = CANVAS_STORAGE_KIND_OPTIONS.some((item) => item.key === parsedKind && item.key !== 'unknown')
+  return isKnownKind ? parsedKind : 'unknown'
+}
 
 const ProjectManager = () => {
   const navigate = useNavigate()
@@ -104,6 +126,7 @@ const ProjectManager = () => {
     deleteDashboard,
     deleteCategory,
     deleteChart,
+    deleteChartsBulk,
     editChart,
     copyChart,
     moveChart,
@@ -198,6 +221,14 @@ const ProjectManager = () => {
   const [showNoSelectedProjectAlert, setShowNoSelectedProjectAlert] = useState(true)
   const [expandedDashboards, setExpandedDashboards] = useState<Set<number>>(new Set())
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
+  const [canvasInventoryDashboardId, setCanvasInventoryDashboardId] = useState<number | null>(null)
+  const [deleteCanvasElementsTarget, setDeleteCanvasElementsTarget] = useState<{
+    dashboardId: number
+    key: string
+    label: string
+    count: number
+  } | null>(null)
+  const [canvasElementMutationError, setCanvasElementMutationError] = useState<string | null>(null)
   const projectNameInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
@@ -245,6 +276,41 @@ const ProjectManager = () => {
     () => selectedProject?.dashboards.filter((dashboard) => isCanvasDashboard(dashboard.description)) ?? [],
     [selectedProject],
   )
+
+  const selectedCanvasInventoryDashboard = useMemo(
+    () =>
+      canvasInventoryDashboardId && selectedProject
+        ? (selectedProject.dashboards.find((dashboard) => dashboard.id === canvasInventoryDashboardId) ?? null)
+        : null,
+    [canvasInventoryDashboardId, selectedProject],
+  )
+
+  const selectedCanvasInventoryItems = useMemo(() => {
+    if (!selectedCanvasInventoryDashboard) return []
+
+    const refsByKind = new Map<string, Array<{ graphId: number; categoryId: number }>>()
+    for (const option of CANVAS_STORAGE_KIND_OPTIONS) {
+      refsByKind.set(option.key, [])
+    }
+
+    for (const chart of selectedCanvasInventoryDashboard.charts) {
+      const kind = getCanvasStorageKindFromGraphName(chart.name)
+      if (!kind) continue
+      const bucket = refsByKind.get(kind)
+      if (!bucket) continue
+      bucket.push({ graphId: chart.id, categoryId: chart.categoryId })
+    }
+
+    return CANVAS_STORAGE_KIND_OPTIONS.map((option) => {
+      const graphRefs = refsByKind.get(option.key) ?? []
+      return {
+        key: option.key,
+        label: option.label,
+        count: graphRefs.length,
+        graphRefs,
+      }
+    }).filter((item) => item.count > 0)
+  }, [selectedCanvasInventoryDashboard])
 
   const fileRows = useMemo<FileTableRow[]>(() => {
     if (!selectedProject) return []
@@ -440,6 +506,11 @@ const ProjectManager = () => {
     setIsMoveDashboardModalOpen(true)
   }
 
+  const openCanvasInventory = (dashboardId: number) => {
+    setCanvasElementMutationError(null)
+    setCanvasInventoryDashboardId(dashboardId)
+  }
+
   const openCreateDashboard = (defaults?: { name?: string; description?: string }) => {
     setCreateDashboardError(null)
     setIsCreateCanvas(false)
@@ -471,6 +542,28 @@ const ProjectManager = () => {
     }
     await deleteDashboard(deleteDashboardTarget.projectId, deleteDashboardTarget.id)
     setDeleteDashboardTarget(null)
+  }
+
+  const handleDeleteCanvasElements = async () => {
+    if (!selectedProject || !deleteCanvasElementsTarget) return
+    const inventoryItem = selectedCanvasInventoryItems.find((item) => item.key === deleteCanvasElementsTarget.key)
+    if (!inventoryItem || inventoryItem.graphRefs.length === 0) {
+      setDeleteCanvasElementsTarget(null)
+      return
+    }
+
+    setCanvasElementMutationError(null)
+    const deletedCount = await deleteChartsBulk(
+      selectedProject.project.id,
+      deleteCanvasElementsTarget.dashboardId,
+      inventoryItem.graphRefs,
+      `${inventoryItem.count} ${inventoryItem.label.toLowerCase()} slettet`,
+    )
+    if (deletedCount === undefined) {
+      setCanvasElementMutationError('Kunne ikke slette canvas-elementer.')
+      return
+    }
+    setDeleteCanvasElementsTarget(null)
   }
 
   const handleMoveDashboard = async () => {
@@ -1608,6 +1701,9 @@ const ProjectManager = () => {
                               <ActionMenu.Item as={RouterLink} to={canvasHref}>
                                 Åpne canvas
                               </ActionMenu.Item>
+                              <ActionMenu.Item onClick={() => openCanvasInventory(dashboard.id)}>
+                                Elementoversikt
+                              </ActionMenu.Item>
                               <ActionMenu.Item
                                 onClick={() =>
                                   openEditDashboard(selectedProject.project.id, dashboard.id, dashboard.name)
@@ -1641,6 +1737,112 @@ const ProjectManager = () => {
           )}
         </div>
       </ProjectManagerLayout>
+
+      <Modal
+        open={canvasInventoryDashboardId !== null}
+        onClose={() => {
+          setCanvasInventoryDashboardId(null)
+          setCanvasElementMutationError(null)
+        }}
+        header={{
+          heading: `Elementoversikt${selectedCanvasInventoryDashboard ? `: ${selectedCanvasInventoryDashboard.name}` : ''}`,
+        }}
+        width="small"
+      >
+        <Modal.Body>
+          <div className="space-y-3">
+            <p className="text-sm text-[var(--ax-text-subtle)]">
+              Viser kun lagrede canvas-elementer (fra grafnavn), uten å åpne canvas.
+            </p>
+            {canvasElementMutationError && (
+              <Alert variant="error" size="small">
+                {canvasElementMutationError}
+              </Alert>
+            )}
+            <Table size="small">
+              <Table.Header>
+                <Table.Row>
+                  <Table.HeaderCell scope="col">Type</Table.HeaderCell>
+                  <Table.HeaderCell scope="col" align="right">
+                    Antall
+                  </Table.HeaderCell>
+                  <Table.HeaderCell scope="col" align="right">
+                    Handling
+                  </Table.HeaderCell>
+                </Table.Row>
+              </Table.Header>
+              <Table.Body>
+                {selectedCanvasInventoryItems.length === 0 ? (
+                  <Table.Row>
+                    <Table.DataCell colSpan={3}>Ingen canvas-elementer funnet.</Table.DataCell>
+                  </Table.Row>
+                ) : (
+                  selectedCanvasInventoryItems.map((item) => (
+                    <Table.Row key={`${canvasInventoryDashboardId}-${item.key}`}>
+                      <Table.HeaderCell scope="row">{item.label}</Table.HeaderCell>
+                      <Table.DataCell align="right">{item.count}</Table.DataCell>
+                      <Table.DataCell align="right">
+                        <Button
+                          variant="danger"
+                          size="xsmall"
+                          onClick={() =>
+                            setDeleteCanvasElementsTarget({
+                              dashboardId: canvasInventoryDashboardId ?? 0,
+                              key: item.key,
+                              label: item.label,
+                              count: item.count,
+                            })
+                          }
+                          disabled={item.count === 0 || loading}
+                        >
+                          Slett alle
+                        </Button>
+                      </Table.DataCell>
+                    </Table.Row>
+                  ))
+                )}
+              </Table.Body>
+            </Table>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            size="small"
+            onClick={() => {
+              setCanvasInventoryDashboardId(null)
+              setCanvasElementMutationError(null)
+            }}
+          >
+            Lukk
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal
+        open={!!deleteCanvasElementsTarget}
+        onClose={() => setDeleteCanvasElementsTarget(null)}
+        header={{ heading: 'Slett canvas-elementer' }}
+        width="small"
+      >
+        <Modal.Body>
+          <div className="space-y-3">
+            <p>
+              Vil du slette <strong>{deleteCanvasElementsTarget?.count ?? 0}</strong>{' '}
+              {deleteCanvasElementsTarget?.label.toLowerCase() ?? 'elementer'}?
+            </p>
+            <p className="text-sm text-[var(--ax-text-subtle)]">Dette kan ikke angres.</p>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="danger" size="small" onClick={() => void handleDeleteCanvasElements()} loading={loading}>
+            Slett alle
+          </Button>
+          <Button variant="secondary" size="small" onClick={() => setDeleteCanvasElementsTarget(null)}>
+            Avbryt
+          </Button>
+        </Modal.Footer>
+      </Modal>
 
       <Modal open={isCreateOpen} onClose={() => setIsCreateOpen(false)} header={{ heading: 'Nytt team' }} width="small">
         <Modal.Body>
