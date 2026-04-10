@@ -953,6 +953,7 @@ const Canvas = () => {
   const [syncError, setSyncError] = useState<string | null>(null)
   const [, setIsLoadingCanvasItems] = useState(false)
   const [isSavingCanvasItem, setIsSavingCanvasItem] = useState(false)
+  const [isImportingStickyCsv, setIsImportingStickyCsv] = useState(false)
   const [connectionMetrics, setConnectionMetrics] = useState<Record<string, CanvasConnectionMetric | null>>({})
   const [frameVisualizationData, setFrameVisualizationData] = useState<Record<string, CanvasFrameVisualizationData>>({})
   const [connectionDragState, setConnectionDragState] = useState<ConnectionDragState | null>(null)
@@ -973,6 +974,7 @@ const Canvas = () => {
   const frameVisualizationDataRef = useRef<Record<string, CanvasFrameVisualizationData>>({})
   const websiteIframeRefs = useRef<Record<string, HTMLIFrameElement | null>>({})
   const importStickyCsvFileInputRef = useRef<HTMLInputElement | null>(null)
+  const isImportingStickyCsvRef = useRef(false)
   const canvasViewportRef = useRef<HTMLDivElement | null>(null)
   const canvasToolbarRef = useRef<HTMLDivElement | null>(null)
   const connectionMetricRequestSignatureRef = useRef<string | null>(null)
@@ -2645,6 +2647,7 @@ const Canvas = () => {
   const handlePlacePendingCsvImport = useCallback(
     async (clientX: number, clientY: number) => {
       if (!pendingCsvStickyImport) return
+      if (isImportingStickyCsvRef.current) return
       const pointer = getCanvasPointerPosition(clientX, clientY)
       if (!pointer) return
 
@@ -2693,6 +2696,8 @@ const Canvas = () => {
       })
 
       try {
+        isImportingStickyCsvRef.current = true
+        setIsImportingStickyCsv(true)
         setIsSavingCanvasItem(true)
         setSyncError(null)
         const persistedFrames: CanvasFrame[] = []
@@ -2705,6 +2710,8 @@ const Canvas = () => {
       } catch (error) {
         setSyncError(error instanceof Error ? error.message : 'Kunne ikke importere CSV til canvas')
       } finally {
+        isImportingStickyCsvRef.current = false
+        setIsImportingStickyCsv(false)
         setIsSavingCanvasItem(false)
       }
     },
@@ -2728,6 +2735,7 @@ const Canvas = () => {
         return
       }
       if (pendingCsvStickyImport) {
+        if (isImportingStickyCsvRef.current) return
         event.preventDefault()
         event.stopPropagation()
         void handlePlacePendingCsvImport(event.clientX, event.clientY)
@@ -4686,8 +4694,17 @@ const Canvas = () => {
                 className="pointer-events-none absolute left-1/2 z-[45] -translate-x-1/2 rounded-xl border-2 border-[var(--ax-border-accent)] bg-[var(--ax-bg-default)] px-5 py-3 text-base font-semibold text-[var(--ax-text-default)] shadow-lg"
                 style={{ top: `${canvasCanvasTopOffset + 20}px` }}
               >
-                Plasseringsmodus: klikk for å plassere {pendingFramePlacementLabel || 'element'}. Trykk Esc for å
-                avbryte.
+                {pendingCsvStickyImport && isImportingStickyCsv ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader size="xsmall" />
+                    Importerer CSV-lapper til canvas...
+                  </span>
+                ) : (
+                  <>
+                    Plasseringsmodus: klikk for å plassere {pendingFramePlacementLabel || 'element'}. Trykk Esc for å
+                    avbryte.
+                  </>
+                )}
               </div>
             )}
             {isDrawingMode && (
