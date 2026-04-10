@@ -157,7 +157,7 @@ const CanvasTopBar = ({
                 </ActionMenu.Trigger>
                 <ActionMenu.Content align="end">
                   <ActionMenu.Item onClick={onOpenAddPage}>Nettside</ActionMenu.Item>
-                  <ActionMenu.Item onClick={onOpenCreateChart}>Lag ny graf</ActionMenu.Item>
+                  <ActionMenu.Item onClick={onOpenCreateChart}>Graf</ActionMenu.Item>
                   <ActionMenu.Item onClick={onOpenImportChart}>Importer graf</ActionMenu.Item>
                   <ActionMenu.Item onClick={onOpenAddDashboard}>Dashboard</ActionMenu.Item>
                   <ActionMenu.Divider />
