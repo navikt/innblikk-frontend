@@ -76,6 +76,7 @@ import type { Website } from '../../../shared/types/website.ts'
 import { useCookieStartDate, useCookieSupport } from '../../../shared/hooks/useSiteimproveSupport.ts'
 import { useLocation } from 'react-router-dom'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
+import useCanvasCsvImport from '../hooks/useCanvasCsvImport.ts'
 
 import type {
   CanvasChartOption,
@@ -84,14 +85,10 @@ import type {
   CanvasConnection,
   CanvasConnectionMetric,
   CanvasConnectionVisual,
-  CanvasCsvImportStyle,
-  CanvasCsvImportRow,
-  CanvasCsvTableMode,
   CanvasDeleteTarget,
   CanvasFigureType,
   CanvasFrame,
   CanvasPageInsight,
-  CanvasPrivacyFinding,
   ConnectionAnchorSide,
   ConnectionDragState,
   PendingCanvasFrameDraft,
@@ -124,22 +121,16 @@ import {
   HEADING_TEXT_MAX_WIDTH,
   HEADING_TEXT_MIN_WIDTH,
   HEADING_TEXT_VERTICAL_PADDING,
-  ICON_CARD_HEADER_HEIGHT,
   ICON_ROTATION_STEP_DEG,
-  IMPORT_TABLE_PREVIEW_ROWS_PER_PAGE,
   PLANNER_COLUMN_LABEL_PREFIX,
-  WEBSITE_CARD_HEADER_HEIGHT,
   buildCanvasConnectionStorageGraphName,
   buildCanvasDashboardDescription,
   buildCanvasStorageGraphName,
   buildConnectionPath,
   buildFunnelStepFromUrl,
-  buildNumericRatingSummaryText,
   clampCanvasZoom,
   estimateTableFrameHeight,
   extractCanvasWebsiteIdFromDescription,
-  findPrivacyPatternNames,
-  formatRatingValue,
   formatCanvasPathLabel,
   getCanvasCategoryDisplayName,
   getCanvasFrameVisualizationMode,
@@ -155,12 +146,40 @@ import {
   mapCanvasChartTypeToGraphType,
   normalizeInputToTargetUrl,
   parseCanvasConfig,
-  parseCsvImportText,
   parseDashboardTargetUrl,
   serializeCanvasConfig,
-  summarizeCategoricalValues,
-  summarizeNumericRatings,
 } from '../utils/canvasUtils.ts'
+import {
+  getCanvasFrameAnchor,
+  getCanvasFrameBounds,
+  getDominantConnectionSide,
+  getNearestCanvasAnchorSide,
+} from '../utils/canvasConnectionUtils.ts'
+
+const getDefaultFrameSize = (
+  frameOrKind: CanvasFrame | CanvasFrame['kind'],
+): {
+  width: number
+  height: number
+  minWidth: number
+  minHeight: number
+} => {
+  const kind = typeof frameOrKind === 'string' ? frameOrKind : frameOrKind.kind
+  const isInternalDashboard = typeof frameOrKind === 'string' ? false : Boolean(frameOrKind.isInternalDashboard)
+  const isIllustration = typeof frameOrKind === 'string' ? false : isIllustrationImageFrame(frameOrKind)
+
+  if (kind === 'website' && isInternalDashboard) return { width: 760, height: 620, minWidth: 520, minHeight: 420 }
+  if (kind === 'website') return { width: 420, height: 560, minWidth: 220, minHeight: 160 }
+  if (kind === 'image' && isIllustration) return { width: 420, height: 420, minWidth: 96, minHeight: 96 }
+  if (kind === 'image') return { width: 420, height: 420, minWidth: 240, minHeight: 200 }
+  if (kind === 'chart') return { width: 560, height: 360, minWidth: 280, minHeight: 200 }
+  if (kind === 'heading') return { width: 420, height: 72, minWidth: 260, minHeight: 48 }
+  if (kind === 'text') return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
+  if (kind === 'icon') return { width: 280, height: 240, minWidth: 72, minHeight: 72 }
+  if (kind === 'figure') return { width: 240, height: 200, minWidth: 120, minHeight: 72 }
+  if (kind === 'drawing') return { width: 240, height: 160, minWidth: 28, minHeight: 28 }
+  return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
+}
 
 const Canvas = () => {
   const location = useLocation()
@@ -285,17 +304,6 @@ const Canvas = () => {
   const [addTextError, setAddTextError] = useState<string | null>(null)
   const [stickyContentInput, setStickyContentInput] = useState('')
   const [addStickyError, setAddStickyError] = useState<string | null>(null)
-  const [importStickyCsvFileName, setImportStickyCsvFileName] = useState('')
-  const [importStickyCsvHeaders, setImportStickyCsvHeaders] = useState<string[]>([])
-  const [importStickyCsvRows, setImportStickyCsvRows] = useState<CanvasCsvImportRow[]>([])
-  const [importStickyContentColumn, setImportStickyContentColumn] = useState('')
-  const [importStickyStyle, setImportStickyStyle] = useState<CanvasCsvImportStyle>('sticky')
-  const [importStickyTableMode, setImportStickyTableMode] = useState<CanvasCsvTableMode>('rows')
-  const [importStickyTablePreviewPage, setImportStickyTablePreviewPage] = useState(1)
-  const [importStickySectionTitle, setImportStickySectionTitle] = useState('')
-  const [importStickyExcludedRowIndexes, setImportStickyExcludedRowIndexes] = useState<number[]>([])
-  const [importStickyPrivacyReviewed, setImportStickyPrivacyReviewed] = useState(false)
-  const [importStickyCsvError, setImportStickyCsvError] = useState<string | null>(null)
   const [frameTablePages, setFrameTablePages] = useState<Record<string, number>>({})
   const [selectedIconId, setSelectedIconId] = useState(DEFAULT_CANVAS_ICON_ID)
   const [selectedIconColor, setSelectedIconColor] = useState(DEFAULT_CANVAS_ICON_COLOR)
@@ -364,7 +372,6 @@ const Canvas = () => {
   const pageInsightsRef = useRef<Record<string, CanvasPageInsight>>({})
   const framesRef = useRef<CanvasFrame[]>([])
   const chartContentRefs = useRef<Record<string, HTMLDivElement | null>>({})
-  const importStickyCsvFileInputRef = useRef<HTMLInputElement | null>(null)
   const isImportingStickyCsvRef = useRef(false)
   const canvasViewportRef = useRef<HTMLDivElement | null>(null)
   const canvasToolbarRef = useRef<HTMLDivElement | null>(null)
@@ -559,86 +566,48 @@ const Canvas = () => {
     [frameItems],
   )
 
-  const importStickyPreviewNotes = useMemo(
-    () =>
-      importStickyContentColumn
-        ? importStickyCsvRows
-            .map((row, index) => ({
-              rowIndex: index,
-              text: (row[importStickyContentColumn] || '').trim(),
-            }))
-            .filter((item) => Boolean(item.text))
-            .filter((item) => !importStickyExcludedRowIndexes.includes(item.rowIndex))
-        : [],
-    [importStickyContentColumn, importStickyCsvRows, importStickyExcludedRowIndexes],
-  )
-
-  const importStickyNumericSummary = useMemo(
-    () => summarizeNumericRatings(importStickyPreviewNotes.map((item) => item.text)),
-    [importStickyPreviewNotes],
-  )
-
-  const canChooseNonNumericImportStyle = importStickyPreviewNotes.length > 0 && !importStickyNumericSummary
-  const shouldImportStickyAsAggregated = Boolean(importStickyNumericSummary)
-  const importStickyCategoricalSummaryRows = useMemo(
-    () => summarizeCategoricalValues(importStickyPreviewNotes.map((item) => item.text)),
-    [importStickyPreviewNotes],
-  )
-  const importStickyNumericSummaryRows = useMemo(
-    () =>
-      importStickyNumericSummary
-        ? importStickyNumericSummary.distribution.map((item) => ({
-            value: formatRatingValue(item.value),
-            count: item.count,
-            percentage: item.percentage,
-          }))
-        : [],
-    [importStickyNumericSummary],
-  )
-  const importStickyPrivacyFindings = useMemo<CanvasPrivacyFinding[]>(
-    () =>
-      importStickyPreviewNotes
-        .map((item) => ({
-          rowIndex: item.rowIndex,
-          text: item.text,
-          patternNames: findPrivacyPatternNames(item.text),
-        }))
-        .filter((item) => item.patternNames.length > 0),
-    [importStickyPreviewNotes],
-  )
-  const hasImportStickyPrivacyFindings = importStickyPrivacyFindings.length > 0
-  const importStickyTablePreviewPageCount = Math.max(
-    1,
-    Math.ceil(
-      (shouldImportStickyAsAggregated
-        ? importStickyNumericSummaryRows.length
-        : importStickyStyle === 'table' && importStickyTableMode === 'summary'
-          ? importStickyCategoricalSummaryRows.length
-          : importStickyPreviewNotes.length) / IMPORT_TABLE_PREVIEW_ROWS_PER_PAGE,
-    ),
-  )
-  const currentImportStickyTablePreviewPage = Math.min(importStickyTablePreviewPage, importStickyTablePreviewPageCount)
-  const importStickyTablePreviewNoteRows = useMemo(() => {
-    const startIndex = (currentImportStickyTablePreviewPage - 1) * IMPORT_TABLE_PREVIEW_ROWS_PER_PAGE
-    return importStickyPreviewNotes.slice(startIndex, startIndex + IMPORT_TABLE_PREVIEW_ROWS_PER_PAGE)
-  }, [currentImportStickyTablePreviewPage, importStickyPreviewNotes])
-  const importStickyTablePreviewSummaryRows = useMemo(() => {
-    const startIndex = (currentImportStickyTablePreviewPage - 1) * IMPORT_TABLE_PREVIEW_ROWS_PER_PAGE
-    return importStickyCategoricalSummaryRows.slice(startIndex, startIndex + IMPORT_TABLE_PREVIEW_ROWS_PER_PAGE)
-  }, [currentImportStickyTablePreviewPage, importStickyCategoricalSummaryRows])
-  const importStickyTablePreviewNumericSummaryRows = useMemo(() => {
-    const startIndex = (currentImportStickyTablePreviewPage - 1) * IMPORT_TABLE_PREVIEW_ROWS_PER_PAGE
-    return importStickyNumericSummaryRows.slice(startIndex, startIndex + IMPORT_TABLE_PREVIEW_ROWS_PER_PAGE)
-  }, [currentImportStickyTablePreviewPage, importStickyNumericSummaryRows])
-
-  useEffect(() => {
-    if (importStickyTablePreviewPage <= importStickyTablePreviewPageCount) return
-    setImportStickyTablePreviewPage(importStickyTablePreviewPageCount)
-  }, [importStickyTablePreviewPage, importStickyTablePreviewPageCount])
-
-  useEffect(() => {
-    setImportStickyPrivacyReviewed(false)
-  }, [importStickyContentColumn, importStickyExcludedRowIndexes, importStickyCsvRows])
+  const {
+    importStickyCsvFileInputRef,
+    importStickyCsvFileName,
+    importStickyCsvHeaders,
+    importStickyCsvRows,
+    importStickyContentColumn,
+    importStickyStyle,
+    importStickyTableMode,
+    importStickySectionTitle,
+    importStickyCsvError,
+    importStickyPreviewNotes,
+    importStickyNumericSummary,
+    canChooseNonNumericImportStyle,
+    shouldImportStickyAsAggregated,
+    importStickyCategoricalSummaryRows,
+    importStickyNumericSummaryRows,
+    importStickyPrivacyFindings,
+    hasImportStickyPrivacyFindings,
+    importStickyTablePreviewNoteRows,
+    importStickyTablePreviewSummaryRows,
+    importStickyTablePreviewNumericSummaryRows,
+    importStickyTablePreviewPageCount,
+    currentImportStickyTablePreviewPage,
+    importStickyPrivacyReviewed,
+    setImportStickyPrivacyReviewed,
+    clearImportStickyCsvError,
+    handleClearImportStickyCsvFile,
+    handleImportStickyCsvFileChange,
+    handleContentColumnChange,
+    handleImportStyleChange,
+    handleTableModeChange,
+    handlePrevTablePreviewPage,
+    handleNextTablePreviewPage,
+    handleExcludeRow,
+    handleImportStickyCsv,
+  } = useCanvasCsvImport({
+    onImportPrepared: ({ pendingImport, placementLabel }) => {
+      setPendingCsvStickyImport(pendingImport)
+      setPendingFramePlacementLabel(placementLabel)
+      setPendingFramePointer(null)
+    },
+  })
 
   const { frameVisualizationData, setWebsiteIframeRef, handleWebsiteFrameLoad } = useCanvasWebsiteVisualization({
     frameItems,
@@ -2194,64 +2163,43 @@ const Canvas = () => {
 
   const getFrameBounds = useCallback(
     (frame: CanvasFrame): { left: number; top: number; right: number; bottom: number } => {
-      const defaults = getDefaultFrameSize(frame)
-      const width = frame.width ?? defaults.width
-      const height = frame.height ?? defaults.height
-      return {
-        left: frame.x,
-        top: frame.y,
-        right: frame.x + width,
-        bottom: frame.y + height,
-      }
+      return getCanvasFrameBounds(frame, (currentFrame) => {
+        const defaults = getDefaultFrameSize(currentFrame)
+        return {
+          width: currentFrame.width ?? defaults.width,
+          height: currentFrame.height ?? defaults.height,
+        }
+      })
     },
     [],
   )
 
   const getFrameAnchor = useCallback((frame: CanvasFrame, side: ConnectionAnchorSide): { x: number; y: number } => {
-    const defaults = getDefaultFrameSize(frame)
-    const width = frame.width ?? defaults.width
-    const height = frame.height ?? defaults.height
-    const headerHeight =
-      frame.kind === 'website' ? WEBSITE_CARD_HEADER_HEIGHT : frame.kind === 'icon' ? ICON_CARD_HEADER_HEIGHT : 0
-    const bodyTop = frame.y + headerHeight
-    const bodyHeight = Math.max(height - headerHeight, 0)
-    const centerX = frame.x + width / 2
-    const centerY = bodyTop + bodyHeight / 2
-
-    if (side === 'top') return { x: centerX, y: bodyTop }
-    if (side === 'bottom') return { x: centerX, y: frame.y + height }
-    if (side === 'left') return { x: frame.x, y: centerY }
-    return { x: frame.x + width, y: centerY }
+    return getCanvasFrameAnchor(frame, side, (currentFrame) => {
+      const defaults = getDefaultFrameSize(currentFrame)
+      return {
+        width: currentFrame.width ?? defaults.width,
+        height: currentFrame.height ?? defaults.height,
+      }
+    })
   }, [])
 
   const getDominantDirectionSide = useCallback(
     (fromX: number, fromY: number, toX: number, toY: number): ConnectionAnchorSide => {
-      const dx = toX - fromX
-      const dy = toY - fromY
-      if (Math.abs(dx) >= Math.abs(dy)) {
-        return dx >= 0 ? 'right' : 'left'
-      }
-      return dy >= 0 ? 'bottom' : 'top'
+      return getDominantConnectionSide(fromX, fromY, toX, toY)
     },
     [],
   )
 
   const getNearestAnchorSide = useCallback(
     (frame: CanvasFrame, pointX: number, pointY: number): ConnectionAnchorSide => {
-      const defaults = getDefaultFrameSize(frame)
-      const width = frame.width ?? defaults.width
-      const height = frame.height ?? defaults.height
-      const headerHeight =
-        frame.kind === 'website' ? WEBSITE_CARD_HEADER_HEIGHT : frame.kind === 'icon' ? ICON_CARD_HEADER_HEIGHT : 0
-      const bodyTop = frame.y + headerHeight
-      const distances: Array<{ side: ConnectionAnchorSide; distance: number }> = [
-        { side: 'left', distance: Math.abs(pointX - frame.x) },
-        { side: 'right', distance: Math.abs(pointX - (frame.x + width)) },
-        { side: 'top', distance: Math.abs(pointY - bodyTop) },
-        { side: 'bottom', distance: Math.abs(pointY - (frame.y + height)) },
-      ]
-      distances.sort((a, b) => a.distance - b.distance)
-      return distances[0]?.side ?? 'left'
+      return getNearestCanvasAnchorSide(frame, pointX, pointY, (currentFrame) => {
+        const defaults = getDefaultFrameSize(currentFrame)
+        return {
+          width: currentFrame.width ?? defaults.width,
+          height: currentFrame.height ?? defaults.height,
+        }
+      })
     },
     [],
   )
@@ -2652,26 +2600,6 @@ const Canvas = () => {
       pointerStartY: pointer.y,
       frameStartPositions,
     })
-  }
-
-  const getDefaultFrameSize = (
-    frameOrKind: CanvasFrame | CanvasFrame['kind'],
-  ): { width: number; height: number; minWidth: number; minHeight: number } => {
-    const kind = typeof frameOrKind === 'string' ? frameOrKind : frameOrKind.kind
-    const isInternalDashboard = typeof frameOrKind === 'string' ? false : Boolean(frameOrKind.isInternalDashboard)
-    const isIllustration = typeof frameOrKind === 'string' ? false : isIllustrationImageFrame(frameOrKind)
-
-    if (kind === 'website' && isInternalDashboard) return { width: 760, height: 620, minWidth: 520, minHeight: 420 }
-    if (kind === 'website') return { width: 420, height: 560, minWidth: 220, minHeight: 160 }
-    if (kind === 'image' && isIllustration) return { width: 420, height: 420, minWidth: 96, minHeight: 96 }
-    if (kind === 'image') return { width: 420, height: 420, minWidth: 240, minHeight: 200 }
-    if (kind === 'chart') return { width: 560, height: 360, minWidth: 280, minHeight: 200 }
-    if (kind === 'heading') return { width: 420, height: 72, minWidth: 260, minHeight: 48 }
-    if (kind === 'text') return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
-    if (kind === 'icon') return { width: 280, height: 240, minWidth: 72, minHeight: 72 }
-    if (kind === 'figure') return { width: 240, height: 200, minWidth: 120, minHeight: 72 }
-    if (kind === 'drawing') return { width: 240, height: 160, minWidth: 28, minHeight: 28 }
-    return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
   }
 
   const autoSizeChartFrame = useCallback(
@@ -3863,144 +3791,10 @@ const Canvas = () => {
     setIsAddTextModalOpen(true)
   }
 
-  const handleClearImportStickyCsvFile = useCallback(() => {
-    setImportStickyCsvFileName('')
-    setImportStickyCsvHeaders([])
-    setImportStickyCsvRows([])
-    setImportStickyContentColumn('')
-    setImportStickyStyle('sticky')
-    setImportStickyTableMode('rows')
-    setImportStickyTablePreviewPage(1)
-    setImportStickySectionTitle('')
-    setImportStickyExcludedRowIndexes([])
-    setImportStickyPrivacyReviewed(false)
-    setImportStickyCsvError(null)
-    if (importStickyCsvFileInputRef.current) {
-      importStickyCsvFileInputRef.current.value = ''
-    }
-  }, [])
-
   const handleCloseImportStickyCsvModal = useCallback(() => {
     setIsImportStickyCsvModalOpen(false)
-    setImportStickyCsvError(null)
-  }, [])
-
-  const handleImportStickyCsvFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = event.target.files
-    if (!selectedFiles || selectedFiles.length === 0) return
-    if (selectedFiles.length > 1) {
-      setImportStickyCsvError('Velg kun én CSV-fil.')
-      return
-    }
-    const selectedFile = selectedFiles[0]
-    if (!selectedFile) return
-
-    try {
-      const content = await selectedFile.text()
-      const parsed = parseCsvImportText(content)
-      if (parsed.headers.length === 0) {
-        setImportStickyCsvError(parsed.error ?? 'Filen ser ikke ut som en CSV med kolonneoverskrifter.')
-        setImportStickyCsvFileName(selectedFile.name)
-        setImportStickyCsvHeaders([])
-        setImportStickyCsvRows([])
-        setImportStickyContentColumn('')
-        return
-      }
-
-      setImportStickyCsvFileName(selectedFile.name)
-      setImportStickyCsvHeaders(parsed.headers)
-      setImportStickyCsvRows(parsed.rows)
-      setImportStickyExcludedRowIndexes([])
-      setImportStickyStyle('sticky')
-      setImportStickyTableMode('rows')
-      setImportStickyTablePreviewPage(1)
-      setImportStickyPrivacyReviewed(false)
-      const resolvedContentColumn =
-        importStickyContentColumn && parsed.headers.includes(importStickyContentColumn)
-          ? importStickyContentColumn
-          : (parsed.headers[0] ?? '')
-      setImportStickyContentColumn(resolvedContentColumn)
-      setImportStickySectionTitle(resolvedContentColumn)
-      setImportStickyCsvError(parsed.rows.length === 0 ? 'CSV-filen har ingen rader med innhold.' : null)
-    } catch {
-      setImportStickyCsvError('Kunne ikke lese CSV-filen.')
-      setImportStickyCsvFileName('')
-      setImportStickyCsvHeaders([])
-      setImportStickyCsvRows([])
-      setImportStickyContentColumn('')
-      setImportStickyStyle('sticky')
-      setImportStickyTableMode('rows')
-      setImportStickyTablePreviewPage(1)
-      setImportStickyExcludedRowIndexes([])
-      setImportStickyPrivacyReviewed(false)
-    }
-  }
-
-  const handleImportStickyCsv = () => {
-    const contentColumn =
-      importStickyContentColumn && importStickyCsvHeaders.includes(importStickyContentColumn)
-        ? importStickyContentColumn
-        : ''
-    if (!contentColumn) {
-      setImportStickyCsvError('Velg kolonnen som skal importeres.')
-      return
-    }
-
-    if (importStickyCsvRows.length === 0) {
-      setImportStickyCsvError('CSV-filen har ingen rader med innhold.')
-      return
-    }
-
-    const noteTexts = importStickyPreviewNotes.map((item) => item.text)
-    if (noteTexts.length === 0) {
-      setImportStickyCsvError('Fant ingen rader med innhold i valgt kolonne.')
-      return
-    }
-    if (hasImportStickyPrivacyFindings && !importStickyPrivacyReviewed) {
-      setImportStickyCsvError('Mulige personopplysninger funnet. Gå gjennom treffene før import.')
-      return
-    }
-
-    const numericSummary = summarizeNumericRatings(noteTexts)
-    const aggregatedRatingsText = numericSummary ? buildNumericRatingSummaryText(numericSummary) : undefined
-    const categoricalSummaryRows = summarizeCategoricalValues(noteTexts)
-    const tableHeaders = numericSummary
-      ? [contentColumn, 'Antall', 'Andel']
-      : importStickyStyle === 'table'
-        ? importStickyTableMode === 'summary'
-          ? [contentColumn, 'Antall', 'Andel']
-          : [contentColumn]
-        : undefined
-    const tableRows = numericSummary
-      ? numericSummary.distribution.map((item) => [
-          formatRatingValue(item.value),
-          item.count.toLocaleString('nb-NO'),
-          `${item.percentage.toLocaleString('nb-NO', { maximumFractionDigits: 1 })} %`,
-        ])
-      : importStickyStyle === 'table'
-        ? importStickyTableMode === 'summary'
-          ? categoricalSummaryRows.map((item) => [
-              item.value,
-              item.count.toLocaleString('nb-NO'),
-              `${item.percentage.toLocaleString('nb-NO', { maximumFractionDigits: 1 })} %`,
-            ])
-          : noteTexts.map((text) => [text])
-        : undefined
-
-    setImportStickyCsvError(null)
-    setPendingCsvStickyImport({
-      sectionTitle: importStickySectionTitle.trim(),
-      noteTexts,
-      aggregatedRatingsText,
-      tableHeaders,
-      tableRows,
-    })
-    setPendingFramePlacementLabel(
-      tableHeaders && tableRows ? 'tabell' : aggregatedRatingsText ? 'aggregert vurdering' : 'CSV-lapper',
-    )
-    setPendingFramePointer(null)
-    setIsImportStickyCsvModalOpen(false)
-  }
+    clearImportStickyCsvError()
+  }, [clearImportStickyCsvError])
 
   const handleOpenAddStickyModal = () => {
     setAddStickyError(null)
@@ -5810,7 +5604,11 @@ const Canvas = () => {
       <CanvasImportStickyCsvModal
         open={isImportStickyCsvModalOpen}
         onClose={handleCloseImportStickyCsvModal}
-        onImport={() => void handleImportStickyCsv()}
+        onImport={() => {
+          const didPrepareImport = handleImportStickyCsv()
+          if (!didPrepareImport) return
+          setIsImportStickyCsvModalOpen(false)
+        }}
         isSaving={isSavingCanvasItem}
         fileInputRef={importStickyCsvFileInputRef}
         onFileChange={handleImportStickyCsvFileChange}
@@ -5819,27 +5617,12 @@ const Canvas = () => {
         rowCount={importStickyCsvRows.length}
         headers={importStickyCsvHeaders}
         contentColumn={importStickyContentColumn}
-        onContentColumnChange={(nextColumn) => {
-          setImportStickyContentColumn(nextColumn)
-          setImportStickySectionTitle(nextColumn)
-          setImportStickyExcludedRowIndexes([])
-          setImportStickyTableMode('rows')
-          setImportStickyTablePreviewPage(1)
-          if (importStickyCsvError) setImportStickyCsvError(null)
-        }}
+        onContentColumnChange={handleContentColumnChange}
         canChooseNonNumericImportStyle={canChooseNonNumericImportStyle}
         importStyle={importStickyStyle}
-        onImportStyleChange={(nextStyle) => {
-          setImportStickyStyle(nextStyle)
-          setImportStickyTableMode('rows')
-          setImportStickyTablePreviewPage(1)
-          if (importStickyCsvError) setImportStickyCsvError(null)
-        }}
+        onImportStyleChange={handleImportStyleChange}
         tableMode={importStickyTableMode}
-        onTableModeChange={(nextMode) => {
-          setImportStickyTableMode(nextMode)
-          setImportStickyTablePreviewPage(1)
-        }}
+        onTableModeChange={handleTableModeChange}
         hasNumericSummary={Boolean(importStickyNumericSummary)}
         hasPrivacyFindings={hasImportStickyPrivacyFindings}
         privacyFindings={importStickyPrivacyFindings}
@@ -5856,15 +5639,9 @@ const Canvas = () => {
         tablePreviewNoteRows={importStickyTablePreviewNoteRows}
         tablePreviewPageCount={importStickyTablePreviewPageCount}
         currentTablePreviewPage={currentImportStickyTablePreviewPage}
-        onPrevTablePreviewPage={() => setImportStickyTablePreviewPage((current) => Math.max(1, current - 1))}
-        onNextTablePreviewPage={() =>
-          setImportStickyTablePreviewPage((current) => Math.min(importStickyTablePreviewPageCount, current + 1))
-        }
-        onExcludeRow={(rowIndex) =>
-          setImportStickyExcludedRowIndexes((current) =>
-            current.includes(rowIndex) ? current : [...current, rowIndex],
-          )
-        }
+        onPrevTablePreviewPage={handlePrevTablePreviewPage}
+        onNextTablePreviewPage={handleNextTablePreviewPage}
+        onExcludeRow={handleExcludeRow}
       />
 
       <CanvasStickyModal
