@@ -5180,9 +5180,9 @@ const Canvas = () => {
             >
               <div
                 className={`absolute left-0 top-0 origin-top-left ${pendingFrameDraft || pendingCsvStickyImport || isDrawingMode ? 'cursor-crosshair' : ''}`}
-                onMouseDown={handleCanvasSurfaceMouseDown}
-                onMouseMove={handleCanvasSurfaceMouseMove}
-                onMouseLeave={handleCanvasSurfaceMouseLeave}
+                onMouseDown={isDrawingMode ? undefined : handleCanvasSurfaceMouseDown}
+                onMouseMove={isDrawingMode ? undefined : handleCanvasSurfaceMouseMove}
+                onMouseLeave={isDrawingMode ? undefined : handleCanvasSurfaceMouseLeave}
                 style={{
                   top: `${canvasCanvasTopOffset}px`,
                   width: `${CANVAS_SURFACE_WIDTH}px`,
@@ -5198,6 +5198,14 @@ const Canvas = () => {
                   <>
                     <div className="pointer-events-none absolute inset-0 z-[44] bg-black/10" />
                   </>
+                )}
+                {isDrawingMode && (
+                  <div
+                    className="absolute inset-0 z-[95] cursor-crosshair"
+                    onMouseDown={handleCanvasSurfaceMouseDown}
+                    onMouseMove={handleCanvasSurfaceMouseMove}
+                    onMouseLeave={handleCanvasSurfaceMouseLeave}
+                  />
                 )}
                 {(pendingFrameDraft || pendingCsvStickyImport) && pendingFramePointer && (
                   <div
