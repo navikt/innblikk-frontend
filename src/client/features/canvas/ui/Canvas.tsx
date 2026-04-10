@@ -7318,10 +7318,10 @@ const Canvas = () => {
           setImportStickyCsvError(null)
         }}
         header={{ heading: 'Importer fra Skyra / Lumi' }}
-        width="medium"
+        width="large"
       >
         <Modal.Body>
-          <section aria-label="CSV-import for brukerfeedback" className="grid gap-4 md:grid-cols-[minmax(0,1fr)_300px]">
+          <section aria-label="CSV-import for brukerfeedback" className="grid gap-4 md:grid-cols-[340px_minmax(0,1fr)]">
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <label htmlFor="canvas-feedback-csv-file" className="text-sm font-medium text-[var(--ax-text-default)]">
@@ -7453,7 +7453,7 @@ const Canvas = () => {
               {importStickyCsvError && <Alert variant="error">{importStickyCsvError}</Alert>}
             </div>
 
-            <aside className="rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] p-3">
+            <aside className="min-w-0 overflow-hidden rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] p-3">
               <div className="mb-2 text-sm font-semibold text-[var(--ax-text-default)]">Forhåndsvisning</div>
               <div className="mb-2 text-xs text-[var(--ax-text-subtle)]">
                 {importStickyPreviewNotes.length === 0
@@ -7470,17 +7470,19 @@ const Canvas = () => {
               </div>
               {(shouldImportStickyAsAggregated || importStickyStyle === 'table') && (
                 <div className="space-y-2">
-                  <Table size="small" zebraStripes className="w-full">
+                  <Table size="small" zebraStripes className="w-full table-fixed">
                     <Table.Header>
                       <Table.Row>
-                        <Table.HeaderCell>{importStickyContentColumn || 'Kolonne'}</Table.HeaderCell>
+                        <Table.HeaderCell className="w-[70%]">
+                          {importStickyContentColumn || 'Kolonne'}
+                        </Table.HeaderCell>
                         {shouldImportStickyAsAggregated || importStickyTableMode === 'summary' ? (
                           <>
-                            <Table.HeaderCell>Antall</Table.HeaderCell>
-                            <Table.HeaderCell>Andel</Table.HeaderCell>
+                            <Table.HeaderCell className="w-[90px]">Antall</Table.HeaderCell>
+                            <Table.HeaderCell className="w-[90px]">Andel</Table.HeaderCell>
                           </>
                         ) : (
-                          <Table.HeaderCell className="w-[76px]">Handling</Table.HeaderCell>
+                          <Table.HeaderCell className="w-[90px]">Handling</Table.HeaderCell>
                         )}
                       </Table.Row>
                     </Table.Header>
@@ -7488,7 +7490,7 @@ const Canvas = () => {
                       {shouldImportStickyAsAggregated
                         ? importStickyTablePreviewNumericSummaryRows.map((item) => (
                             <Table.Row key={`import-preview-numeric-summary-row-${item.value}`}>
-                              <Table.DataCell>{item.value}</Table.DataCell>
+                              <Table.DataCell className="break-all">{item.value}</Table.DataCell>
                               <Table.DataCell>{item.count.toLocaleString('nb-NO')}</Table.DataCell>
                               <Table.DataCell>
                                 {item.percentage.toLocaleString('nb-NO', { maximumFractionDigits: 1 })} %
@@ -7498,7 +7500,7 @@ const Canvas = () => {
                         : importStickyTableMode === 'summary'
                           ? importStickyTablePreviewSummaryRows.map((item) => (
                               <Table.Row key={`import-preview-summary-row-${item.value}`}>
-                                <Table.DataCell>{item.value}</Table.DataCell>
+                                <Table.DataCell className="break-all">{item.value}</Table.DataCell>
                                 <Table.DataCell>{item.count.toLocaleString('nb-NO')}</Table.DataCell>
                                 <Table.DataCell>
                                   {item.percentage.toLocaleString('nb-NO', { maximumFractionDigits: 1 })} %
@@ -7507,7 +7509,7 @@ const Canvas = () => {
                             ))
                           : importStickyTablePreviewNoteRows.map((note) => (
                               <Table.Row key={`import-preview-row-${note.rowIndex}`}>
-                                <Table.DataCell>{note.text}</Table.DataCell>
+                                <Table.DataCell className="break-all">{note.text}</Table.DataCell>
                                 <Table.DataCell>
                                   <Button
                                     size="xsmall"
