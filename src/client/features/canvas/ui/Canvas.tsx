@@ -1155,6 +1155,7 @@ const Canvas = () => {
   const [pageInsights, setPageInsights] = useState<Record<string, CanvasPageInsight>>({})
   const [activeInsightFrameId, setActiveInsightFrameId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<CanvasDeleteTarget | null>(null)
+  const [bulkDeleteProgress, setBulkDeleteProgress] = useState<{ total: number; completed: number } | null>(null)
   const [canvasZoom, setCanvasZoom] = useState(1)
   const [activeEditableFrameId, setActiveEditableFrameId] = useState<string | null>(null)
   const [failedImageFrameIds, setFailedImageFrameIds] = useState<Record<string, boolean>>({})
@@ -4229,18 +4230,34 @@ const Canvas = () => {
   const handleConfirmDeleteTarget = async () => {
     if (!deleteTarget) return
     const target = deleteTarget
-    setDeleteTarget(null)
-    if (target.type === 'frame') {
-      await handleRemovePage(target.id)
-      return
-    }
-    if (target.type === 'frames') {
-      for (const id of target.ids) {
-        await handleRemovePage(id)
+    setIsSavingCanvasItem(true)
+
+    try {
+      if (target.type === 'frame') {
+        await handleRemovePage(target.id)
+        setDeleteTarget(null)
+        return
       }
-      return
+
+      if (target.type === 'frames') {
+        setBulkDeleteProgress({ total: target.ids.length, completed: 0 })
+
+        for (let index = 0; index < target.ids.length; index += 1) {
+          await handleRemovePage(target.ids[index])
+          setBulkDeleteProgress({ total: target.ids.length, completed: index + 1 })
+        }
+
+        setBulkDeleteProgress(null)
+        setDeleteTarget(null)
+        return
+      }
+
+      await handleRemoveConnection(target.id)
+      setDeleteTarget(null)
+    } finally {
+      setIsSavingCanvasItem(false)
+      setBulkDeleteProgress(null)
     }
-    await handleRemoveConnection(target.id)
   }
 
   const resolveConnectionFrame = useCallback(
@@ -7122,7 +7139,10 @@ const Canvas = () => {
 
       <Modal
         open={Boolean(deleteTarget)}
-        onClose={() => setDeleteTarget(null)}
+        onClose={() => {
+          if (isSavingCanvasItem) return
+          setDeleteTarget(null)
+        }}
         header={{
           heading:
             deleteTarget?.type === 'connection'
@@ -7153,6 +7173,11 @@ const Canvas = () => {
               ?
             </p>
             <p className="text-[var(--ax-text-subtle)]">Denne handlingen kan ikke angres.</p>
+            {deleteTarget?.type === 'frames' && isSavingCanvasItem && bulkDeleteProgress ? (
+              <Alert variant="info" size="small">
+                Sletter kort {bulkDeleteProgress.completed} av {bulkDeleteProgress.total}...
+              </Alert>
+            ) : null}
           </div>
         </Modal.Body>
         <Modal.Footer>
@@ -7160,7 +7185,9 @@ const Canvas = () => {
             {deleteTarget?.type === 'connection'
               ? 'Fjern kobling'
               : deleteTarget?.type === 'frames'
-                ? 'Fjern valgte'
+                ? isSavingCanvasItem && bulkDeleteProgress
+                  ? `Sletter (${bulkDeleteProgress.completed}/${bulkDeleteProgress.total})`
+                  : 'Fjern valgte'
                 : 'Fjern kort'}
           </Button>
           <Button variant="secondary" onClick={() => setDeleteTarget(null)} disabled={isSavingCanvasItem}>
