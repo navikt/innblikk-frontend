@@ -135,7 +135,7 @@ const useCanvasWebsiteVisualization = ({
       return Object.keys(next).length === Object.keys(current).length ? current : next
     })
 
-    const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
+    const dateRange = getDateRangeFromPeriod(period, customStartDate ?? undefined, customEndDate ?? undefined)
     if (!dateRange) return
 
     const normalizedSelectedDomain = normalizeDomainForComparison(selectedWebsiteDomain || '')
