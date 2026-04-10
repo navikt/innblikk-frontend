@@ -3430,10 +3430,24 @@ const Canvas = () => {
     setIsDrawingMode(false)
   }, [])
 
+  const handleUndoDrawingStroke = useCallback(() => {
+    if (activeDrawingPointsRef.current?.length) {
+      setActiveDrawingPoints(null)
+      return
+    }
+    setDrawingDraftStrokes((current) => current.slice(0, -1))
+  }, [])
+
   useEffect(() => {
     if (!isDrawingMode) return
 
     const onKeyDown = (event: KeyboardEvent) => {
+      const isUndoShortcut = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !event.shiftKey
+      if (isUndoShortcut) {
+        event.preventDefault()
+        handleUndoDrawingStroke()
+        return
+      }
       if (event.key !== 'Escape') return
       if (activeDrawingPointsRef.current?.length) {
         setActiveDrawingPoints(null)
@@ -3448,7 +3462,7 @@ const Canvas = () => {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [handleExitDrawingMode, isDrawingMode])
+  }, [handleExitDrawingMode, handleUndoDrawingStroke, isDrawingMode])
 
   useEffect(() => {
     if (!isDrawingMode || !activeDrawingPoints) return
@@ -5320,8 +5334,16 @@ const Canvas = () => {
                   >
                     Tom
                   </Button>
+                  <Button
+                    size="xsmall"
+                    variant="secondary"
+                    onClick={handleUndoDrawingStroke}
+                    disabled={drawingDraftStrokes.length === 0 && !activeDrawingPoints?.length}
+                  >
+                    Angre
+                  </Button>
                   <Button size="xsmall" variant="secondary" onClick={handleExitDrawingMode}>
-                    Avslutt
+                    Avbryt
                   </Button>
                 </div>
               </div>
