@@ -1406,8 +1406,8 @@ const Canvas = () => {
     selectedWebsiteDomain: selectedWebsite?.domain,
     canvasConfiguredWebsiteId,
     period,
-    customStartDate,
-    customEndDate,
+    customStartDate: customStartDate ?? null,
+    customEndDate: customEndDate ?? null,
     clickmapEvents: CLICKMAP_EVENTS,
   })
 
