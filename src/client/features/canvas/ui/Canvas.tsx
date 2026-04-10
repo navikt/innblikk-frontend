@@ -3048,14 +3048,6 @@ const Canvas = () => {
 
   const handleCanvasSurfaceMouseDown = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
-      const target = event.target as HTMLElement
-      const clickedInsideFrame = Boolean(target.closest('article'))
-      const clickedInteractiveControl = Boolean(target.closest('button, a, input, textarea, select'))
-      if (clickedInsideFrame || clickedInteractiveControl) return
-      const activeElement = document.activeElement
-      if (activeElement instanceof HTMLElement && activeElement.closest('article')) {
-        activeElement.blur()
-      }
       if (pendingFrameDraft) {
         event.preventDefault()
         event.stopPropagation()
@@ -3068,6 +3060,14 @@ const Canvas = () => {
         event.stopPropagation()
         void handlePlacePendingCsvImport(event.clientX, event.clientY)
         return
+      }
+      const target = event.target as HTMLElement
+      const clickedInsideFrame = Boolean(target.closest('article'))
+      const clickedInteractiveControl = Boolean(target.closest('button, a, input, textarea, select'))
+      if (clickedInsideFrame || clickedInteractiveControl) return
+      const activeElement = document.activeElement
+      if (activeElement instanceof HTMLElement && activeElement.closest('article')) {
+        activeElement.blur()
       }
       const pointer = getCanvasPointerPosition(event.clientX, event.clientY)
       if (!pointer) return
