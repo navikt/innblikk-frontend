@@ -1,17 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  ActionMenu,
-  Alert,
-  Button,
-  HelpText,
-  Label,
-  Loader,
-  Modal,
-  Select,
-  Switch,
-  TextField,
-  Textarea,
-} from '@navikt/ds-react'
+import { Alert, Button, HelpText, Label, Loader, Modal, Select, TextField } from '@navikt/ds-react'
 import { ArrowRight, ChartNoAxesCombined, Circle, Minus, Plus, Slash, Square, Trash2 } from 'lucide-react'
 import { computeFunnelStepMetrics } from '../../analysis/utils/horizontalFunnel.ts'
 import { formatDateRange } from '../../analysis/utils/periodPicker.ts'
@@ -20,7 +8,6 @@ import { fetchPageMetrics } from '../../traffic/api/trafficApi.ts'
 import { fetchFunnelData } from '../../funnel/api/funnelApi.ts'
 import { splitUrlStepInput } from '../../funnel/utils/stepUtils.ts'
 import { isVisualizationMode, type VisualizationMode } from '../../clickmap/model/visualizationMode.ts'
-import VisualizationModeSelect from '../../clickmap/ui/VisualizationModeSelect.tsx'
 import {
   getCookieCountByParams,
   getDateRangeFromPeriod,
@@ -30,27 +17,34 @@ import {
 } from '../../../shared/lib/utils.ts'
 import { DashboardWidget } from '../../dashboard'
 import { mapGraphTypeToChart } from '../../oversikt'
-import CanvasIllustrationPicker from './illustration/CanvasIllustrationPicker.tsx'
+import CanvasIllustrationModal from './illustration/CanvasIllustrationModal.tsx'
 import {
   DEFAULT_CANVAS_ILLUSTRATION_PATH,
   getCanvasIllustrationOptionByPath,
 } from './illustration/CanvasIllustrationRegistry.ts'
-import CanvasIconPicker from './icon/CanvasIconPicker.tsx'
+import CanvasIconModal from './icon/CanvasIconModal.tsx'
 import CanvasFrameActionPoints from './CanvasFrameActionPoints.tsx'
 import CanvasAdminModals from './CanvasAdminModals.tsx'
 import CanvasTopBar from './CanvasTopBar.tsx'
+import CanvasAddActionMenu from './CanvasAddActionMenu.tsx'
 import CanvasDrawingToolbar from './drawing/CanvasDrawingToolbar.tsx'
 import CanvasDrawingDraftOverlay from './drawing/CanvasDrawingDraftOverlay.tsx'
 import CanvasDrawingFrame from './drawing/CanvasDrawingFrame.tsx'
 import CanvasImageFrame from './image/CanvasImageFrame.tsx'
+import CanvasImageUrlModal from './image/CanvasImageUrlModal.tsx'
 import CanvasIconFrame from './icon/CanvasIconFrame.tsx'
 import CanvasFigureFrame from './figure/CanvasFigureFrame.tsx'
+import CanvasFigureModal from './figure/CanvasFigureModal.tsx'
 import CanvasHeadingFrame from './heading/CanvasHeadingFrame.tsx'
+import CanvasHeadingModal from './heading/CanvasHeadingModal.tsx'
 import CanvasTextFrame from './text/CanvasTextFrame.tsx'
+import CanvasTextModal from './text/CanvasTextModal.tsx'
 import CanvasStickyFrame from './sticky/CanvasStickyFrame.tsx'
+import CanvasStickyModal from './sticky/CanvasStickyModal.tsx'
 import CanvasImportStickyCsvModal from './sticky/CanvasImportStickyCsvModal.tsx'
 import CanvasWebsiteFrame from './website/CanvasWebsiteFrame.tsx'
 import CanvasWebsiteActionMenu from './website/CanvasWebsiteActionMenu.tsx'
+import CanvasWebsiteModal from './website/CanvasWebsiteModal.tsx'
 import useCanvasWebsiteVisualization from './website/useCanvasWebsiteVisualization.ts'
 import useCanvasDrawingTool, { type CanvasDrawingStroke } from './drawing/useCanvasDrawingTool.ts'
 import { isIllustrationImageFrame, isIllustrationPath } from './image/CanvasImageUtils.ts'
@@ -5784,34 +5778,22 @@ const Canvas = () => {
                     </Button>
                   </div>
                 )}
-                <ActionMenu>
-                  <ActionMenu.Trigger>
-                    <div className="rounded-full border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-1 shadow-sm">
-                      <Button size="xsmall" variant="tertiary" icon={<Plus size={14} />} className="rounded-full px-2">
-                        Legg til
-                      </Button>
-                    </div>
-                  </ActionMenu.Trigger>
-                  <ActionMenu.Content align="end">
-                    <ActionMenu.Item onClick={handleOpenAddPageModal}>Nettside</ActionMenu.Item>
-                    <ActionMenu.Item onClick={handleOpenGrafbyggerFromAddMenu}>Lag ny graf</ActionMenu.Item>
-                    <ActionMenu.Item onClick={handleOpenAddChartModal}>Importer graf</ActionMenu.Item>
-                    <ActionMenu.Item onClick={handleOpenAddDashboardModal}>Dashboard</ActionMenu.Item>
-                    <ActionMenu.Divider />
-                    <ActionMenu.Item onClick={handleOpenAddHeadingModal}>Overskrift</ActionMenu.Item>
-                    <ActionMenu.Item onClick={handleOpenAddTextModal}>Tekst</ActionMenu.Item>
-                    <ActionMenu.Item onClick={handleOpenAddStickyModal}>Post-it-lapp</ActionMenu.Item>
-                    <ActionMenu.Item onClick={handleOpenImportStickyCsvModal}>CSV-feedback (Post-it)</ActionMenu.Item>
-                    <ActionMenu.Divider />
-                    <ActionMenu.Item onClick={handleOpenAddImageModal}>Bilde</ActionMenu.Item>
-                    <ActionMenu.Item onClick={handleOpenAddIconModal}>Ikon</ActionMenu.Item>
-                    <ActionMenu.Item onClick={handleOpenAddFigureModal}>Figur</ActionMenu.Item>
-                    <ActionMenu.Item onClick={handleOpenAddDrawing}>Tegning</ActionMenu.Item>
-                    <ActionMenu.Item onClick={handleOpenAddIllustrationModal}>Illustrasjoner</ActionMenu.Item>
-                    <ActionMenu.Divider />
-                    <ActionMenu.Item onClick={handleOpenCreateTabModal}>Legg til fane</ActionMenu.Item>
-                  </ActionMenu.Content>
-                </ActionMenu>
+                <CanvasAddActionMenu
+                  onAddWebsite={handleOpenAddPageModal}
+                  onOpenGrafbygger={handleOpenGrafbyggerFromAddMenu}
+                  onAddChart={handleOpenAddChartModal}
+                  onAddDashboard={handleOpenAddDashboardModal}
+                  onAddHeading={handleOpenAddHeadingModal}
+                  onAddText={handleOpenAddTextModal}
+                  onAddSticky={handleOpenAddStickyModal}
+                  onImportStickyCsv={handleOpenImportStickyCsvModal}
+                  onAddImage={handleOpenAddImageModal}
+                  onAddIcon={handleOpenAddIconModal}
+                  onAddFigure={handleOpenAddFigureModal}
+                  onAddDrawing={handleOpenAddDrawing}
+                  onAddIllustration={handleOpenAddIllustrationModal}
+                  onAddTab={handleOpenCreateTabModal}
+                />
                 <div className="flex items-center gap-1 rounded-full border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-1 shadow-sm">
                   <Button
                     size="xsmall"
@@ -6037,79 +6019,38 @@ const Canvas = () => {
         onSelectInventoryFrames={handleSelectInventoryFrames}
       />
 
-      <Modal
+      <CanvasImageUrlModal
         open={isAddImageModalOpen}
-        onClose={() => {
-          setIsAddImageModalOpen(false)
-          setAddImageError(null)
+        heading="Legg til bilde i canvas"
+        urlValue={newImageUrlInput}
+        error={addImageError}
+        isSaving={isSavingCanvasItem}
+        submitLabel="Legg til"
+        onUrlChange={(value) => {
+          setNewImageUrlInput(value)
+          if (addImageError) setAddImageError(null)
         }}
-        header={{ heading: 'Legg til bilde i canvas' }}
-        width="small"
-      >
-        <Modal.Body>
-          <div className="space-y-3">
-            <TextField
-              size="small"
-              label="Bilde-URL"
-              value={newImageUrlInput}
-              onChange={(event) => {
-                setNewImageUrlInput(event.target.value)
-                if (addImageError) setAddImageError(null)
-              }}
-              autoFocus
-            />
-            {addImageError && <Alert variant="error">{addImageError}</Alert>}
-          </div>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button onClick={() => void handleAddImage()} size="small" loading={isSavingCanvasItem}>
-            Legg til
-          </Button>
-          <Button variant="secondary" size="small" onClick={() => setIsAddImageModalOpen(false)}>
-            Avbryt
-          </Button>
-        </Modal.Footer>
-      </Modal>
+        onSubmit={() => void handleAddImage()}
+        onClose={() => setIsAddImageModalOpen(false)}
+      />
 
-      <Modal
+      <CanvasIllustrationModal
         open={isAddIllustrationModalOpen}
+        isEdit={Boolean(editIllustrationFrameId)}
+        selectedPath={selectedIllustrationPath}
+        error={addIllustrationError}
+        isSaving={isSavingCanvasItem}
+        onSelectPath={(path) => {
+          setSelectedIllustrationPath(path)
+          if (addIllustrationError) setAddIllustrationError(null)
+        }}
+        onSubmit={() => void handleAddIllustration()}
         onClose={() => {
           setIsAddIllustrationModalOpen(false)
           setEditIllustrationFrameId(null)
           setAddIllustrationError(null)
         }}
-        header={{ heading: editIllustrationFrameId ? 'Rediger Nav-illustrasjon' : 'Legg til Nav-illustrasjon' }}
-        width="small"
-      >
-        <Modal.Body>
-          <div className="space-y-3">
-            <CanvasIllustrationPicker
-              selectedPath={selectedIllustrationPath}
-              onSelectPath={(path) => {
-                setSelectedIllustrationPath(path)
-                if (addIllustrationError) setAddIllustrationError(null)
-              }}
-            />
-            {addIllustrationError && <Alert variant="error">{addIllustrationError}</Alert>}
-          </div>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button onClick={() => void handleAddIllustration()} size="small" loading={isSavingCanvasItem}>
-            {editIllustrationFrameId ? 'Lagre' : 'Legg til'}
-          </Button>
-          <Button
-            variant="secondary"
-            size="small"
-            onClick={() => {
-              setIsAddIllustrationModalOpen(false)
-              setEditIllustrationFrameId(null)
-              setAddIllustrationError(null)
-            }}
-          >
-            Avbryt
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      />
 
       <Modal
         open={isAddDashboardModalOpen}
@@ -6273,209 +6214,106 @@ const Canvas = () => {
         </Modal.Footer>
       </Modal>
 
-      <Modal
+      <CanvasImageUrlModal
         open={isEditImageModalOpen}
+        heading="Rediger bilde"
+        urlValue={editImageUrlInput}
+        error={editImageError}
+        isSaving={isSavingCanvasItem}
+        submitLabel="Lagre"
+        onUrlChange={(value) => {
+          setEditImageUrlInput(value)
+          if (editImageError) setEditImageError(null)
+        }}
+        onSubmit={() => void handleSaveEditedImage()}
         onClose={() => {
           setIsEditImageModalOpen(false)
           setEditImageFrameId(null)
           setEditImageError(null)
         }}
-        header={{ heading: 'Rediger bilde' }}
-        width="small"
-      >
-        <Modal.Body>
-          <div className="space-y-3">
-            <TextField
-              size="small"
-              label="Bilde-URL"
-              value={editImageUrlInput}
-              onChange={(event) => {
-                setEditImageUrlInput(event.target.value)
-                if (editImageError) setEditImageError(null)
-              }}
-              autoFocus
-            />
-            {editImageError && <Alert variant="error">{editImageError}</Alert>}
-          </div>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button onClick={() => void handleSaveEditedImage()} size="small" loading={isSavingCanvasItem}>
-            Lagre
-          </Button>
-          <Button
-            variant="secondary"
-            size="small"
-            onClick={() => {
-              setIsEditImageModalOpen(false)
-              setEditImageFrameId(null)
-              setEditImageError(null)
-            }}
-          >
-            Avbryt
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      />
 
-      <Modal
+      <CanvasIconModal
         open={isEditIconModalOpen}
+        heading="Rediger ikon"
+        selectedIconId={editIconSelectedId}
+        selectedColor={editIconSelectedColor}
+        colorOptions={CANVAS_ICON_COLOR_OPTIONS}
+        error={editIconError}
+        isSaving={isSavingCanvasItem}
+        submitLabel="Lagre"
+        onSelectIcon={(iconId) => {
+          setEditIconSelectedId(iconId)
+          if (editIconError) setEditIconError(null)
+        }}
+        onSelectColor={(color) => {
+          setEditIconSelectedColor(color)
+          if (editIconError) setEditIconError(null)
+        }}
+        onSubmit={() => void handleSaveEditedIcon()}
         onClose={() => {
           setIsEditIconModalOpen(false)
           setEditIconFrameId(null)
           setEditIconError(null)
         }}
-        header={{ heading: 'Rediger ikon' }}
-        width="small"
-      >
-        <Modal.Body>
-          <div className="space-y-3">
-            <CanvasIconPicker
-              selectedIconId={editIconSelectedId}
-              onSelectIcon={(iconId) => {
-                setEditIconSelectedId(iconId)
-                if (editIconError) setEditIconError(null)
-              }}
-            />
-            <div className="space-y-1.5">
-              <div className="text-sm font-medium text-[var(--ax-text-default)]">Farge</div>
-              <div className="flex flex-wrap gap-2">
-                {CANVAS_ICON_COLOR_OPTIONS.map((colorOption) => {
-                  const isSelected = editIconSelectedColor === colorOption.value
-                  return (
-                    <button
-                      key={colorOption.id}
-                      type="button"
-                      onClick={() => {
-                        setEditIconSelectedColor(colorOption.value)
-                        if (editIconError) setEditIconError(null)
-                      }}
-                      className={`flex h-8 w-8 items-center justify-center rounded-full border-2 ${
-                        isSelected ? 'border-[var(--ax-border-accent)]' : 'border-[var(--ax-border-neutral-subtle)]'
-                      }`}
-                      aria-label={`Velg farge ${colorOption.label}`}
-                      title={colorOption.label}
-                    >
-                      <span
-                        aria-hidden="true"
-                        className="h-5 w-5 rounded-full border border-black/10"
-                        style={{ backgroundColor: colorOption.value }}
-                      />
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-            {editIconError && <Alert variant="error">{editIconError}</Alert>}
-          </div>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button onClick={() => void handleSaveEditedIcon()} size="small" loading={isSavingCanvasItem}>
-            Lagre
-          </Button>
-          <Button
-            variant="secondary"
-            size="small"
-            onClick={() => {
-              setIsEditIconModalOpen(false)
-              setEditIconFrameId(null)
-              setEditIconError(null)
-            }}
-          >
-            Avbryt
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      />
 
-      <Modal
+      <CanvasFigureModal
         open={isEditFigureModalOpen}
+        isEdit
+        selectedType={editFigureSelectedType}
+        selectedColor={editFigureSelectedColor}
+        figureOptions={CANVAS_FIGURE_OPTIONS}
+        colorOptions={CANVAS_ICON_COLOR_OPTIONS}
+        error={editFigureError}
+        isSaving={isSavingCanvasItem}
+        onSelectType={(type) => {
+          setEditFigureSelectedType(type as CanvasFigureType)
+          if (editFigureError) setEditFigureError(null)
+        }}
+        onSelectColor={(color) => {
+          setEditFigureSelectedColor(color)
+          if (editFigureError) setEditFigureError(null)
+        }}
+        onSubmit={() => void handleSaveEditedFigure()}
         onClose={() => {
           setIsEditFigureModalOpen(false)
           setEditFigureFrameId(null)
           setEditFigureError(null)
         }}
-        header={{ heading: 'Rediger figur' }}
-        width="small"
-      >
-        <Modal.Body>
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <div className="text-sm font-medium text-[var(--ax-text-default)]">Figurtype</div>
-              <div className="grid grid-cols-2 gap-2">
-                {CANVAS_FIGURE_OPTIONS.map((figureOption) => {
-                  const isSelected = editFigureSelectedType === figureOption.id
-                  const FigureIcon = figureOption.Icon
-                  return (
-                    <button
-                      key={figureOption.id}
-                      type="button"
-                      onClick={() => {
-                        setEditFigureSelectedType(figureOption.id)
-                        if (editFigureError) setEditFigureError(null)
-                      }}
-                      className={`flex items-center gap-2 rounded-md border px-3 py-2 text-left ${
-                        isSelected
-                          ? 'border-[var(--ax-border-accent)] bg-[var(--ax-bg-accent-soft)]'
-                          : 'border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)]'
-                      }`}
-                    >
-                      <FigureIcon size={16} aria-hidden="true" />
-                      <span className="text-sm text-[var(--ax-text-default)]">{figureOption.label}</span>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <div className="text-sm font-medium text-[var(--ax-text-default)]">Farge</div>
-              <div className="flex flex-wrap gap-2">
-                {CANVAS_ICON_COLOR_OPTIONS.map((colorOption) => {
-                  const isSelected = editFigureSelectedColor === colorOption.value
-                  return (
-                    <button
-                      key={colorOption.id}
-                      type="button"
-                      onClick={() => {
-                        setEditFigureSelectedColor(colorOption.value)
-                        if (editFigureError) setEditFigureError(null)
-                      }}
-                      className={`flex h-8 w-8 items-center justify-center rounded-full border-2 ${
-                        isSelected ? 'border-[var(--ax-border-accent)]' : 'border-[var(--ax-border-neutral-subtle)]'
-                      }`}
-                      aria-label={`Velg farge ${colorOption.label}`}
-                      title={colorOption.label}
-                    >
-                      <span
-                        aria-hidden="true"
-                        className="h-5 w-5 rounded-full border border-black/10"
-                        style={{ backgroundColor: colorOption.value }}
-                      />
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-            {editFigureError && <Alert variant="error">{editFigureError}</Alert>}
-          </div>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button onClick={() => void handleSaveEditedFigure()} size="small" loading={isSavingCanvasItem}>
-            Lagre
-          </Button>
-          <Button
-            variant="secondary"
-            size="small"
-            onClick={() => {
-              setIsEditFigureModalOpen(false)
-              setEditFigureFrameId(null)
-              setEditFigureError(null)
-            }}
-          >
-            Avbryt
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      />
 
-      <Modal
+      <CanvasWebsiteModal
         open={isAddPageModalOpen}
+        isEdit={false}
+        selectedWebsite={selectedWebsite}
+        pathValue={newPagePathInput}
+        renderEnabled={newPageRenderEnabled}
+        visualizationMode={newPageVisualizationMode}
+        previewUrlValue={newPagePreviewUrlInput}
+        error={addPageError}
+        isSaving={isSavingCanvasItem}
+        onWebsiteChange={(website) => {
+          setSelectedWebsite(website)
+          if (addPageError) setAddPageError(null)
+        }}
+        onPathChange={(value) => {
+          setNewPagePathInput(value)
+          if (addPageError) setAddPageError(null)
+        }}
+        onRenderEnabledChange={(checked) => {
+          setNewPageRenderEnabled(checked)
+          if (addPageError) setAddPageError(null)
+        }}
+        onVisualizationModeChange={(mode) => {
+          setNewPageVisualizationMode(mode)
+          if (addPageError) setAddPageError(null)
+        }}
+        onPreviewUrlChange={(value) => {
+          setNewPagePreviewUrlInput(value)
+          if (addPageError) setAddPageError(null)
+        }}
+        onSubmit={() => void handleAddPage()}
         onClose={() => {
           setIsAddPageModalOpen(false)
           setAddPageError(null)
@@ -6483,184 +6321,45 @@ const Canvas = () => {
           setNewPageRenderEnabled(true)
           setNewPageVisualizationMode('')
         }}
-        header={{ heading: 'Legg til nettside' }}
-        width="small"
-      >
-        <Modal.Body>
-          <div className="space-y-3">
-            <WebsitePicker
-              selectedWebsite={selectedWebsite}
-              onWebsiteChange={(website) => {
-                setSelectedWebsite(website)
-                if (addPageError) setAddPageError(null)
-              }}
-              disableAutoRestore
-              variant="default"
-              customLabel="Velg nettside"
-            />
-            <TextField
-              size="small"
-              label="URL"
-              value={newPagePathInput}
-              onChange={(event) => {
-                setNewPagePathInput(event.target.value)
-                if (addPageError) setAddPageError(null)
-              }}
-              autoFocus
-            />
-            <Switch
-              size="small"
-              checked={newPageRenderEnabled}
-              onChange={(event) => {
-                setNewPageRenderEnabled(event.target.checked)
-                if (addPageError) setAddPageError(null)
-              }}
-            >
-              Last inn nettsiden
-            </Switch>
-            <Switch
-              size="small"
-              checked={Boolean(newPageVisualizationMode)}
-              onChange={(event) => {
-                setNewPageVisualizationMode(event.target.checked ? 'clickmap' : '')
-                if (addPageError) setAddPageError(null)
-              }}
-            >
-              Legg til visualisering
-            </Switch>
-            {newPageVisualizationMode && (
-              <>
-                <VisualizationModeSelect
-                  value={newPageVisualizationMode}
-                  onChange={(nextMode) => {
-                    setNewPageVisualizationMode(nextMode)
-                    if (addPageError) setAddPageError(null)
-                  }}
-                  size="small"
-                  label="Visualisering"
-                  allowNoneOption={false}
-                />
-                <p className="text-xs text-[var(--ax-text-subtle)]">
-                  Velg hvordan klikkdata vises over nettsiden i kortet (klikkkart, varmekart eller scrollkart).
-                </p>
-              </>
-            )}
-            {!newPageRenderEnabled && (
-              <TextField
-                size="small"
-                label="Valgfri visnings-URL"
-                value={newPagePreviewUrlInput}
-                onChange={(event) => {
-                  setNewPagePreviewUrlInput(event.target.value)
-                  if (addPageError) setAddPageError(null)
-                }}
-                description="Vises i kortet i stedet for nettsiden. Kan være en bilde- eller innholdsside."
-              />
-            )}
-            {addPageError && <Alert variant="error">{addPageError}</Alert>}
-          </div>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button onClick={() => void handleAddPage()} size="small" loading={isSavingCanvasItem}>
-            Legg til
-          </Button>
-          <Button
-            variant="secondary"
-            size="small"
-            onClick={() => {
-              setIsAddPageModalOpen(false)
-              setNewPageVisualizationMode('')
-            }}
-          >
-            Avbryt
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      />
 
-      <Modal
+      <CanvasWebsiteModal
         open={isEditWebsiteModalOpen}
+        isEdit
+        selectedWebsite={selectedWebsite}
+        pathValue={editWebsitePathInput}
+        renderEnabled={editWebsiteRenderEnabled}
+        visualizationMode={editWebsiteVisualizationMode}
+        previewUrlValue={editWebsitePreviewUrlInput}
+        error={editWebsiteError}
+        isSaving={isSavingCanvasItem}
+        onWebsiteChange={() => {
+          // Website selection is hidden in edit mode.
+        }}
+        onPathChange={(value) => {
+          setEditWebsitePathInput(value)
+          if (editWebsiteError) setEditWebsiteError(null)
+        }}
+        onRenderEnabledChange={(checked) => {
+          setEditWebsiteRenderEnabled(checked)
+          if (editWebsiteError) setEditWebsiteError(null)
+        }}
+        onVisualizationModeChange={(mode) => {
+          setEditWebsiteVisualizationMode(mode)
+          if (editWebsiteError) setEditWebsiteError(null)
+        }}
+        onPreviewUrlChange={(value) => {
+          setEditWebsitePreviewUrlInput(value)
+          if (editWebsiteError) setEditWebsiteError(null)
+        }}
+        onSubmit={() => void handleSaveEditedWebsite()}
         onClose={() => {
           setIsEditWebsiteModalOpen(false)
           setEditWebsiteFrameId(null)
           setEditWebsiteError(null)
           setEditWebsiteVisualizationMode('')
         }}
-        header={{ heading: 'Rediger nettside' }}
-        width="small"
-      >
-        <Modal.Body>
-          <div className="space-y-3">
-            <TextField
-              size="small"
-              label="URL"
-              value={editWebsitePathInput}
-              onChange={(event) => {
-                setEditWebsitePathInput(event.target.value)
-                if (editWebsiteError) setEditWebsiteError(null)
-              }}
-              autoFocus
-            />
-            <Switch
-              size="small"
-              checked={editWebsiteRenderEnabled}
-              onChange={(event) => {
-                setEditWebsiteRenderEnabled(event.target.checked)
-                if (editWebsiteError) setEditWebsiteError(null)
-              }}
-            >
-              Last inn nettsiden
-            </Switch>
-            {editWebsiteRenderEnabled && (
-              <>
-                <VisualizationModeSelect
-                  value={editWebsiteVisualizationMode}
-                  onChange={(nextMode) => {
-                    setEditWebsiteVisualizationMode(nextMode)
-                    if (editWebsiteError) setEditWebsiteError(null)
-                  }}
-                  size="small"
-                  label="Visualisering"
-                  allowNoneOption
-                  noneOptionLabel="Ingen"
-                />
-                <p className="text-xs text-[var(--ax-text-subtle)]">
-                  Velg hvordan klikkdata vises over nettsiden i kortet (klikkkart, varmekart eller scrollkart).
-                </p>
-              </>
-            )}
-            {!editWebsiteRenderEnabled && (
-              <TextField
-                size="small"
-                label="Valgfri visnings-URL"
-                value={editWebsitePreviewUrlInput}
-                onChange={(event) => {
-                  setEditWebsitePreviewUrlInput(event.target.value)
-                  if (editWebsiteError) setEditWebsiteError(null)
-                }}
-                description="Vises i kortet i stedet for nettsiden. Kan være en image- eller innholdsside."
-              />
-            )}
-            {editWebsiteError && <Alert variant="error">{editWebsiteError}</Alert>}
-          </div>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button onClick={() => void handleSaveEditedWebsite()} size="small" loading={isSavingCanvasItem}>
-            Lagre
-          </Button>
-          <Button
-            variant="secondary"
-            size="small"
-            onClick={() => {
-              setIsEditWebsiteModalOpen(false)
-              setEditWebsiteFrameId(null)
-              setEditWebsiteError(null)
-              setEditWebsiteVisualizationMode('')
-            }}
-          >
-            Avbryt
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      />
 
       <EditChartDialog
         key={editChartTarget?.id ?? 'canvas-edit-chart-dialog'}
@@ -6811,152 +6510,61 @@ const Canvas = () => {
         </Modal.Footer>
       </Modal>
 
-      <Modal
+      <CanvasHeadingModal
         open={isAddHeadingModalOpen}
+        value={headingTextInput}
+        error={addHeadingError}
+        isSaving={isSavingCanvasItem}
+        onChange={(value) => {
+          setHeadingTextInput(value)
+          if (addHeadingError) setAddHeadingError(null)
+        }}
+        onSubmit={() => void handleAddHeadingCard()}
         onClose={() => {
           setIsAddHeadingModalOpen(false)
           setAddHeadingError(null)
         }}
-        header={{ heading: 'Legg til overskrift' }}
-        width="small"
-      >
-        <Modal.Body>
-          <div className="space-y-3">
-            <TextField
-              label="Overskrift"
-              value={headingTextInput}
-              onChange={(event) => {
-                setHeadingTextInput(event.target.value)
-                if (addHeadingError) setAddHeadingError(null)
-              }}
-              autoFocus
-            />
-            {addHeadingError && <Alert variant="error">{addHeadingError}</Alert>}
-          </div>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button onClick={() => void handleAddHeadingCard()} size="small" loading={isSavingCanvasItem}>
-            Legg til
-          </Button>
-          <Button
-            variant="secondary"
-            size="small"
-            onClick={() => {
-              setIsAddHeadingModalOpen(false)
-              setAddHeadingError(null)
-            }}
-          >
-            Avbryt
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      />
 
-      <Modal
+      <CanvasTextModal
         open={isAddTextModalOpen}
+        value={textContentInput}
+        error={addTextError}
+        isSaving={isSavingCanvasItem}
+        onChange={(value) => {
+          setTextContentInput(value)
+          if (addTextError) setAddTextError(null)
+        }}
+        onSubmit={() => void handleAddTextCard()}
         onClose={() => {
           setIsAddTextModalOpen(false)
           setAddTextError(null)
         }}
-        header={{ heading: 'Legg til tekst' }}
-        width="small"
-      >
-        <Modal.Body>
-          <div className="space-y-3">
-            <Textarea
-              label="Tekst"
-              minRows={6}
-              value={textContentInput}
-              onChange={(event) => {
-                setTextContentInput(event.target.value)
-                if (addTextError) setAddTextError(null)
-              }}
-            />
-            {addTextError && <Alert variant="error">{addTextError}</Alert>}
-          </div>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button onClick={() => void handleAddTextCard()} size="small" loading={isSavingCanvasItem}>
-            Legg til
-          </Button>
-          <Button
-            variant="secondary"
-            size="small"
-            onClick={() => {
-              setIsAddTextModalOpen(false)
-              setAddTextError(null)
-            }}
-          >
-            Avbryt
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      />
 
-      <Modal
+      <CanvasIconModal
         open={isAddIconModalOpen}
+        heading="Legg til ikon"
+        selectedIconId={selectedIconId}
+        selectedColor={selectedIconColor}
+        colorOptions={CANVAS_ICON_COLOR_OPTIONS}
+        error={addIconError}
+        isSaving={isSavingCanvasItem}
+        submitLabel="Legg til"
+        onSelectIcon={(iconId) => {
+          setSelectedIconId(iconId)
+          if (addIconError) setAddIconError(null)
+        }}
+        onSelectColor={(color) => {
+          setSelectedIconColor(color)
+          if (addIconError) setAddIconError(null)
+        }}
+        onSubmit={() => void handleAddIconCard()}
         onClose={() => {
           setIsAddIconModalOpen(false)
           setAddIconError(null)
         }}
-        header={{ heading: 'Legg til ikon' }}
-        width="small"
-      >
-        <Modal.Body>
-          <div className="space-y-3">
-            <CanvasIconPicker
-              selectedIconId={selectedIconId}
-              onSelectIcon={(iconId) => {
-                setSelectedIconId(iconId)
-                if (addIconError) setAddIconError(null)
-              }}
-            />
-            <div className="space-y-1.5">
-              <div className="text-sm font-medium text-[var(--ax-text-default)]">Farge</div>
-              <div className="flex flex-wrap gap-2">
-                {CANVAS_ICON_COLOR_OPTIONS.map((colorOption) => {
-                  const isSelected = selectedIconColor === colorOption.value
-                  return (
-                    <button
-                      key={colorOption.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedIconColor(colorOption.value)
-                        if (addIconError) setAddIconError(null)
-                      }}
-                      className={`flex h-8 w-8 items-center justify-center rounded-full border-2 ${
-                        isSelected ? 'border-[var(--ax-border-accent)]' : 'border-[var(--ax-border-neutral-subtle)]'
-                      }`}
-                      aria-label={`Velg farge ${colorOption.label}`}
-                      title={colorOption.label}
-                    >
-                      <span
-                        aria-hidden="true"
-                        className="h-5 w-5 rounded-full border border-black/10"
-                        style={{ backgroundColor: colorOption.value }}
-                      />
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-            {addIconError && <Alert variant="error">{addIconError}</Alert>}
-          </div>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button onClick={() => void handleAddIconCard()} size="small" loading={isSavingCanvasItem}>
-            Legg til
-          </Button>
-          <Button
-            variant="secondary"
-            size="small"
-            onClick={() => {
-              setIsAddIconModalOpen(false)
-              setAddIconError(null)
-            }}
-          >
-            Avbryt
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      />
 
       <CanvasImportStickyCsvModal
         open={isImportStickyCsvModalOpen}
@@ -7018,133 +6626,45 @@ const Canvas = () => {
         }
       />
 
-      <Modal
+      <CanvasStickyModal
         open={isAddStickyModalOpen}
+        value={stickyContentInput}
+        error={addStickyError}
+        isSaving={isSavingCanvasItem}
+        onChange={(value) => {
+          setStickyContentInput(value)
+          if (addStickyError) setAddStickyError(null)
+        }}
+        onSubmit={() => void handleAddStickyCard()}
         onClose={() => {
           setIsAddStickyModalOpen(false)
           setAddStickyError(null)
         }}
-        header={{ heading: 'Legg til Post-it-lapp' }}
-        width="small"
-      >
-        <Modal.Body>
-          <div className="space-y-3 rounded-xl border border-[#f1dc7d] bg-[#fff5b8] p-3">
-            <Textarea
-              label="Tekst"
-              minRows={6}
-              value={stickyContentInput}
-              onChange={(event) => {
-                setStickyContentInput(event.target.value)
-                if (addStickyError) setAddStickyError(null)
-              }}
-              className="[&_label]:text-[#4a3d00] [&_textarea]:border-[#e5cd69] [&_textarea]:bg-[#fff7ca] [&_textarea]:text-[#4a3d00] [&_textarea::placeholder]:text-[#7a6b2a]"
-            />
-            {addStickyError && <Alert variant="error">{addStickyError}</Alert>}
-          </div>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button onClick={() => void handleAddStickyCard()} size="small" loading={isSavingCanvasItem}>
-            Legg til
-          </Button>
-          <Button
-            variant="secondary"
-            size="small"
-            onClick={() => {
-              setIsAddStickyModalOpen(false)
-              setAddStickyError(null)
-            }}
-          >
-            Avbryt
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      />
 
-      <Modal
+      <CanvasFigureModal
         open={isAddFigureModalOpen}
+        isEdit={false}
+        selectedType={selectedFigureType}
+        selectedColor={selectedFigureColor}
+        figureOptions={CANVAS_FIGURE_OPTIONS}
+        colorOptions={CANVAS_ICON_COLOR_OPTIONS}
+        error={addFigureError}
+        isSaving={isSavingCanvasItem}
+        onSelectType={(type) => {
+          setSelectedFigureType(type as CanvasFigureType)
+          if (addFigureError) setAddFigureError(null)
+        }}
+        onSelectColor={(color) => {
+          setSelectedFigureColor(color)
+          if (addFigureError) setAddFigureError(null)
+        }}
+        onSubmit={() => void handleAddFigureCard()}
         onClose={() => {
           setIsAddFigureModalOpen(false)
           setAddFigureError(null)
         }}
-        header={{ heading: 'Legg til figur' }}
-        width="small"
-      >
-        <Modal.Body>
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <div className="text-sm font-medium text-[var(--ax-text-default)]">Figurtype</div>
-              <div className="grid grid-cols-2 gap-2">
-                {CANVAS_FIGURE_OPTIONS.map((figureOption) => {
-                  const isSelected = selectedFigureType === figureOption.id
-                  const FigureIcon = figureOption.Icon
-                  return (
-                    <button
-                      key={figureOption.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedFigureType(figureOption.id)
-                        if (addFigureError) setAddFigureError(null)
-                      }}
-                      className={`flex items-center gap-2 rounded-md border px-3 py-2 text-left ${
-                        isSelected
-                          ? 'border-[var(--ax-border-accent)] bg-[var(--ax-bg-accent-soft)]'
-                          : 'border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)]'
-                      }`}
-                    >
-                      <FigureIcon size={16} aria-hidden="true" />
-                      <span className="text-sm text-[var(--ax-text-default)]">{figureOption.label}</span>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <div className="text-sm font-medium text-[var(--ax-text-default)]">Farge</div>
-              <div className="flex flex-wrap gap-2">
-                {CANVAS_ICON_COLOR_OPTIONS.map((colorOption) => {
-                  const isSelected = selectedFigureColor === colorOption.value
-                  return (
-                    <button
-                      key={colorOption.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedFigureColor(colorOption.value)
-                        if (addFigureError) setAddFigureError(null)
-                      }}
-                      className={`flex h-8 w-8 items-center justify-center rounded-full border-2 ${
-                        isSelected ? 'border-[var(--ax-border-accent)]' : 'border-[var(--ax-border-neutral-subtle)]'
-                      }`}
-                      aria-label={`Velg farge ${colorOption.label}`}
-                      title={colorOption.label}
-                    >
-                      <span
-                        aria-hidden="true"
-                        className="h-5 w-5 rounded-full border border-black/10"
-                        style={{ backgroundColor: colorOption.value }}
-                      />
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-            {addFigureError && <Alert variant="error">{addFigureError}</Alert>}
-          </div>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button onClick={() => void handleAddFigureCard()} size="small" loading={isSavingCanvasItem}>
-            Legg til
-          </Button>
-          <Button
-            variant="secondary"
-            size="small"
-            onClick={() => {
-              setIsAddFigureModalOpen(false)
-              setAddFigureError(null)
-            }}
-          >
-            Avbryt
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      />
     </>
   )
 }
