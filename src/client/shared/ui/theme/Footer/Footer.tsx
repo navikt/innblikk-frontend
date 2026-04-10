@@ -143,7 +143,10 @@ function Kontakt() {
           #ResearchOps på Slack
         </FooterLink>
         <li className="flex gap-3">
-          <FooterLink href="https://github.com/navikt/umami-start">
+          <Link
+            className="!text-white hover:!text-white focus:shadow-focus focus:!text-black flex w-fit items-center gap-1 underline hover:no-underline focus:bg-blue-100 focus:shadow-blue-100"
+            href="https://github.com/navikt/umami-start"
+          >
             <svg
               className="align-top"
               width="18"
@@ -162,8 +165,13 @@ function Kontakt() {
               ></path>
             </svg>
             Frontend
-          </FooterLink>
-          <FooterLink href="https://github.com/navikt/start-umami-backend">Backend</FooterLink>
+          </Link>
+          <Link
+            className="!text-white hover:!text-white focus:shadow-focus focus:!text-black flex w-fit items-center gap-1 underline hover:no-underline focus:bg-blue-100 focus:shadow-blue-100"
+            href="https://github.com/navikt/start-umami-backend"
+          >
+            Backend
+          </Link>
         </li>
       </BodyShort>
     </div>
