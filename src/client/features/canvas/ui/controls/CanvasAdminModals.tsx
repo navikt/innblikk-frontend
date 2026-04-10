@@ -1,6 +1,6 @@
 import { Alert, Button, Checkbox, Modal, Pagination, Select, Table, TextField } from '@navikt/ds-react'
 import { useState } from 'react'
-import type { GraphCategoryDto } from '../../oversikt/model/types.ts'
+import type { GraphCategoryDto } from '../../../oversikt/model/types.ts'
 
 type CanvasAdminModalsProps = {
   isCanvasSettingsModalOpen: boolean

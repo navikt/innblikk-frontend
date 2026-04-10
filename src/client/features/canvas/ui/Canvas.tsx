@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, Button, HelpText, Label, Loader, Modal, Select, TextField } from '@navikt/ds-react'
-import { ChartNoAxesCombined, Minus, Plus, Trash2 } from 'lucide-react'
+import { ChartNoAxesCombined, Plus, Trash2 } from 'lucide-react'
 import { computeFunnelStepMetrics } from '../../analysis/utils/horizontalFunnel.ts'
 import { fetchPageMetrics } from '../../traffic/api/trafficApi.ts'
 import { fetchFunnelData } from '../../funnel/api/funnelApi.ts'
@@ -20,10 +20,11 @@ import {
   getCanvasIllustrationOptionByPath,
 } from './illustration/CanvasIllustrationRegistry.ts'
 import CanvasIconModal from './icon/CanvasIconModal.tsx'
-import CanvasFrameActionPoints from './CanvasFrameActionPoints.tsx'
-import CanvasAdminModals from './CanvasAdminModals.tsx'
-import CanvasTopBar from './CanvasTopBar.tsx'
-import CanvasAddActionMenu from './CanvasAddActionMenu.tsx'
+import CanvasFrameActionPoints from './controls/CanvasFrameActionPoints.tsx'
+import CanvasAdminModals from './controls/CanvasAdminModals.tsx'
+import CanvasTopBar from './controls/CanvasTopBar.tsx'
+import CanvasAddActionMenu from './controls/CanvasAddActionMenu.tsx'
+import CanvasZoomControls from './controls/CanvasZoomControls.tsx'
 import CanvasDrawingToolbar from './drawing/CanvasDrawingToolbar.tsx'
 import CanvasDrawingDraftOverlay from './drawing/CanvasDrawingDraftOverlay.tsx'
 import CanvasDrawingFrame from './drawing/CanvasDrawingFrame.tsx'
@@ -317,9 +318,9 @@ const Canvas = () => {
   const [editFigureSelectedType, setEditFigureSelectedType] = useState<CanvasFigureType>('rectangle')
   const [editFigureSelectedColor, setEditFigureSelectedColor] = useState(DEFAULT_CANVAS_ICON_COLOR)
   const [editFigureError, setEditFigureError] = useState<string | null>(null)
-  const [chartOptions, setChartOptions] = useState<CanvasChartOption[]>([])
+  const [chartOptions, _setChartOptions] = useState<CanvasChartOption[]>([])
   const [selectedChartOptionId, setSelectedChartOptionId] = useState('')
-  const [isLoadingChartOptions, setIsLoadingChartOptions] = useState(false)
+  const [isLoadingChartOptions, _setIsLoadingChartOptions] = useState(false)
   const [addChartError, setAddChartError] = useState<string | null>(null)
   const [isGrafbyggerEmbedded, setIsGrafbyggerEmbedded] = useState(false)
   const [editChartFrameId, setEditChartFrameId] = useState<string | null>(null)
@@ -2373,66 +2374,6 @@ const Canvas = () => {
     setIsAddFigureModalOpen(false)
   }
 
-  const loadChartOptions = useCallback(async () => {
-    if (!canPersistToDashboard || projectId === null || dashboardId === null) {
-      setChartOptions([])
-      setSelectedChartOptionId('')
-      return
-    }
-
-    setIsLoadingChartOptions(true)
-    setAddChartError(null)
-
-    try {
-      const categories = await fetchCategories(projectId, dashboardId)
-      const options: CanvasChartOption[] = []
-
-      for (const category of categories) {
-        const graphs = await fetchGraphs(projectId, dashboardId, category.id)
-        for (const graph of graphs) {
-          const mappedType = mapGraphTypeToChart(graph.graphType)
-          if (mappedType !== 'line' && mappedType !== 'bar' && mappedType !== 'pie' && mappedType !== 'table') {
-            continue
-          }
-
-          const queries = await fetchQueries(projectId, dashboardId, category.id, graph.id)
-          const primaryQuery = queries[0]
-          if (!primaryQuery?.sqlText) continue
-
-          options.push({
-            id: `${category.id}:${graph.id}:${primaryQuery.id}`,
-            title: graph.name || `Graf ${graph.id}`,
-            chartType: mappedType,
-            sql: primaryQuery.sqlText,
-          })
-        }
-      }
-
-      setChartOptions(options)
-      setSelectedChartOptionId((prev) => {
-        if (prev && options.some((option) => option.id === prev)) return prev
-        return options[0]?.id || ''
-      })
-    } catch (error) {
-      setAddChartError(error instanceof Error ? error.message : 'Kunne ikke laste grafer')
-    } finally {
-      setIsLoadingChartOptions(false)
-    }
-  }, [canPersistToDashboard, projectId, dashboardId])
-
-  const handleOpenAddChartModal = () => {
-    const hasWebsiteContext = Boolean(selectedWebsite?.id || canvasConfiguredWebsiteId)
-    if (!hasWebsiteContext) {
-      setCanvasSettingsInfo('Velg nettside i canvas-innstillinger før du importerer graf.')
-      setIsCanvasSettingsModalOpen(true)
-      return
-    }
-    setAddChartError(null)
-    setIsGrafbyggerEmbedded(false)
-    setIsAddChartModalOpen(true)
-    void loadChartOptions()
-  }
-
   const openGrafbyggerFromAddMenuDirect = () => {
     setAddChartError(null)
     setIsAddChartModalOpen(false)
@@ -3949,7 +3890,6 @@ const Canvas = () => {
           onOpenAddDrawing={handleOpenAddDrawing}
           onOpenAddIllustration={handleOpenAddIllustrationModal}
           onOpenCreateChart={handleOpenGrafbyggerFromAddMenu}
-          onOpenImportChart={handleOpenAddChartModal}
           isGrafbyggerEmbedded={isGrafbyggerEmbedded}
           onCloseGrafbygger={() => setIsGrafbyggerEmbedded(false)}
           onOpenCreateTab={handleOpenCreateTabModal}
@@ -4816,7 +4756,6 @@ const Canvas = () => {
                 <CanvasAddActionMenu
                   onAddWebsite={handleOpenAddPageModal}
                   onOpenGrafbygger={handleOpenGrafbyggerFromAddMenu}
-                  onAddChart={handleOpenAddChartModal}
                   onAddDashboard={handleOpenAddDashboardModal}
                   onAddHeading={handleOpenAddHeadingModal}
                   onAddText={handleOpenAddTextModal}
@@ -4829,33 +4768,12 @@ const Canvas = () => {
                   onAddIllustration={handleOpenAddIllustrationModal}
                   onAddTab={handleOpenCreateTabModal}
                 />
-                <div className="flex items-center gap-1 rounded-full border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-1 shadow-sm">
-                  <Button
-                    size="xsmall"
-                    variant="tertiary"
-                    icon={<Minus size={14} />}
-                    onClick={() => handleCanvasZoomChange(canvasZoom - CANVAS_ZOOM_STEP)}
-                    title="Zoom ut"
-                    aria-label="Zoom ut"
-                  />
-                  <Button
-                    size="xsmall"
-                    variant="tertiary"
-                    onClick={handleCanvasZoomReset}
-                    title="Tilbakestill zoom"
-                    aria-label={`${Math.round(canvasZoom * 100)}% Tilbakestill zoom`}
-                  >
-                    {Math.round(canvasZoom * 100)}%
-                  </Button>
-                  <Button
-                    size="xsmall"
-                    variant="tertiary"
-                    icon={<Plus size={14} />}
-                    onClick={() => handleCanvasZoomChange(canvasZoom + CANVAS_ZOOM_STEP)}
-                    title="Zoom inn"
-                    aria-label="Zoom inn"
-                  />
-                </div>
+                <CanvasZoomControls
+                  canvasZoom={canvasZoom}
+                  onZoomOut={() => handleCanvasZoomChange(canvasZoom - CANVAS_ZOOM_STEP)}
+                  onZoomReset={handleCanvasZoomReset}
+                  onZoomIn={() => handleCanvasZoomChange(canvasZoom + CANVAS_ZOOM_STEP)}
+                />
               </>
             )}
           </div>

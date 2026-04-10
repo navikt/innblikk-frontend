@@ -1,9 +1,9 @@
 import { ActionMenu, Alert, Button, Tabs } from '@navikt/ds-react'
 import { MoreVertical } from 'lucide-react'
 import type { RefObject } from 'react'
-import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
-import type { GraphCategoryDto } from '../../oversikt/model/types.ts'
-import CanvasAddActionMenu from './controls/CanvasAddActionMenu.tsx'
+import PeriodPicker from '../../../analysis/ui/PeriodPicker.tsx'
+import type { GraphCategoryDto } from '../../../oversikt/model/types.ts'
+import CanvasAddActionMenu from './CanvasAddActionMenu.tsx'
 
 type CanvasTopBarProps = {
   canvasToolbarRef: RefObject<HTMLDivElement | null>

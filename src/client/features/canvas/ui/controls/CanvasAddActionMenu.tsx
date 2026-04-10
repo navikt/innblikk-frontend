@@ -4,7 +4,6 @@ import { Plus } from 'lucide-react'
 type CanvasAddActionMenuProps = {
   onAddWebsite: () => void
   onOpenGrafbygger: () => void
-  onAddChart: () => void
   onAddDashboard: () => void
   onAddHeading: () => void
   onAddText: () => void
@@ -16,12 +15,18 @@ type CanvasAddActionMenuProps = {
   onAddDrawing: () => void
   onAddIllustration: () => void
   onAddTab: () => void
+  disabled?: boolean
+  buttonSize?: 'small' | 'xsmall'
+  buttonVariant?: 'primary' | 'tertiary'
+  buttonLabel?: string
+  buttonClassName?: string
+  iconSize?: number
+  withFloatingFrame?: boolean
 }
 
 const CanvasAddActionMenu = ({
   onAddWebsite,
   onOpenGrafbygger,
-  onAddChart,
   onAddDashboard,
   onAddHeading,
   onAddText,
@@ -33,25 +38,49 @@ const CanvasAddActionMenu = ({
   onAddDrawing,
   onAddIllustration,
   onAddTab,
+  disabled = false,
+  buttonSize = 'xsmall',
+  buttonVariant = 'tertiary',
+  buttonLabel = 'Legg til',
+  buttonClassName = '',
+  iconSize = 14,
+  withFloatingFrame = true,
 }: CanvasAddActionMenuProps) => (
   <ActionMenu>
     <ActionMenu.Trigger>
-      <div className="rounded-full border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-1 shadow-sm">
-        <Button size="xsmall" variant="tertiary" icon={<Plus size={14} />} className="rounded-full px-2">
-          Legg til
+      {withFloatingFrame ? (
+        <div className="rounded-full border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-1 shadow-sm">
+          <Button
+            size={buttonSize}
+            variant={buttonVariant}
+            icon={<Plus size={iconSize} />}
+            className={buttonClassName}
+            disabled={disabled}
+          >
+            {buttonLabel}
+          </Button>
+        </div>
+      ) : (
+        <Button
+          size={buttonSize}
+          variant={buttonVariant}
+          icon={<Plus size={iconSize} />}
+          className={buttonClassName}
+          disabled={disabled}
+        >
+          {buttonLabel}
         </Button>
-      </div>
+      )}
     </ActionMenu.Trigger>
     <ActionMenu.Content align="end">
       <ActionMenu.Item onClick={onAddWebsite}>Nettside</ActionMenu.Item>
-      <ActionMenu.Item onClick={onOpenGrafbygger}>Lag ny graf</ActionMenu.Item>
-      <ActionMenu.Item onClick={onAddChart}>Importer graf</ActionMenu.Item>
+      <ActionMenu.Item onClick={onOpenGrafbygger}>Graf</ActionMenu.Item>
       <ActionMenu.Item onClick={onAddDashboard}>Dashboard</ActionMenu.Item>
       <ActionMenu.Divider />
       <ActionMenu.Item onClick={onAddHeading}>Overskrift</ActionMenu.Item>
       <ActionMenu.Item onClick={onAddText}>Tekst</ActionMenu.Item>
       <ActionMenu.Item onClick={onAddSticky}>Post-it-lapp</ActionMenu.Item>
-      <ActionMenu.Item onClick={onImportStickyCsv}>CSV-feedback (Post-it)</ActionMenu.Item>
+      <ActionMenu.Item onClick={onImportStickyCsv}>Skyra / Lumi</ActionMenu.Item>
       <ActionMenu.Divider />
       <ActionMenu.Item onClick={onAddImage}>Bilde</ActionMenu.Item>
       <ActionMenu.Item onClick={onAddIcon}>Ikon</ActionMenu.Item>
@@ -59,7 +88,7 @@ const CanvasAddActionMenu = ({
       <ActionMenu.Item onClick={onAddDrawing}>Tegning</ActionMenu.Item>
       <ActionMenu.Item onClick={onAddIllustration}>Illustrasjoner</ActionMenu.Item>
       <ActionMenu.Divider />
-      <ActionMenu.Item onClick={onAddTab}>Legg til fane</ActionMenu.Item>
+      <ActionMenu.Item onClick={onAddTab}>Fane</ActionMenu.Item>
     </ActionMenu.Content>
   </ActionMenu>
 )
