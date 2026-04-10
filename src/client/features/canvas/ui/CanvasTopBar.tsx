@@ -36,6 +36,7 @@ type CanvasTopBarProps = {
   onOpenCreateTab: () => void
   onOpenManageTabs: () => void
   onOpenCanvasSettings: () => void
+  onOpenInventory: () => void
   canManageTabs: boolean
   canPersistToDashboard: boolean
   shouldShowCreateCanvasModal: boolean
@@ -80,6 +81,7 @@ const CanvasTopBar = ({
   onOpenCreateTab,
   onOpenManageTabs,
   onOpenCanvasSettings,
+  onOpenInventory,
   canManageTabs,
   canPersistToDashboard,
   shouldShowCreateCanvasModal,
@@ -197,6 +199,7 @@ const CanvasTopBar = ({
                   <ActionMenu.Item onClick={() => window.location.assign('/')}>Til Innblikk</ActionMenu.Item>
                   <ActionMenu.Item onClick={() => window.location.assign('/dashboard')}>Dashboards</ActionMenu.Item>
                   {canManageTabs && <ActionMenu.Item onClick={onOpenManageTabs}>Administrer faner</ActionMenu.Item>}
+                  <ActionMenu.Item onClick={onOpenInventory}>Elementer</ActionMenu.Item>
                   <ActionMenu.Item onClick={onOpenCanvasSettings}>Innstillinger</ActionMenu.Item>
                 </ActionMenu.Content>
               </ActionMenu>

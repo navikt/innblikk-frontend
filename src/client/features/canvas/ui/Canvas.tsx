@@ -282,6 +282,17 @@ const CANVAS_FIGURE_OPTIONS: CanvasFigureOption[] = [
   { id: 'line', label: 'Linje', Icon: Slash },
   { id: 'arrow', label: 'Pil', Icon: ArrowRight },
 ]
+const CANVAS_INVENTORY_KIND_OPTIONS: Array<{ kind: CanvasFrame['kind']; label: string }> = [
+  { kind: 'website', label: 'Nettsider' },
+  { kind: 'image', label: 'Bilder' },
+  { kind: 'heading', label: 'Overskrifter' },
+  { kind: 'text', label: 'Tekstblokker' },
+  { kind: 'sticky', label: 'Post-it-lapper' },
+  { kind: 'chart', label: 'Grafer' },
+  { kind: 'icon', label: 'Ikoner' },
+  { kind: 'figure', label: 'Figurer' },
+  { kind: 'drawing', label: 'Tegninger' },
+]
 const CLICKMAP_EVENTS = ['navigere', 'accordion åpnet']
 const DRAWING_STROKE_WIDTH_OPTIONS = [6, 10, 14]
 const DEFAULT_DRAWING_STROKE_WIDTH = 10
@@ -813,6 +824,7 @@ const Canvas = () => {
   const [isAddIconModalOpen, setIsAddIconModalOpen] = useState(false)
   const [isAddFigureModalOpen, setIsAddFigureModalOpen] = useState(false)
   const [isCanvasSettingsModalOpen, setIsCanvasSettingsModalOpen] = useState(false)
+  const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false)
   const [renameCanvasInput, setRenameCanvasInput] = useState('')
   const [renameCanvasError, setRenameCanvasError] = useState<string | null>(null)
   const [isAddChartModalOpen, setIsAddChartModalOpen] = useState(false)
@@ -1093,6 +1105,24 @@ const Canvas = () => {
         ? connections
         : connections.filter((connection) => (connection.categoryId ?? null) === activeCanvasCategoryId),
     [activeCanvasCategoryId, connections],
+  )
+
+  const inventoryItems = useMemo(
+    () =>
+      CANVAS_INVENTORY_KIND_OPTIONS.map((option) => {
+        const matchingFrames = visibleFrames.filter((frame) => frame.kind === option.kind)
+        return {
+          key: option.kind,
+          label: option.label,
+          count: matchingFrames.length,
+          frameIds: matchingFrames.map((frame) => frame.id),
+          frames: matchingFrames.map((frame) => ({
+            id: frame.id,
+            label: frame.label || `${option.label} ${frame.id}`,
+          })),
+        }
+      }),
+    [visibleFrames],
   )
 
   const frameItems = useMemo(
@@ -4205,6 +4235,23 @@ const Canvas = () => {
     setIsCanvasSettingsModalOpen(true)
   }
 
+  const handleOpenInventoryModal = () => {
+    setIsInventoryModalOpen(true)
+  }
+
+  const handleDeleteInventoryType = useCallback((params: { label: string; count: number; frameIds: string[] }) => {
+    if (params.frameIds.length === 0) return
+    setDeleteTarget({
+      type: 'frames',
+      ids: params.frameIds,
+      label: `${params.count} ${params.label.toLowerCase()}`,
+    })
+  }, [])
+
+  const handleSelectInventoryFrames = useCallback((frameIds: string[]) => {
+    setSelectedFrameIds(frameIds)
+  }, [])
+
   const handleOpenCreateTabModal = () => {
     setNewTabName('')
     setCreateTabError(null)
@@ -4618,6 +4665,7 @@ const Canvas = () => {
           onOpenCreateTab={handleOpenCreateTabModal}
           onOpenManageTabs={handleOpenManageTabsModal}
           onOpenCanvasSettings={handleOpenCanvasSettingsModal}
+          onOpenInventory={handleOpenInventoryModal}
           canManageTabs={canvasCategories.length > 1}
           canPersistToDashboard={canPersistToDashboard}
           shouldShowCreateCanvasModal={shouldShowCreateCanvasModal}
@@ -5945,6 +5993,11 @@ const Canvas = () => {
         )}
         onRenameTab={() => void handleRenameTab()}
         onDeleteTab={() => void handleDeleteTab()}
+        isInventoryModalOpen={isInventoryModalOpen}
+        onCloseInventory={() => setIsInventoryModalOpen(false)}
+        inventoryItems={inventoryItems}
+        onDeleteInventoryType={handleDeleteInventoryType}
+        onSelectInventoryFrames={handleSelectInventoryFrames}
       />
 
       <Modal
