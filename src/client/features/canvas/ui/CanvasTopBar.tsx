@@ -63,7 +63,6 @@ const CanvasTopBar = ({
   canvasInitMode,
   onOpenAddPage,
   onOpenCreateChart,
-  onOpenImportChart,
   onOpenAddDashboard,
   onOpenAddHeading,
   onOpenAddText,
@@ -158,13 +157,13 @@ const CanvasTopBar = ({
                 <ActionMenu.Content align="end">
                   <ActionMenu.Item onClick={onOpenAddPage}>Nettside</ActionMenu.Item>
                   <ActionMenu.Item onClick={onOpenCreateChart}>Graf</ActionMenu.Item>
-                  <ActionMenu.Item onClick={onOpenImportChart}>Importer graf</ActionMenu.Item>
-                  <ActionMenu.Item onClick={onOpenAddDashboard}>Dashboard</ActionMenu.Item>
+                  {/*<ActionMenu.Item onClick={onOpenImportChart}>Importer graf</ActionMenu.Item> */}
+                  <ActionMenu.Item onClick={onOpenAddDashboard}>Dashboard </ActionMenu.Item>
                   <ActionMenu.Divider />
                   <ActionMenu.Item onClick={onOpenAddHeading}>Overskrift</ActionMenu.Item>
                   <ActionMenu.Item onClick={onOpenAddText}>Tekst</ActionMenu.Item>
                   <ActionMenu.Item onClick={onOpenAddSticky}>Post-it-lapp</ActionMenu.Item>
-                  <ActionMenu.Item onClick={onOpenImportStickyCsv}>Lappesortering (CSV)</ActionMenu.Item>
+                  <ActionMenu.Item onClick={onOpenImportStickyCsv}>Skyra / Lumi</ActionMenu.Item>
                   <ActionMenu.Divider />
                   <ActionMenu.Item onClick={onOpenAddImage}>Bilde</ActionMenu.Item>
                   <ActionMenu.Item onClick={onOpenAddIcon}>Ikon</ActionMenu.Item>

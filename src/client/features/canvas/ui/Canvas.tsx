@@ -6954,7 +6954,7 @@ const Canvas = () => {
           setIsImportStickyCsvModalOpen(false)
           setImportStickyCsvError(null)
         }}
-        header={{ heading: 'Importer fritekst fra CSV' }}
+        header={{ heading: 'Importer fra Skyra / Lumi' }}
         width="medium"
       >
         <Modal.Body>
@@ -7008,7 +7008,7 @@ const Canvas = () => {
 
               {importStickyCsvHeaders.length > 0 && (
                 <Select
-                  label="Kolonne"
+                  label="Velg kolonne"
                   value={importStickyContentColumn}
                   onChange={(event) => {
                     const nextColumn = event.target.value
@@ -7031,15 +7031,14 @@ const Canvas = () => {
               {importStickyCsvFileName && importStickyContentColumn && (
                 <Alert variant="warning" size="small">
                   <div className="space-y-2">
-                    <p className="text-sm font-medium">Sjekk personopplysninger før import</p>
+                    <p className="text-sm font-medium">Gjør en personversjekk før import</p>
+                    <p className="text-xs">
+                      Innblikk er tilgjengelig for alle i Nav. Importer kun data som er trygt å dele.
+                    </p>
                     <ul className="list-disc space-y-1 pl-5 text-sm">
                       <li>Skann teksten for navn, fødselsnummer, telefonnummer, e-post og adresser.</li>
-                      <li>Fjern eller anonymiser fritekst som kan identifisere en person.</li>
-                      <li>Bruk forhåndsvisningen til høyre og fjern lapper som inneholder PII.</li>
+                      <li>Bruk forhåndsvisningen til høyre og fjern lapper som inneholder sensitive opplysninger.</li>
                     </ul>
-                    <p className="text-xs text-[var(--ax-text-subtle)]">
-                      Canvas kan være tilgjengelig for flere i Nav. Importer kun data som er trygt å dele.
-                    </p>
                   </div>
                 </Alert>
               )}
@@ -7090,7 +7089,7 @@ const Canvas = () => {
             loading={isSavingCanvasItem}
             disabled={importStickyCsvHeaders.length === 0 || !importStickyContentColumn}
           >
-            Importer til canvas
+            Importer
           </Button>
           <Button
             variant="secondary"
