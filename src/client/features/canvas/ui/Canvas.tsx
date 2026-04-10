@@ -5374,6 +5374,11 @@ const Canvas = () => {
                     const websiteInsight = pageInsights[frame.id]
                     const visualizationMode = frame.kind === 'website' ? getCanvasFrameVisualizationMode(frame) : ''
                     const visualizationData = frame.kind === 'website' ? frameVisualizationData[frame.id] : undefined
+                    const isTableTextFrame =
+                      frame.kind === 'text' &&
+                      Array.isArray(frame.tableHeaders) &&
+                      frame.tableHeaders.length > 0 &&
+                      Array.isArray(frame.tableRows)
                     return (
                       <article
                         key={frame.id}
@@ -6111,9 +6116,7 @@ const Canvas = () => {
                             </div>
                           ) : frame.kind === 'text' ? (
                             <div className="h-full overflow-auto px-2 pb-2">
-                              {Array.isArray(frame.tableHeaders) &&
-                              frame.tableHeaders.length > 0 &&
-                              Array.isArray(frame.tableRows) ? (
+                              {isTableTextFrame ? (
                                 (() => {
                                   const totalPages = Math.max(
                                     1,
@@ -6244,7 +6247,7 @@ const Canvas = () => {
                           title="Endre størrelse"
                           aria-label="Endre størrelse"
                           className={`absolute bottom-1 right-1 h-5 w-5 cursor-se-resize rounded-sm border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] transition-opacity ${
-                            frame.kind === 'text'
+                            frame.kind === 'text' && !isTableTextFrame
                               ? 'opacity-100'
                               : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
                           }`}
