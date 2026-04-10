@@ -52,15 +52,20 @@ import {
 } from '../../../shared/lib/utils.ts'
 import { DashboardWidget } from '../../dashboard'
 import { mapGraphTypeToChart } from '../../oversikt'
-import CanvasIllustrationPicker from './CanvasIllustrationPicker.tsx'
-import { DEFAULT_CANVAS_ILLUSTRATION_PATH, getCanvasIllustrationOptionByPath } from './CanvasIllustrationRegistry.ts'
-import CanvasIconPicker from './CanvasIconPicker.tsx'
+import CanvasIllustrationPicker from './illustration/CanvasIllustrationPicker.tsx'
+import {
+  DEFAULT_CANVAS_ILLUSTRATION_PATH,
+  getCanvasIllustrationOptionByPath,
+} from './illustration/CanvasIllustrationRegistry.ts'
+import CanvasIconPicker from './icon/CanvasIconPicker.tsx'
 import CanvasFrameActionPoints from './CanvasFrameActionPoints.tsx'
 import CanvasAdminModals from './CanvasAdminModals.tsx'
 import CanvasTopBar from './CanvasTopBar.tsx'
 import CanvasDrawingToolbar from './drawing/CanvasDrawingToolbar.tsx'
 import CanvasDrawingDraftOverlay from './drawing/CanvasDrawingDraftOverlay.tsx'
 import CanvasDrawingFrame from './drawing/CanvasDrawingFrame.tsx'
+import CanvasIconFrame from './icon/CanvasIconFrame.tsx'
+import CanvasFigureFrame from './figure/CanvasFigureFrame.tsx'
 import useCanvasDrawingTool, { type CanvasDrawingStroke } from './drawing/useCanvasDrawingTool.ts'
 import {
   CANVAS_ICON_COLOR_OPTIONS,
@@ -68,7 +73,7 @@ import {
   DEFAULT_CANVAS_ICON_ID,
   getCanvasIconColor,
   getCanvasIconOptionById,
-} from './CanvasIconRegistry.ts'
+} from './icon/CanvasIconRegistry.ts'
 import {
   createProject,
   createCategory,
@@ -6049,102 +6054,31 @@ const Canvas = () => {
                             })()
                           ) : frame.kind === 'icon' ? (
                             (() => {
-                              const selectedIcon = getCanvasIconOptionById(frame.iconName)
-                              const Icon = selectedIcon.Icon
                               const width = frame.width ?? defaults.width
                               const height = frame.height ?? defaults.height
-                              const iconSize = Math.max(22, Math.floor(Math.min(width, height) * 0.82))
-                              const iconRotationDeg = frame.iconRotationDeg ?? 0
-                              const iconColor = getCanvasIconColor(frame.iconColor)
                               return (
-                                <div className="flex h-full w-full items-center justify-center p-0">
-                                  <Icon
-                                    fontSize={`${iconSize}px`}
-                                    style={{ transform: `rotate(${iconRotationDeg}deg)`, color: iconColor }}
-                                    aria-hidden="true"
-                                  />
-                                </div>
+                                <CanvasIconFrame
+                                  width={width}
+                                  height={height}
+                                  iconName={frame.iconName}
+                                  iconRotationDeg={frame.iconRotationDeg}
+                                  iconColor={frame.iconColor}
+                                />
                               )
                             })()
                           ) : frame.kind === 'figure' ? (
                             (() => {
                               const width = frame.width ?? defaults.width
                               const height = frame.height ?? defaults.height
-                              const figureType = frame.figureType ?? 'rectangle'
-                              const strokeWidth = Math.max(2, Math.floor(Math.min(width, height) * 0.035))
-                              const strokeColor = getCanvasIconColor(frame.figureColor)
-                              const markerId = `canvas-figure-arrow-${frame.id}`
                               return (
-                                <svg
+                                <CanvasFigureFrame
+                                  id={frame.id}
                                   width={width}
                                   height={height}
-                                  viewBox={`0 0 ${width} ${height}`}
-                                  className="block h-full w-full"
-                                  aria-label={frame.label}
-                                  role="img"
-                                >
-                                  {figureType === 'arrow' && (
-                                    <defs>
-                                      <marker
-                                        id={markerId}
-                                        markerWidth="10"
-                                        markerHeight="8"
-                                        refX="9"
-                                        refY="4"
-                                        orient="auto"
-                                        markerUnits="strokeWidth"
-                                      >
-                                        <path d="M0,0 L10,4 L0,8 z" fill={strokeColor} />
-                                      </marker>
-                                    </defs>
-                                  )}
-                                  {figureType === 'rectangle' && (
-                                    <rect
-                                      x={strokeWidth}
-                                      y={strokeWidth}
-                                      width={Math.max(0, width - strokeWidth * 2)}
-                                      height={Math.max(0, height - strokeWidth * 2)}
-                                      rx={Math.min(14, Math.floor(Math.min(width, height) * 0.1))}
-                                      fill="none"
-                                      stroke={strokeColor}
-                                      strokeWidth={strokeWidth}
-                                    />
-                                  )}
-                                  {figureType === 'circle' && (
-                                    <ellipse
-                                      cx={width / 2}
-                                      cy={height / 2}
-                                      rx={Math.max(0, width / 2 - strokeWidth)}
-                                      ry={Math.max(0, height / 2 - strokeWidth)}
-                                      fill="none"
-                                      stroke={strokeColor}
-                                      strokeWidth={strokeWidth}
-                                    />
-                                  )}
-                                  {figureType === 'line' && (
-                                    <line
-                                      x1={strokeWidth}
-                                      y1={height / 2}
-                                      x2={Math.max(strokeWidth, width - strokeWidth)}
-                                      y2={height / 2}
-                                      stroke={strokeColor}
-                                      strokeWidth={strokeWidth}
-                                      strokeLinecap="round"
-                                    />
-                                  )}
-                                  {figureType === 'arrow' && (
-                                    <line
-                                      x1={strokeWidth}
-                                      y1={height / 2}
-                                      x2={Math.max(strokeWidth, width - strokeWidth * 1.8)}
-                                      y2={height / 2}
-                                      stroke={strokeColor}
-                                      strokeWidth={strokeWidth}
-                                      strokeLinecap="round"
-                                      markerEnd={`url(#${markerId})`}
-                                    />
-                                  )}
-                                </svg>
+                                  figureType={frame.figureType}
+                                  figureColor={frame.figureColor}
+                                  label={frame.label}
+                                />
                               )
                             })()
                           ) : frame.kind === 'drawing' ? (
