@@ -30,9 +30,6 @@ type CanvasTopBarProps = {
   onOpenAddIllustration: () => void
   isGrafbyggerEmbedded: boolean
   onCloseGrafbygger: () => void
-  isProjectManagerEmbedded: boolean
-  onOpenProjectManagerWorkspace: () => void
-  onCloseProjectManagerWorkspace: () => void
   onOpenCreateTab: () => void
   onOpenManageTabs: () => void
   onOpenCanvasSettings: () => void
@@ -75,8 +72,6 @@ const CanvasTopBar = ({
   onOpenAddIllustration,
   isGrafbyggerEmbedded,
   onCloseGrafbygger,
-  isProjectManagerEmbedded,
-  onCloseProjectManagerWorkspace,
   onOpenCreateTab,
   onOpenManageTabs,
   onOpenCanvasSettings,
@@ -179,11 +174,6 @@ const CanvasTopBar = ({
                   Lukk grafbygger
                 </Button>
               )}
-              {isProjectManagerEmbedded && (
-                <Button size="small" variant="secondary" onClick={onCloseProjectManagerWorkspace}>
-                  Lukk teamområde
-                </Button>
-              )}
               <ActionMenu>
                 <ActionMenu.Trigger>
                   <Button
@@ -207,7 +197,7 @@ const CanvasTopBar = ({
         {!isCanvasFrontpage && !canPersistToDashboard && !shouldShowCreateCanvasModal && (
           <div className="mt-2">
             <Alert variant="warning" size="small">
-              Canvas er ikke koblet til et dashboard. Åpne canvas fra ProjectManager for lagring.
+              Canvas er ikke koblet til et dashboard.
             </Alert>
           </div>
         )}

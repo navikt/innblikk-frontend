@@ -4,6 +4,7 @@ import {
   Alert,
   Button,
   HelpText,
+  Label,
   Link,
   Loader,
   Modal,
@@ -57,7 +58,6 @@ import CanvasIconPicker from './CanvasIconPicker.tsx'
 import CanvasFrameActionPoints from './CanvasFrameActionPoints.tsx'
 import CanvasAdminModals from './CanvasAdminModals.tsx'
 import CanvasTopBar from './CanvasTopBar.tsx'
-import CanvasProjectManager from '../../projectmanager/ui/CanvasProjectManager.tsx'
 import {
   CANVAS_ICON_COLOR_OPTIONS,
   DEFAULT_CANVAS_ICON_COLOR,
@@ -66,6 +66,7 @@ import {
   getCanvasIconOptionById,
 } from './CanvasIconRegistry.ts'
 import {
+  createProject,
   createCategory,
   createDashboard,
   deleteCategory,
@@ -985,12 +986,11 @@ const Canvas = () => {
   const { onlyDirectEntry, projectId, dashboardId, categoryId: initialCategoryId } = routeContext
   const canPersistToDashboard = projectId !== null && dashboardId !== null
   const isCanvasFrontpage = projectId === null && dashboardId === null
-  const projectManagerHref = projectId !== null ? `/dashboard?projectId=${projectId}` : '/dashboard'
   const [canvasTitle, setCanvasTitle] = useState('Innblikk: Canvas')
   const [canvasDashboardDescription, setCanvasDashboardDescription] = useState(CANVAS_DASHBOARD_TOKEN)
   const [canvasConfiguredWebsiteId, setCanvasConfiguredWebsiteId] = useState<string | null>(null)
   const [canvasInitMode, setCanvasInitMode] = useState<'checking' | 'existing' | 'create'>(
-    canPersistToDashboard ? 'checking' : isCanvasFrontpage ? 'existing' : 'create',
+    canPersistToDashboard ? 'checking' : 'create',
   )
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
   const [availableWebsites, setAvailableWebsites] = useState<Website[]>([])
@@ -1067,6 +1067,11 @@ const Canvas = () => {
   const [createCanvasNameInput, setCreateCanvasNameInput] = useState('')
   const [createCanvasError, setCreateCanvasError] = useState<string | null>(null)
   const [isCreatingCanvas, setIsCreatingCanvas] = useState(false)
+  const [isCreateTeamModalOpen, setIsCreateTeamModalOpen] = useState(false)
+  const [createTeamNameInput, setCreateTeamNameInput] = useState('')
+  const [createTeamDescriptionInput, setCreateTeamDescriptionInput] = useState('')
+  const [createTeamError, setCreateTeamError] = useState<string | null>(null)
+  const [isCreatingTeam, setIsCreatingTeam] = useState(false)
   const [editDashboardProjectOptions, setEditDashboardProjectOptions] = useState<Array<{ id: number; name: string }>>(
     [],
   )
@@ -1114,7 +1119,6 @@ const Canvas = () => {
   const [isLoadingChartOptions, setIsLoadingChartOptions] = useState(false)
   const [addChartError, setAddChartError] = useState<string | null>(null)
   const [isGrafbyggerEmbedded, setIsGrafbyggerEmbedded] = useState(false)
-  const [isProjectManagerEmbedded, setIsProjectManagerEmbedded] = useState(isCanvasFrontpage)
   const [editChartFrameId, setEditChartFrameId] = useState<string | null>(null)
   const [editChartTarget, setEditChartTarget] = useState<OversiktChart | null>(null)
   const [deleteChartFrameId, setDeleteChartFrameId] = useState<string | null>(null)
@@ -1176,7 +1180,7 @@ const Canvas = () => {
   const connectionMetricRequestSignatureRef = useRef<string | null>(null)
   const [canvasToolbarHeight, setCanvasToolbarHeight] = useState(120)
   const canvasCanvasTopOffset = canvasToolbarHeight + CANVAS_SURFACE_TOP_GAP
-  const shouldShowCreateCanvasModal = canvasInitMode === 'create' && !isCanvasFrontpage
+  const shouldShowCreateCanvasModal = canvasInitMode === 'create'
   const canvasFrontpageBackgroundStyle = isCanvasFrontpage
     ? {
         backgroundImage: 'radial-gradient(circle at 1px 1px, var(--ax-border-neutral-subtle) 1px, transparent 0)',
@@ -2106,7 +2110,7 @@ const Canvas = () => {
 
   useEffect(() => {
     if (!canPersistToDashboard || projectId === null || dashboardId === null) {
-      setCanvasInitMode(isCanvasFrontpage ? 'existing' : 'create')
+      setCanvasInitMode('create')
       setCanvasTitle('Innblikk')
       setCanvasDashboardDescription(CANVAS_DASHBOARD_TOKEN)
       setCanvasConfiguredWebsiteId(null)
@@ -2146,15 +2150,6 @@ const Canvas = () => {
       isActive = false
     }
   }, [canPersistToDashboard, isCanvasFrontpage, projectId, dashboardId])
-
-  useEffect(() => {
-    if (isCanvasFrontpage) {
-      setIsGrafbyggerEmbedded(false)
-      setIsProjectManagerEmbedded(true)
-      return
-    }
-    setIsProjectManagerEmbedded(false)
-  }, [isCanvasFrontpage])
 
   useEffect(() => {
     if (!shouldShowCreateCanvasModal) return
@@ -3538,7 +3533,6 @@ const Canvas = () => {
   const handleOpenAddChartModal = () => {
     setAddChartError(null)
     setIsGrafbyggerEmbedded(false)
-    setIsProjectManagerEmbedded(false)
     setIsAddChartModalOpen(true)
     void loadChartOptions()
   }
@@ -3546,13 +3540,7 @@ const Canvas = () => {
   const handleOpenGrafbyggerFromAddMenu = () => {
     setAddChartError(null)
     setIsAddChartModalOpen(false)
-    setIsProjectManagerEmbedded(false)
     setIsGrafbyggerEmbedded(true)
-  }
-
-  const handleOpenProjectManagerWorkspace = () => {
-    setIsGrafbyggerEmbedded(false)
-    setIsProjectManagerEmbedded(true)
   }
 
   const handleAddChartCard = () => {
@@ -4792,6 +4780,34 @@ const Canvas = () => {
     }
   }
 
+  const handleCreateTeam = async () => {
+    const teamName = createTeamNameInput.trim()
+    if (!teamName) {
+      setCreateTeamError('Navn er påkrevd.')
+      return
+    }
+
+    try {
+      setIsCreatingTeam(true)
+      setCreateTeamError(null)
+      const createdProject = await createProject(teamName, createTeamDescriptionInput)
+      const option = { id: createdProject.id, name: createdProject.name?.trim() || `Team ${createdProject.id}` }
+      setCreateCanvasProjectOptions((current) =>
+        [...current, option].sort((a, b) => a.name.localeCompare(b.name, 'nb', { sensitivity: 'base' })),
+      )
+      setCreateCanvasProjectId(String(createdProject.id))
+      setIsCreateTeamModalOpen(false)
+      setCreateTeamNameInput('')
+      setCreateTeamDescriptionInput('')
+      setCreateTeamError(null)
+      if (createCanvasError) setCreateCanvasError(null)
+    } catch (error) {
+      setCreateTeamError(error instanceof Error ? error.message : 'Kunne ikke opprette team')
+    } finally {
+      setIsCreatingTeam(false)
+    }
+  }
+
   const handleOpenAddPageModal = () => {
     setAddPageError(null)
     setNewPagePreviewUrlInput('')
@@ -5062,9 +5078,6 @@ const Canvas = () => {
           onOpenImportChart={handleOpenAddChartModal}
           isGrafbyggerEmbedded={isGrafbyggerEmbedded}
           onCloseGrafbygger={() => setIsGrafbyggerEmbedded(false)}
-          isProjectManagerEmbedded={isProjectManagerEmbedded}
-          onOpenProjectManagerWorkspace={handleOpenProjectManagerWorkspace}
-          onCloseProjectManagerWorkspace={() => setIsProjectManagerEmbedded(false)}
           onOpenCreateTab={handleOpenCreateTabModal}
           onOpenManageTabs={handleOpenManageTabsModal}
           onOpenCanvasSettings={handleOpenCanvasSettingsModal}
@@ -6118,23 +6131,22 @@ const Canvas = () => {
                             <div className="h-full overflow-auto px-2 pb-2">
                               {isTableTextFrame ? (
                                 (() => {
+                                  const tableRows = frame.tableRows ?? []
+                                  const tableHeaders = frame.tableHeaders ?? []
                                   const totalPages = Math.max(
                                     1,
-                                    Math.ceil(frame.tableRows.length / CANVAS_TABLE_ROWS_PER_PAGE),
+                                    Math.ceil(tableRows.length / CANVAS_TABLE_ROWS_PER_PAGE),
                                   )
                                   const currentPage = Math.min(frameTablePages[frame.id] ?? 1, totalPages)
                                   const pageStart = (currentPage - 1) * CANVAS_TABLE_ROWS_PER_PAGE
-                                  const visibleRows = frame.tableRows.slice(
-                                    pageStart,
-                                    pageStart + CANVAS_TABLE_ROWS_PER_PAGE,
-                                  )
+                                  const visibleRows = tableRows.slice(pageStart, pageStart + CANVAS_TABLE_ROWS_PER_PAGE)
 
                                   return (
                                     <div className="space-y-2" onMouseDown={(event) => event.stopPropagation()}>
                                       <Table size="small" zebraStripes className="w-full">
                                         <Table.Header>
                                           <Table.Row>
-                                            {(frame.tableHeaders ?? []).map((header, headerIndex) => (
+                                            {tableHeaders.map((header, headerIndex) => (
                                               <Table.HeaderCell key={`canvas-table-header-${frame.id}-${headerIndex}`}>
                                                 {header}
                                               </Table.HeaderCell>
@@ -6144,7 +6156,7 @@ const Canvas = () => {
                                         <Table.Body>
                                           {visibleRows.map((row, rowIndex) => (
                                             <Table.Row key={`canvas-table-row-${frame.id}-${pageStart + rowIndex}`}>
-                                              {(frame.tableHeaders ?? []).map((_, columnIndex) => (
+                                              {tableHeaders.map((_, columnIndex) => (
                                                 <Table.DataCell
                                                   key={`canvas-table-cell-${frame.id}-${pageStart + rowIndex}-${columnIndex}`}
                                                 >
@@ -6286,21 +6298,9 @@ const Canvas = () => {
             </div>
           </div>
         )}
-        {isProjectManagerEmbedded && (
-          <div
-            className="absolute bottom-0 left-0 right-0 z-40 overflow-hidden bg-[var(--ax-bg-default)]"
-            style={{ top: `${canvasCanvasTopOffset}px` }}
-          >
-            <div className="h-full">
-              <div className="h-full overflow-auto bg-transparent">
-                <CanvasProjectManager />
-              </div>
-            </div>
-          </div>
-        )}
         <aside aria-label="Canvas-handlinger" className="pointer-events-none fixed bottom-4 right-4 z-30">
           <div className="pointer-events-auto flex items-center gap-2">
-            {!isGrafbyggerEmbedded && !isProjectManagerEmbedded && (
+            {!isGrafbyggerEmbedded && (
               <>
                 {selectedFrameIds.length > 0 && (
                   <div className="rounded-full border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-1 shadow-sm">
@@ -6378,37 +6378,54 @@ const Canvas = () => {
       </section>
 
       <Modal
-        open={shouldShowCreateCanvasModal}
+        open={shouldShowCreateCanvasModal && !isCreateTeamModalOpen}
         onClose={() => {
           // Keep modal open until user creates or navigates away.
         }}
-        header={{ heading: 'Opprett canvas', closeButton: false }}
+        header={{ heading: 'Lag canvas', closeButton: false }}
         width="small"
         closeOnBackdropClick={false}
       >
         <Modal.Body>
           <div className="space-y-3">
-            <div className="text-sm text-[var(--ax-text-subtle)]">
-              Fant ikke et gyldig canvas for denne URL-en. Opprett et nytt canvas for å fortsette.
-            </div>
-            <Select
-              label="Team"
-              value={createCanvasProjectId}
-              onChange={(event) => {
-                setCreateCanvasProjectId(event.target.value)
-                if (createCanvasError) setCreateCanvasError(null)
-              }}
-              disabled={isCreatingCanvas}
-            >
-              <option value="" disabled>
-                {createCanvasProjectOptions.length === 0 ? 'Laster team...' : 'Velg team'}
-              </option>
-              {createCanvasProjectOptions.map((option) => (
-                <option key={option.id} value={String(option.id)}>
-                  {option.name}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="create-canvas-team-select">Team</Label>
+                <Button
+                  variant="tertiary"
+                  size="small"
+                  type="button"
+                  icon={<Plus aria-hidden size={16} />}
+                  onClick={() => {
+                    setCreateTeamError(null)
+                    setIsCreateTeamModalOpen(true)
+                  }}
+                  disabled={isCreatingCanvas}
+                >
+                  Nytt team
+                </Button>
+              </div>
+              <Select
+                id="create-canvas-team-select"
+                label="Team"
+                hideLabel
+                value={createCanvasProjectId}
+                onChange={(event) => {
+                  setCreateCanvasProjectId(event.target.value)
+                  if (createCanvasError) setCreateCanvasError(null)
+                }}
+                disabled={isCreatingCanvas}
+              >
+                <option value="" disabled>
+                  {createCanvasProjectOptions.length === 0 ? 'Laster team...' : 'Velg team'}
                 </option>
-              ))}
-            </Select>
+                {createCanvasProjectOptions.map((option) => (
+                  <option key={option.id} value={String(option.id)}>
+                    {option.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
             <TextField
               label="Canvas-navn"
               value={createCanvasNameInput}
@@ -6423,10 +6440,58 @@ const Canvas = () => {
         </Modal.Body>
         <Modal.Footer>
           <Button onClick={() => void handleCreateCanvas()} size="small" loading={isCreatingCanvas}>
-            Opprett canvas
+            Lag canvas
           </Button>
-          <Button variant="secondary" size="small" as="a" href={projectManagerHref} disabled={isCreatingCanvas}>
-            Til Dashboard
+        </Modal.Footer>
+      </Modal>
+
+      <Modal
+        open={isCreateTeamModalOpen}
+        onClose={() => {
+          if (isCreatingTeam) return
+          setIsCreateTeamModalOpen(false)
+          setCreateTeamError(null)
+        }}
+        header={{ heading: 'Nytt team' }}
+        width="small"
+      >
+        <Modal.Body>
+          <div className="space-y-3">
+            <TextField
+              label="Navn"
+              size="small"
+              value={createTeamNameInput}
+              onChange={(event) => {
+                setCreateTeamNameInput(event.target.value)
+                if (createTeamError) setCreateTeamError(null)
+              }}
+            />
+            <TextField
+              label="Beskrivelse (valgfri)"
+              size="small"
+              value={createTeamDescriptionInput}
+              onChange={(event) => {
+                setCreateTeamDescriptionInput(event.target.value)
+                if (createTeamError) setCreateTeamError(null)
+              }}
+            />
+            {createTeamError && <Alert variant="error">{createTeamError}</Alert>}
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button size="small" onClick={() => void handleCreateTeam()} loading={isCreatingTeam}>
+            Opprett
+          </Button>
+          <Button
+            size="small"
+            variant="secondary"
+            onClick={() => {
+              setIsCreateTeamModalOpen(false)
+              setCreateTeamError(null)
+            }}
+            disabled={isCreatingTeam}
+          >
+            Avbryt
           </Button>
         </Modal.Footer>
       </Modal>
