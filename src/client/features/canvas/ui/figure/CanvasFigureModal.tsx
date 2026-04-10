@@ -67,7 +67,7 @@ const CanvasFigureModal = ({
                       : 'border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)]'
                   }`}
                 >
-                  <FigureIcon size={16} aria-hidden="true" />
+                  <FigureIcon size={16} aria-hidden={true} />
                   <span className="text-sm text-[var(--ax-text-default)]">{figureOption.label}</span>
                 </button>
               )
