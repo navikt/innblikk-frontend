@@ -42,6 +42,7 @@ export type CanvasFrame = {
   headingText?: string
   headingFontSize?: number
   textContent?: string
+  stickyColor?: string
   sectionLayout?: CanvasSectionLayoutMode
   tableHeaders?: string[]
   tableRows?: string[][]
@@ -148,6 +149,7 @@ export type CanvasConfigPayload = {
   headingText?: string
   headingFontSize?: number
   textContent?: string
+  stickyColor?: string
   sectionLayout?: CanvasSectionLayoutMode
   tableHeaders?: string[]
   tableRows?: string[][]

@@ -24,6 +24,7 @@ import CanvasIconFrame from './icon/CanvasIconFrame.tsx'
 import CanvasImageFrame from './image/CanvasImageFrame.tsx'
 import { isIllustrationImageFrame } from './image/CanvasImageUtils.ts'
 import CanvasStickyFrame from './sticky/CanvasStickyFrame.tsx'
+import { getCanvasStickyColorOptionById } from './sticky/CanvasStickyColorRegistry.ts'
 import CanvasTextFrame from './text/CanvasTextFrame.tsx'
 import CanvasWebsiteActionMenu from './website/CanvasWebsiteActionMenu.tsx'
 import CanvasWebsiteFrame from './website/CanvasWebsiteFrame.tsx'
@@ -39,6 +40,7 @@ type CanvasFrameLayerProps = {
   sectionItemCountsById: Record<string, number>
   sectionMoveOptions: Array<{ id: string; label: string }>
   frameContainingSectionIdByFrameId: Record<string, string>
+  stickyColorOptions: Array<{ id: string; label: string; color: string }>
   selectedFrameIds: string[]
   activeInsightFrameId: string | null
   pageInsights: Record<string, CanvasPageInsight>
@@ -90,6 +92,7 @@ type CanvasFrameLayerProps = {
   handleRotateIllustrationFrame: (id: string, delta: number) => void
   handleToggleSectionLayout: (id: string) => void
   handleMoveFrameToSection: (frameId: string, sectionId: string) => void
+  handleSetStickyColor: (frameId: string, colorId: string) => void
   handleRequestRemoveFrame: (frame: CanvasFrame) => void
   startConnectionDrag: (event: React.MouseEvent, frame: CanvasFrame, side: ConnectionAnchorSide) => void
   handleAssignWebsiteToChart: (frame: CanvasFrame, website: Website | null) => Promise<void>
@@ -106,6 +109,7 @@ const CanvasFrameLayer = ({
   sectionItemCountsById,
   sectionMoveOptions,
   frameContainingSectionIdByFrameId,
+  stickyColorOptions,
   selectedFrameIds,
   activeInsightFrameId,
   pageInsights,
@@ -152,6 +156,7 @@ const CanvasFrameLayer = ({
   handleRotateIllustrationFrame,
   handleToggleSectionLayout,
   handleMoveFrameToSection,
+  handleSetStickyColor,
   handleRequestRemoveFrame,
   startConnectionDrag,
   handleAssignWebsiteToChart,
@@ -187,6 +192,7 @@ const CanvasFrameLayer = ({
             frame.kind === 'sticky' || frame.kind === 'text'
               ? sectionMoveOptions.filter((option) => option.id !== currentSectionId)
               : sectionMoveOptions
+          const stickyColorOption = frame.kind === 'sticky' ? getCanvasStickyColorOptionById(frame.stickyColor) : null
           return (
             <article
               key={frame.id}
@@ -223,7 +229,7 @@ const CanvasFrameLayer = ({
                               ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
                               : frame.kind === 'drawing'
                                 ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
-                                : 'group absolute flex flex-col overflow-hidden rounded-xl border border-[#f1dc7d] bg-[#fff5b8] shadow-sm'
+                                : 'group absolute flex flex-col overflow-hidden rounded-xl border shadow-sm'
               } ${isSelectedFrame ? 'ring-2 ring-[var(--ax-border-accent)]/60' : ''}`}
               style={{
                 left: `${frame.x}px`,
@@ -253,6 +259,8 @@ const CanvasFrameLayer = ({
                 minWidth: frame.kind === 'heading' ? `${HEADING_TEXT_MIN_WIDTH}px` : `${defaults.minWidth}px`,
                 minHeight:
                   frame.kind === 'heading' ? `${HEADING_CARD_HEADER_HEIGHT + 12}px` : `${defaults.minHeight}px`,
+                borderColor: frame.kind === 'sticky' ? stickyColorOption?.border : undefined,
+                backgroundColor: frame.kind === 'sticky' ? stickyColorOption?.background : undefined,
               }}
             >
               {frame.kind === 'website' && !frame.isInternalDashboard && (
@@ -391,6 +399,8 @@ const CanvasFrameLayer = ({
                     sectionLayoutMode={frame.sectionLayout === 'grid' ? 'grid' : 'freeform'}
                     onToggleSectionLayout={() => handleToggleSectionLayout(frame.id)}
                     sectionMoveOptions={sectionMoveOptionsForFrame}
+                    stickyColorOptions={stickyColorOptions}
+                    onSetStickyColor={(colorId) => handleSetStickyColor(frame.id, colorId)}
                     onMoveToSection={(sectionId) => handleMoveFrameToSection(frame.id, sectionId)}
                     onRemoveFrame={() => handleRequestRemoveFrame(frame)}
                   />
@@ -721,6 +731,7 @@ const CanvasFrameLayer = ({
                   <CanvasStickyFrame
                     id={frame.id}
                     textContent={frame.textContent}
+                    stickyColor={frame.stickyColor}
                     isEditing={activeEditableFrameId === frame.id}
                     isLockedByOther={editLockStatus.isLockedByOther}
                     lockOwnerLabel={editLockStatus.ownerLabel}

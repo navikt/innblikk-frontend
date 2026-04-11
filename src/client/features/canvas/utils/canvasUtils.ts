@@ -400,6 +400,7 @@ export const parseCanvasConfig = (raw: string): CanvasConfigPayload | null => {
       headingText: typeof parsed.headingText === 'string' ? parsed.headingText : undefined,
       headingFontSize: Number.isFinite(parsed.headingFontSize) ? Number(parsed.headingFontSize) : undefined,
       textContent: typeof parsed.textContent === 'string' ? parsed.textContent : undefined,
+      stickyColor: typeof parsed.stickyColor === 'string' ? parsed.stickyColor : undefined,
       sectionLayout: isCanvasSectionLayoutMode(parsed.sectionLayout) ? parsed.sectionLayout : undefined,
       tableHeaders: isStringArray(parsed.tableHeaders) ? parsed.tableHeaders : undefined,
       tableRows: isStringMatrix(parsed.tableRows) ? parsed.tableRows : undefined,

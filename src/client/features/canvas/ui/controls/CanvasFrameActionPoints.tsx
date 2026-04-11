@@ -29,6 +29,8 @@ type CanvasFrameActionPointsProps = {
   sectionLayoutMode?: CanvasSectionLayoutMode
   onToggleSectionLayout: () => void
   sectionMoveOptions?: Array<{ id: string; label: string }>
+  stickyColorOptions?: Array<{ id: string; label: string; color: string }>
+  onSetStickyColor: (colorId: string) => void
   onMoveToSection: (sectionId: string) => void
   onRemoveFrame: () => void
 }
@@ -268,6 +270,8 @@ const CanvasFrameActionPoints = ({
   sectionLayoutMode,
   onToggleSectionLayout,
   sectionMoveOptions = [],
+  stickyColorOptions = [],
+  onSetStickyColor,
   onMoveToSection,
   onRemoveFrame,
 }: CanvasFrameActionPointsProps) => {
@@ -374,6 +378,39 @@ const CanvasFrameActionPoints = ({
                 onClick={() => onMoveToSection(option.id)}
               >
                 {option.label}
+              </ActionMenu.Item>
+            ))}
+          </ActionMenu.Content>
+        </ActionMenu>
+      )}
+      {frameKind === 'sticky' && stickyColorOptions.length > 0 && (
+        <ActionMenu>
+          <ActionMenu.Trigger>
+            <Button
+              size="xsmall"
+              variant="tertiary"
+              icon={<Edit2 size={14} />}
+              onMouseDown={stopMouseDownPropagation}
+              title="Bytt farge"
+              aria-label="Bytt farge"
+              className={actionButtonClassName}
+            />
+          </ActionMenu.Trigger>
+          <ActionMenu.Content align="end">
+            {stickyColorOptions.map((option) => (
+              <ActionMenu.Item
+                key={option.id}
+                onMouseDown={stopMouseDownPropagation}
+                onClick={() => onSetStickyColor(option.id)}
+              >
+                <span className="inline-flex items-center gap-2">
+                  <span
+                    aria-hidden="true"
+                    className="inline-block h-3.5 w-3.5 rounded-full border border-black/10"
+                    style={{ backgroundColor: option.color }}
+                  />
+                  {option.label}
+                </span>
               </ActionMenu.Item>
             ))}
           </ActionMenu.Content>

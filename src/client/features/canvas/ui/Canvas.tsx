@@ -32,6 +32,11 @@ import CanvasFigureModal from './figure/CanvasFigureModal.tsx'
 import CanvasHeadingModal from './heading/CanvasHeadingModal.tsx'
 import CanvasTextModal from './text/CanvasTextModal.tsx'
 import CanvasStickyModal from './sticky/CanvasStickyModal.tsx'
+import {
+  CANVAS_STICKY_COLOR_OPTIONS,
+  DEFAULT_CANVAS_STICKY_COLOR,
+  getCanvasStickyColor,
+} from './sticky/CanvasStickyColorRegistry.ts'
 import CanvasImportStickyCsvModal from './sticky/CanvasImportStickyCsvModal.tsx'
 import CanvasWebsiteModal from './website/CanvasWebsiteModal.tsx'
 import useCanvasWebsiteVisualization from './website/useCanvasWebsiteVisualization.ts'
@@ -336,6 +341,7 @@ const Canvas = () => {
   const [textContentInput, setTextContentInput] = useState('')
   const [addTextError, setAddTextError] = useState<string | null>(null)
   const [stickyContentInput, setStickyContentInput] = useState('')
+  const [selectedStickyColor, setSelectedStickyColor] = useState(DEFAULT_CANVAS_STICKY_COLOR)
   const [addStickyError, setAddStickyError] = useState<string | null>(null)
   const [frameTablePages, setFrameTablePages] = useState<Record<string, number>>({})
   const [selectedIconId, setSelectedIconId] = useState(DEFAULT_CANVAS_ICON_ID)
@@ -901,6 +907,7 @@ const Canvas = () => {
         headingText: frame.headingText,
         headingFontSize: frame.headingFontSize,
         textContent: frame.textContent,
+        stickyColor: frame.stickyColor,
         sectionLayout: frame.sectionLayout,
         tableHeaders: frame.tableHeaders,
         tableRows: frame.tableRows,
@@ -2579,6 +2586,7 @@ const Canvas = () => {
     const frameDraft: PendingCanvasFrameDraft = {
       kind: 'sticky',
       textContent: content,
+      stickyColor: getCanvasStickyColor(selectedStickyColor),
       label: 'Post-it-lapp',
       width: 360,
       height: 180,
@@ -2586,6 +2594,7 @@ const Canvas = () => {
     }
     queueFrameForPlacement(frameDraft, 'Post-it-lapp')
     setStickyContentInput('')
+    setSelectedStickyColor(DEFAULT_CANVAS_STICKY_COLOR)
     setAddStickyError(null)
     setIsAddStickyModalOpen(false)
   }
@@ -4122,6 +4131,19 @@ const Canvas = () => {
     )
   }
 
+  const handleSetStickyColor = (frameId: string, colorId: string) => {
+    const frame = frames.find((item) => item.id === frameId)
+    if (!frame || frame.kind !== 'sticky') return
+    const nextFrame: CanvasFrame = {
+      ...frame,
+      stickyColor: getCanvasStickyColor(colorId),
+    }
+    setFrames((prev) => prev.map((item) => (item.id === frameId ? nextFrame : item)))
+    void persistFrame(nextFrame).catch((error) => {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre farge for post-it-lapp')
+    })
+  }
+
   const handleEditableFrameChange = (id: string, nextValue: string) => {
     setFrames((prev) =>
       prev.map((frame) => {
@@ -4602,6 +4624,7 @@ const Canvas = () => {
 
   const handleOpenAddStickyModal = () => {
     setAddStickyError(null)
+    setSelectedStickyColor((current) => getCanvasStickyColor(current))
     setIsAddStickyModalOpen(true)
   }
 
@@ -5074,6 +5097,11 @@ const Canvas = () => {
                   sectionItemCountsById={sectionItemCountsById}
                   sectionMoveOptions={sectionMoveOptions}
                   frameContainingSectionIdByFrameId={frameContainingSectionIdByFrameId}
+                  stickyColorOptions={CANVAS_STICKY_COLOR_OPTIONS.map((option) => ({
+                    id: option.id,
+                    label: option.label,
+                    color: option.background,
+                  }))}
                   selectedFrameIds={selectedFrameIds}
                   activeInsightFrameId={activeInsightFrameId}
                   pageInsights={pageInsights}
@@ -5120,6 +5148,7 @@ const Canvas = () => {
                   handleRotateIllustrationFrame={handleRotateIllustrationFrame}
                   handleToggleSectionLayout={handleToggleSectionLayout}
                   handleMoveFrameToSection={handleMoveFrameToSection}
+                  handleSetStickyColor={handleSetStickyColor}
                   handleRequestRemoveFrame={handleRequestRemoveFrame}
                   startConnectionDrag={startConnectionDrag}
                   handleAssignWebsiteToChart={handleAssignWebsiteToChart}
@@ -5704,12 +5733,15 @@ const Canvas = () => {
       <CanvasStickyModal
         open={isAddStickyModalOpen}
         value={stickyContentInput}
+        selectedColorId={selectedStickyColor}
+        colorOptions={CANVAS_STICKY_COLOR_OPTIONS}
         error={addStickyError}
         isSaving={isSavingCanvasItem}
         onChange={(value) => {
           setStickyContentInput(value)
           if (addStickyError) setAddStickyError(null)
         }}
+        onColorChange={(colorId) => setSelectedStickyColor(getCanvasStickyColor(colorId))}
         onSubmit={() => void handleAddStickyCard()}
         onClose={() => {
           setIsAddStickyModalOpen(false)
