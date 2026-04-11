@@ -497,9 +497,11 @@ const CanvasCoreModals = ({
             </p>
             <p className="text-[var(--ax-text-subtle)]">Denne handlingen kan ikke angres.</p>
             {deleteTarget?.type === 'section' ? (
-              <p className="text-[var(--ax-text-subtle)]">
-                Seksjonen inneholder {deleteTarget.containedFrameIds.length} element(er).
-              </p>
+              deleteTarget.containedFrameIds.length > 0 ? (
+                <p className="text-[var(--ax-text-subtle)]">
+                  Seksjonen inneholder {deleteTarget.containedFrameIds.length} element(er).
+                </p>
+              ) : null
             ) : null}
             {deleteTarget?.type === 'frames' && isSavingCanvasItem && bulkDeleteProgress ? (
               <Alert variant="info" size="small">
@@ -510,22 +512,32 @@ const CanvasCoreModals = ({
         </Modal.Body>
         <Modal.Footer>
           {deleteTarget?.type === 'section' ? (
-            <>
+            deleteTarget.containedFrameIds.length > 0 ? (
+              <>
+                <Button
+                  variant="secondary"
+                  onClick={() => onConfirmDeleteTarget('section-only')}
+                  loading={isSavingCanvasItem}
+                >
+                  Fjern kun seksjon
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={() => onConfirmDeleteTarget('section-with-content')}
+                  loading={isSavingCanvasItem}
+                >
+                  Fjern seksjon og innhold
+                </Button>
+              </>
+            ) : (
               <Button
-                variant="secondary"
+                variant="primary"
                 onClick={() => onConfirmDeleteTarget('section-only')}
                 loading={isSavingCanvasItem}
               >
-                Fjern kun seksjon
+                Fjern seksjon
               </Button>
-              <Button
-                variant="primary"
-                onClick={() => onConfirmDeleteTarget('section-with-content')}
-                loading={isSavingCanvasItem}
-              >
-                Fjern seksjon og innhold
-              </Button>
-            </>
+            )
           ) : (
             <Button variant="danger" onClick={() => onConfirmDeleteTarget()} loading={isSavingCanvasItem}>
               {deleteTarget?.type === 'connection'
