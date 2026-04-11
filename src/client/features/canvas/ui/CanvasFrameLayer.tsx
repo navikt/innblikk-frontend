@@ -12,6 +12,7 @@ import {
   HEADING_FONT_SIZE_STEP,
   HEADING_TEXT_MIN_WIDTH,
   ICON_ROTATION_STEP_DEG,
+  WEBSITE_CARD_HEADER_HEIGHT,
   getCanvasFrameVisualizationMode,
   getVisualizationModeLabel,
 } from '../utils/canvasUtils.ts'
@@ -430,19 +431,21 @@ const CanvasFrameLayer = ({
 
               <div
                 className={`relative flex-1 ${
-                  frame.kind === 'website' || frame.kind === 'image'
-                    ? `overflow-hidden ${isIllustrationFrame ? 'bg-transparent' : 'bg-white'}`
-                    : frame.kind === 'chart'
-                      ? 'overflow-visible bg-transparent'
-                      : frame.kind === 'icon'
+                  frame.kind === 'website'
+                    ? `overflow-visible ${isIllustrationFrame ? 'bg-transparent' : 'bg-white'}`
+                    : frame.kind === 'image'
+                      ? `overflow-hidden ${isIllustrationFrame ? 'bg-transparent' : 'bg-white'}`
+                      : frame.kind === 'chart'
                         ? 'overflow-visible bg-transparent'
-                        : frame.kind === 'figure'
+                        : frame.kind === 'icon'
                           ? 'overflow-visible bg-transparent'
-                          : frame.kind === 'drawing'
+                          : frame.kind === 'figure'
                             ? 'overflow-visible bg-transparent'
-                            : frame.kind === 'heading'
-                              ? 'pt-1'
-                              : 'px-2 pb-2'
+                            : frame.kind === 'drawing'
+                              ? 'overflow-visible bg-transparent'
+                              : frame.kind === 'heading'
+                                ? 'pt-1'
+                                : 'px-2 pb-2'
                 }`}
               >
                 {frame.kind === 'website' && !frame.isInternalDashboard && (
@@ -484,6 +487,7 @@ const CanvasFrameLayer = ({
                       className={`pointer-events-auto absolute left-1/2 top-[-12px] flex h-6 w-6 -translate-x-1/2 cursor-grab items-center justify-center rounded-full bg-transparent opacity-0 transition-opacity active:cursor-grabbing group-hover:opacity-100 group-focus-within:opacity-100 ${
                         connectionDragState?.sourceFrameId === frame.id ? 'opacity-100' : ''
                       }`}
+                      style={{ top: `${-12 - WEBSITE_CARD_HEADER_HEIGHT}px` }}
                       aria-label="Kobling"
                       title="Dra for å koble"
                       onMouseDown={(event) => startConnectionDrag(event, frame, 'top')}

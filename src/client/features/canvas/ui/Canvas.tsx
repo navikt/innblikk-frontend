@@ -3772,16 +3772,18 @@ const Canvas = () => {
     const targetFrame = connectionDragState.currentTargetFrameId
       ? visibleFrames.find((frame) => frame.id === connectionDragState.currentTargetFrameId)
       : null
-    const fallbackTargetSide = getDominantDirectionSide(
+    const pointerSide = getDominantDirectionSide(
       sourceAnchor.x,
       sourceAnchor.y,
       connectionDragState.pointerX,
       connectionDragState.pointerY,
     )
+    const freePointerTargetSide: ConnectionAnchorSide =
+      pointerSide === 'left' ? 'right' : pointerSide === 'right' ? 'left' : pointerSide === 'top' ? 'bottom' : 'top'
     const targetSide =
       targetFrame?.kind === 'website'
         ? getNearestAnchorSide(targetFrame, sourceAnchor.x, sourceAnchor.y)
-        : fallbackTargetSide
+        : freePointerTargetSide
     const toAnchor =
       targetFrame?.kind === 'website'
         ? getFrameAnchor(targetFrame, targetSide)
