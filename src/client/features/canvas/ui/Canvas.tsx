@@ -2092,13 +2092,11 @@ const Canvas = () => {
       const pointer = getCanvasPointerPosition(clientX, clientY)
       if (!pointer) return
 
-      const width = pendingFrameDraft.width ?? 240
-      const height = pendingFrameDraft.height ?? 180
       const nextFrame: CanvasFrame = {
         ...pendingFrameDraft,
         id: `${Date.now()}-${Math.random()}`,
-        x: Math.max(0, pointer.x - width / 2),
-        y: Math.max(-CANVAS_TOP_BUFFER, pointer.y - height / 2),
+        x: Math.max(0, pointer.x),
+        y: Math.max(-CANVAS_TOP_BUFFER, pointer.y),
       }
 
       try {
