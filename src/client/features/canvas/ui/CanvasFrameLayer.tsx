@@ -1,5 +1,4 @@
 import { Button, HelpText, Loader, Select } from '@navikt/ds-react'
-import { ChartNoAxesCombined } from 'lucide-react'
 import { useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
 import type { Website } from '../../../shared/types/website.ts'
 import { DashboardWidget } from '../../dashboard'
@@ -334,23 +333,12 @@ const CanvasFrameLayer = ({
                     )}
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
-                    {frame.kind === 'website' && !frame.isInternalDashboard && (
-                      <Button
-                        size="xsmall"
-                        variant="tertiary"
-                        icon={<ChartNoAxesCombined size={14} />}
-                        className="whitespace-nowrap"
-                        onMouseDown={(event) => event.stopPropagation()}
-                        onClick={() => handleToggleInsightPanel(frame)}
-                        title={selectedWebsite ? 'Vis/skjul innsikt' : 'Velg nettsted først'}
-                        aria-label={activeInsightFrameId === frame.id ? 'Skjul innsikt' : 'Vis innsikt'}
-                        disabled={!selectedWebsite}
-                      >
-                        {activeInsightFrameId === frame.id ? 'Skjul' : 'Innsikt'}
-                      </Button>
-                    )}
                     <CanvasWebsiteActionMenu
                       isInternalDashboard={frame.isInternalDashboard}
+                      showInsightOption={!frame.isInternalDashboard}
+                      isInsightOpen={isWebsiteInsightOpen}
+                      insightDisabled={!selectedWebsite}
+                      onToggleInsight={() => handleToggleInsightPanel(frame)}
                       showTopListOption={visualizationMode === 'clickmap'}
                       isTopListEnabled={websiteTopListEnabled}
                       onToggleTopList={onToggleWebsiteTopList}

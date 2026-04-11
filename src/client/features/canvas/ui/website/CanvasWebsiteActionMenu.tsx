@@ -1,8 +1,12 @@
 import { ActionMenu, Button } from '@navikt/ds-react'
-import { Copy, Edit2, List, MoreVertical, RefreshCw, Trash2 } from 'lucide-react'
+import { ChartNoAxesCombined, Copy, Edit2, List, MoreVertical, RefreshCw, Trash2 } from 'lucide-react'
 
 type CanvasWebsiteActionMenuProps = {
   isInternalDashboard?: boolean
+  showInsightOption?: boolean
+  isInsightOpen?: boolean
+  insightDisabled?: boolean
+  onToggleInsight?: () => void
   showTopListOption?: boolean
   isTopListEnabled?: boolean
   onToggleTopList?: () => void
@@ -14,6 +18,10 @@ type CanvasWebsiteActionMenuProps = {
 
 const CanvasWebsiteActionMenu = ({
   isInternalDashboard,
+  showInsightOption,
+  isInsightOpen,
+  insightDisabled,
+  onToggleInsight,
   showTopListOption,
   isTopListEnabled,
   onToggleTopList,
@@ -52,6 +60,14 @@ const CanvasWebsiteActionMenu = ({
           <span>{isInternalDashboard ? 'Rediger dashboard' : 'Rediger nettside'}</span>
         </span>
       </ActionMenu.Item>
+      {showInsightOption && onToggleInsight && (
+        <ActionMenu.Item onClick={onToggleInsight} disabled={insightDisabled}>
+          <span className="inline-flex items-center gap-2">
+            <ChartNoAxesCombined size={14} aria-hidden="true" />
+            <span>{isInsightOpen ? 'Skjul innsikt' : 'Vis innsikt'}</span>
+          </span>
+        </ActionMenu.Item>
+      )}
       {showTopListOption && onToggleTopList && (
         <ActionMenu.Item onClick={onToggleTopList}>
           <span className="inline-flex items-center gap-2">
