@@ -372,6 +372,8 @@ const Canvas = () => {
   const framesRef = useRef<CanvasFrame[]>([])
   const chartContentRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const isImportingStickyCsvRef = useRef(false)
+  const clipboardFramesRef = useRef<CanvasFrame[] | null>(null)
+  const clipboardPasteCountRef = useRef(0)
   const previousTimerRunningRef = useRef(false)
   const canvasViewportRef = useRef<HTMLDivElement | null>(null)
   const canvasToolbarRef = useRef<HTMLDivElement | null>(null)
@@ -3050,6 +3052,80 @@ const Canvas = () => {
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [selectedFrameIds])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const usesPrimaryModifier = event.metaKey || event.ctrlKey
+      if (!usesPrimaryModifier || event.altKey) return
+
+      const target = event.target as HTMLElement | null
+      const isTypingTarget =
+        target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable || false
+      if (isTypingTarget) return
+
+      const pressedKey = event.key.toLowerCase()
+      const isCopyShortcut = pressedKey === 'c' && !event.shiftKey
+      const isPasteShortcut = pressedKey === 'v' && !event.shiftKey
+      if (!isCopyShortcut && !isPasteShortcut) return
+
+      if (isCopyShortcut) {
+        const copiedFrames = frames
+          .filter(
+            (frame) =>
+              selectedFrameIds.includes(frame.id) &&
+              (frame.kind === 'sticky' || frame.kind === 'text' || frame.kind === 'section'),
+          )
+          .sort((a, b) => {
+            if (a.y !== b.y) return a.y - b.y
+            if (a.x !== b.x) return a.x - b.x
+            return a.id.localeCompare(b.id)
+          })
+
+        if (copiedFrames.length === 0) return
+        event.preventDefault()
+        clipboardFramesRef.current = copiedFrames
+        clipboardPasteCountRef.current = 0
+        return
+      }
+
+      const copiedFrames = clipboardFramesRef.current
+      if (!copiedFrames || copiedFrames.length === 0) return
+
+      event.preventDefault()
+      const pasteOffset = 36 * (clipboardPasteCountRef.current + 1)
+      const duplicatedFrames = copiedFrames.map((frame) => ({
+        ...frame,
+        id: `${Date.now()}-${Math.random()}`,
+        x: Math.max(0, frame.x + pasteOffset),
+        y: Math.max(-CANVAS_TOP_BUFFER, frame.y + pasteOffset),
+        graphId: undefined,
+        queryId: undefined,
+        refreshNonce: 0,
+      }))
+
+      void (async () => {
+        try {
+          setIsSavingCanvasItem(true)
+          setSyncError(null)
+          const persistedFrames: CanvasFrame[] = []
+          for (const frame of duplicatedFrames) {
+            const persistedFrame = await persistFrame(frame)
+            persistedFrames.push(persistedFrame)
+          }
+          setFrames((prev) => [...prev, ...persistedFrames])
+          setSelectedFrameIds(persistedFrames.map((frame) => frame.id))
+          clipboardPasteCountRef.current += 1
+        } catch (error) {
+          setSyncError(error instanceof Error ? error.message : 'Kunne ikke lime inn elementer i canvas')
+        } finally {
+          setIsSavingCanvasItem(false)
+        }
+      })()
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [frames, persistFrame, selectedFrameIds])
 
   useEffect(() => {
     if (selectedFrameIds.length === 0) return
