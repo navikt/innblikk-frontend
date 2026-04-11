@@ -80,8 +80,8 @@ export const ICON_CARD_HEADER_HEIGHT = 0
 export const CANVAS_TOP_BUFFER = 240
 export const HEADING_TEXT_MIN_WIDTH = 140
 export const HEADING_TEXT_MAX_WIDTH = 820
-export const HEADING_TEXT_EXTRA_WIDTH = 6
-export const HEADING_TEXT_VERTICAL_PADDING = 0
+export const HEADING_TEXT_EXTRA_WIDTH = 32
+export const HEADING_TEXT_VERTICAL_PADDING = 16
 export const HEADING_TEXT_CHAR_WIDTH_FACTOR = 0.42
 
 export const clampCanvasZoom = (value: number): number => Math.min(CANVAS_ZOOM_MAX, Math.max(CANVAS_ZOOM_MIN, value))

@@ -2423,14 +2423,18 @@ const Canvas = () => {
         HEADING_FONT_SIZE_MIN,
         Math.min(HEADING_FONT_SIZE_MAX, frame.headingFontSize ?? HEADING_FONT_SIZE_DEFAULT),
       )
-      const width = Number.isFinite(frame.width)
-        ? Math.min(HEADING_TEXT_MAX_WIDTH, Math.max(HEADING_TEXT_MIN_WIDTH, Number(frame.width)))
-        : (() => {
-            const estimatedTextWidth =
-              Math.ceil(headingText.length * (fontSize * HEADING_TEXT_CHAR_WIDTH_FACTOR)) + HEADING_TEXT_EXTRA_WIDTH
-            return Math.min(HEADING_TEXT_MAX_WIDTH, Math.max(HEADING_TEXT_MIN_WIDTH, estimatedTextWidth))
-          })()
-      const usableWidth = Math.max(width - 4, HEADING_TEXT_MIN_WIDTH)
+      const estimatedTextWidth =
+        Math.ceil(headingText.length * (fontSize * HEADING_TEXT_CHAR_WIDTH_FACTOR)) + HEADING_TEXT_EXTRA_WIDTH
+      const autoWidth = Math.min(HEADING_TEXT_MAX_WIDTH, Math.max(HEADING_TEXT_MIN_WIDTH, estimatedTextWidth))
+      const defaultHeadingSize = getDefaultFrameSize('heading')
+      const hasLegacyDefaultSize =
+        Number(frame.width) === defaultHeadingSize.width &&
+        (frame.height ?? defaultHeadingSize.height) === defaultHeadingSize.height
+      const width =
+        Number.isFinite(frame.width) && !hasLegacyDefaultSize
+          ? Math.min(HEADING_TEXT_MAX_WIDTH, Math.max(HEADING_TEXT_MIN_WIDTH, Number(frame.width)))
+          : autoWidth
+      const usableWidth = Math.max(1, width - HEADING_TEXT_EXTRA_WIDTH)
       const charsPerLine = Math.max(12, Math.floor(usableWidth / (fontSize * HEADING_TEXT_CHAR_WIDTH_FACTOR)))
       const lineCount = headingText
         ? headingText.split('\n').reduce((count, line) => count + Math.max(1, Math.ceil(line.length / charsPerLine)), 0)
@@ -2688,13 +2692,27 @@ const Canvas = () => {
       return
     }
 
+    const estimatedTextWidth =
+      Math.ceil(heading.length * (HEADING_FONT_SIZE_DEFAULT * HEADING_TEXT_CHAR_WIDTH_FACTOR)) +
+      HEADING_TEXT_EXTRA_WIDTH
+    const width = Math.min(HEADING_TEXT_MAX_WIDTH, Math.max(HEADING_TEXT_MIN_WIDTH, estimatedTextWidth))
+    const usableWidth = Math.max(1, width - HEADING_TEXT_EXTRA_WIDTH)
+    const charsPerLine = Math.max(
+      12,
+      Math.floor(usableWidth / (HEADING_FONT_SIZE_DEFAULT * HEADING_TEXT_CHAR_WIDTH_FACTOR)),
+    )
+    const lineCount = heading
+      .split('\n')
+      .reduce((count, line) => count + Math.max(1, Math.ceil(line.length / charsPerLine)), 0)
+    const height = Math.max(28, lineCount * Math.ceil(HEADING_FONT_SIZE_DEFAULT * 1.05) + HEADING_TEXT_VERTICAL_PADDING)
+
     const frameDraft: PendingCanvasFrameDraft = {
       kind: 'heading',
       headingText: heading,
       headingFontSize: HEADING_FONT_SIZE_DEFAULT,
       label: heading,
-      width: 420,
-      height: 160,
+      width,
+      height,
       refreshNonce: 0,
     }
     queueFrameForPlacement(frameDraft, 'overskrift')
@@ -3060,15 +3078,22 @@ const Canvas = () => {
   const getHeadingFrameWidth = useCallback(
     (frame: CanvasFrame): number => {
       if (frame.kind !== 'heading') return frame.width ?? getDefaultFrameSize(frame).width
-      if (Number.isFinite(frame.width)) {
-        return Math.min(HEADING_TEXT_MAX_WIDTH, Math.max(HEADING_TEXT_MIN_WIDTH, Number(frame.width)))
-      }
 
       const headingText = (frame.headingText || frame.label || '').trim()
       const fontSize = getHeadingFrameFontSize(frame)
       const estimatedTextWidth =
         Math.ceil(headingText.length * (fontSize * HEADING_TEXT_CHAR_WIDTH_FACTOR)) + HEADING_TEXT_EXTRA_WIDTH
-      return Math.min(HEADING_TEXT_MAX_WIDTH, Math.max(HEADING_TEXT_MIN_WIDTH, estimatedTextWidth))
+      const autoWidth = Math.min(HEADING_TEXT_MAX_WIDTH, Math.max(HEADING_TEXT_MIN_WIDTH, estimatedTextWidth))
+      const defaultHeadingSize = getDefaultFrameSize('heading')
+      const hasLegacyDefaultSize =
+        Number(frame.width) === defaultHeadingSize.width &&
+        (frame.height ?? defaultHeadingSize.height) === defaultHeadingSize.height
+
+      if (Number.isFinite(frame.width) && !hasLegacyDefaultSize) {
+        return Math.min(HEADING_TEXT_MAX_WIDTH, Math.max(HEADING_TEXT_MIN_WIDTH, Number(frame.width)))
+      }
+
+      return autoWidth
     },
     [getHeadingFrameFontSize],
   )
@@ -3080,7 +3105,7 @@ const Canvas = () => {
       const headingText = (frame.headingText || frame.label || '').trim()
       const width = getHeadingFrameWidth(frame)
       const fontSize = getHeadingFrameFontSize(frame)
-      const usableWidth = Math.max(width - 4, HEADING_TEXT_MIN_WIDTH)
+      const usableWidth = Math.max(1, width - HEADING_TEXT_EXTRA_WIDTH)
       const charsPerLine = Math.max(12, Math.floor(usableWidth / (fontSize * HEADING_TEXT_CHAR_WIDTH_FACTOR)))
       const lineCount = headingText
         ? headingText.split('\n').reduce((count, line) => count + Math.max(1, Math.ceil(line.length / charsPerLine)), 0)
@@ -3100,8 +3125,8 @@ const Canvas = () => {
       startY: event.clientY,
       startFrameX: frame.x,
       startFrameY: frame.y,
-      startWidth: frame.width ?? defaults.width,
-      startHeight: frame.height ?? defaults.height,
+      startWidth: frame.kind === 'heading' ? getHeadingFrameWidth(frame) : (frame.width ?? defaults.width),
+      startHeight: frame.kind === 'heading' ? getHeadingFrameHeight(frame) : (frame.height ?? defaults.height),
       dir,
     })
   }
@@ -3467,12 +3492,16 @@ const Canvas = () => {
             const deltaX = (event.clientX - resizeState.startX) / canvasZoom
             const deltaY = (event.clientY - resizeState.startY) / canvasZoom
             if (frame.kind === 'heading') {
+              const nextWidth = resizeState.dir.endsWith('w')
+                ? Math.min(HEADING_TEXT_MAX_WIDTH, Math.max(HEADING_TEXT_MIN_WIDTH, resizeState.startWidth - deltaX))
+                : Math.min(HEADING_TEXT_MAX_WIDTH, Math.max(HEADING_TEXT_MIN_WIDTH, resizeState.startWidth + deltaX))
+              const nextX = resizeState.dir.endsWith('w')
+                ? resizeState.startFrameX + (resizeState.startWidth - nextWidth)
+                : resizeState.startFrameX
               return {
                 ...frame,
-                width: Math.min(
-                  HEADING_TEXT_MAX_WIDTH,
-                  Math.max(HEADING_TEXT_MIN_WIDTH, resizeState.startWidth + deltaX),
-                ),
+                x: Math.max(0, nextX),
+                width: nextWidth,
               }
             }
             let nextX = resizeState.startFrameX

@@ -27,7 +27,7 @@ const CanvasHeadingFrame = ({
 }: CanvasHeadingFrameProps) => {
   if (isEditing) {
     return (
-      <div className="overflow-visible pt-0 pr-0 pb-0">
+      <div className="overflow-visible px-4 py-2">
         <textarea
           value={headingText || ''}
           onChange={(event) => onChange(id, event.target.value)}
@@ -49,9 +49,9 @@ const CanvasHeadingFrame = ({
   }
 
   return (
-    <div className="relative overflow-visible pt-0 pr-0 pb-0">
+    <div className="relative overflow-visible px-4 py-2">
       <h2
-        className="cursor-text select-text whitespace-pre-wrap break-words text-[var(--ax-text-default)] m-0"
+        className="m-0 cursor-text select-text whitespace-pre-wrap break-words text-[var(--ax-text-default)]"
         onClick={() => onStartEditing(id)}
         style={{
           fontSize: `${fontSizePx}px`,

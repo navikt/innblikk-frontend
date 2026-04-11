@@ -36,6 +36,69 @@ type CanvasFrameItem = CanvasFrame & {
   src: string
 }
 
+type ResizeHandleDirection = 'se' | 'sw' | 'ne' | 'nw'
+
+const RESIZE_HANDLE_CONFIGS: Array<{
+  dir: ResizeHandleDirection
+  title: string
+  ariaLabel: string
+  className: string
+}> = [
+  {
+    dir: 'nw',
+    title: 'Endre størrelse fra øvre venstre hjørne',
+    ariaLabel: 'Endre størrelse fra øvre venstre hjørne',
+    className: '-left-2 -top-2 cursor-nwse-resize',
+  },
+  {
+    dir: 'ne',
+    title: 'Endre størrelse fra øvre høyre hjørne',
+    ariaLabel: 'Endre størrelse fra øvre høyre hjørne',
+    className: '-right-2 -top-2 cursor-nesw-resize',
+  },
+  {
+    dir: 'sw',
+    title: 'Endre størrelse fra nedre venstre hjørne',
+    ariaLabel: 'Endre størrelse fra nedre venstre hjørne',
+    className: '-bottom-2 -left-2 cursor-nesw-resize',
+  },
+  {
+    dir: 'se',
+    title: 'Endre størrelse fra nedre høyre hjørne',
+    ariaLabel: 'Endre størrelse fra nedre høyre hjørne',
+    className: '-bottom-2 -right-2 cursor-nwse-resize',
+  },
+]
+
+type CanvasResizeHandlesProps = {
+  frame: CanvasFrame
+  isVisible: boolean
+  handleResizeStart: (event: React.MouseEvent, frame: CanvasFrame, dir?: ResizeHandleDirection) => void
+  size?: 'default' | 'large'
+}
+
+const CanvasResizeHandles = ({ frame, isVisible, handleResizeStart, size = 'default' }: CanvasResizeHandlesProps) => {
+  const sizeClassName = size === 'large' ? 'h-6 w-6 border-[4px]' : 'h-5 w-5 border-[3px]'
+  const visibilityClassName = isVisible
+    ? 'opacity-100'
+    : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
+
+  return (
+    <>
+      {RESIZE_HANDLE_CONFIGS.map((handle) => (
+        <button
+          key={handle.dir}
+          type="button"
+          onMouseDown={(event) => handleResizeStart(event, frame, handle.dir)}
+          title={handle.title}
+          aria-label={handle.ariaLabel}
+          className={`absolute ${handle.className} ${sizeClassName} rounded-sm border-[#1f8fff] bg-white shadow-[0_0_0_2px_white] transition-opacity ${visibilityClassName}`}
+        />
+      ))}
+    </>
+  )
+}
+
 type CanvasFrameLayerProps = {
   frameItems: CanvasFrameItem[]
   sectionItemCountsById: Record<string, number>
@@ -213,11 +276,6 @@ const CanvasFrameLayer = ({
             1,
             ...sortedTopListItems.map((item) => (Number.isFinite(item.count) ? item.count : 0)),
           )
-          const isTableTextFrame =
-            frame.kind === 'text' &&
-            Array.isArray(frame.tableHeaders) &&
-            frame.tableHeaders.length > 0 &&
-            Array.isArray(frame.tableRows)
           const editLockStatus =
             frame.kind === 'heading' || frame.kind === 'text' || frame.kind === 'sticky' || frame.kind === 'section'
               ? getFrameLockStatus(frame)
@@ -253,18 +311,18 @@ const CanvasFrameLayer = ({
                   : frame.kind === 'section'
                     ? 'group absolute flex flex-col overflow-visible rounded-2xl border-2 border-dashed border-[#8eb2de] bg-[#edf4ff]/70 shadow-none'
                     : frame.kind === 'chart'
-                      ? 'group absolute flex flex-col overflow-hidden rounded-lg border border-transparent bg-transparent shadow-none'
+                      ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
                       : frame.kind === 'heading'
                         ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
                         : frame.kind === 'text'
-                          ? 'group absolute flex flex-col overflow-hidden rounded-xl border border-transparent bg-transparent shadow-none'
+                          ? 'group absolute flex flex-col overflow-visible rounded-xl border border-transparent bg-transparent shadow-none'
                           : frame.kind === 'icon'
                             ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
                             : frame.kind === 'figure'
                               ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
                               : frame.kind === 'drawing'
                                 ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
-                                : 'group absolute flex flex-col overflow-hidden rounded-xl border shadow-sm'
+                                : 'group absolute flex flex-col overflow-visible rounded-xl border shadow-sm'
               } ${isSelectedFrame ? 'ring-2 ring-[var(--ax-border-accent)]/60' : ''}`}
               style={{
                 left: `${frame.x}px`,
@@ -880,74 +938,12 @@ const CanvasFrameLayer = ({
                     )}
                   </aside>
                 )}
-              {frame.kind === 'section' ? (
-                <>
-                  <button
-                    type="button"
-                    onMouseDown={(event) => handleResizeStart(event, frame, 'nw')}
-                    title="Endre størrelse fra øvre venstre hjørne"
-                    aria-label="Endre størrelse fra øvre venstre hjørne"
-                    className={`absolute -left-2 -top-2 h-6 w-6 cursor-nwse-resize rounded-sm border-[4px] border-[#1f8fff] bg-white shadow-[0_0_0_2px_white] transition-opacity ${
-                      isSelectedFrame
-                        ? 'opacity-100'
-                        : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
-                    }`}
-                  />
-                  <button
-                    type="button"
-                    onMouseDown={(event) => handleResizeStart(event, frame, 'ne')}
-                    title="Endre størrelse fra øvre høyre hjørne"
-                    aria-label="Endre størrelse fra øvre høyre hjørne"
-                    className={`absolute -right-2 -top-2 h-6 w-6 cursor-nesw-resize rounded-sm border-[4px] border-[#1f8fff] bg-white shadow-[0_0_0_2px_white] transition-opacity ${
-                      isSelectedFrame
-                        ? 'opacity-100'
-                        : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
-                    }`}
-                  />
-                  <button
-                    type="button"
-                    onMouseDown={(event) => handleResizeStart(event, frame, 'sw')}
-                    title="Endre størrelse fra nedre venstre hjørne"
-                    aria-label="Endre størrelse fra nedre venstre hjørne"
-                    className={`absolute -bottom-2 -left-2 h-6 w-6 cursor-nesw-resize rounded-sm border-[4px] border-[#1f8fff] bg-white shadow-[0_0_0_2px_white] transition-opacity ${
-                      isSelectedFrame
-                        ? 'opacity-100'
-                        : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
-                    }`}
-                  />
-                  <button
-                    type="button"
-                    onMouseDown={(event) => handleResizeStart(event, frame, 'se')}
-                    title="Endre størrelse fra nedre høyre hjørne"
-                    aria-label="Endre størrelse fra nedre høyre hjørne"
-                    className={`absolute -bottom-2 -right-2 h-6 w-6 cursor-nwse-resize rounded-sm border-[4px] border-[#1f8fff] bg-white shadow-[0_0_0_2px_white] transition-opacity ${
-                      isSelectedFrame
-                        ? 'opacity-100'
-                        : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
-                    }`}
-                  />
-                </>
-              ) : (
-                <button
-                  type="button"
-                  onMouseDown={(event) => handleResizeStart(event, frame)}
-                  title="Endre størrelse"
-                  aria-label="Endre størrelse"
-                  className={`absolute bottom-1 right-1 h-5 w-5 cursor-se-resize rounded-sm border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] transition-opacity ${
-                    frame.kind === 'text' && !isTableTextFrame
-                      ? 'opacity-100'
-                      : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
-                  }`}
-                >
-                  <span
-                    className="pointer-events-none absolute bottom-[2px] right-[2px] h-2.5 w-2.5"
-                    style={{
-                      background:
-                        'linear-gradient(135deg, transparent 35%, var(--ax-text-subtle) 35%, var(--ax-text-subtle) 45%, transparent 45%, transparent 55%, var(--ax-text-subtle) 55%, var(--ax-text-subtle) 65%, transparent 65%)',
-                    }}
-                  />
-                </button>
-              )}
+              <CanvasResizeHandles
+                frame={frame}
+                isVisible={isSelectedFrame || resizeState?.id === frame.id}
+                handleResizeStart={handleResizeStart}
+                size={frame.kind === 'section' ? 'large' : 'default'}
+              />
             </article>
           )
         })(),

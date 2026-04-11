@@ -21,12 +21,25 @@ const CanvasDrawingFrame = ({
 }: CanvasDrawingFrameProps) => {
   const strokes = parseDrawingPath(drawingPath)
   const strokeStyles = parseDrawingStrokeStyles(drawingStrokeStyles)
+  const allPoints = strokes.flatMap((stroke) => stroke)
+  const maxStrokeWidth = strokeStyles.reduce(
+    (maxValue, style) => Math.max(maxValue, style?.strokeWidth ?? strokeWidth),
+    strokeWidth,
+  )
+  const padding = Math.max(4, maxStrokeWidth)
+  const minX = allPoints.length > 0 ? Math.min(...allPoints.map((point) => point.x)) - padding : 0
+  const minY = allPoints.length > 0 ? Math.min(...allPoints.map((point) => point.y)) - padding : 0
+  const maxX = allPoints.length > 0 ? Math.max(...allPoints.map((point) => point.x)) + padding : width
+  const maxY = allPoints.length > 0 ? Math.max(...allPoints.map((point) => point.y)) + padding : height
+  const viewBoxWidth = Math.max(1, maxX - minX)
+  const viewBoxHeight = Math.max(1, maxY - minY)
 
   return (
     <svg
       width={width}
       height={height}
-      viewBox={`0 0 ${width} ${height}`}
+      viewBox={`${minX} ${minY} ${viewBoxWidth} ${viewBoxHeight}`}
+      preserveAspectRatio="none"
       className="block h-full w-full"
       aria-label={label}
       role="img"

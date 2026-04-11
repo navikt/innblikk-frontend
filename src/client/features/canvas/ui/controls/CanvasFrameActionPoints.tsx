@@ -277,21 +277,17 @@ const CanvasFrameActionPoints = ({
 }: CanvasFrameActionPointsProps) => {
   const showRemoveButton = frameKind !== 'website' || Boolean(isInternalDashboard)
   const isSectionGrid = frameKind === 'section' && sectionLayoutMode === 'grid'
+  const actionPointsPositionClassName =
+    frameKind === 'heading' ||
+    frameKind === 'icon' ||
+    frameKind === 'figure' ||
+    frameKind === 'drawing' ||
+    isIllustrationFrame
+      ? 'right-8 -top-6 flex items-center gap-1'
+      : 'right-8 top-4 flex items-center gap-1'
 
   return (
-    <div
-      className={`pointer-events-none absolute z-30 ${
-        frameKind === 'heading' ||
-        frameKind === 'icon' ||
-        frameKind === 'figure' ||
-        frameKind === 'drawing' ||
-        isIllustrationFrame
-          ? 'right-0 -top-6 flex items-center gap-1'
-          : frameKind === 'section'
-            ? 'right-8 top-4 flex items-center gap-1'
-            : 'right-2 top-2 flex items-center gap-1'
-      }`}
-    >
+    <div className={`pointer-events-none absolute z-30 ${actionPointsPositionClassName}`}>
       <ImageOrDashboardEditActionPoint
         frameKind={frameKind}
         isInternalDashboard={isInternalDashboard}
