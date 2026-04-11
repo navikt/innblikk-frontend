@@ -169,6 +169,26 @@ const getDefaultFrameSize = (
   return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
 }
 
+const getNextAutoSectionLabel = (frames: CanvasFrame[], excludeFrameId?: string): string => {
+  const usedNumbers = new Set<number>()
+
+  frames.forEach((frame) => {
+    if (frame.kind !== 'section') return
+    if (excludeFrameId && frame.id === excludeFrameId) return
+    const normalized = frame.label.trim()
+    const match = normalized.match(/^seksjon\s+(\d+)$/i)
+    if (!match) return
+    const parsed = Number(match[1])
+    if (Number.isFinite(parsed) && parsed > 0) {
+      usedNumbers.add(parsed)
+    }
+  })
+
+  let next = 1
+  while (usedNumbers.has(next)) next += 1
+  return `Seksjon ${next}`
+}
+
 const Canvas = () => {
   const LAST_PROJECT_STORAGE_KEY = 'projectmanager:lastSelectedProjectId'
   const location = useLocation()
@@ -2051,7 +2071,7 @@ const Canvas = () => {
       const stickyGap = 18
       const cardsPerRow = 2
       const sectionTitle = pendingCsvStickyImport.sectionTitle.trim()
-      const sectionLabel = sectionTitle || 'Importert seksjon'
+      const sectionLabel = sectionTitle || getNextAutoSectionLabel(frames)
       const sectionHeaderHeight = 92
       const sectionPaddingX = 24
       const sectionPaddingBottom = 24
@@ -2158,7 +2178,7 @@ const Canvas = () => {
         setIsSavingCanvasItem(false)
       }
     },
-    [cancelPendingFramePlacement, getCanvasPointerPosition, pendingCsvStickyImport, persistFrame],
+    [cancelPendingFramePlacement, frames, getCanvasPointerPosition, pendingCsvStickyImport, persistFrame],
   )
 
   const handleCanvasSurfaceMouseDown = useCallback(
@@ -2418,9 +2438,10 @@ const Canvas = () => {
   }
 
   const handleAddSectionCard = () => {
+    const nextSectionLabel = getNextAutoSectionLabel(frames)
     const frameDraft: PendingCanvasFrameDraft = {
       kind: 'section',
-      label: 'Seksjon',
+      label: nextSectionLabel,
       width: 640,
       height: 420,
       refreshNonce: 0,
@@ -3627,7 +3648,7 @@ const Canvas = () => {
       const normalizedLabel = frame.label.trim()
       nextFrame = {
         ...frame,
-        label: normalizedLabel || 'Seksjon',
+        label: normalizedLabel || getNextAutoSectionLabel(frames, frame.id),
       }
     } else {
       nextFrame = {
