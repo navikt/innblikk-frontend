@@ -77,6 +77,7 @@ import { useLocation } from 'react-router-dom'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import useCanvasCsvImport from '../hooks/useCanvasCsvImport.ts'
 import useCanvasBackgroundSync from '../hooks/useCanvasBackgroundSync.ts'
+import useCanvasEditLocks from '../hooks/useCanvasEditLocks.ts'
 import { fetchCanvasStorageData } from '../api/canvasStorageApi.ts'
 
 import type {
@@ -427,6 +428,10 @@ const Canvas = () => {
     () => (activeInsightFrameId ? (frames.find((frame) => frame.id === activeInsightFrameId) ?? null) : null),
     [activeInsightFrameId, frames],
   )
+  const activeEditableFrame = useMemo(
+    () => (activeEditableFrameId ? (frames.find((frame) => frame.id === activeEditableFrameId) ?? null) : null),
+    [activeEditableFrameId, frames],
+  )
 
   const activeInsightPeriodLabel = useMemo(
     () => getCanvasPeriodLabel(period, customStartDate, customEndDate),
@@ -444,6 +449,12 @@ const Canvas = () => {
   useEffect(() => {
     setSelectedFrameIds((current) => current.filter((id) => frames.some((frame) => frame.id === id)))
   }, [frames])
+
+  useEffect(() => {
+    if (!activeEditableFrameId) return
+    if (frames.some((frame) => frame.id === activeEditableFrameId)) return
+    setActiveEditableFrameId(null)
+  }, [activeEditableFrameId, frames])
 
   useEffect(() => {
     let isActive = true
@@ -974,6 +985,21 @@ const Canvas = () => {
     setFrames,
     setConnections,
     setSyncError,
+  })
+
+  const {
+    acquireLock: acquireEditLock,
+    releaseLock: releaseEditLock,
+    getFrameLockStatus,
+  } = useCanvasEditLocks({
+    enabled: canPersistToDashboard && projectId !== null && dashboardId !== null && canvasInitMode === 'existing',
+    projectId,
+    dashboardId,
+    activeEditableFrame,
+    onLostActiveLock: () => {
+      setActiveEditableFrameId(null)
+      setSyncError('Kortet blir redigert av en kollega akkurat nå.')
+    },
   })
 
   useEffect(() => {
@@ -2983,6 +3009,10 @@ const Canvas = () => {
     setFrames((prev) => prev.filter((frame) => frame.id !== id))
     setSelectedFrameIds((prev) => prev.filter((frameId) => frameId !== id))
     setConnections((prev) => prev.filter((connection) => !linkedConnections.some((item) => item.id === connection.id)))
+    if (activeEditableFrameId === id && frameToDelete) {
+      setActiveEditableFrameId(null)
+      void releaseEditLock(frameToDelete).catch(() => undefined)
+    }
     if (connectionDragState?.sourceFrameId === id) {
       setConnectionDragState(null)
     }
@@ -3390,10 +3420,26 @@ const Canvas = () => {
     void persistFrame(nextFrame).catch((error) => {
       setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre endringer i canvas')
     })
+    void releaseEditLock(frame).catch(() => undefined)
   }
 
   const handleStartEditingFrame = (id: string) => {
-    setActiveEditableFrameId(id)
+    const frame = frames.find((item) => item.id === id)
+    if (!frame || (frame.kind !== 'heading' && frame.kind !== 'text' && frame.kind !== 'sticky')) return
+
+    void (async () => {
+      const lockAcquired = await acquireEditLock(frame)
+      if (!lockAcquired) {
+        const lockStatus = getFrameLockStatus(frame)
+        setSyncError(
+          lockStatus.ownerLabel
+            ? `${lockStatus.ownerLabel} redigerer dette kortet akkurat nå.`
+            : 'Kortet redigeres av en kollega akkurat nå.',
+        )
+        return
+      }
+      setActiveEditableFrameId(id)
+    })()
   }
 
   const handleOpenCanvasSettingsModal = () => {
@@ -4088,6 +4134,10 @@ const Canvas = () => {
                       Array.isArray(frame.tableHeaders) &&
                       frame.tableHeaders.length > 0 &&
                       Array.isArray(frame.tableRows)
+                    const editLockStatus =
+                      frame.kind === 'heading' || frame.kind === 'text' || frame.kind === 'sticky'
+                        ? getFrameLockStatus(frame)
+                        : { isLockedByOther: false, ownerLabel: null }
                     return (
                       <article
                         key={frame.id}
@@ -4605,6 +4655,8 @@ const Canvas = () => {
                               label={frame.label}
                               fontSizePx={getHeadingFrameFontSize(frame)}
                               isEditing={activeEditableFrameId === frame.id}
+                              isLockedByOther={editLockStatus.isLockedByOther}
+                              lockOwnerLabel={editLockStatus.ownerLabel}
                               onChange={handleEditableFrameChange}
                               onBlur={handleEditableFrameBlur}
                               onStartEditing={handleStartEditingFrame}
@@ -4616,6 +4668,8 @@ const Canvas = () => {
                               tableHeaders={frame.tableHeaders}
                               tableRows={frame.tableRows}
                               isEditing={activeEditableFrameId === frame.id}
+                              isLockedByOther={editLockStatus.isLockedByOther}
+                              lockOwnerLabel={editLockStatus.ownerLabel}
                               tableRowsPerPage={CANVAS_TABLE_ROWS_PER_PAGE}
                               tablePage={frameTablePages[frame.id] ?? 1}
                               onTablePageChange={(id, nextPage) =>
@@ -4633,6 +4687,8 @@ const Canvas = () => {
                               id={frame.id}
                               textContent={frame.textContent}
                               isEditing={activeEditableFrameId === frame.id}
+                              isLockedByOther={editLockStatus.isLockedByOther}
+                              lockOwnerLabel={editLockStatus.ownerLabel}
                               onChange={handleEditableFrameChange}
                               onBlur={handleEditableFrameBlur}
                               onStartEditing={handleStartEditingFrame}

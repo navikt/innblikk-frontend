@@ -1,4 +1,5 @@
 import { Button, Table } from '@navikt/ds-react'
+import CanvasEditLockOverlay from '../controls/CanvasEditLockOverlay.tsx'
 
 type CanvasTextFrameProps = {
   id: string
@@ -6,6 +7,8 @@ type CanvasTextFrameProps = {
   tableHeaders?: string[]
   tableRows?: string[][]
   isEditing: boolean
+  isLockedByOther?: boolean
+  lockOwnerLabel?: string | null
   tableRowsPerPage: number
   tablePage: number
   onTablePageChange: (id: string, nextPage: number) => void
@@ -20,6 +23,8 @@ const CanvasTextFrame = ({
   tableHeaders,
   tableRows,
   isEditing,
+  isLockedByOther = false,
+  lockOwnerLabel = null,
   tableRowsPerPage,
   tablePage,
   onTablePageChange,
@@ -107,7 +112,7 @@ const CanvasTextFrame = ({
   }
 
   return (
-    <div className="h-full overflow-auto px-2 pb-2">
+    <div className="relative h-full overflow-auto px-2 pb-2">
       <div
         className="h-full cursor-text overflow-auto whitespace-pre-wrap break-words text-[var(--ax-text-default)]"
         style={{ fontSize: '24px', lineHeight: 1.3, fontWeight: 500 }}
@@ -115,6 +120,7 @@ const CanvasTextFrame = ({
       >
         {textContent || 'Skriv tekst'}
       </div>
+      {isLockedByOther && <CanvasEditLockOverlay ownerLabel={lockOwnerLabel} />}
     </div>
   )
 }

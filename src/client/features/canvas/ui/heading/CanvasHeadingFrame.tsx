@@ -1,9 +1,13 @@
+import CanvasEditLockOverlay from '../controls/CanvasEditLockOverlay.tsx'
+
 type CanvasHeadingFrameProps = {
   id: string
   headingText?: string
   label: string
   fontSizePx: number
   isEditing: boolean
+  isLockedByOther?: boolean
+  lockOwnerLabel?: string | null
   onChange: (id: string, nextValue: string) => void
   onBlur: (id: string) => void
   onStartEditing: (id: string) => void
@@ -15,6 +19,8 @@ const CanvasHeadingFrame = ({
   label,
   fontSizePx,
   isEditing,
+  isLockedByOther = false,
+  lockOwnerLabel = null,
   onChange,
   onBlur,
   onStartEditing,
@@ -43,7 +49,7 @@ const CanvasHeadingFrame = ({
   }
 
   return (
-    <div className="overflow-visible pt-0 pr-0 pb-0">
+    <div className="relative overflow-visible pt-0 pr-0 pb-0">
       <h2
         className="cursor-text select-text whitespace-pre-wrap break-words text-[var(--ax-text-default)] m-0"
         onClick={() => onStartEditing(id)}
@@ -55,6 +61,7 @@ const CanvasHeadingFrame = ({
       >
         {headingText || label || 'Skriv overskrift'}
       </h2>
+      {isLockedByOther && <CanvasEditLockOverlay ownerLabel={lockOwnerLabel} />}
     </div>
   )
 }
