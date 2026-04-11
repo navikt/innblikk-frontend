@@ -191,7 +191,7 @@ const Canvas = () => {
   const { onlyDirectEntry, projectId, dashboardId, categoryId: initialCategoryId } = routeContext
   const canPersistToDashboard = projectId !== null && dashboardId !== null
   const isCanvasFrontpage = projectId === null && dashboardId === null
-  const [canvasTitle, setCanvasTitle] = useState('Innblikk: Canvas')
+  const [canvasTitle, setCanvasTitle] = useState('Canvas')
   const [canvasDashboardDescription, setCanvasDashboardDescription] = useState(CANVAS_DASHBOARD_TOKEN)
   const [canvasConfiguredWebsiteId, setCanvasConfiguredWebsiteId] = useState<string | null>(null)
   const [canvasInitMode, setCanvasInitMode] = useState<'checking' | 'existing' | 'create'>(
@@ -1095,7 +1095,7 @@ const Canvas = () => {
         const dashboard = dashboards.find((item) => item.id === dashboardId)
         if (!dashboard) {
           setCanvasInitMode('create')
-          setCanvasTitle('Innblikk: Canvas')
+          setCanvasTitle('Canvas')
           setCanvasDashboardDescription(CANVAS_DASHBOARD_TOKEN)
           setCanvasConfiguredWebsiteId(null)
           return
@@ -1108,7 +1108,7 @@ const Canvas = () => {
       } catch {
         if (!isActive) return
         setCanvasInitMode('create')
-        setCanvasTitle('Innblikk: Canvas')
+        setCanvasTitle('Canvas')
         setCanvasDashboardDescription(CANVAS_DASHBOARD_TOKEN)
         setCanvasConfiguredWebsiteId(null)
       }

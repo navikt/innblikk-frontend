@@ -102,16 +102,18 @@ const CanvasTopBar = ({
 }: CanvasTopBarProps) => {
   const normalizedCanvasTitle = canvasTitle.trim()
   const headingTitle =
-    isCanvasFrontpage || normalizedCanvasTitle.toLowerCase() === 'innblikk'
-      ? normalizedCanvasTitle || 'Innblikk'
-      : `Innblikk: ${normalizedCanvasTitle}`
+    canvasInitMode === 'checking'
+      ? 'Innblikk'
+      : isCanvasFrontpage || normalizedCanvasTitle.toLowerCase() === 'innblikk'
+        ? normalizedCanvasTitle || 'Innblikk'
+        : `Innblikk: ${normalizedCanvasTitle}`
 
   return (
     <div ref={canvasToolbarRef} className="pointer-events-none fixed left-4 right-4 top-4 z-30">
       <div className="pointer-events-auto rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <a
-            href="/dashboard"
+            href="/canvas"
             aria-label={`Til dashboard-oversikt${projectId !== null ? ` fra prosjekt ${projectId}` : ''}`}
             className="min-w-0 flex flex-1 items-center gap-1.5 rounded-sm border-0 bg-transparent p-0 text-left text-[var(--ax-text-default)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-border-accent)]"
           >
