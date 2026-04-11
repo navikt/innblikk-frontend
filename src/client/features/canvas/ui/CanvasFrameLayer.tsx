@@ -111,7 +111,7 @@ type CanvasFrameLayerProps = {
   handleEditableFrameChange: (id: string, nextValue: string) => void
   handleEditableFrameBlur: (id: string) => void
   handleStartEditingFrame: (id: string) => void
-  handleResizeStart: (event: React.MouseEvent, frame: CanvasFrame) => void
+  handleResizeStart: (event: React.MouseEvent, frame: CanvasFrame, dir?: 'se' | 'sw' | 'ne' | 'nw') => void
 }
 
 const CanvasFrameLayer = ({
@@ -251,7 +251,7 @@ const CanvasFrameLayer = ({
                           : 'border-[var(--ax-border-neutral-subtle)]'
                     } ${isIllustrationFrame ? 'bg-transparent shadow-none' : 'bg-white shadow-sm'}`
                   : frame.kind === 'section'
-                    ? 'group absolute flex flex-col overflow-hidden rounded-2xl border-2 border-dashed border-[#8eb2de] bg-[#edf4ff]/70 shadow-none'
+                    ? 'group absolute flex flex-col overflow-visible rounded-2xl border-2 border-dashed border-[#8eb2de] bg-[#edf4ff]/70 shadow-none'
                     : frame.kind === 'chart'
                       ? 'group absolute flex flex-col overflow-hidden rounded-lg border border-transparent bg-transparent shadow-none'
                       : frame.kind === 'heading'
@@ -880,25 +880,74 @@ const CanvasFrameLayer = ({
                     )}
                   </aside>
                 )}
-              <button
-                type="button"
-                onMouseDown={(event) => handleResizeStart(event, frame)}
-                title="Endre størrelse"
-                aria-label="Endre størrelse"
-                className={`absolute bottom-1 right-1 h-5 w-5 cursor-se-resize rounded-sm border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] transition-opacity ${
-                  frame.kind === 'text' && !isTableTextFrame
-                    ? 'opacity-100'
-                    : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
-                }`}
-              >
-                <span
-                  className="pointer-events-none absolute bottom-[2px] right-[2px] h-2.5 w-2.5"
-                  style={{
-                    background:
-                      'linear-gradient(135deg, transparent 35%, var(--ax-text-subtle) 35%, var(--ax-text-subtle) 45%, transparent 45%, transparent 55%, var(--ax-text-subtle) 55%, var(--ax-text-subtle) 65%, transparent 65%)',
-                  }}
-                />
-              </button>
+              {frame.kind === 'section' ? (
+                <>
+                  <button
+                    type="button"
+                    onMouseDown={(event) => handleResizeStart(event, frame, 'nw')}
+                    title="Endre størrelse fra øvre venstre hjørne"
+                    aria-label="Endre størrelse fra øvre venstre hjørne"
+                    className={`absolute -left-2 -top-2 h-6 w-6 cursor-nwse-resize rounded-sm border-[4px] border-[#1f8fff] bg-white shadow-[0_0_0_2px_white] transition-opacity ${
+                      isSelectedFrame
+                        ? 'opacity-100'
+                        : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onMouseDown={(event) => handleResizeStart(event, frame, 'ne')}
+                    title="Endre størrelse fra øvre høyre hjørne"
+                    aria-label="Endre størrelse fra øvre høyre hjørne"
+                    className={`absolute -right-2 -top-2 h-6 w-6 cursor-nesw-resize rounded-sm border-[4px] border-[#1f8fff] bg-white shadow-[0_0_0_2px_white] transition-opacity ${
+                      isSelectedFrame
+                        ? 'opacity-100'
+                        : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onMouseDown={(event) => handleResizeStart(event, frame, 'sw')}
+                    title="Endre størrelse fra nedre venstre hjørne"
+                    aria-label="Endre størrelse fra nedre venstre hjørne"
+                    className={`absolute -bottom-2 -left-2 h-6 w-6 cursor-nesw-resize rounded-sm border-[4px] border-[#1f8fff] bg-white shadow-[0_0_0_2px_white] transition-opacity ${
+                      isSelectedFrame
+                        ? 'opacity-100'
+                        : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onMouseDown={(event) => handleResizeStart(event, frame, 'se')}
+                    title="Endre størrelse fra nedre høyre hjørne"
+                    aria-label="Endre størrelse fra nedre høyre hjørne"
+                    className={`absolute -bottom-2 -right-2 h-6 w-6 cursor-nwse-resize rounded-sm border-[4px] border-[#1f8fff] bg-white shadow-[0_0_0_2px_white] transition-opacity ${
+                      isSelectedFrame
+                        ? 'opacity-100'
+                        : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
+                    }`}
+                  />
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onMouseDown={(event) => handleResizeStart(event, frame)}
+                  title="Endre størrelse"
+                  aria-label="Endre størrelse"
+                  className={`absolute bottom-1 right-1 h-5 w-5 cursor-se-resize rounded-sm border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] transition-opacity ${
+                    frame.kind === 'text' && !isTableTextFrame
+                      ? 'opacity-100'
+                      : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
+                  }`}
+                >
+                  <span
+                    className="pointer-events-none absolute bottom-[2px] right-[2px] h-2.5 w-2.5"
+                    style={{
+                      background:
+                        'linear-gradient(135deg, transparent 35%, var(--ax-text-subtle) 35%, var(--ax-text-subtle) 45%, transparent 45%, transparent 55%, var(--ax-text-subtle) 55%, var(--ax-text-subtle) 65%, transparent 65%)',
+                    }}
+                  />
+                </button>
+              )}
             </article>
           )
         })(),

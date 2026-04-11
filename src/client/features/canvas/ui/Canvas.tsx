@@ -406,8 +406,11 @@ const Canvas = () => {
     id: string
     startX: number
     startY: number
+    startFrameX: number
+    startFrameY: number
     startWidth: number
     startHeight: number
+    dir: 'se' | 'sw' | 'ne' | 'nw'
   } | null>(null)
   const [canvasCategories, setCanvasCategories] = useState<GraphCategoryDto[]>([])
   const [activeCanvasCategoryId, setActiveCanvasCategoryId] = useState<number | null>(null)
@@ -3087,7 +3090,7 @@ const Canvas = () => {
     [getHeadingFrameFontSize, getHeadingFrameWidth],
   )
 
-  const handleResizeStart = (event: React.MouseEvent, frame: CanvasFrame) => {
+  const handleResizeStart = (event: React.MouseEvent, frame: CanvasFrame, dir: 'se' | 'sw' | 'ne' | 'nw' = 'se') => {
     event.preventDefault()
     event.stopPropagation()
     const defaults = getDefaultFrameSize(frame)
@@ -3095,8 +3098,11 @@ const Canvas = () => {
       id: frame.id,
       startX: event.clientX,
       startY: event.clientY,
+      startFrameX: frame.x,
+      startFrameY: frame.y,
       startWidth: frame.width ?? defaults.width,
       startHeight: frame.height ?? defaults.height,
+      dir,
     })
   }
 
@@ -3469,10 +3475,35 @@ const Canvas = () => {
                 ),
               }
             }
+            let nextX = resizeState.startFrameX
+            let nextY = resizeState.startFrameY
+            let nextWidth = resizeState.startWidth
+            let nextHeight = resizeState.startHeight
+
+            if (resizeState.dir.endsWith('e')) {
+              nextWidth = Math.max(defaults.minWidth, resizeState.startWidth + deltaX)
+            }
+
+            if (resizeState.dir.endsWith('w')) {
+              nextWidth = Math.max(defaults.minWidth, resizeState.startWidth - deltaX)
+              nextX = resizeState.startFrameX + (resizeState.startWidth - nextWidth)
+            }
+
+            if (resizeState.dir.startsWith('s')) {
+              nextHeight = Math.max(defaults.minHeight, resizeState.startHeight + deltaY)
+            }
+
+            if (resizeState.dir.startsWith('n')) {
+              nextHeight = Math.max(defaults.minHeight, resizeState.startHeight - deltaY)
+              nextY = resizeState.startFrameY + (resizeState.startHeight - nextHeight)
+            }
+
             return {
               ...frame,
-              width: Math.max(defaults.minWidth, resizeState.startWidth + deltaX),
-              height: Math.max(defaults.minHeight, resizeState.startHeight + deltaY),
+              x: Math.max(0, nextX),
+              y: Math.max(-CANVAS_TOP_BUFFER, nextY),
+              width: nextWidth,
+              height: nextHeight,
             }
           })
 

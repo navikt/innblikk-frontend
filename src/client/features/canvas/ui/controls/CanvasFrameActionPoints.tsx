@@ -287,7 +287,9 @@ const CanvasFrameActionPoints = ({
         frameKind === 'drawing' ||
         isIllustrationFrame
           ? 'right-0 -top-6 flex items-center gap-1'
-          : 'right-2 top-2 flex items-center gap-1'
+          : frameKind === 'section'
+            ? 'right-8 top-4 flex items-center gap-1'
+            : 'right-2 top-2 flex items-center gap-1'
       }`}
     >
       <ImageOrDashboardEditActionPoint
