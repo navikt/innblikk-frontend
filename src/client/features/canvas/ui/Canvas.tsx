@@ -23,6 +23,7 @@ import CanvasIconModal from './icon/CanvasIconModal.tsx'
 import CanvasFrameActionPoints from './controls/CanvasFrameActionPoints.tsx'
 import CanvasAdminModals from './controls/CanvasAdminModals.tsx'
 import CanvasTopBar from './controls/CanvasTopBar.tsx'
+import CanvasTimerModal from './controls/CanvasTimerModal.tsx'
 import CanvasAddActionMenu from './controls/CanvasAddActionMenu.tsx'
 import CanvasZoomControls from './controls/CanvasZoomControls.tsx'
 import CanvasDrawingToolbar from './drawing/CanvasDrawingToolbar.tsx'
@@ -78,6 +79,7 @@ import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import useCanvasCsvImport from '../hooks/useCanvasCsvImport.ts'
 import useCanvasBackgroundSync from '../hooks/useCanvasBackgroundSync.ts'
 import useCanvasEditLocks from '../hooks/useCanvasEditLocks.ts'
+import useCanvasTimerSync from '../hooks/useCanvasTimerSync.ts'
 import { fetchCanvasStorageData } from '../api/canvasStorageApi.ts'
 
 import type {
@@ -353,6 +355,13 @@ const Canvas = () => {
   const [canvasCategories, setCanvasCategories] = useState<GraphCategoryDto[]>([])
   const [activeCanvasCategoryId, setActiveCanvasCategoryId] = useState<number | null>(null)
   const [syncError, setSyncError] = useState<string | null>(null)
+  const [isTimerModalOpen, setIsTimerModalOpen] = useState(false)
+  const [timerMinutesInput, setTimerMinutesInput] = useState('5')
+  const [timerModalError, setTimerModalError] = useState<string | null>(null)
+  const [timerModalPendingAction, setTimerModalPendingAction] = useState<
+    'start' | 'stop' | 'pause' | 'resume' | 'adjust-minus' | 'adjust-plus' | null
+  >(null)
+  const [timerA11yAnnouncement, setTimerA11yAnnouncement] = useState('')
   const [, setIsLoadingCanvasItems] = useState(false)
   const [isSavingCanvasItem, setIsSavingCanvasItem] = useState(false)
   const [isImportingStickyCsv, setIsImportingStickyCsv] = useState(false)
@@ -373,9 +382,11 @@ const Canvas = () => {
   const framesRef = useRef<CanvasFrame[]>([])
   const chartContentRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const isImportingStickyCsvRef = useRef(false)
+  const previousTimerRunningRef = useRef(false)
   const canvasViewportRef = useRef<HTMLDivElement | null>(null)
   const canvasToolbarRef = useRef<HTMLDivElement | null>(null)
   const connectionMetricRequestSignatureRef = useRef<string | null>(null)
+  const timerModalReopenBlockedUntilRef = useRef(0)
   const [canvasToolbarHeight, setCanvasToolbarHeight] = useState(120)
   const canvasCanvasTopOffset = canvasToolbarHeight + CANVAS_SURFACE_TOP_GAP
   const shouldShowCreateCanvasModal = canvasInitMode === 'create'
@@ -433,10 +444,45 @@ const Canvas = () => {
     [activeEditableFrameId, frames],
   )
 
+  const {
+    timerLabel,
+    remainingSeconds,
+    isTimerRunning,
+    isTimerPaused,
+    isSavingTimer,
+    startTimer,
+    stopTimer,
+    pauseTimer,
+    resumeTimer,
+    adjustTimerMinutes,
+  } = useCanvasTimerSync({
+    enabled: canPersistToDashboard && projectId !== null && dashboardId !== null && canvasInitMode === 'existing',
+    projectId,
+    dashboardId,
+    onSyncError: (message) => setSyncError(message),
+  })
+
   const activeInsightPeriodLabel = useMemo(
     () => getCanvasPeriodLabel(period, customStartDate, customEndDate),
     [period, customStartDate, customEndDate],
   )
+
+  useEffect(() => {
+    const wasRunning = previousTimerRunningRef.current
+    if (!wasRunning && isTimerRunning) {
+      const roundedMinutes = Math.max(1, Math.ceil(remainingSeconds / 60))
+      setTimerA11yAnnouncement(`Nedtelling startet. ${roundedMinutes} minutter.`)
+    } else if (wasRunning && !isTimerRunning && timerLabel === '00:00') {
+      setTimerA11yAnnouncement('Tiden er ute.')
+    }
+    previousTimerRunningRef.current = isTimerRunning
+  }, [isTimerRunning, remainingSeconds, timerLabel])
+
+  useEffect(() => {
+    if (!timerA11yAnnouncement) return
+    const timeoutId = window.setTimeout(() => setTimerA11yAnnouncement(''), 3000)
+    return () => window.clearTimeout(timeoutId)
+  }, [timerA11yAnnouncement])
 
   useEffect(() => {
     pageInsightsRef.current = pageInsights
@@ -3453,6 +3499,93 @@ const Canvas = () => {
     setIsInventoryModalOpen(true)
   }
 
+  const handleOpenTimerModal = () => {
+    if (Date.now() < timerModalReopenBlockedUntilRef.current) return
+    setTimerModalError(null)
+    setIsTimerModalOpen(true)
+  }
+
+  const handleStartCanvasTimer = () => {
+    const minutes = Number(timerMinutesInput)
+    if (!Number.isFinite(minutes) || minutes <= 0) {
+      setTimerModalError('Legg inn et gyldig antall minutter (minst 1).')
+      return
+    }
+    if (minutes > 240) {
+      setTimerModalError('Maks varighet er 240 minutter.')
+      return
+    }
+
+    void (async () => {
+      setTimerModalPendingAction('start')
+      try {
+        await startTimer(minutes)
+        setTimerModalError(null)
+        setIsTimerModalOpen(false)
+      } finally {
+        setTimerModalPendingAction(null)
+      }
+    })()
+  }
+
+  const handleStopCanvasTimer = () => {
+    void (async () => {
+      setTimerModalPendingAction('stop')
+      try {
+        timerModalReopenBlockedUntilRef.current = Date.now() + 900
+        setIsTimerModalOpen(false)
+        await stopTimer()
+        setTimerModalError(null)
+      } finally {
+        setTimerModalPendingAction(null)
+      }
+    })()
+  }
+
+  const handlePauseCanvasTimer = () => {
+    void (async () => {
+      setTimerModalPendingAction('pause')
+      try {
+        await pauseTimer()
+      } finally {
+        setTimerModalPendingAction(null)
+      }
+    })()
+  }
+
+  const handleResumeCanvasTimer = () => {
+    void (async () => {
+      setTimerModalPendingAction('resume')
+      try {
+        await resumeTimer()
+      } finally {
+        setTimerModalPendingAction(null)
+      }
+    })()
+  }
+
+  const handleAdjustTimerMinusOneMinute = () => {
+    void (async () => {
+      setTimerModalPendingAction('adjust-minus')
+      try {
+        await adjustTimerMinutes(-1)
+      } finally {
+        setTimerModalPendingAction(null)
+      }
+    })()
+  }
+
+  const handleAdjustTimerPlusOneMinute = () => {
+    void (async () => {
+      setTimerModalPendingAction('adjust-plus')
+      try {
+        await adjustTimerMinutes(1)
+      } finally {
+        setTimerModalPendingAction(null)
+      }
+    })()
+  }
+
   const handleDeleteInventoryType = useCallback(
     (params: { key: string; label: string; count: number }) => {
       const frameIds = visibleFrames.filter((frame) => frame.kind === params.key).map((frame) => frame.id)
@@ -3866,6 +3999,9 @@ const Canvas = () => {
         className="relative h-[100dvh] min-h-[100dvh] bg-[var(--ax-bg-neutral-soft)]"
         style={canvasFrontpageBackgroundStyle}
       >
+        <div className="sr-only" aria-live="polite" aria-atomic="true">
+          {timerA11yAnnouncement}
+        </div>
         <CanvasTopBar
           canvasToolbarRef={canvasToolbarRef}
           projectId={projectId}
@@ -3895,6 +4031,9 @@ const Canvas = () => {
           onOpenManageTabs={handleOpenManageTabsModal}
           onOpenCanvasSettings={handleOpenCanvasSettingsModal}
           onOpenInventory={handleOpenInventoryModal}
+          onOpenTimer={handleOpenTimerModal}
+          timerLabel={timerLabel}
+          isTimerRunning={isTimerRunning}
           canManageTabs={canvasCategories.length > 1}
           canPersistToDashboard={canPersistToDashboard}
           shouldShowCreateCanvasModal={shouldShowCreateCanvasModal}
@@ -4979,6 +5118,28 @@ const Canvas = () => {
         inventoryItems={inventoryItems}
         onDeleteInventoryType={handleDeleteInventoryType}
         onSelectInventoryFrames={handleSelectInventoryFrames}
+      />
+
+      <CanvasTimerModal
+        open={isTimerModalOpen}
+        onClose={() => setIsTimerModalOpen(false)}
+        minutesInput={timerMinutesInput}
+        onMinutesInputChange={(value) => {
+          setTimerMinutesInput(value)
+          if (timerModalError) setTimerModalError(null)
+        }}
+        onStart={handleStartCanvasTimer}
+        onStop={handleStopCanvasTimer}
+        onPause={handlePauseCanvasTimer}
+        onResume={handleResumeCanvasTimer}
+        onAdjustMinusOneMinute={handleAdjustTimerMinusOneMinute}
+        onAdjustPlusOneMinute={handleAdjustTimerPlusOneMinute}
+        isRunning={isTimerRunning}
+        isPaused={isTimerPaused}
+        timerLabel={timerLabel}
+        isSaving={isSavingTimer}
+        pendingAction={timerModalPendingAction}
+        error={timerModalError}
       />
 
       <CanvasImageUrlModal

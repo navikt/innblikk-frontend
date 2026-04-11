@@ -1,5 +1,5 @@
 import { ActionMenu, Alert, Button, Tabs } from '@navikt/ds-react'
-import { MoreVertical } from 'lucide-react'
+import { MoreVertical, Timer } from 'lucide-react'
 import type { RefObject } from 'react'
 import PeriodPicker from '../../../analysis/ui/PeriodPicker.tsx'
 import type { GraphCategoryDto } from '../../../oversikt/model/types.ts'
@@ -28,6 +28,9 @@ type CanvasTopBarProps = {
   onOpenAddFigure: () => void
   onOpenAddDrawing: () => void
   onOpenAddIllustration: () => void
+  onOpenTimer: () => void
+  timerLabel: string | null
+  isTimerRunning: boolean
   isGrafbyggerEmbedded: boolean
   onCloseGrafbygger: () => void
   onOpenCreateTab: () => void
@@ -70,6 +73,9 @@ const CanvasTopBar = ({
   onOpenAddFigure,
   onOpenAddDrawing,
   onOpenAddIllustration,
+  onOpenTimer,
+  timerLabel,
+  isTimerRunning,
   isGrafbyggerEmbedded,
   onCloseGrafbygger,
   onOpenCreateTab,
@@ -138,6 +144,23 @@ const CanvasTopBar = ({
                   />
                 </div>
               )}
+              {timerLabel && (
+                <button
+                  type="button"
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                    isTimerRunning
+                      ? 'border-[var(--ax-border-accent)] bg-[var(--ax-bg-accent-soft)] text-[var(--ax-text-accent)]'
+                      : 'border-[var(--ax-border-danger)] bg-[var(--ax-border-danger)] text-white'
+                  }`}
+                  onClick={onOpenTimer}
+                  disabled={canvasInitMode !== 'existing'}
+                  aria-label="Åpne fasilitator-nedteller"
+                  title="Åpne fasilitator-nedteller"
+                >
+                  <Timer size={14} aria-hidden="true" />
+                  <span className="tabular-nums">Nedteller {timerLabel}</span>
+                </button>
+              )}
               <CanvasAddActionMenu
                 onAddWebsite={onOpenAddPage}
                 onOpenGrafbygger={onOpenCreateChart}
@@ -177,6 +200,9 @@ const CanvasTopBar = ({
                 <ActionMenu.Content align="end">
                   <ActionMenu.Item onClick={() => window.location.assign('/dashboard')}>Dashboards</ActionMenu.Item>
                   {canManageTabs && <ActionMenu.Item onClick={onOpenManageTabs}>Administrer faner</ActionMenu.Item>}
+                  <ActionMenu.Item onClick={onOpenTimer}>
+                    {timerLabel ? `Nedteller (${timerLabel})` : 'Nedteller'}
+                  </ActionMenu.Item>
                   <ActionMenu.Item onClick={onOpenInventory}>Elementer</ActionMenu.Item>
                   <ActionMenu.Item onClick={onOpenCanvasSettings}>Innstillinger</ActionMenu.Item>
                 </ActionMenu.Content>
