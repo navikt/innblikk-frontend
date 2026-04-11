@@ -189,6 +189,18 @@ const getNextAutoSectionLabel = (frames: CanvasFrame[], excludeFrameId?: string)
   return `Seksjon ${next}`
 }
 
+const getFrameBoundsForLayout = (frame: CanvasFrame): { left: number; top: number; right: number; bottom: number } => {
+  const defaults = getDefaultFrameSize(frame)
+  const width = frame.width ?? defaults.width
+  const height = frame.height ?? defaults.height
+  return {
+    left: frame.x,
+    top: frame.y,
+    right: frame.x + width,
+    bottom: frame.y + height,
+  }
+}
+
 const Canvas = () => {
   const LAST_PROJECT_STORAGE_KEY = 'projectmanager:lastSelectedProjectId'
   const location = useLocation()
@@ -880,6 +892,7 @@ const Canvas = () => {
         headingText: frame.headingText,
         headingFontSize: frame.headingFontSize,
         textContent: frame.textContent,
+        sectionLayout: frame.sectionLayout,
         tableHeaders: frame.tableHeaders,
         tableRows: frame.tableRows,
         iconName: frame.iconName,
@@ -2149,6 +2162,7 @@ const Canvas = () => {
         id: `csv-section-${timestampSeed}`,
         kind: 'section',
         label: sectionLabel,
+        sectionLayout: 'grid',
         x: baseX,
         y: baseY,
         width: Math.max(420, Math.ceil(rightEdge - baseX + sectionPaddingX)),
@@ -2442,6 +2456,7 @@ const Canvas = () => {
     const frameDraft: PendingCanvasFrameDraft = {
       kind: 'section',
       label: nextSectionLabel,
+      sectionLayout: 'freeform',
       width: 640,
       height: 420,
       refreshNonce: 0,
@@ -2828,6 +2843,16 @@ const Canvas = () => {
     const onMouseUp = () => {
       const movedFrames = framesRef.current.filter((frame) => dragState.ids.includes(frame.id))
       const framesToPersistById = new Map(movedFrames.map((frame) => [frame.id, frame]))
+      const originalMovedFramesById = new Map(
+        movedFrames.map((frame) => [
+          frame.id,
+          {
+            ...frame,
+            x: dragState.frameStartPositions[frame.id]?.x ?? frame.x,
+            y: dragState.frameStartPositions[frame.id]?.y ?? frame.y,
+          },
+        ]),
+      )
 
       const applyStickyColumnSnap = (movedFrame: CanvasFrame): CanvasFrame => {
         if (movedFrame.kind !== 'sticky') return movedFrame
@@ -2904,6 +2929,127 @@ const Canvas = () => {
       movedFrames.forEach((movedFrame) => {
         const snapped = applyStickyColumnSnap(movedFrame)
         framesToPersistById.set(movedFrame.id, snapped)
+      })
+
+      const resolveFrameAfterSnap = (frameId: string): CanvasFrame | null => {
+        const moved = framesToPersistById.get(frameId)
+        if (moved) return moved
+        return framesRef.current.find((frame) => frame.id === frameId) ?? null
+      }
+
+      const resolveContainingGridSection = (
+        frame: CanvasFrame,
+        resolveFrame: (frameId: string) => CanvasFrame | null,
+      ): CanvasFrame | null => {
+        if (frame.kind === 'section') return null
+        const frameBounds = getFrameBoundsForLayout(frame)
+        const frameCenterX = (frameBounds.left + frameBounds.right) / 2
+        const frameCenterY = (frameBounds.top + frameBounds.bottom) / 2
+        return (
+          framesRef.current.find((candidate) => {
+            const section = resolveFrame(candidate.id)
+            if (!section || section.kind !== 'section' || section.sectionLayout !== 'grid') return false
+            if ((section.categoryId ?? null) !== (frame.categoryId ?? null)) return false
+            const sectionBounds = getFrameBoundsForLayout(section)
+            return (
+              frameCenterX >= sectionBounds.left &&
+              frameCenterX <= sectionBounds.right &&
+              frameCenterY >= sectionBounds.top &&
+              frameCenterY <= sectionBounds.bottom
+            )
+          }) ?? null
+        )
+      }
+
+      const affectedGridSectionIds = new Set<string>()
+      movedFrames.forEach((movedFrame) => {
+        const originalFrame = originalMovedFramesById.get(movedFrame.id) ?? movedFrame
+        const previousSection = resolveContainingGridSection(
+          originalFrame,
+          (id) => framesRef.current.find((f) => f.id === id) ?? null,
+        )
+        if (previousSection) affectedGridSectionIds.add(previousSection.id)
+        const nextFrame = resolveFrameAfterSnap(movedFrame.id)
+        if (!nextFrame) return
+        const nextSection = resolveContainingGridSection(nextFrame, resolveFrameAfterSnap)
+        if (nextSection) affectedGridSectionIds.add(nextSection.id)
+      })
+
+      const reflowGridSection = (sectionId: string) => {
+        const sectionFrame = resolveFrameAfterSnap(sectionId)
+        if (!sectionFrame || sectionFrame.kind !== 'section' || sectionFrame.sectionLayout !== 'grid') return
+
+        const sectionBounds = getFrameBoundsForLayout(sectionFrame)
+        const contentPaddingX = 24
+        const contentPaddingTop = 92
+        const contentPaddingBottom = 24
+        const itemGapX = 24
+        const itemGapY = 18
+        const contentLeft = sectionBounds.left + contentPaddingX
+        const contentRight = sectionBounds.right - contentPaddingX
+        const contentTop = sectionBounds.top + contentPaddingTop
+
+        const containedFrames = framesRef.current
+          .map((frame) => resolveFrameAfterSnap(frame.id) ?? frame)
+          .filter((frame): frame is CanvasFrame => Boolean(frame))
+          .filter((frame) => {
+            if (frame.id === sectionId || frame.kind === 'section') return false
+            if ((frame.categoryId ?? null) !== (sectionFrame.categoryId ?? null)) return false
+            const bounds = getFrameBoundsForLayout(frame)
+            const centerX = (bounds.left + bounds.right) / 2
+            const centerY = (bounds.top + bounds.bottom) / 2
+            return (
+              centerX >= sectionBounds.left &&
+              centerX <= sectionBounds.right &&
+              centerY >= sectionBounds.top &&
+              centerY <= sectionBounds.bottom
+            )
+          })
+          .sort((a, b) => {
+            if (a.y !== b.y) return a.y - b.y
+            if (a.x !== b.x) return a.x - b.x
+            return a.id.localeCompare(b.id)
+          })
+
+        let cursorX = contentLeft
+        let cursorY = contentTop
+        let currentRowHeight = 0
+        let contentBottomEdge = contentTop
+
+        containedFrames.forEach((frame) => {
+          const defaults = getDefaultFrameSize(frame)
+          const width = frame.width ?? defaults.width
+          const height = frame.height ?? defaults.height
+          const shouldWrap = cursorX !== contentLeft && cursorX + width > contentRight
+          if (shouldWrap) {
+            cursorX = contentLeft
+            cursorY += currentRowHeight + itemGapY
+            currentRowHeight = 0
+          }
+
+          const nextFrame: CanvasFrame = {
+            ...frame,
+            x: Math.max(0, cursorX),
+            y: Math.max(-CANVAS_TOP_BUFFER, cursorY),
+          }
+          cursorX += width + itemGapX
+          currentRowHeight = Math.max(currentRowHeight, height)
+          contentBottomEdge = Math.max(contentBottomEdge, nextFrame.y + height)
+          framesToPersistById.set(nextFrame.id, nextFrame)
+        })
+
+        const nextSectionFrame: CanvasFrame = {
+          ...sectionFrame,
+          height: Math.max(
+            sectionFrame.height ?? getDefaultFrameSize(sectionFrame).height,
+            Math.ceil(contentBottomEdge - sectionFrame.y + contentPaddingBottom),
+          ),
+        }
+        framesToPersistById.set(nextSectionFrame.id, nextSectionFrame)
+      }
+
+      ;[...affectedGridSectionIds].forEach((sectionId) => {
+        reflowGridSection(sectionId)
       })
 
       const framesToPersist = [...framesToPersistById.values()]
@@ -3593,6 +3739,112 @@ const Canvas = () => {
     void persistFrame(nextFrame).catch((error) => {
       setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre illustrasjons-rotasjon')
     })
+  }
+
+  const handleToggleSectionLayout = (id: string) => {
+    const sectionFrame = frames.find((frame) => frame.id === id)
+    if (!sectionFrame || sectionFrame.kind !== 'section') return
+
+    const nextSectionLayout = sectionFrame.sectionLayout === 'grid' ? 'freeform' : 'grid'
+    if (nextSectionLayout === 'freeform') {
+      const nextSectionFrame: CanvasFrame = {
+        ...sectionFrame,
+        sectionLayout: 'freeform',
+      }
+      setFrames((prev) => prev.map((frame) => (frame.id === id ? nextSectionFrame : frame)))
+      void persistFrame(nextSectionFrame).catch((error) => {
+        setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre seksjonsoppsett')
+      })
+      return
+    }
+
+    const sectionBounds = getFrameBoundsForLayout(sectionFrame)
+    const contentPaddingX = 24
+    const contentPaddingTop = 92
+    const contentPaddingBottom = 24
+    const itemGapX = 24
+    const itemGapY = 18
+    const contentLeft = sectionBounds.left + contentPaddingX
+    const contentRight = sectionBounds.right - contentPaddingX
+    const contentTop = sectionBounds.top + contentPaddingTop
+
+    const sameCategoryFrames = frames.filter(
+      (frame) => (frame.categoryId ?? null) === (sectionFrame.categoryId ?? null) && frame.id !== sectionFrame.id,
+    )
+    const containedFrames = sameCategoryFrames
+      .filter((frame) => {
+        if (frame.kind === 'section') return false
+        const bounds = getFrameBoundsForLayout(frame)
+        return (
+          bounds.left >= sectionBounds.left &&
+          bounds.right <= sectionBounds.right &&
+          bounds.top >= sectionBounds.top &&
+          bounds.bottom <= sectionBounds.bottom
+        )
+      })
+      .sort((a, b) => {
+        if (a.y !== b.y) return a.y - b.y
+        if (a.x !== b.x) return a.x - b.x
+        return a.id.localeCompare(b.id)
+      })
+
+    const movedFramesById = new Map<string, CanvasFrame>()
+    let cursorX = contentLeft
+    let cursorY = contentTop
+    let currentRowHeight = 0
+    let contentBottomEdge = contentTop
+
+    containedFrames.forEach((frame) => {
+      const defaults = getDefaultFrameSize(frame)
+      const width = frame.width ?? defaults.width
+      const height = frame.height ?? defaults.height
+      const shouldWrap = cursorX !== contentLeft && cursorX + width > contentRight
+      if (shouldWrap) {
+        cursorX = contentLeft
+        cursorY += currentRowHeight + itemGapY
+        currentRowHeight = 0
+      }
+
+      const movedFrame: CanvasFrame = {
+        ...frame,
+        x: Math.max(0, cursorX),
+        y: Math.max(-CANVAS_TOP_BUFFER, cursorY),
+      }
+      movedFramesById.set(frame.id, movedFrame)
+      cursorX += width + itemGapX
+      currentRowHeight = Math.max(currentRowHeight, height)
+      contentBottomEdge = Math.max(contentBottomEdge, movedFrame.y + height)
+    })
+
+    const nextSectionFrame: CanvasFrame = {
+      ...sectionFrame,
+      sectionLayout: 'grid',
+      height: Math.max(
+        sectionFrame.height ?? getDefaultFrameSize(sectionFrame).height,
+        Math.ceil(contentBottomEdge - sectionFrame.y + contentPaddingBottom),
+      ),
+    }
+
+    const nextFrames = frames.map((frame) => {
+      if (frame.id === nextSectionFrame.id) return nextSectionFrame
+      return movedFramesById.get(frame.id) ?? frame
+    })
+    setFrames(nextFrames)
+
+    const framesToPersist = [
+      nextSectionFrame,
+      ...containedFrames.map((frame) => movedFramesById.get(frame.id) ?? frame),
+    ]
+    void Promise.all(
+      framesToPersist
+        .filter((frame) => Boolean(frame.graphId))
+        .map((frame) =>
+          persistFrame(frame).catch((error) => {
+            setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre seksjonsoppsett')
+            return frame
+          }),
+        ),
+    )
   }
 
   const handleEditableFrameChange = (id: string, nextValue: string) => {
@@ -4536,6 +4788,7 @@ const Canvas = () => {
                   handleDuplicateFigureCard={handleDuplicateFigureCard}
                   handleAdjustHeadingFontSize={handleAdjustHeadingFontSize}
                   handleRotateIllustrationFrame={handleRotateIllustrationFrame}
+                  handleToggleSectionLayout={handleToggleSectionLayout}
                   handleRequestRemoveFrame={handleRequestRemoveFrame}
                   startConnectionDrag={startConnectionDrag}
                   handleAssignWebsiteToChart={handleAssignWebsiteToChart}

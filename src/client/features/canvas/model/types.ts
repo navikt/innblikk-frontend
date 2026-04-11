@@ -4,6 +4,7 @@ import type { PageMetricRow } from '../../traffic/model/types.ts'
 
 export type CanvasChartType = 'line' | 'bar' | 'pie' | 'table'
 export type CanvasFigureType = 'rectangle' | 'circle' | 'line' | 'arrow'
+export type CanvasSectionLayoutMode = 'freeform' | 'grid'
 export type CanvasCsvImportStyle = 'sticky' | 'table'
 export type CanvasCsvTableMode = 'rows' | 'summary'
 
@@ -41,6 +42,7 @@ export type CanvasFrame = {
   headingText?: string
   headingFontSize?: number
   textContent?: string
+  sectionLayout?: CanvasSectionLayoutMode
   tableHeaders?: string[]
   tableRows?: string[][]
   iconName?: string
@@ -140,6 +142,7 @@ export type CanvasConfigPayload = {
   headingText?: string
   headingFontSize?: number
   textContent?: string
+  sectionLayout?: CanvasSectionLayoutMode
   tableHeaders?: string[]
   tableRows?: string[][]
   iconName?: string

@@ -66,6 +66,7 @@ export async function fetchCanvasStorageData(projectId: number, dashboardId: num
       headingText: parsedConfig.headingText,
       headingFontSize: parsedConfig.headingFontSize,
       textContent: parsedConfig.textContent,
+      sectionLayout: parsedConfig.sectionLayout,
       tableHeaders: parsedConfig.tableHeaders,
       tableRows: parsedConfig.tableRows,
       iconName: parsedConfig.iconName,

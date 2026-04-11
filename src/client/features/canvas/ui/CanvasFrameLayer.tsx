@@ -85,6 +85,7 @@ type CanvasFrameLayerProps = {
   handleDuplicateFigureCard: (frame: CanvasFrame) => Promise<void>
   handleAdjustHeadingFontSize: (id: string, delta: number) => void
   handleRotateIllustrationFrame: (id: string, delta: number) => void
+  handleToggleSectionLayout: (id: string) => void
   handleRequestRemoveFrame: (frame: CanvasFrame) => void
   startConnectionDrag: (event: React.MouseEvent, frame: CanvasFrame, side: ConnectionAnchorSide) => void
   handleAssignWebsiteToChart: (frame: CanvasFrame, website: Website | null) => Promise<void>
@@ -142,6 +143,7 @@ const CanvasFrameLayer = ({
   handleDuplicateFigureCard,
   handleAdjustHeadingFontSize,
   handleRotateIllustrationFrame,
+  handleToggleSectionLayout,
   handleRequestRemoveFrame,
   startConnectionDrag,
   handleAssignWebsiteToChart,
@@ -179,7 +181,9 @@ const CanvasFrameLayer = ({
               role={frame.kind === 'section' ? 'region' : undefined}
               aria-label={
                 frame.kind === 'section'
-                  ? `${frame.label || 'Seksjon'}. Inneholder ${sectionItemCountsById[frame.id] ?? 0} elementer.`
+                  ? `${frame.label || 'Seksjon'}. Oppsett ${
+                      frame.sectionLayout === 'grid' ? 'rutenett' : 'friform'
+                    }. Inneholder ${sectionItemCountsById[frame.id] ?? 0} elementer.`
                   : undefined
               }
               className={`focus:outline-none ${
@@ -370,6 +374,8 @@ const CanvasFrameLayer = ({
                     onIncreaseHeadingFontSize={() => handleAdjustHeadingFontSize(frame.id, HEADING_FONT_SIZE_STEP)}
                     onRotateIllustrationLeft={() => handleRotateIllustrationFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
                     onRotateIllustrationRight={() => handleRotateIllustrationFrame(frame.id, ICON_ROTATION_STEP_DEG)}
+                    sectionLayoutMode={frame.sectionLayout === 'grid' ? 'grid' : 'freeform'}
+                    onToggleSectionLayout={() => handleToggleSectionLayout(frame.id)}
                     onRemoveFrame={() => handleRequestRemoveFrame(frame)}
                   />
                 </>
@@ -730,7 +736,8 @@ const CanvasFrameLayer = ({
                       </button>
                     )}
                     <p className="text-xs text-[var(--ax-text-subtle)]">
-                      Inneholder {sectionItemCountsById[frame.id] ?? 0} elementer.
+                      Inneholder {sectionItemCountsById[frame.id] ?? 0} elementer (
+                      {frame.sectionLayout === 'grid' ? 'rutenett' : 'friform'}).
                     </p>
                   </div>
                 ) : (

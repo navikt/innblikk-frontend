@@ -1,6 +1,7 @@
 import { Button } from '@navikt/ds-react'
-import { Copy, Edit2, RotateCcw, RotateCw, Trash2 } from 'lucide-react'
+import { Copy, Edit2, Grid3X3, Move, RotateCcw, RotateCw, Trash2 } from 'lucide-react'
 import type { MouseEvent } from 'react'
+import type { CanvasSectionLayoutMode } from '../../model/types.ts'
 
 const stopMouseDownPropagation = (event: MouseEvent<HTMLElement>) => {
   event.stopPropagation()
@@ -24,6 +25,8 @@ type CanvasFrameActionPointsProps = {
   onIncreaseHeadingFontSize: () => void
   onRotateIllustrationLeft: () => void
   onRotateIllustrationRight: () => void
+  sectionLayoutMode?: CanvasSectionLayoutMode
+  onToggleSectionLayout: () => void
   onRemoveFrame: () => void
 }
 
@@ -258,9 +261,12 @@ const CanvasFrameActionPoints = ({
   onIncreaseHeadingFontSize,
   onRotateIllustrationLeft,
   onRotateIllustrationRight,
+  sectionLayoutMode,
+  onToggleSectionLayout,
   onRemoveFrame,
 }: CanvasFrameActionPointsProps) => {
   const showRemoveButton = frameKind !== 'website' || Boolean(isInternalDashboard)
+  const isSectionGrid = frameKind === 'section' && sectionLayoutMode === 'grid'
 
   return (
     <div
@@ -311,6 +317,18 @@ const CanvasFrameActionPoints = ({
           actionButtonClassName={actionButtonClassName}
           onRotateIllustrationLeft={onRotateIllustrationLeft}
           onRotateIllustrationRight={onRotateIllustrationRight}
+        />
+      )}
+      {frameKind === 'section' && (
+        <Button
+          size="xsmall"
+          variant="tertiary"
+          icon={isSectionGrid ? <Move size={14} /> : <Grid3X3 size={14} />}
+          onMouseDown={stopMouseDownPropagation}
+          onClick={onToggleSectionLayout}
+          title={isSectionGrid ? 'Bytt til friform' : 'Bytt til rutenett'}
+          aria-label={isSectionGrid ? 'Bytt til friform' : 'Bytt til rutenett'}
+          className={actionButtonClassName}
         />
       )}
       {showRemoveButton && (

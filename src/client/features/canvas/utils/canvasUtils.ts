@@ -17,6 +17,7 @@ import type {
   CanvasNumericRatingSummary,
   CanvasPayloadKind,
   CanvasPrivacyPattern,
+  CanvasSectionLayoutMode,
   ConnectionAnchorSide,
 } from '../model/types.ts'
 
@@ -361,6 +362,9 @@ const isCanvasChartType = (value: unknown): value is CanvasChartType =>
 const isCanvasFigureType = (value: unknown): value is CanvasFigureType =>
   value === 'rectangle' || value === 'circle' || value === 'line' || value === 'arrow'
 
+const isCanvasSectionLayoutMode = (value: unknown): value is CanvasSectionLayoutMode =>
+  value === 'freeform' || value === 'grid'
+
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === 'string')
 
@@ -395,6 +399,7 @@ export const parseCanvasConfig = (raw: string): CanvasConfigPayload | null => {
       headingText: typeof parsed.headingText === 'string' ? parsed.headingText : undefined,
       headingFontSize: Number.isFinite(parsed.headingFontSize) ? Number(parsed.headingFontSize) : undefined,
       textContent: typeof parsed.textContent === 'string' ? parsed.textContent : undefined,
+      sectionLayout: isCanvasSectionLayoutMode(parsed.sectionLayout) ? parsed.sectionLayout : undefined,
       tableHeaders: isStringArray(parsed.tableHeaders) ? parsed.tableHeaders : undefined,
       tableRows: isStringMatrix(parsed.tableRows) ? parsed.tableRows : undefined,
       iconName: typeof parsed.iconName === 'string' ? parsed.iconName : undefined,
