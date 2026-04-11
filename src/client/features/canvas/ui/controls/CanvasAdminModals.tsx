@@ -1,5 +1,5 @@
 import { Alert, Button, Checkbox, Modal, Pagination, Select, Table, TextField } from '@navikt/ds-react'
-import { useEffect, useState } from 'react'
+import { useRef, useState } from 'react'
 import type { GraphCategoryDto } from '../../../oversikt/model/types.ts'
 
 type CanvasAdminModalsProps = {
@@ -84,24 +84,9 @@ const CanvasAdminModals = ({
   const INVENTORY_PAGE_SIZE = 20
   const [selectedInventoryFrameIdsByType, setSelectedInventoryFrameIdsByType] = useState<Record<string, string[]>>({})
   const [inventoryPageByType, setInventoryPageByType] = useState<Record<string, number>>({})
-  const [renameCanvasDraft, setRenameCanvasDraft] = useState(renameCanvasInitialValue)
-  const [newTabDraft, setNewTabDraft] = useState(newTabNameInitialValue)
-  const [manageTabDraft, setManageTabDraft] = useState(manageTabInitialName)
-
-  useEffect(() => {
-    if (!isCanvasSettingsModalOpen) return
-    setRenameCanvasDraft(renameCanvasInitialValue)
-  }, [isCanvasSettingsModalOpen, renameCanvasInitialValue])
-
-  useEffect(() => {
-    if (!isCreateTabModalOpen) return
-    setNewTabDraft(newTabNameInitialValue)
-  }, [isCreateTabModalOpen, newTabNameInitialValue])
-
-  useEffect(() => {
-    if (!isManageTabsModalOpen) return
-    setManageTabDraft(manageTabInitialName)
-  }, [isManageTabsModalOpen, manageTabId, manageTabInitialName])
+  const renameCanvasInputRef = useRef<HTMLInputElement | null>(null)
+  const newTabInputRef = useRef<HTMLInputElement | null>(null)
+  const manageTabInputRef = useRef<HTMLInputElement | null>(null)
 
   const closeInventory = () => {
     setSelectedInventoryFrameIdsByType({})
@@ -136,15 +121,20 @@ const CanvasAdminModals = ({
               </Alert>
             )}
             <TextField
+              key={`rename-canvas-${isCanvasSettingsModalOpen ? renameCanvasInitialValue : 'closed'}`}
               label="Canvas-navn"
-              value={renameCanvasDraft}
-              onChange={(event) => setRenameCanvasDraft(event.target.value)}
+              defaultValue={renameCanvasInitialValue}
+              ref={renameCanvasInputRef}
             />
             {renameCanvasError && <Alert variant="error">{renameCanvasError}</Alert>}
           </div>
         </Modal.Body>
         <Modal.Footer>
-          <Button onClick={() => onRenameCanvas(renameCanvasDraft)} size="small" loading={isSavingCanvasItem}>
+          <Button
+            onClick={() => onRenameCanvas(renameCanvasInputRef.current?.value ?? '')}
+            size="small"
+            loading={isSavingCanvasItem}
+          >
             Lagre
           </Button>
           <Button variant="secondary" size="small" onClick={onCloseCanvasSettings}>
@@ -157,16 +147,17 @@ const CanvasAdminModals = ({
         <Modal.Body>
           <div className="space-y-3">
             <TextField
+              key={`create-tab-${isCreateTabModalOpen ? 'open' : 'closed'}-${newTabNameInitialValue}`}
               label="Fanenavn"
-              value={newTabDraft}
-              onChange={(event) => setNewTabDraft(event.target.value)}
+              defaultValue={newTabNameInitialValue}
+              ref={newTabInputRef}
               autoFocus
             />
             {createTabError && <Alert variant="error">{createTabError}</Alert>}
           </div>
         </Modal.Body>
         <Modal.Footer>
-          <Button onClick={() => onCreateTab(newTabDraft)} size="small" loading={creatingTab}>
+          <Button onClick={() => onCreateTab(newTabInputRef.current?.value ?? '')} size="small" loading={creatingTab}>
             Legg til
           </Button>
           <Button variant="secondary" size="small" onClick={onCloseCreateTab} disabled={creatingTab}>
@@ -187,7 +178,9 @@ const CanvasAdminModals = ({
               <Select
                 label="Hvilken fane vil du endre?"
                 value={manageTabId}
-                onChange={(event) => onManageTabSelect(event.target.value)}
+                onChange={(event) => {
+                  onManageTabSelect(event.target.value)
+                }}
                 disabled={savingManageTab || deletingManageTab || canvasCategories.length === 0}
               >
                 <option value="" disabled>
@@ -201,9 +194,10 @@ const CanvasAdminModals = ({
               </Select>
             )}
             <TextField
+              key={`manage-tab-name-${manageTabId}-${manageTabInitialName}`}
               label="Fanenavn"
-              value={manageTabDraft}
-              onChange={(event) => setManageTabDraft(event.target.value)}
+              defaultValue={manageTabInitialName}
+              ref={manageTabInputRef}
               disabled={savingManageTab || deletingManageTab || canvasCategories.length === 0}
             />
             {selectedManageTabInfoText && (
@@ -214,7 +208,7 @@ const CanvasAdminModals = ({
         </Modal.Body>
         <Modal.Footer>
           <Button
-            onClick={() => onRenameTab(manageTabDraft)}
+            onClick={() => onRenameTab(manageTabInputRef.current?.value ?? '')}
             size="small"
             loading={savingManageTab}
             disabled={!canSaveManageTab}
