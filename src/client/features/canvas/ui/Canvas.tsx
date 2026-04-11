@@ -216,6 +216,24 @@ const GRID_SECTION_LAYOUT_CONFIG = {
 } as const
 
 const GRID_SECTION_LAYOUT_MIN_COLUMN_WIDTH = 280
+const STICKY_CARD_HORIZONTAL_PADDING = 32
+const STICKY_CARD_VERTICAL_PADDING = 40
+const STICKY_CARD_MIN_HEIGHT = 180
+const STICKY_CARD_LINE_HEIGHT = 28
+const STICKY_CARD_CHAR_WIDTH_FACTOR = 0.55
+
+const estimateStickyFrameHeight = (text: string, width: number): number => {
+  const normalizedText = text.trim()
+  const usableWidth = Math.max(120, width - STICKY_CARD_HORIZONTAL_PADDING)
+  const approxCharsPerLine = Math.max(12, Math.floor(usableWidth / (16 * STICKY_CARD_CHAR_WIDTH_FACTOR)))
+  const lineCount = normalizedText
+    ? normalizedText
+        .split('\n')
+        .reduce((count, line) => count + Math.max(1, Math.ceil(line.length / approxCharsPerLine)), 0)
+    : 1
+
+  return Math.max(STICKY_CARD_MIN_HEIGHT, lineCount * STICKY_CARD_LINE_HEIGHT + STICKY_CARD_VERTICAL_PADDING)
+}
 
 const Canvas = () => {
   const LAST_PROJECT_STORAGE_KEY = 'projectmanager:lastSelectedProjectId'
@@ -2192,25 +2210,38 @@ const Canvas = () => {
           x: contentStartX,
           y: contentStartY,
           width: stickyWidth,
-          height: 320,
+          height: estimateStickyFrameHeight(summaryText, stickyWidth),
           refreshNonce: 0,
         })
       } else {
-        pendingCsvStickyImport.noteTexts.forEach((content, rowIndex) => {
-          const columnIndex = rowIndex % cardsPerRow
-          const gridRowIndex = Math.floor(rowIndex / cardsPerRow)
-          importedFrames.push({
-            id: `csv-sticky-${timestampSeed}-${rowIndex}`,
-            kind: 'sticky',
-            textContent: content,
-            label: 'Post-it-lapp',
-            x: contentStartX + columnIndex * (stickyWidth + columnGap),
-            y: contentStartY + gridRowIndex * (stickyHeight + stickyGap),
-            width: stickyWidth,
-            height: stickyHeight,
-            refreshNonce: 0,
+        let currentRowY = contentStartY
+
+        for (
+          let rowStartIndex = 0;
+          rowStartIndex < pendingCsvStickyImport.noteTexts.length;
+          rowStartIndex += cardsPerRow
+        ) {
+          const rowNotes = pendingCsvStickyImport.noteTexts.slice(rowStartIndex, rowStartIndex + cardsPerRow)
+          const rowHeights = rowNotes.map((content) => estimateStickyFrameHeight(content, stickyWidth))
+          const tallestRowHeight = Math.max(...rowHeights, stickyHeight)
+
+          rowNotes.forEach((content, rowOffset) => {
+            const rowIndex = rowStartIndex + rowOffset
+            importedFrames.push({
+              id: `csv-sticky-${timestampSeed}-${rowIndex}`,
+              kind: 'sticky',
+              textContent: content,
+              label: 'Post-it-lapp',
+              x: contentStartX + rowOffset * (stickyWidth + columnGap),
+              y: currentRowY,
+              width: stickyWidth,
+              height: rowHeights[rowOffset] ?? stickyHeight,
+              refreshNonce: 0,
+            })
           })
-        })
+
+          currentRowY += tallestRowHeight + stickyGap
+        }
       }
 
       if (importedFrames.length === 0) {
