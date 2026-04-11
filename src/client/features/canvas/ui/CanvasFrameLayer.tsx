@@ -84,7 +84,7 @@ type CanvasFrameLayerProps = {
   getFrameLockStatus: (frame: CanvasFrame) => { isLockedByOther: boolean; ownerLabel: string | null }
   formatCanvasPathLabel: (targetUrl?: string, fallbackText?: string) => string
   isImagePreviewUrl: (value: string) => boolean
-  handleDragStart: (event: React.MouseEvent, frame: CanvasFrame) => void
+  handleDragStart: (event: React.MouseEvent | React.TouchEvent, frame: CanvasFrame) => void
   handleToggleInsightPanel: (frame: CanvasFrame) => void
   handleRefreshFrame: (id: string) => void
   handleDuplicateWebsiteCard: (frame: CanvasFrame) => void
@@ -304,6 +304,7 @@ const CanvasFrameLayer = ({
                     'flex cursor-move items-start justify-between gap-2 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] px-3 py-2'
                   }
                   onMouseDown={(event) => handleDragStart(event, frame)}
+                  onTouchStart={(event) => handleDragStart(event, frame)}
                 >
                   <div className="flex min-w-0 flex-1 items-start gap-2">
                     <div className="min-w-0">
@@ -361,18 +362,22 @@ const CanvasFrameLayer = ({
                   <div
                     className="pointer-events-auto absolute inset-x-2 top-0 h-3 cursor-move"
                     onMouseDown={(event) => handleDragStart(event, frame)}
+                    onTouchStart={(event) => handleDragStart(event, frame)}
                   />
                   <div
                     className="pointer-events-auto absolute inset-x-2 bottom-0 h-3 cursor-move"
                     onMouseDown={(event) => handleDragStart(event, frame)}
+                    onTouchStart={(event) => handleDragStart(event, frame)}
                   />
                   <div
                     className="pointer-events-auto absolute inset-y-2 left-0 w-3 cursor-move"
                     onMouseDown={(event) => handleDragStart(event, frame)}
+                    onTouchStart={(event) => handleDragStart(event, frame)}
                   />
                   <div
                     className="pointer-events-auto absolute inset-y-2 right-0 w-3 cursor-move"
                     onMouseDown={(event) => handleDragStart(event, frame)}
+                    onTouchStart={(event) => handleDragStart(event, frame)}
                   />
                 </div>
               )}
@@ -396,14 +401,18 @@ const CanvasFrameLayer = ({
                     <div
                       className="pointer-events-auto absolute inset-x-2 bottom-0 h-3 cursor-move"
                       onMouseDown={(event) => handleDragStart(event, frame)}
+                      onTouchStart={(event) => handleDragStart(event, frame)}
+                      onTouchStart={(event) => handleDragStart(event, frame)}
                     />
                     <div
                       className="pointer-events-auto absolute inset-y-2 left-0 w-3 cursor-move"
                       onMouseDown={(event) => handleDragStart(event, frame)}
+                      onTouchStart={(event) => handleDragStart(event, frame)}
                     />
                     <div
                       className="pointer-events-auto absolute inset-y-2 right-0 w-3 cursor-move"
                       onMouseDown={(event) => handleDragStart(event, frame)}
+                      onTouchStart={(event) => handleDragStart(event, frame)}
                     />
                   </div>
                   <CanvasFrameActionPoints

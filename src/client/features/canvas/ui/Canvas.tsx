@@ -2812,8 +2812,10 @@ const Canvas = () => {
     }
   }
 
-  const handleDragStart = (event: React.MouseEvent, frame: CanvasFrame) => {
-    if (event.button !== 0) return
+  const handleDragStart = (event: React.MouseEvent | React.TouchEvent, frame: CanvasFrame) => {
+    // For mouse events, only handle left click
+    if ('button' in event && event.button !== 0) return
+
     const isAdditiveSelection = event.metaKey || event.ctrlKey
     if (isAdditiveSelection) {
       event.preventDefault()
@@ -2824,7 +2826,12 @@ const Canvas = () => {
       return
     }
 
-    const pointer = getCanvasPointerPosition(event.clientX, event.clientY)
+    // Extract coordinates from either mouse or touch event
+    const clientX = 'clientX' in event ? event.clientX : event.touches[0]?.clientX
+    const clientY = 'clientY' in event ? event.clientY : event.touches[0]?.clientY
+    if (clientX === undefined || clientY === undefined) return
+
+    const pointer = getCanvasPointerPosition(clientX, clientY)
     if (!pointer) return
 
     const selectedIds = selectedFrameIds.includes(frame.id) ? selectedFrameIds : [frame.id]
@@ -2985,8 +2992,12 @@ const Canvas = () => {
   useEffect(() => {
     if (!dragState) return
 
-    const onMouseMove = (event: MouseEvent) => {
-      const pointer = getCanvasPointerPosition(event.clientX, event.clientY)
+    const onPointerMove = (event: MouseEvent | TouchEvent) => {
+      const clientX = 'clientX' in event ? event.clientX : event.touches[0]?.clientX
+      const clientY = 'clientY' in event ? event.clientY : event.touches[0]?.clientY
+      if (clientX === undefined || clientY === undefined) return
+
+      const pointer = getCanvasPointerPosition(clientX, clientY)
       if (!pointer) return
       const deltaX = pointer.x - dragState.pointerStartX
       const deltaY = pointer.y - dragState.pointerStartY
@@ -3004,7 +3015,7 @@ const Canvas = () => {
       )
     }
 
-    const onMouseUp = () => {
+    const onPointerUp = () => {
       const movedFrames = framesRef.current.filter((frame) => dragState.ids.includes(frame.id))
       const framesToPersistById = new Map(movedFrames.map((frame) => [frame.id, frame]))
       const originalMovedFramesById = new Map(
@@ -3236,12 +3247,17 @@ const Canvas = () => {
       setDragState(null)
     }
 
-    window.addEventListener('mousemove', onMouseMove)
-    window.addEventListener('mouseup', onMouseUp)
+    // Handle both mouse and touch events
+    window.addEventListener('mousemove', onPointerMove as any)
+    window.addEventListener('mouseup', onPointerUp)
+    window.addEventListener('touchmove', onPointerMove as any, { passive: false })
+    window.addEventListener('touchend', onPointerUp)
 
     return () => {
-      window.removeEventListener('mousemove', onMouseMove)
-      window.removeEventListener('mouseup', onMouseUp)
+      window.removeEventListener('mousemove', onPointerMove as any)
+      window.removeEventListener('mouseup', onPointerUp)
+      window.removeEventListener('touchmove', onPointerMove as any)
+      window.removeEventListener('touchend', onPointerUp)
     }
   }, [dragState, getCanvasPointerPosition, persistFrame])
 
