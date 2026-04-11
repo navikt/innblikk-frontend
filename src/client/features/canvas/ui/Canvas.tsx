@@ -217,6 +217,7 @@ const GRID_SECTION_LAYOUT_CONFIG = {
 
 const Canvas = () => {
   const LAST_PROJECT_STORAGE_KEY = 'projectmanager:lastSelectedProjectId'
+  const WEBSITE_TOP_LIST_VISIBLE_STORAGE_KEY = 'canvas:websiteTopListVisible'
   const location = useLocation()
   const routeContext = useMemo(() => {
     const params = new URLSearchParams(location.search)
@@ -253,11 +254,28 @@ const Canvas = () => {
   const cookieStartDate = useCookieStartDate(selectedWebsite?.domain, selectedWebsite?.id)
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined)
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined)
+  const [websiteTopListEnabled, setWebsiteTopListEnabled] = useState<boolean>(() => {
+    try {
+      const stored = window.localStorage.getItem(WEBSITE_TOP_LIST_VISIBLE_STORAGE_KEY)
+      if (stored === null) return true
+      return stored !== 'false'
+    } catch {
+      return true
+    }
+  })
   const [frames, setFrames] = useState<CanvasFrame[]>([])
   const [connections, setConnections] = useState<CanvasConnection[]>([])
   const [isAddPageModalOpen, setIsAddPageModalOpen] = useState(false)
   const [isAddImageModalOpen, setIsAddImageModalOpen] = useState(false)
   const [isAddIllustrationModalOpen, setIsAddIllustrationModalOpen] = useState(false)
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(WEBSITE_TOP_LIST_VISIBLE_STORAGE_KEY, websiteTopListEnabled ? 'true' : 'false')
+    } catch {
+      return
+    }
+  }, [WEBSITE_TOP_LIST_VISIBLE_STORAGE_KEY, websiteTopListEnabled])
   const [isAddDashboardModalOpen, setIsAddDashboardModalOpen] = useState(false)
   const [isAddHeadingModalOpen, setIsAddHeadingModalOpen] = useState(false)
   const [isAddTextModalOpen, setIsAddTextModalOpen] = useState(false)
@@ -5106,6 +5124,8 @@ const Canvas = () => {
                   activeInsightFrameId={activeInsightFrameId}
                   pageInsights={pageInsights}
                   frameVisualizationData={frameVisualizationData}
+                  websiteTopListEnabled={websiteTopListEnabled}
+                  onToggleWebsiteTopList={() => setWebsiteTopListEnabled((current) => !current)}
                   connectionDragState={connectionDragState}
                   resizeState={resizeState}
                   dragState={dragState}

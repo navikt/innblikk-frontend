@@ -1,6 +1,6 @@
-import { Button, HelpText, Loader } from '@navikt/ds-react'
+import { Button, HelpText, Loader, Select } from '@navikt/ds-react'
 import { ChartNoAxesCombined } from 'lucide-react'
-import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
+import { useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
 import type { Website } from '../../../shared/types/website.ts'
 import { DashboardWidget } from '../../dashboard'
 import type { CanvasFrame, CanvasPageInsight, ConnectionAnchorSide, ConnectionDragState } from '../model/types.ts'
@@ -30,6 +30,7 @@ import CanvasTextFrame from './text/CanvasTextFrame.tsx'
 import CanvasWebsiteActionMenu from './website/CanvasWebsiteActionMenu.tsx'
 import CanvasWebsiteFrame from './website/CanvasWebsiteFrame.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
+import type { ClickmapItem } from '../../clickmap/model/types.ts'
 
 type CanvasFrameItem = CanvasFrame & {
   displayUrl?: string
@@ -45,7 +46,16 @@ type CanvasFrameLayerProps = {
   selectedFrameIds: string[]
   activeInsightFrameId: string | null
   pageInsights: Record<string, CanvasPageInsight>
-  frameVisualizationData: Record<string, { loading: boolean } | undefined>
+  frameVisualizationData: Record<
+    string,
+    {
+      loading: boolean
+      error: string | null
+      items: ClickmapItem[]
+    }
+  >
+  websiteTopListEnabled: boolean
+  onToggleWebsiteTopList: () => void
   connectionDragState: ConnectionDragState | null
   resizeState: { id: string } | null
   dragState: { ids: string[] } | null
@@ -115,6 +125,8 @@ const CanvasFrameLayer = ({
   activeInsightFrameId,
   pageInsights,
   frameVisualizationData,
+  websiteTopListEnabled,
+  onToggleWebsiteTopList,
   connectionDragState,
   resizeState,
   dragState,
@@ -168,6 +180,15 @@ const CanvasFrameLayer = ({
   handleStartEditingFrame,
   handleResizeStart,
 }: CanvasFrameLayerProps) => {
+  const [topListFilterByFrameId, setTopListFilterByFrameId] = useState<Record<string, 'all' | 'links' | 'accordion'>>(
+    {},
+  )
+
+  const isAccordionLike = (value: string): boolean => {
+    const cleaned = value.replace(/\s+/g, ' ').trim().toLowerCase()
+    return cleaned.includes('accordion') || cleaned.includes('trekkspill')
+  }
+
   return (
     <>
       {frameItems.map((frame) =>
@@ -179,6 +200,20 @@ const CanvasFrameLayer = ({
           const websiteInsight = pageInsights[frame.id]
           const visualizationMode = frame.kind === 'website' ? getCanvasFrameVisualizationMode(frame) : ''
           const visualizationData = frame.kind === 'website' ? frameVisualizationData[frame.id] : undefined
+          const topListFilter = topListFilterByFrameId[frame.id] ?? 'all'
+          const topListItems =
+            frame.kind === 'website' && visualizationMode === 'clickmap'
+              ? (visualizationData?.items ?? []).filter((item) => {
+                  if (topListFilter === 'all') return true
+                  if (topListFilter === 'accordion') return isAccordionLike(item.component || '')
+                  return !isAccordionLike(item.component || '')
+                })
+              : []
+          const sortedTopListItems = [...topListItems].sort((a, b) => (b.count || 0) - (a.count || 0)).slice(0, 40)
+          const topListMaxCount = Math.max(
+            1,
+            ...sortedTopListItems.map((item) => (Number.isFinite(item.count) ? item.count : 0)),
+          )
           const isTableTextFrame =
             frame.kind === 'text' &&
             Array.isArray(frame.tableHeaders) &&
@@ -316,6 +351,9 @@ const CanvasFrameLayer = ({
                     )}
                     <CanvasWebsiteActionMenu
                       isInternalDashboard={frame.isInternalDashboard}
+                      showTopListOption={visualizationMode === 'clickmap'}
+                      isTopListEnabled={websiteTopListEnabled}
+                      onToggleTopList={onToggleWebsiteTopList}
                       onRefresh={() => handleRefreshFrame(frame.id)}
                       onDuplicate={() => handleDuplicateWebsiteCard(frame)}
                       onEdit={() => {
@@ -487,7 +525,7 @@ const CanvasFrameLayer = ({
                       className={`pointer-events-auto absolute left-1/2 top-[-12px] flex h-6 w-6 -translate-x-1/2 cursor-grab items-center justify-center rounded-full bg-transparent opacity-0 transition-opacity active:cursor-grabbing group-hover:opacity-100 group-focus-within:opacity-100 ${
                         connectionDragState?.sourceFrameId === frame.id ? 'opacity-100' : ''
                       }`}
-                      style={{ top: `${-12 - WEBSITE_CARD_HEADER_HEIGHT}px` }}
+                      style={{ top: `${-10 - WEBSITE_CARD_HEADER_HEIGHT}px` }}
                       aria-label="Kobling"
                       title="Dra for å koble"
                       onMouseDown={(event) => startConnectionDrag(event, frame, 'top')}
@@ -776,6 +814,74 @@ const CanvasFrameLayer = ({
                   </div>
                 )}
               </div>
+              {frame.kind === 'website' &&
+                !frame.isInternalDashboard &&
+                visualizationMode === 'clickmap' &&
+                websiteTopListEnabled && (
+                  <aside
+                    className="absolute left-[calc(100%+12px)] top-0 z-[75] flex h-full w-[300px] min-w-0 flex-col overflow-hidden rounded-lg border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] shadow-md"
+                    onMouseDown={(event) => event.stopPropagation()}
+                  >
+                    <div className="border-b border-[var(--ax-border-neutral-subtle)] px-3 py-2">
+                      <Select
+                        size="small"
+                        label="Filter"
+                        value={topListFilter}
+                        onChange={(event) =>
+                          setTopListFilterByFrameId((current) => ({
+                            ...current,
+                            [frame.id]: event.target.value as 'all' | 'links' | 'accordion',
+                          }))
+                        }
+                      >
+                        <option value="all">Alle treff</option>
+                        <option value="links">Lenker</option>
+                        <option value="accordion">Trekkspill/accordion</option>
+                      </Select>
+                    </div>
+                    {visualizationData?.loading ? (
+                      <div className="flex items-center gap-2 px-3 py-3 text-sm text-[var(--ax-text-subtle)]">
+                        <Loader size="xsmall" title="Henter toppliste..." />
+                        Henter toppliste...
+                      </div>
+                    ) : visualizationData?.error ? (
+                      <div className="px-3 py-3 text-sm text-[var(--ax-text-danger)]">{visualizationData.error}</div>
+                    ) : sortedTopListItems.length === 0 ? (
+                      <div className="px-3 py-3 text-sm text-[var(--ax-text-subtle)]">Ingen treff for valgt side.</div>
+                    ) : (
+                      <div className="min-h-0 space-y-2 overflow-y-auto p-2">
+                        {sortedTopListItems.map((item, index) => {
+                          const itemKey = `${item.sourcePath}-${item.linkText}-${item.destination}-${index}`
+                          const barWidth = Math.max(4, Math.round((item.count / topListMaxCount) * 100))
+                          return (
+                            <div
+                              key={itemKey}
+                              className="rounded-md border border-[var(--ax-border-neutral-subtle)] p-2"
+                            >
+                              <div className="text-xs font-medium text-[var(--ax-text-default)]">
+                                {item.linkText || '(uten lenketekst)'}
+                              </div>
+                              {item.destination && (
+                                <div className="mt-0.5 break-all text-[11px] text-[var(--ax-text-subtle)]">
+                                  {item.destination}
+                                </div>
+                              )}
+                              <div className="mt-1 flex items-center justify-between gap-2">
+                                <span className="text-[11px] text-[var(--ax-text-subtle)]">Klikk</span>
+                                <span className="text-xs font-semibold text-[var(--ax-text-default)]">
+                                  {item.count.toLocaleString('nb-NO')}
+                                </span>
+                              </div>
+                              <div className="mt-1.5 h-1.5 overflow-hidden rounded bg-[var(--ax-bg-neutral-moderate)]">
+                                <div className="h-full rounded bg-red-700" style={{ width: `${barWidth}%` }} />
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </aside>
+                )}
               <button
                 type="button"
                 onMouseDown={(event) => handleResizeStart(event, frame)}

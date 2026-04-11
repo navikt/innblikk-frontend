@@ -1,8 +1,11 @@
 import { ActionMenu, Button } from '@navikt/ds-react'
-import { Copy, Edit2, MoreVertical, RefreshCw, Trash2 } from 'lucide-react'
+import { Copy, Edit2, List, MoreVertical, RefreshCw, Trash2 } from 'lucide-react'
 
 type CanvasWebsiteActionMenuProps = {
   isInternalDashboard?: boolean
+  showTopListOption?: boolean
+  isTopListEnabled?: boolean
+  onToggleTopList?: () => void
   onRefresh: () => void
   onDuplicate: () => void
   onEdit: () => void
@@ -11,6 +14,9 @@ type CanvasWebsiteActionMenuProps = {
 
 const CanvasWebsiteActionMenu = ({
   isInternalDashboard,
+  showTopListOption,
+  isTopListEnabled,
+  onToggleTopList,
   onRefresh,
   onDuplicate,
   onEdit,
@@ -46,6 +52,14 @@ const CanvasWebsiteActionMenu = ({
           <span>{isInternalDashboard ? 'Rediger dashboard' : 'Rediger nettside'}</span>
         </span>
       </ActionMenu.Item>
+      {showTopListOption && onToggleTopList && (
+        <ActionMenu.Item onClick={onToggleTopList}>
+          <span className="inline-flex items-center gap-2">
+            <List size={14} aria-hidden="true" />
+            <span>{isTopListEnabled ? 'Skjul toppliste' : 'Vis toppliste'}</span>
+          </span>
+        </ActionMenu.Item>
+      )}
       <ActionMenu.Item onClick={onRemove}>
         <span className="inline-flex items-center gap-2">
           <Trash2 size={14} aria-hidden="true" />
