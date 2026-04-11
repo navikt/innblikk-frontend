@@ -35,7 +35,7 @@ const CanvasDrawingToolbar = ({
   onCancel,
 }: CanvasDrawingToolbarProps) => (
   <div
-    className="absolute left-1/2 z-[110] -translate-x-1/2 rounded-xl border border-[var(--ax-border-accent)] bg-[var(--ax-bg-default)] px-3 py-2 shadow-lg"
+    className="fixed left-1/2 z-[120] w-[min(94vw,52rem)] -translate-x-1/2 rounded-xl border border-[var(--ax-border-accent)] bg-[var(--ax-bg-default)] px-3 py-2 shadow-lg"
     style={{ top: `${topOffsetPx}px` }}
   >
     <div className="flex items-center gap-3">

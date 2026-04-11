@@ -4918,7 +4918,7 @@ const Canvas = () => {
           <main ref={canvasViewportRef} className="relative flex-1 overflow-auto">
             {(pendingFrameDraft || pendingCsvStickyImport) && (
               <div
-                className="pointer-events-none absolute left-1/2 z-[45] -translate-x-1/2 rounded-xl border-2 border-[var(--ax-border-accent)] bg-[var(--ax-bg-default)] px-5 py-3 text-base font-semibold text-[var(--ax-text-default)] shadow-lg"
+                className="pointer-events-none fixed left-1/2 z-[120] w-[min(96vw,44rem)] -translate-x-1/2 rounded-xl border-2 border-[var(--ax-border-accent)] bg-[var(--ax-bg-default)] px-3 py-2 text-sm font-semibold leading-tight text-[var(--ax-text-default)] shadow-lg sm:px-4 sm:py-2.5 sm:text-base"
                 style={{ top: `${canvasCanvasTopOffset + 20}px` }}
               >
                 {pendingCsvStickyImport && isImportingStickyCsv ? (
@@ -4932,8 +4932,13 @@ const Canvas = () => {
                   </span>
                 ) : (
                   <>
-                    Plasseringsmodus: klikk for å plassere {pendingFramePlacementLabel || 'element'}. Trykk Esc for å
-                    avbryte.
+                    <span className="sm:hidden">
+                      Plasseringsmodus: trykk for å plassere {pendingFramePlacementLabel || 'element'}.
+                    </span>
+                    <span className="hidden sm:inline">
+                      Plasseringsmodus: klikk for å plassere {pendingFramePlacementLabel || 'element'}. Trykk Esc for å
+                      avbryte.
+                    </span>
                   </>
                 )}
               </div>
