@@ -224,20 +224,22 @@ const CanvasImportStickyCsvModal = ({
               </div>
             </Alert>
           )}
-          {fileName && contentColumn && !shouldImportAsAggregated && (
+          {!shouldImportAsAggregated && (
             <Alert variant="warning" size="small">
               <div className="space-y-2">
                 <p className="text-sm font-medium">Gjør en personversjekk før import</p>
                 <p className="text-xs">
-                  Innblikk er tilgjengelig for alle i Nav. Importer kun data som er trygt å dele.
+                  Innblikk er tilgjengelig for alle i Nav. Importer kun data uten personidentifiserbar informasjon.
                 </p>
-                <ul className="list-disc space-y-1 pl-5 text-sm">
-                  <li>Skann teksten for navn, fødselsnummer, telefonnummer, e-post og adresser.</li>
-                  <li>
-                    Bruk forhåndsvisningen til høyre og fjern {importStyle === 'table' ? 'rader' : 'lapper'} med
-                    sensitive opplysninger.
-                  </li>
-                </ul>
+                {fileName && contentColumn && (
+                  <ul className="list-disc space-y-1 pl-5 text-sm">
+                    <li>Skann teksten for navn, fødselsnummer, telefonnummer, e-post og adresser.</li>
+                    <li>
+                      Bruk forhåndsvisningen til høyre og fjern {importStyle === 'table' ? 'rader' : 'lapper'} med
+                      sensitive opplysninger.
+                    </li>
+                  </ul>
+                )}
               </div>
             </Alert>
           )}
