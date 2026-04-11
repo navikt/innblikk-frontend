@@ -45,7 +45,7 @@ import CanvasWebsiteActionMenu from './website/CanvasWebsiteActionMenu.tsx'
 import CanvasWebsiteModal from './website/CanvasWebsiteModal.tsx'
 import useCanvasWebsiteVisualization from './website/useCanvasWebsiteVisualization.ts'
 import useCanvasDrawingTool, { type CanvasDrawingStroke } from './drawing/useCanvasDrawingTool.ts'
-import { isIllustrationImageFrame, isIllustrationPath } from './image/CanvasImageUtils.ts'
+import { isIllustrationImageFrame } from './image/CanvasImageUtils.ts'
 import {
   CANVAS_ICON_COLOR_OPTIONS,
   DEFAULT_CANVAS_ICON_COLOR,
@@ -64,8 +64,6 @@ import {
   fetchCategories,
   fetchDashboards,
   fetchProjects,
-  fetchGraphs,
-  fetchQueries,
   updateCategory,
   updateDashboard,
   updateQuery,
@@ -78,6 +76,8 @@ import { useCookieStartDate, useCookieSupport } from '../../../shared/hooks/useS
 import { useLocation } from 'react-router-dom'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import useCanvasCsvImport from '../hooks/useCanvasCsvImport.ts'
+import useCanvasBackgroundSync from '../hooks/useCanvasBackgroundSync.ts'
+import { fetchCanvasStorageData } from '../api/canvasStorageApi.ts'
 
 import type {
   CanvasChartOption,
@@ -143,10 +143,8 @@ import {
   getWebsiteFrameRenderSrc,
   isCanvasDashboardDescription,
   isImagePreviewUrl,
-  isRenderableCanvasFrameKind,
   mapCanvasChartTypeToGraphType,
   normalizeInputToTargetUrl,
-  parseCanvasConfig,
   parseDashboardTargetUrl,
   serializeCanvasConfig,
 } from '../utils/canvasUtils.ts'
@@ -380,6 +378,19 @@ const Canvas = () => {
   const [canvasToolbarHeight, setCanvasToolbarHeight] = useState(120)
   const canvasCanvasTopOffset = canvasToolbarHeight + CANVAS_SURFACE_TOP_GAP
   const shouldShowCreateCanvasModal = canvasInitMode === 'create'
+  const lockedFrameIds = useMemo(() => {
+    const ids = new Set<string>()
+    if (dragState) {
+      dragState.ids.forEach((id) => ids.add(id))
+    }
+    if (resizeState?.id) {
+      ids.add(resizeState.id)
+    }
+    if (activeEditableFrameId) {
+      ids.add(activeEditableFrameId)
+    }
+    return ids
+  }, [activeEditableFrameId, dragState, resizeState])
   const canvasFrontpageBackgroundStyle = isCanvasFrontpage
     ? {
         backgroundImage: 'radial-gradient(circle at 1px 1px, var(--ax-border-neutral-subtle) 1px, transparent 0)',
@@ -919,96 +930,24 @@ const Canvas = () => {
       setIsLoadingCanvasItems(true)
       setSyncError(null)
       try {
-        const categories = await fetchCategories(projectId, dashboardId)
+        const data = await fetchCanvasStorageData(projectId, dashboardId)
         if (!isActive) return
-        setCanvasCategories(categories)
-        if (categories.length > 0) {
+        setCanvasCategories(data.categories)
+        if (data.categories.length > 0) {
           setActiveCanvasCategoryId((current) =>
-            current && categories.some((category) => category.id === current)
+            current && data.categories.some((category) => category.id === current)
               ? current
-              : initialCategoryId && categories.some((category) => category.id === initialCategoryId)
+              : initialCategoryId && data.categories.some((category) => category.id === initialCategoryId)
                 ? initialCategoryId
-                : categories[0].id,
+                : data.categories[0].id,
           )
         } else {
           setActiveCanvasCategoryId(null)
         }
 
-        const framesFromStorage: CanvasFrame[] = []
-        const connectionsFromStorage: CanvasConnection[] = []
-        for (const category of categories) {
-          const graphs = await fetchGraphs(projectId, dashboardId, category.id)
-          for (const graph of graphs) {
-            if (graph.graphType !== 'TEXT') continue
-            if ((graph.description || '').toLowerCase().split(/\s+/).includes(CANVAS_DASHBOARD_TOKEN) === false)
-              continue
-
-            const queries = await fetchQueries(projectId, dashboardId, category.id, graph.id)
-            const configQuery = queries.find((query) => query.name === CANVAS_QUERY_NAME) ?? queries[0]
-            const parsedConfig = parseCanvasConfig(configQuery?.sqlText || '')
-            if (!parsedConfig) continue
-
-            if (parsedConfig.kind === 'connection') {
-              connectionsFromStorage.push({
-                id: `stored-connection-${graph.id}`,
-                fromFrameId: parsedConfig.fromFrameId,
-                toFrameId: parsedConfig.toFrameId,
-                fromGraphId: parsedConfig.fromGraphId,
-                toGraphId: parsedConfig.toGraphId,
-                categoryId: category.id,
-                graphId: graph.id,
-                queryId: configQuery?.id,
-              })
-              continue
-            }
-            if (!isRenderableCanvasFrameKind(parsedConfig.kind)) continue
-
-            framesFromStorage.push({
-              id: `stored-${graph.id}`,
-              kind: parsedConfig.kind,
-              websiteId: parsedConfig.websiteId,
-              targetUrl: parsedConfig.targetUrl,
-              previewUrl: parsedConfig.previewUrl,
-              renderWebsite: parsedConfig.renderWebsite,
-              isInternalDashboard: parsedConfig.isInternalDashboard,
-              visualizationMode: parsedConfig.visualizationMode,
-              headingText: parsedConfig.headingText,
-              headingFontSize: parsedConfig.headingFontSize,
-              textContent: parsedConfig.textContent,
-              tableHeaders: parsedConfig.tableHeaders,
-              tableRows: parsedConfig.tableRows,
-              iconName: parsedConfig.iconName,
-              iconRotationDeg: parsedConfig.iconRotationDeg,
-              iconColor: parsedConfig.iconColor,
-              figureType: parsedConfig.figureType,
-              figureColor: parsedConfig.figureColor,
-              drawingPath: parsedConfig.drawingPath,
-              drawingStrokeStyles: parsedConfig.drawingStrokeStyles,
-              drawingStrokeWidth: parsedConfig.drawingStrokeWidth,
-              drawingColor: parsedConfig.drawingColor,
-              isIllustration:
-                typeof parsedConfig.isIllustration === 'boolean'
-                  ? parsedConfig.isIllustration
-                  : parsedConfig.kind === 'image' && isIllustrationPath(parsedConfig.targetUrl),
-              imageRotationDeg: parsedConfig.imageRotationDeg,
-              chartType: parsedConfig.chartType,
-              chartSql: parsedConfig.chartSql,
-              label: parsedConfig.label || graph.name,
-              x: parsedConfig.x,
-              y: parsedConfig.y,
-              width: parsedConfig.width,
-              height: parsedConfig.height,
-              categoryId: category.id,
-              graphId: graph.id,
-              queryId: configQuery?.id,
-              refreshNonce: 0,
-            })
-          }
-        }
-
         if (!isActive) return
-        setFrames(framesFromStorage)
-        setConnections(connectionsFromStorage)
+        setFrames(data.frames)
+        setConnections(data.connections)
       } catch (error) {
         if (!isActive) return
         setSyncError(error instanceof Error ? error.message : 'Kunne ikke laste canvas-data')
@@ -1022,6 +961,20 @@ const Canvas = () => {
       isActive = false
     }
   }, [canPersistToDashboard, projectId, dashboardId, canvasInitMode, initialCategoryId])
+
+  useCanvasBackgroundSync({
+    enabled: canPersistToDashboard && projectId !== null && dashboardId !== null && canvasInitMode === 'existing',
+    projectId,
+    dashboardId,
+    initialCategoryId,
+    activeCanvasCategoryId,
+    lockedFrameIds,
+    setCanvasCategories,
+    setActiveCanvasCategoryId,
+    setFrames,
+    setConnections,
+    setSyncError,
+  })
 
   useEffect(() => {
     if (!canPersistToDashboard) return
