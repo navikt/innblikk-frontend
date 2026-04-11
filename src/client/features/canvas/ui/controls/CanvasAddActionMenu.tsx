@@ -73,20 +73,20 @@ const CanvasAddActionMenu = ({
       )}
     </ActionMenu.Trigger>
     <ActionMenu.Content align="end">
-      <ActionMenu.Item onClick={onAddWebsite}>Nettside</ActionMenu.Item>
-      <ActionMenu.Item onClick={onOpenGrafbygger}>Graf</ActionMenu.Item>
-      <ActionMenu.Item onClick={onAddDashboard}>Dashboard</ActionMenu.Item>
-      <ActionMenu.Divider />
       <ActionMenu.Item onClick={onAddHeading}>Overskrift</ActionMenu.Item>
       <ActionMenu.Item onClick={onAddText}>Tekst</ActionMenu.Item>
       <ActionMenu.Item onClick={onAddSticky}>Post-it-lapp</ActionMenu.Item>
-      <ActionMenu.Item onClick={onImportStickyCsv}>Skyra / Lumi</ActionMenu.Item>
       <ActionMenu.Divider />
       <ActionMenu.Item onClick={onAddImage}>Bilde</ActionMenu.Item>
       <ActionMenu.Item onClick={onAddIcon}>Ikon</ActionMenu.Item>
       <ActionMenu.Item onClick={onAddFigure}>Figur</ActionMenu.Item>
       <ActionMenu.Item onClick={onAddDrawing}>Tegning</ActionMenu.Item>
       <ActionMenu.Item onClick={onAddIllustration}>Illustrasjoner</ActionMenu.Item>
+      <ActionMenu.Divider />
+      <ActionMenu.Item onClick={onAddWebsite}>Nettside · Umami</ActionMenu.Item>
+      <ActionMenu.Item onClick={onOpenGrafbygger}>Graf · Umami</ActionMenu.Item>
+      <ActionMenu.Item onClick={onAddDashboard}>Dashboard · Innblikk</ActionMenu.Item>
+      <ActionMenu.Item onClick={onImportStickyCsv}>Undersøkelse · Skyra / Lumi</ActionMenu.Item>
       <ActionMenu.Divider />
       <ActionMenu.Item onClick={onAddTab}>Fane</ActionMenu.Item>
     </ActionMenu.Content>

@@ -226,13 +226,14 @@ const CanvasTopBar = ({
                   />
                 </ActionMenu.Trigger>
                 <ActionMenu.Content align="end">
-                  <ActionMenu.Item onClick={() => window.location.assign('/dashboard')}>Dashboards</ActionMenu.Item>
+                  <ActionMenu.Item onClick={() => window.location.assign('/canvas')}>Canvas-oversikt</ActionMenu.Item>
                   {canManageTabs && <ActionMenu.Item onClick={onOpenManageTabs}>Administrer faner</ActionMenu.Item>}
                   <ActionMenu.Item onClick={onOpenTimer}>
                     {timerLabel ? `Nedteller (${timerLabel})` : 'Nedteller'}
                   </ActionMenu.Item>
                   <ActionMenu.Item onClick={onOpenInventory}>Elementer</ActionMenu.Item>
                   <ActionMenu.Item onClick={onOpenCanvasSettings}>Innstillinger</ActionMenu.Item>
+                  <ActionMenu.Item onClick={() => window.location.assign('/')}>Innblikk</ActionMenu.Item>
                 </ActionMenu.Content>
               </ActionMenu>
             </div>

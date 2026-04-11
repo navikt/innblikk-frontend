@@ -1,6 +1,8 @@
-import { Alert, Button, Label, Modal, Select, TextField } from '@navikt/ds-react'
-import { Plus } from 'lucide-react'
+import { useState } from 'react'
+import { Alert, Button, Label, Modal, Select, TextField, UNSAFE_Combobox as Combobox } from '@navikt/ds-react'
+import { FolderOpen, Plus } from 'lucide-react'
 import type { CanvasChartOption, CanvasDeleteTarget } from '../../model/types.ts'
+import CanvasActionMenu from '../../../../shared/ui/CanvasActionMenu.tsx'
 
 type SelectOption = {
   id: number
@@ -13,6 +15,9 @@ type CanvasCoreModalsProps = {
   isCreatingCanvas: boolean
   createCanvasProjectId: string
   createCanvasProjectOptions: SelectOption[]
+  isLoadingExistingCanvasOptions: boolean
+  existingCanvasOptions: SelectOption[]
+  existingCanvasError: string | null
   createCanvasNameInput: string
   createCanvasError: string | null
   onOpenCreateTeam: () => void
@@ -70,6 +75,9 @@ const CanvasCoreModals = ({
   isCreatingCanvas,
   createCanvasProjectId,
   createCanvasProjectOptions,
+  isLoadingExistingCanvasOptions,
+  existingCanvasOptions,
+  existingCanvasError,
   createCanvasNameInput,
   createCanvasError,
   onOpenCreateTeam,
@@ -120,14 +128,20 @@ const CanvasCoreModals = ({
   onChartOptionChange,
   onSubmitAddChart,
 }: CanvasCoreModalsProps) => {
+  const [isCreateCanvasDetailsOpen, setIsCreateCanvasDetailsOpen] = useState(false)
+  const [teamComboboxInput, setTeamComboboxInput] = useState('')
+  const selectedTeamOption =
+    createCanvasProjectOptions.find((option) => String(option.id) === createCanvasProjectId) ?? null
+  const teamComboboxOptions = createCanvasProjectOptions.map((option) => option.name)
+
   return (
     <>
       <Modal
-        open={shouldShowCreateCanvasModal && !isCreateTeamModalOpen}
+        open={shouldShowCreateCanvasModal && !isCreateTeamModalOpen && !isCreateCanvasDetailsOpen}
         onClose={() => {
           // Keep modal open until user creates or navigates away.
         }}
-        header={{ heading: 'Lag canvas', closeButton: false }}
+        header={{ heading: 'Canvas-oversikt', closeButton: false }}
         width="small"
         closeOnBackdropClick={false}
       >
@@ -141,30 +155,135 @@ const CanvasCoreModals = ({
                   size="small"
                   type="button"
                   icon={<Plus aria-hidden size={16} />}
-                  onClick={onOpenCreateTeam}
+                  onClick={() => {
+                    setIsCreateCanvasDetailsOpen(false)
+                    onOpenCreateTeam()
+                  }}
                   disabled={isCreatingCanvas}
                 >
                   Nytt team
                 </Button>
               </div>
-              <Select
-                id="create-canvas-team-select"
+              <Combobox
                 label="Team"
                 hideLabel
-                value={createCanvasProjectId}
-                onChange={(event) => onCreateCanvasProjectIdChange(event.target.value)}
+                options={teamComboboxOptions}
+                selectedOptions={selectedTeamOption ? [selectedTeamOption.name] : []}
+                onToggleSelected={(option: string, isSelected: boolean) => {
+                  if (!isSelected) {
+                    onCreateCanvasProjectIdChange('')
+                    return
+                  }
+                  const selectedOption = createCanvasProjectOptions.find((item) => item.name === option)
+                  onCreateCanvasProjectIdChange(selectedOption ? String(selectedOption.id) : '')
+                }}
+                value={teamComboboxInput}
+                onChange={(value) => setTeamComboboxInput(value)}
+                isMultiSelect={false}
+                clearButton
                 disabled={isCreatingCanvas}
-              >
-                <option value="" disabled>
-                  {createCanvasProjectOptions.length === 0 ? 'Laster team...' : 'Velg team'}
-                </option>
-                {createCanvasProjectOptions.map((option) => (
-                  <option key={option.id} value={String(option.id)}>
-                    {option.name}
-                  </option>
-                ))}
-              </Select>
+              />
             </div>
+            <div className="pt-2">
+              <div className="space-y-2">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <Label>Canvas</Label>
+                  <Button
+                    variant="tertiary"
+                    size="small"
+                    type="button"
+                    icon={<Plus aria-hidden size={16} />}
+                    onClick={() => setIsCreateCanvasDetailsOpen(true)}
+                    disabled={!createCanvasProjectId || isLoadingExistingCanvasOptions}
+                  >
+                    Lag canvas
+                  </Button>
+                </div>
+                <div className="min-h-[232px]">
+                  {!createCanvasProjectId && (
+                    <div className="pt-1 text-sm text-[var(--ax-text-neutral-subtle)]">Velg team først.</div>
+                  )}
+                  {createCanvasProjectId && isLoadingExistingCanvasOptions && (
+                    <div className="pt-1 text-sm text-[var(--ax-text-neutral-subtle)]">Laster canvas...</div>
+                  )}
+                  {createCanvasProjectId && !isLoadingExistingCanvasOptions && existingCanvasOptions.length === 0 && (
+                    <div className="rounded-lg border border-dashed border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] px-4 py-5">
+                      <div className="flex items-start gap-3">
+                        <span className="mt-0.5 text-[var(--ax-text-neutral-subtle)]">
+                          <FolderOpen aria-hidden size={18} />
+                        </span>
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium text-[var(--ax-text-default)]">Ingen canvas ennå</p>
+                          <p className="text-sm text-[var(--ax-text-neutral-subtle)]">
+                            Opprett et nytt canvas for dette teamet.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {createCanvasProjectId && !isLoadingExistingCanvasOptions && existingCanvasOptions.length > 0 && (
+                    <div className="max-h-56 overflow-y-auto rounded-lg border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)]">
+                      {existingCanvasOptions.map((option, index) => (
+                        <div
+                          key={option.id}
+                          className={`flex w-full items-center gap-2 transition-colors hover:bg-[var(--ax-bg-neutral-moderate)] ${
+                            index < existingCanvasOptions.length - 1
+                              ? 'border-b border-[var(--ax-border-neutral-subtle)]'
+                              : ''
+                          }`}
+                        >
+                          <a
+                            href={`/canvas?projectId=${createCanvasProjectId}&dashboardId=${option.id}`}
+                            className="block min-w-0 flex-1 truncate px-4 py-3 text-base font-semibold text-[var(--ax-text-default)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--ax-border-accent)]"
+                          >
+                            {option.name}
+                          </a>
+                          <div className="pr-2">
+                            <CanvasActionMenu
+                              canvasName={option.name}
+                              items={[
+                                {
+                                  label: 'Elementoversikt',
+                                  href: `/dashboard?projectId=${createCanvasProjectId}&canvasDashboardId=${option.id}&canvasAction=inventory`,
+                                },
+                                {
+                                  label: 'Endre info',
+                                  href: `/dashboard?projectId=${createCanvasProjectId}&canvasDashboardId=${option.id}&canvasAction=edit`,
+                                },
+                                {
+                                  label: 'Flytt canvas',
+                                  href: `/dashboard?projectId=${createCanvasProjectId}&canvasDashboardId=${option.id}&canvasAction=move`,
+                                },
+                                {
+                                  label: 'Slett canvas',
+                                  href: `/dashboard?projectId=${createCanvasProjectId}&canvasDashboardId=${option.id}&canvasAction=delete`,
+                                },
+                              ]}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {existingCanvasError && <Alert variant="error">{existingCanvasError}</Alert>}
+              </div>
+            </div>
+          </div>
+        </Modal.Body>
+      </Modal>
+
+      <Modal
+        open={isCreateCanvasDetailsOpen && shouldShowCreateCanvasModal && !isCreateTeamModalOpen}
+        onClose={() => {
+          if (isCreatingCanvas) return
+          setIsCreateCanvasDetailsOpen(false)
+        }}
+        header={{ heading: 'Lag canvas' }}
+        width="small"
+      >
+        <Modal.Body>
+          <div className="space-y-3">
             <TextField
               label="Canvas-navn"
               value={createCanvasNameInput}
@@ -177,6 +296,14 @@ const CanvasCoreModals = ({
         <Modal.Footer>
           <Button onClick={onSubmitCreateCanvas} size="small" loading={isCreatingCanvas}>
             Lag canvas
+          </Button>
+          <Button
+            variant="secondary"
+            size="small"
+            onClick={() => setIsCreateCanvasDetailsOpen(false)}
+            disabled={isCreatingCanvas}
+          >
+            Avbryt
           </Button>
         </Modal.Footer>
       </Modal>

@@ -169,6 +169,7 @@ const getDefaultFrameSize = (
 }
 
 const Canvas = () => {
+  const LAST_PROJECT_STORAGE_KEY = 'projectmanager:lastSelectedProjectId'
   const location = useLocation()
   const routeContext = useMemo(() => {
     const params = new URLSearchParams(location.search)
@@ -269,6 +270,9 @@ const Canvas = () => {
   const [isLoadingDashboardOptions, setIsLoadingDashboardOptions] = useState(false)
   const [createCanvasProjectOptions, setCreateCanvasProjectOptions] = useState<Array<{ id: number; name: string }>>([])
   const [createCanvasProjectId, setCreateCanvasProjectId] = useState('')
+  const [existingCanvasOptions, setExistingCanvasOptions] = useState<Array<{ id: number; name: string }>>([])
+  const [isLoadingExistingCanvasOptions, setIsLoadingExistingCanvasOptions] = useState(false)
+  const [existingCanvasError, setExistingCanvasError] = useState<string | null>(null)
   const [createCanvasNameInput, setCreateCanvasNameInput] = useState('')
   const [createCanvasError, setCreateCanvasError] = useState<string | null>(null)
   const [isCreatingCanvas, setIsCreatingCanvas] = useState(false)
@@ -1116,10 +1120,38 @@ const Canvas = () => {
     }
   }, [canPersistToDashboard, isCanvasFrontpage, projectId, dashboardId])
 
+  const loadExistingCanvasOptions = useCallback(async (projectIdToLoad: number | null) => {
+    if (projectIdToLoad === null) {
+      setExistingCanvasOptions([])
+      setExistingCanvasError(null)
+      return
+    }
+
+    setIsLoadingExistingCanvasOptions(true)
+    setExistingCanvasError(null)
+    try {
+      const dashboards = await fetchDashboards(projectIdToLoad)
+      const options = dashboards
+        .filter((dashboard) => isCanvasDashboardDescription(dashboard.description))
+        .map((dashboard) => ({
+          id: dashboard.id,
+          name: dashboard.name?.trim() || `Canvas ${dashboard.id}`,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name, 'nb', { sensitivity: 'base' }))
+      setExistingCanvasOptions(options)
+    } catch (error) {
+      setExistingCanvasOptions([])
+      setExistingCanvasError(error instanceof Error ? error.message : 'Kunne ikke laste canvas')
+    } finally {
+      setIsLoadingExistingCanvasOptions(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (!shouldShowCreateCanvasModal) return
     let isActive = true
     setCreateCanvasError(null)
+
     void (async () => {
       try {
         const projects = await fetchProjects()
@@ -1128,23 +1160,35 @@ const Canvas = () => {
           id: item.id,
           name: item.name?.trim() || `Team ${item.id}`,
         }))
+        options.sort((a, b) => a.name.localeCompare(b.name, 'nb', { sensitivity: 'base' }))
         setCreateCanvasProjectOptions(options)
-        setCreateCanvasProjectId((current) => {
-          if (current && options.some((option) => String(option.id) === current)) return current
-          if (projectId !== null && options.some((option) => option.id === projectId)) return String(projectId)
-          return options[0] ? String(options[0].id) : ''
-        })
+        const lastVisitedProjectId = (() => {
+          if (typeof window === 'undefined') return null
+          const raw = window.localStorage.getItem(LAST_PROJECT_STORAGE_KEY)
+          const parsed = Number(raw)
+          return Number.isFinite(parsed) ? parsed : null
+        })()
+        const preferredProjectId =
+          projectId !== null && options.some((option) => option.id === projectId)
+            ? projectId
+            : lastVisitedProjectId !== null && options.some((option) => option.id === lastVisitedProjectId)
+              ? lastVisitedProjectId
+              : null
+        setCreateCanvasProjectId(preferredProjectId ? String(preferredProjectId) : '')
+        await loadExistingCanvasOptions(preferredProjectId)
       } catch (error) {
         if (!isActive) return
         setCreateCanvasProjectOptions([])
         setCreateCanvasProjectId('')
+        setExistingCanvasOptions([])
+        setExistingCanvasError(null)
         setCreateCanvasError(error instanceof Error ? error.message : 'Kunne ikke laste team')
       }
     })()
     return () => {
       isActive = false
     }
-  }, [projectId, shouldShowCreateCanvasModal])
+  }, [loadExistingCanvasOptions, projectId, shouldShowCreateCanvasModal])
 
   useEffect(() => {
     if (canvasInitMode !== 'existing') {
@@ -3801,6 +3845,7 @@ const Canvas = () => {
         [...current, option].sort((a, b) => a.name.localeCompare(b.name, 'nb', { sensitivity: 'base' })),
       )
       setCreateCanvasProjectId(String(createdProject.id))
+      void loadExistingCanvasOptions(createdProject.id)
       setIsCreateTeamModalOpen(false)
       setCreateTeamNameInput('')
       setCreateTeamDescriptionInput('')
@@ -4373,6 +4418,9 @@ const Canvas = () => {
         isCreatingCanvas={isCreatingCanvas}
         createCanvasProjectId={createCanvasProjectId}
         createCanvasProjectOptions={createCanvasProjectOptions}
+        isLoadingExistingCanvasOptions={isLoadingExistingCanvasOptions}
+        existingCanvasOptions={existingCanvasOptions}
+        existingCanvasError={existingCanvasError}
         createCanvasNameInput={createCanvasNameInput}
         createCanvasError={createCanvasError}
         onOpenCreateTeam={() => {
@@ -4381,6 +4429,9 @@ const Canvas = () => {
         }}
         onCreateCanvasProjectIdChange={(value) => {
           setCreateCanvasProjectId(value)
+          setExistingCanvasError(null)
+          const parsedProjectId = Number(value)
+          void loadExistingCanvasOptions(Number.isFinite(parsedProjectId) ? parsedProjectId : null)
           if (createCanvasError) setCreateCanvasError(null)
         }}
         onCreateCanvasNameChange={(value) => {

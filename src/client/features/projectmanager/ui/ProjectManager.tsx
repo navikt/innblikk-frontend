@@ -16,7 +16,7 @@ import {
   TextField,
   Tooltip,
 } from '@navikt/ds-react'
-import { Link as RouterLink, useNavigate } from 'react-router-dom'
+import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom'
 import DeleteDashboardDialog from '../../oversikt/ui/dialogs/DeleteDashboardDialog.tsx'
 import CopyChartDialog from '../../oversikt/ui/dialogs/CopyChartDialog.tsx'
 import EditChartDialog from '../../oversikt/ui/dialogs/EditChartDialog.tsx'
@@ -29,6 +29,7 @@ import type { DashboardDto, ProjectDto } from '../model/types.ts'
 import ProjectManagerLayout from './ProjectManagerLayout.tsx'
 import { extractWebsiteId } from '../../sql/utils/sqlProcessing.ts'
 import type { GraphType, OversiktChart } from '../../oversikt'
+import CanvasActionMenu from '../../../shared/ui/CanvasActionMenu.tsx'
 
 type FileTableRow = {
   id: string
@@ -105,6 +106,7 @@ const getCanvasStorageKindFromGraphName = (name: string): string | null => {
 
 const ProjectManager = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const {
     projectSummaries,
     loading,
@@ -228,6 +230,7 @@ const ProjectManager = () => {
   } | null>(null)
   const [canvasElementMutationError, setCanvasElementMutationError] = useState<string | null>(null)
   const projectNameInputRef = useRef<HTMLInputElement | null>(null)
+  const handledCanvasActionKeyRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (projectSummaries.length === 0) {
@@ -508,6 +511,68 @@ const ProjectManager = () => {
     setCanvasElementMutationError(null)
     setCanvasInventoryDashboardId(dashboardId)
   }
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const canvasAction = params.get('canvasAction')
+    const actionDashboardIdRaw = params.get('canvasDashboardId')
+    const actionProjectIdRaw = params.get('projectId')
+    if (!canvasAction || !actionDashboardIdRaw || !actionProjectIdRaw) return
+
+    const actionDashboardId = Number(actionDashboardIdRaw)
+    const actionProjectId = Number(actionProjectIdRaw)
+    if (!Number.isFinite(actionDashboardId) || !Number.isFinite(actionProjectId)) return
+
+    const actionKey = `${canvasAction}:${actionProjectId}:${actionDashboardId}`
+    if (handledCanvasActionKeyRef.current === actionKey) return
+
+    if (selectedProjectId !== actionProjectId) {
+      setSelectedProjectId(actionProjectId)
+      return
+    }
+
+    const projectSummary = projectSummaries.find((summary) => summary.project.id === actionProjectId)
+    const dashboard = projectSummary?.dashboards.find((item) => item.id === actionDashboardId)
+    if (!dashboard) return
+
+    if (canvasAction === 'inventory') {
+      setCanvasElementMutationError(null)
+      setCanvasInventoryDashboardId(actionDashboardId)
+    } else if (canvasAction === 'edit') {
+      setDashboardMutationError(null)
+      setEditDashboardTarget({
+        id: actionDashboardId,
+        projectId: actionProjectId,
+        name: dashboard.name,
+        description: dashboard.description,
+      })
+    } else if (canvasAction === 'move') {
+      setMoveDashboardError(null)
+      setMoveDashboardTarget({
+        id: actionDashboardId,
+        projectId: actionProjectId,
+        name: dashboard.name,
+        description: dashboard.description,
+      })
+      setMoveDashboardTargetProjectId(actionProjectId)
+      setIsMoveDashboardModalOpen(true)
+    } else if (canvasAction === 'delete') {
+      setDashboardMutationError(null)
+      setDeleteDashboardTarget({
+        id: actionDashboardId,
+        projectId: actionProjectId,
+        name: dashboard.name,
+        description: dashboard.description,
+      })
+    } else {
+      return
+    }
+
+    handledCanvasActionKeyRef.current = actionKey
+    params.delete('canvasAction')
+    params.delete('canvasDashboardId')
+    void navigate(`/dashboard${params.toString() ? `?${params.toString()}` : ''}`, { replace: true })
+  }, [location.search, navigate, projectSummaries, selectedProjectId])
 
   const openCreateDashboard = (defaults?: { name?: string; description?: string }) => {
     setCreateDashboardError(null)
@@ -1680,47 +1745,30 @@ const ProjectManager = () => {
                       </Table.HeaderCell>
                       <Table.DataCell className="w-12 sm:w-14 text-right">
                         <div className="flex justify-end">
-                          <ActionMenu>
-                            <Tooltip content="Flere valg" describesChild>
-                              <ActionMenu.Trigger>
-                                <Button
-                                  variant="tertiary"
-                                  size="xsmall"
-                                  icon={<MoreVertical aria-hidden />}
-                                  aria-label={`Flere valg for ${dashboard.name}`}
-                                />
-                              </ActionMenu.Trigger>
-                            </Tooltip>
-                            <ActionMenu.Content align="end">
-                              <ActionMenu.Item as={RouterLink} to={canvasHref}>
-                                Åpne canvas
-                              </ActionMenu.Item>
-                              <ActionMenu.Item onClick={() => openCanvasInventory(dashboard.id)}>
-                                Elementoversikt
-                              </ActionMenu.Item>
-                              <ActionMenu.Item
-                                onClick={() =>
-                                  openEditDashboard(selectedProject.project.id, dashboard.id, dashboard.name)
-                                }
-                              >
-                                Endre info
-                              </ActionMenu.Item>
-                              <ActionMenu.Item
-                                onClick={() =>
-                                  openMoveDashboard(selectedProject.project.id, dashboard.id, dashboard.name)
-                                }
-                              >
-                                Flytt canvas
-                              </ActionMenu.Item>
-                              <ActionMenu.Item
-                                onClick={() =>
-                                  openDeleteDashboard(selectedProject.project.id, dashboard.id, dashboard.name)
-                                }
-                              >
-                                Slett canvas
-                              </ActionMenu.Item>
-                            </ActionMenu.Content>
-                          </ActionMenu>
+                          <CanvasActionMenu
+                            canvasName={dashboard.name}
+                            items={[
+                              {
+                                label: 'Elementoversikt',
+                                onClick: () => openCanvasInventory(dashboard.id),
+                              },
+                              {
+                                label: 'Endre info',
+                                onClick: () =>
+                                  openEditDashboard(selectedProject.project.id, dashboard.id, dashboard.name),
+                              },
+                              {
+                                label: 'Flytt canvas',
+                                onClick: () =>
+                                  openMoveDashboard(selectedProject.project.id, dashboard.id, dashboard.name),
+                              },
+                              {
+                                label: 'Slett canvas',
+                                onClick: () =>
+                                  openDeleteDashboard(selectedProject.project.id, dashboard.id, dashboard.name),
+                              },
+                            ]}
+                          />
                         </div>
                       </Table.DataCell>
                     </Table.Row>
