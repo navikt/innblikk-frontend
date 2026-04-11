@@ -387,10 +387,12 @@ const CanvasFrameLayer = ({
                 frame.kind === 'website') && (
                 <>
                   <div className="pointer-events-none absolute inset-0 z-20 overflow-visible" aria-hidden="true">
-                    <div
-                      className="pointer-events-auto absolute inset-x-2 top-0 h-3 cursor-move"
-                      onMouseDown={(event) => handleDragStart(event, frame)}
-                    />
+                    {frame.kind !== 'website' && (
+                      <div
+                        className="pointer-events-auto absolute inset-x-2 top-0 h-3 cursor-move"
+                        onMouseDown={(event) => handleDragStart(event, frame)}
+                      />
+                    )}
                     <div
                       className="pointer-events-auto absolute inset-x-2 bottom-0 h-3 cursor-move"
                       onMouseDown={(event) => handleDragStart(event, frame)}
@@ -513,7 +515,7 @@ const CanvasFrameLayer = ({
                       className={`pointer-events-auto absolute left-1/2 top-[-12px] flex h-6 w-6 -translate-x-1/2 cursor-grab items-center justify-center rounded-full bg-transparent opacity-0 transition-opacity active:cursor-grabbing group-hover:opacity-100 group-focus-within:opacity-100 ${
                         connectionDragState?.sourceFrameId === frame.id ? 'opacity-100' : ''
                       }`}
-                      style={{ top: `${-10 - WEBSITE_CARD_HEADER_HEIGHT}px` }}
+                      style={{ top: `${-2 - WEBSITE_CARD_HEADER_HEIGHT}px` }}
                       aria-label="Kobling"
                       title="Dra for å koble"
                       onMouseDown={(event) => startConnectionDrag(event, frame, 'top')}
