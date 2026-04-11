@@ -22,6 +22,7 @@ type CanvasTopBarProps = {
   onOpenAddHeading: () => void
   onOpenAddText: () => void
   onOpenAddSticky: () => void
+  onOpenAddSection: () => void
   onOpenImportStickyCsv: () => void
   onOpenAddImage: () => void
   onOpenAddIcon: () => void
@@ -70,6 +71,7 @@ const CanvasTopBar = ({
   onOpenAddHeading,
   onOpenAddText,
   onOpenAddSticky,
+  onOpenAddSection,
   onOpenImportStickyCsv,
   onOpenAddImage,
   onOpenAddIcon,
@@ -176,6 +178,7 @@ const CanvasTopBar = ({
                 onAddHeading={onOpenAddHeading}
                 onAddText={onOpenAddText}
                 onAddSticky={onOpenAddSticky}
+                onAddSection={onOpenAddSection}
                 onImportStickyCsv={onOpenImportStickyCsv}
                 onAddImage={onOpenAddImage}
                 onAddIcon={onOpenAddIcon}

@@ -8,6 +8,7 @@ type CanvasAddActionMenuProps = {
   onAddHeading: () => void
   onAddText: () => void
   onAddSticky: () => void
+  onAddSection: () => void
   onImportStickyCsv: () => void
   onAddImage: () => void
   onAddIcon: () => void
@@ -31,6 +32,7 @@ const CanvasAddActionMenu = ({
   onAddHeading,
   onAddText,
   onAddSticky,
+  onAddSection,
   onImportStickyCsv,
   onAddImage,
   onAddIcon,
@@ -88,6 +90,7 @@ const CanvasAddActionMenu = ({
       <ActionMenu.Item onClick={onAddDashboard}>Dashboard · Innblikk</ActionMenu.Item>
       <ActionMenu.Item onClick={onImportStickyCsv}>Undersøkelse · Skyra / Lumi</ActionMenu.Item>
       <ActionMenu.Divider />
+      <ActionMenu.Item onClick={onAddSection}>Seksjon</ActionMenu.Item>
       <ActionMenu.Item onClick={onAddTab}>Fane</ActionMenu.Item>
     </ActionMenu.Content>
   </ActionMenu>

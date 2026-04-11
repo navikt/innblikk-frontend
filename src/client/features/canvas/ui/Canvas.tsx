@@ -165,6 +165,7 @@ const getDefaultFrameSize = (
   if (kind === 'icon') return { width: 280, height: 240, minWidth: 72, minHeight: 72 }
   if (kind === 'figure') return { width: 240, height: 200, minWidth: 120, minHeight: 72 }
   if (kind === 'drawing') return { width: 240, height: 160, minWidth: 28, minHeight: 28 }
+  if (kind === 'section') return { width: 640, height: 420, minWidth: 240, minHeight: 180 }
   return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
 }
 
@@ -613,6 +614,9 @@ const Canvas = () => {
     () =>
       [...visibleFrames]
         .sort((a, b) => {
+          const aPriority = a.kind === 'section' ? 0 : 1
+          const bPriority = b.kind === 'section' ? 0 : 1
+          if (aPriority !== bPriority) return aPriority - bPriority
           if (a.y !== b.y) return a.y - b.y
           if (a.x !== b.x) return a.x - b.x
           return a.id.localeCompare(b.id)
@@ -2045,55 +2049,44 @@ const Canvas = () => {
       const stickyGap = 18
       const cardsPerRow = 2
       const sectionTitle = pendingCsvStickyImport.sectionTitle.trim()
-      const titleBlockHeight = sectionTitle ? 110 : 0
+      const sectionLabel = sectionTitle || 'Importert seksjon'
+      const sectionHeaderHeight = 92
+      const sectionPaddingX = 24
+      const sectionPaddingBottom = 24
       const baseX = Math.max(0, pointer.x)
       const baseY = Math.max(-CANVAS_TOP_BUFFER, pointer.y)
-      const stickyStartY = baseY + titleBlockHeight
+      const contentStartX = baseX + sectionPaddingX
+      const contentStartY = baseY + sectionHeaderHeight
       const timestampSeed = Date.now()
-      const framesToPersist: CanvasFrame[] = []
+      const importedFrames: CanvasFrame[] = []
       const isTableImport =
         Array.isArray(pendingCsvStickyImport.tableHeaders) &&
         pendingCsvStickyImport.tableHeaders.length > 0 &&
         Array.isArray(pendingCsvStickyImport.tableRows)
 
-      if (sectionTitle) {
-        framesToPersist.push({
-          id: `csv-section-title-${timestampSeed}`,
-          kind: 'heading',
-          headingText: sectionTitle,
-          headingFontSize: HEADING_FONT_SIZE_DEFAULT,
-          label: sectionTitle,
-          x: baseX,
-          y: baseY,
-          width: stickyWidth * 2 + columnGap,
-          height: 86,
-          refreshNonce: 0,
-        })
-      }
-
       if (isTableImport) {
         const tableRowCount = pendingCsvStickyImport.tableRows?.length ?? 0
-        framesToPersist.push({
+        importedFrames.push({
           id: `csv-table-${timestampSeed}`,
           kind: 'text',
           tableHeaders: pendingCsvStickyImport.tableHeaders,
           tableRows: pendingCsvStickyImport.tableRows,
           label: 'Tabell',
-          x: baseX,
-          y: stickyStartY,
+          x: contentStartX,
+          y: contentStartY,
           width: 700,
           height: estimateTableFrameHeight(tableRowCount),
           refreshNonce: 0,
         })
       } else if (pendingCsvStickyImport.aggregatedRatingsText) {
         const summaryText = pendingCsvStickyImport.aggregatedRatingsText || ''
-        framesToPersist.push({
+        importedFrames.push({
           id: `csv-rating-summary-${timestampSeed}`,
           kind: 'sticky',
           textContent: summaryText,
           label: 'Post-it-lapp',
-          x: baseX,
-          y: stickyStartY,
+          x: contentStartX,
+          y: contentStartY,
           width: stickyWidth,
           height: 320,
           refreshNonce: 0,
@@ -2102,19 +2095,46 @@ const Canvas = () => {
         pendingCsvStickyImport.noteTexts.forEach((content, rowIndex) => {
           const columnIndex = rowIndex % cardsPerRow
           const gridRowIndex = Math.floor(rowIndex / cardsPerRow)
-          framesToPersist.push({
+          importedFrames.push({
             id: `csv-sticky-${timestampSeed}-${rowIndex}`,
             kind: 'sticky',
             textContent: content,
             label: 'Post-it-lapp',
-            x: baseX + columnIndex * (stickyWidth + columnGap),
-            y: stickyStartY + gridRowIndex * (stickyHeight + stickyGap),
+            x: contentStartX + columnIndex * (stickyWidth + columnGap),
+            y: contentStartY + gridRowIndex * (stickyHeight + stickyGap),
             width: stickyWidth,
             height: stickyHeight,
             refreshNonce: 0,
           })
         })
       }
+
+      if (importedFrames.length === 0) {
+        setSyncError('Ingen rader å importere til canvas')
+        return
+      }
+
+      const rightEdge = importedFrames.reduce((max, frame) => {
+        const defaults = getDefaultFrameSize(frame)
+        return Math.max(max, frame.x + (frame.width ?? defaults.width))
+      }, baseX)
+      const bottomEdge = importedFrames.reduce((max, frame) => {
+        const defaults = getDefaultFrameSize(frame)
+        return Math.max(max, frame.y + (frame.height ?? defaults.height))
+      }, baseY + sectionHeaderHeight)
+
+      const sectionFrame: CanvasFrame = {
+        id: `csv-section-${timestampSeed}`,
+        kind: 'section',
+        label: sectionLabel,
+        x: baseX,
+        y: baseY,
+        width: Math.max(420, Math.ceil(rightEdge - baseX + sectionPaddingX)),
+        height: Math.max(sectionHeaderHeight + 160, Math.ceil(bottomEdge - baseY + sectionPaddingBottom)),
+        refreshNonce: 0,
+      }
+
+      const framesToPersist: CanvasFrame[] = [sectionFrame, ...importedFrames]
 
       try {
         isImportingStickyCsvRef.current = true
@@ -2395,6 +2415,17 @@ const Canvas = () => {
     setIsAddStickyModalOpen(false)
   }
 
+  const handleAddSectionCard = () => {
+    const frameDraft: PendingCanvasFrameDraft = {
+      kind: 'section',
+      label: 'Seksjon',
+      width: 640,
+      height: 420,
+      refreshNonce: 0,
+    }
+    queueFrameForPlacement(frameDraft, 'seksjon')
+  }
+
   const handleAddIconCard = () => {
     const selectedIcon = getCanvasIconOptionById(selectedIconId)
     if (!selectedIcon) {
@@ -2594,7 +2625,24 @@ const Canvas = () => {
     const pointer = getCanvasPointerPosition(event.clientX, event.clientY)
     if (!pointer) return
 
-    const idsToMove = selectedFrameIds.includes(frame.id) ? selectedFrameIds : [frame.id]
+    const selectedIds = selectedFrameIds.includes(frame.id) ? selectedFrameIds : [frame.id]
+    const sectionContainedIds =
+      frame.kind === 'section'
+        ? visibleFrames
+            .filter((candidate) => {
+              if (candidate.id === frame.id || candidate.kind === 'section') return false
+              const sectionBounds = getFrameBounds(frame)
+              const candidateBounds = getFrameBounds(candidate)
+              return (
+                candidateBounds.left >= sectionBounds.left &&
+                candidateBounds.right <= sectionBounds.right &&
+                candidateBounds.top >= sectionBounds.top &&
+                candidateBounds.bottom <= sectionBounds.bottom
+              )
+            })
+            .map((candidate) => candidate.id)
+        : []
+    const idsToMove = [...new Set([...selectedIds, ...sectionContainedIds])]
     const frameStartPositions = Object.fromEntries(
       frames.filter((item) => idsToMove.includes(item.id)).map((item) => [item.id, { x: item.x, y: item.y }] as const),
     )
@@ -3461,6 +3509,12 @@ const Canvas = () => {
             label: nextValue.trim() || 'Overskrift',
           }
         }
+        if (frame.kind === 'section') {
+          return {
+            ...frame,
+            label: nextValue,
+          }
+        }
         if (frame.kind === 'text' || frame.kind === 'sticky') {
           return {
             ...frame,
@@ -3493,6 +3547,12 @@ const Canvas = () => {
         headingText: normalizedHeading,
         label: normalizedHeading || 'Overskrift',
       }
+    } else if (frame.kind === 'section') {
+      const normalizedLabel = frame.label.trim()
+      nextFrame = {
+        ...frame,
+        label: normalizedLabel || 'Seksjon',
+      }
     } else {
       nextFrame = {
         ...frame,
@@ -3510,7 +3570,11 @@ const Canvas = () => {
 
   const handleStartEditingFrame = (id: string) => {
     const frame = frames.find((item) => item.id === id)
-    if (!frame || (frame.kind !== 'heading' && frame.kind !== 'text' && frame.kind !== 'sticky')) return
+    if (
+      !frame ||
+      (frame.kind !== 'heading' && frame.kind !== 'text' && frame.kind !== 'sticky' && frame.kind !== 'section')
+    )
+      return
 
     void (async () => {
       const lockAcquired = await acquireEditLock(frame)
@@ -3917,6 +3981,10 @@ const Canvas = () => {
     setIsAddStickyModalOpen(true)
   }
 
+  const handleOpenAddSection = () => {
+    handleAddSectionCard()
+  }
+
   const handleOpenImportStickyCsvModal = () => {
     handleClearImportStickyCsvFile()
     setIsImportStickyCsvModalOpen(true)
@@ -3998,6 +4066,25 @@ const Canvas = () => {
     setConnectionDragState(null)
   }
 
+  const sectionItemCountsById = useMemo(() => {
+    const next: Record<string, number> = {}
+    const sectionFrames = visibleFrames.filter((frame) => frame.kind === 'section')
+    sectionFrames.forEach((section) => {
+      const sectionBounds = getFrameBounds(section)
+      next[section.id] = visibleFrames.filter((frame) => {
+        if (frame.id === section.id || frame.kind === 'section') return false
+        const bounds = getFrameBounds(frame)
+        return (
+          bounds.left >= sectionBounds.left &&
+          bounds.right <= sectionBounds.right &&
+          bounds.top >= sectionBounds.top &&
+          bounds.bottom <= sectionBounds.bottom
+        )
+      }).length
+    })
+    return next
+  }, [getFrameBounds, visibleFrames])
+
   const canvasSurfaceHeight = useMemo(() => {
     const lowestFrameEdge = frameItems.reduce((maxBottom, frame) => {
       const defaults = getDefaultFrameSize(frame)
@@ -4061,6 +4148,7 @@ const Canvas = () => {
           onOpenAddHeading={handleOpenAddHeadingModal}
           onOpenAddText={handleOpenAddTextModal}
           onOpenAddSticky={handleOpenAddStickyModal}
+          onOpenAddSection={handleOpenAddSection}
           onOpenImportStickyCsv={handleOpenImportStickyCsvModal}
           onOpenAddImage={handleOpenAddImageModal}
           onOpenAddIcon={handleOpenAddIconModal}
@@ -4307,6 +4395,7 @@ const Canvas = () => {
                 ))}
                 <CanvasFrameLayer
                   frameItems={frameItems}
+                  sectionItemCountsById={sectionItemCountsById}
                   selectedFrameIds={selectedFrameIds}
                   activeInsightFrameId={activeInsightFrameId}
                   pageInsights={pageInsights}

@@ -36,6 +36,7 @@ type CanvasFrameItem = CanvasFrame & {
 
 type CanvasFrameLayerProps = {
   frameItems: CanvasFrameItem[]
+  sectionItemCountsById: Record<string, number>
   selectedFrameIds: string[]
   activeInsightFrameId: string | null
   pageInsights: Record<string, CanvasPageInsight>
@@ -97,6 +98,7 @@ type CanvasFrameLayerProps = {
 
 const CanvasFrameLayer = ({
   frameItems,
+  sectionItemCountsById,
   selectedFrameIds,
   activeInsightFrameId,
   pageInsights,
@@ -167,13 +169,19 @@ const CanvasFrameLayer = ({
             frame.tableHeaders.length > 0 &&
             Array.isArray(frame.tableRows)
           const editLockStatus =
-            frame.kind === 'heading' || frame.kind === 'text' || frame.kind === 'sticky'
+            frame.kind === 'heading' || frame.kind === 'text' || frame.kind === 'sticky' || frame.kind === 'section'
               ? getFrameLockStatus(frame)
               : { isLockedByOther: false, ownerLabel: null }
           return (
             <article
               key={frame.id}
               tabIndex={0}
+              role={frame.kind === 'section' ? 'region' : undefined}
+              aria-label={
+                frame.kind === 'section'
+                  ? `${frame.label || 'Seksjon'}. Inneholder ${sectionItemCountsById[frame.id] ?? 0} elementer.`
+                  : undefined
+              }
               className={`focus:outline-none ${
                 frame.kind === 'website' || frame.kind === 'image'
                   ? `group absolute flex flex-col overflow-visible rounded-lg border ${
@@ -184,19 +192,21 @@ const CanvasFrameLayer = ({
                           ? 'border-transparent'
                           : 'border-[var(--ax-border-neutral-subtle)]'
                     } ${isIllustrationFrame ? 'bg-transparent shadow-none' : 'bg-white shadow-sm'}`
-                  : frame.kind === 'chart'
-                    ? 'group absolute flex flex-col overflow-hidden rounded-lg border border-transparent bg-transparent shadow-none'
-                    : frame.kind === 'heading'
-                      ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
-                      : frame.kind === 'text'
-                        ? 'group absolute flex flex-col overflow-hidden rounded-xl border border-transparent bg-transparent shadow-none'
-                        : frame.kind === 'icon'
-                          ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
-                          : frame.kind === 'figure'
+                  : frame.kind === 'section'
+                    ? 'group absolute flex flex-col overflow-hidden rounded-2xl border-2 border-dashed border-[#8eb2de] bg-[#edf4ff]/70 shadow-none'
+                    : frame.kind === 'chart'
+                      ? 'group absolute flex flex-col overflow-hidden rounded-lg border border-transparent bg-transparent shadow-none'
+                      : frame.kind === 'heading'
+                        ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
+                        : frame.kind === 'text'
+                          ? 'group absolute flex flex-col overflow-hidden rounded-xl border border-transparent bg-transparent shadow-none'
+                          : frame.kind === 'icon'
                             ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
-                            : frame.kind === 'drawing'
+                            : frame.kind === 'figure'
                               ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
-                              : 'group absolute flex flex-col overflow-hidden rounded-xl border border-[#f1dc7d] bg-[#fff5b8] shadow-sm'
+                              : frame.kind === 'drawing'
+                                ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
+                                : 'group absolute flex flex-col overflow-hidden rounded-xl border border-[#f1dc7d] bg-[#fff5b8] shadow-sm'
               } ${isSelectedFrame ? 'ring-2 ring-[var(--ax-border-accent)]/60' : ''}`}
               style={{
                 left: `${frame.x}px`,
@@ -317,6 +327,7 @@ const CanvasFrameLayer = ({
               {(frame.kind === 'sticky' ||
                 frame.kind === 'text' ||
                 frame.kind === 'heading' ||
+                frame.kind === 'section' ||
                 frame.kind === 'icon' ||
                 frame.kind === 'figure' ||
                 frame.kind === 'drawing' ||
@@ -365,6 +376,7 @@ const CanvasFrameLayer = ({
               )}
               {(frame.kind === 'heading' ||
                 frame.kind === 'text' ||
+                frame.kind === 'section' ||
                 frame.kind === 'icon' ||
                 frame.kind === 'figure' ||
                 frame.kind === 'drawing') && (
@@ -694,6 +706,33 @@ const CanvasFrameLayer = ({
                     onBlur={handleEditableFrameBlur}
                     onStartEditing={handleStartEditingFrame}
                   />
+                ) : frame.kind === 'section' ? (
+                  <div className="flex h-full flex-col gap-2 p-3">
+                    {activeEditableFrameId === frame.id ? (
+                      <textarea
+                        value={frame.label}
+                        onMouseDown={(event) => event.stopPropagation()}
+                        onChange={(event) => handleEditableFrameChange(frame.id, event.target.value)}
+                        onBlur={() => handleEditableFrameBlur(frame.id)}
+                        className="w-full resize-none rounded-md border border-[var(--ax-border-neutral-subtle)] bg-white/95 px-2 py-1 text-sm font-semibold text-[var(--ax-text-default)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-border-accent)]"
+                        rows={2}
+                        autoFocus
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        className="w-fit max-w-full rounded-md border border-[var(--ax-border-neutral-subtle)] bg-white/90 px-2 py-1 text-left text-sm font-semibold text-[var(--ax-text-default)]"
+                        onMouseDown={(event) => event.stopPropagation()}
+                        onDoubleClick={() => handleStartEditingFrame(frame.id)}
+                        title="Dobbeltklikk for å gi seksjonen navn"
+                      >
+                        <span className="block truncate">{frame.label || 'Seksjon'}</span>
+                      </button>
+                    )}
+                    <p className="text-xs text-[var(--ax-text-subtle)]">
+                      Inneholder {sectionItemCountsById[frame.id] ?? 0} elementer.
+                    </p>
+                  </div>
                 ) : (
                   <div className="flex h-full items-center justify-center px-6 text-center text-sm text-[var(--ax-text-subtle)]">
                     Kunne ikke lage forhåndsvisning for denne siden.
