@@ -1751,6 +1751,7 @@ const Canvas = () => {
 
     const defaults = getDefaultFrameSize(frame)
     const sectionWidth = frame.width ?? defaults.width
+    const sectionHeight = defaults.height
     const nextSectionLabel = getNextAutoSectionLabel(frames)
     const duplicatedFrame: CanvasFrame = {
       ...frame,
@@ -1759,7 +1760,7 @@ const Canvas = () => {
       x: Math.max(0, frame.x + sectionWidth + 48),
       y: frame.y,
       width: sectionWidth,
-      height: frame.height ?? defaults.height,
+      height: sectionHeight,
       graphId: undefined,
       queryId: undefined,
       refreshNonce: 0,
