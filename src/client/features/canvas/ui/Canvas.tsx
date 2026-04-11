@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, Button, HelpText, Label, Loader, Modal, Select, TextField } from '@navikt/ds-react'
+import { Button, HelpText, Loader } from '@navikt/ds-react'
 import { ChartNoAxesCombined, Plus, Trash2 } from 'lucide-react'
 import { computeFunnelStepMetrics } from '../../analysis/utils/horizontalFunnel.ts'
 import { fetchPageMetrics } from '../../traffic/api/trafficApi.ts'
@@ -22,6 +22,7 @@ import {
 import CanvasIconModal from './icon/CanvasIconModal.tsx'
 import CanvasFrameActionPoints from './controls/CanvasFrameActionPoints.tsx'
 import CanvasAdminModals from './controls/CanvasAdminModals.tsx'
+import CanvasCoreModals from './controls/CanvasCoreModals.tsx'
 import CanvasTopBar from './controls/CanvasTopBar.tsx'
 import CanvasTimerModal from './controls/CanvasTimerModal.tsx'
 import CanvasZoomControls from './controls/CanvasZoomControls.tsx'
@@ -4912,124 +4913,112 @@ const Canvas = () => {
         </aside>
       </section>
 
-      <Modal
-        open={shouldShowCreateCanvasModal && !isCreateTeamModalOpen}
-        onClose={() => {
-          // Keep modal open until user creates or navigates away.
+      <CanvasCoreModals
+        shouldShowCreateCanvasModal={shouldShowCreateCanvasModal}
+        isCreateTeamModalOpen={isCreateTeamModalOpen}
+        isCreatingCanvas={isCreatingCanvas}
+        createCanvasProjectId={createCanvasProjectId}
+        createCanvasProjectOptions={createCanvasProjectOptions}
+        createCanvasNameInput={createCanvasNameInput}
+        createCanvasError={createCanvasError}
+        onOpenCreateTeam={() => {
+          setCreateTeamError(null)
+          setIsCreateTeamModalOpen(true)
         }}
-        header={{ heading: 'Lag canvas', closeButton: false }}
-        width="small"
-        closeOnBackdropClick={false}
-      >
-        <Modal.Body>
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <div className="flex items-center justify-between gap-2">
-                <Label htmlFor="create-canvas-team-select">Team</Label>
-                <Button
-                  variant="tertiary"
-                  size="small"
-                  type="button"
-                  icon={<Plus aria-hidden size={16} />}
-                  onClick={() => {
-                    setCreateTeamError(null)
-                    setIsCreateTeamModalOpen(true)
-                  }}
-                  disabled={isCreatingCanvas}
-                >
-                  Nytt team
-                </Button>
-              </div>
-              <Select
-                id="create-canvas-team-select"
-                label="Team"
-                hideLabel
-                value={createCanvasProjectId}
-                onChange={(event) => {
-                  setCreateCanvasProjectId(event.target.value)
-                  if (createCanvasError) setCreateCanvasError(null)
-                }}
-                disabled={isCreatingCanvas}
-              >
-                <option value="" disabled>
-                  {createCanvasProjectOptions.length === 0 ? 'Laster team...' : 'Velg team'}
-                </option>
-                {createCanvasProjectOptions.map((option) => (
-                  <option key={option.id} value={String(option.id)}>
-                    {option.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <TextField
-              label="Canvas-navn"
-              value={createCanvasNameInput}
-              onChange={(event) => {
-                setCreateCanvasNameInput(event.target.value)
-                if (createCanvasError) setCreateCanvasError(null)
-              }}
-              disabled={isCreatingCanvas}
-            />
-            {createCanvasError && <Alert variant="error">{createCanvasError}</Alert>}
-          </div>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button onClick={() => void handleCreateCanvas()} size="small" loading={isCreatingCanvas}>
-            Lag canvas
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-      <Modal
-        open={isCreateTeamModalOpen}
-        onClose={() => {
+        onCreateCanvasProjectIdChange={(value) => {
+          setCreateCanvasProjectId(value)
+          if (createCanvasError) setCreateCanvasError(null)
+        }}
+        onCreateCanvasNameChange={(value) => {
+          setCreateCanvasNameInput(value)
+          if (createCanvasError) setCreateCanvasError(null)
+        }}
+        onSubmitCreateCanvas={() => void handleCreateCanvas()}
+        isCreatingTeam={isCreatingTeam}
+        createTeamNameInput={createTeamNameInput}
+        createTeamDescriptionInput={createTeamDescriptionInput}
+        createTeamError={createTeamError}
+        onCloseCreateTeam={() => {
           if (isCreatingTeam) return
           setIsCreateTeamModalOpen(false)
           setCreateTeamError(null)
         }}
-        header={{ heading: 'Nytt team' }}
-        width="small"
-      >
-        <Modal.Body>
-          <div className="space-y-3">
-            <TextField
-              label="Navn"
-              size="small"
-              value={createTeamNameInput}
-              onChange={(event) => {
-                setCreateTeamNameInput(event.target.value)
-                if (createTeamError) setCreateTeamError(null)
-              }}
-            />
-            <TextField
-              label="Beskrivelse (valgfri)"
-              size="small"
-              value={createTeamDescriptionInput}
-              onChange={(event) => {
-                setCreateTeamDescriptionInput(event.target.value)
-                if (createTeamError) setCreateTeamError(null)
-              }}
-            />
-            {createTeamError && <Alert variant="error">{createTeamError}</Alert>}
-          </div>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button size="small" onClick={() => void handleCreateTeam()} loading={isCreatingTeam}>
-            Opprett
-          </Button>
-          <Button
-            size="small"
-            variant="secondary"
-            onClick={() => {
-              setIsCreateTeamModalOpen(false)
-              setCreateTeamError(null)
-            }}
-            disabled={isCreatingTeam}
-          >
-            Avbryt
-          </Button>
-        </Modal.Footer>
-      </Modal>
+        onCreateTeamNameChange={(value) => {
+          setCreateTeamNameInput(value)
+          if (createTeamError) setCreateTeamError(null)
+        }}
+        onCreateTeamDescriptionChange={(value) => {
+          setCreateTeamDescriptionInput(value)
+          if (createTeamError) setCreateTeamError(null)
+        }}
+        onSubmitCreateTeam={() => void handleCreateTeam()}
+        isAddDashboardModalOpen={isAddDashboardModalOpen}
+        isLoadingDashboardOptions={isLoadingDashboardOptions}
+        selectedProjectToAddId={selectedProjectToAddId}
+        projectOptions={projectOptions}
+        selectedDashboardToAddId={selectedDashboardToAddId}
+        dashboardOptions={dashboardOptions}
+        addDashboardError={addDashboardError}
+        onCloseAddDashboardModal={() => {
+          setIsAddDashboardModalOpen(false)
+          setAddDashboardError(null)
+        }}
+        onAddDashboardProjectChange={(value) => {
+          setSelectedProjectToAddId(value)
+          setSelectedDashboardToAddId('')
+          if (addDashboardError) setAddDashboardError(null)
+          const parsedProjectId = Number(value)
+          void loadDashboardOptions(Number.isFinite(parsedProjectId) ? parsedProjectId : null)
+        }}
+        onAddDashboardSelectionChange={(value) => {
+          setSelectedDashboardToAddId(value)
+          if (addDashboardError) setAddDashboardError(null)
+        }}
+        onSubmitAddDashboard={() => void handleAddDashboardCard()}
+        isEditDashboardModalOpen={isEditDashboardModalOpen}
+        isLoadingEditDashboardOptions={isLoadingEditDashboardOptions}
+        editDashboardSelectedProjectId={editDashboardSelectedProjectId}
+        editDashboardProjectOptions={editDashboardProjectOptions}
+        editDashboardSelectedDashboardId={editDashboardSelectedDashboardId}
+        editDashboardOptions={editDashboardOptions}
+        editDashboardError={editDashboardError}
+        onCloseEditDashboardModal={() => {
+          setIsEditDashboardModalOpen(false)
+          setEditDashboardFrameId(null)
+          setEditDashboardError(null)
+        }}
+        onEditDashboardProjectChange={(value) => {
+          setEditDashboardSelectedProjectId(value)
+          setEditDashboardSelectedDashboardId('')
+          if (editDashboardError) setEditDashboardError(null)
+          const parsedProjectId = Number(value)
+          void loadEditDashboardOptions(Number.isFinite(parsedProjectId) ? parsedProjectId : null)
+        }}
+        onEditDashboardSelectionChange={(value) => {
+          setEditDashboardSelectedDashboardId(value)
+          if (editDashboardError) setEditDashboardError(null)
+        }}
+        onSubmitEditDashboard={() => void handleSaveEditedDashboard()}
+        deleteTarget={deleteTarget}
+        bulkDeleteProgress={bulkDeleteProgress}
+        onCloseDeleteModal={() => setDeleteTarget(null)}
+        onConfirmDeleteTarget={() => void handleConfirmDeleteTarget()}
+        isAddChartModalOpen={isAddChartModalOpen}
+        isLoadingChartOptions={isLoadingChartOptions}
+        chartOptions={chartOptions}
+        selectedChartOptionId={selectedChartOptionId}
+        addChartError={addChartError}
+        onCloseAddChartModal={() => {
+          setIsAddChartModalOpen(false)
+          setAddChartError(null)
+        }}
+        onChartOptionChange={(value) => {
+          setSelectedChartOptionId(value)
+          if (addChartError) setAddChartError(null)
+        }}
+        onSubmitAddChart={() => void handleAddChartCard()}
+        isSavingCanvasItem={isSavingCanvasItem}
+      />
 
       <CanvasAdminModals
         isCanvasSettingsModalOpen={isCanvasSettingsModalOpen}
@@ -5158,168 +5147,6 @@ const Canvas = () => {
           setAddIllustrationError(null)
         }}
       />
-
-      <Modal
-        open={isAddDashboardModalOpen}
-        onClose={() => {
-          setIsAddDashboardModalOpen(false)
-          setAddDashboardError(null)
-        }}
-        header={{ heading: 'Legg til dashboard i canvas' }}
-        width="small"
-      >
-        <Modal.Body>
-          <div className="space-y-3">
-            <Select
-              label="Team"
-              value={selectedProjectToAddId}
-              onChange={(event) => {
-                const nextProjectId = event.target.value
-                setSelectedProjectToAddId(nextProjectId)
-                setSelectedDashboardToAddId('')
-                if (addDashboardError) setAddDashboardError(null)
-                const parsedProjectId = Number(nextProjectId)
-                void loadDashboardOptions(Number.isFinite(parsedProjectId) ? parsedProjectId : null)
-              }}
-              disabled={isLoadingDashboardOptions}
-            >
-              <option value="" disabled>
-                {isLoadingDashboardOptions ? 'Laster team...' : 'Velg team'}
-              </option>
-              {projectOptions.map((option) => (
-                <option key={option.id} value={String(option.id)}>
-                  {option.name}
-                </option>
-              ))}
-            </Select>
-            {(isLoadingDashboardOptions || dashboardOptions.length > 0) && (
-              <Select
-                label="Dashboard"
-                value={selectedDashboardToAddId}
-                onChange={(event) => {
-                  setSelectedDashboardToAddId(event.target.value)
-                  if (addDashboardError) setAddDashboardError(null)
-                }}
-                disabled={isLoadingDashboardOptions}
-              >
-                <option value="" disabled>
-                  {isLoadingDashboardOptions ? 'Laster dashboards...' : 'Velg dashboard'}
-                </option>
-                {dashboardOptions.map((option) => (
-                  <option key={option.id} value={String(option.id)}>
-                    {option.name}
-                  </option>
-                ))}
-              </Select>
-            )}
-            {addDashboardError && <Alert variant="error">{addDashboardError}</Alert>}
-          </div>
-        </Modal.Body>
-        <Modal.Footer>
-          {dashboardOptions.length > 0 && (
-            <Button
-              onClick={() => void handleAddDashboardCard()}
-              size="small"
-              loading={isSavingCanvasItem}
-              disabled={!selectedDashboardToAddId}
-            >
-              Legg til
-            </Button>
-          )}
-          <Button
-            variant="secondary"
-            size="small"
-            onClick={() => {
-              setIsAddDashboardModalOpen(false)
-              setAddDashboardError(null)
-            }}
-          >
-            Avbryt
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-      <Modal
-        open={isEditDashboardModalOpen}
-        onClose={() => {
-          setIsEditDashboardModalOpen(false)
-          setEditDashboardFrameId(null)
-          setEditDashboardError(null)
-        }}
-        header={{ heading: 'Rediger dashboard' }}
-        width="small"
-      >
-        <Modal.Body>
-          <div className="space-y-3">
-            <Select
-              label="Team"
-              value={editDashboardSelectedProjectId}
-              onChange={(event) => {
-                const nextProjectId = event.target.value
-                setEditDashboardSelectedProjectId(nextProjectId)
-                setEditDashboardSelectedDashboardId('')
-                if (editDashboardError) setEditDashboardError(null)
-                const parsedProjectId = Number(nextProjectId)
-                void loadEditDashboardOptions(Number.isFinite(parsedProjectId) ? parsedProjectId : null)
-              }}
-              disabled={isLoadingEditDashboardOptions}
-            >
-              <option value="" disabled>
-                {isLoadingEditDashboardOptions ? 'Laster team...' : 'Velg team'}
-              </option>
-              {editDashboardProjectOptions.map((option) => (
-                <option key={option.id} value={String(option.id)}>
-                  {option.name}
-                </option>
-              ))}
-            </Select>
-            {(isLoadingEditDashboardOptions || editDashboardOptions.length > 0) && (
-              <Select
-                label="Dashboard"
-                value={editDashboardSelectedDashboardId}
-                onChange={(event) => {
-                  setEditDashboardSelectedDashboardId(event.target.value)
-                  if (editDashboardError) setEditDashboardError(null)
-                }}
-                disabled={isLoadingEditDashboardOptions}
-              >
-                <option value="" disabled>
-                  {isLoadingEditDashboardOptions ? 'Laster dashboards...' : 'Velg dashboard'}
-                </option>
-                {editDashboardOptions.map((option) => (
-                  <option key={option.id} value={String(option.id)}>
-                    {option.name}
-                  </option>
-                ))}
-              </Select>
-            )}
-            {editDashboardError && <Alert variant="error">{editDashboardError}</Alert>}
-          </div>
-        </Modal.Body>
-        <Modal.Footer>
-          {editDashboardOptions.length > 0 && (
-            <Button
-              onClick={() => void handleSaveEditedDashboard()}
-              size="small"
-              loading={isSavingCanvasItem}
-              disabled={!editDashboardSelectedDashboardId}
-            >
-              Lagre
-            </Button>
-          )}
-          <Button
-            variant="secondary"
-            size="small"
-            onClick={() => {
-              setIsEditDashboardModalOpen(false)
-              setEditDashboardFrameId(null)
-              setEditDashboardError(null)
-            }}
-          >
-            Avbryt
-          </Button>
-        </Modal.Footer>
-      </Modal>
 
       <CanvasImageUrlModal
         open={isEditImageModalOpen}
@@ -5499,123 +5326,6 @@ const Canvas = () => {
         }}
         onConfirm={handleDeleteChart}
       />
-
-      <Modal
-        open={Boolean(deleteTarget)}
-        onClose={() => {
-          if (isSavingCanvasItem) return
-          setDeleteTarget(null)
-        }}
-        header={{
-          heading:
-            deleteTarget?.type === 'connection'
-              ? 'Fjern kobling'
-              : deleteTarget?.type === 'frames'
-                ? 'Fjern valgte kort'
-                : 'Fjern kort',
-        }}
-        width="small"
-      >
-        <Modal.Body>
-          <div className="space-y-3">
-            <p>
-              Er du sikker på at du vil fjerne{' '}
-              <strong>
-                {deleteTarget?.type === 'connection'
-                  ? 'koblingen'
-                  : deleteTarget?.type === 'frames'
-                    ? 'de valgte kortene'
-                    : 'kortet'}
-              </strong>
-              {deleteTarget?.label ? (
-                <>
-                  {' '}
-                  <strong>{deleteTarget.label}</strong>
-                </>
-              ) : null}
-              ?
-            </p>
-            <p className="text-[var(--ax-text-subtle)]">Denne handlingen kan ikke angres.</p>
-            {deleteTarget?.type === 'frames' && isSavingCanvasItem && bulkDeleteProgress ? (
-              <Alert variant="info" size="small">
-                Sletter kort {bulkDeleteProgress.completed} av {bulkDeleteProgress.total}...
-              </Alert>
-            ) : null}
-          </div>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="danger" onClick={() => void handleConfirmDeleteTarget()} loading={isSavingCanvasItem}>
-            {deleteTarget?.type === 'connection'
-              ? 'Fjern kobling'
-              : deleteTarget?.type === 'frames'
-                ? isSavingCanvasItem && bulkDeleteProgress
-                  ? `Sletter (${bulkDeleteProgress.completed}/${bulkDeleteProgress.total})`
-                  : 'Fjern valgte'
-                : 'Fjern kort'}
-          </Button>
-          <Button variant="secondary" onClick={() => setDeleteTarget(null)} disabled={isSavingCanvasItem}>
-            Avbryt
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-      <Modal
-        open={isAddChartModalOpen}
-        onClose={() => {
-          setIsAddChartModalOpen(false)
-          setAddChartError(null)
-        }}
-        header={{ heading: 'Importer graf' }}
-        width="small"
-      >
-        <Modal.Body>
-          <div className="space-y-3">
-            {(isLoadingChartOptions || chartOptions.length > 0) && (
-              <Select
-                label="Graf"
-                value={selectedChartOptionId}
-                onChange={(event) => {
-                  setSelectedChartOptionId(event.target.value)
-                  if (addChartError) setAddChartError(null)
-                }}
-                disabled={isLoadingChartOptions}
-              >
-                <option value="" disabled>
-                  {isLoadingChartOptions ? 'Laster grafer...' : 'Velg graf'}
-                </option>
-                {chartOptions.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.title}
-                  </option>
-                ))}
-              </Select>
-            )}
-            {addChartError && <Alert variant="error">{addChartError}</Alert>}
-          </div>
-        </Modal.Body>
-        <Modal.Footer>
-          {chartOptions.length > 0 && (
-            <Button
-              onClick={() => void handleAddChartCard()}
-              size="small"
-              loading={isSavingCanvasItem}
-              disabled={!selectedChartOptionId}
-            >
-              Legg til
-            </Button>
-          )}
-          <Button
-            variant="secondary"
-            size="small"
-            onClick={() => {
-              setIsAddChartModalOpen(false)
-              setAddChartError(null)
-            }}
-          >
-            Avbryt
-          </Button>
-        </Modal.Footer>
-      </Modal>
 
       <CanvasHeadingModal
         open={isAddHeadingModalOpen}
