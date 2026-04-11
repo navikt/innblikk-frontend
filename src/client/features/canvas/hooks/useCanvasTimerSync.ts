@@ -9,7 +9,7 @@ import {
   type CanvasTimerPayload,
 } from '../api/canvasTimerApi.ts'
 
-const TIMER_SYNC_INTERVAL_MS = 2000
+const TIMER_ACTIVE_SYNC_INTERVAL_MS = 2000
 const TIMER_FINISHED_VISIBLE_MS = 15000
 
 const formatRemainingTime = (remainingSeconds: number): string => {
@@ -51,6 +51,10 @@ const useCanvasTimerSync = ({ enabled, projectId, dashboardId, onSyncError }: Us
     }
   }, [dashboardId, enabled, onSyncError, projectId])
 
+  const refreshTimer = useCallback(async () => {
+    await syncTimer()
+  }, [syncTimer])
+
   useEffect(() => {
     if (!enabled || projectId === null || dashboardId === null) {
       setTimerPayload(null)
@@ -58,12 +62,14 @@ const useCanvasTimerSync = ({ enabled, projectId, dashboardId, onSyncError }: Us
     }
 
     void syncTimer()
+    if (!timerPayload) return
+
     const intervalId = window.setInterval(() => {
       void syncTimer()
-    }, TIMER_SYNC_INTERVAL_MS)
+    }, TIMER_ACTIVE_SYNC_INTERVAL_MS)
 
     return () => window.clearInterval(intervalId)
-  }, [dashboardId, enabled, projectId, syncTimer])
+  }, [dashboardId, enabled, projectId, syncTimer, timerPayload])
 
   const remainingSeconds = useMemo(() => {
     if (!timerPayload) return 0
@@ -185,6 +191,7 @@ const useCanvasTimerSync = ({ enabled, projectId, dashboardId, onSyncError }: Us
     pauseTimer,
     resumeTimer,
     adjustTimerMinutes,
+    refreshTimer,
   }
 }
 

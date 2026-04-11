@@ -5,6 +5,8 @@ import type { CanvasConnection, CanvasFrame } from '../model/types.ts'
 import { fetchCanvasStorageData } from '../api/canvasStorageApi.ts'
 
 const DEFAULT_SYNC_INTERVAL_MS = 4000
+const MAX_SYNC_INTERVAL_MS = 30000
+const HIDDEN_TAB_SYNC_INTERVAL_MS = 15000
 
 const buildFrameSignature = (frame: CanvasFrame): string =>
   JSON.stringify({
@@ -106,6 +108,61 @@ const reconcileConnections = (current: CanvasConnection[], incoming: CanvasConne
   return [...nextFromIncoming, ...localUnsyncedConnections]
 }
 
+const buildCanvasDataSignature = (params: {
+  categories: GraphCategoryDto[]
+  frames: CanvasFrame[]
+  connections: CanvasConnection[]
+}): string => {
+  const categories = [...params.categories]
+    .map((category) => ({ id: category.id, name: category.name ?? '' }))
+    .sort((a, b) => a.id - b.id)
+  const frames = [...params.frames]
+    .map((frame) => ({
+      graphId: frame.graphId ?? null,
+      id: frame.id,
+      signature: buildFrameSignature(frame),
+    }))
+    .sort((a, b) => {
+      if (a.graphId !== b.graphId)
+        return (a.graphId ?? Number.MAX_SAFE_INTEGER) - (b.graphId ?? Number.MAX_SAFE_INTEGER)
+      return a.id.localeCompare(b.id)
+    })
+  const connections = [...params.connections]
+    .map((connection) => ({
+      graphId: connection.graphId ?? null,
+      id: connection.id,
+      signature: buildConnectionSignature(connection),
+    }))
+    .sort((a, b) => {
+      if (a.graphId !== b.graphId)
+        return (a.graphId ?? Number.MAX_SAFE_INTEGER) - (b.graphId ?? Number.MAX_SAFE_INTEGER)
+      return a.id.localeCompare(b.id)
+    })
+
+  return JSON.stringify({
+    categories,
+    frames,
+    connections,
+  })
+}
+
+const getAdaptiveDelayMs = (params: {
+  baseIntervalMs: number
+  unchangedSyncCount: number
+  consecutiveErrorCount: number
+}): number => {
+  const baseIntervalMs = Math.max(1000, params.baseIntervalMs)
+
+  if (params.consecutiveErrorCount > 0) {
+    const errorMultiplier = 2 ** Math.min(4, params.consecutiveErrorCount)
+    return Math.min(MAX_SYNC_INTERVAL_MS, Math.round(baseIntervalMs * errorMultiplier))
+  }
+
+  if (params.unchangedSyncCount <= 0) return baseIntervalMs
+  const idleMultiplier = 1.5 ** Math.min(6, params.unchangedSyncCount)
+  return Math.min(MAX_SYNC_INTERVAL_MS, Math.round(baseIntervalMs * idleMultiplier))
+}
+
 type UseCanvasBackgroundSyncParams = {
   enabled: boolean
   projectId: number | null
@@ -140,15 +197,41 @@ const useCanvasBackgroundSync = ({
 
     let isActive = true
     let isSyncInFlight = false
+    let timeoutId: number | null = null
+    let unchangedSyncCount = 0
+    let consecutiveErrorCount = 0
+    let previousDataSignature: string | null = null
+
+    const scheduleNextSync = (delayMs: number) => {
+      if (!isActive) return
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId)
+      }
+      timeoutId = window.setTimeout(
+        () => {
+          void runSync()
+        },
+        Math.max(1000, delayMs),
+      )
+    }
 
     const runSync = async () => {
       if (!isActive || isSyncInFlight) return
-      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        scheduleNextSync(HIDDEN_TAB_SYNC_INTERVAL_MS)
+        return
+      }
 
       isSyncInFlight = true
       try {
         const data = await fetchCanvasStorageData(projectId, dashboardId)
         if (!isActive) return
+
+        const nextDataSignature = buildCanvasDataSignature(data)
+        const hasDataChanged = previousDataSignature === null || previousDataSignature !== nextDataSignature
+        previousDataSignature = nextDataSignature
+        unchangedSyncCount = hasDataChanged ? 0 : unchangedSyncCount + 1
+        consecutiveErrorCount = 0
 
         setCanvasCategories(data.categories)
         setActiveCanvasCategoryId((current) => {
@@ -166,22 +249,27 @@ const useCanvasBackgroundSync = ({
         setConnections((current) => reconcileConnections(current, data.connections))
       } catch (error) {
         if (!isActive) return
+        consecutiveErrorCount += 1
         setSyncError(error instanceof Error ? error.message : 'Kunne ikke synkronisere canvas-data')
       } finally {
         isSyncInFlight = false
+        scheduleNextSync(
+          getAdaptiveDelayMs({
+            baseIntervalMs: intervalMs,
+            unchangedSyncCount,
+            consecutiveErrorCount,
+          }),
+        )
       }
     }
 
-    const intervalId = window.setInterval(
-      () => {
-        void runSync()
-      },
-      Math.max(1000, intervalMs),
-    )
+    void runSync()
 
     return () => {
       isActive = false
-      window.clearInterval(intervalId)
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId)
+      }
     }
   }, [
     activeCanvasCategoryId,

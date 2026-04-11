@@ -1,5 +1,5 @@
 import { ActionMenu, Alert, Button, Tabs } from '@navikt/ds-react'
-import { MoreVertical, Timer } from 'lucide-react'
+import { MoreVertical, Timer, Users } from 'lucide-react'
 import type { RefObject } from 'react'
 import PeriodPicker from '../../../analysis/ui/PeriodPicker.tsx'
 import type { GraphCategoryDto } from '../../../oversikt/model/types.ts'
@@ -48,6 +48,9 @@ type CanvasTopBarProps = {
   getCanvasCategoryDisplayName: (name?: string) => string
   isCanvasFrontpage: boolean
   showDateFilter: boolean
+  activeParticipantCount?: number
+  activeOtherParticipantCount?: number
+  participantLabels?: string[]
 }
 
 const CanvasTopBar = ({
@@ -93,6 +96,9 @@ const CanvasTopBar = ({
   getCanvasCategoryDisplayName,
   isCanvasFrontpage,
   showDateFilter,
+  activeParticipantCount = 1,
+  activeOtherParticipantCount = 0,
+  participantLabels = [],
 }: CanvasTopBarProps) => {
   const normalizedCanvasTitle = canvasTitle.trim()
   const headingTitle =
@@ -182,6 +188,28 @@ const CanvasTopBar = ({
                 iconSize={16}
                 withFloatingFrame={false}
               />
+              {activeParticipantCount > 1 && (
+                <ActionMenu>
+                  <ActionMenu.Trigger>
+                    <Button
+                      size="small"
+                      variant={activeOtherParticipantCount > 0 ? 'secondary' : 'tertiary'}
+                      icon={<Users size={16} />}
+                      aria-label={`${activeParticipantCount} personer i canvas`}
+                      title={`${activeParticipantCount} personer i canvas`}
+                    >
+                      {activeParticipantCount}
+                    </Button>
+                  </ActionMenu.Trigger>
+                  <ActionMenu.Content align="end">
+                    {participantLabels.map((label, index) => (
+                      <ActionMenu.Item key={`canvas-participant-${index}`} disabled>
+                        {label}
+                      </ActionMenu.Item>
+                    ))}
+                  </ActionMenu.Content>
+                </ActionMenu>
+              )}
               {isGrafbyggerEmbedded && (
                 <Button size="small" variant="secondary" onClick={onCloseGrafbygger}>
                   Lukk grafbygger

@@ -68,6 +68,7 @@ import { useLocation } from 'react-router-dom'
 import useCanvasCsvImport from '../hooks/useCanvasCsvImport.ts'
 import useCanvasBackgroundSync from '../hooks/useCanvasBackgroundSync.ts'
 import useCanvasEditLocks from '../hooks/useCanvasEditLocks.ts'
+import useCanvasPresence from '../hooks/useCanvasPresence.ts'
 import useCanvasTimerSync from '../hooks/useCanvasTimerSync.ts'
 import { fetchCanvasStorageData } from '../api/canvasStorageApi.ts'
 
@@ -439,12 +440,22 @@ const Canvas = () => {
     pauseTimer,
     resumeTimer,
     adjustTimerMinutes,
+    refreshTimer,
   } = useCanvasTimerSync({
     enabled: canPersistToDashboard && projectId !== null && dashboardId !== null && canvasInitMode === 'existing',
     projectId,
     dashboardId,
     onSyncError: (message) => setSyncError(message),
   })
+
+  const canvasSyncContextEnabled =
+    canPersistToDashboard && projectId !== null && dashboardId !== null && canvasInitMode === 'existing'
+  const { activeParticipantCount, activeOtherParticipantCount, shouldEnableBackgroundSync, participantLabels } =
+    useCanvasPresence({
+      enabled: canvasSyncContextEnabled,
+      projectId,
+      dashboardId,
+    })
 
   const activeInsightPeriodLabel = useMemo(
     () => getCanvasPeriodLabel(period, customStartDate, customEndDate),
@@ -1004,7 +1015,7 @@ const Canvas = () => {
   }, [canPersistToDashboard, projectId, dashboardId, canvasInitMode, initialCategoryId])
 
   useCanvasBackgroundSync({
-    enabled: canPersistToDashboard && projectId !== null && dashboardId !== null && canvasInitMode === 'existing',
+    enabled: canvasSyncContextEnabled && shouldEnableBackgroundSync,
     projectId,
     dashboardId,
     initialCategoryId,
@@ -1022,7 +1033,7 @@ const Canvas = () => {
     releaseLock: releaseEditLock,
     getFrameLockStatus,
   } = useCanvasEditLocks({
-    enabled: canPersistToDashboard && projectId !== null && dashboardId !== null && canvasInitMode === 'existing',
+    enabled: canvasSyncContextEnabled && (shouldEnableBackgroundSync || activeEditableFrameId !== null),
     projectId,
     dashboardId,
     activeEditableFrame,
@@ -3486,7 +3497,10 @@ const Canvas = () => {
   const handleOpenTimerModal = () => {
     if (Date.now() < timerModalReopenBlockedUntilRef.current) return
     setTimerModalError(null)
-    setIsTimerModalOpen(true)
+    void (async () => {
+      await refreshTimer()
+      setIsTimerModalOpen(true)
+    })()
   }
 
   const handleStartCanvasTimer = () => {
@@ -4029,6 +4043,9 @@ const Canvas = () => {
           getCanvasCategoryDisplayName={getCanvasCategoryDisplayName}
           isCanvasFrontpage={isCanvasFrontpage}
           showDateFilter={showDateFilter}
+          activeParticipantCount={activeParticipantCount}
+          activeOtherParticipantCount={activeOtherParticipantCount}
+          participantLabels={participantLabels}
         />
 
         <div className="flex h-full">
