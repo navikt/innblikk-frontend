@@ -23,7 +23,7 @@ const CanvasStickyFrame = ({
 }: CanvasStickyFrameProps) => {
   if (isEditing) {
     return (
-      <div className="h-full overflow-auto p-4">
+      <div className="h-full overflow-auto p-4 pt-6">
         <textarea
           value={textContent || ''}
           onChange={(event) => onChange(id, event.target.value)}
@@ -39,7 +39,7 @@ const CanvasStickyFrame = ({
   }
 
   return (
-    <div className="relative h-full overflow-auto p-4">
+    <div className="relative h-full overflow-auto p-4 pt-6">
       <div
         className="cursor-text whitespace-pre-wrap break-words text-base leading-7 text-[#4a3d00]"
         onClick={() => onStartEditing(id)}

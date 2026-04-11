@@ -58,7 +58,7 @@ type CanvasCoreModalsProps = {
   deleteTarget: CanvasDeleteTarget | null
   bulkDeleteProgress: { total: number; completed: number } | null
   onCloseDeleteModal: () => void
-  onConfirmDeleteTarget: () => void
+  onConfirmDeleteTarget: (mode?: 'section-only' | 'section-with-content') => void
   isAddChartModalOpen: boolean
   isLoadingChartOptions: boolean
   chartOptions: CanvasChartOption[]
@@ -466,9 +466,11 @@ const CanvasCoreModals = ({
           heading:
             deleteTarget?.type === 'connection'
               ? 'Fjern kobling'
-              : deleteTarget?.type === 'frames'
-                ? 'Fjern valgte kort'
-                : 'Fjern kort',
+              : deleteTarget?.type === 'section'
+                ? 'Fjern seksjon'
+                : deleteTarget?.type === 'frames'
+                  ? 'Fjern valgte kort'
+                  : 'Fjern kort',
         }}
         width="small"
       >
@@ -479,9 +481,11 @@ const CanvasCoreModals = ({
               <strong>
                 {deleteTarget?.type === 'connection'
                   ? 'koblingen'
-                  : deleteTarget?.type === 'frames'
-                    ? 'de valgte kortene'
-                    : 'kortet'}
+                  : deleteTarget?.type === 'section'
+                    ? 'seksjonen'
+                    : deleteTarget?.type === 'frames'
+                      ? 'de valgte kortene'
+                      : 'kortet'}
               </strong>
               {deleteTarget?.label ? (
                 <>
@@ -492,6 +496,11 @@ const CanvasCoreModals = ({
               ?
             </p>
             <p className="text-[var(--ax-text-subtle)]">Denne handlingen kan ikke angres.</p>
+            {deleteTarget?.type === 'section' ? (
+              <p className="text-[var(--ax-text-subtle)]">
+                Seksjonen inneholder {deleteTarget.containedFrameIds.length} element(er).
+              </p>
+            ) : null}
             {deleteTarget?.type === 'frames' && isSavingCanvasItem && bulkDeleteProgress ? (
               <Alert variant="info" size="small">
                 Sletter kort {bulkDeleteProgress.completed} av {bulkDeleteProgress.total}...
@@ -500,15 +509,34 @@ const CanvasCoreModals = ({
           </div>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="danger" onClick={onConfirmDeleteTarget} loading={isSavingCanvasItem}>
-            {deleteTarget?.type === 'connection'
-              ? 'Fjern kobling'
-              : deleteTarget?.type === 'frames'
-                ? isSavingCanvasItem && bulkDeleteProgress
-                  ? `Sletter (${bulkDeleteProgress.completed}/${bulkDeleteProgress.total})`
-                  : 'Fjern valgte'
-                : 'Fjern kort'}
-          </Button>
+          {deleteTarget?.type === 'section' ? (
+            <>
+              <Button
+                variant="secondary"
+                onClick={() => onConfirmDeleteTarget('section-only')}
+                loading={isSavingCanvasItem}
+              >
+                Fjern kun seksjon
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => onConfirmDeleteTarget('section-with-content')}
+                loading={isSavingCanvasItem}
+              >
+                Fjern seksjon og innhold
+              </Button>
+            </>
+          ) : (
+            <Button variant="danger" onClick={() => onConfirmDeleteTarget()} loading={isSavingCanvasItem}>
+              {deleteTarget?.type === 'connection'
+                ? 'Fjern kobling'
+                : deleteTarget?.type === 'frames'
+                  ? isSavingCanvasItem && bulkDeleteProgress
+                    ? `Sletter (${bulkDeleteProgress.completed}/${bulkDeleteProgress.total})`
+                    : 'Fjern valgte'
+                  : 'Fjern kort'}
+            </Button>
+          )}
           <Button variant="secondary" onClick={onCloseDeleteModal} disabled={isSavingCanvasItem}>
             Avbryt
           </Button>

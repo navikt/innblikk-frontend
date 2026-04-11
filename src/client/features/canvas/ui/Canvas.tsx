@@ -96,6 +96,7 @@ import {
   CANVAS_QUERY_NAME,
   CANVAS_SURFACE_BOTTOM_BUFFER,
   CANVAS_SURFACE_HEIGHT,
+  CANVAS_SURFACE_RIGHT_BUFFER,
   CANVAS_SURFACE_TOP_GAP,
   CANVAS_SURFACE_WIDTH,
   CANVAS_TOP_BUFFER,
@@ -200,6 +201,14 @@ const getFrameBoundsForLayout = (frame: CanvasFrame): { left: number; top: numbe
     bottom: frame.y + height,
   }
 }
+
+const GRID_SECTION_LAYOUT_CONFIG = {
+  paddingX: 24,
+  paddingTop: 92,
+  paddingBottom: 24,
+  gapX: 24,
+  gapY: 18,
+} as const
 
 const Canvas = () => {
   const LAST_PROJECT_STORAGE_KEY = 'projectmanager:lastSelectedProjectId'
@@ -2325,6 +2334,105 @@ const Canvas = () => {
     [],
   )
 
+  const findContainingGridSectionId = useCallback((frame: CanvasFrame, framePool: CanvasFrame[]): string | null => {
+    if (frame.kind === 'section') return null
+    const bounds = getFrameBoundsForLayout(frame)
+    const centerX = (bounds.left + bounds.right) / 2
+    const centerY = (bounds.top + bounds.bottom) / 2
+    const targetSection = framePool.find((candidate) => {
+      if (candidate.kind !== 'section' || candidate.sectionLayout !== 'grid') return false
+      if ((candidate.categoryId ?? null) !== (frame.categoryId ?? null)) return false
+      const sectionBounds = getFrameBoundsForLayout(candidate)
+      return (
+        centerX >= sectionBounds.left &&
+        centerX <= sectionBounds.right &&
+        centerY >= sectionBounds.top &&
+        centerY <= sectionBounds.bottom
+      )
+    })
+    return targetSection?.id ?? null
+  }, [])
+
+  const reflowGridSections = useCallback((inputFrames: CanvasFrame[], sectionIds: string[]) => {
+    const uniqueSectionIds = [...new Set(sectionIds)]
+    if (uniqueSectionIds.length === 0) return { nextFrames: inputFrames, changedFrameIds: new Set<string>() }
+
+    const byId = new Map(inputFrames.map((frame) => [frame.id, frame]))
+    const changedFrameIds = new Set<string>()
+
+    uniqueSectionIds.forEach((sectionId) => {
+      const sectionFrame = byId.get(sectionId)
+      if (!sectionFrame || sectionFrame.kind !== 'section' || sectionFrame.sectionLayout !== 'grid') return
+
+      const sectionBounds = getFrameBoundsForLayout(sectionFrame)
+      const contentLeft = sectionBounds.left + GRID_SECTION_LAYOUT_CONFIG.paddingX
+      const contentRight = sectionBounds.right - GRID_SECTION_LAYOUT_CONFIG.paddingX
+      const contentTop = sectionBounds.top + GRID_SECTION_LAYOUT_CONFIG.paddingTop
+
+      const containedFrames = inputFrames
+        .map((frame) => byId.get(frame.id) ?? frame)
+        .filter((frame) => {
+          if (frame.id === sectionId || frame.kind === 'section') return false
+          if ((frame.categoryId ?? null) !== (sectionFrame.categoryId ?? null)) return false
+          const bounds = getFrameBoundsForLayout(frame)
+          const centerX = (bounds.left + bounds.right) / 2
+          const centerY = (bounds.top + bounds.bottom) / 2
+          return (
+            centerX >= sectionBounds.left &&
+            centerX <= sectionBounds.right &&
+            centerY >= sectionBounds.top &&
+            centerY <= sectionBounds.bottom
+          )
+        })
+        .sort((a, b) => {
+          if (a.y !== b.y) return a.y - b.y
+          if (a.x !== b.x) return a.x - b.x
+          return a.id.localeCompare(b.id)
+        })
+
+      let cursorX = contentLeft
+      let cursorY = contentTop
+      let currentRowHeight = 0
+      let contentBottomEdge = contentTop
+
+      containedFrames.forEach((frame) => {
+        const defaults = getDefaultFrameSize(frame)
+        const width = frame.width ?? defaults.width
+        const height = frame.height ?? defaults.height
+        const shouldWrap = cursorX !== contentLeft && cursorX + width > contentRight
+        if (shouldWrap) {
+          cursorX = contentLeft
+          cursorY += currentRowHeight + GRID_SECTION_LAYOUT_CONFIG.gapY
+          currentRowHeight = 0
+        }
+
+        const nextFrame: CanvasFrame = {
+          ...frame,
+          x: Math.max(0, cursorX),
+          y: Math.max(-CANVAS_TOP_BUFFER, cursorY),
+        }
+        byId.set(nextFrame.id, nextFrame)
+        changedFrameIds.add(nextFrame.id)
+        cursorX += width + GRID_SECTION_LAYOUT_CONFIG.gapX
+        currentRowHeight = Math.max(currentRowHeight, height)
+        contentBottomEdge = Math.max(contentBottomEdge, nextFrame.y + height)
+      })
+
+      const nextSectionFrame: CanvasFrame = {
+        ...sectionFrame,
+        height: Math.max(
+          sectionFrame.height ?? getDefaultFrameSize(sectionFrame).height,
+          Math.ceil(contentBottomEdge - sectionFrame.y + GRID_SECTION_LAYOUT_CONFIG.paddingBottom),
+        ),
+      }
+      byId.set(nextSectionFrame.id, nextSectionFrame)
+      changedFrameIds.add(nextSectionFrame.id)
+    })
+
+    const nextFrames = inputFrames.map((frame) => byId.get(frame.id) ?? frame)
+    return { nextFrames, changedFrameIds }
+  }, [])
+
   const createConnectionBetweenFrames = useCallback(
     async (source: CanvasFrame, target: CanvasFrame) => {
       if (source.kind !== 'website' || target.kind !== 'website') return
@@ -3089,7 +3197,19 @@ const Canvas = () => {
       if (hasStopped) return
       hasStopped = true
       const resizedFrame = framesRef.current.find((frame) => frame.id === resizeState.id)
-      if (resizedFrame?.graphId) {
+      if (resizedFrame?.kind === 'section' && resizedFrame.sectionLayout === 'grid') {
+        const { nextFrames, changedFrameIds } = reflowGridSections(framesRef.current, [resizedFrame.id])
+        setFrames(nextFrames)
+        const framesToPersist = nextFrames.filter((frame) => changedFrameIds.has(frame.id) && Boolean(frame.graphId))
+        void Promise.all(
+          framesToPersist.map((frame) =>
+            persistFrame(frame).catch((error) => {
+              setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre seksjonsoppsett')
+              return frame
+            }),
+          ),
+        )
+      } else if (resizedFrame?.graphId) {
         void persistFrame(resizedFrame).catch((error) => {
           setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre størrelse i canvas')
         })
@@ -3103,26 +3223,34 @@ const Canvas = () => {
         return
       }
       setFrames((prev) =>
-        prev.map((frame) => {
-          if (frame.id !== resizeState.id) return frame
-          const defaults = getDefaultFrameSize(frame)
-          const deltaX = (event.clientX - resizeState.startX) / canvasZoom
-          const deltaY = (event.clientY - resizeState.startY) / canvasZoom
-          if (frame.kind === 'heading') {
+        (() => {
+          const nextFrames = prev.map((frame) => {
+            if (frame.id !== resizeState.id) return frame
+            const defaults = getDefaultFrameSize(frame)
+            const deltaX = (event.clientX - resizeState.startX) / canvasZoom
+            const deltaY = (event.clientY - resizeState.startY) / canvasZoom
+            if (frame.kind === 'heading') {
+              return {
+                ...frame,
+                width: Math.min(
+                  HEADING_TEXT_MAX_WIDTH,
+                  Math.max(HEADING_TEXT_MIN_WIDTH, resizeState.startWidth + deltaX),
+                ),
+              }
+            }
             return {
               ...frame,
-              width: Math.min(
-                HEADING_TEXT_MAX_WIDTH,
-                Math.max(HEADING_TEXT_MIN_WIDTH, resizeState.startWidth + deltaX),
-              ),
+              width: Math.max(defaults.minWidth, resizeState.startWidth + deltaX),
+              height: Math.max(defaults.minHeight, resizeState.startHeight + deltaY),
             }
-          }
-          return {
-            ...frame,
-            width: Math.max(defaults.minWidth, resizeState.startWidth + deltaX),
-            height: Math.max(defaults.minHeight, resizeState.startHeight + deltaY),
-          }
-        }),
+          })
+
+          const resizedSection = nextFrames.find(
+            (frame) => frame.id === resizeState.id && frame.kind === 'section' && frame.sectionLayout === 'grid',
+          )
+          if (!resizedSection) return nextFrames
+          return reflowGridSections(nextFrames, [resizedSection.id]).nextFrames
+        })(),
       )
     }
 
@@ -3141,7 +3269,7 @@ const Canvas = () => {
       document.removeEventListener('mouseup', onMouseUp, true)
       window.removeEventListener('blur', onWindowBlur)
     }
-  }, [canvasZoom, persistFrame, resizeState])
+  }, [canvasZoom, persistFrame, reflowGridSections, resizeState])
 
   useEffect(() => {
     if (!selectionBox) return
@@ -3423,7 +3551,37 @@ const Canvas = () => {
     }
   }
 
+  const getContainedFrameIdsForSection = useCallback(
+    (sectionFrame: CanvasFrame): string[] => {
+      if (sectionFrame.kind !== 'section') return []
+      const sectionBounds = getFrameBounds(sectionFrame)
+      return frames
+        .filter((frame) => {
+          if (frame.id === sectionFrame.id || frame.kind === 'section') return false
+          if ((frame.categoryId ?? null) !== (sectionFrame.categoryId ?? null)) return false
+          const bounds = getFrameBounds(frame)
+          const intersectsSection =
+            bounds.right >= sectionBounds.left &&
+            bounds.left <= sectionBounds.right &&
+            bounds.bottom >= sectionBounds.top &&
+            bounds.top <= sectionBounds.bottom
+          return intersectsSection
+        })
+        .map((frame) => frame.id)
+    },
+    [frames, getFrameBounds],
+  )
+
   const handleRequestRemoveFrame = (frame: CanvasFrame) => {
+    if (frame.kind === 'section') {
+      setDeleteTarget({
+        type: 'section',
+        id: frame.id,
+        label: frame.label || 'seksjonen',
+        containedFrameIds: getContainedFrameIdsForSection(frame),
+      })
+      return
+    }
     setDeleteTarget({
       type: 'frame',
       id: frame.id,
@@ -3448,7 +3606,7 @@ const Canvas = () => {
     })
   }
 
-  const handleConfirmDeleteTarget = async () => {
+  const handleConfirmDeleteTarget = async (mode?: 'section-only' | 'section-with-content') => {
     if (!deleteTarget) return
     const target = deleteTarget
     setIsSavingCanvasItem(true)
@@ -3456,6 +3614,28 @@ const Canvas = () => {
     try {
       if (target.type === 'frame') {
         await handleRemovePage(target.id)
+        setDeleteTarget(null)
+        return
+      }
+
+      if (target.type === 'section') {
+        if (mode === 'section-with-content') {
+          const latestSectionFrame = frames.find((frame) => frame.id === target.id)
+          const latestContainedIds =
+            latestSectionFrame && latestSectionFrame.kind === 'section'
+              ? getContainedFrameIdsForSection(latestSectionFrame)
+              : target.containedFrameIds
+          const idsToDelete = [target.id, ...latestContainedIds]
+          setBulkDeleteProgress({ total: idsToDelete.length, completed: 0 })
+
+          for (let index = 0; index < idsToDelete.length; index += 1) {
+            await handleRemovePage(idsToDelete[index])
+            setBulkDeleteProgress({ total: idsToDelete.length, completed: index + 1 })
+          }
+        } else {
+          await handleRemovePage(target.id)
+        }
+        setBulkDeleteProgress(null)
         setDeleteTarget(null)
         return
       }
@@ -3473,8 +3653,10 @@ const Canvas = () => {
         return
       }
 
-      await handleRemoveConnection(target.id)
-      setDeleteTarget(null)
+      if (target.type === 'connection') {
+        await handleRemoveConnection(target.id)
+        setDeleteTarget(null)
+      }
     } finally {
       setIsSavingCanvasItem(false)
       setBulkDeleteProgress(null)
@@ -3844,6 +4026,49 @@ const Canvas = () => {
             return frame
           }),
         ),
+    )
+  }
+
+  const handleMoveFrameToSection = (frameId: string, sectionId: string) => {
+    const frameToMove = frames.find((frame) => frame.id === frameId)
+    const targetSection = frames.find((frame) => frame.id === sectionId)
+    if (!frameToMove || !targetSection || targetSection.kind !== 'section') return
+    if (frameToMove.kind !== 'sticky' && frameToMove.kind !== 'text') return
+    if ((frameToMove.categoryId ?? null) !== (targetSection.categoryId ?? null)) return
+
+    const sourceGridSectionId = findContainingGridSectionId(frameToMove, frames)
+    const targetBounds = getFrameBoundsForLayout(targetSection)
+    const baseX = targetBounds.left + GRID_SECTION_LAYOUT_CONFIG.paddingX
+    const baseY = targetBounds.top + GRID_SECTION_LAYOUT_CONFIG.paddingTop
+
+    const movedFrame: CanvasFrame = {
+      ...frameToMove,
+      x: Math.max(0, baseX),
+      y: Math.max(-CANVAS_TOP_BUFFER, baseY),
+    }
+
+    const framesWithMove = frames.map((frame) => (frame.id === frameId ? movedFrame : frame))
+    const affectedGridSectionIds = [
+      sourceGridSectionId,
+      targetSection.sectionLayout === 'grid' ? targetSection.id : null,
+    ].filter((value): value is string => Boolean(value))
+    const { nextFrames: nextFramesAfterReflow, changedFrameIds } = reflowGridSections(
+      framesWithMove,
+      affectedGridSectionIds,
+    )
+    changedFrameIds.add(movedFrame.id)
+
+    setFrames(nextFramesAfterReflow)
+    const framesToPersist = nextFramesAfterReflow.filter(
+      (frame) => changedFrameIds.has(frame.id) && Boolean(frame.graphId),
+    )
+    void Promise.all(
+      framesToPersist.map((frame) =>
+        persistFrame(frame).catch((error) => {
+          setSyncError(error instanceof Error ? error.message : 'Kunne ikke flytte element til seksjon')
+          return frame
+        }),
+      ),
     )
   }
 
@@ -4434,6 +4659,48 @@ const Canvas = () => {
     return next
   }, [getFrameBounds, visibleFrames])
 
+  const sectionMoveOptions = useMemo(
+    () =>
+      visibleFrames
+        .filter((frame) => frame.kind === 'section')
+        .sort((a, b) => {
+          if (a.y !== b.y) return a.y - b.y
+          if (a.x !== b.x) return a.x - b.x
+          return a.id.localeCompare(b.id)
+        })
+        .map((frame) => ({
+          id: frame.id,
+          label: frame.label || 'Seksjon',
+        })),
+    [visibleFrames],
+  )
+
+  const frameContainingSectionIdByFrameId = useMemo(() => {
+    const byId: Record<string, string> = {}
+    const sections = visibleFrames.filter((frame) => frame.kind === 'section')
+
+    visibleFrames.forEach((frame) => {
+      if (frame.kind === 'section') return
+      const bounds = getFrameBounds(frame)
+      const centerX = (bounds.left + bounds.right) / 2
+      const centerY = (bounds.top + bounds.bottom) / 2
+      const containingSection = sections.find((section) => {
+        const sectionBounds = getFrameBounds(section)
+        return (
+          centerX >= sectionBounds.left &&
+          centerX <= sectionBounds.right &&
+          centerY >= sectionBounds.top &&
+          centerY <= sectionBounds.bottom
+        )
+      })
+      if (containingSection) {
+        byId[frame.id] = containingSection.id
+      }
+    })
+
+    return byId
+  }, [getFrameBounds, visibleFrames])
+
   const canvasSurfaceHeight = useMemo(() => {
     const lowestFrameEdge = frameItems.reduce((maxBottom, frame) => {
       const defaults = getDefaultFrameSize(frame)
@@ -4446,6 +4713,16 @@ const Canvas = () => {
 
     return Math.max(CANVAS_SURFACE_HEIGHT, Math.ceil(lowestFrameEdge + CANVAS_SURFACE_BOTTOM_BUFFER))
   }, [frameItems, getHeadingFrameHeight])
+
+  const canvasSurfaceWidth = useMemo(() => {
+    const furthestFrameEdge = frameItems.reduce((maxRight, frame) => {
+      const defaults = getDefaultFrameSize(frame)
+      const frameWidth = frame.kind === 'heading' ? getHeadingFrameWidth(frame) : (frame.width ?? defaults.width)
+      return Math.max(maxRight, frame.x + frameWidth)
+    }, 0)
+
+    return Math.max(CANVAS_SURFACE_WIDTH, Math.ceil(furthestFrameEdge + CANVAS_SURFACE_RIGHT_BUFFER))
+  }, [frameItems, getHeadingFrameWidth])
 
   const grafbyggerWebsite = useMemo(() => {
     if (selectedWebsite) return selectedWebsite
@@ -4572,7 +4849,7 @@ const Canvas = () => {
             <div
               className="relative"
               style={{
-                width: `${CANVAS_SURFACE_WIDTH * canvasZoom}px`,
+                width: `${canvasSurfaceWidth * canvasZoom}px`,
                 minHeight: `${canvasCanvasTopOffset + canvasSurfaceHeight * canvasZoom}px`,
               }}
             >
@@ -4583,7 +4860,7 @@ const Canvas = () => {
                 onMouseLeave={isDrawingMode ? undefined : handleCanvasSurfaceMouseLeave}
                 style={{
                   top: `${canvasCanvasTopOffset}px`,
-                  width: `${CANVAS_SURFACE_WIDTH}px`,
+                  width: `${canvasSurfaceWidth}px`,
                   height: `${canvasSurfaceHeight}px`,
                   transform: `scale(${canvasZoom})`,
                   transformOrigin: 'top left',
@@ -4745,6 +5022,8 @@ const Canvas = () => {
                 <CanvasFrameLayer
                   frameItems={frameItems}
                   sectionItemCountsById={sectionItemCountsById}
+                  sectionMoveOptions={sectionMoveOptions}
+                  frameContainingSectionIdByFrameId={frameContainingSectionIdByFrameId}
                   selectedFrameIds={selectedFrameIds}
                   activeInsightFrameId={activeInsightFrameId}
                   pageInsights={pageInsights}
@@ -4789,6 +5068,7 @@ const Canvas = () => {
                   handleAdjustHeadingFontSize={handleAdjustHeadingFontSize}
                   handleRotateIllustrationFrame={handleRotateIllustrationFrame}
                   handleToggleSectionLayout={handleToggleSectionLayout}
+                  handleMoveFrameToSection={handleMoveFrameToSection}
                   handleRequestRemoveFrame={handleRequestRemoveFrame}
                   startConnectionDrag={startConnectionDrag}
                   handleAssignWebsiteToChart={handleAssignWebsiteToChart}
@@ -4946,7 +5226,7 @@ const Canvas = () => {
         deleteTarget={deleteTarget}
         bulkDeleteProgress={bulkDeleteProgress}
         onCloseDeleteModal={() => setDeleteTarget(null)}
-        onConfirmDeleteTarget={() => void handleConfirmDeleteTarget()}
+        onConfirmDeleteTarget={(mode) => void handleConfirmDeleteTarget(mode)}
         isAddChartModalOpen={isAddChartModalOpen}
         isLoadingChartOptions={isLoadingChartOptions}
         chartOptions={chartOptions}

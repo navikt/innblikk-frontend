@@ -27,6 +27,7 @@ export const CANVAS_QUERY_NAME = 'canvas-config'
 export const CANVAS_SURFACE_WIDTH = 2200
 export const CANVAS_SURFACE_HEIGHT = 1500
 export const CANVAS_SURFACE_TOP_GAP = 24
+export const CANVAS_SURFACE_RIGHT_BUFFER = 220
 export const CANVAS_SURFACE_BOTTOM_BUFFER = 420
 export const CANVAS_ZOOM_MIN = 0.5
 export const CANVAS_ZOOM_MAX = 1.5

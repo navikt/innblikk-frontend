@@ -37,6 +37,8 @@ type CanvasFrameItem = CanvasFrame & {
 type CanvasFrameLayerProps = {
   frameItems: CanvasFrameItem[]
   sectionItemCountsById: Record<string, number>
+  sectionMoveOptions: Array<{ id: string; label: string }>
+  frameContainingSectionIdByFrameId: Record<string, string>
   selectedFrameIds: string[]
   activeInsightFrameId: string | null
   pageInsights: Record<string, CanvasPageInsight>
@@ -86,6 +88,7 @@ type CanvasFrameLayerProps = {
   handleAdjustHeadingFontSize: (id: string, delta: number) => void
   handleRotateIllustrationFrame: (id: string, delta: number) => void
   handleToggleSectionLayout: (id: string) => void
+  handleMoveFrameToSection: (frameId: string, sectionId: string) => void
   handleRequestRemoveFrame: (frame: CanvasFrame) => void
   startConnectionDrag: (event: React.MouseEvent, frame: CanvasFrame, side: ConnectionAnchorSide) => void
   handleAssignWebsiteToChart: (frame: CanvasFrame, website: Website | null) => Promise<void>
@@ -100,6 +103,8 @@ type CanvasFrameLayerProps = {
 const CanvasFrameLayer = ({
   frameItems,
   sectionItemCountsById,
+  sectionMoveOptions,
+  frameContainingSectionIdByFrameId,
   selectedFrameIds,
   activeInsightFrameId,
   pageInsights,
@@ -144,6 +149,7 @@ const CanvasFrameLayer = ({
   handleAdjustHeadingFontSize,
   handleRotateIllustrationFrame,
   handleToggleSectionLayout,
+  handleMoveFrameToSection,
   handleRequestRemoveFrame,
   startConnectionDrag,
   handleAssignWebsiteToChart,
@@ -174,6 +180,11 @@ const CanvasFrameLayer = ({
             frame.kind === 'heading' || frame.kind === 'text' || frame.kind === 'sticky' || frame.kind === 'section'
               ? getFrameLockStatus(frame)
               : { isLockedByOther: false, ownerLabel: null }
+          const currentSectionId = frameContainingSectionIdByFrameId[frame.id]
+          const sectionMoveOptionsForFrame =
+            frame.kind === 'sticky' || frame.kind === 'text'
+              ? sectionMoveOptions.filter((option) => option.id !== currentSectionId)
+              : sectionMoveOptions
           return (
             <article
               key={frame.id}
@@ -376,6 +387,8 @@ const CanvasFrameLayer = ({
                     onRotateIllustrationRight={() => handleRotateIllustrationFrame(frame.id, ICON_ROTATION_STEP_DEG)}
                     sectionLayoutMode={frame.sectionLayout === 'grid' ? 'grid' : 'freeform'}
                     onToggleSectionLayout={() => handleToggleSectionLayout(frame.id)}
+                    sectionMoveOptions={sectionMoveOptionsForFrame}
+                    onMoveToSection={(sectionId) => handleMoveFrameToSection(frame.id, sectionId)}
                     onRemoveFrame={() => handleRequestRemoveFrame(frame)}
                   />
                 </>

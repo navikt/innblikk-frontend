@@ -1,5 +1,5 @@
-import { Button } from '@navikt/ds-react'
-import { Copy, Edit2, Grid3X3, Move, RotateCcw, RotateCw, Trash2 } from 'lucide-react'
+import { ActionMenu, Button } from '@navikt/ds-react'
+import { ArrowRightLeft, Copy, Edit2, Grid3X3, Move, RotateCcw, RotateCw, Trash2 } from 'lucide-react'
 import type { MouseEvent } from 'react'
 import type { CanvasSectionLayoutMode } from '../../model/types.ts'
 
@@ -27,6 +27,8 @@ type CanvasFrameActionPointsProps = {
   onRotateIllustrationRight: () => void
   sectionLayoutMode?: CanvasSectionLayoutMode
   onToggleSectionLayout: () => void
+  sectionMoveOptions?: Array<{ id: string; label: string }>
+  onMoveToSection: (sectionId: string) => void
   onRemoveFrame: () => void
 }
 
@@ -263,6 +265,8 @@ const CanvasFrameActionPoints = ({
   onRotateIllustrationRight,
   sectionLayoutMode,
   onToggleSectionLayout,
+  sectionMoveOptions = [],
+  onMoveToSection,
   onRemoveFrame,
 }: CanvasFrameActionPointsProps) => {
   const showRemoveButton = frameKind !== 'website' || Boolean(isInternalDashboard)
@@ -277,7 +281,7 @@ const CanvasFrameActionPoints = ({
         frameKind === 'drawing' ||
         isIllustrationFrame
           ? 'right-0 -top-6 flex items-center gap-1'
-          : 'right-2 top-2'
+          : 'right-2 top-2 flex items-center gap-1'
       }`}
     >
       <ImageOrDashboardEditActionPoint
@@ -330,6 +334,32 @@ const CanvasFrameActionPoints = ({
           aria-label={isSectionGrid ? 'Bytt til friform' : 'Bytt til rutenett'}
           className={actionButtonClassName}
         />
+      )}
+      {(frameKind === 'sticky' || frameKind === 'text') && sectionMoveOptions.length > 0 && (
+        <ActionMenu>
+          <ActionMenu.Trigger>
+            <Button
+              size="xsmall"
+              variant="tertiary"
+              icon={<ArrowRightLeft size={14} />}
+              onMouseDown={stopMouseDownPropagation}
+              title="Flytt til seksjon"
+              aria-label="Flytt til seksjon"
+              className={actionButtonClassName}
+            />
+          </ActionMenu.Trigger>
+          <ActionMenu.Content align="end">
+            {sectionMoveOptions.map((option) => (
+              <ActionMenu.Item
+                key={option.id}
+                onMouseDown={stopMouseDownPropagation}
+                onClick={() => onMoveToSection(option.id)}
+              >
+                {option.label}
+              </ActionMenu.Item>
+            ))}
+          </ActionMenu.Content>
+        </ActionMenu>
       )}
       {showRemoveButton && (
         <Button

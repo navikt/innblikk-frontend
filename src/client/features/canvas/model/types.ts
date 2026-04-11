@@ -94,6 +94,12 @@ export type CanvasDeleteTarget =
       label: string
     }
   | {
+      type: 'section'
+      id: string
+      label: string
+      containedFrameIds: string[]
+    }
+  | {
       type: 'frames'
       ids: string[]
       label: string
