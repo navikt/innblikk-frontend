@@ -24,7 +24,6 @@ import CanvasFrameActionPoints from './controls/CanvasFrameActionPoints.tsx'
 import CanvasAdminModals from './controls/CanvasAdminModals.tsx'
 import CanvasTopBar from './controls/CanvasTopBar.tsx'
 import CanvasTimerModal from './controls/CanvasTimerModal.tsx'
-import CanvasAddActionMenu from './controls/CanvasAddActionMenu.tsx'
 import CanvasZoomControls from './controls/CanvasZoomControls.tsx'
 import CanvasDrawingToolbar from './drawing/CanvasDrawingToolbar.tsx'
 import CanvasDrawingDraftOverlay from './drawing/CanvasDrawingDraftOverlay.tsx'
@@ -4901,21 +4900,6 @@ const Canvas = () => {
                     </Button>
                   </div>
                 )}
-                <CanvasAddActionMenu
-                  onAddWebsite={handleOpenAddPageModal}
-                  onOpenGrafbygger={handleOpenGrafbyggerFromAddMenu}
-                  onAddDashboard={handleOpenAddDashboardModal}
-                  onAddHeading={handleOpenAddHeadingModal}
-                  onAddText={handleOpenAddTextModal}
-                  onAddSticky={handleOpenAddStickyModal}
-                  onImportStickyCsv={handleOpenImportStickyCsvModal}
-                  onAddImage={handleOpenAddImageModal}
-                  onAddIcon={handleOpenAddIconModal}
-                  onAddFigure={handleOpenAddFigureModal}
-                  onAddDrawing={handleOpenAddDrawing}
-                  onAddIllustration={handleOpenAddIllustrationModal}
-                  onAddTab={handleOpenCreateTabModal}
-                />
                 <CanvasZoomControls
                   canvasZoom={canvasZoom}
                   onZoomOut={() => handleCanvasZoomChange(canvasZoom - CANVAS_ZOOM_STEP)}
