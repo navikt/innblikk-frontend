@@ -73,12 +73,15 @@ const useCanvasTimerSync = ({ enabled, projectId, dashboardId, onSyncError }: Us
 
   const remainingSeconds = useMemo(() => {
     if (!timerPayload) return 0
+    if (timerPayload.isPaused) {
+      return Math.max(0, Math.floor(timerPayload.pausedRemainingSeconds ?? 0))
+    }
     const endsAtMs = Date.parse(timerPayload.endsAt)
     if (!Number.isFinite(endsAtMs)) return 0
     return Math.max(0, Math.ceil((endsAtMs - nowMs) / 1000))
   }, [nowMs, timerPayload])
 
-  const isTimerRunning = Boolean(timerPayload) && remainingSeconds > 0
+  const isTimerRunning = Boolean(timerPayload) && !timerPayload?.isPaused && remainingSeconds > 0
   const isTimerPaused = Boolean(timerPayload?.isPaused) && remainingSeconds > 0
   const timerLabel = timerPayload ? formatRemainingTime(remainingSeconds) : null
 
@@ -163,6 +166,7 @@ const useCanvasTimerSync = ({ enabled, projectId, dashboardId, onSyncError }: Us
   useEffect(() => {
     if (!enabled || projectId === null || dashboardId === null) return
     if (!timerPayload) return
+    if (timerPayload.isPaused) return
     if (remainingSeconds > 0) return
 
     const timeoutId = window.setTimeout(() => {

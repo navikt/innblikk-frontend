@@ -111,15 +111,17 @@ const CanvasTimerModal = ({
       {error && <p className="text-sm text-[var(--ax-text-danger)]">{error}</p>}
     </Modal.Body>
     <Modal.Footer>
-      <Button
-        size="small"
-        onClick={onStart}
-        loading={isSaving && pendingAction === 'start'}
-        disabled={isSaving && pendingAction !== 'start'}
-      >
-        Start nedtelling
-      </Button>
-      {isRunning && (
+      {!timerLabel && (
+        <Button
+          size="small"
+          onClick={onStart}
+          loading={isSaving && pendingAction === 'start'}
+          disabled={isSaving && pendingAction !== 'start'}
+        >
+          Start nedtelling
+        </Button>
+      )}
+      {(isRunning || isPaused) && (
         <Button
           size="small"
           variant="secondary"
