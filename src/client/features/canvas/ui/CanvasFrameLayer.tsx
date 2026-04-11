@@ -85,6 +85,7 @@ type CanvasFrameLayerProps = {
   handleRotateIconFrame: (id: string, delta: number) => void
   handleOpenEditFigureModal: (frame: CanvasFrame) => void
   handleDuplicateFigureCard: (frame: CanvasFrame) => Promise<void>
+  handleDuplicateSectionCard: (frame: CanvasFrame) => Promise<void>
   handleAdjustHeadingFontSize: (id: string, delta: number) => void
   handleRotateIllustrationFrame: (id: string, delta: number) => void
   handleToggleSectionLayout: (id: string) => void
@@ -146,6 +147,7 @@ const CanvasFrameLayer = ({
   handleRotateIconFrame,
   handleOpenEditFigureModal,
   handleDuplicateFigureCard,
+  handleDuplicateSectionCard,
   handleAdjustHeadingFontSize,
   handleRotateIllustrationFrame,
   handleToggleSectionLayout,
@@ -381,6 +383,7 @@ const CanvasFrameLayer = ({
                     onRotateIconRight={() => handleRotateIconFrame(frame.id, ICON_ROTATION_STEP_DEG)}
                     onEditFigure={() => handleOpenEditFigureModal(frame)}
                     onDuplicateFigure={() => void handleDuplicateFigureCard(frame)}
+                    onDuplicateSection={() => void handleDuplicateSectionCard(frame)}
                     onDecreaseHeadingFontSize={() => handleAdjustHeadingFontSize(frame.id, -HEADING_FONT_SIZE_STEP)}
                     onIncreaseHeadingFontSize={() => handleAdjustHeadingFontSize(frame.id, HEADING_FONT_SIZE_STEP)}
                     onRotateIllustrationLeft={() => handleRotateIllustrationFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
@@ -749,8 +752,7 @@ const CanvasFrameLayer = ({
                       </button>
                     )}
                     <p className="text-xs text-[var(--ax-text-subtle)]">
-                      Inneholder {sectionItemCountsById[frame.id] ?? 0} elementer (
-                      {frame.sectionLayout === 'grid' ? 'rutenett' : 'friform'}).
+                      Inneholder {sectionItemCountsById[frame.id] ?? 0} elementer.
                     </p>
                   </div>
                 ) : (

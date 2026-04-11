@@ -21,6 +21,7 @@ type CanvasFrameActionPointsProps = {
   onRotateIconRight: () => void
   onEditFigure: () => void
   onDuplicateFigure: () => void
+  onDuplicateSection: () => void
   onDecreaseHeadingFontSize: () => void
   onIncreaseHeadingFontSize: () => void
   onRotateIllustrationLeft: () => void
@@ -259,6 +260,7 @@ const CanvasFrameActionPoints = ({
   onRotateIconRight,
   onEditFigure,
   onDuplicateFigure,
+  onDuplicateSection,
   onDecreaseHeadingFontSize,
   onIncreaseHeadingFontSize,
   onRotateIllustrationLeft,
@@ -327,13 +329,29 @@ const CanvasFrameActionPoints = ({
         <Button
           size="xsmall"
           variant="tertiary"
+          icon={<Copy size={14} />}
+          onMouseDown={stopMouseDownPropagation}
+          onClick={onDuplicateSection}
+          title="Dupliser seksjon"
+          aria-label="Dupliser seksjon"
+          className={actionButtonClassName}
+        >
+          Dupliser
+        </Button>
+      )}
+      {frameKind === 'section' && (
+        <Button
+          size="xsmall"
+          variant="tertiary"
           icon={isSectionGrid ? <Move size={14} /> : <Grid3X3 size={14} />}
           onMouseDown={stopMouseDownPropagation}
           onClick={onToggleSectionLayout}
           title={isSectionGrid ? 'Bytt til friform' : 'Bytt til rutenett'}
           aria-label={isSectionGrid ? 'Bytt til friform' : 'Bytt til rutenett'}
           className={actionButtonClassName}
-        />
+        >
+          {isSectionGrid ? 'Rutenett' : 'Friform'}
+        </Button>
       )}
       {(frameKind === 'sticky' || frameKind === 'text') && sectionMoveOptions.length > 0 && (
         <ActionMenu>

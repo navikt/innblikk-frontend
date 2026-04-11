@@ -1719,6 +1719,37 @@ const Canvas = () => {
     }
   }
 
+  const handleDuplicateSectionCard = async (frame: CanvasFrame) => {
+    if (frame.kind !== 'section') return
+
+    const defaults = getDefaultFrameSize(frame)
+    const sectionWidth = frame.width ?? defaults.width
+    const nextSectionLabel = getNextAutoSectionLabel(frames)
+    const duplicatedFrame: CanvasFrame = {
+      ...frame,
+      id: `${Date.now()}-${Math.random()}`,
+      label: nextSectionLabel,
+      x: Math.max(0, frame.x + sectionWidth + 48),
+      y: frame.y,
+      width: sectionWidth,
+      height: frame.height ?? defaults.height,
+      graphId: undefined,
+      queryId: undefined,
+      refreshNonce: 0,
+    }
+
+    try {
+      setIsSavingCanvasItem(true)
+      setSyncError(null)
+      const persistedFrame = await persistFrame(duplicatedFrame)
+      setFrames((prev) => [...prev, persistedFrame])
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke duplisere seksjon')
+    } finally {
+      setIsSavingCanvasItem(false)
+    }
+  }
+
   const handleSaveEditedWebsite = async () => {
     if (!editWebsiteFrameId) return
 
@@ -4040,18 +4071,37 @@ const Canvas = () => {
     const targetBounds = getFrameBoundsForLayout(targetSection)
     const baseX = targetBounds.left + GRID_SECTION_LAYOUT_CONFIG.paddingX
     const baseY = targetBounds.top + GRID_SECTION_LAYOUT_CONFIG.paddingTop
+    const isTargetGrid = targetSection.sectionLayout === 'grid'
+
+    const existingItemsInTargetSection = frames.filter((frame) => {
+      if (frame.id === frameId || frame.id === targetSection.id || frame.kind === 'section') return false
+      if ((frame.categoryId ?? null) !== (targetSection.categoryId ?? null)) return false
+      const bounds = getFrameBoundsForLayout(frame)
+      const centerX = (bounds.left + bounds.right) / 2
+      const centerY = (bounds.top + bounds.bottom) / 2
+      return (
+        centerX >= targetBounds.left &&
+        centerX <= targetBounds.right &&
+        centerY >= targetBounds.top &&
+        centerY <= targetBounds.bottom
+      )
+    })
+    const freeformShiftStep = 24
+    const freeformColumns = 4
+    const freeformShiftIndex = existingItemsInTargetSection.length
+    const freeformShiftX = (freeformShiftIndex % freeformColumns) * freeformShiftStep
+    const freeformShiftY = Math.floor(freeformShiftIndex / freeformColumns) * freeformShiftStep
 
     const movedFrame: CanvasFrame = {
       ...frameToMove,
-      x: Math.max(0, baseX),
-      y: Math.max(-CANVAS_TOP_BUFFER, baseY),
+      x: Math.max(0, baseX + (isTargetGrid ? 0 : freeformShiftX)),
+      y: Math.max(-CANVAS_TOP_BUFFER, baseY + (isTargetGrid ? 0 : freeformShiftY)),
     }
 
     const framesWithMove = frames.map((frame) => (frame.id === frameId ? movedFrame : frame))
-    const affectedGridSectionIds = [
-      sourceGridSectionId,
-      targetSection.sectionLayout === 'grid' ? targetSection.id : null,
-    ].filter((value): value is string => Boolean(value))
+    const affectedGridSectionIds = [sourceGridSectionId, isTargetGrid ? targetSection.id : null].filter(
+      (value): value is string => Boolean(value),
+    )
     const { nextFrames: nextFramesAfterReflow, changedFrameIds } = reflowGridSections(
       framesWithMove,
       affectedGridSectionIds,
@@ -5065,6 +5115,7 @@ const Canvas = () => {
                   handleRotateIconFrame={handleRotateIconFrame}
                   handleOpenEditFigureModal={handleOpenEditFigureModal}
                   handleDuplicateFigureCard={handleDuplicateFigureCard}
+                  handleDuplicateSectionCard={handleDuplicateSectionCard}
                   handleAdjustHeadingFontSize={handleAdjustHeadingFontSize}
                   handleRotateIllustrationFrame={handleRotateIllustrationFrame}
                   handleToggleSectionLayout={handleToggleSectionLayout}
