@@ -28,11 +28,17 @@ const CanvasActionMenu = ({ canvasName, items }: CanvasActionMenuProps) => {
         </ActionMenu.Trigger>
       </Tooltip>
       <ActionMenu.Content align="end">
-        {items.map((item) => (
-          <ActionMenu.Item key={item.label} as={item.href ? 'a' : undefined} href={item.href} onClick={item.onClick}>
-            {item.label}
-          </ActionMenu.Item>
-        ))}
+        {items.map((item) =>
+          item.href ? (
+            <ActionMenu.Item key={item.label} as="a" href={item.href} onClick={item.onClick}>
+              {item.label}
+            </ActionMenu.Item>
+          ) : (
+            <ActionMenu.Item key={item.label} onClick={item.onClick}>
+              {item.label}
+            </ActionMenu.Item>
+          ),
+        )}
       </ActionMenu.Content>
     </ActionMenu>
   )
