@@ -5219,15 +5219,63 @@ const Canvas = () => {
                 )}
                 {(pendingFrameDraft || pendingCsvStickyImport) && pendingFramePointer && (
                   <div
-                    className="pointer-events-none absolute z-[46] -translate-x-1/2 -translate-y-1/2"
+                    className="pointer-events-none absolute z-[46]"
                     style={{
                       left: `${pendingFramePointer.x}px`,
                       top: `${pendingFramePointer.y}px`,
                     }}
                   >
-                    <span className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-[var(--ax-border-accent)] bg-[var(--ax-bg-default)] text-[var(--ax-text-default)] shadow-lg">
-                      <Plus size={20} />
-                    </span>
+                    {pendingFrameDraft ? (
+                      (() => {
+                        const defaults = getDefaultFrameSize(pendingFrameDraft.kind)
+                        const ghostWidth = pendingFrameDraft.width ?? defaults.width
+                        const ghostHeight =
+                          pendingFrameDraft.kind === 'heading'
+                            ? getHeadingFrameHeight(pendingFrameDraft as CanvasFrame) + HEADING_CARD_HEADER_HEIGHT
+                            : (pendingFrameDraft.height ?? defaults.height)
+                        const ghostLabel =
+                          pendingFrameDraft.headingText || pendingFrameDraft.label || pendingFramePlacementLabel || ''
+                        const ghostClassName =
+                          pendingFrameDraft.kind === 'section'
+                            ? 'rounded-2xl border-2 border-dashed border-[#8eb2de] bg-[#edf4ff]/70'
+                            : pendingFrameDraft.kind === 'heading'
+                              ? 'rounded-lg border-2 border-[var(--ax-border-accent)] bg-transparent'
+                              : pendingFrameDraft.kind === 'text' || pendingFrameDraft.kind === 'sticky'
+                                ? 'rounded-xl border border-[var(--ax-border-neutral-subtle)] bg-white'
+                                : pendingFrameDraft.kind === 'icon' ||
+                                    pendingFrameDraft.kind === 'figure' ||
+                                    pendingFrameDraft.kind === 'drawing'
+                                  ? 'rounded-lg border-2 border-dashed border-[var(--ax-border-accent)] bg-transparent'
+                                  : 'rounded-lg border border-[var(--ax-border-neutral-subtle)] bg-white'
+                        return (
+                          <div
+                            className={`flex flex-col items-center justify-center opacity-70 shadow-sm ${ghostClassName}`}
+                            style={{ width: `${ghostWidth}px`, height: `${ghostHeight}px` }}
+                          >
+                            {ghostLabel && pendingFrameDraft.kind === 'heading' ? (
+                              <span
+                                className="select-none overflow-hidden px-4 font-bold text-[var(--ax-text-default)]"
+                                style={{
+                                  fontSize: `${getHeadingFrameFontSize(pendingFrameDraft as CanvasFrame)}px`,
+                                  lineHeight: 1.05,
+                                }}
+                              >
+                                {ghostLabel}
+                              </span>
+                            ) : (
+                              <span className="flex flex-col items-center gap-1 text-[var(--ax-text-subtle)]">
+                                <Plus size={18} />
+                                <span className="text-xs">{pendingFramePlacementLabel || ghostLabel}</span>
+                              </span>
+                            )}
+                          </div>
+                        )
+                      })()
+                    ) : (
+                      <span className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-[var(--ax-border-accent)] bg-[var(--ax-bg-default)] text-[var(--ax-text-default)] shadow-lg">
+                        <Plus size={20} />
+                      </span>
+                    )}
                   </div>
                 )}
                 {selectionBox && (
