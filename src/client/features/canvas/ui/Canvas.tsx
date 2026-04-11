@@ -4984,6 +4984,10 @@ const Canvas = () => {
                 {(pendingFrameDraft || pendingCsvStickyImport) && (
                   <>
                     <div className="pointer-events-none absolute inset-0 z-[44] bg-black/10" />
+                    <div className="pointer-events-none absolute bottom-0 left-0 top-0 z-[45] w-0 border-l-2 border-dashed border-[var(--ax-border-accent)]/90" />
+                    <span className="pointer-events-none absolute left-2 top-2 z-[45] rounded-md bg-[var(--ax-bg-default)]/95 px-2 py-1 text-xs font-semibold text-[var(--ax-text-default)] shadow-sm">
+                      Venstre grense
+                    </span>
                   </>
                 )}
                 {isDrawingMode && (
