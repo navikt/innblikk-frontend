@@ -336,11 +336,11 @@ const CanvasFrameActionPoints = ({
           icon={<Copy size={14} />}
           onMouseDown={stopMouseDownPropagation}
           onClick={onDuplicateSection}
-          title="Dupliser seksjon"
-          aria-label="Dupliser seksjon"
+          title="Dupliser tom"
+          aria-label="Dupliser tom"
           className={actionButtonClassName}
         >
-          Dupliser
+          Dupliser tom
         </Button>
       )}
       {frameKind === 'section' && (
