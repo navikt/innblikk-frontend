@@ -402,7 +402,6 @@ const CanvasFrameLayer = ({
                       className="pointer-events-auto absolute inset-x-2 bottom-0 h-3 cursor-move"
                       onMouseDown={(event) => handleDragStart(event, frame)}
                       onTouchStart={(event) => handleDragStart(event, frame)}
-                      onTouchStart={(event) => handleDragStart(event, frame)}
                     />
                     <div
                       className="pointer-events-auto absolute inset-y-2 left-0 w-3 cursor-move"
