@@ -1,6 +1,6 @@
 import { ActionMenu, Alert, Button, Tabs } from '@navikt/ds-react'
 import { MoreVertical, Timer, Users } from 'lucide-react'
-import type { RefObject } from 'react'
+import { useRef, type KeyboardEvent, type RefObject, type TouchEvent } from 'react'
 import PeriodPicker from '../../../analysis/ui/PeriodPicker.tsx'
 import type { GraphCategoryDto } from '../../../oversikt/model/types.ts'
 import CanvasAddActionMenu from './CanvasAddActionMenu.tsx'
@@ -35,7 +35,7 @@ type CanvasTopBarProps = {
   isGrafbyggerEmbedded: boolean
   onCloseGrafbygger: () => void
   onOpenCreateTab: () => void
-  onOpenManageTabs: () => void
+  onOpenManageTabs: (tabId?: number) => void
   onOpenCanvasSettings: () => void
   onOpenInventory: () => void
   canManageTabs: boolean
@@ -109,6 +109,28 @@ const CanvasTopBar = ({
       : isCanvasFrontpage || normalizedCanvasTitle.toLowerCase() === 'innblikk'
         ? normalizedCanvasTitle || 'Innblikk'
         : `Innblikk: ${normalizedCanvasTitle}`
+  const lastTabTouchRef = useRef<{ tabId: number; at: number } | null>(null)
+
+  const handleTabRename = (tabId: number) => {
+    if (canvasInitMode !== 'existing') return
+    onOpenManageTabs(tabId)
+  }
+
+  const handleTabKeyDown = (event: KeyboardEvent<HTMLElement>, tabId: number) => {
+    if (event.key !== 'F2') return
+    event.preventDefault()
+    handleTabRename(tabId)
+  }
+
+  const handleTabTouchEnd = (event: TouchEvent<HTMLElement>, tabId: number) => {
+    const now = event.timeStamp
+    const lastTap = lastTabTouchRef.current
+    const isDoubleTap = lastTap !== null && lastTap.tabId === tabId && now - lastTap.at <= 350
+    lastTabTouchRef.current = { tabId, at: now }
+    if (!isDoubleTap) return
+    event.preventDefault()
+    handleTabRename(tabId)
+  }
 
   return (
     <div ref={canvasToolbarRef} className="pointer-events-none fixed left-4 right-4 top-4 z-30">
@@ -274,6 +296,10 @@ const CanvasTopBar = ({
                     key={category.id}
                     value={String(category.id)}
                     label={getCanvasCategoryDisplayName(category.name)}
+                    onDoubleClick={() => handleTabRename(category.id)}
+                    onTouchEnd={(event) => handleTabTouchEnd(event, category.id)}
+                    onKeyDown={(event) => handleTabKeyDown(event, category.id)}
+                    title="Dobbeltklikk eller dobbelttrykk for å endre navn. Tastatur: F2."
                   />
                 ))}
               </Tabs.List>

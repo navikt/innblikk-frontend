@@ -306,14 +306,13 @@ const Canvas = () => {
   const [isCanvasSettingsModalOpen, setIsCanvasSettingsModalOpen] = useState(false)
   const [canvasSettingsInfo, setCanvasSettingsInfo] = useState<string | null>(null)
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false)
-  const [renameCanvasInput, setRenameCanvasInput] = useState('')
   const [renameCanvasError, setRenameCanvasError] = useState<string | null>(null)
   const [isAddChartModalOpen, setIsAddChartModalOpen] = useState(false)
   const [isCreateTabModalOpen, setIsCreateTabModalOpen] = useState(false)
-  const [newTabName, setNewTabName] = useState('')
   const [createTabError, setCreateTabError] = useState<string | null>(null)
   const [creatingTab, setCreatingTab] = useState(false)
   const [isManageTabsModalOpen, setIsManageTabsModalOpen] = useState(false)
+  const [isManageTabPreselected, setIsManageTabPreselected] = useState(false)
   const [manageTabId, setManageTabId] = useState('')
   const [manageTabName, setManageTabName] = useState('')
   const [manageTabError, setManageTabError] = useState<string | null>(null)
@@ -4522,7 +4521,6 @@ const Canvas = () => {
   }
 
   const handleOpenCanvasSettingsModal = () => {
-    setRenameCanvasInput(canvasTitle)
     setRenameCanvasError(null)
     setCanvasSettingsInfo(null)
     setIsCanvasSettingsModalOpen(true)
@@ -4640,13 +4638,12 @@ const Canvas = () => {
   }, [])
 
   const handleOpenCreateTabModal = () => {
-    setNewTabName('')
     setCreateTabError(null)
     setIsCreateTabModalOpen(true)
   }
 
-  const handleCreateTab = async () => {
-    const nextTabName = newTabName.trim()
+  const handleCreateTab = async (inputValue: string) => {
+    const nextTabName = inputValue.trim()
     if (!nextTabName) {
       setCreateTabError('Legg inn et fanenavn.')
       return
@@ -4664,7 +4661,6 @@ const Canvas = () => {
       setCanvasCategories(categories)
       setActiveCanvasCategoryId(createdCategory.id)
       setIsCreateTabModalOpen(false)
-      setNewTabName('')
     } catch (error) {
       setCreateTabError(error instanceof Error ? error.message : 'Kunne ikke opprette fane')
     } finally {
@@ -4672,14 +4668,20 @@ const Canvas = () => {
     }
   }
 
-  const handleOpenManageTabsModal = () => {
-    const selectedTabId =
-      activeCanvasCategoryId !== null && canvasCategories.some((category) => category.id === activeCanvasCategoryId)
+  const handleOpenManageTabsModal = (preferredTabId?: number) => {
+    const preferredTabIsValid =
+      typeof preferredTabId === 'number' &&
+      Number.isFinite(preferredTabId) &&
+      canvasCategories.some((category) => category.id === preferredTabId)
+    const selectedTabId = preferredTabIsValid
+      ? preferredTabId
+      : activeCanvasCategoryId !== null && canvasCategories.some((category) => category.id === activeCanvasCategoryId)
         ? activeCanvasCategoryId
         : (canvasCategories[0]?.id ?? null)
     const selectedTab = selectedTabId ? canvasCategories.find((category) => category.id === selectedTabId) : null
     setManageTabId(selectedTab ? String(selectedTab.id) : '')
     setManageTabName(selectedTab?.name ?? '')
+    setIsManageTabPreselected(preferredTabIsValid)
     setManageTabError(null)
     setIsManageTabsModalOpen(true)
   }
@@ -4699,9 +4701,9 @@ const Canvas = () => {
         connections.filter((connection) => connection.categoryId === selectedManageTab.id).length
   const selectedManageTabIsEmpty = selectedManageTab !== null && selectedManageTabItemCount === 0
 
-  const handleRenameTab = async () => {
+  const handleRenameTab = async (inputValue: string) => {
     const categoryId = Number(manageTabId)
-    const nextName = manageTabName.trim()
+    const nextName = inputValue.trim()
     if (!Number.isFinite(categoryId)) {
       setManageTabError('Velg en fane.')
       return
@@ -4768,8 +4770,8 @@ const Canvas = () => {
     }
   }
 
-  const handleRenameCanvas = async () => {
-    const nextName = renameCanvasInput.trim()
+  const handleRenameCanvas = async (inputValue: string) => {
+    const nextName = inputValue.trim()
     if (!nextName) {
       setRenameCanvasError('Legg inn et navn.')
       return
@@ -5675,32 +5677,26 @@ const Canvas = () => {
           setCanvasSettingsInfo(null)
         }}
         canvasSettingsInfo={canvasSettingsInfo}
-        renameCanvasInput={renameCanvasInput}
-        onRenameCanvasInputChange={(value) => {
-          setRenameCanvasInput(value)
-          if (renameCanvasError) setRenameCanvasError(null)
-        }}
+        renameCanvasInitialValue={canvasTitle}
         renameCanvasError={renameCanvasError}
-        onRenameCanvas={() => void handleRenameCanvas()}
+        onRenameCanvas={(value) => void handleRenameCanvas(value)}
         isSavingCanvasItem={isSavingCanvasItem}
         isCreateTabModalOpen={isCreateTabModalOpen}
         onCloseCreateTab={() => {
           setIsCreateTabModalOpen(false)
           setCreateTabError(null)
         }}
-        newTabName={newTabName}
-        onNewTabNameChange={(value) => {
-          setNewTabName(value)
-          if (createTabError) setCreateTabError(null)
-        }}
+        newTabNameInitialValue=""
         createTabError={createTabError}
-        onCreateTab={() => void handleCreateTab()}
+        onCreateTab={(value) => void handleCreateTab(value)}
         creatingTab={creatingTab}
         isManageTabsModalOpen={isManageTabsModalOpen}
         onCloseManageTabs={() => {
           setIsManageTabsModalOpen(false)
+          setIsManageTabPreselected(false)
           setManageTabError(null)
         }}
+        isManageTabPreselected={isManageTabPreselected}
         manageTabId={manageTabId}
         onManageTabSelect={(nextId) => {
           setManageTabId(nextId)
@@ -5708,11 +5704,7 @@ const Canvas = () => {
           setManageTabName(selected?.name ?? '')
           if (manageTabError) setManageTabError(null)
         }}
-        manageTabName={manageTabName}
-        onManageTabNameChange={(value) => {
-          setManageTabName(value)
-          if (manageTabError) setManageTabError(null)
-        }}
+        manageTabInitialName={manageTabName}
         manageTabError={manageTabError}
         canvasCategories={canvasCategories}
         getCanvasCategoryDisplayName={getCanvasCategoryDisplayName}
@@ -5731,7 +5723,7 @@ const Canvas = () => {
         canDeleteManageTab={Boolean(
           !savingManageTab && selectedManageTab && !selectedManageTabIsFirst && selectedManageTabIsEmpty,
         )}
-        onRenameTab={() => void handleRenameTab()}
+        onRenameTab={(value) => void handleRenameTab(value)}
         onDeleteTab={() => void handleDeleteTab()}
         isInventoryModalOpen={isInventoryModalOpen}
         onCloseInventory={() => setIsInventoryModalOpen(false)}
