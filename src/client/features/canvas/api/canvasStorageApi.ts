@@ -67,6 +67,8 @@ export async function fetchCanvasStorageData(projectId: number, dashboardId: num
       headingFontSize: parsedConfig.headingFontSize,
       textContent: parsedConfig.textContent,
       stickyColor: parsedConfig.stickyColor,
+      finalVoteCount: parsedConfig.finalVoteCount,
+      finalVoteRank: parsedConfig.finalVoteRank,
       sectionLayout: parsedConfig.sectionLayout,
       tableHeaders: parsedConfig.tableHeaders,
       tableRows: parsedConfig.tableRows,

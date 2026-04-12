@@ -155,6 +155,7 @@ const CanvasTopBar = ({
                 onAddDrawing={onOpenAddDrawing}
                 onAddIllustration={onOpenAddIllustration}
                 onAddTab={onOpenCreateTab}
+                onOpenDotVoting={() => undefined}
                 disabled={canvasInitMode !== 'existing'}
                 buttonSize="small"
                 buttonVariant="primary"

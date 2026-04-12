@@ -1,4 +1,5 @@
 import { Button, HelpText, Loader, Select } from '@navikt/ds-react'
+import { Trash2 } from 'lucide-react'
 import { useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
 import type { Website } from '../../../shared/types/website.ts'
 import { DashboardWidget } from '../../dashboard'
@@ -175,6 +176,13 @@ type CanvasFrameLayerProps = {
   handleEditableFrameBlur: (id: string) => void
   handleStartEditingFrame: (id: string) => void
   handleResizeStart: (event: React.MouseEvent, frame: CanvasFrame, dir?: 'se' | 'sw' | 'ne' | 'nw') => void
+  isDotVotingActive?: boolean
+  dotVotingTargetSectionId?: string | null
+  dotVotingTotalVotesByFrameId?: Record<string, number>
+  dotVotingMyVotesByFrameId?: Record<string, number>
+  shouldRevealDotVotingTotals?: boolean
+  onVoteSticky?: (stickyId: string) => void
+  onClearStickyVoteSnapshot?: (stickyId: string) => void
 }
 
 const CanvasFrameLayer = ({
@@ -241,6 +249,13 @@ const CanvasFrameLayer = ({
   handleEditableFrameBlur,
   handleStartEditingFrame,
   handleResizeStart,
+  isDotVotingActive = false,
+  dotVotingTargetSectionId = null,
+  dotVotingTotalVotesByFrameId = {},
+  dotVotingMyVotesByFrameId = {},
+  shouldRevealDotVotingTotals = false,
+  onVoteSticky,
+  onClearStickyVoteSnapshot,
 }: CanvasFrameLayerProps) => {
   const [topListFilterByFrameId, setTopListFilterByFrameId] = useState<Record<string, 'all' | 'links' | 'accordion'>>(
     {},
@@ -253,6 +268,9 @@ const CanvasFrameLayer = ({
 
   return (
     <>
+      {isDotVotingActive && (
+        <div className="pointer-events-auto absolute inset-0 z-20 bg-black/55" aria-hidden="true" />
+      )}
       {frameItems.map((frame) =>
         (() => {
           const defaults = getDefaultFrameSize(frame)
@@ -286,6 +304,18 @@ const CanvasFrameLayer = ({
               ? sectionMoveOptions.filter((option) => option.id !== currentSectionId)
               : sectionMoveOptions
           const stickyColorOption = frame.kind === 'sticky' ? getCanvasStickyColorOptionById(frame.stickyColor) : null
+          const isInVotingScope =
+            !isDotVotingActive ||
+            (frame.kind === 'section'
+              ? frame.id === dotVotingTargetSectionId
+              : frameContainingSectionIdByFrameId[frame.id] === dotVotingTargetSectionId)
+          const isTargetVotingSection =
+            isDotVotingActive && frame.kind === 'section' && frame.id === dotVotingTargetSectionId
+          const shouldDimFrame = isDotVotingActive && !isInVotingScope
+          const stickyTotalVotes = frame.kind === 'sticky' ? (dotVotingTotalVotesByFrameId[frame.id] ?? 0) : 0
+          const stickyMyVotes = frame.kind === 'sticky' ? (dotVotingMyVotesByFrameId[frame.id] ?? 0) : 0
+          const stickyFinalVoteCount =
+            frame.kind === 'sticky' && Number.isFinite(frame.finalVoteCount) ? Number(frame.finalVoteCount) : null
           return (
             <article
               key={frame.id}
@@ -298,7 +328,7 @@ const CanvasFrameLayer = ({
                     }. Inneholder ${sectionItemCountsById[frame.id] ?? 0} elementer.`
                   : undefined
               }
-              className={`focus:outline-none ${
+              className={`focus:outline-none transition-opacity ${
                 frame.kind === 'website' || frame.kind === 'image'
                   ? `group absolute flex flex-col overflow-visible rounded-lg border ${
                       connectionDragState?.sourceFrameId === frame.id ||
@@ -309,7 +339,9 @@ const CanvasFrameLayer = ({
                           : 'border-[var(--ax-border-neutral-subtle)]'
                     } ${isIllustrationFrame ? 'bg-transparent shadow-none' : 'bg-white shadow-sm'}`
                   : frame.kind === 'section'
-                    ? 'group absolute flex flex-col overflow-visible rounded-2xl border-2 border-dashed border-[#8eb2de] bg-[#edf4ff]/70 shadow-none'
+                    ? `group absolute flex flex-col overflow-visible rounded-2xl border-2 border-dashed shadow-none ${
+                        isTargetVotingSection ? 'border-[#5f8fc7] bg-[#edf4ff]' : 'border-[#8eb2de] bg-[#edf4ff]/70'
+                      }`
                     : frame.kind === 'chart'
                       ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
                       : frame.kind === 'heading'
@@ -323,12 +355,17 @@ const CanvasFrameLayer = ({
                               : frame.kind === 'drawing'
                                 ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
                                 : 'group absolute flex flex-col overflow-visible rounded-xl border shadow-sm'
-              } ${isSelectedFrame ? 'ring-2 ring-[var(--ax-border-accent)]/60' : ''}`}
+              } ${isSelectedFrame ? 'ring-2 ring-[var(--ax-border-accent)]/60' : ''} ${isTargetVotingSection ? 'ring-4 ring-[var(--ax-border-accent)]/40' : ''} ${isDotVotingActive && frame.kind === 'sticky' && isInVotingScope ? 'ring-1 ring-white/80 shadow-md' : ''} ${shouldDimFrame ? 'opacity-20' : 'opacity-100'}`}
               style={{
                 left: `${frame.x}px`,
                 top: `${frame.y}px`,
-                zIndex:
-                  resizeState?.id === frame.id
+                zIndex: isDotVotingActive
+                  ? isInVotingScope
+                    ? frame.kind === 'section'
+                      ? 25
+                      : 26
+                    : 10
+                  : resizeState?.id === frame.id
                     ? 90
                     : dragState?.ids.includes(frame.id)
                       ? 80
@@ -356,7 +393,7 @@ const CanvasFrameLayer = ({
                 backgroundColor: frame.kind === 'sticky' ? stickyColorOption?.background : undefined,
               }}
             >
-              {frame.kind === 'website' && !frame.isInternalDashboard && (
+              {frame.kind === 'website' && !frame.isInternalDashboard && !isDotVotingActive && (
                 <header
                   className={
                     'flex cursor-move items-start justify-between gap-2 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] px-3 py-2'
@@ -415,7 +452,7 @@ const CanvasFrameLayer = ({
                   </div>
                 </header>
               )}
-              {frame.kind === 'chart' && (
+              {frame.kind === 'chart' && !isDotVotingActive && (
                 <div className="pointer-events-none absolute inset-0 z-20 overflow-visible" aria-hidden="true">
                   <div
                     className="pointer-events-auto absolute inset-x-2 top-0 h-3 cursor-move"
@@ -439,68 +476,69 @@ const CanvasFrameLayer = ({
                   />
                 </div>
               )}
-              {(frame.kind === 'sticky' ||
-                frame.kind === 'text' ||
-                frame.kind === 'heading' ||
-                frame.kind === 'section' ||
-                frame.kind === 'icon' ||
-                frame.kind === 'figure' ||
-                frame.kind === 'drawing' ||
-                frame.kind === 'image' ||
-                frame.kind === 'website') && (
-                <>
-                  <div className="pointer-events-none absolute inset-0 z-20 overflow-visible" aria-hidden="true">
-                    {frame.kind !== 'website' && (
+              {!isDotVotingActive &&
+                (frame.kind === 'sticky' ||
+                  frame.kind === 'text' ||
+                  frame.kind === 'heading' ||
+                  frame.kind === 'section' ||
+                  frame.kind === 'icon' ||
+                  frame.kind === 'figure' ||
+                  frame.kind === 'drawing' ||
+                  frame.kind === 'image' ||
+                  frame.kind === 'website') && (
+                  <>
+                    <div className="pointer-events-none absolute inset-0 z-20 overflow-visible" aria-hidden="true">
+                      {frame.kind !== 'website' && (
+                        <div
+                          className="pointer-events-auto absolute inset-x-2 top-0 h-3 cursor-move"
+                          onMouseDown={(event) => handleDragStart(event, frame)}
+                        />
+                      )}
                       <div
-                        className="pointer-events-auto absolute inset-x-2 top-0 h-3 cursor-move"
+                        className="pointer-events-auto absolute inset-x-2 bottom-0 h-3 cursor-move"
                         onMouseDown={(event) => handleDragStart(event, frame)}
+                        onTouchStart={(event) => handleDragStart(event, frame)}
                       />
-                    )}
-                    <div
-                      className="pointer-events-auto absolute inset-x-2 bottom-0 h-3 cursor-move"
-                      onMouseDown={(event) => handleDragStart(event, frame)}
-                      onTouchStart={(event) => handleDragStart(event, frame)}
+                      <div
+                        className="pointer-events-auto absolute inset-y-2 left-0 w-3 cursor-move"
+                        onMouseDown={(event) => handleDragStart(event, frame)}
+                        onTouchStart={(event) => handleDragStart(event, frame)}
+                      />
+                      <div
+                        className="pointer-events-auto absolute inset-y-2 right-0 w-3 cursor-move"
+                        onMouseDown={(event) => handleDragStart(event, frame)}
+                        onTouchStart={(event) => handleDragStart(event, frame)}
+                      />
+                    </div>
+                    <CanvasFrameActionPoints
+                      frameKind={frame.kind}
+                      isInternalDashboard={frame.isInternalDashboard}
+                      isIllustrationFrame={isIllustrationFrame}
+                      actionButtonClassName={CARD_ACTION_BUTTON_CLASSNAME}
+                      onEditImage={() => handleOpenEditImageModal(frame)}
+                      onEditIllustration={() => handleOpenEditIllustrationModal(frame)}
+                      onEditDashboard={() => handleOpenEditDashboardModal(frame)}
+                      onEditIcon={() => handleOpenEditIconModal(frame)}
+                      onDuplicateIcon={() => void handleDuplicateIconCard(frame)}
+                      onRotateIconLeft={() => handleRotateIconFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
+                      onRotateIconRight={() => handleRotateIconFrame(frame.id, ICON_ROTATION_STEP_DEG)}
+                      onEditFigure={() => handleOpenEditFigureModal(frame)}
+                      onDuplicateFigure={() => void handleDuplicateFigureCard(frame)}
+                      onDuplicateSection={() => void handleDuplicateSectionCard(frame)}
+                      onDecreaseHeadingFontSize={() => handleAdjustHeadingFontSize(frame.id, -HEADING_FONT_SIZE_STEP)}
+                      onIncreaseHeadingFontSize={() => handleAdjustHeadingFontSize(frame.id, HEADING_FONT_SIZE_STEP)}
+                      onRotateIllustrationLeft={() => handleRotateIllustrationFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
+                      onRotateIllustrationRight={() => handleRotateIllustrationFrame(frame.id, ICON_ROTATION_STEP_DEG)}
+                      sectionLayoutMode={frame.sectionLayout === 'grid' ? 'grid' : 'freeform'}
+                      onToggleSectionLayout={() => handleToggleSectionLayout(frame.id)}
+                      sectionMoveOptions={sectionMoveOptionsForFrame}
+                      stickyColorOptions={stickyColorOptions}
+                      onSetStickyColor={(colorId) => handleSetStickyColor(frame.id, colorId)}
+                      onMoveToSection={(sectionId) => handleMoveFrameToSection(frame.id, sectionId)}
+                      onRemoveFrame={() => handleRequestRemoveFrame(frame)}
                     />
-                    <div
-                      className="pointer-events-auto absolute inset-y-2 left-0 w-3 cursor-move"
-                      onMouseDown={(event) => handleDragStart(event, frame)}
-                      onTouchStart={(event) => handleDragStart(event, frame)}
-                    />
-                    <div
-                      className="pointer-events-auto absolute inset-y-2 right-0 w-3 cursor-move"
-                      onMouseDown={(event) => handleDragStart(event, frame)}
-                      onTouchStart={(event) => handleDragStart(event, frame)}
-                    />
-                  </div>
-                  <CanvasFrameActionPoints
-                    frameKind={frame.kind}
-                    isInternalDashboard={frame.isInternalDashboard}
-                    isIllustrationFrame={isIllustrationFrame}
-                    actionButtonClassName={CARD_ACTION_BUTTON_CLASSNAME}
-                    onEditImage={() => handleOpenEditImageModal(frame)}
-                    onEditIllustration={() => handleOpenEditIllustrationModal(frame)}
-                    onEditDashboard={() => handleOpenEditDashboardModal(frame)}
-                    onEditIcon={() => handleOpenEditIconModal(frame)}
-                    onDuplicateIcon={() => void handleDuplicateIconCard(frame)}
-                    onRotateIconLeft={() => handleRotateIconFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
-                    onRotateIconRight={() => handleRotateIconFrame(frame.id, ICON_ROTATION_STEP_DEG)}
-                    onEditFigure={() => handleOpenEditFigureModal(frame)}
-                    onDuplicateFigure={() => void handleDuplicateFigureCard(frame)}
-                    onDuplicateSection={() => void handleDuplicateSectionCard(frame)}
-                    onDecreaseHeadingFontSize={() => handleAdjustHeadingFontSize(frame.id, -HEADING_FONT_SIZE_STEP)}
-                    onIncreaseHeadingFontSize={() => handleAdjustHeadingFontSize(frame.id, HEADING_FONT_SIZE_STEP)}
-                    onRotateIllustrationLeft={() => handleRotateIllustrationFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
-                    onRotateIllustrationRight={() => handleRotateIllustrationFrame(frame.id, ICON_ROTATION_STEP_DEG)}
-                    sectionLayoutMode={frame.sectionLayout === 'grid' ? 'grid' : 'freeform'}
-                    onToggleSectionLayout={() => handleToggleSectionLayout(frame.id)}
-                    sectionMoveOptions={sectionMoveOptionsForFrame}
-                    stickyColorOptions={stickyColorOptions}
-                    onSetStickyColor={(colorId) => handleSetStickyColor(frame.id, colorId)}
-                    onMoveToSection={(sectionId) => handleMoveFrameToSection(frame.id, sectionId)}
-                    onRemoveFrame={() => handleRequestRemoveFrame(frame)}
-                  />
-                </>
-              )}
+                  </>
+                )}
               {(frame.kind === 'heading' ||
                 frame.kind === 'text' ||
                 frame.kind === 'section' ||
@@ -826,17 +864,65 @@ const CanvasFrameLayer = ({
                     onStartEditing={handleStartEditingFrame}
                   />
                 ) : frame.kind === 'sticky' ? (
-                  <CanvasStickyFrame
-                    id={frame.id}
-                    textContent={frame.textContent}
-                    stickyColor={frame.stickyColor}
-                    isEditing={activeEditableFrameId === frame.id}
-                    isLockedByOther={editLockStatus.isLockedByOther}
-                    lockOwnerLabel={editLockStatus.ownerLabel}
-                    onChange={handleEditableFrameChange}
-                    onBlur={handleEditableFrameBlur}
-                    onStartEditing={handleStartEditingFrame}
-                  />
+                  <div className="relative h-full">
+                    <CanvasStickyFrame
+                      id={frame.id}
+                      textContent={frame.textContent}
+                      stickyColor={frame.stickyColor}
+                      isEditing={!isDotVotingActive && activeEditableFrameId === frame.id}
+                      isLockedByOther={!isDotVotingActive && editLockStatus.isLockedByOther}
+                      lockOwnerLabel={!isDotVotingActive ? editLockStatus.ownerLabel : null}
+                      onChange={handleEditableFrameChange}
+                      onBlur={handleEditableFrameBlur}
+                      onStartEditing={
+                        isDotVotingActive && isInVotingScope ? () => onVoteSticky?.(frame.id) : handleStartEditingFrame
+                      }
+                    />
+                    {isDotVotingActive && isInVotingScope && (
+                      <>
+                        <button
+                          type="button"
+                          className="absolute inset-0 z-20 cursor-pointer rounded-xl border-2 border-transparent transition-colors hover:border-[var(--ax-border-accent)] focus-visible:border-[var(--ax-border-accent)] focus-visible:outline-none"
+                          onClick={() => onVoteSticky?.(frame.id)}
+                          aria-label={`Stem på lapp: ${frame.label || frame.textContent || frame.id}`}
+                          title="Klikk for å stemme"
+                        />
+                      </>
+                    )}
+                    {isDotVotingActive && isInVotingScope && (
+                      <div className="pointer-events-none absolute right-2 top-2 z-30 flex items-center gap-1">
+                        {shouldRevealDotVotingTotals && (
+                          <span className="rounded-full border border-[var(--ax-border-neutral-subtle)] bg-white/95 px-2 py-0.5 text-xs font-semibold text-[var(--ax-text-default)]">
+                            Totalt {stickyTotalVotes}
+                          </span>
+                        )}
+                        {stickyMyVotes > 0 && (
+                          <span className="rounded-full border border-[var(--ax-border-accent)] bg-[var(--ax-border-accent)] px-2.5 py-0.5 text-xs font-semibold text-white shadow-sm">
+                            Dine {stickyMyVotes}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {!isDotVotingActive && stickyFinalVoteCount !== null && stickyFinalVoteCount > 0 && (
+                      <div className="absolute bottom-2 right-2 z-30 flex items-center gap-1">
+                        <span className="rounded-full border border-emerald-300 bg-emerald-500 px-2.5 py-0.5 text-xs font-semibold text-white shadow-sm">
+                          Stemmer {stickyFinalVoteCount}
+                        </span>
+                        <button
+                          type="button"
+                          className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--ax-border-neutral-subtle)] bg-white/95 text-[var(--ax-text-subtle)] shadow-sm transition-colors hover:border-[var(--ax-border-danger)] hover:text-[var(--ax-text-danger)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ax-border-accent)]"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            onClearStickyVoteSnapshot?.(frame.id)
+                          }}
+                          aria-label="Fjern lagret stemmeresultat"
+                          title="Fjern lagret stemmeresultat"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 ) : frame.kind === 'section' ? (
                   <div className="flex h-full flex-col gap-2 p-3">
                     {activeEditableFrameId === frame.id ? (
@@ -873,6 +959,7 @@ const CanvasFrameLayer = ({
               {frame.kind === 'website' &&
                 !frame.isInternalDashboard &&
                 visualizationMode === 'clickmap' &&
+                !isDotVotingActive &&
                 websiteTopListEnabled && (
                   <aside
                     className="absolute left-[calc(100%+12px)] top-0 z-[75] flex h-full w-[300px] min-w-0 flex-col overflow-hidden rounded-lg border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] shadow-md"
@@ -938,12 +1025,14 @@ const CanvasFrameLayer = ({
                     )}
                   </aside>
                 )}
-              <CanvasResizeHandles
-                frame={frame}
-                isVisible={isSelectedFrame || resizeState?.id === frame.id}
-                handleResizeStart={handleResizeStart}
-                size={frame.kind === 'section' ? 'large' : 'default'}
-              />
+              {!isDotVotingActive && (
+                <CanvasResizeHandles
+                  frame={frame}
+                  isVisible={isSelectedFrame || resizeState?.id === frame.id}
+                  handleResizeStart={handleResizeStart}
+                  size={frame.kind === 'section' ? 'large' : 'default'}
+                />
+              )}
             </article>
           )
         })(),

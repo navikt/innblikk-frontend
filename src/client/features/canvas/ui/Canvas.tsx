@@ -22,6 +22,7 @@ import CanvasIconModal from './icon/CanvasIconModal.tsx'
 import CanvasAdminModals from './controls/CanvasAdminModals.tsx'
 import CanvasCoreModals from './controls/CanvasCoreModals.tsx'
 import CanvasTopBar from './controls/CanvasTopBar.tsx'
+import CanvasDotVotingModal from './controls/CanvasDotVotingModal.tsx'
 import CanvasTimerModal from './controls/CanvasTimerModal.tsx'
 import CanvasZoomControls from './controls/CanvasZoomControls.tsx'
 import CanvasDrawingToolbar from './drawing/CanvasDrawingToolbar.tsx'
@@ -74,6 +75,7 @@ import useCanvasCsvImport from '../hooks/useCanvasCsvImport.ts'
 import useCanvasBackgroundSync from '../hooks/useCanvasBackgroundSync.ts'
 import useCanvasEditLocks from '../hooks/useCanvasEditLocks.ts'
 import useCanvasPresence from '../hooks/useCanvasPresence.ts'
+import useCanvasDotVotingSync from '../hooks/useCanvasDotVotingSync.ts'
 import useCanvasTimerSync from '../hooks/useCanvasTimerSync.ts'
 import { fetchCanvasStorageData } from '../api/canvasStorageApi.ts'
 
@@ -233,6 +235,21 @@ const estimateStickyFrameHeight = (text: string, width: number): number => {
     : 1
 
   return Math.max(STICKY_CARD_MIN_HEIGHT, lineCount * STICKY_CARD_LINE_HEIGHT + STICKY_CARD_VERTICAL_PADDING)
+}
+
+const compareFramesForSectionOrder = (a: CanvasFrame, b: CanvasFrame): number => {
+  const aVoteRank = a.kind === 'sticky' && Number.isFinite(a.finalVoteRank) ? Number(a.finalVoteRank) : null
+  const bVoteRank = b.kind === 'sticky' && Number.isFinite(b.finalVoteRank) ? Number(b.finalVoteRank) : null
+
+  if (aVoteRank !== null || bVoteRank !== null) {
+    if (aVoteRank === null) return 1
+    if (bVoteRank === null) return -1
+    if (aVoteRank !== bVoteRank) return aVoteRank - bVoteRank
+  }
+
+  if (a.y !== b.y) return a.y - b.y
+  if (a.x !== b.x) return a.x - b.x
+  return a.id.localeCompare(b.id)
 }
 
 const Canvas = () => {
@@ -438,6 +455,24 @@ const Canvas = () => {
   const [timerModalPendingAction, setTimerModalPendingAction] = useState<
     'start' | 'stop' | 'pause' | 'resume' | 'adjust-minus' | 'adjust-plus' | null
   >(null)
+  const [isDotVotingModalOpen, setIsDotVotingModalOpen] = useState(false)
+  const [dotVotingMinutesInput, setDotVotingMinutesInput] = useState('5')
+  const [dotVotingVotesPerParticipantInput, setDotVotingVotesPerParticipantInput] = useState('5')
+  const [dotVotingSelectedSectionId, setDotVotingSelectedSectionId] = useState('')
+  const [dotVotingModalError, setDotVotingModalError] = useState<string | null>(null)
+  const [dotVotingModalPendingAction, setDotVotingModalPendingAction] = useState<
+    | 'start'
+    | 'pause'
+    | 'resume'
+    | 'adjust-minus'
+    | 'adjust-plus'
+    | 'end'
+    | 'clear'
+    | 'sort'
+    | 'add-vote'
+    | 'remove-vote'
+    | null
+  >(null)
   const [timerA11yAnnouncement, setTimerA11yAnnouncement] = useState('')
   const [, setIsLoadingCanvasItems] = useState(false)
   const [isSavingCanvasItem, setIsSavingCanvasItem] = useState(false)
@@ -523,6 +558,10 @@ const Canvas = () => {
     [activeEditableFrameId, frames],
   )
 
+  const handleCanvasSyncError = useCallback((message: string) => {
+    setSyncError(message)
+  }, [])
+
   const {
     timerLabel,
     remainingSeconds,
@@ -539,8 +578,38 @@ const Canvas = () => {
     enabled: canPersistToDashboard && projectId !== null && dashboardId !== null && canvasInitMode === 'existing',
     projectId,
     dashboardId,
-    onSyncError: (message) => setSyncError(message),
+    onSyncError: handleCanvasSyncError,
   })
+
+  const {
+    sessionPayload: dotVotingSessionPayload,
+    votingLabel: dotVotingLabel,
+    isVotingRunning: isDotVotingRunning,
+    isVotingPaused: isDotVotingPaused,
+    isSavingVoting: isSavingDotVoting,
+    activeVotesByFrameGraphId,
+    myVotesByFrameGraphId,
+    myUsedVotes: myUsedDotVotes,
+    myVotesRemaining: myRemainingDotVotes,
+    startVoting,
+    pauseVoting,
+    resumeVoting,
+    adjustVotingMinutes,
+    endVoting,
+    clearVoting,
+    addVote,
+    removeVote,
+    refreshVoting,
+  } = useCanvasDotVotingSync({
+    enabled: canPersistToDashboard && projectId !== null && dashboardId !== null && canvasInitMode === 'existing',
+    projectId,
+    dashboardId,
+    onSyncError: handleCanvasSyncError,
+  })
+  const isDotVotingActive = Boolean(dotVotingSessionPayload) && dotVotingSessionPayload?.status !== 'ended'
+  const shouldRevealDotVotingTotals =
+    Boolean(dotVotingSessionPayload) &&
+    (dotVotingSessionPayload?.status === 'ended' || (!isDotVotingRunning && !isDotVotingPaused))
 
   const canvasSyncContextEnabled =
     canPersistToDashboard && projectId !== null && dashboardId !== null && canvasInitMode === 'existing'
@@ -954,6 +1023,8 @@ const Canvas = () => {
         headingFontSize: frame.headingFontSize,
         textContent: frame.textContent,
         stickyColor: frame.stickyColor,
+        finalVoteCount: frame.finalVoteCount,
+        finalVoteRank: frame.finalVoteRank,
         sectionLayout: frame.sectionLayout,
         tableHeaders: frame.tableHeaders,
         tableRows: frame.tableRows,
@@ -2536,11 +2607,7 @@ const Canvas = () => {
               centerY <= sectionBounds.bottom
             )
           })
-          .sort((a, b) => {
-            if (a.y !== b.y) return a.y - b.y
-            if (a.x !== b.x) return a.x - b.x
-            return a.id.localeCompare(b.id)
-          })
+          .sort(compareFramesForSectionOrder)
 
         const contentWidth = Math.max(1, contentRight - contentLeft)
         const estimatedColumnCount = Math.max(
@@ -3001,6 +3068,7 @@ const Canvas = () => {
   }
 
   const handleDragStart = (event: React.MouseEvent | React.TouchEvent, frame: CanvasFrame) => {
+    if (isDotVotingActive) return
     // For mouse events, only handle left click
     if ('button' in event && event.button !== 0) return
 
@@ -3152,6 +3220,7 @@ const Canvas = () => {
   )
 
   const handleResizeStart = (event: React.MouseEvent, frame: CanvasFrame, dir: 'se' | 'sw' | 'ne' | 'nw' = 'se') => {
+    if (isDotVotingActive) return
     event.preventDefault()
     event.stopPropagation()
     const defaults = getDefaultFrameSize(frame)
@@ -3286,7 +3355,7 @@ const Canvas = () => {
                 stickyCenterY <= targetRect.bottom
               )
             })
-            .sort((a, b) => a.y - b.y)
+            .sort(compareFramesForSectionOrder)
           const stickyHeight = movedRect.height
           return {
             ...movedFrame,
@@ -3373,11 +3442,7 @@ const Canvas = () => {
               centerY <= sectionBounds.bottom
             )
           })
-          .sort((a, b) => {
-            if (a.y !== b.y) return a.y - b.y
-            if (a.x !== b.x) return a.x - b.x
-            return a.id.localeCompare(b.id)
-          })
+          .sort(compareFramesForSectionOrder)
 
         const contentWidth = Math.max(1, contentRight - contentLeft)
         const estimatedColumnCount = Math.max(
@@ -4293,11 +4358,7 @@ const Canvas = () => {
           bounds.bottom <= sectionBounds.bottom
         )
       })
-      .sort((a, b) => {
-        if (a.y !== b.y) return a.y - b.y
-        if (a.x !== b.x) return a.x - b.x
-        return a.id.localeCompare(b.id)
-      })
+      .sort(compareFramesForSectionOrder)
 
     const movedFramesById = new Map<string, CanvasFrame>()
     let cursorX = contentLeft
@@ -4433,7 +4494,24 @@ const Canvas = () => {
     })
   }
 
+  const handleClearStickyVoteSnapshot = (frameId: string) => {
+    const frame = frames.find((item) => item.id === frameId)
+    if (!frame || frame.kind !== 'sticky') return
+    if (!Number.isFinite(frame.finalVoteCount) && !Number.isFinite(frame.finalVoteRank)) return
+
+    const nextFrame: CanvasFrame = {
+      ...frame,
+      finalVoteCount: undefined,
+      finalVoteRank: undefined,
+    }
+    setFrames((prev) => prev.map((item) => (item.id === frameId ? nextFrame : item)))
+    void persistFrame(nextFrame).catch((error) => {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke fjerne lagret stemmeresultat')
+    })
+  }
+
   const handleEditableFrameChange = (id: string, nextValue: string) => {
+    if (isDotVotingActive) return
     setFrames((prev) =>
       prev.map((frame) => {
         if (frame.id !== id) return frame
@@ -4462,6 +4540,7 @@ const Canvas = () => {
   }
 
   const handleEditableFrameBlur = (id: string) => {
+    if (isDotVotingActive) return
     const frame = frames.find((item) => item.id === id)
     if (
       !frame ||
@@ -4504,6 +4583,7 @@ const Canvas = () => {
   }
 
   const handleStartEditingFrame = (id: string) => {
+    if (isDotVotingActive) return
     const frame = frames.find((item) => item.id === id)
     if (
       !frame ||
@@ -4542,6 +4622,14 @@ const Canvas = () => {
     void (async () => {
       await refreshTimer()
       setIsTimerModalOpen(true)
+    })()
+  }
+
+  const handleOpenDotVotingModal = () => {
+    setDotVotingModalError(null)
+    void (async () => {
+      await refreshVoting()
+      setIsDotVotingModalOpen(true)
     })()
   }
 
@@ -4622,6 +4710,269 @@ const Canvas = () => {
         await adjustTimerMinutes(1)
       } finally {
         setTimerModalPendingAction(null)
+      }
+    })()
+  }
+
+  const handleStartDotVoting = () => {
+    const sectionFrame = frames.find((frame) => frame.id === dotVotingSelectedSectionId && frame.kind === 'section')
+    if (!sectionFrame?.graphId) {
+      setDotVotingModalError('Velg en seksjon som allerede er lagret i canvas.')
+      return
+    }
+
+    const minutes = Number(dotVotingMinutesInput)
+    if (!Number.isFinite(minutes) || minutes <= 0) {
+      setDotVotingModalError('Legg inn et gyldig antall minutter (minst 1).')
+      return
+    }
+    if (minutes > 240) {
+      setDotVotingModalError('Maks varighet er 240 minutter.')
+      return
+    }
+
+    const votesPerParticipant = Number(dotVotingVotesPerParticipantInput)
+    if (!Number.isFinite(votesPerParticipant) || votesPerParticipant <= 0) {
+      setDotVotingModalError('Legg inn antall stemmer per person (minst 1).')
+      return
+    }
+    if (votesPerParticipant > 20) {
+      setDotVotingModalError('Maks antall stemmer per person er 20.')
+      return
+    }
+
+    void (async () => {
+      setDotVotingModalPendingAction('start')
+      try {
+        await startVoting({
+          sectionGraphId: sectionFrame.graphId ?? 0,
+          durationMinutes: minutes,
+          votesPerParticipant,
+        })
+        setDotVotingModalError(null)
+        setIsDotVotingModalOpen(false)
+      } finally {
+        setDotVotingModalPendingAction(null)
+      }
+    })()
+  }
+
+  const handlePauseDotVoting = () => {
+    void (async () => {
+      setDotVotingModalPendingAction('pause')
+      try {
+        await pauseVoting()
+      } finally {
+        setDotVotingModalPendingAction(null)
+      }
+    })()
+  }
+
+  const handleResumeDotVoting = () => {
+    void (async () => {
+      setDotVotingModalPendingAction('resume')
+      try {
+        await resumeVoting()
+      } finally {
+        setDotVotingModalPendingAction(null)
+      }
+    })()
+  }
+
+  const handleAdjustDotVotingMinusOneMinute = () => {
+    void (async () => {
+      setDotVotingModalPendingAction('adjust-minus')
+      try {
+        await adjustVotingMinutes(-1)
+      } finally {
+        setDotVotingModalPendingAction(null)
+      }
+    })()
+  }
+
+  const handleAdjustDotVotingPlusOneMinute = () => {
+    void (async () => {
+      setDotVotingModalPendingAction('adjust-plus')
+      try {
+        await adjustVotingMinutes(1)
+      } finally {
+        setDotVotingModalPendingAction(null)
+      }
+    })()
+  }
+
+  const handleEndDotVoting = () => {
+    void (async () => {
+      setDotVotingModalPendingAction('end')
+      try {
+        await endVoting()
+      } finally {
+        setDotVotingModalPendingAction(null)
+      }
+    })()
+  }
+
+  const handleClearDotVoting = () => {
+    void (async () => {
+      setDotVotingModalPendingAction('clear')
+      try {
+        await clearVoting()
+      } finally {
+        setDotVotingModalPendingAction(null)
+      }
+    })()
+  }
+
+  const handleAddDotVote = (stickyId: string) => {
+    const stickyFrame = frames.find((frame) => frame.id === stickyId)
+    if (!stickyFrame || stickyFrame.kind !== 'sticky' || !stickyFrame.graphId) return
+
+    void (async () => {
+      setDotVotingModalPendingAction('add-vote')
+      try {
+        await addVote(stickyFrame.graphId ?? 0)
+      } finally {
+        setDotVotingModalPendingAction(null)
+      }
+    })()
+  }
+
+  const handleRemoveDotVote = (stickyId: string) => {
+    const stickyFrame = frames.find((frame) => frame.id === stickyId)
+    if (!stickyFrame || stickyFrame.kind !== 'sticky' || !stickyFrame.graphId) return
+
+    void (async () => {
+      setDotVotingModalPendingAction('remove-vote')
+      try {
+        await removeVote(stickyFrame.graphId ?? 0)
+      } finally {
+        setDotVotingModalPendingAction(null)
+      }
+    })()
+  }
+
+  const handleSortSectionByVotes = () => {
+    if (!dotVotingSessionPayload?.sectionGraphId) {
+      setDotVotingModalError('Fant ingen aktiv eller avsluttet votering å sortere etter.')
+      return
+    }
+
+    const sectionFrame = frames.find(
+      (frame) => frame.kind === 'section' && frame.graphId === dotVotingSessionPayload.sectionGraphId,
+    )
+    if (!sectionFrame) {
+      setDotVotingModalError('Fant ikke seksjonen for denne voteringen i aktiv fane.')
+      return
+    }
+
+    const sectionBounds = getFrameBoundsForLayout(sectionFrame)
+    const sectionStickyFrames = frames
+      .filter((frame) => {
+        if (frame.kind !== 'sticky') return false
+        if ((frame.categoryId ?? null) !== (sectionFrame.categoryId ?? null)) return false
+        const bounds = getFrameBoundsForLayout(frame)
+        const centerX = (bounds.left + bounds.right) / 2
+        const centerY = (bounds.top + bounds.bottom) / 2
+        return (
+          centerX >= sectionBounds.left &&
+          centerX <= sectionBounds.right &&
+          centerY >= sectionBounds.top &&
+          centerY <= sectionBounds.bottom
+        )
+      })
+      .sort((a, b) => {
+        const votesA = activeVotesByFrameGraphId[String(a.graphId ?? 0)] ?? 0
+        const votesB = activeVotesByFrameGraphId[String(b.graphId ?? 0)] ?? 0
+        if (votesA !== votesB) return votesB - votesA
+        return compareFramesForSectionOrder(a, b)
+      })
+
+    if (sectionStickyFrames.length === 0) {
+      setDotVotingModalError('Fant ingen Post-it-lapper å sortere i valgt seksjon.')
+      return
+    }
+
+    const nextFramesById = new Map<string, CanvasFrame>()
+    if (sectionFrame.sectionLayout === 'grid') {
+      const baseX = sectionBounds.left + GRID_SECTION_LAYOUT_CONFIG.paddingX
+      const baseY = sectionBounds.top + GRID_SECTION_LAYOUT_CONFIG.paddingTop
+      sectionStickyFrames.forEach((frame, index) => {
+        const votes = activeVotesByFrameGraphId[String(frame.graphId ?? 0)] ?? 0
+        const nextFrame: CanvasFrame = {
+          ...frame,
+          x: Math.max(0, baseX),
+          y: Math.max(-CANVAS_TOP_BUFFER, baseY + index * 10),
+          stickyColor: votes > 0 ? 'green' : frame.stickyColor,
+          finalVoteCount: votes,
+          finalVoteRank: index + 1,
+        }
+        nextFramesById.set(frame.id, nextFrame)
+      })
+    } else {
+      const contentLeft = sectionBounds.left + 24
+      const contentRight = sectionBounds.right - 24
+      const contentTop = sectionBounds.top + 92
+      const gapX = 20
+      const gapY = 18
+      let cursorX = contentLeft
+      let cursorY = contentTop
+      let rowHeight = 0
+
+      sectionStickyFrames.forEach((frame) => {
+        const votes = activeVotesByFrameGraphId[String(frame.graphId ?? 0)] ?? 0
+        const defaults = getDefaultFrameSize(frame)
+        const width = frame.width ?? defaults.width
+        const height = frame.height ?? defaults.height
+        const shouldWrap = cursorX !== contentLeft && cursorX + width > contentRight
+
+        if (shouldWrap) {
+          cursorX = contentLeft
+          cursorY += rowHeight + gapY
+          rowHeight = 0
+        }
+
+        const nextFrame: CanvasFrame = {
+          ...frame,
+          x: Math.max(0, cursorX),
+          y: Math.max(-CANVAS_TOP_BUFFER, cursorY),
+          stickyColor: votes > 0 ? 'green' : frame.stickyColor,
+          finalVoteCount: votes,
+          finalVoteRank: nextFramesById.size + 1,
+        }
+        nextFramesById.set(frame.id, nextFrame)
+        cursorX += width + gapX
+        rowHeight = Math.max(rowHeight, height)
+      })
+    }
+
+    let nextFrames = frames.map((frame) => nextFramesById.get(frame.id) ?? frame)
+    const framesToPersistById = new Map(nextFramesById)
+    if (sectionFrame.sectionLayout === 'grid') {
+      const { nextFrames: nextAfterReflow, changedFrameIds } = reflowGridSections(nextFrames, [sectionFrame.id])
+      nextFrames = nextAfterReflow
+      changedFrameIds.forEach((frameId) => {
+        const frame = nextAfterReflow.find((item) => item.id === frameId)
+        if (frame) framesToPersistById.set(frameId, frame)
+      })
+    }
+
+    setFrames(nextFrames)
+    void (async () => {
+      setDotVotingModalPendingAction('sort')
+      try {
+        await Promise.all(
+          [...framesToPersistById.values()]
+            .filter((frame) => Boolean(frame.graphId))
+            .map((frame) =>
+              persistFrame(frame).catch((error) => {
+                setSyncError(error instanceof Error ? error.message : 'Kunne ikke sortere seksjon etter stemmer')
+                return frame
+              }),
+            ),
+        )
+        setDotVotingModalError(null)
+      } finally {
+        setDotVotingModalPendingAction(null)
       }
     })()
   }
@@ -5040,6 +5391,113 @@ const Canvas = () => {
     [visibleFrames],
   )
 
+  const dotVotingSectionOptions = useMemo(
+    () =>
+      visibleFrames
+        .filter((frame) => frame.kind === 'section' && Boolean(frame.graphId))
+        .sort((a, b) => {
+          if (a.y !== b.y) return a.y - b.y
+          if (a.x !== b.x) return a.x - b.x
+          return a.id.localeCompare(b.id)
+        })
+        .map((frame) => ({
+          id: frame.id,
+          label: frame.label.trim() || 'Seksjon',
+        })),
+    [visibleFrames],
+  )
+
+  const activeDotVotingSectionFrame = useMemo(
+    () =>
+      dotVotingSessionPayload
+        ? (frames.find(
+            (frame) => frame.kind === 'section' && frame.graphId === dotVotingSessionPayload.sectionGraphId,
+          ) ?? null)
+        : null,
+    [dotVotingSessionPayload, frames],
+  )
+
+  const activeDotVotingSectionLabel = useMemo(
+    () => activeDotVotingSectionFrame?.label.trim() || null,
+    [activeDotVotingSectionFrame],
+  )
+
+  const dotVotingStickyRows = useMemo(() => {
+    if (!activeDotVotingSectionFrame) return []
+
+    const sectionBounds = getFrameBounds(activeDotVotingSectionFrame)
+    return visibleFrames
+      .filter((frame) => {
+        if (frame.kind !== 'sticky' || !frame.graphId) return false
+        if ((frame.categoryId ?? null) !== (activeDotVotingSectionFrame.categoryId ?? null)) return false
+        const bounds = getFrameBounds(frame)
+        const centerX = (bounds.left + bounds.right) / 2
+        const centerY = (bounds.top + bounds.bottom) / 2
+        return (
+          centerX >= sectionBounds.left &&
+          centerX <= sectionBounds.right &&
+          centerY >= sectionBounds.top &&
+          centerY <= sectionBounds.bottom
+        )
+      })
+      .sort((a, b) => {
+        const votesA = activeVotesByFrameGraphId[String(a.graphId ?? 0)] ?? 0
+        const votesB = activeVotesByFrameGraphId[String(b.graphId ?? 0)] ?? 0
+        if (votesA !== votesB) return votesB - votesA
+        if (a.y !== b.y) return a.y - b.y
+        if (a.x !== b.x) return a.x - b.x
+        return a.id.localeCompare(b.id)
+      })
+      .map((frame) => {
+        const graphIdKey = String(frame.graphId ?? 0)
+        const myVotes = myVotesByFrameGraphId[graphIdKey] ?? 0
+        const canVote = myRemainingDotVotes > 0
+        return {
+          id: frame.id,
+          label: frame.textContent?.trim() || frame.label.trim() || 'Post-it-lapp',
+          totalVotes: activeVotesByFrameGraphId[graphIdKey] ?? 0,
+          myVotes,
+          canVote,
+        }
+      })
+  }, [
+    activeDotVotingSectionFrame,
+    activeVotesByFrameGraphId,
+    getFrameBounds,
+    myRemainingDotVotes,
+    myVotesByFrameGraphId,
+    visibleFrames,
+  ])
+
+  const dotVotingTotalVotesByFrameId = useMemo(() => {
+    const totalsByFrameId: Record<string, number> = {}
+    frames.forEach((frame) => {
+      if (frame.kind !== 'sticky' || !frame.graphId) return
+      totalsByFrameId[frame.id] = activeVotesByFrameGraphId[String(frame.graphId)] ?? 0
+    })
+    return totalsByFrameId
+  }, [activeVotesByFrameGraphId, frames])
+
+  const dotVotingMyVotesByFrameId = useMemo(() => {
+    const myByFrameId: Record<string, number> = {}
+    frames.forEach((frame) => {
+      if (frame.kind !== 'sticky' || !frame.graphId) return
+      myByFrameId[frame.id] = myVotesByFrameGraphId[String(frame.graphId)] ?? 0
+    })
+    return myByFrameId
+  }, [frames, myVotesByFrameGraphId])
+
+  useEffect(() => {
+    if (dotVotingSessionPayload) return
+    if (
+      dotVotingSelectedSectionId &&
+      dotVotingSectionOptions.some((option) => option.id === dotVotingSelectedSectionId)
+    ) {
+      return
+    }
+    setDotVotingSelectedSectionId(dotVotingSectionOptions[0]?.id ?? '')
+  }, [dotVotingSectionOptions, dotVotingSelectedSectionId, dotVotingSessionPayload])
+
   const frameContainingSectionIdByFrameId = useMemo(() => {
     const byId: Record<string, string> = {}
     const sections = visibleFrames.filter((frame) => frame.kind === 'section')
@@ -5235,8 +5693,13 @@ const Canvas = () => {
           onOpenCanvasSettings={handleOpenCanvasSettingsModal}
           onOpenInventory={handleOpenInventoryModal}
           onOpenTimer={handleOpenTimerModal}
+          onOpenDotVoting={handleOpenDotVotingModal}
           timerLabel={timerLabel}
           isTimerRunning={isTimerRunning}
+          dotVotingLabel={dotVotingLabel}
+          isDotVotingRunning={isDotVotingRunning}
+          dotVotingRemainingVotes={myRemainingDotVotes}
+          dotVotingVotesPerParticipant={dotVotingSessionPayload?.votesPerParticipant ?? 0}
           canManageTabs={canvasCategories.length > 1}
           canPersistToDashboard={canPersistToDashboard}
           shouldShowCreateCanvasModal={shouldShowCreateCanvasModal}
@@ -5251,6 +5714,7 @@ const Canvas = () => {
           activeParticipantCount={activeParticipantCount}
           activeOtherParticipantCount={activeOtherParticipantCount}
           participantLabels={participantLabels}
+          isInteractionLocked={isDotVotingActive}
         />
 
         <div className="flex h-full">
@@ -5601,6 +6065,13 @@ const Canvas = () => {
                   handleEditableFrameBlur={handleEditableFrameBlur}
                   handleStartEditingFrame={handleStartEditingFrame}
                   handleResizeStart={handleResizeStart}
+                  isDotVotingActive={isDotVotingActive}
+                  dotVotingTargetSectionId={activeDotVotingSectionFrame?.id ?? null}
+                  dotVotingTotalVotesByFrameId={dotVotingTotalVotesByFrameId}
+                  dotVotingMyVotesByFrameId={dotVotingMyVotesByFrameId}
+                  shouldRevealDotVotingTotals={shouldRevealDotVotingTotals}
+                  onVoteSticky={handleAddDotVote}
+                  onClearStickyVoteSnapshot={handleClearStickyVoteSnapshot}
                 />
               </div>
             </div>
@@ -5628,7 +6099,7 @@ const Canvas = () => {
           <div className="pointer-events-auto flex items-center gap-2">
             {!isGrafbyggerEmbedded && (
               <>
-                {selectedFrameIds.length > 0 && (
+                {!isDotVotingActive && selectedFrameIds.length > 0 && (
                   <div className="rounded-full border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-1 shadow-sm">
                     <Button
                       size="xsmall"
@@ -5853,6 +6324,49 @@ const Canvas = () => {
         isSaving={isSavingTimer}
         pendingAction={timerModalPendingAction}
         error={timerModalError}
+      />
+
+      <CanvasDotVotingModal
+        open={isDotVotingModalOpen}
+        onClose={() => setIsDotVotingModalOpen(false)}
+        sectionOptions={dotVotingSectionOptions}
+        selectedSectionId={dotVotingSelectedSectionId}
+        onSelectedSectionIdChange={(sectionId) => {
+          setDotVotingSelectedSectionId(sectionId)
+          if (dotVotingModalError) setDotVotingModalError(null)
+        }}
+        minutesInput={dotVotingMinutesInput}
+        onMinutesInputChange={(value) => {
+          setDotVotingMinutesInput(value)
+          if (dotVotingModalError) setDotVotingModalError(null)
+        }}
+        votesPerParticipantInput={dotVotingVotesPerParticipantInput}
+        onVotesPerParticipantInputChange={(value) => {
+          setDotVotingVotesPerParticipantInput(value)
+          if (dotVotingModalError) setDotVotingModalError(null)
+        }}
+        onStart={handleStartDotVoting}
+        onPause={handlePauseDotVoting}
+        onResume={handleResumeDotVoting}
+        onAdjustMinusOneMinute={handleAdjustDotVotingMinusOneMinute}
+        onAdjustPlusOneMinute={handleAdjustDotVotingPlusOneMinute}
+        onEnd={handleEndDotVoting}
+        onClear={handleClearDotVoting}
+        onSortSectionByVotes={handleSortSectionByVotes}
+        isRunning={isDotVotingRunning}
+        isPaused={isDotVotingPaused}
+        sessionExists={Boolean(dotVotingSessionPayload)}
+        votingLabel={dotVotingLabel}
+        activeSectionLabel={activeDotVotingSectionLabel}
+        votesPerParticipant={dotVotingSessionPayload?.votesPerParticipant ?? 0}
+        myUsedVotes={myUsedDotVotes}
+        myVotesRemaining={myRemainingDotVotes}
+        stickyRows={dotVotingStickyRows}
+        onAddVote={handleAddDotVote}
+        onRemoveVote={handleRemoveDotVote}
+        isSaving={isSavingDotVoting}
+        pendingAction={dotVotingModalPendingAction}
+        error={dotVotingModalError}
       />
 
       <CanvasImageUrlModal

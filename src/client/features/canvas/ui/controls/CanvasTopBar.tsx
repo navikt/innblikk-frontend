@@ -1,5 +1,5 @@
 import { ActionMenu, Alert, Button, Tabs } from '@navikt/ds-react'
-import { MoreVertical, Timer, Users } from 'lucide-react'
+import { Dot, MoreVertical, Timer, Users } from 'lucide-react'
 import { useRef, type KeyboardEvent, type RefObject, type TouchEvent } from 'react'
 import PeriodPicker from '../../../analysis/ui/PeriodPicker.tsx'
 import type { GraphCategoryDto } from '../../../oversikt/model/types.ts'
@@ -30,8 +30,13 @@ type CanvasTopBarProps = {
   onOpenAddDrawing: () => void
   onOpenAddIllustration: () => void
   onOpenTimer: () => void
+  onOpenDotVoting: () => void
   timerLabel: string | null
   isTimerRunning: boolean
+  dotVotingLabel: string | null
+  isDotVotingRunning: boolean
+  dotVotingRemainingVotes?: number
+  dotVotingVotesPerParticipant?: number
   isGrafbyggerEmbedded: boolean
   onCloseGrafbygger: () => void
   onOpenCreateTab: () => void
@@ -52,6 +57,7 @@ type CanvasTopBarProps = {
   activeParticipantCount?: number
   activeOtherParticipantCount?: number
   participantLabels?: string[]
+  isInteractionLocked?: boolean
 }
 
 const CanvasTopBar = ({
@@ -79,8 +85,13 @@ const CanvasTopBar = ({
   onOpenAddDrawing,
   onOpenAddIllustration,
   onOpenTimer,
+  onOpenDotVoting,
   timerLabel,
   isTimerRunning,
+  dotVotingLabel,
+  isDotVotingRunning,
+  dotVotingRemainingVotes = 0,
+  dotVotingVotesPerParticipant = 0,
   isGrafbyggerEmbedded,
   onCloseGrafbygger,
   onOpenCreateTab,
@@ -101,6 +112,7 @@ const CanvasTopBar = ({
   activeParticipantCount = 1,
   activeOtherParticipantCount = 0,
   participantLabels = [],
+  isInteractionLocked = false,
 }: CanvasTopBarProps) => {
   const normalizedCanvasTitle = canvasTitle.trim()
   const headingTitle =
@@ -193,6 +205,26 @@ const CanvasTopBar = ({
                   <span className="tabular-nums">Nedteller {timerLabel}</span>
                 </button>
               )}
+              {dotVotingLabel && (
+                <button
+                  type="button"
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                    isDotVotingRunning
+                      ? 'border-[var(--ax-border-accent)] bg-[var(--ax-bg-accent-soft)] text-[var(--ax-text-accent)]'
+                      : 'border-[var(--ax-border-danger)] bg-[var(--ax-border-danger)] text-white'
+                  }`}
+                  onClick={onOpenDotVoting}
+                  disabled={canvasInitMode !== 'existing'}
+                  aria-label="Åpne prikkvotering"
+                  title="Åpne prikkvotering"
+                >
+                  <Dot size={14} aria-hidden="true" />
+                  <span className="tabular-nums">
+                    Prikkvotering {dotVotingLabel} · {Math.max(0, dotVotingRemainingVotes)}/
+                    {Math.max(0, dotVotingVotesPerParticipant)} igjen
+                  </span>
+                </button>
+              )}
               <CanvasAddActionMenu
                 onAddWebsite={onOpenAddPage}
                 onOpenGrafbygger={onOpenCreateChart}
@@ -208,7 +240,8 @@ const CanvasTopBar = ({
                 onAddDrawing={onOpenAddDrawing}
                 onAddIllustration={onOpenAddIllustration}
                 onAddTab={onOpenCreateTab}
-                disabled={canvasInitMode !== 'existing'}
+                onOpenDotVoting={onOpenDotVoting}
+                disabled={canvasInitMode !== 'existing' || isInteractionLocked}
                 buttonSize="small"
                 buttonVariant="primary"
                 buttonClassName="shrink-0 whitespace-nowrap"
@@ -249,17 +282,22 @@ const CanvasTopBar = ({
                     variant="tertiary"
                     icon={<MoreVertical size={16} />}
                     aria-label="Innstillinger"
-                    disabled={canvasInitMode !== 'existing'}
+                    disabled={canvasInitMode !== 'existing' || isInteractionLocked}
                   />
                 </ActionMenu.Trigger>
                 <ActionMenu.Content align="end">
                   <ActionMenu.Item onClick={() => window.location.assign('/canvas')}>Canvas-oversikt</ActionMenu.Item>
-                  {canManageTabs && (
-                    <ActionMenu.Item onClick={() => onOpenManageTabs()}>Administrer faner</ActionMenu.Item>
-                  )}
+                  <ActionMenu.Divider />
                   <ActionMenu.Item onClick={onOpenTimer}>
                     {timerLabel ? `Nedteller (${timerLabel})` : 'Nedteller'}
                   </ActionMenu.Item>
+                  <ActionMenu.Item onClick={onOpenDotVoting}>
+                    {dotVotingLabel ? `Prikkvotering (${dotVotingLabel})` : 'Prikkvotering'}
+                  </ActionMenu.Item>
+                  <ActionMenu.Divider />
+                  {canManageTabs && (
+                    <ActionMenu.Item onClick={() => onOpenManageTabs()}>Administrer faner</ActionMenu.Item>
+                  )}
                   <ActionMenu.Item onClick={onOpenInventory}>Elementer</ActionMenu.Item>
                   <ActionMenu.Item onClick={onOpenCanvasSettings}>Innstillinger</ActionMenu.Item>
                   <ActionMenu.Item onClick={() => window.location.assign('/')}>Innblikk</ActionMenu.Item>

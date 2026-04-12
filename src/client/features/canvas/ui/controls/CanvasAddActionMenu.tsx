@@ -16,6 +16,7 @@ type CanvasAddActionMenuProps = {
   onAddDrawing: () => void
   onAddIllustration: () => void
   onAddTab: () => void
+  onOpenDotVoting: () => void
   disabled?: boolean
   buttonSize?: 'small' | 'xsmall'
   buttonVariant?: 'primary' | 'tertiary'
