@@ -14,10 +14,7 @@ import {
 } from '../../../shared/lib/utils.ts'
 import { mapGraphTypeToChart } from '../../oversikt'
 import CanvasIllustrationModal from './illustration/CanvasIllustrationModal.tsx'
-import {
-  DEFAULT_CANVAS_ILLUSTRATION_PATH,
-  getCanvasIllustrationOptionByPath,
-} from './illustration/CanvasIllustrationRegistry.ts'
+import { DEFAULT_CANVAS_ILLUSTRATION_PATH } from './illustration/CanvasIllustrationRegistry.ts'
 import CanvasIconModal from './icon/CanvasIconModal.tsx'
 import CanvasAdminModals from './controls/CanvasAdminModals.tsx'
 import CanvasCoreModals from './controls/CanvasCoreModals.tsx'
@@ -48,7 +45,6 @@ import {
   DEFAULT_CANVAS_ICON_COLOR,
   DEFAULT_CANVAS_ICON_ID,
   getCanvasIconColor,
-  getCanvasIconOptionById,
 } from './icon/CanvasIconRegistry.ts'
 import {
   createProject,
@@ -74,6 +70,7 @@ import { useLocation } from 'react-router-dom'
 import useCanvasCsvImport from '../hooks/useCanvasCsvImport.ts'
 import useCanvasBackgroundSync from '../hooks/useCanvasBackgroundSync.ts'
 import useCanvasEditLocks from '../hooks/useCanvasEditLocks.ts'
+import useCanvasFrameFormHandlers from '../hooks/useCanvasFrameFormHandlers.ts'
 import useCanvasPresence from '../hooks/useCanvasPresence.ts'
 import useCanvasDotVotingSync from '../hooks/useCanvasDotVotingSync.ts'
 import useCanvasTimerSync from '../hooks/useCanvasTimerSync.ts'
@@ -131,17 +128,12 @@ import {
   extractCanvasWebsiteIdFromDescription,
   formatCanvasPathLabel,
   getCanvasCategoryDisplayName,
-  getCanvasFrameVisualizationMode,
   getCanvasPeriodLabel,
-  getComparableUrl,
-  getFrameLabel,
   getWebsiteFrameDisplayUrl,
   getWebsiteFrameRenderSrc,
   isCanvasDashboardDescription,
   isImagePreviewUrl,
   mapCanvasChartTypeToGraphType,
-  normalizeInputToTargetUrl,
-  parseDashboardTargetUrl,
   serializeCanvasConfig,
 } from '../utils/canvasUtils.ts'
 import {
@@ -1425,695 +1417,254 @@ const Canvas = () => {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [cancelPendingFramePlacement, pendingCsvStickyImport, pendingFrameDraft])
 
-  const handleAddPage = () => {
-    const websiteId = selectedWebsite?.id || canvasConfiguredWebsiteId
-    if (!websiteId) {
-      setAddPageError('Velg nettside.')
-      return
-    }
+  const {
+    loadDashboardOptions,
+    loadEditDashboardOptions,
+    handleAddPage,
+    handleAddImage,
+    handleAddIllustration,
+    handleOpenAddDashboardModal,
+    handleAddDashboardCard,
+    handleOpenEditWebsiteModal,
+    handleOpenEditDashboardModal,
+    handleOpenEditImageModal,
+    handleOpenEditIllustrationModal,
+    handleOpenEditIconModal,
+    handleOpenEditFigureModal,
+    handleToggleInsightPanel,
+    handleDuplicateWebsiteCard,
+    handleDuplicateIconCard,
+    handleDuplicateFigureCard,
+    handleDuplicateSectionCard,
+    handleSaveEditedWebsite,
+    handleSaveEditedDashboard,
+    handleSaveEditedImage,
+    handleSaveEditedIcon,
+    handleSaveEditedFigure,
+    handleAddHeadingCard,
+    handleAddTextCard,
+    handleAddStickyCard,
+    handleAddIconCard,
+    handleAddFigureCard,
+    handleAddChartCard,
+    handleOpenAddPageModal,
+    handleAssignWebsiteToChart,
+    handleOpenAddHeadingModal,
+    handleOpenAddTextModal,
+    handleOpenAddStickyModal,
+    handleOpenAddSection,
+    handleOpenAddImageModal,
+    handleOpenAddIconModal,
+    handleOpenAddFigureModal,
+    handleOpenAddIllustrationModal,
+  } = useCanvasFrameFormHandlers({
+    projectId,
+    dashboardId,
+    ensureCanvasCategory,
+    frames,
+    selectedWebsite,
+    setSelectedWebsite,
+    canvasConfiguredWebsiteId,
+    queueFrameForPlacement,
+    setFrames,
+    setSyncError,
+    setIsSavingCanvasItem,
+    setFailedImageFrameIds,
+    pendingChartWebsiteByFrameId,
+    setPendingChartWebsiteByFrameId,
+    chartOptions,
+    selectedChartOptionId,
+    setAddChartError,
+    setIsAddChartModalOpen,
+    isAddPageModalOpen,
+    setIsAddPageModalOpen,
+    isAddImageModalOpen,
+    setIsAddImageModalOpen,
+    isAddIllustrationModalOpen,
+    setIsAddIllustrationModalOpen,
+    isAddDashboardModalOpen,
+    setIsAddDashboardModalOpen,
+    isAddHeadingModalOpen,
+    setIsAddHeadingModalOpen,
+    isAddTextModalOpen,
+    setIsAddTextModalOpen,
+    isAddStickyModalOpen,
+    setIsAddStickyModalOpen,
+    isAddIconModalOpen,
+    setIsAddIconModalOpen,
+    isAddFigureModalOpen,
+    setIsAddFigureModalOpen,
+    isEditWebsiteModalOpen,
+    setIsEditWebsiteModalOpen,
+    isEditDashboardModalOpen,
+    setIsEditDashboardModalOpen,
+    isEditImageModalOpen,
+    setIsEditImageModalOpen,
+    isEditIconModalOpen,
+    setIsEditIconModalOpen,
+    isEditFigureModalOpen,
+    setIsEditFigureModalOpen,
+    editWebsiteFrameId,
+    setEditWebsiteFrameId,
+    editDashboardFrameId,
+    setEditDashboardFrameId,
+    editImageFrameId,
+    setEditImageFrameId,
+    editIconFrameId,
+    setEditIconFrameId,
+    editFigureFrameId,
+    setEditFigureFrameId,
+    editIllustrationFrameId,
+    setEditIllustrationFrameId,
+    editWebsitePathInput,
+    setEditWebsitePathInput,
+    editImageUrlInput,
+    setEditImageUrlInput,
+    editWebsitePreviewUrlInput,
+    setEditWebsitePreviewUrlInput,
+    editWebsiteRenderEnabled,
+    setEditWebsiteRenderEnabled,
+    editWebsiteVisualizationMode,
+    setEditWebsiteVisualizationMode,
+    newPagePathInput,
+    setNewPagePathInput,
+    newImageUrlInput,
+    setNewImageUrlInput,
+    selectedIllustrationPath,
+    setSelectedIllustrationPath,
+    newPagePreviewUrlInput,
+    setNewPagePreviewUrlInput,
+    newPageRenderEnabled,
+    setNewPageRenderEnabled,
+    newPageVisualizationMode,
+    setNewPageVisualizationMode,
+    addPageError,
+    setAddPageError,
+    addImageError,
+    setAddImageError,
+    addIllustrationError,
+    setAddIllustrationError,
+    addDashboardError,
+    setAddDashboardError,
+    editWebsiteError,
+    setEditWebsiteError,
+    editDashboardError,
+    setEditDashboardError,
+    editImageError,
+    setEditImageError,
+    projectOptions,
+    setProjectOptions,
+    selectedProjectToAddId,
+    setSelectedProjectToAddId,
+    dashboardOptions,
+    setDashboardOptions,
+    selectedDashboardToAddId,
+    setSelectedDashboardToAddId,
+    isLoadingDashboardOptions,
+    setIsLoadingDashboardOptions,
+    editDashboardProjectOptions,
+    setEditDashboardProjectOptions,
+    editDashboardSelectedProjectId,
+    setEditDashboardSelectedProjectId,
+    editDashboardOptions,
+    setEditDashboardOptions,
+    editDashboardSelectedDashboardId,
+    setEditDashboardSelectedDashboardId,
+    isLoadingEditDashboardOptions,
+    setIsLoadingEditDashboardOptions,
+    headingTextInput,
+    setHeadingTextInput,
+    addHeadingError,
+    setAddHeadingError,
+    textContentInput,
+    setTextContentInput,
+    addTextError,
+    setAddTextError,
+    stickyContentInput,
+    setStickyContentInput,
+    selectedStickyColor,
+    setSelectedStickyColor,
+    addStickyError,
+    setAddStickyError,
+    selectedIconId,
+    setSelectedIconId,
+    selectedIconColor,
+    setSelectedIconColor,
+    addIconError,
+    setAddIconError,
+    editIconSelectedId,
+    setEditIconSelectedId,
+    editIconSelectedColor,
+    setEditIconSelectedColor,
+    editIconError,
+    setEditIconError,
+    selectedFigureType,
+    setSelectedFigureType,
+    selectedFigureColor,
+    setSelectedFigureColor,
+    addFigureError,
+    setAddFigureError,
+    editFigureSelectedType,
+    setEditFigureSelectedType,
+    editFigureSelectedColor,
+    setEditFigureSelectedColor,
+    editFigureError,
+    setEditFigureError,
+    setActiveInsightFrameId,
+  })
 
-    const targetUrl = normalizeInputToTargetUrl(newPagePathInput, selectedWebsite?.domain)
-    if (!targetUrl) {
-      setAddPageError('Legg inn en gyldig URL, for eksempel https://www.nav.no/aap.')
-      return
-    }
+  const handleCloseImportStickyCsvModal = useCallback(() => {
+    setIsImportStickyCsvModalOpen(false)
+    clearImportStickyCsvError()
+  }, [clearImportStickyCsvError])
 
-    const previewInput = newPagePreviewUrlInput.trim()
-    const previewUrl = previewInput ? normalizeInputToTargetUrl(previewInput, selectedWebsite?.domain) : undefined
-    if (!newPageRenderEnabled && previewInput && !previewUrl) {
-      setAddPageError('Legg inn en gyldig visnings-URL, for eksempel https://www.nav.no/...')
-      return
-    }
-
-    const frameDraft: PendingCanvasFrameDraft = {
-      kind: 'website',
-      websiteId,
-      targetUrl,
-      previewUrl: newPageRenderEnabled ? undefined : (previewUrl ?? undefined),
-      renderWebsite: newPageRenderEnabled,
-      visualizationMode: newPageVisualizationMode || undefined,
-      label: getFrameLabel(targetUrl),
-      width: 420,
-      height: 560,
-      refreshNonce: 1,
-    }
-    queueFrameForPlacement(frameDraft, 'nettside')
-    setNewPagePathInput('')
-    setNewPagePreviewUrlInput('')
-    setNewPageVisualizationMode('')
-    setAddPageError(null)
-    setIsAddPageModalOpen(false)
+  const handleOpenImportStickyCsvModal = () => {
+    handleClearImportStickyCsvFile()
+    setIsImportStickyCsvModalOpen(true)
   }
 
-  const handleAddImage = () => {
-    const imageUrl = normalizeInputToTargetUrl(newImageUrlInput, selectedWebsite?.domain)
-    if (!imageUrl) {
-      setAddImageError('Legg inn en gyldig bilde-URL, for eksempel https://www.nav.no/bilde.png.')
-      return
-    }
-
-    const comparableUrl = getComparableUrl(imageUrl)
-    if (
-      frames.some(
-        (frame) => frame.kind === 'image' && frame.targetUrl && getComparableUrl(frame.targetUrl) === comparableUrl,
-      )
-    ) {
-      setAddImageError('Bildet er allerede lagt til i canvaset.')
-      return
-    }
-
-    const frameDraft: PendingCanvasFrameDraft = {
-      kind: 'image',
-      targetUrl: imageUrl,
-      label: getFrameLabel(imageUrl),
-      width: 420,
-      height: 420,
-      refreshNonce: 1,
-    }
-    queueFrameForPlacement(frameDraft, 'bilde')
-    setNewImageUrlInput('')
-    setAddImageError(null)
-    setIsAddImageModalOpen(false)
+  const handleOpenAddDrawing = () => {
+    cancelPendingFramePlacement()
+    openDrawingMode()
   }
 
-  const handleAddIllustration = async () => {
-    const selectedIllustration = getCanvasIllustrationOptionByPath(selectedIllustrationPath)
-    if (!selectedIllustration) {
-      setAddIllustrationError('Fant ingen illustrasjon å legge til.')
-      return
-    }
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return
+      const data = event.data as CanvasChartReadyMessage | null
+      if (!data || data.type !== 'umami-canvas-chart-ready') return
+      if (!data.payload?.chartSql || !data.payload?.chartType) return
 
-    try {
-      setIsSavingCanvasItem(true)
-      setSyncError(null)
-      if (editIllustrationFrameId) {
-        const currentFrame = frames.find((frame) => frame.id === editIllustrationFrameId)
-        if (!currentFrame || currentFrame.kind !== 'image') return
-        const updatedFrame: CanvasFrame = {
-          ...currentFrame,
-          targetUrl: selectedIllustration.path,
-          label: selectedIllustration.label,
-          isIllustration: true,
-          imageRotationDeg: currentFrame.imageRotationDeg ?? 0,
-          refreshNonce: currentFrame.refreshNonce + 1,
+      const payloadWebsiteId = data.payload.websiteId?.trim()
+      if (payloadWebsiteId) {
+        if (!selectedWebsite?.id) {
+          const matchedWebsite = availableWebsites.find((item) => item.id === payloadWebsiteId) ?? null
+          if (matchedWebsite) {
+            setSelectedWebsite(matchedWebsite)
+          }
         }
-        const persistedFrame = await persistFrame(updatedFrame)
-        setFrames((prev) => prev.map((frame) => (frame.id === editIllustrationFrameId ? persistedFrame : frame)))
-      } else {
-        const frameDraft: PendingCanvasFrameDraft = {
-          kind: 'image',
-          targetUrl: selectedIllustration.path,
-          label: selectedIllustration.label,
-          isIllustration: true,
-          imageRotationDeg: 0,
-          width: 420,
-          height: 420,
-          refreshNonce: 1,
-        }
-        queueFrameForPlacement(frameDraft, 'illustrasjon')
+        setCanvasConfiguredWebsiteId((current) => current || payloadWebsiteId)
       }
-      setAddIllustrationError(null)
-      setEditIllustrationFrameId(null)
-      setIsAddIllustrationModalOpen(false)
-    } catch (error) {
-      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre illustrasjon i canvas')
-    } finally {
-      setIsSavingCanvasItem(false)
-    }
-  }
 
-  const loadDashboardOptions = useCallback(async (projectIdToLoad: number | null) => {
-    if (projectIdToLoad === null) {
-      setDashboardOptions([])
-      setSelectedDashboardToAddId('')
-      return
-    }
-
-    setIsLoadingDashboardOptions(true)
-    setAddDashboardError(null)
-
-    try {
-      const dashboards = (await fetchDashboards(projectIdToLoad)).filter(
-        (dashboard) => !isCanvasDashboardDescription(dashboard.description),
+      setIsGrafbyggerEmbedded(false)
+      queueFrameForPlacement(
+        {
+          kind: 'chart',
+          label: data.payload.label?.trim() || 'Graf',
+          chartType: data.payload.chartType,
+          chartSql: data.payload.chartSql,
+          websiteId: payloadWebsiteId || undefined,
+          width: 560,
+          height: 360,
+          refreshNonce: 0,
+        },
+        'graf',
       )
-      const options = dashboards.map((dashboard) => ({
-        id: dashboard.id,
-        name: dashboard.name?.trim() || `Dashboard ${dashboard.id}`,
-      }))
-      setDashboardOptions(options)
-      setSelectedDashboardToAddId((prev) => {
-        if (prev && options.some((option) => String(option.id) === prev)) return prev
-        return options[0] ? String(options[0].id) : ''
-      })
-    } catch (error) {
-      setDashboardOptions([])
-      setSelectedDashboardToAddId('')
-      setAddDashboardError(error instanceof Error ? error.message : 'Kunne ikke laste dashboards')
-    } finally {
-      setIsLoadingDashboardOptions(false)
-    }
-  }, [])
-
-  const handleOpenAddDashboardModal = () => {
-    setAddDashboardError(null)
-    setIsAddDashboardModalOpen(true)
-    void (async () => {
-      setIsLoadingDashboardOptions(true)
-      try {
-        const projects = await fetchProjects()
-        const options = projects.map((item) => ({
-          id: item.id,
-          name: item.name?.trim() || `Team ${item.id}`,
-        }))
-        setProjectOptions(options)
-        const preferredProjectId =
-          projectId !== null && options.some((option) => option.id === projectId) ? projectId : (options[0]?.id ?? null)
-        setSelectedProjectToAddId(preferredProjectId ? String(preferredProjectId) : '')
-        await loadDashboardOptions(preferredProjectId)
-      } catch (error) {
-        setProjectOptions([])
-        setSelectedProjectToAddId('')
-        setDashboardOptions([])
-        setSelectedDashboardToAddId('')
-        setAddDashboardError(error instanceof Error ? error.message : 'Kunne ikke laste team')
-      } finally {
-        setIsLoadingDashboardOptions(false)
-      }
-    })()
-  }
-
-  const handleAddDashboardCard = () => {
-    const selectedDashboard = dashboardOptions.find((option) => String(option.id) === selectedDashboardToAddId)
-    if (!selectedDashboard) {
-      setAddDashboardError('Velg et dashboard.')
-      return
     }
 
-    const selectedProjectId = Number(selectedProjectToAddId)
-    const normalizedProjectId = Number.isFinite(selectedProjectId) ? selectedProjectId : null
-    const dashboardUrl =
-      normalizedProjectId !== null
-        ? `/dashboard/${selectedDashboard.id}?projectId=${normalizedProjectId}&focused=true`
-        : null
-    if (!dashboardUrl) {
-      setAddDashboardError('Mangler prosjekt-kontekst. Åpne canvas fra ProjectManager.')
-      return
-    }
-
-    const comparableUrl = getComparableUrl(window.location.origin + dashboardUrl)
-    if (
-      frames.some(
-        (frame) =>
-          frame.kind === 'website' &&
-          frame.targetUrl &&
-          getComparableUrl(
-            frame.targetUrl.startsWith('/') ? window.location.origin + frame.targetUrl : frame.targetUrl,
-          ) === comparableUrl,
-      )
-    ) {
-      setAddDashboardError('Dashboardet er allerede lagt til i canvaset.')
-      return
-    }
-
-    const frameDraft: PendingCanvasFrameDraft = {
-      kind: 'website',
-      targetUrl: dashboardUrl,
-      previewUrl: dashboardUrl,
-      renderWebsite: false,
-      isInternalDashboard: true,
-      label: selectedDashboard.name,
-      width: 760,
-      height: 620,
-      refreshNonce: 1,
-    }
-    queueFrameForPlacement(frameDraft, 'dashboard')
-    setAddDashboardError(null)
-    setIsAddDashboardModalOpen(false)
-  }
-
-  const loadEditDashboardOptions = useCallback(async (projectIdToLoad: number | null) => {
-    if (projectIdToLoad === null) {
-      setEditDashboardOptions([])
-      setEditDashboardSelectedDashboardId('')
-      return
-    }
-
-    setIsLoadingEditDashboardOptions(true)
-    setEditDashboardError(null)
-
-    try {
-      const dashboards = (await fetchDashboards(projectIdToLoad)).filter(
-        (dashboard) => !isCanvasDashboardDescription(dashboard.description),
-      )
-      const options = dashboards.map((dashboard) => ({
-        id: dashboard.id,
-        name: dashboard.name?.trim() || `Dashboard ${dashboard.id}`,
-      }))
-      setEditDashboardOptions(options)
-      setEditDashboardSelectedDashboardId((prev) => {
-        if (prev && options.some((option) => String(option.id) === prev)) return prev
-        return options[0] ? String(options[0].id) : ''
-      })
-    } catch (error) {
-      setEditDashboardOptions([])
-      setEditDashboardSelectedDashboardId('')
-      setEditDashboardError(error instanceof Error ? error.message : 'Kunne ikke laste dashboards')
-    } finally {
-      setIsLoadingEditDashboardOptions(false)
-    }
-  }, [])
-
-  const handleOpenEditWebsiteModal = (frame: CanvasFrame) => {
-    if (frame.kind !== 'website' || frame.isInternalDashboard) return
-    setEditWebsiteFrameId(frame.id)
-    setEditWebsitePathInput(frame.targetUrl || '')
-    setEditWebsitePreviewUrlInput(frame.previewUrl || '')
-    setEditWebsiteRenderEnabled(frame.renderWebsite !== false)
-    setEditWebsiteVisualizationMode(getCanvasFrameVisualizationMode(frame))
-    setEditWebsiteError(null)
-    setIsEditWebsiteModalOpen(true)
-  }
-
-  const handleOpenEditDashboardModal = (frame: CanvasFrame) => {
-    if (frame.kind !== 'website' || !frame.isInternalDashboard) return
-    setEditDashboardFrameId(frame.id)
-    setEditDashboardError(null)
-    setIsEditDashboardModalOpen(true)
-
-    void (async () => {
-      setIsLoadingEditDashboardOptions(true)
-      try {
-        const projects = await fetchProjects()
-        const projectOptions = projects.map((item) => ({
-          id: item.id,
-          name: item.name?.trim() || `Team ${item.id}`,
-        }))
-        setEditDashboardProjectOptions(projectOptions)
-        const parsedTarget = parseDashboardTargetUrl(frame.targetUrl)
-        const preferredProjectId =
-          parsedTarget.projectId !== null && projectOptions.some((option) => option.id === parsedTarget.projectId)
-            ? parsedTarget.projectId
-            : projectId !== null && projectOptions.some((option) => option.id === projectId)
-              ? projectId
-              : (projectOptions[0]?.id ?? null)
-        setEditDashboardSelectedProjectId(preferredProjectId ? String(preferredProjectId) : '')
-
-        const dashboards =
-          preferredProjectId !== null
-            ? (await fetchDashboards(preferredProjectId)).filter(
-                (dashboard) => !isCanvasDashboardDescription(dashboard.description),
-              )
-            : []
-        const dashboardOptions = dashboards.map((dashboard) => ({
-          id: dashboard.id,
-          name: dashboard.name?.trim() || `Dashboard ${dashboard.id}`,
-        }))
-        setEditDashboardOptions(dashboardOptions)
-        const preferredDashboardId =
-          parsedTarget.dashboardId !== null && dashboardOptions.some((option) => option.id === parsedTarget.dashboardId)
-            ? parsedTarget.dashboardId
-            : (dashboardOptions[0]?.id ?? null)
-        setEditDashboardSelectedDashboardId(preferredDashboardId ? String(preferredDashboardId) : '')
-      } catch (error) {
-        setEditDashboardProjectOptions([])
-        setEditDashboardSelectedProjectId('')
-        setEditDashboardOptions([])
-        setEditDashboardSelectedDashboardId('')
-        setEditDashboardError(error instanceof Error ? error.message : 'Kunne ikke laste team')
-      } finally {
-        setIsLoadingEditDashboardOptions(false)
-      }
-    })()
-  }
-
-  const handleOpenEditImageModal = (frame: CanvasFrame) => {
-    if (frame.kind !== 'image') return
-    setEditImageFrameId(frame.id)
-    setEditImageUrlInput(frame.targetUrl || '')
-    setEditImageError(null)
-    setIsEditImageModalOpen(true)
-  }
-
-  const handleOpenEditIllustrationModal = (frame: CanvasFrame) => {
-    if (!isIllustrationImageFrame(frame)) return
-    setEditIllustrationFrameId(frame.id)
-    setSelectedIllustrationPath(frame.targetUrl || DEFAULT_CANVAS_ILLUSTRATION_PATH)
-    setAddIllustrationError(null)
-    setIsAddIllustrationModalOpen(true)
-  }
-
-  const handleOpenEditIconModal = (frame: CanvasFrame) => {
-    if (frame.kind !== 'icon') return
-    setEditIconFrameId(frame.id)
-    setEditIconSelectedId(frame.iconName || DEFAULT_CANVAS_ICON_ID)
-    setEditIconSelectedColor(getCanvasIconColor(frame.iconColor))
-    setEditIconError(null)
-    setIsEditIconModalOpen(true)
-  }
-
-  const handleOpenEditFigureModal = (frame: CanvasFrame) => {
-    if (frame.kind !== 'figure') return
-    setEditFigureFrameId(frame.id)
-    setEditFigureSelectedType(frame.figureType ?? 'rectangle')
-    setEditFigureSelectedColor(getCanvasIconColor(frame.figureColor))
-    setEditFigureError(null)
-    setIsEditFigureModalOpen(true)
-  }
-
-  const handleToggleInsightPanel = (frame: CanvasFrame) => {
-    if (frame.kind !== 'website' || frame.isInternalDashboard) return
-    setActiveInsightFrameId((current) => (current === frame.id ? null : frame.id))
-  }
-
-  const handleDuplicateWebsiteCard = (frame: CanvasFrame) => {
-    if (frame.kind !== 'website' || frame.isInternalDashboard) return
-    setAddPageError(null)
-    setNewPagePathInput(frame.targetUrl || '')
-    setNewPageRenderEnabled(frame.renderWebsite !== false)
-    setNewPagePreviewUrlInput(frame.previewUrl || '')
-    setNewPageVisualizationMode(getCanvasFrameVisualizationMode(frame))
-    setIsAddPageModalOpen(true)
-  }
-
-  const handleDuplicateIconCard = async (frame: CanvasFrame) => {
-    if (frame.kind !== 'icon') return
-
-    const defaults = getDefaultFrameSize(frame)
-    const duplicatedFrame: CanvasFrame = {
-      ...frame,
-      id: `${Date.now()}-${Math.random()}`,
-      x: frame.x + 36,
-      y: frame.y + 36,
-      width: frame.width ?? defaults.width,
-      height: frame.height ?? defaults.height,
-      graphId: undefined,
-      queryId: undefined,
-      refreshNonce: 0,
-    }
-
-    try {
-      setIsSavingCanvasItem(true)
-      setSyncError(null)
-      const persistedFrame = await persistFrame(duplicatedFrame)
-      setFrames((prev) => [...prev, persistedFrame])
-    } catch (error) {
-      setSyncError(error instanceof Error ? error.message : 'Kunne ikke duplisere ikon')
-    } finally {
-      setIsSavingCanvasItem(false)
-    }
-  }
-
-  const handleDuplicateFigureCard = async (frame: CanvasFrame) => {
-    if (frame.kind !== 'figure') return
-
-    const defaults = getDefaultFrameSize(frame)
-    const duplicatedFrame: CanvasFrame = {
-      ...frame,
-      id: `${Date.now()}-${Math.random()}`,
-      x: frame.x + 36,
-      y: frame.y + 36,
-      width: frame.width ?? defaults.width,
-      height: frame.height ?? defaults.height,
-      graphId: undefined,
-      queryId: undefined,
-      refreshNonce: 0,
-    }
-
-    try {
-      setIsSavingCanvasItem(true)
-      setSyncError(null)
-      const persistedFrame = await persistFrame(duplicatedFrame)
-      setFrames((prev) => [...prev, persistedFrame])
-    } catch (error) {
-      setSyncError(error instanceof Error ? error.message : 'Kunne ikke duplisere figur')
-    } finally {
-      setIsSavingCanvasItem(false)
-    }
-  }
-
-  const handleDuplicateSectionCard = async (frame: CanvasFrame) => {
-    if (frame.kind !== 'section') return
-
-    const defaults = getDefaultFrameSize(frame)
-    const sectionWidth = frame.width ?? defaults.width
-    const sectionHeight = defaults.height
-    const nextSectionLabel = getNextAutoSectionLabel(frames)
-    const duplicatedFrame: CanvasFrame = {
-      ...frame,
-      id: `${Date.now()}-${Math.random()}`,
-      label: nextSectionLabel,
-      x: Math.max(0, frame.x + sectionWidth + 48),
-      y: frame.y,
-      width: sectionWidth,
-      height: sectionHeight,
-      graphId: undefined,
-      queryId: undefined,
-      refreshNonce: 0,
-    }
-
-    try {
-      setIsSavingCanvasItem(true)
-      setSyncError(null)
-      const persistedFrame = await persistFrame(duplicatedFrame)
-      setFrames((prev) => [...prev, persistedFrame])
-    } catch (error) {
-      setSyncError(error instanceof Error ? error.message : 'Kunne ikke duplisere seksjon')
-    } finally {
-      setIsSavingCanvasItem(false)
-    }
-  }
-
-  const handleSaveEditedWebsite = async () => {
-    if (!editWebsiteFrameId) return
-
-    const targetUrl = normalizeInputToTargetUrl(editWebsitePathInput, selectedWebsite?.domain)
-    if (!targetUrl) {
-      setEditWebsiteError('Legg inn en gyldig URL, for eksempel https://www.nav.no/aap.')
-      return
-    }
-
-    const previewInput = editWebsitePreviewUrlInput.trim()
-    const previewUrl = previewInput ? normalizeInputToTargetUrl(previewInput, selectedWebsite?.domain) : undefined
-    if (!editWebsiteRenderEnabled && previewInput && !previewUrl) {
-      setEditWebsiteError('Legg inn en gyldig visnings-URL, for eksempel https://www.nav.no/...')
-      return
-    }
-
-    const currentFrame = frames.find((frame) => frame.id === editWebsiteFrameId)
-    if (!currentFrame || currentFrame.kind !== 'website') return
-
-    const updatedFrame: CanvasFrame = {
-      ...currentFrame,
-      websiteId: selectedWebsite?.id || currentFrame.websiteId || canvasConfiguredWebsiteId || undefined,
-      targetUrl,
-      previewUrl: editWebsiteRenderEnabled ? undefined : (previewUrl ?? undefined),
-      renderWebsite: editWebsiteRenderEnabled,
-      visualizationMode: editWebsiteVisualizationMode || undefined,
-      label: getFrameLabel(targetUrl),
-      refreshNonce: currentFrame.refreshNonce + 1,
-    }
-
-    try {
-      setIsSavingCanvasItem(true)
-      setSyncError(null)
-      const persistedFrame = await persistFrame(updatedFrame)
-      setFrames((prev) => prev.map((frame) => (frame.id === editWebsiteFrameId ? persistedFrame : frame)))
-      setIsEditWebsiteModalOpen(false)
-      setEditWebsiteFrameId(null)
-      setEditWebsitePreviewUrlInput('')
-      setEditWebsiteVisualizationMode('')
-      setEditWebsiteError(null)
-    } catch (error) {
-      setSyncError(error instanceof Error ? error.message : 'Kunne ikke oppdatere nettside')
-    } finally {
-      setIsSavingCanvasItem(false)
-    }
-  }
-
-  const handleSaveEditedDashboard = async () => {
-    if (!editDashboardFrameId) return
-
-    const selectedProjectId = Number(editDashboardSelectedProjectId)
-    const selectedDashboardId = Number(editDashboardSelectedDashboardId)
-    const normalizedProjectId = Number.isFinite(selectedProjectId) ? selectedProjectId : null
-    const normalizedDashboardId = Number.isFinite(selectedDashboardId) ? selectedDashboardId : null
-
-    if (normalizedProjectId === null || normalizedDashboardId === null) {
-      setEditDashboardError('Velg team og dashboard.')
-      return
-    }
-
-    const selectedDashboard = editDashboardOptions.find((option) => option.id === normalizedDashboardId)
-    if (!selectedDashboard) {
-      setEditDashboardError('Velg et gyldig dashboard.')
-      return
-    }
-
-    const targetUrl = `/dashboard/${normalizedDashboardId}?projectId=${normalizedProjectId}&focused=true`
-    const comparableUrl = getComparableUrl(window.location.origin + targetUrl)
-    if (
-      frames.some(
-        (frame) =>
-          frame.id !== editDashboardFrameId &&
-          frame.kind === 'website' &&
-          frame.targetUrl &&
-          getComparableUrl(
-            frame.targetUrl.startsWith('/') ? window.location.origin + frame.targetUrl : frame.targetUrl,
-          ) === comparableUrl,
-      )
-    ) {
-      setEditDashboardError('Dashboardet er allerede lagt til i canvaset.')
-      return
-    }
-
-    const currentFrame = frames.find((frame) => frame.id === editDashboardFrameId)
-    if (!currentFrame || currentFrame.kind !== 'website' || !currentFrame.isInternalDashboard) return
-
-    const updatedFrame: CanvasFrame = {
-      ...currentFrame,
-      targetUrl,
-      previewUrl: targetUrl,
-      renderWebsite: false,
-      isInternalDashboard: true,
-      label: selectedDashboard.name,
-      refreshNonce: currentFrame.refreshNonce + 1,
-    }
-
-    try {
-      setIsSavingCanvasItem(true)
-      setSyncError(null)
-      const persistedFrame = await persistFrame(updatedFrame)
-      setFrames((prev) => prev.map((frame) => (frame.id === editDashboardFrameId ? persistedFrame : frame)))
-      setIsEditDashboardModalOpen(false)
-      setEditDashboardFrameId(null)
-      setEditDashboardError(null)
-    } catch (error) {
-      setSyncError(error instanceof Error ? error.message : 'Kunne ikke oppdatere dashboard')
-    } finally {
-      setIsSavingCanvasItem(false)
-    }
-  }
-
-  const handleSaveEditedImage = async () => {
-    if (!editImageFrameId) return
-
-    const imageUrl = normalizeInputToTargetUrl(editImageUrlInput, selectedWebsite?.domain)
-    if (!imageUrl) {
-      setEditImageError('Legg inn en gyldig bilde-URL, for eksempel https://www.nav.no/bilde.png.')
-      return
-    }
-
-    const comparableUrl = getComparableUrl(imageUrl)
-    if (
-      frames.some(
-        (frame) =>
-          frame.id !== editImageFrameId &&
-          frame.kind === 'image' &&
-          frame.targetUrl &&
-          getComparableUrl(frame.targetUrl) === comparableUrl,
-      )
-    ) {
-      setEditImageError('Bildet er allerede lagt til i canvaset.')
-      return
-    }
-
-    const currentFrame = frames.find((frame) => frame.id === editImageFrameId)
-    if (!currentFrame || currentFrame.kind !== 'image') return
-
-    const updatedFrame: CanvasFrame = {
-      ...currentFrame,
-      targetUrl: imageUrl,
-      label: getFrameLabel(imageUrl),
-      refreshNonce: currentFrame.refreshNonce + 1,
-    }
-
-    try {
-      setIsSavingCanvasItem(true)
-      setSyncError(null)
-      const persistedFrame = await persistFrame(updatedFrame)
-      setFrames((prev) => prev.map((frame) => (frame.id === editImageFrameId ? persistedFrame : frame)))
-      setFailedImageFrameIds((current) => {
-        if (!current[editImageFrameId]) return current
-        const next = { ...current }
-        delete next[editImageFrameId]
-        return next
-      })
-      setIsEditImageModalOpen(false)
-      setEditImageFrameId(null)
-      setEditImageUrlInput('')
-      setEditImageError(null)
-    } catch (error) {
-      setSyncError(error instanceof Error ? error.message : 'Kunne ikke oppdatere bilde')
-    } finally {
-      setIsSavingCanvasItem(false)
-    }
-  }
-
-  const handleSaveEditedIcon = async () => {
-    if (!editIconFrameId) return
-    const currentFrame = frames.find((frame) => frame.id === editIconFrameId)
-    if (!currentFrame || currentFrame.kind !== 'icon') return
-
-    const selectedIcon = getCanvasIconOptionById(editIconSelectedId)
-    if (!selectedIcon) {
-      setEditIconError('Velg et ikon.')
-      return
-    }
-
-    const updatedFrame: CanvasFrame = {
-      ...currentFrame,
-      iconName: selectedIcon.id,
-      iconColor: getCanvasIconColor(editIconSelectedColor),
-      label: selectedIcon.label,
-    }
-
-    try {
-      setIsSavingCanvasItem(true)
-      setSyncError(null)
-      const persistedFrame = await persistFrame(updatedFrame)
-      setFrames((prev) => prev.map((frame) => (frame.id === editIconFrameId ? persistedFrame : frame)))
-      setIsEditIconModalOpen(false)
-      setEditIconFrameId(null)
-      setEditIconError(null)
-    } catch (error) {
-      setEditIconError(error instanceof Error ? error.message : 'Kunne ikke oppdatere ikon')
-    } finally {
-      setIsSavingCanvasItem(false)
-    }
-  }
-
-  const handleSaveEditedFigure = async () => {
-    if (!editFigureFrameId) return
-    const currentFrame = frames.find((frame) => frame.id === editFigureFrameId)
-    if (!currentFrame || currentFrame.kind !== 'figure') return
-
-    const selectedFigure = CANVAS_FIGURE_OPTIONS.find((option) => option.id === editFigureSelectedType)
-    if (!selectedFigure) {
-      setEditFigureError('Velg en figur.')
-      return
-    }
-
-    const updatedFrame: CanvasFrame = {
-      ...currentFrame,
-      figureType: selectedFigure.id,
-      figureColor: getCanvasIconColor(editFigureSelectedColor),
-      label: selectedFigure.label,
-    }
-
-    try {
-      setIsSavingCanvasItem(true)
-      setSyncError(null)
-      const persistedFrame = await persistFrame(updatedFrame)
-      setFrames((prev) => prev.map((frame) => (frame.id === editFigureFrameId ? persistedFrame : frame)))
-      setIsEditFigureModalOpen(false)
-      setEditFigureFrameId(null)
-      setEditFigureError(null)
-    } catch (error) {
-      setEditFigureError(error instanceof Error ? error.message : 'Kunne ikke oppdatere figur')
-    } finally {
-      setIsSavingCanvasItem(false)
-    }
-  }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
+  }, [availableWebsites, queueFrameForPlacement, selectedWebsite?.id, setSelectedWebsite])
 
   const getCanvasPointerPosition = useCallback(
     (clientX: number, clientY: number): { x: number; y: number } | null => {
@@ -2797,147 +2348,6 @@ const Canvas = () => {
     [getCanvasPointerPosition],
   )
 
-  const handleAddHeadingCard = () => {
-    const heading = headingTextInput.trim()
-    if (!heading) {
-      setAddHeadingError('Legg inn overskrift.')
-      return
-    }
-
-    const longestHeadingLineLength = heading
-      .split('\n')
-      .reduce((maxLength, line) => Math.max(maxLength, line.length), 0)
-    const estimatedTextWidth =
-      Math.ceil(longestHeadingLineLength * (HEADING_FONT_SIZE_DEFAULT * HEADING_TEXT_CHAR_WIDTH_FACTOR * 1.3)) +
-      HEADING_TEXT_EXTRA_WIDTH
-    const width = Math.min(HEADING_TEXT_MAX_WIDTH, Math.max(HEADING_TEXT_MIN_WIDTH, estimatedTextWidth))
-    const usableWidth = Math.max(1, width - HEADING_TEXT_EXTRA_WIDTH)
-    const charsPerLine = Math.max(
-      12,
-      Math.floor(usableWidth / (HEADING_FONT_SIZE_DEFAULT * HEADING_TEXT_CHAR_WIDTH_FACTOR)),
-    )
-    const lineCount = heading
-      .split('\n')
-      .reduce((count, line) => count + Math.max(1, Math.ceil(line.length / charsPerLine)), 0)
-    const height = Math.max(28, lineCount * Math.ceil(HEADING_FONT_SIZE_DEFAULT * 1.05) + HEADING_TEXT_VERTICAL_PADDING)
-
-    const frameDraft: PendingCanvasFrameDraft = {
-      kind: 'heading',
-      headingText: heading,
-      headingFontSize: HEADING_FONT_SIZE_DEFAULT,
-      label: heading,
-      width,
-      height,
-      refreshNonce: 0,
-    }
-    queueFrameForPlacement(frameDraft, 'overskrift')
-    setHeadingTextInput('')
-    setAddHeadingError(null)
-    setIsAddHeadingModalOpen(false)
-  }
-
-  const handleAddTextCard = () => {
-    const content = textContentInput.trim()
-
-    if (!content) {
-      setAddTextError('Legg inn tekst.')
-      return
-    }
-
-    const frameDraft: PendingCanvasFrameDraft = {
-      kind: 'text',
-      textContent: content,
-      label: 'Tekst',
-      width: 340,
-      height: 170,
-      refreshNonce: 0,
-    }
-    queueFrameForPlacement(frameDraft, 'tekst')
-    setTextContentInput('')
-    setAddTextError(null)
-    setIsAddTextModalOpen(false)
-  }
-
-  const handleAddStickyCard = () => {
-    const content = stickyContentInput.trim()
-
-    if (!content) {
-      setAddStickyError('Legg inn tekst.')
-      return
-    }
-
-    const frameDraft: PendingCanvasFrameDraft = {
-      kind: 'sticky',
-      textContent: content,
-      stickyColor: getCanvasStickyColor(selectedStickyColor),
-      label: 'Post-it-lapp',
-      width: 360,
-      height: 180,
-      refreshNonce: 0,
-    }
-    queueFrameForPlacement(frameDraft, 'Post-it-lapp')
-    setStickyContentInput('')
-    setSelectedStickyColor(DEFAULT_CANVAS_STICKY_COLOR)
-    setAddStickyError(null)
-    setIsAddStickyModalOpen(false)
-  }
-
-  const handleAddSectionCard = () => {
-    const nextSectionLabel = getNextAutoSectionLabel(frames)
-    const frameDraft: PendingCanvasFrameDraft = {
-      kind: 'section',
-      label: nextSectionLabel,
-      sectionLayout: 'freeform',
-      width: 640,
-      height: 420,
-      refreshNonce: 0,
-    }
-    queueFrameForPlacement(frameDraft, 'seksjon')
-  }
-
-  const handleAddIconCard = () => {
-    const selectedIcon = getCanvasIconOptionById(selectedIconId)
-    if (!selectedIcon) {
-      setAddIconError('Velg et ikon.')
-      return
-    }
-
-    const frameDraft: PendingCanvasFrameDraft = {
-      kind: 'icon',
-      iconName: selectedIcon.id,
-      iconRotationDeg: 0,
-      iconColor: getCanvasIconColor(selectedIconColor),
-      label: selectedIcon.label,
-      width: 280,
-      height: 240,
-      refreshNonce: 0,
-    }
-    queueFrameForPlacement(frameDraft, 'ikon')
-    setAddIconError(null)
-    setIsAddIconModalOpen(false)
-  }
-
-  const handleAddFigureCard = () => {
-    const selectedFigure = CANVAS_FIGURE_OPTIONS.find((option) => option.id === selectedFigureType)
-    if (!selectedFigure) {
-      setAddFigureError('Velg en figur.')
-      return
-    }
-
-    const frameDraft: PendingCanvasFrameDraft = {
-      kind: 'figure',
-      figureType: selectedFigure.id,
-      figureColor: getCanvasIconColor(selectedFigureColor),
-      label: selectedFigure.label,
-      width: selectedFigure.id === 'line' || selectedFigure.id === 'arrow' ? 320 : 240,
-      height: selectedFigure.id === 'line' || selectedFigure.id === 'arrow' ? 120 : 200,
-      refreshNonce: 0,
-    }
-    queueFrameForPlacement(frameDraft, 'figur')
-    setAddFigureError(null)
-    setIsAddFigureModalOpen(false)
-  }
-
   const openGrafbyggerFromAddMenuDirect = () => {
     setAddChartError(null)
     setIsAddChartModalOpen(false)
@@ -2946,28 +2356,6 @@ const Canvas = () => {
 
   const handleOpenGrafbyggerFromAddMenu = () => {
     openGrafbyggerFromAddMenuDirect()
-  }
-
-  const handleAddChartCard = () => {
-    const selectedOption = chartOptions.find((option) => option.id === selectedChartOptionId)
-    if (!selectedOption) {
-      setAddChartError('Velg en graf.')
-      return
-    }
-
-    const frameDraft: PendingCanvasFrameDraft = {
-      kind: 'chart',
-      label: selectedOption.title,
-      chartType: selectedOption.chartType,
-      chartSql: selectedOption.sql,
-      websiteId: selectedWebsite?.id || canvasConfiguredWebsiteId || undefined,
-      width: 560,
-      height: 360,
-      refreshNonce: 0,
-    }
-    queueFrameForPlacement(frameDraft, 'graf')
-    setAddChartError(null)
-    setIsAddChartModalOpen(false)
   }
 
   const getOversiktChartFromCanvasFrame = useCallback(
@@ -5221,145 +4609,6 @@ const Canvas = () => {
     } finally {
       setIsCreatingTeam(false)
     }
-  }
-
-  const openAddPageModalDirect = () => {
-    setAddPageError(null)
-    setNewPagePreviewUrlInput('')
-    setNewPageRenderEnabled(true)
-    setNewPageVisualizationMode('')
-    setIsAddPageModalOpen(true)
-  }
-
-  const handleOpenAddPageModal = () => {
-    openAddPageModalDirect()
-  }
-
-  const handleAssignWebsiteToChart = async (frame: CanvasFrame, website: Website | null) => {
-    if (frame.kind !== 'chart' || !website?.id) return
-
-    const updatedFrame: CanvasFrame = {
-      ...frame,
-      websiteId: website.id,
-      refreshNonce: frame.refreshNonce + 1,
-    }
-
-    setFrames((prev) => prev.map((item) => (item.id === frame.id ? updatedFrame : item)))
-    setSelectedWebsite(website)
-
-    try {
-      const persistedFrame = await persistFrame(updatedFrame)
-      setFrames((prev) => prev.map((item) => (item.id === frame.id ? persistedFrame : item)))
-      setPendingChartWebsiteByFrameId((current) => {
-        if (!(frame.id in current)) return current
-        const next = { ...current }
-        delete next[frame.id]
-        return next
-      })
-    } catch (error) {
-      setFrames((prev) => prev.map((item) => (item.id === frame.id ? frame : item)))
-      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre nettside for graf')
-    }
-  }
-
-  const handleOpenAddHeadingModal = () => {
-    setAddHeadingError(null)
-    setIsAddHeadingModalOpen(true)
-  }
-
-  const handleOpenAddTextModal = () => {
-    setAddTextError(null)
-    setIsAddTextModalOpen(true)
-  }
-
-  const handleCloseImportStickyCsvModal = useCallback(() => {
-    setIsImportStickyCsvModalOpen(false)
-    clearImportStickyCsvError()
-  }, [clearImportStickyCsvError])
-
-  const handleOpenAddStickyModal = () => {
-    setAddStickyError(null)
-    setSelectedStickyColor((current) => getCanvasStickyColor(current))
-    setIsAddStickyModalOpen(true)
-  }
-
-  const handleOpenAddSection = () => {
-    handleAddSectionCard()
-  }
-
-  const handleOpenImportStickyCsvModal = () => {
-    handleClearImportStickyCsvFile()
-    setIsImportStickyCsvModalOpen(true)
-  }
-
-  const handleOpenAddImageModal = () => {
-    setAddImageError(null)
-    setNewImageUrlInput('')
-    setIsAddImageModalOpen(true)
-  }
-
-  const handleOpenAddIconModal = () => {
-    setAddIconError(null)
-    setSelectedIconId((current) => current || DEFAULT_CANVAS_ICON_ID)
-    setSelectedIconColor((current) => getCanvasIconColor(current))
-    setIsAddIconModalOpen(true)
-  }
-
-  const handleOpenAddFigureModal = () => {
-    setSelectedFigureType('rectangle')
-    setSelectedFigureColor(DEFAULT_CANVAS_ICON_COLOR)
-    setAddFigureError(null)
-    setIsAddFigureModalOpen(true)
-  }
-
-  const handleOpenAddDrawing = () => {
-    cancelPendingFramePlacement()
-    openDrawingMode()
-  }
-
-  useEffect(() => {
-    const onMessage = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return
-      const data = event.data as CanvasChartReadyMessage | null
-      if (!data || data.type !== 'umami-canvas-chart-ready') return
-      if (!data.payload?.chartSql || !data.payload?.chartType) return
-
-      const payloadWebsiteId = data.payload.websiteId?.trim()
-      if (payloadWebsiteId) {
-        if (!selectedWebsite?.id) {
-          const matchedWebsite = availableWebsites.find((item) => item.id === payloadWebsiteId) ?? null
-          if (matchedWebsite) {
-            setSelectedWebsite(matchedWebsite)
-          }
-        }
-        setCanvasConfiguredWebsiteId((current) => current || payloadWebsiteId)
-      }
-
-      setIsGrafbyggerEmbedded(false)
-      queueFrameForPlacement(
-        {
-          kind: 'chart',
-          label: data.payload.label?.trim() || 'Graf',
-          chartType: data.payload.chartType,
-          chartSql: data.payload.chartSql,
-          websiteId: payloadWebsiteId || undefined,
-          width: 560,
-          height: 360,
-          refreshNonce: 0,
-        },
-        'graf',
-      )
-    }
-
-    window.addEventListener('message', onMessage)
-    return () => window.removeEventListener('message', onMessage)
-  }, [availableWebsites, queueFrameForPlacement, selectedWebsite?.id])
-
-  const handleOpenAddIllustrationModal = () => {
-    setEditIllustrationFrameId(null)
-    setAddIllustrationError(null)
-    setSelectedIllustrationPath((current) => current || DEFAULT_CANVAS_ILLUSTRATION_PATH)
-    setIsAddIllustrationModalOpen(true)
   }
 
   const handleToolbarCategoryChange = (nextCategoryId: number) => {
