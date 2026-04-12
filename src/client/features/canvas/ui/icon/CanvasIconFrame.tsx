@@ -11,7 +11,7 @@ type CanvasIconFrameProps = {
 const CanvasIconFrame = ({ width, height, iconName, iconRotationDeg, iconColor }: CanvasIconFrameProps) => {
   const selectedIcon = getCanvasIconOptionById(iconName)
   const Icon = selectedIcon.Icon
-  const iconSize = Math.max(22, Math.floor(Math.min(width, height) * 0.82))
+  const iconSize = Math.max(22, Math.floor(Math.min(width, height)))
   const resolvedRotation = iconRotationDeg ?? 0
   const resolvedColor = getCanvasIconColor(iconColor)
 
