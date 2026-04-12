@@ -1,6 +1,6 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Button, Loader } from '@navikt/ds-react'
-import { ChartNoAxesCombined, Plus, Trash2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Button } from '@navikt/ds-react'
+import { Trash2 } from 'lucide-react'
 import { computeFunnelStepMetrics } from '../../analysis/utils/horizontalFunnel.ts'
 import { fetchPageMetrics } from '../../traffic/api/trafficApi.ts'
 import { fetchFunnelData } from '../../funnel/api/funnelApi.ts'
@@ -24,6 +24,8 @@ import CanvasTimerModal from './controls/CanvasTimerModal.tsx'
 import CanvasZoomControls from './controls/CanvasZoomControls.tsx'
 import CanvasDrawingToolbar from './drawing/CanvasDrawingToolbar.tsx'
 import CanvasDrawingDraftOverlay from './drawing/CanvasDrawingDraftOverlay.tsx'
+import CanvasConnectionLayer from './CanvasConnectionLayer.tsx'
+import CanvasPlacementModeLayer, { CanvasPlacementModeBanner } from './CanvasPlacementModeLayer.tsx'
 import CanvasFrameLayer from './CanvasFrameLayer.tsx'
 import CanvasImageUrlModal from './image/CanvasImageUrlModal.tsx'
 import CanvasFigureModal from './figure/CanvasFigureModal.tsx'
@@ -47,18 +49,12 @@ import {
   getCanvasIconColor,
 } from './icon/CanvasIconRegistry.ts'
 import {
-  createProject,
   createCategory,
-  createDashboard,
-  deleteCategory,
   createGraph,
   createQuery,
   deleteGraph,
   fetchCategories,
   fetchDashboards,
-  fetchProjects,
-  updateCategory,
-  updateDashboard,
   updateQuery,
 } from '../../oversikt/api/oversiktApi.ts'
 import type { GraphCategoryDto, GraphType, OversiktChart } from '../../oversikt/model/types.ts'
@@ -69,6 +65,7 @@ import { useCookieStartDate, useCookieSupport } from '../../../shared/hooks/useS
 import { useLocation } from 'react-router-dom'
 import useCanvasCsvImport from '../hooks/useCanvasCsvImport.ts'
 import useCanvasBackgroundSync from '../hooks/useCanvasBackgroundSync.ts'
+import useCanvasAdminFlow from '../hooks/useCanvasAdminFlow.ts'
 import useCanvasEditLocks from '../hooks/useCanvasEditLocks.ts'
 import useCanvasFrameFormHandlers from '../hooks/useCanvasFrameFormHandlers.ts'
 import useCanvasPresence from '../hooks/useCanvasPresence.ts'
@@ -119,7 +116,6 @@ import {
   HEADING_TEXT_VERTICAL_PADDING,
   PLANNER_COLUMN_LABEL_PREFIX,
   buildCanvasConnectionStorageGraphName,
-  buildCanvasDashboardDescription,
   buildCanvasStorageGraphName,
   buildConnectionPath,
   buildFunnelStepFromUrl,
@@ -131,7 +127,6 @@ import {
   getCanvasPeriodLabel,
   getWebsiteFrameDisplayUrl,
   getWebsiteFrameRenderSrc,
-  isCanvasDashboardDescription,
   isImagePreviewUrl,
   mapCanvasChartTypeToGraphType,
   serializeCanvasConfig,
@@ -1292,75 +1287,72 @@ const Canvas = () => {
     }
   }, [canPersistToDashboard, isCanvasFrontpage, projectId, dashboardId])
 
-  const loadExistingCanvasOptions = useCallback(async (projectIdToLoad: number | null) => {
-    if (projectIdToLoad === null) {
-      setExistingCanvasOptions([])
-      setExistingCanvasError(null)
-      return
-    }
-
-    setIsLoadingExistingCanvasOptions(true)
-    setExistingCanvasError(null)
-    try {
-      const dashboards = await fetchDashboards(projectIdToLoad)
-      const options = dashboards
-        .filter((dashboard) => isCanvasDashboardDescription(dashboard.description))
-        .map((dashboard) => ({
-          id: dashboard.id,
-          name: dashboard.name?.trim() || `Canvas ${dashboard.id}`,
-        }))
-        .sort((a, b) => a.name.localeCompare(b.name, 'nb', { sensitivity: 'base' }))
-      setExistingCanvasOptions(options)
-    } catch (error) {
-      setExistingCanvasOptions([])
-      setExistingCanvasError(error instanceof Error ? error.message : 'Kunne ikke laste canvas')
-    } finally {
-      setIsLoadingExistingCanvasOptions(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!shouldShowCreateCanvasModal) return
-    let isActive = true
-    setCreateCanvasError(null)
-
-    void (async () => {
-      try {
-        const projects = await fetchProjects()
-        if (!isActive) return
-        const options = projects.map((item) => ({
-          id: item.id,
-          name: item.name?.trim() || `Team ${item.id}`,
-        }))
-        options.sort((a, b) => a.name.localeCompare(b.name, 'nb', { sensitivity: 'base' }))
-        setCreateCanvasProjectOptions(options)
-        const lastVisitedProjectId = (() => {
-          if (typeof window === 'undefined') return null
-          const raw = window.localStorage.getItem(LAST_PROJECT_STORAGE_KEY)
-          const parsed = Number(raw)
-          return Number.isFinite(parsed) ? parsed : null
-        })()
-        const preferredProjectId =
-          projectId !== null && options.some((option) => option.id === projectId)
-            ? projectId
-            : lastVisitedProjectId !== null && options.some((option) => option.id === lastVisitedProjectId)
-              ? lastVisitedProjectId
-              : null
-        setCreateCanvasProjectId(preferredProjectId ? String(preferredProjectId) : '')
-        await loadExistingCanvasOptions(preferredProjectId)
-      } catch (error) {
-        if (!isActive) return
-        setCreateCanvasProjectOptions([])
-        setCreateCanvasProjectId('')
-        setExistingCanvasOptions([])
-        setExistingCanvasError(null)
-        setCreateCanvasError(error instanceof Error ? error.message : 'Kunne ikke laste team')
-      }
-    })()
-    return () => {
-      isActive = false
-    }
-  }, [loadExistingCanvasOptions, projectId, shouldShowCreateCanvasModal])
+  const {
+    loadExistingCanvasOptions,
+    handleOpenCreateTabModal,
+    handleCreateTab,
+    handleOpenManageTabsModal,
+    selectedManageTab,
+    selectedManageTabIsFirst,
+    selectedManageTabItemCount,
+    selectedManageTabIsEmpty,
+    handleRenameTab,
+    handleDeleteTab,
+    handleRenameCanvas,
+    handleCreateCanvas,
+    handleCreateTeam,
+  } = useCanvasAdminFlow({
+    projectId,
+    dashboardId,
+    canPersistToDashboard,
+    shouldShowCreateCanvasModal,
+    lastProjectStorageKey: LAST_PROJECT_STORAGE_KEY,
+    canvasCategories,
+    setCanvasCategories,
+    activeCanvasCategoryId,
+    setActiveCanvasCategoryId,
+    frames,
+    setFrames,
+    connections,
+    setConnections,
+    setCanvasTitle,
+    canvasDashboardDescription,
+    setCanvasDashboardDescription,
+    setCanvasConfiguredWebsiteId,
+    selectedWebsiteId: selectedWebsite?.id ?? null,
+    setSyncError,
+    setIsSavingCanvasItem,
+    setIsCanvasSettingsModalOpen,
+    setRenameCanvasError,
+    setIsCreateTabModalOpen,
+    setCreateTabError,
+    setCreatingTab,
+    setIsManageTabsModalOpen,
+    setIsManageTabPreselected,
+    manageTabId,
+    setManageTabId,
+    setManageTabName,
+    setManageTabError,
+    setSavingManageTab,
+    setDeletingManageTab,
+    createCanvasProjectId,
+    setCreateCanvasProjectId,
+    setCreateCanvasProjectOptions,
+    setExistingCanvasOptions,
+    setIsLoadingExistingCanvasOptions,
+    setExistingCanvasError,
+    createCanvasNameInput,
+    setCreateCanvasError,
+    setIsCreatingCanvas,
+    setIsCreateTeamModalOpen,
+    createTeamNameInput,
+    setCreateTeamNameInput,
+    createTeamDescriptionInput,
+    setCreateTeamDescriptionInput,
+    createCanvasError,
+    setCreateTeamError,
+    setIsCreatingTeam,
+  })
 
   useEffect(() => {
     if (canvasInitMode !== 'existing') {
@@ -4394,223 +4386,6 @@ const Canvas = () => {
     setSelectedFrameIds(frameIds)
   }, [])
 
-  const handleOpenCreateTabModal = () => {
-    setCreateTabError(null)
-    setIsCreateTabModalOpen(true)
-  }
-
-  const handleCreateTab = async (inputValue: string) => {
-    const nextTabName = inputValue.trim()
-    if (!nextTabName) {
-      setCreateTabError('Legg inn et fanenavn.')
-      return
-    }
-    if (projectId === null || dashboardId === null) {
-      setCreateTabError('Mangler prosjekt- eller dashboard-kontekst.')
-      return
-    }
-
-    try {
-      setCreatingTab(true)
-      setCreateTabError(null)
-      const createdCategory = await createCategory(projectId, dashboardId, nextTabName)
-      const categories = await fetchCategories(projectId, dashboardId)
-      setCanvasCategories(categories)
-      setActiveCanvasCategoryId(createdCategory.id)
-      setIsCreateTabModalOpen(false)
-    } catch (error) {
-      setCreateTabError(error instanceof Error ? error.message : 'Kunne ikke opprette fane')
-    } finally {
-      setCreatingTab(false)
-    }
-  }
-
-  const handleOpenManageTabsModal = (preferredTabId?: number) => {
-    const preferredTabIsValid =
-      typeof preferredTabId === 'number' &&
-      Number.isFinite(preferredTabId) &&
-      canvasCategories.some((category) => category.id === preferredTabId)
-    const selectedTabId = preferredTabIsValid
-      ? preferredTabId
-      : activeCanvasCategoryId !== null && canvasCategories.some((category) => category.id === activeCanvasCategoryId)
-        ? activeCanvasCategoryId
-        : (canvasCategories[0]?.id ?? null)
-    const selectedTab = selectedTabId ? canvasCategories.find((category) => category.id === selectedTabId) : null
-    setManageTabId(selectedTab ? String(selectedTab.id) : '')
-    setManageTabName(selectedTab?.name ?? '')
-    setIsManageTabPreselected(preferredTabIsValid)
-    setManageTabError(null)
-    setIsManageTabsModalOpen(true)
-  }
-
-  const manageTabCategoryId = Number(manageTabId)
-  const selectedManageTab =
-    Number.isFinite(manageTabCategoryId) && manageTabCategoryId > 0
-      ? (canvasCategories.find((category) => category.id === manageTabCategoryId) ?? null)
-      : null
-  const firstCanvasCategoryId = canvasCategories[0]?.id ?? null
-  const selectedManageTabIsFirst =
-    selectedManageTab !== null && firstCanvasCategoryId !== null && selectedManageTab.id === firstCanvasCategoryId
-  const selectedManageTabItemCount =
-    selectedManageTab === null
-      ? 0
-      : frames.filter((frame) => frame.categoryId === selectedManageTab.id).length +
-        connections.filter((connection) => connection.categoryId === selectedManageTab.id).length
-  const selectedManageTabIsEmpty = selectedManageTab !== null && selectedManageTabItemCount === 0
-
-  const handleRenameTab = async (inputValue: string) => {
-    const categoryId = Number(manageTabId)
-    const nextName = inputValue.trim()
-    if (!Number.isFinite(categoryId)) {
-      setManageTabError('Velg en fane.')
-      return
-    }
-    if (!nextName) {
-      setManageTabError('Legg inn et fanenavn.')
-      return
-    }
-    if (projectId === null || dashboardId === null) {
-      setManageTabError('Mangler prosjekt- eller dashboard-kontekst.')
-      return
-    }
-
-    try {
-      setSavingManageTab(true)
-      setManageTabError(null)
-      await updateCategory(projectId, dashboardId, categoryId, { name: nextName })
-      const categories = await fetchCategories(projectId, dashboardId)
-      setCanvasCategories(categories)
-      setActiveCanvasCategoryId(categoryId)
-      setIsManageTabsModalOpen(false)
-    } catch (error) {
-      setManageTabError(error instanceof Error ? error.message : 'Kunne ikke endre navn på fane')
-    } finally {
-      setSavingManageTab(false)
-    }
-  }
-
-  const handleDeleteTab = async () => {
-    if (!selectedManageTab) {
-      setManageTabError('Velg en fane.')
-      return
-    }
-    if (selectedManageTabIsFirst) {
-      setManageTabError('Den første fanen kan ikke slettes.')
-      return
-    }
-    if (!selectedManageTabIsEmpty) {
-      setManageTabError('Fanen må være tom før den kan slettes.')
-      return
-    }
-    if (projectId === null || dashboardId === null) {
-      setManageTabError('Mangler prosjekt- eller dashboard-kontekst.')
-      return
-    }
-
-    try {
-      setDeletingManageTab(true)
-      setManageTabError(null)
-      await deleteCategory(projectId, dashboardId, selectedManageTab.id)
-      const categories = await fetchCategories(projectId, dashboardId)
-      setCanvasCategories(categories)
-      setFrames((prev) => prev.filter((frame) => frame.categoryId !== selectedManageTab.id))
-      setConnections((prev) => prev.filter((connection) => connection.categoryId !== selectedManageTab.id))
-      setActiveCanvasCategoryId((current) => {
-        if (current !== selectedManageTab.id) return current
-        return categories[0]?.id ?? null
-      })
-      setIsManageTabsModalOpen(false)
-    } catch (error) {
-      setManageTabError(error instanceof Error ? error.message : 'Kunne ikke slette fane')
-    } finally {
-      setDeletingManageTab(false)
-    }
-  }
-
-  const handleRenameCanvas = async (inputValue: string) => {
-    const nextName = inputValue.trim()
-    if (!nextName) {
-      setRenameCanvasError('Legg inn et navn.')
-      return
-    }
-
-    if (!canPersistToDashboard || projectId === null || dashboardId === null) {
-      setCanvasTitle(nextName)
-      setIsCanvasSettingsModalOpen(false)
-      return
-    }
-
-    try {
-      setIsSavingCanvasItem(true)
-      setSyncError(null)
-      const nextDescription = buildCanvasDashboardDescription(canvasDashboardDescription, selectedWebsite?.id)
-      await updateDashboard(projectId, dashboardId, { name: nextName, description: nextDescription })
-      setCanvasTitle(nextName)
-      setCanvasDashboardDescription(nextDescription)
-      setCanvasConfiguredWebsiteId(selectedWebsite?.id ?? null)
-      setIsCanvasSettingsModalOpen(false)
-      setRenameCanvasError(null)
-    } catch (error) {
-      setRenameCanvasError(error instanceof Error ? error.message : 'Kunne ikke gi nytt navn')
-    } finally {
-      setIsSavingCanvasItem(false)
-    }
-  }
-
-  const handleCreateCanvas = async () => {
-    const selectedProjectId = Number(createCanvasProjectId)
-    const canvasName = createCanvasNameInput.trim()
-
-    if (!Number.isFinite(selectedProjectId)) {
-      setCreateCanvasError('Velg et team.')
-      return
-    }
-    if (!canvasName) {
-      setCreateCanvasError('Legg inn et canvas-navn.')
-      return
-    }
-
-    try {
-      setIsCreatingCanvas(true)
-      setCreateCanvasError(null)
-      const createdDashboard = await createDashboard(selectedProjectId, canvasName, CANVAS_DASHBOARD_TOKEN)
-      window.location.href = `/canvas?projectId=${selectedProjectId}&dashboardId=${createdDashboard.id}`
-    } catch (error) {
-      setCreateCanvasError(error instanceof Error ? error.message : 'Kunne ikke opprette canvas')
-    } finally {
-      setIsCreatingCanvas(false)
-    }
-  }
-
-  const handleCreateTeam = async () => {
-    const teamName = createTeamNameInput.trim()
-    if (!teamName) {
-      setCreateTeamError('Navn er påkrevd.')
-      return
-    }
-
-    try {
-      setIsCreatingTeam(true)
-      setCreateTeamError(null)
-      const createdProject = await createProject(teamName, createTeamDescriptionInput)
-      const option = { id: createdProject.id, name: createdProject.name?.trim() || `Team ${createdProject.id}` }
-      setCreateCanvasProjectOptions((current) =>
-        [...current, option].sort((a, b) => a.name.localeCompare(b.name, 'nb', { sensitivity: 'base' })),
-      )
-      setCreateCanvasProjectId(String(createdProject.id))
-      void loadExistingCanvasOptions(createdProject.id)
-      setIsCreateTeamModalOpen(false)
-      setCreateTeamNameInput('')
-      setCreateTeamDescriptionInput('')
-      setCreateTeamError(null)
-      if (createCanvasError) setCreateCanvasError(null)
-    } catch (error) {
-      setCreateTeamError(error instanceof Error ? error.message : 'Kunne ikke opprette team')
-    } finally {
-      setIsCreatingTeam(false)
-    }
-  }
-
   const handleToolbarCategoryChange = (nextCategoryId: number) => {
     setActiveCanvasCategoryId(nextCategoryId)
     setActiveInsightFrameId(null)
@@ -4980,33 +4755,13 @@ const Canvas = () => {
 
         <div className="flex h-full">
           <main ref={canvasViewportRef} className="relative flex-1 overflow-auto">
-            {(pendingFrameDraft || pendingCsvStickyImport) && (
-              <div
-                className="pointer-events-none fixed left-1/2 z-[120] w-[min(96vw,44rem)] -translate-x-1/2 rounded-xl border-2 border-[var(--ax-border-accent)] bg-[var(--ax-bg-default)] px-3 py-2 text-sm font-semibold leading-tight text-[var(--ax-text-default)] shadow-lg sm:px-4 sm:py-2.5 sm:text-base"
-                style={{ top: `${canvasCanvasTopOffset + 20}px` }}
-              >
-                {pendingCsvStickyImport && isImportingStickyCsv ? (
-                  <span className="inline-flex items-center gap-2">
-                    <Loader size="xsmall" />
-                    {pendingCsvStickyImport.tableHeaders && pendingCsvStickyImport.tableRows
-                      ? 'Importerer tabell til canvas...'
-                      : pendingCsvStickyImport.aggregatedRatingsText
-                        ? 'Importerer aggregert vurdering til canvas...'
-                        : 'Importerer CSV-lapper til canvas...'}
-                  </span>
-                ) : (
-                  <>
-                    <span className="sm:hidden">
-                      Plasseringsmodus: trykk for å plassere {pendingFramePlacementLabel || 'element'}.
-                    </span>
-                    <span className="hidden sm:inline">
-                      Plasseringsmodus: klikk for å plassere {pendingFramePlacementLabel || 'element'}. Trykk Esc for å
-                      avbryte.
-                    </span>
-                  </>
-                )}
-              </div>
-            )}
+            <CanvasPlacementModeBanner
+              topOffsetPx={canvasCanvasTopOffset + 20}
+              pendingFrameDraft={pendingFrameDraft}
+              pendingCsvStickyImport={pendingCsvStickyImport}
+              pendingFramePlacementLabel={pendingFramePlacementLabel}
+              isImportingStickyCsv={isImportingStickyCsv}
+            />
             {isDrawingMode && (
               <CanvasDrawingToolbar
                 topOffsetPx={canvasCanvasTopOffset + 20}
@@ -5045,15 +4800,17 @@ const Canvas = () => {
                   backgroundSize: '24px 24px',
                 }}
               >
-                {(pendingFrameDraft || pendingCsvStickyImport) && (
-                  <>
-                    <div className="pointer-events-none absolute inset-0 z-[44] bg-black/10" />
-                    <div className="pointer-events-none absolute bottom-0 left-0 top-0 z-[45] w-0 border-l-2 border-dashed border-[var(--ax-border-accent)]/90" />
-                    <span className="pointer-events-none absolute left-2 top-2 z-[45] rounded-md bg-[var(--ax-bg-default)]/95 px-2 py-1 text-xs font-semibold text-[var(--ax-text-default)] shadow-sm">
-                      Venstre grense
-                    </span>
-                  </>
-                )}
+                <CanvasPlacementModeLayer
+                  pendingFrameDraft={pendingFrameDraft}
+                  pendingCsvStickyImport={pendingCsvStickyImport}
+                  pendingFramePointer={pendingFramePointer}
+                  pendingFramePlacementLabel={pendingFramePlacementLabel}
+                  getPendingFrameContentAnchorOffset={getPendingFrameContentAnchorOffset}
+                  getDefaultFrameSize={getDefaultFrameSize}
+                  getHeadingFrameHeight={getHeadingFrameHeight}
+                  getHeadingFrameFontSize={getHeadingFrameFontSize}
+                  headingCardHeaderHeight={HEADING_CARD_HEADER_HEIGHT}
+                />
                 {isDrawingMode && (
                   <div
                     className="absolute inset-0 z-[95] cursor-crosshair"
@@ -5061,105 +4818,6 @@ const Canvas = () => {
                     onMouseMove={handleCanvasSurfaceMouseMove}
                     onMouseLeave={handleCanvasSurfaceMouseLeave}
                   />
-                )}
-                {(pendingFrameDraft || pendingCsvStickyImport) && pendingFramePointer && (
-                  <div
-                    className="pointer-events-none absolute z-[46]"
-                    style={{
-                      left: `${pendingFramePointer.x - (pendingFrameDraft ? getPendingFrameContentAnchorOffset(pendingFrameDraft).x : 0)}px`,
-                      top: `${pendingFramePointer.y - (pendingFrameDraft ? getPendingFrameContentAnchorOffset(pendingFrameDraft).y : 0)}px`,
-                    }}
-                  >
-                    {pendingFrameDraft
-                      ? (() => {
-                          const defaults = getDefaultFrameSize(pendingFrameDraft.kind)
-                          const ghostWidth = pendingFrameDraft.width ?? defaults.width
-                          const ghostHeight =
-                            pendingFrameDraft.kind === 'heading'
-                              ? getHeadingFrameHeight(pendingFrameDraft as CanvasFrame) + HEADING_CARD_HEADER_HEIGHT
-                              : (pendingFrameDraft.height ?? defaults.height)
-                          const ghostLabel =
-                            pendingFrameDraft.headingText || pendingFrameDraft.label || pendingFramePlacementLabel || ''
-                          const isTextLikeGhost =
-                            pendingFrameDraft.kind === 'heading' ||
-                            pendingFrameDraft.kind === 'text' ||
-                            pendingFrameDraft.kind === 'sticky'
-                          const ghostClassName =
-                            pendingFrameDraft.kind === 'section'
-                              ? 'rounded-2xl border-2 border-dashed border-[#8eb2de] bg-[#edf4ff]/70'
-                              : pendingFrameDraft.kind === 'heading'
-                                ? 'rounded-lg border-2 border-[var(--ax-border-accent)] bg-transparent'
-                                : pendingFrameDraft.kind === 'text' || pendingFrameDraft.kind === 'sticky'
-                                  ? 'rounded-xl border border-[var(--ax-border-neutral-subtle)] bg-white'
-                                  : pendingFrameDraft.kind === 'icon' ||
-                                      pendingFrameDraft.kind === 'figure' ||
-                                      pendingFrameDraft.kind === 'drawing'
-                                    ? 'rounded-lg border-2 border-dashed border-[var(--ax-border-accent)] bg-transparent'
-                                    : 'rounded-lg border border-[var(--ax-border-neutral-subtle)] bg-white'
-                          return (
-                            <div
-                              className={`${isTextLikeGhost ? '' : 'flex flex-col items-center justify-center'} opacity-70 shadow-sm ${ghostClassName}`}
-                              style={{ width: `${ghostWidth}px`, height: `${ghostHeight}px` }}
-                            >
-                              {pendingFrameDraft.kind === 'heading' ? (
-                                <div className="h-full w-full overflow-hidden pt-1">
-                                  <div className="h-full w-full overflow-hidden px-4 py-2">
-                                    <span
-                                      className="block select-none overflow-hidden whitespace-pre-wrap break-words font-bold text-[var(--ax-text-default)]"
-                                      style={{
-                                        fontSize: `${getHeadingFrameFontSize(pendingFrameDraft as CanvasFrame)}px`,
-                                        lineHeight: 1.05,
-                                      }}
-                                    >
-                                      {ghostLabel}
-                                    </span>
-                                  </div>
-                                </div>
-                              ) : pendingFrameDraft.kind === 'text' ? (
-                                <div className="h-full w-full overflow-hidden px-2 pb-2">
-                                  <div className="h-full w-full overflow-hidden px-2 pb-2">
-                                    <span
-                                      className="block select-none overflow-hidden whitespace-pre-wrap break-words text-[var(--ax-text-default)]"
-                                      style={{ fontSize: '24px', lineHeight: 1.3, fontWeight: 500 }}
-                                    >
-                                      {pendingFrameDraft.textContent || 'Skriv tekst'}
-                                    </span>
-                                  </div>
-                                </div>
-                              ) : pendingFrameDraft.kind === 'sticky' ? (
-                                <div className="h-full w-full overflow-hidden px-2 pb-2">
-                                  <div className="h-full w-full overflow-hidden p-4 pt-6">
-                                    <span className="block select-none overflow-hidden whitespace-pre-wrap break-words text-base leading-7 text-[var(--ax-text-default)]">
-                                      {pendingFrameDraft.textContent || 'Skriv Post-it-lapp'}
-                                    </span>
-                                  </div>
-                                </div>
-                              ) : (
-                                <span className="flex flex-col items-center gap-1 text-[var(--ax-text-subtle)]">
-                                  <Plus size={18} />
-                                  <span className="text-xs">{pendingFramePlacementLabel || ghostLabel}</span>
-                                </span>
-                              )}
-                            </div>
-                          )
-                        })()
-                      : (() => {
-                          const sectionDefaults = getDefaultFrameSize('section')
-                          const csvGhostLabel =
-                            pendingFramePlacementLabel || pendingCsvStickyImport?.sectionTitle?.trim() || 'CSV-import'
-                          return (
-                            <div
-                              className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#8eb2de] bg-[#edf4ff]/70 opacity-70 shadow-sm"
-                              style={{ width: `${sectionDefaults.width}px`, height: `${sectionDefaults.height}px` }}
-                            >
-                              <span className="flex flex-col items-center gap-1 text-[var(--ax-text-subtle)]">
-                                <Plus size={18} />
-                                <span className="text-xs">{csvGhostLabel}</span>
-                              </span>
-                            </div>
-                          )
-                        })()}
-                  </div>
                 )}
                 {selectionBox && (
                   <div
@@ -5172,119 +4830,16 @@ const Canvas = () => {
                     }}
                   />
                 )}
-                {connectionSegments.length > 0 && (
-                  <svg className="pointer-events-none absolute inset-0 z-[1] h-full w-full overflow-visible">
-                    <defs>
-                      <marker
-                        id="canvas-connection-arrow"
-                        markerWidth="10"
-                        markerHeight="8"
-                        refX="9"
-                        refY="4"
-                        orient="auto"
-                        markerUnits="strokeWidth"
-                      >
-                        <path d="M0,0 L10,4 L0,8 z" fill="var(--ax-border-accent)" />
-                      </marker>
-                    </defs>
-                    {connectionSegments.map((segment) => (
-                      <g key={segment.id}>
-                        <path
-                          d={segment.path}
-                          stroke="var(--ax-border-accent)"
-                          strokeWidth={2}
-                          fill="none"
-                          markerEnd="url(#canvas-connection-arrow)"
-                        />
-                        <path
-                          d={segment.path}
-                          stroke="transparent"
-                          strokeWidth={16}
-                          fill="none"
-                          className="pointer-events-auto cursor-pointer"
-                          onClick={(event) => event.preventDefault()}
-                        />
-                      </g>
-                    ))}
-                  </svg>
-                )}
-                {connectionPreview && (
-                  <svg className="pointer-events-none absolute inset-0 z-[2] h-full w-full overflow-visible">
-                    <defs>
-                      <marker
-                        id="canvas-connection-arrow-preview"
-                        markerWidth="10"
-                        markerHeight="8"
-                        refX="9"
-                        refY="4"
-                        orient="auto"
-                        markerUnits="strokeWidth"
-                      >
-                        <path d="M0,0 L10,4 L0,8 z" fill="var(--ax-border-accent)" />
-                      </marker>
-                    </defs>
-                    <path
-                      d={connectionPreview.path}
-                      stroke="var(--ax-border-accent)"
-                      strokeWidth={3}
-                      strokeDasharray="8 5"
-                      strokeLinecap="round"
-                      fill="none"
-                      markerEnd="url(#canvas-connection-arrow-preview)"
-                    />
-                  </svg>
-                )}
+                <CanvasConnectionLayer
+                  connectionSegments={connectionSegments}
+                  connectionPreview={connectionPreview}
+                  connectionSegmentsWithMetrics={connectionSegmentsWithMetrics}
+                  onRequestRemoveConnection={handleRequestRemoveConnection}
+                />
                 <CanvasDrawingDraftOverlay
                   drawingDraftStrokes={drawingDraftStrokes}
                   activeDrawingStroke={activeDrawingStroke}
                 />
-                {connectionSegmentsWithMetrics.map((segment) => (
-                  <Fragment key={segment.id}>
-                    <div
-                      className="group pointer-events-auto absolute z-[2] -translate-x-1/2 -translate-y-1/2 overflow-visible"
-                      style={{
-                        left: `${segment.labelX}px`,
-                        top: `${segment.labelY}px`,
-                      }}
-                    >
-                      <div className="absolute inset-x-0 -top-10 z-10 flex items-center justify-between gap-2 rounded-full border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-3 py-2 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-                        <div className="flex items-center gap-1.5 text-[13px] font-medium text-[var(--ax-text-default)]">
-                          <ChartNoAxesCombined size={13} className="text-[var(--ax-text-subtle)]" />
-                          <span>Kobling</span>
-                        </div>
-                        <Button
-                          size="xsmall"
-                          variant="tertiary"
-                          icon={<Trash2 size={14} />}
-                          onClick={() => handleRequestRemoveConnection(segment)}
-                          title="Fjern kobling"
-                          aria-label="Fjern kobling"
-                        />
-                      </div>
-                      <div className="min-w-[165px] overflow-hidden rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] shadow-sm">
-                        <div className="space-y-2 px-3 py-2 text-[13px] leading-tight">
-                          <div className="space-y-0.5 text-right">
-                            <div className="font-semibold text-[14px] text-[var(--ax-text-success)]">
-                              {segment.metrics.percentageOfPrev}% gikk videre
-                            </div>
-                            <div className="text-[13px] text-[var(--ax-text-default)]">
-                              {segment.metrics.toCount.toLocaleString('nb-NO')} brukere
-                            </div>
-                          </div>
-                          <div className="h-px bg-[var(--ax-border-neutral-subtle)]" />
-                          <div className="space-y-0.5 text-right">
-                            <div className="font-semibold text-[14px] text-[var(--ax-text-danger)]">
-                              {segment.metrics.dropoffPercentage}% falt fra
-                            </div>
-                            <div className="text-[13px] text-[var(--ax-text-default)]">
-                              {segment.metrics.dropoffCount.toLocaleString('nb-NO')} brukere
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </Fragment>
-                ))}
                 <CanvasFrameLayer
                   frameItems={frameItems}
                   sectionItemCountsById={sectionItemCountsById}
