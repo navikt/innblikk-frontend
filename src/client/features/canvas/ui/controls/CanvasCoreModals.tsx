@@ -290,6 +290,9 @@ const CanvasCoreModals = ({
               onChange={(event) => onCreateCanvasNameChange(event.target.value)}
               disabled={isCreatingCanvas}
             />
+            <Alert variant="info">
+              Innblikk er tilgjengelig for alle i Nav. Del kun det som tåler å bli sett av alle.
+            </Alert>
             {createCanvasError && <Alert variant="error">{createCanvasError}</Alert>}
           </div>
         </Modal.Body>

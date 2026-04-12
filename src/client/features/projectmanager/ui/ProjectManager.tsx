@@ -2239,17 +2239,22 @@ const ProjectManager = () => {
             )}
             <TextField
               label="Navn"
-              size="small"
+              size="medium"
               value={newDashboardName}
               onChange={(event) => setNewDashboardName(event.target.value)}
             />
             {!isCreateCanvas && (
               <TextField
                 label="Beskrivelse (valgfri)"
-                size="small"
+                size="medium"
                 value={newDashboardDescription}
                 onChange={(event) => setNewDashboardDescription(event.target.value)}
               />
+            )}
+            {isCreateCanvas && (
+              <Alert variant="info" size="small">
+                Innblikk er tilgjengelig for alle i Nav. Del kun det som tåler å bli sett av alle.
+              </Alert>
             )}
           </div>
         </Modal.Body>
