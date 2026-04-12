@@ -2795,8 +2795,11 @@ const Canvas = () => {
       return
     }
 
+    const longestHeadingLineLength = heading
+      .split('\n')
+      .reduce((maxLength, line) => Math.max(maxLength, line.length), 0)
     const estimatedTextWidth =
-      Math.ceil(heading.length * (HEADING_FONT_SIZE_DEFAULT * HEADING_TEXT_CHAR_WIDTH_FACTOR)) +
+      Math.ceil(longestHeadingLineLength * (HEADING_FONT_SIZE_DEFAULT * HEADING_TEXT_CHAR_WIDTH_FACTOR * 1.3)) +
       HEADING_TEXT_EXTRA_WIDTH
     const width = Math.min(HEADING_TEXT_MAX_WIDTH, Math.max(HEADING_TEXT_MIN_WIDTH, estimatedTextWidth))
     const usableWidth = Math.max(1, width - HEADING_TEXT_EXTRA_WIDTH)
