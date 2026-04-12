@@ -102,6 +102,40 @@ const EventSelector = ({
   addFilterDirectly,
   showFilterPanelOnly = false,
 }: EventSelectorProps) => {
+  const normalizeUrlPathInput = (input: string): string => {
+    const trimmed = input.trim()
+    if (!trimmed) return ''
+
+    // Keep dashboard placeholders untouched
+    if (trimmed.startsWith('{{') && trimmed.endsWith('}}')) {
+      return trimmed
+    }
+
+    const toPath = (value: string): string => {
+      try {
+        const parsed = new URL(value)
+        return parsed.pathname || '/'
+      } catch {
+        return value
+      }
+    }
+
+    if (trimmed.includes('://')) {
+      return toPath(trimmed)
+    }
+
+    const looksLikeHost = /^[^/\s]+\.[^/\s]+(?:\/.*)?$/.test(trimmed)
+    if (looksLikeHost) {
+      return toPath(`https://${trimmed}`)
+    }
+
+    if (trimmed.startsWith('/')) {
+      return trimmed
+    }
+
+    return `/${trimmed}`
+  }
+
   const getCleanParamName = (param: Parameter): string => {
     const parts = param.key.split('.')
     return parts[parts.length - 1]
@@ -152,7 +186,7 @@ const EventSelector = ({
 
   const pageviewsSummary =
     pageViewsMode === 'interactive'
-      ? 'Standard: Side velges via filter i dashboardet'
+      ? ''
       : pageViewsMode === 'all'
         ? 'Standard: Hele nettsiden'
         : selectedPaths.length > 0
@@ -328,10 +362,11 @@ const EventSelector = ({
               }))}
               selectedOptions={selectedPaths}
               onToggleSelected={(option: string, isSelected: boolean) => {
-                if (option) {
+                const normalizedPath = normalizeUrlPathInput(option)
+                if (normalizedPath) {
                   const newSelection = isSelected
-                    ? [...selectedPaths, option]
-                    : selectedPaths.filter((p) => p !== option)
+                    ? Array.from(new Set([...selectedPaths, normalizedPath]))
+                    : selectedPaths.filter((p) => p !== normalizedPath)
                   handlePathsChange(newSelection, urlPathOperator)
                 }
               }}
@@ -357,8 +392,9 @@ const EventSelector = ({
               }))}
               selectedOptions={selectedPaths.length > 0 ? [selectedPaths[0]] : []}
               onToggleSelected={(option: string, isSelected: boolean) => {
-                if (option) {
-                  handlePathsChange(isSelected ? [option] : [], urlPathOperator)
+                const normalizedPath = normalizeUrlPathInput(option)
+                if (normalizedPath) {
+                  handlePathsChange(isSelected ? [normalizedPath] : [], urlPathOperator)
                 }
               }}
               isMultiSelect={false}
@@ -639,7 +675,7 @@ const EventSelector = ({
             <div className="space-y-3">
               {selectedEventTypeOrder.map((eventType) => {
                 const isPageviewsRow = eventType === 'pageviews'
-                const isEditorOpen = openEditors[eventType]
+                const isEditorOpen = isPageviewsRow || openEditors[eventType]
                 const title = isPageviewsRow ? 'Sidevisninger' : 'Egendefinerte hendelser'
                 const summary = isPageviewsRow ? pageviewsSummary : customEventsSummary
 
@@ -651,7 +687,7 @@ const EventSelector = ({
                     <div className="flex flex-wrap items-center gap-2">
                       <div className="min-w-[170px]">
                         <p className="text-sm font-semibold event-selector-title">{title}</p>
-                        <p className="text-xs event-selector-summary">{summary}</p>
+                        {summary && <p className="text-xs event-selector-summary">{summary}</p>}
                       </div>
 
                       {!isPageviewsRow && customEventsMode === 'specific' && customEvents.length > 0 && (
@@ -664,9 +700,11 @@ const EventSelector = ({
                         <Button variant="tertiary" size="xsmall" onClick={() => setShowActiveFilters((prev) => !prev)}>
                           Filter
                         </Button>
-                        <Button variant="tertiary" size="xsmall" onClick={() => toggleEditor(eventType)}>
-                          {isEditorOpen ? 'Lukk' : 'Rediger'}
-                        </Button>
+                        {!isPageviewsRow && (
+                          <Button variant="tertiary" size="xsmall" onClick={() => toggleEditor(eventType)}>
+                            {isEditorOpen ? 'Lukk' : 'Rediger'}
+                          </Button>
+                        )}
                         <Button variant="tertiary-neutral" size="xsmall" onClick={() => removeEventType(eventType)}>
                           Fjern
                         </Button>

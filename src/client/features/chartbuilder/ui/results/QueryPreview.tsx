@@ -1549,9 +1549,9 @@ const QueryPreview = ({
             {/* Save + Metabase Section */}
             <div className="space-y-3 mb-4">
               {isCanvasEmbedMode && (
-                <div className="mb-2 rounded-md border border-[var(--ax-border-accent)] bg-[var(--ax-bg-accent-soft)] p-3">
+                <div className="mb-8 rounded-md border border-[var(--ax-border-accent)] bg-[var(--ax-bg-accent-soft)] p-3">
                   <div className="space-y-3">
-                    <Heading level="2" size="small">
+                    <Heading level="2" size="small" className="pb-4">
                       Legg til i canvas
                     </Heading>
                     <div className="grid gap-3 md:grid-cols-2">
