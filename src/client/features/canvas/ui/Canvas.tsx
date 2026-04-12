@@ -177,6 +177,13 @@ const getDefaultFrameSize = (
   return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
 }
 
+const getPendingFrameContentAnchorOffset = (draft: PendingCanvasFrameDraft): { x: number; y: number } => {
+  if (draft.kind === 'heading') return { x: 16, y: 9 }
+  if (draft.kind === 'text') return { x: 16, y: 0 }
+  if (draft.kind === 'sticky') return { x: 24, y: 24 }
+  return { x: 0, y: 0 }
+}
+
 const getNextAutoSectionLabel = (frames: CanvasFrame[], excludeFrameId?: string): string => {
   const usedNumbers = new Set<number>()
 
@@ -2210,12 +2217,13 @@ const Canvas = () => {
       if (!pendingFrameDraft) return
       const pointer = getCanvasPointerPosition(clientX, clientY)
       if (!pointer) return
+      const contentAnchorOffset = getPendingFrameContentAnchorOffset(pendingFrameDraft)
 
       const nextFrame: CanvasFrame = {
         ...pendingFrameDraft,
         id: `${Date.now()}-${Math.random()}`,
-        x: Math.max(0, pointer.x),
-        y: Math.max(-CANVAS_TOP_BUFFER, pointer.y),
+        x: Math.max(0, pointer.x - contentAnchorOffset.x),
+        y: Math.max(-CANVAS_TOP_BUFFER, pointer.y - contentAnchorOffset.y),
       }
 
       try {
@@ -5809,8 +5817,8 @@ const Canvas = () => {
                   <div
                     className="pointer-events-none absolute z-[46]"
                     style={{
-                      left: `${pendingFramePointer.x}px`,
-                      top: `${pendingFramePointer.y}px`,
+                      left: `${pendingFramePointer.x - (pendingFrameDraft ? getPendingFrameContentAnchorOffset(pendingFrameDraft).x : 0)}px`,
+                      top: `${pendingFramePointer.y - (pendingFrameDraft ? getPendingFrameContentAnchorOffset(pendingFrameDraft).y : 0)}px`,
                     }}
                   >
                     {pendingFrameDraft
@@ -5823,6 +5831,10 @@ const Canvas = () => {
                               : (pendingFrameDraft.height ?? defaults.height)
                           const ghostLabel =
                             pendingFrameDraft.headingText || pendingFrameDraft.label || pendingFramePlacementLabel || ''
+                          const isTextLikeGhost =
+                            pendingFrameDraft.kind === 'heading' ||
+                            pendingFrameDraft.kind === 'text' ||
+                            pendingFrameDraft.kind === 'sticky'
                           const ghostClassName =
                             pendingFrameDraft.kind === 'section'
                               ? 'rounded-2xl border-2 border-dashed border-[#8eb2de] bg-[#edf4ff]/70'
@@ -5837,19 +5849,42 @@ const Canvas = () => {
                                     : 'rounded-lg border border-[var(--ax-border-neutral-subtle)] bg-white'
                           return (
                             <div
-                              className={`flex flex-col items-center justify-center opacity-70 shadow-sm ${ghostClassName}`}
+                              className={`${isTextLikeGhost ? '' : 'flex flex-col items-center justify-center'} opacity-70 shadow-sm ${ghostClassName}`}
                               style={{ width: `${ghostWidth}px`, height: `${ghostHeight}px` }}
                             >
-                              {ghostLabel && pendingFrameDraft.kind === 'heading' ? (
-                                <span
-                                  className="select-none overflow-hidden px-4 font-bold text-[var(--ax-text-default)]"
-                                  style={{
-                                    fontSize: `${getHeadingFrameFontSize(pendingFrameDraft as CanvasFrame)}px`,
-                                    lineHeight: 1.05,
-                                  }}
-                                >
-                                  {ghostLabel}
-                                </span>
+                              {pendingFrameDraft.kind === 'heading' ? (
+                                <div className="h-full w-full overflow-hidden pt-1">
+                                  <div className="h-full w-full overflow-hidden px-4 py-2">
+                                    <span
+                                      className="block select-none overflow-hidden whitespace-pre-wrap break-words font-bold text-[var(--ax-text-default)]"
+                                      style={{
+                                        fontSize: `${getHeadingFrameFontSize(pendingFrameDraft as CanvasFrame)}px`,
+                                        lineHeight: 1.05,
+                                      }}
+                                    >
+                                      {ghostLabel}
+                                    </span>
+                                  </div>
+                                </div>
+                              ) : pendingFrameDraft.kind === 'text' ? (
+                                <div className="h-full w-full overflow-hidden px-2 pb-2">
+                                  <div className="h-full w-full overflow-hidden px-2 pb-2">
+                                    <span
+                                      className="block select-none overflow-hidden whitespace-pre-wrap break-words text-[var(--ax-text-default)]"
+                                      style={{ fontSize: '24px', lineHeight: 1.3, fontWeight: 500 }}
+                                    >
+                                      {pendingFrameDraft.textContent || 'Skriv tekst'}
+                                    </span>
+                                  </div>
+                                </div>
+                              ) : pendingFrameDraft.kind === 'sticky' ? (
+                                <div className="h-full w-full overflow-hidden px-2 pb-2">
+                                  <div className="h-full w-full overflow-hidden p-4 pt-6">
+                                    <span className="block select-none overflow-hidden whitespace-pre-wrap break-words text-base leading-7 text-[var(--ax-text-default)]">
+                                      {pendingFrameDraft.textContent || 'Skriv Post-it-lapp'}
+                                    </span>
+                                  </div>
+                                </div>
                               ) : (
                                 <span className="flex flex-col items-center gap-1 text-[var(--ax-text-subtle)]">
                                   <Plus size={18} />
