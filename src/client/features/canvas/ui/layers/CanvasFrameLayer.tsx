@@ -1,9 +1,9 @@
 import { Button, HelpText, Loader, Select } from '@navikt/ds-react'
 import { Trash2 } from 'lucide-react'
 import { useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
-import type { Website } from '../../../shared/types/website.ts'
-import { DashboardWidget } from '../../dashboard'
-import type { CanvasFrame, CanvasPageInsight, ConnectionAnchorSide, ConnectionDragState } from '../model/types.ts'
+import type { Website } from '../../../../shared/types/website.ts'
+import { DashboardWidget } from '../../../dashboard'
+import type { CanvasFrame, CanvasPageInsight, ConnectionAnchorSide, ConnectionDragState } from '../../model/types.ts'
 import {
   CANVAS_TABLE_ROWS_PER_PAGE,
   CARD_ACTION_BUTTON_CLASSNAME,
@@ -15,22 +15,22 @@ import {
   WEBSITE_CARD_HEADER_HEIGHT,
   getCanvasFrameVisualizationMode,
   getVisualizationModeLabel,
-} from '../utils/canvasUtils.ts'
-import { DEFAULT_CANVAS_ICON_COLOR } from './icon/CanvasIconRegistry.ts'
-import CanvasFrameActionPoints from './controls/CanvasFrameActionPoints.tsx'
-import CanvasDrawingFrame from './drawing/CanvasDrawingFrame.tsx'
-import CanvasFigureFrame from './figure/CanvasFigureFrame.tsx'
-import CanvasHeadingFrame from './heading/CanvasHeadingFrame.tsx'
-import CanvasIconFrame from './icon/CanvasIconFrame.tsx'
-import CanvasImageFrame from './image/CanvasImageFrame.tsx'
-import { isIllustrationImageFrame } from './image/CanvasImageUtils.ts'
-import CanvasStickyFrame from './sticky/CanvasStickyFrame.tsx'
-import { getCanvasStickyColorOptionById } from './sticky/CanvasStickyColorRegistry.ts'
-import CanvasTextFrame from './text/CanvasTextFrame.tsx'
-import CanvasWebsiteActionMenu from './website/CanvasWebsiteActionMenu.tsx'
-import CanvasWebsiteFrame from './website/CanvasWebsiteFrame.tsx'
-import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
-import type { ClickmapItem } from '../../clickmap/model/types.ts'
+} from '../../utils/canvasUtils.ts'
+import { DEFAULT_CANVAS_ICON_COLOR } from '../icon/CanvasIconRegistry.ts'
+import CanvasFrameActionPoints from '../controls/CanvasFrameActionPoints.tsx'
+import CanvasDrawingFrame from '../drawing/CanvasDrawingFrame.tsx'
+import CanvasFigureFrame from '../figure/CanvasFigureFrame.tsx'
+import CanvasHeadingFrame from '../heading/CanvasHeadingFrame.tsx'
+import CanvasIconFrame from '../icon/CanvasIconFrame.tsx'
+import CanvasImageFrame from '../image/CanvasImageFrame.tsx'
+import { isIllustrationImageFrame } from '../image/CanvasImageUtils.ts'
+import CanvasStickyFrame from '../sticky/CanvasStickyFrame.tsx'
+import { getCanvasStickyColorOptionById } from '../sticky/CanvasStickyColorRegistry.ts'
+import CanvasTextFrame from '../text/CanvasTextFrame.tsx'
+import CanvasWebsiteActionMenu from '../website/CanvasWebsiteActionMenu.tsx'
+import CanvasWebsiteFrame from '../website/CanvasWebsiteFrame.tsx'
+import WebsitePicker from '../../../analysis/ui/WebsitePicker.tsx'
+import type { ClickmapItem } from '../../../clickmap/model/types.ts'
 
 type CanvasFrameItem = CanvasFrame & {
   displayUrl?: string

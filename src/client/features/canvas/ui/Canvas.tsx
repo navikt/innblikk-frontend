@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Button } from '@navikt/ds-react'
-import { Trash2 } from 'lucide-react'
 import { computeFunnelStepMetrics } from '../../analysis/utils/horizontalFunnel.ts'
 import { fetchPageMetrics } from '../../traffic/api/trafficApi.ts'
 import { fetchFunnelData } from '../../funnel/api/funnelApi.ts'
@@ -21,12 +19,13 @@ import CanvasCoreModals from './controls/CanvasCoreModals.tsx'
 import CanvasTopBar from './controls/CanvasTopBar.tsx'
 import CanvasDotVotingModal from './controls/CanvasDotVotingModal.tsx'
 import CanvasTimerModal from './controls/CanvasTimerModal.tsx'
-import CanvasZoomControls from './controls/CanvasZoomControls.tsx'
 import CanvasDrawingToolbar from './drawing/CanvasDrawingToolbar.tsx'
 import CanvasDrawingDraftOverlay from './drawing/CanvasDrawingDraftOverlay.tsx'
-import CanvasConnectionLayer from './CanvasConnectionLayer.tsx'
-import CanvasPlacementModeLayer, { CanvasPlacementModeBanner } from './CanvasPlacementModeLayer.tsx'
-import CanvasFrameLayer from './CanvasFrameLayer.tsx'
+import CanvasConnectionLayer from './layers/CanvasConnectionLayer.tsx'
+import CanvasFloatingControls from './controls/CanvasFloatingControls.tsx'
+import CanvasGrafbyggerOverlay from './controls/CanvasGrafbyggerOverlay.tsx'
+import CanvasPlacementModeLayer, { CanvasPlacementModeBanner } from './layers/CanvasPlacementModeLayer.tsx'
+import CanvasFrameLayer from './layers/CanvasFrameLayer.tsx'
 import CanvasImageUrlModal from './image/CanvasImageUrlModal.tsx'
 import CanvasFigureModal from './figure/CanvasFigureModal.tsx'
 import CanvasHeadingModal from './heading/CanvasHeadingModal.tsx'
@@ -4921,52 +4920,17 @@ const Canvas = () => {
             </div>
           </main>
         </div>
-        {isGrafbyggerEmbedded && (
-          <div
-            className="absolute bottom-0 left-0 right-0 z-40 overflow-hidden bg-[var(--ax-bg-default)]"
-            style={{ top: `${canvasCanvasTopOffset}px` }}
-          >
-            <div className="h-full p-3">
-              <div className="h-full overflow-hidden rounded-xl border border-[var(--ax-border-neutral-subtle)] bg-white shadow-sm">
-                <iframe
-                  title="Grafbygger i canvas"
-                  src={grafbyggerSrc}
-                  className="h-full w-full"
-                  loading="lazy"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-        <aside aria-label="Canvas-handlinger" className="pointer-events-none fixed bottom-4 right-4 z-30">
-          <div className="pointer-events-auto flex items-center gap-2">
-            {!isGrafbyggerEmbedded && (
-              <>
-                {!isDotVotingActive && selectedFrameIds.length > 0 && (
-                  <div className="rounded-full border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-1 shadow-sm">
-                    <Button
-                      size="xsmall"
-                      variant="tertiary"
-                      onClick={handleRequestRemoveSelectedFrames}
-                      title="Fjern valgte kort"
-                      icon={<Trash2 size={14} />}
-                      className="rounded-full px-2"
-                    >
-                      Fjern valgte ({selectedFrameIds.length})
-                    </Button>
-                  </div>
-                )}
-                <CanvasZoomControls
-                  canvasZoom={canvasZoom}
-                  onZoomOut={() => handleCanvasZoomChange(canvasZoom - CANVAS_ZOOM_STEP)}
-                  onZoomReset={handleCanvasZoomReset}
-                  onZoomIn={() => handleCanvasZoomChange(canvasZoom + CANVAS_ZOOM_STEP)}
-                />
-              </>
-            )}
-          </div>
-        </aside>
+        <CanvasGrafbyggerOverlay open={isGrafbyggerEmbedded} topOffsetPx={canvasCanvasTopOffset} src={grafbyggerSrc} />
+        <CanvasFloatingControls
+          isGrafbyggerEmbedded={isGrafbyggerEmbedded}
+          isDotVotingActive={isDotVotingActive}
+          selectedFrameCount={selectedFrameIds.length}
+          onRequestRemoveSelectedFrames={handleRequestRemoveSelectedFrames}
+          canvasZoom={canvasZoom}
+          onZoomOut={() => handleCanvasZoomChange(canvasZoom - CANVAS_ZOOM_STEP)}
+          onZoomReset={handleCanvasZoomReset}
+          onZoomIn={() => handleCanvasZoomChange(canvasZoom + CANVAS_ZOOM_STEP)}
+        />
       </section>
 
       <CanvasCoreModals

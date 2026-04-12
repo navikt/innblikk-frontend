@@ -1,6 +1,6 @@
 import { Loader } from '@navikt/ds-react'
 import { Plus } from 'lucide-react'
-import type { CanvasFrame, PendingCanvasFrameDraft, PendingCsvStickyImport } from '../model/types.ts'
+import type { CanvasFrame, PendingCanvasFrameDraft, PendingCsvStickyImport } from '../../model/types.ts'
 
 type CanvasPlacementModeBannerProps = {
   topOffsetPx: number

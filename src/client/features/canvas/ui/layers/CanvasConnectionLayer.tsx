@@ -1,6 +1,6 @@
 import { Button } from '@navikt/ds-react'
 import { ChartNoAxesCombined, Trash2 } from 'lucide-react'
-import type { CanvasConnectionMetric, CanvasConnectionVisual } from '../model/types.ts'
+import type { CanvasConnectionMetric, CanvasConnectionVisual } from '../../model/types.ts'
 
 type CanvasConnectionPreview = {
   path: string
