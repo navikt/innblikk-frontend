@@ -254,7 +254,9 @@ const CanvasTopBar = ({
                 </ActionMenu.Trigger>
                 <ActionMenu.Content align="end">
                   <ActionMenu.Item onClick={() => window.location.assign('/canvas')}>Canvas-oversikt</ActionMenu.Item>
-                  {canManageTabs && <ActionMenu.Item onClick={onOpenManageTabs}>Administrer faner</ActionMenu.Item>}
+                  {canManageTabs && (
+                    <ActionMenu.Item onClick={() => onOpenManageTabs()}>Administrer faner</ActionMenu.Item>
+                  )}
                   <ActionMenu.Item onClick={onOpenTimer}>
                     {timerLabel ? `Nedteller (${timerLabel})` : 'Nedteller'}
                   </ActionMenu.Item>
