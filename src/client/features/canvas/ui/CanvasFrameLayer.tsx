@@ -136,6 +136,7 @@ type CanvasFrameLayerProps = {
   activeInsightPeriodLabel: string
   setWebsiteIframeRef: (frameId: string, node: HTMLIFrameElement | null) => void
   handleWebsiteFrameLoad: (frame: CanvasFrame) => void
+  focusWebsiteTopListItem: (frameId: string, item: ClickmapItem) => void
   getDefaultFrameSize: (frameOrKind: CanvasFrame | CanvasFrame['kind']) => {
     width: number
     height: number
@@ -214,6 +215,7 @@ const CanvasFrameLayer = ({
   activeInsightPeriodLabel,
   setWebsiteIframeRef,
   handleWebsiteFrameLoad,
+  focusWebsiteTopListItem,
   getDefaultFrameSize,
   getHeadingFrameFontSize,
   getHeadingFrameWidth,
@@ -257,12 +259,13 @@ const CanvasFrameLayer = ({
   onVoteSticky,
   onClearStickyVoteSnapshot,
 }: CanvasFrameLayerProps) => {
-  const [topListFilterByFrameId, setTopListFilterByFrameId] = useState<Record<string, 'all' | 'links' | 'accordion'>>(
-    {},
-  )
+  const [topListFilterByFrameId, setTopListFilterByFrameId] = useState<Record<string, string>>({})
+  const [activeTopListItemKeyByFrameId, setActiveTopListItemKeyByFrameId] = useState<Record<string, string | null>>({})
+
+  const cleanText = (value: string): string => value.replace(/\s+/g, ' ').trim().toLowerCase()
 
   const isAccordionLike = (value: string): boolean => {
-    const cleaned = value.replace(/\s+/g, ' ').trim().toLowerCase()
+    const cleaned = cleanText(value)
     return cleaned.includes('accordion') || cleaned.includes('trekkspill')
   }
 
@@ -280,12 +283,37 @@ const CanvasFrameLayer = ({
           const websiteInsight = pageInsights[frame.id]
           const visualizationMode = frame.kind === 'website' ? getCanvasFrameVisualizationMode(frame) : ''
           const visualizationData = frame.kind === 'website' ? frameVisualizationData[frame.id] : undefined
-          const topListFilter = topListFilterByFrameId[frame.id] ?? 'all'
+          const componentFilterOptions = Array.from(
+            new Set(
+              (visualizationData?.items ?? [])
+                .map((item) => item.component?.trim())
+                .filter((value): value is string => !!value),
+            ),
+          )
+            .filter((component) => !isAccordionLike(component))
+            .sort((a, b) => a.localeCompare(b, 'nb'))
+            .map((component) => ({
+              value: `component:${component}`,
+              label: `Komponent: ${component}`,
+            }))
+          const topListFilterOptions = [
+            { value: 'all', label: 'Alle treff' },
+            { value: 'links', label: 'Lenker' },
+            { value: 'accordion', label: 'Trekkspill/accordion' },
+            ...componentFilterOptions,
+          ]
+          const requestedTopListFilter = topListFilterByFrameId[frame.id] ?? 'all'
+          const topListFilter = topListFilterOptions.some((option) => option.value === requestedTopListFilter)
+            ? requestedTopListFilter
+            : 'all'
           const topListItems =
             frame.kind === 'website' && visualizationMode === 'clickmap'
               ? (visualizationData?.items ?? []).filter((item) => {
                   if (topListFilter === 'all') return true
                   if (topListFilter === 'accordion') return isAccordionLike(item.component || '')
+                  if (topListFilter.startsWith('component:')) {
+                    return item.component === topListFilter.replace('component:', '')
+                  }
                   return !isAccordionLike(item.component || '')
                 })
               : []
@@ -431,6 +459,8 @@ const CanvasFrameLayer = ({
                   <div className="flex shrink-0 items-center gap-1">
                     <CanvasWebsiteActionMenu
                       isInternalDashboard={frame.isInternalDashboard}
+                      showVisualizationOption={!frame.isInternalDashboard}
+                      onOpenVisualization={() => handleOpenEditWebsiteModal(frame)}
                       showInsightOption={!frame.isInternalDashboard}
                       isInsightOpen={isWebsiteInsightOpen}
                       insightDisabled={!selectedWebsite}
@@ -973,13 +1003,15 @@ const CanvasFrameLayer = ({
                         onChange={(event) =>
                           setTopListFilterByFrameId((current) => ({
                             ...current,
-                            [frame.id]: event.target.value as 'all' | 'links' | 'accordion',
+                            [frame.id]: event.target.value,
                           }))
                         }
                       >
-                        <option value="all">Alle treff</option>
-                        <option value="links">Lenker</option>
-                        <option value="accordion">Trekkspill/accordion</option>
+                        {topListFilterOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
                       </Select>
                     </div>
                     {visualizationData?.loading ? (
@@ -996,10 +1028,23 @@ const CanvasFrameLayer = ({
                         {sortedTopListItems.map((item, index) => {
                           const itemKey = `${item.sourcePath}-${item.linkText}-${item.destination}-${index}`
                           const barWidth = Math.max(4, Math.round((item.count / topListMaxCount) * 100))
+                          const isActive = activeTopListItemKeyByFrameId[frame.id] === itemKey
                           return (
-                            <div
+                            <button
+                              type="button"
                               key={itemKey}
-                              className="rounded-md border border-[var(--ax-border-neutral-subtle)] p-2"
+                              className={`w-full rounded-md border p-2 text-left transition-colors ${
+                                isActive
+                                  ? 'border-red-700 bg-[var(--ax-bg-neutral-soft)] shadow-[0_0_0_2px_rgba(220,38,38,0.28)_inset]'
+                                  : 'border-[var(--ax-border-neutral-subtle)] hover:bg-[var(--ax-bg-neutral-soft)]'
+                              }`}
+                              onClick={() => {
+                                setActiveTopListItemKeyByFrameId((current) => ({
+                                  ...current,
+                                  [frame.id]: itemKey,
+                                }))
+                                focusWebsiteTopListItem(frame.id, item)
+                              }}
                             >
                               <div className="text-xs font-medium text-[var(--ax-text-default)]">
                                 {item.linkText || '(uten lenketekst)'}
@@ -1018,7 +1063,7 @@ const CanvasFrameLayer = ({
                               <div className="mt-1.5 h-1.5 overflow-hidden rounded bg-[var(--ax-bg-neutral-moderate)]">
                                 <div className="h-full rounded bg-red-700" style={{ width: `${barWidth}%` }} />
                               </div>
-                            </div>
+                            </button>
                           )
                         })}
                       </div>

@@ -966,7 +966,7 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
 
       {!loading && hasSearched && data.length > 0 && (
         <div
-          className={showRightSidebar ? 'grid gap-6 xl:grid-cols-[minmax(0,1.65fr)_minmax(340px,1fr)]' : 'grid gap-6'}
+          className={showRightSidebar ? 'grid gap-6 xl:grid-cols-[minmax(0,1.85fr)_minmax(300px,360px)]' : 'grid gap-6'}
         >
           {filteredOutBySourcePathCount > 0 && (
             <Alert variant="info" className={showRightSidebar ? 'xl:col-span-2' : ''}>

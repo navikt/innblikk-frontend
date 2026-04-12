@@ -3,6 +3,8 @@ import { ChartNoAxesCombined, Copy, Edit2, List, MoreVertical, RefreshCw, Trash2
 
 type CanvasWebsiteActionMenuProps = {
   isInternalDashboard?: boolean
+  showVisualizationOption?: boolean
+  onOpenVisualization?: () => void
   showInsightOption?: boolean
   isInsightOpen?: boolean
   insightDisabled?: boolean
@@ -18,6 +20,8 @@ type CanvasWebsiteActionMenuProps = {
 
 const CanvasWebsiteActionMenu = ({
   isInternalDashboard,
+  showVisualizationOption,
+  onOpenVisualization,
   showInsightOption,
   isInsightOpen,
   insightDisabled,
@@ -60,6 +64,14 @@ const CanvasWebsiteActionMenu = ({
           <span>{isInternalDashboard ? 'Rediger dashboard' : 'Rediger nettside'}</span>
         </span>
       </ActionMenu.Item>
+      {showVisualizationOption && onOpenVisualization && (
+        <ActionMenu.Item onClick={onOpenVisualization}>
+          <span className="inline-flex items-center gap-2">
+            <ChartNoAxesCombined size={14} aria-hidden="true" />
+            <span>Visualisering</span>
+          </span>
+        </ActionMenu.Item>
+      )}
       {showInsightOption && onToggleInsight && (
         <ActionMenu.Item onClick={onToggleInsight} disabled={insightDisabled}>
           <span className="inline-flex items-center gap-2">

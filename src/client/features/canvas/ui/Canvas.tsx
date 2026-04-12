@@ -163,8 +163,8 @@ const getDefaultFrameSize = (
   const isInternalDashboard = typeof frameOrKind === 'string' ? false : Boolean(frameOrKind.isInternalDashboard)
   const isIllustration = typeof frameOrKind === 'string' ? false : isIllustrationImageFrame(frameOrKind)
 
-  if (kind === 'website' && isInternalDashboard) return { width: 760, height: 620, minWidth: 520, minHeight: 420 }
-  if (kind === 'website') return { width: 420, height: 560, minWidth: 220, minHeight: 160 }
+  if (kind === 'website' && isInternalDashboard) return { width: 760, height: 760, minWidth: 520, minHeight: 420 }
+  if (kind === 'website') return { width: 420, height: 700, minWidth: 220, minHeight: 160 }
   if (kind === 'image' && isIllustration) return { width: 420, height: 420, minWidth: 96, minHeight: 96 }
   if (kind === 'image') return { width: 420, height: 420, minWidth: 240, minHeight: 200 }
   if (kind === 'chart') return { width: 560, height: 360, minWidth: 280, minHeight: 200 }
@@ -845,17 +845,18 @@ const Canvas = () => {
     },
   })
 
-  const { frameVisualizationData, setWebsiteIframeRef, handleWebsiteFrameLoad } = useCanvasWebsiteVisualization({
-    frameItems,
-    availableWebsites,
-    selectedWebsiteId: selectedWebsite?.id,
-    selectedWebsiteDomain: selectedWebsite?.domain,
-    canvasConfiguredWebsiteId,
-    period,
-    customStartDate: customStartDate ?? null,
-    customEndDate: customEndDate ?? null,
-    clickmapEvents: CLICKMAP_EVENTS,
-  })
+  const { frameVisualizationData, setWebsiteIframeRef, handleWebsiteFrameLoad, focusWebsiteTopListItem } =
+    useCanvasWebsiteVisualization({
+      frameItems,
+      availableWebsites,
+      selectedWebsiteId: selectedWebsite?.id,
+      selectedWebsiteDomain: selectedWebsite?.domain,
+      canvasConfiguredWebsiteId,
+      period,
+      customStartDate: customStartDate ?? null,
+      customEndDate: customEndDate ?? null,
+      clickmapEvents: CLICKMAP_EVENTS,
+    })
 
   const ensureCanvasCategory = useCallback(async (): Promise<number | null> => {
     if (!canPersistToDashboard || projectId === null || dashboardId === null) return null
@@ -6033,6 +6034,7 @@ const Canvas = () => {
                   activeInsightPeriodLabel={activeInsightPeriodLabel}
                   setWebsiteIframeRef={setWebsiteIframeRef}
                   handleWebsiteFrameLoad={handleWebsiteFrameLoad}
+                  focusWebsiteTopListItem={focusWebsiteTopListItem}
                   getDefaultFrameSize={getDefaultFrameSize}
                   getHeadingFrameFontSize={getHeadingFrameFontSize}
                   getHeadingFrameWidth={getHeadingFrameWidth}

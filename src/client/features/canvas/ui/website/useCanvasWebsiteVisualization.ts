@@ -40,12 +40,170 @@ type UseCanvasWebsiteVisualizationParams = {
   clickmapEvents: string[]
 }
 
+type ClickmapFocusLinkPayload = {
+  type: 'umami-clickmap-focus-link'
+  linkText?: string
+  destination?: string
+  component?: string
+  section?: string
+}
+
 const normalizeDomainForComparison = (value: string): string =>
   value.replace(/^https?:\/\//i, '').replace(/^www\./i, '')
 
 const getFrameVisualizationMode = (
   frame: Pick<WebsiteVisualizationFrame, 'visualizationMode'>,
 ): VisualizationMode | '' => (isVisualizationMode(frame.visualizationMode) ? frame.visualizationMode : '')
+
+const CLICKMAP_FOCUSED_CLASS = 'umami-clickmap-focused-link'
+
+const cleanText = (value: string): string => value.replace(/\s+/g, ' ').trim().toLowerCase()
+
+const isAccordionLike = (value: string): boolean => {
+  const cleaned = cleanText(value)
+  return cleaned.includes('accordion') || cleaned.includes('trekkspill')
+}
+
+const isInternalNavigationComponent = (value: string): boolean => {
+  const cleaned = cleanText(value)
+  return cleaned.includes('intern-navigasjon') || cleaned.includes('page-navigation')
+}
+
+const isNavigationMenuLink = (element: Element): boolean =>
+  !!element.closest('nav, .part__page-navigation-menu, [class*="PageNavigationMenu"], [class*="NavigationMenu"]')
+const isHeadingLink = (element: Element): boolean => !!element.closest('h1, h2, h3, h4, h5, h6')
+const isInPageHashLink = (element: Element): boolean => {
+  const href = element.getAttribute('href') || ''
+  return href.startsWith('#')
+}
+
+const getElementSectionKey = (element: Element): string => {
+  const accordionSection = element.closest(
+    'section.navds-expansioncard, section[class*="expansioncard"], section[class*="Expandable_expandable"], section[aria-label]',
+  )
+  if (accordionSection) {
+    const titleNode =
+      accordionSection.querySelector(
+        '[class*="Expandable_headerTitle"], .navds-expansioncard__header-content, .navds-expansioncard__header',
+      ) || accordionSection
+    const title = cleanText(titleNode.textContent || '')
+    if (title) return title
+    const ariaLabel = cleanText(accordionSection.getAttribute('aria-label') || '')
+    if (ariaLabel) return ariaLabel
+  }
+
+  const sectionContainer = element.closest('section, article, [role="region"]')
+  if (sectionContainer) {
+    const heading = sectionContainer.querySelector('h1, h2, h3, h4, h5, h6')
+    const headingText = cleanText(heading?.textContent || '')
+    if (headingText) return headingText
+    const ariaLabel = cleanText(sectionContainer.getAttribute('aria-label') || '')
+    if (ariaLabel) return ariaLabel
+  }
+
+  return ''
+}
+
+const normalizeDestination = (value: string): { path: string; full: string } => {
+  if (!value) return { path: '', full: '' }
+  try {
+    const resolved = new URL(value, window.location.href)
+    const normalizedPath = decodeURIComponent(resolved.pathname || '/')
+    const path = normalizedPath === '/' ? '/' : normalizedPath.replace(/\/+$/, '')
+    const host = (resolved.hostname || '').toLowerCase()
+    return { path, full: host ? host + path : path }
+  } catch {
+    const path = normalizeUrlToPath(value || '')
+    if (!path) return { path: '', full: '' }
+    return { path, full: path === '/' ? '/' : path.replace(/\/+$/, '') }
+  }
+}
+
+const isElementVisible = (element: Element): boolean => {
+  const view = element.ownerDocument.defaultView
+  if (!view) return false
+  const style = view.getComputedStyle(element)
+  if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false
+  const rect = element.getBoundingClientRect()
+  return rect.width > 0 && rect.height > 0
+}
+
+const ensureFocusedStyle = (doc: Document) => {
+  if (doc.getElementById('umami-clickmap-focused-style')) return
+  const style = doc.createElement('style')
+  style.id = 'umami-clickmap-focused-style'
+  style.textContent = `
+    .${CLICKMAP_FOCUSED_CLASS} {
+      outline: 3px solid rgba(185, 28, 28, 0.95) !important;
+      outline-offset: 1px !important;
+      background-color: rgba(220, 38, 38, 0.2) !important;
+      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.82), 0 0 0 6px rgba(220, 38, 38, 0.52) !important;
+      border-radius: 3px !important;
+    }
+  `
+  doc.head.appendChild(style)
+}
+
+const clearFocusedElement = (doc: Document) => {
+  doc.querySelectorAll(`.${CLICKMAP_FOCUSED_CLASS}`).forEach((node) => {
+    node.classList.remove(CLICKMAP_FOCUSED_CLASS)
+  })
+}
+
+const findBestElementForClickmapItem = (doc: Document, item: ClickmapItem): Element | null => {
+  const targetText = cleanText(item.linkText || '')
+  const targetDestination = normalizeDestination(item.destination || '')
+  const targetIsAccordion = isAccordionLike(item.component || '')
+  const targetIsInternalNavigation = isInternalNavigationComponent(item.component || '')
+  const targetSection = cleanText(item.section || '')
+
+  const candidates = [
+    ...Array.from(doc.querySelectorAll('a[href]')).map((element) => ({ element, kind: 'link' as const })),
+    ...Array.from(doc.querySelectorAll('button[aria-expanded], button[aria-controls], summary')).map((element) => ({
+      element,
+      kind: 'accordion' as const,
+    })),
+  ]
+
+  let bestElement: Element | null = null
+  let bestScore = -1
+
+  for (const candidate of candidates) {
+    if (!isElementVisible(candidate.element)) continue
+    if (targetIsAccordion && candidate.kind !== 'accordion') continue
+    if (candidate.kind === 'link' && isHeadingLink(candidate.element)) continue
+    if (candidate.kind === 'link' && isInPageHashLink(candidate.element) && !isNavigationMenuLink(candidate.element))
+      continue
+    if (targetIsInternalNavigation && candidate.kind === 'link' && !isNavigationMenuLink(candidate.element)) continue
+
+    const elementText = cleanText(candidate.element.textContent || candidate.element.getAttribute('aria-label') || '')
+    const href = candidate.kind === 'link' ? candidate.element.getAttribute('href') || '' : ''
+    const normalizedHref = normalizeDestination(href)
+    const sectionKey = getElementSectionKey(candidate.element)
+
+    let score = 0
+
+    if (targetText && elementText === targetText) score += 100
+    else if (targetText && elementText.includes(targetText)) score += 70
+    else if (targetText && targetText.includes(elementText) && elementText) score += 45
+
+    if (targetDestination.full && normalizedHref.full && normalizedHref.full === targetDestination.full) score += 90
+    else if (targetDestination.path && normalizedHref.path && normalizedHref.path === targetDestination.path)
+      score += 70
+
+    if (targetSection && sectionKey && sectionKey === targetSection) score += 30
+
+    if (targetIsAccordion && candidate.kind === 'accordion') score += 15
+    if (targetIsInternalNavigation && isNavigationMenuLink(candidate.element)) score += 15
+
+    if (score > bestScore) {
+      bestScore = score
+      bestElement = candidate.element
+    }
+  }
+
+  return bestScore >= 60 ? bestElement : null
+}
 
 const useCanvasWebsiteVisualization = ({
   frameItems,
@@ -306,10 +464,43 @@ const useCanvasWebsiteVisualization = ({
     [sendVisualizationDataToWebsiteFrame],
   )
 
+  const focusWebsiteTopListItem = useCallback((frameId: string, item: ClickmapItem) => {
+    const iframeNode = websiteIframeRefs.current[frameId]
+    const iframeDoc = iframeNode?.contentDocument
+    const iframeWindow = iframeNode?.contentWindow
+
+    if (iframeDoc && iframeWindow) {
+      ensureFocusedStyle(iframeDoc)
+      clearFocusedElement(iframeDoc)
+      const matchedElement = findBestElementForClickmapItem(iframeDoc, item)
+      if (matchedElement) {
+        matchedElement.classList.add(CLICKMAP_FOCUSED_CLASS)
+        const rect = matchedElement.getBoundingClientRect()
+        const targetTop = Math.max(0, rect.top + iframeWindow.scrollY - iframeWindow.innerHeight * 0.35)
+        iframeWindow.scrollTo({ top: targetTop, behavior: 'smooth' })
+        return
+      }
+    }
+
+    const contentWindow = iframeNode?.contentWindow
+    if (!contentWindow) return
+
+    const focusPayload: ClickmapFocusLinkPayload = {
+      type: 'umami-clickmap-focus-link',
+      linkText: item.linkText,
+      destination: item.destination,
+      component: item.component,
+      section: item.section,
+    }
+
+    contentWindow.postMessage(focusPayload, '*')
+  }, [])
+
   return {
     frameVisualizationData,
     setWebsiteIframeRef,
     handleWebsiteFrameLoad,
+    focusWebsiteTopListItem,
   }
 }
 
