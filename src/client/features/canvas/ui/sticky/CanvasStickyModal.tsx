@@ -29,6 +29,13 @@ const CanvasStickyModal = ({
   <Modal open={open} onClose={onClose} header={{ heading: 'Legg til Post-it-lapp' }} width="small">
     <Modal.Body>
       <div className="space-y-3 rounded-xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-3">
+        <Textarea
+          label="Tekst"
+          minRows={6}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="[&_label]:text-[var(--ax-text-default)]"
+        />
         <div className="space-y-1.5">
           <div className="text-sm font-medium text-[var(--ax-text-default)]">Farge</div>
           <div className="flex flex-wrap gap-2">
@@ -39,29 +46,35 @@ const CanvasStickyModal = ({
                   key={option.id}
                   type="button"
                   onClick={() => onColorChange(option.id)}
-                  className={`flex h-8 w-8 items-center justify-center rounded-full border-2 ${
-                    isSelected ? 'border-[var(--ax-border-accent)]' : 'border-[var(--ax-border-neutral-subtle)]'
+                  className={`relative flex h-11 w-11 items-center justify-center rounded-full border-2 transition-shadow ${
+                    isSelected
+                      ? 'border-[var(--ax-border-accent)] shadow-[0_0_0_3px_var(--ax-bg-default),0_0_0_5px_var(--ax-border-accent)]'
+                      : 'border-[var(--ax-border-neutral-subtle)]'
                   }`}
                   aria-label={`Velg farge ${option.label}`}
                   title={option.label}
                 >
                   <span
                     aria-hidden="true"
-                    className="h-5 w-5 rounded-full border border-black/10"
-                    style={{ backgroundColor: option.background }}
+                    className="h-8 w-8 rounded-full border-2"
+                    style={{
+                      backgroundColor: option.background,
+                      borderColor: option.border,
+                    }}
                   />
+                  {isSelected && (
+                    <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--ax-border-accent)] text-[10px] font-bold text-white">
+                      ✓
+                    </span>
+                  )}
                 </button>
               )
             })}
           </div>
+          <div className="text-xs text-[var(--ax-text-subtle)]">
+            Valgt: {colorOptions.find((option) => option.id === selectedColorId)?.label ?? ''}
+          </div>
         </div>
-        <Textarea
-          label="Tekst"
-          minRows={6}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className="[&_label]:text-[var(--ax-text-default)]"
-        />
         {error && <Alert variant="error">{error}</Alert>}
       </div>
     </Modal.Body>
