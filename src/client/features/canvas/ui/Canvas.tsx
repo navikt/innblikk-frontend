@@ -653,6 +653,12 @@ const Canvas = () => {
     [activeCanvasCategoryId, connections],
   )
 
+  const activeCanvasCategoryLabel = useMemo(() => {
+    if (activeCanvasCategoryId === null) return 'Aktiv fane'
+    const activeCategory = canvasCategories.find((category) => category.id === activeCanvasCategoryId)
+    return getCanvasCategoryDisplayName(activeCategory?.name)
+  }, [activeCanvasCategoryId, canvasCategories])
+
   const inventoryItems = useMemo(() => {
     const byKind = new Map<
       CanvasFrame['kind'],
@@ -5060,6 +5066,87 @@ const Canvas = () => {
     return byId
   }, [getFrameBounds, visibleFrames])
 
+  const inventoryHierarchy = useMemo(() => {
+    const mapFrameToNode = (frame: CanvasFrame) => {
+      const fallbackLabel = frame.label.trim() || `${frame.kind} ${frame.id}`
+      let label = fallbackLabel
+      if (frame.kind === 'heading') {
+        label = frame.headingText?.trim() || fallbackLabel
+      } else if (frame.kind === 'text' || frame.kind === 'sticky') {
+        label = frame.textContent?.trim() || fallbackLabel
+      }
+
+      const kindLabel = CANVAS_INVENTORY_KIND_OPTIONS.find((option) => option.kind === frame.kind)?.label || frame.kind
+      return {
+        id: frame.id,
+        kindLabel,
+        label,
+      }
+    }
+
+    const sortByCanvasOrder = (a: CanvasFrame, b: CanvasFrame) => {
+      if (a.y !== b.y) return a.y - b.y
+      if (a.x !== b.x) return a.x - b.x
+      return a.id.localeCompare(b.id)
+    }
+
+    const sortedFrames = [...visibleFrames].sort(sortByCanvasOrder)
+    const sectionElementFramesBySectionId = new Map<string, CanvasFrame[]>()
+    const topLevelNodes: Array<
+      | {
+          type: 'section'
+          id: string
+          label: string
+          elements: Array<{ id: string; kindLabel: string; label: string }>
+        }
+      | {
+          type: 'element'
+          id: string
+          kindLabel: string
+          label: string
+        }
+    > = []
+
+    sortedFrames.forEach((frame) => {
+      if (frame.kind === 'section') {
+        topLevelNodes.push({
+          type: 'section',
+          id: frame.id,
+          label: frame.label.trim() || 'Seksjon',
+          elements: [],
+        })
+        sectionElementFramesBySectionId.set(frame.id, [])
+        return
+      }
+
+      const containingSectionId = frameContainingSectionIdByFrameId[frame.id]
+      if (containingSectionId) {
+        const current = sectionElementFramesBySectionId.get(containingSectionId) ?? []
+        current.push(frame)
+        sectionElementFramesBySectionId.set(containingSectionId, current)
+        return
+      }
+
+      topLevelNodes.push({
+        type: 'element',
+        ...mapFrameToNode(frame),
+      })
+    })
+
+    return {
+      nodes: topLevelNodes.map((node) => {
+        if (node.type !== 'section') return node
+        const elements = (sectionElementFramesBySectionId.get(node.id) ?? [])
+          .sort(sortByCanvasOrder)
+          .map(mapFrameToNode)
+        return {
+          ...node,
+          elements,
+        }
+      }),
+    }
+  }, [frameContainingSectionIdByFrameId, visibleFrames])
+
   const canvasSurfaceHeight = useMemo(() => {
     const lowestFrameEdge = frameItems.reduce((maxBottom, frame) => {
       const defaults = getDefaultFrameSize(frame)
@@ -5258,57 +5345,68 @@ const Canvas = () => {
                       top: `${pendingFramePointer.y}px`,
                     }}
                   >
-                    {pendingFrameDraft ? (
-                      (() => {
-                        const defaults = getDefaultFrameSize(pendingFrameDraft.kind)
-                        const ghostWidth = pendingFrameDraft.width ?? defaults.width
-                        const ghostHeight =
-                          pendingFrameDraft.kind === 'heading'
-                            ? getHeadingFrameHeight(pendingFrameDraft as CanvasFrame) + HEADING_CARD_HEADER_HEIGHT
-                            : (pendingFrameDraft.height ?? defaults.height)
-                        const ghostLabel =
-                          pendingFrameDraft.headingText || pendingFrameDraft.label || pendingFramePlacementLabel || ''
-                        const ghostClassName =
-                          pendingFrameDraft.kind === 'section'
-                            ? 'rounded-2xl border-2 border-dashed border-[#8eb2de] bg-[#edf4ff]/70'
-                            : pendingFrameDraft.kind === 'heading'
-                              ? 'rounded-lg border-2 border-[var(--ax-border-accent)] bg-transparent'
-                              : pendingFrameDraft.kind === 'text' || pendingFrameDraft.kind === 'sticky'
-                                ? 'rounded-xl border border-[var(--ax-border-neutral-subtle)] bg-white'
-                                : pendingFrameDraft.kind === 'icon' ||
-                                    pendingFrameDraft.kind === 'figure' ||
-                                    pendingFrameDraft.kind === 'drawing'
-                                  ? 'rounded-lg border-2 border-dashed border-[var(--ax-border-accent)] bg-transparent'
-                                  : 'rounded-lg border border-[var(--ax-border-neutral-subtle)] bg-white'
-                        return (
-                          <div
-                            className={`flex flex-col items-center justify-center opacity-70 shadow-sm ${ghostClassName}`}
-                            style={{ width: `${ghostWidth}px`, height: `${ghostHeight}px` }}
-                          >
-                            {ghostLabel && pendingFrameDraft.kind === 'heading' ? (
-                              <span
-                                className="select-none overflow-hidden px-4 font-bold text-[var(--ax-text-default)]"
-                                style={{
-                                  fontSize: `${getHeadingFrameFontSize(pendingFrameDraft as CanvasFrame)}px`,
-                                  lineHeight: 1.05,
-                                }}
-                              >
-                                {ghostLabel}
-                              </span>
-                            ) : (
+                    {pendingFrameDraft
+                      ? (() => {
+                          const defaults = getDefaultFrameSize(pendingFrameDraft.kind)
+                          const ghostWidth = pendingFrameDraft.width ?? defaults.width
+                          const ghostHeight =
+                            pendingFrameDraft.kind === 'heading'
+                              ? getHeadingFrameHeight(pendingFrameDraft as CanvasFrame) + HEADING_CARD_HEADER_HEIGHT
+                              : (pendingFrameDraft.height ?? defaults.height)
+                          const ghostLabel =
+                            pendingFrameDraft.headingText || pendingFrameDraft.label || pendingFramePlacementLabel || ''
+                          const ghostClassName =
+                            pendingFrameDraft.kind === 'section'
+                              ? 'rounded-2xl border-2 border-dashed border-[#8eb2de] bg-[#edf4ff]/70'
+                              : pendingFrameDraft.kind === 'heading'
+                                ? 'rounded-lg border-2 border-[var(--ax-border-accent)] bg-transparent'
+                                : pendingFrameDraft.kind === 'text' || pendingFrameDraft.kind === 'sticky'
+                                  ? 'rounded-xl border border-[var(--ax-border-neutral-subtle)] bg-white'
+                                  : pendingFrameDraft.kind === 'icon' ||
+                                      pendingFrameDraft.kind === 'figure' ||
+                                      pendingFrameDraft.kind === 'drawing'
+                                    ? 'rounded-lg border-2 border-dashed border-[var(--ax-border-accent)] bg-transparent'
+                                    : 'rounded-lg border border-[var(--ax-border-neutral-subtle)] bg-white'
+                          return (
+                            <div
+                              className={`flex flex-col items-center justify-center opacity-70 shadow-sm ${ghostClassName}`}
+                              style={{ width: `${ghostWidth}px`, height: `${ghostHeight}px` }}
+                            >
+                              {ghostLabel && pendingFrameDraft.kind === 'heading' ? (
+                                <span
+                                  className="select-none overflow-hidden px-4 font-bold text-[var(--ax-text-default)]"
+                                  style={{
+                                    fontSize: `${getHeadingFrameFontSize(pendingFrameDraft as CanvasFrame)}px`,
+                                    lineHeight: 1.05,
+                                  }}
+                                >
+                                  {ghostLabel}
+                                </span>
+                              ) : (
+                                <span className="flex flex-col items-center gap-1 text-[var(--ax-text-subtle)]">
+                                  <Plus size={18} />
+                                  <span className="text-xs">{pendingFramePlacementLabel || ghostLabel}</span>
+                                </span>
+                              )}
+                            </div>
+                          )
+                        })()
+                      : (() => {
+                          const sectionDefaults = getDefaultFrameSize('section')
+                          const csvGhostLabel =
+                            pendingFramePlacementLabel || pendingCsvStickyImport?.sectionTitle?.trim() || 'CSV-import'
+                          return (
+                            <div
+                              className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#8eb2de] bg-[#edf4ff]/70 opacity-70 shadow-sm"
+                              style={{ width: `${sectionDefaults.width}px`, height: `${sectionDefaults.height}px` }}
+                            >
                               <span className="flex flex-col items-center gap-1 text-[var(--ax-text-subtle)]">
                                 <Plus size={18} />
-                                <span className="text-xs">{pendingFramePlacementLabel || ghostLabel}</span>
+                                <span className="text-xs">{csvGhostLabel}</span>
                               </span>
-                            )}
-                          </div>
-                        )
-                      })()
-                    ) : (
-                      <span className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-[var(--ax-border-accent)] bg-[var(--ax-bg-default)] text-[var(--ax-text-default)] shadow-lg">
-                        <Plus size={20} />
-                      </span>
-                    )}
+                            </div>
+                          )
+                        })()}
                   </div>
                 )}
                 {selectionBox && (
@@ -5727,6 +5825,9 @@ const Canvas = () => {
         onDeleteTab={() => void handleDeleteTab()}
         isInventoryModalOpen={isInventoryModalOpen}
         onCloseInventory={() => setIsInventoryModalOpen(false)}
+        inventoryDashboardLabel={canvasTitle.trim() || 'Canvas'}
+        inventoryTabLabel={activeCanvasCategoryLabel}
+        inventoryHierarchy={inventoryHierarchy}
         inventoryItems={inventoryItems}
         onDeleteInventoryType={handleDeleteInventoryType}
         onSelectInventoryFrames={handleSelectInventoryFrames}

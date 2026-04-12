@@ -34,6 +34,19 @@ type CanvasAdminModalsProps = {
   onDeleteTab: () => void
   isInventoryModalOpen: boolean
   onCloseInventory: () => void
+  inventoryDashboardLabel: string
+  inventoryTabLabel: string
+  inventoryHierarchy: {
+    nodes: Array<
+      | {
+          type: 'section'
+          id: string
+          label: string
+          elements: Array<{ id: string; kindLabel: string; label: string }>
+        }
+      | { type: 'element'; id: string; kindLabel: string; label: string }
+    >
+  }
   inventoryItems: Array<{
     key: string
     label: string
@@ -77,6 +90,9 @@ const CanvasAdminModals = ({
   onDeleteTab,
   isInventoryModalOpen,
   onCloseInventory,
+  inventoryDashboardLabel,
+  inventoryTabLabel,
+  inventoryHierarchy,
   inventoryItems,
   onDeleteInventoryType,
   onSelectInventoryFrames,
@@ -381,6 +397,63 @@ const CanvasAdminModals = ({
                 </Table.Body>
               </Table>
             </div>
+            <details className="rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-3">
+              <summary className="cursor-pointer text-sm font-semibold text-[var(--ax-text-default)]">
+                Elementstruktur i aktiv fane
+              </summary>
+              <div className="mt-3 space-y-2 text-sm">
+                {inventoryHierarchy.nodes.length === 0 ? (
+                  <p className="text-[var(--ax-text-subtle)]">Ingen elementer å vise.</p>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-xs text-[var(--ax-text-subtle)]">
+                      Dashboard:{' '}
+                      <span className="font-medium text-[var(--ax-text-default)]">{inventoryDashboardLabel}</span>
+                      {' · '}Fane:{' '}
+                      <span className="font-medium text-[var(--ax-text-default)]">{inventoryTabLabel}</span>
+                    </p>
+                    {inventoryHierarchy.nodes.map((node) =>
+                      node.type === 'section' ? (
+                        <details
+                          key={`inventory-tree-section-${node.id}`}
+                          className="rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2"
+                        >
+                          <summary className="cursor-pointer text-[var(--ax-text-default)]">
+                            Seksjon: {node.label} <span className="text-xs">({node.elements.length})</span>
+                          </summary>
+                          {node.elements.length > 0 ? (
+                            <ul className="mt-2 list-disc space-y-1 pl-5 text-[var(--ax-text-subtle)]">
+                              {node.elements.map((element) => (
+                                <li key={`inventory-tree-section-${node.id}-element-${element.id}`}>
+                                  <span className="text-[var(--ax-text-default)]">
+                                    {element.kindLabel}: {element.label}
+                                  </span>{' '}
+                                  <span className="text-xs">(id: {element.id})</span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <div className="mt-2 text-xs text-[var(--ax-text-subtle)]">
+                              Ingen elementer i denne seksjonen.
+                            </div>
+                          )}
+                        </details>
+                      ) : (
+                        <div
+                          key={`inventory-tree-top-element-${node.id}`}
+                          className="rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] p-2"
+                        >
+                          <span className="text-[var(--ax-text-default)]">
+                            {node.kindLabel}: {node.label}
+                          </span>{' '}
+                          <span className="text-xs text-[var(--ax-text-subtle)]">(id: {node.id})</span>
+                        </div>
+                      ),
+                    )}
+                  </div>
+                )}
+              </div>
+            </details>
           </div>
         </Modal.Body>
         <Modal.Footer>
