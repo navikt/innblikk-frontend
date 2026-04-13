@@ -23,7 +23,7 @@ const CanvasFloatingControls = ({
   onZoomReset,
   onZoomIn,
 }: CanvasFloatingControlsProps) => (
-  <aside aria-label="Canvas-handlinger" className="pointer-events-none fixed bottom-4 right-4 z-30">
+  <aside aria-label="Canvas-handlinger" className="pointer-events-none fixed bottom-6 right-6 z-30">
     <div className="pointer-events-auto flex items-center gap-2">
       {!isGrafbyggerEmbedded && (
         <>
