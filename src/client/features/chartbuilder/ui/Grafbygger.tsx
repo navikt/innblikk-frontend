@@ -174,9 +174,7 @@ const ChartsPage = () => {
             <div className="px-1 py-2 mt-2 max-w-[180px]">
               <Loader size="small" title="Laster data" />
             </div>
-          ) : !config.website ? (
-            <div className="px-1 py-2 text-sm text-(--ax-text-subtle)">Velg nettside og datoperiode først.</div>
-          ) : (
+          ) : !config.website ? null : (
             <>
               {/* ── Hendelse ───────────────────────────────────────── */}
               <SidebarSection

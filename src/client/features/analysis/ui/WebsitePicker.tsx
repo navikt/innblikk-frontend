@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { UNSAFE_Combobox, Alert, Button } from '@navikt/ds-react'
+import { UNSAFE_Combobox, Alert } from '@navikt/ds-react'
 import type { Website } from '../../../shared/types/chart.ts'
 import type { EventProperty, ApiCache, WebsiteApiResponse } from '../model/types.ts'
 import {
@@ -639,35 +639,6 @@ const WebsitePicker = ({
           clearButton
           isMultiSelect={false}
         />
-        {!isInitialLoading && !selectedWebsite && !window.location.hostname.includes('.dev.nav.no') && (
-          <div className="flex items-center gap-2 mt-2">
-            <span className="text-sm">Hurtigvalg:</span>
-            <Button
-              size="xsmall"
-              variant="secondary"
-              onClick={() => {
-                const website = websites.find((w) => w.id === '35abb2b7-3f97-42ce-931b-cf547d40d967')
-                if (website) {
-                  handleWebsiteChange(website)
-                }
-              }}
-            >
-              nav.no
-            </Button>
-            <Button
-              size="xsmall"
-              variant="secondary"
-              onClick={() => {
-                const website = websites.find((w) => w.id === '83b80c84-b551-4dff-a679-f21be5fa0453')
-                if (website) {
-                  handleWebsiteChange(website)
-                }
-              }}
-            >
-              navet
-            </Button>
-          </div>
-        )}
       </div>
 
       {/* {selectedWebsite && includeParams && (
