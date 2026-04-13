@@ -8,6 +8,8 @@ type CanvasDotVotingStickyRow = {
   canVote: boolean
 }
 
+const getVoteLabel = (voteCount: number): 'stemme' | 'stemmer' => (voteCount === 1 ? 'stemme' : 'stemmer')
+
 type CanvasDotVotingModalProps = {
   open: boolean
   onClose: () => void
@@ -207,7 +209,8 @@ const CanvasDotVotingModal = ({
                     {row.label}
                   </div>
                   <div className="text-xs text-[var(--ax-text-subtle)]">
-                    {row.totalVotes} {row.totalVotes === 1 ? 'stemme' : 'stemmer'} totalt • {row.myVotes} fra deg
+                    {row.totalVotes} {getVoteLabel(row.totalVotes)} totalt • {row.myVotes} {getVoteLabel(row.myVotes)}{' '}
+                    fra deg
                   </div>
                 </div>
                 <div className="flex items-center gap-1">

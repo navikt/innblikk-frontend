@@ -70,6 +70,8 @@ const RESIZE_HANDLE_CONFIGS: Array<{
   },
 ]
 
+const getVoteLabel = (voteCount: number): 'stemme' | 'stemmer' => (voteCount === 1 ? 'stemme' : 'stemmer')
+
 type CanvasResizeHandlesProps = {
   frame: CanvasFrame
   isVisible: boolean
@@ -922,12 +924,12 @@ const CanvasFrameLayer = ({
                       <div className="pointer-events-none absolute right-2 top-2 z-30 flex items-center gap-1">
                         {shouldRevealDotVotingTotals && (
                           <span className="rounded-full border border-[var(--ax-border-neutral-subtle)] bg-white/95 px-2 py-0.5 text-xs font-semibold text-[var(--ax-text-default)]">
-                            {stickyTotalVotes} {stickyTotalVotes === 1 ? 'stemme' : 'stemmer'} totalt
+                            {stickyTotalVotes} {getVoteLabel(stickyTotalVotes)} totalt
                           </span>
                         )}
                         {stickyMyVotes > 0 && (
                           <span className="rounded-full border border-[var(--ax-border-accent)] bg-[var(--ax-border-accent)] px-2.5 py-0.5 text-xs font-semibold text-white shadow-sm">
-                            {stickyMyVotes} {stickyMyVotes === 1 ? 'stemme' : 'stemmer'} fra deg
+                            {stickyMyVotes} {getVoteLabel(stickyMyVotes)} fra deg
                           </span>
                         )}
                       </div>
@@ -941,10 +943,10 @@ const CanvasFrameLayer = ({
                             event.stopPropagation()
                             onClearStickyVoteSnapshot?.(frame.id)
                           }}
-                          aria-label={`${stickyFinalVoteCount} ${stickyFinalVoteCount === 1 ? 'stemme' : 'stemmer'} – klikk for å fjerne`}
+                          aria-label={`${stickyFinalVoteCount} ${getVoteLabel(stickyFinalVoteCount)} – klikk for å fjerne`}
                           title="Klikk for å fjerne lagret stemmeresultat"
                         >
-                          {stickyFinalVoteCount} {stickyFinalVoteCount === 1 ? 'stemme' : 'stemmer'}
+                          {stickyFinalVoteCount} {getVoteLabel(stickyFinalVoteCount)}
                         </button>
                       </div>
                     )}
