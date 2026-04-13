@@ -138,11 +138,11 @@ const CanvasTopBar = ({
   return (
     <div ref={canvasToolbarRef} className="pointer-events-none fixed left-4 right-4 top-4 z-30">
       <div className="pointer-events-auto rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <a
             href="/canvas"
             aria-label={`Til dashboard-oversikt${projectId !== null ? ` fra prosjekt ${projectId}` : ''}`}
-            className="min-w-0 flex flex-1 items-center gap-1.5 rounded-sm border-0 bg-transparent p-0 text-left text-[var(--ax-text-default)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-border-accent)]"
+            className="min-w-0 flex w-full items-center gap-1.5 rounded-sm border-0 bg-transparent p-0 text-left text-[var(--ax-text-default)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-border-accent)] sm:flex-1"
           >
             <span className="grid h-8 w-8 shrink-0 place-items-center">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -165,7 +165,7 @@ const CanvasTopBar = ({
             </h1>
           </a>
           {!isCanvasFrontpage && (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
               {showDateFilter && (
                 <div className="w-[152px] shrink-0 [&_label]:sr-only">
                   <PeriodPicker
