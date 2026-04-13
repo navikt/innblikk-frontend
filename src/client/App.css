@@ -1,15 +1,14 @@
 /* =====================================================
    APP-WIDE MAX WIDTH
-   Single source of truth: change --app-max-width to
-   adjust the max content width across the entire app.
+   The app fills the full available width with no cap.
    ===================================================== */
 :root {
-  --app-max-width: 1600px;
+  --app-max-width: none;
 }
 
-/* Override Page.Block's built-in max-width with our custom value */
+/* Override Page.Block's built-in max-width to allow full width */
 .app-block {
-  max-width: var(--app-max-width) !important;
+  max-width: none !important;
 }
 
 /* Responsive modal styles */

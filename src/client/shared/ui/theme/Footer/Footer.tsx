@@ -10,10 +10,7 @@ const Footer = () => {
         data-theme="dark"
         className="flex pt-3 z-10 items-center w-full m-auto justify-between toc-ignore text-text-on-inverted !bg-[#003453] relative flex justify-center"
       >
-        <div
-          className="relative z-10 mx-auto grid w-full gap-12 px-4 pb-16 pt-12 md:grid-cols-2 md:px-6 lg:grid-cols-2 xl:grid-cols-4 xl:gap-6"
-          style={{ maxWidth: 'var(--app-max-width)' }}
-        >
+        <div className="relative z-10 mx-auto grid w-full gap-12 px-4 pb-16 pt-12 md:grid-cols-2 md:px-6 lg:grid-cols-2 xl:grid-cols-4 xl:gap-6">
           <LogoBlock />
           <SideLenker />
           <Snarveier />
