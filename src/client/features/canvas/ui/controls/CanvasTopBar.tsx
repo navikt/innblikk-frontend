@@ -46,8 +46,6 @@ type CanvasTopBarProps = {
   canManageTabs: boolean
   canPersistToDashboard: boolean
   shouldShowCreateCanvasModal: boolean
-  syncError: string | null
-  onDismissSyncError: () => void
   canvasCategories: GraphCategoryDto[]
   activeCanvasCategoryId: number | null
   onChangeActiveCanvasCategory: (categoryId: number) => void
@@ -101,8 +99,6 @@ const CanvasTopBar = ({
   canManageTabs,
   canPersistToDashboard,
   shouldShowCreateCanvasModal,
-  syncError,
-  onDismissSyncError,
   canvasCategories,
   activeCanvasCategoryId,
   onChangeActiveCanvasCategory,
@@ -310,13 +306,6 @@ const CanvasTopBar = ({
           <div className="mt-2">
             <Alert variant="warning" size="small">
               Canvas er ikke koblet til et dashboard.
-            </Alert>
-          </div>
-        )}
-        {syncError && (
-          <div className="mt-2">
-            <Alert variant="error" size="small" closeButton onClose={onDismissSyncError}>
-              {syncError}
             </Alert>
           </div>
         )}

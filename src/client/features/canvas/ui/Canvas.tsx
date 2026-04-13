@@ -442,6 +442,10 @@ const Canvas = () => {
   const [canvasCategories, setCanvasCategories] = useState<GraphCategoryDto[]>([])
   const [activeCanvasCategoryId, setActiveCanvasCategoryId] = useState<number | null>(null)
   const [syncError, setSyncError] = useState<string | null>(null)
+  useEffect(() => {
+    if (!syncError) return
+    console.error('[Canvas] Sync error:', syncError)
+  }, [syncError])
   const [isTimerModalOpen, setIsTimerModalOpen] = useState(false)
   const [timerMinutesInput, setTimerMinutesInput] = useState('5')
   const [timerModalError, setTimerModalError] = useState<string | null>(null)
@@ -4738,8 +4742,6 @@ const Canvas = () => {
           canManageTabs={canvasCategories.length > 1}
           canPersistToDashboard={canPersistToDashboard}
           shouldShowCreateCanvasModal={shouldShowCreateCanvasModal}
-          syncError={syncError}
-          onDismissSyncError={() => setSyncError(null)}
           canvasCategories={canvasCategories}
           activeCanvasCategoryId={activeCanvasCategoryId}
           onChangeActiveCanvasCategory={handleToolbarCategoryChange}
