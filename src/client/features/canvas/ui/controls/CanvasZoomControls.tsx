@@ -9,7 +9,7 @@ type CanvasZoomControlsProps = {
 }
 
 const CanvasZoomControls = ({ canvasZoom, onZoomOut, onZoomReset, onZoomIn }: CanvasZoomControlsProps) => (
-  <div className="flex items-center gap-1 rounded-full border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-1 shadow-sm">
+  <div className="flex items-center gap-0 rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-px shadow-sm">
     <Button
       size="xsmall"
       variant="tertiary"
@@ -20,8 +20,9 @@ const CanvasZoomControls = ({ canvasZoom, onZoomOut, onZoomReset, onZoomIn }: Ca
     />
     <Button
       size="xsmall"
-      variant="tertiary"
+      variant="tertiary-neutral"
       onClick={onZoomReset}
+      className="min-w-0 px-2 text-[var(--ax-text-subtle)]"
       title="Tilbakestill zoom"
       aria-label={`${Math.round(canvasZoom * 100)}% Tilbakestill zoom`}
     >
