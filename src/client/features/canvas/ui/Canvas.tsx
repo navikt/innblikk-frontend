@@ -245,6 +245,21 @@ const compareFramesForSectionOrder = (a: CanvasFrame, b: CanvasFrame): number =>
   return a.id.localeCompare(b.id)
 }
 
+const compareFramesForGridLayout = (a: CanvasFrame, b: CanvasFrame): number => {
+  const aVoteRank = a.kind === 'sticky' && Number.isFinite(a.finalVoteRank) ? Number(a.finalVoteRank) : null
+  const bVoteRank = b.kind === 'sticky' && Number.isFinite(b.finalVoteRank) ? Number(b.finalVoteRank) : null
+
+  if (aVoteRank !== null || bVoteRank !== null) {
+    if (aVoteRank === null) return 1
+    if (bVoteRank === null) return -1
+    if (aVoteRank !== bVoteRank) return aVoteRank - bVoteRank
+  }
+
+  const aStableId = a.graphId ? `g-${a.graphId}` : `l-${a.id}`
+  const bStableId = b.graphId ? `g-${b.graphId}` : `l-${b.id}`
+  return aStableId.localeCompare(bStableId)
+}
+
 const Canvas = () => {
   const LAST_PROJECT_STORAGE_KEY = 'projectmanager:lastSelectedProjectId'
   const WEBSITE_TOP_LIST_VISIBLE_STORAGE_KEY = 'canvas:websiteTopListVisible'
@@ -2162,7 +2177,7 @@ const Canvas = () => {
               centerY <= sectionBounds.bottom
             )
           })
-          .sort(compareFramesForSectionOrder)
+          .sort(compareFramesForGridLayout)
 
         const contentWidth = Math.max(1, contentRight - contentLeft)
         const estimatedColumnCount = Math.max(
@@ -2837,7 +2852,7 @@ const Canvas = () => {
               centerY <= sectionBounds.bottom
             )
           })
-          .sort(compareFramesForSectionOrder)
+          .sort(compareFramesForGridLayout)
 
         const contentWidth = Math.max(1, contentRight - contentLeft)
         const estimatedColumnCount = Math.max(
@@ -3753,7 +3768,7 @@ const Canvas = () => {
           bounds.bottom <= sectionBounds.bottom
         )
       })
-      .sort(compareFramesForSectionOrder)
+      .sort(compareFramesForGridLayout)
 
     const movedFramesById = new Map<string, CanvasFrame>()
     let cursorX = contentLeft
