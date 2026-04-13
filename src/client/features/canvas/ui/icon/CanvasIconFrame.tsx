@@ -14,12 +14,13 @@ const CanvasIconFrame = ({ width, height, iconName, iconRotationDeg, iconColor }
   const iconSize = Math.max(22, Math.floor(Math.min(width, height)))
   const resolvedRotation = iconRotationDeg ?? 0
   const resolvedColor = getCanvasIconColor(iconColor)
+  const colorForRender = resolvedColor.toLowerCase() === '#111111' ? 'var(--ax-text-default)' : resolvedColor
 
   return (
     <div className="flex h-full w-full items-center justify-center p-0">
       <Icon
         fontSize={`${iconSize}px`}
-        style={{ transform: `rotate(${resolvedRotation}deg)`, color: resolvedColor }}
+        style={{ transform: `rotate(${resolvedRotation}deg)`, color: colorForRender }}
         aria-hidden="true"
       />
     </div>

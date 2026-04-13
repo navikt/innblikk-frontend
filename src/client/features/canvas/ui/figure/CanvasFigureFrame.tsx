@@ -15,6 +15,7 @@ const CanvasFigureFrame = ({ id, width, height, figureType, figureColor, label }
   const resolvedFigureType = figureType ?? 'rectangle'
   const strokeWidth = Math.max(2, Math.floor(Math.min(width, height) * 0.035))
   const strokeColor = getCanvasIconColor(figureColor)
+  const strokeColorForRender = strokeColor.toLowerCase() === '#111111' ? 'var(--ax-text-default)' : strokeColor
   const markerId = `canvas-figure-arrow-${id}`
 
   return (
@@ -37,7 +38,7 @@ const CanvasFigureFrame = ({ id, width, height, figureType, figureColor, label }
             orient="auto"
             markerUnits="strokeWidth"
           >
-            <path d="M0,0 L10,4 L0,8 z" fill={strokeColor} />
+            <path d="M0,0 L10,4 L0,8 z" fill={strokeColorForRender} />
           </marker>
         </defs>
       )}
@@ -49,7 +50,7 @@ const CanvasFigureFrame = ({ id, width, height, figureType, figureColor, label }
           height={Math.max(0, height - strokeWidth * 2)}
           rx={Math.min(14, Math.floor(Math.min(width, height) * 0.1))}
           fill="none"
-          stroke={strokeColor}
+          stroke={strokeColorForRender}
           strokeWidth={strokeWidth}
         />
       )}
@@ -60,7 +61,7 @@ const CanvasFigureFrame = ({ id, width, height, figureType, figureColor, label }
           rx={Math.max(0, width / 2 - strokeWidth)}
           ry={Math.max(0, height / 2 - strokeWidth)}
           fill="none"
-          stroke={strokeColor}
+          stroke={strokeColorForRender}
           strokeWidth={strokeWidth}
         />
       )}
@@ -70,7 +71,7 @@ const CanvasFigureFrame = ({ id, width, height, figureType, figureColor, label }
           y1={height / 2}
           x2={Math.max(strokeWidth, width - strokeWidth)}
           y2={height / 2}
-          stroke={strokeColor}
+          stroke={strokeColorForRender}
           strokeWidth={strokeWidth}
           strokeLinecap="round"
         />
@@ -81,7 +82,7 @@ const CanvasFigureFrame = ({ id, width, height, figureType, figureColor, label }
           y1={height / 2}
           x2={Math.max(strokeWidth, width - strokeWidth * 1.8)}
           y2={height / 2}
-          stroke={strokeColor}
+          stroke={strokeColorForRender}
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           markerEnd={`url(#${markerId})`}

@@ -19,6 +19,9 @@ const CanvasDrawingFrame = ({
   strokeWidth,
   label,
 }: CanvasDrawingFrameProps) => {
+  const resolveStrokeColor = (color: string): string =>
+    color.trim().toLowerCase() === '#111111' ? 'var(--ax-text-default)' : color
+
   const strokes = parseDrawingPath(drawingPath)
   const strokeStyles = parseDrawingStrokeStyles(drawingStrokeStyles)
   const allPoints = strokes.flatMap((stroke) => stroke)
@@ -51,7 +54,7 @@ const CanvasDrawingFrame = ({
             key={`drawing-stroke-${index}`}
             points={stroke.map((point) => `${point.x},${point.y}`).join(' ')}
             fill="none"
-            stroke={style?.color || strokeColor}
+            stroke={resolveStrokeColor(style?.color || strokeColor)}
             strokeWidth={style?.strokeWidth ?? strokeWidth}
             strokeLinecap="round"
             strokeLinejoin="round"
