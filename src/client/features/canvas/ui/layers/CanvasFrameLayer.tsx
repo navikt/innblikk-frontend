@@ -1,5 +1,4 @@
 import { Button, HelpText, Loader, Select } from '@navikt/ds-react'
-import { Trash2 } from 'lucide-react'
 import { useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
 import type { Website } from '../../../../shared/types/website.ts'
 import { DashboardWidget } from '../../../dashboard'
@@ -923,32 +922,29 @@ const CanvasFrameLayer = ({
                       <div className="pointer-events-none absolute right-2 top-2 z-30 flex items-center gap-1">
                         {shouldRevealDotVotingTotals && (
                           <span className="rounded-full border border-[var(--ax-border-neutral-subtle)] bg-white/95 px-2 py-0.5 text-xs font-semibold text-[var(--ax-text-default)]">
-                            Totalt {stickyTotalVotes}
+                            {stickyTotalVotes} stemmer totalt
                           </span>
                         )}
                         {stickyMyVotes > 0 && (
                           <span className="rounded-full border border-[var(--ax-border-accent)] bg-[var(--ax-border-accent)] px-2.5 py-0.5 text-xs font-semibold text-white shadow-sm">
-                            Dine {stickyMyVotes}
+                            {stickyMyVotes} stemmer fra deg
                           </span>
                         )}
                       </div>
                     )}
                     {!isDotVotingActive && stickyFinalVoteCount !== null && stickyFinalVoteCount > 0 && (
                       <div className="absolute bottom-2 right-2 z-30 flex items-center gap-1">
-                        <span className="rounded-full border border-emerald-300 bg-emerald-500 px-2.5 py-0.5 text-xs font-semibold text-white shadow-sm">
-                          Stemmer {stickyFinalVoteCount}
-                        </span>
                         <button
                           type="button"
-                          className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--ax-border-neutral-subtle)] bg-white/95 text-[var(--ax-text-subtle)] shadow-sm transition-colors hover:border-[var(--ax-border-danger)] hover:text-[var(--ax-text-danger)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ax-border-accent)]"
+                          className="rounded-full border border-emerald-300 bg-emerald-500 px-2.5 py-0.5 text-xs font-semibold text-white shadow-sm transition-colors hover:border-red-400 hover:bg-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ax-border-accent)]"
                           onClick={(event) => {
                             event.stopPropagation()
                             onClearStickyVoteSnapshot?.(frame.id)
                           }}
-                          aria-label="Fjern lagret stemmeresultat"
-                          title="Fjern lagret stemmeresultat"
+                          aria-label={`${stickyFinalVoteCount} stemmer – klikk for å fjerne`}
+                          title="Klikk for å fjerne lagret stemmeresultat"
                         >
-                          <Trash2 size={14} />
+                          {stickyFinalVoteCount} stemmer
                         </button>
                       </div>
                     )}

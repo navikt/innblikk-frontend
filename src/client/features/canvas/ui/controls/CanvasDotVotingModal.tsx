@@ -208,7 +208,7 @@ const CanvasDotVotingModal = ({
                     {row.label}
                   </div>
                   <div className="text-xs text-[var(--ax-text-subtle)]">
-                    Totalt: {row.totalVotes} • Dine: {row.myVotes}
+                    {row.totalVotes} stemmer totalt • {row.myVotes} fra deg
                   </div>
                 </div>
                 <div className="flex items-center gap-1">

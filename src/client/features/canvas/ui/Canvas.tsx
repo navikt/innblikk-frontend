@@ -3384,10 +3384,14 @@ const Canvas = () => {
       })
       return
     }
+    const voteCount =
+      frame.kind === 'sticky' && Number.isFinite(frame.finalVoteCount) ? frame.finalVoteCount : undefined
     setDeleteTarget({
       type: 'frame',
       id: frame.id,
       label: frame.label || 'kortet',
+      hasVotes: voteCount !== undefined && voteCount > 0,
+      voteCount,
     })
   }
 
@@ -3457,6 +3461,12 @@ const Canvas = () => {
 
       if (target.type === 'connection') {
         await handleRemoveConnection(target.id)
+        setDeleteTarget(null)
+        return
+      }
+
+      if (target.type === 'clear-vote-snapshot') {
+        handleClearStickyVoteSnapshot(target.id)
         setDeleteTarget(null)
       }
     } finally {
@@ -3917,6 +3927,17 @@ const Canvas = () => {
     setFrames((prev) => prev.map((item) => (item.id === frameId ? nextFrame : item)))
     void persistFrame(nextFrame).catch((error) => {
       setSyncError(error instanceof Error ? error.message : 'Kunne ikke fjerne lagret stemmeresultat')
+    })
+  }
+
+  const handleRequestClearStickyVoteSnapshot = (frameId: string) => {
+    const frame = frames.find((item) => item.id === frameId)
+    if (!frame || frame.kind !== 'sticky') return
+    setDeleteTarget({
+      type: 'clear-vote-snapshot',
+      id: frameId,
+      label: frame.label || 'Post-it-lapp',
+      voteCount: frame.finalVoteCount ?? 0,
     })
   }
 
@@ -4931,7 +4952,7 @@ const Canvas = () => {
                   dotVotingMyVotesByFrameId={dotVotingMyVotesByFrameId}
                   shouldRevealDotVotingTotals={shouldRevealDotVotingTotals}
                   onVoteSticky={handleAddDotVote}
-                  onClearStickyVoteSnapshot={handleClearStickyVoteSnapshot}
+                  onClearStickyVoteSnapshot={handleRequestClearStickyVoteSnapshot}
                 />
               </div>
             </div>

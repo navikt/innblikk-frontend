@@ -95,6 +95,8 @@ export type CanvasDeleteTarget =
       type: 'frame'
       id: string
       label: string
+      hasVotes?: boolean
+      voteCount?: number
     }
   | {
       type: 'section'
@@ -111,6 +113,12 @@ export type CanvasDeleteTarget =
       type: 'connection'
       id: string
       label: string
+    }
+  | {
+      type: 'clear-vote-snapshot'
+      id: string
+      label: string
+      voteCount: number
     }
 
 export type ConnectionAnchorSide = 'left' | 'right' | 'top' | 'bottom'

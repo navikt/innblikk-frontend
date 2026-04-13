@@ -473,7 +473,9 @@ const CanvasCoreModals = ({
                 ? 'Fjern seksjon'
                 : deleteTarget?.type === 'frames'
                   ? 'Fjern valgte kort'
-                  : 'Fjern kort',
+                  : deleteTarget?.type === 'clear-vote-snapshot'
+                    ? 'Fjern stemmeresultat'
+                    : 'Fjern kort',
         }}
         width="small"
       >
@@ -488,7 +490,9 @@ const CanvasCoreModals = ({
                     ? 'seksjonen'
                     : deleteTarget?.type === 'frames'
                       ? 'de valgte kortene'
-                      : 'kortet'}
+                      : deleteTarget?.type === 'clear-vote-snapshot'
+                        ? `stemmeresultatet (${deleteTarget.voteCount} stemme${deleteTarget.voteCount === 1 ? '' : 'r'}) for lappen`
+                        : 'kortet'}
               </strong>
               {deleteTarget?.label ? (
                 <>
@@ -499,6 +503,17 @@ const CanvasCoreModals = ({
               ?
             </p>
             <p className="text-[var(--ax-text-subtle)]">Denne handlingen kan ikke angres.</p>
+            {deleteTarget?.type === 'frame' && deleteTarget.hasVotes ? (
+              <Alert variant="warning" size="small">
+                Lappen har {deleteTarget.voteCount} stemme{deleteTarget.voteCount === 1 ? '' : 'r'}. Stemmeresultatet
+                vil gå tapt hvis du sletter den.
+              </Alert>
+            ) : null}
+            {deleteTarget?.type === 'clear-vote-snapshot' ? (
+              <Alert variant="warning" size="small">
+                Stemmeresultatet kan ikke gjenopprettes etter at det er fjernet.
+              </Alert>
+            ) : null}
             {deleteTarget?.type === 'section' ? (
               deleteTarget.containedFrameIds.length > 0 ? (
                 <p className="text-[var(--ax-text-subtle)]">
@@ -549,7 +564,9 @@ const CanvasCoreModals = ({
                   ? isSavingCanvasItem && bulkDeleteProgress
                     ? `Sletter (${bulkDeleteProgress.completed}/${bulkDeleteProgress.total})`
                     : 'Fjern valgte'
-                  : 'Fjern kort'}
+                  : deleteTarget?.type === 'clear-vote-snapshot'
+                    ? 'Fjern stemmeresultat'
+                    : 'Fjern kort'}
             </Button>
           )}
           <Button variant="secondary" onClick={onCloseDeleteModal} disabled={isSavingCanvasItem}>
