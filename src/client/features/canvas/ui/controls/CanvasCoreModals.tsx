@@ -509,11 +509,6 @@ const CanvasCoreModals = ({
                 vil gå tapt hvis du sletter den.
               </Alert>
             ) : null}
-            {deleteTarget?.type === 'clear-vote-snapshot' ? (
-              <Alert variant="warning" size="small">
-                Stemmeresultatet kan ikke gjenopprettes etter at det er fjernet.
-              </Alert>
-            ) : null}
             {deleteTarget?.type === 'section' ? (
               deleteTarget.containedFrameIds.length > 0 ? (
                 <p className="text-[var(--ax-text-subtle)]">

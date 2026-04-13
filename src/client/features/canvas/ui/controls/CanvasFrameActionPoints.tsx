@@ -1,5 +1,5 @@
 import { ActionMenu, Button } from '@navikt/ds-react'
-import { ArrowRightLeft, Copy, Edit2, Grid3X3, Move, RotateCcw, RotateCw, Trash2 } from 'lucide-react'
+import { ArrowRightLeft, Copy, Edit2, Grid3X3, Move, Palette, RotateCcw, RotateCw, Trash2 } from 'lucide-react'
 import type { MouseEvent } from 'react'
 import type { CanvasSectionLayoutMode } from '../../model/types.ts'
 
@@ -284,7 +284,7 @@ const CanvasFrameActionPoints = ({
     frameKind === 'drawing' ||
     isIllustrationFrame
       ? 'right-8 -top-6 flex items-center gap-1'
-      : 'right-8 top-4 flex items-center gap-1'
+      : 'right-2 top-4 flex items-center gap-1'
 
   return (
     <div className={`pointer-events-none absolute z-30 ${actionPointsPositionClassName}`}>
@@ -387,7 +387,7 @@ const CanvasFrameActionPoints = ({
             <Button
               size="xsmall"
               variant="tertiary"
-              icon={<Edit2 size={14} />}
+              icon={<Palette size={14} />}
               onMouseDown={stopMouseDownPropagation}
               title="Bytt farge"
               aria-label="Bytt farge"

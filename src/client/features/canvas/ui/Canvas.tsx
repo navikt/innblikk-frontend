@@ -4232,6 +4232,25 @@ const Canvas = () => {
     })()
   }
 
+  const handleEndSortAndClearDotVoting = () => {
+    void (async () => {
+      setDotVotingModalPendingAction('end')
+      try {
+        await endVoting()
+      } finally {
+        setDotVotingModalPendingAction(null)
+      }
+      handleSortSectionByVotes()
+      setDotVotingModalPendingAction('clear')
+      try {
+        await clearVoting()
+      } finally {
+        setDotVotingModalPendingAction(null)
+      }
+      setIsDotVotingModalOpen(false)
+    })()
+  }
+
   const handleEndDotVoting = () => {
     void (async () => {
       setDotVotingModalPendingAction('end')
@@ -5199,6 +5218,7 @@ const Canvas = () => {
         onEnd={handleEndDotVoting}
         onClear={handleClearDotVoting}
         onSortSectionByVotes={handleSortSectionByVotes}
+        onEndSortAndClear={handleEndSortAndClearDotVoting}
         isRunning={isDotVotingRunning}
         isPaused={isDotVotingPaused}
         sessionExists={Boolean(dotVotingSessionPayload)}

@@ -26,6 +26,7 @@ type CanvasDotVotingModalProps = {
   onEnd: () => void
   onClear: () => void
   onSortSectionByVotes: () => void
+  onEndSortAndClear: () => void
   isRunning: boolean
   isPaused: boolean
   sessionExists: boolean
@@ -68,9 +69,7 @@ const CanvasDotVotingModal = ({
   onResume,
   onAdjustMinusOneMinute,
   onAdjustPlusOneMinute,
-  onEnd,
-  onClear,
-  onSortSectionByVotes,
+  onEndSortAndClear,
   isRunning,
   isPaused,
   sessionExists,
@@ -208,7 +207,7 @@ const CanvasDotVotingModal = ({
                     {row.label}
                   </div>
                   <div className="text-xs text-[var(--ax-text-subtle)]">
-                    {row.totalVotes} stemmer totalt • {row.myVotes} fra deg
+                    {row.totalVotes} {row.totalVotes === 1 ? 'stemme' : 'stemmer'} totalt • {row.myVotes} fra deg
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
@@ -257,35 +256,15 @@ const CanvasDotVotingModal = ({
       )}
 
       {sessionExists && (
-        <>
-          <Button
-            size="small"
-            variant="secondary"
-            onClick={onSortSectionByVotes}
-            loading={isSaving && pendingAction === 'sort'}
-            disabled={isSaving && pendingAction !== 'sort'}
-          >
-            Sorter seksjon etter stemmer
-          </Button>
-          <Button
-            size="small"
-            variant="secondary"
-            onClick={onEnd}
-            loading={isSaving && pendingAction === 'end'}
-            disabled={isSaving && pendingAction !== 'end'}
-          >
-            Avslutt votering
-          </Button>
-          <Button
-            size="small"
-            variant="danger"
-            onClick={onClear}
-            loading={isSaving && pendingAction === 'clear'}
-            disabled={isSaving && pendingAction !== 'clear'}
-          >
-            Nullstill
-          </Button>
-        </>
+        <Button
+          size="small"
+          variant="secondary"
+          onClick={onEndSortAndClear}
+          loading={isSaving && (pendingAction === 'end' || pendingAction === 'sort' || pendingAction === 'clear')}
+          disabled={isSaving && pendingAction !== 'end' && pendingAction !== 'sort' && pendingAction !== 'clear'}
+        >
+          Avslutt og sorter etter stemmer
+        </Button>
       )}
 
       <Button size="small" variant="tertiary" onClick={onClose}>
