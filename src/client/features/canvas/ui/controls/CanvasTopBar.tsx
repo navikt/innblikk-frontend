@@ -1,5 +1,5 @@
 import { ActionMenu, Alert, Button, Tabs } from '@navikt/ds-react'
-import { MoreVertical, Users } from 'lucide-react'
+import { House, MoreVertical, Users } from 'lucide-react'
 import { useRef, type KeyboardEvent, type RefObject, type TouchEvent } from 'react'
 import PeriodPicker from '../../../analysis/ui/PeriodPicker.tsx'
 import type { GraphCategoryDto } from '../../../oversikt/model/types.ts'
@@ -261,6 +261,13 @@ const CanvasTopBar = ({
                     <ActionMenu.Item onClick={() => onOpenManageTabs()}>Administrer faner</ActionMenu.Item>
                   )}
                   <ActionMenu.Item onClick={onOpenCanvasSettings}>Innstillinger</ActionMenu.Item>
+                  <ActionMenu.Divider />
+                  <ActionMenu.Item onClick={() => window.location.assign('/')}>
+                    <span className="inline-flex items-center gap-1">
+                      Innblikk
+                      <House size={14} />
+                    </span>
+                  </ActionMenu.Item>
                 </ActionMenu.Content>
               </ActionMenu>
             </div>

@@ -26,6 +26,11 @@ type CanvasAddActionMenuProps = {
   withFloatingFrame?: boolean
 }
 
+type MenuItemConfig = {
+  label: string
+  onClick: () => void
+}
+
 const CanvasAddActionMenu = ({
   onAddWebsite,
   onOpenGrafbygger,
@@ -48,11 +53,48 @@ const CanvasAddActionMenu = ({
   buttonClassName = '',
   iconSize = 14,
   withFloatingFrame = true,
-}: CanvasAddActionMenuProps) => (
-  <ActionMenu>
-    <ActionMenu.Trigger>
-      {withFloatingFrame ? (
-        <div className="rounded-full border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-1 shadow-sm">
+}: CanvasAddActionMenuProps) => {
+  const textItems: MenuItemConfig[] = [
+    { label: 'Overskrift', onClick: onAddHeading },
+    { label: 'Tekst', onClick: onAddText },
+    { label: 'Post-it-lapp', onClick: onAddSticky },
+  ]
+
+  const visualItems: MenuItemConfig[] = [
+    { label: 'Bilde', onClick: onAddImage },
+    { label: 'Ikon', onClick: onAddIcon },
+    { label: 'Figur', onClick: onAddFigure },
+    { label: 'Tegning', onClick: onAddDrawing },
+    { label: 'Illustrasjoner', onClick: onAddIllustration },
+  ]
+
+  const innblikkItems: MenuItemConfig[] = [
+    { label: 'Nettside', onClick: onAddWebsite },
+    { label: 'Graf', onClick: onOpenGrafbygger },
+    { label: 'Dashboard', onClick: onAddDashboard },
+  ]
+
+  const layoutItems: MenuItemConfig[] = [
+    { label: 'Seksjon', onClick: onAddSection },
+    { label: 'Fane', onClick: onAddTab },
+  ]
+
+  return (
+    <ActionMenu>
+      <ActionMenu.Trigger>
+        {withFloatingFrame ? (
+          <div className="rounded-full border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-1 shadow-sm">
+            <Button
+              size={buttonSize}
+              variant={buttonVariant}
+              icon={<Plus size={iconSize} />}
+              className={buttonClassName}
+              disabled={disabled}
+            >
+              {buttonLabel}
+            </Button>
+          </div>
+        ) : (
           <Button
             size={buttonSize}
             variant={buttonVariant}
@@ -62,39 +104,42 @@ const CanvasAddActionMenu = ({
           >
             {buttonLabel}
           </Button>
-        </div>
-      ) : (
-        <Button
-          size={buttonSize}
-          variant={buttonVariant}
-          icon={<Plus size={iconSize} />}
-          className={buttonClassName}
-          disabled={disabled}
-        >
-          {buttonLabel}
-        </Button>
-      )}
-    </ActionMenu.Trigger>
-    <ActionMenu.Content align="end">
-      <ActionMenu.Item onClick={onAddHeading}>Overskrift</ActionMenu.Item>
-      <ActionMenu.Item onClick={onAddText}>Tekst</ActionMenu.Item>
-      <ActionMenu.Item onClick={onAddSticky}>Post-it-lapp</ActionMenu.Item>
-      <ActionMenu.Divider />
-      <ActionMenu.Item onClick={onAddImage}>Bilde</ActionMenu.Item>
-      <ActionMenu.Item onClick={onAddIcon}>Ikon</ActionMenu.Item>
-      <ActionMenu.Item onClick={onAddFigure}>Figur</ActionMenu.Item>
-      <ActionMenu.Item onClick={onAddDrawing}>Tegning</ActionMenu.Item>
-      <ActionMenu.Item onClick={onAddIllustration}>Illustrasjoner</ActionMenu.Item>
-      <ActionMenu.Divider />
-      <ActionMenu.Item onClick={onAddWebsite}>Nettside · Umami</ActionMenu.Item>
-      <ActionMenu.Item onClick={onOpenGrafbygger}>Graf · Umami</ActionMenu.Item>
-      <ActionMenu.Item onClick={onAddDashboard}>Dashboard · Innblikk</ActionMenu.Item>
-      <ActionMenu.Item onClick={onImportStickyCsv}>Undersøkelse · Skyra / Lumi</ActionMenu.Item>
-      <ActionMenu.Divider />
-      <ActionMenu.Item onClick={onAddSection}>Seksjon</ActionMenu.Item>
-      <ActionMenu.Item onClick={onAddTab}>Fane</ActionMenu.Item>
-    </ActionMenu.Content>
-  </ActionMenu>
-)
+        )}
+      </ActionMenu.Trigger>
+      <ActionMenu.Content align="end">
+        {textItems.map(({ label, onClick }) => (
+          <ActionMenu.Item key={label} onClick={onClick}>
+            {label}
+          </ActionMenu.Item>
+        ))}
+        <ActionMenu.Divider />
+        {visualItems.map(({ label, onClick }) => (
+          <ActionMenu.Item key={label} onClick={onClick}>
+            {label}
+          </ActionMenu.Item>
+        ))}
+        <ActionMenu.Divider />
+        <ActionMenu.Group label="Fra Innblikk" className="mt-1">
+          {innblikkItems.map(({ label, onClick }) => (
+            <ActionMenu.Item key={label} onClick={onClick}>
+              <span className="block pl-4">{label}</span>
+            </ActionMenu.Item>
+          ))}
+        </ActionMenu.Group>
+        <ActionMenu.Group label="Fra Skyra / Lumi" className="mt-1">
+          <ActionMenu.Item onClick={onImportStickyCsv}>
+            <span className="block pl-4">Undersøkelse → lapper</span>
+          </ActionMenu.Item>
+        </ActionMenu.Group>
+        <ActionMenu.Divider />
+        {layoutItems.map(({ label, onClick }) => (
+          <ActionMenu.Item key={label} onClick={onClick}>
+            {label}
+          </ActionMenu.Item>
+        ))}
+      </ActionMenu.Content>
+    </ActionMenu>
+  )
+}
 
 export default CanvasAddActionMenu
