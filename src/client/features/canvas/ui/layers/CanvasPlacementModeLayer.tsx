@@ -1,6 +1,7 @@
 import { Loader } from '@navikt/ds-react'
 import { Plus } from 'lucide-react'
 import type { CanvasFrame, PendingCanvasFrameDraft, PendingCsvStickyImport } from '../../model/types.ts'
+import { getCanvasStickyColorOptionById } from '../sticky/CanvasStickyColorRegistry.ts'
 
 type CanvasPlacementModeBannerProps = {
   topOffsetPx: number
@@ -115,13 +116,17 @@ const CanvasPlacementModeLayer = ({
                   pendingFrameDraft.kind === 'heading' ||
                   pendingFrameDraft.kind === 'text' ||
                   pendingFrameDraft.kind === 'sticky'
+                const stickyColorOption =
+                  pendingFrameDraft.kind === 'sticky'
+                    ? getCanvasStickyColorOptionById(pendingFrameDraft.stickyColor)
+                    : null
                 const ghostClassName =
                   pendingFrameDraft.kind === 'section'
                     ? 'rounded-2xl border-2 border-dashed border-[#8eb2de] bg-[#edf4ff]/70'
                     : pendingFrameDraft.kind === 'heading'
                       ? 'rounded-lg border-2 border-[var(--ax-border-accent)] bg-transparent'
                       : pendingFrameDraft.kind === 'text' || pendingFrameDraft.kind === 'sticky'
-                        ? 'rounded-xl border border-[var(--ax-border-neutral-subtle)] bg-white'
+                        ? 'rounded-xl border'
                         : pendingFrameDraft.kind === 'icon' ||
                             pendingFrameDraft.kind === 'figure' ||
                             pendingFrameDraft.kind === 'drawing'
@@ -130,7 +135,12 @@ const CanvasPlacementModeLayer = ({
                 return (
                   <div
                     className={`${isTextLikeGhost ? '' : 'flex flex-col items-center justify-center'} opacity-70 shadow-sm ${ghostClassName}`}
-                    style={{ width: `${ghostWidth}px`, height: `${ghostHeight}px` }}
+                    style={{
+                      width: `${ghostWidth}px`,
+                      height: `${ghostHeight}px`,
+                      borderColor: pendingFrameDraft.kind === 'sticky' ? stickyColorOption?.border : undefined,
+                      backgroundColor: pendingFrameDraft.kind === 'sticky' ? stickyColorOption?.background : undefined,
+                    }}
                   >
                     {pendingFrameDraft.kind === 'heading' ? (
                       <div className="h-full w-full overflow-hidden pt-1">
@@ -160,7 +170,10 @@ const CanvasPlacementModeLayer = ({
                     ) : pendingFrameDraft.kind === 'sticky' ? (
                       <div className="h-full w-full overflow-hidden px-2 pb-2">
                         <div className="h-full w-full overflow-hidden p-4 pt-6">
-                          <span className="block select-none overflow-hidden whitespace-pre-wrap break-words text-base leading-7 text-[var(--ax-text-default)]">
+                          <span
+                            className="block select-none overflow-hidden whitespace-pre-wrap break-words text-base leading-7"
+                            style={{ color: stickyColorOption?.text }}
+                          >
                             {pendingFrameDraft.textContent || 'Skriv Post-it-lapp'}
                           </span>
                         </div>
