@@ -1,6 +1,7 @@
 import { ActionMenu, Alert, Button, Tabs } from '@navikt/ds-react'
+import { ThemeIcon } from '@navikt/aksel-icons'
 import { House, MoreVertical, Users } from 'lucide-react'
-import { useRef, type KeyboardEvent, type RefObject, type TouchEvent } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent, type RefObject, type TouchEvent } from 'react'
 import PeriodPicker from '../../../analysis/ui/PeriodPicker.tsx'
 import type { GraphCategoryDto } from '../../../oversikt/model/types.ts'
 import CanvasAddActionMenu from './CanvasAddActionMenu.tsx'
@@ -105,6 +106,10 @@ const CanvasTopBar = ({
   participantLabels = [],
   isInteractionLocked = false,
 }: CanvasTopBarProps) => {
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const storedTheme = localStorage.getItem('umami-theme')
+    return storedTheme === 'dark' ? 'dark' : 'light'
+  })
   const normalizedCanvasTitle = canvasTitle.trim()
   const headingTitle =
     canvasInitMode === 'checking'
@@ -113,6 +118,34 @@ const CanvasTopBar = ({
         ? normalizedCanvasTitle || 'Innblikk'
         : `Innblikk: ${normalizedCanvasTitle}`
   const lastTabTouchRef = useRef<{ tabId: number; at: number } | null>(null)
+
+  useEffect(() => {
+    const handleThemeChange = (event: Event) => {
+      const customEvent = event as CustomEvent<'light' | 'dark'>
+      setTheme(customEvent.detail === 'dark' ? 'dark' : 'light')
+    }
+
+    window.addEventListener('themeChange', handleThemeChange as EventListener)
+    return () => {
+      window.removeEventListener('themeChange', handleThemeChange as EventListener)
+    }
+  }, [])
+
+  const toggleTheme = () => {
+    const nextTheme = theme === 'light' ? 'dark' : 'light'
+    const root = document.documentElement
+    const themeElement = document.querySelector('.aksel-theme')
+
+    root.classList.remove('light', 'dark')
+    themeElement?.classList.remove('light', 'dark')
+
+    root.classList.add(nextTheme)
+    themeElement?.classList.add(nextTheme)
+
+    localStorage.setItem('umami-theme', nextTheme)
+    setTheme(nextTheme)
+    window.dispatchEvent(new CustomEvent('themeChange', { detail: nextTheme }))
+  }
 
   const handleTabRename = (tabId: number) => {
     if (canvasInitMode !== 'existing') return
@@ -266,6 +299,13 @@ const CanvasTopBar = ({
                     <span className="inline-flex items-center gap-1">
                       Innblikk
                       <House size={14} />
+                    </span>
+                  </ActionMenu.Item>
+                  <ActionMenu.Divider />
+                  <ActionMenu.Item onClick={toggleTheme}>
+                    <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                      <ThemeIcon aria-hidden fontSize="1rem" />
+                      Bytt til {theme === 'dark' ? 'lyst' : 'mørkt'} tema
                     </span>
                   </ActionMenu.Item>
                 </ActionMenu.Content>

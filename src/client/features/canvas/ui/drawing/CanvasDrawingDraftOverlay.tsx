@@ -6,6 +6,9 @@ type CanvasDrawingDraftOverlayProps = {
 }
 
 const CanvasDrawingDraftOverlay = ({ drawingDraftStrokes, activeDrawingStroke }: CanvasDrawingDraftOverlayProps) => {
+  const resolveStrokeColor = (color: string): string =>
+    color.trim().toLowerCase() === '#111111' ? 'var(--ax-text-default)' : color
+
   if (drawingDraftStrokes.length === 0 && !activeDrawingStroke?.points.length) {
     return null
   }
@@ -17,7 +20,7 @@ const CanvasDrawingDraftOverlay = ({ drawingDraftStrokes, activeDrawingStroke }:
           key={`draft-stroke-${index}`}
           points={stroke.points.map((point) => `${point.x},${point.y}`).join(' ')}
           fill="none"
-          stroke={stroke.color}
+          stroke={resolveStrokeColor(stroke.color)}
           strokeWidth={stroke.strokeWidth}
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -27,7 +30,7 @@ const CanvasDrawingDraftOverlay = ({ drawingDraftStrokes, activeDrawingStroke }:
         <polyline
           points={activeDrawingStroke.points.map((point) => `${point.x},${point.y}`).join(' ')}
           fill="none"
-          stroke={activeDrawingStroke.color}
+          stroke={resolveStrokeColor(activeDrawingStroke.color)}
           strokeWidth={activeDrawingStroke.strokeWidth}
           strokeLinecap="round"
           strokeLinejoin="round"
