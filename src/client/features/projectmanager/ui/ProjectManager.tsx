@@ -1357,16 +1357,7 @@ const ProjectManager = () => {
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="font-medium text-sm truncate">{summary.project.name}</div>
-                        <div className="flex items-center gap-3 text-xs text-[var(--ax-text-subtle)] shrink-0">
-                          <span
-                            className="inline-flex items-center gap-1"
-                            title={`${summary.chartCount} ${summary.chartCount === 1 ? 'graf' : 'grafer'}`}
-                          >
-                            <BarChartIcon aria-hidden fontSize="0.9rem" />
-                            <span className="inline-block min-w-[2ch] tabular-nums">{summary.chartCount}</span>
-                            <span className="sr-only"> {summary.chartCount === 1 ? 'graf' : 'grafer'}</span>
-                          </span>
-                        </div>
+                        {/* Chart counter removed for performance */}
                       </div>
                     </button>
                   )
@@ -1727,7 +1718,7 @@ const ProjectManager = () => {
             <Table size="small" className="w-full">
               <Table.Header>
                 <Table.Row>
-                  <Table.HeaderCell scope="col">Canvas</Table.HeaderCell>
+                  <Table.HeaderCell scope="col">Canvas (beta)</Table.HeaderCell>
                   <Table.HeaderCell scope="col" className="w-12 sm:w-14 text-right">
                     <span className="sr-only">Handlinger</span>
                   </Table.HeaderCell>
