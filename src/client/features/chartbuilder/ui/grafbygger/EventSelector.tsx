@@ -712,7 +712,7 @@ const EventSelector = ({
                     </div>
 
                     {isEditorOpen && (
-                      <div className="mt-3 rounded-md border bg-[var(--ax-bg-default)] p-3">
+                      <div className="mt-3 rounded-md bg-[var(--ax-bg-default)] p-3">
                         {isPageviewsRow ? pageviewsEditor : customEventsEditor}
                       </div>
                     )}
