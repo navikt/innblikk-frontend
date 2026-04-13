@@ -42,6 +42,8 @@ const useCanvasCsvImport = ({ onImportPrepared }: UseCanvasCsvImportParams) => {
   const [importStickyCsvHeaders, setImportStickyCsvHeaders] = useState<string[]>([])
   const [importStickyCsvRows, setImportStickyCsvRows] = useState<CanvasCsvImportRow[]>([])
   const [importStickyContentColumn, setImportStickyContentColumn] = useState('')
+  const [isImportStickyCombiningColumns, setIsImportStickyCombiningColumns] = useState(false)
+  const [importStickyCombinedColumns, setImportStickyCombinedColumns] = useState<string[]>([])
   const [importStickyStyle, setImportStickyStyle] = useState<CanvasCsvImportStyle>('sticky')
   const [importStickyTableMode, setImportStickyTableMode] = useState<CanvasCsvTableMode>('rows')
   const [importStickyTablePreviewPage, setImportStickyTablePreviewPage] = useState(1)
@@ -51,18 +53,35 @@ const useCanvasCsvImport = ({ onImportPrepared }: UseCanvasCsvImportParams) => {
   const [importStickyCsvError, setImportStickyCsvError] = useState<string | null>(null)
   const importStickyCsvFileInputRef = useRef<HTMLInputElement | null>(null)
 
+  const importStickyColumnsForPreview = useMemo(() => {
+    if (!importStickyContentColumn) return []
+    if (!isImportStickyCombiningColumns) return [importStickyContentColumn]
+    return [
+      importStickyContentColumn,
+      ...importStickyCombinedColumns.filter(
+        (column) => column !== importStickyContentColumn && importStickyCsvHeaders.includes(column),
+      ),
+    ]
+  }, [importStickyCombinedColumns, importStickyContentColumn, importStickyCsvHeaders, isImportStickyCombiningColumns])
+
   const importStickyPreviewNotes = useMemo(
     () =>
-      importStickyContentColumn
+      importStickyColumnsForPreview.length > 0
         ? importStickyCsvRows
-            .map((row, index) => ({
-              rowIndex: index,
-              text: (row[importStickyContentColumn] || '').trim(),
-            }))
+            .map((row, index) => {
+              const text = importStickyColumnsForPreview
+                .map((columnName) => (row[columnName] || '').trim())
+                .filter(Boolean)
+                .join(' | ')
+              return {
+                rowIndex: index,
+                text,
+              }
+            })
             .filter((item) => Boolean(item.text))
             .filter((item) => !importStickyExcludedRowIndexes.includes(item.rowIndex))
         : [],
-    [importStickyContentColumn, importStickyCsvRows, importStickyExcludedRowIndexes],
+    [importStickyColumnsForPreview, importStickyCsvRows, importStickyExcludedRowIndexes],
   )
 
   const importStickyNumericSummary = useMemo(
@@ -132,6 +151,8 @@ const useCanvasCsvImport = ({ onImportPrepared }: UseCanvasCsvImportParams) => {
     setImportStickyCsvHeaders([])
     setImportStickyCsvRows([])
     setImportStickyContentColumn('')
+    setIsImportStickyCombiningColumns(false)
+    setImportStickyCombinedColumns([])
     setImportStickyStyle('sticky')
     setImportStickyTableMode('rows')
     setImportStickyTablePreviewPage(1)
@@ -170,7 +191,9 @@ const useCanvasCsvImport = ({ onImportPrepared }: UseCanvasCsvImportParams) => {
         setImportStickyCsvFileName(selectedFile.name)
         setImportStickyCsvHeaders(parsed.headers)
         setImportStickyCsvRows(parsed.rows)
+        setImportStickyCombinedColumns((current) => current.filter((column) => parsed.headers.includes(column)))
         setImportStickyExcludedRowIndexes([])
+        setIsImportStickyCombiningColumns(false)
         setImportStickyStyle('sticky')
         setImportStickyTableMode('rows')
         setImportStickyTablePreviewPage(1)
@@ -188,6 +211,8 @@ const useCanvasCsvImport = ({ onImportPrepared }: UseCanvasCsvImportParams) => {
         setImportStickyCsvHeaders([])
         setImportStickyCsvRows([])
         setImportStickyContentColumn('')
+        setIsImportStickyCombiningColumns(false)
+        setImportStickyCombinedColumns([])
         setImportStickyStyle('sticky')
         setImportStickyTableMode('rows')
         setImportStickyTablePreviewPage(1)
@@ -201,6 +226,7 @@ const useCanvasCsvImport = ({ onImportPrepared }: UseCanvasCsvImportParams) => {
   const handleContentColumnChange = useCallback(
     (nextColumn: string) => {
       setImportStickyContentColumn(nextColumn)
+      setImportStickyCombinedColumns((current) => current.filter((column) => column !== nextColumn))
       setImportStickySectionTitle(nextColumn)
       setImportStickyExcludedRowIndexes([])
       setImportStickyPrivacyReviewed(false)
@@ -209,6 +235,28 @@ const useCanvasCsvImport = ({ onImportPrepared }: UseCanvasCsvImportParams) => {
       if (importStickyCsvError) setImportStickyCsvError(null)
     },
     [importStickyCsvError],
+  )
+
+  const handleToggleCombineColumns = useCallback(() => {
+    setIsImportStickyCombiningColumns((current) => !current)
+    setImportStickyExcludedRowIndexes([])
+    setImportStickyPrivacyReviewed(false)
+    setImportStickyTablePreviewPage(1)
+    if (importStickyCsvError) setImportStickyCsvError(null)
+  }, [importStickyCsvError])
+
+  const handleToggleCombinedColumn = useCallback(
+    (columnName: string) => {
+      if (!columnName || columnName === importStickyContentColumn) return
+      setImportStickyCombinedColumns((current) =>
+        current.includes(columnName) ? current.filter((column) => column !== columnName) : [...current, columnName],
+      )
+      setImportStickyExcludedRowIndexes([])
+      setImportStickyPrivacyReviewed(false)
+      setImportStickyTablePreviewPage(1)
+      if (importStickyCsvError) setImportStickyCsvError(null)
+    },
+    [importStickyContentColumn, importStickyCsvError],
   )
 
   const handleImportStyleChange = useCallback(
@@ -322,6 +370,8 @@ const useCanvasCsvImport = ({ onImportPrepared }: UseCanvasCsvImportParams) => {
     importStickyCsvHeaders,
     importStickyCsvRows,
     importStickyContentColumn,
+    isImportStickyCombiningColumns,
+    importStickyCombinedColumns,
     importStickyStyle,
     importStickyTableMode,
     importStickySectionTitle,
@@ -345,6 +395,8 @@ const useCanvasCsvImport = ({ onImportPrepared }: UseCanvasCsvImportParams) => {
     handleClearImportStickyCsvFile,
     handleImportStickyCsvFileChange,
     handleContentColumnChange,
+    handleToggleCombineColumns,
+    handleToggleCombinedColumn,
     handleImportStyleChange,
     handleTableModeChange,
     handlePrevTablePreviewPage,

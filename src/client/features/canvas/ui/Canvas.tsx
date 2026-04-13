@@ -820,6 +820,8 @@ const Canvas = () => {
     importStickyCsvHeaders,
     importStickyCsvRows,
     importStickyContentColumn,
+    isImportStickyCombiningColumns,
+    importStickyCombinedColumns,
     importStickyStyle,
     importStickyTableMode,
     importStickySectionTitle,
@@ -843,6 +845,8 @@ const Canvas = () => {
     handleClearImportStickyCsvFile,
     handleImportStickyCsvFileChange,
     handleContentColumnChange,
+    handleToggleCombineColumns,
+    handleToggleCombinedColumn,
     handleImportStyleChange,
     handleTableModeChange,
     handlePrevTablePreviewPage,
@@ -5520,6 +5524,10 @@ const Canvas = () => {
         headers={importStickyCsvHeaders}
         contentColumn={importStickyContentColumn}
         onContentColumnChange={handleContentColumnChange}
+        isCombiningColumns={isImportStickyCombiningColumns}
+        combinedColumns={importStickyCombinedColumns}
+        onToggleCombineColumns={handleToggleCombineColumns}
+        onToggleCombinedColumn={handleToggleCombinedColumn}
         canChooseNonNumericImportStyle={canChooseNonNumericImportStyle}
         importStyle={importStickyStyle}
         onImportStyleChange={handleImportStyleChange}

@@ -1,5 +1,5 @@
 import type { ChangeEvent, RefObject } from 'react'
-import { Alert, Button, Modal, Select, Switch, Table } from '@navikt/ds-react'
+import { Alert, Button, Checkbox, Modal, Select, Switch, Table } from '@navikt/ds-react'
 
 type CanvasCsvImportStyle = 'sticky' | 'table'
 type CanvasCsvTableMode = 'rows' | 'summary'
@@ -34,6 +34,10 @@ type CanvasImportStickyCsvModalProps = {
   headers: string[]
   contentColumn: string
   onContentColumnChange: (value: string) => void
+  isCombiningColumns: boolean
+  combinedColumns: string[]
+  onToggleCombineColumns: () => void
+  onToggleCombinedColumn: (columnName: string) => void
   canChooseNonNumericImportStyle: boolean
   importStyle: CanvasCsvImportStyle
   onImportStyleChange: (value: CanvasCsvImportStyle) => void
@@ -73,6 +77,10 @@ const CanvasImportStickyCsvModal = ({
   headers,
   contentColumn,
   onContentColumnChange,
+  isCombiningColumns,
+  combinedColumns,
+  onToggleCombineColumns,
+  onToggleCombinedColumn,
   canChooseNonNumericImportStyle,
   importStyle,
   onImportStyleChange,
@@ -149,6 +157,35 @@ const CanvasImportStickyCsvModal = ({
                   </option>
                 ))}
               </Select>
+              <div className="space-y-2">
+                <Button
+                  size="xsmall"
+                  variant="tertiary"
+                  disabled={!contentColumn || headers.length < 2}
+                  onClick={onToggleCombineColumns}
+                >
+                  {isCombiningColumns ? 'Bruk kun valgt kolonne' : 'Kombiner flere kolonner'}
+                </Button>
+                {isCombiningColumns && (
+                  <div className="space-y-1.5 rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2">
+                    <p className="text-xs text-[var(--ax-text-subtle)]">
+                      Velg kolonner som skal slas sammen med valgt kolonne
+                    </p>
+                    {headers
+                      .filter((header) => header !== contentColumn)
+                      .map((header) => (
+                        <Checkbox
+                          key={`import-combined-column-${header}`}
+                          size="small"
+                          checked={combinedColumns.includes(header)}
+                          onChange={() => onToggleCombinedColumn(header)}
+                        >
+                          {header}
+                        </Checkbox>
+                      ))}
+                  </div>
+                )}
+              </div>
               {canChooseNonNumericImportStyle && (
                 <div className="space-y-3">
                   <Select
