@@ -20,12 +20,10 @@ const EditDashboardDialog = ({
   onSave,
 }: EditDashboardDialogProps) => {
   const [name, setName] = useState(dashboard?.name ?? '')
-  const [description, setDescription] = useState(dashboard?.description ?? '')
   const [localError, setLocalError] = useState<string | null>(null)
 
   useEffect(() => {
     setName(dashboard?.name ?? '')
-    setDescription(dashboard?.description ?? '')
   }, [dashboard])
 
   const handleSave = async () => {
@@ -35,7 +33,7 @@ const EditDashboardDialog = ({
       return
     }
     setLocalError(null)
-    await onSave({ name: name.trim(), description: description.trim() || undefined })
+    await onSave({ name: name.trim(), description: dashboard.description })
   }
 
   return (
@@ -48,12 +46,6 @@ const EditDashboardDialog = ({
             label="Dashboardnavn"
             value={name}
             onChange={(event) => setName(event.target.value)}
-            size="small"
-          />
-          <TextField
-            label="Beskrivelse (valgfri)"
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
             size="small"
           />
         </div>

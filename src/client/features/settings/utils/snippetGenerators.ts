@@ -1,6 +1,3 @@
-const html = (strings: TemplateStringsArray, ...values: Array<string | number>) =>
-  strings.reduce((acc, part, i) => acc + part + (values[i] ?? ''), '')
-
 const getTrackingScriptUrl = () => {
   const hostname = window.location.hostname
   const isDevEnvironment = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('.dev.nav.no')
@@ -9,48 +6,69 @@ const getTrackingScriptUrl = () => {
 }
 
 export const getStandardSnippet = (websiteId: string) => {
-  const trackingScriptUrl = getTrackingScriptUrl()
-  return html` <script defer src="${trackingScriptUrl}" data-website-id="${websiteId}"></script>`
+  const src = getTrackingScriptUrl()
+  return `<script
+  defer
+  src="${src}"
+  data-website-id="${websiteId}"
+></script>`
 }
 
 export const getNextJsSnippet = (websiteId: string) => {
-  const trackingScriptUrl = getTrackingScriptUrl()
-  return html` <script defer strategy="afterInteractive" src="${trackingScriptUrl}" data-website-id="${websiteId}" />`
+  const src = getTrackingScriptUrl()
+  return `<Script
+  defer
+  strategy="afterInteractive"
+  src="${src}"
+  data-website-id="${websiteId}"
+/>`
 }
 
 export const getReactViteProviderSnippet = () =>
-  html`import { createHead, UnheadProvider } from "@unhead/react"; const head = createHead(); function App() { return (
-    <UnheadProvider head="{head}"> {/* Your app content */}</UnheadProvider>
-    ); }`
+  `import { createHead, UnheadProvider } from "@unhead/react";
+
+const head = createHead();
+
+function App() {
+  return (
+    <UnheadProvider head={head}>
+      {/* Your app content */}
+    </UnheadProvider>
+  );
+}`
 
 export const getReactViteHeadSnippet = (websiteId: string) => {
-  const trackingScriptUrl = getTrackingScriptUrl()
-  return html`import { Head } from "@unhead/react";
+  const src = getTrackingScriptUrl()
+  return `import { Head } from "@unhead/react";
 
-    <head>
-      <script defer src="${trackingScriptUrl}" data-website-id="${websiteId}" />
-    </head>`
+<Head>
+  <script
+    defer
+    src="${src}"
+    data-website-id="${websiteId}"
+  />
+</Head>`
 }
 
 export const getAstroSnippet = (websiteId: string) => {
-  const trackingScriptUrl = getTrackingScriptUrl()
-  return html` <script
-    is:inline
-    defer
-    data-astro-rerun
-    src="${trackingScriptUrl}"
-    data-website-id="${websiteId}"
-  ></script>`
+  const src = getTrackingScriptUrl()
+  return `<script
+  is:inline
+  defer
+  data-astro-rerun
+  src="${src}"
+  data-website-id="${websiteId}"
+></script>`
 }
 
 export const getGTMSnippet = (websiteId: string) => {
-  const trackingScriptUrl = getTrackingScriptUrl()
-  return html` <script>
-    ;(function () {
-      var el = document.createElement('script')
-      el.setAttribute('src', '${trackingScriptUrl}')
-      el.setAttribute('data-website-id', '${websiteId}')
-      document.body.appendChild(el)
-    })()
-  </script>`
+  const src = getTrackingScriptUrl()
+  return `<script>
+  (function () {
+    var el = document.createElement('script');
+    el.setAttribute('src', '${src}');
+    el.setAttribute('data-website-id', '${websiteId}');
+    document.body.appendChild(el);
+  })();
+</script>`
 }

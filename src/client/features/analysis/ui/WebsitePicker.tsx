@@ -74,6 +74,7 @@ const WebsitePicker = ({
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
   const [showLoading, setShowLoading] = useState<boolean>(false)
+  const [comboboxInputValue, setComboboxInputValue] = useState<string>('')
   const loadingTimerRef = useRef<number | null>(null)
   // const [gbProcessed, setGbProcessed] = useState<string | null>(null);
   // const [estimatedGbProcessed, setEstimatedGbProcessed] = useState<string | null>(null);
@@ -633,6 +634,8 @@ const WebsitePicker = ({
               handleWebsiteChange(null)
             }
           }}
+          value={comboboxInputValue}
+          onChange={(value) => setComboboxInputValue(value)}
           clearButton
           isMultiSelect={false}
         />

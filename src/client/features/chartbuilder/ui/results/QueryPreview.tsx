@@ -10,12 +10,17 @@ import { formatPathLabel, parseFormattedPath } from '../../../analysis/utils/url
 import {
   createDashboard,
   createProject,
+  createCategory,
   fetchCategories,
   fetchDashboards,
   fetchProjects,
   saveChartToBackend,
 } from '../../api/chartStorageApi.ts'
 import type { DashboardDto, GraphCategoryDto, ProjectDto } from '../../api/chartStorageApi.ts'
+import {
+  createGraph as createDashboardGraph,
+  createQuery as createDashboardQuery,
+} from '../../../oversikt/api/oversiktApi.ts'
 
 type JsonPrimitive = string | number | boolean | null
 interface JsonObject {
@@ -115,6 +120,18 @@ const API_TIMEOUT_MS = 60000 // timeout
 const getHostPrefix = () => (typeof window === 'undefined' ? 'server' : window.location.hostname.replace(/\./g, '_'))
 const LAST_PROJECT_ID_KEY = `grafbygger_last_project_id_${getHostPrefix()}`
 const LAST_DASHBOARD_ID_KEY = `grafbygger_last_dashboard_id_${getHostPrefix()}`
+const CANVAS_DASHBOARD_TOKEN = '[canvas]'
+const CANVAS_CHART_DEFAULT_X = 120
+const CANVAS_CHART_DEFAULT_Y = 120
+const CANVAS_CHART_DEFAULT_WIDTH = 680
+const CANVAS_CHART_DEFAULT_HEIGHT = 460
+
+const mapGraphTypeToCanvasChartType = (value: string): 'line' | 'bar' | 'pie' | 'table' => {
+  if (value === 'LINE') return 'line'
+  if (value === 'BAR') return 'bar'
+  if (value === 'PIE') return 'pie'
+  return 'table'
+}
 
 const parseStoredId = (value: string | null): number | null => {
   if (!value) return null
@@ -130,6 +147,23 @@ const getLastProjectId = (): number | null => {
 const getLastDashboardId = (): number | null => {
   if (typeof window === 'undefined') return null
   return parseStoredId(window.localStorage.getItem(LAST_DASHBOARD_ID_KEY))
+}
+
+const isCanvasDashboard = (description?: string): boolean =>
+  (description || '').toLowerCase().split(/\s+/).includes(CANVAS_DASHBOARD_TOKEN)
+
+const serializeCanvasConfig = (payload: {
+  kind: 'chart'
+  x: number
+  y: number
+  width: number
+  height: number
+  label: string
+  chartType: 'line' | 'bar' | 'pie' | 'table'
+  chartSql: string
+}): string => {
+  const escaped = JSON.stringify(payload).replace(/'/g, "''")
+  return `SELECT '${escaped}' AS canvas_config`
 }
 
 const saveLastProjectId = (projectId: number | null) => {
@@ -228,6 +262,7 @@ const QueryPreview = ({
     dashboardId: number
     projectName: string
     dashboardName: string
+    dashboardDescription?: string
   } | null>(null)
   const [projectName, setProjectName] = useState('Start Umami')
   const [dashboardName, setDashboardName] = useState('Grafbygger')
@@ -242,6 +277,13 @@ const QueryPreview = ({
   const [isCreatingProject, setIsCreatingProject] = useState(false)
   const [isCreatingDashboard, setIsCreatingDashboard] = useState(false)
   const [showMetabaseInstructions, setShowMetabaseInstructions] = useState(false)
+  const [canvasAddSuccess, setCanvasAddSuccess] = useState<string | null>(null)
+  const [canvasAddError, setCanvasAddError] = useState<string | null>(null)
+  const isCanvasEmbedMode = useMemo(() => {
+    if (typeof window === 'undefined') return false
+    const value = new URLSearchParams(window.location.search).get('canvasEmbed')
+    return value === '1' || value === 'true'
+  }, [])
 
   const availablePaths = useMemo(() => {
     const paths = new Set<string>()
@@ -873,6 +915,7 @@ const QueryPreview = ({
   const openSaveModal = () => {
     setSaveError(null)
     setSaveSuccess(null)
+    setCanvasAddSuccess(null)
     setSavedLocation(null)
 
     const loadSaveData = async () => {
@@ -927,6 +970,35 @@ const QueryPreview = ({
 
     setShowSaveModal(true)
     void loadSaveData()
+  }
+
+  const handleAddToCanvas = () => {
+    if (!isCanvasEmbedMode) return
+    setCanvasAddError(null)
+    setCanvasAddSuccess(null)
+    if (!graphName.trim()) {
+      setCanvasAddError('Gi grafen et navn før du legger den til i canvas.')
+      return
+    }
+    const chartSql = getProcessedSql({ preserveMetabasePlaceholders: true }).trim()
+    if (!chartSql) {
+      setCanvasAddError('Fant ingen gyldig SQL å legge til i canvas.')
+      return
+    }
+
+    window.parent?.postMessage(
+      {
+        type: 'umami-canvas-chart-ready',
+        payload: {
+          label: graphName.trim(),
+          chartType: mapGraphTypeToCanvasChartType(graphType),
+          chartSql,
+          websiteId,
+        },
+      },
+      window.location.origin,
+    )
+    setCanvasAddSuccess('Grafen er klar for plassering i canvas.')
   }
 
   const handleProjectSelection = async (option: string, isSelected: boolean) => {
@@ -1056,17 +1128,66 @@ const QueryPreview = ({
         categoryId: selectedCategoryOption ? Number(selectedCategoryOption) : undefined,
       })
 
+      const canvasChartType = mapGraphTypeToCanvasChartType(graphType)
+      const canvasChartSql = saved.query.sqlText || getProcessedSql({ preserveMetabasePlaceholders: true })
+      const shouldPlaceViaCanvasParent = isCanvasEmbedMode && isCanvasDashboard(saved.dashboard.description)
+
+      if (shouldPlaceViaCanvasParent) {
+        window.parent?.postMessage(
+          {
+            type: 'umami-canvas-chart-ready',
+            payload: {
+              label: graphName.trim(),
+              chartType: canvasChartType,
+              chartSql: canvasChartSql,
+              websiteId,
+            },
+          },
+          window.location.origin,
+        )
+      } else if (isCanvasDashboard(saved.dashboard.description)) {
+        const dashboardCategories = await fetchCategories(saved.project.id, saved.dashboard.id)
+        const targetCategory =
+          (selectedCategoryOption
+            ? dashboardCategories.find((category) => category.id === Number(selectedCategoryOption))
+            : null) ??
+          dashboardCategories[0] ??
+          (await createCategory(saved.project.id, saved.dashboard.id, 'Fane 1'))
+
+        const canvasGraph = await createDashboardGraph(saved.project.id, saved.dashboard.id, targetCategory.id, {
+          name: `canvas:${graphName.trim()}`,
+          graphType: 'TEXT',
+          width: 100,
+          description: CANVAS_DASHBOARD_TOKEN,
+        })
+
+        await createDashboardQuery(saved.project.id, saved.dashboard.id, targetCategory.id, canvasGraph.id, {
+          name: 'canvas-config',
+          sqlText: serializeCanvasConfig({
+            kind: 'chart',
+            x: CANVAS_CHART_DEFAULT_X,
+            y: CANVAS_CHART_DEFAULT_Y,
+            width: CANVAS_CHART_DEFAULT_WIDTH,
+            height: CANVAS_CHART_DEFAULT_HEIGHT,
+            label: graphName.trim(),
+            chartType: canvasChartType,
+            chartSql: canvasChartSql,
+          }),
+        })
+      }
+
       setSaveSuccess('Lagret')
       setSavedLocation({
         projectId: saved.project.id,
         dashboardId: saved.dashboard.id,
         projectName: saved.project.name,
         dashboardName: saved.dashboard.name,
+        dashboardDescription: saved.dashboard.description,
       })
       saveLastProjectId(saved.project.id)
       saveLastDashboardId(saved.dashboard.id)
       setShowSaveModal(false)
-      setShowSaveSuccessModal(true)
+      setShowSaveSuccessModal(!shouldPlaceViaCanvasParent)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Klarte ikke lagre grafen'
       setSaveError(message)
@@ -1096,7 +1217,14 @@ const QueryPreview = ({
   const selectedProjectLabel = projectOptions.find((option) => option.value === selectedProjectOption)?.label
   const selectedDashboardLabel = dashboardOptions.find((option) => option.value === selectedDashboardOption)?.label
   const savedDashboardUrl = savedLocation
-    ? `/dashboard/${savedLocation.dashboardId}?projectId=${savedLocation.projectId}`
+    ? isCanvasDashboard(savedLocation.dashboardDescription)
+      ? `/canvas?dashboardId=${savedLocation.dashboardId}&projectId=${savedLocation.projectId}`
+      : `/dashboard/${savedLocation.dashboardId}?projectId=${savedLocation.projectId}`
+    : ''
+  const savedDashboardLabel = savedLocation
+    ? isCanvasDashboard(savedLocation.dashboardDescription)
+      ? 'Canvas'
+      : 'Oversikt'
     : ''
 
   const handleGoToSavedDashboard = () => {
@@ -1414,11 +1542,56 @@ const QueryPreview = ({
                 websiteId={websiteId}
                 showDownloadReadMore={showDownloadReadMore}
                 hiddenTabs={hiddenResultTabs}
+                onGraphTypeSuggestionChange={setGraphType}
               />
             </div>
 
             {/* Save + Metabase Section */}
             <div className="space-y-3 mb-4">
+              {isCanvasEmbedMode && (
+                <div className="mb-8 rounded-md border border-[var(--ax-border-accent)] bg-[var(--ax-bg-accent-soft)] p-3">
+                  <div className="space-y-3">
+                    <Heading level="2" size="small" className="pb-4">
+                      Legg til i canvas
+                    </Heading>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <TextField
+                        label="Navn"
+                        value={graphName}
+                        onChange={(e) => setGraphName(e.target.value)}
+                        size="small"
+                      />
+                      <Select
+                        label="Presentasjon"
+                        value={graphType}
+                        onChange={(e) => setGraphType(e.target.value)}
+                        size="small"
+                      >
+                        <option value="LINE">Linjediagram</option>
+                        <option value="BAR">Stolpediagram</option>
+                        <option value="PIE">Kakediagram</option>
+                        <option value="TABLE">Tabell</option>
+                      </Select>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button size="medium" variant="primary" onClick={handleAddToCanvas}>
+                        Legg til i canvas
+                      </Button>
+                    </div>
+                    {canvasAddError && (
+                      <Alert variant="error" size="small">
+                        {canvasAddError}
+                      </Alert>
+                    )}
+                    {canvasAddSuccess && (
+                      <Alert variant="success" size="small">
+                        {canvasAddSuccess}
+                      </Alert>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="flex flex-wrap gap-2">
                 <Button size="small" variant="primary" onClick={openSaveModal}>
                   Legg til i dashboard
@@ -1431,7 +1604,7 @@ const QueryPreview = ({
               {saveSuccess && savedLocation && (
                 <Alert variant="success" size="small">
                   <Link href={savedDashboardUrl}>
-                    Grafen er lagt til i "{savedLocation.dashboardName}". Åpne i Oversikt.
+                    Grafen er lagt til i "{savedLocation.dashboardName}". Åpne i {savedDashboardLabel}.
                   </Link>
                 </Alert>
               )}
@@ -1664,7 +1837,9 @@ const QueryPreview = ({
           {savedLocation && <p>Grafen er lagt til i "{savedLocation.dashboardName}". Hva vil du gjøre nå?</p>}
         </Modal.Body>
         <Modal.Footer>
-          <Button onClick={handleGoToSavedDashboard}>Gå til dashboard</Button>
+          <Button onClick={handleGoToSavedDashboard}>
+            Gå til {savedLocation && isCanvasDashboard(savedLocation.dashboardDescription) ? 'canvas' : 'dashboard'}
+          </Button>
           <Button variant="secondary" onClick={() => setShowSaveSuccessModal(false)}>
             Bli her
           </Button>

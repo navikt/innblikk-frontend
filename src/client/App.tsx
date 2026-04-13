@@ -52,6 +52,47 @@ const NotFound = () => (
   </div>
 )
 
+const AppShell = ({ theme }: { theme: 'light' | 'dark' }) => {
+  const location = useLocation()
+  const isCanvasPage = location.pathname.startsWith('/canvas')
+  const focusedParam = new URLSearchParams(location.search).get('focused')
+  const isFocusedParam = focusedParam === 'true' || focusedParam === '1'
+  const isFocusedDashboardPage = location.pathname.startsWith('/dashboard') && isFocusedParam
+  const isFocusedGrafbyggerPage = location.pathname.startsWith('/grafbygger') && isFocusedParam
+
+  const appRoutes = (
+    <Routes>
+      {routes.map(({ path, component }) => (
+        <Route key={path} path={path} element={component} />
+      ))}
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  )
+
+  if (isCanvasPage || isFocusedDashboardPage || isFocusedGrafbyggerPage) {
+    return (
+      <ErrorBoundary>
+        <Suspense fallback={<PageLoader />}>{appRoutes}</Suspense>
+      </ErrorBoundary>
+    )
+  }
+
+  return (
+    <>
+      <Page>
+        <Header theme={theme} />
+        <PageLayout>
+          <ErrorBoundary>
+            <Suspense fallback={<PageLoader />}>{appRoutes}</Suspense>
+          </ErrorBoundary>
+          <ScrollToTopWrapper />
+        </PageLayout>
+      </Page>
+      <Footer />
+    </>
+  )
+}
+
 function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const storedTheme = localStorage.getItem('umami-theme') as 'light' | 'dark' | null
@@ -95,25 +136,9 @@ function App() {
 
   return (
     <Theme theme={theme}>
-      <Page>
-        <Header theme={theme} />
-        <Router>
-          <PageLayout>
-            <ErrorBoundary>
-              <Suspense fallback={<PageLoader />}>
-                <Routes>
-                  {routes.map(({ path, component }) => (
-                    <Route key={path} path={path} element={component} />
-                  ))}
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </Suspense>
-            </ErrorBoundary>
-            <ScrollToTopWrapper />
-          </PageLayout>
-        </Router>
-      </Page>
-      <Footer />
+      <Router>
+        <AppShell theme={theme} />
+      </Router>
     </Theme>
   )
 }

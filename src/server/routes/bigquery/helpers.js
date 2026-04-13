@@ -75,3 +75,12 @@ export function normalizeUrlSql(column = 'url_path') {
       ELSE RTRIM(REGEXP_REPLACE(REGEXP_REPLACE(${column}, r'[?#].*', ''), r'//+', '/'), '/')
     END`
 }
+
+/**
+ * SQL snippet for normalizing URL query strings.
+ * @param {string} [column='url_query'] — The column name to normalise.
+ */
+export function normalizeUrlQuerySql(column = 'url_query') {
+  return `
+    COALESCE(REGEXP_REPLACE(REGEXP_REPLACE(${column}, r'^[?]', ''), r'#.*$', ''), '')`
+}

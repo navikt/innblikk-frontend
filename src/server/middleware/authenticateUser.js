@@ -1,11 +1,16 @@
 import { getMockUser, loadOasis, resolveUserFromToken } from './authUtils.js'
 
+let lastLoggedMockNavIdent = null
+
 async function authenticateUser(req, res, next) {
   try {
     // Check for mock ident even if oasis is available (for local testing with installed deps)
     const mockUser = getMockUser()
     if (mockUser) {
-      console.log('[Auth] Using MOCK_NAV_IDENT (override):', mockUser.navIdent)
+      if (mockUser.navIdent !== lastLoggedMockNavIdent) {
+        console.log('[Auth] Using MOCK_NAV_IDENT (override):', mockUser.navIdent)
+        lastLoggedMockNavIdent = mockUser.navIdent
+      }
       req.user = mockUser
       return next()
     }

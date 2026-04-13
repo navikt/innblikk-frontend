@@ -1,6 +1,7 @@
 'use client'
 import { BodyShort, Heading, Link } from '@navikt/ds-react'
 import '../../../../tailwind.css'
+import { AppBlock } from '../AppBlock/AppBlock.tsx'
 
 const Footer = () => {
   return (
@@ -10,12 +11,12 @@ const Footer = () => {
         data-theme="dark"
         className="flex pt-3 z-10 items-center w-full m-auto justify-between toc-ignore text-text-on-inverted !bg-[#003453] relative flex justify-center"
       >
-        <div className="relative z-10 mx-auto grid w-full gap-12 px-4 pb-16 pt-12 md:grid-cols-2 md:px-6 lg:grid-cols-2 xl:grid-cols-4 xl:gap-6">
+        <AppBlock className="relative z-10 grid w-full gap-12 pb-16 pt-12 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 xl:gap-6">
           <LogoBlock />
           <SideLenker />
           <Snarveier />
           <Kontakt />
-        </div>
+        </AppBlock>
       </footer>
     </div>
   )
@@ -140,7 +141,10 @@ function Kontakt() {
           #ResearchOps på Slack
         </FooterLink>
         <li className="flex gap-3">
-          <FooterLink href="https://github.com/navikt/umami-start">
+          <Link
+            className="!text-white hover:!text-white focus:shadow-focus focus:!text-black flex w-fit items-center gap-1 underline hover:no-underline focus:bg-blue-100 focus:shadow-blue-100"
+            href="https://github.com/navikt/umami-start"
+          >
             <svg
               className="align-top"
               width="18"
@@ -159,8 +163,13 @@ function Kontakt() {
               ></path>
             </svg>
             Frontend
-          </FooterLink>
-          <FooterLink href="https://github.com/navikt/start-umami-backend">Backend</FooterLink>
+          </Link>
+          <Link
+            className="!text-white hover:!text-white focus:shadow-focus focus:!text-black flex w-fit items-center gap-1 underline hover:no-underline focus:bg-blue-100 focus:shadow-blue-100"
+            href="https://github.com/navikt/start-umami-backend"
+          >
+            Backend
+          </Link>
         </li>
       </BodyShort>
     </div>

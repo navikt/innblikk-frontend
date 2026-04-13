@@ -1,8 +1,35 @@
 import type { FunnelStep, FunnelResultRow, TimingResultRow } from '../model/types'
 import type { Website } from '../../../shared/types/chart'
-import { normalizeUrlToPath } from '../../../shared/lib/utils'
 import { getGcpProjectId } from '../../../shared/lib/runtimeConfig'
+import { getStepUrlDisplay, normalizeStepQuery, splitUrlStepInput } from './stepUtils'
 export { copyToClipboard } from '../../../shared/lib/clipboard'
+
+const escapeSqlLiteral = (value: string): string => value.replace(/'/g, "''")
+
+const normalizeUrlStep = (step: FunnelStep) =>
+  step.type === 'url' ? { ...step, ...splitUrlStepInput(step.value, step.query ?? '') } : step
+
+const buildUrlStepFilterSql = (step: FunnelStep, alias: string): string => {
+  if (step.type !== 'url') return ''
+
+  const pathValue = step.value.includes('*') ? step.value.replace(/\*/g, '%') : step.value
+  const pathOperator = step.value.includes('*') ? 'LIKE' : '='
+  const queryValue = normalizeStepQuery(step.query ?? '')
+  const queryOperator = queryValue.includes('*') ? 'LIKE' : '='
+  const normalizedQueryValue = queryValue.includes('*') ? queryValue.replace(/\*/g, '%') : queryValue
+
+  let sql = `${alias}.url_path_normalized ${pathOperator} '${escapeSqlLiteral(pathValue)}'`
+  if (queryValue) {
+    sql += `\n      AND ${alias}.url_query_normalized ${queryOperator} '${escapeSqlLiteral(normalizedQueryValue)}'`
+  }
+
+  return sql
+}
+
+const buildStepDisplayValue = (step: FunnelStep): string => {
+  if (step.type !== 'url') return step.value
+  return getStepUrlDisplay(step)
+}
 
 /**
  * Format a duration in seconds to a human-readable string.
@@ -78,14 +105,7 @@ export function generateMetabaseFunnelSql(
 ): string {
   if (!funnelData || funnelData.length === 0) return ''
 
-  const normalizedSteps = steps
-    .map((s) => {
-      if (s.type === 'url') {
-        return { ...s, value: normalizeUrlToPath(s.value) }
-      }
-      return s
-    })
-    .filter((s) => s.value.trim() !== '')
+  const normalizedSteps = steps.map((s) => normalizeUrlStep(s)).filter((s) => s.value.trim() !== '')
 
   if (normalizedSteps.length < 2) return ''
 
@@ -113,11 +133,25 @@ WITH events_raw AS (
         session_id,
         event_type,
         CASE
-            WHEN event_type = 1 THEN 
-                COALESCE(NULLIF(RTRIM(REGEXP_REPLACE(REGEXP_REPLACE(url_path, r'[?#].*', ''), r'//+', '/'), '/'), ''), '/')
+            WHEN event_type = 1 THEN COALESCE(NULLIF(RTRIM(REGEXP_REPLACE(REGEXP_REPLACE(url_path, r'[?#].*', ''), r'//+', '/'), '/'), ''), '/')
+            ELSE NULL
+        END as url_path_normalized,
+        CASE
+            WHEN event_type = 1 THEN CONCAT(
+                COALESCE(NULLIF(RTRIM(REGEXP_REPLACE(REGEXP_REPLACE(url_path, r'[?#].*', ''), r'//+', '/'), '/'), ''), '/'),
+                IF(
+                    COALESCE(REGEXP_REPLACE(REGEXP_REPLACE(url_query, r'^[?]', ''), r'#.*$', ''), '') = '',
+                    '',
+                    CONCAT('?', COALESCE(REGEXP_REPLACE(REGEXP_REPLACE(url_query, r'^[?]', ''), r'#.*$', ''), ''))
+                )
+            )
             WHEN event_type = 2 THEN event_name
             ELSE NULL
         END as step_value,
+        CASE
+            WHEN url_query IS NULL THEN ''
+            ELSE REGEXP_REPLACE(REGEXP_REPLACE(url_query, r'^[?]', ''), r'#.*$', '')
+        END as url_query_normalized,
         event_id,
         created_at
     FROM \`${projectId}.umami_views.event\`
@@ -137,13 +171,10 @@ events AS (
     const stepName = `step${index + 1}`
     const prevStepName = `step${index}`
 
-    let operator = '='
-    let value = step.value
-    if (value.includes('*')) {
-      operator = 'LIKE'
-      value = value.replace(/\*/g, '%')
-    }
-    const stepValue = value.replace(/'/g, "''")
+    const stepValueOperator = step.value.includes('*') ? 'LIKE' : '='
+    const stepValue = (step.value.includes('*') ? step.value.replace(/\*/g, '%') : step.value).replace(/'/g, "''")
+    const stepMatchClause =
+      step.type === 'url' ? buildUrlStepFilterSql(step, 'e') : `e.step_value ${stepValueOperator} '${stepValue}'`
 
     let paramFilters = ''
     if (step.type === 'event' && step.params && step.params.length > 0) {
@@ -173,12 +204,15 @@ events AS (
       return `${stepName} AS (
     SELECT session_id, MIN(created_at) as time${index + 1}
     FROM events e
-    WHERE step_value ${operator} '${stepValue}'${paramFilters}
+    WHERE ${stepMatchClause}${paramFilters}
     GROUP BY session_id
 )`
     } else {
       let prevOperator = '='
-      let prevValue = normalizedSteps[index - 1].value
+      let prevValue =
+        normalizedSteps[index - 1].type === 'url'
+          ? buildStepDisplayValue(normalizedSteps[index - 1])
+          : normalizedSteps[index - 1].value
       if (prevValue.includes('*')) {
         prevOperator = 'LIKE'
         prevValue = prevValue.replace(/\*/g, '%')
@@ -190,7 +224,7 @@ events AS (
     SELECT e.session_id, MIN(e.created_at) as time${index + 1}
     FROM events e
     JOIN ${prevStepName} prev ON e.session_id = prev.session_id
-    WHERE e.step_value ${operator} '${stepValue}'
+    WHERE ${stepMatchClause}
       AND e.created_at > prev.time${index}
       AND e.prev_step_value ${prevOperator} '${prevStepValue}'${paramFilters}
     GROUP BY e.session_id
@@ -200,7 +234,7 @@ events AS (
     SELECT e.session_id, MIN(e.created_at) as time${index + 1}
     FROM events e
     JOIN ${prevStepName} prev ON e.session_id = prev.session_id
-    WHERE e.step_value ${operator} '${stepValue}'
+    WHERE ${stepMatchClause}
       AND e.created_at > prev.time${index}${paramFilters}
     GROUP BY e.session_id
 )`
@@ -211,7 +245,7 @@ events AS (
   sql += stepCtes.join(',\n')
 
   const unionSelects = normalizedSteps.map((step, i) => {
-    const stepLabel = `${i + 1}: ${step.value}`.replace(/'/g, "''")
+    const stepLabel = `${i + 1}: ${buildStepDisplayValue(step)}`.replace(/'/g, "''")
     return `SELECT ${i + 1} as step_number, '${stepLabel}' as step, (SELECT COUNT(*) FROM step${i + 1}) as count`
   })
 
@@ -232,14 +266,7 @@ export function generateMetabaseTimingSql(
 ): string {
   if (!timingData || timingData.length === 0) return ''
 
-  const normalizedSteps = steps
-    .map((s) => {
-      if (s.type === 'url') {
-        return { ...s, value: normalizeUrlToPath(s.value) }
-      }
-      return s
-    })
-    .filter((s) => s.value.trim() !== '')
+  const normalizedSteps = steps.map((s) => normalizeUrlStep(s)).filter((s) => s.value.trim() !== '')
 
   const urlSteps = normalizedSteps.filter((s) => s.type === 'url')
   if (urlSteps.length < 2) return ''
@@ -258,7 +285,26 @@ export function generateMetabaseTimingSql(
 WITH events_raw AS (
     SELECT 
         session_id,
-        COALESCE(NULLIF(RTRIM(REGEXP_REPLACE(REGEXP_REPLACE(url_path, r'[?#].*', ''), r'//+', '/'), '/'), ''), '/') as url_path,
+        event_type,
+        CASE
+            WHEN event_type = 1 THEN COALESCE(NULLIF(RTRIM(REGEXP_REPLACE(REGEXP_REPLACE(url_path, r'[?#].*', ''), r'//+', '/'), '/'), ''), '/')
+            ELSE NULL
+        END as url_path_normalized,
+        CASE
+            WHEN event_type = 1 THEN CONCAT(
+                COALESCE(NULLIF(RTRIM(REGEXP_REPLACE(REGEXP_REPLACE(url_path, r'[?#].*', ''), r'//+', '/'), '/'), ''), '/'),
+                IF(
+                    COALESCE(REGEXP_REPLACE(REGEXP_REPLACE(url_query, r'^[?]', ''), r'#.*$', ''), '') = '',
+                    '',
+                    CONCAT('?', COALESCE(REGEXP_REPLACE(REGEXP_REPLACE(url_query, r'^[?]', ''), r'#.*$', ''), ''))
+                )
+            )
+            ELSE NULL
+        END as step_value,
+        CASE
+            WHEN url_query IS NULL THEN ''
+            ELSE REGEXP_REPLACE(REGEXP_REPLACE(url_query, r'^[?]', ''), r'#.*$', '')
+        END as url_query_normalized,
         created_at
     FROM \`${projectId}.umami_views.event\`
     WHERE website_id = '${selectedWebsite.id}'
@@ -268,7 +314,7 @@ WITH events_raw AS (
 events AS (
     SELECT 
         *,
-        LAG(url_path) OVER (PARTITION BY session_id ORDER BY created_at) as prev_url_path
+        LAG(step_value) OVER (PARTITION BY session_id ORDER BY created_at) as prev_step_value
     FROM events_raw
 ),
 `
@@ -277,38 +323,29 @@ events AS (
     const stepName = `step${index + 1}`
     const prevStepName = `step${index}`
 
-    let operator = '='
-    let value = step.value
-    if (value.includes('*')) {
-      operator = 'LIKE'
-      value = value.replace(/\*/g, '%')
-    }
-    const urlValue = value.replace(/'/g, "''")
+    const stepMatchClause = buildUrlStepFilterSql(step, 'e')
+    const prevStepDisplayValue = index > 0 ? buildStepDisplayValue(urlSteps[index - 1]) : ''
+    const prevOperator = prevStepDisplayValue.includes('*') ? 'LIKE' : '='
+    const escapedPrevStepDisplayValue = (
+      prevStepDisplayValue.includes('*') ? prevStepDisplayValue.replace(/\*/g, '%') : prevStepDisplayValue
+    ).replace(/'/g, "''")
 
     if (index === 0) {
       return `${stepName} AS (
     SELECT session_id, MIN(created_at) as time${index + 1}
     FROM events
-    WHERE url_path ${operator} '${urlValue}'
+    WHERE ${stepMatchClause}
     GROUP BY session_id
 )`
     } else {
-      let prevOperator = '='
-      let prevValue = urlSteps[index - 1].value
-      if (prevValue.includes('*')) {
-        prevOperator = 'LIKE'
-        prevValue = prevValue.replace(/\*/g, '%')
-      }
-      const prevUrlValue = prevValue.replace(/'/g, "''")
-
       if (onlyDirectEntry) {
         return `${stepName} AS (
     SELECT e.session_id, MIN(e.created_at) as time${index + 1}
     FROM events e
     JOIN ${prevStepName} prev ON e.session_id = prev.session_id
-    WHERE e.url_path ${operator} '${urlValue}' 
+    WHERE ${stepMatchClause}
       AND e.created_at > prev.time${index}
-      AND e.prev_url_path ${prevOperator} '${prevUrlValue}'
+      AND e.prev_step_value ${prevOperator} '${escapedPrevStepDisplayValue}'
     GROUP BY e.session_id
 )`
       } else {
@@ -316,7 +353,7 @@ events AS (
     SELECT e.session_id, MIN(e.created_at) as time${index + 1}
     FROM events e
     JOIN ${prevStepName} prev ON e.session_id = prev.session_id
-    WHERE e.url_path ${operator} '${urlValue}' 
+    WHERE ${stepMatchClause}
       AND e.created_at > prev.time${index}
     GROUP BY e.session_id
 )`

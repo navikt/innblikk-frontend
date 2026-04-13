@@ -10,6 +10,7 @@ interface DashboardLayoutProps {
   headerActions?: React.ReactNode
   filtersTop?: React.ReactNode
   filters?: React.ReactNode
+  showKontaktSection?: boolean
   children: React.ReactNode
 }
 
@@ -20,6 +21,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   headerActions,
   filtersTop,
   filters,
+  showKontaktSection = true,
   children,
 }) => {
   return (
@@ -37,7 +39,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
         <div className="min-h-[400px] w-full">{children}</div>
       </AppBlock>
-      <KontaktSeksjon showMarginBottom={true} />
+      {showKontaktSection && <KontaktSeksjon showMarginBottom={true} />}
     </>
   )
 }

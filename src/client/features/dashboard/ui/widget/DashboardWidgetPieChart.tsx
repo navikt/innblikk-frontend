@@ -4,6 +4,7 @@ import { extractJsonValue } from '../../utils/widgetUtils.ts'
 
 interface DashboardWidgetPieChartProps {
   data: DashboardRow[]
+  heightPx?: number
 }
 
 const MAX_CATEGORIES = 12
@@ -15,7 +16,8 @@ const toNumber = (value: unknown): number => {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
-const DashboardWidgetPieChart = ({ data }: DashboardWidgetPieChartProps) => {
+const DashboardWidgetPieChart = ({ data, heightPx }: DashboardWidgetPieChartProps) => {
+  const chartHeight = Math.max(200, heightPx ?? 350)
   const keys = Object.keys(data[0] ?? {})
   if (keys.length < 2) {
     return <div className="text-[var(--ax-text-subtle)]">Trenger minst to kolonner (kategori og verdi)</div>
@@ -52,7 +54,7 @@ const DashboardWidgetPieChart = ({ data }: DashboardWidgetPieChartProps) => {
   const total = displayData.reduce((sum, item) => sum + item.y, 0)
 
   return (
-    <div className="w-full md:grid md:h-[350px] md:grid-cols-[minmax(170px,200px)_minmax(0,1fr)] md:items-center md:gap-0">
+    <div className="w-full md:grid md:grid-cols-[minmax(170px,200px)_minmax(0,1fr)] md:items-center md:gap-0">
       <style>{`
                 .dashboard-pie-chart text[class*="pieLabel"],
                 .dashboard-pie-chart g[class*="arc"] text {
@@ -63,13 +65,14 @@ const DashboardWidgetPieChart = ({ data }: DashboardWidgetPieChartProps) => {
                     cursor: pointer !important;
                 }
             `}</style>
-      <div className="dashboard-pie-chart md:order-2" style={{ width: '100%', height: '350px' }}>
+      <div className="dashboard-pie-chart md:order-2" style={{ width: '100%', height: `${chartHeight}px` }}>
         <ResponsiveContainer>
           <PieChart data={displayData} chartTitle="" />
         </ResponsiveContainer>
       </div>
       <div
-        className="mt-2 space-y-1 md:order-1 md:mt-0 md:max-h-[350px] md:overflow-auto"
+        className="mt-2 space-y-1 md:order-1 md:mt-0 md:overflow-auto"
+        style={{ maxHeight: `${chartHeight}px` }}
         role="list"
         aria-label="Sektordiagram forklaring"
       >

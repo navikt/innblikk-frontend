@@ -27,7 +27,7 @@ type ProjectSummary = {
         name: string
         graphType?: string
         categoryId: number
-        variantCount: number
+        variantCount?: number
       }>
     }>
     charts: Array<{
@@ -35,7 +35,7 @@ type ProjectSummary = {
       name: string
       graphType?: string
       categoryId: number
-      variantCount: number
+      variantCount?: number
     }>
   }>
 }
@@ -75,18 +75,12 @@ export const useProjectManager = () => {
             const categoryData = await Promise.all(
               categories.map(async (category) => {
                 const graphs = await api.fetchGraphs(project.id, dashboard.id, category.id)
-                const charts = await Promise.all(
-                  graphs.map(async (graph) => {
-                    const queries = await api.fetchQueries(project.id, dashboard.id, category.id, graph.id)
-                    return {
-                      id: graph.id,
-                      name: graph.name,
-                      graphType: graph.graphType,
-                      categoryId: category.id,
-                      variantCount: queries.length,
-                    }
-                  }),
-                )
+                const charts = graphs.map((graph) => ({
+                  id: graph.id,
+                  name: graph.name,
+                  graphType: graph.graphType,
+                  categoryId: category.id,
+                }))
                 return {
                   id: category.id,
                   name: category.name,
@@ -180,9 +174,10 @@ export const useProjectManager = () => {
       run(async () => {
         if (!projectId) throw new Error('Velg prosjekt')
         if (!name.trim()) throw new Error('Dashboardnavn er påkrevd')
-        await api.createDashboard(projectId, name.trim(), description?.trim() || undefined)
+        const createdDashboard = await api.createDashboard(projectId, name.trim(), description?.trim() || undefined)
         await loadProjectSummaries()
         setMessage('Dashboard opprettet')
+        return createdDashboard
       }),
     [run, loadProjectSummaries],
   )
@@ -243,6 +238,25 @@ export const useProjectManager = () => {
         await api.deleteGraph(projectId, dashboardId, categoryId, graphId)
         await loadProjectSummaries()
         setMessage('Graf slettet')
+      }),
+    [run, loadProjectSummaries],
+  )
+
+  const deleteChartsBulk = useCallback(
+    (
+      projectId: number,
+      dashboardId: number,
+      charts: Array<{ categoryId: number; graphId: number }>,
+      successMessage = 'Elementer slettet',
+    ) =>
+      run(async () => {
+        if (charts.length === 0) return 0
+        for (const chart of charts) {
+          await api.deleteGraph(projectId, dashboardId, chart.categoryId, chart.graphId)
+        }
+        await loadProjectSummaries()
+        setMessage(successMessage)
+        return charts.length
       }),
     [run, loadProjectSummaries],
   )
@@ -752,6 +766,7 @@ export const useProjectManager = () => {
     deleteCategory,
     deleteDashboard,
     deleteChart,
+    deleteChartsBulk,
     editChart,
     importChart,
     copyChart,

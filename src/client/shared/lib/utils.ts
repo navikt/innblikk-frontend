@@ -43,6 +43,23 @@ export const normalizeUrlToPath = (input: string): string => {
   return trimmed
 }
 
+export const normalizeUrlQuery = (input: string): string => {
+  if (!input.trim()) return ''
+
+  let trimmed = input.trim()
+
+  const fragmentIndex = trimmed.indexOf('#')
+  if (fragmentIndex !== -1) {
+    trimmed = trimmed.substring(0, fragmentIndex)
+  }
+
+  if (trimmed.startsWith('?')) {
+    trimmed = trimmed.substring(1)
+  }
+
+  return trimmed
+}
+
 export const isDecoratorEvent = (eventName: string): boolean => {
   return eventName.startsWith('dekorator-')
 }

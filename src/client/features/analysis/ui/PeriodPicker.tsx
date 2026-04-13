@@ -15,13 +15,14 @@ export const PeriodPicker = ({
   lastMonthLabel = 'Forrige måned',
   currentMonthLabel = 'Denne måneden',
   showShortPeriods = true,
+  className,
 }: PeriodPickerProps) => {
   const dateModalRef = useRef<HTMLDialogElement>(null)
   const { isDateModalOpen, handlePeriodChange, closeDateModal } = usePeriodPicker(onPeriodChange)
 
   return (
     <>
-      <div className="w-full sm:w-auto min-w-[200px]">
+      <div className={className ?? 'w-full sm:w-auto min-w-[200px]'}>
         <Select
           label="Periode"
           size="small"
@@ -74,12 +75,14 @@ export const PeriodPicker = ({
                 <DatePicker.Input
                   id="custom-start-date"
                   label="Fra dato"
+                  aria-label="Fra dato"
                   size="small"
                   value={startDate ? format(startDate, 'dd.MM.yyyy') : ''}
                 />
                 <DatePicker.Input
                   id="custom-end-date"
                   label="Til dato"
+                  aria-label="Til dato"
                   size="small"
                   value={endDate ? format(endDate, 'dd.MM.yyyy') : ''}
                 />

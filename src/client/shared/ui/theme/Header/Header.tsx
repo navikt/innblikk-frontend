@@ -184,9 +184,9 @@ export default function Header({ theme }: HeaderProps) {
         <header className="flex py-1 z-10 items-center justify-between">
           <div className="flex items-center gap-4">
             <Button as={Link} variant="tertiary" className={`${linkButton} !px-0`} href="/">
-              <div className="flex items-start gap-2.5 py-1">
+              <div className="flex items-start gap-1.5 py-1">
                 <span aria-hidden="true" className="grid place-items-center mt-0.5 shrink-0">
-                  <svg width="45" height="45" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path
                       d="M16.5 10.5C16.5 13.8137 13.8137 16.5 10.5 16.5C7.18629 16.5 4.5 13.8137 4.5 10.5C4.5 7.18629 7.18629 4.5 10.5 4.5C13.8137 4.5 16.5 7.18629 16.5 10.5Z"
                       stroke="currentColor"
@@ -210,9 +210,6 @@ export default function Header({ theme }: HeaderProps) {
                       </span>
                     )}
                   </div>
-                  <span className="text-xs md:text-sm text-current opacity-80 whitespace-nowrap">
-                    Data fra Umami og Siteimprove
-                  </span>
                 </div>
               </div>
             </Button>
