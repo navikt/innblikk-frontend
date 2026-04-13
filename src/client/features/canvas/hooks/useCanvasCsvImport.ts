@@ -227,23 +227,31 @@ const useCanvasCsvImport = ({ onImportPrepared }: UseCanvasCsvImportParams) => {
     (nextColumn: string) => {
       setImportStickyContentColumn(nextColumn)
       setImportStickyCombinedColumns((current) => current.filter((column) => column !== nextColumn))
-      setImportStickySectionTitle(nextColumn)
+      setImportStickySectionTitle(
+        nextColumn ? `${nextColumn}${isImportStickyCombiningColumns ? ' (kombinert)' : ''}` : '',
+      )
       setImportStickyExcludedRowIndexes([])
       setImportStickyPrivacyReviewed(false)
       setImportStickyTableMode('rows')
       setImportStickyTablePreviewPage(1)
       if (importStickyCsvError) setImportStickyCsvError(null)
     },
-    [importStickyCsvError],
+    [importStickyCsvError, isImportStickyCombiningColumns],
   )
 
   const handleToggleCombineColumns = useCallback(() => {
-    setIsImportStickyCombiningColumns((current) => !current)
+    setIsImportStickyCombiningColumns((current) => {
+      const next = !current
+      setImportStickySectionTitle(
+        importStickyContentColumn ? `${importStickyContentColumn}${next ? ' (kombinert)' : ''}` : '',
+      )
+      return next
+    })
     setImportStickyExcludedRowIndexes([])
     setImportStickyPrivacyReviewed(false)
     setImportStickyTablePreviewPage(1)
     if (importStickyCsvError) setImportStickyCsvError(null)
-  }, [importStickyCsvError])
+  }, [importStickyContentColumn, importStickyCsvError])
 
   const handleToggleCombinedColumn = useCallback(
     (columnName: string) => {

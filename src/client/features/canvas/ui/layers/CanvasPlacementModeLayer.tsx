@@ -8,6 +8,8 @@ type CanvasPlacementModeBannerProps = {
   pendingCsvStickyImport: PendingCsvStickyImport | null
   pendingFramePlacementLabel: string | null
   isImportingStickyCsv: boolean
+  importStickyProgressCurrent: number
+  importStickyProgressTotal: number
 }
 
 export const CanvasPlacementModeBanner = ({
@@ -16,6 +18,8 @@ export const CanvasPlacementModeBanner = ({
   pendingCsvStickyImport,
   pendingFramePlacementLabel,
   isImportingStickyCsv,
+  importStickyProgressCurrent,
+  importStickyProgressTotal,
 }: CanvasPlacementModeBannerProps) => {
   if (!pendingFrameDraft && !pendingCsvStickyImport) return null
 
@@ -27,11 +31,13 @@ export const CanvasPlacementModeBanner = ({
       {pendingCsvStickyImport && isImportingStickyCsv ? (
         <span className="inline-flex items-center gap-2">
           <Loader size="xsmall" />
-          {pendingCsvStickyImport.tableHeaders && pendingCsvStickyImport.tableRows
-            ? 'Importerer tabell til canvas...'
-            : pendingCsvStickyImport.aggregatedRatingsText
-              ? 'Importerer aggregert vurdering til canvas...'
-              : 'Importerer CSV-lapper til canvas...'}
+          {importStickyProgressTotal > 0
+            ? `Importerer ${Math.min(importStickyProgressCurrent, importStickyProgressTotal)} av ${importStickyProgressTotal}`
+            : pendingCsvStickyImport.tableHeaders && pendingCsvStickyImport.tableRows
+              ? 'Importerer tabell til canvas...'
+              : pendingCsvStickyImport.aggregatedRatingsText
+                ? 'Importerer aggregert vurdering til canvas...'
+                : 'Importerer CSV-lapper til canvas...'}
         </span>
       ) : (
         <>

@@ -489,6 +489,8 @@ const Canvas = () => {
   const [, setIsLoadingCanvasItems] = useState(false)
   const [isSavingCanvasItem, setIsSavingCanvasItem] = useState(false)
   const [isImportingStickyCsv, setIsImportingStickyCsv] = useState(false)
+  const [importStickyProgressCurrent, setImportStickyProgressCurrent] = useState(0)
+  const [importStickyProgressTotal, setImportStickyProgressTotal] = useState(0)
   const [connectionMetrics, setConnectionMetrics] = useState<Record<string, CanvasConnectionMetric | null>>({})
   const [connectionDragState, setConnectionDragState] = useState<ConnectionDragState | null>(null)
   const [pageInsights, setPageInsights] = useState<Record<string, CanvasPageInsight>>({})
@@ -502,6 +504,7 @@ const Canvas = () => {
   const [pendingCsvStickyImport, setPendingCsvStickyImport] = useState<PendingCsvStickyImport | null>(null)
   const [pendingFramePlacementLabel, setPendingFramePlacementLabel] = useState<string | null>(null)
   const [pendingFramePointer, setPendingFramePointer] = useState<{ x: number; y: number } | null>(null)
+  const pendingCsvStickyImportRef = useRef<PendingCsvStickyImport | null>(null)
   const pageInsightsRef = useRef<Record<string, CanvasPageInsight>>({})
   const framesRef = useRef<CanvasFrame[]>([])
   const chartContentRefs = useRef<Record<string, HTMLDivElement | null>>({})
@@ -855,9 +858,12 @@ const Canvas = () => {
     handleImportStickyCsv,
   } = useCanvasCsvImport({
     onImportPrepared: ({ pendingImport, placementLabel }) => {
+      pendingCsvStickyImportRef.current = pendingImport
       setPendingCsvStickyImport(pendingImport)
       setPendingFramePlacementLabel(placementLabel)
       setPendingFramePointer(null)
+      setImportStickyProgressCurrent(0)
+      setImportStickyProgressTotal(0)
     },
   })
 
@@ -1414,8 +1420,11 @@ const Canvas = () => {
   const cancelPendingFramePlacement = useCallback(() => {
     setPendingFrameDraft(null)
     setPendingCsvStickyImport(null)
+    pendingCsvStickyImportRef.current = null
     setPendingFramePlacementLabel(null)
     setPendingFramePointer(null)
+    setImportStickyProgressCurrent(0)
+    setImportStickyProgressTotal(0)
   }, [])
 
   useEffect(() => {
@@ -1810,7 +1819,8 @@ const Canvas = () => {
 
   const handlePlacePendingCsvImport = useCallback(
     async (clientX: number, clientY: number) => {
-      if (!pendingCsvStickyImport) return
+      const activePendingCsvImport = pendingCsvStickyImportRef.current
+      if (!activePendingCsvImport) return
       if (isImportingStickyCsvRef.current) return
       const pointer = getCanvasPointerPosition(clientX, clientY)
       if (!pointer) return
@@ -1820,7 +1830,7 @@ const Canvas = () => {
       const columnGap = 24
       const stickyGap = 18
       const cardsPerRow = 2
-      const sectionTitle = pendingCsvStickyImport.sectionTitle.trim()
+      const sectionTitle = activePendingCsvImport.sectionTitle.trim()
       const sectionLabel = sectionTitle || getNextAutoSectionLabel(frames)
       const sectionHeaderHeight = 92
       const sectionPaddingX = 24
@@ -1832,17 +1842,17 @@ const Canvas = () => {
       const timestampSeed = Date.now()
       const importedFrames: CanvasFrame[] = []
       const isTableImport =
-        Array.isArray(pendingCsvStickyImport.tableHeaders) &&
-        pendingCsvStickyImport.tableHeaders.length > 0 &&
-        Array.isArray(pendingCsvStickyImport.tableRows)
+        Array.isArray(activePendingCsvImport.tableHeaders) &&
+        activePendingCsvImport.tableHeaders.length > 0 &&
+        Array.isArray(activePendingCsvImport.tableRows)
 
       if (isTableImport) {
-        const tableRowCount = pendingCsvStickyImport.tableRows?.length ?? 0
+        const tableRowCount = activePendingCsvImport.tableRows?.length ?? 0
         importedFrames.push({
           id: `csv-table-${timestampSeed}`,
           kind: 'text',
-          tableHeaders: pendingCsvStickyImport.tableHeaders,
-          tableRows: pendingCsvStickyImport.tableRows,
+          tableHeaders: activePendingCsvImport.tableHeaders,
+          tableRows: activePendingCsvImport.tableRows,
           label: 'Tabell',
           x: contentStartX,
           y: contentStartY,
@@ -1850,8 +1860,8 @@ const Canvas = () => {
           height: estimateTableFrameHeight(tableRowCount),
           refreshNonce: 0,
         })
-      } else if (pendingCsvStickyImport.aggregatedRatingsText) {
-        const summaryText = pendingCsvStickyImport.aggregatedRatingsText || ''
+      } else if (activePendingCsvImport.aggregatedRatingsText) {
+        const summaryText = activePendingCsvImport.aggregatedRatingsText || ''
         importedFrames.push({
           id: `csv-rating-summary-${timestampSeed}`,
           kind: 'sticky',
@@ -1868,10 +1878,10 @@ const Canvas = () => {
 
         for (
           let rowStartIndex = 0;
-          rowStartIndex < pendingCsvStickyImport.noteTexts.length;
+          rowStartIndex < activePendingCsvImport.noteTexts.length;
           rowStartIndex += cardsPerRow
         ) {
-          const rowNotes = pendingCsvStickyImport.noteTexts.slice(rowStartIndex, rowStartIndex + cardsPerRow)
+          const rowNotes = activePendingCsvImport.noteTexts.slice(rowStartIndex, rowStartIndex + cardsPerRow)
           const rowHeights = rowNotes.map((content) => estimateStickyFrameHeight(content, stickyWidth))
           const tallestRowHeight = Math.max(...rowHeights, stickyHeight)
 
@@ -1923,14 +1933,18 @@ const Canvas = () => {
       const framesToPersist: CanvasFrame[] = [sectionFrame, ...importedFrames]
 
       try {
+        setPendingFramePointer(null)
         isImportingStickyCsvRef.current = true
         setIsImportingStickyCsv(true)
         setIsSavingCanvasItem(true)
+        setImportStickyProgressTotal(framesToPersist.length)
+        setImportStickyProgressCurrent(0)
         setSyncError(null)
         const persistedFrames: CanvasFrame[] = []
-        for (const frame of framesToPersist) {
+        for (const [frameIndex, frame] of framesToPersist.entries()) {
           const persistedFrame = await persistFrame(frame)
           persistedFrames.push(persistedFrame)
+          setImportStickyProgressCurrent(frameIndex + 1)
         }
         setFrames((prev) => [...prev, ...persistedFrames])
         cancelPendingFramePlacement()
@@ -1940,9 +1954,11 @@ const Canvas = () => {
         isImportingStickyCsvRef.current = false
         setIsImportingStickyCsv(false)
         setIsSavingCanvasItem(false)
+        setImportStickyProgressCurrent(0)
+        setImportStickyProgressTotal(0)
       }
     },
-    [cancelPendingFramePlacement, frames, getCanvasPointerPosition, pendingCsvStickyImport, persistFrame],
+    [cancelPendingFramePlacement, frames, getCanvasPointerPosition, persistFrame],
   )
 
   const handleCanvasSurfaceMouseDown = useCallback(
@@ -2010,6 +2026,7 @@ const Canvas = () => {
         return
       }
       if (pendingFrameDraft || pendingCsvStickyImport) {
+        if (pendingCsvStickyImport && isImportingStickyCsv) return
         setPendingFramePointer(pointer)
       }
       if (selectionBox) {
@@ -2019,6 +2036,7 @@ const Canvas = () => {
     [
       continueDrawingAt,
       getCanvasPointerPosition,
+      isImportingStickyCsv,
       isDrawingMode,
       pendingCsvStickyImport,
       pendingFrameDraft,
@@ -4821,6 +4839,8 @@ const Canvas = () => {
               pendingCsvStickyImport={pendingCsvStickyImport}
               pendingFramePlacementLabel={pendingFramePlacementLabel}
               isImportingStickyCsv={isImportingStickyCsv}
+              importStickyProgressCurrent={importStickyProgressCurrent}
+              importStickyProgressTotal={importStickyProgressTotal}
             />
             {isDrawingMode && (
               <CanvasDrawingToolbar
