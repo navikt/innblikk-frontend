@@ -4820,14 +4820,11 @@ const Canvas = () => {
           onOpenManageTabs={handleOpenManageTabsModal}
           onOpenCanvasSettings={handleOpenCanvasSettingsModal}
           onOpenInventory={handleOpenInventoryModal}
+          elementCount={inventoryItems.reduce((total, item) => total + item.count, 0)}
           onOpenTimer={handleOpenTimerModal}
           onOpenDotVoting={handleOpenDotVotingModal}
           timerLabel={timerLabel}
-          isTimerRunning={isTimerRunning}
           dotVotingLabel={dotVotingLabel}
-          isDotVotingRunning={isDotVotingRunning}
-          dotVotingRemainingVotes={myRemainingDotVotes}
-          dotVotingVotesPerParticipant={dotVotingSessionPayload?.votesPerParticipant ?? 0}
           canManageTabs={canvasCategories.length > 1}
           canPersistToDashboard={canPersistToDashboard}
           shouldShowCreateCanvasModal={shouldShowCreateCanvasModal}

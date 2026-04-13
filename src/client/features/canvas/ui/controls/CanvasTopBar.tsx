@@ -1,9 +1,10 @@
 import { ActionMenu, Alert, Button, Tabs } from '@navikt/ds-react'
-import { Dot, MoreVertical, Timer, Users } from 'lucide-react'
+import { MoreVertical, Users } from 'lucide-react'
 import { useRef, type KeyboardEvent, type RefObject, type TouchEvent } from 'react'
 import PeriodPicker from '../../../analysis/ui/PeriodPicker.tsx'
 import type { GraphCategoryDto } from '../../../oversikt/model/types.ts'
 import CanvasAddActionMenu from './CanvasAddActionMenu.tsx'
+import CanvasFacilitatorActionMenu from './CanvasFacilitatorActionMenu.tsx'
 
 type CanvasTopBarProps = {
   canvasToolbarRef: RefObject<HTMLDivElement | null>
@@ -32,17 +33,14 @@ type CanvasTopBarProps = {
   onOpenTimer: () => void
   onOpenDotVoting: () => void
   timerLabel: string | null
-  isTimerRunning: boolean
   dotVotingLabel: string | null
-  isDotVotingRunning: boolean
-  dotVotingRemainingVotes?: number
-  dotVotingVotesPerParticipant?: number
   isGrafbyggerEmbedded: boolean
   onCloseGrafbygger: () => void
   onOpenCreateTab: () => void
   onOpenManageTabs: (tabId?: number) => void
   onOpenCanvasSettings: () => void
   onOpenInventory: () => void
+  elementCount?: number
   canManageTabs: boolean
   canPersistToDashboard: boolean
   shouldShowCreateCanvasModal: boolean
@@ -85,17 +83,14 @@ const CanvasTopBar = ({
   onOpenTimer,
   onOpenDotVoting,
   timerLabel,
-  isTimerRunning,
   dotVotingLabel,
-  isDotVotingRunning,
-  dotVotingRemainingVotes = 0,
-  dotVotingVotesPerParticipant = 0,
   isGrafbyggerEmbedded,
   onCloseGrafbygger,
   onOpenCreateTab,
   onOpenManageTabs,
   onOpenCanvasSettings,
   onOpenInventory,
+  elementCount,
   canManageTabs,
   canPersistToDashboard,
   shouldShowCreateCanvasModal,
@@ -184,43 +179,6 @@ const CanvasTopBar = ({
                   />
                 </div>
               )}
-              {timerLabel && (
-                <button
-                  type="button"
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${
-                    isTimerRunning
-                      ? 'border-[var(--ax-border-accent)] bg-[var(--ax-bg-accent-soft)] text-[var(--ax-text-accent)]'
-                      : 'border-[var(--ax-border-danger)] bg-[var(--ax-border-danger)] text-white'
-                  }`}
-                  onClick={onOpenTimer}
-                  disabled={canvasInitMode !== 'existing'}
-                  aria-label="Åpne fasilitator-nedteller"
-                  title="Åpne fasilitator-nedteller"
-                >
-                  <Timer size={14} aria-hidden="true" />
-                  <span className="tabular-nums">Nedteller {timerLabel}</span>
-                </button>
-              )}
-              {dotVotingLabel && (
-                <button
-                  type="button"
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${
-                    isDotVotingRunning
-                      ? 'border-[var(--ax-border-accent)] bg-[var(--ax-bg-accent-soft)] text-[var(--ax-text-accent)]'
-                      : 'border-[var(--ax-border-danger)] bg-[var(--ax-border-danger)] text-white'
-                  }`}
-                  onClick={onOpenDotVoting}
-                  disabled={canvasInitMode !== 'existing'}
-                  aria-label="Åpne prikkvotering"
-                  title="Åpne prikkvotering"
-                >
-                  <Dot size={14} aria-hidden="true" />
-                  <span className="tabular-nums">
-                    Prikkvotering {dotVotingLabel} · {Math.max(0, dotVotingRemainingVotes)}/
-                    {Math.max(0, dotVotingVotesPerParticipant)} igjen
-                  </span>
-                </button>
-              )}
               <CanvasAddActionMenu
                 onAddWebsite={onOpenAddPage}
                 onOpenGrafbygger={onOpenCreateChart}
@@ -240,6 +198,18 @@ const CanvasTopBar = ({
                 disabled={canvasInitMode !== 'existing' || isInteractionLocked}
                 buttonSize="small"
                 buttonVariant="primary"
+                buttonClassName="shrink-0 whitespace-nowrap"
+                iconSize={16}
+                withFloatingFrame={false}
+              />
+              <CanvasFacilitatorActionMenu
+                onOpenTimer={onOpenTimer}
+                onOpenDotVoting={onOpenDotVoting}
+                timerLabel={timerLabel}
+                dotVotingLabel={dotVotingLabel}
+                disabled={canvasInitMode !== 'existing' || isInteractionLocked}
+                buttonSize="small"
+                buttonVariant="secondary"
                 buttonClassName="shrink-0 whitespace-nowrap"
                 iconSize={16}
                 withFloatingFrame={false}
@@ -284,19 +254,13 @@ const CanvasTopBar = ({
                 <ActionMenu.Content align="end">
                   <ActionMenu.Item onClick={() => window.location.assign('/canvas')}>Canvas-oversikt</ActionMenu.Item>
                   <ActionMenu.Divider />
-                  <ActionMenu.Item onClick={onOpenTimer}>
-                    {timerLabel ? `Nedteller (${timerLabel})` : 'Nedteller'}
+                  <ActionMenu.Item onClick={onOpenInventory}>
+                    Elementer{elementCount !== undefined ? ` (${elementCount})` : ''}
                   </ActionMenu.Item>
-                  <ActionMenu.Item onClick={onOpenDotVoting}>
-                    {dotVotingLabel ? `Prikkvotering (${dotVotingLabel})` : 'Prikkvotering'}
-                  </ActionMenu.Item>
-                  <ActionMenu.Divider />
                   {canManageTabs && (
                     <ActionMenu.Item onClick={() => onOpenManageTabs()}>Administrer faner</ActionMenu.Item>
                   )}
-                  <ActionMenu.Item onClick={onOpenInventory}>Elementer</ActionMenu.Item>
                   <ActionMenu.Item onClick={onOpenCanvasSettings}>Innstillinger</ActionMenu.Item>
-                  <ActionMenu.Item onClick={() => window.location.assign('/')}>Innblikk</ActionMenu.Item>
                 </ActionMenu.Content>
               </ActionMenu>
             </div>
