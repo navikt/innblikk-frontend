@@ -27,7 +27,7 @@ const CanvasHeadingFrame = ({
 }: CanvasHeadingFrameProps) => {
   if (isEditing) {
     return (
-      <div className="overflow-visible px-4 py-2">
+      <div className="overflow-visible bg-transparent dark:bg-transparent px-4 py-2">
         <textarea
           value={headingText || ''}
           onChange={(event) => onChange(id, event.target.value)}
@@ -35,7 +35,7 @@ const CanvasHeadingFrame = ({
           onMouseDown={(event) => event.stopPropagation()}
           lang="nb-NO"
           placeholder="Skriv overskrift"
-          className="block w-full resize-none overflow-hidden border-none bg-transparent p-0 text-[var(--ax-text-default)] outline-none placeholder:text-[var(--ax-text-subtle)] [font-family:inherit]"
+          className="block w-full resize-none overflow-hidden border-none bg-transparent p-0 text-slate-900 dark:text-white outline-none placeholder:text-slate-500 dark:placeholder:text-slate-400 [font-family:inherit]"
           style={{
             fontSize: `${fontSizePx}px`,
             lineHeight: 1.05,
@@ -49,9 +49,9 @@ const CanvasHeadingFrame = ({
   }
 
   return (
-    <div className="relative overflow-visible px-4 py-2">
+    <div className="relative overflow-visible bg-transparent dark:bg-transparent px-4 py-2">
       <h2
-        className="m-0 cursor-text select-text whitespace-pre-wrap break-words text-[var(--ax-text-default)]"
+        className="m-0 cursor-text select-text whitespace-pre-wrap break-words text-slate-900 dark:text-white"
         onClick={() => onStartEditing(id)}
         style={{
           fontSize: `${fontSizePx}px`,
