@@ -175,6 +175,7 @@ type UseCanvasBackgroundSyncParams = {
   setFrames: Dispatch<SetStateAction<CanvasFrame[]>>
   setConnections: Dispatch<SetStateAction<CanvasConnection[]>>
   setSyncError: Dispatch<SetStateAction<string | null>>
+  onBeforeApplyRemoteData?: () => void
   intervalMs?: number
 }
 
@@ -190,6 +191,7 @@ const useCanvasBackgroundSync = ({
   setFrames,
   setConnections,
   setSyncError,
+  onBeforeApplyRemoteData,
   intervalMs = DEFAULT_SYNC_INTERVAL_MS,
 }: UseCanvasBackgroundSyncParams) => {
   useEffect(() => {
@@ -233,6 +235,9 @@ const useCanvasBackgroundSync = ({
         unchangedSyncCount = hasDataChanged ? 0 : unchangedSyncCount + 1
         consecutiveErrorCount = 0
 
+        if (!hasDataChanged) return
+
+        onBeforeApplyRemoteData?.()
         setCanvasCategories(data.categories)
         setActiveCanvasCategoryId((current) => {
           if (current !== null && data.categories.some((category) => category.id === current)) return current
@@ -284,6 +289,7 @@ const useCanvasBackgroundSync = ({
     setConnections,
     setFrames,
     setSyncError,
+    onBeforeApplyRemoteData,
   ])
 }
 

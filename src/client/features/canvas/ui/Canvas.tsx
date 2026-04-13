@@ -507,6 +507,7 @@ const Canvas = () => {
   const pendingCsvStickyImportRef = useRef<PendingCsvStickyImport | null>(null)
   const pageInsightsRef = useRef<Record<string, CanvasPageInsight>>({})
   const framesRef = useRef<CanvasFrame[]>([])
+  const skipNextGridSectionPersistRef = useRef(false)
   const chartContentRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const isImportingStickyCsvRef = useRef(false)
   const clipboardFramesRef = useRef<CanvasFrame[] | null>(null)
@@ -575,6 +576,10 @@ const Canvas = () => {
 
   const handleCanvasSyncError = useCallback((message: string) => {
     setSyncError(message)
+  }, [])
+
+  const markRemoteCanvasFramesApplied = useCallback(() => {
+    skipNextGridSectionPersistRef.current = true
   }, [])
 
   const {
@@ -1197,6 +1202,7 @@ const Canvas = () => {
         }
 
         if (!isActive) return
+        markRemoteCanvasFramesApplied()
         setFrames(data.frames)
         setConnections(data.connections)
       } catch (error) {
@@ -1211,7 +1217,7 @@ const Canvas = () => {
     return () => {
       isActive = false
     }
-  }, [canPersistToDashboard, projectId, dashboardId, canvasInitMode, initialCategoryId])
+  }, [canPersistToDashboard, projectId, dashboardId, canvasInitMode, initialCategoryId, markRemoteCanvasFramesApplied])
 
   useCanvasBackgroundSync({
     enabled: canvasSyncContextEnabled && shouldEnableBackgroundSync,
@@ -1225,6 +1231,7 @@ const Canvas = () => {
     setFrames,
     setConnections,
     setSyncError,
+    onBeforeApplyRemoteData: markRemoteCanvasFramesApplied,
   })
 
   const {
@@ -2306,6 +2313,11 @@ const Canvas = () => {
     if (!hasLayoutChanges) return
 
     setFrames(nextFrames)
+
+    if (skipNextGridSectionPersistRef.current) {
+      skipNextGridSectionPersistRef.current = false
+      return
+    }
 
     const framesToPersist = nextFrames.filter((frame) => changedFrameIds.has(frame.id) && Boolean(frame.graphId))
     if (framesToPersist.length === 0) return
