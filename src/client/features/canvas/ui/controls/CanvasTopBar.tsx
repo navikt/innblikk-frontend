@@ -259,7 +259,7 @@ const CanvasTopBar = ({
                   </ActionMenu.Trigger>
                   <ActionMenu.Content align="end">
                     {participantLabels.map((label, index) => (
-                      <ActionMenu.Item key={`canvas-participant-${index}`} disabled>
+                      <ActionMenu.Item key={`canvas-participant-${index}`} onSelect={() => undefined}>
                         {label}
                       </ActionMenu.Item>
                     ))}
