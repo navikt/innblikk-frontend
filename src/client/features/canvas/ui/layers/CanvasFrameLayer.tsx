@@ -366,12 +366,10 @@ const CanvasFrameLayer = ({
                         : isIllustrationFrame
                           ? 'border-transparent'
                           : 'border-[var(--ax-border-neutral-subtle)]'
-                    } ${isIllustrationFrame ? 'bg-transparent shadow-none' : 'bg-white dark:bg-slate-900 shadow-sm'}`
+                    } ${isIllustrationFrame ? 'bg-transparent shadow-none' : 'bg-white shadow-sm'}`
                   : frame.kind === 'section'
                     ? `group absolute flex flex-col overflow-visible rounded-2xl border-2 border-dashed shadow-none ${
-                        isTargetVotingSection
-                          ? 'border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-950'
-                          : 'border-blue-400 dark:border-blue-500 bg-blue-100/70 dark:bg-blue-950/50'
+                        isTargetVotingSection ? 'border-[#5f8fc7] bg-[#edf4ff]' : 'border-[#8eb2de] bg-[#edf4ff]/70'
                       }`
                     : frame.kind === 'chart'
                       ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
@@ -961,14 +959,14 @@ const CanvasFrameLayer = ({
                         onMouseDown={(event) => event.stopPropagation()}
                         onChange={(event) => handleEditableFrameChange(frame.id, event.target.value)}
                         onBlur={() => handleEditableFrameBlur(frame.id)}
-                        className="w-full resize-none rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1 text-sm font-semibold text-slate-900 dark:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-border-accent)]"
+                        className="w-full resize-none rounded-md border border-[var(--ax-border-neutral-subtle)] bg-white/95 px-2 py-1 text-sm font-semibold text-[var(--ax-text-default)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-border-accent)]"
                         rows={2}
                         autoFocus
                       />
                     ) : (
                       <button
                         type="button"
-                        className="w-fit max-w-full rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1 text-left text-sm font-semibold text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-700"
+                        className="w-fit max-w-full rounded-md border border-[var(--ax-border-neutral-subtle)] bg-white/90 px-2 py-1 text-left text-sm font-semibold text-[var(--ax-text-default)]"
                         onMouseDown={(event) => event.stopPropagation()}
                         onDoubleClick={() => handleStartEditingFrame(frame.id)}
                         title="Dobbeltklikk for å gi seksjonen navn"
@@ -976,7 +974,7 @@ const CanvasFrameLayer = ({
                         <span className="block truncate">{frame.label || 'Seksjon'}</span>
                       </button>
                     )}
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                    <p className="text-xs text-[var(--ax-text-subtle)]">
                       Inneholder {sectionItemCountsById[frame.id] ?? 0} elementer.
                     </p>
                   </div>
