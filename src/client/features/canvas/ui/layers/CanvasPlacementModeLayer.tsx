@@ -2,6 +2,7 @@ import { Loader } from '@navikt/ds-react'
 import { Plus } from 'lucide-react'
 import type { CanvasFrame, PendingCanvasFrameDraft, PendingCsvStickyImport } from '../../model/types.ts'
 import { getCanvasStickyColorOptionById } from '../sticky/CanvasStickyColorRegistry.ts'
+import CanvasFigureFrame from '../figure/CanvasFigureFrame.tsx'
 
 type CanvasPlacementModeBannerProps = {
   topOffsetPx: number
@@ -58,6 +59,7 @@ type CanvasPlacementModeLayerProps = {
   pendingFrameDraft: PendingCanvasFrameDraft | null
   pendingCsvStickyImport: PendingCsvStickyImport | null
   pendingFramePointer: { x: number; y: number } | null
+  pendingFigureDragStart?: { x: number; y: number } | null
   pendingFramePlacementLabel: string | null
   getPendingFrameContentAnchorOffset: (draft: PendingCanvasFrameDraft) => { x: number; y: number }
   getDefaultFrameSize: (frameOrKind: CanvasFrame | CanvasFrame['kind']) => {
@@ -75,6 +77,7 @@ const CanvasPlacementModeLayer = ({
   pendingFrameDraft,
   pendingCsvStickyImport,
   pendingFramePointer,
+  pendingFigureDragStart,
   pendingFramePlacementLabel,
   getPendingFrameContentAnchorOffset,
   getDefaultFrameSize,
@@ -94,7 +97,7 @@ const CanvasPlacementModeLayer = ({
         Venstre grense
       </span>
 
-      {pendingFramePointer && (
+      {pendingFramePointer && !pendingFigureDragStart && (
         <div
           className="pointer-events-none absolute z-[46]"
           style={{
@@ -105,13 +108,19 @@ const CanvasPlacementModeLayer = ({
           {pendingFrameDraft
             ? (() => {
                 const defaults = getDefaultFrameSize(pendingFrameDraft.kind)
+                const isLineOrArrowGhost =
+                  pendingFrameDraft.kind === 'figure' &&
+                  (pendingFrameDraft.figureType === 'line' || pendingFrameDraft.figureType === 'arrow')
                 const ghostWidth = pendingFrameDraft.width ?? defaults.width
                 const ghostHeight =
                   pendingFrameDraft.kind === 'heading'
                     ? getHeadingFrameHeight(pendingFrameDraft as CanvasFrame) + headingCardHeaderHeight
                     : (pendingFrameDraft.height ?? defaults.height)
-                const ghostLabel =
-                  pendingFrameDraft.headingText || pendingFrameDraft.label || pendingFramePlacementLabel || ''
+                const ghostLabel = isLineOrArrowGhost
+                  ? pendingFrameDraft.figureType === 'line'
+                    ? 'Linje'
+                    : 'Pil'
+                  : pendingFrameDraft.headingText || pendingFrameDraft.label || pendingFramePlacementLabel || ''
                 const isTextLikeGhost =
                   pendingFrameDraft.kind === 'heading' ||
                   pendingFrameDraft.kind === 'text' ||
@@ -127,17 +136,19 @@ const CanvasPlacementModeLayer = ({
                       ? 'rounded-lg border-2 border-[var(--ax-border-accent)] bg-transparent'
                       : pendingFrameDraft.kind === 'text' || pendingFrameDraft.kind === 'sticky'
                         ? 'rounded-xl border'
-                        : pendingFrameDraft.kind === 'icon' ||
-                            pendingFrameDraft.kind === 'figure' ||
-                            pendingFrameDraft.kind === 'drawing'
-                          ? 'rounded-lg border-2 border-dashed border-[var(--ax-border-accent)] bg-transparent'
-                          : 'rounded-lg border border-[var(--ax-border-neutral-subtle)] bg-white'
+                        : isLineOrArrowGhost
+                          ? 'border-0 bg-transparent !shadow-none'
+                          : pendingFrameDraft.kind === 'icon' ||
+                              pendingFrameDraft.kind === 'figure' ||
+                              pendingFrameDraft.kind === 'drawing'
+                            ? 'rounded-lg border-2 border-dashed border-[var(--ax-border-accent)] bg-transparent'
+                            : 'rounded-lg border border-[var(--ax-border-neutral-subtle)] bg-white'
                 return (
                   <div
                     className={`${isTextLikeGhost ? '' : 'flex flex-col items-center justify-center'} opacity-70 shadow-sm ${ghostClassName}`}
                     style={{
-                      width: `${ghostWidth}px`,
-                      height: `${ghostHeight}px`,
+                      width: isLineOrArrowGhost ? 'max-content' : `${ghostWidth}px`,
+                      height: isLineOrArrowGhost ? 'auto' : `${ghostHeight}px`,
                       borderColor: pendingFrameDraft.kind === 'sticky' ? stickyColorOption?.border : undefined,
                       backgroundColor: pendingFrameDraft.kind === 'sticky' ? stickyColorOption?.background : undefined,
                     }}
@@ -203,6 +214,46 @@ const CanvasPlacementModeLayer = ({
                   </div>
                 )
               })()}
+        </div>
+      )}
+
+      {pendingFigureDragStart && pendingFramePointer && pendingFrameDraft?.kind === 'figure' && (
+        <div
+          className="pointer-events-none absolute z-[46] opacity-70"
+          style={{
+            left: `${Math.min(pendingFigureDragStart.x, pendingFramePointer.x)}px`,
+            top: `${Math.min(pendingFigureDragStart.y, pendingFramePointer.y)}px`,
+          }}
+        >
+          {(() => {
+            const minX = Math.min(pendingFigureDragStart.x, pendingFramePointer.x)
+            const maxX = Math.max(pendingFigureDragStart.x, pendingFramePointer.x)
+            const minY = Math.min(pendingFigureDragStart.y, pendingFramePointer.y)
+            const maxY = Math.max(pendingFigureDragStart.y, pendingFramePointer.y)
+            const width = Math.max(12, maxX - minX)
+            const height = Math.max(12, maxY - minY)
+
+            const start = pendingFigureDragStart
+            const end = pendingFramePointer
+            let dir = 0
+            if (end.x >= start.x && end.y >= start.y) dir = 0
+            else if (end.x <= start.x && end.y <= start.y) dir = 1
+            else if (end.x >= start.x && end.y <= start.y) dir = 2
+            else if (end.x <= start.x && end.y >= start.y) dir = 3
+
+            return (
+              <CanvasFigureFrame
+                id="draft"
+                width={width}
+                height={height}
+                figureType={pendingFrameDraft.figureType}
+                figureColor={pendingFrameDraft.figureColor}
+                figureOrientation={dir}
+                iconRotationDeg={0}
+                label="Dra for å plassere"
+              />
+            )
+          })()}
         </div>
       )}
     </>

@@ -53,10 +53,12 @@ export type CanvasFrame = {
   iconColor?: string
   figureType?: CanvasFigureType
   figureColor?: string
+  figureOrientation?: number
   drawingPath?: string
   drawingStrokeStyles?: string
   drawingStrokeWidth?: number
   drawingColor?: string
+  drawingRotationDeg?: number
   isIllustration?: boolean
   imageRotationDeg?: number
   chartType?: CanvasChartType
@@ -170,10 +172,12 @@ export type CanvasConfigPayload = {
   iconColor?: string
   figureType?: CanvasFigureType
   figureColor?: string
+  figureOrientation?: number
   drawingPath?: string
   drawingStrokeStyles?: string
   drawingStrokeWidth?: number
   drawingColor?: string
+  drawingRotationDeg?: number
   isIllustration?: boolean
   imageRotationDeg?: number
   chartType?: CanvasChartType

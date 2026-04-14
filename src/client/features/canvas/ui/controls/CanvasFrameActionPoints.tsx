@@ -31,6 +31,10 @@ type CanvasFrameActionPointsProps = {
   onIncreaseHeadingFontSize: () => void
   onRotateIllustrationLeft: () => void
   onRotateIllustrationRight: () => void
+  onRotateFigureLeft: () => void
+  onRotateFigureRight: () => void
+  onRotateDrawingLeft: () => void
+  onRotateDrawingRight: () => void
   sectionLayoutMode?: CanvasSectionLayoutMode
   onToggleSectionLayout: () => void
   sectionMoveOptions?: Array<{ id: string; label: string }>
@@ -103,12 +107,16 @@ type FigureBoxActionPointsProps = {
   actionButtonClassName: string
   onEditFigure: () => void
   onDuplicateFigure: () => void
+  onRotateFigureLeft: () => void
+  onRotateFigureRight: () => void
 }
 
 const FigureBoxActionPoints = ({
   actionButtonClassName,
   onEditFigure,
   onDuplicateFigure,
+  onRotateFigureLeft,
+  onRotateFigureRight,
 }: FigureBoxActionPointsProps) => (
   <>
     <Button
@@ -129,6 +137,26 @@ const FigureBoxActionPoints = ({
       onClick={onDuplicateFigure}
       title="Dupliser figur"
       aria-label="Dupliser figur"
+      className={actionButtonClassName}
+    />
+    <Button
+      size="xsmall"
+      variant="tertiary"
+      icon={<RotateCcw size={14} />}
+      onMouseDown={stopMouseDownPropagation}
+      onClick={onRotateFigureLeft}
+      title="Roter venstre"
+      aria-label="Roter venstre"
+      className={actionButtonClassName}
+    />
+    <Button
+      size="xsmall"
+      variant="tertiary"
+      icon={<RotateCw size={14} />}
+      onMouseDown={stopMouseDownPropagation}
+      onClick={onRotateFigureRight}
+      title="Roter høyre"
+      aria-label="Roter høyre"
       className={actionButtonClassName}
     />
   </>
@@ -288,6 +316,10 @@ const CanvasFrameActionPoints = ({
   onIncreaseHeadingFontSize,
   onRotateIllustrationLeft,
   onRotateIllustrationRight,
+  onRotateFigureLeft,
+  onRotateFigureRight,
+  onRotateDrawingLeft,
+  onRotateDrawingRight,
   sectionLayoutMode,
   onToggleSectionLayout,
   sectionMoveOptions = [],
@@ -332,6 +364,8 @@ const CanvasFrameActionPoints = ({
           actionButtonClassName={actionButtonClassName}
           onEditFigure={onEditFigure}
           onDuplicateFigure={onDuplicateFigure}
+          onRotateFigureLeft={onRotateFigureLeft}
+          onRotateFigureRight={onRotateFigureRight}
         />
       )}
       {frameKind === 'heading' && (
@@ -449,16 +483,38 @@ const CanvasFrameActionPoints = ({
         />
       )}
       {frameKind === 'drawing' && (
-        <Button
-          size="xsmall"
-          variant="tertiary"
-          icon={<Copy size={14} />}
-          onMouseDown={stopMouseDownPropagation}
-          onClick={onDuplicateDrawing}
-          title="Dupliser tegning"
-          aria-label="Dupliser tegning"
-          className={actionButtonClassName}
-        />
+        <>
+          <Button
+            size="xsmall"
+            variant="tertiary"
+            icon={<Copy size={14} />}
+            onMouseDown={stopMouseDownPropagation}
+            onClick={onDuplicateDrawing}
+            title="Dupliser tegning"
+            aria-label="Dupliser tegning"
+            className={actionButtonClassName}
+          />
+          <Button
+            size="xsmall"
+            variant="tertiary"
+            icon={<RotateCcw size={14} />}
+            onMouseDown={stopMouseDownPropagation}
+            onClick={onRotateDrawingLeft}
+            title="Roter venstre"
+            aria-label="Roter venstre"
+            className={actionButtonClassName}
+          />
+          <Button
+            size="xsmall"
+            variant="tertiary"
+            icon={<RotateCw size={14} />}
+            onMouseDown={stopMouseDownPropagation}
+            onClick={onRotateDrawingRight}
+            title="Roter høyre"
+            aria-label="Roter høyre"
+            className={actionButtonClassName}
+          />
+        </>
       )}
       {frameKind === 'image' && (
         <Button

@@ -157,7 +157,11 @@ const getDefaultFrameSize = (
   if (kind === 'heading') return { width: 420, height: 72, minWidth: 260, minHeight: 48 }
   if (kind === 'text') return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
   if (kind === 'icon') return { width: 280, height: 240, minWidth: 72, minHeight: 72 }
-  if (kind === 'figure') return { width: 240, height: 240, minWidth: 120, minHeight: 120 }
+  if (kind === 'figure') {
+    const isLineOrArrow =
+      typeof frameOrKind !== 'string' && (frameOrKind.figureType === 'line' || frameOrKind.figureType === 'arrow')
+    return { width: 240, height: 240, minWidth: isLineOrArrow ? 12 : 120, minHeight: isLineOrArrow ? 12 : 120 }
+  }
   if (kind === 'drawing') return { width: 240, height: 160, minWidth: 28, minHeight: 28 }
   if (kind === 'section') return { width: 640, height: 420, minWidth: 240, minHeight: 180 }
   return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
@@ -501,6 +505,7 @@ const Canvas = () => {
   const [activeEditableFrameId, setActiveEditableFrameId] = useState<string | null>(null)
   const [failedImageFrameIds, setFailedImageFrameIds] = useState<Record<string, boolean>>({})
   const [pendingFrameDraft, setPendingFrameDraft] = useState<PendingCanvasFrameDraft | null>(null)
+  const [pendingFigureDragStart, setPendingFigureDragStart] = useState<{ x: number; y: number } | null>(null)
   const [pendingCsvStickyImport, setPendingCsvStickyImport] = useState<PendingCsvStickyImport | null>(null)
   const [pendingFramePlacementLabel, setPendingFramePlacementLabel] = useState<string | null>(null)
   const [pendingFramePointer, setPendingFramePointer] = useState<{ x: number; y: number } | null>(null)
@@ -1978,6 +1983,17 @@ const Canvas = () => {
       if (pendingFrameDraft) {
         event.preventDefault()
         event.stopPropagation()
+        const isLineOrArrow =
+          pendingFrameDraft.kind === 'figure' &&
+          (pendingFrameDraft.figureType === 'line' || pendingFrameDraft.figureType === 'arrow')
+        if (isLineOrArrow) {
+          const pointer = getCanvasPointerPosition(event.clientX, event.clientY)
+          if (pointer) {
+            setPendingFigureDragStart(pointer)
+            setPendingFramePointer(pointer)
+          }
+          return
+        }
         void handlePlacePendingFrame(event.clientX, event.clientY)
         return
       }
@@ -2988,15 +3004,15 @@ const Canvas = () => {
     }
 
     // Handle both mouse and touch events
-    window.addEventListener('mousemove', onPointerMove as any)
+    window.addEventListener('mousemove', onPointerMove as EventListener)
     window.addEventListener('mouseup', onPointerUp)
-    window.addEventListener('touchmove', onPointerMove as any, { passive: false })
+    window.addEventListener('touchmove', onPointerMove as EventListener, { passive: false })
     window.addEventListener('touchend', onPointerUp)
 
     return () => {
-      window.removeEventListener('mousemove', onPointerMove as any)
+      window.removeEventListener('mousemove', onPointerMove as EventListener)
       window.removeEventListener('mouseup', onPointerUp)
-      window.removeEventListener('touchmove', onPointerMove as any)
+      window.removeEventListener('touchmove', onPointerMove as EventListener)
       window.removeEventListener('touchend', onPointerUp)
     }
   }, [dragState, getCanvasPointerPosition, persistFrame])
@@ -3110,7 +3126,7 @@ const Canvas = () => {
       document.removeEventListener('mouseup', onMouseUp, true)
       window.removeEventListener('blur', onWindowBlur)
     }
-  }, [canvasZoom, persistFrame, reflowGridSections, resizeState])
+  }, [canvasZoom, getGridLayoutFrameHeight, persistFrame, reflowGridSections, resizeState])
 
   useEffect(() => {
     if (!selectionBox) return
@@ -3148,6 +3164,68 @@ const Canvas = () => {
       window.removeEventListener('mouseup', finalizeSelection)
     }
   }, [getCanvasPointerPosition, getFrameBounds, selectionBox, visibleFrames])
+
+  useEffect(() => {
+    if (!pendingFigureDragStart || !pendingFrameDraft) return
+
+    const updateDrag = (event: MouseEvent) => {
+      const pointer = getCanvasPointerPosition(event.clientX, event.clientY)
+      if (!pointer) return
+      setPendingFramePointer(pointer)
+    }
+
+    const finalizeDrag = async () => {
+      const start = pendingFigureDragStart
+      const end = pendingFramePointer || start
+      setPendingFigureDragStart(null)
+
+      const minX = Math.min(start.x, end.x)
+      const maxX = Math.max(start.x, end.x)
+      const minY = Math.min(start.y, end.y)
+      const maxY = Math.max(start.y, end.y)
+
+      const width = Math.max(12, maxX - minX)
+      const height = Math.max(12, maxY - minY)
+
+      let dir = 0
+      if (end.x >= start.x && end.y >= start.y) dir = 0
+      else if (end.x <= start.x && end.y <= start.y) dir = 1
+      else if (end.x >= start.x && end.y <= start.y) dir = 2
+      else if (end.x <= start.x && end.y >= start.y) dir = 3
+
+      const nextFrame: CanvasFrame = {
+        ...pendingFrameDraft,
+        id: `${Date.now()}-${Math.random()}`,
+        x: Math.max(0, minX),
+        y: Math.max(-CANVAS_TOP_BUFFER, minY),
+        width,
+        height,
+        figureOrientation: dir,
+        iconRotationDeg: 0,
+      }
+
+      try {
+        setIsSavingCanvasItem(true)
+        setSyncError(null)
+        const persistedFrame = await persistFrame(nextFrame)
+        setFrames((prev) => [...prev, persistedFrame])
+        setPendingFrameDraft(null)
+        setPendingFramePlacementLabel(null)
+        setPendingFramePointer(null)
+      } catch (error) {
+        setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre element i canvas')
+      } finally {
+        setIsSavingCanvasItem(false)
+      }
+    }
+
+    window.addEventListener('mousemove', updateDrag)
+    window.addEventListener('mouseup', finalizeDrag)
+    return () => {
+      window.removeEventListener('mousemove', updateDrag)
+      window.removeEventListener('mouseup', finalizeDrag)
+    }
+  }, [getCanvasPointerPosition, pendingFigureDragStart, pendingFrameDraft, pendingFramePointer, persistFrame])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -3803,6 +3881,40 @@ const Canvas = () => {
     setFrames((prev) => prev.map((frame) => (frame.id === id ? nextFrame : frame)))
     void persistFrame(nextFrame).catch((error) => {
       setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre illustrasjons-rotasjon')
+    })
+  }
+
+  const handleRotateFigureFrame = (id: string, delta: number) => {
+    const currentFrame = frames.find((frame) => frame.id === id)
+    if (!currentFrame || currentFrame.kind !== 'figure') return
+
+    const currentRotation = currentFrame.iconRotationDeg ?? 0
+    const nextRotation = (((currentRotation + delta) % 360) + 360) % 360
+    const nextFrame: CanvasFrame = {
+      ...currentFrame,
+      iconRotationDeg: nextRotation,
+    }
+
+    setFrames((prev) => prev.map((frame) => (frame.id === id ? nextFrame : frame)))
+    void persistFrame(nextFrame).catch((error) => {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre figur-rotasjon')
+    })
+  }
+
+  const handleRotateDrawingFrame = (id: string, delta: number) => {
+    const currentFrame = frames.find((frame) => frame.id === id)
+    if (!currentFrame || currentFrame.kind !== 'drawing') return
+
+    const currentRotation = currentFrame.drawingRotationDeg ?? 0
+    const nextRotation = (((currentRotation + delta) % 360) + 360) % 360
+    const nextFrame: CanvasFrame = {
+      ...currentFrame,
+      drawingRotationDeg: nextRotation,
+    }
+
+    setFrames((prev) => prev.map((frame) => (frame.id === id ? nextFrame : frame)))
+    void persistFrame(nextFrame).catch((error) => {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre tegning-rotasjon')
     })
   }
 
@@ -4928,6 +5040,7 @@ const Canvas = () => {
                   pendingFrameDraft={pendingFrameDraft}
                   pendingCsvStickyImport={pendingCsvStickyImport}
                   pendingFramePointer={pendingFramePointer}
+                  pendingFigureDragStart={pendingFigureDragStart}
                   pendingFramePlacementLabel={pendingFramePlacementLabel}
                   getPendingFrameContentAnchorOffset={getPendingFrameContentAnchorOffset}
                   getDefaultFrameSize={getDefaultFrameSize}
@@ -5026,6 +5139,8 @@ const Canvas = () => {
                   handleDuplicateImageCard={handleDuplicateImageCard}
                   handleAdjustHeadingFontSize={handleAdjustHeadingFontSize}
                   handleRotateIllustrationFrame={handleRotateIllustrationFrame}
+                  handleRotateFigureFrame={handleRotateFigureFrame}
+                  handleRotateDrawingFrame={handleRotateDrawingFrame}
                   handleToggleSectionLayout={handleToggleSectionLayout}
                   handleMoveFrameToSection={handleMoveFrameToSection}
                   handleSetStickyColor={handleSetStickyColor}
