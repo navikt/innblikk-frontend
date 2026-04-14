@@ -544,6 +544,7 @@ const Canvas = () => {
         backgroundSize: '24px 24px',
       }
     : undefined
+  const isPlacementModeActive = Boolean(pendingFrameDraft || pendingCsvStickyImport)
 
   const handleCanvasZoomChange = useCallback((nextZoom: number) => {
     setCanvasZoom(clampCanvasZoom(nextZoom))
@@ -5048,6 +5049,14 @@ const Canvas = () => {
                   getHeadingFrameFontSize={getHeadingFrameFontSize}
                   headingCardHeaderHeight={HEADING_CARD_HEADER_HEIGHT}
                 />
+                {isPlacementModeActive && (
+                  <div
+                    className="absolute inset-0 z-[96] cursor-crosshair"
+                    onMouseDown={handleCanvasSurfaceMouseDown}
+                    onMouseMove={handleCanvasSurfaceMouseMove}
+                    onMouseLeave={handleCanvasSurfaceMouseLeave}
+                  />
+                )}
                 {isDrawingMode && (
                   <div
                     className="absolute inset-0 z-[95] cursor-crosshair"
@@ -5067,100 +5076,104 @@ const Canvas = () => {
                     }}
                   />
                 )}
-                <CanvasConnectionLayer
-                  connectionSegments={connectionSegments}
-                  connectionPreview={connectionPreview}
-                  connectionSegmentsWithMetrics={connectionSegmentsWithMetrics}
-                  onRequestRemoveConnection={handleRequestRemoveConnection}
-                />
+                <div className={isPlacementModeActive ? 'pointer-events-none' : undefined}>
+                  <CanvasConnectionLayer
+                    connectionSegments={connectionSegments}
+                    connectionPreview={connectionPreview}
+                    connectionSegmentsWithMetrics={connectionSegmentsWithMetrics}
+                    onRequestRemoveConnection={handleRequestRemoveConnection}
+                  />
+                </div>
                 <CanvasDrawingDraftOverlay
                   drawingDraftStrokes={drawingDraftStrokes}
                   activeDrawingStroke={activeDrawingStroke}
                 />
-                <CanvasFrameLayer
-                  frameItems={frameItems}
-                  sectionItemCountsById={sectionItemCountsById}
-                  sectionMoveOptions={sectionMoveOptions}
-                  frameContainingSectionIdByFrameId={frameContainingSectionIdByFrameId}
-                  stickyColorOptions={CANVAS_STICKY_COLOR_OPTIONS.map((option) => ({
-                    id: option.id,
-                    label: option.label,
-                    color: option.background,
-                  }))}
-                  selectedFrameIds={selectedFrameIds}
-                  activeInsightFrameId={activeInsightFrameId}
-                  pageInsights={pageInsights}
-                  frameVisualizationData={frameVisualizationData}
-                  websiteTopListEnabled={websiteTopListEnabled}
-                  onToggleWebsiteTopList={() => setWebsiteTopListEnabled((current) => !current)}
-                  connectionDragState={connectionDragState}
-                  resizeState={resizeState}
-                  dragState={dragState}
-                  activeEditableFrameId={activeEditableFrameId}
-                  selectedWebsite={selectedWebsite}
-                  availableWebsites={availableWebsites}
-                  pendingChartWebsiteByFrameId={pendingChartWebsiteByFrameId}
-                  dashboardWidgetFilters={dashboardWidgetFilters}
-                  chartContentRefs={chartContentRefs}
-                  failedImageFrameIds={failedImageFrameIds}
-                  setFailedImageFrameIds={setFailedImageFrameIds}
-                  frameTablePages={frameTablePages}
-                  setFrameTablePages={setFrameTablePages}
-                  setPendingChartWebsiteByFrameId={setPendingChartWebsiteByFrameId}
-                  activeInsightPeriodLabel={activeInsightPeriodLabel}
-                  setWebsiteIframeRef={setWebsiteIframeRef}
-                  handleWebsiteFrameLoad={handleWebsiteFrameLoad}
-                  focusWebsiteTopListItem={focusWebsiteTopListItem}
-                  getDefaultFrameSize={getDefaultFrameSize}
-                  getHeadingFrameFontSize={getHeadingFrameFontSize}
-                  getHeadingFrameWidth={getHeadingFrameWidth}
-                  getHeadingFrameHeight={getHeadingFrameHeight}
-                  getFrameLockStatus={getFrameLockStatus}
-                  formatCanvasPathLabel={formatCanvasPathLabel}
-                  isImagePreviewUrl={isImagePreviewUrl}
-                  handleDragStart={handleDragStart}
-                  handleToggleInsightPanel={handleToggleInsightPanel}
-                  handleRefreshFrame={handleRefreshFrame}
-                  handleDuplicateWebsiteCard={handleDuplicateWebsiteCard}
-                  handleOpenEditDashboardModal={handleOpenEditDashboardModal}
-                  handleOpenEditWebsiteModal={handleOpenEditWebsiteModal}
-                  handleOpenEditImageModal={handleOpenEditImageModal}
-                  handleOpenEditIllustrationModal={handleOpenEditIllustrationModal}
-                  handleOpenEditIconModal={handleOpenEditIconModal}
-                  handleDuplicateIconCard={handleDuplicateIconCard}
-                  handleRotateIconFrame={handleRotateIconFrame}
-                  handleOpenEditFigureModal={handleOpenEditFigureModal}
-                  handleDuplicateFigureCard={handleDuplicateFigureCard}
-                  handleDuplicateSectionCard={handleDuplicateSectionCard}
-                  handleDuplicateStickyCard={handleDuplicateStickyCard}
-                  handleDuplicateTextCard={handleDuplicateTextCard}
-                  handleDuplicateHeadingCard={handleDuplicateHeadingCard}
-                  handleDuplicateDrawingCard={handleDuplicateDrawingCard}
-                  handleDuplicateImageCard={handleDuplicateImageCard}
-                  handleAdjustHeadingFontSize={handleAdjustHeadingFontSize}
-                  handleRotateIllustrationFrame={handleRotateIllustrationFrame}
-                  handleRotateFigureFrame={handleRotateFigureFrame}
-                  handleRotateDrawingFrame={handleRotateDrawingFrame}
-                  handleToggleSectionLayout={handleToggleSectionLayout}
-                  handleMoveFrameToSection={handleMoveFrameToSection}
-                  handleSetStickyColor={handleSetStickyColor}
-                  handleRequestRemoveFrame={handleRequestRemoveFrame}
-                  startConnectionDrag={startConnectionDrag}
-                  handleAssignWebsiteToChart={handleAssignWebsiteToChart}
-                  handleOpenEditChartModal={handleOpenEditChartModal}
-                  handleOpenDeleteChartModal={handleOpenDeleteChartModal}
-                  handleEditableFrameChange={handleEditableFrameChange}
-                  handleEditableFrameBlur={handleEditableFrameBlur}
-                  handleStartEditingFrame={handleStartEditingFrame}
-                  handleResizeStart={handleResizeStart}
-                  isDotVotingActive={isDotVotingActive}
-                  dotVotingTargetSectionId={activeDotVotingSectionFrame?.id ?? null}
-                  dotVotingTotalVotesByFrameId={dotVotingTotalVotesByFrameId}
-                  dotVotingMyVotesByFrameId={dotVotingMyVotesByFrameId}
-                  shouldRevealDotVotingTotals={shouldRevealDotVotingTotals}
-                  onVoteSticky={handleAddDotVote}
-                  onClearStickyVoteSnapshot={handleRequestClearStickyVoteSnapshot}
-                />
+                <div className={isPlacementModeActive ? 'pointer-events-none' : undefined}>
+                  <CanvasFrameLayer
+                    frameItems={frameItems}
+                    sectionItemCountsById={sectionItemCountsById}
+                    sectionMoveOptions={sectionMoveOptions}
+                    frameContainingSectionIdByFrameId={frameContainingSectionIdByFrameId}
+                    stickyColorOptions={CANVAS_STICKY_COLOR_OPTIONS.map((option) => ({
+                      id: option.id,
+                      label: option.label,
+                      color: option.background,
+                    }))}
+                    selectedFrameIds={selectedFrameIds}
+                    activeInsightFrameId={activeInsightFrameId}
+                    pageInsights={pageInsights}
+                    frameVisualizationData={frameVisualizationData}
+                    websiteTopListEnabled={websiteTopListEnabled}
+                    onToggleWebsiteTopList={() => setWebsiteTopListEnabled((current) => !current)}
+                    connectionDragState={connectionDragState}
+                    resizeState={resizeState}
+                    dragState={dragState}
+                    activeEditableFrameId={activeEditableFrameId}
+                    selectedWebsite={selectedWebsite}
+                    availableWebsites={availableWebsites}
+                    pendingChartWebsiteByFrameId={pendingChartWebsiteByFrameId}
+                    dashboardWidgetFilters={dashboardWidgetFilters}
+                    chartContentRefs={chartContentRefs}
+                    failedImageFrameIds={failedImageFrameIds}
+                    setFailedImageFrameIds={setFailedImageFrameIds}
+                    frameTablePages={frameTablePages}
+                    setFrameTablePages={setFrameTablePages}
+                    setPendingChartWebsiteByFrameId={setPendingChartWebsiteByFrameId}
+                    activeInsightPeriodLabel={activeInsightPeriodLabel}
+                    setWebsiteIframeRef={setWebsiteIframeRef}
+                    handleWebsiteFrameLoad={handleWebsiteFrameLoad}
+                    focusWebsiteTopListItem={focusWebsiteTopListItem}
+                    getDefaultFrameSize={getDefaultFrameSize}
+                    getHeadingFrameFontSize={getHeadingFrameFontSize}
+                    getHeadingFrameWidth={getHeadingFrameWidth}
+                    getHeadingFrameHeight={getHeadingFrameHeight}
+                    getFrameLockStatus={getFrameLockStatus}
+                    formatCanvasPathLabel={formatCanvasPathLabel}
+                    isImagePreviewUrl={isImagePreviewUrl}
+                    handleDragStart={handleDragStart}
+                    handleToggleInsightPanel={handleToggleInsightPanel}
+                    handleRefreshFrame={handleRefreshFrame}
+                    handleDuplicateWebsiteCard={handleDuplicateWebsiteCard}
+                    handleOpenEditDashboardModal={handleOpenEditDashboardModal}
+                    handleOpenEditWebsiteModal={handleOpenEditWebsiteModal}
+                    handleOpenEditImageModal={handleOpenEditImageModal}
+                    handleOpenEditIllustrationModal={handleOpenEditIllustrationModal}
+                    handleOpenEditIconModal={handleOpenEditIconModal}
+                    handleDuplicateIconCard={handleDuplicateIconCard}
+                    handleRotateIconFrame={handleRotateIconFrame}
+                    handleOpenEditFigureModal={handleOpenEditFigureModal}
+                    handleDuplicateFigureCard={handleDuplicateFigureCard}
+                    handleDuplicateSectionCard={handleDuplicateSectionCard}
+                    handleDuplicateStickyCard={handleDuplicateStickyCard}
+                    handleDuplicateTextCard={handleDuplicateTextCard}
+                    handleDuplicateHeadingCard={handleDuplicateHeadingCard}
+                    handleDuplicateDrawingCard={handleDuplicateDrawingCard}
+                    handleDuplicateImageCard={handleDuplicateImageCard}
+                    handleAdjustHeadingFontSize={handleAdjustHeadingFontSize}
+                    handleRotateIllustrationFrame={handleRotateIllustrationFrame}
+                    handleRotateFigureFrame={handleRotateFigureFrame}
+                    handleRotateDrawingFrame={handleRotateDrawingFrame}
+                    handleToggleSectionLayout={handleToggleSectionLayout}
+                    handleMoveFrameToSection={handleMoveFrameToSection}
+                    handleSetStickyColor={handleSetStickyColor}
+                    handleRequestRemoveFrame={handleRequestRemoveFrame}
+                    startConnectionDrag={startConnectionDrag}
+                    handleAssignWebsiteToChart={handleAssignWebsiteToChart}
+                    handleOpenEditChartModal={handleOpenEditChartModal}
+                    handleOpenDeleteChartModal={handleOpenDeleteChartModal}
+                    handleEditableFrameChange={handleEditableFrameChange}
+                    handleEditableFrameBlur={handleEditableFrameBlur}
+                    handleStartEditingFrame={handleStartEditingFrame}
+                    handleResizeStart={handleResizeStart}
+                    isDotVotingActive={isDotVotingActive}
+                    dotVotingTargetSectionId={activeDotVotingSectionFrame?.id ?? null}
+                    dotVotingTotalVotesByFrameId={dotVotingTotalVotesByFrameId}
+                    dotVotingMyVotesByFrameId={dotVotingMyVotesByFrameId}
+                    shouldRevealDotVotingTotals={shouldRevealDotVotingTotals}
+                    onVoteSticky={handleAddDotVote}
+                    onClearStickyVoteSnapshot={handleRequestClearStickyVoteSnapshot}
+                  />
+                </div>
               </div>
             </div>
           </main>
