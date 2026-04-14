@@ -3185,80 +3185,6 @@ const Canvas = () => {
   }, [selectedFrameIds])
 
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const usesPrimaryModifier = event.metaKey || event.ctrlKey
-      if (!usesPrimaryModifier || event.altKey) return
-
-      const target = event.target as HTMLElement | null
-      const isTypingTarget =
-        target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable || false
-      if (isTypingTarget) return
-
-      const pressedKey = event.key.toLowerCase()
-      const isCopyShortcut = pressedKey === 'c' && !event.shiftKey
-      const isPasteShortcut = pressedKey === 'v' && !event.shiftKey
-      if (!isCopyShortcut && !isPasteShortcut) return
-
-      if (isCopyShortcut) {
-        const copiedFrames = frames
-          .filter(
-            (frame) =>
-              selectedFrameIds.includes(frame.id) &&
-              (frame.kind === 'sticky' || frame.kind === 'text' || frame.kind === 'section'),
-          )
-          .sort((a, b) => {
-            if (a.y !== b.y) return a.y - b.y
-            if (a.x !== b.x) return a.x - b.x
-            return a.id.localeCompare(b.id)
-          })
-
-        if (copiedFrames.length === 0) return
-        event.preventDefault()
-        clipboardFramesRef.current = copiedFrames
-        clipboardPasteCountRef.current = 0
-        return
-      }
-
-      const copiedFrames = clipboardFramesRef.current
-      if (!copiedFrames || copiedFrames.length === 0) return
-
-      event.preventDefault()
-      const pasteOffset = 36 * (clipboardPasteCountRef.current + 1)
-      const duplicatedFrames = copiedFrames.map((frame) => ({
-        ...frame,
-        id: `${Date.now()}-${Math.random()}`,
-        x: Math.max(0, frame.x + pasteOffset),
-        y: Math.max(-CANVAS_TOP_BUFFER, frame.y + pasteOffset),
-        graphId: undefined,
-        queryId: undefined,
-        refreshNonce: 0,
-      }))
-
-      void (async () => {
-        try {
-          setIsSavingCanvasItem(true)
-          setSyncError(null)
-          const persistedFrames: CanvasFrame[] = []
-          for (const frame of duplicatedFrames) {
-            const persistedFrame = await persistFrame(frame)
-            persistedFrames.push(persistedFrame)
-          }
-          setFrames((prev) => [...prev, ...persistedFrames])
-          setSelectedFrameIds(persistedFrames.map((frame) => frame.id))
-          clipboardPasteCountRef.current += 1
-        } catch (error) {
-          setSyncError(error instanceof Error ? error.message : 'Kunne ikke lime inn elementer i canvas')
-        } finally {
-          setIsSavingCanvasItem(false)
-        }
-      })()
-    }
-
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [frames, persistFrame, selectedFrameIds])
-
-  useEffect(() => {
     if (selectedFrameIds.length === 0) return
 
     const onWindowMouseDown = (event: MouseEvent) => {
@@ -3337,41 +3263,56 @@ const Canvas = () => {
     }
   }, [connectionDragState, createConnectionBetweenFrames, getCanvasPointerPosition, getFrameBounds, visibleFrames])
 
-  const handleRemovePage = async (id: string) => {
-    const frameToDelete = frames.find((frame) => frame.id === id)
-    const linkedConnections = connections.filter(
-      (connection) =>
-        connection.fromFrameId === id ||
-        connection.toFrameId === id ||
-        (frameToDelete?.graphId !== undefined &&
-          (connection.fromGraphId === frameToDelete.graphId || connection.toGraphId === frameToDelete.graphId)),
-    )
-    setFrames((prev) => prev.filter((frame) => frame.id !== id))
-    setSelectedFrameIds((prev) => prev.filter((frameId) => frameId !== id))
-    setConnections((prev) => prev.filter((connection) => !linkedConnections.some((item) => item.id === connection.id)))
-    if (activeEditableFrameId === id && frameToDelete) {
-      setActiveEditableFrameId(null)
-      void releaseEditLock(frameToDelete).catch(() => undefined)
-    }
-    if (connectionDragState?.sourceFrameId === id) {
-      setConnectionDragState(null)
-    }
-
-    if (!frameToDelete || !canPersistToDashboard || projectId === null || dashboardId === null) return
-    if (!frameToDelete.graphId || !frameToDelete.categoryId) return
-
-    try {
-      await deleteGraph(projectId, dashboardId, frameToDelete.categoryId, frameToDelete.graphId)
-      await Promise.all(
-        linkedConnections.map((connection) => {
-          if (!connection.graphId || !connection.categoryId) return Promise.resolve()
-          return deleteGraph(projectId, dashboardId, connection.categoryId, connection.graphId)
-        }),
+  const handleRemovePage = useCallback(
+    async (id: string) => {
+      const frameToDelete = frames.find((frame) => frame.id === id)
+      const linkedConnections = connections.filter(
+        (connection) =>
+          connection.fromFrameId === id ||
+          connection.toFrameId === id ||
+          (frameToDelete?.graphId !== undefined &&
+            (connection.fromGraphId === frameToDelete.graphId || connection.toGraphId === frameToDelete.graphId)),
       )
-    } catch (error) {
-      setSyncError(error instanceof Error ? error.message : 'Kunne ikke slette element fra canvas')
-    }
-  }
+      setFrames((prev) => prev.filter((frame) => frame.id !== id))
+      setSelectedFrameIds((prev) => prev.filter((frameId) => frameId !== id))
+      setConnections((prev) =>
+        prev.filter((connection) => !linkedConnections.some((item) => item.id === connection.id)),
+      )
+      if (activeEditableFrameId === id && frameToDelete) {
+        setActiveEditableFrameId(null)
+        void releaseEditLock(frameToDelete).catch(() => undefined)
+      }
+      if (connectionDragState?.sourceFrameId === id) {
+        setConnectionDragState(null)
+      }
+
+      if (!frameToDelete || !canPersistToDashboard || projectId === null || dashboardId === null) return
+      if (!frameToDelete.graphId || !frameToDelete.categoryId) return
+
+      try {
+        await deleteGraph(projectId, dashboardId, frameToDelete.categoryId, frameToDelete.graphId)
+        await Promise.all(
+          linkedConnections.map((connection) => {
+            if (!connection.graphId || !connection.categoryId) return Promise.resolve()
+            return deleteGraph(projectId, dashboardId, connection.categoryId, connection.graphId)
+          }),
+        )
+      } catch (error) {
+        setSyncError(error instanceof Error ? error.message : 'Kunne ikke slette element fra canvas')
+      }
+    },
+    [
+      frames,
+      connections,
+      activeEditableFrameId,
+      releaseEditLock,
+      connectionDragState,
+      canPersistToDashboard,
+      projectId,
+      dashboardId,
+      setSyncError,
+    ],
+  )
 
   const handleRemoveConnection = async (connectionId: string) => {
     const connection = connections.find((item) => item.id === connectionId)
@@ -3508,6 +3449,95 @@ const Canvas = () => {
       setBulkDeleteProgress(null)
     }
   }
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const usesPrimaryModifier = event.metaKey || event.ctrlKey
+      if (!usesPrimaryModifier || event.altKey) return
+
+      const target = event.target as HTMLElement | null
+      const isTypingTarget =
+        target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable || false
+      if (isTypingTarget) return
+
+      const pressedKey = event.key.toLowerCase()
+      const isCopyShortcut = pressedKey === 'c' && !event.shiftKey
+      const isCutShortcut = pressedKey === 'x' && !event.shiftKey
+      const isPasteShortcut = pressedKey === 'v' && !event.shiftKey
+      if (!isCopyShortcut && !isCutShortcut && !isPasteShortcut) return
+
+      if (isCopyShortcut || isCutShortcut) {
+        const copiedFrames = frames
+          .filter((frame) => selectedFrameIds.includes(frame.id))
+          .sort((a, b) => {
+            if (a.y !== b.y) return a.y - b.y
+            if (a.x !== b.x) return a.x - b.x
+            return a.id.localeCompare(b.id)
+          })
+
+        if (copiedFrames.length === 0) return
+        event.preventDefault()
+        clipboardFramesRef.current = copiedFrames
+        clipboardPasteCountRef.current = 0
+
+        if (isCutShortcut) {
+          void (async () => {
+            try {
+              setIsSavingCanvasItem(true)
+              setSyncError(null)
+              const idsToRemove = [...selectedFrameIds]
+              for (const id of idsToRemove) {
+                await handleRemovePage(id)
+              }
+              setSelectedFrameIds([])
+            } catch (error) {
+              setSyncError(error instanceof Error ? error.message : 'Kunne ikke klippe ut elementer fra canvas')
+            } finally {
+              setIsSavingCanvasItem(false)
+            }
+          })()
+        }
+        return
+      }
+
+      const copiedFrames = clipboardFramesRef.current
+      if (!copiedFrames || copiedFrames.length === 0) return
+
+      event.preventDefault()
+      const pasteOffset = 36 * (clipboardPasteCountRef.current + 1)
+      const duplicatedFrames = copiedFrames.map((frame) => ({
+        ...frame,
+        id: `${Date.now()}-${Math.random()}`,
+        x: Math.max(0, frame.x + pasteOffset),
+        y: Math.max(-CANVAS_TOP_BUFFER, frame.y + pasteOffset),
+        graphId: undefined,
+        queryId: undefined,
+        refreshNonce: 0,
+      }))
+
+      void (async () => {
+        try {
+          setIsSavingCanvasItem(true)
+          setSyncError(null)
+          const persistedFrames: CanvasFrame[] = []
+          for (const frame of duplicatedFrames) {
+            const persistedFrame = await persistFrame(frame)
+            persistedFrames.push(persistedFrame)
+          }
+          setFrames((prev) => [...prev, ...persistedFrames])
+          setSelectedFrameIds(persistedFrames.map((frame) => frame.id))
+          clipboardPasteCountRef.current += 1
+        } catch (error) {
+          setSyncError(error instanceof Error ? error.message : 'Kunne ikke lime inn elementer i canvas')
+        } finally {
+          setIsSavingCanvasItem(false)
+        }
+      })()
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [frames, handleRemovePage, persistFrame, selectedFrameIds])
 
   const resolveConnectionFrame = useCallback(
     (connection: CanvasConnection, role: 'from' | 'to'): CanvasFrame | null => {
