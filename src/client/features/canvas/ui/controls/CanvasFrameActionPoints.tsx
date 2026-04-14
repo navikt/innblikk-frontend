@@ -150,15 +150,6 @@ const HeadingBoxActionPoints = ({
     <Button
       size="xsmall"
       variant="tertiary"
-      icon={<Edit2 size={14} />}
-      onMouseDown={stopMouseDownPropagation}
-      title="Rediger arkitektur"
-      aria-label="Rediger arkitektur"
-      className={actionButtonClassName}
-    />
-    <Button
-      size="xsmall"
-      variant="tertiary"
       icon={<Copy size={14} />}
       onMouseDown={stopMouseDownPropagation}
       onClick={onDuplicateHeading}
