@@ -118,7 +118,7 @@ function App() {
         defer: true,
         src: 'https://cdn.nav.no/team-researchops/sporing/sporing.js',
         'data-domains': 'innblikk.ansatt.nav.no',
-        'data-website-id': '8e935f84-fb1e-4d07-be28-410eb2ab8cb9',
+        'data-website-id': '0b8f9b86-ad39-48c3-9083-86ed6a399217',
       },
       {
         type: 'text/javascript',
