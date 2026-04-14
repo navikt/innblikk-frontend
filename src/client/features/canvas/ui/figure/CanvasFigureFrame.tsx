@@ -24,15 +24,15 @@ const CanvasFigureFrame = ({
   label,
 }: CanvasFigureFrameProps) => {
   const resolvedFigureType = figureType ?? 'square'
-  // More subtle stroke width, baseline is slightly smaller
-  const strokeWidth = Math.max(1.5, Math.floor(Math.min(width, height) * 0.024))
+  const isLineOrArrow = resolvedFigureType === 'line' || resolvedFigureType === 'arrow'
+  // Consistent stroke width for lines and arrows, slight scaling for shapes to prevent them looking too thin when large
+  const strokeWidth = isLineOrArrow ? 4 : Math.max(2, Math.floor(Math.min(width, height) * 0.02))
   const strokeColor = getCanvasIconColor(figureColor)
   const strokeColorForRender = strokeColor.toLowerCase() === '#111111' ? 'var(--ax-text-default)' : strokeColor
   const markerId = `canvas-figure-arrow-${id}`
 
   // For shapes like square and circle, iconRotationDeg is actual degrees.
   // For line and arrow, it's currently used for quadrant mode (0-3).
-  const isLineOrArrow = resolvedFigureType === 'line' || resolvedFigureType === 'arrow'
   const rotation = isLineOrArrow ? 0 : (iconRotationDeg ?? 0)
 
   return (
