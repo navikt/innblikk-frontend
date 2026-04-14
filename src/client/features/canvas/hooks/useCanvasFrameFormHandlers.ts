@@ -837,7 +837,7 @@ const useCanvasFrameFormHandlers = ({
   const handleOpenEditFigureModal = (frame: CanvasFrame) => {
     if (frame.kind !== 'figure') return
     setEditFigureFrameId(frame.id)
-    setEditFigureSelectedType(frame.figureType ?? 'rectangle')
+    setEditFigureSelectedType(frame.figureType ?? 'square')
     setEditFigureSelectedColor(getCanvasIconColor(frame.figureColor))
     setEditFigureError(null)
     setIsEditFigureModalOpen(true)
@@ -894,7 +894,7 @@ const useCanvasFrameFormHandlers = ({
       x: frame.x + 36,
       y: frame.y + 36,
       width: frame.width ?? 240,
-      height: frame.height ?? 200,
+      height: frame.height ?? 240,
       graphId: undefined,
       queryId: undefined,
       refreshNonce: 0,
@@ -1433,7 +1433,7 @@ const useCanvasFrameFormHandlers = ({
       figureColor: getCanvasIconColor(selectedFigureColor),
       label: selectedFigure.label,
       width: selectedFigure.id === 'line' || selectedFigure.id === 'arrow' ? 320 : 240,
-      height: selectedFigure.id === 'line' || selectedFigure.id === 'arrow' ? 120 : 200,
+      height: selectedFigure.id === 'line' || selectedFigure.id === 'arrow' ? 120 : 240,
       refreshNonce: 0,
     }
     queueFrameForPlacement(frameDraft, 'figur')
@@ -1536,7 +1536,7 @@ const useCanvasFrameFormHandlers = ({
   }
 
   const handleOpenAddFigureModal = () => {
-    setSelectedFigureType('rectangle')
+    setSelectedFigureType('square')
     setSelectedFigureColor(DEFAULT_CANVAS_ICON_COLOR)
     setAddFigureError(null)
     setIsAddFigureModalOpen(true)

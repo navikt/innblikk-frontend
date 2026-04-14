@@ -3,7 +3,7 @@ import type { VisualizationMode } from '../../clickmap/model/visualizationMode.t
 import type { PageMetricRow } from '../../traffic/model/types.ts'
 
 export type CanvasChartType = 'line' | 'bar' | 'pie' | 'table'
-export type CanvasFigureType = 'rectangle' | 'circle' | 'line' | 'arrow'
+export type CanvasFigureType = 'square' | 'circle' | 'line' | 'arrow'
 export type CanvasSectionLayoutMode = 'freeform' | 'grid'
 export type CanvasCsvImportStyle = 'sticky' | 'table'
 export type CanvasCsvTableMode = 'rows' | 'summary'

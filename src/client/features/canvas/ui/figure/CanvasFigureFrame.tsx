@@ -1,6 +1,6 @@
 import { getCanvasIconColor } from '../icon/CanvasIconRegistry.ts'
 
-type CanvasFigureType = 'rectangle' | 'circle' | 'line' | 'arrow'
+type CanvasFigureType = 'square' | 'circle' | 'line' | 'arrow'
 
 type CanvasFigureFrameProps = {
   id: string
@@ -12,7 +12,7 @@ type CanvasFigureFrameProps = {
 }
 
 const CanvasFigureFrame = ({ id, width, height, figureType, figureColor, label }: CanvasFigureFrameProps) => {
-  const resolvedFigureType = figureType ?? 'rectangle'
+  const resolvedFigureType = figureType ?? 'square'
   const strokeWidth = Math.max(2, Math.floor(Math.min(width, height) * 0.035))
   const strokeColor = getCanvasIconColor(figureColor)
   const strokeColorForRender = strokeColor.toLowerCase() === '#111111' ? 'var(--ax-text-default)' : strokeColor
@@ -42,7 +42,7 @@ const CanvasFigureFrame = ({ id, width, height, figureType, figureColor, label }
           </marker>
         </defs>
       )}
-      {resolvedFigureType === 'rectangle' && (
+      {resolvedFigureType === 'square' && (
         <rect
           x={strokeWidth}
           y={strokeWidth}

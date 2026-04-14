@@ -157,7 +157,7 @@ const getDefaultFrameSize = (
   if (kind === 'heading') return { width: 420, height: 72, minWidth: 260, minHeight: 48 }
   if (kind === 'text') return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
   if (kind === 'icon') return { width: 280, height: 240, minWidth: 72, minHeight: 72 }
-  if (kind === 'figure') return { width: 240, height: 200, minWidth: 120, minHeight: 72 }
+  if (kind === 'figure') return { width: 240, height: 240, minWidth: 120, minHeight: 120 }
   if (kind === 'drawing') return { width: 240, height: 160, minWidth: 28, minHeight: 28 }
   if (kind === 'section') return { width: 640, height: 420, minWidth: 240, minHeight: 180 }
   return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
@@ -412,10 +412,10 @@ const Canvas = () => {
   const [editIconSelectedId, setEditIconSelectedId] = useState(DEFAULT_CANVAS_ICON_ID)
   const [editIconSelectedColor, setEditIconSelectedColor] = useState(DEFAULT_CANVAS_ICON_COLOR)
   const [editIconError, setEditIconError] = useState<string | null>(null)
-  const [selectedFigureType, setSelectedFigureType] = useState<CanvasFigureType>('rectangle')
+  const [selectedFigureType, setSelectedFigureType] = useState<CanvasFigureType>('square')
   const [selectedFigureColor, setSelectedFigureColor] = useState(DEFAULT_CANVAS_ICON_COLOR)
   const [addFigureError, setAddFigureError] = useState<string | null>(null)
-  const [editFigureSelectedType, setEditFigureSelectedType] = useState<CanvasFigureType>('rectangle')
+  const [editFigureSelectedType, setEditFigureSelectedType] = useState<CanvasFigureType>('square')
   const [editFigureSelectedColor, setEditFigureSelectedColor] = useState(DEFAULT_CANVAS_ICON_COLOR)
   const [editFigureError, setEditFigureError] = useState<string | null>(null)
   const [chartOptions, _setChartOptions] = useState<CanvasChartOption[]>([])
@@ -2772,7 +2772,7 @@ const Canvas = () => {
         const targetColumn = framesRef.current.find((frame) => {
           if (
             frame.kind !== 'figure' ||
-            frame.figureType !== 'rectangle' ||
+            frame.figureType !== 'square' ||
             !frame.label.startsWith(PLANNER_COLUMN_LABEL_PREFIX)
           )
             return false
