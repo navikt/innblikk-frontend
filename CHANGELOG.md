@@ -79,5 +79,6 @@ All notable changes to this project will be documented in this file.
 - Remove data-host-url reference formatting
 - Remove data-host-url reference formatting
 - Remove data-host-url reference formatting
+- Bytte til innsikt website-id
 
 
