@@ -1466,6 +1466,11 @@ const Canvas = () => {
     handleDuplicateIconCard,
     handleDuplicateFigureCard,
     handleDuplicateSectionCard,
+    handleDuplicateStickyCard,
+    handleDuplicateTextCard,
+    handleDuplicateHeadingCard,
+    handleDuplicateDrawingCard,
+    handleDuplicateImageCard,
     handleSaveEditedWebsite,
     handleSaveEditedDashboard,
     handleSaveEditedImage,
@@ -5014,6 +5019,11 @@ const Canvas = () => {
                   handleOpenEditFigureModal={handleOpenEditFigureModal}
                   handleDuplicateFigureCard={handleDuplicateFigureCard}
                   handleDuplicateSectionCard={handleDuplicateSectionCard}
+                  handleDuplicateStickyCard={handleDuplicateStickyCard}
+                  handleDuplicateTextCard={handleDuplicateTextCard}
+                  handleDuplicateHeadingCard={handleDuplicateHeadingCard}
+                  handleDuplicateDrawingCard={handleDuplicateDrawingCard}
+                  handleDuplicateImageCard={handleDuplicateImageCard}
                   handleAdjustHeadingFontSize={handleAdjustHeadingFontSize}
                   handleRotateIllustrationFrame={handleRotateIllustrationFrame}
                   handleToggleSectionLayout={handleToggleSectionLayout}

@@ -943,6 +943,131 @@ const useCanvasFrameFormHandlers = ({
     }
   }
 
+  const handleDuplicateStickyCard = async (frame: CanvasFrame) => {
+    if (frame.kind !== 'sticky') return
+
+    const duplicatedFrame: CanvasFrame = {
+      ...frame,
+      id: `${Date.now()}-${Math.random()}`,
+      x: frame.x + 36,
+      y: frame.y + 36,
+      graphId: undefined,
+      queryId: undefined,
+      refreshNonce: 0,
+    }
+
+    try {
+      setIsSavingCanvasItem(true)
+      setSyncError(null)
+      const persistedFrame = await persistFrame(duplicatedFrame)
+      setFrames((prev) => [...prev, persistedFrame])
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke duplisere sticky-notat')
+    } finally {
+      setIsSavingCanvasItem(false)
+    }
+  }
+
+  const handleDuplicateTextCard = async (frame: CanvasFrame) => {
+    if (frame.kind !== 'text') return
+
+    const duplicatedFrame: CanvasFrame = {
+      ...frame,
+      id: `${Date.now()}-${Math.random()}`,
+      x: frame.x + 36,
+      y: frame.y + 36,
+      graphId: undefined,
+      queryId: undefined,
+      refreshNonce: 0,
+    }
+
+    try {
+      setIsSavingCanvasItem(true)
+      setSyncError(null)
+      const persistedFrame = await persistFrame(duplicatedFrame)
+      setFrames((prev) => [...prev, persistedFrame])
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke duplisere tekstfelt')
+    } finally {
+      setIsSavingCanvasItem(false)
+    }
+  }
+
+  const handleDuplicateHeadingCard = async (frame: CanvasFrame) => {
+    if (frame.kind !== 'heading') return
+
+    const duplicatedFrame: CanvasFrame = {
+      ...frame,
+      id: `${Date.now()}-${Math.random()}`,
+      x: frame.x + 36,
+      y: frame.y + 36,
+      graphId: undefined,
+      queryId: undefined,
+      refreshNonce: 0,
+    }
+
+    try {
+      setIsSavingCanvasItem(true)
+      setSyncError(null)
+      const persistedFrame = await persistFrame(duplicatedFrame)
+      setFrames((prev) => [...prev, persistedFrame])
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke duplisere tittel')
+    } finally {
+      setIsSavingCanvasItem(false)
+    }
+  }
+
+  const handleDuplicateDrawingCard = async (frame: CanvasFrame) => {
+    if (frame.kind !== 'drawing') return
+
+    const duplicatedFrame: CanvasFrame = {
+      ...frame,
+      id: `${Date.now()}-${Math.random()}`,
+      x: frame.x + 36,
+      y: frame.y + 36,
+      graphId: undefined,
+      queryId: undefined,
+      refreshNonce: 0,
+    }
+
+    try {
+      setIsSavingCanvasItem(true)
+      setSyncError(null)
+      const persistedFrame = await persistFrame(duplicatedFrame)
+      setFrames((prev) => [...prev, persistedFrame])
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke duplisere tegning')
+    } finally {
+      setIsSavingCanvasItem(false)
+    }
+  }
+
+  const handleDuplicateImageCard = async (frame: CanvasFrame) => {
+    if (frame.kind !== 'image') return
+
+    const duplicatedFrame: CanvasFrame = {
+      ...frame,
+      id: `${Date.now()}-${Math.random()}`,
+      x: frame.x + 36,
+      y: frame.y + 36,
+      graphId: undefined,
+      queryId: undefined,
+      refreshNonce: 0,
+    }
+
+    try {
+      setIsSavingCanvasItem(true)
+      setSyncError(null)
+      const persistedFrame = await persistFrame(duplicatedFrame)
+      setFrames((prev) => [...prev, persistedFrame])
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke duplisere bilde-kort')
+    } finally {
+      setIsSavingCanvasItem(false)
+    }
+  }
+
   const handleSaveEditedWebsite = async () => {
     if (!editWebsiteFrameId) return
 
@@ -1443,6 +1568,11 @@ const useCanvasFrameFormHandlers = ({
     handleDuplicateIconCard,
     handleDuplicateFigureCard,
     handleDuplicateSectionCard,
+    handleDuplicateStickyCard,
+    handleDuplicateTextCard,
+    handleDuplicateHeadingCard,
+    handleDuplicateDrawingCard,
+    handleDuplicateImageCard,
     handleSaveEditedWebsite,
     handleSaveEditedDashboard,
     handleSaveEditedImage,

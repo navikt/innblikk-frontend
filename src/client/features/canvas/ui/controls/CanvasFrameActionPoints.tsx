@@ -22,6 +22,11 @@ type CanvasFrameActionPointsProps = {
   onEditFigure: () => void
   onDuplicateFigure: () => void
   onDuplicateSection: () => void
+  onDuplicateSticky: () => void
+  onDuplicateText: () => void
+  onDuplicateHeading: () => void
+  onDuplicateDrawing: () => void
+  onDuplicateImage: () => void
   onDecreaseHeadingFontSize: () => void
   onIncreaseHeadingFontSize: () => void
   onRotateIllustrationLeft: () => void
@@ -137,10 +142,30 @@ type HeadingBoxActionPointsProps = {
 
 const HeadingBoxActionPoints = ({
   actionButtonClassName,
+  onDuplicateHeading,
   onDecreaseHeadingFontSize,
   onIncreaseHeadingFontSize,
-}: HeadingBoxActionPointsProps) => (
+}: HeadingBoxActionPointsProps & { onDuplicateHeading: () => void }) => (
   <>
+    <Button
+      size="xsmall"
+      variant="tertiary"
+      icon={<Edit2 size={14} />}
+      onMouseDown={stopMouseDownPropagation}
+      title="Rediger arkitektur"
+      aria-label="Rediger arkitektur"
+      className={actionButtonClassName}
+    />
+    <Button
+      size="xsmall"
+      variant="tertiary"
+      icon={<Copy size={14} />}
+      onMouseDown={stopMouseDownPropagation}
+      onClick={onDuplicateHeading}
+      title="Dupliser tittel"
+      aria-label="Dupliser tittel"
+      className={actionButtonClassName}
+    />
     <Button
       size="xsmall"
       variant="tertiary"
@@ -263,6 +288,11 @@ const CanvasFrameActionPoints = ({
   onEditFigure,
   onDuplicateFigure,
   onDuplicateSection,
+  onDuplicateSticky,
+  onDuplicateText,
+  onDuplicateHeading,
+  onDuplicateDrawing,
+  onDuplicateImage,
   onDecreaseHeadingFontSize,
   onIncreaseHeadingFontSize,
   onRotateIllustrationLeft,
@@ -316,6 +346,7 @@ const CanvasFrameActionPoints = ({
       {frameKind === 'heading' && (
         <HeadingBoxActionPoints
           actionButtonClassName={actionButtonClassName}
+          onDuplicateHeading={onDuplicateHeading}
           onDecreaseHeadingFontSize={onDecreaseHeadingFontSize}
           onIncreaseHeadingFontSize={onIncreaseHeadingFontSize}
         />
@@ -413,6 +444,42 @@ const CanvasFrameActionPoints = ({
             ))}
           </ActionMenu.Content>
         </ActionMenu>
+      )}
+      {(frameKind === 'sticky' || frameKind === 'text') && (
+        <Button
+          size="xsmall"
+          variant="tertiary"
+          icon={<Copy size={14} />}
+          onMouseDown={stopMouseDownPropagation}
+          onClick={frameKind === 'sticky' ? onDuplicateSticky : onDuplicateText}
+          title={frameKind === 'sticky' ? 'Dupliser lapp' : 'Dupliser tekst'}
+          aria-label={frameKind === 'sticky' ? 'Dupliser lapp' : 'Dupliser tekst'}
+          className={actionButtonClassName}
+        />
+      )}
+      {frameKind === 'drawing' && (
+        <Button
+          size="xsmall"
+          variant="tertiary"
+          icon={<Copy size={14} />}
+          onMouseDown={stopMouseDownPropagation}
+          onClick={onDuplicateDrawing}
+          title="Dupliser tegning"
+          aria-label="Dupliser tegning"
+          className={actionButtonClassName}
+        />
+      )}
+      {frameKind === 'image' && (
+        <Button
+          size="xsmall"
+          variant="tertiary"
+          icon={<Copy size={14} />}
+          onMouseDown={stopMouseDownPropagation}
+          onClick={onDuplicateImage}
+          title="Dupliser bilde"
+          aria-label="Dupliser bilde"
+          className={actionButtonClassName}
+        />
       )}
       {showRemoveButton && (
         <Button
