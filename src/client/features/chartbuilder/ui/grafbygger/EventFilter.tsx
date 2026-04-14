@@ -47,24 +47,13 @@ const EventFilter = forwardRef(
     // Add state to track selected URL paths
     const [selectedPaths, setSelectedPaths] = useState<string[]>([])
     const [urlPathOperator, setUrlPathOperator] = useState<string>('IN') // Add this state
-    // Add this near other state declarations
-    const [stagingFilter, setStagingFilter] = useState<Filter | null>(null)
     // Add a new state for the event operator (near other state variables)
     const [eventNameOperator, setEventNameOperator] = useState<string>('IN')
     // Add these new state variables
     const [pageViewsMode, setPageViewsMode] = useState<'all' | 'specific' | 'interactive'>('interactive')
     const [customEventsMode, setCustomEventsMode] = useState<'none' | 'all' | 'specific' | 'interactive'>('none')
 
-    // Add a separate alert state for staging area
-    const [stagingAlertInfo, setStagingAlertInfo] = useState<{ show: boolean; message: string }>({
-      show: false,
-      message: '',
-    })
-
-    // Add a ref to store the timeout ID
     const alertTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-    // Add a ref for staging alert timeout
-    const stagingAlertTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const didInitPageviewsRef = useRef<boolean>(false)
 
     // Add a function to filter available events to only custom events (non-pageviews)
@@ -91,90 +80,6 @@ const EventFilter = forwardRef(
       // Sort paths alphabetically
       return Array.from(paths).sort((a, b) => a.localeCompare(b))
     }, [availableEvents])
-
-    // Change addFilter to accept a column parameter
-    const addFilter = (column: string) => {
-      if (column) {
-        setStagingFilter({ column, operator: '=', value: '' })
-      }
-    }
-
-    // Add helper function to commit staging filter
-    const commitStagingFilter = () => {
-      if (stagingFilter) {
-        let currentFilters = [...filters]
-
-        // Auto-adjust event_type if filtering by specific event_name (full mode only)
-        if (mode === 'full' && stagingFilter.column === 'event_name') {
-          const hasPageviewFilter = currentFilters.some((f) => f.column === 'event_type' && f.value === '1')
-
-          if (hasPageviewFilter) {
-            // Remove pageview filter
-            currentFilters = currentFilters.filter((f) => f.column !== 'event_type')
-            // Add custom event filter
-            currentFilters.push({ column: 'event_type', operator: '=', value: '2' })
-            // Update UI state
-            setSelectedEventTypes(['custom_events'])
-          } else {
-            // Check if there is NO event_type filter, add one for custom events to be safe?
-            // Usually if there is no filter, it means ALL. But event_name implies custom_events.
-            const hasAnyEventTypeFilter = currentFilters.some((f) => f.column === 'event_type')
-            if (!hasAnyEventTypeFilter) {
-              currentFilters.push({ column: 'event_type', operator: '=', value: '2' })
-              setSelectedEventTypes(['custom_events'])
-            }
-          }
-          // Ensure custom events mode is set correctly if we are forcing custom events
-          // setCustomEventsMode('specific'); // Maybe not needed if we just set the filter?
-        }
-
-        // Check if this is an interactive filter
-        if (stagingFilter.operator === 'INTERACTIVE') {
-          // Generate parameter name based on column name
-          const paramName =
-            stagingFilter.column === 'url_path'
-              ? 'url_sti'
-              : stagingFilter.column === 'event_name'
-                ? 'hendelse'
-                : stagingFilter.column.toLowerCase().replace(/[^a-z0-9_]/g, '_')
-
-          // Create interactive filter
-          const interactiveFilter = {
-            ...stagingFilter,
-            operator: '=',
-            value: `{{${paramName}}}`,
-            metabaseParam: true,
-            interactive: true,
-          }
-
-          setFilters([...currentFilters, interactiveFilter])
-        } else {
-          // Regular filter
-          setFilters([...currentFilters, stagingFilter])
-        }
-
-        setStagingFilter(null)
-
-        // Show staging alert only in full mode (not in segment/filter-only mode)
-        if (mode === 'full') {
-          if (stagingAlertTimeoutRef.current) {
-            clearTimeout(stagingAlertTimeoutRef.current)
-            stagingAlertTimeoutRef.current = null
-          }
-
-          setStagingAlertInfo({
-            show: true,
-            message: `Filter lagt til under aktive filter`,
-          })
-
-          // Auto-hide staging alert after 4 seconds
-          stagingAlertTimeoutRef.current = setTimeout(() => {
-            setStagingAlertInfo((prev) => ({ ...prev, show: false }))
-            stagingAlertTimeoutRef.current = null
-          }, 4000)
-        }
-      }
-    }
 
     const removeFilter = (index: number) => {
       setFilters(filters.filter((_, i) => i !== index))
@@ -485,7 +390,6 @@ const EventFilter = forwardRef(
         setSelectedPaths([])
         setPageViewsMode('interactive')
         setCustomEventsMode('none')
-        setStagingFilter(null)
         return
       }
 
@@ -496,7 +400,6 @@ const EventFilter = forwardRef(
       // Keep the pageViewsMode in 'interactive' state
       setPageViewsMode('interactive')
       setCustomEventsMode('none')
-      setStagingFilter(null)
 
       // Force immediate UI update for filter count by using a setTimeout with 0ms
       setTimeout(() => {
@@ -517,22 +420,11 @@ const EventFilter = forwardRef(
       }
     }
 
-    const handleStagingAlertClose = () => {
-      if (stagingAlertTimeoutRef.current) {
-        clearTimeout(stagingAlertTimeoutRef.current)
-        stagingAlertTimeoutRef.current = null
-      }
-      setStagingAlertInfo((prev) => ({ ...prev, show: false }))
-    }
-
     // Clear timeouts when component unmounts
     useEffect(() => {
       return () => {
         if (alertTimeoutRef.current) {
           clearTimeout(alertTimeoutRef.current)
-        }
-        if (stagingAlertTimeoutRef.current) {
-          clearTimeout(stagingAlertTimeoutRef.current)
         }
       }
     }, [])
@@ -580,15 +472,8 @@ const EventFilter = forwardRef(
               onEnableCustomEvents={onEnableCustomEvents}
               eventLookbackDays={dateRangeInDays}
               onEventLookbackDaysChange={onDateRangeInDaysChange}
-              // Pass advanced filter props
-              stagingFilter={stagingFilter}
-              setStagingFilter={setStagingFilter}
-              addFilter={addFilter}
-              commitStagingFilter={commitStagingFilter}
               parameters={parameters}
               uniqueParameters={uniqueParameters}
-              stagingAlertInfo={stagingAlertInfo}
-              handleStagingAlertClose={handleStagingAlertClose}
               FILTER_COLUMNS={FILTER_COLUMNS}
               EVENT_TYPES={EVENT_TYPES}
               removeFilter={removeFilter}
