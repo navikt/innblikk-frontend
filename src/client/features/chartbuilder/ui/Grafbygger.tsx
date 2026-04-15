@@ -176,7 +176,6 @@ const ChartsPage = () => {
             </div>
           ) : !config.website ? null : (
             <>
-              {/* ── Datakilder ─────────────────────────────────────── */}
               <SidebarSection
                 title="Datakilder"
                 action={
@@ -214,7 +213,6 @@ const ChartsPage = () => {
                 />
               </SidebarSection>
 
-              {/* ── Målt som ───────────────────────────────────────── */}
               <SidebarSection
                 title="Målt som..."
                 action={
@@ -241,7 +239,6 @@ const ChartsPage = () => {
                 />
               </SidebarSection>
 
-              {/* ── Segmenter etter ────────────────────────────────── */}
               <SidebarSection
                 title="Segmenter etter..."
                 action={
@@ -277,7 +274,6 @@ const ChartsPage = () => {
                 />
               </SidebarSection>
 
-              {/* ── Gruppert etter ─────────────────────────────────── */}
               <SidebarSection
                 title="Gruppert etter..."
                 action={
@@ -322,7 +318,6 @@ const ChartsPage = () => {
                 />
               </SidebarSection>
 
-              {/* ── Visningsalternativer ───────────────────────────── */}
               <SidebarSection
                 title="Visningsalternativer"
                 action={
