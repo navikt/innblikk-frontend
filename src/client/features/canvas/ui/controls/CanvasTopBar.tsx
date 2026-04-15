@@ -102,7 +102,6 @@ const CanvasTopBar = ({
   isCanvasFrontpage,
   showDateFilter,
   activeParticipantCount = 1,
-  activeOtherParticipantCount = 0,
   participantLabels = [],
   isInteractionLocked = false,
 }: CanvasTopBarProps) => {
@@ -253,7 +252,7 @@ const CanvasTopBar = ({
                 <ActionMenu.Trigger>
                   <Button
                     size="small"
-                    variant={activeOtherParticipantCount > 0 ? 'secondary' : 'tertiary'}
+                    variant="tertiary"
                     icon={
                       activeParticipantCount > 1 ? (
                         <PersonGroupIcon aria-hidden fontSize="0.95rem" />
