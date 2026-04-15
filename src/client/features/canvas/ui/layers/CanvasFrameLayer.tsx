@@ -185,6 +185,7 @@ type CanvasFrameLayerProps = {
   handleAssignWebsiteToChart: (frame: CanvasFrame, website: Website | null) => Promise<void>
   handleOpenEditChartModal: (frame: CanvasFrame) => void
   handleOpenDeleteChartModal: (frame: CanvasFrame) => void
+  handlePersistSqlEditorFrame: (id: string) => Promise<void> | void
   handleEditableFrameChange: (id: string, nextValue: string) => void
   handleEditableFrameBlur: (id: string) => void
   handleStartEditingFrame: (id: string) => void
@@ -268,6 +269,7 @@ const CanvasFrameLayer = ({
   handleAssignWebsiteToChart,
   handleOpenEditChartModal,
   handleOpenDeleteChartModal,
+  handlePersistSqlEditorFrame,
   handleEditableFrameChange,
   handleEditableFrameBlur,
   handleStartEditingFrame,
@@ -959,7 +961,7 @@ const CanvasFrameLayer = ({
                     isLockedByOther={editLockStatus.isLockedByOther}
                     lockOwnerLabel={editLockStatus.ownerLabel}
                     onChange={handleEditableFrameChange}
-                    onBlur={handleEditableFrameBlur}
+                    onPersist={handlePersistSqlEditorFrame}
                   />
                 ) : frame.kind === 'sticky' ? (
                   <div className="relative h-full">

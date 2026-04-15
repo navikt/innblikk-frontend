@@ -1,10 +1,14 @@
 import { Alert, Button, Tabs } from '@navikt/ds-react'
-import Editor from '@monaco-editor/react'
+import CodeMirror from '@uiw/react-codemirror'
+import { sql } from '@codemirror/lang-sql'
+import { oneDark } from '@codemirror/theme-one-dark'
 import { useCallback, useState } from 'react'
+import * as sqlFormatter from 'sql-formatter'
 import { ResultsPanel } from '../../../chartbuilder'
 import { estimateQueryCost, executeQueryApi } from '../../../sql/api/sqlApi.ts'
 import type { QueryResult, QueryStats } from '../../../sql/model/types'
 import { prepareBarChartData, prepareLineChartData, preparePieChartData } from '../../../sql/utils/chartHelpers'
+import { restorePlaceholders, sanitizePlaceholders } from '../../../sql/utils/sqlProcessing.ts'
 import CanvasEditLockOverlay from '../controls/CanvasEditLockOverlay.tsx'
 
 type CanvasSqlEditorFrameProps = {
@@ -14,7 +18,7 @@ type CanvasSqlEditorFrameProps = {
   isLockedByOther?: boolean
   lockOwnerLabel?: string | null
   onChange: (id: string, nextValue: string) => void
-  onBlur: (id: string) => void
+  onPersist: (id: string) => Promise<void> | void
 }
 
 const CanvasSqlEditorFrame = ({
@@ -24,7 +28,7 @@ const CanvasSqlEditorFrame = ({
   isLockedByOther = false,
   lockOwnerLabel = null,
   onChange,
-  onBlur,
+  onPersist,
 }: CanvasSqlEditorFrameProps) => {
   const [result, setResult] = useState<QueryResult | null>(null)
   const [loading, setLoading] = useState(false)
@@ -34,6 +38,7 @@ const CanvasSqlEditorFrame = ({
   const [dryRunEstimate, setDryRunEstimate] = useState<QueryStats | null>(null)
   const [estimating, setEstimating] = useState(false)
   const [activeTab, setActiveTab] = useState<'sql' | 'resultat'>('sql')
+  const [formatSuccess, setFormatSuccess] = useState(false)
 
   const handleExecuteQuery = useCallback(async () => {
     const trimmedSql = (sqlQuery || '').trim()
@@ -49,6 +54,7 @@ const CanvasSqlEditorFrame = ({
     setLastProcessedSql(trimmedSql)
 
     try {
+      await Promise.resolve(onPersist(id))
       const data = await executeQueryApi(trimmedSql)
       setResult(data)
     } catch (err: unknown) {
@@ -58,7 +64,7 @@ const CanvasSqlEditorFrame = ({
     } finally {
       setLoading(false)
     }
-  }, [sqlQuery])
+  }, [id, onPersist, sqlQuery])
 
   const handleDryRun = useCallback(async () => {
     const trimmedSql = (sqlQuery || '').trim()
@@ -72,6 +78,7 @@ const CanvasSqlEditorFrame = ({
     setLastProcessedSql(trimmedSql)
 
     try {
+      await Promise.resolve(onPersist(id))
       const estimate = await estimateQueryCost(trimmedSql)
       setDryRunEstimate(estimate)
     } catch (err: unknown) {
@@ -81,7 +88,7 @@ const CanvasSqlEditorFrame = ({
     } finally {
       setEstimating(false)
     }
-  }, [sqlQuery])
+  }, [id, onPersist, sqlQuery])
 
   const getLineChartData = useCallback(
     (includeAverage: boolean = false) => {
@@ -105,6 +112,30 @@ const CanvasSqlEditorFrame = ({
   const dryRunBytes = Number(dryRunEstimate?.totalBytesProcessed ?? NaN)
   const dryRunCost = Number(dryRunEstimate?.estimatedCostUSD ?? NaN)
 
+  const handleFormatSql = useCallback(() => {
+    const input = sqlQuery || ''
+    if (!input.trim()) return
+
+    try {
+      const { sanitized, placeholders } = sanitizePlaceholders(input)
+      const formatted = sqlFormatter.format(sanitized, { language: 'bigquery' })
+      const restored = restorePlaceholders(formatted, placeholders)
+      const inputRawLiteralCount = (input.match(/\br'[^']*'/gi) || []).length
+      const outputRawLiteralCount = (restored.match(/\br'[^']*'/gi) || []).length
+
+      if (inputRawLiteralCount !== outputRawLiteralCount) {
+        throw new Error('Formattering kan endre BigQuery-regex. Beholder original SQL.')
+      }
+
+      onChange(id, restored)
+      setFormatSuccess(true)
+      window.setTimeout(() => setFormatSuccess(false), 1800)
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Kunne ikke formatere SQL trygt'
+      setError(message)
+    }
+  }, [id, onChange, sqlQuery])
+
   return (
     <div className="relative h-full overflow-hidden p-2">
       <Tabs
@@ -118,35 +149,39 @@ const CanvasSqlEditorFrame = ({
         </Tabs.List>
         <Tabs.Panel value="sql" className="min-h-0 flex-1">
           <div className="flex h-full min-h-0 flex-col gap-2 pt-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button size="xsmall" variant="secondary" onClick={handleFormatSql} disabled={isLockedByOther}>
+                {formatSuccess ? '✓ Formatert' : 'Formater'}
+              </Button>
+            </div>
             {error && !hasAttemptedFetch && (
               <Alert variant="error" size="small">
                 {error}
               </Alert>
             )}
-            <div className="min-h-0 flex-1 overflow-hidden rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2">
-              <Editor
-                height="100%"
-                defaultLanguage="sql"
+            <div
+              className="min-h-0 flex-1 overflow-hidden rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2"
+              onKeyDown={(event) => {
+                if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f') {
+                  event.preventDefault()
+                  event.stopPropagation()
+                }
+              }}
+            >
+              <CodeMirror
                 value={sqlQuery || ''}
-                onChange={(value) => onChange(id, value || '')}
-                onMount={(editor) => {
-                  editor.onDidBlurEditorText(() => onBlur(id))
+                height="100%"
+                theme={oneDark}
+                extensions={[sql()]}
+                editable={!isLockedByOther}
+                onChange={(value) => onChange(id, value)}
+                basicSetup={{
+                  lineNumbers: true,
+                  foldGutter: false,
+                  highlightActiveLineGutter: true,
+                  autocompletion: true,
                 }}
-                theme="vs-dark"
-                options={{
-                  readOnly: isLockedByOther,
-                  minimap: { enabled: false },
-                  fontSize: 14,
-                  lineNumbers: 'on',
-                  scrollBeyondLastLine: false,
-                  automaticLayout: true,
-                  tabSize: 2,
-                  wordWrap: 'on',
-                  fixedOverflowWidgets: true,
-                  stickyScroll: { enabled: false },
-                  lineNumbersMinChars: 4,
-                  glyphMargin: false,
-                }}
+                className="h-full overflow-hidden text-sm"
               />
             </div>
           </div>

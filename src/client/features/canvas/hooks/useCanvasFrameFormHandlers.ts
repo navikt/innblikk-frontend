@@ -1688,7 +1688,7 @@ const useCanvasFrameFormHandlers = ({
       kind: 'sql-editor',
       label: 'SQL-editor',
       sqlQuery: '',
-      width: 680,
+      width: 420,
       height: 760,
       refreshNonce: 0,
     }

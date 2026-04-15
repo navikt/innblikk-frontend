@@ -158,7 +158,7 @@ const getDefaultFrameSize = (
   if (kind === 'image' && isIllustration) return { width: 420, height: 420, minWidth: 96, minHeight: 96 }
   if (kind === 'image') return { width: 420, height: 420, minWidth: 240, minHeight: 200 }
   if (kind === 'chart') return { width: 560, height: 360, minWidth: 280, minHeight: 200 }
-  if (kind === 'sql-editor') return { width: 680, height: 760, minWidth: 420, minHeight: 320 }
+  if (kind === 'sql-editor') return { width: 420, height: 760, minWidth: 260, minHeight: 320 }
   if (kind === 'heading') return { width: 420, height: 72, minWidth: 260, minHeight: 48 }
   if (kind === 'text') return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
   if (kind === 'link') return { width: 380, height: 112, minWidth: 280, minHeight: 92 }
@@ -4242,6 +4242,23 @@ const Canvas = () => {
     )
   }
 
+  const handlePersistSqlEditorFrame = async (id: string): Promise<void> => {
+    const frame = frames.find((item) => item.id === id)
+    if (!frame || frame.kind !== 'sql-editor') return
+
+    const nextFrame: CanvasFrame = {
+      ...frame,
+      sqlQuery: (frame.sqlQuery || '').trim(),
+    }
+
+    setFrames((prev) => prev.map((item) => (item.id === id ? nextFrame : item)))
+    try {
+      await persistFrame(nextFrame)
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre SQL-editor')
+    }
+  }
+
   const handleEditableFrameBlur = (id: string) => {
     if (isDotVotingActive) return
     const frame = frames.find((item) => item.id === id)
@@ -5318,6 +5335,7 @@ const Canvas = () => {
                     handleAssignWebsiteToChart={handleAssignWebsiteToChart}
                     handleOpenEditChartModal={handleOpenEditChartModal}
                     handleOpenDeleteChartModal={handleOpenDeleteChartModal}
+                    handlePersistSqlEditorFrame={handlePersistSqlEditorFrame}
                     handleEditableFrameChange={handleEditableFrameChange}
                     handleEditableFrameBlur={handleEditableFrameBlur}
                     handleStartEditingFrame={handleStartEditingFrame}
