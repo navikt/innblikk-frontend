@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### EventSelector
+
+- Microanimations, and remove layout shift
+
 ### 🏗️ Build
 
 - Dependabot

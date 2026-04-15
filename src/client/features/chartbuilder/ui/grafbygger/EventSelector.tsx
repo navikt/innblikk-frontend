@@ -51,7 +51,9 @@ const getParamName = (param: Parameter): string => {
 
 /** Outer wrapper card shared by every active row. */
 const FilterCard = ({ children }: { children: React.ReactNode }) => (
-  <div className="rounded-md border border-(--ax-border-neutral-subtle) bg-(--ax-bg-default) px-3 py-3">{children}</div>
+  <div className="filter-card-animate-in rounded-md border border-(--ax-border-neutral-subtle) bg-(--ax-bg-default) px-3 py-3">
+    {children}
+  </div>
 )
 
 // ─── SelectableValuesCombobox ─────────────────────────────────────────────────
@@ -569,8 +571,6 @@ const CustomEventsEditor = ({
 
 interface EventTypeCardProps {
   eventType: EventTypeId
-  isEditorOpen: boolean
-  onToggleEditor: () => void
   onRemove: () => void
   summary: string
   customEventsMode?: 'none' | 'all' | 'specific' | 'interactive'
@@ -580,8 +580,6 @@ interface EventTypeCardProps {
 
 const EventTypeCard = ({
   eventType,
-  isEditorOpen,
-  onToggleEditor,
   onRemove,
   summary,
   customEventsMode,
@@ -606,11 +604,6 @@ const EventTypeCard = ({
         )}
 
         <div className="ml-auto flex flex-wrap items-center gap-1">
-          {!isPageviews && (
-            <Button variant="tertiary" size="xsmall" onClick={onToggleEditor}>
-              {isEditorOpen ? 'Lukk' : 'Rediger'}
-            </Button>
-          )}
           <Button
             variant="tertiary"
             data-color="danger"
@@ -623,7 +616,7 @@ const EventTypeCard = ({
         </div>
       </div>
 
-      {isEditorOpen && <div className="mt-3 border-t border-(--ax-border-neutral-subtle) pt-3">{editor}</div>}
+      <div className="mt-3 border-t border-(--ax-border-neutral-subtle) pt-3">{editor}</div>
     </FilterCard>
   )
 }
@@ -876,27 +869,16 @@ const EventSelector = ({
   addFilterDirectly,
   showFilterPanelOnly = false,
 }: EventSelectorProps) => {
-  const [openEditors, setOpenEditors] = useState<Record<EventTypeId, boolean>>({
-    pageviews: false,
-    custom_events: false,
-  })
-
-  const toggleEditor = (eventType: EventTypeId) =>
-    setOpenEditors((prev) => ({ ...prev, [eventType]: !prev[eventType] }))
-
   const addEventType = (eventType: EventTypeId) => {
     handleEventTypeChange(eventType, true)
 
     if (eventType === 'custom_events') {
       if (onEnableCustomEvents && customEventsList.length === 0) onEnableCustomEvents(false)
     }
-
-    setOpenEditors((prev) => ({ ...prev, [eventType]: true }))
   }
 
   const removeEventType = (eventType: EventTypeId) => {
     handleEventTypeChange(eventType, false)
-    setOpenEditors((prev) => ({ ...prev, [eventType]: false }))
   }
 
   // Filters that are managed by an event-type card (event_type, url_path,
@@ -951,7 +933,6 @@ const EventSelector = ({
       {!showFilterPanelOnly &&
         selectedEventTypeOrder.map((eventType) => {
           const isPageviews = eventType === 'pageviews'
-          const isEditorOpen = isPageviews || openEditors[eventType]
           const summary = isPageviews ? pageviewsSummary : customEventsSummary
 
           const editor = isPageviews ? (
@@ -992,8 +973,6 @@ const EventSelector = ({
             <EventTypeCard
               key={eventType}
               eventType={eventType}
-              isEditorOpen={isEditorOpen}
-              onToggleEditor={() => toggleEditor(eventType)}
               onRemove={() => removeEventType(eventType)}
               summary={summary}
               customEventsMode={customEventsMode}
