@@ -58,6 +58,9 @@ const Retention = lazy(() => import('./features/retention').then((m) => ({ defau
 // SQL Feature
 const SqlEditor = lazy(() => import('./features/sql').then((m) => ({ default: m.SqlEditor })))
 
+// Customization Feature
+const Innstillinger = lazy(() => import('./features/customization').then((m) => ({ default: m.Innstillinger })))
+
 const DashboardRouteResolver = () => {
   const location = useLocation()
   const params = new URLSearchParams(location.search)
@@ -145,6 +148,7 @@ export const routes: AppRoute[] = [
   { path: '/metabase', component: <MetabaseGuide />, fullWidth: true },
 
   { path: '/sql', component: <SqlEditor />, fullWidth: true },
+  { path: '/innstillinger', component: <Innstillinger />, fullWidth: true },
   { path: '/grafdeling', component: <Grafdeling />, fullWidth: true },
   { path: '/dashboard', component: <DashboardRouteResolver />, fullWidth: true },
   { path: '/dashboard/:dashboardId', component: <DashboardDetailRoute />, fullWidth: true },

@@ -168,6 +168,9 @@ export default function Header({ theme }: HeaderProps) {
               Bytt til {theme === 'dark' ? 'lyst' : 'mørkt'} tema
             </span>
           </ActionMenu.Item>
+          <ActionMenu.Item as="a" href="/innstillinger">
+            Tilpasning
+          </ActionMenu.Item>
         </ActionMenu.Group>
       </ActionMenu.Content>
     </ActionMenu>

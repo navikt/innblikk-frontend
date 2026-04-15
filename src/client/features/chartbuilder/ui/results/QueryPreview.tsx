@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
+import { getFeatureFlag, type FeatureFlags } from '../../../../shared/lib/featureFlags.ts'
 import { Heading, Link, Button, Alert, Modal, TextField, Select, UNSAFE_Combobox } from '@navikt/ds-react'
 import { Copy, ExternalLink } from 'lucide-react'
 import { ArrowCirclepathReverseIcon } from '@navikt/aksel-icons'
@@ -284,6 +285,16 @@ const QueryPreview = ({
     if (typeof window === 'undefined') return false
     const value = new URLSearchParams(window.location.search).get('canvasEmbed')
     return value === '1' || value === 'true'
+  }, [])
+
+  const [alwaysShowSql, setAlwaysShowSql] = useState(() => getFeatureFlag('grafbygger_always_show_sql'))
+
+  useEffect(() => {
+    const handleFlagsChange = (e: Event) => {
+      setAlwaysShowSql((e as CustomEvent<FeatureFlags>).detail.grafbygger_always_show_sql)
+    }
+    window.addEventListener('featureFlagsChange', handleFlagsChange)
+    return () => window.removeEventListener('featureFlagsChange', handleFlagsChange)
   }, [])
 
   const availablePaths = useMemo(() => {
@@ -1538,6 +1549,7 @@ const QueryPreview = ({
                 hideHeading={true}
                 containerStyle="none"
                 showSqlCode={true}
+                alwaysShowSql={alwaysShowSql}
                 showEditButton={true}
                 showCost={true}
                 websiteId={websiteId}
