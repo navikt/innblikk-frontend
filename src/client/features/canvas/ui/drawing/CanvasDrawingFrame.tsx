@@ -7,6 +7,7 @@ type CanvasDrawingFrameProps = {
   drawingStrokeStyles?: string
   strokeColor: string
   strokeWidth: number
+  rotationDeg?: number
   label: string
 }
 
@@ -17,6 +18,7 @@ const CanvasDrawingFrame = ({
   drawingStrokeStyles,
   strokeColor,
   strokeWidth,
+  rotationDeg,
   label,
 }: CanvasDrawingFrameProps) => {
   const resolveStrokeColor = (color: string): string =>
@@ -44,6 +46,7 @@ const CanvasDrawingFrame = ({
       viewBox={`${minX} ${minY} ${viewBoxWidth} ${viewBoxHeight}`}
       preserveAspectRatio="none"
       className="block h-full w-full"
+      style={rotationDeg ? { rotate: `${rotationDeg}deg` } : undefined}
       aria-label={label}
       role="img"
     >

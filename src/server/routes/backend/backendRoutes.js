@@ -10,7 +10,7 @@ export function createBackendProxyRouter({ BACKEND_BASE_URL }) {
   const CANVAS_PRESENCE_DASHBOARD_TOKEN = '[canvas-presence]'
   const CANVAS_PRESENCE_QUERY_NAME = 'canvas-presence'
   const CANVAS_PRESENCE_GRAPH_PREFIX = 'canvas:presence:'
-  const CANVAS_PRESENCE_TTL_MS = 25000
+  const CANVAS_PRESENCE_TTL_MS = 60000
   const isLocalDev = process.env.NODE_ENV !== 'production'
   const isLocalBackend = ['localhost', '127.0.0.1', '::1'].includes(apiBaseUrl.hostname)
   const staticBackendToken = process.env.BACKEND_TOKEN || null

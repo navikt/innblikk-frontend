@@ -25,12 +25,21 @@ const formatRemainingTime = (remainingSeconds: number): string => {
 
 type UseCanvasDotVotingSyncParams = {
   enabled: boolean
+  enableIdlePolling?: boolean
+  idleSyncIntervalMs?: number
   projectId: number | null
   dashboardId: number | null
   onSyncError?: (message: string) => void
 }
 
-const useCanvasDotVotingSync = ({ enabled, projectId, dashboardId, onSyncError }: UseCanvasDotVotingSyncParams) => {
+const useCanvasDotVotingSync = ({
+  enabled,
+  enableIdlePolling = true,
+  idleSyncIntervalMs = DOT_VOTING_IDLE_SYNC_INTERVAL_MS,
+  projectId,
+  dashboardId,
+  onSyncError,
+}: UseCanvasDotVotingSyncParams) => {
   const [sessionPayload, setSessionPayload] = useState<CanvasDotVotingSessionPayload | null>(null)
   const [ballots, setBallots] = useState<CanvasDotVotingBallotPayload[]>([])
   const [ownerId, setOwnerId] = useState('')
@@ -107,16 +116,17 @@ const useCanvasDotVotingSync = ({ enabled, projectId, dashboardId, onSyncError }
 
   useEffect(() => {
     if (!enabled || projectId === null || dashboardId === null) return
+    if (!sessionPayload && !enableIdlePolling) return
 
     const intervalId = window.setInterval(
       () => {
         void syncVoting()
       },
-      sessionPayload ? DOT_VOTING_ACTIVE_SYNC_INTERVAL_MS : DOT_VOTING_IDLE_SYNC_INTERVAL_MS,
+      sessionPayload ? DOT_VOTING_ACTIVE_SYNC_INTERVAL_MS : idleSyncIntervalMs,
     )
 
     return () => window.clearInterval(intervalId)
-  }, [dashboardId, enabled, projectId, sessionPayload, syncVoting])
+  }, [dashboardId, enableIdlePolling, enabled, idleSyncIntervalMs, projectId, sessionPayload, syncVoting])
 
   const remainingSeconds = useMemo(() => {
     if (!sessionPayload) return 0

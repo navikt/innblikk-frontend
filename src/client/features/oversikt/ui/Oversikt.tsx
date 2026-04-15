@@ -48,6 +48,7 @@ import EditDashboardDialog from './dialogs/EditDashboardDialog.tsx'
 import DeleteDashboardDialog from './dialogs/DeleteDashboardDialog.tsx'
 import CopyChartDialog from './dialogs/CopyChartDialog.tsx'
 import ImportChartDialog from './dialogs/ImportChartDialog.tsx'
+import ChangeLogModal, { type ChangeLogEntry } from '../../../shared/ui/ChangeLogModal.tsx'
 import { applyWebsiteIdOnly, extractWebsiteId, replaceHardcodedWebsiteId } from '../../sql/utils/sqlProcessing.ts'
 import dashboardConfigData from '../../../../data/dashboardConfig.json'
 import navkontorData from '../../../../data/navkontor.json'
@@ -213,6 +214,10 @@ const Oversikt = () => {
   const [importingChart, setImportingChart] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
   const [isAddTextModalOpen, setIsAddTextModalOpen] = useState(false)
+  const [isChangeLogModalOpen, setIsChangeLogModalOpen] = useState(false)
+  const [isLoadingChangeLog, setIsLoadingChangeLog] = useState(false)
+  const [changeLogError, setChangeLogError] = useState<string | null>(null)
+  const [changeLogEntries, setChangeLogEntries] = useState<ChangeLogEntry[]>([])
   const [textTitle, setTextTitle] = useState('')
   const [textMarkdown, setTextMarkdown] = useState('')
   const [textWidth, setTextWidth] = useState('100')
@@ -239,6 +244,17 @@ const Oversikt = () => {
   const activeCategory = categories.find((category) => category.id === activeCategoryId) ?? null
   const hasMultipleTabs = categories.length > 1
   const pageTitle = selectedDashboard?.name ?? ''
+  const visibleChangeLogEntries = useMemo(
+    () =>
+      changeLogEntries.filter(
+        (entry) =>
+          entry.description !== '[canvas-presence]' &&
+          entry.description !== '[canvas-lock]' &&
+          !entry.name.startsWith('canvas:presence:') &&
+          !entry.name.startsWith('canvas:lock:'),
+      ),
+    [changeLogEntries],
+  )
 
   useEffect(() => {
     setStats({})
@@ -1354,6 +1370,55 @@ const Oversikt = () => {
     setIsAddTextModalOpen(true)
   }
 
+  const loadChangeLog = useCallback(async () => {
+    if (!selectedProjectId || !selectedDashboardId) {
+      setChangeLogEntries([])
+      setChangeLogError('Velg et arbeidsområde og dashboard for å vise endringslogg.')
+      return
+    }
+
+    setIsLoadingChangeLog(true)
+    setChangeLogError(null)
+    try {
+      const dashboardCategories = await fetchCategories(selectedProjectId, selectedDashboardId)
+      const graphsByCategory = await Promise.all(
+        dashboardCategories.map((category) => fetchGraphs(selectedProjectId, selectedDashboardId, category.id)),
+      )
+
+      const entries = graphsByCategory
+        .flatMap((graphs) => graphs)
+        .map((graph) => {
+          const graphWithAudit = graph as typeof graph & {
+            changedByName?: string
+            changedByNavIdent?: string
+            changedByEmail?: string
+          }
+          return {
+            id: graph.id,
+            name: String(graph.name || ''),
+            description: String(graph.description || ''),
+            updatedAt: String(graph.updatedAt || ''),
+            changedByName: String(graphWithAudit.changedByName || ''),
+            changedByNavIdent: String(graphWithAudit.changedByNavIdent || ''),
+            changedByEmail: String(graphWithAudit.changedByEmail || ''),
+            graphType: String(graph.graphType || ''),
+          } satisfies ChangeLogEntry
+        })
+        .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+
+      setChangeLogEntries(entries)
+    } catch (err) {
+      setChangeLogError(err instanceof Error ? err.message : 'Kunne ikke laste endringslogg')
+    } finally {
+      setIsLoadingChangeLog(false)
+    }
+  }, [selectedDashboardId, selectedProjectId])
+
+  const openChangeLogModal = () => {
+    setIsChangeLogModalOpen(true)
+    void loadChangeLog()
+  }
+
   const handleImportChart = async (params: { name: string; graphType: GraphType; width: string; sqlText: string }) => {
     if (!selectedProjectId || !selectedDashboardId) return
 
@@ -1662,6 +1727,9 @@ const Oversikt = () => {
           </Button>
           <Button variant="secondary" size="xsmall" onClick={openMoveDashboardDialog} disabled={!selectedDashboard}>
             Flytt dashboard
+          </Button>
+          <Button variant="secondary" size="xsmall" onClick={openChangeLogModal} disabled={!selectedDashboard}>
+            Endringslogg
           </Button>
           <Button variant="secondary" size="xsmall" onClick={openDeleteDashboardDialog} disabled={!selectedDashboard}>
             Slett dashboard
@@ -2469,6 +2537,14 @@ const Oversikt = () => {
           setDashboardMutationError(null)
         }}
         onConfirm={handleDeleteDashboard}
+      />
+      <ChangeLogModal
+        open={isChangeLogModalOpen}
+        onClose={() => setIsChangeLogModalOpen(false)}
+        entries={visibleChangeLogEntries}
+        isLoading={isLoadingChangeLog}
+        error={changeLogError}
+        onRefresh={() => void loadChangeLog()}
       />
     </DashboardLayout>
   )

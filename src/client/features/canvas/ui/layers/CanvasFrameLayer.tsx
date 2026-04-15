@@ -164,8 +164,15 @@ type CanvasFrameLayerProps = {
   handleOpenEditFigureModal: (frame: CanvasFrame) => void
   handleDuplicateFigureCard: (frame: CanvasFrame) => Promise<void>
   handleDuplicateSectionCard: (frame: CanvasFrame) => Promise<void>
+  handleDuplicateStickyCard: (frame: CanvasFrame) => Promise<void>
+  handleDuplicateTextCard: (frame: CanvasFrame) => Promise<void>
+  handleDuplicateHeadingCard: (frame: CanvasFrame) => Promise<void>
+  handleDuplicateDrawingCard: (frame: CanvasFrame) => Promise<void>
+  handleDuplicateImageCard: (frame: CanvasFrame) => Promise<void>
   handleAdjustHeadingFontSize: (id: string, delta: number) => void
   handleRotateIllustrationFrame: (id: string, delta: number) => void
+  handleRotateFigureFrame: (id: string, delta: number) => void
+  handleRotateDrawingFrame: (id: string, delta: number) => void
   handleToggleSectionLayout: (id: string) => void
   handleMoveFrameToSection: (frameId: string, sectionId: string) => void
   handleSetStickyColor: (frameId: string, colorId: string) => void
@@ -238,8 +245,15 @@ const CanvasFrameLayer = ({
   handleOpenEditFigureModal,
   handleDuplicateFigureCard,
   handleDuplicateSectionCard,
+  handleDuplicateStickyCard,
+  handleDuplicateTextCard,
+  handleDuplicateHeadingCard,
+  handleDuplicateDrawingCard,
+  handleDuplicateImageCard,
   handleAdjustHeadingFontSize,
   handleRotateIllustrationFrame,
+  handleRotateFigureFrame,
+  handleRotateDrawingFrame,
   handleToggleSectionLayout,
   handleMoveFrameToSection,
   handleSetStickyColor,
@@ -556,6 +570,11 @@ const CanvasFrameLayer = ({
                       onEditFigure={() => handleOpenEditFigureModal(frame)}
                       onDuplicateFigure={() => void handleDuplicateFigureCard(frame)}
                       onDuplicateSection={() => void handleDuplicateSectionCard(frame)}
+                      onDuplicateSticky={() => void handleDuplicateStickyCard(frame)}
+                      onDuplicateText={() => void handleDuplicateTextCard(frame)}
+                      onDuplicateHeading={() => void handleDuplicateHeadingCard(frame)}
+                      onDuplicateDrawing={() => void handleDuplicateDrawingCard(frame)}
+                      onDuplicateImage={() => void handleDuplicateImageCard(frame)}
                       onDecreaseHeadingFontSize={() => handleAdjustHeadingFontSize(frame.id, -HEADING_FONT_SIZE_STEP)}
                       onIncreaseHeadingFontSize={() => handleAdjustHeadingFontSize(frame.id, HEADING_FONT_SIZE_STEP)}
                       onRotateIllustrationLeft={() => handleRotateIllustrationFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
@@ -566,6 +585,10 @@ const CanvasFrameLayer = ({
                       stickyColorOptions={stickyColorOptions}
                       onSetStickyColor={(colorId) => handleSetStickyColor(frame.id, colorId)}
                       onMoveToSection={(sectionId) => handleMoveFrameToSection(frame.id, sectionId)}
+                      onRotateFigureLeft={() => handleRotateFigureFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
+                      onRotateFigureRight={() => handleRotateFigureFrame(frame.id, ICON_ROTATION_STEP_DEG)}
+                      onRotateDrawingLeft={() => handleRotateDrawingFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
+                      onRotateDrawingRight={() => handleRotateDrawingFrame(frame.id, ICON_ROTATION_STEP_DEG)}
                       onRemoveFrame={() => handleRequestRemoveFrame(frame)}
                     />
                   </>
@@ -840,6 +863,8 @@ const CanvasFrameLayer = ({
                         height={height}
                         figureType={frame.figureType}
                         figureColor={frame.figureColor}
+                        iconRotationDeg={frame.iconRotationDeg}
+                        figureOrientation={frame.figureOrientation}
                         label={frame.label}
                       />
                     )
@@ -856,6 +881,7 @@ const CanvasFrameLayer = ({
                         drawingStrokeStyles={frame.drawingStrokeStyles}
                         strokeColor={frame.drawingColor || DEFAULT_CANVAS_ICON_COLOR}
                         strokeWidth={frame.drawingStrokeWidth ?? DEFAULT_DRAWING_STROKE_WIDTH}
+                        rotationDeg={frame.drawingRotationDeg}
                         label={frame.label}
                       />
                     )
