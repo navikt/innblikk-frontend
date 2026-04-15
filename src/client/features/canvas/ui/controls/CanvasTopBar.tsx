@@ -1,6 +1,6 @@
 import { ActionMenu, Alert, Button, Tabs } from '@navikt/ds-react'
-import { ThemeIcon } from '@navikt/aksel-icons'
-import { House, MoreVertical, Users } from 'lucide-react'
+import { PersonGroupIcon, PersonIcon, ThemeIcon } from '@navikt/aksel-icons'
+import { House, MoreVertical } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent, type RefObject, type TouchEvent } from 'react'
 import PeriodPicker from '../../../analysis/ui/PeriodPicker.tsx'
 import type { GraphCategoryDto } from '../../../oversikt/model/types.ts'
@@ -106,6 +106,8 @@ const CanvasTopBar = ({
   participantLabels = [],
   isInteractionLocked = false,
 }: CanvasTopBarProps) => {
+  const participantCountText = `${activeParticipantCount} ${activeParticipantCount === 1 ? 'person' : 'personer'} i canvas`
+
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const storedTheme = localStorage.getItem('umami-theme')
     return storedTheme === 'dark' ? 'dark' : 'light'
@@ -247,28 +249,33 @@ const CanvasTopBar = ({
                 iconSize={16}
                 withFloatingFrame={false}
               />
-              {activeParticipantCount > 1 && (
-                <ActionMenu>
-                  <ActionMenu.Trigger>
-                    <Button
-                      size="small"
-                      variant={activeOtherParticipantCount > 0 ? 'secondary' : 'tertiary'}
-                      icon={<Users size={16} />}
-                      aria-label={`${activeParticipantCount} personer i canvas`}
-                      title={`${activeParticipantCount} personer i canvas`}
-                    >
-                      {activeParticipantCount}
-                    </Button>
-                  </ActionMenu.Trigger>
-                  <ActionMenu.Content align="end">
-                    {participantLabels.map((label, index) => (
-                      <ActionMenu.Item key={`canvas-participant-${index}`} onSelect={() => undefined}>
-                        {label}
-                      </ActionMenu.Item>
-                    ))}
-                  </ActionMenu.Content>
-                </ActionMenu>
-              )}
+              <ActionMenu>
+                <ActionMenu.Trigger>
+                  <Button
+                    size="small"
+                    variant={activeOtherParticipantCount > 0 ? 'secondary' : 'tertiary'}
+                    icon={
+                      activeParticipantCount > 1 ? (
+                        <PersonGroupIcon aria-hidden fontSize="0.95rem" />
+                      ) : (
+                        <PersonIcon aria-hidden fontSize="0.95rem" />
+                      )
+                    }
+                    aria-label={participantCountText}
+                    title={participantCountText}
+                    className="shrink-0 whitespace-nowrap"
+                  >
+                    <span className="text-sm font-medium leading-none">{activeParticipantCount}</span>
+                  </Button>
+                </ActionMenu.Trigger>
+                <ActionMenu.Content align="end">
+                  {participantLabels.map((label, index) => (
+                    <ActionMenu.Item key={`canvas-participant-${index}`} onSelect={() => undefined}>
+                      {label}
+                    </ActionMenu.Item>
+                  ))}
+                </ActionMenu.Content>
+              </ActionMenu>
               {isGrafbyggerEmbedded && (
                 <Button size="small" variant="secondary" onClick={onCloseGrafbygger}>
                   Lukk grafbygger
