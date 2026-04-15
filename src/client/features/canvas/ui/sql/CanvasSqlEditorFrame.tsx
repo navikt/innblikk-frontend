@@ -11,7 +11,6 @@ type CanvasSqlEditorFrameProps = {
   id: string
   sqlQuery?: string
   websiteId?: string
-  isEditing: boolean
   isLockedByOther?: boolean
   lockOwnerLabel?: string | null
   onChange: (id: string, nextValue: string) => void
@@ -22,7 +21,6 @@ const CanvasSqlEditorFrame = ({
   id,
   sqlQuery,
   websiteId,
-  isEditing,
   isLockedByOther = false,
   lockOwnerLabel = null,
   onChange,
@@ -136,7 +134,7 @@ const CanvasSqlEditorFrame = ({
                 }}
                 theme="vs-dark"
                 options={{
-                  readOnly: !isEditing || isLockedByOther,
+                  readOnly: isLockedByOther,
                   minimap: { enabled: false },
                   fontSize: 14,
                   lineNumbers: 'on',

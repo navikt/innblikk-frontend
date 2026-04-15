@@ -1688,8 +1688,8 @@ const useCanvasFrameFormHandlers = ({
       kind: 'sql-editor',
       label: 'SQL-editor',
       sqlQuery: '',
-      width: 980,
-      height: 420,
+      width: 680,
+      height: 760,
       refreshNonce: 0,
     }
     queueFrameForPlacement(frameDraft, 'SQL-editor')

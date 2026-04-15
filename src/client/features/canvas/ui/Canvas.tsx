@@ -158,7 +158,7 @@ const getDefaultFrameSize = (
   if (kind === 'image' && isIllustration) return { width: 420, height: 420, minWidth: 96, minHeight: 96 }
   if (kind === 'image') return { width: 420, height: 420, minWidth: 240, minHeight: 200 }
   if (kind === 'chart') return { width: 560, height: 360, minWidth: 280, minHeight: 200 }
-  if (kind === 'sql-editor') return { width: 980, height: 420, minWidth: 640, minHeight: 260 }
+  if (kind === 'sql-editor') return { width: 680, height: 760, minWidth: 420, minHeight: 320 }
   if (kind === 'heading') return { width: 420, height: 72, minWidth: 260, minHeight: 48 }
   if (kind === 'text') return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
   if (kind === 'link') return { width: 380, height: 112, minWidth: 280, minHeight: 92 }

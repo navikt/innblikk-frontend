@@ -956,7 +956,6 @@ const CanvasFrameLayer = ({
                     id={frame.id}
                     sqlQuery={frame.sqlQuery}
                     websiteId={frame.websiteId || selectedWebsite?.id}
-                    isEditing={activeEditableFrameId === frame.id}
                     isLockedByOther={editLockStatus.isLockedByOther}
                     lockOwnerLabel={editLockStatus.ownerLabel}
                     onChange={handleEditableFrameChange}
