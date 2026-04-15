@@ -28,9 +28,9 @@ export function SidebarSection({ title, action, children, className }: SidebarSe
       <Box className="bg-(--ax-bg-sunken)">
         <div className={sectionContentClassName}>
           {(title || action) && (
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex min-h-8 items-center justify-between mb-3">
               {title && <span className="text-base font-semibold text-(--ax-text-default)">{title}</span>}
-              {action && <div>{action}</div>}
+              <div>{action}</div>
             </div>
           )}
           {children}

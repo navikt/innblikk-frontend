@@ -51,7 +51,9 @@ const getParamName = (param: Parameter): string => {
 
 /** Outer wrapper card shared by every active row. */
 const FilterCard = ({ children }: { children: React.ReactNode }) => (
-  <div className="rounded-md border border-(--ax-border-neutral-subtle) bg-(--ax-bg-default) px-3 py-3">{children}</div>
+  <div className="filter-card-animate-in rounded-md border border-(--ax-border-neutral-subtle) bg-(--ax-bg-default) px-3 py-3">
+    {children}
+  </div>
 )
 
 // ─── SelectableValuesCombobox ─────────────────────────────────────────────────
