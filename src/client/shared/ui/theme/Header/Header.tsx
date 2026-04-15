@@ -1,4 +1,4 @@
-import { CogIcon, ExternalLinkIcon, MenuHamburgerIcon, ThemeIcon } from '@navikt/aksel-icons'
+import { CogIcon, ExternalLinkIcon, MenuHamburgerIcon, ThemeIcon, WrenchIcon } from '@navikt/aksel-icons'
 import { ActionMenu, Button, Dropdown, Link, Tooltip } from '@navikt/ds-react'
 import { useEffect, useState } from 'react'
 import '../../../../tailwind.css'
@@ -164,12 +164,15 @@ export default function Header({ theme }: HeaderProps) {
         <ActionMenu.Group label="Preferanser">
           <ActionMenu.Item onClick={toggleTheme}>
             <span className="inline-flex items-center gap-2 whitespace-nowrap">
-              <ThemeIcon aria-hidden fontSize="1rem" />
+              <ThemeIcon aria-hidden fontSize="1.2rem" />
               Bytt til {theme === 'dark' ? 'lyst' : 'mørkt'} tema
             </span>
           </ActionMenu.Item>
           <ActionMenu.Item as="a" href="/innstillinger">
-            Tilpasning
+            <span className="inline-flex items-center gap-2 whitespace-nowrap">
+              <WrenchIcon aria-hidden fontSize="1.2rem" />
+              Tilpasning
+            </span>
           </ActionMenu.Item>
         </ActionMenu.Group>
       </ActionMenu.Content>
