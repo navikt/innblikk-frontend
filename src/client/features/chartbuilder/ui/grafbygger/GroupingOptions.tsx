@@ -279,9 +279,9 @@ const GroupingOptions = ({
                 setEventNameWarning(false)
               }}
             >
-              <strong>Måling av egendefinerte hendelser aktivert:</strong> Du hadde kun valgt hendelsen "sidevisninger".
-              Vi har automatisk aktivert hendelsen "Egendefinerte hendelser" for deg, som muliggjør gruppering på
-              hendelsesnavn og hendelsestype.
+              <strong>Måling av egne hendelser aktivert:</strong> Du hadde kun valgt hendelsen "sidevisninger". Vi har
+              automatisk aktivert hendelsen "Egne hendelser" for deg, som muliggjør gruppering på hendelsesnavn og
+              hendelsestype.
             </AlertWithCloseButton>
           </div>
         )}

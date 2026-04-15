@@ -6,7 +6,7 @@ import EventSelector from './EventSelector.tsx'
 // Event type options for the dropdown
 const EVENT_TYPES = [
   { label: 'Sidevisninger', value: '1' },
-  { label: 'Egendefinerte hendelser', value: '2' },
+  { label: 'Egne hendelser', value: '2' },
 ]
 
 // Modified interface to receive date range info

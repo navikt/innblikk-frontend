@@ -1,5 +1,16 @@
 import { useState } from 'react'
-import { RadioGroup, Radio, Select, UNSAFE_Combobox, Button, Label, Skeleton, ReadMore, Tag } from '@navikt/ds-react'
+import {
+  RadioGroup,
+  Radio,
+  Select,
+  UNSAFE_Combobox,
+  Button,
+  Label,
+  Skeleton,
+  ReadMore,
+  Tag,
+  VStack,
+} from '@navikt/ds-react'
 import { XMarkIcon, PlusIcon, CheckmarkIcon } from '@navikt/aksel-icons'
 import type { Filter, Parameter } from '../../../../shared/types/chart.ts'
 
@@ -41,19 +52,6 @@ const getParamName = (param: Parameter): string => {
 /** Outer wrapper card shared by every active row. */
 const FilterCard = ({ children }: { children: React.ReactNode }) => (
   <div className="rounded-md border border-(--ax-border-neutral-subtle) bg-(--ax-bg-default) px-3 py-3">{children}</div>
-)
-
-/** The dashed "+ add" button used for both event types and the plain filter. */
-const AddButton = ({ label, ariaLabel, onClick }: { label: string; ariaLabel?: string; onClick: () => void }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    aria-label={ariaLabel ?? label}
-    className="flex w-full cursor-pointer items-center gap-2 rounded-md border border-dashed border-(--ax-border-neutral-subtle) bg-transparent px-3 py-3 text-left hover:border-(--ax-border-neutral) hover:bg-(--ax-bg-default) focus:outline-none focus-visible:ring-2 focus-visible:ring-(--ax-border-accent)"
-  >
-    <PlusIcon aria-hidden fontSize="1.375rem" className="shrink-0 text-(--ax-text-subtle)" />
-    <p className="text-sm font-semibold text-(--ax-text-subtle)">{label}</p>
-  </button>
 )
 
 // ─── SelectableValuesCombobox ─────────────────────────────────────────────────
@@ -459,13 +457,7 @@ const CustomEventsEditor = ({
 
   return (
     <div className="space-y-3">
-      <RadioGroup
-        legend="Egendefinerte hendelser"
-        hideLegend
-        value={customEventsMode}
-        onChange={handleModeChange}
-        size="small"
-      >
+      <RadioGroup legend="Egne hendelser" hideLegend value={customEventsMode} onChange={handleModeChange} size="small">
         <Radio value="specific">Utvalgte hendelser</Radio>
         <Radio value="all">Alle hendelser</Radio>
         <Radio value="interactive">Filter der mottaker velger selv i dashboardet</Radio>
@@ -597,7 +589,7 @@ const EventTypeCard = ({
   editor,
 }: EventTypeCardProps) => {
   const isPageviews = eventType === 'pageviews'
-  const title = isPageviews ? 'Sidevisninger' : 'Egendefinerte hendelser'
+  const title = isPageviews ? 'Sidevisninger' : 'Egne hendelser'
 
   return (
     <FilterCard>
@@ -1034,18 +1026,51 @@ const EventSelector = ({
       })}
 
       {/* ── Add buttons ─────────────────────────────────────────────────── */}
-      {!showFilterPanelOnly && !selectedEventTypes.includes('pageviews') && (
-        <AddButton label="Legg til sidevisninger" onClick={() => addEventType('pageviews')} />
-      )}
+      {(!showFilterPanelOnly &&
+        (!selectedEventTypes.includes('pageviews') || !selectedEventTypes.includes('custom_events'))) ||
+      addFilterDirectly ? (
+        <div>
+          {!showFilterPanelOnly &&
+            (!selectedEventTypes.includes('pageviews') || !selectedEventTypes.includes('custom_events')) && (
+              <div className="mb-3">
+                <VStack gap="space-6" align={'start'}>
+                  {!selectedEventTypes.includes('pageviews') && (
+                    <Button
+                      variant="secondary"
+                      size="small"
+                      style={{ backgroundColor: 'var(--inn-bg-white-soft)' }}
+                      icon={<PlusIcon aria-hidden />}
+                      onClick={() => addEventType('pageviews')}
+                    >
+                      Sidevisninger
+                    </Button>
+                  )}
+                  {!selectedEventTypes.includes('custom_events') && (
+                    <Button
+                      variant="secondary"
+                      size="small"
+                      style={{ backgroundColor: 'var(--inn-bg-white-soft)' }}
+                      icon={<PlusIcon aria-hidden />}
+                      onClick={() => addEventType('custom_events')}
+                    >
+                      Egne hendelser
+                    </Button>
+                  )}
+                </VStack>
+                <div className="mt-3 border-t border-(--ax-border-subtle)" />
+              </div>
+            )}
 
-      {!showFilterPanelOnly && !selectedEventTypes.includes('custom_events') && (
-        <AddButton label="Legg til egendefinerte hendelser" onClick={() => addEventType('custom_events')} />
-      )}
-
-      <AddButton
-        label="Legg til filter"
-        onClick={() => addFilterDirectly?.({ column: '', operator: '=', value: '' })}
-      />
+          <Button
+            variant="tertiary"
+            size="small"
+            icon={<PlusIcon aria-hidden />}
+            onClick={() => addFilterDirectly?.({ column: '', operator: '=', value: '' })}
+          >
+            Egendefinert filter
+          </Button>
+        </div>
+      ) : null}
     </div>
   )
 }

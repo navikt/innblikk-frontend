@@ -434,7 +434,7 @@ const EventParameterSelector: React.FC<EventParameterSelectorProps> = ({
             {!isLoadingParameters && (
               <Box className="rounded-medium">
                 <Heading level="3" size="xsmall" spacing className="mt-3">
-                  Egendefinerte hendelser
+                  Egne hendelser
                 </Heading>
 
                 {!isLoadingParameters &&

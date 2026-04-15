@@ -176,16 +176,16 @@ const ChartsPage = () => {
             </div>
           ) : !config.website ? null : (
             <>
-              {/* ── Hendelse ───────────────────────────────────────── */}
+              {/* ── Datakilder ─────────────────────────────────────── */}
               <SidebarSection
-                title="Hendelse"
+                title="Datakilder"
                 action={
                   showResetEventFilters ? (
                     <ActionFeedbackButton
                       label="Tilbakestill"
                       activeLabel="Tilbakestilt!"
                       variant="tertiary"
-                      size="small"
+                      size="xsmall"
                       icon={<ArrowCirclepathReverseIcon aria-hidden />}
                       onClick={() => chartFiltersRef.current?.resetFilters(false)}
                     />
@@ -223,7 +223,7 @@ const ChartsPage = () => {
                       label="Tilbakestill"
                       activeLabel="Tilbakestilt!"
                       variant="tertiary"
-                      size="small"
+                      size="xsmall"
                       icon={<ArrowCirclepathReverseIcon aria-hidden />}
                       onClick={handleResetMetrics}
                     />
@@ -250,7 +250,7 @@ const ChartsPage = () => {
                       label="Tilbakestill"
                       activeLabel="Tilbakestilt!"
                       variant="tertiary"
-                      size="small"
+                      size="xsmall"
                       icon={<ArrowCirclepathReverseIcon aria-hidden />}
                       onClick={() => segmentByRef.current?.resetSegments(false)}
                     />
@@ -286,7 +286,7 @@ const ChartsPage = () => {
                       label="Tilbakestill"
                       activeLabel="Tilbakestilt!"
                       variant="tertiary"
-                      size="small"
+                      size="xsmall"
                       icon={<ArrowCirclepathReverseIcon aria-hidden />}
                       onClick={handleResetGroupings}
                     />
@@ -331,7 +331,7 @@ const ChartsPage = () => {
                       label="Tilbakestill"
                       activeLabel="Tilbakestilt!"
                       variant="tertiary"
-                      size="small"
+                      size="xsmall"
                       icon={<ArrowCirclepathReverseIcon aria-hidden />}
                       onClick={() => displayOptionsRef.current?.resetOptions(false)}
                     />

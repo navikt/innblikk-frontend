@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Heading, Link, Button, Alert, Modal, TextField, Select, UNSAFE_Combobox } from '@navikt/ds-react'
-import { Copy, ExternalLink, RotateCcw } from 'lucide-react'
+import { Copy, ExternalLink } from 'lucide-react'
+import { ArrowCirclepathReverseIcon } from '@navikt/aksel-icons'
 import type { ILineChartProps, IVerticalBarChartProps } from '@fluentui/react-charting'
 import { subDays, format, isEqual, startOfWeek, startOfMonth } from 'date-fns'
 import AlertWithCloseButton from '../grafbygger/AlertWithCloseButton.tsx'
@@ -1377,7 +1378,7 @@ const QueryPreview = ({
                 <div className="flex justify-end mb-2">
                   <Button
                     variant="tertiary"
-                    size="small"
+                    size="xsmall"
                     onClick={() => {
                       onResetAll()
                       // Reset local filter states
@@ -1404,7 +1405,7 @@ const QueryPreview = ({
                       // Auto-hide the alert after 4 seconds
                       setTimeout(() => setShowAlert(false), 4000)
                     }}
-                    icon={<RotateCcw size={16} />}
+                    icon={<ArrowCirclepathReverseIcon aria-hidden />}
                   >
                     Tilbakestill alle valg
                   </Button>
