@@ -26,6 +26,7 @@ const formatRemainingTime = (remainingSeconds: number): string => {
 type UseCanvasDotVotingSyncParams = {
   enabled: boolean
   enableIdlePolling?: boolean
+  idleSyncIntervalMs?: number
   projectId: number | null
   dashboardId: number | null
   onSyncError?: (message: string) => void
@@ -34,6 +35,7 @@ type UseCanvasDotVotingSyncParams = {
 const useCanvasDotVotingSync = ({
   enabled,
   enableIdlePolling = true,
+  idleSyncIntervalMs = DOT_VOTING_IDLE_SYNC_INTERVAL_MS,
   projectId,
   dashboardId,
   onSyncError,
@@ -120,11 +122,11 @@ const useCanvasDotVotingSync = ({
       () => {
         void syncVoting()
       },
-      sessionPayload ? DOT_VOTING_ACTIVE_SYNC_INTERVAL_MS : DOT_VOTING_IDLE_SYNC_INTERVAL_MS,
+      sessionPayload ? DOT_VOTING_ACTIVE_SYNC_INTERVAL_MS : idleSyncIntervalMs,
     )
 
     return () => window.clearInterval(intervalId)
-  }, [dashboardId, enableIdlePolling, enabled, projectId, sessionPayload, syncVoting])
+  }, [dashboardId, enableIdlePolling, enabled, idleSyncIntervalMs, projectId, sessionPayload, syncVoting])
 
   const remainingSeconds = useMemo(() => {
     if (!sessionPayload) return 0

@@ -596,7 +596,7 @@ const Canvas = () => {
       projectId,
       dashboardId,
     })
-  const shouldEnableEditLockSync = activeEditableFrameId !== null || activeOtherParticipantCount > 0
+  const shouldEnableEditLockSync = activeEditableFrameId !== null
 
   const {
     timerLabel,
@@ -639,6 +639,7 @@ const Canvas = () => {
   } = useCanvasDotVotingSync({
     enabled: canvasSyncContextEnabled,
     enableIdlePolling: shouldEnableBackgroundSync,
+    idleSyncIntervalMs: 30000,
     projectId,
     dashboardId,
     onSyncError: handleCanvasSyncError,
