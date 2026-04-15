@@ -332,6 +332,8 @@ const CanvasFrameActionPoints = ({
   const isSectionGrid = frameKind === 'section' && sectionLayoutMode === 'grid'
   const actionPointsPositionClassName =
     frameKind === 'heading' ||
+    frameKind === 'text' ||
+    frameKind === 'image' ||
     frameKind === 'icon' ||
     frameKind === 'figure' ||
     frameKind === 'drawing' ||
