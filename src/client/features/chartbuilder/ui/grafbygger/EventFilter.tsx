@@ -6,7 +6,7 @@ import EventSelector from './EventSelector.tsx'
 // Event type options for the dropdown
 const EVENT_TYPES = [
   { label: 'Sidevisninger', value: '1' },
-  { label: 'Egendefinerte hendelser', value: '2' },
+  { label: 'Egne hendelser', value: '2' },
 ]
 
 // Modified interface to receive date range info
@@ -24,6 +24,32 @@ interface ChartFiltersProps {
   mode?: 'full' | 'filter-only'
 }
 
+// ─── helpers ──────────────────────────────────────────────────────────────────
+
+/** Remove all filters by column name from an array. */
+const withoutColumn = (filters: Filter[], ...columns: string[]): Filter[] =>
+  filters.filter((f) => !columns.includes(f.column))
+
+/** Build the event_type filter for the current combination of active types. */
+const buildEventTypeFilter = (pageviewsActive: boolean, customEventsActive: boolean): Filter | null => {
+  if (pageviewsActive && customEventsActive) {
+    return { column: 'event_type', operator: 'IN', value: '1', multipleValues: ['1', '2'] }
+  }
+  if (pageviewsActive) return { column: 'event_type', operator: '=', value: '1' }
+  if (customEventsActive) return { column: 'event_type', operator: '=', value: '2' }
+  return null
+}
+
+const DEFAULT_URL_STI_FILTER: Filter = {
+  column: 'url_path',
+  operator: '=',
+  value: '{{url_sti}}',
+  interactive: true,
+  metabaseParam: true,
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+
 const EventFilter = forwardRef(
   (
     {
@@ -40,141 +66,39 @@ const EventFilter = forwardRef(
     }: ChartFiltersProps,
     ref,
   ) => {
-    // Change to store array instead of single string
-    const [selectedEventTypes, setSelectedEventTypes] = useState<string[]>(mode === 'filter-only' ? [] : ['pageviews'])
-    // Add state to track custom events selection
-    const [customEvents, setCustomEvents] = useState<string[]>([])
-    // Add state to track selected URL paths
-    const [selectedPaths, setSelectedPaths] = useState<string[]>([])
-    const [urlPathOperator, setUrlPathOperator] = useState<string>('IN') // Add this state
-    // Add this near other state declarations
-    const [stagingFilter, setStagingFilter] = useState<Filter | null>(null)
-    // Add a new state for the event operator (near other state variables)
-    const [eventNameOperator, setEventNameOperator] = useState<string>('IN')
-    // Add these new state variables
+    // ── Pageviews state (all belongs together) ───────────────────────────────
+    const [pageviewsActive, setPageviewsActive] = useState<boolean>(mode !== 'filter-only')
     const [pageViewsMode, setPageViewsMode] = useState<'all' | 'specific' | 'interactive'>('interactive')
+    const [selectedPaths, setSelectedPaths] = useState<string[]>([])
+    const [urlPathOperator, setUrlPathOperator] = useState<string>('IN')
+
+    // ── Custom events state (all belongs together) ───────────────────────────
+    const [customEventsActive, setCustomEventsActive] = useState<boolean>(false)
     const [customEventsMode, setCustomEventsMode] = useState<'none' | 'all' | 'specific' | 'interactive'>('none')
+    const [customEvents, setCustomEvents] = useState<string[]>([])
+    const [eventNameOperator, setEventNameOperator] = useState<string>('IN')
 
-    // Add a separate alert state for staging area
-    const [stagingAlertInfo, setStagingAlertInfo] = useState<{ show: boolean; message: string }>({
-      show: false,
-      message: '',
-    })
-
-    // Add a ref to store the timeout ID
     const alertTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-    // Add a ref for staging alert timeout
-    const stagingAlertTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const didInitPageviewsRef = useRef<boolean>(false)
 
-    // Add a function to filter available events to only custom events (non-pageviews)
+    // ── Derived lists ────────────────────────────────────────────────────────
+
     const customEventsList = useMemo(() => {
-      // Filter out null or undefined events and then filter for custom events
       return availableEvents
-        .filter((event) => event != null) // Filter out null/undefined events
+        .filter((event) => event != null)
         .filter((event) => !event.toLowerCase().startsWith('pageview') && !event.includes('/'))
     }, [availableEvents])
 
-    // Update the availablePaths logic to better detect pageview paths
     const availablePaths = useMemo(() => {
       const paths = new Set<string>()
       availableEvents.forEach((event) => {
-        // Skip null events
         if (event == null) return
-
-        // Check if it's a pageview event (starts with '/' or contains 'pageview')
-        if (event.startsWith('/')) {
-          paths.add(event)
-        }
+        if (event.startsWith('/')) paths.add(event)
       })
-
-      // Sort paths alphabetically
       return Array.from(paths).sort((a, b) => a.localeCompare(b))
     }, [availableEvents])
 
-    // Change addFilter to accept a column parameter
-    const addFilter = (column: string) => {
-      if (column) {
-        setStagingFilter({ column, operator: '=', value: '' })
-      }
-    }
-
-    // Add helper function to commit staging filter
-    const commitStagingFilter = () => {
-      if (stagingFilter) {
-        let currentFilters = [...filters]
-
-        // Auto-adjust event_type if filtering by specific event_name (full mode only)
-        if (mode === 'full' && stagingFilter.column === 'event_name') {
-          const hasPageviewFilter = currentFilters.some((f) => f.column === 'event_type' && f.value === '1')
-
-          if (hasPageviewFilter) {
-            // Remove pageview filter
-            currentFilters = currentFilters.filter((f) => f.column !== 'event_type')
-            // Add custom event filter
-            currentFilters.push({ column: 'event_type', operator: '=', value: '2' })
-            // Update UI state
-            setSelectedEventTypes(['custom_events'])
-          } else {
-            // Check if there is NO event_type filter, add one for custom events to be safe?
-            // Usually if there is no filter, it means ALL. But event_name implies custom_events.
-            const hasAnyEventTypeFilter = currentFilters.some((f) => f.column === 'event_type')
-            if (!hasAnyEventTypeFilter) {
-              currentFilters.push({ column: 'event_type', operator: '=', value: '2' })
-              setSelectedEventTypes(['custom_events'])
-            }
-          }
-          // Ensure custom events mode is set correctly if we are forcing custom events
-          // setCustomEventsMode('specific'); // Maybe not needed if we just set the filter?
-        }
-
-        // Check if this is an interactive filter
-        if (stagingFilter.operator === 'INTERACTIVE') {
-          // Generate parameter name based on column name
-          const paramName =
-            stagingFilter.column === 'url_path'
-              ? 'url_sti'
-              : stagingFilter.column === 'event_name'
-                ? 'hendelse'
-                : stagingFilter.column.toLowerCase().replace(/[^a-z0-9_]/g, '_')
-
-          // Create interactive filter
-          const interactiveFilter = {
-            ...stagingFilter,
-            operator: '=',
-            value: `{{${paramName}}}`,
-            metabaseParam: true,
-            interactive: true,
-          }
-
-          setFilters([...currentFilters, interactiveFilter])
-        } else {
-          // Regular filter
-          setFilters([...currentFilters, stagingFilter])
-        }
-
-        setStagingFilter(null)
-
-        // Show staging alert only in full mode (not in segment/filter-only mode)
-        if (mode === 'full') {
-          if (stagingAlertTimeoutRef.current) {
-            clearTimeout(stagingAlertTimeoutRef.current)
-            stagingAlertTimeoutRef.current = null
-          }
-
-          setStagingAlertInfo({
-            show: true,
-            message: `Filter lagt til under aktive filter`,
-          })
-
-          // Auto-hide staging alert after 4 seconds
-          stagingAlertTimeoutRef.current = setTimeout(() => {
-            setStagingAlertInfo((prev) => ({ ...prev, show: false }))
-            stagingAlertTimeoutRef.current = null
-          }, 4000)
-        }
-      }
-    }
+    // ── Generic filter helpers ───────────────────────────────────────────────
 
     const removeFilter = (index: number) => {
       setFilters(filters.filter((_, i) => i !== index))
@@ -184,7 +108,6 @@ const EventFilter = forwardRef(
       setFilters(filters.map((filter, i) => (i === index ? { ...filter, ...updates } : filter)))
     }
 
-    // Add a filter directly to the filters array (without staging)
     const addFilterDirectly = (filter: Filter) => {
       setFilters([...filters, filter])
     }
@@ -193,63 +116,122 @@ const EventFilter = forwardRef(
       return filter.column === 'created_at' && ['>=', '<='].includes(filter.operator || '')
     }
 
-    // Replace toggleFilterSuggestion with new handler
+    // ── Pageviews toggle ─────────────────────────────────────────────────────
+    //
+    // Activating pageviews: adds event_type + url_path filters atomically.
+    // Deactivating pageviews: removes both atomically — no out-of-sync possible.
+
+    const activatePageviews = () => {
+      setPageviewsActive(true)
+      setPageViewsMode('interactive')
+      setSelectedPaths([])
+
+      const base = withoutColumn(filters, 'event_type', 'url_path')
+      const eventTypeFilter = buildEventTypeFilter(true, customEventsActive)
+      const next: Filter[] = eventTypeFilter ? [...base, eventTypeFilter] : [...base]
+      next.push(DEFAULT_URL_STI_FILTER)
+      setFilters(next)
+    }
+
+    const deactivatePageviews = () => {
+      setPageviewsActive(false)
+      setPageViewsMode('interactive')
+      setSelectedPaths([])
+      setUrlPathOperator('IN')
+
+      // Remove event_type AND url_path together — they travel as a unit.
+      const base = withoutColumn(filters, 'event_type', 'url_path')
+      const eventTypeFilter = buildEventTypeFilter(false, customEventsActive)
+      setFilters(eventTypeFilter ? [...base, eventTypeFilter] : base)
+    }
+
+    // ── Custom events toggle ─────────────────────────────────────────────────
+    //
+    // Same principle: activating/deactivating owns its own filter mutations.
+
+    const activateCustomEvents = () => {
+      setCustomEventsActive(true)
+      if (customEventsMode === 'none') setCustomEventsMode('specific')
+
+      const base = withoutColumn(filters, 'event_type')
+      const eventTypeFilter = buildEventTypeFilter(pageviewsActive, true)
+      setFilters(eventTypeFilter ? [...base, eventTypeFilter] : base)
+    }
+
+    const deactivateCustomEvents = () => {
+      setCustomEventsActive(false)
+      setCustomEventsMode('none')
+      setCustomEvents([])
+      setEventNameOperator('IN')
+
+      // Remove event_type AND event_name together.
+      const base = withoutColumn(filters, 'event_type', 'event_name')
+      const eventTypeFilter = buildEventTypeFilter(pageviewsActive, false)
+      setFilters(eventTypeFilter ? [...base, eventTypeFilter] : base)
+    }
+
+    // ── handleEventTypeChange — shim for EventSelector / CustomEventsEditor ──
+    //
+    // EventSelector and its sub-components still call handleEventTypeChange(id, bool).
+    // We keep this shim so we don't have to touch every call site right now.
+
     const handleEventTypeChange = (eventType: string, isChecked: boolean) => {
-      let newSelection = [...selectedEventTypes]
-
-      if (isChecked) {
-        if (!newSelection.includes(eventType)) {
-          newSelection.push(eventType)
-          // If enabling custom_events, set default mode if currently none
-          if (eventType === 'custom_events' && customEventsMode === 'none') {
-            setCustomEventsMode('all')
-          }
+      if (eventType === 'pageviews') {
+        if (isChecked) {
+          activatePageviews()
+        } else {
+          deactivatePageviews()
         }
-      } else {
-        newSelection = newSelection.filter((type) => type !== eventType)
-      }
-
-      setSelectedEventTypes(newSelection)
-
-      // Remove any existing event_type filters
-      const cleanFilters = filters.filter((existingFilter) => existingFilter.column !== 'event_type')
-
-      // Add new filters based on selection
-      const filtersToApply = [...cleanFilters]
-
-      // If both types are selected, use the IN operator
-      if (newSelection.includes('pageviews') && newSelection.includes('custom_events')) {
-        filtersToApply.push({
-          column: 'event_type',
-          operator: 'IN',
-          value: '1',
-          multipleValues: ['1', '2'],
-        })
-      }
-      // If only one type is selected, use the = operator
-      else if (newSelection.includes('pageviews')) {
-        filtersToApply.push({ column: 'event_type', operator: '=', value: '1' })
-      } else if (newSelection.includes('custom_events')) {
-        filtersToApply.push({ column: 'event_type', operator: '=', value: '2' })
-      }
-
-      setFilters(filtersToApply)
-
-      // Only reset these selections when fully unchecking a section, not when adding
-      if (!isChecked) {
-        if (eventType === 'pageviews') {
-          // Reset pageview-specific selections when unchecking pageviews
-          setSelectedPaths([])
-          setPageViewsMode('interactive')
-        } else if (eventType === 'custom_events') {
-          // Reset custom events selections when unchecking custom events
-          setCustomEvents([])
-          setCustomEventsMode('none')
+      } else if (eventType === 'custom_events') {
+        if (isChecked) {
+          activateCustomEvents()
+        } else {
+          deactivateCustomEvents()
         }
       }
     }
 
-    // Update the handleCustomEventsChange function to handle different operators
+    // ── URL-path change (while pageviews is active) ──────────────────────────
+
+    const handlePathsChange = (paths: string[], operator: string = urlPathOperator, isInteractive = false) => {
+      setSelectedPaths(paths)
+      setUrlPathOperator(operator)
+
+      const filtersWithoutPaths = withoutColumn(filters, 'url_path')
+
+      if (paths.length === 0) {
+        setFilters(filtersWithoutPaths)
+        return
+      }
+
+      if (operator === 'IN') {
+        setFilters([
+          ...filtersWithoutPaths,
+          {
+            column: 'url_path',
+            operator: 'IN',
+            value: paths[0],
+            multipleValues: paths,
+            interactive: false,
+            metabaseParam: false,
+          },
+        ])
+      } else {
+        setFilters([
+          ...filtersWithoutPaths,
+          {
+            column: 'url_path',
+            operator,
+            value: paths[0],
+            interactive: isInteractive,
+            metabaseParam: isInteractive,
+          },
+        ])
+      }
+    }
+
+    // ── Custom events change (while custom events is active) ─────────────────
+
     const handleCustomEventsChange = (
       selectedEvents: string[],
       operator: string = eventNameOperator,
@@ -258,160 +240,61 @@ const EventFilter = forwardRef(
       setCustomEvents(selectedEvents)
       setEventNameOperator(operator)
 
-      // Find and remove any existing event_name filters
-      const baseFilters = filters.filter((f) => f.column !== 'event_name')
+      const baseFilters = withoutColumn(filters, 'event_name')
 
-      // Logic to ensure custom events (type 2) are enabled
-      // We execute this if we have specific events selected OR if we are forced to enable custom events (e.g. 'all' mode)
       if (selectedEvents.length > 0 || forceEnable) {
-        // Auto-correct: Ensure event_type is correct for event queries
+        // Auto-correct event_type if it's currently pageviews-only
         const pageviewFilterIndex = baseFilters.findIndex(
           (f) => f.column === 'event_type' && f.value === '1' && f.operator === '=',
         )
-
         if (pageviewFilterIndex >= 0) {
-          // Upgrade strict pageview filter to include custom events
           baseFilters[pageviewFilterIndex] = {
             column: 'event_type',
             operator: 'IN',
             value: '1',
             multipleValues: ['1', '2'],
           }
-          setSelectedEventTypes(['pageviews', 'custom_events'])
-          // Ensure UI reflects that custom events are active
+          setCustomEventsActive(true)
           if (customEventsMode === 'none' && !forceEnable) setCustomEventsMode('specific')
         } else if (!baseFilters.some((f) => f.column === 'event_type')) {
-          // If NO event_filter exists, and we are enabling custom events,
-          // we should probably just add it.
-          // However, if no filter exists, it often means ALL events (1 and 2).
-          // Check if we want to restrict to JUST custom events or allow both.
-          // If forceEnable (All Custom Events) -> usually means type 2.
-
-          // But wait, if NO filter exists, it means implicit 1 and 2.
-          // So we don't strictly need to add one?
-          // Yet, if we are in 'specific' mode, typically we filtered for type 2.
-
-          // Let's stick to the previous logic: ensure explicit type 2 filter if missing.
           baseFilters.push({ column: 'event_type', operator: '=', value: '2' })
-          setSelectedEventTypes(['custom_events'])
+          setCustomEventsActive(true)
           if (customEventsMode === 'none' && !forceEnable) setCustomEventsMode('specific')
-        } else {
-          // If a filter exists but isn't strictly pageviews (e.g. it is already custom_events=2 or IN(1,2)),
-          // we might need to ensure it includes 2.
-          const existingFilter = baseFilters.find((f) => f.column === 'event_type')
-          if (existingFilter && existingFilter.value === '2' && existingFilter.operator === '=') {
-            // Already correct.
-          }
-          // if existing is IN(1,2), already correct.
         }
       }
 
-      // Only add specific event_name filters if we have selected events
-      if (selectedEvents.length > 0) {
-        // For IN operator, use multipleValues
-        if (operator === 'IN') {
-          setFilters([
-            ...baseFilters,
-            {
-              column: 'event_name',
-              operator: 'IN',
-              value: selectedEvents[0],
-              multipleValues: selectedEvents,
-            },
-          ])
-        }
-        // For other operators (LIKE, STARTS_WITH, etc.), use normal format
-        else {
-          setFilters([
-            ...baseFilters,
-            {
-              column: 'event_name',
-              operator: operator,
-              value: selectedEvents[0],
-            },
-          ])
-        }
-      } else {
-        // Keep just the event_type logic updates (without specific event names)
+      if (selectedEvents.length === 0) {
         setFilters(baseFilters)
+        return
       }
-    }
 
-    // Update function to handle URL path selection
-    const handlePathsChange = (paths: string[], operator: string = urlPathOperator, isInteractive = false) => {
-      setSelectedPaths(paths)
-      setUrlPathOperator(operator)
-
-      // Find and remove any existing url_path filters
-      const filtersWithoutPaths = filters.filter((f) => !(f.column === 'url_path'))
-
-      // Only add url_path filter if paths are selected
-      if (paths.length > 0) {
-        // For IN operator, use multipleValues
-        if (operator === 'IN') {
-          setFilters([
-            ...filtersWithoutPaths,
-            {
-              column: 'url_path',
-              operator: 'IN',
-              value: paths[0],
-              multipleValues: paths,
-              interactive: false,
-              metabaseParam: false,
-            },
-          ])
-        }
-        // For other operators (LIKE, STARTS_WITH, etc.), use normal format
-        else {
-          setFilters([
-            ...filtersWithoutPaths,
-            {
-              column: 'url_path',
-              operator: operator,
-              value: paths[0],
-              interactive: isInteractive,
-              metabaseParam: isInteractive,
-            },
-          ])
-        }
+      if (operator === 'IN') {
+        setFilters([
+          ...baseFilters,
+          { column: 'event_name', operator: 'IN', value: selectedEvents[0], multipleValues: selectedEvents },
+        ])
       } else {
-        setFilters(filtersWithoutPaths)
+        setFilters([...baseFilters, { column: 'event_name', operator, value: selectedEvents[0] }])
       }
     }
 
-    // Add this useEffect to sync operator state with filters
+    // ── Sync operator state from incoming filters (e.g. loaded from saved config) ─
+
     useEffect(() => {
       const urlPathFilter = filters.find((f) => f.column === 'url_path')
-      if (urlPathFilter && urlPathFilter.operator) {
-        setUrlPathOperator(urlPathFilter.operator)
-      }
+      if (urlPathFilter?.operator) setUrlPathOperator(urlPathFilter.operator)
     }, [filters])
 
-    // Add useEffect to sync operator state with filters (near other useEffects)
     useEffect(() => {
       const eventNameFilter = filters.find((f) => f.column === 'event_name')
-      if (eventNameFilter && eventNameFilter.operator) {
-        setEventNameOperator(eventNameFilter.operator)
-      }
+      if (eventNameFilter?.operator) setEventNameOperator(eventNameFilter.operator)
     }, [filters])
 
-    // Keep URL placeholder filter in sync for "Sidevisninger -> Mottaker velger selv"
-    // so Vis resultater can show URL input immediately on first load.
-    useEffect(() => {
-      if (mode !== 'full') return
+    // ── One-time initialisation of the default url_sti filter ────────────────
+    //
+    // On first load, if there is no url_path filter yet but pageviews is active,
+    // push the interactive {{url_sti}} default. Runs only once (guarded by ref).
 
-      const pageviewsSelected = selectedEventTypes.includes('pageviews')
-      const hasUrlPathFilter = filters.some((f) => f.column === 'url_path')
-
-      if (pageviewsSelected && pageViewsMode === 'interactive' && !hasUrlPathFilter) {
-        setFilters([
-          ...filters,
-          { column: 'url_path', operator: '=', value: '{{url_sti}}', interactive: true, metabaseParam: true },
-        ])
-      }
-    }, [mode, selectedEventTypes, pageViewsMode, filters, setFilters])
-
-    // Add useEffect to apply initial pageviews filter
     useEffect(() => {
       if (mode !== 'full') return
       if (didInitPageviewsRef.current) return
@@ -422,7 +305,6 @@ const EventFilter = forwardRef(
         !hasEventTypeFilter ||
         filters.some((f) => f.column === 'event_type' && (f.value === '1' || f.multipleValues?.includes('1')))
 
-      // Ensure "Mottaker velger side via filter" default on first load.
       if (!hasUrlPathFilter && hasPageviewsEnabled) {
         didInitPageviewsRef.current = true
         const timer = setTimeout(() => {
@@ -430,13 +312,7 @@ const EventFilter = forwardRef(
           if (!hasEventTypeFilter) {
             nextFilters.push({ column: 'event_type', operator: '=', value: '1' })
           }
-          nextFilters.push({
-            column: 'url_path',
-            operator: '=',
-            value: '{{url_sti}}',
-            interactive: true,
-            metabaseParam: true,
-          })
+          nextFilters.push(DEFAULT_URL_STI_FILTER)
           setFilters(nextFilters)
         }, 0)
         return () => clearTimeout(timer)
@@ -445,71 +321,60 @@ const EventFilter = forwardRef(
       didInitPageviewsRef.current = true
     }, [mode, filters, setFilters])
 
+    // ── Dirty-state tracking ─────────────────────────────────────────────────
+
     useEffect(() => {
       if (!onDirtyStateChange) return
 
-      // Source of truth for reset visibility in "Hendelse":
-      // default means only the standard Pageviews + interactive dashboard filter setup.
       const isDefaultUiState =
         mode === 'full' &&
-        selectedEventTypes.length === 1 &&
-        selectedEventTypes[0] === 'pageviews' &&
+        pageviewsActive &&
+        !customEventsActive &&
         pageViewsMode === 'interactive' &&
         customEventsMode === 'none'
 
       onDirtyStateChange(!isDefaultUiState)
-    }, [mode, selectedEventTypes, pageViewsMode, customEventsMode, onDirtyStateChange])
+    }, [mode, pageviewsActive, customEventsActive, pageViewsMode, customEventsMode, onDirtyStateChange])
 
-    // Create a Set to track unique parameters
+    // ── Unique parameters ────────────────────────────────────────────────────
+
     const uniqueParameters = useMemo(() => {
-      const seen = new Set()
+      const seen = new Set<string>()
       return parameters.filter((param) => {
         const cleanName = param.key.split('.').pop() || ''
-        if (seen.has(cleanName)) {
-          return false
-        }
+        if (seen.has(cleanName)) return false
         seen.add(cleanName)
         return true
       })
     }, [parameters])
 
-    // Update resetFilters function to accept silent parameter
+    // ── Reset ────────────────────────────────────────────────────────────────
+
     const resetFilters = (silent = false) => {
-      // Ensure filters are completely cleared
       setFilters([])
 
-      // Filter-only mode should not force event presets
       if (mode === 'filter-only') {
-        setSelectedEventTypes([])
+        setPageviewsActive(false)
+        setCustomEventsActive(false)
         setCustomEvents([])
         setSelectedPaths([])
         setPageViewsMode('interactive')
         setCustomEventsMode('none')
-        setStagingFilter(null)
         return
       }
 
-      // Reset UI state but keep 'pageviews' suggestion active
-      setSelectedEventTypes(['pageviews'])
+      setPageviewsActive(true)
+      setCustomEventsActive(false)
       setCustomEvents([])
       setSelectedPaths([])
-      // Keep the pageViewsMode in 'interactive' state
       setPageViewsMode('interactive')
       setCustomEventsMode('none')
-      setStagingFilter(null)
 
-      // Force immediate UI update for filter count by using a setTimeout with 0ms
       setTimeout(() => {
-        // Apply initial pageviews + interactive url_path filter
-        setFilters([
-          { column: 'event_type', operator: '=', value: '1' },
-          { column: 'url_path', operator: '=', value: '{{url_sti}}', interactive: true, metabaseParam: true },
-        ])
+        setFilters([{ column: 'event_type', operator: '=', value: '1' }, DEFAULT_URL_STI_FILTER])
       }, 0)
 
-      // Only show alert if not silent
       if (!silent) {
-        // Clear any existing timeout
         if (alertTimeoutRef.current) {
           clearTimeout(alertTimeoutRef.current)
           alertTimeoutRef.current = null
@@ -517,23 +382,10 @@ const EventFilter = forwardRef(
       }
     }
 
-    const handleStagingAlertClose = () => {
-      if (stagingAlertTimeoutRef.current) {
-        clearTimeout(stagingAlertTimeoutRef.current)
-        stagingAlertTimeoutRef.current = null
-      }
-      setStagingAlertInfo((prev) => ({ ...prev, show: false }))
-    }
-
     // Clear timeouts when component unmounts
     useEffect(() => {
       return () => {
-        if (alertTimeoutRef.current) {
-          clearTimeout(alertTimeoutRef.current)
-        }
-        if (stagingAlertTimeoutRef.current) {
-          clearTimeout(stagingAlertTimeoutRef.current)
-        }
+        if (alertTimeoutRef.current) clearTimeout(alertTimeoutRef.current)
       }
     }, [])
 
@@ -544,20 +396,26 @@ const EventFilter = forwardRef(
         resetFilters,
         enableCustomEvents: () => {
           if (mode === 'filter-only') return
-          // Enable custom events if not already enabled
-          if (!selectedEventTypes.includes('custom_events')) {
-            handleEventTypeChange('custom_events', true)
-          }
+          if (!customEventsActive) activateCustomEvents()
         },
       }),
-      [mode, selectedEventTypes],
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [mode, customEventsActive],
     )
+
+    // ── Derive selectedEventTypes for EventSelector (backward-compat) ────────
+    //
+    // EventSelector still expects a string[] for rendering the active cards.
+
+    const selectedEventTypes = [
+      ...(pageviewsActive ? ['pageviews'] : []),
+      ...(customEventsActive ? ['custom_events'] : []),
+    ]
 
     return (
       <section>
         <div className="space-y-6 relative">
           <div>
-            {/* Replace the Velg hendelse section with EventSelector component */}
             <EventSelector
               selectedEventTypes={selectedEventTypes}
               handleEventTypeChange={handleEventTypeChange}
@@ -580,15 +438,8 @@ const EventFilter = forwardRef(
               onEnableCustomEvents={onEnableCustomEvents}
               eventLookbackDays={dateRangeInDays}
               onEventLookbackDaysChange={onDateRangeInDaysChange}
-              // Pass advanced filter props
-              stagingFilter={stagingFilter}
-              setStagingFilter={setStagingFilter}
-              addFilter={addFilter}
-              commitStagingFilter={commitStagingFilter}
               parameters={parameters}
               uniqueParameters={uniqueParameters}
-              stagingAlertInfo={stagingAlertInfo}
-              handleStagingAlertClose={handleStagingAlertClose}
               FILTER_COLUMNS={FILTER_COLUMNS}
               EVENT_TYPES={EVENT_TYPES}
               removeFilter={removeFilter}
