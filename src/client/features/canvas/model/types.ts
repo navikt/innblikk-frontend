@@ -17,6 +17,7 @@ export type CanvasPayloadKind =
   | 'sticky'
   | 'section'
   | 'chart'
+  | 'sql-editor'
   | 'icon'
   | 'figure'
   | 'drawing'
@@ -42,6 +43,7 @@ export type CanvasFrame = {
     | 'sticky'
     | 'section'
     | 'chart'
+    | 'sql-editor'
     | 'icon'
     | 'figure'
     | 'drawing'
@@ -75,6 +77,7 @@ export type CanvasFrame = {
   imageRotationDeg?: number
   chartType?: CanvasChartType
   chartSql?: string
+  sqlQuery?: string
   label: string
   x: number
   y: number
@@ -194,6 +197,7 @@ export type CanvasConfigPayload = {
   imageRotationDeg?: number
   chartType?: CanvasChartType
   chartSql?: string
+  sqlQuery?: string
   label: string
   fromFrameId?: string
   toFrameId?: string

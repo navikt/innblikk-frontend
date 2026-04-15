@@ -35,7 +35,7 @@ export const CANVAS_ZOOM_STEP = 0.1
 export const HEADING_FONT_SIZE_DEFAULT = 40
 export const HEADING_FONT_SIZE_MIN = 20
 export const HEADING_FONT_SIZE_MAX = 96
-export const HEADING_FONT_SIZE_STEP = 2
+export const HEADING_FONT_SIZE_STEP = 4
 export const ICON_ROTATION_STEP_DEG = 15
 
 export const CANVAS_FIGURE_OPTIONS: CanvasFigureOption[] = [
@@ -54,6 +54,7 @@ export const CANVAS_INVENTORY_KIND_OPTIONS: Array<{ kind: CanvasFrame['kind']; l
   { kind: 'sticky', label: 'Post-it-lapper' },
   { kind: 'section', label: 'Seksjoner' },
   { kind: 'chart', label: 'Grafer' },
+  { kind: 'sql-editor', label: 'SQL-editorer' },
   { kind: 'icon', label: 'Ikoner' },
   { kind: 'figure', label: 'Figurer' },
   { kind: 'drawing', label: 'Tegninger' },
@@ -344,6 +345,7 @@ const isCanvasPayloadKind = (value: unknown): value is CanvasPayloadKind =>
   value === 'sticky' ||
   value === 'section' ||
   value === 'chart' ||
+  value === 'sql-editor' ||
   value === 'icon' ||
   value === 'figure' ||
   value === 'drawing' ||
@@ -358,6 +360,7 @@ export const isRenderableCanvasFrameKind = (value: unknown): value is CanvasFram
   value === 'sticky' ||
   value === 'section' ||
   value === 'chart' ||
+  value === 'sql-editor' ||
   value === 'icon' ||
   value === 'figure' ||
   value === 'drawing'
@@ -424,6 +427,7 @@ export const parseCanvasConfig = (raw: string): CanvasConfigPayload | null => {
       imageRotationDeg: Number.isFinite(parsed.imageRotationDeg) ? Number(parsed.imageRotationDeg) : undefined,
       chartType: isCanvasChartType(parsed.chartType) ? parsed.chartType : undefined,
       chartSql: typeof parsed.chartSql === 'string' ? parsed.chartSql : undefined,
+      sqlQuery: typeof parsed.sqlQuery === 'string' ? parsed.sqlQuery : undefined,
       label: parsed.label,
       fromFrameId: typeof parsed.fromFrameId === 'string' ? parsed.fromFrameId : undefined,
       toFrameId: typeof parsed.toFrameId === 'string' ? parsed.toFrameId : undefined,

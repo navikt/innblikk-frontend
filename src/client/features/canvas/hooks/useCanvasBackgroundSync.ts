@@ -38,6 +38,7 @@ const buildFrameSignature = (frame: CanvasFrame): string =>
     imageRotationDeg: frame.imageRotationDeg ?? null,
     chartType: frame.chartType ?? null,
     chartSql: frame.chartSql ?? null,
+    sqlQuery: frame.sqlQuery ?? null,
     label: frame.label ?? null,
     x: frame.x,
     y: frame.y,

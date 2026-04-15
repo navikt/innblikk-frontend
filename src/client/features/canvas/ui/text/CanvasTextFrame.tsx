@@ -104,7 +104,7 @@ const CanvasTextFrame = ({
           lang="nb-NO"
           placeholder="Skriv tekst"
           className="h-full w-full resize-none overflow-auto border-none bg-transparent p-0 text-[var(--ax-text-default)] outline-none placeholder:text-[var(--ax-text-subtle)] [font-family:inherit]"
-          style={{ fontSize: '24px', lineHeight: 1.3, fontWeight: 500 }}
+          style={{ fontSize: '22px', lineHeight: 1.3, fontWeight: 500 }}
           autoFocus
         />
       </div>
@@ -115,7 +115,7 @@ const CanvasTextFrame = ({
     <div className="relative h-full overflow-auto px-2 pb-2">
       <div
         className="h-full cursor-text overflow-auto whitespace-pre-wrap break-words text-[var(--ax-text-default)]"
-        style={{ fontSize: '24px', lineHeight: 1.3, fontWeight: 500 }}
+        style={{ fontSize: '22px', lineHeight: 1.3, fontWeight: 500 }}
         onClick={() => onStartEditing(id)}
       >
         {textContent || 'Skriv tekst'}

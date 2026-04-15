@@ -27,6 +27,7 @@ import CanvasStickyFrame from '../sticky/CanvasStickyFrame.tsx'
 import { getCanvasStickyColorOptionById } from '../sticky/CanvasStickyColorRegistry.ts'
 import CanvasTextFrame from '../text/CanvasTextFrame.tsx'
 import CanvasLinkFrame from '../link/CanvasLinkFrame.tsx'
+import CanvasSqlEditorFrame from '../sql/CanvasSqlEditorFrame.tsx'
 import CanvasWebsiteActionMenu from '../website/CanvasWebsiteActionMenu.tsx'
 import CanvasWebsiteFrame from '../website/CanvasWebsiteFrame.tsx'
 import WebsitePicker from '../../../analysis/ui/WebsitePicker.tsx'
@@ -343,7 +344,11 @@ const CanvasFrameLayer = ({
             ...sortedTopListItems.map((item) => (Number.isFinite(item.count) ? item.count : 0)),
           )
           const editLockStatus =
-            frame.kind === 'heading' || frame.kind === 'text' || frame.kind === 'sticky' || frame.kind === 'section'
+            frame.kind === 'heading' ||
+            frame.kind === 'text' ||
+            frame.kind === 'sticky' ||
+            frame.kind === 'section' ||
+            frame.kind === 'sql-editor'
               ? getFrameLockStatus(frame)
               : { isLockedByOther: false, ownerLabel: null }
           const currentSectionId = frameContainingSectionIdByFrameId[frame.id]
@@ -406,7 +411,9 @@ const CanvasFrameLayer = ({
                                 ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
                                 : frame.kind === 'drawing'
                                   ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
-                                  : 'group absolute flex flex-col overflow-visible rounded-xl border shadow-sm'
+                                  : frame.kind === 'sql-editor'
+                                    ? 'group absolute flex flex-col overflow-hidden rounded-xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] shadow-sm'
+                                    : 'group absolute flex flex-col overflow-visible rounded-xl border shadow-sm'
               } ${isSelectedFrame ? 'ring-2 ring-[var(--ax-border-accent)]/60' : ''} ${isTargetVotingSection ? 'ring-4 ring-[var(--ax-border-accent)]/40' : ''} ${isDotVotingActive && frame.kind === 'sticky' && isInVotingScope ? 'ring-1 ring-white/80 shadow-md' : ''} ${shouldDimFrame ? 'opacity-20' : 'opacity-100'}`}
               style={{
                 left: `${frame.x}px`,
@@ -539,6 +546,7 @@ const CanvasFrameLayer = ({
                   frame.kind === 'icon' ||
                   frame.kind === 'figure' ||
                   frame.kind === 'drawing' ||
+                  frame.kind === 'sql-editor' ||
                   frame.kind === 'image' ||
                   frame.kind === 'website') && (
                   <>
@@ -614,7 +622,8 @@ const CanvasFrameLayer = ({
                 frame.kind === 'section' ||
                 frame.kind === 'icon' ||
                 frame.kind === 'figure' ||
-                frame.kind === 'drawing') && (
+                frame.kind === 'drawing' ||
+                frame.kind === 'sql-editor') && (
                 <div
                   aria-hidden="true"
                   className={`pointer-events-none absolute z-10 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${
@@ -645,11 +654,13 @@ const CanvasFrameLayer = ({
                             ? 'overflow-visible bg-transparent'
                             : frame.kind === 'drawing'
                               ? 'overflow-visible bg-transparent'
-                              : frame.kind === 'heading'
-                                ? 'pt-1'
-                                : frame.kind === 'link'
-                                  ? 'overflow-visible bg-transparent'
-                                  : 'px-2 pb-2'
+                              : frame.kind === 'sql-editor'
+                                ? 'overflow-hidden bg-[var(--ax-bg-default)]'
+                                : frame.kind === 'heading'
+                                  ? 'pt-1'
+                                  : frame.kind === 'link'
+                                    ? 'overflow-visible bg-transparent'
+                                    : 'px-2 pb-2'
                 }`}
               >
                 {frame.kind === 'website' && !frame.isInternalDashboard && (
@@ -940,6 +951,17 @@ const CanvasFrameLayer = ({
                   />
                 ) : frame.kind === 'link' ? (
                   <CanvasLinkFrame title={frame.label} href={frame.targetUrl || ''} description={frame.textContent} />
+                ) : frame.kind === 'sql-editor' ? (
+                  <CanvasSqlEditorFrame
+                    id={frame.id}
+                    sqlQuery={frame.sqlQuery}
+                    websiteId={frame.websiteId || selectedWebsite?.id}
+                    isEditing={activeEditableFrameId === frame.id}
+                    isLockedByOther={editLockStatus.isLockedByOther}
+                    lockOwnerLabel={editLockStatus.ownerLabel}
+                    onChange={handleEditableFrameChange}
+                    onBlur={handleEditableFrameBlur}
+                  />
                 ) : frame.kind === 'sticky' ? (
                   <div className="relative h-full">
                     <CanvasStickyFrame

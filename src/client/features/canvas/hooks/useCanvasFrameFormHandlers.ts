@@ -478,6 +478,7 @@ const useCanvasFrameFormHandlers = ({
         imageRotationDeg: frame.imageRotationDeg,
         chartType: frame.chartType,
         chartSql: frame.chartSql,
+        sqlQuery: frame.sqlQuery,
         label: frame.label,
       }
       const serialized = serializeCanvasConfig(payload)
@@ -1682,6 +1683,18 @@ const useCanvasFrameFormHandlers = ({
     setIsAddChartModalOpen(false)
   }
 
+  const handleAddSqlEditorCard = () => {
+    const frameDraft: PendingCanvasFrameDraft = {
+      kind: 'sql-editor',
+      label: 'SQL-editor',
+      sqlQuery: '',
+      width: 980,
+      height: 420,
+      refreshNonce: 0,
+    }
+    queueFrameForPlacement(frameDraft, 'SQL-editor')
+  }
+
   const openAddPageModalDirect = () => {
     setAddPageError(null)
     setNewPagePreviewUrlInput('')
@@ -1758,6 +1771,10 @@ const useCanvasFrameFormHandlers = ({
     handleAddSectionCard()
   }
 
+  const handleOpenAddSqlEditor = () => {
+    handleAddSqlEditorCard()
+  }
+
   const handleOpenAddImageModal = () => {
     setAddImageError(null)
     setNewImageUrlInput('')
@@ -1825,6 +1842,7 @@ const useCanvasFrameFormHandlers = ({
     handleAddIconCard,
     handleAddFigureCard,
     handleAddChartCard,
+    handleAddSqlEditorCard,
     handleOpenAddPageModal,
     handleAssignWebsiteToChart,
     handleOpenAddHeadingModal,
@@ -1833,6 +1851,7 @@ const useCanvasFrameFormHandlers = ({
     handleOpenAddLinkModal,
     handleOpenAddStickyModal,
     handleOpenAddSection,
+    handleOpenAddSqlEditor,
     handleOpenAddImageModal,
     handleOpenAddIconModal,
     handleOpenAddFigureModal,

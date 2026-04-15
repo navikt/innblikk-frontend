@@ -20,6 +20,7 @@ type CanvasTopBarProps = {
   canvasInitMode: 'checking' | 'existing' | 'create'
   onOpenAddPage: () => void
   onOpenCreateChart: () => void
+  onOpenAddSqlEditor: () => void
   onOpenAddDashboard: () => void
   onOpenAddHeading: () => void
   onOpenAddText: () => void
@@ -73,6 +74,7 @@ const CanvasTopBar = ({
   canvasInitMode,
   onOpenAddPage,
   onOpenCreateChart,
+  onOpenAddSqlEditor,
   onOpenAddDashboard,
   onOpenAddHeading,
   onOpenAddText,
@@ -222,6 +224,7 @@ const CanvasTopBar = ({
               <CanvasAddActionMenu
                 onAddWebsite={onOpenAddPage}
                 onOpenGrafbygger={onOpenCreateChart}
+                onAddSqlEditor={onOpenAddSqlEditor}
                 onAddDashboard={onOpenAddDashboard}
                 onAddHeading={onOpenAddHeading}
                 onAddText={onOpenAddText}
