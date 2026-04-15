@@ -83,6 +83,8 @@ type UseCanvasFrameFormHandlersParams = {
   setIsAddHeadingModalOpen: Setter<boolean>
   isAddTextModalOpen: boolean
   setIsAddTextModalOpen: Setter<boolean>
+  isAddLinkModalOpen: boolean
+  setIsAddLinkModalOpen: Setter<boolean>
   isAddStickyModalOpen: boolean
   setIsAddStickyModalOpen: Setter<boolean>
   isAddIconModalOpen: boolean
@@ -106,6 +108,8 @@ type UseCanvasFrameFormHandlersParams = {
   setEditDashboardFrameId: Setter<string | null>
   editImageFrameId: string | null
   setEditImageFrameId: Setter<string | null>
+  editLinkFrameId: string | null
+  setEditLinkFrameId: Setter<string | null>
   editIconFrameId: string | null
   setEditIconFrameId: Setter<string | null>
   editFigureFrameId: string | null
@@ -181,6 +185,14 @@ type UseCanvasFrameFormHandlersParams = {
   setTextContentInput: Setter<string>
   addTextError: string | null
   setAddTextError: Setter<string | null>
+  linkTitleInput: string
+  setLinkTitleInput: Setter<string>
+  linkUrlInput: string
+  setLinkUrlInput: Setter<string>
+  linkDescriptionInput: string
+  setLinkDescriptionInput: Setter<string>
+  addLinkError: string | null
+  setAddLinkError: Setter<string | null>
   stickyContentInput: string
   setStickyContentInput: Setter<string>
   selectedStickyColor: string
@@ -268,6 +280,8 @@ const useCanvasFrameFormHandlers = ({
   setIsAddHeadingModalOpen,
   isAddTextModalOpen: _isAddTextModalOpen,
   setIsAddTextModalOpen,
+  isAddLinkModalOpen: _isAddLinkModalOpen,
+  setIsAddLinkModalOpen,
   isAddStickyModalOpen: _isAddStickyModalOpen,
   setIsAddStickyModalOpen,
   isAddIconModalOpen: _isAddIconModalOpen,
@@ -290,6 +304,8 @@ const useCanvasFrameFormHandlers = ({
   setEditDashboardFrameId,
   editImageFrameId,
   setEditImageFrameId,
+  editLinkFrameId,
+  setEditLinkFrameId,
   editIconFrameId,
   setEditIconFrameId,
   editFigureFrameId,
@@ -360,6 +376,14 @@ const useCanvasFrameFormHandlers = ({
   setTextContentInput,
   addTextError: _addTextError,
   setAddTextError,
+  linkTitleInput,
+  setLinkTitleInput,
+  linkUrlInput,
+  setLinkUrlInput,
+  linkDescriptionInput,
+  setLinkDescriptionInput,
+  addLinkError: _addLinkError,
+  setAddLinkError,
   stickyContentInput,
   setStickyContentInput,
   selectedStickyColor,
@@ -815,6 +839,16 @@ const useCanvasFrameFormHandlers = ({
     setEditImageUrlInput(frame.targetUrl || '')
     setEditImageError(null)
     setIsEditImageModalOpen(true)
+  }
+
+  const handleOpenEditLinkModal = (frame: CanvasFrame) => {
+    if (frame.kind !== 'link') return
+    setEditLinkFrameId(frame.id)
+    setLinkTitleInput(frame.label || '')
+    setLinkUrlInput(frame.targetUrl || '')
+    setLinkDescriptionInput(frame.textContent || '')
+    setAddLinkError(null)
+    setIsAddLinkModalOpen(true)
   }
 
   const handleOpenEditIllustrationModal = (frame: CanvasFrame) => {
@@ -1361,6 +1395,78 @@ const useCanvasFrameFormHandlers = ({
     setIsAddTextModalOpen(false)
   }
 
+  const handleAddLinkCard = () => {
+    const title = linkTitleInput.trim()
+    const href = normalizeInputToTargetUrl(linkUrlInput, selectedWebsite?.domain)
+    const description = linkDescriptionInput.trim()
+
+    if (!title) {
+      setAddLinkError('Legg inn tittel.')
+      return
+    }
+
+    if (!href) {
+      setAddLinkError('Legg inn en gyldig lenke, for eksempel https://www.nav.no/sykdom.')
+      return
+    }
+
+    const descriptionLineCount = description ? description.split('\n').length : 0
+    const estimatedHeight = description
+      ? Math.min(240, Math.max(132, 112 + descriptionLineCount * 22 + Math.ceil(description.length / 64) * 14))
+      : 96
+
+    if (editLinkFrameId) {
+      const currentFrame = frames.find((frame) => frame.id === editLinkFrameId)
+      if (!currentFrame || currentFrame.kind !== 'link') return
+
+      const updatedFrame: CanvasFrame = {
+        ...currentFrame,
+        targetUrl: href,
+        textContent: description || undefined,
+        label: title,
+        height: estimatedHeight,
+        refreshNonce: currentFrame.refreshNonce + 1,
+      }
+
+      void (async () => {
+        try {
+          setIsSavingCanvasItem(true)
+          setSyncError(null)
+          const persistedFrame = await persistFrame(updatedFrame)
+          setFrames((prev) => prev.map((frame) => (frame.id === editLinkFrameId ? persistedFrame : frame)))
+          setLinkTitleInput('')
+          setLinkUrlInput('')
+          setLinkDescriptionInput('')
+          setAddLinkError(null)
+          setEditLinkFrameId(null)
+          setIsAddLinkModalOpen(false)
+        } catch (error) {
+          setSyncError(error instanceof Error ? error.message : 'Kunne ikke oppdatere lenke')
+        } finally {
+          setIsSavingCanvasItem(false)
+        }
+      })()
+      return
+    }
+
+    const frameDraft: PendingCanvasFrameDraft = {
+      kind: 'link',
+      targetUrl: href,
+      textContent: description || undefined,
+      label: title,
+      width: 380,
+      height: estimatedHeight,
+      refreshNonce: 0,
+    }
+    queueFrameForPlacement(frameDraft, 'lenke')
+    setLinkTitleInput('')
+    setLinkUrlInput('')
+    setLinkDescriptionInput('')
+    setAddLinkError(null)
+    setEditLinkFrameId(null)
+    setIsAddLinkModalOpen(false)
+  }
+
   const handleAddStickyCard = () => {
     const content = stickyContentInput.trim()
 
@@ -1518,6 +1624,15 @@ const useCanvasFrameFormHandlers = ({
     setIsAddStickyModalOpen(true)
   }
 
+  const handleOpenAddLinkModal = () => {
+    setEditLinkFrameId(null)
+    setLinkTitleInput('')
+    setLinkUrlInput('')
+    setLinkDescriptionInput('')
+    setAddLinkError(null)
+    setIsAddLinkModalOpen(true)
+  }
+
   const handleOpenAddSection = () => {
     handleAddSectionCard()
   }
@@ -1560,6 +1675,7 @@ const useCanvasFrameFormHandlers = ({
     handleOpenEditWebsiteModal,
     handleOpenEditDashboardModal,
     handleOpenEditImageModal,
+    handleOpenEditLinkModal,
     handleOpenEditIllustrationModal,
     handleOpenEditIconModal,
     handleOpenEditFigureModal,
@@ -1580,6 +1696,7 @@ const useCanvasFrameFormHandlers = ({
     handleSaveEditedFigure,
     handleAddHeadingCard,
     handleAddTextCard,
+    handleAddLinkCard,
     handleAddStickyCard,
     handleAddSectionCard,
     handleAddIconCard,
@@ -1589,6 +1706,7 @@ const useCanvasFrameFormHandlers = ({
     handleAssignWebsiteToChart,
     handleOpenAddHeadingModal,
     handleOpenAddTextModal,
+    handleOpenAddLinkModal,
     handleOpenAddStickyModal,
     handleOpenAddSection,
     handleOpenAddImageModal,

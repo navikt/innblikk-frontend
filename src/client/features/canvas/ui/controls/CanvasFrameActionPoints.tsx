@@ -8,13 +8,25 @@ const stopMouseDownPropagation = (event: MouseEvent<HTMLElement>) => {
 }
 
 type CanvasFrameActionPointsProps = {
-  frameKind: 'website' | 'image' | 'heading' | 'text' | 'sticky' | 'section' | 'chart' | 'icon' | 'figure' | 'drawing'
+  frameKind:
+    | 'website'
+    | 'image'
+    | 'heading'
+    | 'text'
+    | 'link'
+    | 'sticky'
+    | 'section'
+    | 'chart'
+    | 'icon'
+    | 'figure'
+    | 'drawing'
   isInternalDashboard?: boolean
   isIllustrationFrame: boolean
   actionButtonClassName: string
   onEditImage: () => void
   onEditIllustration: () => void
   onEditDashboard: () => void
+  onEditLink: () => void
   onEditIcon: () => void
   onDuplicateIcon: () => void
   onRotateIconLeft: () => void
@@ -300,6 +312,7 @@ const CanvasFrameActionPoints = ({
   onEditImage,
   onEditIllustration,
   onEditDashboard,
+  onEditLink,
   onEditIcon,
   onDuplicateIcon,
   onRotateIconLeft,
@@ -333,6 +346,7 @@ const CanvasFrameActionPoints = ({
   const actionPointsPositionClassName =
     frameKind === 'heading' ||
     frameKind === 'text' ||
+    frameKind === 'link' ||
     frameKind === 'image' ||
     frameKind === 'icon' ||
     frameKind === 'figure' ||
@@ -358,6 +372,18 @@ const CanvasFrameActionPoints = ({
         onEditIllustration={onEditIllustration}
         onEditDashboard={onEditDashboard}
       />
+      {frameKind === 'link' && (
+        <Button
+          size="xsmall"
+          variant="tertiary"
+          icon={<Edit2 size={14} />}
+          onMouseDown={stopMouseDownPropagation}
+          onClick={onEditLink}
+          title="Rediger lenke"
+          aria-label="Rediger lenke"
+          className={actionButtonClassName}
+        />
+      )}
       {frameKind === 'icon' && (
         <IconBoxActionPoints
           actionButtonClassName={actionButtonClassName}

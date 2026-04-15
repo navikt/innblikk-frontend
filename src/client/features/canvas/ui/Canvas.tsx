@@ -30,6 +30,7 @@ import CanvasImageUrlModal from './image/CanvasImageUrlModal.tsx'
 import CanvasFigureModal from './figure/CanvasFigureModal.tsx'
 import CanvasHeadingModal from './heading/CanvasHeadingModal.tsx'
 import CanvasTextModal from './text/CanvasTextModal.tsx'
+import CanvasLinkModal from './link/CanvasLinkModal.tsx'
 import CanvasStickyModal from './sticky/CanvasStickyModal.tsx'
 import {
   CANVAS_STICKY_COLOR_OPTIONS,
@@ -158,6 +159,7 @@ const getDefaultFrameSize = (
   if (kind === 'chart') return { width: 560, height: 360, minWidth: 280, minHeight: 200 }
   if (kind === 'heading') return { width: 420, height: 72, minWidth: 260, minHeight: 48 }
   if (kind === 'text') return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
+  if (kind === 'link') return { width: 380, height: 112, minWidth: 280, minHeight: 92 }
   if (kind === 'icon') return { width: 280, height: 240, minWidth: 72, minHeight: 72 }
   if (kind === 'figure') {
     const isLineOrArrow =
@@ -172,6 +174,7 @@ const getDefaultFrameSize = (
 const getPendingFrameContentAnchorOffset = (draft: PendingCanvasFrameDraft): { x: number; y: number } => {
   if (draft.kind === 'heading') return { x: 16, y: 9 }
   if (draft.kind === 'text') return { x: 16, y: 0 }
+  if (draft.kind === 'link') return { x: 16, y: 16 }
   if (draft.kind === 'sticky') return { x: 24, y: 24 }
   return { x: 0, y: 0 }
 }
@@ -337,6 +340,7 @@ const Canvas = () => {
   const [isAddDashboardModalOpen, setIsAddDashboardModalOpen] = useState(false)
   const [isAddHeadingModalOpen, setIsAddHeadingModalOpen] = useState(false)
   const [isAddTextModalOpen, setIsAddTextModalOpen] = useState(false)
+  const [isAddLinkModalOpen, setIsAddLinkModalOpen] = useState(false)
   const [isAddStickyModalOpen, setIsAddStickyModalOpen] = useState(false)
   const [isImportStickyCsvModalOpen, setIsImportStickyCsvModalOpen] = useState(false)
   const [isAddIconModalOpen, setIsAddIconModalOpen] = useState(false)
@@ -368,6 +372,7 @@ const Canvas = () => {
   const [editWebsiteFrameId, setEditWebsiteFrameId] = useState<string | null>(null)
   const [editDashboardFrameId, setEditDashboardFrameId] = useState<string | null>(null)
   const [editImageFrameId, setEditImageFrameId] = useState<string | null>(null)
+  const [editLinkFrameId, setEditLinkFrameId] = useState<string | null>(null)
   const [editIconFrameId, setEditIconFrameId] = useState<string | null>(null)
   const [editFigureFrameId, setEditFigureFrameId] = useState<string | null>(null)
   const [editIllustrationFrameId, setEditIllustrationFrameId] = useState<string | null>(null)
@@ -419,6 +424,10 @@ const Canvas = () => {
   const [addHeadingError, setAddHeadingError] = useState<string | null>(null)
   const [textContentInput, setTextContentInput] = useState('')
   const [addTextError, setAddTextError] = useState<string | null>(null)
+  const [linkTitleInput, setLinkTitleInput] = useState('')
+  const [linkUrlInput, setLinkUrlInput] = useState('')
+  const [linkDescriptionInput, setLinkDescriptionInput] = useState('')
+  const [addLinkError, setAddLinkError] = useState<string | null>(null)
   const [stickyContentInput, setStickyContentInput] = useState('')
   const [selectedStickyColor, setSelectedStickyColor] = useState(DEFAULT_CANVAS_STICKY_COLOR)
   const [addStickyError, setAddStickyError] = useState<string | null>(null)
@@ -1491,6 +1500,7 @@ const Canvas = () => {
     handleOpenEditWebsiteModal,
     handleOpenEditDashboardModal,
     handleOpenEditImageModal,
+    handleOpenEditLinkModal,
     handleOpenEditIllustrationModal,
     handleOpenEditIconModal,
     handleOpenEditFigureModal,
@@ -1511,6 +1521,7 @@ const Canvas = () => {
     handleSaveEditedFigure,
     handleAddHeadingCard,
     handleAddTextCard,
+    handleAddLinkCard,
     handleAddStickyCard,
     handleAddIconCard,
     handleAddFigureCard,
@@ -1519,6 +1530,7 @@ const Canvas = () => {
     handleAssignWebsiteToChart,
     handleOpenAddHeadingModal,
     handleOpenAddTextModal,
+    handleOpenAddLinkModal,
     handleOpenAddStickyModal,
     handleOpenAddSection,
     handleOpenAddImageModal,
@@ -1556,6 +1568,8 @@ const Canvas = () => {
     setIsAddHeadingModalOpen,
     isAddTextModalOpen,
     setIsAddTextModalOpen,
+    isAddLinkModalOpen,
+    setIsAddLinkModalOpen,
     isAddStickyModalOpen,
     setIsAddStickyModalOpen,
     isAddIconModalOpen,
@@ -1578,6 +1592,8 @@ const Canvas = () => {
     setEditDashboardFrameId,
     editImageFrameId,
     setEditImageFrameId,
+    editLinkFrameId,
+    setEditLinkFrameId,
     editIconFrameId,
     setEditIconFrameId,
     editFigureFrameId,
@@ -1648,6 +1664,14 @@ const Canvas = () => {
     setTextContentInput,
     addTextError,
     setAddTextError,
+    linkTitleInput,
+    setLinkTitleInput,
+    linkUrlInput,
+    setLinkUrlInput,
+    linkDescriptionInput,
+    setLinkDescriptionInput,
+    addLinkError,
+    setAddLinkError,
     stickyContentInput,
     setStickyContentInput,
     selectedStickyColor,
@@ -4198,6 +4222,7 @@ const Canvas = () => {
       frame.kind === 'website' ||
       frame.kind === 'image' ||
       frame.kind === 'chart' ||
+      frame.kind === 'link' ||
       frame.kind === 'icon' ||
       frame.kind === 'figure' ||
       frame.kind === 'drawing'
@@ -5042,6 +5067,7 @@ const Canvas = () => {
           onOpenAddDashboard={handleOpenAddDashboardModal}
           onOpenAddHeading={handleOpenAddHeadingModal}
           onOpenAddText={handleOpenAddTextModal}
+          onOpenAddLink={handleOpenAddLinkModal}
           onOpenAddSticky={handleOpenAddStickyModal}
           onOpenAddSection={handleOpenAddSection}
           onOpenImportStickyCsv={handleOpenImportStickyCsvModal}
@@ -5227,6 +5253,7 @@ const Canvas = () => {
                     handleOpenEditDashboardModal={handleOpenEditDashboardModal}
                     handleOpenEditWebsiteModal={handleOpenEditWebsiteModal}
                     handleOpenEditImageModal={handleOpenEditImageModal}
+                    handleOpenEditLinkModal={handleOpenEditLinkModal}
                     handleOpenEditIllustrationModal={handleOpenEditIllustrationModal}
                     handleOpenEditIconModal={handleOpenEditIconModal}
                     handleDuplicateIconCard={handleDuplicateIconCard}
@@ -5776,6 +5803,33 @@ const Canvas = () => {
         onClose={() => {
           setIsAddTextModalOpen(false)
           setAddTextError(null)
+        }}
+      />
+
+      <CanvasLinkModal
+        open={isAddLinkModalOpen}
+        titleValue={linkTitleInput}
+        hrefValue={linkUrlInput}
+        descriptionValue={linkDescriptionInput}
+        error={addLinkError}
+        isSaving={isSavingCanvasItem}
+        onTitleChange={(value) => {
+          setLinkTitleInput(value)
+          if (addLinkError) setAddLinkError(null)
+        }}
+        onHrefChange={(value) => {
+          setLinkUrlInput(value)
+          if (addLinkError) setAddLinkError(null)
+        }}
+        onDescriptionChange={(value) => {
+          setLinkDescriptionInput(value)
+          if (addLinkError) setAddLinkError(null)
+        }}
+        onSubmit={() => void handleAddLinkCard()}
+        onClose={() => {
+          setIsAddLinkModalOpen(false)
+          setEditLinkFrameId(null)
+          setAddLinkError(null)
         }}
       />
 

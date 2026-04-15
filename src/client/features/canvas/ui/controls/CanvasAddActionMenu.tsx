@@ -7,6 +7,7 @@ type CanvasAddActionMenuProps = {
   onAddDashboard: () => void
   onAddHeading: () => void
   onAddText: () => void
+  onAddLink: () => void
   onAddSticky: () => void
   onAddSection: () => void
   onImportStickyCsv: () => void
@@ -37,6 +38,7 @@ const CanvasAddActionMenu = ({
   onAddDashboard,
   onAddHeading,
   onAddText,
+  onAddLink,
   onAddSticky,
   onAddSection,
   onImportStickyCsv,
@@ -57,6 +59,7 @@ const CanvasAddActionMenu = ({
   const textItems: MenuItemConfig[] = [
     { label: 'Overskrift', onClick: onAddHeading },
     { label: 'Tekst', onClick: onAddText },
+    { label: 'Lenke', onClick: onAddLink },
     { label: 'Post-it-lapp', onClick: onAddSticky },
   ]
 

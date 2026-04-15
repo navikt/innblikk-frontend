@@ -26,6 +26,7 @@ import { isIllustrationImageFrame } from '../image/CanvasImageUtils.ts'
 import CanvasStickyFrame from '../sticky/CanvasStickyFrame.tsx'
 import { getCanvasStickyColorOptionById } from '../sticky/CanvasStickyColorRegistry.ts'
 import CanvasTextFrame from '../text/CanvasTextFrame.tsx'
+import CanvasLinkFrame from '../link/CanvasLinkFrame.tsx'
 import CanvasWebsiteActionMenu from '../website/CanvasWebsiteActionMenu.tsx'
 import CanvasWebsiteFrame from '../website/CanvasWebsiteFrame.tsx'
 import WebsitePicker from '../../../analysis/ui/WebsitePicker.tsx'
@@ -157,6 +158,7 @@ type CanvasFrameLayerProps = {
   handleOpenEditDashboardModal: (frame: CanvasFrame) => void
   handleOpenEditWebsiteModal: (frame: CanvasFrame) => void
   handleOpenEditImageModal: (frame: CanvasFrame) => void
+  handleOpenEditLinkModal: (frame: CanvasFrame) => void
   handleOpenEditIllustrationModal: (frame: CanvasFrame) => void
   handleOpenEditIconModal: (frame: CanvasFrame) => void
   handleDuplicateIconCard: (frame: CanvasFrame) => Promise<void>
@@ -238,6 +240,7 @@ const CanvasFrameLayer = ({
   handleOpenEditDashboardModal,
   handleOpenEditWebsiteModal,
   handleOpenEditImageModal,
+  handleOpenEditLinkModal,
   handleOpenEditIllustrationModal,
   handleOpenEditIconModal,
   handleDuplicateIconCard,
@@ -393,13 +396,15 @@ const CanvasFrameLayer = ({
                         ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
                         : frame.kind === 'text'
                           ? 'group absolute flex flex-col overflow-visible rounded-xl border border-transparent bg-transparent shadow-none'
-                          : frame.kind === 'icon'
-                            ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
-                            : frame.kind === 'figure'
+                          : frame.kind === 'link'
+                            ? 'group absolute flex flex-col overflow-visible rounded-xl border border-transparent bg-transparent shadow-none'
+                            : frame.kind === 'icon'
                               ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
-                              : frame.kind === 'drawing'
+                              : frame.kind === 'figure'
                                 ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
-                                : 'group absolute flex flex-col overflow-visible rounded-xl border shadow-sm'
+                                : frame.kind === 'drawing'
+                                  ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
+                                  : 'group absolute flex flex-col overflow-visible rounded-xl border shadow-sm'
               } ${isSelectedFrame ? 'ring-2 ring-[var(--ax-border-accent)]/60' : ''} ${isTargetVotingSection ? 'ring-4 ring-[var(--ax-border-accent)]/40' : ''} ${isDotVotingActive && frame.kind === 'sticky' && isInVotingScope ? 'ring-1 ring-white/80 shadow-md' : ''} ${shouldDimFrame ? 'opacity-20' : 'opacity-100'}`}
               style={{
                 left: `${frame.x}px`,
@@ -526,6 +531,7 @@ const CanvasFrameLayer = ({
               {!isDotVotingActive &&
                 (frame.kind === 'sticky' ||
                   frame.kind === 'text' ||
+                  frame.kind === 'link' ||
                   frame.kind === 'heading' ||
                   frame.kind === 'section' ||
                   frame.kind === 'icon' ||
@@ -563,6 +569,7 @@ const CanvasFrameLayer = ({
                       isIllustrationFrame={isIllustrationFrame}
                       actionButtonClassName={CARD_ACTION_BUTTON_CLASSNAME}
                       onEditImage={() => handleOpenEditImageModal(frame)}
+                      onEditLink={() => handleOpenEditLinkModal(frame)}
                       onEditIllustration={() => handleOpenEditIllustrationModal(frame)}
                       onEditDashboard={() => handleOpenEditDashboardModal(frame)}
                       onEditIcon={() => handleOpenEditIconModal(frame)}
@@ -597,6 +604,7 @@ const CanvasFrameLayer = ({
                 )}
               {(frame.kind === 'heading' ||
                 frame.kind === 'text' ||
+                frame.kind === 'link' ||
                 frame.kind === 'section' ||
                 frame.kind === 'icon' ||
                 frame.kind === 'figure' ||
@@ -604,7 +612,7 @@ const CanvasFrameLayer = ({
                 <div
                   aria-hidden="true"
                   className={`pointer-events-none absolute z-10 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${
-                    frame.kind === 'text'
+                    frame.kind === 'text' || frame.kind === 'link'
                       ? 'inset-[2px] rounded-lg border border-[#9bc4ff]'
                       : 'inset-0 rounded-lg border-2 border-[#7fb7ff]'
                   }`}
@@ -633,7 +641,9 @@ const CanvasFrameLayer = ({
                               ? 'overflow-visible bg-transparent'
                               : frame.kind === 'heading'
                                 ? 'pt-1'
-                                : 'px-2 pb-2'
+                                : frame.kind === 'link'
+                                  ? 'overflow-visible bg-transparent'
+                                  : 'px-2 pb-2'
                 }`}
               >
                 {frame.kind === 'website' && !frame.isInternalDashboard && (
@@ -922,6 +932,8 @@ const CanvasFrameLayer = ({
                     onBlur={handleEditableFrameBlur}
                     onStartEditing={handleStartEditingFrame}
                   />
+                ) : frame.kind === 'link' ? (
+                  <CanvasLinkFrame title={frame.label} href={frame.targetUrl || ''} description={frame.textContent} />
                 ) : frame.kind === 'sticky' ? (
                   <div className="relative h-full">
                     <CanvasStickyFrame
