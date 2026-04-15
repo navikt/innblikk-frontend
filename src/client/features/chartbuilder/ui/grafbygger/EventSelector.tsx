@@ -896,7 +896,6 @@ const EventSelector = ({
     handleEventTypeChange(eventType, true)
 
     if (eventType === 'custom_events') {
-      if (customEventsMode === 'none') setCustomEventsMode('specific')
       if (onEnableCustomEvents && customEventsList.length === 0) onEnableCustomEvents(false)
     }
 
@@ -905,20 +904,14 @@ const EventSelector = ({
 
   const removeEventType = (eventType: EventTypeId) => {
     handleEventTypeChange(eventType, false)
-
-    if (eventType === 'custom_events') {
-      setCustomEventsMode('none')
-      handleCustomEventsChange([], 'IN')
-    }
-
     setOpenEditors((prev) => ({ ...prev, [eventType]: false }))
   }
 
-  // Filters implicitly "owned" by an event-type card should not appear in the
-  // generic list while that card is active.
+  // Filters that are managed by an event-type card (event_type, url_path,
+  // event_name) are never shown in the generic list — the cards own them.
   const isCardOwnedFilter = (filter: Filter): boolean => {
     if (showFilterPanelOnly) return false
-    if (filter.column === 'event_type') return selectedEventTypes.length > 0
+    if (filter.column === 'event_type') return true
     if (filter.column === 'url_path') return selectedEventTypes.includes('pageviews')
     if (filter.column === 'event_name') return selectedEventTypes.includes('custom_events')
     return false
@@ -956,9 +949,6 @@ const EventSelector = ({
 
   const selectedEventTypeOrder = (['pageviews', 'custom_events'] as EventTypeId[]).filter((id) =>
     selectedEventTypes.includes(id),
-  )
-  const missingEventTypes = (['pageviews', 'custom_events'] as EventTypeId[]).filter(
-    (id) => !selectedEventTypes.includes(id),
   )
 
   const visibleFilters = filters.filter((f) => !isDateRangeFilter(f) && !isCardOwnedFilter(f))
@@ -1044,12 +1034,13 @@ const EventSelector = ({
       })}
 
       {/* ── Add buttons ─────────────────────────────────────────────────── */}
-      {!showFilterPanelOnly &&
-        missingEventTypes.map((eventType) => {
-          const isPageviews = eventType === 'pageviews'
-          const label = isPageviews ? 'Legg til sidevisninger' : 'Legg til egendefinerte hendelser'
-          return <AddButton key={eventType} label={label} onClick={() => addEventType(eventType)} />
-        })}
+      {!showFilterPanelOnly && !selectedEventTypes.includes('pageviews') && (
+        <AddButton label="Legg til sidevisninger" onClick={() => addEventType('pageviews')} />
+      )}
+
+      {!showFilterPanelOnly && !selectedEventTypes.includes('custom_events') && (
+        <AddButton label="Legg til egendefinerte hendelser" onClick={() => addEventType('custom_events')} />
+      )}
 
       <AddButton
         label="Legg til filter"
