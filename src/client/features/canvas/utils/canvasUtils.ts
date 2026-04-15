@@ -50,6 +50,7 @@ export const CANVAS_INVENTORY_KIND_OPTIONS: Array<{ kind: CanvasFrame['kind']; l
   { kind: 'image', label: 'Bilder' },
   { kind: 'heading', label: 'Overskrifter' },
   { kind: 'text', label: 'Tekstblokker' },
+  { kind: 'link', label: 'Lenkekort' },
   { kind: 'sticky', label: 'Post-it-lapper' },
   { kind: 'section', label: 'Seksjoner' },
   { kind: 'chart', label: 'Grafer' },
@@ -337,6 +338,7 @@ const isCanvasPayloadKind = (value: unknown): value is CanvasPayloadKind =>
   value === 'image' ||
   value === 'heading' ||
   value === 'text' ||
+  value === 'link' ||
   value === 'sticky' ||
   value === 'section' ||
   value === 'chart' ||
@@ -350,6 +352,7 @@ export const isRenderableCanvasFrameKind = (value: unknown): value is CanvasFram
   value === 'image' ||
   value === 'heading' ||
   value === 'text' ||
+  value === 'link' ||
   value === 'sticky' ||
   value === 'section' ||
   value === 'chart' ||

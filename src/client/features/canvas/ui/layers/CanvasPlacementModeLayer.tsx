@@ -124,6 +124,7 @@ const CanvasPlacementModeLayer = ({
                 const isTextLikeGhost =
                   pendingFrameDraft.kind === 'heading' ||
                   pendingFrameDraft.kind === 'text' ||
+                  pendingFrameDraft.kind === 'link' ||
                   pendingFrameDraft.kind === 'sticky'
                 const stickyColorOption =
                   pendingFrameDraft.kind === 'sticky'
@@ -177,6 +178,15 @@ const CanvasPlacementModeLayer = ({
                             {pendingFrameDraft.textContent || 'Skriv tekst'}
                           </span>
                         </div>
+                      </div>
+                    ) : pendingFrameDraft.kind === 'link' ? (
+                      <div className="h-full w-full rounded-xl border border-[var(--ax-border-neutral-subtle)] bg-white p-3">
+                        <span className="block truncate text-sm font-semibold text-[var(--ax-text-default)]">
+                          {pendingFrameDraft.label || 'Lenketittel'}
+                        </span>
+                        <span className="mt-1 block truncate text-xs text-[var(--ax-text-subtle)]">
+                          {pendingFrameDraft.targetUrl || 'https://www.nav.no/...'}
+                        </span>
                       </div>
                     ) : pendingFrameDraft.kind === 'sticky' ? (
                       <div className="h-full w-full overflow-hidden px-2 pb-2">

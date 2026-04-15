@@ -13,6 +13,7 @@ export type CanvasPayloadKind =
   | 'image'
   | 'heading'
   | 'text'
+  | 'link'
   | 'sticky'
   | 'section'
   | 'chart'
@@ -32,7 +33,18 @@ export type CanvasConnectionMetric = {
 
 export type CanvasFrame = {
   id: string
-  kind: 'website' | 'image' | 'heading' | 'text' | 'sticky' | 'section' | 'chart' | 'icon' | 'figure' | 'drawing'
+  kind:
+    | 'website'
+    | 'image'
+    | 'heading'
+    | 'text'
+    | 'link'
+    | 'sticky'
+    | 'section'
+    | 'chart'
+    | 'icon'
+    | 'figure'
+    | 'drawing'
   websiteId?: string
   targetUrl?: string
   previewUrl?: string

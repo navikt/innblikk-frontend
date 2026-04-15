@@ -8,13 +8,25 @@ const stopMouseDownPropagation = (event: MouseEvent<HTMLElement>) => {
 }
 
 type CanvasFrameActionPointsProps = {
-  frameKind: 'website' | 'image' | 'heading' | 'text' | 'sticky' | 'section' | 'chart' | 'icon' | 'figure' | 'drawing'
+  frameKind:
+    | 'website'
+    | 'image'
+    | 'heading'
+    | 'text'
+    | 'link'
+    | 'sticky'
+    | 'section'
+    | 'chart'
+    | 'icon'
+    | 'figure'
+    | 'drawing'
   isInternalDashboard?: boolean
   isIllustrationFrame: boolean
   actionButtonClassName: string
   onEditImage: () => void
   onEditIllustration: () => void
   onEditDashboard: () => void
+  onEditLink: () => void
   onEditIcon: () => void
   onDuplicateIcon: () => void
   onRotateIconLeft: () => void
@@ -300,6 +312,7 @@ const CanvasFrameActionPoints = ({
   onEditImage,
   onEditIllustration,
   onEditDashboard,
+  onEditLink,
   onEditIcon,
   onDuplicateIcon,
   onRotateIconLeft,
@@ -332,15 +345,24 @@ const CanvasFrameActionPoints = ({
   const isSectionGrid = frameKind === 'section' && sectionLayoutMode === 'grid'
   const actionPointsPositionClassName =
     frameKind === 'heading' ||
+    frameKind === 'text' ||
+    frameKind === 'link' ||
+    frameKind === 'image' ||
     frameKind === 'icon' ||
     frameKind === 'figure' ||
     frameKind === 'drawing' ||
     isIllustrationFrame
       ? 'right-8 -top-6 flex items-center gap-1'
       : 'right-2 top-4 flex items-center gap-1'
+  const actionPointsBackdropClassName =
+    frameKind === 'sticky'
+      ? 'rounded-md bg-[var(--ax-bg-default)]/85 p-1 shadow-sm backdrop-blur-sm opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100'
+      : ''
 
   return (
-    <div className={`pointer-events-none absolute z-30 ${actionPointsPositionClassName}`}>
+    <div
+      className={`pointer-events-none absolute z-30 ${actionPointsPositionClassName} ${actionPointsBackdropClassName}`}
+    >
       <ImageOrDashboardEditActionPoint
         frameKind={frameKind}
         isInternalDashboard={isInternalDashboard}
@@ -350,6 +372,18 @@ const CanvasFrameActionPoints = ({
         onEditIllustration={onEditIllustration}
         onEditDashboard={onEditDashboard}
       />
+      {frameKind === 'link' && (
+        <Button
+          size="xsmall"
+          variant="tertiary"
+          icon={<Edit2 size={14} />}
+          onMouseDown={stopMouseDownPropagation}
+          onClick={onEditLink}
+          title="Rediger lenke"
+          aria-label="Rediger lenke"
+          className={actionButtonClassName}
+        />
+      )}
       {frameKind === 'icon' && (
         <IconBoxActionPoints
           actionButtonClassName={actionButtonClassName}
