@@ -3944,6 +3944,13 @@ const Canvas = () => {
     if (!sectionFrame || sectionFrame.kind !== 'section') return
 
     const nextSectionLayout = sectionFrame.sectionLayout === 'grid' ? 'freeform' : 'grid'
+    if (sectionFrame.sectionLayout === 'freeform' && nextSectionLayout === 'grid') {
+      const confirmed = window.confirm(
+        'Bytte til rutenett vil flytte elementene automatisk og overstyre friform-posisjonene. Vil du fortsette?',
+      )
+      if (!confirmed) return
+    }
+
     if (nextSectionLayout === 'freeform') {
       const nextSectionFrame: CanvasFrame = {
         ...sectionFrame,
