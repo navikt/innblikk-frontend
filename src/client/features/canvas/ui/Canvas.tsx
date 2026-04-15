@@ -596,6 +596,7 @@ const Canvas = () => {
       projectId,
       dashboardId,
     })
+  const shouldEnableEditLockSync = activeEditableFrameId !== null || activeOtherParticipantCount > 0
 
   const {
     timerLabel,
@@ -1246,7 +1247,7 @@ const Canvas = () => {
     releaseLock: releaseEditLock,
     getFrameLockStatus,
   } = useCanvasEditLocks({
-    enabled: canvasSyncContextEnabled && (shouldEnableBackgroundSync || activeEditableFrameId !== null),
+    enabled: canvasSyncContextEnabled && shouldEnableEditLockSync,
     projectId,
     dashboardId,
     activeEditableFrame,
