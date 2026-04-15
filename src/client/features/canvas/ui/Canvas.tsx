@@ -15,7 +15,6 @@ import CanvasIllustrationModal from './illustration/CanvasIllustrationModal.tsx'
 import { DEFAULT_CANVAS_ILLUSTRATION_PATH } from './illustration/CanvasIllustrationRegistry.ts'
 import CanvasIconModal from './icon/CanvasIconModal.tsx'
 import CanvasAdminModals from './controls/CanvasAdminModals.tsx'
-import CanvasChangeLogModal, { type CanvasChangeLogEntry } from './controls/CanvasChangeLogModal.tsx'
 import CanvasCoreModals from './controls/CanvasCoreModals.tsx'
 import CanvasTopBar from './controls/CanvasTopBar.tsx'
 import CanvasDotVotingModal from './controls/CanvasDotVotingModal.tsx'
@@ -73,6 +72,7 @@ import useCanvasPresence from '../hooks/useCanvasPresence.ts'
 import useCanvasDotVotingSync from '../hooks/useCanvasDotVotingSync.ts'
 import useCanvasTimerSync from '../hooks/useCanvasTimerSync.ts'
 import { fetchCanvasStorageData } from '../api/canvasStorageApi.ts'
+import ChangeLogModal, { type ChangeLogEntry } from '../../../shared/ui/ChangeLogModal.tsx'
 
 import type {
   CanvasChartOption,
@@ -340,7 +340,7 @@ const Canvas = () => {
   const [isChangeLogModalOpen, setIsChangeLogModalOpen] = useState(false)
   const [isLoadingChangeLog, setIsLoadingChangeLog] = useState(false)
   const [changeLogError, setChangeLogError] = useState<string | null>(null)
-  const [changeLogEntries, setChangeLogEntries] = useState<CanvasChangeLogEntry[]>([])
+  const [changeLogEntries, setChangeLogEntries] = useState<ChangeLogEntry[]>([])
   const [renameCanvasError, setRenameCanvasError] = useState<string | null>(null)
   const [isAddChartModalOpen, setIsAddChartModalOpen] = useState(false)
   const [isCreateTabModalOpen, setIsCreateTabModalOpen] = useState(false)
@@ -4281,7 +4281,8 @@ const Canvas = () => {
             changedByName: String(graphWithAudit.changedByName || ''),
             changedByNavIdent: String(graphWithAudit.changedByNavIdent || ''),
             changedByEmail: String(graphWithAudit.changedByEmail || ''),
-          } satisfies CanvasChangeLogEntry
+            graphType: String(graph.graphType || ''),
+          } satisfies ChangeLogEntry
         })
         .filter((entry) => entry.name.startsWith('canvas:') || entry.description.startsWith('[canvas'))
         .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
@@ -5375,7 +5376,7 @@ const Canvas = () => {
         isSavingCanvasItem={isSavingCanvasItem}
       />
 
-      <CanvasChangeLogModal
+      <ChangeLogModal
         open={isChangeLogModalOpen}
         onClose={() => setIsChangeLogModalOpen(false)}
         entries={visibleChangeLogEntries}

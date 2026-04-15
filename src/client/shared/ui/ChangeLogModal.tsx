@@ -1,19 +1,20 @@
 import { Alert, Button, Modal, Table } from '@navikt/ds-react'
 
-export type CanvasChangeLogEntry = {
+export type ChangeLogEntry = {
   id: number
   name: string
   description: string
+  graphType: string
   updatedAt: string
   changedByName: string
   changedByNavIdent: string
   changedByEmail: string
 }
 
-type CanvasChangeLogModalProps = {
+type ChangeLogModalProps = {
   open: boolean
   onClose: () => void
-  entries: CanvasChangeLogEntry[]
+  entries: ChangeLogEntry[]
   isLoading: boolean
   error: string | null
   onRefresh: () => void
@@ -25,7 +26,7 @@ const formatTimestamp = (value: string): string => {
   return parsed.toLocaleString('nb-NO')
 }
 
-const formatChangedBy = (entry: CanvasChangeLogEntry): string => {
+const formatChangedBy = (entry: ChangeLogEntry): string => {
   const name = entry.changedByName.trim()
   if (name) return name
   const ident = entry.changedByNavIdent.trim()
@@ -35,10 +36,9 @@ const formatChangedBy = (entry: CanvasChangeLogEntry): string => {
   return 'Ukjent'
 }
 
-const formatEntryName = (entry: CanvasChangeLogEntry): string => {
+const formatEntryName = (entry: ChangeLogEntry): string => {
   const name = entry.name.trim()
   if (!name) return '-'
-
   if (name.startsWith('canvas:heading:')) return 'Overskrift'
   if (name.startsWith('canvas:text:')) return 'Tekst'
   if (name.startsWith('canvas:sticky:')) return 'Sticky note'
@@ -56,27 +56,27 @@ const formatEntryName = (entry: CanvasChangeLogEntry): string => {
   if (name.startsWith('canvas:dot-voting:ballot:')) return 'Prikkvotering (stemme)'
   if (name.startsWith('canvas:presence:')) return 'Tilstedeværelse'
   if (name.startsWith('canvas:lock:')) return 'Redigeringslås'
-
   return name
 }
 
-const formatEntryType = (entry: CanvasChangeLogEntry): string => {
+const formatEntryType = (entry: ChangeLogEntry): string => {
   const description = entry.description.trim().toLowerCase()
-  if (!description) return '-'
   if (description === '[canvas]') return 'Canvas-element'
   if (description === '[canvas-presence]') return 'System: tilstedeværelse'
   if (description === '[canvas-lock]') return 'System: redigeringslås'
   if (description === '[canvas-timer]') return 'Fasilitator: nedteller'
   if (description === '[canvas-dot-voting]') return 'Fasilitator: prikkvotering'
-  return entry.description
+  if (entry.graphType && entry.graphType.toUpperCase() !== 'TEXT') return 'Graf'
+  if (entry.graphType && entry.graphType.toUpperCase() === 'TEXT') return 'Tekst'
+  if (description) return entry.description
+  return '-'
 }
 
-const CanvasChangeLogModal = ({ open, onClose, entries, isLoading, error, onRefresh }: CanvasChangeLogModalProps) => (
-  <Modal open={open} onClose={onClose} header={{ heading: 'Endringslogg' }} width="medium">
+const ChangeLogModal = ({ open, onClose, entries, isLoading, error, onRefresh }: ChangeLogModalProps) => (
+  <Modal open={open} onClose={onClose} header={{ heading: 'Endringsoversikt' }} width="medium">
     <Modal.Body>
       <div className="space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <div />
+        <div className="flex items-center justify-end gap-3">
           <Button size="small" variant="secondary" onClick={onRefresh} loading={isLoading}>
             Oppdater
           </Button>
@@ -85,7 +85,7 @@ const CanvasChangeLogModal = ({ open, onClose, entries, isLoading, error, onRefr
         {error && <Alert variant="error">{error}</Alert>}
         {!error && (
           <Alert variant="info" size="small">
-            Dersom et element slettes, vil denne endringen ikke vises i loggen.
+            Viser siste registrerte endring per element (ikke full historikk). Slettede elementer vises ikke.
           </Alert>
         )}
 
@@ -106,7 +106,7 @@ const CanvasChangeLogModal = ({ open, onClose, entries, isLoading, error, onRefr
                 </Table.Row>
               )}
               {entries.map((entry) => (
-                <Table.Row key={`canvas-changelog-${entry.id}`}>
+                <Table.Row key={`changelog-${entry.id}`}>
                   <Table.DataCell>{formatTimestamp(entry.updatedAt)}</Table.DataCell>
                   <Table.DataCell>{formatEntryName(entry)}</Table.DataCell>
                   <Table.DataCell>{formatEntryType(entry)}</Table.DataCell>
@@ -126,4 +126,4 @@ const CanvasChangeLogModal = ({ open, onClose, entries, isLoading, error, onRefr
   </Modal>
 )
 
-export default CanvasChangeLogModal
+export default ChangeLogModal
