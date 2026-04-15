@@ -1,14 +1,821 @@
 import { useState } from 'react'
 import { RadioGroup, Radio, Select, UNSAFE_Combobox, Button, Label, Skeleton, ReadMore, Tag } from '@navikt/ds-react'
+import { XMarkIcon, PlusIcon, CheckmarkIcon } from '@navikt/aksel-icons'
 import type { Filter, Parameter } from '../../../../shared/types/chart.ts'
-import AlertWithCloseButton from './AlertWithCloseButton.tsx'
+
+// ─── Local types ─────────────────────────────────────────────────────────────
 
 type Option = { label: string; value: string }
-
 type FilterColumn = { value: string; label: string }
 type FilterColumnGroup = { label: string; columns: FilterColumn[] }
 type FilterColumns = Record<string, FilterColumnGroup>
 type EventTypeId = 'pageviews' | 'custom_events'
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Maps "partial-match" operators to their Norwegian description strings. */
+const PARTIAL_MATCH_DESCRIPTIONS: Record<string, string> = {
+  LIKE: 'Søket vil inneholde verdien uavhengig av posisjon',
+  STARTS_WITH: 'Søket vil finne stier som starter med verdien',
+  ENDS_WITH: 'Søket vil finne stier som slutter med verdien',
+}
+
+/**
+ * Same descriptions re-used for the event-name combobox — the phrasing is
+ * slightly different so we keep a separate map.
+ */
+const EVENT_PARTIAL_MATCH_DESCRIPTIONS: Record<string, string> = {
+  LIKE: 'Søket vil matche hendelser som inneholder verdien',
+  STARTS_WITH: 'Søket vil finne hendelser som starter med verdien',
+  ENDS_WITH: 'Søket vil finne hendelser som slutter med verdien',
+}
+
+/** Returns the last segment of a dotted param key (e.g. "foo.bar" → "bar"). */
+const getParamName = (param: Parameter): string => {
+  const parts = param.key.split('.')
+  return parts[parts.length - 1]
+}
+
+// ─── Shared primitives ────────────────────────────────────────────────────────
+
+/** Outer wrapper card shared by every active row. */
+const FilterCard = ({ children }: { children: React.ReactNode }) => (
+  <div className="rounded-md border border-(--ax-border-neutral-subtle) bg-(--ax-bg-default) px-3 py-3">{children}</div>
+)
+
+/** The dashed "+ add" button used for both event types and the plain filter. */
+const AddButton = ({ label, ariaLabel, onClick }: { label: string; ariaLabel?: string; onClick: () => void }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-label={ariaLabel ?? label}
+    className="flex w-full cursor-pointer items-center gap-2 rounded-md border border-dashed border-(--ax-border-neutral-subtle) bg-transparent px-3 py-3 text-left hover:border-(--ax-border-neutral) hover:bg-(--ax-bg-default) focus:outline-none focus-visible:ring-2 focus-visible:ring-(--ax-border-accent)"
+  >
+    <PlusIcon aria-hidden fontSize="1.375rem" className="shrink-0 text-(--ax-text-subtle)" />
+    <p className="text-sm font-semibold text-(--ax-text-subtle)">{label}</p>
+  </button>
+)
+
+// ─── SelectableValuesCombobox ─────────────────────────────────────────────────
+//
+// Unified combobox used for both URL-path and event-name selection.
+// Renders a multi-select combobox when operator is "IN", and a single-select
+// combobox for all other operators (LIKE, STARTS_WITH, ENDS_WITH, etc.).
+
+interface SelectableValuesComboboxProps {
+  operator: string
+  options: Option[]
+  selectedValues: string[]
+  onToggle: (value: string, isSelected: boolean) => void
+  multiLabel: string
+  multiDescription?: string
+  singleLabel: string
+  partialMatchDescriptions?: Record<string, string>
+}
+
+const SelectableValuesCombobox = ({
+  operator,
+  options,
+  selectedValues,
+  onToggle,
+  multiLabel,
+  multiDescription,
+  singleLabel,
+  partialMatchDescriptions = PARTIAL_MATCH_DESCRIPTIONS,
+}: SelectableValuesComboboxProps) => {
+  if (operator === 'IN') {
+    return (
+      <UNSAFE_Combobox
+        label={multiLabel}
+        description={multiDescription}
+        options={options}
+        selectedOptions={selectedValues}
+        onToggleSelected={onToggle}
+        isMultiSelect
+        size="small"
+        allowNewValues
+      />
+    )
+  }
+
+  return (
+    <UNSAFE_Combobox
+      label={singleLabel}
+      description={partialMatchDescriptions[operator] ?? null}
+      options={options}
+      selectedOptions={selectedValues.length > 0 ? [selectedValues[0]] : []}
+      onToggleSelected={(option, isSelected) => onToggle(option, isSelected)}
+      isMultiSelect={false}
+      size="small"
+      allowNewValues
+    />
+  )
+}
+
+// ─── PageviewsEditor ──────────────────────────────────────────────────────────
+
+interface PageviewsEditorProps {
+  pageViewsMode: 'all' | 'specific' | 'interactive'
+  setPageViewsMode: (mode: 'all' | 'specific' | 'interactive') => void
+  urlPathOperator: string
+  setUrlPathOperator: (op: string) => void
+  selectedPaths: string[]
+  handlePathsChange: (paths: string[], operator: string, isInteractive?: boolean) => void
+  availablePaths: string[]
+  OPERATORS: Option[]
+}
+
+const normalizeUrlPath = (input: string): string => {
+  const trimmed = input.trim()
+  if (!trimmed) return ''
+
+  if (trimmed.startsWith('{{') && trimmed.endsWith('}}')) return trimmed
+
+  const toPathname = (value: string): string => {
+    try {
+      return new URL(value).pathname || '/'
+    } catch {
+      return value
+    }
+  }
+
+  if (trimmed.includes('://')) return toPathname(trimmed)
+
+  const looksLikeHost = /^[^/\s]+\.[^/\s]+(?:\/.*)?$/.test(trimmed)
+  if (looksLikeHost) return toPathname(`https://${trimmed}`)
+
+  return trimmed.startsWith('/') ? trimmed : `/${trimmed}`
+}
+
+const PageviewsEditor = ({
+  pageViewsMode,
+  setPageViewsMode,
+  urlPathOperator,
+  setUrlPathOperator,
+  selectedPaths,
+  handlePathsChange,
+  availablePaths,
+  OPERATORS,
+}: PageviewsEditorProps) => {
+  const handleModeChange = (val: string) => {
+    const newMode = val as 'all' | 'specific' | 'interactive'
+    setPageViewsMode(newMode)
+    handlePathsChange([], 'IN')
+    if (newMode === 'interactive') {
+      handlePathsChange(['{{url_sti}}'], '=', true)
+    }
+  }
+
+  const handleOperatorChange = (newOperator: string) => {
+    setUrlPathOperator(newOperator)
+
+    const switchingToMulti = newOperator === 'IN' && selectedPaths.length <= 1
+    const switchingFromMulti = urlPathOperator === 'IN' && newOperator !== 'IN'
+
+    if (switchingToMulti || switchingFromMulti) {
+      const pathValue = selectedPaths.length > 0 ? selectedPaths[0] : ''
+      handlePathsChange(newOperator === 'IN' ? selectedPaths : [pathValue], newOperator)
+    } else {
+      handlePathsChange(selectedPaths, newOperator)
+    }
+  }
+
+  const handlePathToggle = (option: string, isSelected: boolean) => {
+    const normalizedPath = normalizeUrlPath(option)
+    if (!normalizedPath) return
+
+    if (urlPathOperator === 'IN') {
+      const newSelection = isSelected
+        ? Array.from(new Set([...selectedPaths, normalizedPath]))
+        : selectedPaths.filter((p) => p !== normalizedPath)
+      handlePathsChange(newSelection, urlPathOperator)
+    } else {
+      handlePathsChange(isSelected ? [normalizedPath] : [], urlPathOperator)
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <RadioGroup legend="Sidevisninger" hideLegend value={pageViewsMode} onChange={handleModeChange} size="small">
+        <Radio value="interactive">Side velges via filter i dashboardet</Radio>
+        <Radio value="all">Hele nettsiden</Radio>
+        <Radio value="specific">Lås til bestemte sider</Radio>
+      </RadioGroup>
+
+      {pageViewsMode === 'specific' && (
+        <div className="space-y-3 pt-1">
+          <Select
+            label="URL"
+            value={urlPathOperator}
+            onChange={(e) => handleOperatorChange(e.target.value)}
+            size="small"
+            className="w-full md:w-1/3"
+          >
+            {OPERATORS.map((op) => (
+              <option key={op.value} value={op.value}>
+                {op.label}
+              </option>
+            ))}
+          </Select>
+
+          <SelectableValuesCombobox
+            operator={urlPathOperator}
+            options={availablePaths.map((p) => ({ label: p, value: p }))}
+            selectedValues={selectedPaths}
+            onToggle={handlePathToggle}
+            multiLabel="Velg URL-stier"
+            multiDescription="Flere stier kan velges for 'er lik' operator"
+            singleLabel="Legg til en eller flere URL-stier"
+            partialMatchDescriptions={PARTIAL_MATCH_DESCRIPTIONS}
+          />
+
+          {selectedPaths.length === 0 && (
+            <p className="mt-2 text-xs text-(--ax-text-subtle)">Når tom vises alle sidevisninger</p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── EventParamFilter ─────────────────────────────────────────────────────────
+//
+// The optional "filter on event details" section inside CustomEventsEditor.
+
+interface EventParamFilterProps {
+  filters: Filter[]
+  parameters: Parameter[]
+  uniqueParameters: Parameter[]
+  filteredUniqueParams: Parameter[]
+  isLoading: boolean
+  OPERATORS: Option[]
+  updateFilter: (index: number, updates: Partial<Filter>) => void
+  addFilterDirectly?: (filter: Filter) => void
+  onFetchParams: () => void
+}
+
+const EventParamFilter = ({
+  filters,
+  parameters,
+  filteredUniqueParams,
+  isLoading,
+  OPERATORS,
+  updateFilter,
+  addFilterDirectly,
+  onFetchParams,
+}: EventParamFilterProps) => {
+  const [selectedEventParam, setSelectedEventParam] = useState<string>('')
+  const [eventParamOperator, setEventParamOperator] = useState<string>('=')
+  const [eventParamValue, setEventParamValue] = useState<string>('')
+
+  const handleAddFilter = (valueOverride?: string) => {
+    const value = valueOverride ?? eventParamValue
+    if (!selectedEventParam || !value) return
+
+    const existingIndex = filters.findIndex((f) => f.column === selectedEventParam)
+    if (existingIndex >= 0) {
+      updateFilter(existingIndex, { operator: eventParamOperator, value })
+    } else if (addFilterDirectly) {
+      addFilterDirectly({ column: selectedEventParam, operator: eventParamOperator, value })
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        <Skeleton variant="text" width="50%" />
+        <Skeleton variant="rectangle" height={40} />
+        <div className="flex gap-2">
+          <Skeleton variant="rectangle" height={40} width="33%" />
+          <Skeleton variant="rectangle" height={40} className="flex-1" />
+        </div>
+      </div>
+    )
+  }
+
+  if (parameters.length === 0) {
+    return (
+      <>
+        <Label as="p" size="small" className="mb-2">
+          Filtrer på hendelsesdetaljer (valgfritt)
+        </Label>
+        <div className="mt-3">
+          <Button variant="secondary" size="small" onClick={onFetchParams}>
+            Hent hendelsesdetaljer
+          </Button>
+        </div>
+      </>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      <UNSAFE_Combobox
+        label="Velg hendelsesdetaljer (valgfritt)"
+        options={filteredUniqueParams.map((param) => ({
+          label: getParamName(param),
+          value: `param_${getParamName(param)}`,
+        }))}
+        selectedOptions={selectedEventParam ? [selectedEventParam] : []}
+        onToggleSelected={(option, isSelected) => {
+          if (isSelected && option) {
+            setSelectedEventParam(option)
+            setEventParamValue('')
+          } else {
+            setSelectedEventParam('')
+          }
+        }}
+        isMultiSelect={false}
+        size="small"
+        shouldAutocomplete={false}
+      />
+
+      {selectedEventParam && (
+        <div className="flex items-end gap-2">
+          <Select
+            label="Operator"
+            value={eventParamOperator}
+            onChange={(e) => setEventParamOperator(e.target.value)}
+            size="small"
+            className="w-1/3"
+          >
+            {OPERATORS.map((op) => (
+              <option key={op.value} value={op.value}>
+                {op.label}
+              </option>
+            ))}
+          </Select>
+
+          <div className="flex-1">
+            <UNSAFE_Combobox
+              label="Verdi"
+              options={[]}
+              selectedOptions={eventParamValue ? [eventParamValue] : []}
+              onToggleSelected={(option, isSelected) => {
+                if (option) {
+                  const newValue = isSelected ? option : ''
+                  setEventParamValue(newValue)
+                  if (isSelected && newValue && selectedEventParam) {
+                    handleAddFilter(newValue)
+                  }
+                }
+              }}
+              isMultiSelect={false}
+              size="small"
+              allowNewValues
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── CustomEventsEditor ───────────────────────────────────────────────────────
+
+interface CustomEventsEditorProps {
+  customEventsMode: 'none' | 'all' | 'specific' | 'interactive'
+  setCustomEventsMode: (mode: 'none' | 'all' | 'specific' | 'interactive') => void
+  eventNameOperator: string
+  setEventNameOperator: (op: string) => void
+  customEvents: string[]
+  customEventsList: string[]
+  handleCustomEventsChange: (events: string[], operator: string, forceEnable?: boolean) => void
+  handleEventTypeChange: (eventType: string, isChecked: boolean) => void
+  onEnableCustomEvents?: (withParams?: boolean) => void
+  eventLookbackDays: number
+  onEventLookbackDaysChange?: (days: number) => void
+  isEventsLoading: boolean
+  // EventParamFilter passthrough
+  filters: Filter[]
+  parameters: Parameter[]
+  uniqueParameters: Parameter[]
+  OPERATORS: Option[]
+  updateFilter: (index: number, updates: Partial<Filter>) => void
+  addFilterDirectly?: (filter: Filter) => void
+}
+
+const CustomEventsEditor = ({
+  customEventsMode,
+  setCustomEventsMode,
+  eventNameOperator,
+  setEventNameOperator,
+  customEvents,
+  customEventsList,
+  handleCustomEventsChange,
+  handleEventTypeChange,
+  onEnableCustomEvents,
+  eventLookbackDays,
+  onEventLookbackDaysChange,
+  isEventsLoading,
+  filters,
+  parameters,
+  uniqueParameters,
+  OPERATORS,
+  updateFilter,
+  addFilterDirectly,
+}: CustomEventsEditorProps) => {
+  const [hasRequestedParams, setHasRequestedParams] = useState(false)
+  const isParamsLoading = hasRequestedParams && isEventsLoading
+
+  const filteredParameters = parameters.filter((param) => {
+    if (customEvents.length === 0) return true
+    const eventName = param.key.includes('.') ? param.key.split('.')[0] : 'Andre'
+    return customEvents.some((e) => e.toLowerCase() === eventName.toLowerCase())
+  })
+
+  const filteredUniqueParams = filteredParameters.reduce<Parameter[]>((acc, param) => {
+    const name = getParamName(param)
+    if (!acc.some((p) => getParamName(p) === name)) acc.push(param)
+    return acc
+  }, [])
+
+  const handleModeChange = (val: string) => {
+    const newMode = val as 'all' | 'specific' | 'interactive'
+
+    if (onEnableCustomEvents && customEventsList.length === 0) onEnableCustomEvents(false)
+
+    handleEventTypeChange('custom_events', true)
+    setCustomEventsMode(newMode)
+
+    if (newMode === 'interactive') {
+      handleCustomEventsChange([], 'IN')
+      handleCustomEventsChange(['{{event_name}}'], '=')
+    }
+  }
+
+  const handleEventToggle = (option: string, isSelected: boolean) => {
+    if (!option) return
+    if (eventNameOperator === 'IN') {
+      const newSelection = isSelected ? [...customEvents, option] : customEvents.filter((e) => e !== option)
+      handleCustomEventsChange(newSelection, eventNameOperator)
+    } else {
+      handleCustomEventsChange(isSelected ? [option] : [], eventNameOperator)
+    }
+  }
+
+  const showLoading = isEventsLoading && !isParamsLoading && customEventsList.length === 0
+  const showSpecificContent = !isEventsLoading || isParamsLoading
+
+  return (
+    <div className="space-y-3">
+      <RadioGroup
+        legend="Egendefinerte hendelser"
+        hideLegend
+        value={customEventsMode}
+        onChange={handleModeChange}
+        size="small"
+      >
+        <Radio value="specific">Utvalgte hendelser</Radio>
+        <Radio value="all">Alle hendelser</Radio>
+        <Radio value="interactive">Filter der mottaker velger selv i dashboardet</Radio>
+      </RadioGroup>
+
+      {customEventsMode === 'specific' && (
+        <div className="space-y-3 pt-1">
+          {showLoading && (
+            <div className="mb-4 space-y-3">
+              <Skeleton variant="text" width="40%" />
+              <Skeleton variant="rectangle" height={40} />
+              <Skeleton variant="rectangle" height={40} />
+            </div>
+          )}
+
+          {showSpecificContent && (
+            <Select
+              label="Hendelsesnavn"
+              value={eventNameOperator}
+              onChange={(e) => {
+                const newOperator = e.target.value
+                setEventNameOperator(newOperator)
+                if (customEvents.length > 0) {
+                  handleCustomEventsChange(customEvents, newOperator)
+                }
+              }}
+              size="small"
+              className="w-full md:w-1/3"
+            >
+              {OPERATORS.map((op) => (
+                <option key={op.value} value={op.value}>
+                  {op.label}
+                </option>
+              ))}
+            </Select>
+          )}
+
+          {showSpecificContent && (
+            <SelectableValuesCombobox
+              operator={eventNameOperator}
+              options={customEventsList.map((event) => ({ label: event, value: event }))}
+              selectedValues={customEvents}
+              onToggle={handleEventToggle}
+              multiLabel="Velg hendelser"
+              multiDescription="Flere hendelser kan velges for 'er lik' operator"
+              singleLabel="Velg hendelse"
+              partialMatchDescriptions={EVENT_PARTIAL_MATCH_DESCRIPTIONS}
+            />
+          )}
+
+          {customEvents.length > 0 && (
+            <div className="mt-6 border-t border-(--ax-border-neutral-subtle) pt-4">
+              <EventParamFilter
+                filters={filters}
+                parameters={parameters}
+                uniqueParameters={uniqueParameters}
+                filteredUniqueParams={filteredUniqueParams}
+                isLoading={isParamsLoading || isEventsLoading}
+                OPERATORS={OPERATORS}
+                updateFilter={updateFilter}
+                addFilterDirectly={addFilterDirectly}
+                onFetchParams={() => {
+                  setHasRequestedParams(true)
+                  onEnableCustomEvents?.(true)
+                }}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {customEventsMode === 'interactive' && (
+        <div className="flex items-center gap-3 pt-1">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-green-100">
+            <CheckmarkIcon aria-hidden className="text-green-600" fontSize="1rem" />
+          </span>
+          <p className="text-(--ax-text-default)">Hendelsesnavn kan velges som filtervalg</p>
+        </div>
+      )}
+
+      <ReadMore size="small" header="Utvid søkevindu (standard 7 dager)">
+        <div className="mt-2 space-y-2">
+          <Select
+            label="Hvor langt tilbake hente hendelser"
+            size="small"
+            value={String(eventLookbackDays)}
+            onChange={(e) => {
+              const days = Number(e.target.value)
+              if (Number.isFinite(days) && onEventLookbackDaysChange) {
+                onEventLookbackDaysChange(days)
+              }
+            }}
+            className="w-full md:w-1/2"
+          >
+            <option value="7">Siste 7 dager</option>
+            <option value="14">Siste 14 dager</option>
+            <option value="30">Siste 30 dager</option>
+            <option value="60">Siste 60 dager</option>
+            <option value="90">Siste 90 dager</option>
+            <option value="180">Siste 180 dager</option>
+          </Select>
+        </div>
+      </ReadMore>
+    </div>
+  )
+}
+
+// ─── EventTypeCard ────────────────────────────────────────────────────────────
+
+interface EventTypeCardProps {
+  eventType: EventTypeId
+  isEditorOpen: boolean
+  onToggleEditor: () => void
+  onRemove: () => void
+  summary: string
+  customEventsMode?: 'none' | 'all' | 'specific' | 'interactive'
+  customEventsCount?: number
+  editor: React.ReactNode
+}
+
+const EventTypeCard = ({
+  eventType,
+  isEditorOpen,
+  onToggleEditor,
+  onRemove,
+  summary,
+  customEventsMode,
+  customEventsCount = 0,
+  editor,
+}: EventTypeCardProps) => {
+  const isPageviews = eventType === 'pageviews'
+  const title = isPageviews ? 'Sidevisninger' : 'Egendefinerte hendelser'
+
+  return (
+    <FilterCard>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="min-w-[170px]">
+          <p className="text-sm font-semibold event-selector-title">{title}</p>
+          {summary && <p className="text-xs event-selector-summary">{summary}</p>}
+        </div>
+
+        {!isPageviews && customEventsMode === 'specific' && customEventsCount > 0 && (
+          <Tag variant="neutral" size="xsmall">
+            {customEventsCount} valg
+          </Tag>
+        )}
+
+        <div className="ml-auto flex flex-wrap items-center gap-1">
+          {!isPageviews && (
+            <Button variant="tertiary" size="xsmall" onClick={onToggleEditor}>
+              {isEditorOpen ? 'Lukk' : 'Rediger'}
+            </Button>
+          )}
+          <Button
+            variant="tertiary"
+            data-color="danger"
+            size="xsmall"
+            icon={<XMarkIcon aria-hidden />}
+            onClick={onRemove}
+          >
+            Fjern
+          </Button>
+        </div>
+      </div>
+
+      {isEditorOpen && <div className="mt-3 border-t border-(--ax-border-neutral-subtle) pt-3">{editor}</div>}
+    </FilterCard>
+  )
+}
+
+// ─── GenericFilterCard ────────────────────────────────────────────────────────
+
+/** Maps a filter column key to a human-friendly param name for the interactive template. */
+const toParamName = (column: string): string => {
+  if (column === 'url_path') return 'url_sti'
+  if (column === 'event_name') return 'hendelse'
+  return column.toLowerCase().replace(/[^a-z0-9_]/g, '_')
+}
+
+interface GenericFilterCardProps {
+  filter: Filter
+  index: number
+  columnLabel: string
+  OPERATORS: Option[]
+  FILTER_COLUMNS?: FilterColumns
+  parameters: Parameter[]
+  uniqueParameters: Parameter[]
+  customEventsList: string[]
+  availablePaths: string[]
+  EVENT_TYPES?: Option[]
+  removeFilter: (index: number) => void
+  updateFilter: (index: number, updates: Partial<Filter>) => void
+}
+
+const GenericFilterCard = ({
+  filter,
+  index,
+  columnLabel,
+  OPERATORS,
+  FILTER_COLUMNS,
+  parameters,
+  uniqueParameters,
+  customEventsList,
+  availablePaths,
+  EVENT_TYPES,
+  removeFilter,
+  updateFilter,
+}: GenericFilterCardProps) => {
+  const getOptionsForColumn = (column: string): Option[] => {
+    switch (column) {
+      case 'event_name':
+        return customEventsList.map((event) => ({ label: event || '', value: event || '' }))
+      case 'url_path':
+        return availablePaths.map((path) => ({ label: path, value: path }))
+      case 'event_type':
+        return EVENT_TYPES ?? []
+      default:
+        return []
+    }
+  }
+
+  const currentValues: string[] = Array.isArray(filter.multipleValues)
+    ? filter.multipleValues
+    : filter.value
+      ? [filter.value]
+      : []
+
+  const handleValueToggle = (option: string, isSelected: boolean) => {
+    if (!option) return
+    const newValues = isSelected ? [...new Set([...currentValues, option])] : currentValues.filter((v) => v !== option)
+
+    updateFilter(index, {
+      operator: newValues.length > 1 ? 'IN' : filter.operator,
+      multipleValues: newValues.length > 0 ? newValues : undefined,
+      value: newValues.length > 0 ? newValues[0] : '',
+    })
+  }
+
+  const makeInteractive = () => {
+    updateFilter(index, {
+      operator: '=',
+      value: `{{${toParamName(filter.column)}}}`,
+      metabaseParam: true,
+      interactive: true,
+    })
+  }
+
+  return (
+    <FilterCard>
+      {/* Header */}
+      <div className="mb-2 flex items-center gap-2">
+        <span className="grow text-xs font-semibold text-(--ax-text-default)">{columnLabel}</span>
+        {filter.interactive && (
+          <span className="inline-flex items-center rounded-full bg-[var(--ax-bg-accent-soft)] px-2 py-0.5 text-xs font-medium text-[var(--ax-text-accent)]">
+            Mottaker velger selv
+          </span>
+        )}
+        <Button
+          variant="tertiary"
+          data-color="danger"
+          size="xsmall"
+          icon={<XMarkIcon aria-hidden />}
+          onClick={() => removeFilter(index)}
+        >
+          Fjern
+        </Button>
+      </div>
+
+      {/* Controls */}
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-end gap-2">
+          <Select
+            label="Kolonne"
+            value={filter.column}
+            onChange={(e) => updateFilter(index, { column: e.target.value, operator: '=', value: '' })}
+            size="small"
+            className="min-w-[150px]"
+          >
+            <option value="" disabled>
+              Velg kolonne…
+            </option>
+            {FILTER_COLUMNS &&
+              Object.entries(FILTER_COLUMNS).map(([groupKey, group]) => (
+                <optgroup key={groupKey} label={group.label}>
+                  {group.columns.map((col) => (
+                    <option key={col.value} value={col.value}>
+                      {col.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            {parameters.length > 0 && (
+              <optgroup label="Hendelsesdetaljer">
+                {uniqueParameters.map((param) => (
+                  <option key={`param_${param.key}`} value={`param_${getParamName(param)}`}>
+                    {getParamName(param)}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+          </Select>
+
+          {!filter.interactive && (
+            <Button variant="tertiary" size="small" className="mb-1" onClick={makeInteractive}>
+              Gjør til filtervalg
+            </Button>
+          )}
+
+          {filter.column !== 'created_at' && !filter.interactive && (
+            <Select
+              label="Operator"
+              value={filter.operator || '='}
+              onChange={(e) => updateFilter(index, { operator: e.target.value, value: '' })}
+              size="small"
+              className="min-w-[100px]"
+            >
+              {OPERATORS.map((op) => (
+                <option key={op.value} value={op.value}>
+                  {op.label}
+                </option>
+              ))}
+            </Select>
+          )}
+        </div>
+
+        {filter.interactive ? (
+          <div className="rounded bg-[var(--ax-bg-accent-soft)] p-2 text-sm text-[var(--ax-text-default)]">
+            Parameter: <strong>{filter.value?.toString().replace('{{', '').replace('}}', '')}</strong>
+          </div>
+        ) : (
+          !['IS NULL', 'IS NOT NULL'].includes(filter.operator || '') && (
+            <UNSAFE_Combobox
+              label="Verdi"
+              description={null}
+              options={getOptionsForColumn(filter.column)}
+              selectedOptions={currentValues}
+              onToggleSelected={handleValueToggle}
+              isMultiSelect={true}
+              size="small"
+              allowNewValues={filter.column !== 'event_type'}
+              shouldAutocomplete={false}
+            />
+          )
+        )}
+      </div>
+    </FilterCard>
+  )
+}
+
+// ─── EventSelector ────────────────────────────────────────────────────────────
 
 interface EventSelectorProps {
   selectedEventTypes: string[]
@@ -28,22 +835,14 @@ interface EventSelectorProps {
   availablePaths: string[]
   customEventsList: string[]
   filters: Filter[]
-  OPERATORS: { value: string; label: string }[]
+  OPERATORS: Option[]
   eventLookbackDays?: number
   onEventLookbackDaysChange?: (days: number) => void
   onEnableCustomEvents?: (withParams?: boolean) => void
-  // Advanced filters props
-  stagingFilter?: Filter | null
-  setStagingFilter?: (filter: Filter | null) => void
-  addFilter?: (column: string) => void
-  commitStagingFilter?: () => void
   parameters?: Parameter[]
   uniqueParameters?: Parameter[]
-  stagingAlertInfo?: { show: boolean; message: string }
-  handleStagingAlertClose?: () => void
   FILTER_COLUMNS?: FilterColumns
   EVENT_TYPES?: Option[]
-  // Active filter props
   removeFilter: (index: number) => void
   updateFilter: (index: number, updates: Partial<Filter>) => void
   isDateRangeFilter: (filter: Filter) => boolean
@@ -74,14 +873,8 @@ const EventSelector = ({
   handleCustomEventsChange,
   onEnableCustomEvents,
   filters,
-  stagingFilter,
-  setStagingFilter,
-  addFilter,
-  commitStagingFilter,
   parameters = [],
   uniqueParameters = [],
-  stagingAlertInfo,
-  handleStagingAlertClose,
   FILTER_COLUMNS,
   EVENT_TYPES,
   removeFilter,
@@ -91,1064 +884,168 @@ const EventSelector = ({
   addFilterDirectly,
   showFilterPanelOnly = false,
 }: EventSelectorProps) => {
-  const normalizeUrlPathInput = (input: string): string => {
-    const trimmed = input.trim()
-    if (!trimmed) return ''
-
-    // Keep dashboard placeholders untouched
-    if (trimmed.startsWith('{{') && trimmed.endsWith('}}')) {
-      return trimmed
-    }
-
-    const toPath = (value: string): string => {
-      try {
-        const parsed = new URL(value)
-        return parsed.pathname || '/'
-      } catch {
-        return value
-      }
-    }
-
-    if (trimmed.includes('://')) {
-      return toPath(trimmed)
-    }
-
-    const looksLikeHost = /^[^/\s]+\.[^/\s]+(?:\/.*)?$/.test(trimmed)
-    if (looksLikeHost) {
-      return toPath(`https://${trimmed}`)
-    }
-
-    if (trimmed.startsWith('/')) {
-      return trimmed
-    }
-
-    return `/${trimmed}`
-  }
-
-  const getCleanParamName = (param: Parameter): string => {
-    const parts = param.key.split('.')
-    return parts[parts.length - 1]
-  }
-
-  const getParamDisplayName = (param: Parameter): string => {
-    const parts = param.key.split('.')
-    return parts[parts.length - 1]
-  }
-
-  // Helper function for combobox options
-  const getOptionsForColumn = (column: string, customEventsListIn: string[], availablePathsIn: string[]): Option[] => {
-    switch (column) {
-      case 'event_name':
-        return customEventsListIn.map((event) => ({ label: event || '', value: event || '' }))
-      case 'url_path':
-        return availablePathsIn.map((path) => ({ label: path, value: path }))
-      case 'event_type':
-        return EVENT_TYPES ?? []
-      default:
-        return []
-    }
-  }
-
-  // State for event param filter in "Utvalgte hendelser" mode
-  const [selectedEventParam, setSelectedEventParam] = useState<string>('')
-  const [eventParamOperator, setEventParamOperator] = useState<string>('=')
-  const [eventParamValue, setEventParamValue] = useState<string>('')
-
-  // Track whether user requested params for this session; derive loading state from props
-  const [hasRequestedParams, setHasRequestedParams] = useState(false)
-
-  const isParamsLoading = hasRequestedParams && isEventsLoading
-  const hasActivatedEventType = showFilterPanelOnly || selectedEventTypes.length > 0
-
-  // Columns managed by the event-type cards above – these should not appear in the
-  // generic "active filter" list or "Legg til filter" dropdown when cards are visible.
-  const CARD_MANAGED_COLUMNS = showFilterPanelOnly ? [] : ['event_type', 'url_path', 'event_name']
-  const isCardManagedFilter = (filter: Filter) => CARD_MANAGED_COLUMNS.includes(filter.column)
   const [openEditors, setOpenEditors] = useState<Record<EventTypeId, boolean>>({
     pageviews: false,
     custom_events: false,
   })
 
-  const selectedEventTypeOrder = (['pageviews', 'custom_events'] as EventTypeId[]).filter((eventType) =>
-    selectedEventTypes.includes(eventType),
-  )
-  const missingEventTypes = (['pageviews', 'custom_events'] as EventTypeId[]).filter(
-    (eventType) => !selectedEventTypes.includes(eventType),
-  )
-
-  const pageviewsSummary =
-    pageViewsMode === 'interactive'
-      ? ''
-      : pageViewsMode === 'all'
-        ? 'Standard: Hele nettsiden'
-        : selectedPaths.length > 0
-          ? `Låst til ${selectedPaths.length} side${selectedPaths.length === 1 ? '' : 'r'}`
-          : 'Låst til bestemte sider'
-
-  const customEventsSummary =
-    customEventsMode === 'interactive'
-      ? 'Standard: Mottaker velger hendelse i dashboardet'
-      : customEventsMode === 'all'
-        ? 'Standard: Alle hendelser'
-        : customEvents.length > 0
-          ? `${customEvents.length} valgt${customEvents.length === 1 ? '' : 'e'} hendelse${customEvents.length === 1 ? '' : 'r'}`
-          : 'Velg hendelser'
-
-  const toggleEditor = (eventType: EventTypeId) => {
-    setOpenEditors((prev) => ({
-      ...prev,
-      [eventType]: !prev[eventType],
-    }))
-  }
+  const toggleEditor = (eventType: EventTypeId) =>
+    setOpenEditors((prev) => ({ ...prev, [eventType]: !prev[eventType] }))
 
   const addEventType = (eventType: EventTypeId) => {
     handleEventTypeChange(eventType, true)
 
     if (eventType === 'custom_events') {
-      if (customEventsMode === 'none') {
-        setCustomEventsMode('specific')
-      }
-      if (onEnableCustomEvents && customEventsList.length === 0) {
-        onEnableCustomEvents(false)
-      }
+      if (onEnableCustomEvents && customEventsList.length === 0) onEnableCustomEvents(false)
     }
 
-    setOpenEditors((prev) => ({
-      ...prev,
-      [eventType]: true,
-    }))
+    setOpenEditors((prev) => ({ ...prev, [eventType]: true }))
   }
 
   const removeEventType = (eventType: EventTypeId) => {
     handleEventTypeChange(eventType, false)
-
-    if (eventType === 'custom_events') {
-      setCustomEventsMode('none')
-      handleCustomEventsChange([], 'IN')
-    }
-
-    setOpenEditors((prev) => ({
-      ...prev,
-      [eventType]: false,
-    }))
+    setOpenEditors((prev) => ({ ...prev, [eventType]: false }))
   }
 
-  /** Fixed options for the event-type combobox */
-  // (kept for potential future use)
-  // const eventTypeOptions = [
-  //   { label: 'Sidevisninger', value: 'pageviews' },
-  //   { label: 'Egendefinerte hendelser', value: 'custom_events' },
-  // ];
+  // Filters that are managed by an event-type card (event_type, url_path,
+  // event_name) are never shown in the generic list — the cards own them.
+  const isCardOwnedFilter = (filter: Filter): boolean => {
+    if (showFilterPanelOnly) return false
+    if (filter.column === 'event_type') return true
+    if (filter.column === 'url_path') return selectedEventTypes.includes('pageviews')
+    if (filter.column === 'event_name') return selectedEventTypes.includes('custom_events')
+    return false
+  }
 
-  // Get parameters filtered by selected events
-  const filteredParameters = parameters.filter((param) => {
-    if (customEvents.length === 0) return true
-    const eventName = param.key.includes('.') ? param.key.split('.')[0] : 'Andre'
-    return customEvents.some((e) => e.toLowerCase() === eventName.toLowerCase())
-  })
-
-  // Get unique filtered parameters
-  const filteredUniqueParams = filteredParameters.reduce((acc: Parameter[], param) => {
-    const baseName = getCleanParamName(param)
-    if (!acc.some((p) => getCleanParamName(p) === baseName)) {
-      acc.push(param)
-    }
-    return acc
-  }, [])
-
-  // Handle adding/updating the event param filter
-  const handleAddEventParamFilter = (valueOverride?: string) => {
-    const value = valueOverride ?? eventParamValue
-    if (!selectedEventParam || !value) return
-
-    // Check if a filter for this column already exists
-    const existingFilterIndex = filters.findIndex((f) => f.column === selectedEventParam)
-
-    if (existingFilterIndex >= 0) {
-      // Update the existing filter
-      updateFilter(existingFilterIndex, {
-        operator: eventParamOperator,
-        value: value,
-      })
-    } else {
-      // Create a new filter
-      const newFilter: Filter = {
-        column: selectedEventParam,
-        operator: eventParamOperator,
-        value: value,
-      }
-
-      // Use addFilterDirectly if available to directly add to filters
-      if (addFilterDirectly) {
-        addFilterDirectly(newFilter)
+  const getColumnLabel = (column: string): string => {
+    if (FILTER_COLUMNS) {
+      for (const group of Object.values(FILTER_COLUMNS)) {
+        const match = group.columns.find((c) => c.value === column)
+        if (match) return match.label
       }
     }
-
-    // Don't reset the form - keep the selection visible so user can see what's applied
+    if (column.startsWith('param_')) {
+      const paramName = column.replace('param_', '')
+      const match = uniqueParameters.find((p) => getParamName(p) === paramName)
+      return match ? getParamName(match) : paramName
+    }
+    return column
   }
 
-  // Handle fetching params for events
-  const handleFetchEventParams = () => {
-    setHasRequestedParams(true)
-    if (onEnableCustomEvents) onEnableCustomEvents(true)
-  }
+  const pageviewsSummary: string = (() => {
+    if (pageViewsMode === 'interactive') return ''
+    if (pageViewsMode === 'all') return 'Standard: Hele nettsiden'
+    if (selectedPaths.length > 0) return `Låst til ${selectedPaths.length} side${selectedPaths.length === 1 ? '' : 'r'}`
+    return 'Låst til bestemte sider'
+  })()
 
-  const pageviewsEditor = (
-    <div className="space-y-3">
-      <RadioGroup
-        legend="Sidevisninger"
-        hideLegend
-        value={pageViewsMode}
-        onChange={(val) => {
-          const newMode = val as 'all' | 'specific' | 'interactive'
-          setPageViewsMode(newMode)
-          handlePathsChange([], 'IN')
-          if (newMode === 'interactive') {
-            handlePathsChange(['{{url_sti}}'], '=', true)
-          }
-        }}
-        size="small"
-      >
-        <Radio value="interactive">Side velges via filter i dashboardet</Radio>
-        <Radio value="all">Hele nettsiden</Radio>
-        <Radio value="specific">Lås til bestemte sider</Radio>
-      </RadioGroup>
+  const customEventsSummary: string = (() => {
+    if (customEventsMode === 'interactive') return 'Standard: Mottaker velger hendelse i dashboardet'
+    if (customEventsMode === 'all') return 'Standard: Alle hendelser'
+    if (customEvents.length > 0)
+      return `${customEvents.length} valgt${customEvents.length === 1 ? '' : 'e'} hendelse${customEvents.length === 1 ? '' : 'r'}`
+    return 'Velg hendelser'
+  })()
 
-      {pageViewsMode === 'specific' && (
-        <div className="bg-(--ax-bg-default) p-4 rounded border">
-          <div className="mb-3">
-            <Select
-              label="URL"
-              value={urlPathOperator}
-              onChange={(e) => {
-                const newOperator = e.target.value
-                setUrlPathOperator(newOperator)
-
-                if (
-                  (newOperator === 'IN' && selectedPaths.length <= 1) ||
-                  (urlPathOperator === 'IN' && newOperator !== 'IN')
-                ) {
-                  const pathValue = selectedPaths.length > 0 ? selectedPaths[0] : ''
-                  handlePathsChange(newOperator === 'IN' ? selectedPaths : [pathValue], newOperator)
-                } else {
-                  handlePathsChange(selectedPaths, newOperator)
-                }
-              }}
-              size="small"
-              className="w-full md:w-1/3"
-            >
-              {OPERATORS.map((op) => (
-                <option key={op.value} value={op.value}>
-                  {op.label}
-                </option>
-              ))}
-            </Select>
-          </div>
-          {urlPathOperator === 'IN' ? (
-            <UNSAFE_Combobox
-              label="Velg URL-stier"
-              description="Flere stier kan velges for 'er lik' operator"
-              options={availablePaths.map((path) => ({
-                label: path,
-                value: path,
-              }))}
-              selectedOptions={selectedPaths}
-              onToggleSelected={(option: string, isSelected: boolean) => {
-                const normalizedPath = normalizeUrlPathInput(option)
-                if (normalizedPath) {
-                  const newSelection = isSelected
-                    ? Array.from(new Set([...selectedPaths, normalizedPath]))
-                    : selectedPaths.filter((p) => p !== normalizedPath)
-                  handlePathsChange(newSelection, urlPathOperator)
-                }
-              }}
-              isMultiSelect
-              size="small"
-              allowNewValues
-            />
-          ) : (
-            <UNSAFE_Combobox
-              label="Legg til en eller flere URL-stier"
-              description={
-                urlPathOperator === 'LIKE'
-                  ? 'Søket vil inneholde verdien uavhengig av posisjon'
-                  : urlPathOperator === 'STARTS_WITH'
-                    ? 'Søket vil finne stier som starter med verdien'
-                    : urlPathOperator === 'ENDS_WITH'
-                      ? 'Søket vil finne stier som slutter med verdien'
-                      : null
-              }
-              options={availablePaths.map((path) => ({
-                label: path,
-                value: path,
-              }))}
-              selectedOptions={selectedPaths.length > 0 ? [selectedPaths[0]] : []}
-              onToggleSelected={(option: string, isSelected: boolean) => {
-                const normalizedPath = normalizeUrlPathInput(option)
-                if (normalizedPath) {
-                  handlePathsChange(isSelected ? [normalizedPath] : [], urlPathOperator)
-                }
-              }}
-              isMultiSelect={false}
-              size="small"
-              allowNewValues
-            />
-          )}
-          {selectedPaths.length === 0 && (
-            <div className="mt-2 text-xs text-(--ax-text-subtle)">Når tom vises alle sidevisninger</div>
-          )}
-        </div>
-      )}
-    </div>
+  const selectedEventTypeOrder = (['pageviews', 'custom_events'] as EventTypeId[]).filter((id) =>
+    selectedEventTypes.includes(id),
   )
 
-  const customEventsEditor = (
-    <div className="space-y-3">
-      <RadioGroup
-        legend="Egendefinerte hendelser"
-        hideLegend
-        value={customEventsMode}
-        onChange={(val) => {
-          const newMode = val as 'all' | 'specific' | 'interactive'
-
-          if (onEnableCustomEvents && customEventsList.length === 0) {
-            onEnableCustomEvents(false)
-          }
-
-          handleEventTypeChange('custom_events', true)
-          setCustomEventsMode(newMode)
-
-          if (newMode === 'interactive') {
-            handleCustomEventsChange([], 'IN')
-            handleCustomEventsChange(['{{event_name}}'], '=')
-          }
-        }}
-        size="small"
-      >
-        <Radio value="specific">Utvalgte hendelser</Radio>
-        <Radio value="all">Alle hendelser</Radio>
-        <Radio value="interactive">Filter der mottaker velger selv i dashboardet</Radio>
-      </RadioGroup>
-
-      <div>
-        {customEventsMode === 'specific' && (
-          <div className="bg-(--ax-bg-default) p-4 rounded border">
-            {isEventsLoading && !isParamsLoading && customEventsList.length === 0 && (
-              <div className="mb-4 space-y-3">
-                <Skeleton variant="text" width="40%" />
-                <Skeleton variant="rectangle" height={40} />
-                <Skeleton variant="rectangle" height={40} />
-              </div>
-            )}
-            {customEventsMode === 'specific' && (!isEventsLoading || isParamsLoading) && (
-              <>
-                <div className="mb-3">
-                  <Select
-                    label="Hendelsesnavn"
-                    value={eventNameOperator}
-                    onChange={(e) => {
-                      const newOperator = e.target.value
-                      setEventNameOperator(newOperator)
-
-                      if (customEvents.length > 0) {
-                        if (newOperator === 'IN' || eventNameOperator === 'IN') {
-                          handleCustomEventsChange(customEvents, newOperator)
-                        }
-                      }
-                    }}
-                    size="small"
-                    className="w-full md:w-1/3"
-                  >
-                    {OPERATORS.map((op) => (
-                      <option key={op.value} value={op.value}>
-                        {op.label}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-              </>
-            )}
-            {customEventsMode === 'specific' && (!isEventsLoading || isParamsLoading) && (
-              <>
-                {eventNameOperator === 'IN' ? (
-                  <UNSAFE_Combobox
-                    label="Velg hendelser"
-                    description="Flere hendelser kan velges for 'er lik' operator"
-                    options={customEventsList.map((event) => ({
-                      label: event,
-                      value: event,
-                    }))}
-                    selectedOptions={customEvents}
-                    onToggleSelected={(option: string, isSelected: boolean) => {
-                      if (option) {
-                        const newSelection = isSelected
-                          ? [...customEvents, option]
-                          : customEvents.filter((e) => e !== option)
-                        handleCustomEventsChange(newSelection, eventNameOperator)
-                      }
-                    }}
-                    isMultiSelect
-                    size="small"
-                    allowNewValues
-                  />
-                ) : (
-                  <UNSAFE_Combobox
-                    label="Velg hendelse"
-                    description={
-                      eventNameOperator === 'LIKE'
-                        ? 'Søket vil matche hendelser som inneholder verdien'
-                        : eventNameOperator === 'STARTS_WITH'
-                          ? 'Søket vil finne hendelser som starter med verdien'
-                          : eventNameOperator === 'ENDS_WITH'
-                            ? 'Søket vil finne hendelser som slutter med verdien'
-                            : null
-                    }
-                    options={customEventsList.map((event) => ({
-                      label: event,
-                      value: event,
-                    }))}
-                    selectedOptions={customEvents.length > 0 ? [customEvents[0]] : []}
-                    onToggleSelected={(option: string, isSelected: boolean) => {
-                      if (option) {
-                        handleCustomEventsChange(isSelected ? [option] : [], eventNameOperator)
-                      }
-                    }}
-                    isMultiSelect={false}
-                    size="small"
-                    allowNewValues
-                  />
-                )}
-              </>
-            )}
-
-            {customEvents.length > 0 && (
-              <div className="mt-6 pt-4 border-t border-(--ax-border-neutral-subtle)">
-                {isParamsLoading || isEventsLoading ? (
-                  <div className="space-y-3">
-                    <Skeleton variant="text" width="50%" />
-                    <Skeleton variant="rectangle" height={40} />
-                    <div className="flex gap-2">
-                      <Skeleton variant="rectangle" height={40} width="33%" />
-                      <Skeleton variant="rectangle" height={40} className="flex-1" />
-                    </div>
-                  </div>
-                ) : parameters.length === 0 ? (
-                  <>
-                    <Label as="p" size="small" className="mb-2">
-                      Filtrer på hendelsesdetaljer (valgfritt)
-                    </Label>
-                    <div className="mt-3">
-                      <Button variant="secondary" size="small" onClick={handleFetchEventParams}>
-                        Hent hendelsesdetaljer
-                      </Button>
-                    </div>
-                  </>
-                ) : (
-                  <div className="space-y-3">
-                    <UNSAFE_Combobox
-                      label="Velg hendelsesdetaljer (valgfritt)"
-                      options={filteredUniqueParams.map((param) => ({
-                        label: getParamDisplayName(param),
-                        value: `param_${getCleanParamName(param)}`,
-                      }))}
-                      selectedOptions={selectedEventParam ? [selectedEventParam] : []}
-                      onToggleSelected={(option: string, isSelected: boolean) => {
-                        if (isSelected && option) {
-                          setSelectedEventParam(option)
-                          setEventParamValue('')
-                        } else {
-                          setSelectedEventParam('')
-                        }
-                      }}
-                      isMultiSelect={false}
-                      size="small"
-                      shouldAutocomplete={false}
-                    />
-
-                    {selectedEventParam && (
-                      <>
-                        <div className="flex gap-2 items-end">
-                          <Select
-                            label="Operator"
-                            value={eventParamOperator}
-                            onChange={(e) => setEventParamOperator(e.target.value)}
-                            size="small"
-                            className="w-1/3"
-                          >
-                            {OPERATORS.map((op) => (
-                              <option key={op.value} value={op.value}>
-                                {op.label}
-                              </option>
-                            ))}
-                          </Select>
-
-                          <div className="flex-1">
-                            <UNSAFE_Combobox
-                              label="Verdi"
-                              options={[]}
-                              selectedOptions={eventParamValue ? [eventParamValue] : []}
-                              onToggleSelected={(option: string, isSelected: boolean) => {
-                                if (option) {
-                                  const newValue = isSelected ? option : ''
-                                  setEventParamValue(newValue)
-                                  if (isSelected && newValue && selectedEventParam) {
-                                    handleAddEventParamFilter(newValue)
-                                  }
-                                }
-                              }}
-                              isMultiSelect={false}
-                              size="small"
-                              allowNewValues
-                            />
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-        {customEventsMode === 'interactive' && (
-          <div className="bg-(--ax-bg-default) p-4 rounded border">
-            <div className="flex items-center gap-3">
-              <div className="shrink-0">
-                <span className="flex items-center justify-center w-6 h-6 bg-green-100 rounded-full">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-green-600">
-                    <path
-                      d="M13.3 4.3L6 11.6L2.7 8.3C2.3 7.9 1.7 7.9 1.3 8.3C0.9 8.7 0.9 9.3 1.3 9.7L5.3 13.7C5.5 13.9 5.7 14 6 14C6.3 14 6.5 13.9 6.7 13.7L14.7 5.7C15.1 5.3 15.1 4.7 14.7 4.3C14.3 3.9 13.7 3.9 13.3 4.3Z"
-                      fill="currentColor"
-                    />
-                  </svg>
-                </span>
-              </div>
-              <div>
-                <p className="text-(--ax-text-default)">Hendelsesnavn kan velges som filtervalg</p>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div>
-        <ReadMore size="small" header="Utvid søkevindu (standard 7 dager)">
-          <div className="mt-2 space-y-2">
-            <Select
-              label="Hvor langt tilbake hente hendelser"
-              size="small"
-              value={String(eventLookbackDays)}
-              onChange={(e) => {
-                const days = Number(e.target.value)
-                if (Number.isFinite(days) && onEventLookbackDaysChange) {
-                  onEventLookbackDaysChange(days)
-                }
-              }}
-              className="w-full md:w-1/2"
-            >
-              <option value="7">Siste 7 dager</option>
-              <option value="14">Siste 14 dager</option>
-              <option value="30">Siste 30 dager</option>
-              <option value="60">Siste 60 dager</option>
-              <option value="90">Siste 90 dager</option>
-              <option value="180">Siste 180 dager</option>
-            </Select>
-          </div>
-        </ReadMore>
-      </div>
-    </div>
-  )
+  const visibleFilters = filters.filter((f) => !isDateRangeFilter(f) && !isCardOwnedFilter(f))
 
   return (
-    <div className="mb-1">
-      <div className="mt-3">
-        <div className="space-y-4">
-          {!showFilterPanelOnly && (
-            <div className="space-y-3">
-              {selectedEventTypeOrder.map((eventType) => {
-                const isPageviewsRow = eventType === 'pageviews'
-                const isEditorOpen = isPageviewsRow || openEditors[eventType]
-                const title = isPageviewsRow ? 'Sidevisninger' : 'Egendefinerte hendelser'
-                const summary = isPageviewsRow ? pageviewsSummary : customEventsSummary
+    <div className="mb-1 mt-3 space-y-3">
+      {/* ── Active event-type cards ─────────────────────────────────────── */}
+      {!showFilterPanelOnly &&
+        selectedEventTypeOrder.map((eventType) => {
+          const isPageviews = eventType === 'pageviews'
+          const isEditorOpen = isPageviews || openEditors[eventType]
+          const summary = isPageviews ? pageviewsSummary : customEventsSummary
 
-                return (
-                  <div
-                    key={eventType}
-                    className="rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-3 py-3"
-                  >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="min-w-[170px]">
-                        <p className="text-sm font-semibold event-selector-title">{title}</p>
-                        {summary && <p className="text-xs event-selector-summary">{summary}</p>}
-                      </div>
+          const editor = isPageviews ? (
+            <PageviewsEditor
+              pageViewsMode={pageViewsMode}
+              setPageViewsMode={setPageViewsMode}
+              urlPathOperator={urlPathOperator}
+              setUrlPathOperator={setUrlPathOperator}
+              selectedPaths={selectedPaths}
+              handlePathsChange={handlePathsChange}
+              availablePaths={availablePaths}
+              OPERATORS={OPERATORS}
+            />
+          ) : (
+            <CustomEventsEditor
+              customEventsMode={customEventsMode}
+              setCustomEventsMode={setCustomEventsMode}
+              eventNameOperator={eventNameOperator}
+              setEventNameOperator={setEventNameOperator}
+              customEvents={customEvents}
+              customEventsList={customEventsList}
+              handleCustomEventsChange={handleCustomEventsChange}
+              handleEventTypeChange={handleEventTypeChange}
+              onEnableCustomEvents={onEnableCustomEvents}
+              eventLookbackDays={eventLookbackDays}
+              onEventLookbackDaysChange={onEventLookbackDaysChange}
+              isEventsLoading={isEventsLoading}
+              filters={filters}
+              parameters={parameters}
+              uniqueParameters={uniqueParameters}
+              OPERATORS={OPERATORS}
+              updateFilter={updateFilter}
+              addFilterDirectly={addFilterDirectly}
+            />
+          )
 
-                      {!isPageviewsRow && customEventsMode === 'specific' && customEvents.length > 0 && (
-                        <Tag variant="neutral" size="xsmall">
-                          {customEvents.length} valg
-                        </Tag>
-                      )}
+          return (
+            <EventTypeCard
+              key={eventType}
+              eventType={eventType}
+              isEditorOpen={isEditorOpen}
+              onToggleEditor={() => toggleEditor(eventType)}
+              onRemove={() => removeEventType(eventType)}
+              summary={summary}
+              customEventsMode={customEventsMode}
+              customEventsCount={customEvents.length}
+              editor={editor}
+            />
+          )
+        })}
 
-                      <div className="ml-auto flex flex-wrap items-center gap-1">
-                        {!isPageviewsRow && (
-                          <Button variant="tertiary" size="xsmall" onClick={() => toggleEditor(eventType)}>
-                            {isEditorOpen ? 'Lukk' : 'Rediger'}
-                          </Button>
-                        )}
-                        <Button variant="tertiary-neutral" size="xsmall" onClick={() => removeEventType(eventType)}>
-                          Fjern
-                        </Button>
-                      </div>
-                    </div>
+      {/* ── Active generic filters ──────────────────────────────────────── */}
+      {visibleFilters.map((filter) => {
+        const index = filters.indexOf(filter)
+        return (
+          <GenericFilterCard
+            key={index}
+            filter={filter}
+            index={index}
+            columnLabel={getColumnLabel(filter.column)}
+            OPERATORS={OPERATORS}
+            FILTER_COLUMNS={FILTER_COLUMNS}
+            parameters={parameters}
+            uniqueParameters={uniqueParameters}
+            customEventsList={customEventsList}
+            availablePaths={availablePaths}
+            EVENT_TYPES={EVENT_TYPES}
+            removeFilter={removeFilter}
+            updateFilter={updateFilter}
+          />
+        )
+      })}
 
-                    {isEditorOpen && (
-                      <div className="mt-3 rounded-md bg-[var(--ax-bg-default)] p-3">
-                        {isPageviewsRow ? pageviewsEditor : customEventsEditor}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-
-              {missingEventTypes.length > 0 && (
-                <div className="mb-3">
-                  <div className="flex flex-col gap-2">
-                    {missingEventTypes.map((eventType) => {
-                      const isPageviews = eventType === 'pageviews'
-                      return (
-                        <button
-                          key={eventType}
-                          type="button"
-                          onClick={() => addEventType(eventType)}
-                          aria-label={isPageviews ? 'Legg til sidevisninger' : 'Legg til egendefinerte hendelser'}
-                          className="block w-full cursor-pointer rounded-md border-1 border-dashed border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-3 py-3 text-left hover:border-(--ax-border-neutral) hover:bg-[var(--ax-bg-subtle)] focus:outline-none focus-visible:ring-2 focus-visible:ring-(--ax-border-accent)"
-                        >
-                          <p className="text-sm font-semibold" style={{ color: 'var(--ax-text-subtle)' }}>
-                            {isPageviews ? '+ Legg til sidevisninger' : '+ Legg til egendefinerte hendelser'}
-                          </p>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {hasActivatedEventType && (
-        <div className="mt-4 space-y-3">
-          {/* Add filter row */}
-          <div className="flex gap-2 items-center bg-[var(--ax-bg-default)] p-3 rounded-md border border-[var(--ax-border-neutral-subtle)]">
-            <Select
-              label="Legg til filter"
-              onChange={(e) => {
-                const val = e.target.value
-                if (val) {
-                  if (
-                    !showFilterPanelOnly &&
-                    (val === 'event_name' || val === '_custom_param_') &&
-                    customEventsMode === 'none'
-                  ) {
-                    setCustomEventsMode('all')
-                    handleEventTypeChange('custom_events', true)
-                  }
-
-                  if (val === '_custom_param_' && onEnableCustomEvents) {
-                    onEnableCustomEvents(true)
-                  }
-
-                  if (addFilter) {
-                    addFilter(val)
-                  }
-                  ;(e.target as HTMLSelectElement).value = ''
-                }
-              }}
-              size="small"
-              className="grow"
-            >
-              <option value="">Velg filter...</option>
-              {FILTER_COLUMNS &&
-                Object.entries(FILTER_COLUMNS).map(([groupKey, group]) => (
-                  <optgroup key={groupKey} label={group.label}>
-                    {group.columns
-                      .filter((col) => col.value !== 'created_at' && !CARD_MANAGED_COLUMNS.includes(col.value))
-                      .flatMap((col) => [
-                        <option key={col.value} value={col.value}>
-                          {col.label}
-                        </option>,
-                        ...(col.value === 'event_name'
-                          ? [
-                              <option key={`${col.value}_custom_param_`} value="_custom_param_">
-                                Hendelsesdetaljer
-                              </option>,
-                            ]
-                          : []),
-                      ])}
-                  </optgroup>
-                ))}
-            </Select>
-          </div>
-
-          {/* Staging filter form */}
-          {stagingAlertInfo?.show && (
-            <AlertWithCloseButton variant="success" onClose={handleStagingAlertClose}>
-              {stagingAlertInfo.message}
-            </AlertWithCloseButton>
-          )}
-
-          {stagingFilter && setStagingFilter && (
-            <div className="bg-(--ax-bg-default) p-4 rounded-md border shadow-sm">
-              <div className="flex-1">
-                <div className="grid gap-4">
-                  {/* Column Selector */}
-                  <div>
-                    <Select
-                      label="Kolonne"
-                      value={stagingFilter.column}
-                      onChange={(e) =>
-                        setStagingFilter({ ...stagingFilter, column: e.target.value, operator: '=', value: '' })
-                      }
-                      size="small"
-                    >
-                      {FILTER_COLUMNS &&
-                        Object.entries(FILTER_COLUMNS).map(([groupKey, group]) => (
-                          <optgroup key={groupKey} label={group.label}>
-                            {group.columns.map((col) => (
-                              <option key={col.value} value={col.value}>
-                                {col.label}
-                              </option>
-                            ))}
-                          </optgroup>
-                        ))}
-                      {parameters.length > 0 && (
-                        <>
-                          <option value="_custom_param_">Hendelsesdetaljer</option>
-                          {stagingFilter.column.startsWith('param_') &&
-                            (() => {
-                              const selectedParam = uniqueParameters.find(
-                                (p) => `param_${getCleanParamName(p)}` === stagingFilter.column,
-                              )
-                              return (
-                                <option value={stagingFilter.column}>
-                                  {selectedParam
-                                    ? getParamDisplayName(selectedParam)
-                                    : stagingFilter.column.replace('param_', '')}
-                                </option>
-                              )
-                            })()}
-                        </>
-                      )}
-                    </Select>
-                  </div>
-
-                  {/* Parameter Selector */}
-                  {stagingFilter.column === '_custom_param_' && (
-                    <div>
-                      {isEventsLoading ? (
-                        <div className="space-y-2">
-                          <Skeleton variant="text" width="30%" />
-                          <Skeleton variant="rectangle" height={40} />
-                        </div>
-                      ) : parameters.length === 0 ? (
-                        <div className="flex flex-col gap-2">
-                          <p className="text-sm text-(--ax-text-subtle)">
-                            Fant ingen hendelsesdetaljer. Du må hente data før du kan filtrere.
-                          </p>
-                          <Button
-                            variant="secondary"
-                            size="small"
-                            onClick={() => onEnableCustomEvents && onEnableCustomEvents(true)}
-                            type="button"
-                          >
-                            Hent hendelsesdetaljer
-                          </Button>
-                        </div>
-                      ) : (
-                        <UNSAFE_Combobox
-                          label="Velg hendelsesdetalj"
-                          description="Søk etter hendelsesdetaljen du vil filtrere på"
-                          options={uniqueParameters.map((param) => ({
-                            label: getParamDisplayName(param),
-                            value: `param_${getCleanParamName(param)}`,
-                          }))}
-                          selectedOptions={[]}
-                          onToggleSelected={(option, isSelected) => {
-                            if (isSelected && option) {
-                              setStagingFilter({
-                                ...stagingFilter,
-                                column: option,
-                                operator: '=',
-                                value: '',
-                              })
-                            }
-                          }}
-                          isMultiSelect={false}
-                          size="small"
-                          shouldAutocomplete={true}
-                        />
-                      )}
-                    </div>
-                  )}
-
-                  {/* Operator and Value Selectors */}
-                  {stagingFilter.column !== '_custom_param_' && (
-                    <div className="flex gap-2 items-end">
-                      {stagingFilter.column !== 'created_at' && !stagingFilter.interactive && (
-                        <Select
-                          label="Operator"
-                          value={stagingFilter.operator || '='}
-                          onChange={(e) => setStagingFilter({ ...stagingFilter, operator: e.target.value })}
-                          size="small"
-                          className="w-1/3"
-                        >
-                          <option value="INTERACTIVE">Mottaker velger selv</option>
-                          {OPERATORS.map((op) => (
-                            <option key={op.value} value={op.value}>
-                              {op.label}
-                            </option>
-                          ))}
-                        </Select>
-                      )}
-
-                      <div className="flex-1">
-                        {stagingFilter.operator === 'INTERACTIVE' && (
-                          <div className="mt-0 bg-blue-50 p-2 rounded text-sm h-full flex flex-col justify-center">
-                            <p className="font-medium text-xs">Mottaker velger selv</p>
-                            <p className="text-xs text-(--ax-text-subtle) truncate">
-                              Param:{' '}
-                              {stagingFilter.column === 'url_path'
-                                ? 'url_sti'
-                                : stagingFilter.column === 'event_name'
-                                  ? 'hendelse'
-                                  : stagingFilter.column.toLowerCase().replace(/[^a-z0-9_]/g, '_')}
-                            </p>
-                          </div>
-                        )}
-
-                        {!['IS NULL', 'IS NOT NULL', 'INTERACTIVE'].includes(stagingFilter.operator || '') && (
-                          <>
-                            {stagingFilter.column === 'event_type' && EVENT_TYPES ? (
-                              <Select
-                                label="Verdi"
-                                value={stagingFilter.value || ''}
-                                onChange={(e) => setStagingFilter({ ...stagingFilter, value: e.target.value })}
-                                size="small"
-                              >
-                                <option value="">Velg hendelsestype</option>
-                                {EVENT_TYPES.map((type) => (
-                                  <option key={type.value} value={type.value}>
-                                    {type.label}
-                                  </option>
-                                ))}
-                              </Select>
-                            ) : (
-                              <UNSAFE_Combobox
-                                label="Verdi"
-                                description={null}
-                                options={getOptionsForColumn(stagingFilter.column, customEventsList, availablePaths)}
-                                selectedOptions={
-                                  stagingFilter.multipleValues?.map((v) => v || '') ||
-                                  (stagingFilter.value ? [stagingFilter.value] : [])
-                                }
-                                onToggleSelected={(option: string, isSelected: boolean) => {
-                                  if (option) {
-                                    const currentValues =
-                                      stagingFilter.multipleValues || (stagingFilter.value ? [stagingFilter.value] : [])
-                                    const newValues = isSelected
-                                      ? [...new Set([...currentValues, option])]
-                                      : currentValues.filter((val) => val !== option)
-
-                                    setStagingFilter({
-                                      ...stagingFilter,
-                                      operator: newValues.length > 1 ? 'IN' : stagingFilter.operator,
-                                      multipleValues: newValues.length > 0 ? newValues : undefined,
-                                      value: newValues.length > 0 ? newValues[0] : '',
-                                    })
-                                  }
-                                }}
-                                isMultiSelect={true}
-                                size="small"
-                                allowNewValues={stagingFilter.column !== 'event_type'}
-                                shouldAutocomplete={false}
-                              />
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="mt-4 flex justify-end gap-2">
-                <Button
-                  variant="primary"
-                  size="small"
-                  onClick={() => commitStagingFilter?.()}
-                  disabled={
-                    !stagingFilter.operator ||
-                    (!['IS NULL', 'IS NOT NULL', 'INTERACTIVE'].includes(stagingFilter.operator) &&
-                      !stagingFilter.value)
-                  }
-                >
-                  Legg til filter
-                </Button>
-                <Button variant="tertiary" size="small" onClick={() => setStagingFilter(null)}>
-                  Avbryt
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Active filters – always visible */}
-          {filters.filter((f) => !isDateRangeFilter(f) && !isCardManagedFilter(f)).length > 0 && (
-            <div className="space-y-3">
-              {filters.map(
-                (filter, index) =>
-                  !isDateRangeFilter(filter) &&
-                  !isCardManagedFilter(filter) && (
-                    <div key={index} className="bg-(--ax-bg-default) p-3 rounded border border-(--ax-border-neutral)">
-                      <div className="flex justify-between items-start gap-2">
-                        <div className="flex-1 space-y-2">
-                          <div className="flex gap-2 items-end flex-wrap">
-                            <Select
-                              label="Kolonne"
-                              value={filter.column}
-                              onChange={(e) =>
-                                updateFilter(index, { column: e.target.value, operator: '=', value: '' })
-                              }
-                              size="small"
-                              className="min-w-[150px]"
-                            >
-                              {FILTER_COLUMNS &&
-                                Object.entries(FILTER_COLUMNS).map(([groupKey, group]) => (
-                                  <optgroup key={groupKey} label={group.label}>
-                                    {group.columns.map((col) => (
-                                      <option key={col.value} value={col.value}>
-                                        {col.label}
-                                      </option>
-                                    ))}
-                                  </optgroup>
-                                ))}
-                              {parameters.length > 0 && (
-                                <optgroup label="Hendelsesdetaljer">
-                                  {uniqueParameters.map((param) => (
-                                    <option key={`param_${param.key}`} value={`param_${getCleanParamName(param)}`}>
-                                      {getParamDisplayName(param)}
-                                    </option>
-                                  ))}
-                                </optgroup>
-                              )}
-                            </Select>
-
-                            {filter.interactive ? (
-                              <div className="mb-1">
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[var(--ax-bg-accent-soft)] text-[var(--ax-text-accent)]">
-                                  Mottaker velger selv
-                                </span>
-                              </div>
-                            ) : (
-                              <Button
-                                variant="tertiary"
-                                size="small"
-                                className="mb-1"
-                                onClick={() => {
-                                  const paramName =
-                                    filter.column === 'url_path'
-                                      ? 'url_sti'
-                                      : filter.column === 'event_name'
-                                        ? 'hendelse'
-                                        : filter.column.toLowerCase().replace(/[^a-z0-9_]/g, '_')
-                                  updateFilter(index, {
-                                    operator: '=',
-                                    value: `{{${paramName}}}`,
-                                    metabaseParam: true,
-                                    interactive: true,
-                                  })
-                                }}
-                              >
-                                Gjør til filtervalg
-                              </Button>
-                            )}
-
-                            {filter.column !== 'created_at' && !filter.interactive && (
-                              <Select
-                                label="Operator"
-                                value={filter.operator || '='}
-                                onChange={(e) => updateFilter(index, { operator: e.target.value, value: '' })}
-                                size="small"
-                                className="min-w-[100px]"
-                              >
-                                {OPERATORS.map((op) => (
-                                  <option key={op.value} value={op.value}>
-                                    {op.label}
-                                  </option>
-                                ))}
-                              </Select>
-                            )}
-                          </div>
-
-                          {filter.interactive ? (
-                            <div className="bg-[var(--ax-bg-accent-soft)] p-2 rounded text-sm text-[var(--ax-text-default)]">
-                              Parameter: <strong>{filter.value?.toString().replace('{{', '').replace('}}', '')}</strong>
-                            </div>
-                          ) : (
-                            !['IS NULL', 'IS NOT NULL'].includes(filter.operator || '') && (
-                              <div>
-                                <UNSAFE_Combobox
-                                  label="Verdi"
-                                  description={null}
-                                  options={getOptionsForColumn(filter.column, customEventsList, availablePaths)}
-                                  selectedOptions={
-                                    Array.isArray(filter.multipleValues)
-                                      ? filter.multipleValues.map((v) => v || '')
-                                      : filter.value
-                                        ? [filter.value]
-                                        : []
-                                  }
-                                  onToggleSelected={(option: string, isSelected: boolean) => {
-                                    if (option) {
-                                      const currentValues = Array.isArray(filter.multipleValues)
-                                        ? filter.multipleValues
-                                        : filter.value
-                                          ? [filter.value]
-                                          : []
-                                      const newValues = isSelected
-                                        ? [...new Set([...currentValues, option])]
-                                        : currentValues.filter((val) => val !== option)
-
-                                      updateFilter(index, {
-                                        operator: newValues.length > 1 ? 'IN' : filter.operator,
-                                        multipleValues: newValues.length > 0 ? newValues : undefined,
-                                        value: newValues.length > 0 ? newValues[0] : '',
-                                      })
-                                    }
-                                  }}
-                                  isMultiSelect={true}
-                                  size="small"
-                                  allowNewValues={filter.column !== 'event_type'}
-                                  shouldAutocomplete={false}
-                                />
-                              </div>
-                            )
-                          )}
-                        </div>
-                        <Button
-                          variant="tertiary-neutral"
-                          size="small"
-                          onClick={() => removeFilter(index)}
-                          className="mt-6"
-                        >
-                          Fjern
-                        </Button>
-                      </div>
-                    </div>
-                  ),
-              )}
-            </div>
-          )}
-        </div>
+      {/* ── Add buttons ─────────────────────────────────────────────────── */}
+      {!showFilterPanelOnly && !selectedEventTypes.includes('pageviews') && (
+        <AddButton label="Legg til sidevisninger" onClick={() => addEventType('pageviews')} />
       )}
+
+      {!showFilterPanelOnly && !selectedEventTypes.includes('custom_events') && (
+        <AddButton label="Legg til egendefinerte hendelser" onClick={() => addEventType('custom_events')} />
+      )}
+
+      <AddButton
+        label="Legg til filter"
+        onClick={() => addFilterDirectly?.({ column: '', operator: '=', value: '' })}
+      />
     </div>
   )
 }

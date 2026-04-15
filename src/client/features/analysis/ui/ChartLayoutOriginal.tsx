@@ -63,7 +63,7 @@ const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
             {isSidebarOpen && (
               <>
                 <div
-                  className={`bg-[var(--ax-bg-accent-soft)] w-full ${sidebarWidth} p-6 border-b border-[var(--ax-border-neutral-subtle)] md:border-b-0 md:border-r md:border-[var(--ax-border-neutral-subtle)]`}
+                  className={`w-full ${sidebarWidth} p-6 border-b border-[var(--ax-border-neutral-subtle)] md:border-b-0 md:border-r md:border-[var(--ax-border-neutral-subtle)]`}
                 >
                   <VStack gap={sidebarFilterGap}>
                     {!hideAnalysisSelector && (
