@@ -39,6 +39,7 @@ import {
   HEADING_TEXT_MIN_WIDTH,
   HEADING_TEXT_VERTICAL_PADDING,
   buildCanvasStorageGraphName,
+  estimateTableFrameHeight,
   getCanvasFrameVisualizationMode,
   getComparableUrl,
   getFrameLabel,
@@ -83,6 +84,8 @@ type UseCanvasFrameFormHandlersParams = {
   setIsAddHeadingModalOpen: Setter<boolean>
   isAddTextModalOpen: boolean
   setIsAddTextModalOpen: Setter<boolean>
+  isAddTableModalOpen: boolean
+  setIsAddTableModalOpen: Setter<boolean>
   isAddLinkModalOpen: boolean
   setIsAddLinkModalOpen: Setter<boolean>
   isAddStickyModalOpen: boolean
@@ -108,6 +111,8 @@ type UseCanvasFrameFormHandlersParams = {
   setEditDashboardFrameId: Setter<string | null>
   editImageFrameId: string | null
   setEditImageFrameId: Setter<string | null>
+  editTableFrameId: string | null
+  setEditTableFrameId: Setter<string | null>
   editLinkFrameId: string | null
   setEditLinkFrameId: Setter<string | null>
   editIconFrameId: string | null
@@ -185,6 +190,12 @@ type UseCanvasFrameFormHandlersParams = {
   setTextContentInput: Setter<string>
   addTextError: string | null
   setAddTextError: Setter<string | null>
+  tableHeadersInput: string
+  setTableHeadersInput: Setter<string>
+  tableRowsInput: string
+  setTableRowsInput: Setter<string>
+  addTableError: string | null
+  setAddTableError: Setter<string | null>
   linkTitleInput: string
   setLinkTitleInput: Setter<string>
   linkUrlInput: string
@@ -280,6 +291,8 @@ const useCanvasFrameFormHandlers = ({
   setIsAddHeadingModalOpen,
   isAddTextModalOpen: _isAddTextModalOpen,
   setIsAddTextModalOpen,
+  isAddTableModalOpen: _isAddTableModalOpen,
+  setIsAddTableModalOpen,
   isAddLinkModalOpen: _isAddLinkModalOpen,
   setIsAddLinkModalOpen,
   isAddStickyModalOpen: _isAddStickyModalOpen,
@@ -304,6 +317,8 @@ const useCanvasFrameFormHandlers = ({
   setEditDashboardFrameId,
   editImageFrameId,
   setEditImageFrameId,
+  editTableFrameId,
+  setEditTableFrameId,
   editLinkFrameId,
   setEditLinkFrameId,
   editIconFrameId,
@@ -376,6 +391,12 @@ const useCanvasFrameFormHandlers = ({
   setTextContentInput,
   addTextError: _addTextError,
   setAddTextError,
+  tableHeadersInput,
+  setTableHeadersInput,
+  tableRowsInput,
+  setTableRowsInput,
+  addTableError: _addTableError,
+  setAddTableError,
   linkTitleInput,
   setLinkTitleInput,
   linkUrlInput,
@@ -839,6 +860,15 @@ const useCanvasFrameFormHandlers = ({
     setEditImageUrlInput(frame.targetUrl || '')
     setEditImageError(null)
     setIsEditImageModalOpen(true)
+  }
+
+  const handleOpenEditTableModal = (frame: CanvasFrame) => {
+    if (frame.kind !== 'text' || !Array.isArray(frame.tableHeaders) || frame.tableHeaders.length === 0) return
+    setEditTableFrameId(frame.id)
+    setTableHeadersInput(frame.tableHeaders.join(';'))
+    setTableRowsInput((frame.tableRows ?? []).map((row) => row.join(';')).join('\n'))
+    setAddTableError(null)
+    setIsAddTableModalOpen(true)
   }
 
   const handleOpenEditLinkModal = (frame: CanvasFrame) => {
@@ -1395,6 +1425,89 @@ const useCanvasFrameFormHandlers = ({
     setIsAddTextModalOpen(false)
   }
 
+  const splitTableLine = (line: string): string[] => {
+    const normalized = line.trim()
+    if (!normalized) return []
+    const delimiter = normalized.includes(';') ? ';' : normalized.includes('\t') ? '\t' : ','
+    return normalized
+      .split(delimiter)
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0)
+  }
+
+  const handleAddTableCard = () => {
+    const headers = splitTableLine(tableHeadersInput)
+    if (headers.length === 0) {
+      setAddTableError('Legg inn minst én kolonne.')
+      return
+    }
+
+    const rows = tableRowsInput
+      .split('\n')
+      .map((line) => splitTableLine(line))
+      .filter((row) => row.length > 0)
+      .map((row) => {
+        if (row.length >= headers.length) return row.slice(0, headers.length)
+        const missingCells = Array.from({ length: headers.length - row.length }, (): string => '')
+        return [...row, ...missingCells]
+      })
+
+    if (rows.length === 0) {
+      setAddTableError('Legg inn minst én rad.')
+      return
+    }
+
+    if (editTableFrameId) {
+      const currentFrame = frames.find((frame) => frame.id === editTableFrameId)
+      if (!currentFrame || currentFrame.kind !== 'text') return
+
+      const updatedFrame: CanvasFrame = {
+        ...currentFrame,
+        label: currentFrame.label || 'Tabell',
+        tableHeaders: headers,
+        tableRows: rows,
+        textContent: undefined,
+        height: estimateTableFrameHeight(rows.length),
+        refreshNonce: currentFrame.refreshNonce + 1,
+      }
+
+      void (async () => {
+        try {
+          setIsSavingCanvasItem(true)
+          setSyncError(null)
+          const persistedFrame = await persistFrame(updatedFrame)
+          setFrames((prev) => prev.map((frame) => (frame.id === editTableFrameId ? persistedFrame : frame)))
+          setTableHeadersInput('')
+          setTableRowsInput('')
+          setAddTableError(null)
+          setEditTableFrameId(null)
+          setIsAddTableModalOpen(false)
+        } catch (error) {
+          setSyncError(error instanceof Error ? error.message : 'Kunne ikke oppdatere tabell')
+        } finally {
+          setIsSavingCanvasItem(false)
+        }
+      })()
+      return
+    }
+
+    const frameDraft: PendingCanvasFrameDraft = {
+      kind: 'text',
+      label: 'Tabell',
+      tableHeaders: headers,
+      tableRows: rows,
+      width: 640,
+      height: estimateTableFrameHeight(rows.length),
+      refreshNonce: 0,
+    }
+    queueFrameForPlacement(frameDraft, 'tabell')
+    setTableHeadersInput('')
+    setTableRowsInput('')
+    setAddTableError(null)
+    setEditTableFrameId(null)
+    setIsAddTableModalOpen(false)
+  }
+
   const handleAddLinkCard = () => {
     const title = linkTitleInput.trim()
     const href = normalizeInputToTargetUrl(linkUrlInput, selectedWebsite?.domain)
@@ -1618,6 +1731,14 @@ const useCanvasFrameFormHandlers = ({
     setIsAddTextModalOpen(true)
   }
 
+  const handleOpenAddTableModal = () => {
+    setEditTableFrameId(null)
+    setAddTableError(null)
+    setTableHeadersInput('')
+    setTableRowsInput('')
+    setIsAddTableModalOpen(true)
+  }
+
   const handleOpenAddStickyModal = () => {
     setAddStickyError(null)
     setSelectedStickyColor((current) => getCanvasStickyColor(current))
@@ -1675,6 +1796,7 @@ const useCanvasFrameFormHandlers = ({
     handleOpenEditWebsiteModal,
     handleOpenEditDashboardModal,
     handleOpenEditImageModal,
+    handleOpenEditTableModal,
     handleOpenEditLinkModal,
     handleOpenEditIllustrationModal,
     handleOpenEditIconModal,
@@ -1696,6 +1818,7 @@ const useCanvasFrameFormHandlers = ({
     handleSaveEditedFigure,
     handleAddHeadingCard,
     handleAddTextCard,
+    handleAddTableCard,
     handleAddLinkCard,
     handleAddStickyCard,
     handleAddSectionCard,
@@ -1706,6 +1829,7 @@ const useCanvasFrameFormHandlers = ({
     handleAssignWebsiteToChart,
     handleOpenAddHeadingModal,
     handleOpenAddTextModal,
+    handleOpenAddTableModal,
     handleOpenAddLinkModal,
     handleOpenAddStickyModal,
     handleOpenAddSection,

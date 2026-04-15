@@ -30,6 +30,7 @@ import CanvasImageUrlModal from './image/CanvasImageUrlModal.tsx'
 import CanvasFigureModal from './figure/CanvasFigureModal.tsx'
 import CanvasHeadingModal from './heading/CanvasHeadingModal.tsx'
 import CanvasTextModal from './text/CanvasTextModal.tsx'
+import CanvasTableModal from './text/CanvasTableModal.tsx'
 import CanvasLinkModal from './link/CanvasLinkModal.tsx'
 import CanvasStickyModal from './sticky/CanvasStickyModal.tsx'
 import {
@@ -340,6 +341,7 @@ const Canvas = () => {
   const [isAddDashboardModalOpen, setIsAddDashboardModalOpen] = useState(false)
   const [isAddHeadingModalOpen, setIsAddHeadingModalOpen] = useState(false)
   const [isAddTextModalOpen, setIsAddTextModalOpen] = useState(false)
+  const [isAddTableModalOpen, setIsAddTableModalOpen] = useState(false)
   const [isAddLinkModalOpen, setIsAddLinkModalOpen] = useState(false)
   const [isAddStickyModalOpen, setIsAddStickyModalOpen] = useState(false)
   const [isImportStickyCsvModalOpen, setIsImportStickyCsvModalOpen] = useState(false)
@@ -372,6 +374,7 @@ const Canvas = () => {
   const [editWebsiteFrameId, setEditWebsiteFrameId] = useState<string | null>(null)
   const [editDashboardFrameId, setEditDashboardFrameId] = useState<string | null>(null)
   const [editImageFrameId, setEditImageFrameId] = useState<string | null>(null)
+  const [editTableFrameId, setEditTableFrameId] = useState<string | null>(null)
   const [editLinkFrameId, setEditLinkFrameId] = useState<string | null>(null)
   const [editIconFrameId, setEditIconFrameId] = useState<string | null>(null)
   const [editFigureFrameId, setEditFigureFrameId] = useState<string | null>(null)
@@ -424,6 +427,9 @@ const Canvas = () => {
   const [addHeadingError, setAddHeadingError] = useState<string | null>(null)
   const [textContentInput, setTextContentInput] = useState('')
   const [addTextError, setAddTextError] = useState<string | null>(null)
+  const [tableHeadersInput, setTableHeadersInput] = useState('')
+  const [tableRowsInput, setTableRowsInput] = useState('')
+  const [addTableError, setAddTableError] = useState<string | null>(null)
   const [linkTitleInput, setLinkTitleInput] = useState('')
   const [linkUrlInput, setLinkUrlInput] = useState('')
   const [linkDescriptionInput, setLinkDescriptionInput] = useState('')
@@ -1500,6 +1506,7 @@ const Canvas = () => {
     handleOpenEditWebsiteModal,
     handleOpenEditDashboardModal,
     handleOpenEditImageModal,
+    handleOpenEditTableModal,
     handleOpenEditLinkModal,
     handleOpenEditIllustrationModal,
     handleOpenEditIconModal,
@@ -1521,6 +1528,7 @@ const Canvas = () => {
     handleSaveEditedFigure,
     handleAddHeadingCard,
     handleAddTextCard,
+    handleAddTableCard,
     handleAddLinkCard,
     handleAddStickyCard,
     handleAddIconCard,
@@ -1530,6 +1538,7 @@ const Canvas = () => {
     handleAssignWebsiteToChart,
     handleOpenAddHeadingModal,
     handleOpenAddTextModal,
+    handleOpenAddTableModal,
     handleOpenAddLinkModal,
     handleOpenAddStickyModal,
     handleOpenAddSection,
@@ -1568,6 +1577,8 @@ const Canvas = () => {
     setIsAddHeadingModalOpen,
     isAddTextModalOpen,
     setIsAddTextModalOpen,
+    isAddTableModalOpen,
+    setIsAddTableModalOpen,
     isAddLinkModalOpen,
     setIsAddLinkModalOpen,
     isAddStickyModalOpen,
@@ -1592,6 +1603,8 @@ const Canvas = () => {
     setEditDashboardFrameId,
     editImageFrameId,
     setEditImageFrameId,
+    editTableFrameId,
+    setEditTableFrameId,
     editLinkFrameId,
     setEditLinkFrameId,
     editIconFrameId,
@@ -1664,6 +1677,12 @@ const Canvas = () => {
     setTextContentInput,
     addTextError,
     setAddTextError,
+    tableHeadersInput,
+    setTableHeadersInput,
+    tableRowsInput,
+    setTableRowsInput,
+    addTableError,
+    setAddTableError,
     linkTitleInput,
     setLinkTitleInput,
     linkUrlInput,
@@ -5067,6 +5086,7 @@ const Canvas = () => {
           onOpenAddDashboard={handleOpenAddDashboardModal}
           onOpenAddHeading={handleOpenAddHeadingModal}
           onOpenAddText={handleOpenAddTextModal}
+          onOpenAddTable={handleOpenAddTableModal}
           onOpenAddLink={handleOpenAddLinkModal}
           onOpenAddSticky={handleOpenAddStickyModal}
           onOpenAddSection={handleOpenAddSection}
@@ -5253,6 +5273,7 @@ const Canvas = () => {
                     handleOpenEditDashboardModal={handleOpenEditDashboardModal}
                     handleOpenEditWebsiteModal={handleOpenEditWebsiteModal}
                     handleOpenEditImageModal={handleOpenEditImageModal}
+                    handleOpenEditTableModal={handleOpenEditTableModal}
                     handleOpenEditLinkModal={handleOpenEditLinkModal}
                     handleOpenEditIllustrationModal={handleOpenEditIllustrationModal}
                     handleOpenEditIconModal={handleOpenEditIconModal}
@@ -5803,6 +5824,30 @@ const Canvas = () => {
         onClose={() => {
           setIsAddTextModalOpen(false)
           setAddTextError(null)
+        }}
+      />
+
+      <CanvasTableModal
+        open={isAddTableModalOpen}
+        heading={editTableFrameId ? 'Rediger tabell' : 'Legg til tabell'}
+        submitLabel={editTableFrameId ? 'Lagre' : 'Legg til'}
+        headersValue={tableHeadersInput}
+        rowsValue={tableRowsInput}
+        error={addTableError}
+        isSaving={isSavingCanvasItem}
+        onHeadersChange={(value) => {
+          setTableHeadersInput(value)
+          if (addTableError) setAddTableError(null)
+        }}
+        onRowsChange={(value) => {
+          setTableRowsInput(value)
+          if (addTableError) setAddTableError(null)
+        }}
+        onSubmit={() => void handleAddTableCard()}
+        onClose={() => {
+          setIsAddTableModalOpen(false)
+          setEditTableFrameId(null)
+          setAddTableError(null)
         }}
       />
 

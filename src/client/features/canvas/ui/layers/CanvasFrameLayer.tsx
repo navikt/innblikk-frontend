@@ -159,6 +159,7 @@ type CanvasFrameLayerProps = {
   handleOpenEditWebsiteModal: (frame: CanvasFrame) => void
   handleOpenEditImageModal: (frame: CanvasFrame) => void
   handleOpenEditLinkModal: (frame: CanvasFrame) => void
+  handleOpenEditTableModal: (frame: CanvasFrame) => void
   handleOpenEditIllustrationModal: (frame: CanvasFrame) => void
   handleOpenEditIconModal: (frame: CanvasFrame) => void
   handleDuplicateIconCard: (frame: CanvasFrame) => Promise<void>
@@ -241,6 +242,7 @@ const CanvasFrameLayer = ({
   handleOpenEditWebsiteModal,
   handleOpenEditImageModal,
   handleOpenEditLinkModal,
+  handleOpenEditTableModal,
   handleOpenEditIllustrationModal,
   handleOpenEditIconModal,
   handleDuplicateIconCard,
@@ -570,6 +572,10 @@ const CanvasFrameLayer = ({
                       actionButtonClassName={CARD_ACTION_BUTTON_CLASSNAME}
                       onEditImage={() => handleOpenEditImageModal(frame)}
                       onEditLink={() => handleOpenEditLinkModal(frame)}
+                      onEditTable={() => handleOpenEditTableModal(frame)}
+                      isTableFrame={
+                        frame.kind === 'text' && Array.isArray(frame.tableHeaders) && frame.tableHeaders.length > 0
+                      }
                       onEditIllustration={() => handleOpenEditIllustrationModal(frame)}
                       onEditDashboard={() => handleOpenEditDashboardModal(frame)}
                       onEditIcon={() => handleOpenEditIconModal(frame)}

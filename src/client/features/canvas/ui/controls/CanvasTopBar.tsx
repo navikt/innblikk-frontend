@@ -23,6 +23,7 @@ type CanvasTopBarProps = {
   onOpenAddDashboard: () => void
   onOpenAddHeading: () => void
   onOpenAddText: () => void
+  onOpenAddTable: () => void
   onOpenAddLink: () => void
   onOpenAddSticky: () => void
   onOpenAddSection: () => void
@@ -75,6 +76,7 @@ const CanvasTopBar = ({
   onOpenAddDashboard,
   onOpenAddHeading,
   onOpenAddText,
+  onOpenAddTable,
   onOpenAddLink,
   onOpenAddSticky,
   onOpenAddSection,
@@ -223,6 +225,7 @@ const CanvasTopBar = ({
                 onAddDashboard={onOpenAddDashboard}
                 onAddHeading={onOpenAddHeading}
                 onAddText={onOpenAddText}
+                onAddTable={onOpenAddTable}
                 onAddLink={onOpenAddLink}
                 onAddSticky={onOpenAddSticky}
                 onAddSection={onOpenAddSection}

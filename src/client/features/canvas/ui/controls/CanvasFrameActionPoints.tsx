@@ -27,6 +27,8 @@ type CanvasFrameActionPointsProps = {
   onEditIllustration: () => void
   onEditDashboard: () => void
   onEditLink: () => void
+  onEditTable: () => void
+  isTableFrame?: boolean
   onEditIcon: () => void
   onDuplicateIcon: () => void
   onRotateIconLeft: () => void
@@ -313,6 +315,8 @@ const CanvasFrameActionPoints = ({
   onEditIllustration,
   onEditDashboard,
   onEditLink,
+  onEditTable,
+  isTableFrame = false,
   onEditIcon,
   onDuplicateIcon,
   onRotateIconLeft,
@@ -381,6 +385,18 @@ const CanvasFrameActionPoints = ({
           onClick={onEditLink}
           title="Rediger lenke"
           aria-label="Rediger lenke"
+          className={actionButtonClassName}
+        />
+      )}
+      {frameKind === 'text' && isTableFrame && (
+        <Button
+          size="xsmall"
+          variant="tertiary"
+          icon={<Edit2 size={14} />}
+          onMouseDown={stopMouseDownPropagation}
+          onClick={onEditTable}
+          title="Rediger tabell"
+          aria-label="Rediger tabell"
           className={actionButtonClassName}
         />
       )}

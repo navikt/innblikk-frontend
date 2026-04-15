@@ -126,6 +126,11 @@ const CanvasPlacementModeLayer = ({
                   pendingFrameDraft.kind === 'text' ||
                   pendingFrameDraft.kind === 'link' ||
                   pendingFrameDraft.kind === 'sticky'
+                const isTableGhost =
+                  pendingFrameDraft.kind === 'text' &&
+                  Array.isArray(pendingFrameDraft.tableHeaders) &&
+                  pendingFrameDraft.tableHeaders.length > 0 &&
+                  Array.isArray(pendingFrameDraft.tableRows)
                 const stickyColorOption =
                   pendingFrameDraft.kind === 'sticky'
                     ? getCanvasStickyColorOptionById(pendingFrameDraft.stickyColor)
@@ -167,6 +172,16 @@ const CanvasPlacementModeLayer = ({
                             {ghostLabel}
                           </span>
                         </div>
+                      </div>
+                    ) : pendingFrameDraft.kind === 'text' && isTableGhost ? (
+                      <div className="h-full w-full rounded-xl border border-[var(--ax-border-neutral-subtle)] bg-white p-3">
+                        <span className="block text-sm font-semibold text-[var(--ax-text-default)]">
+                          {pendingFrameDraft.label || 'Tabell'}
+                        </span>
+                        <span className="mt-1 block text-xs text-[var(--ax-text-subtle)]">
+                          {pendingFrameDraft.tableHeaders?.length ?? 0} kolonner,{' '}
+                          {pendingFrameDraft.tableRows?.length ?? 0} rader
+                        </span>
                       </div>
                     ) : pendingFrameDraft.kind === 'text' ? (
                       <div className="h-full w-full overflow-hidden px-2 pb-2">
