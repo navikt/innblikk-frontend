@@ -340,9 +340,15 @@ const CanvasFrameActionPoints = ({
     isIllustrationFrame
       ? 'right-8 -top-6 flex items-center gap-1'
       : 'right-2 top-4 flex items-center gap-1'
+  const actionPointsBackdropClassName =
+    frameKind === 'sticky'
+      ? 'rounded-md bg-[var(--ax-bg-default)]/85 p-1 shadow-sm backdrop-blur-sm opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100'
+      : ''
 
   return (
-    <div className={`pointer-events-none absolute z-30 ${actionPointsPositionClassName}`}>
+    <div
+      className={`pointer-events-none absolute z-30 ${actionPointsPositionClassName} ${actionPointsBackdropClassName}`}
+    >
       <ImageOrDashboardEditActionPoint
         frameKind={frameKind}
         isInternalDashboard={isInternalDashboard}
