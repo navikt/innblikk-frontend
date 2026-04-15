@@ -265,6 +265,9 @@ const compareFramesForGridLayout = (a: CanvasFrame, b: CanvasFrame): number => {
     if (aVoteRank !== bVoteRank) return aVoteRank - bVoteRank
   }
 
+  if (a.y !== b.y) return a.y - b.y
+  if (a.x !== b.x) return a.x - b.x
+
   const aStableId = a.graphId ? `g-${a.graphId}` : `l-${a.id}`
   const bStableId = b.graphId ? `g-${b.graphId}` : `l-${b.id}`
   return aStableId.localeCompare(bStableId)
