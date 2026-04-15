@@ -217,6 +217,7 @@ const GRID_SECTION_LAYOUT_CONFIG = {
 } as const
 
 const GRID_SECTION_LAYOUT_MIN_COLUMN_WIDTH = 280
+const GRID_SECTION_LAYOUT_TEXT_TOP_SPACING = 10
 const STICKY_CARD_HORIZONTAL_PADDING = 32
 const STICKY_CARD_VERTICAL_PADDING = 40
 const STICKY_CARD_MIN_HEIGHT = 180
@@ -250,6 +251,9 @@ const compareFramesForSectionOrder = (a: CanvasFrame, b: CanvasFrame): number =>
   if (a.x !== b.x) return a.x - b.x
   return a.id.localeCompare(b.id)
 }
+
+const getGridSectionTopSpacing = (frame: CanvasFrame): number =>
+  frame.kind === 'text' ? GRID_SECTION_LAYOUT_TEXT_TOP_SPACING : 0
 
 const compareFramesForGridLayout = (a: CanvasFrame, b: CanvasFrame): number => {
   const aVoteRank = a.kind === 'sticky' && Number.isFinite(a.finalVoteRank) ? Number(a.finalVoteRank) : null
@@ -2273,7 +2277,8 @@ const Canvas = () => {
 
           const shouldSpanAllColumns = columnCount === 1 || width > columnWidth
           if (shouldSpanAllColumns) {
-            const nextY = Math.max(...columnBottoms)
+            const topSpacing = getGridSectionTopSpacing(frame)
+            const nextY = Math.max(...columnBottoms) + topSpacing
             const nextFrame: CanvasFrame = {
               ...frame,
               x: Math.max(0, contentLeft),
@@ -2298,7 +2303,8 @@ const Canvas = () => {
           }
 
           const nextX = contentLeft + targetColumn * (columnWidth + GRID_SECTION_LAYOUT_CONFIG.gapX)
-          const nextY = columnBottoms[targetColumn]
+          const topSpacing = getGridSectionTopSpacing(frame)
+          const nextY = columnBottoms[targetColumn] + topSpacing
 
           const nextFrame: CanvasFrame = {
             ...frame,
@@ -2953,7 +2959,8 @@ const Canvas = () => {
 
           const shouldSpanAllColumns = columnCount === 1 || width > columnWidth
           if (shouldSpanAllColumns) {
-            const nextY = Math.max(...columnBottoms)
+            const topSpacing = getGridSectionTopSpacing(frame)
+            const nextY = Math.max(...columnBottoms) + topSpacing
             const nextFrame: CanvasFrame = {
               ...frame,
               x: Math.max(0, contentLeft),
@@ -2977,7 +2984,8 @@ const Canvas = () => {
           }
 
           const nextX = contentLeft + targetColumn * (columnWidth + GRID_SECTION_LAYOUT_CONFIG.gapX)
-          const nextY = columnBottoms[targetColumn]
+          const topSpacing = getGridSectionTopSpacing(frame)
+          const nextY = columnBottoms[targetColumn] + topSpacing
 
           const nextFrame: CanvasFrame = {
             ...frame,
@@ -3036,7 +3044,7 @@ const Canvas = () => {
       window.removeEventListener('touchmove', onPointerMove as EventListener)
       window.removeEventListener('touchend', onPointerUp)
     }
-  }, [dragState, getCanvasPointerPosition, persistFrame])
+  }, [dragState, getCanvasPointerPosition, getGridLayoutFrameHeight, persistFrame])
 
   useEffect(() => {
     if (!resizeState) return
