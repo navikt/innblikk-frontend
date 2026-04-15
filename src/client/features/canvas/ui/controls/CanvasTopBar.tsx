@@ -41,6 +41,7 @@ type CanvasTopBarProps = {
   onOpenManageTabs: (tabId?: number) => void
   onOpenCanvasSettings: () => void
   onOpenInventory: () => void
+  onOpenChangeLog: () => void
   elementCount?: number
   canManageTabs: boolean
   canPersistToDashboard: boolean
@@ -91,6 +92,7 @@ const CanvasTopBar = ({
   onOpenManageTabs,
   onOpenCanvasSettings,
   onOpenInventory,
+  onOpenChangeLog,
   elementCount,
   canManageTabs,
   canPersistToDashboard,
@@ -296,6 +298,7 @@ const CanvasTopBar = ({
                   <ActionMenu.Item onClick={onOpenInventory}>
                     Elementer{elementCount !== undefined ? ` (${elementCount})` : ''}
                   </ActionMenu.Item>
+                  <ActionMenu.Item onClick={onOpenChangeLog}>Endringslogg</ActionMenu.Item>
                   {canManageTabs && (
                     <ActionMenu.Item onClick={() => onOpenManageTabs()}>Administrer faner</ActionMenu.Item>
                   )}

@@ -15,6 +15,7 @@ import CanvasIllustrationModal from './illustration/CanvasIllustrationModal.tsx'
 import { DEFAULT_CANVAS_ILLUSTRATION_PATH } from './illustration/CanvasIllustrationRegistry.ts'
 import CanvasIconModal from './icon/CanvasIconModal.tsx'
 import CanvasAdminModals from './controls/CanvasAdminModals.tsx'
+import CanvasChangeLogModal, { type CanvasChangeLogEntry } from './controls/CanvasChangeLogModal.tsx'
 import CanvasCoreModals from './controls/CanvasCoreModals.tsx'
 import CanvasTopBar from './controls/CanvasTopBar.tsx'
 import CanvasDotVotingModal from './controls/CanvasDotVotingModal.tsx'
@@ -54,6 +55,7 @@ import {
   deleteGraph,
   fetchCategories,
   fetchDashboards,
+  fetchGraphs,
   updateQuery,
 } from '../../oversikt/api/oversiktApi.ts'
 import type { GraphCategoryDto, GraphType, OversiktChart } from '../../oversikt/model/types.ts'
@@ -335,6 +337,10 @@ const Canvas = () => {
   const [isCanvasSettingsModalOpen, setIsCanvasSettingsModalOpen] = useState(false)
   const [canvasSettingsInfo, setCanvasSettingsInfo] = useState<string | null>(null)
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false)
+  const [isChangeLogModalOpen, setIsChangeLogModalOpen] = useState(false)
+  const [isLoadingChangeLog, setIsLoadingChangeLog] = useState(false)
+  const [changeLogError, setChangeLogError] = useState<string | null>(null)
+  const [changeLogEntries, setChangeLogEntries] = useState<CanvasChangeLogEntry[]>([])
   const [renameCanvasError, setRenameCanvasError] = useState<string | null>(null)
   const [isAddChartModalOpen, setIsAddChartModalOpen] = useState(false)
   const [isCreateTabModalOpen, setIsCreateTabModalOpen] = useState(false)
@@ -545,6 +551,17 @@ const Canvas = () => {
       }
     : undefined
   const isPlacementModeActive = Boolean(pendingFrameDraft || pendingCsvStickyImport)
+  const visibleChangeLogEntries = useMemo(
+    () =>
+      changeLogEntries.filter(
+        (entry) =>
+          entry.description !== '[canvas-presence]' &&
+          entry.description !== '[canvas-lock]' &&
+          !entry.name.startsWith('canvas:presence:') &&
+          !entry.name.startsWith('canvas:lock:'),
+      ),
+    [changeLogEntries],
+  )
 
   const handleCanvasZoomChange = useCallback((nextZoom: number) => {
     setCanvasZoom(clampCanvasZoom(nextZoom))
@@ -4232,6 +4249,56 @@ const Canvas = () => {
     setIsInventoryModalOpen(true)
   }
 
+  const loadCanvasChangeLog = useCallback(async () => {
+    if (!canPersistToDashboard || projectId === null || dashboardId === null) {
+      setChangeLogEntries([])
+      setChangeLogError('Endringslogg er bare tilgjengelig for canvas som er koblet til dashboard.')
+      return
+    }
+
+    setIsLoadingChangeLog(true)
+    setChangeLogError(null)
+    try {
+      const categories = await fetchCategories(projectId, dashboardId)
+      const graphsByCategory = await Promise.all(
+        categories.map((category) => fetchGraphs(projectId, dashboardId, category.id)),
+      )
+
+      const entries = graphsByCategory
+        .flatMap((graphs) => graphs)
+        .map((graph) => {
+          const graphWithAudit = graph as typeof graph & {
+            changedByName?: string
+            changedByNavIdent?: string
+            changedByEmail?: string
+          }
+
+          return {
+            id: graph.id,
+            name: String(graph.name || ''),
+            description: String(graph.description || ''),
+            updatedAt: String(graph.updatedAt || ''),
+            changedByName: String(graphWithAudit.changedByName || ''),
+            changedByNavIdent: String(graphWithAudit.changedByNavIdent || ''),
+            changedByEmail: String(graphWithAudit.changedByEmail || ''),
+          } satisfies CanvasChangeLogEntry
+        })
+        .filter((entry) => entry.name.startsWith('canvas:') || entry.description.startsWith('[canvas'))
+        .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+
+      setChangeLogEntries(entries)
+    } catch (error) {
+      setChangeLogError(error instanceof Error ? error.message : 'Kunne ikke laste endringslogg')
+    } finally {
+      setIsLoadingChangeLog(false)
+    }
+  }, [canPersistToDashboard, projectId, dashboardId])
+
+  const handleOpenChangeLogModal = () => {
+    setIsChangeLogModalOpen(true)
+    void loadCanvasChangeLog()
+  }
+
   const handleOpenTimerModal = () => {
     if (Date.now() < timerModalReopenBlockedUntilRef.current) return
     setTimerModalError(null)
@@ -4971,6 +5038,7 @@ const Canvas = () => {
           onOpenManageTabs={handleOpenManageTabsModal}
           onOpenCanvasSettings={handleOpenCanvasSettingsModal}
           onOpenInventory={handleOpenInventoryModal}
+          onOpenChangeLog={handleOpenChangeLogModal}
           elementCount={inventoryItems.reduce((total, item) => total + item.count, 0)}
           onOpenTimer={handleOpenTimerModal}
           onOpenDotVoting={handleOpenDotVotingModal}
@@ -5305,6 +5373,15 @@ const Canvas = () => {
         }}
         onSubmitAddChart={() => void handleAddChartCard()}
         isSavingCanvasItem={isSavingCanvasItem}
+      />
+
+      <CanvasChangeLogModal
+        open={isChangeLogModalOpen}
+        onClose={() => setIsChangeLogModalOpen(false)}
+        entries={visibleChangeLogEntries}
+        isLoading={isLoadingChangeLog}
+        error={changeLogError}
+        onRefresh={() => void loadCanvasChangeLog()}
       />
 
       <CanvasAdminModals
