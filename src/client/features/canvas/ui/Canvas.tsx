@@ -213,7 +213,7 @@ const getFrameBoundsForLayout = (frame: CanvasFrame): { left: number; top: numbe
 
 const GRID_SECTION_LAYOUT_CONFIG = {
   paddingX: 24,
-  paddingTop: 92,
+  paddingTop: 72,
   paddingBottom: 24,
   gapX: 20,
   gapY: 18,
@@ -1901,7 +1901,7 @@ const Canvas = () => {
       const cardsPerRow = 2
       const sectionTitle = activePendingCsvImport.sectionTitle.trim()
       const sectionLabel = sectionTitle || getNextAutoSectionLabel(frames)
-      const sectionHeaderHeight = 92
+      const sectionHeaderHeight = GRID_SECTION_LAYOUT_CONFIG.paddingTop
       const sectionPaddingX = 24
       const sectionPaddingBottom = 24
       const baseX = Math.max(0, pointer.x)
@@ -4000,7 +4000,7 @@ const Canvas = () => {
 
     const sectionBounds = getFrameBoundsForLayout(sectionFrame)
     const contentPaddingX = 24
-    const contentPaddingTop = 92
+    const contentPaddingTop = GRID_SECTION_LAYOUT_CONFIG.paddingTop
     const contentPaddingBottom = 24
     const itemGapX = 24
     const itemGapY = 18
@@ -4657,7 +4657,7 @@ const Canvas = () => {
     } else {
       const contentLeft = sectionBounds.left + 24
       const contentRight = sectionBounds.right - 24
-      const contentTop = sectionBounds.top + 92
+      const contentTop = sectionBounds.top + GRID_SECTION_LAYOUT_CONFIG.paddingTop
       const gapX = 20
       const gapY = 18
       let cursorX = contentLeft
