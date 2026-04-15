@@ -12,6 +12,23 @@ const CANVAS_LOCK_DASHBOARD_TOKEN = '[canvas-lock]'
 const CANVAS_LOCK_QUERY_NAME = 'canvas-edit-lock'
 const LOCK_TTL_MS = 15000
 
+const opQueueByFrame = new Map<number, Promise<unknown>>()
+
+const enqueueOp = <T>(frameGraphId: number, op: () => Promise<T>): Promise<T> => {
+  const previous = opQueueByFrame.get(frameGraphId) ?? Promise.resolve()
+  const nextTask = async () => {
+    try {
+      await previous
+    } catch {
+      // ignore previous errors
+    }
+    return await op()
+  }
+  const task = nextTask()
+  opQueueByFrame.set(frameGraphId, task)
+  return task
+}
+
 export type CanvasEditLockPayload = {
   frameGraphId: number
   ownerId: string
@@ -123,84 +140,91 @@ export const acquireCanvasEditLock = async (params: {
   ownerId: string
   ownerLabel: string
 }): Promise<{ ok: true; record: CanvasEditLockRecord } | { ok: false; lock: CanvasEditLockRecord | null }> => {
-  const { projectId, dashboardId, categoryId, frameGraphId, ownerId, ownerLabel } = params
-  const now = Date.now()
-  const nextPayload: CanvasEditLockPayload = {
-    frameGraphId,
-    ownerId,
-    ownerLabel,
-    updatedAt: new Date(now).toISOString(),
-    expiresAt: new Date(now + LOCK_TTL_MS).toISOString(),
-  }
+  return enqueueOp(params.frameGraphId, async () => {
+    try {
+      const { projectId, dashboardId, categoryId, frameGraphId, ownerId, ownerLabel } = params
+      const now = Date.now()
+      const nextPayload: CanvasEditLockPayload = {
+        frameGraphId,
+        ownerId,
+        ownerLabel,
+        updatedAt: new Date(now).toISOString(),
+        expiresAt: new Date(now + LOCK_TTL_MS).toISOString(),
+      }
 
-  const existing = await findLockGraphInCategory(projectId, dashboardId, categoryId, frameGraphId)
-  if (!existing) {
-    const createdGraph = await createGraph(projectId, dashboardId, categoryId, {
-      name: buildCanvasLockGraphName(frameGraphId),
-      graphType: 'TEXT',
-      width: 100,
-      description: CANVAS_LOCK_DASHBOARD_TOKEN,
-    })
-    const createdQuery = await createQuery(projectId, dashboardId, categoryId, createdGraph.id, {
-      name: CANVAS_LOCK_QUERY_NAME,
-      sqlText: serializeCanvasEditLock(nextPayload),
-    })
-    return {
-      ok: true,
-      record: {
-        categoryId,
-        lockGraphId: createdGraph.id,
-        lockQueryId: createdQuery.id,
-        payload: nextPayload,
-      },
+      const existing = await findLockGraphInCategory(projectId, dashboardId, categoryId, frameGraphId)
+      if (!existing) {
+        const createdGraph = await createGraph(projectId, dashboardId, categoryId, {
+          name: buildCanvasLockGraphName(frameGraphId),
+          graphType: 'TEXT',
+          width: 100,
+          description: CANVAS_LOCK_DASHBOARD_TOKEN,
+        })
+        const createdQuery = await createQuery(projectId, dashboardId, categoryId, createdGraph.id, {
+          name: CANVAS_LOCK_QUERY_NAME,
+          sqlText: serializeCanvasEditLock(nextPayload),
+        })
+        return {
+          ok: true,
+          record: {
+            categoryId,
+            lockGraphId: createdGraph.id,
+            lockQueryId: createdQuery.id,
+            payload: nextPayload,
+          },
+        }
+      }
+
+      const existingPayload = existing.payload
+      const lockOwnedByCurrentEditor = existingPayload?.ownerId === ownerId
+      const lockIsExpired = existingPayload ? !isNotExpired(existingPayload.expiresAt, now) : true
+      if (!lockOwnedByCurrentEditor && !lockIsExpired && existingPayload) {
+        return {
+          ok: false,
+          lock: {
+            categoryId,
+            lockGraphId: existing.id,
+            lockQueryId: existing.queryId,
+            payload: existingPayload,
+          },
+        }
+      }
+
+      if (existing.queryId) {
+        await updateQuery(projectId, dashboardId, categoryId, existing.id, existing.queryId, {
+          name: CANVAS_LOCK_QUERY_NAME,
+          sqlText: serializeCanvasEditLock(nextPayload),
+        })
+        return {
+          ok: true,
+          record: {
+            categoryId,
+            lockGraphId: existing.id,
+            lockQueryId: existing.queryId,
+            payload: nextPayload,
+          },
+        }
+      }
+
+      const createdQuery = await createQuery(projectId, dashboardId, categoryId, existing.id, {
+        name: CANVAS_LOCK_QUERY_NAME,
+        sqlText: serializeCanvasEditLock(nextPayload),
+      })
+
+      return {
+        ok: true,
+        record: {
+          categoryId,
+          lockGraphId: existing.id,
+          lockQueryId: createdQuery.id,
+          payload: nextPayload,
+        },
+      }
+    } catch (err) {
+      console.warn('acquireCanvasEditLock failed:', err)
+      return { ok: false, lock: null }
     }
-  }
-
-  const existingPayload = existing.payload
-  const lockOwnedByCurrentEditor = existingPayload?.ownerId === ownerId
-  const lockIsExpired = existingPayload ? !isNotExpired(existingPayload.expiresAt, now) : true
-  if (!lockOwnedByCurrentEditor && !lockIsExpired && existingPayload) {
-    return {
-      ok: false,
-      lock: {
-        categoryId,
-        lockGraphId: existing.id,
-        lockQueryId: existing.queryId,
-        payload: existingPayload,
-      },
-    }
-  }
-
-  if (existing.queryId) {
-    await updateQuery(projectId, dashboardId, categoryId, existing.id, existing.queryId, {
-      name: CANVAS_LOCK_QUERY_NAME,
-      sqlText: serializeCanvasEditLock(nextPayload),
-    })
-    return {
-      ok: true,
-      record: {
-        categoryId,
-        lockGraphId: existing.id,
-        lockQueryId: existing.queryId,
-        payload: nextPayload,
-      },
-    }
-  }
-
-  const createdQuery = await createQuery(projectId, dashboardId, categoryId, existing.id, {
-    name: CANVAS_LOCK_QUERY_NAME,
-    sqlText: serializeCanvasEditLock(nextPayload),
   })
-
-  return {
-    ok: true,
-    record: {
-      categoryId,
-      lockGraphId: existing.id,
-      lockQueryId: createdQuery.id,
-      payload: nextPayload,
-    },
-  }
 }
 
 export const releaseCanvasEditLock = async (params: {
@@ -210,11 +234,17 @@ export const releaseCanvasEditLock = async (params: {
   frameGraphId: number
   ownerId: string
 }): Promise<void> => {
-  const { projectId, dashboardId, categoryId, frameGraphId, ownerId } = params
-  const existing = await findLockGraphInCategory(projectId, dashboardId, categoryId, frameGraphId)
-  if (!existing) return
-  if (existing.payload && existing.payload.ownerId !== ownerId) return
-  await deleteGraph(projectId, dashboardId, categoryId, existing.id)
+  return enqueueOp(params.frameGraphId, async () => {
+    try {
+      const { projectId, dashboardId, categoryId, frameGraphId, ownerId } = params
+      const existing = await findLockGraphInCategory(projectId, dashboardId, categoryId, frameGraphId)
+      if (!existing) return
+      if (existing.payload && existing.payload.ownerId !== ownerId) return
+      await deleteGraph(projectId, dashboardId, categoryId, existing.id)
+    } catch (err) {
+      console.warn('releaseCanvasEditLock failed:', err)
+    }
+  })
 }
 
 export const isCanvasEditLockActive = (payload: CanvasEditLockPayload, nowMs: number = Date.now()): boolean =>

@@ -1,6 +1,6 @@
 import { getCanvasIconColor } from '../icon/CanvasIconRegistry.ts'
 
-type CanvasFigureType = 'rectangle' | 'circle' | 'line' | 'arrow'
+type CanvasFigureType = 'square' | 'circle' | 'line' | 'arrow'
 
 type CanvasFigureFrameProps = {
   id: string
@@ -8,15 +8,32 @@ type CanvasFigureFrameProps = {
   height: number
   figureType?: CanvasFigureType
   figureColor?: string
+  iconRotationDeg?: number
+  figureOrientation?: number
   label: string
 }
 
-const CanvasFigureFrame = ({ id, width, height, figureType, figureColor, label }: CanvasFigureFrameProps) => {
-  const resolvedFigureType = figureType ?? 'rectangle'
-  const strokeWidth = Math.max(2, Math.floor(Math.min(width, height) * 0.035))
+const CanvasFigureFrame = ({
+  id,
+  width,
+  height,
+  figureType,
+  figureColor,
+  iconRotationDeg,
+  figureOrientation,
+  label,
+}: CanvasFigureFrameProps) => {
+  const resolvedFigureType = figureType ?? 'square'
+  const isLineOrArrow = resolvedFigureType === 'line' || resolvedFigureType === 'arrow'
+  // Consistent stroke width for lines and arrows, slight scaling for shapes to prevent them looking too thin when large
+  const strokeWidth = isLineOrArrow ? 4 : Math.max(2, Math.floor(Math.min(width, height) * 0.02))
   const strokeColor = getCanvasIconColor(figureColor)
   const strokeColorForRender = strokeColor.toLowerCase() === '#111111' ? 'var(--ax-text-default)' : strokeColor
   const markerId = `canvas-figure-arrow-${id}`
+
+  // For shapes like square and circle, iconRotationDeg is actual degrees.
+  // For line and arrow, it's currently used for quadrant mode (0-3).
+  const rotation = isLineOrArrow ? 0 : (iconRotationDeg ?? 0)
 
   return (
     <svg
@@ -26,6 +43,7 @@ const CanvasFigureFrame = ({ id, width, height, figureType, figureColor, label }
       className="block h-full w-full"
       aria-label={label}
       role="img"
+      style={rotation ? { rotate: `${rotation}deg` } : undefined}
     >
       {resolvedFigureType === 'arrow' && (
         <defs>
@@ -42,7 +60,7 @@ const CanvasFigureFrame = ({ id, width, height, figureType, figureColor, label }
           </marker>
         </defs>
       )}
-      {resolvedFigureType === 'rectangle' && (
+      {resolvedFigureType === 'square' && (
         <rect
           x={strokeWidth}
           y={strokeWidth}
@@ -65,29 +83,101 @@ const CanvasFigureFrame = ({ id, width, height, figureType, figureColor, label }
           strokeWidth={strokeWidth}
         />
       )}
-      {resolvedFigureType === 'line' && (
-        <line
-          x1={strokeWidth}
-          y1={height / 2}
-          x2={Math.max(strokeWidth, width - strokeWidth)}
-          y2={height / 2}
-          stroke={strokeColorForRender}
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-        />
-      )}
-      {resolvedFigureType === 'arrow' && (
-        <line
-          x1={strokeWidth}
-          y1={height / 2}
-          x2={Math.max(strokeWidth, width - strokeWidth * 1.8)}
-          y2={height / 2}
-          stroke={strokeColorForRender}
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          markerEnd={`url(#${markerId})`}
-        />
-      )}
+      {resolvedFigureType === 'line' &&
+        (() => {
+          const dir = figureOrientation ?? 0
+          const isAscending = dir === 2 || dir === 3
+          const isReversedX = dir === 1 || dir === 3
+          let startX = isReversedX ? width - strokeWidth : strokeWidth
+          let startY = isAscending
+            ? dir === 2
+              ? height - strokeWidth
+              : strokeWidth
+            : dir === 0
+              ? strokeWidth
+              : height - strokeWidth
+          let endX = isReversedX ? strokeWidth : width - strokeWidth
+          let endY = isAscending
+            ? dir === 2
+              ? strokeWidth
+              : height - strokeWidth
+            : dir === 0
+              ? height - strokeWidth
+              : strokeWidth
+
+          if (width <= 12) {
+            startX = width / 2
+            endX = width / 2
+          }
+          if (height <= 12) {
+            startY = height / 2
+            endY = height / 2
+          }
+          return (
+            <line
+              x1={startX}
+              y1={startY}
+              x2={endX}
+              y2={endY}
+              stroke={strokeColorForRender}
+              strokeWidth={strokeWidth}
+              strokeLinecap="round"
+            />
+          )
+        })()}
+      {resolvedFigureType === 'arrow' &&
+        (() => {
+          const dir = figureOrientation ?? 0
+          const isAscending = dir === 2 || dir === 3
+          const isReversedX = dir === 1 || dir === 3
+
+          let startX = isReversedX ? width - strokeWidth : strokeWidth
+          let startY = isAscending
+            ? dir === 2
+              ? height - strokeWidth
+              : strokeWidth
+            : dir === 0
+              ? strokeWidth
+              : height - strokeWidth
+          let intendedEndX = isReversedX ? strokeWidth : width - strokeWidth
+          let intendedEndY = isAscending
+            ? dir === 2
+              ? strokeWidth
+              : height - strokeWidth
+            : dir === 0
+              ? height - strokeWidth
+              : strokeWidth
+
+          if (width <= 12) {
+            startX = width / 2
+            intendedEndX = width / 2
+          }
+          if (height <= 12) {
+            startY = height / 2
+            intendedEndY = height / 2
+          }
+
+          // Calculate hypotenuse and vector to subtract arrow marker padding
+          const dx = intendedEndX - startX
+          const dy = intendedEndY - startY
+          const length = Math.max(0.1, Math.hypot(dx, dy))
+          const padding = strokeWidth * 1.8
+          const endX = startX + dx * Math.max(0, (length - padding) / length)
+          const endY = startY + dy * Math.max(0, (length - padding) / length)
+
+          return (
+            <line
+              x1={startX}
+              y1={startY}
+              x2={endX}
+              y2={endY}
+              stroke={strokeColorForRender}
+              strokeWidth={strokeWidth}
+              strokeLinecap="round"
+              markerEnd={`url(#${markerId})`}
+            />
+          )
+        })()}
     </svg>
   )
 }

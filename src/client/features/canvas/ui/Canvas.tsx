@@ -54,6 +54,7 @@ import {
   deleteGraph,
   fetchCategories,
   fetchDashboards,
+  fetchGraphs,
   updateQuery,
 } from '../../oversikt/api/oversiktApi.ts'
 import type { GraphCategoryDto, GraphType, OversiktChart } from '../../oversikt/model/types.ts'
@@ -71,6 +72,7 @@ import useCanvasPresence from '../hooks/useCanvasPresence.ts'
 import useCanvasDotVotingSync from '../hooks/useCanvasDotVotingSync.ts'
 import useCanvasTimerSync from '../hooks/useCanvasTimerSync.ts'
 import { fetchCanvasStorageData } from '../api/canvasStorageApi.ts'
+import ChangeLogModal, { type ChangeLogEntry } from '../../../shared/ui/ChangeLogModal.tsx'
 
 import type {
   CanvasChartOption,
@@ -157,7 +159,11 @@ const getDefaultFrameSize = (
   if (kind === 'heading') return { width: 420, height: 72, minWidth: 260, minHeight: 48 }
   if (kind === 'text') return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
   if (kind === 'icon') return { width: 280, height: 240, minWidth: 72, minHeight: 72 }
-  if (kind === 'figure') return { width: 240, height: 200, minWidth: 120, minHeight: 72 }
+  if (kind === 'figure') {
+    const isLineOrArrow =
+      typeof frameOrKind !== 'string' && (frameOrKind.figureType === 'line' || frameOrKind.figureType === 'arrow')
+    return { width: 240, height: 240, minWidth: isLineOrArrow ? 12 : 120, minHeight: isLineOrArrow ? 12 : 120 }
+  }
   if (kind === 'drawing') return { width: 240, height: 160, minWidth: 28, minHeight: 28 }
   if (kind === 'section') return { width: 640, height: 420, minWidth: 240, minHeight: 180 }
   return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
@@ -331,6 +337,10 @@ const Canvas = () => {
   const [isCanvasSettingsModalOpen, setIsCanvasSettingsModalOpen] = useState(false)
   const [canvasSettingsInfo, setCanvasSettingsInfo] = useState<string | null>(null)
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false)
+  const [isChangeLogModalOpen, setIsChangeLogModalOpen] = useState(false)
+  const [isLoadingChangeLog, setIsLoadingChangeLog] = useState(false)
+  const [changeLogError, setChangeLogError] = useState<string | null>(null)
+  const [changeLogEntries, setChangeLogEntries] = useState<ChangeLogEntry[]>([])
   const [renameCanvasError, setRenameCanvasError] = useState<string | null>(null)
   const [isAddChartModalOpen, setIsAddChartModalOpen] = useState(false)
   const [isCreateTabModalOpen, setIsCreateTabModalOpen] = useState(false)
@@ -412,10 +422,10 @@ const Canvas = () => {
   const [editIconSelectedId, setEditIconSelectedId] = useState(DEFAULT_CANVAS_ICON_ID)
   const [editIconSelectedColor, setEditIconSelectedColor] = useState(DEFAULT_CANVAS_ICON_COLOR)
   const [editIconError, setEditIconError] = useState<string | null>(null)
-  const [selectedFigureType, setSelectedFigureType] = useState<CanvasFigureType>('rectangle')
+  const [selectedFigureType, setSelectedFigureType] = useState<CanvasFigureType>('square')
   const [selectedFigureColor, setSelectedFigureColor] = useState(DEFAULT_CANVAS_ICON_COLOR)
   const [addFigureError, setAddFigureError] = useState<string | null>(null)
-  const [editFigureSelectedType, setEditFigureSelectedType] = useState<CanvasFigureType>('rectangle')
+  const [editFigureSelectedType, setEditFigureSelectedType] = useState<CanvasFigureType>('square')
   const [editFigureSelectedColor, setEditFigureSelectedColor] = useState(DEFAULT_CANVAS_ICON_COLOR)
   const [editFigureError, setEditFigureError] = useState<string | null>(null)
   const [chartOptions, _setChartOptions] = useState<CanvasChartOption[]>([])
@@ -501,6 +511,7 @@ const Canvas = () => {
   const [activeEditableFrameId, setActiveEditableFrameId] = useState<string | null>(null)
   const [failedImageFrameIds, setFailedImageFrameIds] = useState<Record<string, boolean>>({})
   const [pendingFrameDraft, setPendingFrameDraft] = useState<PendingCanvasFrameDraft | null>(null)
+  const [pendingFigureDragStart, setPendingFigureDragStart] = useState<{ x: number; y: number } | null>(null)
   const [pendingCsvStickyImport, setPendingCsvStickyImport] = useState<PendingCsvStickyImport | null>(null)
   const [pendingFramePlacementLabel, setPendingFramePlacementLabel] = useState<string | null>(null)
   const [pendingFramePointer, setPendingFramePointer] = useState<{ x: number; y: number } | null>(null)
@@ -539,6 +550,18 @@ const Canvas = () => {
         backgroundSize: '24px 24px',
       }
     : undefined
+  const isPlacementModeActive = Boolean(pendingFrameDraft || pendingCsvStickyImport)
+  const visibleChangeLogEntries = useMemo(
+    () =>
+      changeLogEntries.filter(
+        (entry) =>
+          entry.description !== '[canvas-presence]' &&
+          entry.description !== '[canvas-lock]' &&
+          !entry.name.startsWith('canvas:presence:') &&
+          !entry.name.startsWith('canvas:lock:'),
+      ),
+    [changeLogEntries],
+  )
 
   const handleCanvasZoomChange = useCallback((nextZoom: number) => {
     setCanvasZoom(clampCanvasZoom(nextZoom))
@@ -582,6 +605,16 @@ const Canvas = () => {
     skipNextGridSectionPersistRef.current = true
   }, [])
 
+  const canvasSyncContextEnabled =
+    canPersistToDashboard && projectId !== null && dashboardId !== null && canvasInitMode === 'existing'
+  const { activeParticipantCount, activeOtherParticipantCount, shouldEnableBackgroundSync, participantLabels } =
+    useCanvasPresence({
+      enabled: canvasSyncContextEnabled,
+      projectId,
+      dashboardId,
+    })
+  const shouldEnableEditLockSync = activeEditableFrameId !== null
+
   const {
     timerLabel,
     remainingSeconds,
@@ -595,7 +628,7 @@ const Canvas = () => {
     adjustTimerMinutes,
     refreshTimer,
   } = useCanvasTimerSync({
-    enabled: canPersistToDashboard && projectId !== null && dashboardId !== null && canvasInitMode === 'existing',
+    enabled: canvasSyncContextEnabled,
     projectId,
     dashboardId,
     onSyncError: handleCanvasSyncError,
@@ -621,7 +654,9 @@ const Canvas = () => {
     removeVote,
     refreshVoting,
   } = useCanvasDotVotingSync({
-    enabled: canPersistToDashboard && projectId !== null && dashboardId !== null && canvasInitMode === 'existing',
+    enabled: canvasSyncContextEnabled,
+    enableIdlePolling: shouldEnableBackgroundSync,
+    idleSyncIntervalMs: 30000,
     projectId,
     dashboardId,
     onSyncError: handleCanvasSyncError,
@@ -630,15 +665,6 @@ const Canvas = () => {
   const shouldRevealDotVotingTotals =
     Boolean(dotVotingSessionPayload) &&
     (dotVotingSessionPayload?.status === 'ended' || (!isDotVotingRunning && !isDotVotingPaused))
-
-  const canvasSyncContextEnabled =
-    canPersistToDashboard && projectId !== null && dashboardId !== null && canvasInitMode === 'existing'
-  const { activeParticipantCount, activeOtherParticipantCount, shouldEnableBackgroundSync, participantLabels } =
-    useCanvasPresence({
-      enabled: canvasSyncContextEnabled,
-      projectId,
-      dashboardId,
-    })
 
   const activeInsightPeriodLabel = useMemo(
     () => getCanvasPeriodLabel(period, customStartDate, customEndDate),
@@ -1239,7 +1265,7 @@ const Canvas = () => {
     releaseLock: releaseEditLock,
     getFrameLockStatus,
   } = useCanvasEditLocks({
-    enabled: canvasSyncContextEnabled && (shouldEnableBackgroundSync || activeEditableFrameId !== null),
+    enabled: canvasSyncContextEnabled && shouldEnableEditLockSync,
     projectId,
     dashboardId,
     activeEditableFrame,
@@ -1466,6 +1492,11 @@ const Canvas = () => {
     handleDuplicateIconCard,
     handleDuplicateFigureCard,
     handleDuplicateSectionCard,
+    handleDuplicateStickyCard,
+    handleDuplicateTextCard,
+    handleDuplicateHeadingCard,
+    handleDuplicateDrawingCard,
+    handleDuplicateImageCard,
     handleSaveEditedWebsite,
     handleSaveEditedDashboard,
     handleSaveEditedImage,
@@ -1973,6 +2004,17 @@ const Canvas = () => {
       if (pendingFrameDraft) {
         event.preventDefault()
         event.stopPropagation()
+        const isLineOrArrow =
+          pendingFrameDraft.kind === 'figure' &&
+          (pendingFrameDraft.figureType === 'line' || pendingFrameDraft.figureType === 'arrow')
+        if (isLineOrArrow) {
+          const pointer = getCanvasPointerPosition(event.clientX, event.clientY)
+          if (pointer) {
+            setPendingFigureDragStart(pointer)
+            setPendingFramePointer(pointer)
+          }
+          return
+        }
         void handlePlacePendingFrame(event.clientX, event.clientY)
         return
       }
@@ -2767,7 +2809,7 @@ const Canvas = () => {
         const targetColumn = framesRef.current.find((frame) => {
           if (
             frame.kind !== 'figure' ||
-            frame.figureType !== 'rectangle' ||
+            frame.figureType !== 'square' ||
             !frame.label.startsWith(PLANNER_COLUMN_LABEL_PREFIX)
           )
             return false
@@ -2983,15 +3025,15 @@ const Canvas = () => {
     }
 
     // Handle both mouse and touch events
-    window.addEventListener('mousemove', onPointerMove as any)
+    window.addEventListener('mousemove', onPointerMove as EventListener)
     window.addEventListener('mouseup', onPointerUp)
-    window.addEventListener('touchmove', onPointerMove as any, { passive: false })
+    window.addEventListener('touchmove', onPointerMove as EventListener, { passive: false })
     window.addEventListener('touchend', onPointerUp)
 
     return () => {
-      window.removeEventListener('mousemove', onPointerMove as any)
+      window.removeEventListener('mousemove', onPointerMove as EventListener)
       window.removeEventListener('mouseup', onPointerUp)
-      window.removeEventListener('touchmove', onPointerMove as any)
+      window.removeEventListener('touchmove', onPointerMove as EventListener)
       window.removeEventListener('touchend', onPointerUp)
     }
   }, [dragState, getCanvasPointerPosition, persistFrame])
@@ -3105,7 +3147,7 @@ const Canvas = () => {
       document.removeEventListener('mouseup', onMouseUp, true)
       window.removeEventListener('blur', onWindowBlur)
     }
-  }, [canvasZoom, persistFrame, reflowGridSections, resizeState])
+  }, [canvasZoom, getGridLayoutFrameHeight, persistFrame, reflowGridSections, resizeState])
 
   useEffect(() => {
     if (!selectionBox) return
@@ -3143,6 +3185,68 @@ const Canvas = () => {
       window.removeEventListener('mouseup', finalizeSelection)
     }
   }, [getCanvasPointerPosition, getFrameBounds, selectionBox, visibleFrames])
+
+  useEffect(() => {
+    if (!pendingFigureDragStart || !pendingFrameDraft) return
+
+    const updateDrag = (event: MouseEvent) => {
+      const pointer = getCanvasPointerPosition(event.clientX, event.clientY)
+      if (!pointer) return
+      setPendingFramePointer(pointer)
+    }
+
+    const finalizeDrag = async () => {
+      const start = pendingFigureDragStart
+      const end = pendingFramePointer || start
+      setPendingFigureDragStart(null)
+
+      const minX = Math.min(start.x, end.x)
+      const maxX = Math.max(start.x, end.x)
+      const minY = Math.min(start.y, end.y)
+      const maxY = Math.max(start.y, end.y)
+
+      const width = Math.max(12, maxX - minX)
+      const height = Math.max(12, maxY - minY)
+
+      let dir = 0
+      if (end.x >= start.x && end.y >= start.y) dir = 0
+      else if (end.x <= start.x && end.y <= start.y) dir = 1
+      else if (end.x >= start.x && end.y <= start.y) dir = 2
+      else if (end.x <= start.x && end.y >= start.y) dir = 3
+
+      const nextFrame: CanvasFrame = {
+        ...pendingFrameDraft,
+        id: `${Date.now()}-${Math.random()}`,
+        x: Math.max(0, minX),
+        y: Math.max(-CANVAS_TOP_BUFFER, minY),
+        width,
+        height,
+        figureOrientation: dir,
+        iconRotationDeg: 0,
+      }
+
+      try {
+        setIsSavingCanvasItem(true)
+        setSyncError(null)
+        const persistedFrame = await persistFrame(nextFrame)
+        setFrames((prev) => [...prev, persistedFrame])
+        setPendingFrameDraft(null)
+        setPendingFramePlacementLabel(null)
+        setPendingFramePointer(null)
+      } catch (error) {
+        setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre element i canvas')
+      } finally {
+        setIsSavingCanvasItem(false)
+      }
+    }
+
+    window.addEventListener('mousemove', updateDrag)
+    window.addEventListener('mouseup', finalizeDrag)
+    return () => {
+      window.removeEventListener('mousemove', updateDrag)
+      window.removeEventListener('mouseup', finalizeDrag)
+    }
+  }, [getCanvasPointerPosition, pendingFigureDragStart, pendingFrameDraft, pendingFramePointer, persistFrame])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -3183,80 +3287,6 @@ const Canvas = () => {
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [selectedFrameIds])
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const usesPrimaryModifier = event.metaKey || event.ctrlKey
-      if (!usesPrimaryModifier || event.altKey) return
-
-      const target = event.target as HTMLElement | null
-      const isTypingTarget =
-        target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable || false
-      if (isTypingTarget) return
-
-      const pressedKey = event.key.toLowerCase()
-      const isCopyShortcut = pressedKey === 'c' && !event.shiftKey
-      const isPasteShortcut = pressedKey === 'v' && !event.shiftKey
-      if (!isCopyShortcut && !isPasteShortcut) return
-
-      if (isCopyShortcut) {
-        const copiedFrames = frames
-          .filter(
-            (frame) =>
-              selectedFrameIds.includes(frame.id) &&
-              (frame.kind === 'sticky' || frame.kind === 'text' || frame.kind === 'section'),
-          )
-          .sort((a, b) => {
-            if (a.y !== b.y) return a.y - b.y
-            if (a.x !== b.x) return a.x - b.x
-            return a.id.localeCompare(b.id)
-          })
-
-        if (copiedFrames.length === 0) return
-        event.preventDefault()
-        clipboardFramesRef.current = copiedFrames
-        clipboardPasteCountRef.current = 0
-        return
-      }
-
-      const copiedFrames = clipboardFramesRef.current
-      if (!copiedFrames || copiedFrames.length === 0) return
-
-      event.preventDefault()
-      const pasteOffset = 36 * (clipboardPasteCountRef.current + 1)
-      const duplicatedFrames = copiedFrames.map((frame) => ({
-        ...frame,
-        id: `${Date.now()}-${Math.random()}`,
-        x: Math.max(0, frame.x + pasteOffset),
-        y: Math.max(-CANVAS_TOP_BUFFER, frame.y + pasteOffset),
-        graphId: undefined,
-        queryId: undefined,
-        refreshNonce: 0,
-      }))
-
-      void (async () => {
-        try {
-          setIsSavingCanvasItem(true)
-          setSyncError(null)
-          const persistedFrames: CanvasFrame[] = []
-          for (const frame of duplicatedFrames) {
-            const persistedFrame = await persistFrame(frame)
-            persistedFrames.push(persistedFrame)
-          }
-          setFrames((prev) => [...prev, ...persistedFrames])
-          setSelectedFrameIds(persistedFrames.map((frame) => frame.id))
-          clipboardPasteCountRef.current += 1
-        } catch (error) {
-          setSyncError(error instanceof Error ? error.message : 'Kunne ikke lime inn elementer i canvas')
-        } finally {
-          setIsSavingCanvasItem(false)
-        }
-      })()
-    }
-
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [frames, persistFrame, selectedFrameIds])
 
   useEffect(() => {
     if (selectedFrameIds.length === 0) return
@@ -3337,41 +3367,56 @@ const Canvas = () => {
     }
   }, [connectionDragState, createConnectionBetweenFrames, getCanvasPointerPosition, getFrameBounds, visibleFrames])
 
-  const handleRemovePage = async (id: string) => {
-    const frameToDelete = frames.find((frame) => frame.id === id)
-    const linkedConnections = connections.filter(
-      (connection) =>
-        connection.fromFrameId === id ||
-        connection.toFrameId === id ||
-        (frameToDelete?.graphId !== undefined &&
-          (connection.fromGraphId === frameToDelete.graphId || connection.toGraphId === frameToDelete.graphId)),
-    )
-    setFrames((prev) => prev.filter((frame) => frame.id !== id))
-    setSelectedFrameIds((prev) => prev.filter((frameId) => frameId !== id))
-    setConnections((prev) => prev.filter((connection) => !linkedConnections.some((item) => item.id === connection.id)))
-    if (activeEditableFrameId === id && frameToDelete) {
-      setActiveEditableFrameId(null)
-      void releaseEditLock(frameToDelete).catch(() => undefined)
-    }
-    if (connectionDragState?.sourceFrameId === id) {
-      setConnectionDragState(null)
-    }
-
-    if (!frameToDelete || !canPersistToDashboard || projectId === null || dashboardId === null) return
-    if (!frameToDelete.graphId || !frameToDelete.categoryId) return
-
-    try {
-      await deleteGraph(projectId, dashboardId, frameToDelete.categoryId, frameToDelete.graphId)
-      await Promise.all(
-        linkedConnections.map((connection) => {
-          if (!connection.graphId || !connection.categoryId) return Promise.resolve()
-          return deleteGraph(projectId, dashboardId, connection.categoryId, connection.graphId)
-        }),
+  const handleRemovePage = useCallback(
+    async (id: string) => {
+      const frameToDelete = frames.find((frame) => frame.id === id)
+      const linkedConnections = connections.filter(
+        (connection) =>
+          connection.fromFrameId === id ||
+          connection.toFrameId === id ||
+          (frameToDelete?.graphId !== undefined &&
+            (connection.fromGraphId === frameToDelete.graphId || connection.toGraphId === frameToDelete.graphId)),
       )
-    } catch (error) {
-      setSyncError(error instanceof Error ? error.message : 'Kunne ikke slette element fra canvas')
-    }
-  }
+      setFrames((prev) => prev.filter((frame) => frame.id !== id))
+      setSelectedFrameIds((prev) => prev.filter((frameId) => frameId !== id))
+      setConnections((prev) =>
+        prev.filter((connection) => !linkedConnections.some((item) => item.id === connection.id)),
+      )
+      if (activeEditableFrameId === id && frameToDelete) {
+        setActiveEditableFrameId(null)
+        void releaseEditLock(frameToDelete).catch(() => undefined)
+      }
+      if (connectionDragState?.sourceFrameId === id) {
+        setConnectionDragState(null)
+      }
+
+      if (!frameToDelete || !canPersistToDashboard || projectId === null || dashboardId === null) return
+      if (!frameToDelete.graphId || !frameToDelete.categoryId) return
+
+      try {
+        await deleteGraph(projectId, dashboardId, frameToDelete.categoryId, frameToDelete.graphId)
+        await Promise.all(
+          linkedConnections.map((connection) => {
+            if (!connection.graphId || !connection.categoryId) return Promise.resolve()
+            return deleteGraph(projectId, dashboardId, connection.categoryId, connection.graphId)
+          }),
+        )
+      } catch (error) {
+        setSyncError(error instanceof Error ? error.message : 'Kunne ikke slette element fra canvas')
+      }
+    },
+    [
+      frames,
+      connections,
+      activeEditableFrameId,
+      releaseEditLock,
+      connectionDragState,
+      canPersistToDashboard,
+      projectId,
+      dashboardId,
+      setSyncError,
+    ],
+  )
 
   const handleRemoveConnection = async (connectionId: string) => {
     const connection = connections.find((item) => item.id === connectionId)
@@ -3508,6 +3553,95 @@ const Canvas = () => {
       setBulkDeleteProgress(null)
     }
   }
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const usesPrimaryModifier = event.metaKey || event.ctrlKey
+      if (!usesPrimaryModifier || event.altKey) return
+
+      const target = event.target as HTMLElement | null
+      const isTypingTarget =
+        target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable || false
+      if (isTypingTarget) return
+
+      const pressedKey = event.key.toLowerCase()
+      const isCopyShortcut = pressedKey === 'c' && !event.shiftKey
+      const isCutShortcut = pressedKey === 'x' && !event.shiftKey
+      const isPasteShortcut = pressedKey === 'v' && !event.shiftKey
+      if (!isCopyShortcut && !isCutShortcut && !isPasteShortcut) return
+
+      if (isCopyShortcut || isCutShortcut) {
+        const copiedFrames = frames
+          .filter((frame) => selectedFrameIds.includes(frame.id))
+          .sort((a, b) => {
+            if (a.y !== b.y) return a.y - b.y
+            if (a.x !== b.x) return a.x - b.x
+            return a.id.localeCompare(b.id)
+          })
+
+        if (copiedFrames.length === 0) return
+        event.preventDefault()
+        clipboardFramesRef.current = copiedFrames
+        clipboardPasteCountRef.current = 0
+
+        if (isCutShortcut) {
+          void (async () => {
+            try {
+              setIsSavingCanvasItem(true)
+              setSyncError(null)
+              const idsToRemove = [...selectedFrameIds]
+              for (const id of idsToRemove) {
+                await handleRemovePage(id)
+              }
+              setSelectedFrameIds([])
+            } catch (error) {
+              setSyncError(error instanceof Error ? error.message : 'Kunne ikke klippe ut elementer fra canvas')
+            } finally {
+              setIsSavingCanvasItem(false)
+            }
+          })()
+        }
+        return
+      }
+
+      const copiedFrames = clipboardFramesRef.current
+      if (!copiedFrames || copiedFrames.length === 0) return
+
+      event.preventDefault()
+      const pasteOffset = 36 * (clipboardPasteCountRef.current + 1)
+      const duplicatedFrames = copiedFrames.map((frame) => ({
+        ...frame,
+        id: `${Date.now()}-${Math.random()}`,
+        x: Math.max(0, frame.x + pasteOffset),
+        y: Math.max(-CANVAS_TOP_BUFFER, frame.y + pasteOffset),
+        graphId: undefined,
+        queryId: undefined,
+        refreshNonce: 0,
+      }))
+
+      void (async () => {
+        try {
+          setIsSavingCanvasItem(true)
+          setSyncError(null)
+          const persistedFrames: CanvasFrame[] = []
+          for (const frame of duplicatedFrames) {
+            const persistedFrame = await persistFrame(frame)
+            persistedFrames.push(persistedFrame)
+          }
+          setFrames((prev) => [...prev, ...persistedFrames])
+          setSelectedFrameIds(persistedFrames.map((frame) => frame.id))
+          clipboardPasteCountRef.current += 1
+        } catch (error) {
+          setSyncError(error instanceof Error ? error.message : 'Kunne ikke lime inn elementer i canvas')
+        } finally {
+          setIsSavingCanvasItem(false)
+        }
+      })()
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [frames, handleRemovePage, persistFrame, selectedFrameIds])
 
   const resolveConnectionFrame = useCallback(
     (connection: CanvasConnection, role: 'from' | 'to'): CanvasFrame | null => {
@@ -3768,6 +3902,40 @@ const Canvas = () => {
     setFrames((prev) => prev.map((frame) => (frame.id === id ? nextFrame : frame)))
     void persistFrame(nextFrame).catch((error) => {
       setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre illustrasjons-rotasjon')
+    })
+  }
+
+  const handleRotateFigureFrame = (id: string, delta: number) => {
+    const currentFrame = frames.find((frame) => frame.id === id)
+    if (!currentFrame || currentFrame.kind !== 'figure') return
+
+    const currentRotation = currentFrame.iconRotationDeg ?? 0
+    const nextRotation = (((currentRotation + delta) % 360) + 360) % 360
+    const nextFrame: CanvasFrame = {
+      ...currentFrame,
+      iconRotationDeg: nextRotation,
+    }
+
+    setFrames((prev) => prev.map((frame) => (frame.id === id ? nextFrame : frame)))
+    void persistFrame(nextFrame).catch((error) => {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre figur-rotasjon')
+    })
+  }
+
+  const handleRotateDrawingFrame = (id: string, delta: number) => {
+    const currentFrame = frames.find((frame) => frame.id === id)
+    if (!currentFrame || currentFrame.kind !== 'drawing') return
+
+    const currentRotation = currentFrame.drawingRotationDeg ?? 0
+    const nextRotation = (((currentRotation + delta) % 360) + 360) % 360
+    const nextFrame: CanvasFrame = {
+      ...currentFrame,
+      drawingRotationDeg: nextRotation,
+    }
+
+    setFrames((prev) => prev.map((frame) => (frame.id === id ? nextFrame : frame)))
+    void persistFrame(nextFrame).catch((error) => {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre tegning-rotasjon')
     })
   }
 
@@ -4079,6 +4247,57 @@ const Canvas = () => {
 
   const handleOpenInventoryModal = () => {
     setIsInventoryModalOpen(true)
+  }
+
+  const loadCanvasChangeLog = useCallback(async () => {
+    if (!canPersistToDashboard || projectId === null || dashboardId === null) {
+      setChangeLogEntries([])
+      setChangeLogError('Endringslogg er bare tilgjengelig for canvas som er koblet til dashboard.')
+      return
+    }
+
+    setIsLoadingChangeLog(true)
+    setChangeLogError(null)
+    try {
+      const categories = await fetchCategories(projectId, dashboardId)
+      const graphsByCategory = await Promise.all(
+        categories.map((category) => fetchGraphs(projectId, dashboardId, category.id)),
+      )
+
+      const entries = graphsByCategory
+        .flatMap((graphs) => graphs)
+        .map((graph) => {
+          const graphWithAudit = graph as typeof graph & {
+            changedByName?: string
+            changedByNavIdent?: string
+            changedByEmail?: string
+          }
+
+          return {
+            id: graph.id,
+            name: String(graph.name || ''),
+            description: String(graph.description || ''),
+            updatedAt: String(graph.updatedAt || ''),
+            changedByName: String(graphWithAudit.changedByName || ''),
+            changedByNavIdent: String(graphWithAudit.changedByNavIdent || ''),
+            changedByEmail: String(graphWithAudit.changedByEmail || ''),
+            graphType: String(graph.graphType || ''),
+          } satisfies ChangeLogEntry
+        })
+        .filter((entry) => entry.name.startsWith('canvas:') || entry.description.startsWith('[canvas'))
+        .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+
+      setChangeLogEntries(entries)
+    } catch (error) {
+      setChangeLogError(error instanceof Error ? error.message : 'Kunne ikke laste endringslogg')
+    } finally {
+      setIsLoadingChangeLog(false)
+    }
+  }, [canPersistToDashboard, projectId, dashboardId])
+
+  const handleOpenChangeLogModal = () => {
+    setIsChangeLogModalOpen(true)
+    void loadCanvasChangeLog()
   }
 
   const handleOpenTimerModal = () => {
@@ -4820,6 +5039,7 @@ const Canvas = () => {
           onOpenManageTabs={handleOpenManageTabsModal}
           onOpenCanvasSettings={handleOpenCanvasSettingsModal}
           onOpenInventory={handleOpenInventoryModal}
+          onOpenChangeLog={handleOpenChangeLogModal}
           elementCount={inventoryItems.reduce((total, item) => total + item.count, 0)}
           onOpenTimer={handleOpenTimerModal}
           onOpenDotVoting={handleOpenDotVotingModal}
@@ -4893,6 +5113,7 @@ const Canvas = () => {
                   pendingFrameDraft={pendingFrameDraft}
                   pendingCsvStickyImport={pendingCsvStickyImport}
                   pendingFramePointer={pendingFramePointer}
+                  pendingFigureDragStart={pendingFigureDragStart}
                   pendingFramePlacementLabel={pendingFramePlacementLabel}
                   getPendingFrameContentAnchorOffset={getPendingFrameContentAnchorOffset}
                   getDefaultFrameSize={getDefaultFrameSize}
@@ -4900,6 +5121,14 @@ const Canvas = () => {
                   getHeadingFrameFontSize={getHeadingFrameFontSize}
                   headingCardHeaderHeight={HEADING_CARD_HEADER_HEIGHT}
                 />
+                {isPlacementModeActive && (
+                  <div
+                    className="absolute inset-0 z-[96] cursor-crosshair"
+                    onMouseDown={handleCanvasSurfaceMouseDown}
+                    onMouseMove={handleCanvasSurfaceMouseMove}
+                    onMouseLeave={handleCanvasSurfaceMouseLeave}
+                  />
+                )}
                 {isDrawingMode && (
                   <div
                     className="absolute inset-0 z-[95] cursor-crosshair"
@@ -4919,93 +5148,104 @@ const Canvas = () => {
                     }}
                   />
                 )}
-                <CanvasConnectionLayer
-                  connectionSegments={connectionSegments}
-                  connectionPreview={connectionPreview}
-                  connectionSegmentsWithMetrics={connectionSegmentsWithMetrics}
-                  onRequestRemoveConnection={handleRequestRemoveConnection}
-                />
+                <div className={isPlacementModeActive ? 'pointer-events-none' : undefined}>
+                  <CanvasConnectionLayer
+                    connectionSegments={connectionSegments}
+                    connectionPreview={connectionPreview}
+                    connectionSegmentsWithMetrics={connectionSegmentsWithMetrics}
+                    onRequestRemoveConnection={handleRequestRemoveConnection}
+                  />
+                </div>
                 <CanvasDrawingDraftOverlay
                   drawingDraftStrokes={drawingDraftStrokes}
                   activeDrawingStroke={activeDrawingStroke}
                 />
-                <CanvasFrameLayer
-                  frameItems={frameItems}
-                  sectionItemCountsById={sectionItemCountsById}
-                  sectionMoveOptions={sectionMoveOptions}
-                  frameContainingSectionIdByFrameId={frameContainingSectionIdByFrameId}
-                  stickyColorOptions={CANVAS_STICKY_COLOR_OPTIONS.map((option) => ({
-                    id: option.id,
-                    label: option.label,
-                    color: option.background,
-                  }))}
-                  selectedFrameIds={selectedFrameIds}
-                  activeInsightFrameId={activeInsightFrameId}
-                  pageInsights={pageInsights}
-                  frameVisualizationData={frameVisualizationData}
-                  websiteTopListEnabled={websiteTopListEnabled}
-                  onToggleWebsiteTopList={() => setWebsiteTopListEnabled((current) => !current)}
-                  connectionDragState={connectionDragState}
-                  resizeState={resizeState}
-                  dragState={dragState}
-                  activeEditableFrameId={activeEditableFrameId}
-                  selectedWebsite={selectedWebsite}
-                  availableWebsites={availableWebsites}
-                  pendingChartWebsiteByFrameId={pendingChartWebsiteByFrameId}
-                  dashboardWidgetFilters={dashboardWidgetFilters}
-                  chartContentRefs={chartContentRefs}
-                  failedImageFrameIds={failedImageFrameIds}
-                  setFailedImageFrameIds={setFailedImageFrameIds}
-                  frameTablePages={frameTablePages}
-                  setFrameTablePages={setFrameTablePages}
-                  setPendingChartWebsiteByFrameId={setPendingChartWebsiteByFrameId}
-                  activeInsightPeriodLabel={activeInsightPeriodLabel}
-                  setWebsiteIframeRef={setWebsiteIframeRef}
-                  handleWebsiteFrameLoad={handleWebsiteFrameLoad}
-                  focusWebsiteTopListItem={focusWebsiteTopListItem}
-                  getDefaultFrameSize={getDefaultFrameSize}
-                  getHeadingFrameFontSize={getHeadingFrameFontSize}
-                  getHeadingFrameWidth={getHeadingFrameWidth}
-                  getHeadingFrameHeight={getHeadingFrameHeight}
-                  getFrameLockStatus={getFrameLockStatus}
-                  formatCanvasPathLabel={formatCanvasPathLabel}
-                  isImagePreviewUrl={isImagePreviewUrl}
-                  handleDragStart={handleDragStart}
-                  handleToggleInsightPanel={handleToggleInsightPanel}
-                  handleRefreshFrame={handleRefreshFrame}
-                  handleDuplicateWebsiteCard={handleDuplicateWebsiteCard}
-                  handleOpenEditDashboardModal={handleOpenEditDashboardModal}
-                  handleOpenEditWebsiteModal={handleOpenEditWebsiteModal}
-                  handleOpenEditImageModal={handleOpenEditImageModal}
-                  handleOpenEditIllustrationModal={handleOpenEditIllustrationModal}
-                  handleOpenEditIconModal={handleOpenEditIconModal}
-                  handleDuplicateIconCard={handleDuplicateIconCard}
-                  handleRotateIconFrame={handleRotateIconFrame}
-                  handleOpenEditFigureModal={handleOpenEditFigureModal}
-                  handleDuplicateFigureCard={handleDuplicateFigureCard}
-                  handleDuplicateSectionCard={handleDuplicateSectionCard}
-                  handleAdjustHeadingFontSize={handleAdjustHeadingFontSize}
-                  handleRotateIllustrationFrame={handleRotateIllustrationFrame}
-                  handleToggleSectionLayout={handleToggleSectionLayout}
-                  handleMoveFrameToSection={handleMoveFrameToSection}
-                  handleSetStickyColor={handleSetStickyColor}
-                  handleRequestRemoveFrame={handleRequestRemoveFrame}
-                  startConnectionDrag={startConnectionDrag}
-                  handleAssignWebsiteToChart={handleAssignWebsiteToChart}
-                  handleOpenEditChartModal={handleOpenEditChartModal}
-                  handleOpenDeleteChartModal={handleOpenDeleteChartModal}
-                  handleEditableFrameChange={handleEditableFrameChange}
-                  handleEditableFrameBlur={handleEditableFrameBlur}
-                  handleStartEditingFrame={handleStartEditingFrame}
-                  handleResizeStart={handleResizeStart}
-                  isDotVotingActive={isDotVotingActive}
-                  dotVotingTargetSectionId={activeDotVotingSectionFrame?.id ?? null}
-                  dotVotingTotalVotesByFrameId={dotVotingTotalVotesByFrameId}
-                  dotVotingMyVotesByFrameId={dotVotingMyVotesByFrameId}
-                  shouldRevealDotVotingTotals={shouldRevealDotVotingTotals}
-                  onVoteSticky={handleAddDotVote}
-                  onClearStickyVoteSnapshot={handleRequestClearStickyVoteSnapshot}
-                />
+                <div className={isPlacementModeActive ? 'pointer-events-none' : undefined}>
+                  <CanvasFrameLayer
+                    frameItems={frameItems}
+                    sectionItemCountsById={sectionItemCountsById}
+                    sectionMoveOptions={sectionMoveOptions}
+                    frameContainingSectionIdByFrameId={frameContainingSectionIdByFrameId}
+                    stickyColorOptions={CANVAS_STICKY_COLOR_OPTIONS.map((option) => ({
+                      id: option.id,
+                      label: option.label,
+                      color: option.background,
+                    }))}
+                    selectedFrameIds={selectedFrameIds}
+                    activeInsightFrameId={activeInsightFrameId}
+                    pageInsights={pageInsights}
+                    frameVisualizationData={frameVisualizationData}
+                    websiteTopListEnabled={websiteTopListEnabled}
+                    onToggleWebsiteTopList={() => setWebsiteTopListEnabled((current) => !current)}
+                    connectionDragState={connectionDragState}
+                    resizeState={resizeState}
+                    dragState={dragState}
+                    activeEditableFrameId={activeEditableFrameId}
+                    selectedWebsite={selectedWebsite}
+                    availableWebsites={availableWebsites}
+                    pendingChartWebsiteByFrameId={pendingChartWebsiteByFrameId}
+                    dashboardWidgetFilters={dashboardWidgetFilters}
+                    chartContentRefs={chartContentRefs}
+                    failedImageFrameIds={failedImageFrameIds}
+                    setFailedImageFrameIds={setFailedImageFrameIds}
+                    frameTablePages={frameTablePages}
+                    setFrameTablePages={setFrameTablePages}
+                    setPendingChartWebsiteByFrameId={setPendingChartWebsiteByFrameId}
+                    activeInsightPeriodLabel={activeInsightPeriodLabel}
+                    setWebsiteIframeRef={setWebsiteIframeRef}
+                    handleWebsiteFrameLoad={handleWebsiteFrameLoad}
+                    focusWebsiteTopListItem={focusWebsiteTopListItem}
+                    getDefaultFrameSize={getDefaultFrameSize}
+                    getHeadingFrameFontSize={getHeadingFrameFontSize}
+                    getHeadingFrameWidth={getHeadingFrameWidth}
+                    getHeadingFrameHeight={getHeadingFrameHeight}
+                    getFrameLockStatus={getFrameLockStatus}
+                    formatCanvasPathLabel={formatCanvasPathLabel}
+                    isImagePreviewUrl={isImagePreviewUrl}
+                    handleDragStart={handleDragStart}
+                    handleToggleInsightPanel={handleToggleInsightPanel}
+                    handleRefreshFrame={handleRefreshFrame}
+                    handleDuplicateWebsiteCard={handleDuplicateWebsiteCard}
+                    handleOpenEditDashboardModal={handleOpenEditDashboardModal}
+                    handleOpenEditWebsiteModal={handleOpenEditWebsiteModal}
+                    handleOpenEditImageModal={handleOpenEditImageModal}
+                    handleOpenEditIllustrationModal={handleOpenEditIllustrationModal}
+                    handleOpenEditIconModal={handleOpenEditIconModal}
+                    handleDuplicateIconCard={handleDuplicateIconCard}
+                    handleRotateIconFrame={handleRotateIconFrame}
+                    handleOpenEditFigureModal={handleOpenEditFigureModal}
+                    handleDuplicateFigureCard={handleDuplicateFigureCard}
+                    handleDuplicateSectionCard={handleDuplicateSectionCard}
+                    handleDuplicateStickyCard={handleDuplicateStickyCard}
+                    handleDuplicateTextCard={handleDuplicateTextCard}
+                    handleDuplicateHeadingCard={handleDuplicateHeadingCard}
+                    handleDuplicateDrawingCard={handleDuplicateDrawingCard}
+                    handleDuplicateImageCard={handleDuplicateImageCard}
+                    handleAdjustHeadingFontSize={handleAdjustHeadingFontSize}
+                    handleRotateIllustrationFrame={handleRotateIllustrationFrame}
+                    handleRotateFigureFrame={handleRotateFigureFrame}
+                    handleRotateDrawingFrame={handleRotateDrawingFrame}
+                    handleToggleSectionLayout={handleToggleSectionLayout}
+                    handleMoveFrameToSection={handleMoveFrameToSection}
+                    handleSetStickyColor={handleSetStickyColor}
+                    handleRequestRemoveFrame={handleRequestRemoveFrame}
+                    startConnectionDrag={startConnectionDrag}
+                    handleAssignWebsiteToChart={handleAssignWebsiteToChart}
+                    handleOpenEditChartModal={handleOpenEditChartModal}
+                    handleOpenDeleteChartModal={handleOpenDeleteChartModal}
+                    handleEditableFrameChange={handleEditableFrameChange}
+                    handleEditableFrameBlur={handleEditableFrameBlur}
+                    handleStartEditingFrame={handleStartEditingFrame}
+                    handleResizeStart={handleResizeStart}
+                    isDotVotingActive={isDotVotingActive}
+                    dotVotingTargetSectionId={activeDotVotingSectionFrame?.id ?? null}
+                    dotVotingTotalVotesByFrameId={dotVotingTotalVotesByFrameId}
+                    dotVotingMyVotesByFrameId={dotVotingMyVotesByFrameId}
+                    shouldRevealDotVotingTotals={shouldRevealDotVotingTotals}
+                    onVoteSticky={handleAddDotVote}
+                    onClearStickyVoteSnapshot={handleRequestClearStickyVoteSnapshot}
+                  />
+                </div>
               </div>
             </div>
           </main>
@@ -5134,6 +5374,15 @@ const Canvas = () => {
         }}
         onSubmitAddChart={() => void handleAddChartCard()}
         isSavingCanvasItem={isSavingCanvasItem}
+      />
+
+      <ChangeLogModal
+        open={isChangeLogModalOpen}
+        onClose={() => setIsChangeLogModalOpen(false)}
+        entries={visibleChangeLogEntries}
+        isLoading={isLoadingChangeLog}
+        error={changeLogError}
+        onRefresh={() => void loadCanvasChangeLog()}
       />
 
       <CanvasAdminModals

@@ -39,7 +39,7 @@ export const HEADING_FONT_SIZE_STEP = 2
 export const ICON_ROTATION_STEP_DEG = 15
 
 export const CANVAS_FIGURE_OPTIONS: CanvasFigureOption[] = [
-  { id: 'rectangle', label: 'Rektangel', Icon: Square },
+  { id: 'square', label: 'Kvadrat', Icon: Square },
   { id: 'circle', label: 'Sirkel', Icon: Circle },
   { id: 'line', label: 'Linje', Icon: Slash },
   { id: 'arrow', label: 'Pil', Icon: ArrowRight },
@@ -361,7 +361,7 @@ const isCanvasChartType = (value: unknown): value is CanvasChartType =>
   value === 'line' || value === 'bar' || value === 'pie' || value === 'table'
 
 const isCanvasFigureType = (value: unknown): value is CanvasFigureType =>
-  value === 'rectangle' || value === 'circle' || value === 'line' || value === 'arrow'
+  typeof value === 'string' && (value === 'square' || value === 'circle' || value === 'line' || value === 'arrow')
 
 const isCanvasSectionLayoutMode = (value: unknown): value is CanvasSectionLayoutMode =>
   value === 'freeform' || value === 'grid'
