@@ -4,6 +4,12 @@
    ===================================================== */
 :root {
   --app-max-width: none;
+  --inn-bg-white-soft: rgba(255, 255, 255, 0.6);
+}
+
+.dark,
+[data-theme='dark'] {
+  --inn-bg-white-soft: rgba(255, 255, 255, 0.08);
 }
 
 /* Override Page.Block's built-in max-width to allow full width */
