@@ -5,6 +5,7 @@ type CanvasAddActionMenuProps = {
   onAddWebsite: () => void
   onOpenGrafbygger: () => void
   onAddDashboard: () => void
+  onAddSqlEditor: () => void
   onAddHeading: () => void
   onAddText: () => void
   onAddTable: () => void
@@ -37,6 +38,7 @@ const CanvasAddActionMenu = ({
   onAddWebsite,
   onOpenGrafbygger,
   onAddDashboard,
+  onAddSqlEditor,
   onAddHeading,
   onAddText,
   onAddTable,
@@ -77,6 +79,7 @@ const CanvasAddActionMenu = ({
   const innblikkItems: MenuItemConfig[] = [
     { label: 'Nettside', onClick: onAddWebsite },
     { label: 'Graf', onClick: onOpenGrafbygger },
+    { label: 'SQL-editor', onClick: onAddSqlEditor },
     { label: 'Dashboard', onClick: onAddDashboard },
   ]
 

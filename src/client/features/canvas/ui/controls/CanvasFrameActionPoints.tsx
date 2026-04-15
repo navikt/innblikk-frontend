@@ -17,6 +17,7 @@ type CanvasFrameActionPointsProps = {
     | 'sticky'
     | 'section'
     | 'chart'
+    | 'sql-editor'
     | 'icon'
     | 'figure'
     | 'drawing'

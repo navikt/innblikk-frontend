@@ -158,6 +158,7 @@ const getDefaultFrameSize = (
   if (kind === 'image' && isIllustration) return { width: 420, height: 420, minWidth: 96, minHeight: 96 }
   if (kind === 'image') return { width: 420, height: 420, minWidth: 240, minHeight: 200 }
   if (kind === 'chart') return { width: 560, height: 360, minWidth: 280, minHeight: 200 }
+  if (kind === 'sql-editor') return { width: 680, height: 760, minWidth: 420, minHeight: 320 }
   if (kind === 'heading') return { width: 420, height: 72, minWidth: 260, minHeight: 48 }
   if (kind === 'text') return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
   if (kind === 'link') return { width: 380, height: 112, minWidth: 280, minHeight: 92 }
@@ -1117,6 +1118,7 @@ const Canvas = () => {
         imageRotationDeg: frame.imageRotationDeg,
         chartType: frame.chartType,
         chartSql: frame.chartSql,
+        sqlQuery: frame.sqlQuery,
         label: frame.label,
       }
       const serialized = serializeCanvasConfig(payload)
@@ -1542,6 +1544,7 @@ const Canvas = () => {
     handleOpenAddLinkModal,
     handleOpenAddStickyModal,
     handleOpenAddSection,
+    handleOpenAddSqlEditor,
     handleOpenAddImageModal,
     handleOpenAddIconModal,
     handleOpenAddFigureModal,
@@ -4228,6 +4231,12 @@ const Canvas = () => {
             textContent: nextValue,
           }
         }
+        if (frame.kind === 'sql-editor') {
+          return {
+            ...frame,
+            sqlQuery: nextValue,
+          }
+        }
         return frame
       }),
     )
@@ -4262,10 +4271,15 @@ const Canvas = () => {
         ...frame,
         label: normalizedLabel || getNextAutoSectionLabel(frames, frame.id),
       }
-    } else {
+    } else if (frame.kind === 'text' || frame.kind === 'sticky') {
       nextFrame = {
         ...frame,
         textContent: (frame.textContent || '').trim(),
+      }
+    } else {
+      nextFrame = {
+        ...frame,
+        sqlQuery: (frame.sqlQuery || '').trim(),
       }
     }
 
@@ -4282,7 +4296,11 @@ const Canvas = () => {
     const frame = frames.find((item) => item.id === id)
     if (
       !frame ||
-      (frame.kind !== 'heading' && frame.kind !== 'text' && frame.kind !== 'sticky' && frame.kind !== 'section')
+      (frame.kind !== 'heading' &&
+        frame.kind !== 'text' &&
+        frame.kind !== 'sticky' &&
+        frame.kind !== 'section' &&
+        frame.kind !== 'sql-editor')
     )
       return
 
@@ -5084,6 +5102,7 @@ const Canvas = () => {
           canvasInitMode={canvasInitMode}
           onOpenAddPage={handleOpenAddPageModal}
           onOpenAddDashboard={handleOpenAddDashboardModal}
+          onOpenAddSqlEditor={handleOpenAddSqlEditor}
           onOpenAddHeading={handleOpenAddHeadingModal}
           onOpenAddText={handleOpenAddTextModal}
           onOpenAddTable={handleOpenAddTableModal}
