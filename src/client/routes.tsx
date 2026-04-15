@@ -54,6 +54,7 @@ const Funnel = lazy(() => import('./features/funnel').then((m) => ({ default: m.
 
 // Retention Feature
 const Retention = lazy(() => import('./features/retention').then((m) => ({ default: m.Retention })))
+const GoalCompletion = lazy(() => import('./features/goalcompletion').then((m) => ({ default: m.GoalCompletion })))
 
 // SQL Feature
 const SqlEditor = lazy(() => import('./features/sql').then((m) => ({ default: m.SqlEditor })))
@@ -120,6 +121,7 @@ export const fullWidthPathPrefixes = [
   '/datastruktur',
   '/brukerprofiler',
   '/brukerlojalitet',
+  '/maloppnaelse',
   '/brukersammensetning',
   '/brukerreiser',
   '/hendelsesreiser',
@@ -157,6 +159,7 @@ export const routes: AppRoute[] = [
   { path: '/hendelsesreiser/visualisering', component: <EventJourneyClickmap />, fullWidth: true },
   { path: '/trakt', component: <Funnel />, fullWidth: true },
   { path: '/brukerlojalitet', component: <Retention />, fullWidth: true },
+  { path: '/maloppnaelse', component: <GoalCompletion />, fullWidth: true },
   { path: '/brukersammensetning', component: <UserComposition />, fullWidth: true },
   { path: '/brukerprofiler', component: <UserProfiles />, fullWidth: true },
   { path: '/utforsk-hendelser', component: <EventExplorer />, fullWidth: true },

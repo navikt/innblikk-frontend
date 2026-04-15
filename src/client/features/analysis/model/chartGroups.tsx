@@ -21,7 +21,7 @@ export const chartGroups: ChartGroup[] = [
   {
     title: 'Brukere',
     icon: <Users size={18} />,
-    ids: ['brukersammensetning', 'enkeltbrukere', 'brukerlojalitet'],
+    ids: ['brukersammensetning', 'enkeltbrukere', 'brukerlojalitet', 'maloppnaelse'],
   },
   {
     title: 'Innholdskvalitet',
@@ -46,7 +46,7 @@ export const chartGroupsOriginal: ChartGroupSimple[] = [
   },
   {
     title: 'Brukere & lojalitet',
-    ids: ['brukerprofiler', 'brukerlojalitet', 'brukersammensetning'],
+    ids: ['brukerprofiler', 'brukerlojalitet', 'maloppnaelse', 'brukersammensetning'],
   },
   {
     title: 'Innholdskvalitet',

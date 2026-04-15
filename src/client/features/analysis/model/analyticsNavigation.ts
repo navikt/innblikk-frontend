@@ -2,6 +2,7 @@ export type AnalyticsPage =
   | 'brukerreiser'
   | 'trakt'
   | 'brukerlojalitet'
+  | 'maloppnaelse'
   | 'grafbygger'
   | 'brukersammensetning'
   | 'event-explorer'
@@ -64,6 +65,12 @@ export const analyticsPages = [
     href: '/brukerlojalitet',
     label: 'Gjenbesøk',
     description: 'Se hvor mange som kommer tilbake',
+  },
+  {
+    id: 'maloppnaelse',
+    href: '/maloppnaelse',
+    label: 'Måloppnåelse',
+    description: 'Se hvor mange som fullfører fra start-URL til mål-URL',
   },
   {
     id: 'clickmap',
