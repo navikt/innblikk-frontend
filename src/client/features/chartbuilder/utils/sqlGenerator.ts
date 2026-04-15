@@ -301,7 +301,9 @@ export const generateSQLCore = (config: ChartConfig, filters: Filter[], paramete
   const fullWebsiteTable = `\`${projectId}.umami_views.event\``
   const fullSessionTable = `\`${projectId}.umami_views.session\``
 
-  const hasInteractiveFilters = filters.some((f) => f.interactive === true && f.metabaseParam === true)
+  const hasInteractiveFieldFilter = filters.some(
+    (f) => f.interactive === true && f.metabaseParam === true && f.column === 'created_at',
+  )
   const segmentDefinitions = config.segments || []
   const segmentFilters = segmentDefinitions.flatMap((segment) => segment.filters || [])
   const hasSegmentBreakdown =
@@ -314,7 +316,7 @@ export const generateSQLCore = (config: ChartConfig, filters: Filter[], paramete
   let websiteAlias, sessionAlias, tablePrefix
   let websiteRef, sessionRef
 
-  if (hasInteractiveFilters) {
+  if (hasInteractiveFieldFilter) {
     websiteAlias = fullWebsiteTable
     sessionAlias = fullSessionTable
     tablePrefix = `${fullWebsiteTable}.`
@@ -385,7 +387,7 @@ export const generateSQLCore = (config: ChartConfig, filters: Filter[], paramete
       sql += '    ,' + requiredSessionColumns.map((col) => `${sessionRef}.${col}`).join(',\n    ') + '\n'
     }
 
-    if (hasInteractiveFilters) {
+    if (hasInteractiveFieldFilter) {
       sql += `  FROM ${fullWebsiteTable}\n`
       sql += '  LEFT JOIN visit_counts vc\n'
       sql += `    ON ${fullWebsiteTable}.visit_id = vc.visit_id\n`
@@ -448,7 +450,7 @@ export const generateSQLCore = (config: ChartConfig, filters: Filter[], paramete
       sql += '    ,' + requiredSessionColumns.map((col) => `${sessionRef}.${col}`).join(',\n    ') + '\n'
     }
 
-    if (hasInteractiveFilters) {
+    if (hasInteractiveFieldFilter) {
       sql += `  FROM ${fullWebsiteTable}\n`
       sql += '  LEFT JOIN visit_metrics vm\n'
       sql += `    ON ${fullWebsiteTable}.visit_id = vm.visit_id\n`
@@ -471,7 +473,7 @@ export const generateSQLCore = (config: ChartConfig, filters: Filter[], paramete
     sql += 'WITH base_query AS (\n'
     sql += '  SELECT\n'
 
-    if (hasInteractiveFilters) {
+    if (hasInteractiveFieldFilter) {
       sql += `    ${fullWebsiteTable}.*`
 
       if (needsSessionJoin && requiredSessionColumns.length > 0) {
@@ -523,11 +525,9 @@ export const generateSQLCore = (config: ChartConfig, filters: Filter[], paramete
         if (filter.column === 'created_at') {
           sql += `  [[AND {{created_at}} ]]\n`
         } else {
-          const tableName = isSessionColumn(filter.column) && needsSessionJoin ? fullSessionTable : fullWebsiteTable
-
-          const paramName = filter.value.replace(/[{}]/g, '')
-
-          sql += `  AND ${tableName}.${filter.column} = {{${paramName}}}\n`
+          const tablePrefix2 = isSessionColumn(filter.column) && needsSessionJoin ? 's.' : 'e.'
+          const paramName = filter.value.replace(/[{}]/g, '').trim()
+          sql += `  AND ${tablePrefix2}${filter.column} = {{${paramName}}}\n`
         }
       } else if (filter.operator === 'IN' && filter.multipleValues && filter.multipleValues.length > 0) {
         const valueList = filter.multipleValues
@@ -542,7 +542,7 @@ export const generateSQLCore = (config: ChartConfig, filters: Filter[], paramete
           })
           .join(', ')
 
-        if (hasInteractiveFilters) {
+        if (hasInteractiveFieldFilter) {
           const tableName = isSessionColumn(filter.column) && needsSessionJoin ? fullSessionTable : fullWebsiteTable
           sql += `  AND ${tableName}.${filter.column} IN (${valueList})\n`
         } else {
@@ -550,7 +550,7 @@ export const generateSQLCore = (config: ChartConfig, filters: Filter[], paramete
           sql += `  AND ${prefix}${filter.column} IN (${valueList})\n`
         }
       } else if (filter.operator === 'IS NULL' || filter.operator === 'IS NOT NULL') {
-        if (hasInteractiveFilters) {
+        if (hasInteractiveFieldFilter) {
           const tableName = isSessionColumn(filter.column) && needsSessionJoin ? fullSessionTable : fullWebsiteTable
           sql += `  AND ${tableName}.${filter.column} ${filter.operator}\n`
         } else {
@@ -559,7 +559,7 @@ export const generateSQLCore = (config: ChartConfig, filters: Filter[], paramete
         }
       } else if (filter.value) {
         let tableRef
-        if (hasInteractiveFilters) {
+        if (hasInteractiveFieldFilter) {
           tableRef =
             isSessionColumn(filter.column) && needsSessionJoin ? `${fullSessionTable}.` : `${fullWebsiteTable}.`
         } else {

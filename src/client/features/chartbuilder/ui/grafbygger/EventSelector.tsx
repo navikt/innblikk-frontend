@@ -2,6 +2,8 @@ import { useState } from 'react'
 import {
   RadioGroup,
   Radio,
+  Checkbox,
+  CheckboxGroup,
   Select,
   UNSAFE_Combobox,
   Button,
@@ -158,11 +160,24 @@ const PageviewsEditor = ({
   OPERATORS,
 }: PageviewsEditorProps) => {
   const handleModeChange = (val: string) => {
-    const newMode = val as 'all' | 'specific' | 'interactive'
-    setPageViewsMode(newMode)
-    handlePathsChange([], 'IN')
-    if (newMode === 'interactive') {
+    const newMode = val as 'all' | 'specific'
+    if (newMode === 'all') {
+      // Default to interactive when switching back to "Hele nettstedet"
+      setPageViewsMode('interactive')
       handlePathsChange(['{{url_sti}}'], '=', true)
+    } else {
+      setPageViewsMode(newMode)
+      handlePathsChange([], 'IN')
+    }
+  }
+
+  const handleInteractiveToggle = (checked: boolean) => {
+    if (checked) {
+      setPageViewsMode('interactive')
+      handlePathsChange(['{{url_sti}}'], '=', true)
+    } else {
+      setPageViewsMode('all')
+      handlePathsChange([], 'IN')
     }
   }
 
@@ -196,14 +211,32 @@ const PageviewsEditor = ({
 
   return (
     <div className="space-y-3">
-      <RadioGroup legend="Sidevisninger" hideLegend value={pageViewsMode} onChange={handleModeChange} size="small">
-        <Radio value="interactive">Side velges via filter i dashboardet</Radio>
-        <Radio value="all">Hele nettsiden</Radio>
+      <RadioGroup
+        legend="Sidevisninger"
+        hideLegend
+        value={pageViewsMode === 'interactive' ? 'all' : pageViewsMode}
+        onChange={handleModeChange}
+        size="small"
+      >
+        <Radio value="all">Hele nettstedet</Radio>
+        {pageViewsMode !== 'specific' && (
+          <div className="filter-card-animate-in ml-6 pb-2">
+            <CheckboxGroup
+              legend="Filtervalg"
+              hideLegend
+              value={pageViewsMode === 'interactive' ? ['interactive'] : []}
+              onChange={(val) => handleInteractiveToggle(val.includes('interactive'))}
+              size="small"
+            >
+              <Checkbox value="interactive">Side kan overstyres av filter i dashboard</Checkbox>
+            </CheckboxGroup>
+          </div>
+        )}
         <Radio value="specific">Lås til bestemte sider</Radio>
       </RadioGroup>
 
       {pageViewsMode === 'specific' && (
-        <div className="space-y-3 pt-1">
+        <div className="filter-card-animate-in space-y-3 pt-1 ml-6 pb-2">
           <Select
             label="URL"
             value={urlPathOperator}
@@ -572,7 +605,6 @@ const CustomEventsEditor = ({
 interface EventTypeCardProps {
   eventType: EventTypeId
   onRemove: () => void
-  summary: string
   customEventsMode?: 'none' | 'all' | 'specific' | 'interactive'
   customEventsCount?: number
   editor: React.ReactNode
@@ -581,7 +613,6 @@ interface EventTypeCardProps {
 const EventTypeCard = ({
   eventType,
   onRemove,
-  summary,
   customEventsMode,
   customEventsCount = 0,
   editor,
@@ -594,7 +625,6 @@ const EventTypeCard = ({
       <div className="flex flex-wrap items-center gap-2">
         <div className="min-w-[170px]">
           <p className="text-sm font-semibold event-selector-title">{title}</p>
-          {summary && <p className="text-xs event-selector-summary">{summary}</p>}
         </div>
 
         {!isPageviews && customEventsMode === 'specific' && customEventsCount > 0 && (
@@ -906,21 +936,6 @@ const EventSelector = ({
     return column
   }
 
-  const pageviewsSummary: string = (() => {
-    if (pageViewsMode === 'interactive') return ''
-    if (pageViewsMode === 'all') return 'Standard: Hele nettsiden'
-    if (selectedPaths.length > 0) return `Låst til ${selectedPaths.length} side${selectedPaths.length === 1 ? '' : 'r'}`
-    return 'Låst til bestemte sider'
-  })()
-
-  const customEventsSummary: string = (() => {
-    if (customEventsMode === 'interactive') return 'Standard: Mottaker velger hendelse i dashboardet'
-    if (customEventsMode === 'all') return 'Standard: Alle hendelser'
-    if (customEvents.length > 0)
-      return `${customEvents.length} valgt${customEvents.length === 1 ? '' : 'e'} hendelse${customEvents.length === 1 ? '' : 'r'}`
-    return 'Velg hendelser'
-  })()
-
   const selectedEventTypeOrder = (['pageviews', 'custom_events'] as EventTypeId[]).filter((id) =>
     selectedEventTypes.includes(id),
   )
@@ -933,7 +948,6 @@ const EventSelector = ({
       {!showFilterPanelOnly &&
         selectedEventTypeOrder.map((eventType) => {
           const isPageviews = eventType === 'pageviews'
-          const summary = isPageviews ? pageviewsSummary : customEventsSummary
 
           const editor = isPageviews ? (
             <PageviewsEditor
@@ -974,7 +988,6 @@ const EventSelector = ({
               key={eventType}
               eventType={eventType}
               onRemove={() => removeEventType(eventType)}
-              summary={summary}
               customEventsMode={customEventsMode}
               customEventsCount={customEvents.length}
               editor={editor}
