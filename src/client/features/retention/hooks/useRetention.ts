@@ -27,6 +27,8 @@ export interface RetentionState {
   setUrlPath: (v: string) => void
   pathOperator: string
   setPathOperator: (v: string) => void
+  returnScope: 'same_url' | 'site'
+  setReturnScope: (v: 'same_url' | 'site') => void
   period: string
   setPeriod: (p: string) => void
   customStartDate: Date | undefined
@@ -67,10 +69,15 @@ export function useRetention(): RetentionState {
   const usesCookies = useCookieSupport(selectedWebsite?.domain)
   const cookieStartDate = useCookieStartDate(selectedWebsite?.domain)
   const [searchParams] = useSearchParams()
+  const retentionPeriodFromUrl = searchParams.get('retentionPeriod') || searchParams.get('period')
+  const returnScopeFromUrl = searchParams.get('retentionReturnScope')
 
   // Initialize state from URL params
   const [urlPath, setUrlPath] = useState<string>(() => searchParams.get('urlPath') || '')
   const [pathOperator, setPathOperator] = useState<string>(() => searchParams.get('pathOperator') || 'equals')
+  const [returnScope, setReturnScope] = useState<'same_url' | 'site'>(() =>
+    returnScopeFromUrl === 'site' ? 'site' : 'same_url',
+  )
   const [period, setPeriodState] = useState<string>(() => {
     const initial = getStoredPeriod(searchParams.get('retentionPeriod') || searchParams.get('period'))
     const validPeriods = ['current_month', 'last_month', 'custom']
@@ -93,12 +100,11 @@ export function useRetention(): RetentionState {
 
   useEffect(() => {
     if (!usesCookies) return
-    const requested = getStoredPeriod(searchParams.get('retentionPeriod') || searchParams.get('period'))
-    if (requested !== period) {
-      // Period sync from URL is intentional on mount
-      queueMicrotask(() => setPeriodState(requested))
-    }
-  }, [usesCookies, searchParams, period])
+    const requested = getStoredPeriod(retentionPeriodFromUrl)
+    queueMicrotask(() => {
+      setPeriodState((prev) => (prev === requested ? prev : requested))
+    })
+  }, [usesCookies, retentionPeriodFromUrl])
 
   // Custom dates from URL
   const fromDateFromUrl = searchParams.get('from')
@@ -117,6 +123,8 @@ export function useRetention(): RetentionState {
   const [activeTab, setActiveTab] = useState<string>('chart')
   const [hasAttemptedFetch, setHasAttemptedFetch] = useState<boolean>(false)
   const [queryStats, setQueryStats] = useState<QueryStats | null>(null)
+  const [sameDayReturningUsers, setSameDayReturningUsers] = useState<number>(0)
+  const [nonReturningUsers, setNonReturningUsers] = useState<number>(0)
   const [copySuccess, setCopySuccess] = useState<boolean>(false)
   const [hasAutoSubmitted, setHasAutoSubmitted] = useState<boolean>(false)
   const [lastAppliedFilterKey, setLastAppliedFilterKey] = useState<string | null>(null)
@@ -127,11 +135,12 @@ export function useRetention(): RetentionState {
         websiteId: selectedWebsite?.id ?? null,
         urlPath: normalizeUrlToPath(urlPath),
         pathOperator,
+        returnScope,
         period,
         customStartDate: customStartDate?.toISOString() ?? null,
         customEndDate: customEndDate?.toISOString() ?? null,
       }),
-    [selectedWebsite?.id, urlPath, pathOperator, period, customStartDate, customEndDate],
+    [selectedWebsite?.id, urlPath, pathOperator, returnScope, period, customStartDate, customEndDate],
   )
 
   const hasUnappliedFilterChanges = buildFilterKey() !== lastAppliedFilterKey
@@ -153,7 +162,10 @@ export function useRetention(): RetentionState {
   }, [cookieStartDate, dateRange])
 
   // Retention stats
-  const retentionStats = useMemo(() => computeRetentionStats(retentionData), [retentionData])
+  const retentionStats = useMemo(
+    () => computeRetentionStats(retentionData, sameDayReturningUsers, nonReturningUsers),
+    [retentionData, sameDayReturningUsers, nonReturningUsers],
+  )
 
   const isCurrentMonthData = useMemo(() => {
     if (period === 'current_month') return true
@@ -177,6 +189,8 @@ export function useRetention(): RetentionState {
     setError(null)
     setRetentionData([])
     setChartData(null)
+    setSameDayReturningUsers(0)
+    setNonReturningUsers(0)
     setHasAttemptedFetch(true)
 
     const range = getRetentionDateRange(usesCookies, period, customStartDate, customEndDate)
@@ -192,6 +206,7 @@ export function useRetention(): RetentionState {
       endDate: range.endDate,
       urlPath,
       pathOperator,
+      returnScope,
       usesCookies,
       cookieStartDate,
     })
@@ -202,10 +217,12 @@ export function useRetention(): RetentionState {
       setRetentionData(result.data)
       setChartData(buildChartData(result.data))
       setQueryStats(result.queryStats)
+      setSameDayReturningUsers(result.sameDayReturningUsers ?? 0)
+      setNonReturningUsers(result.nonReturningUsers ?? 0)
 
       // Update URL with configuration for sharing
       const normalizedUrl = normalizeUrlToPath(urlPath)
-      const newParams = buildShareParams(period, normalizedUrl, pathOperator)
+      const newParams = buildShareParams(period, normalizedUrl, pathOperator, returnScope)
       window.history.replaceState({}, '', `${window.location.pathname}?${newParams.toString()}`)
       setLastAppliedFilterKey(appliedFilterKey)
     }
@@ -216,6 +233,7 @@ export function useRetention(): RetentionState {
     buildFilterKey,
     urlPath,
     pathOperator,
+    returnScope,
     period,
     customStartDate,
     customEndDate,
@@ -253,6 +271,8 @@ export function useRetention(): RetentionState {
     setUrlPath,
     pathOperator,
     setPathOperator,
+    returnScope,
+    setReturnScope,
     period,
     setPeriod,
     customStartDate,

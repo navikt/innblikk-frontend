@@ -24,6 +24,8 @@ const Retention = () => {
     setUrlPath,
     pathOperator,
     setPathOperator,
+    returnScope,
+    setReturnScope,
     period,
     setPeriod,
     customStartDate,
@@ -51,11 +53,15 @@ const Retention = () => {
   const [showTableSection, setShowTableSection] = useState(false)
   const [showAddToDashboardDialog, setShowAddToDashboardDialog] = useState(false)
   const [showTransferToMetabaseDialog, setShowTransferToMetabaseDialog] = useState(false)
+  const description =
+    urlPath && returnScope === 'same_url'
+      ? 'Se hvor mange som kommer tilbake etter sitt første besøk på valgt URL.'
+      : 'Se hvor mange som kommer tilbake etter sitt første besøk på nettstedet.'
 
   return (
     <ChartLayout
       title="Gjenbesøk"
-      description="Se hvor mange som kommer tilbake etter sitt første besøk."
+      description={description}
       currentPage="brukerlojalitet"
       websiteDomain={selectedWebsite?.domain}
       websiteName={selectedWebsite?.name}
@@ -82,6 +88,17 @@ const Retention = () => {
             onEndDateChange={setCustomEndDate}
             showShortPeriods={usesCookies}
           />
+
+          <div className="flex items-end pb-[2px]">
+            <Switch
+              checked={Boolean(urlPath) && returnScope === 'same_url'}
+              onChange={(e) => setReturnScope(e.target.checked ? 'same_url' : 'site')}
+              size="small"
+              disabled={!urlPath}
+            >
+              Retur på samme URL
+            </Switch>
+          </div>
 
           <div className="flex items-end pb-[2px]">
             <Button

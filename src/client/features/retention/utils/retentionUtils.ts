@@ -81,7 +81,11 @@ export function buildChartData(data: RetentionRow[]): ILineChartProps {
 /**
  * Compute retention summary stats from the data.
  */
-export function computeRetentionStats(data: RetentionRow[]): RetentionStats | null {
+export function computeRetentionStats(
+  data: RetentionRow[],
+  sameDayReturningUsers = 0,
+  nonReturningUsers = 0,
+): RetentionStats | null {
   if (!data || data.length === 0) return null
 
   const returningData = data.filter((item) => item.day > 0)
@@ -94,7 +98,7 @@ export function computeRetentionStats(data: RetentionRow[]): RetentionStats | nu
   const day7 = data.find((item) => item.day === 7)
   const lastDay = returningData[returningData.length - 1]
 
-  return { baseline, day1, day7, lastDay }
+  return { baseline, sameDayReturningUsers, nonReturningUsers, day1, day7, lastDay }
 }
 
 /**
@@ -127,9 +131,15 @@ export function downloadRetentionCSV(data: RetentionRow[], websiteName?: string)
 /**
  * Build share URL params for the retention analysis.
  */
-export function buildShareParams(period: string, urlPath: string, pathOperator: string): URLSearchParams {
+export function buildShareParams(
+  period: string,
+  urlPath: string,
+  pathOperator: string,
+  returnScope: 'same_url' | 'site',
+): URLSearchParams {
   const newParams = new URLSearchParams(window.location.search)
   newParams.set('retentionPeriod', period)
+  newParams.set('retentionReturnScope', returnScope)
   newParams.delete('period')
   if (urlPath) {
     newParams.set('urlPath', urlPath)

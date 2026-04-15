@@ -8,8 +8,17 @@ export function createRetentionRoutes({ bigquery, GCP_PROJECT_ID }) {
   // Get retention data from BigQuery
   router.post('/api/bigquery/retention', async (req, res) => {
     try {
-      const { websiteId, startDate, endDate, urlPath, pathOperator, businessDaysOnly, countBy, countBySwitchAt } =
-        req.body
+      const {
+        websiteId,
+        startDate,
+        endDate,
+        urlPath,
+        pathOperator,
+        returnScope,
+        businessDaysOnly,
+        countBy,
+        countBySwitchAt,
+      } = req.body
       const navIdent = getNavIdent(req)
 
       if (!requireBigQuery(bigquery, res)) return
@@ -18,7 +27,10 @@ export function createRetentionRoutes({ bigquery, GCP_PROJECT_ID }) {
       const hasCountBySwitchAt = Number.isFinite(countBySwitchAtMs)
       const useDistinctId = countBy === 'distinct_id'
       const useSwitch = useDistinctId && hasCountBySwitchAt
+      const useSameUrlReturnScope = returnScope !== 'site'
       const col = useDistinctId ? 'e.' : ''
+      const urlMatchCondition =
+        pathOperator === 'starts-with' ? 'LOWER(url_path_clean) LIKE @urlPathPattern' : 'url_path_clean = @urlPath'
       const fromClause = useDistinctId
         ? `\`${GCP_PROJECT_ID}.umami.public_website_event\` e LEFT JOIN \`${GCP_PROJECT_ID}.umami_views.session\` s ON e.session_id = s.session_id`
         : `\`${GCP_PROJECT_ID}.umami.public_website_event\``
@@ -56,22 +68,21 @@ export function createRetentionRoutes({ bigquery, GCP_PROJECT_ID }) {
             urlPath
               ? `
           filtered_sessions AS (
-              SELECT DISTINCT
+              SELECT
                   user_id,
-                  event_date AS first_seen_date
+                  MIN(created_at) AS first_seen_at,
+                  DATE(MIN(created_at), 'Europe/Oslo') AS first_seen_date
               FROM base
-              WHERE ${
-                pathOperator === 'starts-with'
-                  ? 'LOWER(url_path_clean) LIKE @urlPathPattern'
-                  : 'url_path_clean = @urlPath'
-              }
+              WHERE ${urlMatchCondition}
+              GROUP BY user_id
           ),
           `
               : `
           filtered_sessions AS (
               SELECT
                   user_id,
-                  MIN(event_date) AS first_seen_date
+                  MIN(created_at) AS first_seen_at,
+                  DATE(MIN(created_at), 'Europe/Oslo') AS first_seen_date
               FROM base
               GROUP BY user_id
           ),
@@ -82,7 +93,15 @@ export function createRetentionRoutes({ bigquery, GCP_PROJECT_ID }) {
                   user_id,
                   event_date AS activity_date
               FROM base
-              ${businessDaysOnly ? `WHERE EXTRACT(DAYOFWEEK FROM event_date) NOT IN (1, 7)` : ''}
+              ${
+                urlPath && useSameUrlReturnScope
+                  ? businessDaysOnly
+                    ? `WHERE ${urlMatchCondition} AND EXTRACT(DAYOFWEEK FROM event_date) NOT IN (1, 7)`
+                    : `WHERE ${urlMatchCondition}`
+                  : businessDaysOnly
+                    ? `WHERE EXTRACT(DAYOFWEEK FROM event_date) NOT IN (1, 7)`
+                    : ''
+              }
           ),
           retention_base AS (
               SELECT
@@ -106,13 +125,37 @@ export function createRetentionRoutes({ bigquery, GCP_PROJECT_ID }) {
           user_counts AS (
               SELECT COUNT(DISTINCT user_id) AS total_users
               FROM filtered_sessions
+          ),
+          returned_users AS (
+              SELECT COUNT(DISTINCT user_id) AS returned_users
+              FROM retention_base
+              WHERE day_diff > 0
+          ),
+          non_returning AS (
+              SELECT
+                  GREATEST(u.total_users - IFNULL(r.returned_users, 0), 0) AS non_returning_users
+              FROM user_counts u
+              CROSS JOIN returned_users r
+          ),
+          same_day_returning AS (
+              SELECT COUNT(DISTINCT f.user_id) AS same_day_returning_users
+              FROM filtered_sessions f
+              JOIN base b
+                ON b.user_id = f.user_id
+              WHERE DATE(b.created_at, 'Europe/Oslo') = f.first_seen_date
+                AND b.created_at > f.first_seen_at
+                ${urlPath && useSameUrlReturnScope ? `AND ${urlMatchCondition}` : ''}
           )
           SELECT
               rc.day_diff AS day,
               rc.returning_users,
-              u.total_users
+              u.total_users,
+              s.same_day_returning_users,
+              n.non_returning_users
           FROM retention_counts rc
           CROSS JOIN user_counts u
+          CROSS JOIN same_day_returning s
+          CROSS JOIN non_returning n
           ORDER BY rc.day_diff
       `
 
@@ -168,11 +211,17 @@ export function createRetentionRoutes({ bigquery, GCP_PROJECT_ID }) {
 
       const data = rows.map((row) => {
         const count = parseInt(row.returning_users)
-        const percentage = day0Count > 0 ? Math.round((count / day0Count) * 100) : 0
+        const percentage = day0Count > 0 ? Number(((count / day0Count) * 100).toFixed(1)) : 0
         return { day: row.day, returning_users: count, percentage }
       })
 
-      res.json({ data, queryStats })
+      const sameDayReturningUsers =
+        rows.length > 0 && rows[0].same_day_returning_users != null ? parseInt(rows[0].same_day_returning_users) : 0
+
+      const nonReturningUsers =
+        rows.length > 0 && rows[0].non_returning_users != null ? parseInt(rows[0].non_returning_users) : 0
+
+      res.json({ data, queryStats, sameDayReturningUsers, nonReturningUsers })
     } catch (error) {
       console.error('BigQuery retention error:', error)
       res.status(500).json({
