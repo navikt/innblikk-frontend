@@ -41,6 +41,8 @@ const formatEntryName = (entry: ChangeLogEntry): string => {
   if (!name) return '-'
   if (name.startsWith('canvas:heading:')) return 'Overskrift'
   if (name.startsWith('canvas:text:')) return 'Tekst'
+  if (name.startsWith('canvas:table:')) return 'Tabell'
+  if (name.startsWith('canvas:link:')) return 'Lenke'
   if (name.startsWith('canvas:sticky:')) return 'Sticky note'
   if (name.startsWith('canvas:section:')) return 'Seksjon'
   if (name.startsWith('canvas:image:')) return 'Bilde'

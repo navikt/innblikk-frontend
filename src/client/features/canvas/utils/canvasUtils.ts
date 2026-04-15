@@ -329,7 +329,9 @@ export const serializeCanvasConfig = (frame: CanvasConfigPayload): string => {
 }
 
 export const buildCanvasStorageGraphName = (frame: CanvasFrame): string =>
-  `canvas:${frame.kind}:${frame.id}`.slice(0, 200)
+  `canvas:${
+    frame.kind === 'text' && Array.isArray(frame.tableHeaders) && frame.tableHeaders.length > 0 ? 'table' : frame.kind
+  }:${frame.id}`.slice(0, 200)
 export const buildCanvasConnectionStorageGraphName = (connection: CanvasConnection): string =>
   `canvas:connection:${connection.id}`.slice(0, 200)
 
