@@ -25,12 +25,19 @@ const formatRemainingTime = (remainingSeconds: number): string => {
 
 type UseCanvasDotVotingSyncParams = {
   enabled: boolean
+  enableIdlePolling?: boolean
   projectId: number | null
   dashboardId: number | null
   onSyncError?: (message: string) => void
 }
 
-const useCanvasDotVotingSync = ({ enabled, projectId, dashboardId, onSyncError }: UseCanvasDotVotingSyncParams) => {
+const useCanvasDotVotingSync = ({
+  enabled,
+  enableIdlePolling = true,
+  projectId,
+  dashboardId,
+  onSyncError,
+}: UseCanvasDotVotingSyncParams) => {
   const [sessionPayload, setSessionPayload] = useState<CanvasDotVotingSessionPayload | null>(null)
   const [ballots, setBallots] = useState<CanvasDotVotingBallotPayload[]>([])
   const [ownerId, setOwnerId] = useState('')
@@ -107,6 +114,7 @@ const useCanvasDotVotingSync = ({ enabled, projectId, dashboardId, onSyncError }
 
   useEffect(() => {
     if (!enabled || projectId === null || dashboardId === null) return
+    if (!sessionPayload && !enableIdlePolling) return
 
     const intervalId = window.setInterval(
       () => {
@@ -116,7 +124,7 @@ const useCanvasDotVotingSync = ({ enabled, projectId, dashboardId, onSyncError }
     )
 
     return () => window.clearInterval(intervalId)
-  }, [dashboardId, enabled, projectId, sessionPayload, syncVoting])
+  }, [dashboardId, enableIdlePolling, enabled, projectId, sessionPayload, syncVoting])
 
   const remainingSeconds = useMemo(() => {
     if (!sessionPayload) return 0

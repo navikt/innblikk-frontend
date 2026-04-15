@@ -588,6 +588,15 @@ const Canvas = () => {
     skipNextGridSectionPersistRef.current = true
   }, [])
 
+  const canvasSyncContextEnabled =
+    canPersistToDashboard && projectId !== null && dashboardId !== null && canvasInitMode === 'existing'
+  const { activeParticipantCount, activeOtherParticipantCount, shouldEnableBackgroundSync, participantLabels } =
+    useCanvasPresence({
+      enabled: canvasSyncContextEnabled,
+      projectId,
+      dashboardId,
+    })
+
   const {
     timerLabel,
     remainingSeconds,
@@ -601,7 +610,7 @@ const Canvas = () => {
     adjustTimerMinutes,
     refreshTimer,
   } = useCanvasTimerSync({
-    enabled: canPersistToDashboard && projectId !== null && dashboardId !== null && canvasInitMode === 'existing',
+    enabled: canvasSyncContextEnabled,
     projectId,
     dashboardId,
     onSyncError: handleCanvasSyncError,
@@ -627,7 +636,8 @@ const Canvas = () => {
     removeVote,
     refreshVoting,
   } = useCanvasDotVotingSync({
-    enabled: canPersistToDashboard && projectId !== null && dashboardId !== null && canvasInitMode === 'existing',
+    enabled: canvasSyncContextEnabled,
+    enableIdlePolling: shouldEnableBackgroundSync,
     projectId,
     dashboardId,
     onSyncError: handleCanvasSyncError,
@@ -636,15 +646,6 @@ const Canvas = () => {
   const shouldRevealDotVotingTotals =
     Boolean(dotVotingSessionPayload) &&
     (dotVotingSessionPayload?.status === 'ended' || (!isDotVotingRunning && !isDotVotingPaused))
-
-  const canvasSyncContextEnabled =
-    canPersistToDashboard && projectId !== null && dashboardId !== null && canvasInitMode === 'existing'
-  const { activeParticipantCount, activeOtherParticipantCount, shouldEnableBackgroundSync, participantLabels } =
-    useCanvasPresence({
-      enabled: canvasSyncContextEnabled,
-      projectId,
-      dashboardId,
-    })
 
   const activeInsightPeriodLabel = useMemo(
     () => getCanvasPeriodLabel(period, customStartDate, customEndDate),
