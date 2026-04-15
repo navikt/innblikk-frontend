@@ -359,6 +359,8 @@ const CanvasFrameLayer = ({
           const stickyMyVotes = frame.kind === 'sticky' ? (dotVotingMyVotesByFrameId[frame.id] ?? 0) : 0
           const stickyFinalVoteCount =
             frame.kind === 'sticky' && Number.isFinite(frame.finalVoteCount) ? Number(frame.finalVoteCount) : null
+          const sectionItemCount = sectionItemCountsById[frame.id] ?? 0
+          const shouldShowSectionItemCount = frame.kind === 'section' && sectionItemCount >= 8
           return (
             <article
               key={frame.id}
@@ -368,7 +370,7 @@ const CanvasFrameLayer = ({
                 frame.kind === 'section'
                   ? `${frame.label || 'Seksjon'}. Oppsett ${
                       frame.sectionLayout === 'grid' ? 'rutenett' : 'friform'
-                    }. Inneholder ${sectionItemCountsById[frame.id] ?? 0} elementer.`
+                    }${shouldShowSectionItemCount ? `. ${sectionItemCount} elementer.` : '.'}`
                   : undefined
               }
               className={`focus:outline-none transition-opacity ${
@@ -1000,9 +1002,9 @@ const CanvasFrameLayer = ({
                         <span className="block truncate">{frame.label || 'Seksjon'}</span>
                       </button>
                     )}
-                    <p className="text-xs text-[var(--ax-text-subtle)]">
-                      Inneholder {sectionItemCountsById[frame.id] ?? 0} elementer.
-                    </p>
+                    {shouldShowSectionItemCount && (
+                      <p className="text-xs text-[var(--ax-text-subtle)]">{sectionItemCount} elementer.</p>
+                    )}
                   </div>
                 ) : (
                   <div className="flex h-full items-center justify-center px-6 text-center text-sm text-[var(--ax-text-subtle)]">
