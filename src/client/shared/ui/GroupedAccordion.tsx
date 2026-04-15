@@ -1,8 +1,9 @@
 /**
  * GroupedAccordion
  *
- * Replaces GroupedCombobox. Renders an Aksel Accordion where each OptionGroup
- * becomes one Accordion.Item, and the options inside are rendered as Checkboxes.
+ * Wraps Aksel Accordion with the project's standard sidebar styling
+ * (bg-white-soft background, rounded corners, overflow clip) and adds
+ * support for controlled open state + per-item extra content slots.
  *
  * ─── Flat usage (no groups) ─────────────────────────────────────────────────
  *   <GroupedAccordion
@@ -12,16 +13,40 @@
  *     onToggleSelected={handleToggle}
  *   />
  *
- *   This wraps all options in a single Accordion.Item labelled by `label`.
- *
  * ─── Grouped usage ──────────────────────────────────────────────────────────
  *   <GroupedAccordion
  *     groups={[
  *       { key: 'dato', label: 'Dato', options: [...] },
- *       { key: 'hendelser', label: 'Hendelser', options: [], emptyPlaceholder: 'Hent hendelsesdetaljer' },
+ *       {
+ *         key: 'hendelser',
+ *         label: 'Hendelser',
+ *         options: [],
+ *         emptyPlaceholder: 'Hent hendelsesdetaljer',
+ *       },
  *     ]}
  *     selectedOptions={groupByFields}
  *     onToggleSelected={handleToggle}
+ *   />
+ *
+ * ─── Controlled open state ──────────────────────────────────────────────────
+ *   <GroupedAccordion
+ *     groups={groups}
+ *     openItems={openAccordions}
+ *     onOpenChange={(key, open) =>
+ *       setOpenAccordions((prev) => ({ ...prev, [key]: open }))
+ *     }
+ *     selectedOptions={selected}
+ *     onToggleSelected={handleToggle}
+ *   />
+ *
+ * ─── Extra content inside an item (e.g. search field) ───────────────────────
+ *   <GroupedAccordion
+ *     groups={groups}
+ *     selectedOptions={selected}
+ *     onToggleSelected={handleToggle}
+ *     renderItemContent={(key) =>
+ *       key === 'hendelsesdetaljer' ? <SearchField /> : null
+ *     }
  *   />
  */
 
@@ -70,6 +95,23 @@ interface GroupedAccordionProps {
   /** Called when the user toggles a checkbox */
   onToggleSelected: (value: string, isSelected: boolean) => void
 
+  /**
+   * Controlled open state keyed by group key.
+   * When provided, the accordion items are fully controlled.
+   */
+  openItems?: Record<string, boolean>
+
+  /**
+   * Called when an item is opened or closed (controlled mode).
+   */
+  onOpenChange?: (key: string, open: boolean) => void
+
+  /**
+   * Render extra content at the top of an item's content area (before the option list).
+   * Return null/undefined to render nothing for that item.
+   */
+  renderItemContent?: (key: string) => React.ReactNode
+
   /** Aksel Accordion size */
   size?: 'large' | 'medium' | 'small'
 
@@ -83,6 +125,9 @@ export function GroupedAccordion({
   groups,
   selectedOptions,
   onToggleSelected,
+  openItems,
+  onOpenChange,
+  renderItemContent,
   size = 'small',
   indent = false,
 }: GroupedAccordionProps) {
@@ -92,17 +137,30 @@ export function GroupedAccordion({
     : [{ key: '__flat__', label: label ?? '', options: options ?? [] }]
 
   return (
-    <Accordion size={size} indent={indent} className={styles.accordion}>
+    <Accordion
+      size={size}
+      indent={indent}
+      className={`${styles.accordion} bg-(--inn-bg-white-soft) rounded-(--ax-radius-8) overflow-hidden border border-(--ax-border-neutral-subtleA)`}
+    >
       {resolvedGroups.map((group) => {
         // Count how many options in this group are selected
         const selectedCount = group.options.filter((o) => selectedOptions.includes(o.value)).length
-
         const headerLabel = selectedCount > 0 ? `${group.label} (${selectedCount})` : group.label
 
+        // Controlled vs uncontrolled open state
+        const itemProps =
+          openItems !== undefined && onOpenChange
+            ? {
+                open: openItems[group.key] ?? false,
+                onOpenChange: (open: boolean) => onOpenChange(group.key, open),
+              }
+            : { defaultOpen: false }
+
         return (
-          <Accordion.Item key={group.key} defaultOpen>
+          <Accordion.Item key={group.key} {...itemProps}>
             <Accordion.Header>{headerLabel}</Accordion.Header>
             <Accordion.Content>
+              {renderItemContent?.(group.key)}
               {group.options.length === 0 && group.emptyPlaceholder ? (
                 <p className={styles.emptyPlaceholder}>{group.emptyPlaceholder}</p>
               ) : (

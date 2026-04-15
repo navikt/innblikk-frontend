@@ -3,6 +3,7 @@ import { MoveUp, MoveDown } from 'lucide-react'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import type { Parameter, DateFormat, ColumnGroup, Filter } from '../../../../shared/types/chart.ts'
 import AlertWithCloseButton from './AlertWithCloseButton.tsx' // Import AlertWithCloseButton
+import accordionStyles from '../../../../shared/ui/GroupedAccordion.module.css'
 
 interface GroupingOptionsProps {
   groupByFields: string[]
@@ -289,7 +290,11 @@ const GroupingOptions = ({
         <div className="space-y-4 mb-3">
           <div>
             <div>
-              <Accordion size="small" indent={false}>
+              <Accordion
+                size="small"
+                indent={false}
+                className={`${accordionStyles.accordion} bg-(--inn-bg-white-soft) rounded-(--ax-radius-8) overflow-hidden border border-(--ax-border-neutral-subtleA)`}
+              >
                 {comboboxGroups.map((group) => {
                   const selectedInGroup = group.options.filter((o) => groupByFields.includes(o.value)).length
                   return (

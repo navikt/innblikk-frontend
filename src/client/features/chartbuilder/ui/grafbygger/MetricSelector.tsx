@@ -1,6 +1,7 @@
 import { Accordion, Checkbox } from '@navikt/ds-react'
 import { useState, useEffect, forwardRef, useImperativeHandle, useMemo } from 'react'
 import type { Metric, MetricOption, Filter } from '../../../../shared/types/chart.ts'
+import accordionStyles from '../../../../shared/ui/GroupedAccordion.module.css'
 
 interface SummarizeProps {
   metrics: Metric[]
@@ -262,7 +263,11 @@ const MetricSelector = forwardRef(({ metrics, METRICS, removeMetric, addMetric, 
         <div>
           <div className="space-y-4 mb-3">
             <div>
-              <Accordion size="small" indent={false}>
+              <Accordion
+                size="small"
+                indent={false}
+                className={`${accordionStyles.accordion} bg-(--inn-bg-white-soft) rounded-(--ax-radius-8) overflow-hidden border border-(--ax-border-neutral-subtleA)`}
+              >
                 {comboboxGroups.map((group) => {
                   const selectedInGroup = group.options.filter((o) =>
                     selectedDropdownOptions.some((s) => s.id === o.value),

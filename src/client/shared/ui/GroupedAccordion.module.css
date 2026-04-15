@@ -1,5 +1,22 @@
 .accordion {
   /* Slightly tighter than default so it fits inside sidepanels */
+
+  /* The outer border replaces the top line of the first item and the
+     bottom line of the last item — hide the pseudo-element lines there
+     so they don't double up against our wrapper border. */
+  &:global(.aksel-accordion) > :global(.aksel-accordion__item):first-child > :global(.aksel-accordion__header)::before {
+    display: none;
+  }
+
+  &:global(.aksel-accordion) > :global(.aksel-accordion__item):last-child > :global(.aksel-accordion__header)::after {
+    display: none;
+  }
+
+  /* When the last item is expanded Aksel adds a border-bottom on the item
+     itself — suppress it since our wrapper border already covers that edge. */
+  &:global(.aksel-accordion) > :global(.aksel-accordion__item):last-child[data-expanded='true'] {
+    border-bottom: none;
+  }
 }
 
 .optionList {
