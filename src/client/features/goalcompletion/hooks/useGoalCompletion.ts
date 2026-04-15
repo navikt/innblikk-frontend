@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import type { ILineChartProps } from '@fluentui/react-charting'
 import { parseISO } from 'date-fns'
@@ -53,6 +53,7 @@ export function useGoalCompletion(): GoalCompletionState {
   const usesCookies = useCookieSupport(selectedWebsite?.domain)
   const cookieStartDate = useCookieStartDate(selectedWebsite?.domain)
   const [searchParams] = useSearchParams()
+  const goalPeriodFromUrl = searchParams.get('goalPeriod') || searchParams.get('period')
 
   const [startUrl, setStartUrl] = useState<string>(() => searchParams.get('startUrl') || '')
   const [startPathOperator, setStartPathOperator] = useState<string>(
@@ -64,10 +65,18 @@ export function useGoalCompletion(): GoalCompletionState {
   )
 
   const [period, setPeriod] = useState<string>(() => {
-    const initial = getStoredPeriod(searchParams.get('goalPeriod') || searchParams.get('period'))
+    const initial = getStoredPeriod(goalPeriodFromUrl)
     const validPeriods = ['current_month', 'last_month', 'custom']
     return validPeriods.includes(initial) ? initial : 'last_month'
   })
+
+  useEffect(() => {
+    if (!usesCookies) return
+    const requested = getStoredPeriod(goalPeriodFromUrl)
+    queueMicrotask(() => {
+      setPeriod((prev) => (prev === requested ? prev : requested))
+    })
+  }, [usesCookies, goalPeriodFromUrl])
 
   const fromDateFromUrl = searchParams.get('from')
   const toDateFromUrl = searchParams.get('to')
