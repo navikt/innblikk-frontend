@@ -1,4 +1,5 @@
 name: 'Check for newer image versions'
+run-name: 'Digestabot @ ${{ github.ref_name }} — ${{ github.sha }}'
 
 on:
   workflow_dispatch:

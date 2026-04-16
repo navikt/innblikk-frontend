@@ -1,5 +1,5 @@
 name: 'Deploy Prod (Manual)'
-run-name: 'Deploy Prod (Latest Dev)'
+run-name: 'Deploy Prod (Manual) @ ${{ github.ref_name }} — ${{ github.sha }}'
 
 on:
   workflow_dispatch:

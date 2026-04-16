@@ -1,3 +1,4 @@
+/* global VM */
 // ==UserScript==
 // @name        bigger sidebar for loop cloud.microsoft
 // @namespace   Violentmonkey Scripts
