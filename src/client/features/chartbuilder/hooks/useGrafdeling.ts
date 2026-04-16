@@ -8,12 +8,15 @@ import { applyUrlFiltersToSql, extractWebsiteId } from '../utils/sqlFilters.ts'
 export function useGrafdeling() {
   const [searchParams] = useSearchParams()
   const [query, setQuery] = useState('')
-  const [result, setResult] = useState<any>(null)
+  const [result, setResult] = useState<{
+    data: Record<string, unknown>[]
+    queryStats?: Record<string, unknown>
+  } | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [description, setDescription] = useState<string>('')
   const [dashboardTitle, setDashboardTitle] = useState<string>('')
-  const [queryStats, setQueryStats] = useState<any>(null)
+  const [queryStats, setQueryStats] = useState<Record<string, unknown> | null>(null)
   const [lastProcessedSql, setLastProcessedSql] = useState<string>('')
 
   // Filter states
