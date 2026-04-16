@@ -272,17 +272,16 @@ const WebsitePicker = ({
         const endAt = calculatedEndDate.getTime()
 
         // Fetch BOTH query types to get both estimates
-        const propertiesResponse = await Promise.race([
+        const propertiesResponse = (await Promise.race([
           fetch(
             `${apiBase}/websites/${websiteId}/event-properties?startAt=${startAt}&endAt=${endAt}&includeParams=${includeParams}`,
           ),
           timeoutPromise(API_TIMEOUT_MS),
-        ])
-        // @ts-expect-error — Promise.race return type is overly broad
-        const responseData = await propertiesResponse.json()
+        ])) as Response
+        const responseData = (await propertiesResponse.json()) as { properties?: EventProperty[] }
 
         // Extract properties and GB processed from response
-        const properties: EventProperty[] = responseData.properties || []
+        const properties: EventProperty[] = responseData.properties ?? []
 
         /* if (gbProcessedValue) {
         setGbProcessed(gbProcessedValue);
@@ -334,7 +333,7 @@ const WebsitePicker = ({
         fetchInProgress.current[websiteId] = false
       }
     },
-    [onEventsLoad, setMaxDaysAvailable, handleLoadingState, includeParams],
+    [onEventsLoad, setMaxDaysAvailable, handleLoadingState, includeParams, dateRangeInDays],
   )
 
   // Load websites on mount

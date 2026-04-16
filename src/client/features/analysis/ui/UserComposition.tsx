@@ -131,7 +131,7 @@ const UserComposition = () => {
 
       if (!response.ok) throw new Error('Kunne ikke hente data')
 
-      const result: CompositionApiResponse = await response.json()
+      const result = (await response.json()) as CompositionApiResponse
 
       if ('error' in result) {
         setError(result.error)
