@@ -27,6 +27,7 @@ export const CANVAS_PERIOD_TOKEN_REGEX = /\[period:([^\]]+)\]/i
 export const CANVAS_CUSTOM_START_DATE_TOKEN_REGEX = /\[customStartDate:([^\]]+)\]/i
 export const CANVAS_CUSTOM_END_DATE_TOKEN_REGEX = /\[customEndDate:([^\]]+)\]/i
 export const CANVAS_HIDE_DATE_FILTER_TOKEN_REGEX = /\[hideDateFilter:(true|false)\]/i
+export const CANVAS_LOCKED_TOKEN_REGEX = /\[canvasLocked:(true|false)\]/i
 export const CANVAS_QUERY_NAME = 'canvas-config'
 export const CANVAS_SURFACE_WIDTH = 2200
 export const CANVAS_SURFACE_HEIGHT = 1500
@@ -140,6 +141,12 @@ export const extractCanvasHideDateFilterFromDescription = (description?: string)
   return value === 'true'
 }
 
+export const extractCanvasLockedFromDescription = (description?: string): boolean => {
+  if (!description) return false
+  const value = description.match(CANVAS_LOCKED_TOKEN_REGEX)?.[1]?.trim().toLowerCase()
+  return value === 'true'
+}
+
 export const buildCanvasDashboardDescription = (
   description: string | undefined,
   websiteId?: string,
@@ -147,7 +154,9 @@ export const buildCanvasDashboardDescription = (
   customStartDate?: Date,
   customEndDate?: Date,
   hideDateFilter?: boolean,
+  canvasLocked?: boolean,
 ): string => {
+  const existingCanvasLocked = extractCanvasLockedFromDescription(description)
   const withoutCanvasToken = (description ?? '')
     .replace(/\[canvas\]/gi, ' ')
     .replace(CANVAS_WEBSITE_ID_TOKEN_REGEX, ' ')
@@ -155,6 +164,7 @@ export const buildCanvasDashboardDescription = (
     .replace(CANVAS_CUSTOM_START_DATE_TOKEN_REGEX, ' ')
     .replace(CANVAS_CUSTOM_END_DATE_TOKEN_REGEX, ' ')
     .replace(CANVAS_HIDE_DATE_FILTER_TOKEN_REGEX, ' ')
+    .replace(CANVAS_LOCKED_TOKEN_REGEX, ' ')
     .replace(/\s+/g, ' ')
     .trim()
   const tokens = [CANVAS_DASHBOARD_TOKEN]
@@ -170,6 +180,9 @@ export const buildCanvasDashboardDescription = (
   }
   if (hideDateFilter) {
     tokens.push('[hideDateFilter:true]')
+  }
+  if (canvasLocked ?? existingCanvasLocked) {
+    tokens.push('[canvasLocked:true]')
   }
   if (withoutCanvasToken) {
     tokens.push(withoutCanvasToken)

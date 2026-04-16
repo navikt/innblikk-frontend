@@ -56,6 +56,7 @@ import {
   fetchCategories,
   fetchDashboards,
   fetchGraphs,
+  updateDashboard,
   updateQuery,
 } from '../../oversikt/api/oversiktApi.ts'
 import type { GraphCategoryDto } from '../../oversikt/model/types.ts'
@@ -140,8 +141,10 @@ import {
   extractCanvasCustomEndDateFromDescription,
   extractCanvasCustomStartDateFromDescription,
   extractCanvasHideDateFilterFromDescription,
+  extractCanvasLockedFromDescription,
   extractCanvasPeriodFromDescription,
   extractCanvasWebsiteIdFromDescription,
+  buildCanvasDashboardDescription,
   formatCanvasPathLabel,
   getCanvasCategoryDisplayName,
   getCanvasPeriodLabel,
@@ -1323,6 +1326,7 @@ const Canvas = () => {
           setCanvasTitle('Canvas')
           setCanvasDashboardDescription(CANVAS_DASHBOARD_TOKEN)
           setCanvasConfiguredWebsiteId(null)
+          setIsCanvasLocked(false)
           setCanvasDefaultPeriod('')
           setCanvasDefaultCustomStartDate(undefined)
           setCanvasDefaultCustomEndDate(undefined)
@@ -1336,9 +1340,11 @@ const Canvas = () => {
         const defaultCustomStartDate = extractCanvasCustomStartDateFromDescription(dashboardDescription)
         const defaultCustomEndDate = extractCanvasCustomEndDateFromDescription(dashboardDescription)
         const hideDateFilter = extractCanvasHideDateFilterFromDescription(dashboardDescription)
+        const isLocked = extractCanvasLockedFromDescription(dashboardDescription)
         const hasPeriodInUrl = new URLSearchParams(window.location.search).has('period')
         setCanvasDashboardDescription(dashboardDescription)
         setCanvasConfiguredWebsiteId(extractCanvasWebsiteIdFromDescription(dashboardDescription))
+        setIsCanvasLocked(isLocked)
         setCanvasDefaultPeriod(configuredDefaultPeriod ?? '')
         setCanvasDefaultCustomStartDate(defaultCustomStartDate)
         setCanvasDefaultCustomEndDate(defaultCustomEndDate)
@@ -1360,6 +1366,7 @@ const Canvas = () => {
         setCanvasTitle('Canvas')
         setCanvasDashboardDescription(CANVAS_DASHBOARD_TOKEN)
         setCanvasConfiguredWebsiteId(null)
+        setIsCanvasLocked(false)
         setCanvasDefaultPeriod('')
         setCanvasDefaultCustomStartDate(undefined)
         setCanvasDefaultCustomEndDate(undefined)
@@ -4036,9 +4043,34 @@ const Canvas = () => {
           isInteractionLocked={isDotVotingActive}
           isCanvasLocked={isCanvasLocked}
           onToggleCanvasLock={() => {
-            setIsCanvasLocked((current) => !current)
+            const nextIsLocked = !isCanvasLocked
+            setIsCanvasLocked(nextIsLocked)
             setActiveEditableFrameId(null)
             setSelectionBox(null)
+
+            if (!canPersistToDashboard || projectId === null || dashboardId === null) return
+
+            void (async () => {
+              try {
+                const nextDescription = buildCanvasDashboardDescription(
+                  canvasDashboardDescription,
+                  selectedWebsite?.id ?? undefined,
+                  canvasDefaultPeriod,
+                  canvasDefaultCustomStartDate,
+                  canvasDefaultCustomEndDate,
+                  canvasHideDateFilter,
+                  nextIsLocked,
+                )
+                await updateDashboard(projectId, dashboardId, {
+                  name: canvasTitle,
+                  description: nextDescription,
+                })
+                setCanvasDashboardDescription(nextDescription)
+              } catch (error) {
+                setIsCanvasLocked((current) => !current)
+                setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre canvas-lås')
+              }
+            })()
           }}
         />
 
