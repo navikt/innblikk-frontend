@@ -42,7 +42,7 @@ type CanvasResizeState = {
 }
 
 type UseCanvasInteractionsParams = {
-  isDotVotingActive: boolean
+  isInteractionLocked: boolean
   frames: CanvasFrame[]
   framesRef: MutableRefObject<CanvasFrame[]>
   visibleFrames: CanvasFrame[]
@@ -85,7 +85,7 @@ type UseCanvasInteractionsResult = {
 }
 
 const useCanvasInteractions = ({
-  isDotVotingActive,
+  isInteractionLocked,
   frames,
   framesRef,
   visibleFrames,
@@ -159,7 +159,7 @@ const useCanvasInteractions = ({
 
   const handleDragStart = useCallback(
     (event: React.MouseEvent | React.TouchEvent, frame: CanvasFrame) => {
-      if (isDotVotingActive) return
+      if (isInteractionLocked) return
       if ('button' in event && event.button !== 0) return
 
       const isAdditiveSelection = event.metaKey || event.ctrlKey
@@ -214,7 +214,7 @@ const useCanvasInteractions = ({
       frames,
       getCanvasPointerPosition,
       getFrameBounds,
-      isDotVotingActive,
+      isInteractionLocked,
       selectedFrameIds,
       setDragState,
       setSelectedFrameIds,
@@ -224,7 +224,7 @@ const useCanvasInteractions = ({
 
   const handleResizeStart = useCallback(
     (event: React.MouseEvent, frame: CanvasFrame, dir: 'se' | 'sw' | 'ne' | 'nw' = 'se') => {
-      if (isDotVotingActive) return
+      if (isInteractionLocked) return
       event.preventDefault()
       event.stopPropagation()
       const defaults = getDefaultFrameSize(frame)
@@ -239,7 +239,7 @@ const useCanvasInteractions = ({
         dir,
       })
     },
-    [getDefaultFrameSize, getHeadingFrameHeight, getHeadingFrameWidth, isDotVotingActive, setResizeState],
+    [getDefaultFrameSize, getHeadingFrameHeight, getHeadingFrameWidth, isInteractionLocked, setResizeState],
   )
 
   const handleAdjustHeadingFontSize = useCallback(

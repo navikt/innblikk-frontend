@@ -58,6 +58,7 @@ type UseCanvasPlacementParams = {
     } | null>
   >
   setSelectedFrameIds: Dispatch<SetStateAction<string[]>>
+  isInteractionLocked?: boolean
 }
 
 type UseCanvasPlacementResult = {
@@ -101,6 +102,7 @@ const useCanvasPlacement = ({
   selectionBox,
   setSelectionBox,
   setSelectedFrameIds,
+  isInteractionLocked = false,
 }: UseCanvasPlacementParams): UseCanvasPlacementResult => {
   useEffect(() => {
     if (!pendingFrameDraft && !pendingCsvStickyImport) return
@@ -323,6 +325,7 @@ const useCanvasPlacement = ({
 
   const handleCanvasSurfaceMouseDown = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
+      if (isInteractionLocked) return
       if (pendingFrameDraft) {
         event.preventDefault()
         event.stopPropagation()
@@ -385,6 +388,7 @@ const useCanvasPlacement = ({
       isImportingStickyCsvRef,
       pendingCsvStickyImport,
       pendingFrameDraft,
+      isInteractionLocked,
       setPendingFigureDragStart,
       setPendingFramePointer,
       setSelectedFrameIds,

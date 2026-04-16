@@ -197,6 +197,7 @@ type CanvasFrameLayerProps = {
   shouldRevealDotVotingTotals?: boolean
   onVoteSticky?: (stickyId: string) => void
   onClearStickyVoteSnapshot?: (stickyId: string) => void
+  isCanvasLocked?: boolean
 }
 
 const CanvasFrameLayer = ({
@@ -281,6 +282,7 @@ const CanvasFrameLayer = ({
   shouldRevealDotVotingTotals = false,
   onVoteSticky,
   onClearStickyVoteSnapshot,
+  isCanvasLocked = false,
 }: CanvasFrameLayerProps) => {
   const [topListFilterByFrameId, setTopListFilterByFrameId] = useState<Record<string, string>>({})
   const [activeTopListItemKeyByFrameId, setActiveTopListItemKeyByFrameId] = useState<Record<string, string | null>>({})
@@ -291,6 +293,7 @@ const CanvasFrameLayer = ({
     const cleaned = cleanText(value)
     return cleaned.includes('accordion') || cleaned.includes('trekkspill')
   }
+  const isFrameInteractionLocked = isDotVotingActive || isCanvasLocked
 
   return (
     <>
@@ -454,7 +457,7 @@ const CanvasFrameLayer = ({
                 backgroundColor: frame.kind === 'sticky' ? stickyColorOption?.background : undefined,
               }}
             >
-              {frame.kind === 'website' && !frame.isInternalDashboard && !isDotVotingActive && (
+              {frame.kind === 'website' && !frame.isInternalDashboard && !isFrameInteractionLocked && (
                 <header
                   className={
                     'flex cursor-move items-start justify-between gap-2 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] px-3 py-2'
@@ -515,7 +518,7 @@ const CanvasFrameLayer = ({
                   </div>
                 </header>
               )}
-              {frame.kind === 'chart' && !isDotVotingActive && (
+              {frame.kind === 'chart' && !isFrameInteractionLocked && (
                 <div className="pointer-events-none absolute inset-0 z-20 overflow-visible" aria-hidden="true">
                   <div
                     className="pointer-events-auto absolute inset-x-2 top-0 h-3 cursor-move"
@@ -539,7 +542,7 @@ const CanvasFrameLayer = ({
                   />
                 </div>
               )}
-              {!isDotVotingActive &&
+              {!isFrameInteractionLocked &&
                 (frame.kind === 'sticky' ||
                   frame.kind === 'text' ||
                   frame.kind === 'link' ||
@@ -618,24 +621,25 @@ const CanvasFrameLayer = ({
                     />
                   </>
                 )}
-              {(frame.kind === 'heading' ||
-                frame.kind === 'text' ||
-                frame.kind === 'link' ||
-                frame.kind === 'section' ||
-                frame.kind === 'icon' ||
-                frame.kind === 'figure' ||
-                frame.kind === 'drawing' ||
-                frame.kind === 'sql-editor') && (
-                <div
-                  aria-hidden="true"
-                  className={`pointer-events-none absolute z-10 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${
-                    frame.kind === 'text' || frame.kind === 'link'
-                      ? 'inset-[2px] rounded-lg border border-[#9bc4ff]'
-                      : 'inset-0 rounded-lg border-2 border-[#7fb7ff]'
-                  }`}
-                />
-              )}
-              {frame.kind === 'image' && (
+              {!isFrameInteractionLocked &&
+                (frame.kind === 'heading' ||
+                  frame.kind === 'text' ||
+                  frame.kind === 'link' ||
+                  frame.kind === 'section' ||
+                  frame.kind === 'icon' ||
+                  frame.kind === 'figure' ||
+                  frame.kind === 'drawing' ||
+                  frame.kind === 'sql-editor') && (
+                  <div
+                    aria-hidden="true"
+                    className={`pointer-events-none absolute z-10 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${
+                      frame.kind === 'text' || frame.kind === 'link'
+                        ? 'inset-[2px] rounded-lg border border-[#9bc4ff]'
+                        : 'inset-0 rounded-lg border-2 border-[#7fb7ff]'
+                    }`}
+                  />
+                )}
+              {!isFrameInteractionLocked && frame.kind === 'image' && (
                 <div
                   aria-hidden="true"
                   className="pointer-events-none absolute inset-0 z-10 border-2 border-[#7fb7ff] opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 rounded-xl"
@@ -665,7 +669,7 @@ const CanvasFrameLayer = ({
                                     : 'px-2 pb-2'
                 }`}
               >
-                {frame.kind === 'website' && !frame.isInternalDashboard && (
+                {frame.kind === 'website' && !frame.isInternalDashboard && !isCanvasLocked && (
                   <div className="pointer-events-none absolute inset-y-0 left-0 right-0 z-20 overflow-visible">
                     <button
                       type="button"
@@ -969,9 +973,9 @@ const CanvasFrameLayer = ({
                       id={frame.id}
                       textContent={frame.textContent}
                       stickyColor={frame.stickyColor}
-                      isEditing={!isDotVotingActive && activeEditableFrameId === frame.id}
-                      isLockedByOther={!isDotVotingActive && editLockStatus.isLockedByOther}
-                      lockOwnerLabel={!isDotVotingActive ? editLockStatus.ownerLabel : null}
+                      isEditing={!isFrameInteractionLocked && activeEditableFrameId === frame.id}
+                      isLockedByOther={!isFrameInteractionLocked && editLockStatus.isLockedByOther}
+                      lockOwnerLabel={!isFrameInteractionLocked ? editLockStatus.ownerLabel : null}
                       onChange={handleEditableFrameChange}
                       onBlur={handleEditableFrameBlur}
                       onStartEditing={
@@ -1022,7 +1026,7 @@ const CanvasFrameLayer = ({
                   </div>
                 ) : frame.kind === 'section' ? (
                   <div className="flex h-full flex-col gap-2 p-3">
-                    {activeEditableFrameId === frame.id ? (
+                    {!isCanvasLocked && activeEditableFrameId === frame.id ? (
                       <textarea
                         value={frame.label}
                         onMouseDown={(event) => event.stopPropagation()}
@@ -1037,7 +1041,10 @@ const CanvasFrameLayer = ({
                         type="button"
                         className="w-fit max-w-full rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)]/90 px-2 py-1 text-left text-sm font-semibold text-[var(--ax-text-default)]"
                         onMouseDown={(event) => event.stopPropagation()}
-                        onDoubleClick={() => handleStartEditingFrame(frame.id)}
+                        onDoubleClick={() => {
+                          if (isCanvasLocked) return
+                          handleStartEditingFrame(frame.id)
+                        }}
                         title="Dobbeltklikk for å gi seksjonen navn"
                       >
                         <span className="block truncate">{frame.label || 'Seksjon'}</span>
@@ -1056,7 +1063,7 @@ const CanvasFrameLayer = ({
               {frame.kind === 'website' &&
                 !frame.isInternalDashboard &&
                 visualizationMode === 'clickmap' &&
-                !isDotVotingActive &&
+                !isFrameInteractionLocked &&
                 websiteTopListEnabled && (
                   <aside
                     className="absolute left-[calc(100%+12px)] top-0 z-[75] flex h-full w-[300px] min-w-0 flex-col overflow-hidden rounded-lg border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] shadow-md"
@@ -1137,7 +1144,7 @@ const CanvasFrameLayer = ({
                     )}
                   </aside>
                 )}
-              {!isDotVotingActive && (
+              {!isFrameInteractionLocked && (
                 <CanvasResizeHandles
                   frame={frame}
                   isVisible={isSelectedFrame || resizeState?.id === frame.id}

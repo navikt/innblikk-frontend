@@ -413,6 +413,7 @@ const Canvas = () => {
   const [isLoadingChartOptions, _setIsLoadingChartOptions] = useState(false)
   const [addChartError, setAddChartError] = useState<string | null>(null)
   const [isGrafbyggerEmbedded, setIsGrafbyggerEmbedded] = useState(false)
+  const [isCanvasLocked, setIsCanvasLocked] = useState(false)
   const [dragState, setDragState] = useState<CanvasDragState | null>(null)
   const [selectedFrameIds, setSelectedFrameIds] = useState<string[]>([])
   const [selectionBox, setSelectionBox] = useState<CanvasSelectionBox | null>(null)
@@ -644,6 +645,7 @@ const Canvas = () => {
     onSyncError: handleCanvasSyncError,
   })
   const isDotVotingActive = Boolean(dotVotingSessionPayload) && dotVotingSessionPayload?.status !== 'ended'
+  const isInteractionLocked = isDotVotingActive || isCanvasLocked
   const shouldRevealDotVotingTotals =
     Boolean(dotVotingSessionPayload) &&
     (dotVotingSessionPayload?.status === 'ended' || (!isDotVotingRunning && !isDotVotingPaused))
@@ -1840,6 +1842,7 @@ const Canvas = () => {
       selectionBox,
       setSelectionBox,
       setSelectedFrameIds,
+      isInteractionLocked,
     })
 
   const getFrameBounds = useCallback(
@@ -2051,6 +2054,7 @@ const Canvas = () => {
 
   const startConnectionDrag = useCallback(
     (event: React.MouseEvent, frame: CanvasFrame, side: ConnectionAnchorSide) => {
+      if (isCanvasLocked) return
       if (frame.kind !== 'website' || frame.isInternalDashboard) return
       event.preventDefault()
       event.stopPropagation()
@@ -2066,7 +2070,7 @@ const Canvas = () => {
         currentTargetFrameId: null,
       })
     },
-    [getCanvasPointerPosition],
+    [getCanvasPointerPosition, isCanvasLocked],
   )
 
   const openGrafbyggerFromAddMenuDirect = () => {
@@ -2087,7 +2091,7 @@ const Canvas = () => {
     handleResizeStart,
     handleAdjustHeadingFontSize,
   } = useCanvasInteractions({
-    isDotVotingActive,
+    isInteractionLocked,
     frames,
     framesRef,
     visibleFrames,
@@ -3029,7 +3033,7 @@ const Canvas = () => {
   }
 
   const handleEditableFrameChange = (id: string, nextValue: string) => {
-    if (isDotVotingActive) return
+    if (isInteractionLocked) return
     setFrames((prev) =>
       prev.map((frame) => {
         if (frame.id !== id) return frame
@@ -3081,7 +3085,7 @@ const Canvas = () => {
   }
 
   const handleEditableFrameBlur = (id: string) => {
-    if (isDotVotingActive) return
+    if (isInteractionLocked) return
     const frame = frames.find((item) => item.id === id)
     if (
       !frame ||
@@ -3130,7 +3134,7 @@ const Canvas = () => {
   }
 
   const handleStartEditingFrame = (id: string) => {
-    if (isDotVotingActive) return
+    if (isInteractionLocked) return
     const frame = frames.find((item) => item.id === id)
     if (
       !frame ||
@@ -3983,6 +3987,12 @@ const Canvas = () => {
           activeOtherParticipantCount={activeOtherParticipantCount}
           participantLabels={participantLabels}
           isInteractionLocked={isDotVotingActive}
+          isCanvasLocked={isCanvasLocked}
+          onToggleCanvasLock={() => {
+            setIsCanvasLocked((current) => !current)
+            setActiveEditableFrameId(null)
+            setSelectionBox(null)
+          }}
         />
 
         <div className="flex h-full">
@@ -4020,9 +4030,9 @@ const Canvas = () => {
             >
               <div
                 className={`absolute left-0 top-0 origin-top-left ${pendingFrameDraft || pendingCsvStickyImport || isDrawingMode ? 'cursor-crosshair' : ''}`}
-                onMouseDown={isDrawingMode ? undefined : handleCanvasSurfaceMouseDown}
-                onMouseMove={isDrawingMode ? undefined : handleCanvasSurfaceMouseMove}
-                onMouseLeave={isDrawingMode ? undefined : handleCanvasSurfaceMouseLeave}
+                onMouseDown={isDrawingMode || isCanvasLocked ? undefined : handleCanvasSurfaceMouseDown}
+                onMouseMove={isDrawingMode || isCanvasLocked ? undefined : handleCanvasSurfaceMouseMove}
+                onMouseLeave={isDrawingMode || isCanvasLocked ? undefined : handleCanvasSurfaceMouseLeave}
                 style={{
                   top: `${canvasCanvasTopOffset}px`,
                   width: `${canvasSurfaceWidth}px`,
@@ -4049,17 +4059,17 @@ const Canvas = () => {
                 {isPlacementModeActive && (
                   <div
                     className="absolute inset-0 z-[96] cursor-crosshair"
-                    onMouseDown={handleCanvasSurfaceMouseDown}
-                    onMouseMove={handleCanvasSurfaceMouseMove}
-                    onMouseLeave={handleCanvasSurfaceMouseLeave}
+                    onMouseDown={isCanvasLocked ? undefined : handleCanvasSurfaceMouseDown}
+                    onMouseMove={isCanvasLocked ? undefined : handleCanvasSurfaceMouseMove}
+                    onMouseLeave={isCanvasLocked ? undefined : handleCanvasSurfaceMouseLeave}
                   />
                 )}
                 {isDrawingMode && (
                   <div
                     className="absolute inset-0 z-[95] cursor-crosshair"
-                    onMouseDown={handleCanvasSurfaceMouseDown}
-                    onMouseMove={handleCanvasSurfaceMouseMove}
-                    onMouseLeave={handleCanvasSurfaceMouseLeave}
+                    onMouseDown={isCanvasLocked ? undefined : handleCanvasSurfaceMouseDown}
+                    onMouseMove={isCanvasLocked ? undefined : handleCanvasSurfaceMouseMove}
+                    onMouseLeave={isCanvasLocked ? undefined : handleCanvasSurfaceMouseLeave}
                   />
                 )}
                 {selectionBox && (
@@ -4172,6 +4182,7 @@ const Canvas = () => {
                     shouldRevealDotVotingTotals={shouldRevealDotVotingTotals}
                     onVoteSticky={handleAddDotVote}
                     onClearStickyVoteSnapshot={handleRequestClearStickyVoteSnapshot}
+                    isCanvasLocked={isCanvasLocked}
                   />
                 </div>
               </div>

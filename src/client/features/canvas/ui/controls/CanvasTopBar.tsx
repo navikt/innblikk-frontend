@@ -1,6 +1,6 @@
-import { ActionMenu, Alert, Button, Tabs } from '@navikt/ds-react'
+import { ActionMenu, Alert, BodyShort, Button, Modal, Tabs } from '@navikt/ds-react'
 import { PersonGroupIcon, PersonIcon, ThemeIcon } from '@navikt/aksel-icons'
-import { House, MoreVertical } from 'lucide-react'
+import { House, Lock, MoreVertical, Unlock } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent, type RefObject, type TouchEvent } from 'react'
 import PeriodPicker from '../../../analysis/ui/PeriodPicker.tsx'
 import type { GraphCategoryDto } from '../../../oversikt/model/types.ts'
@@ -63,6 +63,8 @@ type CanvasTopBarProps = {
   activeOtherParticipantCount?: number
   participantLabels?: string[]
   isInteractionLocked?: boolean
+  isCanvasLocked?: boolean
+  onToggleCanvasLock?: () => void
 }
 
 const CanvasTopBar = ({
@@ -120,8 +122,11 @@ const CanvasTopBar = ({
   activeParticipantCount = 1,
   participantLabels = [],
   isInteractionLocked = false,
+  isCanvasLocked = false,
+  onToggleCanvasLock,
 }: CanvasTopBarProps) => {
   const participantCountText = `${activeParticipantCount} ${activeParticipantCount === 1 ? 'person' : 'personer'} i canvas`
+  const [isLockModalOpen, setIsLockModalOpen] = useState(false)
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const storedTheme = localStorage.getItem('umami-theme')
@@ -229,44 +234,48 @@ const CanvasTopBar = ({
                   />
                 </div>
               )}
-              <CanvasAddActionMenu
-                onAddWebsite={onOpenAddPage}
-                onOpenGrafbygger={onOpenCreateChart}
-                onAddSqlEditor={onOpenAddSqlEditor}
-                onAddDashboard={onOpenAddDashboard}
-                onAddHeading={onOpenAddHeading}
-                onAddText={onOpenAddText}
-                onAddTable={onOpenAddTable}
-                onAddLink={onOpenAddLink}
-                onAddSticky={onOpenAddSticky}
-                onAddSection={onOpenAddSection}
-                onImportStickyCsv={onOpenImportStickyCsv}
-                onAddImage={onOpenAddImage}
-                onAddIcon={onOpenAddIcon}
-                onAddFigure={onOpenAddFigure}
-                onAddDrawing={onOpenAddDrawing}
-                onAddIllustration={onOpenAddIllustration}
-                onAddTab={onOpenCreateTab}
-                onOpenDotVoting={onOpenDotVoting}
-                disabled={canvasInitMode !== 'existing' || isInteractionLocked}
-                buttonSize="small"
-                buttonVariant="primary"
-                buttonClassName="shrink-0 whitespace-nowrap"
-                iconSize={16}
-                withFloatingFrame={false}
-              />
-              <CanvasFacilitatorActionMenu
-                onOpenTimer={onOpenTimer}
-                onOpenDotVoting={onOpenDotVoting}
-                timerLabel={timerLabel}
-                dotVotingLabel={dotVotingLabel}
-                disabled={canvasInitMode !== 'existing'}
-                buttonSize="small"
-                buttonVariant="secondary"
-                buttonClassName="shrink-0 whitespace-nowrap"
-                iconSize={16}
-                withFloatingFrame={false}
-              />
+              {!isCanvasLocked && (
+                <CanvasAddActionMenu
+                  onAddWebsite={onOpenAddPage}
+                  onOpenGrafbygger={onOpenCreateChart}
+                  onAddSqlEditor={onOpenAddSqlEditor}
+                  onAddDashboard={onOpenAddDashboard}
+                  onAddHeading={onOpenAddHeading}
+                  onAddText={onOpenAddText}
+                  onAddTable={onOpenAddTable}
+                  onAddLink={onOpenAddLink}
+                  onAddSticky={onOpenAddSticky}
+                  onAddSection={onOpenAddSection}
+                  onImportStickyCsv={onOpenImportStickyCsv}
+                  onAddImage={onOpenAddImage}
+                  onAddIcon={onOpenAddIcon}
+                  onAddFigure={onOpenAddFigure}
+                  onAddDrawing={onOpenAddDrawing}
+                  onAddIllustration={onOpenAddIllustration}
+                  onAddTab={onOpenCreateTab}
+                  onOpenDotVoting={onOpenDotVoting}
+                  disabled={canvasInitMode !== 'existing' || isInteractionLocked}
+                  buttonSize="small"
+                  buttonVariant="primary"
+                  buttonClassName="shrink-0 whitespace-nowrap"
+                  iconSize={16}
+                  withFloatingFrame={false}
+                />
+              )}
+              {!isCanvasLocked && (
+                <CanvasFacilitatorActionMenu
+                  onOpenTimer={onOpenTimer}
+                  onOpenDotVoting={onOpenDotVoting}
+                  timerLabel={timerLabel}
+                  dotVotingLabel={dotVotingLabel}
+                  disabled={canvasInitMode !== 'existing'}
+                  buttonSize="small"
+                  buttonVariant="secondary"
+                  buttonClassName="shrink-0 whitespace-nowrap"
+                  iconSize={16}
+                  withFloatingFrame={false}
+                />
+              )}
               {timerLabel && (
                 <Button
                   size="small"
@@ -287,33 +296,45 @@ const CanvasTopBar = ({
                   {isDotVotingPaused ? `Pauset prikkvotering: ${dotVotingLabel}` : `Prikkvotering: ${dotVotingLabel}`}
                 </Button>
               )}
-              <ActionMenu>
-                <ActionMenu.Trigger>
-                  <Button
-                    size="small"
-                    variant="tertiary"
-                    icon={
-                      activeParticipantCount > 1 ? (
-                        <PersonGroupIcon aria-hidden fontSize="0.95rem" />
-                      ) : (
-                        <PersonIcon aria-hidden fontSize="0.95rem" />
-                      )
-                    }
-                    aria-label={participantCountText}
-                    title={participantCountText}
-                    className="shrink-0 whitespace-nowrap"
-                  >
-                    <span className="text-sm font-medium leading-none">{activeParticipantCount}</span>
-                  </Button>
-                </ActionMenu.Trigger>
-                <ActionMenu.Content align="end">
-                  {participantLabels.map((label, index) => (
-                    <ActionMenu.Item key={`canvas-participant-${index}`} onSelect={() => undefined}>
-                      {label}
-                    </ActionMenu.Item>
-                  ))}
-                </ActionMenu.Content>
-              </ActionMenu>
+              {!isCanvasLocked ? (
+                <ActionMenu>
+                  <ActionMenu.Trigger>
+                    <Button
+                      size="small"
+                      variant="tertiary"
+                      icon={
+                        activeParticipantCount > 1 ? (
+                          <PersonGroupIcon aria-hidden fontSize="0.95rem" />
+                        ) : (
+                          <PersonIcon aria-hidden fontSize="0.95rem" />
+                        )
+                      }
+                      aria-label={participantCountText}
+                      title={participantCountText}
+                      className="shrink-0 whitespace-nowrap"
+                    >
+                      <span className="text-sm font-medium leading-none">{activeParticipantCount}</span>
+                    </Button>
+                  </ActionMenu.Trigger>
+                  <ActionMenu.Content align="end">
+                    {participantLabels.map((label, index) => (
+                      <ActionMenu.Item key={`canvas-participant-${index}`} onSelect={() => undefined}>
+                        {label}
+                      </ActionMenu.Item>
+                    ))}
+                  </ActionMenu.Content>
+                </ActionMenu>
+              ) : (
+                <Button
+                  size="small"
+                  variant="secondary"
+                  icon={<Lock size={14} />}
+                  onClick={() => setIsLockModalOpen(true)}
+                  className="shrink-0 whitespace-nowrap"
+                >
+                  Låst
+                </Button>
+              )}
               {isGrafbyggerEmbedded && (
                 <Button size="small" variant="secondary" onClick={onCloseGrafbygger}>
                   Lukk grafbygger
@@ -333,7 +354,13 @@ const CanvasTopBar = ({
                   <ActionMenu.Item onClick={() => window.location.assign('/canvas')}>Canvas-oversikt</ActionMenu.Item>
                   <ActionMenu.Divider />
                   <ActionMenu.Item onClick={onOpenInventory}>
-                    Elementer{elementCount !== undefined ? ` (${elementCount})` : ''}
+                    Elementer{!isCanvasLocked && elementCount !== undefined ? ` (${elementCount})` : ''}
+                  </ActionMenu.Item>
+                  <ActionMenu.Item onClick={onToggleCanvasLock}>
+                    <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                      {isCanvasLocked ? <Unlock size={14} /> : <Lock size={14} />}
+                      {isCanvasLocked ? 'Lås opp canvas' : 'Lås canvas'}
+                    </span>
                   </ActionMenu.Item>
                   <ActionMenu.Item onClick={onOpenChangeLog}>Endringslogg</ActionMenu.Item>
                   {canManageTabs && (
@@ -393,6 +420,29 @@ const CanvasTopBar = ({
           </div>
         )}
       </div>
+      <Modal
+        open={isLockModalOpen}
+        onClose={() => setIsLockModalOpen(false)}
+        closeOnBackdropClick
+        header={{
+          heading: 'Canvas er låst',
+        }}
+      >
+        <Modal.Body>
+          <BodyShort spacing>Redigering og flytting er skrudd av i låst modus.</BodyShort>
+          <Button
+            size="small"
+            variant="primary"
+            icon={<Unlock size={14} />}
+            onClick={() => {
+              onToggleCanvasLock?.()
+              setIsLockModalOpen(false)
+            }}
+          >
+            Lås opp canvas
+          </Button>
+        </Modal.Body>
+      </Modal>
     </div>
   )
 }
