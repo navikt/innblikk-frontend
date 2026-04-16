@@ -219,6 +219,8 @@ const STICKY_CARD_MIN_HEIGHT = 180
 const STICKY_CARD_LINE_HEIGHT = 28
 const STICKY_CARD_CHAR_WIDTH_FACTOR = 0.55
 const METABASE_CREATED_AT_FILTER_REGEX = /\[\[\s*AND\s*\{\{\s*created_at\s*\}\}\s*\]\]|\{\{\s*created_at\s*\}\}/i
+const METABASE_URL_STI_FILTER_REGEX =
+  /\[\[\s*\{\{\s*url_sti\s*\}\}\s*--\s*\]\]\s*'\/'|\[\[\s*AND\s*\{\{\s*url_sti\s*\}\}\s*\]\]|\{\{\s*url_sti\s*\}\}/i
 
 const estimateStickyFrameHeight = (text: string, width: number): number => {
   const normalizedText = text.trim()
@@ -539,16 +541,33 @@ const Canvas = () => {
     savePeriodPreference(nextPeriod)
   }
 
+  const activeInsightUrlPath = useMemo(() => {
+    if (!activeInsightFrameId) return ''
+    const activeFrame = frames.find((frame) => frame.id === activeInsightFrameId)
+    if (!activeFrame || activeFrame.kind !== 'website' || activeFrame.isInternalDashboard) return ''
+    return normalizeUrlToPath(activeFrame.targetUrl || '') || ''
+  }, [activeInsightFrameId, frames])
+
+  const hasDynamicUrlPathCharts = useMemo(
+    () =>
+      frames.some((frame) => {
+        if (frame.kind !== 'chart') return false
+        if (activeCanvasCategoryId !== null && (frame.categoryId ?? null) !== activeCanvasCategoryId) return false
+        return METABASE_URL_STI_FILTER_REGEX.test((frame.chartSql || '').trim())
+      }),
+    [activeCanvasCategoryId, frames],
+  )
+
   const dashboardWidgetFilters = useMemo(
     () => ({
-      urlFilters: [],
+      urlFilters: hasDynamicUrlPathCharts && activeInsightUrlPath ? [activeInsightUrlPath] : [],
       dateRange: period,
       pathOperator: 'equals',
       metricType: 'visitors' as const,
       customStartDate,
       customEndDate,
     }),
-    [period, customStartDate, customEndDate],
+    [activeInsightUrlPath, customEndDate, customStartDate, hasDynamicUrlPathCharts, period],
   )
 
   const activeInsightFrame = useMemo(
