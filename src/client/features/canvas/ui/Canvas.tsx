@@ -137,6 +137,10 @@ import {
   buildFunnelStepFromUrl,
   clampCanvasZoom,
   estimateTableFrameHeight,
+  extractCanvasCustomEndDateFromDescription,
+  extractCanvasCustomStartDateFromDescription,
+  extractCanvasHideDateFilterFromDescription,
+  extractCanvasPeriodFromDescription,
   extractCanvasWebsiteIdFromDescription,
   formatCanvasPathLabel,
   getCanvasCategoryDisplayName,
@@ -270,6 +274,12 @@ const Canvas = () => {
   const [period, setPeriodState] = useState<string>(() =>
     getStoredPeriod(new URLSearchParams(window.location.search).get('period')),
   )
+  const [canvasDefaultPeriod, setCanvasDefaultPeriod] = useState<string>(() =>
+    getStoredPeriod(new URLSearchParams(window.location.search).get('period')),
+  )
+  const [canvasDefaultCustomStartDate, setCanvasDefaultCustomStartDate] = useState<Date | undefined>(undefined)
+  const [canvasDefaultCustomEndDate, setCanvasDefaultCustomEndDate] = useState<Date | undefined>(undefined)
+  const [canvasHideDateFilter, setCanvasHideDateFilter] = useState(false)
   const usesCookies = useCookieSupport(selectedWebsite?.domain, selectedWebsite?.id)
   const cookieStartDate = useCookieStartDate(selectedWebsite?.domain, selectedWebsite?.id)
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined)
@@ -828,12 +838,13 @@ const Canvas = () => {
 
   const showDateFilter = useMemo(
     () =>
+      !canvasHideDateFilter &&
       frameItems.some((frame) => {
         if (frame.kind === 'website') return !frame.isInternalDashboard
         if (frame.kind !== 'chart') return false
         return METABASE_CREATED_AT_FILTER_REGEX.test(frame.chartSql || '')
       }),
-    [frameItems],
+    [canvasHideDateFilter, frameItems],
   )
 
   const {
@@ -1293,6 +1304,10 @@ const Canvas = () => {
       setCanvasTitle('Innblikk')
       setCanvasDashboardDescription(CANVAS_DASHBOARD_TOKEN)
       setCanvasConfiguredWebsiteId(null)
+      setCanvasDefaultPeriod('')
+      setCanvasDefaultCustomStartDate(undefined)
+      setCanvasDefaultCustomEndDate(undefined)
+      setCanvasHideDateFilter(false)
       return
     }
     let isActive = true
@@ -1308,19 +1323,47 @@ const Canvas = () => {
           setCanvasTitle('Canvas')
           setCanvasDashboardDescription(CANVAS_DASHBOARD_TOKEN)
           setCanvasConfiguredWebsiteId(null)
+          setCanvasDefaultPeriod('')
+          setCanvasDefaultCustomStartDate(undefined)
+          setCanvasDefaultCustomEndDate(undefined)
+          setCanvasHideDateFilter(false)
           return
         }
         setCanvasInitMode('existing')
         setCanvasTitle(dashboard.name?.trim() || 'Canvas')
         const dashboardDescription = dashboard.description || CANVAS_DASHBOARD_TOKEN
+        const configuredDefaultPeriod = extractCanvasPeriodFromDescription(dashboardDescription)
+        const defaultCustomStartDate = extractCanvasCustomStartDateFromDescription(dashboardDescription)
+        const defaultCustomEndDate = extractCanvasCustomEndDateFromDescription(dashboardDescription)
+        const hideDateFilter = extractCanvasHideDateFilterFromDescription(dashboardDescription)
+        const hasPeriodInUrl = new URLSearchParams(window.location.search).has('period')
         setCanvasDashboardDescription(dashboardDescription)
         setCanvasConfiguredWebsiteId(extractCanvasWebsiteIdFromDescription(dashboardDescription))
+        setCanvasDefaultPeriod(configuredDefaultPeriod ?? '')
+        setCanvasDefaultCustomStartDate(defaultCustomStartDate)
+        setCanvasDefaultCustomEndDate(defaultCustomEndDate)
+        setCanvasHideDateFilter(hideDateFilter)
+        if (!hasPeriodInUrl) {
+          const nextPeriod = configuredDefaultPeriod ? getStoredPeriod(configuredDefaultPeriod) : getStoredPeriod(null)
+          setPeriodState(nextPeriod)
+          if (nextPeriod === 'custom' && configuredDefaultPeriod) {
+            setCustomStartDate(defaultCustomStartDate)
+            setCustomEndDate(defaultCustomEndDate)
+          } else {
+            setCustomStartDate(undefined)
+            setCustomEndDate(undefined)
+          }
+        }
       } catch {
         if (!isActive) return
         setCanvasInitMode('create')
         setCanvasTitle('Canvas')
         setCanvasDashboardDescription(CANVAS_DASHBOARD_TOKEN)
         setCanvasConfiguredWebsiteId(null)
+        setCanvasDefaultPeriod('')
+        setCanvasDefaultCustomStartDate(undefined)
+        setCanvasDefaultCustomEndDate(undefined)
+        setCanvasHideDateFilter(false)
       }
     }
 
@@ -1362,6 +1405,10 @@ const Canvas = () => {
     canvasDashboardDescription,
     setCanvasDashboardDescription,
     setCanvasConfiguredWebsiteId,
+    setCanvasDefaultPeriod,
+    setCanvasDefaultCustomStartDate,
+    setCanvasDefaultCustomEndDate,
+    setCanvasHideDateFilter,
     selectedWebsiteId: selectedWebsite?.id ?? null,
     setSyncError,
     setIsSavingCanvasItem,
@@ -4325,6 +4372,7 @@ const Canvas = () => {
       />
 
       <CanvasAdminModals
+        key={`canvas-admin-modals-${dashboardId ?? 'none'}-${canvasDefaultPeriod}-${canvasDefaultCustomStartDate?.toISOString() ?? 'none'}-${canvasDefaultCustomEndDate?.toISOString() ?? 'none'}-${canvasHideDateFilter ? 'hide' : 'show'}`}
         isCanvasSettingsModalOpen={isCanvasSettingsModalOpen}
         onCloseCanvasSettings={() => {
           setIsCanvasSettingsModalOpen(false)
@@ -4333,8 +4381,14 @@ const Canvas = () => {
         }}
         canvasSettingsInfo={canvasSettingsInfo}
         renameCanvasInitialValue={canvasTitle}
+        defaultCanvasPeriodInitialValue={canvasDefaultPeriod}
+        defaultCanvasCustomStartDateInitialValue={canvasDefaultCustomStartDate}
+        defaultCanvasCustomEndDateInitialValue={canvasDefaultCustomEndDate}
+        hideDateFilterInitialValue={canvasHideDateFilter}
         renameCanvasError={renameCanvasError}
-        onRenameCanvas={(value) => void handleRenameCanvas(value)}
+        onRenameCanvas={(value, defaultPeriod, customStartDate, customEndDate, hideDateFilter) =>
+          void handleRenameCanvas(value, defaultPeriod, customStartDate, customEndDate, hideDateFilter)
+        }
         isSavingCanvasItem={isSavingCanvasItem}
         isCreateTabModalOpen={isCreateTabModalOpen}
         onCloseCreateTab={() => {

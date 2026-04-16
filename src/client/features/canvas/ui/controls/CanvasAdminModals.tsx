@@ -1,4 +1,5 @@
-import { Alert, Button, Checkbox, Modal, Pagination, Select, Table, TextField } from '@navikt/ds-react'
+import { Alert, Button, Checkbox, DatePicker, Modal, Pagination, Select, Table, TextField } from '@navikt/ds-react'
+import { format } from 'date-fns'
 import { useRef, useState } from 'react'
 import type { GraphCategoryDto } from '../../../oversikt/model/types.ts'
 
@@ -7,8 +8,18 @@ type CanvasAdminModalsProps = {
   onCloseCanvasSettings: () => void
   canvasSettingsInfo: string | null
   renameCanvasInitialValue: string
+  defaultCanvasPeriodInitialValue: string
+  defaultCanvasCustomStartDateInitialValue?: Date
+  defaultCanvasCustomEndDateInitialValue?: Date
+  hideDateFilterInitialValue?: boolean
   renameCanvasError: string | null
-  onRenameCanvas: (value: string) => void
+  onRenameCanvas: (
+    value: string,
+    defaultPeriod: string,
+    customStartDate?: Date,
+    customEndDate?: Date,
+    hideDateFilter?: boolean,
+  ) => void
   isSavingCanvasItem: boolean
   isCreateTabModalOpen: boolean
   onCloseCreateTab: () => void
@@ -63,6 +74,10 @@ const CanvasAdminModals = ({
   onCloseCanvasSettings,
   canvasSettingsInfo,
   renameCanvasInitialValue,
+  defaultCanvasPeriodInitialValue,
+  defaultCanvasCustomStartDateInitialValue,
+  defaultCanvasCustomEndDateInitialValue,
+  hideDateFilterInitialValue = false,
   renameCanvasError,
   onRenameCanvas,
   isSavingCanvasItem,
@@ -101,6 +116,14 @@ const CanvasAdminModals = ({
   const [selectedInventoryFrameIdsByType, setSelectedInventoryFrameIdsByType] = useState<Record<string, string[]>>({})
   const [inventoryPageByType, setInventoryPageByType] = useState<Record<string, number>>({})
   const renameCanvasInputRef = useRef<HTMLInputElement | null>(null)
+  const [defaultCanvasPeriod, setDefaultCanvasPeriod] = useState(defaultCanvasPeriodInitialValue)
+  const [defaultCustomStartDate, setDefaultCustomStartDate] = useState<Date | undefined>(
+    defaultCanvasCustomStartDateInitialValue,
+  )
+  const [defaultCustomEndDate, setDefaultCustomEndDate] = useState<Date | undefined>(
+    defaultCanvasCustomEndDateInitialValue,
+  )
+  const [hideDateFilter, setHideDateFilter] = useState(Boolean(hideDateFilterInitialValue))
   const newTabInputRef = useRef<HTMLInputElement | null>(null)
   const manageTabInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -142,12 +165,66 @@ const CanvasAdminModals = ({
               defaultValue={renameCanvasInitialValue}
               ref={renameCanvasInputRef}
             />
+            <Select
+              key={`default-period-${isCanvasSettingsModalOpen ? defaultCanvasPeriodInitialValue : 'closed'}`}
+              label="Standardperiode"
+              value={defaultCanvasPeriod}
+              onChange={(event) => setDefaultCanvasPeriod(event.target.value)}
+            >
+              <option value="">Ikke satt (bruk lokal standard)</option>
+              <option value="today">I dag</option>
+              <option value="yesterday">I går</option>
+              <option value="this_week">Denne uken</option>
+              <option value="last_7_days">Siste 7 dager</option>
+              <option value="last_week">Forrige uke</option>
+              <option value="last_28_days">Siste 28 dager</option>
+              <option value="current_month">Denne måneden</option>
+              <option value="last_month">Forrige måned</option>
+              <option value="custom">Egendefinert</option>
+            </Select>
+            {defaultCanvasPeriod === 'custom' && (
+              <DatePicker
+                mode="range"
+                selected={{ from: defaultCustomStartDate, to: defaultCustomEndDate }}
+                onSelect={(range) => {
+                  if (!range) return
+                  setDefaultCustomStartDate(range.from)
+                  setDefaultCustomEndDate(range.to)
+                }}
+              >
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <DatePicker.Input
+                    id="default-canvas-start-date"
+                    label="Fra dato"
+                    size="small"
+                    value={defaultCustomStartDate ? format(defaultCustomStartDate, 'dd.MM.yyyy') : ''}
+                  />
+                  <DatePicker.Input
+                    id="default-canvas-end-date"
+                    label="Til dato"
+                    size="small"
+                    value={defaultCustomEndDate ? format(defaultCustomEndDate, 'dd.MM.yyyy') : ''}
+                  />
+                </div>
+              </DatePicker>
+            )}
+            <Checkbox checked={hideDateFilter} onChange={(event) => setHideDateFilter(event.target.checked)}>
+              Skjul datofilter i toppbar
+            </Checkbox>
             {renameCanvasError && <Alert variant="error">{renameCanvasError}</Alert>}
           </div>
         </Modal.Body>
         <Modal.Footer>
           <Button
-            onClick={() => onRenameCanvas(renameCanvasInputRef.current?.value ?? '')}
+            onClick={() =>
+              onRenameCanvas(
+                renameCanvasInputRef.current?.value ?? '',
+                defaultCanvasPeriod,
+                defaultCanvasPeriod === 'custom' ? defaultCustomStartDate : undefined,
+                defaultCanvasPeriod === 'custom' ? defaultCustomEndDate : undefined,
+                hideDateFilter,
+              )
+            }
             size="small"
             loading={isSavingCanvasItem}
           >

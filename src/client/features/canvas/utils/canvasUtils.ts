@@ -23,6 +23,10 @@ import type {
 
 export const CANVAS_DASHBOARD_TOKEN = '[canvas]'
 export const CANVAS_WEBSITE_ID_TOKEN_REGEX = /\[websiteId:([^\]]+)\]/i
+export const CANVAS_PERIOD_TOKEN_REGEX = /\[period:([^\]]+)\]/i
+export const CANVAS_CUSTOM_START_DATE_TOKEN_REGEX = /\[customStartDate:([^\]]+)\]/i
+export const CANVAS_CUSTOM_END_DATE_TOKEN_REGEX = /\[customEndDate:([^\]]+)\]/i
+export const CANVAS_HIDE_DATE_FILTER_TOKEN_REGEX = /\[hideDateFilter:(true|false)\]/i
 export const CANVAS_QUERY_NAME = 'canvas-config'
 export const CANVAS_SURFACE_WIDTH = 2200
 export const CANVAS_SURFACE_HEIGHT = 1500
@@ -109,15 +113,63 @@ export const extractCanvasWebsiteIdFromDescription = (description?: string): str
   return websiteId || null
 }
 
-export const buildCanvasDashboardDescription = (description: string | undefined, websiteId?: string): string => {
+export const extractCanvasPeriodFromDescription = (description?: string): string | null => {
+  if (!description) return null
+  const match = description.match(CANVAS_PERIOD_TOKEN_REGEX)
+  const period = match?.[1]?.trim()
+  return period || null
+}
+
+const extractCanvasDateToken = (description: string | undefined, pattern: RegExp): Date | undefined => {
+  if (!description) return undefined
+  const value = description.match(pattern)?.[1]?.trim()
+  if (!value) return undefined
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed
+}
+
+export const extractCanvasCustomStartDateFromDescription = (description?: string): Date | undefined =>
+  extractCanvasDateToken(description, CANVAS_CUSTOM_START_DATE_TOKEN_REGEX)
+
+export const extractCanvasCustomEndDateFromDescription = (description?: string): Date | undefined =>
+  extractCanvasDateToken(description, CANVAS_CUSTOM_END_DATE_TOKEN_REGEX)
+
+export const extractCanvasHideDateFilterFromDescription = (description?: string): boolean => {
+  if (!description) return false
+  const value = description.match(CANVAS_HIDE_DATE_FILTER_TOKEN_REGEX)?.[1]?.trim().toLowerCase()
+  return value === 'true'
+}
+
+export const buildCanvasDashboardDescription = (
+  description: string | undefined,
+  websiteId?: string,
+  period?: string,
+  customStartDate?: Date,
+  customEndDate?: Date,
+  hideDateFilter?: boolean,
+): string => {
   const withoutCanvasToken = (description ?? '')
     .replace(/\[canvas\]/gi, ' ')
     .replace(CANVAS_WEBSITE_ID_TOKEN_REGEX, ' ')
+    .replace(CANVAS_PERIOD_TOKEN_REGEX, ' ')
+    .replace(CANVAS_CUSTOM_START_DATE_TOKEN_REGEX, ' ')
+    .replace(CANVAS_CUSTOM_END_DATE_TOKEN_REGEX, ' ')
+    .replace(CANVAS_HIDE_DATE_FILTER_TOKEN_REGEX, ' ')
     .replace(/\s+/g, ' ')
     .trim()
   const tokens = [CANVAS_DASHBOARD_TOKEN]
   if (websiteId?.trim()) {
     tokens.push(`[websiteId:${websiteId.trim()}]`)
+  }
+  if (period?.trim()) {
+    tokens.push(`[period:${period.trim()}]`)
+  }
+  if (period?.trim() === 'custom' && customStartDate && customEndDate) {
+    tokens.push(`[customStartDate:${customStartDate.toISOString()}]`)
+    tokens.push(`[customEndDate:${customEndDate.toISOString()}]`)
+  }
+  if (hideDateFilter) {
+    tokens.push('[hideDateFilter:true]')
   }
   if (withoutCanvasToken) {
     tokens.push(withoutCanvasToken)

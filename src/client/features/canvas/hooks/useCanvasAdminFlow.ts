@@ -38,6 +38,10 @@ type UseCanvasAdminFlowParams = {
   canvasDashboardDescription: string
   setCanvasDashboardDescription: (next: string) => void
   setCanvasConfiguredWebsiteId: (next: string | null) => void
+  setCanvasDefaultPeriod: (next: string) => void
+  setCanvasDefaultCustomStartDate: (next: Date | undefined) => void
+  setCanvasDefaultCustomEndDate: (next: Date | undefined) => void
+  setCanvasHideDateFilter: (next: boolean) => void
   selectedWebsiteId: string | null
   setSyncError: (next: string | null) => void
   setIsSavingCanvasItem: (next: boolean) => void
@@ -91,6 +95,10 @@ const useCanvasAdminFlow = ({
   canvasDashboardDescription,
   setCanvasDashboardDescription,
   setCanvasConfiguredWebsiteId,
+  setCanvasDefaultPeriod,
+  setCanvasDefaultCustomStartDate,
+  setCanvasDefaultCustomEndDate,
+  setCanvasHideDateFilter,
   selectedWebsiteId,
   setSyncError,
   setIsSavingCanvasItem,
@@ -352,15 +360,30 @@ const useCanvasAdminFlow = ({
     }
   }
 
-  const handleRenameCanvas = async (inputValue: string) => {
+  const handleRenameCanvas = async (
+    inputValue: string,
+    defaultPeriod: string,
+    defaultCustomStartDate?: Date,
+    defaultCustomEndDate?: Date,
+    hideDateFilter?: boolean,
+  ) => {
     const nextName = inputValue.trim()
+    const nextDefaultPeriod = defaultPeriod.trim()
     if (!nextName) {
       setRenameCanvasError('Legg inn et navn.')
+      return
+    }
+    if (nextDefaultPeriod === 'custom' && (!defaultCustomStartDate || !defaultCustomEndDate)) {
+      setRenameCanvasError('Velg både fra- og til-dato for egendefinert standardperiode.')
       return
     }
 
     if (!canPersistToDashboard || projectId === null || dashboardId === null) {
       setCanvasTitle(nextName)
+      setCanvasDefaultPeriod(nextDefaultPeriod)
+      setCanvasDefaultCustomStartDate(nextDefaultPeriod === 'custom' ? defaultCustomStartDate : undefined)
+      setCanvasDefaultCustomEndDate(nextDefaultPeriod === 'custom' ? defaultCustomEndDate : undefined)
+      setCanvasHideDateFilter(Boolean(hideDateFilter))
       setIsCanvasSettingsModalOpen(false)
       return
     }
@@ -371,11 +394,19 @@ const useCanvasAdminFlow = ({
       const nextDescription = buildCanvasDashboardDescription(
         canvasDashboardDescription,
         selectedWebsiteId ?? undefined,
+        nextDefaultPeriod,
+        defaultCustomStartDate,
+        defaultCustomEndDate,
+        Boolean(hideDateFilter),
       )
       await updateDashboard(projectId, dashboardId, { name: nextName, description: nextDescription })
       setCanvasTitle(nextName)
       setCanvasDashboardDescription(nextDescription)
       setCanvasConfiguredWebsiteId(selectedWebsiteId ?? null)
+      setCanvasDefaultPeriod(nextDefaultPeriod)
+      setCanvasDefaultCustomStartDate(nextDefaultPeriod === 'custom' ? defaultCustomStartDate : undefined)
+      setCanvasDefaultCustomEndDate(nextDefaultPeriod === 'custom' ? defaultCustomEndDate : undefined)
+      setCanvasHideDateFilter(Boolean(hideDateFilter))
       setIsCanvasSettingsModalOpen(false)
       setRenameCanvasError(null)
     } catch (error) {
