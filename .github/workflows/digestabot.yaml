@@ -1,4 +1,5 @@
 name: 'Check for newer image versions'
+run-name: 'Digestabot — Check for newer image versions'
 
 on:
   workflow_dispatch:
