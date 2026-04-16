@@ -98,6 +98,14 @@ import type {
   PendingCsvStickyImport,
 } from '../model/types.ts'
 import {
+  GRID_SECTION_LAYOUT_CONFIG,
+  compareFramesForGridLayout,
+  compareFramesForSectionOrder,
+  findContainingGridSectionId,
+  getFrameBoundsForLayout as getFrameBoundsForLayoutBase,
+  reflowGridSections as reflowGridSectionFrames,
+} from '../model/layout/gridSectionLayout.ts'
+import {
   CANVAS_DASHBOARD_TOKEN,
   CANVAS_FIGURE_OPTIONS,
   CANVAS_INVENTORY_DETAIL_LIMIT_PER_TYPE,
@@ -205,28 +213,6 @@ const getNextAutoSectionLabel = (frames: CanvasFrame[], excludeFrameId?: string)
   return `Seksjon ${next}`
 }
 
-const getFrameBoundsForLayout = (frame: CanvasFrame): { left: number; top: number; right: number; bottom: number } => {
-  const defaults = getDefaultFrameSize(frame)
-  const width = frame.width ?? defaults.width
-  const height = frame.height ?? defaults.height
-  return {
-    left: frame.x,
-    top: frame.y,
-    right: frame.x + width,
-    bottom: frame.y + height,
-  }
-}
-
-const GRID_SECTION_LAYOUT_CONFIG = {
-  paddingX: 24,
-  paddingTop: 72,
-  paddingBottom: 24,
-  gapX: 20,
-  gapY: 18,
-} as const
-
-const GRID_SECTION_LAYOUT_MIN_COLUMN_WIDTH = 280
-const GRID_SECTION_LAYOUT_TEXT_TOP_SPACING = 10
 const STICKY_CARD_HORIZONTAL_PADDING = 32
 const STICKY_CARD_VERTICAL_PADDING = 40
 const STICKY_CARD_MIN_HEIGHT = 180
@@ -244,42 +230,6 @@ const estimateStickyFrameHeight = (text: string, width: number): number => {
     : 1
 
   return Math.max(STICKY_CARD_MIN_HEIGHT, lineCount * STICKY_CARD_LINE_HEIGHT + STICKY_CARD_VERTICAL_PADDING)
-}
-
-const compareFramesForSectionOrder = (a: CanvasFrame, b: CanvasFrame): number => {
-  const aVoteRank = a.kind === 'sticky' && Number.isFinite(a.finalVoteRank) ? Number(a.finalVoteRank) : null
-  const bVoteRank = b.kind === 'sticky' && Number.isFinite(b.finalVoteRank) ? Number(b.finalVoteRank) : null
-
-  if (aVoteRank !== null || bVoteRank !== null) {
-    if (aVoteRank === null) return 1
-    if (bVoteRank === null) return -1
-    if (aVoteRank !== bVoteRank) return aVoteRank - bVoteRank
-  }
-
-  if (a.y !== b.y) return a.y - b.y
-  if (a.x !== b.x) return a.x - b.x
-  return a.id.localeCompare(b.id)
-}
-
-const getGridSectionTopSpacing = (frame: CanvasFrame): number =>
-  frame.kind === 'text' ? GRID_SECTION_LAYOUT_TEXT_TOP_SPACING : 0
-
-const compareFramesForGridLayout = (a: CanvasFrame, b: CanvasFrame): number => {
-  const aVoteRank = a.kind === 'sticky' && Number.isFinite(a.finalVoteRank) ? Number(a.finalVoteRank) : null
-  const bVoteRank = b.kind === 'sticky' && Number.isFinite(b.finalVoteRank) ? Number(b.finalVoteRank) : null
-
-  if (aVoteRank !== null || bVoteRank !== null) {
-    if (aVoteRank === null) return 1
-    if (bVoteRank === null) return -1
-    if (aVoteRank !== bVoteRank) return aVoteRank - bVoteRank
-  }
-
-  if (a.y !== b.y) return a.y - b.y
-  if (a.x !== b.x) return a.x - b.x
-
-  const aStableId = a.graphId ? `g-${a.graphId}` : `l-${a.id}`
-  const bStableId = b.graphId ? `g-${b.graphId}` : `l-${b.id}`
-  return aStableId.localeCompare(bStableId)
 }
 
 const Canvas = () => {
@@ -2179,24 +2129,17 @@ const Canvas = () => {
     [],
   )
 
-  const findContainingGridSectionId = useCallback((frame: CanvasFrame, framePool: CanvasFrame[]): string | null => {
-    if (frame.kind === 'section') return null
-    const bounds = getFrameBoundsForLayout(frame)
-    const centerX = (bounds.left + bounds.right) / 2
-    const centerY = (bounds.top + bounds.bottom) / 2
-    const targetSection = framePool.find((candidate) => {
-      if (candidate.kind !== 'section' || candidate.sectionLayout !== 'grid') return false
-      if ((candidate.categoryId ?? null) !== (frame.categoryId ?? null)) return false
-      const sectionBounds = getFrameBoundsForLayout(candidate)
-      return (
-        centerX >= sectionBounds.left &&
-        centerX <= sectionBounds.right &&
-        centerY >= sectionBounds.top &&
-        centerY <= sectionBounds.bottom
-      )
-    })
-    return targetSection?.id ?? null
-  }, [])
+  const getFrameBoundsForLayout = useCallback(
+    (frame: CanvasFrame): { left: number; top: number; right: number; bottom: number } =>
+      getFrameBoundsForLayoutBase(frame, getDefaultFrameSize),
+    [],
+  )
+
+  const findFrameContainingGridSectionId = useCallback(
+    (frame: CanvasFrame, framePool: CanvasFrame[]): string | null =>
+      findContainingGridSectionId(frame, framePool, getDefaultFrameSize),
+    [],
+  )
 
   const getGridLayoutFrameHeight = useCallback((frame: CanvasFrame): number => {
     const defaults = getDefaultFrameSize(frame)
@@ -2254,117 +2197,14 @@ const Canvas = () => {
   }, [])
 
   const reflowGridSections = useCallback(
-    (inputFrames: CanvasFrame[], sectionIds: string[]) => {
-      const uniqueSectionIds = [...new Set(sectionIds)]
-      if (uniqueSectionIds.length === 0) return { nextFrames: inputFrames, changedFrameIds: new Set<string>() }
-
-      const byId = new Map(inputFrames.map((frame) => [frame.id, frame]))
-      const changedFrameIds = new Set<string>()
-
-      uniqueSectionIds.forEach((sectionId) => {
-        const sectionFrame = byId.get(sectionId)
-        if (!sectionFrame || sectionFrame.kind !== 'section' || sectionFrame.sectionLayout !== 'grid') return
-
-        const sectionBounds = getFrameBoundsForLayout(sectionFrame)
-        const contentLeft = sectionBounds.left + GRID_SECTION_LAYOUT_CONFIG.paddingX
-        const contentRight = sectionBounds.right - GRID_SECTION_LAYOUT_CONFIG.paddingX
-        const contentTop = sectionBounds.top + GRID_SECTION_LAYOUT_CONFIG.paddingTop
-
-        const containedFrames = inputFrames
-          .map((frame) => byId.get(frame.id) ?? frame)
-          .filter((frame) => {
-            if (frame.id === sectionId || frame.kind === 'section') return false
-            if ((frame.categoryId ?? null) !== (sectionFrame.categoryId ?? null)) return false
-            const bounds = getFrameBoundsForLayout(frame)
-            const centerX = (bounds.left + bounds.right) / 2
-            const centerY = (bounds.top + bounds.bottom) / 2
-            return (
-              centerX >= sectionBounds.left &&
-              centerX <= sectionBounds.right &&
-              centerY >= sectionBounds.top &&
-              centerY <= sectionBounds.bottom
-            )
-          })
-          .sort(compareFramesForGridLayout)
-
-        const contentWidth = Math.max(1, contentRight - contentLeft)
-        const estimatedColumnCount = Math.max(
-          1,
-          Math.floor(
-            (contentWidth + GRID_SECTION_LAYOUT_CONFIG.gapX) /
-              (GRID_SECTION_LAYOUT_MIN_COLUMN_WIDTH + GRID_SECTION_LAYOUT_CONFIG.gapX),
-          ),
-        )
-        const columnCount = Math.max(1, Math.min(estimatedColumnCount, containedFrames.length))
-        const columnWidth =
-          columnCount <= 1
-            ? contentWidth
-            : (contentWidth - GRID_SECTION_LAYOUT_CONFIG.gapX * (columnCount - 1)) / columnCount
-        const columnBottoms = Array.from({ length: columnCount }, () => contentTop)
-        let contentBottomEdge = contentTop
-
-        containedFrames.forEach((frame) => {
-          const defaults = getDefaultFrameSize(frame)
-          const width = frame.width ?? defaults.width
-          const height = getGridLayoutFrameHeight(frame)
-
-          const shouldSpanAllColumns = columnCount === 1 || width > columnWidth
-          if (shouldSpanAllColumns) {
-            const topSpacing = getGridSectionTopSpacing(frame)
-            const nextY = Math.max(...columnBottoms) + topSpacing
-            const nextFrame: CanvasFrame = {
-              ...frame,
-              x: Math.max(0, contentLeft),
-              y: Math.max(-CANVAS_TOP_BUFFER, nextY),
-              height,
-            }
-            byId.set(nextFrame.id, nextFrame)
-            changedFrameIds.add(nextFrame.id)
-            const nextBottom = nextFrame.y + height + GRID_SECTION_LAYOUT_CONFIG.gapY
-            for (let index = 0; index < columnBottoms.length; index += 1) {
-              columnBottoms[index] = nextBottom
-            }
-            contentBottomEdge = Math.max(contentBottomEdge, nextFrame.y + height)
-            return
-          }
-
-          let targetColumn = 0
-          for (let index = 1; index < columnBottoms.length; index += 1) {
-            if (columnBottoms[index] < columnBottoms[targetColumn]) {
-              targetColumn = index
-            }
-          }
-
-          const nextX = contentLeft + targetColumn * (columnWidth + GRID_SECTION_LAYOUT_CONFIG.gapX)
-          const topSpacing = getGridSectionTopSpacing(frame)
-          const nextY = columnBottoms[targetColumn] + topSpacing
-
-          const nextFrame: CanvasFrame = {
-            ...frame,
-            x: Math.max(0, nextX),
-            y: Math.max(-CANVAS_TOP_BUFFER, nextY),
-            height,
-          }
-          byId.set(nextFrame.id, nextFrame)
-          changedFrameIds.add(nextFrame.id)
-          columnBottoms[targetColumn] = nextFrame.y + height + GRID_SECTION_LAYOUT_CONFIG.gapY
-          contentBottomEdge = Math.max(contentBottomEdge, nextFrame.y + height)
-        })
-
-        const nextSectionFrame: CanvasFrame = {
-          ...sectionFrame,
-          height: Math.max(
-            sectionFrame.height ?? getDefaultFrameSize(sectionFrame).height,
-            Math.ceil(contentBottomEdge - sectionFrame.y + GRID_SECTION_LAYOUT_CONFIG.paddingBottom),
-          ),
-        }
-        byId.set(nextSectionFrame.id, nextSectionFrame)
-        changedFrameIds.add(nextSectionFrame.id)
-      })
-
-      const nextFrames = inputFrames.map((frame) => byId.get(frame.id) ?? frame)
-      return { nextFrames, changedFrameIds }
-    },
+    (inputFrames: CanvasFrame[], sectionIds: string[]) =>
+      reflowGridSectionFrames({
+        inputFrames,
+        sectionIds,
+        getDefaultFrameSize,
+        getGridLayoutFrameHeight,
+        topBuffer: CANVAS_TOP_BUFFER,
+      }),
     [getGridLayoutFrameHeight],
   )
 
@@ -2613,16 +2453,11 @@ const Canvas = () => {
     resizeState,
     setResizeState,
     canvasZoom,
-    gridSectionLayoutConfig: GRID_SECTION_LAYOUT_CONFIG,
-    gridSectionLayoutMinColumnWidth: GRID_SECTION_LAYOUT_MIN_COLUMN_WIDTH,
     getCanvasPointerPosition,
     getDefaultFrameSize,
     getFrameBounds,
-    getFrameBoundsForLayout,
-    getGridLayoutFrameHeight,
-    getGridSectionTopSpacing,
+    findContainingGridSectionId: findFrameContainingGridSectionId,
     compareFramesForSectionOrder,
-    compareFramesForGridLayout,
     reflowGridSections,
     setFrames,
     persistFrame,
@@ -3491,7 +3326,7 @@ const Canvas = () => {
     if (frameToMove.kind !== 'sticky' && frameToMove.kind !== 'text') return
     if ((frameToMove.categoryId ?? null) !== (targetSection.categoryId ?? null)) return
 
-    const sourceGridSectionId = findContainingGridSectionId(frameToMove, frames)
+    const sourceGridSectionId = findFrameContainingGridSectionId(frameToMove, frames)
     const targetBounds = getFrameBoundsForLayout(targetSection)
     const baseX = targetBounds.left + GRID_SECTION_LAYOUT_CONFIG.paddingX
     const baseY = targetBounds.top + GRID_SECTION_LAYOUT_CONFIG.paddingTop

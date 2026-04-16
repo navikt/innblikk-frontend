@@ -41,14 +41,6 @@ type CanvasResizeState = {
   dir: 'se' | 'sw' | 'ne' | 'nw'
 }
 
-type GridSectionLayoutConfig = {
-  paddingX: number
-  paddingTop: number
-  paddingBottom: number
-  gapX: number
-  gapY: number
-}
-
 type UseCanvasInteractionsParams = {
   isDotVotingActive: boolean
   frames: CanvasFrame[]
@@ -63,8 +55,6 @@ type UseCanvasInteractionsParams = {
   resizeState: CanvasResizeState | null
   setResizeState: Dispatch<SetStateAction<CanvasResizeState | null>>
   canvasZoom: number
-  gridSectionLayoutConfig: GridSectionLayoutConfig
-  gridSectionLayoutMinColumnWidth: number
   getCanvasPointerPosition: (clientX: number, clientY: number) => { x: number; y: number } | null
   getDefaultFrameSize: (frameOrKind: CanvasFrame | CanvasFrame['kind']) => {
     width: number
@@ -73,11 +63,8 @@ type UseCanvasInteractionsParams = {
     minHeight: number
   }
   getFrameBounds: (frame: CanvasFrame) => { left: number; top: number; right: number; bottom: number }
-  getFrameBoundsForLayout: (frame: CanvasFrame) => { left: number; top: number; right: number; bottom: number }
-  getGridLayoutFrameHeight: (frame: CanvasFrame) => number
-  getGridSectionTopSpacing: (frame: CanvasFrame) => number
+  findContainingGridSectionId: (frame: CanvasFrame, framePool: CanvasFrame[]) => string | null
   compareFramesForSectionOrder: (a: CanvasFrame, b: CanvasFrame) => number
-  compareFramesForGridLayout: (a: CanvasFrame, b: CanvasFrame) => number
   reflowGridSections: (
     inputFrames: CanvasFrame[],
     sectionIds: string[],
@@ -111,16 +98,11 @@ const useCanvasInteractions = ({
   resizeState,
   setResizeState,
   canvasZoom,
-  gridSectionLayoutConfig,
-  gridSectionLayoutMinColumnWidth,
   getCanvasPointerPosition,
   getDefaultFrameSize,
   getFrameBounds,
-  getFrameBoundsForLayout,
-  getGridLayoutFrameHeight,
-  getGridSectionTopSpacing,
+  findContainingGridSectionId,
   compareFramesForSectionOrder,
-  compareFramesForGridLayout,
   reflowGridSections,
   setFrames,
   persistFrame,
@@ -400,151 +382,25 @@ const useCanvasInteractions = ({
         framesToPersistById.set(movedFrame.id, snapped)
       })
 
-      const resolveFrameAfterSnap = (frameId: string): CanvasFrame | null => {
-        const moved = framesToPersistById.get(frameId)
-        if (moved) return moved
-        return framesRef.current.find((frame) => frame.id === frameId) ?? null
-      }
-
-      const resolveContainingGridSection = (
-        frame: CanvasFrame,
-        resolveFrame: (frameId: string) => CanvasFrame | null,
-      ): CanvasFrame | null => {
-        if (frame.kind === 'section') return null
-        const frameBounds = getFrameBoundsForLayout(frame)
-        const frameCenterX = (frameBounds.left + frameBounds.right) / 2
-        const frameCenterY = (frameBounds.top + frameBounds.bottom) / 2
-        return (
-          framesRef.current.find((candidate) => {
-            const section = resolveFrame(candidate.id)
-            if (!section || section.kind !== 'section' || section.sectionLayout !== 'grid') return false
-            if ((section.categoryId ?? null) !== (frame.categoryId ?? null)) return false
-            const sectionBounds = getFrameBoundsForLayout(section)
-            return (
-              frameCenterX >= sectionBounds.left &&
-              frameCenterX <= sectionBounds.right &&
-              frameCenterY >= sectionBounds.top &&
-              frameCenterY <= sectionBounds.bottom
-            )
-          }) ?? null
-        )
-      }
+      const framesAfterSnap = framesRef.current.map((frame) => framesToPersistById.get(frame.id) ?? frame)
 
       const affectedGridSectionIds = new Set<string>()
       movedFrames.forEach((movedFrame) => {
         const originalFrame = originalMovedFramesById.get(movedFrame.id) ?? movedFrame
-        const previousSection = resolveContainingGridSection(
-          originalFrame,
-          (id) => framesRef.current.find((f) => f.id === id) ?? null,
-        )
-        if (previousSection) affectedGridSectionIds.add(previousSection.id)
-        const nextFrame = resolveFrameAfterSnap(movedFrame.id)
-        if (!nextFrame) return
-        const nextSection = resolveContainingGridSection(nextFrame, resolveFrameAfterSnap)
-        if (nextSection) affectedGridSectionIds.add(nextSection.id)
+        const previousSectionId = findContainingGridSectionId(originalFrame, framesRef.current)
+        if (previousSectionId) affectedGridSectionIds.add(previousSectionId)
+        const nextFrame = framesToPersistById.get(movedFrame.id) ?? movedFrame
+        const nextSectionId = findContainingGridSectionId(nextFrame, framesAfterSnap)
+        if (nextSectionId) affectedGridSectionIds.add(nextSectionId)
       })
 
-      const reflowGridSection = (sectionId: string) => {
-        const sectionFrame = resolveFrameAfterSnap(sectionId)
-        if (!sectionFrame || sectionFrame.kind !== 'section' || sectionFrame.sectionLayout !== 'grid') return
-
-        const sectionBounds = getFrameBoundsForLayout(sectionFrame)
-        const contentLeft = sectionBounds.left + gridSectionLayoutConfig.paddingX
-        const contentRight = sectionBounds.right - gridSectionLayoutConfig.paddingX
-        const contentTop = sectionBounds.top + gridSectionLayoutConfig.paddingTop
-
-        const containedFrames = framesRef.current
-          .map((frame) => resolveFrameAfterSnap(frame.id) ?? frame)
-          .filter((frame): frame is CanvasFrame => Boolean(frame))
-          .filter((frame) => {
-            if (frame.id === sectionId || frame.kind === 'section') return false
-            if ((frame.categoryId ?? null) !== (sectionFrame.categoryId ?? null)) return false
-            const bounds = getFrameBoundsForLayout(frame)
-            const centerX = (bounds.left + bounds.right) / 2
-            const centerY = (bounds.top + bounds.bottom) / 2
-            return (
-              centerX >= sectionBounds.left &&
-              centerX <= sectionBounds.right &&
-              centerY >= sectionBounds.top &&
-              centerY <= sectionBounds.bottom
-            )
-          })
-          .sort(compareFramesForGridLayout)
-
-        const contentWidth = Math.max(1, contentRight - contentLeft)
-        const estimatedColumnCount = Math.max(
-          1,
-          Math.floor(
-            (contentWidth + gridSectionLayoutConfig.gapX) /
-              (gridSectionLayoutMinColumnWidth + gridSectionLayoutConfig.gapX),
-          ),
-        )
-        const columnCount = Math.max(1, Math.min(estimatedColumnCount, containedFrames.length))
-        const columnWidth =
-          columnCount <= 1
-            ? contentWidth
-            : (contentWidth - gridSectionLayoutConfig.gapX * (columnCount - 1)) / columnCount
-        const columnBottoms = Array.from({ length: columnCount }, () => contentTop)
-        let contentBottomEdge = contentTop
-
-        containedFrames.forEach((frame) => {
-          const defaults = getDefaultFrameSize(frame)
-          const width = frame.width ?? defaults.width
-          const height = getGridLayoutFrameHeight(frame)
-
-          const shouldSpanAllColumns = columnCount === 1 || width > columnWidth
-          if (shouldSpanAllColumns) {
-            const topSpacing = getGridSectionTopSpacing(frame)
-            const nextY = Math.max(...columnBottoms) + topSpacing
-            const nextFrame: CanvasFrame = {
-              ...frame,
-              x: Math.max(0, contentLeft),
-              y: Math.max(-CANVAS_TOP_BUFFER, nextY),
-              height,
-            }
-            const nextBottom = nextFrame.y + height + gridSectionLayoutConfig.gapY
-            for (let index = 0; index < columnBottoms.length; index += 1) {
-              columnBottoms[index] = nextBottom
-            }
-            contentBottomEdge = Math.max(contentBottomEdge, nextFrame.y + height)
-            framesToPersistById.set(nextFrame.id, nextFrame)
-            return
-          }
-
-          let targetColumn = 0
-          for (let index = 1; index < columnBottoms.length; index += 1) {
-            if (columnBottoms[index] < columnBottoms[targetColumn]) {
-              targetColumn = index
-            }
-          }
-
-          const nextX = contentLeft + targetColumn * (columnWidth + gridSectionLayoutConfig.gapX)
-          const topSpacing = getGridSectionTopSpacing(frame)
-          const nextY = columnBottoms[targetColumn] + topSpacing
-
-          const nextFrame: CanvasFrame = {
-            ...frame,
-            x: Math.max(0, nextX),
-            y: Math.max(-CANVAS_TOP_BUFFER, nextY),
-            height,
-          }
-          columnBottoms[targetColumn] = nextFrame.y + height + gridSectionLayoutConfig.gapY
-          contentBottomEdge = Math.max(contentBottomEdge, nextFrame.y + height)
-          framesToPersistById.set(nextFrame.id, nextFrame)
-        })
-
-        const nextSectionFrame: CanvasFrame = {
-          ...sectionFrame,
-          height: Math.max(
-            sectionFrame.height ?? getDefaultFrameSize(sectionFrame).height,
-            Math.ceil(contentBottomEdge - sectionFrame.y + gridSectionLayoutConfig.paddingBottom),
-          ),
-        }
-        framesToPersistById.set(nextSectionFrame.id, nextSectionFrame)
-      }
-
-      ;[...affectedGridSectionIds].forEach((sectionId) => {
-        reflowGridSection(sectionId)
+      const { nextFrames: reflowedFrames, changedFrameIds } = reflowGridSections(framesAfterSnap, [
+        ...affectedGridSectionIds,
+      ])
+      changedFrameIds.forEach((frameId) => {
+        const reflowedFrame = reflowedFrames.find((frame) => frame.id === frameId)
+        if (!reflowedFrame) return
+        framesToPersistById.set(frameId, reflowedFrame)
       })
 
       const framesToPersist = [...framesToPersistById.values()]
@@ -579,18 +435,13 @@ const useCanvasInteractions = ({
       window.removeEventListener('touchend', onPointerUp)
     }
   }, [
-    compareFramesForGridLayout,
     compareFramesForSectionOrder,
     dragState,
+    findContainingGridSectionId,
     framesRef,
     getCanvasPointerPosition,
-    getDefaultFrameSize,
-    getFrameBoundsForLayout,
-    getGridLayoutFrameHeight,
-    getGridSectionTopSpacing,
-    gridSectionLayoutConfig,
-    gridSectionLayoutMinColumnWidth,
     persistFrame,
+    reflowGridSections,
     setDragState,
     setFrames,
     setSyncError,
@@ -824,4 +675,4 @@ const useCanvasInteractions = ({
 }
 
 export default useCanvasInteractions
-export type { CanvasDragState, CanvasResizeState, CanvasSelectionBox, GridSectionLayoutConfig }
+export type { CanvasDragState, CanvasResizeState, CanvasSelectionBox }
