@@ -735,6 +735,7 @@ const DateRangeSelector = forwardRef(
                         label="Fra dato"
                         id="date-from"
                         value={formatDate(selectedRange?.from)}
+                        readOnly
                         size="small"
                       />
                     </div>
@@ -743,6 +744,7 @@ const DateRangeSelector = forwardRef(
                         label="Til dato"
                         id="date-to"
                         value={formatDate(selectedRange?.to)}
+                        readOnly
                         size="small"
                       />
                     </div>

@@ -271,10 +271,6 @@ const WebsitePicker = ({
         const startAt = calculatedStartDate.getTime()
         const endAt = calculatedEndDate.getTime()
 
-        console.log(
-          `Fetching data for ${daysToFetch} days from ${new Date(startAt).toLocaleDateString()} to ${new Date(endAt).toLocaleDateString()}`,
-        )
-
         // Fetch BOTH query types to get both estimates
         const propertiesResponse = await Promise.race([
           fetch(
@@ -285,12 +281,8 @@ const WebsitePicker = ({
         // @ts-expect-error — Promise.race return type is overly broad
         const responseData = await propertiesResponse.json()
 
-        console.log('API Response:', responseData)
-
         // Extract properties and GB processed from response
         const properties: EventProperty[] = responseData.properties || []
-        const gbProcessedValue = responseData.gbProcessed
-        const estimatedGbValue = responseData.estimatedGbProcessed
 
         /* if (gbProcessedValue) {
         setGbProcessed(gbProcessedValue);
@@ -299,10 +291,6 @@ const WebsitePicker = ({
       if (estimatedGbValue) {
         setEstimatedGbProcessed(estimatedGbValue);
       } */
-
-        console.log(
-          `Fetched ${properties.length} event entries from the API, estimated ${estimatedGbValue} GB, actual ${gbProcessedValue} GB`,
-        )
 
         // Process events and parameters
         const eventMap = new Map<string, string[]>()
@@ -326,8 +314,6 @@ const WebsitePicker = ({
             })
           })
         })
-
-        console.log(`Found ${uniqueEventNames.length} unique events and ${paramsByEvent.length} parameters`)
 
         if (onEventsLoad) {
           onEventsLoad(uniqueEventNames, paramsByEvent, totalDays)
@@ -364,7 +350,6 @@ const WebsitePicker = ({
     const cachedWebsites = getFromLocalStorage<Website[]>(WEBSITES_CACHE_KEY)
 
     if (cachedWebsites && cachedWebsites.length > 0) {
-      console.log('Using cached websites list')
       setWebsites(cachedWebsites)
       didLoadFromCache = true
     }
@@ -413,7 +398,6 @@ const WebsitePicker = ({
     // Priority 2: localStorage cache
     const cachedWebsite = getFromLocalStorage<Website>(SELECTED_WEBSITE_CACHE_KEY)
     if (cachedWebsite && !selectedWebsite) {
-      console.log('[WebsitePicker] Restoring from localStorage:', cachedWebsite.name)
       handleWebsiteChange(cachedWebsite) // Use handleWebsiteChange to ensure URL is updated
     }
 
@@ -433,7 +417,6 @@ const WebsitePicker = ({
     if (websiteIdFromUrl) {
       const website = websites.find((w) => w.id === websiteIdFromUrl)
       if (website) {
-        console.log('[WebsitePicker] Applying website from URL:', website.name)
         handleWebsiteChange(website)
       }
     }
@@ -515,8 +498,6 @@ const WebsitePicker = ({
 
     // Only reload if something actually changed
     if (dateRangeChanged || reloadFlagChanged) {
-      console.log(`Reload triggered - dateRange: ${dateRangeChanged}, reloadFlag: ${reloadFlagChanged}`)
-
       if (dateRangeChanged) {
         // Update the internal state
         setDateRangeInDays(externalDateRange || 14)
