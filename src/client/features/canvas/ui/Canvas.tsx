@@ -10,7 +10,6 @@ import {
   normalizeUrlToPath,
   savePeriodPreference,
 } from '../../../shared/lib/utils.ts'
-import { mapGraphTypeToChart } from '../../oversikt'
 import CanvasIllustrationModal from './illustration/CanvasIllustrationModal.tsx'
 import { DEFAULT_CANVAS_ILLUSTRATION_PATH } from './illustration/CanvasIllustrationRegistry.ts'
 import CanvasIconModal from './icon/CanvasIconModal.tsx'
@@ -59,7 +58,7 @@ import {
   fetchGraphs,
   updateQuery,
 } from '../../oversikt/api/oversiktApi.ts'
-import type { GraphCategoryDto, GraphType, OversiktChart } from '../../oversikt/model/types.ts'
+import type { GraphCategoryDto } from '../../oversikt/model/types.ts'
 import EditChartDialog from '../../oversikt/ui/dialogs/EditChartDialog.tsx'
 import DeleteChartDialog from '../../oversikt/ui/dialogs/DeleteChartDialog.tsx'
 import type { Website } from '../../../shared/types/website.ts'
@@ -80,6 +79,7 @@ import useCanvasInteractions, {
 } from '../hooks/useCanvasInteractions.ts'
 import useCanvasPlacement from '../hooks/useCanvasPlacement.ts'
 import useCanvasPlacementState from '../hooks/useCanvasPlacementState.ts'
+import useCanvasChartMutations from '../hooks/useCanvasChartMutations.ts'
 import { fetchCanvasStorageData } from '../api/canvasStorageApi.ts'
 import ChangeLogModal, { type ChangeLogEntry } from '../../../shared/ui/ChangeLogModal.tsx'
 
@@ -144,7 +144,6 @@ import {
   getWebsiteFrameDisplayUrl,
   getWebsiteFrameRenderSrc,
   isImagePreviewUrl,
-  mapCanvasChartTypeToGraphType,
   serializeCanvasConfig,
 } from '../utils/canvasUtils.ts'
 import {
@@ -411,13 +410,6 @@ const Canvas = () => {
   const [isLoadingChartOptions, _setIsLoadingChartOptions] = useState(false)
   const [addChartError, setAddChartError] = useState<string | null>(null)
   const [isGrafbyggerEmbedded, setIsGrafbyggerEmbedded] = useState(false)
-  const [editChartFrameId, setEditChartFrameId] = useState<string | null>(null)
-  const [editChartTarget, setEditChartTarget] = useState<OversiktChart | null>(null)
-  const [deleteChartFrameId, setDeleteChartFrameId] = useState<string | null>(null)
-  const [deleteChartTarget, setDeleteChartTarget] = useState<OversiktChart | null>(null)
-  const [chartMutationError, setChartMutationError] = useState<string | null>(null)
-  const [savingEditChart, setSavingEditChart] = useState(false)
-  const [deletingChart, setDeletingChart] = useState(false)
   const [dragState, setDragState] = useState<CanvasDragState | null>(null)
   const [selectedFrameIds, setSelectedFrameIds] = useState<string[]>([])
   const [selectionBox, setSelectionBox] = useState<CanvasSelectionBox | null>(null)
@@ -2063,115 +2055,6 @@ const Canvas = () => {
     openGrafbyggerFromAddMenuDirect()
   }
 
-  const getOversiktChartFromCanvasFrame = useCallback(
-    (frame: CanvasFrame): OversiktChart | null => {
-      if (frame.kind !== 'chart' || !frame.chartSql || !frame.chartType) return null
-      return {
-        id: `canvas-chart-${frame.id}`,
-        title: frame.label || 'Graf',
-        type: frame.chartType,
-        sql: frame.chartSql,
-        width: 'full',
-        graphId: frame.graphId ?? 0,
-        graphType: mapCanvasChartTypeToGraphType(frame.chartType),
-        queryId: frame.queryId ?? 1,
-        queryName: CANVAS_QUERY_NAME,
-        categoryId: frame.categoryId ?? activeCanvasCategoryId ?? 0,
-      }
-    },
-    [activeCanvasCategoryId],
-  )
-
-  const handleOpenEditChartModal = (frame: CanvasFrame) => {
-    const chart = getOversiktChartFromCanvasFrame(frame)
-    if (!chart) {
-      setChartMutationError('Kunne ikke laste graf for redigering')
-      return
-    }
-    setEditChartFrameId(frame.id)
-    setEditChartTarget(chart)
-    setChartMutationError(null)
-  }
-
-  const handleOpenDeleteChartModal = (frame: CanvasFrame) => {
-    const chart = getOversiktChartFromCanvasFrame(frame)
-    if (!chart) {
-      setChartMutationError('Kunne ikke laste graf for sletting')
-      return
-    }
-    setDeleteChartFrameId(frame.id)
-    setDeleteChartTarget(chart)
-    setChartMutationError(null)
-  }
-
-  const handleSaveEditedChart = async (params: {
-    name: string
-    graphType: GraphType
-    sqlText: string
-    width: number
-    websiteId?: string
-    dashboardId?: number
-    addAsVariant?: boolean
-    variantName?: string
-    newVariants?: Array<{ name: string; sqlText: string }>
-    targetQueryId?: number
-    targetQueryName?: string
-  }) => {
-    if (!editChartFrameId) return
-    const currentFrame = frames.find((frame) => frame.id === editChartFrameId)
-    if (!currentFrame || currentFrame.kind !== 'chart') return
-
-    const nextChartType = mapGraphTypeToChart(params.graphType)
-    if (nextChartType === 'text' || nextChartType === 'title' || nextChartType === 'siteimprove') {
-      setChartMutationError('Ugyldig graftype for canvas')
-      return
-    }
-
-    const sqlText = params.sqlText.trim()
-    if (!sqlText) {
-      setChartMutationError('SQL-kode kan ikke være tom')
-      return
-    }
-
-    const updatedFrame: CanvasFrame = {
-      ...currentFrame,
-      label: params.name.trim() || currentFrame.label,
-      chartType: nextChartType,
-      chartSql: sqlText,
-      websiteId: params.websiteId?.trim() || currentFrame.websiteId,
-      refreshNonce: currentFrame.refreshNonce + 1,
-    }
-
-    try {
-      setSavingEditChart(true)
-      setSyncError(null)
-      setChartMutationError(null)
-      const persistedFrame = await persistFrame(updatedFrame)
-      setFrames((prev) => prev.map((frame) => (frame.id === editChartFrameId ? persistedFrame : frame)))
-      setEditChartTarget(null)
-      setEditChartFrameId(null)
-    } catch (error) {
-      setChartMutationError(error instanceof Error ? error.message : 'Kunne ikke oppdatere graf')
-    } finally {
-      setSavingEditChart(false)
-    }
-  }
-
-  const handleDeleteChart = async () => {
-    if (!deleteChartFrameId) return
-    try {
-      setDeletingChart(true)
-      setChartMutationError(null)
-      await handleRemovePage(deleteChartFrameId)
-      setDeleteChartTarget(null)
-      setDeleteChartFrameId(null)
-    } catch (error) {
-      setChartMutationError(error instanceof Error ? error.message : 'Kunne ikke slette graf')
-    } finally {
-      setDeletingChart(false)
-    }
-  }
-
   const {
     getHeadingFrameFontSize,
     getHeadingFrameWidth,
@@ -2380,6 +2263,28 @@ const Canvas = () => {
       setSyncError(error instanceof Error ? error.message : 'Kunne ikke slette kobling')
     }
   }
+
+  const {
+    editChartFrameId,
+    editChartTarget,
+    deleteChartTarget,
+    chartMutationError,
+    savingEditChart,
+    deletingChart,
+    handleOpenEditChartModal,
+    handleOpenDeleteChartModal,
+    handleSaveEditedChart,
+    handleDeleteChart,
+    closeEditChartModal,
+    closeDeleteChartModal,
+  } = useCanvasChartMutations({
+    frames,
+    activeCanvasCategoryId,
+    persistFrame,
+    setFrames,
+    setSyncError,
+    handleRemovePage,
+  })
 
   const getContainedFrameIdsForSection = useCallback(
     (sectionFrame: CanvasFrame): string[] => {
@@ -4707,11 +4612,7 @@ const Canvas = () => {
         loading={savingEditChart}
         error={chartMutationError}
         defaultShowSql
-        onClose={() => {
-          setEditChartTarget(null)
-          setEditChartFrameId(null)
-          setChartMutationError(null)
-        }}
+        onClose={closeEditChartModal}
         onSave={handleSaveEditedChart}
       />
 
@@ -4720,11 +4621,7 @@ const Canvas = () => {
         chart={deleteChartTarget}
         loading={deletingChart}
         error={chartMutationError}
-        onClose={() => {
-          setDeleteChartTarget(null)
-          setDeleteChartFrameId(null)
-          setChartMutationError(null)
-        }}
+        onClose={closeDeleteChartModal}
         onConfirm={handleDeleteChart}
       />
 
