@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file.
 ### 🐛 Bug Fixes
 
 - Use pnpm consistently in start script
+- Remove setState calls inside useEffect in ThemeButton
 
 ### 👷 CI
 
