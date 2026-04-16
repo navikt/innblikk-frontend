@@ -1,13 +1,21 @@
-name: 'Build PR'
-run-name: 'Build PR #${{ github.event.pull_request.number }}'
+name: 'CI'
+run-name: 'CI @ ${{ github.ref_name }} — ${{ github.sha }}'
 
 on:
+  push:
+    branches: [main]
   pull_request:
     types: [opened, edited, synchronize, reopened]
 
+# Cancel in-progress runs for the same branch/PR so stale runs don't waste minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  validate:
+  validate-title:
     name: 'Validate PR title'
+    if: github.event_name == 'pull_request'
     runs-on: 'ubuntu-latest'
     steps:
       - name: 'Check Conventional Commit format'
@@ -117,12 +125,14 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
-  build:
-    name: 'build'
+  deploy-dev:
+    name: 'Deploy Dev'
+    if: github.event_name == 'push' && github.ref_name == 'main'
+    needs: [lint, test, test-e2e]
     runs-on: 'ubuntu-latest'
     permissions:
       packages: write
-      contents: read
+      contents: write
       id-token: write
     steps:
       - uses: 'actions/checkout@v6'
@@ -137,5 +147,20 @@ jobs:
           build_secrets: |
             "NODE_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}"
 
-    outputs:
-      image: ${{ steps.docker-build-push.outputs.image }}
+      - name: 'Deploy to Dev'
+        uses: 'nais/deploy/actions/deploy@v2'
+        env:
+          CLUSTER: 'dev-gcp'
+          RESOURCE: .nais/dev/nais-dev.yaml
+          VAR: image=${{ steps.docker-build-push.outputs.image }},version=${{ github.sha }}
+
+      - name: 'Create dev deployment tag'
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          TAG_NAME="dev-$(date -u +'%Y.%m.%d-%H%M%S')"
+          git tag -a "$TAG_NAME" \
+            -m "Development deployment of ${{ github.sha }}" \
+            -m "Image: ${{ steps.docker-build-push.outputs.image }}"
+          git push origin "$TAG_NAME"
