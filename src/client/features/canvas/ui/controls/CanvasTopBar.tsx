@@ -222,7 +222,7 @@ const CanvasTopBar = ({
           {!isCanvasFrontpage && (
             <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
               {showDateFilter && (
-                <div className="w-[152px] shrink-0 [&_label]:sr-only">
+                <div className="w-[220px] shrink-0 [&_label]:sr-only">
                   <PeriodPicker
                     period={period}
                     onPeriodChange={onPeriodChange}
@@ -230,7 +230,7 @@ const CanvasTopBar = ({
                     onStartDateChange={onCustomStartDateChange}
                     endDate={customEndDate}
                     onEndDateChange={onCustomEndDateChange}
-                    className="w-full sm:w-auto min-w-[152px]"
+                    className="w-full sm:w-auto min-w-[220px]"
                   />
                 </div>
               )}
