@@ -122,7 +122,6 @@ const CanvasTopBar = ({
   isInteractionLocked = false,
 }: CanvasTopBarProps) => {
   const participantCountText = `${activeParticipantCount} ${activeParticipantCount === 1 ? 'person' : 'personer'} i canvas`
-  const showFacilitatorStatus = Boolean(timerLabel) || (Boolean(dotVotingLabel) && isDotVotingActive)
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const storedTheme = localStorage.getItem('umami-theme')
@@ -193,7 +192,7 @@ const CanvasTopBar = ({
           <a
             href="/canvas"
             aria-label={`Til dashboard-oversikt${projectId !== null ? ` fra prosjekt ${projectId}` : ''}`}
-            className="min-w-0 flex w-full items-center gap-1 rounded-sm border-0 bg-transparent p-0 text-left text-[var(--ax-text-default)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-border-accent)] sm:flex-1"
+            className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-sm border-0 bg-transparent p-0 text-left text-[var(--ax-text-default)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-border-accent)]"
           >
             <span className="grid h-7 w-7 shrink-0 place-items-center">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -268,6 +267,26 @@ const CanvasTopBar = ({
                 iconSize={16}
                 withFloatingFrame={false}
               />
+              {timerLabel && (
+                <Button
+                  size="small"
+                  variant={isTimerRunning ? 'danger' : 'secondary'}
+                  onClick={onOpenTimer}
+                  className="shrink-0 whitespace-nowrap"
+                >
+                  {isTimerPaused ? `Pauset nedtelling: ${timerLabel}` : `Nedtelling: ${timerLabel}`}
+                </Button>
+              )}
+              {dotVotingLabel && isDotVotingActive && (
+                <Button
+                  size="small"
+                  variant={isDotVotingPaused ? 'secondary' : 'danger'}
+                  onClick={onOpenDotVoting}
+                  className="shrink-0 whitespace-nowrap"
+                >
+                  {isDotVotingPaused ? `Pauset prikkvotering: ${dotVotingLabel}` : `Prikkvotering: ${dotVotingLabel}`}
+                </Button>
+              )}
               <ActionMenu>
                 <ActionMenu.Trigger>
                   <Button
@@ -340,30 +359,6 @@ const CanvasTopBar = ({
             </div>
           )}
         </div>
-        {!isCanvasFrontpage && canvasInitMode === 'existing' && showFacilitatorStatus && (
-          <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-[var(--ax-border-neutral-subtle)] pt-2">
-            {timerLabel && (
-              <Button
-                size="small"
-                variant={isTimerRunning ? 'primary' : 'secondary'}
-                onClick={onOpenTimer}
-                className="whitespace-nowrap"
-              >
-                {isTimerPaused ? `Pauset nedtelling: ${timerLabel}` : `Nedtelling: ${timerLabel}`}
-              </Button>
-            )}
-            {dotVotingLabel && isDotVotingActive && (
-              <Button
-                size="small"
-                variant={isDotVotingPaused ? 'secondary' : 'primary'}
-                onClick={onOpenDotVoting}
-                className="whitespace-nowrap"
-              >
-                {isDotVotingPaused ? `Pauset prikkvotering: ${dotVotingLabel}` : `Prikkvotering: ${dotVotingLabel}`}
-              </Button>
-            )}
-          </div>
-        )}
         {!isCanvasFrontpage && !canPersistToDashboard && !shouldShowCreateCanvasModal && (
           <div className="mt-2">
             <Alert variant="warning" size="small">
