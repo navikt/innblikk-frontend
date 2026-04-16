@@ -16,6 +16,7 @@ type CanvasWebsiteActionMenuProps = {
   onDuplicate: () => void
   onEdit: () => void
   onRemove: () => void
+  isEditingLocked?: boolean
 }
 
 const CanvasWebsiteActionMenu = ({
@@ -33,6 +34,7 @@ const CanvasWebsiteActionMenu = ({
   onDuplicate,
   onEdit,
   onRemove,
+  isEditingLocked = false,
 }: CanvasWebsiteActionMenuProps) => (
   <ActionMenu>
     <ActionMenu.Trigger>
@@ -52,20 +54,20 @@ const CanvasWebsiteActionMenu = ({
           <span>Last inn på nytt</span>
         </span>
       </ActionMenu.Item>
-      <ActionMenu.Item onClick={onDuplicate}>
+      <ActionMenu.Item onClick={onDuplicate} disabled={isEditingLocked}>
         <span className="inline-flex items-center gap-2">
           <Copy size={14} aria-hidden="true" />
           <span>Dupliser</span>
         </span>
       </ActionMenu.Item>
-      <ActionMenu.Item onClick={onEdit}>
+      <ActionMenu.Item onClick={onEdit} disabled={isEditingLocked}>
         <span className="inline-flex items-center gap-2">
           <Edit2 size={14} aria-hidden="true" />
           <span>{isInternalDashboard ? 'Rediger dashboard' : 'Rediger nettside'}</span>
         </span>
       </ActionMenu.Item>
       {showVisualizationOption && onOpenVisualization && (
-        <ActionMenu.Item onClick={onOpenVisualization}>
+        <ActionMenu.Item onClick={onOpenVisualization} disabled={isEditingLocked}>
           <span className="inline-flex items-center gap-2">
             <ChartNoAxesCombined size={14} aria-hidden="true" />
             <span>Visualisering</span>
@@ -88,7 +90,7 @@ const CanvasWebsiteActionMenu = ({
           </span>
         </ActionMenu.Item>
       )}
-      <ActionMenu.Item onClick={onRemove}>
+      <ActionMenu.Item onClick={onRemove} disabled={isEditingLocked}>
         <span className="inline-flex items-center gap-2">
           <Trash2 size={14} aria-hidden="true" />
           <span>Fjern kort</span>

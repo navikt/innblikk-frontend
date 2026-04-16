@@ -457,7 +457,7 @@ const CanvasFrameLayer = ({
                 backgroundColor: frame.kind === 'sticky' ? stickyColorOption?.background : undefined,
               }}
             >
-              {frame.kind === 'website' && !frame.isInternalDashboard && !isFrameInteractionLocked && (
+              {frame.kind === 'website' && !frame.isInternalDashboard && !isDotVotingActive && (
                 <header
                   className={
                     'flex cursor-move items-start justify-between gap-2 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] px-3 py-2'
@@ -506,6 +506,7 @@ const CanvasFrameLayer = ({
                       onToggleTopList={onToggleWebsiteTopList}
                       onRefresh={() => handleRefreshFrame(frame.id)}
                       onDuplicate={() => handleDuplicateWebsiteCard(frame)}
+                      isEditingLocked={isCanvasLocked}
                       onEdit={() => {
                         if (frame.isInternalDashboard) {
                           handleOpenEditDashboardModal(frame)
@@ -1063,7 +1064,7 @@ const CanvasFrameLayer = ({
               {frame.kind === 'website' &&
                 !frame.isInternalDashboard &&
                 visualizationMode === 'clickmap' &&
-                !isFrameInteractionLocked &&
+                !isDotVotingActive &&
                 websiteTopListEnabled && (
                   <aside
                     className="absolute left-[calc(100%+12px)] top-0 z-[75] flex h-full w-[300px] min-w-0 flex-col overflow-hidden rounded-lg border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] shadow-md"
