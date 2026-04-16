@@ -79,6 +79,7 @@ import useCanvasInteractions, {
   type CanvasSelectionBox,
 } from '../hooks/useCanvasInteractions.ts'
 import useCanvasPlacement from '../hooks/useCanvasPlacement.ts'
+import useCanvasPlacementState from '../hooks/useCanvasPlacementState.ts'
 import { fetchCanvasStorageData } from '../api/canvasStorageApi.ts'
 import ChangeLogModal, { type ChangeLogEntry } from '../../../shared/ui/ChangeLogModal.tsx'
 
@@ -96,7 +97,6 @@ import type {
   ConnectionAnchorSide,
   ConnectionDragState,
   PendingCanvasFrameDraft,
-  PendingCsvStickyImport,
 } from '../model/types.ts'
 import {
   GRID_SECTION_LAYOUT_CONFIG,
@@ -468,12 +468,6 @@ const Canvas = () => {
   const [canvasZoom, setCanvasZoom] = useState(1)
   const [activeEditableFrameId, setActiveEditableFrameId] = useState<string | null>(null)
   const [failedImageFrameIds, setFailedImageFrameIds] = useState<Record<string, boolean>>({})
-  const [pendingFrameDraft, setPendingFrameDraft] = useState<PendingCanvasFrameDraft | null>(null)
-  const [pendingFigureDragStart, setPendingFigureDragStart] = useState<{ x: number; y: number } | null>(null)
-  const [pendingCsvStickyImport, setPendingCsvStickyImport] = useState<PendingCsvStickyImport | null>(null)
-  const [pendingFramePlacementLabel, setPendingFramePlacementLabel] = useState<string | null>(null)
-  const [pendingFramePointer, setPendingFramePointer] = useState<{ x: number; y: number } | null>(null)
-  const pendingCsvStickyImportRef = useRef<PendingCsvStickyImport | null>(null)
   const pageInsightsRef = useRef<Record<string, CanvasPageInsight>>({})
   const framesRef = useRef<CanvasFrame[]>([])
   const skipNextGridSectionPersistRef = useRef(false)
@@ -486,6 +480,24 @@ const Canvas = () => {
   const canvasToolbarRef = useRef<HTMLDivElement | null>(null)
   const connectionMetricRequestSignatureRef = useRef<string | null>(null)
   const timerModalReopenBlockedUntilRef = useRef(0)
+  const {
+    pendingFrameDraft,
+    setPendingFrameDraft,
+    pendingFigureDragStart,
+    setPendingFigureDragStart,
+    pendingCsvStickyImport,
+    pendingFramePlacementLabel,
+    setPendingFramePlacementLabel,
+    pendingFramePointer,
+    setPendingFramePointer,
+    pendingCsvStickyImportRef,
+    queueFrameForPlacement,
+    cancelPendingFramePlacement,
+    handleCsvImportPrepared,
+  } = useCanvasPlacementState({
+    setImportStickyProgressCurrent,
+    setImportStickyProgressTotal,
+  })
   const [canvasToolbarHeight, setCanvasToolbarHeight] = useState(120)
   const canvasCanvasTopOffset = canvasToolbarHeight + CANVAS_SURFACE_TOP_GAP
   const shouldShowCreateCanvasModal = canvasInitMode === 'create'
@@ -846,14 +858,7 @@ const Canvas = () => {
     handleExcludeRow,
     handleImportStickyCsv,
   } = useCanvasCsvImport({
-    onImportPrepared: ({ pendingImport, placementLabel }) => {
-      pendingCsvStickyImportRef.current = pendingImport
-      setPendingCsvStickyImport(pendingImport)
-      setPendingFramePlacementLabel(placementLabel)
-      setPendingFramePointer(null)
-      setImportStickyProgressCurrent(0)
-      setImportStickyProgressTotal(0)
-    },
+    onImportPrepared: handleCsvImportPrepared,
   })
 
   const { frameVisualizationData, setWebsiteIframeRef, handleWebsiteFrameLoad, focusWebsiteTopListItem } =
@@ -1401,22 +1406,6 @@ const Canvas = () => {
     return () => {
       observer.disconnect()
     }
-  }, [])
-
-  const queueFrameForPlacement = useCallback((draft: PendingCanvasFrameDraft, label: string) => {
-    setPendingFrameDraft(draft)
-    setPendingFramePlacementLabel(label)
-    setPendingFramePointer(null)
-  }, [])
-
-  const cancelPendingFramePlacement = useCallback(() => {
-    setPendingFrameDraft(null)
-    setPendingCsvStickyImport(null)
-    pendingCsvStickyImportRef.current = null
-    setPendingFramePlacementLabel(null)
-    setPendingFramePointer(null)
-    setImportStickyProgressCurrent(0)
-    setImportStickyProgressTotal(0)
   }, [])
 
   const {
