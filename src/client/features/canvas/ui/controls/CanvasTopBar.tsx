@@ -38,6 +38,10 @@ type CanvasTopBarProps = {
   onOpenDotVoting: () => void
   timerLabel: string | null
   dotVotingLabel: string | null
+  isTimerRunning: boolean
+  isTimerPaused: boolean
+  isDotVotingActive: boolean
+  isDotVotingPaused: boolean
   isGrafbyggerEmbedded: boolean
   onCloseGrafbygger: () => void
   onOpenCreateTab: () => void
@@ -92,6 +96,10 @@ const CanvasTopBar = ({
   onOpenDotVoting,
   timerLabel,
   dotVotingLabel,
+  isTimerRunning,
+  isTimerPaused,
+  isDotVotingActive,
+  isDotVotingPaused,
   isGrafbyggerEmbedded,
   onCloseGrafbygger,
   onOpenCreateTab,
@@ -114,6 +122,7 @@ const CanvasTopBar = ({
   isInteractionLocked = false,
 }: CanvasTopBarProps) => {
   const participantCountText = `${activeParticipantCount} ${activeParticipantCount === 1 ? 'person' : 'personer'} i canvas`
+  const showFacilitatorStatus = Boolean(timerLabel) || (Boolean(dotVotingLabel) && isDotVotingActive)
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const storedTheme = localStorage.getItem('umami-theme')
@@ -252,7 +261,7 @@ const CanvasTopBar = ({
                 onOpenDotVoting={onOpenDotVoting}
                 timerLabel={timerLabel}
                 dotVotingLabel={dotVotingLabel}
-                disabled={canvasInitMode !== 'existing' || isInteractionLocked}
+                disabled={canvasInitMode !== 'existing'}
                 buttonSize="small"
                 buttonVariant="secondary"
                 buttonClassName="shrink-0 whitespace-nowrap"
@@ -331,6 +340,30 @@ const CanvasTopBar = ({
             </div>
           )}
         </div>
+        {!isCanvasFrontpage && canvasInitMode === 'existing' && showFacilitatorStatus && (
+          <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-[var(--ax-border-neutral-subtle)] pt-2">
+            {timerLabel && (
+              <Button
+                size="small"
+                variant={isTimerRunning ? 'primary' : 'secondary'}
+                onClick={onOpenTimer}
+                className="whitespace-nowrap"
+              >
+                {isTimerPaused ? `Pauset nedtelling: ${timerLabel}` : `Nedtelling: ${timerLabel}`}
+              </Button>
+            )}
+            {dotVotingLabel && isDotVotingActive && (
+              <Button
+                size="small"
+                variant={isDotVotingPaused ? 'secondary' : 'primary'}
+                onClick={onOpenDotVoting}
+                className="whitespace-nowrap"
+              >
+                {isDotVotingPaused ? `Pauset prikkvotering: ${dotVotingLabel}` : `Prikkvotering: ${dotVotingLabel}`}
+              </Button>
+            )}
+          </div>
+        )}
         {!isCanvasFrontpage && !canPersistToDashboard && !shouldShowCreateCanvasModal && (
           <div className="mt-2">
             <Alert variant="warning" size="small">
