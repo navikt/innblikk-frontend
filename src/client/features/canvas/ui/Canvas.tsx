@@ -218,7 +218,7 @@ const STICKY_CARD_VERTICAL_PADDING = 40
 const STICKY_CARD_MIN_HEIGHT = 180
 const STICKY_CARD_LINE_HEIGHT = 28
 const STICKY_CARD_CHAR_WIDTH_FACTOR = 0.55
-const METABASE_CREATED_AT_FILTER_REGEX = /\[\[\s*AND\s*\{\{\s*created_at\s*\}\}\s*\]\]|\{\{\s*created_at\s*\}\}/i
+const METABASE_CREATED_AT_FILTER_REGEX = /\[\[\s*AND\s*\{\{\s*created_at\s*\}\}\s*\]\]/i
 const METABASE_URL_STI_FILTER_REGEX =
   /\[\[\s*\{\{\s*url_sti\s*\}\}\s*--\s*\]\]\s*'\/'|\[\[\s*AND\s*\{\{\s*url_sti\s*\}\}\s*\]\]|\{\{\s*url_sti\s*\}\}/i
 
