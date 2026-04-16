@@ -4524,6 +4524,10 @@ const Canvas = () => {
           onOpenDotVoting={handleOpenDotVotingModal}
           timerLabel={timerLabel}
           dotVotingLabel={dotVotingLabel}
+          isTimerRunning={isTimerRunning}
+          isTimerPaused={isTimerPaused}
+          isDotVotingActive={isDotVotingActive}
+          isDotVotingPaused={isDotVotingPaused}
           canManageTabs={canvasCategories.length > 1}
           canPersistToDashboard={canPersistToDashboard}
           shouldShowCreateCanvasModal={shouldShowCreateCanvasModal}
