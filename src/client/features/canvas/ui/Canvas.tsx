@@ -218,6 +218,7 @@ const STICKY_CARD_VERTICAL_PADDING = 40
 const STICKY_CARD_MIN_HEIGHT = 180
 const STICKY_CARD_LINE_HEIGHT = 28
 const STICKY_CARD_CHAR_WIDTH_FACTOR = 0.55
+const METABASE_CREATED_AT_FILTER_REGEX = /\[\[\s*AND\s*\{\{\s*created_at\s*\}\}\s*\]\]|\{\{\s*created_at\s*\}\}/i
 
 const estimateStickyFrameHeight = (text: string, width: number): number => {
   const normalizedText = text.trim()
@@ -806,7 +807,11 @@ const Canvas = () => {
 
   const showDateFilter = useMemo(
     () =>
-      frameItems.some((frame) => frame.kind === 'chart' || (frame.kind === 'website' && !frame.isInternalDashboard)),
+      frameItems.some((frame) => {
+        if (frame.kind === 'website') return !frame.isInternalDashboard
+        if (frame.kind !== 'chart') return false
+        return METABASE_CREATED_AT_FILTER_REGEX.test(frame.chartSql || '')
+      }),
     [frameItems],
   )
 
