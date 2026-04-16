@@ -1,6 +1,6 @@
 import { ActionMenu, Alert, BodyShort, Button, Modal, Tabs } from '@navikt/ds-react'
 import { PersonGroupIcon, PersonIcon, ThemeIcon } from '@navikt/aksel-icons'
-import { House, Lock, MoreVertical, Unlock } from 'lucide-react'
+import { House, EyeIcon, Lock, MoreVertical, Unlock } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent, type RefObject, type TouchEvent } from 'react'
 import PeriodPicker from '../../../analysis/ui/PeriodPicker.tsx'
 import type { GraphCategoryDto } from '../../../oversikt/model/types.ts'
@@ -327,12 +327,12 @@ const CanvasTopBar = ({
               ) : (
                 <Button
                   size="small"
-                  variant="secondary"
-                  icon={<Lock size={14} />}
+                  variant="tertiary"
+                  icon={<EyeIcon size={14} />}
                   onClick={() => setIsLockModalOpen(true)}
                   className="shrink-0 whitespace-nowrap"
                 >
-                  Låst
+                  Visningsmodus
                 </Button>
               )}
               {isGrafbyggerEmbedded && (
@@ -356,12 +356,6 @@ const CanvasTopBar = ({
                   <ActionMenu.Item onClick={onOpenInventory}>
                     Elementer{!isCanvasLocked && elementCount !== undefined ? ` (${elementCount})` : ''}
                   </ActionMenu.Item>
-                  <ActionMenu.Item onClick={onToggleCanvasLock}>
-                    <span className="inline-flex items-center gap-2 whitespace-nowrap">
-                      {isCanvasLocked ? <Unlock size={14} /> : <Lock size={14} />}
-                      {isCanvasLocked ? 'Lås opp canvas' : 'Lås canvas'}
-                    </span>
-                  </ActionMenu.Item>
                   <ActionMenu.Item onClick={onOpenChangeLog}>Endringslogg</ActionMenu.Item>
                   {canManageTabs && (
                     <ActionMenu.Item onClick={() => onOpenManageTabs()}>Administrer faner</ActionMenu.Item>
@@ -379,6 +373,12 @@ const CanvasTopBar = ({
                     <span className="inline-flex items-center gap-2 whitespace-nowrap">
                       <ThemeIcon aria-hidden fontSize="1rem" />
                       Bytt til {theme === 'dark' ? 'lyst' : 'mørkt'} tema
+                    </span>
+                  </ActionMenu.Item>
+                  <ActionMenu.Item onClick={onToggleCanvasLock}>
+                    <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                      {isCanvasLocked ? <Unlock size={14} /> : <Lock size={14} />}
+                      {isCanvasLocked ? 'Lås opp canvas' : 'Lås canvas'}
                     </span>
                   </ActionMenu.Item>
                 </ActionMenu.Content>
@@ -419,30 +419,36 @@ const CanvasTopBar = ({
             </Tabs>
           </div>
         )}
+        <Modal
+          open={isLockModalOpen}
+          onClose={() => setIsLockModalOpen(false)}
+          closeOnBackdropClick
+          header={{
+            heading: 'Canvas er låst',
+          }}
+          width="small"
+        >
+          <Modal.Body>
+            <BodyShort spacing>Redigering er skrudd av i låst modus.</BodyShort>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button
+              size="small"
+              variant="primary"
+              icon={<Unlock size={14} />}
+              onClick={() => {
+                onToggleCanvasLock?.()
+                setIsLockModalOpen(false)
+              }}
+            >
+              Lås opp canvas
+            </Button>
+            <Button size="small" variant="tertiary" onClick={() => setIsLockModalOpen(false)}>
+              Lukk
+            </Button>
+          </Modal.Footer>
+        </Modal>
       </div>
-      <Modal
-        open={isLockModalOpen}
-        onClose={() => setIsLockModalOpen(false)}
-        closeOnBackdropClick
-        header={{
-          heading: 'Canvas er låst',
-        }}
-      >
-        <Modal.Body>
-          <BodyShort spacing>Redigering og flytting er skrudd av i låst modus.</BodyShort>
-          <Button
-            size="small"
-            variant="primary"
-            icon={<Unlock size={14} />}
-            onClick={() => {
-              onToggleCanvasLock?.()
-              setIsLockModalOpen(false)
-            }}
-          >
-            Lås opp canvas
-          </Button>
-        </Modal.Body>
-      </Modal>
     </div>
   )
 }
