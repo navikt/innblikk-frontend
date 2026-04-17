@@ -289,6 +289,7 @@ interface DashboardWidgetProps {
   chartLinksEnabled?: boolean
   compactMode?: boolean
   chartHeightPx?: number
+  headingLevel?: 2 | 3 | 4 | 5
 }
 
 export const DashboardWidget = ({
@@ -311,6 +312,7 @@ export const DashboardWidget = ({
   chartLinksEnabled = true,
   compactMode = false,
   chartHeightPx,
+  headingLevel = 2,
 }: DashboardWidgetProps) => {
   const [loading, setLoading] = useState(shouldWaitForBatch ?? false)
   const [error, setError] = useState<string | null>(null)
@@ -322,6 +324,7 @@ export const DashboardWidget = ({
   const [showTransferToMetabaseDialog, setShowTransferToMetabaseDialog] = useState(false)
   const [copyLinkFeedback, setCopyLinkFeedback] = useState(false)
   const showShareAction = false // Temporary: hide "Del grafen" in inline action menu
+  const headingLevelStr = String(headingLevel) as '1' | '2' | '3' | '4' | '5'
 
   // If prefetchedData is available, use it directly instead of fetching
   useEffect(() => {
@@ -591,7 +594,7 @@ export const DashboardWidget = ({
               <span className="whitespace-normal break-words">{chart.title}</span>
             </span>
           }
-          headingLevel="2"
+          headingLevel={headingLevelStr}
           headingSize="medium"
           actions={chartActions}
         />
@@ -622,7 +625,7 @@ export const DashboardWidget = ({
                   <span className="whitespace-normal break-words">{chart.title}</span>
                 </span>
               }
-              headingLevel="2"
+              headingLevel={headingLevelStr}
               headingSize="medium"
               meta={
                 tableTotalValue !== null ? (
@@ -645,9 +648,23 @@ export const DashboardWidget = ({
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   {titlePrefix}
-                  <h2 className="text-xl font-semibold text-[var(--ax-text-default)] whitespace-normal break-words">
-                    {chart.title}
-                  </h2>
+                  {headingLevel === 5 ? (
+                    <h5 className="text-xl font-semibold text-[var(--ax-text-default)] whitespace-normal break-words">
+                      {chart.title}
+                    </h5>
+                  ) : headingLevel === 4 ? (
+                    <h4 className="text-xl font-semibold text-[var(--ax-text-default)] whitespace-normal break-words">
+                      {chart.title}
+                    </h4>
+                  ) : headingLevel === 3 ? (
+                    <h3 className="text-xl font-semibold text-[var(--ax-text-default)] whitespace-normal break-words">
+                      {chart.title}
+                    </h3>
+                  ) : (
+                    <h2 className="text-xl font-semibold text-[var(--ax-text-default)] whitespace-normal break-words">
+                      {chart.title}
+                    </h2>
+                  )}
                 </div>
                 {chartActions}
               </div>

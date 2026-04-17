@@ -372,8 +372,7 @@ const CanvasFrameLayer = ({
               ? frameItems.find((item) => item.id === currentSectionId && item.kind === 'section')
               : undefined
           const parentSectionHasTitle = Boolean(parentSectionFrame?.label?.trim())
-          const headingLevel: 2 | 3 | 4 =
-            frame.kind !== 'heading' ? 2 : currentSectionId ? (parentSectionHasTitle ? 4 : 2) : 2
+          const contextualHeadingLevel: 2 | 3 | 4 = currentSectionId ? (parentSectionHasTitle ? 4 : 2) : 2
           const sectionPortalTarget =
             currentSectionId && typeof document !== 'undefined'
               ? document.querySelector<HTMLElement>(`[data-canvas-section-id="${currentSectionId}"]`)
@@ -907,6 +906,7 @@ const CanvasFrameLayer = ({
                           filters={dashboardWidgetFilters}
                           chartLinksEnabled={false}
                           compactMode
+                          headingLevel={contextualHeadingLevel}
                           chartHeightPx={Math.max(160, (frame.height ?? defaults.height) - 116)}
                           onEditChart={() => handleOpenEditChartModal(frame)}
                           onDeleteChart={() => handleOpenDeleteChartModal(frame)}
@@ -968,7 +968,7 @@ const CanvasFrameLayer = ({
                     headingText={frame.headingText}
                     label={frame.label}
                     fontSizePx={getHeadingFrameFontSize(frame)}
-                    headingLevel={headingLevel}
+                    headingLevel={contextualHeadingLevel}
                     isEditing={activeEditableFrameId === frame.id}
                     isLockedByOther={editLockStatus.isLockedByOther}
                     lockOwnerLabel={editLockStatus.ownerLabel}
