@@ -1,7 +1,7 @@
 import { ThemeIcon } from '@navikt/aksel-icons'
 import { ActionMenu, Alert, BodyLong, BodyShort, Button, Heading, Link, Loader, Select, Table } from '@navikt/ds-react'
 import { ArrowLeft, ExternalLink, EyeOff, Link2, MoreVertical } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { DashboardWidget } from '../../../dashboard'
 import { copyToClipboard } from '../../../../shared/lib/clipboard.ts'
@@ -183,6 +183,16 @@ const CanvasShareView = () => {
       window.removeEventListener('themeChange', handleThemeChange as EventListener)
     }
   }, [])
+
+  useLayoutEffect(() => {
+    const root = document.documentElement
+    const themeElement = document.querySelector('.aksel-theme')
+
+    root.classList.remove('light', 'dark')
+    themeElement?.classList.remove('light', 'dark')
+    root.classList.add(theme)
+    themeElement?.classList.add(theme)
+  }, [theme])
 
   useEffect(() => {
     try {
@@ -626,17 +636,24 @@ const CanvasShareView = () => {
   }
 
   return (
-    <section className="min-h-screen bg-[var(--ax-bg-neutral-soft)]">
+    <section
+      className="min-h-screen bg-[var(--ax-bg-neutral-soft)]"
+      style={theme === 'dark' ? { backgroundColor: '#101b30' } : undefined}
+    >
       <main
-        className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:py-10"
+        className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:max-w-4xl sm:py-10 xl:max-w-5xl"
         aria-label="Canvas delingsvisning"
       >
         <header className="px-1 py-1">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <Heading level="1" size="xlarge" className="m-0">
-                {data?.dashboardTitle || 'Canvas'}
-              </Heading>
+              {data?.dashboardTitle ? (
+                <Heading level="1" size="xlarge" className="m-0">
+                  {data.dashboardTitle}
+                </Heading>
+              ) : (
+                <div className="h-12" aria-hidden="true" />
+              )}
               {activeCategoryLabel && (
                 <BodyShort className="mt-1 text-[var(--ax-text-subtle)]">Fane: {activeCategoryLabel}</BodyShort>
               )}
