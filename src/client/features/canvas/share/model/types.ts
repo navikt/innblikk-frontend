@@ -11,4 +11,7 @@ export type CanvasShareLoadResult = {
   frames: CanvasFrame[]
   categories: GraphCategoryDto[]
   dashboardTitle: string
+  defaultPeriod: string
+  defaultCustomStartDate?: Date
+  defaultCustomEndDate?: Date
 }

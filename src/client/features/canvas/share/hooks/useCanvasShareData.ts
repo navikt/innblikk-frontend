@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchDashboards } from '../../../oversikt/api/oversiktApi.ts'
+import { getStoredPeriod } from '../../../../shared/lib/utils.ts'
 import { fetchCanvasStorageData } from '../../api/canvasStorageApi.ts'
+import {
+  extractCanvasCustomEndDateFromDescription,
+  extractCanvasCustomStartDateFromDescription,
+  extractCanvasPeriodFromDescription,
+} from '../../utils/canvasUtils.ts'
 import type { CanvasShareLoadResult, CanvasShareRouteContext } from '../model/types.ts'
 
 export const useCanvasShareData = (routeContext: CanvasShareRouteContext) => {
@@ -28,13 +34,21 @@ export const useCanvasShareData = (routeContext: CanvasShareRouteContext) => {
         ])
         if (!isActive) return
 
-        const dashboardTitle =
-          dashboards.find((dashboard) => dashboard.id === routeContext.dashboardId)?.name?.trim() || 'Canvas'
+        const dashboard = dashboards.find((item) => item.id === routeContext.dashboardId)
+        const dashboardTitle = dashboard?.name?.trim() || 'Canvas'
+        const dashboardDescription = dashboard?.description
+        const configuredPeriod = extractCanvasPeriodFromDescription(dashboardDescription)
+        const defaultCustomStartDate = extractCanvasCustomStartDateFromDescription(dashboardDescription)
+        const defaultCustomEndDate = extractCanvasCustomEndDateFromDescription(dashboardDescription)
+        const defaultPeriod = getStoredPeriod(configuredPeriod)
 
         setData({
           frames: storageData.frames,
           categories: storageData.categories,
           dashboardTitle,
+          defaultPeriod,
+          defaultCustomStartDate,
+          defaultCustomEndDate,
         })
       } catch (loadError) {
         if (!isActive) return
