@@ -1,15 +1,22 @@
 import { ThemeIcon } from '@navikt/aksel-icons'
-import { ActionMenu, Alert, BodyLong, BodyShort, Button, Heading, Link, Loader, Table } from '@navikt/ds-react'
+import { ActionMenu, Alert, BodyLong, BodyShort, Button, Heading, Link, Loader, Select, Table } from '@navikt/ds-react'
 import { ArrowLeft, ExternalLink, EyeOff, Link2, MoreVertical } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { DashboardWidget } from '../../../dashboard'
 import { copyToClipboard } from '../../../../shared/lib/clipboard.ts'
 import { getCanvasStickyColorOptionById } from '../../ui/sticky/CanvasStickyColorRegistry.ts'
+import useCanvasWebsiteVisualization from '../../ui/website/useCanvasWebsiteVisualization.ts'
+import type { ClickmapItem } from '../../../clickmap/model/types.ts'
 import {
   CANVAS_TABLE_ROWS_PER_PAGE,
+  CLICKMAP_EVENTS,
   formatCanvasPathLabel,
   getCanvasCategoryDisplayName,
+  getCanvasFrameVisualizationMode,
+  getVisualizationModeLabel,
+  getWebsiteFrameDisplayUrl,
+  getWebsiteFrameRenderSrc,
   isImagePreviewUrl,
 } from '../../utils/canvasUtils.ts'
 import { buildCanvasHierarchy } from '../../utils/canvasHierarchy.ts'
@@ -20,6 +27,15 @@ import {
   getCanvasShareFrameBounds,
   parseCanvasShareRouteContext,
 } from '../utils/canvasShareLayout.ts'
+
+const WEBSITE_TOP_LIST_VISIBLE_STORAGE_KEY = 'canvas:websiteTopListVisible'
+
+const cleanText = (value: string): string => value.replace(/\s+/g, ' ').trim().toLowerCase()
+
+const isAccordionLike = (value: string): boolean => {
+  const cleaned = cleanText(value)
+  return cleaned.includes('accordion') || cleaned.includes('trekkspill')
+}
 
 const getSectionElementLayoutClass = (frame: CanvasFrame): string => {
   if (frame.kind === 'heading') return 'md:col-span-2 md:max-w-[58ch]'
@@ -37,6 +53,17 @@ const CanvasShareView = () => {
   const location = useLocation()
   const [copySuccess, setCopySuccess] = useState(false)
   const [tablePageByFrameId, setTablePageByFrameId] = useState<Record<string, number>>({})
+  const [topListFilterByFrameId, setTopListFilterByFrameId] = useState<Record<string, string>>({})
+  const [activeTopListItemKeyByFrameId, setActiveTopListItemKeyByFrameId] = useState<Record<string, string | null>>({})
+  const [websiteTopListEnabled, setWebsiteTopListEnabled] = useState<boolean>(() => {
+    try {
+      const stored = window.localStorage.getItem(WEBSITE_TOP_LIST_VISIBLE_STORAGE_KEY)
+      if (stored === null) return true
+      return stored !== 'false'
+    } catch {
+      return true
+    }
+  })
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const storedTheme = localStorage.getItem('umami-theme')
     return storedTheme === 'dark' ? 'dark' : 'light'
@@ -100,6 +127,38 @@ const CanvasShareView = () => {
     [data?.defaultCustomEndDate, data?.defaultCustomStartDate, data?.defaultPeriod],
   )
 
+  const availableWebsites = Array.isArray(data?.availableWebsites) ? data.availableWebsites : []
+  const selectedWebsiteDomain = data?.canvasConfiguredWebsiteId
+    ? (availableWebsites.find((website) => website.id === data.canvasConfiguredWebsiteId)?.domain ?? null)
+    : null
+
+  const frameItemsForVisualization = useMemo(
+    () =>
+      visibleFrames.map((frame) => ({
+        id: frame.id,
+        kind: frame.kind,
+        websiteId: frame.websiteId,
+        targetUrl: frame.targetUrl,
+        renderWebsite: frame.renderWebsite,
+        isInternalDashboard: frame.isInternalDashboard,
+        visualizationMode: frame.visualizationMode,
+      })),
+    [visibleFrames],
+  )
+
+  const { frameVisualizationData, setWebsiteIframeRef, handleWebsiteFrameLoad, focusWebsiteTopListItem } =
+    useCanvasWebsiteVisualization({
+      frameItems: frameItemsForVisualization,
+      availableWebsites,
+      selectedWebsiteId: data?.canvasConfiguredWebsiteId ?? null,
+      selectedWebsiteDomain,
+      canvasConfiguredWebsiteId: data?.canvasConfiguredWebsiteId ?? null,
+      period: data?.defaultPeriod ?? 'last_7_days',
+      customStartDate: data?.defaultCustomStartDate ?? null,
+      customEndDate: data?.defaultCustomEndDate ?? null,
+      clickmapEvents: CLICKMAP_EVENTS,
+    })
+
   const handleCopyShareLink = async () => {
     const absoluteUrl = `${window.location.origin}${sharePath}`
     const copied = await copyToClipboard(absoluteUrl)
@@ -125,6 +184,14 @@ const CanvasShareView = () => {
     }
   }, [])
 
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(WEBSITE_TOP_LIST_VISIBLE_STORAGE_KEY, websiteTopListEnabled ? 'true' : 'false')
+    } catch {
+      return
+    }
+  }, [websiteTopListEnabled])
+
   const toggleTheme = () => {
     const nextTheme = theme === 'light' ? 'dark' : 'light'
     const root = document.documentElement
@@ -139,6 +206,137 @@ const CanvasShareView = () => {
     localStorage.setItem('umami-theme', nextTheme)
     setTheme(nextTheme)
     window.dispatchEvent(new CustomEvent('themeChange', { detail: nextTheme }))
+  }
+
+  const renderClickmapTopList = (
+    frameId: string,
+    visualizationData: {
+      loading: boolean
+      error: string | null
+      items: ClickmapItem[]
+    },
+  ) => {
+    const componentFilterOptions = Array.from(
+      new Set(
+        (visualizationData?.items ?? [])
+          .map((item) => item.component?.trim())
+          .filter((value): value is string => Boolean(value)),
+      ),
+    )
+      .filter((component) => !isAccordionLike(component))
+      .sort((a, b) => a.localeCompare(b, 'nb'))
+      .map((component) => ({
+        value: `component:${component}`,
+        label: `Komponent: ${component}`,
+      }))
+
+    const topListFilterOptions = [
+      { value: 'all', label: 'Alle treff' },
+      { value: 'links', label: 'Lenker' },
+      { value: 'accordion', label: 'Trekkspill/accordion' },
+      ...componentFilterOptions,
+    ]
+
+    const requestedTopListFilter = topListFilterByFrameId[frameId] ?? 'all'
+    const topListFilter = topListFilterOptions.some((option) => option.value === requestedTopListFilter)
+      ? requestedTopListFilter
+      : 'all'
+
+    const topListItems = (visualizationData?.items ?? []).filter((item) => {
+      if (topListFilter === 'all') return true
+      if (topListFilter === 'accordion') return isAccordionLike(item.component || '')
+      if (topListFilter.startsWith('component:')) {
+        return item.component === topListFilter.replace('component:', '')
+      }
+      return !isAccordionLike(item.component || '')
+    })
+
+    const sortedTopListItems = [...topListItems].sort((a, b) => (b.count || 0) - (a.count || 0)).slice(0, 40)
+    const topListMaxCount = Math.max(
+      1,
+      ...sortedTopListItems.map((item) => (Number.isFinite(item.count) ? item.count : 0)),
+    )
+
+    return (
+      <aside
+        aria-label="Klikktoppliste"
+        className="min-h-0 border-t border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] xl:max-h-[560px] xl:border-l xl:border-t-0"
+      >
+        <div className="border-b border-[var(--ax-border-neutral-subtle)] p-3">
+          <Select
+            size="small"
+            label="Filter"
+            value={topListFilter}
+            onChange={(event) =>
+              setTopListFilterByFrameId((current) => ({
+                ...current,
+                [frameId]: event.target.value,
+              }))
+            }
+          >
+            {topListFilterOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
+        </div>
+
+        {visualizationData.loading ? (
+          <div className="flex items-center gap-2 px-3 py-3 text-sm text-[var(--ax-text-subtle)]">
+            <Loader size="xsmall" title="Henter toppliste..." />
+            Henter toppliste...
+          </div>
+        ) : visualizationData.error ? (
+          <div className="px-3 py-3 text-sm text-[var(--ax-text-danger)]">{visualizationData.error}</div>
+        ) : sortedTopListItems.length === 0 ? (
+          <div className="px-3 py-3 text-sm text-[var(--ax-text-subtle)]">Ingen treff for valgt side.</div>
+        ) : (
+          <div className="max-h-[360px] space-y-2 overflow-y-auto p-2 xl:max-h-[512px]">
+            {sortedTopListItems.map((item, index) => {
+              const itemKey = `${item.sourcePath}-${item.linkText}-${item.destination}-${index}`
+              const barWidth = Math.max(4, Math.round((item.count / topListMaxCount) * 100))
+              const isActive = activeTopListItemKeyByFrameId[frameId] === itemKey
+
+              return (
+                <button
+                  type="button"
+                  key={itemKey}
+                  className={`w-full rounded-md border p-2 text-left transition-colors ${
+                    isActive
+                      ? 'border-red-700 bg-[var(--ax-bg-neutral-soft)] shadow-[0_0_0_2px_rgba(220,38,38,0.28)_inset]'
+                      : 'border-[var(--ax-border-neutral-subtle)] hover:bg-[var(--ax-bg-neutral-soft)]'
+                  }`}
+                  onClick={() => {
+                    setActiveTopListItemKeyByFrameId((current) => ({
+                      ...current,
+                      [frameId]: itemKey,
+                    }))
+                    focusWebsiteTopListItem(frameId, item)
+                  }}
+                >
+                  <div className="text-xs font-medium text-[var(--ax-text-default)]">
+                    {item.linkText || '(uten lenketekst)'}
+                  </div>
+                  {item.destination && (
+                    <div className="mt-0.5 break-all text-[11px] text-[var(--ax-text-subtle)]">{item.destination}</div>
+                  )}
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-[var(--ax-text-subtle)]">Klikk</span>
+                    <span className="text-xs font-semibold text-[var(--ax-text-default)]">
+                      {item.count.toLocaleString('nb-NO')}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 h-1.5 overflow-hidden rounded bg-[var(--ax-bg-neutral-moderate)]">
+                    <div className="h-full rounded bg-red-700" style={{ width: `${barWidth}%` }} />
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </aside>
+    )
   }
 
   const renderFrame = (frame: CanvasFrame, options?: { headingLevel?: 2 | 3 | 4 }) => {
@@ -280,7 +478,7 @@ const CanvasShareView = () => {
           <img
             src={src}
             alt={frame.label || 'Bilde'}
-            className="w-full max-w-full rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-white object-contain shadow-[0_10px_32px_rgba(0,0,0,0.06)] max-h-[420px]"
+            className="max-h-[420px] w-full max-w-full rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-white object-contain shadow-[0_10px_32px_rgba(0,0,0,0.06)]"
             loading="lazy"
           />
         </div>
@@ -288,35 +486,79 @@ const CanvasShareView = () => {
     }
 
     if (frame.kind === 'website') {
-      const displayUrl = frame.renderWebsite === false ? frame.previewUrl : frame.targetUrl
-      const src =
-        frame.renderWebsite === false
-          ? frame.previewUrl
-          : frame.targetUrl
-            ? `/api/clickmap-preview?url=${encodeURIComponent(frame.targetUrl)}`
-            : undefined
+      const displayUrl = getWebsiteFrameDisplayUrl(frame)
+      const src = getWebsiteFrameRenderSrc(frame)
       if (!displayUrl && !src) return null
+
       const shouldRenderAsImage = Boolean(displayUrl && isImagePreviewUrl(displayUrl))
+      const visualizationMode = getCanvasFrameVisualizationMode(frame)
+      const visualizationData = frameVisualizationData[frame.id]
+      const showClickmapTopList =
+        visualizationMode === 'clickmap' &&
+        websiteTopListEnabled &&
+        !shouldRenderAsImage &&
+        Boolean(src) &&
+        frame.renderWebsite !== false
 
       return (
         <div className="space-y-3">
-          {src &&
-            (shouldRenderAsImage ? (
-              <img
-                src={src}
-                alt={frame.label || formatCanvasPathLabel(frame.targetUrl, displayUrl)}
-                className="w-full rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-white shadow-[0_10px_32px_rgba(0,0,0,0.06)]"
-                loading="lazy"
-              />
-            ) : (
-              <iframe
-                title={`Forhåndsvisning av ${frame.label || 'nettside'}`}
-                src={src}
-                className="h-[420px] w-full rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-white"
-                loading="lazy"
-                sandbox="allow-same-origin allow-scripts allow-forms"
-              />
-            ))}
+          <div className="overflow-hidden rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)]">
+            <div className="flex items-start justify-between gap-2 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] px-4 py-2.5">
+              <div className="min-w-0">
+                <div className="break-words text-sm font-semibold leading-tight text-[var(--ax-text-default)]">
+                  {frame.label || formatCanvasPathLabel(frame.targetUrl, displayUrl)}
+                </div>
+                {visualizationMode && (
+                  <div className="mt-0.5 inline-flex items-center gap-2 text-xs text-[var(--ax-text-subtle)]">
+                    <span>Visualisering: {getVisualizationModeLabel(visualizationMode)}</span>
+                    {visualizationData?.loading ? <Loader size="xsmall" title="Henter kartdata..." /> : null}
+                  </div>
+                )}
+              </div>
+              {visualizationMode === 'clickmap' && !shouldRenderAsImage && src && frame.renderWebsite !== false && (
+                <Button
+                  size="xsmall"
+                  variant="tertiary"
+                  onClick={() => setWebsiteTopListEnabled((current) => !current)}
+                >
+                  {websiteTopListEnabled ? 'Skjul toppliste' : 'Vis toppliste'}
+                </Button>
+              )}
+            </div>
+
+            <div className={showClickmapTopList ? 'grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px]' : ''}>
+              <div className="min-w-0">
+                {src &&
+                  (shouldRenderAsImage ? (
+                    <img
+                      src={src}
+                      alt={frame.label || formatCanvasPathLabel(frame.targetUrl, displayUrl)}
+                      className="w-full bg-white shadow-[0_10px_32px_rgba(0,0,0,0.06)]"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <iframe
+                      title={`Forhandsvisning av ${frame.label || 'nettside'}`}
+                      src={src}
+                      className="h-[560px] w-full bg-white"
+                      loading="lazy"
+                      sandbox="allow-same-origin allow-scripts allow-forms"
+                      ref={(node) => setWebsiteIframeRef(frame.id, node)}
+                      onLoad={() => handleWebsiteFrameLoad(frame)}
+                    />
+                  ))}
+              </div>
+
+              {showClickmapTopList &&
+                visualizationData &&
+                renderClickmapTopList(frame.id, {
+                  loading: visualizationData.loading,
+                  error: visualizationData.error,
+                  items: visualizationData.items,
+                })}
+            </div>
+          </div>
+
           {!src && (
             <BodyShort className="text-[var(--ax-text-subtle)]">
               Kunne ikke laste nettside-forhåndsvisning for {formatCanvasPathLabel(frame.targetUrl, displayUrl)}.
@@ -339,22 +581,20 @@ const CanvasShareView = () => {
       }
 
       return (
-        <div className="rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-3 sm:p-4">
-          <DashboardWidget
-            chart={{
-              id: `canvas-share-chart-${frame.id}`,
-              title: frame.label,
-              type: frame.chartType,
-              sql: frame.chartSql,
-            }}
-            websiteId={chartWebsiteId}
-            filters={dashboardWidgetFilters}
-            chartLinksEnabled={false}
-            compactMode
-            headingLevel={4}
-            chartHeightPx={300}
-          />
-        </div>
+        <DashboardWidget
+          chart={{
+            id: `canvas-share-chart-${frame.id}`,
+            title: frame.label,
+            type: frame.chartType,
+            sql: frame.chartSql,
+          }}
+          websiteId={chartWebsiteId}
+          filters={dashboardWidgetFilters}
+          chartLinksEnabled={false}
+          compactMode
+          headingLevel={4}
+          chartHeightPx={300}
+        />
       )
     }
 
@@ -394,7 +634,7 @@ const CanvasShareView = () => {
         <header className="px-1 py-1">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <Heading level="1" size="large" className="m-0">
+              <Heading level="1" size="xlarge" className="m-0">
                 {data?.dashboardTitle || 'Canvas'}
               </Heading>
               {activeCategoryLabel && (
@@ -465,7 +705,7 @@ const CanvasShareView = () => {
                       aria-labelledby={`share-section-${node.id}`}
                       className="space-y-4 rounded-3xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-5 shadow-[0_12px_32px_rgba(0,0,0,0.05)] sm:p-7"
                     >
-                      <Heading level="2" size="medium" id={`share-section-${node.id}`} className="m-0">
+                      <Heading level="2" size="large" id={`share-section-${node.id}`} className="m-0">
                         {node.label}
                       </Heading>
                       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -486,11 +726,11 @@ const CanvasShareView = () => {
                       </div>
                     </section>
                   ) : node.frame.kind === 'heading' ? (
-                    <section key={node.id} className="px-1 max-w-[58ch]">
+                    <section key={node.id} className="max-w-[58ch] px-1">
                       {renderFrame(node.frame, { headingLevel: 2 })}
                     </section>
                   ) : node.frame.kind === 'text' ? (
-                    <section key={node.id} className="space-y-2 max-w-[62ch]">
+                    <section key={node.id} className="max-w-[62ch] space-y-2">
                       {renderFrame(node.frame)}
                     </section>
                   ) : (

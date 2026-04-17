@@ -1,15 +1,24 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchDashboards } from '../../../oversikt/api/oversiktApi.ts'
+import { fetchWebsites } from '../../../../shared/api/websiteApi.ts'
 import { getStoredPeriod } from '../../../../shared/lib/utils.ts'
 import { fetchCanvasStorageData } from '../../api/canvasStorageApi.ts'
 import {
   extractCanvasCustomEndDateFromDescription,
   extractCanvasCustomStartDateFromDescription,
   extractCanvasPeriodFromDescription,
+  extractCanvasWebsiteIdFromDescription,
 } from '../../utils/canvasUtils.ts'
 import type { CanvasShareLoadResult, CanvasShareRouteContext } from '../model/types.ts'
 
-export const useCanvasShareData = (routeContext: CanvasShareRouteContext) => {
+type UseCanvasShareDataResult = {
+  data: CanvasShareLoadResult | null
+  error: string | null
+  isLoading: boolean
+  activeCategoryId: number | null
+}
+
+export const useCanvasShareData = (routeContext: CanvasShareRouteContext): UseCanvasShareDataResult => {
   const [data, setData] = useState<CanvasShareLoadResult | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -28,9 +37,10 @@ export const useCanvasShareData = (routeContext: CanvasShareRouteContext) => {
 
     void (async () => {
       try {
-        const [storageData, dashboards] = await Promise.all([
+        const [storageData, dashboards, availableWebsites] = await Promise.all([
           fetchCanvasStorageData(routeContext.projectId!, routeContext.dashboardId!),
           fetchDashboards(routeContext.projectId!),
+          fetchWebsites(),
         ])
         if (!isActive) return
 
@@ -41,6 +51,7 @@ export const useCanvasShareData = (routeContext: CanvasShareRouteContext) => {
         const defaultCustomStartDate = extractCanvasCustomStartDateFromDescription(dashboardDescription)
         const defaultCustomEndDate = extractCanvasCustomEndDateFromDescription(dashboardDescription)
         const defaultPeriod = getStoredPeriod(configuredPeriod)
+        const canvasConfiguredWebsiteId = extractCanvasWebsiteIdFromDescription(dashboardDescription)
 
         setData({
           frames: storageData.frames,
@@ -49,6 +60,8 @@ export const useCanvasShareData = (routeContext: CanvasShareRouteContext) => {
           defaultPeriod,
           defaultCustomStartDate,
           defaultCustomEndDate,
+          canvasConfiguredWebsiteId,
+          availableWebsites,
         })
       } catch (loadError) {
         if (!isActive) return

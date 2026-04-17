@@ -1,5 +1,6 @@
 import type { GraphCategoryDto } from '../../../oversikt/model/types.ts'
 import type { CanvasFrame } from '../../model/types.ts'
+import type { Website } from '../../../../shared/types/website.ts'
 
 export type CanvasShareRouteContext = {
   projectId: number | null
@@ -14,4 +15,6 @@ export type CanvasShareLoadResult = {
   defaultPeriod: string
   defaultCustomStartDate?: Date
   defaultCustomEndDate?: Date
+  canvasConfiguredWebsiteId: string | null
+  availableWebsites: Website[]
 }
