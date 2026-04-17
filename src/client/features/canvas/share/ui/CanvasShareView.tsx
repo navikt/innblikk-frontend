@@ -38,7 +38,7 @@ const isAccordionLike = (value: string): boolean => {
 }
 
 const getSectionElementLayoutClass = (frame: CanvasFrame): string => {
-  if (frame.kind === 'heading') return 'md:col-span-2 md:max-w-[58ch]'
+  if (frame.kind === 'heading') return 'md:col-span-2 md:max-w-[72ch]'
   if (frame.kind === 'text' && Array.isArray(frame.tableHeaders) && frame.tableHeaders.length > 0)
     return 'md:col-span-2'
   if (frame.kind === 'text') return 'md:col-span-2 md:max-w-[62ch]'
@@ -358,7 +358,7 @@ const CanvasShareView = () => {
         <Heading
           level={headingLevelStr}
           size={headingLevel === 2 ? 'large' : 'medium'}
-          className="m-0 max-w-[58ch] whitespace-pre-wrap break-words text-[var(--ax-text-default)]"
+          className="m-0 max-w-[72ch] whitespace-pre-wrap break-words py-1 text-[var(--ax-text-default)]"
         >
           {(frame.headingText || frame.label || 'Overskrift').trim() || 'Overskrift'}
         </Heading>
@@ -641,7 +641,7 @@ const CanvasShareView = () => {
       style={theme === 'dark' ? { backgroundColor: '#101b30' } : undefined}
     >
       <main
-        className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:max-w-4xl sm:py-10 xl:max-w-5xl"
+        className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:max-w-4xl sm:py-10 xl:max-w-[60rem]"
         aria-label="Canvas delingsvisning"
       >
         <header className="px-1 py-1">
@@ -720,9 +720,9 @@ const CanvasShareView = () => {
                     <section
                       key={node.id}
                       aria-labelledby={`share-section-${node.id}`}
-                      className="space-y-4 rounded-3xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-5 shadow-[0_12px_32px_rgba(0,0,0,0.05)] sm:p-7"
+                      className="space-y-5 rounded-3xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-6 shadow-[0_12px_32px_rgba(0,0,0,0.05)] sm:p-8"
                     >
-                      <Heading level="2" size="large" id={`share-section-${node.id}`} className="m-0">
+                      <Heading level="2" size="large" id={`share-section-${node.id}`} className="m-0 pb-2">
                         {node.label}
                       </Heading>
                       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -743,7 +743,7 @@ const CanvasShareView = () => {
                       </div>
                     </section>
                   ) : node.frame.kind === 'heading' ? (
-                    <section key={node.id} className="max-w-[58ch] px-1">
+                    <section key={node.id} className="max-w-[72ch] px-1">
                       {renderFrame(node.frame, { headingLevel: 2 })}
                     </section>
                   ) : node.frame.kind === 'text' ? (
