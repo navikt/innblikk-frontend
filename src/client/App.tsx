@@ -1,5 +1,5 @@
 import { Loader, Page, Theme } from '@navikt/ds-react'
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useLayoutEffect, useState } from 'react'
 import { BrowserRouter as Router, Route, Routes, useLocation, Link } from 'react-router-dom'
 import routes, { isFullWidthPath } from './routes.tsx'
 import Footer from './shared/ui/theme/Footer/Footer.tsx'
@@ -111,6 +111,21 @@ function App() {
       window.removeEventListener('themeChange', handleThemeChange as EventListener)
     }
   }, [])
+
+  useLayoutEffect(() => {
+    const root = document.documentElement
+    const themeElement = document.querySelector('.aksel-theme')
+    const darkBg = '#101b30'
+    const lightBg = '#f4f6fb'
+
+    root.classList.remove('light', 'dark')
+    root.classList.add(theme)
+
+    themeElement?.classList.remove('light', 'dark')
+    themeElement?.classList.add(theme)
+
+    document.body.style.backgroundColor = theme === 'dark' ? darkBg : lightBg
+  }, [theme])
 
   useHead({
     script: [
