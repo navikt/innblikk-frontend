@@ -7,6 +7,7 @@ type CanvasTextFrameProps = {
   tableHeaders?: string[]
   tableRows?: string[][]
   isEditing: boolean
+  isInteractionLocked?: boolean
   isLockedByOther?: boolean
   lockOwnerLabel?: string | null
   tableRowsPerPage: number
@@ -23,6 +24,7 @@ const CanvasTextFrame = ({
   tableHeaders,
   tableRows,
   isEditing,
+  isInteractionLocked = false,
   isLockedByOther = false,
   lockOwnerLabel = null,
   tableRowsPerPage,
@@ -43,7 +45,7 @@ const CanvasTextFrame = ({
     const visibleRows = rows.slice(pageStart, pageStart + tableRowsPerPage)
 
     return (
-      <div className="h-full overflow-auto px-2 pb-2">
+      <div className="h-full overflow-auto px-2 pb-2" tabIndex={isInteractionLocked ? -1 : undefined}>
         <div className="space-y-2" onMouseDown={(event) => event.stopPropagation()}>
           <Table size="small" zebraStripes className="w-full">
             <Table.Header>
@@ -112,11 +114,12 @@ const CanvasTextFrame = ({
   }
 
   return (
-    <div className="relative h-full overflow-auto px-2 pb-2">
+    <div className="relative h-full overflow-auto px-2 pb-2" tabIndex={isInteractionLocked ? -1 : undefined}>
       <div
         className="h-full cursor-text overflow-auto whitespace-pre-wrap break-words text-[var(--ax-text-default)]"
         style={{ fontSize: '22px', lineHeight: 1.3, fontWeight: 500 }}
         onClick={() => onStartEditing(id)}
+        tabIndex={isInteractionLocked ? -1 : undefined}
       >
         {textContent || 'Skriv tekst'}
       </div>

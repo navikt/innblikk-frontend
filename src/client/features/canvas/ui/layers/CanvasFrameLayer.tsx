@@ -983,6 +983,7 @@ const CanvasFrameLayer = ({
                     tableHeaders={frame.tableHeaders}
                     tableRows={frame.tableRows}
                     isEditing={activeEditableFrameId === frame.id}
+                    isInteractionLocked={isFrameInteractionLocked}
                     isLockedByOther={editLockStatus.isLockedByOther}
                     lockOwnerLabel={editLockStatus.ownerLabel}
                     tableRowsPerPage={CANVAS_TABLE_ROWS_PER_PAGE}
