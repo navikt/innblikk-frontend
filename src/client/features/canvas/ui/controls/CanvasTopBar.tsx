@@ -36,6 +36,7 @@ type CanvasTopBarProps = {
   onOpenAddIllustration: () => void
   onOpenTimer: () => void
   onOpenDotVoting: () => void
+  onOpenShareView: () => void
   timerLabel: string | null
   dotVotingLabel: string | null
   isTimerRunning: boolean
@@ -96,6 +97,7 @@ const CanvasTopBar = ({
   onOpenAddIllustration,
   onOpenTimer,
   onOpenDotVoting,
+  onOpenShareView,
   timerLabel,
   dotVotingLabel,
   isTimerRunning,
@@ -271,6 +273,7 @@ const CanvasTopBar = ({
                 <CanvasFacilitatorActionMenu
                   onOpenTimer={onOpenTimer}
                   onOpenDotVoting={onOpenDotVoting}
+                  onOpenShareView={onOpenShareView}
                   timerLabel={timerLabel}
                   dotVotingLabel={dotVotingLabel}
                   disabled={canvasInitMode !== 'existing'}
@@ -361,6 +364,7 @@ const CanvasTopBar = ({
                   <ActionMenu.Item onClick={onOpenInventory}>
                     Elementer{!isCanvasLocked && elementCount !== undefined ? ` (${elementCount})` : ''}
                   </ActionMenu.Item>
+                  <ActionMenu.Item onClick={onOpenShareView}>Delingsvisning (beta)</ActionMenu.Item>
                   <ActionMenu.Item onClick={onOpenChangeLog}>Endringslogg</ActionMenu.Item>
                   {canManageTabs && (
                     <ActionMenu.Item onClick={() => onOpenManageTabs()}>Administrer faner</ActionMenu.Item>

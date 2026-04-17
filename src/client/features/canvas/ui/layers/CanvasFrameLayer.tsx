@@ -191,6 +191,7 @@ type CanvasFrameLayerProps = {
   handleToggleSectionLayout: (id: string) => void
   handleMoveFrameToSection: (frameId: string, sectionId: string) => void
   handleSetStickyColor: (frameId: string, colorId: string) => void
+  handleToggleFrameShareVisibility: (frameId: string) => void
   handleRequestRemoveFrame: (frame: CanvasFrame) => void
   startConnectionDrag: (event: React.MouseEvent, frame: CanvasFrame, side: ConnectionAnchorSide) => void
   handleAssignWebsiteToChart: (frame: CanvasFrame, website: Website | null) => Promise<void>
@@ -276,6 +277,7 @@ const CanvasFrameLayer = ({
   handleToggleSectionLayout,
   handleMoveFrameToSection,
   handleSetStickyColor,
+  handleToggleFrameShareVisibility,
   handleRequestRemoveFrame,
   startConnectionDrag,
   handleAssignWebsiteToChart,
@@ -669,6 +671,10 @@ const CanvasFrameLayer = ({
                       stickyColorOptions={stickyColorOptions}
                       onSetStickyColor={(colorId) => handleSetStickyColor(frame.id, colorId)}
                       onMoveToSection={(sectionId) => handleMoveFrameToSection(frame.id, sectionId)}
+                      isHiddenInShare={Boolean(frame.hideInShare)}
+                      onToggleHideInShare={
+                        frame.kind === 'section' ? undefined : () => handleToggleFrameShareVisibility(frame.id)
+                      }
                       onRotateFigureLeft={() => handleRotateFigureFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
                       onRotateFigureRight={() => handleRotateFigureFrame(frame.id, ICON_ROTATION_STEP_DEG)}
                       onRotateDrawingLeft={() => handleRotateDrawingFrame(frame.id, -ICON_ROTATION_STEP_DEG)}

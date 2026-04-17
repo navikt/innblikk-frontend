@@ -83,6 +83,7 @@ import useCanvasPlacementState from '../hooks/useCanvasPlacementState.ts'
 import useCanvasChartMutations from '../hooks/useCanvasChartMutations.ts'
 import { fetchCanvasStorageData } from '../api/canvasStorageApi.ts'
 import ChangeLogModal, { type ChangeLogEntry } from '../../../shared/ui/ChangeLogModal.tsx'
+import { buildCanvasShareUrl } from '../share/utils/canvasShareLayout.ts'
 
 import type {
   CanvasChartOption,
@@ -107,6 +108,7 @@ import {
   getFrameBoundsForLayout as getFrameBoundsForLayoutBase,
   reflowGridSections as reflowGridSectionFrames,
 } from '../model/layout/gridSectionLayout.ts'
+import { buildCanvasHierarchy } from '../utils/canvasHierarchy.ts'
 import {
   CANVAS_DASHBOARD_TOKEN,
   CANVAS_FIGURE_OPTIONS,
@@ -1088,6 +1090,7 @@ const Canvas = () => {
         chartType: frame.chartType,
         chartSql: frame.chartSql,
         sqlQuery: frame.sqlQuery,
+        hideInShare: frame.hideInShare,
         label: frame.label,
       }
       const serialized = serializeCanvasConfig(payload)
@@ -3056,6 +3059,19 @@ const Canvas = () => {
     })
   }
 
+  const handleToggleFrameShareVisibility = (frameId: string) => {
+    const frame = frames.find((item) => item.id === frameId)
+    if (!frame || frame.kind === 'section') return
+    const nextFrame: CanvasFrame = {
+      ...frame,
+      hideInShare: !frame.hideInShare,
+    }
+    setFrames((prev) => prev.map((item) => (item.id === frameId ? nextFrame : item)))
+    void persistFrame(nextFrame).catch((error) => {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre delingsvisning')
+    })
+  }
+
   const handleClearStickyVoteSnapshot = (frameId: string) => {
     const frame = frames.find((item) => item.id === frameId)
     if (!frame || frame.kind !== 'sticky') return
@@ -3220,6 +3236,16 @@ const Canvas = () => {
 
   const handleOpenInventoryModal = () => {
     setIsInventoryModalOpen(true)
+  }
+
+  const handleOpenShareView = () => {
+    window.location.assign(
+      buildCanvasShareUrl({
+        projectId,
+        dashboardId,
+        categoryId: activeCanvasCategoryId,
+      }),
+    )
   }
 
   const loadCanvasChangeLog = useCallback(async () => {
@@ -3818,112 +3844,41 @@ const Canvas = () => {
     setDotVotingSelectedSectionId(dotVotingSectionOptions[0]?.id ?? '')
   }, [dotVotingSectionOptions, dotVotingSelectedSectionId, dotVotingSessionPayload])
 
-  const frameContainingSectionIdByFrameId = useMemo(() => {
-    const byId: Record<string, string> = {}
-    const sections = visibleFrames.filter((frame) => frame.kind === 'section')
-
-    visibleFrames.forEach((frame) => {
-      if (frame.kind === 'section') return
-      const bounds = getFrameBounds(frame)
-      const centerX = (bounds.left + bounds.right) / 2
-      const centerY = (bounds.top + bounds.bottom) / 2
-      const containingSection = sections.find((section) => {
-        const sectionBounds = getFrameBounds(section)
-        return (
-          centerX >= sectionBounds.left &&
-          centerX <= sectionBounds.right &&
-          centerY >= sectionBounds.top &&
-          centerY <= sectionBounds.bottom
-        )
-      })
-      if (containingSection) {
-        byId[frame.id] = containingSection.id
-      }
-    })
-
-    return byId
-  }, [getFrameBounds, visibleFrames])
-
-  const inventoryHierarchy = useMemo(() => {
-    const mapFrameToNode = (frame: CanvasFrame) => {
-      const fallbackLabel = frame.label.trim() || `${frame.kind} ${frame.id}`
-      let label = fallbackLabel
-      if (frame.kind === 'heading') {
-        label = frame.headingText?.trim() || fallbackLabel
-      } else if (frame.kind === 'text' || frame.kind === 'sticky') {
-        label = frame.textContent?.trim() || fallbackLabel
-      }
-
-      const kindLabel = CANVAS_INVENTORY_KIND_OPTIONS.find((option) => option.kind === frame.kind)?.label || frame.kind
-      return {
-        id: frame.id,
-        kindLabel,
-        label,
-      }
-    }
-
-    const sortByCanvasOrder = (a: CanvasFrame, b: CanvasFrame) => {
-      if (a.y !== b.y) return a.y - b.y
-      if (a.x !== b.x) return a.x - b.x
-      return a.id.localeCompare(b.id)
-    }
-
-    const sortedFrames = [...visibleFrames].sort(sortByCanvasOrder)
-    const sectionElementFramesBySectionId = new Map<string, CanvasFrame[]>()
-    const topLevelNodes: Array<
-      | {
-          type: 'section'
-          id: string
-          label: string
-          elements: Array<{ id: string; kindLabel: string; label: string }>
-        }
-      | {
-          type: 'element'
-          id: string
-          kindLabel: string
-          label: string
-        }
-    > = []
-
-    sortedFrames.forEach((frame) => {
-      if (frame.kind === 'section') {
-        topLevelNodes.push({
-          type: 'section',
-          id: frame.id,
-          label: frame.label.trim() || 'Seksjon',
-          elements: [],
-        })
-        sectionElementFramesBySectionId.set(frame.id, [])
-        return
-      }
-
-      const containingSectionId = frameContainingSectionIdByFrameId[frame.id]
-      if (containingSectionId) {
-        const current = sectionElementFramesBySectionId.get(containingSectionId) ?? []
-        current.push(frame)
-        sectionElementFramesBySectionId.set(containingSectionId, current)
-        return
-      }
-
-      topLevelNodes.push({
-        type: 'element',
-        ...mapFrameToNode(frame),
-      })
-    })
-
-    return {
-      nodes: topLevelNodes.map((node) => {
-        if (node.type !== 'section') return node
-        const elements = (sectionElementFramesBySectionId.get(node.id) ?? [])
-          .sort(sortByCanvasOrder)
-          .map(mapFrameToNode)
-        return {
-          ...node,
-          elements,
-        }
+  const canvasHierarchy = useMemo(
+    () =>
+      buildCanvasHierarchy({
+        frames: visibleFrames,
+        getFrameBounds,
       }),
-    }
-  }, [frameContainingSectionIdByFrameId, visibleFrames])
+    [getFrameBounds, visibleFrames],
+  )
+
+  const frameContainingSectionIdByFrameId = canvasHierarchy.frameContainingSectionIdByFrameId
+
+  const inventoryHierarchy = useMemo(
+    () => ({
+      nodes: canvasHierarchy.nodes.map((node) =>
+        node.type === 'section'
+          ? {
+              type: 'section' as const,
+              id: node.id,
+              label: node.label,
+              elements: node.elements.map((element) => ({
+                id: element.id,
+                kindLabel: element.kindLabel,
+                label: element.label,
+              })),
+            }
+          : {
+              type: 'element' as const,
+              id: node.id,
+              kindLabel: node.kindLabel,
+              label: node.label,
+            },
+      ),
+    }),
+    [canvasHierarchy.nodes],
+  )
 
   const canvasSurfaceHeight = useMemo(() => {
     const lowestFrameEdge = frameItems.reduce((maxBottom, frame) => {
@@ -4018,6 +3973,7 @@ const Canvas = () => {
           elementCount={inventoryItems.reduce((total, item) => total + item.count, 0)}
           onOpenTimer={handleOpenTimerModal}
           onOpenDotVoting={handleOpenDotVotingModal}
+          onOpenShareView={handleOpenShareView}
           timerLabel={timerLabel}
           dotVotingLabel={dotVotingLabel}
           isTimerRunning={isTimerRunning}
@@ -4240,6 +4196,7 @@ const Canvas = () => {
                     handleToggleSectionLayout={handleToggleSectionLayout}
                     handleMoveFrameToSection={handleMoveFrameToSection}
                     handleSetStickyColor={handleSetStickyColor}
+                    handleToggleFrameShareVisibility={handleToggleFrameShareVisibility}
                     handleRequestRemoveFrame={handleRequestRemoveFrame}
                     startConnectionDrag={startConnectionDrag}
                     handleAssignWebsiteToChart={handleAssignWebsiteToChart}

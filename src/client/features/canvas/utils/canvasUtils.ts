@@ -493,6 +493,7 @@ export const parseCanvasConfig = (raw: string): CanvasConfigPayload | null => {
       chartType: isCanvasChartType(parsed.chartType) ? parsed.chartType : undefined,
       chartSql: typeof parsed.chartSql === 'string' ? parsed.chartSql : undefined,
       sqlQuery: typeof parsed.sqlQuery === 'string' ? parsed.sqlQuery : undefined,
+      hideInShare: typeof parsed.hideInShare === 'boolean' ? parsed.hideInShare : undefined,
       label: parsed.label,
       fromFrameId: typeof parsed.fromFrameId === 'string' ? parsed.fromFrameId : undefined,
       toFrameId: typeof parsed.toFrameId === 'string' ? parsed.toFrameId : undefined,

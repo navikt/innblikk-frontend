@@ -479,6 +479,7 @@ const useCanvasFrameFormHandlers = ({
         chartType: frame.chartType,
         chartSql: frame.chartSql,
         sqlQuery: frame.sqlQuery,
+        hideInShare: frame.hideInShare,
         label: frame.label,
       }
       const serialized = serializeCanvasConfig(payload)

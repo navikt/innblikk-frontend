@@ -1,5 +1,18 @@
 import { ActionMenu, Button } from '@navikt/ds-react'
-import { ArrowRightLeft, Copy, Edit2, Grid3X3, Move, Palette, RotateCcw, RotateCw, Trash2 } from 'lucide-react'
+import {
+  ArrowRightLeft,
+  Copy,
+  Edit2,
+  Eye,
+  EyeOff,
+  Grid3X3,
+  MoreVertical,
+  Move,
+  Palette,
+  RotateCcw,
+  RotateCw,
+  Trash2,
+} from 'lucide-react'
 import type { MouseEvent } from 'react'
 import type { CanvasSectionLayoutMode } from '../../model/types.ts'
 
@@ -56,6 +69,8 @@ type CanvasFrameActionPointsProps = {
   stickyColorOptions?: Array<{ id: string; label: string; color: string }>
   onSetStickyColor: (colorId: string) => void
   onMoveToSection: (sectionId: string) => void
+  isHiddenInShare?: boolean
+  onToggleHideInShare?: () => void
   onRemoveFrame: () => void
 }
 
@@ -344,6 +359,8 @@ const CanvasFrameActionPoints = ({
   stickyColorOptions = [],
   onSetStickyColor,
   onMoveToSection,
+  isHiddenInShare = false,
+  onToggleHideInShare,
   onRemoveFrame,
 }: CanvasFrameActionPointsProps) => {
   const showRemoveButton = frameKind !== 'website' || Boolean(isInternalDashboard)
@@ -578,6 +595,29 @@ const CanvasFrameActionPoints = ({
           aria-label="Dupliser bilde"
           className={actionButtonClassName}
         />
+      )}
+      {onToggleHideInShare && (
+        <ActionMenu>
+          <ActionMenu.Trigger>
+            <Button
+              size="xsmall"
+              variant="tertiary"
+              icon={<MoreVertical size={14} />}
+              onMouseDown={stopMouseDownPropagation}
+              title="Flere valg"
+              aria-label="Flere valg"
+              className={actionButtonClassName}
+            />
+          </ActionMenu.Trigger>
+          <ActionMenu.Content align="end">
+            <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onToggleHideInShare}>
+              <span className="inline-flex items-center gap-2">
+                {isHiddenInShare ? <Eye size={14} /> : <EyeOff size={14} />}
+                {isHiddenInShare ? 'Vis i delingsvisning' : 'Skjul i delingsvisning'}
+              </span>
+            </ActionMenu.Item>
+          </ActionMenu.Content>
+        </ActionMenu>
       )}
       {showRemoveButton && (
         <Button

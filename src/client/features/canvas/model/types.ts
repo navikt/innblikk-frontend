@@ -78,6 +78,7 @@ export type CanvasFrame = {
   chartType?: CanvasChartType
   chartSql?: string
   sqlQuery?: string
+  hideInShare?: boolean
   label: string
   x: number
   y: number
@@ -198,6 +199,7 @@ export type CanvasConfigPayload = {
   chartType?: CanvasChartType
   chartSql?: string
   sqlQuery?: string
+  hideInShare?: boolean
   label: string
   fromFrameId?: string
   toFrameId?: string

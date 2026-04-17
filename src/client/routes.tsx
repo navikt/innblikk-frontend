@@ -38,6 +38,7 @@ const UserProfiles = lazy(() => import('./features/user').then((m) => ({ default
 const EventExplorer = lazy(() => import('./features/eventexplorer').then((m) => ({ default: m.EventExplorer })))
 const Clickmap = lazy(() => import('./features/clickmap').then((m) => ({ default: m.Clickmap })))
 const Canvas = lazy(() => import('./features/canvas').then((m) => ({ default: m.Canvas })))
+const CanvasShareView = lazy(() => import('./features/canvas').then((m) => ({ default: m.CanvasShareView })))
 const EventJourneyClickmap = lazy(() =>
   import('./features/clickmap').then((m) => ({ default: m.EventJourneyClickmap })),
 )
@@ -165,6 +166,7 @@ export const routes: AppRoute[] = [
   { path: '/utforsk-hendelser', component: <EventExplorer />, fullWidth: true },
   { path: '/klikkoversikt', component: <Clickmap />, fullWidth: true },
   { path: '/canvas', component: <Canvas />, fullWidth: true },
+  { path: '/canvas/share', component: <CanvasShareView />, fullWidth: true },
   { path: '/klikkoversikt/varmekart', component: <Clickmap visualizationMode="heatmap" />, fullWidth: true },
   { path: '/klikkoversikt/scrollkart', component: <Clickmap visualizationMode="scrollmap" />, fullWidth: true },
   { path: '/klikkkart', component: <LegacyVisualizationRouteRedirect to="/klikkoversikt" />, fullWidth: true },

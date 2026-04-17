@@ -4,6 +4,7 @@ import { ActionMenu, Button } from '@navikt/ds-react'
 type CanvasFacilitatorActionMenuProps = {
   onOpenTimer: () => void
   onOpenDotVoting: () => void
+  onOpenShareView?: () => void
   timerLabel: string | null
   dotVotingLabel: string | null
   disabled?: boolean
@@ -18,6 +19,7 @@ type CanvasFacilitatorActionMenuProps = {
 const CanvasFacilitatorActionMenu = ({
   onOpenTimer,
   onOpenDotVoting,
+  onOpenShareView,
   timerLabel,
   dotVotingLabel,
   disabled = false,
@@ -55,6 +57,8 @@ const CanvasFacilitatorActionMenu = ({
       )}
     </ActionMenu.Trigger>
     <ActionMenu.Content align="end">
+      {onOpenShareView && <ActionMenu.Item onClick={onOpenShareView}>Delingsvisning (eksperimentell)</ActionMenu.Item>}
+      {onOpenShareView && <ActionMenu.Divider />}
       <ActionMenu.Item onClick={onOpenTimer}>{timerLabel ? `Nedteller (${timerLabel})` : 'Nedteller'}</ActionMenu.Item>
       <ActionMenu.Item onClick={onOpenDotVoting}>
         {dotVotingLabel ? `Prikkvotering (${dotVotingLabel})` : 'Prikkvotering'}

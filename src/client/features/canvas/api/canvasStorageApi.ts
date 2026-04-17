@@ -89,6 +89,7 @@ export async function fetchCanvasStorageData(projectId: number, dashboardId: num
       chartType: parsedConfig.chartType,
       chartSql: parsedConfig.chartSql,
       sqlQuery: parsedConfig.sqlQuery,
+      hideInShare: parsedConfig.hideInShare,
       label: parsedConfig.label || graph.name,
       x: parsedConfig.x,
       y: parsedConfig.y,
