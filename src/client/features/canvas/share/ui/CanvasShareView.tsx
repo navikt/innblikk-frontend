@@ -6,6 +6,7 @@ import { useLocation } from 'react-router-dom'
 import { DashboardWidget } from '../../../dashboard'
 import { copyToClipboard } from '../../../../shared/lib/clipboard.ts'
 import { getCanvasStickyColorOptionById } from '../../ui/sticky/CanvasStickyColorRegistry.ts'
+import { isIllustrationImageFrame } from '../../ui/image/CanvasImageUtils.ts'
 import useCanvasWebsiteVisualization from '../../ui/website/useCanvasWebsiteVisualization.ts'
 import type { ClickmapItem } from '../../../clickmap/model/types.ts'
 import {
@@ -482,13 +483,18 @@ const CanvasShareView = () => {
     if (frame.kind === 'image') {
       const src = frame.targetUrl
       if (!src) return null
+      const isIllustration = isIllustrationImageFrame(frame)
 
       return (
-        <div className="space-y-2">
+        <div className={`space-y-2 ${isIllustration ? 'mx-auto w-full max-w-[640px]' : ''}`}>
           <img
             src={src}
             alt={frame.label || 'Bilde'}
-            className="max-h-[420px] w-full max-w-full rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-white object-contain shadow-[0_10px_32px_rgba(0,0,0,0.06)]"
+            className={`object-contain ${
+              isIllustration
+                ? 'rounded-xl border-0 bg-transparent shadow-none'
+                : 'rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-white shadow-[0_10px_32px_rgba(0,0,0,0.06)]'
+            } ${isIllustration ? 'mx-auto h-auto max-h-[420px] w-auto max-w-full' : 'max-h-[420px] w-full max-w-full'}`}
             loading="lazy"
           />
         </div>
