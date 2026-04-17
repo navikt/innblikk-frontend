@@ -27,7 +27,7 @@ const CanvasHeadingFrame = ({
   onBlur,
   onStartEditing,
 }: CanvasHeadingFrameProps) => {
-  const HeadingTag = `h${headingLevel}`
+  const headingContent = headingText || label || 'Skriv overskrift'
 
   if (isEditing) {
     return (
@@ -54,17 +54,43 @@ const CanvasHeadingFrame = ({
 
   return (
     <div className="relative overflow-visible px-4 py-2">
-      <HeadingTag
-        className="m-0 cursor-text select-text whitespace-pre-wrap break-words text-[var(--ax-text-default)]"
-        onClick={() => onStartEditing(id)}
-        style={{
-          fontSize: `${fontSizePx}px`,
-          lineHeight: 1.05,
-          fontWeight: 700,
-        }}
-      >
-        {headingText || label || 'Skriv overskrift'}
-      </HeadingTag>
+      {headingLevel === 4 ? (
+        <h4
+          className="m-0 cursor-text select-text whitespace-pre-wrap break-words text-[var(--ax-text-default)]"
+          onClick={() => onStartEditing(id)}
+          style={{
+            fontSize: `${fontSizePx}px`,
+            lineHeight: 1.05,
+            fontWeight: 700,
+          }}
+        >
+          {headingContent}
+        </h4>
+      ) : headingLevel === 3 ? (
+        <h3
+          className="m-0 cursor-text select-text whitespace-pre-wrap break-words text-[var(--ax-text-default)]"
+          onClick={() => onStartEditing(id)}
+          style={{
+            fontSize: `${fontSizePx}px`,
+            lineHeight: 1.05,
+            fontWeight: 700,
+          }}
+        >
+          {headingContent}
+        </h3>
+      ) : (
+        <h2
+          className="m-0 cursor-text select-text whitespace-pre-wrap break-words text-[var(--ax-text-default)]"
+          onClick={() => onStartEditing(id)}
+          style={{
+            fontSize: `${fontSizePx}px`,
+            lineHeight: 1.05,
+            fontWeight: 700,
+          }}
+        >
+          {headingContent}
+        </h2>
+      )}
       {isLockedByOther && <CanvasEditLockOverlay ownerLabel={lockOwnerLabel} />}
     </div>
   )
