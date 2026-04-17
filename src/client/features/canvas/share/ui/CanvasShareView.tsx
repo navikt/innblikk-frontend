@@ -141,12 +141,15 @@ const CanvasShareView = () => {
     window.dispatchEvent(new CustomEvent('themeChange', { detail: nextTheme }))
   }
 
-  const renderFrame = (frame: CanvasFrame) => {
+  const renderFrame = (frame: CanvasFrame, options?: { headingLevel?: 2 | 3 | 4 }) => {
+    const headingLevel = options?.headingLevel ?? 3
+    const headingLevelStr = String(headingLevel) as '2' | '3' | '4'
+
     if (frame.kind === 'heading') {
       return (
         <Heading
-          level="3"
-          size="medium"
+          level={headingLevelStr}
+          size={headingLevel === 2 ? 'large' : 'medium'}
           className="m-0 max-w-[58ch] whitespace-pre-wrap break-words text-[var(--ax-text-default)]"
         >
           {(frame.headingText || frame.label || 'Overskrift').trim() || 'Overskrift'}
@@ -167,26 +170,28 @@ const CanvasShareView = () => {
 
         return (
           <div className="space-y-2">
-            <Table size="small" zebraStripes>
-              <Table.Header>
-                <Table.Row>
-                  {headers.map((header, index) => (
-                    <Table.HeaderCell key={`share-table-header-${frame.id}-${index}`}>{header}</Table.HeaderCell>
-                  ))}
-                </Table.Row>
-              </Table.Header>
-              <Table.Body>
-                {visibleRows.map((row, rowIndex) => (
-                  <Table.Row key={`share-table-row-${frame.id}-${pageStart + rowIndex}`}>
-                    {headers.map((_, cellIndex) => (
-                      <Table.DataCell key={`share-table-cell-${frame.id}-${pageStart + rowIndex}-${cellIndex}`}>
-                        {row[cellIndex] || ''}
-                      </Table.DataCell>
+            <div className="overflow-x-auto rounded-xl border border-[var(--ax-border-neutral-subtle)]">
+              <Table size="small" zebraStripes className="min-w-[720px]">
+                <Table.Header>
+                  <Table.Row>
+                    {headers.map((header, index) => (
+                      <Table.HeaderCell key={`share-table-header-${frame.id}-${index}`}>{header}</Table.HeaderCell>
                     ))}
                   </Table.Row>
-                ))}
-              </Table.Body>
-            </Table>
+                </Table.Header>
+                <Table.Body>
+                  {visibleRows.map((row, rowIndex) => (
+                    <Table.Row key={`share-table-row-${frame.id}-${pageStart + rowIndex}`}>
+                      {headers.map((_, cellIndex) => (
+                        <Table.DataCell key={`share-table-cell-${frame.id}-${pageStart + rowIndex}-${cellIndex}`}>
+                          {row[cellIndex] || ''}
+                        </Table.DataCell>
+                      ))}
+                    </Table.Row>
+                  ))}
+                </Table.Body>
+              </Table>
+            </div>
             {totalPages > 1 && (
               <div className="flex items-center justify-end gap-2">
                 <Button
@@ -312,16 +317,10 @@ const CanvasShareView = () => {
                 sandbox="allow-same-origin allow-scripts allow-forms"
               />
             ))}
-          {(frame.targetUrl || displayUrl) && (
-            <Link
-              href={frame.targetUrl || displayUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5"
-            >
-              {formatCanvasPathLabel(frame.targetUrl, displayUrl)}
-              <ExternalLink size={14} aria-hidden="true" />
-            </Link>
+          {!src && (
+            <BodyShort className="text-[var(--ax-text-subtle)]">
+              Kunne ikke laste nettside-forhåndsvisning for {formatCanvasPathLabel(frame.targetUrl, displayUrl)}.
+            </BodyShort>
           )}
         </div>
       )
@@ -480,7 +479,7 @@ const CanvasShareView = () => {
                               key={element.id}
                               className={`space-y-2 ${getSectionElementLayoutClass(element.frame)}`}
                             >
-                              {renderFrame(element.frame)}
+                              {renderFrame(element.frame, { headingLevel: 3 })}
                             </section>
                           ))
                         )}
@@ -488,7 +487,7 @@ const CanvasShareView = () => {
                     </section>
                   ) : node.frame.kind === 'heading' ? (
                     <section key={node.id} className="px-1 max-w-[58ch]">
-                      {renderFrame(node.frame)}
+                      {renderFrame(node.frame, { headingLevel: 2 })}
                     </section>
                   ) : node.frame.kind === 'text' ? (
                     <section key={node.id} className="space-y-2 max-w-[62ch]">
