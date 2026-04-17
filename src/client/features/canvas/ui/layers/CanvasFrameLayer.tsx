@@ -1,5 +1,6 @@
 import { Button, HelpText, Loader, Select } from '@navikt/ds-react'
 import { useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
+import { createPortal } from 'react-dom'
 import type { Website } from '../../../../shared/types/website.ts'
 import { DashboardWidget } from '../../../dashboard'
 import type { CanvasFrame, CanvasPageInsight, ConnectionAnchorSide, ConnectionDragState } from '../../model/types.ts'
@@ -79,13 +80,22 @@ type CanvasResizeHandlesProps = {
   isVisible: boolean
   handleResizeStart: (event: React.MouseEvent, frame: CanvasFrame, dir?: ResizeHandleDirection) => void
   size?: 'default' | 'large'
+  groupScope?: 'frame' | 'section'
 }
 
-const CanvasResizeHandles = ({ frame, isVisible, handleResizeStart, size = 'default' }: CanvasResizeHandlesProps) => {
+const CanvasResizeHandles = ({
+  frame,
+  isVisible,
+  handleResizeStart,
+  size = 'default',
+  groupScope = 'frame',
+}: CanvasResizeHandlesProps) => {
   const sizeClassName = size === 'large' ? 'h-6 w-6 border-[4px]' : 'h-5 w-5 border-[3px]'
   const visibilityClassName = isVisible
     ? 'opacity-100'
-    : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
+    : groupScope === 'section'
+      ? 'opacity-0 group-hover/section:opacity-100 group-focus-within/section:opacity-100'
+      : 'opacity-0 group-hover/frame:opacity-100 group-focus-within/frame:opacity-100'
 
   return (
     <>
@@ -357,6 +367,21 @@ const CanvasFrameLayer = ({
               ? getFrameLockStatus(frame)
               : { isLockedByOther: false, ownerLabel: null }
           const currentSectionId = frameContainingSectionIdByFrameId[frame.id]
+          const parentSectionFrame =
+            currentSectionId && frame.kind !== 'section'
+              ? frameItems.find((item) => item.id === currentSectionId && item.kind === 'section')
+              : undefined
+          const sectionPortalTarget =
+            currentSectionId && typeof document !== 'undefined'
+              ? document.querySelector<HTMLElement>(`[data-canvas-section-id="${currentSectionId}"]`)
+              : null
+          const shouldRenderInsideSectionDuringInteraction = dragState !== null || resizeState !== null
+          const renderInsideSection = Boolean(
+            frame.kind !== 'section' &&
+            parentSectionFrame &&
+            sectionPortalTarget &&
+            !shouldRenderInsideSectionDuringInteraction,
+          )
           const sectionMoveOptionsForFrame =
             frame.kind === 'sticky' || frame.kind === 'text'
               ? sectionMoveOptions.filter((option) => option.id !== currentSectionId)
@@ -376,10 +401,21 @@ const CanvasFrameLayer = ({
             frame.kind === 'sticky' && Number.isFinite(frame.finalVoteCount) ? Number(frame.finalVoteCount) : null
           const sectionItemCount = sectionItemCountsById[frame.id] ?? 0
           const shouldShowSectionItemCount = frame.kind === 'section' && sectionItemCount >= 8
-          return (
-            <article
+          const FrameContainerTag = frame.kind === 'section' ? 'section' : 'div'
+          const frameGroupClass = frame.kind === 'section' ? 'group/section' : 'group/frame'
+          const hoverRevealClass =
+            frame.kind === 'section'
+              ? 'group-hover/section:opacity-100 group-focus-within/section:opacity-100'
+              : 'group-hover/frame:opacity-100 group-focus-within/frame:opacity-100'
+          const actionButtonClassName = CARD_ACTION_BUTTON_CLASSNAME.replace(
+            'group-hover:opacity-100 group-focus-within:opacity-100',
+            hoverRevealClass,
+          )
+
+          const frameNode = (
+            <FrameContainerTag
               key={frame.id}
-              tabIndex={0}
+              data-canvas-frame-root="true"
               role={frame.kind === 'section' ? 'region' : undefined}
               aria-label={
                 frame.kind === 'section'
@@ -388,9 +424,10 @@ const CanvasFrameLayer = ({
                     }${shouldShowSectionItemCount ? `. ${sectionItemCount} elementer.` : '.'}`
                   : undefined
               }
+              data-canvas-section-id={frame.kind === 'section' ? frame.id : undefined}
               className={`focus:outline-none transition-opacity ${
                 frame.kind === 'website' || frame.kind === 'image'
-                  ? `group absolute flex flex-col overflow-visible rounded-lg border ${
+                  ? `${frameGroupClass} absolute flex flex-col overflow-visible rounded-lg border ${
                       connectionDragState?.sourceFrameId === frame.id ||
                       connectionDragState?.currentTargetFrameId === frame.id
                         ? 'border-[var(--ax-border-accent)] ring-2 ring-[var(--ax-border-accent)]/20'
@@ -399,30 +436,30 @@ const CanvasFrameLayer = ({
                           : 'border-[var(--ax-border-neutral-subtle)]'
                     } ${isIllustrationFrame ? 'bg-transparent shadow-none' : 'bg-white shadow-sm'}`
                   : frame.kind === 'section'
-                    ? `group absolute flex flex-col overflow-visible rounded-2xl border-2 border-dashed shadow-none ${
+                    ? `${frameGroupClass} absolute flex flex-col overflow-visible rounded-2xl border-2 border-dashed shadow-none ${
                         isTargetVotingSection ? 'border-[#5f8fc7] bg-transparent' : 'border-[#8eb2de] bg-transparent'
                       }`
                     : frame.kind === 'chart'
-                      ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
+                      ? `${frameGroupClass} absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none`
                       : frame.kind === 'heading'
-                        ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
+                        ? `${frameGroupClass} absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none`
                         : frame.kind === 'text'
-                          ? 'group absolute flex flex-col overflow-visible rounded-xl border border-transparent bg-transparent shadow-none'
+                          ? `${frameGroupClass} absolute flex flex-col overflow-visible rounded-xl border border-transparent bg-transparent shadow-none`
                           : frame.kind === 'link'
-                            ? 'group absolute flex flex-col overflow-visible rounded-xl border border-transparent bg-transparent shadow-none'
+                            ? `${frameGroupClass} absolute flex flex-col overflow-visible rounded-xl border border-transparent bg-transparent shadow-none`
                             : frame.kind === 'icon'
-                              ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
+                              ? `${frameGroupClass} absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none`
                               : frame.kind === 'figure'
-                                ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
+                                ? `${frameGroupClass} absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none`
                                 : frame.kind === 'drawing'
-                                  ? 'group absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none'
+                                  ? `${frameGroupClass} absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none`
                                   : frame.kind === 'sql-editor'
-                                    ? 'group absolute flex flex-col overflow-hidden rounded-xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] shadow-sm'
-                                    : 'group absolute flex flex-col overflow-visible rounded-xl border shadow-sm'
+                                    ? `${frameGroupClass} absolute flex flex-col overflow-hidden rounded-xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] shadow-sm`
+                                    : `${frameGroupClass} absolute flex flex-col overflow-visible rounded-xl border shadow-sm`
               } ${isSelectedFrame ? 'ring-2 ring-[var(--ax-border-accent)]/60' : ''} ${isTargetVotingSection ? 'ring-4 ring-[var(--ax-border-accent)]/40' : ''} ${isDotVotingActive && frame.kind === 'sticky' && isInVotingScope ? 'ring-1 ring-white/80 shadow-md' : ''} ${shouldDimFrame ? 'opacity-20' : 'opacity-100'}`}
               style={{
-                left: `${frame.x}px`,
-                top: `${frame.y}px`,
+                left: `${frame.x - (renderInsideSection ? parentSectionFrame!.x : 0)}px`,
+                top: `${frame.y - (renderInsideSection ? parentSectionFrame!.y : 0)}px`,
                 zIndex: isDotVotingActive
                   ? isInVotingScope
                     ? frame.kind === 'section'
@@ -583,7 +620,7 @@ const CanvasFrameLayer = ({
                       frameKind={frame.kind}
                       isInternalDashboard={frame.isInternalDashboard}
                       isIllustrationFrame={isIllustrationFrame}
-                      actionButtonClassName={CARD_ACTION_BUTTON_CLASSNAME}
+                      actionButtonClassName={actionButtonClassName}
                       onEditImage={() => handleOpenEditImageModal(frame)}
                       onEditLink={() => handleOpenEditLinkModal(frame)}
                       onEditTable={() => handleOpenEditTableModal(frame)}
@@ -633,7 +670,7 @@ const CanvasFrameLayer = ({
                   frame.kind === 'sql-editor') && (
                   <div
                     aria-hidden="true"
-                    className={`pointer-events-none absolute z-10 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${
+                    className={`pointer-events-none absolute z-10 opacity-0 transition-opacity ${hoverRevealClass} ${
                       frame.kind === 'text' || frame.kind === 'link'
                         ? 'inset-[2px] rounded-lg border border-[#9bc4ff]'
                         : 'inset-0 rounded-lg border-2 border-[#7fb7ff]'
@@ -643,7 +680,7 @@ const CanvasFrameLayer = ({
               {!isFrameInteractionLocked && frame.kind === 'image' && (
                 <div
                   aria-hidden="true"
-                  className="pointer-events-none absolute inset-0 z-10 border-2 border-[#7fb7ff] opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 rounded-xl"
+                  className="pointer-events-none absolute inset-0 z-10 border-2 border-[#7fb7ff] opacity-0 transition-opacity group-hover/frame:opacity-100 group-focus-within/frame:opacity-100 rounded-xl"
                 />
               )}
 
@@ -674,7 +711,7 @@ const CanvasFrameLayer = ({
                   <div className="pointer-events-none absolute inset-y-0 left-0 right-0 z-20 overflow-visible">
                     <button
                       type="button"
-                      className={`pointer-events-auto absolute left-[-12px] top-1/2 flex h-6 w-6 -translate-y-1/2 cursor-grab items-center justify-center rounded-full bg-transparent opacity-0 transition-opacity active:cursor-grabbing group-hover:opacity-100 group-focus-within:opacity-100 ${
+                      className={`pointer-events-auto absolute left-[-12px] top-1/2 flex h-6 w-6 -translate-y-1/2 cursor-grab items-center justify-center rounded-full bg-transparent opacity-0 transition-opacity active:cursor-grabbing group-hover/frame:opacity-100 group-focus-within/frame:opacity-100 ${
                         connectionDragState?.sourceFrameId === frame.id ? 'opacity-100' : ''
                       }`}
                       aria-label="Kobling"
@@ -690,7 +727,7 @@ const CanvasFrameLayer = ({
                     </button>
                     <button
                       type="button"
-                      className={`pointer-events-auto absolute right-[-12px] top-1/2 flex h-6 w-6 -translate-y-1/2 cursor-grab items-center justify-center rounded-full bg-transparent opacity-0 transition-opacity active:cursor-grabbing group-hover:opacity-100 group-focus-within:opacity-100 ${
+                      className={`pointer-events-auto absolute right-[-12px] top-1/2 flex h-6 w-6 -translate-y-1/2 cursor-grab items-center justify-center rounded-full bg-transparent opacity-0 transition-opacity active:cursor-grabbing group-hover/frame:opacity-100 group-focus-within/frame:opacity-100 ${
                         connectionDragState?.sourceFrameId === frame.id ? 'opacity-100' : ''
                       }`}
                       aria-label="Kobling"
@@ -706,7 +743,7 @@ const CanvasFrameLayer = ({
                     </button>
                     <button
                       type="button"
-                      className={`pointer-events-auto absolute left-1/2 top-[-12px] flex h-6 w-6 -translate-x-1/2 cursor-grab items-center justify-center rounded-full bg-transparent opacity-0 transition-opacity active:cursor-grabbing group-hover:opacity-100 group-focus-within:opacity-100 ${
+                      className={`pointer-events-auto absolute left-1/2 top-[-12px] flex h-6 w-6 -translate-x-1/2 cursor-grab items-center justify-center rounded-full bg-transparent opacity-0 transition-opacity active:cursor-grabbing group-hover/frame:opacity-100 group-focus-within/frame:opacity-100 ${
                         connectionDragState?.sourceFrameId === frame.id ? 'opacity-100' : ''
                       }`}
                       style={{ top: `${-2 - WEBSITE_CARD_HEADER_HEIGHT}px` }}
@@ -723,7 +760,7 @@ const CanvasFrameLayer = ({
                     </button>
                     <button
                       type="button"
-                      className={`pointer-events-auto absolute bottom-[-12px] left-1/2 flex h-6 w-6 -translate-x-1/2 cursor-grab items-center justify-center rounded-full bg-transparent opacity-0 transition-opacity active:cursor-grabbing group-hover:opacity-100 group-focus-within:opacity-100 ${
+                      className={`pointer-events-auto absolute bottom-[-12px] left-1/2 flex h-6 w-6 -translate-x-1/2 cursor-grab items-center justify-center rounded-full bg-transparent opacity-0 transition-opacity active:cursor-grabbing group-hover/frame:opacity-100 group-focus-within/frame:opacity-100 ${
                         connectionDragState?.sourceFrameId === frame.id ? 'opacity-100' : ''
                       }`}
                       aria-label="Kobling"
@@ -1151,10 +1188,17 @@ const CanvasFrameLayer = ({
                   isVisible={isSelectedFrame || resizeState?.id === frame.id}
                   handleResizeStart={handleResizeStart}
                   size={frame.kind === 'section' ? 'large' : 'default'}
+                  groupScope={frame.kind === 'section' ? 'section' : 'frame'}
                 />
               )}
-            </article>
+            </FrameContainerTag>
           )
+
+          if (renderInsideSection && sectionPortalTarget) {
+            return createPortal(frameNode, sectionPortalTarget)
+          }
+
+          return frameNode
         })(),
       )}
     </>

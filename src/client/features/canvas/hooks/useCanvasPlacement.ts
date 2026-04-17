@@ -351,11 +351,11 @@ const useCanvasPlacement = ({
         return
       }
       const target = event.target as HTMLElement
-      const clickedInsideFrame = Boolean(target.closest('article'))
+      const clickedInsideFrame = Boolean(target.closest('[data-canvas-frame-root="true"]'))
       const clickedInteractiveControl = Boolean(target.closest('button, a, input, textarea, select'))
       if (clickedInsideFrame || clickedInteractiveControl) return
       const activeElement = document.activeElement
-      if (activeElement instanceof HTMLElement && activeElement.closest('article')) {
+      if (activeElement instanceof HTMLElement && activeElement.closest('[data-canvas-frame-root="true"]')) {
         activeElement.blur()
       }
       const pointer = getCanvasPointerPosition(event.clientX, event.clientY)

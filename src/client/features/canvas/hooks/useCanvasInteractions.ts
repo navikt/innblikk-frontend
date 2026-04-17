@@ -379,7 +379,14 @@ const useCanvasInteractions = ({
 
       movedFrames.forEach((movedFrame) => {
         const snapped = applyStickyColumnSnap(movedFrame)
-        framesToPersistById.set(movedFrame.id, snapped)
+        const normalizedForManualReorder: CanvasFrame =
+          snapped.kind === 'sticky' && Number.isFinite(snapped.finalVoteRank)
+            ? {
+                ...snapped,
+                finalVoteRank: undefined,
+              }
+            : snapped
+        framesToPersistById.set(movedFrame.id, normalizedForManualReorder)
       })
 
       const framesAfterSnap = framesRef.current.map((frame) => framesToPersistById.get(frame.id) ?? frame)
@@ -651,10 +658,10 @@ const useCanvasInteractions = ({
     const onWindowMouseDown = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null
       if (!target) return
-      if (target.closest('article')) return
+      if (target.closest('[data-canvas-frame-root="true"]')) return
       if (target.closest('button, a, input, textarea, select, [role="menu"], [role="menuitem"]')) return
       const activeElement = document.activeElement
-      if (activeElement instanceof HTMLElement && activeElement.closest('article')) {
+      if (activeElement instanceof HTMLElement && activeElement.closest('[data-canvas-frame-root="true"]')) {
         activeElement.blur()
       }
       setSelectedFrameIds([])

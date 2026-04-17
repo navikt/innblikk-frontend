@@ -34,15 +34,6 @@ export const getFrameBoundsForLayout = (
 }
 
 export const compareFramesForSectionOrder = (a: CanvasFrame, b: CanvasFrame): number => {
-  const aVoteRank = a.kind === 'sticky' && Number.isFinite(a.finalVoteRank) ? Number(a.finalVoteRank) : null
-  const bVoteRank = b.kind === 'sticky' && Number.isFinite(b.finalVoteRank) ? Number(b.finalVoteRank) : null
-
-  if (aVoteRank !== null || bVoteRank !== null) {
-    if (aVoteRank === null) return 1
-    if (bVoteRank === null) return -1
-    if (aVoteRank !== bVoteRank) return aVoteRank - bVoteRank
-  }
-
   if (a.y !== b.y) return a.y - b.y
   if (a.x !== b.x) return a.x - b.x
   return a.id.localeCompare(b.id)
@@ -52,15 +43,6 @@ const getGridSectionTopSpacing = (frame: CanvasFrame): number =>
   frame.kind === 'text' ? GRID_SECTION_LAYOUT_TEXT_TOP_SPACING : 0
 
 export const compareFramesForGridLayout = (a: CanvasFrame, b: CanvasFrame): number => {
-  const aVoteRank = a.kind === 'sticky' && Number.isFinite(a.finalVoteRank) ? Number(a.finalVoteRank) : null
-  const bVoteRank = b.kind === 'sticky' && Number.isFinite(b.finalVoteRank) ? Number(b.finalVoteRank) : null
-
-  if (aVoteRank !== null || bVoteRank !== null) {
-    if (aVoteRank === null) return 1
-    if (bVoteRank === null) return -1
-    if (aVoteRank !== bVoteRank) return aVoteRank - bVoteRank
-  }
-
   if (a.y !== b.y) return a.y - b.y
   if (a.x !== b.x) return a.x - b.x
 
