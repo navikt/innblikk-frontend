@@ -3975,7 +3975,6 @@ const Canvas = () => {
   return (
     <>
       <section
-        aria-label="Canvas arbeidsflate"
         className="relative h-[100dvh] min-h-[100dvh] bg-[var(--ax-bg-neutral-soft)]"
         style={canvasFrontpageBackgroundStyle}
       >
@@ -4072,7 +4071,7 @@ const Canvas = () => {
         />
 
         <div className="flex h-full">
-          <main ref={canvasViewportRef} className="relative flex-1 overflow-auto">
+          <main ref={canvasViewportRef} aria-label="Canvas arbeidsflate" className="relative flex-1 overflow-auto">
             <CanvasPlacementModeBanner
               topOffsetPx={canvasCanvasTopOffset + 20}
               pendingFrameDraft={pendingFrameDraft}

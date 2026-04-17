@@ -1115,6 +1115,7 @@ const CanvasFrameLayer = ({
                 !isDotVotingActive &&
                 websiteTopListEnabled && (
                   <aside
+                    aria-label={`Klikktoppliste for ${frame.label || 'nettsted'}`}
                     className="absolute left-[calc(100%+12px)] top-0 z-[75] flex h-full w-[300px] min-w-0 flex-col overflow-hidden rounded-lg border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] shadow-md"
                     onMouseDown={(event) => event.stopPropagation()}
                   >
