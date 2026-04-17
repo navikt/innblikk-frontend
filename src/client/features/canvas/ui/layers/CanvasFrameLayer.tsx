@@ -1,4 +1,5 @@
 import { Button, HelpText, Loader, Select } from '@navikt/ds-react'
+import { ExternalLink } from 'lucide-react'
 import { useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
 import { createPortal } from 'react-dom'
 import type { Website } from '../../../../shared/types/website.ts'
@@ -506,12 +507,27 @@ const CanvasFrameLayer = ({
                 >
                   <div className="flex min-w-0 flex-1 items-start gap-2">
                     <div className="min-w-0">
-                      <div
-                        className="min-w-0 break-words text-sm font-semibold leading-tight text-[var(--ax-text-default)]"
-                        title={frame.label}
-                      >
-                        {frame.label}
-                      </div>
+                      {frame.targetUrl ? (
+                        <a
+                          href={frame.targetUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex min-w-0 max-w-full items-center gap-1 text-sm font-semibold leading-tight text-[var(--ax-text-default)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-border-accent)]"
+                          title={frame.label}
+                          onMouseDown={(event) => event.stopPropagation()}
+                          onTouchStart={(event) => event.stopPropagation()}
+                        >
+                          <span className="min-w-0 break-words">{frame.label}</span>
+                          <ExternalLink size={12} aria-hidden="true" className="shrink-0" />
+                        </a>
+                      ) : (
+                        <div
+                          className="min-w-0 break-words text-sm font-semibold leading-tight text-[var(--ax-text-default)]"
+                          title={frame.label}
+                        >
+                          {frame.label}
+                        </div>
+                      )}
                       {visualizationMode && (
                         <div className="flex min-w-0 items-center gap-1 text-xs text-[var(--ax-text-subtle)]">
                           <span className="break-words">
@@ -806,6 +822,7 @@ const CanvasFrameLayer = ({
                     isInsightOpen={isWebsiteInsightOpen}
                     activeInsightPeriodLabel={activeInsightPeriodLabel}
                     websiteInsight={websiteInsight}
+                    isInteractionLocked={isFrameInteractionLocked}
                     onIframeRef={setWebsiteIframeRef}
                     onIframeLoad={() => handleWebsiteFrameLoad(frame)}
                     formatCanvasPathLabel={formatCanvasPathLabel}

@@ -22,6 +22,7 @@ type CanvasWebsiteFrameProps = {
   isInsightOpen: boolean
   activeInsightPeriodLabel: string
   websiteInsight?: CanvasWebsiteInsight
+  isInteractionLocked?: boolean
   onIframeRef: (frameId: string, node: HTMLIFrameElement | null) => void
   onIframeLoad: () => void
   formatCanvasPathLabel: (targetUrl?: string, fallbackText?: string) => string
@@ -83,12 +84,14 @@ const CanvasWebsiteFrame = ({
   isInsightOpen,
   activeInsightPeriodLabel,
   websiteInsight,
+  isInteractionLocked = false,
   onIframeRef,
   onIframeLoad,
   formatCanvasPathLabel,
   isImagePreviewUrl,
 }: CanvasWebsiteFrameProps) => {
   const hasRenderableContent = Boolean(frame.src && frame.displayUrl)
+  const iframeSkipTargetId = `canvas-website-frame-end-${frame.id}`
 
   return (
     <div className="flex h-full flex-col bg-white">
@@ -100,7 +103,7 @@ const CanvasWebsiteFrame = ({
       )}
 
       {hasRenderableContent ? (
-        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-white">
+        <div className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-white">
           {isImagePreviewUrl(frame.displayUrl!) ? (
             <img
               key={`${frame.id}-${frame.refreshNonce}`}
@@ -110,18 +113,28 @@ const CanvasWebsiteFrame = ({
               loading="lazy"
             />
           ) : (
-            <iframe
-              key={`${frame.id}-${frame.refreshNonce}`}
-              title={`Canvas-side ${frame.label}`}
-              src={frame.src}
-              className="h-full w-full"
-              loading="lazy"
-              sandbox="allow-same-origin allow-scripts allow-forms"
-              ref={(node) => {
-                onIframeRef(frame.id, node)
-              }}
-              onLoad={onIframeLoad}
-            />
+            <>
+              <a
+                href={`#${iframeSkipTargetId}`}
+                className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-20 focus:rounded-sm focus:bg-[var(--ax-bg-default)] focus:px-2 focus:py-1 focus:text-sm focus:font-medium focus:text-[var(--ax-text-default)] focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-[var(--ax-border-accent)]"
+              >
+                Hopp over innebygd side
+              </a>
+              <iframe
+                key={`${frame.id}-${frame.refreshNonce}`}
+                title={`Canvas-side ${frame.label}`}
+                src={frame.src}
+                className="h-full w-full"
+                loading="lazy"
+                sandbox="allow-same-origin allow-scripts allow-forms"
+                tabIndex={isInteractionLocked ? -1 : undefined}
+                ref={(node) => {
+                  onIframeRef(frame.id, node)
+                }}
+                onLoad={onIframeLoad}
+              />
+              <div id={iframeSkipTargetId} tabIndex={-1} />
+            </>
           )}
         </div>
       ) : (
