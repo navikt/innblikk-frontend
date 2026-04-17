@@ -5,6 +5,7 @@ type CanvasHeadingFrameProps = {
   headingText?: string
   label: string
   fontSizePx: number
+  headingLevel?: 2 | 3 | 4
   isEditing: boolean
   isLockedByOther?: boolean
   lockOwnerLabel?: string | null
@@ -18,6 +19,7 @@ const CanvasHeadingFrame = ({
   headingText,
   label,
   fontSizePx,
+  headingLevel = 2,
   isEditing,
   isLockedByOther = false,
   lockOwnerLabel = null,
@@ -25,6 +27,8 @@ const CanvasHeadingFrame = ({
   onBlur,
   onStartEditing,
 }: CanvasHeadingFrameProps) => {
+  const HeadingTag = `h${headingLevel}`
+
   if (isEditing) {
     return (
       <div className="overflow-visible px-4 py-2">
@@ -50,7 +54,7 @@ const CanvasHeadingFrame = ({
 
   return (
     <div className="relative overflow-visible px-4 py-2">
-      <h2
+      <HeadingTag
         className="m-0 cursor-text select-text whitespace-pre-wrap break-words text-[var(--ax-text-default)]"
         onClick={() => onStartEditing(id)}
         style={{
@@ -60,7 +64,7 @@ const CanvasHeadingFrame = ({
         }}
       >
         {headingText || label || 'Skriv overskrift'}
-      </h2>
+      </HeadingTag>
       {isLockedByOther && <CanvasEditLockOverlay ownerLabel={lockOwnerLabel} />}
     </div>
   )

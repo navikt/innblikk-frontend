@@ -371,6 +371,9 @@ const CanvasFrameLayer = ({
             currentSectionId && frame.kind !== 'section'
               ? frameItems.find((item) => item.id === currentSectionId && item.kind === 'section')
               : undefined
+          const parentSectionHasTitle = Boolean(parentSectionFrame?.label?.trim())
+          const headingLevel: 2 | 3 | 4 =
+            frame.kind !== 'heading' ? 2 : currentSectionId ? (parentSectionHasTitle ? 4 : 2) : 2
           const sectionPortalTarget =
             currentSectionId && typeof document !== 'undefined'
               ? document.querySelector<HTMLElement>(`[data-canvas-section-id="${currentSectionId}"]`)
@@ -965,6 +968,7 @@ const CanvasFrameLayer = ({
                     headingText={frame.headingText}
                     label={frame.label}
                     fontSizePx={getHeadingFrameFontSize(frame)}
+                    headingLevel={headingLevel}
                     isEditing={activeEditableFrameId === frame.id}
                     isLockedByOther={editLockStatus.isLockedByOther}
                     lockOwnerLabel={editLockStatus.ownerLabel}
@@ -1075,18 +1079,25 @@ const CanvasFrameLayer = ({
                         autoFocus
                       />
                     ) : (
-                      <button
-                        type="button"
-                        className="w-fit max-w-full rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)]/90 px-2 py-1 text-left text-sm font-semibold text-[var(--ax-text-default)]"
-                        onMouseDown={(event) => event.stopPropagation()}
-                        onDoubleClick={() => {
-                          if (isCanvasLocked) return
-                          handleStartEditingFrame(frame.id)
-                        }}
-                        title="Dobbeltklikk for å gi seksjonen navn"
-                      >
-                        <span className="block truncate">{frame.label || 'Seksjon'}</span>
-                      </button>
+                      <h3 className="m-0">
+                        {isCanvasLocked ? (
+                          <span className="inline-block w-fit max-w-full rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)]/90 px-2 py-1 text-left text-sm font-semibold text-[var(--ax-text-default)]">
+                            <span className="block truncate">{frame.label || 'Seksjon'}</span>
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            className="w-fit max-w-full rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)]/90 px-2 py-1 text-left text-sm font-semibold text-[var(--ax-text-default)]"
+                            onMouseDown={(event) => event.stopPropagation()}
+                            onDoubleClick={() => {
+                              handleStartEditingFrame(frame.id)
+                            }}
+                            title="Dobbeltklikk for å gi seksjonen navn"
+                          >
+                            <span className="block truncate">{frame.label || 'Seksjon'}</span>
+                          </button>
+                        )}
+                      </h3>
                     )}
                     {shouldShowSectionItemCount && (
                       <p className="text-xs text-[var(--ax-text-subtle)]">{sectionItemCount} elementer.</p>

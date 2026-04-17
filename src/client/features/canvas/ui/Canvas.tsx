@@ -821,9 +821,6 @@ const Canvas = () => {
     () =>
       [...visibleFrames]
         .sort((a, b) => {
-          const aPriority = a.kind === 'section' ? 0 : 1
-          const bPriority = b.kind === 'section' ? 0 : 1
-          if (aPriority !== bPriority) return aPriority - bPriority
           if (a.y !== b.y) return a.y - b.y
           if (a.x !== b.x) return a.x - b.x
           return a.id.localeCompare(b.id)
