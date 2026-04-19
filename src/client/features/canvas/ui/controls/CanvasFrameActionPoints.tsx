@@ -1,5 +1,5 @@
 import { ActionMenu, Button } from '@navikt/ds-react'
-import { ArrowRightLeft, Copy, Edit2, Palette, RotateCw, Trash2 } from 'lucide-react'
+import { ArrowRightLeft, Copy, Edit2, Palette, RotateCcw, RotateCw, Trash2 } from 'lucide-react'
 import type { MouseEvent } from 'react'
 import type { CanvasSectionLayoutMode } from '../../model/types.ts'
 import { ICON_ROTATION_STEP_DEG } from '../../utils/canvasUtils.ts'
