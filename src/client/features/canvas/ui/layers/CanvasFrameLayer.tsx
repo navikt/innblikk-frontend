@@ -1,6 +1,6 @@
 import { Button, HelpText, Loader, Select } from '@navikt/ds-react'
 import { ExternalLink } from 'lucide-react'
-import { useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
+import { useCallback, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
 import { createPortal } from 'react-dom'
 import type { Website } from '../../../../shared/types/website.ts'
 import { DashboardWidget } from '../../../dashboard'
@@ -101,12 +101,11 @@ const CanvasResizeHandles = ({
   return (
     <>
       {RESIZE_HANDLE_CONFIGS.map((handle) => (
-        <button
+        <span
           key={handle.dir}
-          type="button"
+          aria-hidden="true"
           onMouseDown={(event) => handleResizeStart(event, frame, handle.dir)}
           title={handle.title}
-          aria-label={handle.ariaLabel}
           className={`absolute ${handle.className} ${sizeClassName} rounded-sm border-[#1f8fff] bg-white shadow-[0_0_0_2px_white] transition-opacity ${visibilityClassName}`}
         />
       ))}
@@ -299,6 +298,25 @@ const CanvasFrameLayer = ({
 }: CanvasFrameLayerProps) => {
   const [topListFilterByFrameId, setTopListFilterByFrameId] = useState<Record<string, string>>({})
   const [activeTopListItemKeyByFrameId, setActiveTopListItemKeyByFrameId] = useState<Record<string, string | null>>({})
+  const sectionTitleButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+
+  const focusAdjacentSection = useCallback(
+    (sectionId: string, direction: 'next' | 'previous') => {
+      const orderedSections = frameItems
+        .filter((item) => item.kind === 'section')
+        .sort((a, b) => {
+          if (a.y !== b.y) return a.y - b.y
+          return a.x - b.x
+        })
+      const currentIndex = orderedSections.findIndex((section) => section.id === sectionId)
+      if (currentIndex < 0) return
+      const targetIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1
+      const targetSection = orderedSections[targetIndex]
+      if (!targetSection) return
+      sectionTitleButtonRefs.current[targetSection.id]?.focus()
+    },
+    [frameItems],
+  )
 
   const cleanText = (value: string): string => value.replace(/\s+/g, ' ').trim().toLowerCase()
 
@@ -1109,6 +1127,9 @@ const CanvasFrameLayer = ({
                         ) : (
                           <button
                             type="button"
+                            ref={(element) => {
+                              sectionTitleButtonRefs.current[frame.id] = element
+                            }}
                             className="w-fit max-w-full rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)]/90 px-2 py-1 text-left text-sm font-semibold text-[var(--ax-text-default)]"
                             onMouseDown={(event) => event.stopPropagation()}
                             onDoubleClick={() => {
@@ -1121,6 +1142,24 @@ const CanvasFrameLayer = ({
                         )}
                       </h3>
                     )}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onMouseDown={(event) => event.stopPropagation()}
+                        onClick={() => focusAdjacentSection(frame.id, 'previous')}
+                        className="absolute left-[-9999px] top-auto h-px w-px overflow-hidden rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-2 py-1 text-xs font-medium text-[var(--ax-text-default)] focus:static focus:h-auto focus:w-auto focus:overflow-visible"
+                      >
+                        Forrige seksjon
+                      </button>
+                      <button
+                        type="button"
+                        onMouseDown={(event) => event.stopPropagation()}
+                        onClick={() => focusAdjacentSection(frame.id, 'next')}
+                        className="absolute left-[-9999px] top-auto h-px w-px overflow-hidden rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-2 py-1 text-xs font-medium text-[var(--ax-text-default)] focus:static focus:h-auto focus:w-auto focus:overflow-visible"
+                      >
+                        Neste seksjon
+                      </button>
+                    </div>
                     {shouldShowSectionItemCount && (
                       <p className="text-xs text-[var(--ax-text-subtle)]">{sectionItemCount} elementer.</p>
                     )}
