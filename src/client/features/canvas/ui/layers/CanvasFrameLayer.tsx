@@ -1169,14 +1169,14 @@ const CanvasFrameLayer = ({
                         onMouseDown={(event) => event.stopPropagation()}
                         onChange={(event) => handleEditableFrameChange(frame.id, event.target.value)}
                         onBlur={() => handleEditableFrameBlur(frame.id)}
-                        className="w-full resize-none rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)]/95 px-2.5 py-1.5 text-base font-semibold leading-tight text-[var(--ax-text-default)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-border-accent)]"
+                        className="w-full resize-none rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)]/95 px-2.5 py-1.5 text-lg font-semibold leading-tight text-[var(--ax-text-default)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-border-accent)]"
                         rows={2}
                         autoFocus
                       />
                     ) : (
                       <h3 className="m-0">
                         {isCanvasLocked ? (
-                          <span className="inline-block w-fit max-w-full rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)]/90 px-2.5 py-1.5 text-left text-base font-semibold leading-tight text-[var(--ax-text-default)]">
+                          <span className="inline-block w-fit max-w-full rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)]/90 px-2.5 py-1.5 text-left text-lg font-semibold leading-tight text-[var(--ax-text-default)]">
                             <span className="block truncate">{frame.label || 'Seksjon'}</span>
                           </span>
                         ) : (
@@ -1185,7 +1185,7 @@ const CanvasFrameLayer = ({
                             ref={(element) => {
                               sectionTitleButtonRefs.current[frame.id] = element
                             }}
-                            className="w-fit max-w-full rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)]/90 px-2.5 py-1.5 text-left text-base font-semibold leading-tight text-[var(--ax-text-default)]"
+                            className="w-fit max-w-full rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)]/90 px-2.5 py-1.5 text-left text-lg font-semibold leading-tight text-[var(--ax-text-default)]"
                             onMouseDown={(event) => event.stopPropagation()}
                             onKeyDown={(event) => {
                               if (event.key !== 'Enter' && event.key !== ' ') return
