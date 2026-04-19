@@ -1058,9 +1058,10 @@ const CanvasFrameLayer = ({
                     label={frame.label}
                     fontSizePx={getHeadingFrameFontSize(frame)}
                     headingLevel={contextualHeadingLevel}
-                    isEditing={activeEditableFrameId === frame.id}
-                    isLockedByOther={editLockStatus.isLockedByOther}
-                    lockOwnerLabel={editLockStatus.ownerLabel}
+                    isEditing={!isFrameInteractionLocked && activeEditableFrameId === frame.id}
+                    isInteractionLocked={isFrameInteractionLocked}
+                    isLockedByOther={!isFrameInteractionLocked && editLockStatus.isLockedByOther}
+                    lockOwnerLabel={!isFrameInteractionLocked ? editLockStatus.ownerLabel : null}
                     onChange={handleEditableFrameChange}
                     onBlur={handleEditableFrameBlur}
                     onStartEditing={handleStartEditingFrame}
@@ -1071,7 +1072,7 @@ const CanvasFrameLayer = ({
                     textContent={frame.textContent}
                     tableHeaders={frame.tableHeaders}
                     tableRows={frame.tableRows}
-                    isEditing={activeEditableFrameId === frame.id}
+                    isEditing={!isFrameInteractionLocked && activeEditableFrameId === frame.id}
                     isInteractionLocked={isFrameInteractionLocked}
                     isLockedByOther={editLockStatus.isLockedByOther}
                     lockOwnerLabel={editLockStatus.ownerLabel}
@@ -1106,6 +1107,7 @@ const CanvasFrameLayer = ({
                       textContent={frame.textContent}
                       stickyColor={frame.stickyColor}
                       isEditing={!isFrameInteractionLocked && activeEditableFrameId === frame.id}
+                      isInteractionLocked={isFrameInteractionLocked}
                       isLockedByOther={!isFrameInteractionLocked && editLockStatus.isLockedByOther}
                       lockOwnerLabel={!isFrameInteractionLocked ? editLockStatus.ownerLabel : null}
                       onChange={handleEditableFrameChange}

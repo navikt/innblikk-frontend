@@ -7,6 +7,7 @@ type CanvasHeadingFrameProps = {
   fontSizePx: number
   headingLevel?: 2 | 3 | 4
   isEditing: boolean
+  isInteractionLocked?: boolean
   isLockedByOther?: boolean
   lockOwnerLabel?: string | null
   onChange: (id: string, nextValue: string) => void
@@ -21,6 +22,7 @@ const CanvasHeadingFrame = ({
   fontSizePx,
   headingLevel = 2,
   isEditing,
+  isInteractionLocked = false,
   isLockedByOther = false,
   lockOwnerLabel = null,
   onChange,
@@ -56,57 +58,96 @@ const CanvasHeadingFrame = ({
     <div className="relative overflow-visible px-4 py-2">
       {headingLevel === 4 ? (
         <h4 className="m-0">
-          <button
-            type="button"
-            data-canvas-edit-trigger="true"
-            className="w-full cursor-text whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)]"
-            onMouseDown={(event) => event.stopPropagation()}
-            onClick={() => onStartEditing(id)}
-            aria-label="Rediger overskrift"
-            style={{
-              fontSize: `${fontSizePx}px`,
-              lineHeight: 1.05,
-              fontWeight: 700,
-            }}
-          >
-            {headingContent}
-          </button>
+          {isInteractionLocked ? (
+            <span
+              className="block w-full whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)]"
+              style={{
+                fontSize: `${fontSizePx}px`,
+                lineHeight: 1.05,
+                fontWeight: 700,
+              }}
+            >
+              {headingContent}
+            </span>
+          ) : (
+            <button
+              type="button"
+              data-canvas-edit-trigger="true"
+              className="w-full cursor-text whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)]"
+              onMouseDown={(event) => event.stopPropagation()}
+              onClick={() => onStartEditing(id)}
+              aria-label="Rediger overskrift"
+              style={{
+                fontSize: `${fontSizePx}px`,
+                lineHeight: 1.05,
+                fontWeight: 700,
+              }}
+            >
+              {headingContent}
+            </button>
+          )}
         </h4>
       ) : headingLevel === 3 ? (
         <h3 className="m-0">
-          <button
-            type="button"
-            data-canvas-edit-trigger="true"
-            className="w-full cursor-text whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)]"
-            onMouseDown={(event) => event.stopPropagation()}
-            onClick={() => onStartEditing(id)}
-            aria-label="Rediger overskrift"
-            style={{
-              fontSize: `${fontSizePx}px`,
-              lineHeight: 1.05,
-              fontWeight: 700,
-            }}
-          >
-            {headingContent}
-          </button>
+          {isInteractionLocked ? (
+            <span
+              className="block w-full whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)]"
+              style={{
+                fontSize: `${fontSizePx}px`,
+                lineHeight: 1.05,
+                fontWeight: 700,
+              }}
+            >
+              {headingContent}
+            </span>
+          ) : (
+            <button
+              type="button"
+              data-canvas-edit-trigger="true"
+              className="w-full cursor-text whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)]"
+              onMouseDown={(event) => event.stopPropagation()}
+              onClick={() => onStartEditing(id)}
+              aria-label="Rediger overskrift"
+              style={{
+                fontSize: `${fontSizePx}px`,
+                lineHeight: 1.05,
+                fontWeight: 700,
+              }}
+            >
+              {headingContent}
+            </button>
+          )}
         </h3>
       ) : (
         <h2 className="m-0">
-          <button
-            type="button"
-            data-canvas-edit-trigger="true"
-            className="w-full cursor-text whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)]"
-            onMouseDown={(event) => event.stopPropagation()}
-            onClick={() => onStartEditing(id)}
-            aria-label="Rediger overskrift"
-            style={{
-              fontSize: `${fontSizePx}px`,
-              lineHeight: 1.05,
-              fontWeight: 700,
-            }}
-          >
-            {headingContent}
-          </button>
+          {isInteractionLocked ? (
+            <span
+              className="block w-full whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)]"
+              style={{
+                fontSize: `${fontSizePx}px`,
+                lineHeight: 1.05,
+                fontWeight: 700,
+              }}
+            >
+              {headingContent}
+            </span>
+          ) : (
+            <button
+              type="button"
+              data-canvas-edit-trigger="true"
+              className="w-full cursor-text whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)]"
+              onMouseDown={(event) => event.stopPropagation()}
+              onClick={() => onStartEditing(id)}
+              aria-label="Rediger overskrift"
+              style={{
+                fontSize: `${fontSizePx}px`,
+                lineHeight: 1.05,
+                fontWeight: 700,
+              }}
+            >
+              {headingContent}
+            </button>
+          )}
         </h2>
       )}
       {isLockedByOther && <CanvasEditLockOverlay ownerLabel={lockOwnerLabel} />}
