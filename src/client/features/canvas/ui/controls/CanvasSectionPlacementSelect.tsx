@@ -1,4 +1,4 @@
-import { Select } from '@navikt/ds-react'
+import { Alert, Select } from '@navikt/ds-react'
 
 type CanvasSectionPlacementSelectProps = {
   sectionOptions: Array<{ id: string; label: string }>
@@ -13,7 +13,13 @@ const CanvasSectionPlacementSelect = ({
   onSectionChange,
   label = 'Plassering',
 }: CanvasSectionPlacementSelectProps) => {
-  if (sectionOptions.length === 0) return null
+  if (sectionOptions.length === 0) {
+    return (
+      <Alert variant="info" size="small">
+        Tips: Seksjoner hjelper deg å strukturere innholdet. Opprett en seksjon før du legger til elementer.
+      </Alert>
+    )
+  }
 
   return (
     <Select
