@@ -62,7 +62,7 @@ const CanvasStickyFrame = ({
         <button
           type="button"
           data-canvas-edit-trigger="true"
-          className="w-full cursor-text whitespace-pre-wrap break-words bg-transparent p-0 text-left text-base leading-7"
+          className="m-0 block w-full cursor-text whitespace-pre-wrap break-words bg-transparent p-0 text-left text-base leading-7 [appearance:none]"
           style={{ color: colorOption.text }}
           onMouseDown={(event) => event.stopPropagation()}
           onClick={() => onStartEditing(id)}

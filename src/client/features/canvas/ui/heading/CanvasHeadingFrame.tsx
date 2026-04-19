@@ -73,7 +73,7 @@ const CanvasHeadingFrame = ({
             <button
               type="button"
               data-canvas-edit-trigger="true"
-              className="w-full cursor-text whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)]"
+              className="m-0 block w-full cursor-text whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)] [appearance:none]"
               onMouseDown={(event) => event.stopPropagation()}
               onClick={() => onStartEditing(id)}
               aria-label="Rediger overskrift"
@@ -104,7 +104,7 @@ const CanvasHeadingFrame = ({
             <button
               type="button"
               data-canvas-edit-trigger="true"
-              className="w-full cursor-text whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)]"
+              className="m-0 block w-full cursor-text whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)] [appearance:none]"
               onMouseDown={(event) => event.stopPropagation()}
               onClick={() => onStartEditing(id)}
               aria-label="Rediger overskrift"
@@ -135,7 +135,7 @@ const CanvasHeadingFrame = ({
             <button
               type="button"
               data-canvas-edit-trigger="true"
-              className="w-full cursor-text whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)]"
+              className="m-0 block w-full cursor-text whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)] [appearance:none]"
               onMouseDown={(event) => event.stopPropagation()}
               onClick={() => onStartEditing(id)}
               aria-label="Rediger overskrift"

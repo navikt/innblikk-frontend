@@ -105,7 +105,7 @@ const CanvasTextFrame = ({
           onMouseDown={(event) => event.stopPropagation()}
           lang="nb-NO"
           placeholder="Skriv tekst"
-          className="h-full w-full resize-none overflow-auto border-none bg-transparent p-0 text-[var(--ax-text-default)] outline-none placeholder:text-[var(--ax-text-subtle)] [font-family:inherit]"
+          className="m-0 block min-h-full w-full resize-none overflow-auto border-none bg-transparent p-0 text-[var(--ax-text-default)] align-top outline-none placeholder:text-[var(--ax-text-subtle)] [font-family:inherit]"
           style={{ fontSize: '22px', lineHeight: 1.3, fontWeight: 500 }}
           autoFocus
         />
@@ -117,7 +117,7 @@ const CanvasTextFrame = ({
     <div className="relative h-full overflow-auto px-2 pb-2">
       {_isInteractionLocked ? (
         <p
-          className="h-full w-full overflow-auto whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)]"
+          className="m-0 h-full w-full overflow-auto whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)]"
           style={{ fontSize: '22px', lineHeight: 1.3, fontWeight: 500 }}
         >
           {textContent || 'Skriv tekst'}
@@ -126,7 +126,7 @@ const CanvasTextFrame = ({
         <button
           type="button"
           data-canvas-edit-trigger="true"
-          className="h-full w-full cursor-text overflow-auto whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)]"
+          className="m-0 flex h-full w-full cursor-text items-start overflow-auto whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)] [appearance:none]"
           style={{ fontSize: '22px', lineHeight: 1.3, fontWeight: 500 }}
           onMouseDown={(event) => event.stopPropagation()}
           onClick={() => onStartEditing(id)}
