@@ -1,4 +1,5 @@
 import { Alert, Button, Modal, Textarea } from '@navikt/ds-react'
+import type { CSSProperties } from 'react'
 import type { CanvasStickyColorOption } from './CanvasStickyColorRegistry.ts'
 
 type CanvasStickyModalProps = {
@@ -27,24 +28,26 @@ const CanvasStickyModal = ({
   onClose,
 }: CanvasStickyModalProps) => {
   const selectedOption = colorOptions.find((option) => option.id === selectedColorId) ?? colorOptions[0]
+  const stickyPreviewStyle = {
+    backgroundColor: selectedOption?.background,
+    borderColor: selectedOption?.border,
+    '--sticky-modal-text': selectedOption?.text,
+    '--sticky-modal-border': selectedOption?.border,
+    '--sticky-modal-textarea-bg': selectedOption?.textareaBackground,
+    '--sticky-modal-placeholder': selectedOption?.placeholder,
+  } as CSSProperties
 
   return (
     <Modal open={open} onClose={onClose} header={{ heading: 'Legg til Post-it-lapp' }} width="small">
       <Modal.Body>
-        <div
-          className="space-y-3 rounded-xl border p-3"
-          style={{
-            backgroundColor: selectedOption?.background,
-            borderColor: selectedOption?.border,
-          }}
-        >
+        <div className="space-y-3 rounded-xl border p-3" style={stickyPreviewStyle}>
           <Textarea
             id="canvas-sticky-modal-text"
             label="Tekst"
             minRows={6}
             value={value}
             onChange={(event) => onChange(event.target.value)}
-            className="[&_label]:text-[var(--ax-text-default)]"
+            className="[&_label]:text-[color:var(--sticky-modal-text)] [&_textarea]:border-[color:var(--sticky-modal-border)] [&_textarea]:bg-[color:var(--sticky-modal-textarea-bg)] [&_textarea]:text-[color:var(--sticky-modal-text)] [&_textarea::placeholder]:text-[color:var(--sticky-modal-placeholder)]"
           />
           <div className="space-y-1.5 pt-2">
             <div className="flex flex-wrap gap-3">
@@ -77,7 +80,7 @@ const CanvasStickyModal = ({
                         </span>
                       )}
                     </button>
-                    <div className="text-center text-[11px] leading-tight text-[var(--ax-text-subtle)]">
+                    <div className="text-center text-[11px] leading-tight text-[color:var(--sticky-modal-text)]">
                       {option.label}
                     </div>
                   </div>
