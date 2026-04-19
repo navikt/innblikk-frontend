@@ -1894,16 +1894,6 @@ const Canvas = () => {
     [canvasCanvasTopOffset, canvasZoom],
   )
 
-  const getAutoPlacementAnchor = useCallback((): { x: number; y: number } | null => {
-    const viewport = canvasViewportRef.current
-    if (!viewport) return null
-
-    return {
-      x: (viewport.scrollLeft + viewport.clientWidth / 2) / canvasZoom,
-      y: (viewport.scrollTop + viewport.clientHeight / 2 - canvasCanvasTopOffset) / canvasZoom,
-    }
-  }, [canvasCanvasTopOffset, canvasZoom])
-
   const handleAutoPlacedSection = useCallback(
     (frame: CanvasFrame) => {
       if (frame.kind !== 'section') return
@@ -2069,7 +2059,6 @@ const Canvas = () => {
     onAutoPlacedSection: handleAutoPlacedSection,
     onFramePlaced: (frame) => setFocusFrameId(frame.id),
     getCanvasPointerPosition,
-    getAutoPlacementAnchor,
     getPendingFrameContentAnchorOffset,
     getDefaultFrameSize,
     getNextAutoSectionLabel,

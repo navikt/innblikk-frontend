@@ -27,7 +27,6 @@ type UseCanvasPlacementParams = {
   onAutoPlacedSection?: (frame: CanvasFrame) => void
   onFramePlaced?: (frame: CanvasFrame) => void
   getCanvasPointerPosition: (clientX: number, clientY: number) => { x: number; y: number } | null
-  getAutoPlacementAnchor: () => { x: number; y: number } | null
   getPendingFrameContentAnchorOffset: (draft: PendingCanvasFrameDraft) => { x: number; y: number }
   getDefaultFrameSize: (frameOrKind: CanvasFrame | CanvasFrame['kind']) => {
     width: number
@@ -96,7 +95,6 @@ const useCanvasPlacement = ({
   onAutoPlacedSection,
   onFramePlaced,
   getCanvasPointerPosition,
-  getAutoPlacementAnchor,
   getPendingFrameContentAnchorOffset,
   getDefaultFrameSize,
   getNextAutoSectionLabel,
@@ -235,7 +233,53 @@ const useCanvasPlacement = ({
       return null
     })()
 
-    const anchor = sectionAutoPlacementAnchor ?? getAutoPlacementAnchor()
+    const nonSectionAutoPlacementAnchor = (() => {
+      if (isSection) return null
+
+      const frameDefaults = getDefaultFrameSize(pendingFrameDraft.kind)
+      const frameWidth = pendingFrameDraft.width ?? frameDefaults.width
+      const frameHeight = pendingFrameDraft.height ?? frameDefaults.height
+      const frameGapX = 24
+      const frameGapY = 24
+      const baseX = 24
+      const baseY = 96
+
+      const occupiedBounds = frames.map((existingFrame) => {
+        const existingDefaults = getDefaultFrameSize(existingFrame)
+        return {
+          left: existingFrame.x,
+          right: existingFrame.x + (existingFrame.width ?? existingDefaults.width),
+          top: existingFrame.y,
+          bottom: existingFrame.y + (existingFrame.height ?? existingDefaults.height),
+        }
+      })
+
+      const candidateLimit = Math.max(frames.length + 6, 12)
+      for (let row = 0; row < candidateLimit; row += 1) {
+        for (let column = 0; column < candidateLimit; column += 1) {
+          const candidateLeft = baseX + column * (frameWidth + frameGapX)
+          const candidateTop = baseY + row * (frameHeight + frameGapY)
+          const candidateRight = candidateLeft + frameWidth
+          const candidateBottom = candidateTop + frameHeight
+
+          const overlapsExistingFrame = occupiedBounds.some((occupied) => {
+            const intersectsHorizontally = candidateLeft < occupied.right && candidateRight > occupied.left
+            const intersectsVertically = candidateTop < occupied.bottom && candidateBottom > occupied.top
+            return intersectsHorizontally && intersectsVertically
+          })
+          if (overlapsExistingFrame) continue
+
+          return {
+            x: candidateLeft + contentAnchorOffset.x,
+            y: candidateTop + contentAnchorOffset.y,
+          }
+        }
+      }
+
+      return null
+    })()
+
+    const anchor = sectionAutoPlacementAnchor ?? nonSectionAutoPlacementAnchor
     if (!anchor) return
 
     const nextFrame: CanvasFrame = {
@@ -275,7 +319,6 @@ const useCanvasPlacement = ({
     }
   }, [
     frames,
-    getAutoPlacementAnchor,
     getDefaultFrameSize,
     getPendingFrameContentAnchorOffset,
     pendingFrameDraft,

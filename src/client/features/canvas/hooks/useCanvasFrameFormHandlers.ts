@@ -585,13 +585,19 @@ const useCanvasFrameFormHandlers = ({
   )
 
   const resolvePlacementInSection = useCallback(
-    (sectionId: string): { x: number; y: number; categoryId?: number } | null => {
+    (
+      sectionId: string,
+      frameSize?: { width?: number; height?: number },
+    ): { x: number; y: number; categoryId?: number } | null => {
       const targetSection = frames.find((frame) => frame.id === sectionId && frame.kind === 'section')
       if (!targetSection) return null
       const targetBounds = getFrameBoundsForLayout(targetSection, getDefaultFrameSize)
-      const baseX = targetBounds.left + GRID_SECTION_LAYOUT_CONFIG.paddingX
-      const baseY = targetBounds.top + GRID_SECTION_LAYOUT_CONFIG.paddingTop
-      const isTargetGrid = targetSection.sectionLayout === 'grid'
+      const contentLeft = targetBounds.left + GRID_SECTION_LAYOUT_CONFIG.paddingX
+      const contentRight = targetBounds.right - GRID_SECTION_LAYOUT_CONFIG.paddingX
+      const contentTop = targetBounds.top + GRID_SECTION_LAYOUT_CONFIG.paddingTop
+      const contentBottom = targetBounds.bottom - GRID_SECTION_LAYOUT_CONFIG.paddingBottom
+      const frameWidth = Math.max(1, frameSize?.width ?? 360)
+      const frameHeight = Math.max(1, frameSize?.height ?? 180)
       const existingItemsInTargetSection = frames.filter((frame) => {
         if (frame.id === targetSection.id || frame.kind === 'section') return false
         if ((frame.categoryId ?? null) !== (targetSection.categoryId ?? null)) return false
@@ -605,18 +611,76 @@ const useCanvasFrameFormHandlers = ({
           centerY <= targetBounds.bottom
         )
       })
-      const freeformShiftStep = 24
-      const freeformColumns = 4
-      const freeformShiftIndex = existingItemsInTargetSection.length
-      const freeformShiftX = (freeformShiftIndex % freeformColumns) * freeformShiftStep
-      const freeformShiftY = Math.floor(freeformShiftIndex / freeformColumns) * freeformShiftStep
+
+      const occupiedBounds = existingItemsInTargetSection.map((frame) =>
+        getFrameBoundsForLayout(frame, getDefaultFrameSize),
+      )
+      const contentWidth = Math.max(1, contentRight - contentLeft)
+      const maxColumns = Math.max(
+        1,
+        Math.floor((contentWidth + GRID_SECTION_LAYOUT_CONFIG.gapX) / (frameWidth + GRID_SECTION_LAYOUT_CONFIG.gapX)),
+      )
+      const candidateRowLimit = Math.max(existingItemsInTargetSection.length + 6, 12)
+
+      for (let row = 0; row < candidateRowLimit; row += 1) {
+        for (let column = 0; column < maxColumns; column += 1) {
+          const candidateLeft = contentLeft + column * (frameWidth + GRID_SECTION_LAYOUT_CONFIG.gapX)
+          const candidateTop = contentTop + row * (frameHeight + GRID_SECTION_LAYOUT_CONFIG.gapY)
+          const candidateRight = candidateLeft + frameWidth
+          const candidateBottom = candidateTop + frameHeight
+          if (candidateRight > contentRight || candidateBottom > contentBottom) continue
+
+          const overlapsExisting = occupiedBounds.some((occupied) => {
+            const intersectsHorizontally = candidateLeft < occupied.right && candidateRight > occupied.left
+            const intersectsVertically = candidateTop < occupied.bottom && candidateBottom > occupied.top
+            return intersectsHorizontally && intersectsVertically
+          })
+          if (overlapsExisting) continue
+
+          return {
+            x: Math.max(0, candidateLeft),
+            y: Math.max(-CANVAS_TOP_BUFFER, candidateTop),
+            categoryId: targetSection.categoryId,
+          }
+        }
+      }
+
+      const fallbackY =
+        occupiedBounds.length > 0
+          ? Math.max(...occupiedBounds.map((bounds) => bounds.bottom)) + GRID_SECTION_LAYOUT_CONFIG.gapY
+          : contentTop
       return {
-        x: Math.max(0, baseX + (isTargetGrid ? 0 : freeformShiftX)),
-        y: Math.max(-CANVAS_TOP_BUFFER, baseY + (isTargetGrid ? 0 : freeformShiftY)),
+        x: Math.max(0, contentLeft),
+        y: Math.max(-CANVAS_TOP_BUFFER, fallbackY),
         categoryId: targetSection.categoryId,
       }
     },
     [frames, getDefaultFrameSize],
+  )
+
+  const ensureSectionContainsFrame = useCallback(
+    async (sectionId: string, frame: CanvasFrame): Promise<CanvasFrame | null> => {
+      const targetSection = frames.find((candidate) => candidate.id === sectionId && candidate.kind === 'section')
+      if (!targetSection) return null
+
+      const sectionBounds = getFrameBoundsForLayout(targetSection, getDefaultFrameSize)
+      const frameBounds = getFrameBoundsForLayout(frame, getDefaultFrameSize)
+      const requiredBottom = frameBounds.bottom + GRID_SECTION_LAYOUT_CONFIG.paddingBottom
+      if (requiredBottom <= sectionBounds.bottom) return null
+
+      const defaultSectionSize = getDefaultFrameSize(targetSection)
+      const nextSectionHeight = Math.max(
+        targetSection.height ?? defaultSectionSize.height,
+        Math.ceil(requiredBottom - targetSection.y),
+      )
+      const nextSection: CanvasFrame = {
+        ...targetSection,
+        height: nextSectionHeight,
+      }
+
+      return persistFrame(nextSection)
+    },
+    [frames, getDefaultFrameSize, persistFrame],
   )
 
   const loadDashboardOptions = useCallback(
@@ -753,7 +817,7 @@ const useCanvasFrameFormHandlers = ({
 
     const targetSectionId = selectedAddSectionId.trim()
     if (targetSectionId) {
-      const placement = resolvePlacementInSection(targetSectionId)
+      const placement = resolvePlacementInSection(targetSectionId, { width: 420, height: 420 })
       if (!placement) {
         setAddImageError('Fant ikke valgt seksjon.')
         return
@@ -777,7 +841,13 @@ const useCanvasFrameFormHandlers = ({
           setIsSavingCanvasItem(true)
           setSyncError(null)
           const persistedFrame = await persistFrame(nextFrame)
-          setFrames((prev) => [...prev, persistedFrame])
+          const persistedSection = await ensureSectionContainsFrame(targetSectionId, persistedFrame)
+          setFrames((prev) => {
+            const withSection = persistedSection
+              ? prev.map((frame) => (frame.id === persistedSection.id ? persistedSection : frame))
+              : prev
+            return [...withSection, persistedFrame]
+          })
           onFrameAddedInSection?.(persistedFrame)
           setNewImageUrlInput('')
           setSelectedAddSectionId('')
@@ -833,7 +903,7 @@ const useCanvasFrameFormHandlers = ({
       } else {
         const targetSectionId = selectedAddSectionId.trim()
         if (targetSectionId) {
-          const placement = resolvePlacementInSection(targetSectionId)
+          const placement = resolvePlacementInSection(targetSectionId, { width: 420, height: 420 })
           if (!placement) {
             setAddIllustrationError('Fant ikke valgt seksjon.')
             return
@@ -854,7 +924,13 @@ const useCanvasFrameFormHandlers = ({
             refreshNonce: 1,
           }
           const persistedFrame = await persistFrame(nextFrame)
-          setFrames((prev) => [...prev, persistedFrame])
+          const persistedSection = await ensureSectionContainsFrame(targetSectionId, persistedFrame)
+          setFrames((prev) => {
+            const withSection = persistedSection
+              ? prev.map((frame) => (frame.id === persistedSection.id ? persistedSection : frame))
+              : prev
+            return [...withSection, persistedFrame]
+          })
           onFrameAddedInSection?.(persistedFrame)
         } else {
           const frameDraft: PendingCanvasFrameDraft = {
@@ -1557,7 +1633,7 @@ const useCanvasFrameFormHandlers = ({
 
     const targetSectionId = selectedAddSectionId.trim()
     if (targetSectionId) {
-      const placement = resolvePlacementInSection(targetSectionId)
+      const placement = resolvePlacementInSection(targetSectionId, { width, height })
       if (!placement) {
         setAddHeadingError('Fant ikke valgt seksjon.')
         return
@@ -1582,7 +1658,13 @@ const useCanvasFrameFormHandlers = ({
           setIsSavingCanvasItem(true)
           setSyncError(null)
           const persistedFrame = await persistFrame(nextFrame)
-          setFrames((prev) => [...prev, persistedFrame])
+          const persistedSection = await ensureSectionContainsFrame(targetSectionId, persistedFrame)
+          setFrames((prev) => {
+            const withSection = persistedSection
+              ? prev.map((frame) => (frame.id === persistedSection.id ? persistedSection : frame))
+              : prev
+            return [...withSection, persistedFrame]
+          })
           onFrameAddedInSection?.(persistedFrame)
           setHeadingTextInput('')
           setSelectedAddSectionId('')
@@ -1623,7 +1705,7 @@ const useCanvasFrameFormHandlers = ({
 
     const targetSectionId = selectedAddSectionId.trim()
     if (targetSectionId) {
-      const placement = resolvePlacementInSection(targetSectionId)
+      const placement = resolvePlacementInSection(targetSectionId, { width: 340, height: 170 })
       if (!placement) {
         setAddTextError('Fant ikke valgt seksjon.')
         return
@@ -1647,7 +1729,13 @@ const useCanvasFrameFormHandlers = ({
           setIsSavingCanvasItem(true)
           setSyncError(null)
           const persistedFrame = await persistFrame(nextFrame)
-          setFrames((prev) => [...prev, persistedFrame])
+          const persistedSection = await ensureSectionContainsFrame(targetSectionId, persistedFrame)
+          setFrames((prev) => {
+            const withSection = persistedSection
+              ? prev.map((frame) => (frame.id === persistedSection.id ? persistedSection : frame))
+              : prev
+            return [...withSection, persistedFrame]
+          })
           onFrameAddedInSection?.(persistedFrame)
           setTextContentInput('')
           setSelectedAddSectionId('')
@@ -1745,7 +1833,8 @@ const useCanvasFrameFormHandlers = ({
 
     const targetSectionId = selectedAddSectionId.trim()
     if (targetSectionId) {
-      const placement = resolvePlacementInSection(targetSectionId)
+      const tableHeight = estimateTableFrameHeight(rows.length)
+      const placement = resolvePlacementInSection(targetSectionId, { width: 640, height: tableHeight })
       if (!placement) {
         setAddTableError('Fant ikke valgt seksjon.')
         return
@@ -1758,7 +1847,7 @@ const useCanvasFrameFormHandlers = ({
         tableHeaders: headers,
         tableRows: rows,
         width: 640,
-        height: estimateTableFrameHeight(rows.length),
+        height: tableHeight,
         x: placement.x,
         y: placement.y,
         categoryId: placement.categoryId,
@@ -1770,7 +1859,13 @@ const useCanvasFrameFormHandlers = ({
           setIsSavingCanvasItem(true)
           setSyncError(null)
           const persistedFrame = await persistFrame(nextFrame)
-          setFrames((prev) => [...prev, persistedFrame])
+          const persistedSection = await ensureSectionContainsFrame(targetSectionId, persistedFrame)
+          setFrames((prev) => {
+            const withSection = persistedSection
+              ? prev.map((frame) => (frame.id === persistedSection.id ? persistedSection : frame))
+              : prev
+            return [...withSection, persistedFrame]
+          })
           onFrameAddedInSection?.(persistedFrame)
           setTableHeadersInput('')
           setTableRowsInput('')
@@ -1861,7 +1956,7 @@ const useCanvasFrameFormHandlers = ({
 
     const targetSectionId = selectedAddSectionId.trim()
     if (targetSectionId) {
-      const placement = resolvePlacementInSection(targetSectionId)
+      const placement = resolvePlacementInSection(targetSectionId, { width: 380, height: estimatedHeight })
       if (!placement) {
         setAddLinkError('Fant ikke valgt seksjon.')
         return
@@ -1886,7 +1981,13 @@ const useCanvasFrameFormHandlers = ({
           setIsSavingCanvasItem(true)
           setSyncError(null)
           const persistedFrame = await persistFrame(nextFrame)
-          setFrames((prev) => [...prev, persistedFrame])
+          const persistedSection = await ensureSectionContainsFrame(targetSectionId, persistedFrame)
+          setFrames((prev) => {
+            const withSection = persistedSection
+              ? prev.map((frame) => (frame.id === persistedSection.id ? persistedSection : frame))
+              : prev
+            return [...withSection, persistedFrame]
+          })
           onFrameAddedInSection?.(persistedFrame)
           setLinkTitleInput('')
           setLinkUrlInput('')
@@ -1935,34 +2036,11 @@ const useCanvasFrameFormHandlers = ({
     const targetSectionId = selectedStickySectionId.trim()
 
     if (targetSectionId) {
-      const targetSection = frames.find((frame) => frame.id === targetSectionId && frame.kind === 'section')
-      if (!targetSection) {
+      const placement = resolvePlacementInSection(targetSectionId, { width: 360, height: 180 })
+      if (!placement) {
         setAddStickyError('Fant ikke valgt seksjon.')
         return
       }
-
-      const targetBounds = getFrameBoundsForLayout(targetSection, getDefaultFrameSize)
-      const baseX = targetBounds.left + GRID_SECTION_LAYOUT_CONFIG.paddingX
-      const baseY = targetBounds.top + GRID_SECTION_LAYOUT_CONFIG.paddingTop
-      const isTargetGrid = targetSection.sectionLayout === 'grid'
-      const existingItemsInTargetSection = frames.filter((frame) => {
-        if (frame.id === targetSection.id || frame.kind === 'section') return false
-        if ((frame.categoryId ?? null) !== (targetSection.categoryId ?? null)) return false
-        const bounds = getFrameBoundsForLayout(frame, getDefaultFrameSize)
-        const centerX = (bounds.left + bounds.right) / 2
-        const centerY = (bounds.top + bounds.bottom) / 2
-        return (
-          centerX >= targetBounds.left &&
-          centerX <= targetBounds.right &&
-          centerY >= targetBounds.top &&
-          centerY <= targetBounds.bottom
-        )
-      })
-      const freeformShiftStep = 24
-      const freeformColumns = 4
-      const freeformShiftIndex = existingItemsInTargetSection.length
-      const freeformShiftX = (freeformShiftIndex % freeformColumns) * freeformShiftStep
-      const freeformShiftY = Math.floor(freeformShiftIndex / freeformColumns) * freeformShiftStep
 
       const nextFrame: CanvasFrame = {
         id: `${Date.now()}-${Math.random()}`,
@@ -1972,9 +2050,9 @@ const useCanvasFrameFormHandlers = ({
         label: 'Post-it-lapp',
         width: 360,
         height: 180,
-        x: Math.max(0, baseX + (isTargetGrid ? 0 : freeformShiftX)),
-        y: Math.max(-CANVAS_TOP_BUFFER, baseY + (isTargetGrid ? 0 : freeformShiftY)),
-        categoryId: targetSection.categoryId,
+        x: placement.x,
+        y: placement.y,
+        categoryId: placement.categoryId,
         refreshNonce: 0,
       }
 
@@ -1983,7 +2061,13 @@ const useCanvasFrameFormHandlers = ({
           setIsSavingCanvasItem(true)
           setSyncError(null)
           const persistedFrame = await persistFrame(nextFrame)
-          setFrames((prev) => [...prev, persistedFrame])
+          const persistedSection = await ensureSectionContainsFrame(targetSectionId, persistedFrame)
+          setFrames((prev) => {
+            const withSection = persistedSection
+              ? prev.map((frame) => (frame.id === persistedSection.id ? persistedSection : frame))
+              : prev
+            return [...withSection, persistedFrame]
+          })
           onFrameAddedInSection?.(persistedFrame)
           setStickyContentInput('')
           setSelectedStickyColor(DEFAULT_CANVAS_STICKY_COLOR)
@@ -2043,7 +2127,7 @@ const useCanvasFrameFormHandlers = ({
 
     const targetSectionId = selectedAddSectionId.trim()
     if (targetSectionId) {
-      const placement = resolvePlacementInSection(targetSectionId)
+      const placement = resolvePlacementInSection(targetSectionId, { width: 280, height: 240 })
       if (!placement) {
         setAddIconError('Fant ikke valgt seksjon.')
         return
@@ -2069,7 +2153,13 @@ const useCanvasFrameFormHandlers = ({
           setIsSavingCanvasItem(true)
           setSyncError(null)
           const persistedFrame = await persistFrame(nextFrame)
-          setFrames((prev) => [...prev, persistedFrame])
+          const persistedSection = await ensureSectionContainsFrame(targetSectionId, persistedFrame)
+          setFrames((prev) => {
+            const withSection = persistedSection
+              ? prev.map((frame) => (frame.id === persistedSection.id ? persistedSection : frame))
+              : prev
+            return [...withSection, persistedFrame]
+          })
           onFrameAddedInSection?.(persistedFrame)
           setSelectedAddSectionId('')
           setAddIconError(null)
