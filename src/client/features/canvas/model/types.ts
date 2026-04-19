@@ -73,6 +73,7 @@ export type CanvasFrame = {
   drawingStrokeWidth?: number
   drawingColor?: string
   drawingRotationDeg?: number
+  drawingAltText?: string
   isIllustration?: boolean
   imageRotationDeg?: number
   imageAltText?: string
@@ -195,6 +196,7 @@ export type CanvasConfigPayload = {
   drawingStrokeWidth?: number
   drawingColor?: string
   drawingRotationDeg?: number
+  drawingAltText?: string
   isIllustration?: boolean
   imageRotationDeg?: number
   imageAltText?: string

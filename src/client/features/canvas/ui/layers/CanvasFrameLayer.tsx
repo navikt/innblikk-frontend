@@ -19,7 +19,6 @@ import {
   DEFAULT_DRAWING_STROKE_WIDTH,
   HEADING_CARD_HEADER_HEIGHT,
   HEADING_TEXT_MIN_WIDTH,
-  ICON_ROTATION_STEP_DEG,
   WEBSITE_CARD_HEADER_HEIGHT,
   getCanvasFrameVisualizationMode,
   getVisualizationModeLabel,
@@ -176,6 +175,7 @@ type CanvasFrameLayerProps = {
   handleOpenEditDashboardModal: (frame: CanvasFrame) => void
   handleOpenEditWebsiteModal: (frame: CanvasFrame) => void
   handleOpenEditImageModal: (frame: CanvasFrame) => void
+  handleOpenEditDrawingModal: (frame: CanvasFrame) => void
   handleOpenEditLinkModal: (frame: CanvasFrame) => void
   handleOpenEditTableModal: (frame: CanvasFrame) => void
   handleOpenEditIllustrationModal: (frame: CanvasFrame) => void
@@ -266,6 +266,7 @@ const CanvasFrameLayer = ({
   handleOpenEditDashboardModal,
   handleOpenEditWebsiteModal,
   handleOpenEditImageModal,
+  handleOpenEditDrawingModal,
   handleOpenEditLinkModal,
   handleOpenEditTableModal,
   handleOpenEditIllustrationModal,
@@ -489,6 +490,7 @@ const CanvasFrameLayer = ({
               isIllustrationFrame={isIllustrationFrame}
               actionButtonClassName={actionButtonClassName}
               onEditImage={() => handleOpenEditImageModal(frame)}
+              onEditDrawing={() => handleOpenEditDrawingModal(frame)}
               onEditLink={() => handleOpenEditLinkModal(frame)}
               onEditTable={() => handleOpenEditTableModal(frame)}
               isTableFrame={frame.kind === 'text' && Array.isArray(frame.tableHeaders) && frame.tableHeaders.length > 0}
@@ -516,8 +518,7 @@ const CanvasFrameLayer = ({
               onMoveToSection={(sectionId) => handleMoveFrameToSection(frame.id, sectionId)}
               onSelectSectionAddAction={(action) => handleSelectSectionAddAction(frame.id, action)}
               onRotateFigure={(delta) => handleRotateFigureFrame(frame.id, delta)}
-              onRotateDrawingLeft={() => handleRotateDrawingFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
-              onRotateDrawingRight={() => handleRotateDrawingFrame(frame.id, ICON_ROTATION_STEP_DEG)}
+              onRotateDrawing={(delta) => handleRotateDrawingFrame(frame.id, delta)}
               onRemoveFrame={() => handleRequestRemoveFrame(frame)}
             />
           )
@@ -1049,6 +1050,7 @@ const CanvasFrameLayer = ({
                         strokeWidth={frame.drawingStrokeWidth ?? DEFAULT_DRAWING_STROKE_WIDTH}
                         rotationDeg={frame.drawingRotationDeg}
                         label={frame.label}
+                        drawingAltText={frame.drawingAltText}
                       />
                     )
                   })()

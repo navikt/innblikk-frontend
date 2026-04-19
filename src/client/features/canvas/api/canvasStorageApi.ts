@@ -81,6 +81,7 @@ export async function fetchCanvasStorageData(projectId: number, dashboardId: num
       drawingStrokeStyles: parsedConfig.drawingStrokeStyles,
       drawingStrokeWidth: parsedConfig.drawingStrokeWidth,
       drawingColor: parsedConfig.drawingColor,
+      drawingAltText: parsedConfig.drawingAltText,
       isIllustration:
         typeof parsedConfig.isIllustration === 'boolean'
           ? parsedConfig.isIllustration

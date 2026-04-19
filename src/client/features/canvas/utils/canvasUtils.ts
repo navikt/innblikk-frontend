@@ -488,6 +488,7 @@ export const parseCanvasConfig = (raw: string): CanvasConfigPayload | null => {
       drawingStrokeStyles: typeof parsed.drawingStrokeStyles === 'string' ? parsed.drawingStrokeStyles : undefined,
       drawingStrokeWidth: Number.isFinite(parsed.drawingStrokeWidth) ? Number(parsed.drawingStrokeWidth) : undefined,
       drawingColor: typeof parsed.drawingColor === 'string' ? parsed.drawingColor : undefined,
+      drawingAltText: typeof parsed.drawingAltText === 'string' ? parsed.drawingAltText : undefined,
       isIllustration: typeof parsed.isIllustration === 'boolean' ? parsed.isIllustration : undefined,
       imageRotationDeg: Number.isFinite(parsed.imageRotationDeg) ? Number(parsed.imageRotationDeg) : undefined,
       imageAltText: typeof parsed.imageAltText === 'string' ? parsed.imageAltText : undefined,

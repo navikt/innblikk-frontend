@@ -542,6 +542,7 @@ const useCanvasFrameFormHandlers = ({
         drawingStrokeStyles: frame.drawingStrokeStyles,
         drawingStrokeWidth: frame.drawingStrokeWidth,
         drawingColor: frame.drawingColor,
+        drawingAltText: frame.drawingAltText,
         isIllustration: frame.isIllustration,
         imageRotationDeg: frame.imageRotationDeg,
         imageAltText: frame.imageAltText,

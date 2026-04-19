@@ -9,6 +9,7 @@ type CanvasDrawingFrameProps = {
   strokeWidth: number
   rotationDeg?: number
   label: string
+  drawingAltText?: string
 }
 
 const CanvasDrawingFrame = ({
@@ -20,6 +21,7 @@ const CanvasDrawingFrame = ({
   strokeWidth,
   rotationDeg,
   label,
+  drawingAltText,
 }: CanvasDrawingFrameProps) => {
   const resolveStrokeColor = (color: string): string =>
     color.trim().toLowerCase() === '#111111' ? 'var(--ax-text-default)' : color
@@ -38,6 +40,8 @@ const CanvasDrawingFrame = ({
   const maxY = allPoints.length > 0 ? Math.max(...allPoints.map((point) => point.y)) + padding : height
   const viewBoxWidth = Math.max(1, maxX - minX)
   const viewBoxHeight = Math.max(1, maxY - minY)
+  const isDecorative = drawingAltText === ''
+  const drawingAriaLabel = drawingAltText ?? label
 
   return (
     <svg
@@ -47,8 +51,9 @@ const CanvasDrawingFrame = ({
       preserveAspectRatio="none"
       className="block h-full w-full"
       style={rotationDeg ? { rotate: `${rotationDeg}deg` } : undefined}
-      aria-label={label}
-      role="img"
+      aria-label={isDecorative ? undefined : drawingAriaLabel}
+      aria-hidden={isDecorative ? true : undefined}
+      role={isDecorative ? 'presentation' : 'img'}
     >
       {strokes.map((stroke, index) => {
         const style = strokeStyles[index]

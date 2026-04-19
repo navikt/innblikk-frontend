@@ -21,6 +21,7 @@ import CanvasTimerModal from './controls/CanvasTimerModal.tsx'
 import type { SectionAddAction } from './controls/CanvasFrameActionPoints.tsx'
 import CanvasDrawingToolbar from './drawing/CanvasDrawingToolbar.tsx'
 import CanvasDrawingDraftOverlay from './drawing/CanvasDrawingDraftOverlay.tsx'
+import CanvasDrawingAccessibilityModal from './drawing/CanvasDrawingAccessibilityModal.tsx'
 import CanvasConnectionLayer from './layers/CanvasConnectionLayer.tsx'
 import CanvasFloatingControls from './controls/CanvasFloatingControls.tsx'
 import CanvasGrafbyggerOverlay from './controls/CanvasGrafbyggerOverlay.tsx'
@@ -324,6 +325,7 @@ const Canvas = () => {
   const [isImportStickyCsvModalOpen, setIsImportStickyCsvModalOpen] = useState(false)
   const [isAddIconModalOpen, setIsAddIconModalOpen] = useState(false)
   const [isAddFigureModalOpen, setIsAddFigureModalOpen] = useState(false)
+  const [isDrawingAccessibilityModalOpen, setIsDrawingAccessibilityModalOpen] = useState(false)
   const [isCanvasSettingsModalOpen, setIsCanvasSettingsModalOpen] = useState(false)
   const [canvasSettingsInfo, setCanvasSettingsInfo] = useState<string | null>(null)
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false)
@@ -356,6 +358,7 @@ const Canvas = () => {
   const [editIconFrameId, setEditIconFrameId] = useState<string | null>(null)
   const [editFigureFrameId, setEditFigureFrameId] = useState<string | null>(null)
   const [editIllustrationFrameId, setEditIllustrationFrameId] = useState<string | null>(null)
+  const [editDrawingFrameId, setEditDrawingFrameId] = useState<string | null>(null)
   const [editWebsitePathInput, setEditWebsitePathInput] = useState('')
   const [editImageUrlInput, setEditImageUrlInput] = useState('')
   const [editImageAltTextInput, setEditImageAltTextInput] = useState('')
@@ -413,6 +416,19 @@ const Canvas = () => {
   const [linkUrlInput, setLinkUrlInput] = useState('')
   const [linkDescriptionInput, setLinkDescriptionInput] = useState('')
   const [addLinkError, setAddLinkError] = useState<string | null>(null)
+  const [drawingIsDecorative, setDrawingIsDecorative] = useState(false)
+  const [drawingAltTextInput, setDrawingAltTextInput] = useState('')
+  const [drawingAccessibilityError, setDrawingAccessibilityError] = useState<string | null>(null)
+  const [pendingDrawingFrameDraft, setPendingDrawingFrameDraft] = useState<{
+    drawingPath: string
+    drawingStrokeStyles: string
+    drawingStrokeWidth: number
+    drawingColor: string
+    x: number
+    y: number
+    width: number
+    height: number
+  } | null>(null)
   const [stickyContentInput, setStickyContentInput] = useState('')
   const [selectedStickyColor, setSelectedStickyColor] = useState(DEFAULT_CANVAS_STICKY_COLOR)
   const [selectedStickySectionId, setSelectedStickySectionId] = useState('')
@@ -1143,6 +1159,7 @@ const Canvas = () => {
         drawingStrokeStyles: frame.drawingStrokeStyles,
         drawingStrokeWidth: frame.drawingStrokeWidth,
         drawingColor: frame.drawingColor,
+        drawingAltText: frame.drawingAltText,
         isIllustration: frame.isIllustration,
         imageRotationDeg: frame.imageRotationDeg,
         imageAltText: frame.imageAltText,
@@ -1974,67 +1991,118 @@ const Canvas = () => {
     [canvasCanvasTopOffset, canvasZoom],
   )
 
-  const handleFinalizeDrawing = useCallback(
-    async ({ strokes }: { strokes: CanvasDrawingStroke[] }) => {
-      const normalizedStrokes = strokes
-        .map((stroke) => ({
-          ...stroke,
-          points: stroke.points.length === 1 ? [stroke.points[0], stroke.points[0]] : stroke.points,
-        }))
-        .filter((stroke) => stroke.points.length > 0)
-      const allPoints = normalizedStrokes.flatMap((stroke) => stroke.points)
-      if (allPoints.length === 0) return
+  const handleFinalizeDrawing = useCallback(({ strokes }: { strokes: CanvasDrawingStroke[] }) => {
+    const normalizedStrokes = strokes
+      .map((stroke) => ({
+        ...stroke,
+        points: stroke.points.length === 1 ? [stroke.points[0], stroke.points[0]] : stroke.points,
+      }))
+      .filter((stroke) => stroke.points.length > 0)
+    const allPoints = normalizedStrokes.flatMap((stroke) => stroke.points)
+    if (allPoints.length === 0) return
 
-      const minX = Math.min(...allPoints.map((point) => point.x))
-      const maxX = Math.max(...allPoints.map((point) => point.x))
-      const minY = Math.min(...allPoints.map((point) => point.y))
-      const maxY = Math.max(...allPoints.map((point) => point.y))
-      const maxStrokeWidth = normalizedStrokes.reduce((maxValue, stroke) => Math.max(maxValue, stroke.strokeWidth), 0)
-      const padding = Math.max(4, maxStrokeWidth)
-      const baseX = minX - padding
-      const baseY = minY - padding
-      const width = Math.max(28, maxX - minX + padding * 2)
-      const height = Math.max(28, maxY - minY + padding * 2)
-      const drawingPath = normalizedStrokes
-        .map((stroke) =>
-          stroke.points.map((point) => `${(point.x - baseX).toFixed(2)},${(point.y - baseY).toFixed(2)}`).join(' '),
-        )
-        .join(' | ')
-      const drawingStrokeStyles = JSON.stringify(
-        normalizedStrokes.map((stroke) => ({
-          color: getCanvasIconColor(stroke.color),
-          strokeWidth: stroke.strokeWidth,
-        })),
+    const minX = Math.min(...allPoints.map((point) => point.x))
+    const maxX = Math.max(...allPoints.map((point) => point.x))
+    const minY = Math.min(...allPoints.map((point) => point.y))
+    const maxY = Math.max(...allPoints.map((point) => point.y))
+    const maxStrokeWidth = normalizedStrokes.reduce((maxValue, stroke) => Math.max(maxValue, stroke.strokeWidth), 0)
+    const padding = Math.max(4, maxStrokeWidth)
+    const baseX = minX - padding
+    const baseY = minY - padding
+    const width = Math.max(28, maxX - minX + padding * 2)
+    const height = Math.max(28, maxY - minY + padding * 2)
+    const drawingPath = normalizedStrokes
+      .map((stroke) =>
+        stroke.points.map((point) => `${(point.x - baseX).toFixed(2)},${(point.y - baseY).toFixed(2)}`).join(' '),
       )
+      .join(' | ')
+    const drawingStrokeStyles = JSON.stringify(
+      normalizedStrokes.map((stroke) => ({
+        color: getCanvasIconColor(stroke.color),
+        strokeWidth: stroke.strokeWidth,
+      })),
+    )
 
-      const nextFrame: CanvasFrame = {
-        id: `${Date.now()}-${Math.random()}`,
-        kind: 'drawing',
-        drawingPath,
-        drawingStrokeStyles,
-        drawingStrokeWidth: normalizedStrokes[0]?.strokeWidth ?? DEFAULT_DRAWING_STROKE_WIDTH,
-        drawingColor: getCanvasIconColor(normalizedStrokes[0]?.color),
-        label: 'Tegning',
-        x: Math.max(0, baseX),
-        y: Math.max(-CANVAS_TOP_BUFFER, baseY),
-        width,
-        height,
-        refreshNonce: 0,
-      }
+    setPendingDrawingFrameDraft({
+      drawingPath,
+      drawingStrokeStyles,
+      drawingStrokeWidth: normalizedStrokes[0]?.strokeWidth ?? DEFAULT_DRAWING_STROKE_WIDTH,
+      drawingColor: getCanvasIconColor(normalizedStrokes[0]?.color),
+      x: Math.max(0, baseX),
+      y: Math.max(-CANVAS_TOP_BUFFER, baseY),
+      width,
+      height,
+    })
+    setDrawingIsDecorative(false)
+    setDrawingAltTextInput('')
+    setDrawingAccessibilityError(null)
+    setEditDrawingFrameId(null)
+    setIsDrawingAccessibilityModalOpen(true)
+  }, [])
 
-      try {
-        setIsSavingCanvasItem(true)
-        setSyncError(null)
+  const handleOpenEditDrawingModal = useCallback((frame: CanvasFrame) => {
+    if (frame.kind !== 'drawing') return
+    setEditDrawingFrameId(frame.id)
+    setPendingDrawingFrameDraft(null)
+    setDrawingIsDecorative(frame.drawingAltText === '')
+    setDrawingAltTextInput(frame.drawingAltText ?? '')
+    setDrawingAccessibilityError(null)
+    setIsDrawingAccessibilityModalOpen(true)
+  }, [])
+
+  const handleSaveDrawingWithAccessibility = useCallback(async () => {
+    const normalizedAltText = drawingAltTextInput.trim()
+    if (!drawingIsDecorative && !normalizedAltText) {
+      setDrawingAccessibilityError('Legg inn alternativ tekst, eller marker tegningen som dekorativ.')
+      return
+    }
+
+    const drawingAltText = drawingIsDecorative ? '' : normalizedAltText
+
+    try {
+      setIsSavingCanvasItem(true)
+      setSyncError(null)
+      if (editDrawingFrameId) {
+        const currentFrame = frames.find((frame) => frame.id === editDrawingFrameId)
+        if (!currentFrame || currentFrame.kind !== 'drawing') return
+
+        const updatedFrame: CanvasFrame = {
+          ...currentFrame,
+          drawingAltText,
+          label: drawingIsDecorative ? 'Tegning' : normalizedAltText,
+        }
+        const persistedFrame = await persistFrame(updatedFrame)
+        setFrames((prev) => prev.map((frame) => (frame.id === editDrawingFrameId ? persistedFrame : frame)))
+      } else {
+        if (!pendingDrawingFrameDraft) return
+        const nextFrame: CanvasFrame = {
+          id: `${Date.now()}-${Math.random()}`,
+          kind: 'drawing',
+          drawingPath: pendingDrawingFrameDraft.drawingPath,
+          drawingStrokeStyles: pendingDrawingFrameDraft.drawingStrokeStyles,
+          drawingStrokeWidth: pendingDrawingFrameDraft.drawingStrokeWidth,
+          drawingColor: pendingDrawingFrameDraft.drawingColor,
+          drawingAltText,
+          label: drawingIsDecorative ? 'Tegning' : normalizedAltText,
+          x: pendingDrawingFrameDraft.x,
+          y: pendingDrawingFrameDraft.y,
+          width: pendingDrawingFrameDraft.width,
+          height: pendingDrawingFrameDraft.height,
+          refreshNonce: 0,
+        }
         const persistedFrame = await persistFrame(nextFrame)
         setFrames((prev) => [...prev, persistedFrame])
-      } catch (error) {
-        setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre tegning')
-      } finally {
-        setIsSavingCanvasItem(false)
       }
-    },
-    [persistFrame],
-  )
+      setPendingDrawingFrameDraft(null)
+      setEditDrawingFrameId(null)
+      setDrawingAccessibilityError(null)
+      setIsDrawingAccessibilityModalOpen(false)
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre tegning')
+    } finally {
+      setIsSavingCanvasItem(false)
+    }
+  }, [drawingAltTextInput, drawingIsDecorative, editDrawingFrameId, frames, pendingDrawingFrameDraft, persistFrame])
 
   const {
     isDrawingMode,
@@ -4417,6 +4485,31 @@ const Canvas = () => {
                 onCancel={handleExitDrawingMode}
               />
             )}
+            <CanvasDrawingAccessibilityModal
+              open={isDrawingAccessibilityModalOpen}
+              heading={editDrawingFrameId ? 'Rediger tegning' : 'Beskriv tegning'}
+              submitLabel={editDrawingFrameId ? 'Lagre' : 'Legg til'}
+              isDecorative={drawingIsDecorative}
+              altTextValue={drawingAltTextInput}
+              error={drawingAccessibilityError}
+              isSaving={isSavingCanvasItem}
+              onDecorativeChange={(value) => {
+                setDrawingIsDecorative(value)
+                if (value) setDrawingAltTextInput('')
+                setDrawingAccessibilityError(null)
+              }}
+              onAltTextChange={(value) => {
+                setDrawingAltTextInput(value)
+                setDrawingAccessibilityError(null)
+              }}
+              onSubmit={() => void handleSaveDrawingWithAccessibility()}
+              onClose={() => {
+                setIsDrawingAccessibilityModalOpen(false)
+                setPendingDrawingFrameDraft(null)
+                setEditDrawingFrameId(null)
+                setDrawingAccessibilityError(null)
+              }}
+            />
             <div
               className="relative"
               style={{
@@ -4462,10 +4555,35 @@ const Canvas = () => {
                 )}
                 {isDrawingMode && (
                   <div
-                    className="absolute inset-0 z-[95] cursor-crosshair"
+                    className="absolute inset-0 z-[95] touch-none cursor-crosshair"
                     onMouseDown={isCanvasReadOnly ? undefined : handleCanvasSurfaceMouseDown}
                     onMouseMove={isCanvasReadOnly ? undefined : handleCanvasSurfaceMouseMove}
                     onMouseLeave={isCanvasReadOnly ? undefined : handleCanvasSurfaceMouseLeave}
+                    onTouchStart={
+                      isCanvasReadOnly
+                        ? undefined
+                        : (event) => {
+                            const touch = event.touches[0]
+                            if (!touch) return
+                            const pointer = getCanvasPointerPosition(touch.clientX, touch.clientY)
+                            if (!pointer) return
+                            event.preventDefault()
+                            event.stopPropagation()
+                            startDrawingAt(pointer)
+                          }
+                    }
+                    onTouchMove={
+                      isCanvasReadOnly
+                        ? undefined
+                        : (event) => {
+                            const touch = event.touches[0]
+                            if (!touch) return
+                            const pointer = getCanvasPointerPosition(touch.clientX, touch.clientY)
+                            if (!pointer) return
+                            event.preventDefault()
+                            continueDrawingAt(pointer)
+                          }
+                    }
                   />
                 )}
                 {selectionBox && (
@@ -4540,6 +4658,7 @@ const Canvas = () => {
                     handleOpenEditDashboardModal={handleOpenEditDashboardModal}
                     handleOpenEditWebsiteModal={handleOpenEditWebsiteModal}
                     handleOpenEditImageModal={handleOpenEditImageModal}
+                    handleOpenEditDrawingModal={handleOpenEditDrawingModal}
                     handleOpenEditTableModal={handleOpenEditTableModal}
                     handleOpenEditLinkModal={handleOpenEditLinkModal}
                     handleOpenEditIllustrationModal={handleOpenEditIllustrationModal}
@@ -4866,7 +4985,7 @@ const Canvas = () => {
 
       <CanvasImageUrlModal
         open={isAddImageModalOpen}
-        heading="Legg til bilde i canvas"
+        heading="Legg til bilde"
         urlValue={newImageUrlInput}
         altTextValue={newImageAltTextInput}
         selectedSectionId={selectedAddSectionId}

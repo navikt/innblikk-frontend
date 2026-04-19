@@ -1,5 +1,5 @@
 import { ActionMenu, Button } from '@navikt/ds-react'
-import { ArrowRightLeft, Copy, Edit2, Palette, RotateCcw, RotateCw, Trash2 } from 'lucide-react'
+import { ArrowRightLeft, Copy, Edit2, Palette, RotateCw, Trash2 } from 'lucide-react'
 import type { MouseEvent } from 'react'
 import type { CanvasSectionLayoutMode } from '../../model/types.ts'
 import { ICON_ROTATION_STEP_DEG } from '../../utils/canvasUtils.ts'
@@ -26,6 +26,7 @@ type CanvasFrameActionPointsProps = {
   isIllustrationFrame: boolean
   actionButtonClassName: string
   onEditImage: () => void
+  onEditDrawing: () => void
   onEditIllustration: () => void
   onEditDashboard: () => void
   onEditLink: () => void
@@ -46,8 +47,7 @@ type CanvasFrameActionPointsProps = {
   onSetHeadingFontSize: (sizePx: number) => void
   onRotateIllustration: (delta: number) => void
   onRotateFigure: (delta: number) => void
-  onRotateDrawingLeft: () => void
-  onRotateDrawingRight: () => void
+  onRotateDrawing: (delta: number) => void
   sectionLayoutMode?: CanvasSectionLayoutMode
   onOpenSectionOptions: () => void
   sectionMoveOptions?: Array<{ id: string; label: string }>
@@ -282,6 +282,7 @@ const ImageOrDashboardEditActionPoint = ({
   isIllustrationFrame,
   actionButtonClassName,
   onEditImage,
+  onEditDrawing,
   onEditIllustration,
   onEditDashboard,
 }: Pick<
@@ -291,13 +292,22 @@ const ImageOrDashboardEditActionPoint = ({
   | 'isIllustrationFrame'
   | 'actionButtonClassName'
   | 'onEditImage'
+  | 'onEditDrawing'
   | 'onEditIllustration'
   | 'onEditDashboard'
 >) => {
-  if (!(frameKind === 'image' || (frameKind === 'website' && isInternalDashboard))) return null
+  if (!(frameKind === 'image' || frameKind === 'drawing' || (frameKind === 'website' && isInternalDashboard)))
+    return null
 
   const isImage = frameKind === 'image'
-  const title = isImage ? (isIllustrationFrame ? 'Rediger illustrasjon' : 'Rediger bilde') : 'Rediger dashboard'
+  const isDrawing = frameKind === 'drawing'
+  const title = isImage
+    ? isIllustrationFrame
+      ? 'Rediger illustrasjon'
+      : 'Rediger bilde'
+    : isDrawing
+      ? 'Rediger tegning'
+      : 'Rediger dashboard'
 
   return (
     <Button
@@ -312,6 +322,8 @@ const ImageOrDashboardEditActionPoint = ({
           } else {
             onEditImage()
           }
+        } else if (isDrawing) {
+          onEditDrawing()
         } else {
           onEditDashboard()
         }
@@ -329,6 +341,7 @@ const CanvasFrameActionPoints = ({
   isIllustrationFrame,
   actionButtonClassName,
   onEditImage,
+  onEditDrawing,
   onEditIllustration,
   onEditDashboard,
   onEditLink,
@@ -349,8 +362,7 @@ const CanvasFrameActionPoints = ({
   onSetHeadingFontSize,
   onRotateIllustration,
   onRotateFigure,
-  onRotateDrawingLeft,
-  onRotateDrawingRight,
+  onRotateDrawing,
   sectionLayoutMode: _sectionLayoutMode,
   onOpenSectionOptions,
   sectionMoveOptions = [],
@@ -389,6 +401,7 @@ const CanvasFrameActionPoints = ({
         isIllustrationFrame={isIllustrationFrame}
         actionButtonClassName={actionButtonClassName}
         onEditImage={onEditImage}
+        onEditDrawing={onEditDrawing}
         onEditIllustration={onEditIllustration}
         onEditDashboard={onEditDashboard}
       />
@@ -638,6 +651,11 @@ const CanvasFrameActionPoints = ({
       )}
       {frameKind === 'drawing' && (
         <>
+          <RotateActionMenu
+            actionButtonClassName={actionButtonClassName}
+            title="Roter tegning"
+            onRotateBy={onRotateDrawing}
+          />
           <Button
             size="xsmall"
             variant="tertiary"
@@ -646,26 +664,6 @@ const CanvasFrameActionPoints = ({
             onClick={onDuplicateDrawing}
             title="Dupliser tegning"
             aria-label="Dupliser tegning"
-            className={actionButtonClassName}
-          />
-          <Button
-            size="xsmall"
-            variant="tertiary"
-            icon={<RotateCcw size={14} />}
-            onMouseDown={stopMouseDownPropagation}
-            onClick={onRotateDrawingLeft}
-            title="Roter venstre"
-            aria-label="Roter venstre"
-            className={actionButtonClassName}
-          />
-          <Button
-            size="xsmall"
-            variant="tertiary"
-            icon={<RotateCw size={14} />}
-            onMouseDown={stopMouseDownPropagation}
-            onClick={onRotateDrawingRight}
-            title="Roter høyre"
-            aria-label="Roter høyre"
             className={actionButtonClassName}
           />
         </>
