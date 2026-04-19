@@ -1,16 +1,20 @@
 import { Alert, Button, Modal, Textarea } from '@navikt/ds-react'
 import type { CSSProperties } from 'react'
 import type { CanvasStickyColorOption } from './CanvasStickyColorRegistry.ts'
+import CanvasSectionPlacementSelect from '../controls/CanvasSectionPlacementSelect.tsx'
 
 type CanvasStickyModalProps = {
   open: boolean
   value: string
   selectedColorId: string
+  selectedSectionId: string
+  sectionOptions: Array<{ id: string; label: string }>
   colorOptions: CanvasStickyColorOption[]
   error?: string | null
   isSaving?: boolean
   onChange: (value: string) => void
   onColorChange: (colorId: string) => void
+  onSectionChange: (sectionId: string) => void
   onSubmit: () => void
   onClose: () => void
 }
@@ -19,11 +23,14 @@ const CanvasStickyModal = ({
   open,
   value,
   selectedColorId,
+  selectedSectionId,
+  sectionOptions,
   colorOptions,
   error,
   isSaving = false,
   onChange,
   onColorChange,
+  onSectionChange,
   onSubmit,
   onClose,
 }: CanvasStickyModalProps) => {
@@ -89,6 +96,13 @@ const CanvasStickyModal = ({
             </div>
           </div>
           {error && <Alert variant="error">{error}</Alert>}
+        </div>
+        <div className="mt-4">
+          <CanvasSectionPlacementSelect
+            sectionOptions={sectionOptions}
+            selectedSectionId={selectedSectionId}
+            onSectionChange={onSectionChange}
+          />
         </div>
       </Modal.Body>
       <Modal.Footer>

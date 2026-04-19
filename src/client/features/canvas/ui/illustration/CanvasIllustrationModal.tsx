@@ -1,13 +1,17 @@
 import { Alert, Button, Modal } from '@navikt/ds-react'
 import CanvasIllustrationPicker from './CanvasIllustrationPicker.tsx'
+import CanvasSectionPlacementSelect from '../controls/CanvasSectionPlacementSelect.tsx'
 
 type CanvasIllustrationModalProps = {
   open: boolean
   isEdit: boolean
   selectedPath: string
+  selectedSectionId?: string
+  sectionOptions?: Array<{ id: string; label: string }>
   error?: string | null
   isSaving?: boolean
   onSelectPath: (path: string) => void
+  onSectionChange?: (sectionId: string) => void
   onSubmit: () => void
   onClose: () => void
 }
@@ -16,9 +20,12 @@ const CanvasIllustrationModal = ({
   open,
   isEdit,
   selectedPath,
+  selectedSectionId = '',
+  sectionOptions = [],
   error,
   isSaving = false,
   onSelectPath,
+  onSectionChange = () => {},
   onSubmit,
   onClose,
 }: CanvasIllustrationModalProps) => (
@@ -31,6 +38,13 @@ const CanvasIllustrationModal = ({
     <Modal.Body>
       <div className="space-y-3">
         <CanvasIllustrationPicker selectedPath={selectedPath} onSelectPath={onSelectPath} />
+        {!isEdit && (
+          <CanvasSectionPlacementSelect
+            sectionOptions={sectionOptions}
+            selectedSectionId={selectedSectionId}
+            onSectionChange={onSectionChange}
+          />
+        )}
         {error && <Alert variant="error">{error}</Alert>}
       </div>
     </Modal.Body>

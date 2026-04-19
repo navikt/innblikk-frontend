@@ -1,13 +1,17 @@
 import { Alert, Button, Modal, TextField } from '@navikt/ds-react'
+import CanvasSectionPlacementSelect from '../controls/CanvasSectionPlacementSelect.tsx'
 
 type CanvasImageUrlModalProps = {
   open: boolean
   heading: string
   urlValue: string
+  selectedSectionId?: string
+  sectionOptions?: Array<{ id: string; label: string }>
   error?: string | null
   isSaving?: boolean
   submitLabel: string
   onUrlChange: (value: string) => void
+  onSectionChange?: (sectionId: string) => void
   onSubmit: () => void
   onClose: () => void
 }
@@ -16,10 +20,13 @@ const CanvasImageUrlModal = ({
   open,
   heading,
   urlValue,
+  selectedSectionId = '',
+  sectionOptions = [],
   error,
   isSaving = false,
   submitLabel,
   onUrlChange,
+  onSectionChange = () => {},
   onSubmit,
   onClose,
 }: CanvasImageUrlModalProps) => (
@@ -32,6 +39,11 @@ const CanvasImageUrlModal = ({
           value={urlValue}
           onChange={(event) => onUrlChange(event.target.value)}
           autoFocus
+        />
+        <CanvasSectionPlacementSelect
+          sectionOptions={sectionOptions}
+          selectedSectionId={selectedSectionId}
+          onSectionChange={onSectionChange}
         />
         {error && <Alert variant="error">{error}</Alert>}
       </div>

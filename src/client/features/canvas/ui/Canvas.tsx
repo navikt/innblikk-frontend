@@ -409,6 +409,8 @@ const Canvas = () => {
   const [addLinkError, setAddLinkError] = useState<string | null>(null)
   const [stickyContentInput, setStickyContentInput] = useState('')
   const [selectedStickyColor, setSelectedStickyColor] = useState(DEFAULT_CANVAS_STICKY_COLOR)
+  const [selectedStickySectionId, setSelectedStickySectionId] = useState('')
+  const [selectedAddSectionId, setSelectedAddSectionId] = useState('')
   const [addStickyError, setAddStickyError] = useState<string | null>(null)
   const [frameTablePages, setFrameTablePages] = useState<Record<string, number>>({})
   const [selectedIconId, setSelectedIconId] = useState(DEFAULT_CANVAS_ICON_ID)
@@ -1681,6 +1683,10 @@ const Canvas = () => {
     setStickyContentInput,
     selectedStickyColor,
     setSelectedStickyColor,
+    selectedStickySectionId,
+    setSelectedStickySectionId,
+    selectedAddSectionId,
+    setSelectedAddSectionId,
     addStickyError,
     setAddStickyError,
     selectedIconId,
@@ -4499,6 +4505,8 @@ const Canvas = () => {
         open={isAddImageModalOpen}
         heading="Legg til bilde i canvas"
         urlValue={newImageUrlInput}
+        selectedSectionId={selectedAddSectionId}
+        sectionOptions={sectionMoveOptions}
         error={addImageError}
         isSaving={isSavingCanvasItem}
         submitLabel="Legg til"
@@ -4506,24 +4514,38 @@ const Canvas = () => {
           setNewImageUrlInput(value)
           if (addImageError) setAddImageError(null)
         }}
+        onSectionChange={(sectionId) => {
+          setSelectedAddSectionId(sectionId)
+          if (addImageError) setAddImageError(null)
+        }}
         onSubmit={() => void handleAddImage()}
-        onClose={() => setIsAddImageModalOpen(false)}
+        onClose={() => {
+          setIsAddImageModalOpen(false)
+          setSelectedAddSectionId('')
+        }}
       />
 
       <CanvasIllustrationModal
         open={isAddIllustrationModalOpen}
         isEdit={Boolean(editIllustrationFrameId)}
         selectedPath={selectedIllustrationPath}
+        selectedSectionId={selectedAddSectionId}
+        sectionOptions={sectionMoveOptions}
         error={addIllustrationError}
         isSaving={isSavingCanvasItem}
         onSelectPath={(path) => {
           setSelectedIllustrationPath(path)
           if (addIllustrationError) setAddIllustrationError(null)
         }}
+        onSectionChange={(sectionId) => {
+          setSelectedAddSectionId(sectionId)
+          if (addIllustrationError) setAddIllustrationError(null)
+        }}
         onSubmit={() => void handleAddIllustration()}
         onClose={() => {
           setIsAddIllustrationModalOpen(false)
           setEditIllustrationFrameId(null)
+          setSelectedAddSectionId('')
           setAddIllustrationError(null)
         }}
       />
@@ -4702,15 +4724,22 @@ const Canvas = () => {
       <CanvasHeadingModal
         open={isAddHeadingModalOpen}
         value={headingTextInput}
+        selectedSectionId={selectedAddSectionId}
+        sectionOptions={sectionMoveOptions}
         error={addHeadingError}
         isSaving={isSavingCanvasItem}
         onChange={(value) => {
           setHeadingTextInput(value)
           if (addHeadingError) setAddHeadingError(null)
         }}
+        onSectionChange={(sectionId) => {
+          setSelectedAddSectionId(sectionId)
+          if (addHeadingError) setAddHeadingError(null)
+        }}
         onSubmit={() => void handleAddHeadingCard()}
         onClose={() => {
           setIsAddHeadingModalOpen(false)
+          setSelectedAddSectionId('')
           setAddHeadingError(null)
         }}
       />
@@ -4718,15 +4747,22 @@ const Canvas = () => {
       <CanvasTextModal
         open={isAddTextModalOpen}
         value={textContentInput}
+        selectedSectionId={selectedAddSectionId}
+        sectionOptions={sectionMoveOptions}
         error={addTextError}
         isSaving={isSavingCanvasItem}
         onChange={(value) => {
           setTextContentInput(value)
           if (addTextError) setAddTextError(null)
         }}
+        onSectionChange={(sectionId) => {
+          setSelectedAddSectionId(sectionId)
+          if (addTextError) setAddTextError(null)
+        }}
         onSubmit={() => void handleAddTextCard()}
         onClose={() => {
           setIsAddTextModalOpen(false)
+          setSelectedAddSectionId('')
           setAddTextError(null)
         }}
       />
@@ -4737,6 +4773,8 @@ const Canvas = () => {
         submitLabel={editTableFrameId ? 'Lagre' : 'Legg til'}
         headersValue={tableHeadersInput}
         rowsValue={tableRowsInput}
+        selectedSectionId={editTableFrameId ? '' : selectedAddSectionId}
+        sectionOptions={editTableFrameId ? [] : sectionMoveOptions}
         error={addTableError}
         isSaving={isSavingCanvasItem}
         onHeadersChange={(value) => {
@@ -4747,10 +4785,15 @@ const Canvas = () => {
           setTableRowsInput(value)
           if (addTableError) setAddTableError(null)
         }}
+        onSectionChange={(sectionId) => {
+          setSelectedAddSectionId(sectionId)
+          if (addTableError) setAddTableError(null)
+        }}
         onSubmit={() => void handleAddTableCard()}
         onClose={() => {
           setIsAddTableModalOpen(false)
           setEditTableFrameId(null)
+          setSelectedAddSectionId('')
           setAddTableError(null)
         }}
       />
@@ -4760,6 +4803,8 @@ const Canvas = () => {
         titleValue={linkTitleInput}
         hrefValue={linkUrlInput}
         descriptionValue={linkDescriptionInput}
+        selectedSectionId={editLinkFrameId ? '' : selectedAddSectionId}
+        sectionOptions={editLinkFrameId ? [] : sectionMoveOptions}
         error={addLinkError}
         isSaving={isSavingCanvasItem}
         onTitleChange={(value) => {
@@ -4774,10 +4819,15 @@ const Canvas = () => {
           setLinkDescriptionInput(value)
           if (addLinkError) setAddLinkError(null)
         }}
+        onSectionChange={(sectionId) => {
+          setSelectedAddSectionId(sectionId)
+          if (addLinkError) setAddLinkError(null)
+        }}
         onSubmit={() => void handleAddLinkCard()}
         onClose={() => {
           setIsAddLinkModalOpen(false)
           setEditLinkFrameId(null)
+          setSelectedAddSectionId('')
           setAddLinkError(null)
         }}
       />
@@ -4787,6 +4837,8 @@ const Canvas = () => {
         heading="Legg til ikon"
         selectedIconId={selectedIconId}
         selectedColor={selectedIconColor}
+        selectedSectionId={selectedAddSectionId}
+        sectionOptions={sectionMoveOptions}
         colorOptions={CANVAS_ICON_COLOR_OPTIONS}
         error={addIconError}
         isSaving={isSavingCanvasItem}
@@ -4799,9 +4851,14 @@ const Canvas = () => {
           setSelectedIconColor(color)
           if (addIconError) setAddIconError(null)
         }}
+        onSectionChange={(sectionId) => {
+          setSelectedAddSectionId(sectionId)
+          if (addIconError) setAddIconError(null)
+        }}
         onSubmit={() => void handleAddIconCard()}
         onClose={() => {
           setIsAddIconModalOpen(false)
+          setSelectedAddSectionId('')
           setAddIconError(null)
         }}
       />
@@ -4857,6 +4914,8 @@ const Canvas = () => {
         open={isAddStickyModalOpen}
         value={stickyContentInput}
         selectedColorId={selectedStickyColor}
+        selectedSectionId={selectedStickySectionId}
+        sectionOptions={sectionMoveOptions}
         colorOptions={CANVAS_STICKY_COLOR_OPTIONS}
         error={addStickyError}
         isSaving={isSavingCanvasItem}
@@ -4865,9 +4924,14 @@ const Canvas = () => {
           if (addStickyError) setAddStickyError(null)
         }}
         onColorChange={(colorId) => setSelectedStickyColor(getCanvasStickyColor(colorId))}
+        onSectionChange={(sectionId) => {
+          setSelectedStickySectionId(sectionId)
+          if (addStickyError) setAddStickyError(null)
+        }}
         onSubmit={() => void handleAddStickyCard()}
         onClose={() => {
           setIsAddStickyModalOpen(false)
+          setSelectedStickySectionId('')
           setAddStickyError(null)
         }}
       />
