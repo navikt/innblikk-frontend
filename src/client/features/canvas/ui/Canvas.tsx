@@ -493,6 +493,7 @@ const Canvas = () => {
   const [bulkDeleteProgress, setBulkDeleteProgress] = useState<{ total: number; completed: number } | null>(null)
   const [canvasZoom, setCanvasZoom] = useState(1)
   const [activeEditableFrameId, setActiveEditableFrameId] = useState<string | null>(null)
+  const [focusSectionTitleId, setFocusSectionTitleId] = useState<string | null>(null)
   const [failedImageFrameIds, setFailedImageFrameIds] = useState<Record<string, boolean>>({})
   const pageInsightsRef = useRef<Record<string, CanvasPageInsight>>({})
   const framesRef = useRef<CanvasFrame[]>([])
@@ -1901,6 +1902,59 @@ const Canvas = () => {
     }
   }, [canvasCanvasTopOffset, canvasZoom])
 
+  const handleAutoPlacedSection = useCallback(
+    (frame: CanvasFrame) => {
+      if (frame.kind !== 'section') return
+      setFocusSectionTitleId(frame.id)
+      const viewport = canvasViewportRef.current
+      if (!viewport) return
+
+      const defaults = getDefaultFrameSize(frame)
+      const width = frame.width ?? defaults.width
+      const height = frame.height ?? defaults.height
+      const margin = 48
+
+      const leftPx = frame.x * canvasZoom
+      const topPx = canvasCanvasTopOffset + frame.y * canvasZoom
+      const rightPx = leftPx + width * canvasZoom
+      const bottomPx = topPx + height * canvasZoom
+
+      const visibleLeft = viewport.scrollLeft
+      const visibleTop = viewport.scrollTop
+      const visibleRight = visibleLeft + viewport.clientWidth
+      const visibleBottom = visibleTop + viewport.clientHeight
+
+      const isVisibleWithMargin =
+        leftPx >= visibleLeft + margin &&
+        rightPx <= visibleRight - margin &&
+        topPx >= visibleTop + margin &&
+        bottomPx <= visibleBottom - margin
+      if (isVisibleWithMargin) return
+
+      let nextScrollLeft = visibleLeft
+      let nextScrollTop = visibleTop
+
+      if (rightPx > visibleRight - margin) {
+        nextScrollLeft = rightPx - viewport.clientWidth + margin
+      } else if (leftPx < visibleLeft + margin) {
+        nextScrollLeft = leftPx - margin
+      }
+
+      if (bottomPx > visibleBottom - margin) {
+        nextScrollTop = bottomPx - viewport.clientHeight + margin
+      } else if (topPx < visibleTop + margin) {
+        nextScrollTop = topPx - margin
+      }
+
+      viewport.scrollTo({
+        left: Math.max(0, nextScrollLeft),
+        top: Math.max(0, nextScrollTop),
+        behavior: 'smooth',
+      })
+    },
+    [canvasCanvasTopOffset, canvasZoom],
+  )
+
   const handleFinalizeDrawing = useCallback(
     async ({ strokes }: { strokes: CanvasDrawingStroke[] }) => {
       const normalizedStrokes = strokes
@@ -2010,6 +2064,7 @@ const Canvas = () => {
     setIsSavingCanvasItem,
     setSyncError,
     setPlacementA11yAnnouncement,
+    onAutoPlacedSection: handleAutoPlacedSection,
     getCanvasPointerPosition,
     getAutoPlacementAnchor,
     getPendingFrameContentAnchorOffset,
@@ -4397,6 +4452,8 @@ const Canvas = () => {
                     onVoteSticky={handleAddDotVote}
                     onClearStickyVoteSnapshot={handleRequestClearStickyVoteSnapshot}
                     isCanvasLocked={isCanvasLocked}
+                    focusSectionTitleId={focusSectionTitleId}
+                    onSectionTitleFocusHandled={() => setFocusSectionTitleId(null)}
                   />
                 </div>
               </div>

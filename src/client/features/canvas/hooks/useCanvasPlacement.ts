@@ -24,6 +24,7 @@ type UseCanvasPlacementParams = {
   setIsSavingCanvasItem: Dispatch<SetStateAction<boolean>>
   setSyncError: Dispatch<SetStateAction<string | null>>
   setPlacementA11yAnnouncement: Dispatch<SetStateAction<string>>
+  onAutoPlacedSection?: (frame: CanvasFrame) => void
   getCanvasPointerPosition: (clientX: number, clientY: number) => { x: number; y: number } | null
   getAutoPlacementAnchor: () => { x: number; y: number } | null
   getPendingFrameContentAnchorOffset: (draft: PendingCanvasFrameDraft) => { x: number; y: number }
@@ -91,6 +92,7 @@ const useCanvasPlacement = ({
   setIsSavingCanvasItem,
   setSyncError,
   setPlacementA11yAnnouncement,
+  onAutoPlacedSection,
   getCanvasPointerPosition,
   getAutoPlacementAnchor,
   getPendingFrameContentAnchorOffset,
@@ -128,6 +130,11 @@ const useCanvasPlacement = ({
         setSyncError(null)
         const persistedFrame = await persistFrame(nextFrame)
         setFrames((prev) => [...prev, persistedFrame])
+        if (pendingFrameDraft.kind === 'section') {
+          window.requestAnimationFrame(() => {
+            onAutoPlacedSection?.(persistedFrame)
+          })
+        }
         setPendingFrameDraft(null)
         setPendingFramePlacementLabel(null)
         setPendingFramePointer(null)
@@ -144,6 +151,7 @@ const useCanvasPlacement = ({
       persistFrame,
       setFrames,
       setIsSavingCanvasItem,
+      onAutoPlacedSection,
       setPendingFrameDraft,
       setPendingFramePlacementLabel,
       setPendingFramePointer,
@@ -226,6 +234,11 @@ const useCanvasPlacement = ({
       setSyncError(null)
       const persistedFrame = await persistFrame(nextFrame)
       setFrames((prev) => [...prev, persistedFrame])
+      if (pendingFrameDraft.kind === 'section') {
+        window.requestAnimationFrame(() => {
+          onAutoPlacedSection?.(persistedFrame)
+        })
+      }
       setPlacementA11yAnnouncement(`${pendingFrameDraft.label || 'Element'} ble plassert automatisk.`)
       setPendingFrameDraft(null)
       setPendingFramePlacementLabel(null)
@@ -245,6 +258,7 @@ const useCanvasPlacement = ({
     setFrames,
     setIsSavingCanvasItem,
     setPlacementA11yAnnouncement,
+    onAutoPlacedSection,
     setPendingFrameDraft,
     setPendingFramePlacementLabel,
     setPendingFramePointer,
