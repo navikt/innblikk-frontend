@@ -19,7 +19,6 @@ type CanvasFacilitatorActionMenuProps = {
 const CanvasFacilitatorActionMenu = ({
   onOpenTimer,
   onOpenDotVoting,
-  onOpenShareView,
   timerLabel,
   dotVotingLabel,
   disabled = false,
@@ -61,8 +60,6 @@ const CanvasFacilitatorActionMenu = ({
       <ActionMenu.Item onClick={onOpenDotVoting}>
         {dotVotingLabel ? `Prikkvotering (${dotVotingLabel})` : 'Prikkvotering'}
       </ActionMenu.Item>
-      {onOpenShareView && <ActionMenu.Divider />}
-      {onOpenShareView && <ActionMenu.Item onClick={onOpenShareView}>Delingsvisning (beta)</ActionMenu.Item>}
     </ActionMenu.Content>
   </ActionMenu>
 )

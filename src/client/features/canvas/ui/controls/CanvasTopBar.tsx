@@ -362,7 +362,6 @@ const CanvasTopBar = ({
                   <ActionMenu.Item onClick={onOpenInventory}>
                     Elementer{!isCanvasLocked && elementCount !== undefined ? ` (${elementCount})` : ''}
                   </ActionMenu.Item>
-                  <ActionMenu.Item onClick={onOpenShareView}>Delingsvisning (beta)</ActionMenu.Item>
                   <ActionMenu.Item onClick={onOpenChangeLog}>Endringslogg</ActionMenu.Item>
                   {canManageTabs && (
                     <ActionMenu.Item onClick={() => onOpenManageTabs()}>Administrer faner</ActionMenu.Item>
@@ -380,6 +379,12 @@ const CanvasTopBar = ({
                     <span className="inline-flex items-center gap-2 whitespace-nowrap">
                       <ThemeIcon aria-hidden fontSize="1rem" />
                       Bytt til {theme === 'dark' ? 'lyst' : 'mørkt'} tema
+                    </span>
+                  </ActionMenu.Item>
+                  <ActionMenu.Item onClick={onOpenShareView}>
+                    <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                      <EyeIcon size={14} />
+                      Lesevisning
                     </span>
                   </ActionMenu.Item>
                   <ActionMenu.Item onClick={onToggleCanvasLock}>
