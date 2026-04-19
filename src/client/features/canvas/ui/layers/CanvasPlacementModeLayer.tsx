@@ -65,12 +65,12 @@ export const CanvasPlacementModeBanner = ({
                 : 'Importerer CSV-lapper til canvas...'}
         </span>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           <p className="m-0">
-            Plasseringsmodus: klikk for å plassere {pendingFramePlacementLabel || 'element'}.
-            {pendingFrameDraft ? ' Trykk Enter eller bruk Autoplasser.' : ''} Trykk Esc eller Avbryt for å avslutte.
+            Plasseringsmodus: plasser {pendingFramePlacementLabel || 'element'} i canvas.
+            {pendingFrameDraft ? ' Bruk Autoplasser ved behov.' : ''} Avbryt med Esc.
           </p>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 pt-1">
             {pendingFrameDraft && (
               <Button
                 size="xsmall"
