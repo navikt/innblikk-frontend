@@ -319,6 +319,7 @@ const CanvasFrameLayer = ({
   )
 
   const cleanText = (value: string): string => value.replace(/\s+/g, ' ').trim().toLowerCase()
+  const sectionCount = frameItems.filter((item) => item.kind === 'section').length
 
   const isAccordionLike = (value: string): boolean => {
     const cleaned = cleanText(value)
@@ -1142,24 +1143,26 @@ const CanvasFrameLayer = ({
                         )}
                       </h3>
                     )}
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        onMouseDown={(event) => event.stopPropagation()}
-                        onClick={() => focusAdjacentSection(frame.id, 'previous')}
-                        className="absolute left-[-9999px] top-auto h-px w-px overflow-hidden rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-2 py-1 text-xs font-medium text-[var(--ax-text-default)] focus:static focus:h-auto focus:w-auto focus:overflow-visible"
-                      >
-                        Forrige seksjon
-                      </button>
-                      <button
-                        type="button"
-                        onMouseDown={(event) => event.stopPropagation()}
-                        onClick={() => focusAdjacentSection(frame.id, 'next')}
-                        className="absolute left-[-9999px] top-auto h-px w-px overflow-hidden rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-2 py-1 text-xs font-medium text-[var(--ax-text-default)] focus:static focus:h-auto focus:w-auto focus:overflow-visible"
-                      >
-                        Neste seksjon
-                      </button>
-                    </div>
+                    {sectionCount > 1 && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onMouseDown={(event) => event.stopPropagation()}
+                          onClick={() => focusAdjacentSection(frame.id, 'previous')}
+                          className="absolute left-[-9999px] top-auto h-px w-px overflow-hidden rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-2 py-1 text-xs font-medium text-[var(--ax-text-default)] focus:static focus:h-auto focus:w-auto focus:overflow-visible"
+                        >
+                          Forrige seksjon
+                        </button>
+                        <button
+                          type="button"
+                          onMouseDown={(event) => event.stopPropagation()}
+                          onClick={() => focusAdjacentSection(frame.id, 'next')}
+                          className="absolute left-[-9999px] top-auto h-px w-px overflow-hidden rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-2 py-1 text-xs font-medium text-[var(--ax-text-default)] focus:static focus:h-auto focus:w-auto focus:overflow-visible"
+                        >
+                          Neste seksjon
+                        </button>
+                      </div>
+                    )}
                     {shouldShowSectionItemCount && (
                       <p className="text-xs text-[var(--ax-text-subtle)]">{sectionItemCount} elementer.</p>
                     )}
