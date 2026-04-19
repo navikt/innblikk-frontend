@@ -358,11 +358,13 @@ const Canvas = () => {
   const [editIllustrationFrameId, setEditIllustrationFrameId] = useState<string | null>(null)
   const [editWebsitePathInput, setEditWebsitePathInput] = useState('')
   const [editImageUrlInput, setEditImageUrlInput] = useState('')
+  const [editImageAltTextInput, setEditImageAltTextInput] = useState('')
   const [editWebsitePreviewUrlInput, setEditWebsitePreviewUrlInput] = useState('')
   const [editWebsiteRenderEnabled, setEditWebsiteRenderEnabled] = useState(true)
   const [editWebsiteVisualizationMode, setEditWebsiteVisualizationMode] = useState<VisualizationMode | ''>('')
   const [newPagePathInput, setNewPagePathInput] = useState('')
   const [newImageUrlInput, setNewImageUrlInput] = useState('')
+  const [newImageAltTextInput, setNewImageAltTextInput] = useState('')
   const [selectedIllustrationPath, setSelectedIllustrationPath] = useState(DEFAULT_CANVAS_ILLUSTRATION_PATH)
   const [newPagePreviewUrlInput, setNewPagePreviewUrlInput] = useState('')
   const [newPageRenderEnabled, setNewPageRenderEnabled] = useState(true)
@@ -1143,6 +1145,7 @@ const Canvas = () => {
         drawingColor: frame.drawingColor,
         isIllustration: frame.isIllustration,
         imageRotationDeg: frame.imageRotationDeg,
+        imageAltText: frame.imageAltText,
         chartType: frame.chartType,
         chartSql: frame.chartSql,
         sqlQuery: frame.sqlQuery,
@@ -1667,6 +1670,8 @@ const Canvas = () => {
     setEditWebsitePathInput,
     editImageUrlInput,
     setEditImageUrlInput,
+    editImageAltTextInput,
+    setEditImageAltTextInput,
     editWebsitePreviewUrlInput,
     setEditWebsitePreviewUrlInput,
     editWebsiteRenderEnabled,
@@ -1677,6 +1682,8 @@ const Canvas = () => {
     setNewPagePathInput,
     newImageUrlInput,
     setNewImageUrlInput,
+    newImageAltTextInput,
+    setNewImageAltTextInput,
     selectedIllustrationPath,
     setSelectedIllustrationPath,
     newPagePreviewUrlInput,
@@ -4861,6 +4868,7 @@ const Canvas = () => {
         open={isAddImageModalOpen}
         heading="Legg til bilde i canvas"
         urlValue={newImageUrlInput}
+        altTextValue={newImageAltTextInput}
         selectedSectionId={selectedAddSectionId}
         sectionOptions={sectionMoveOptions}
         error={addImageError}
@@ -4870,6 +4878,10 @@ const Canvas = () => {
           setNewImageUrlInput(value)
           if (addImageError) setAddImageError(null)
         }}
+        onAltTextChange={(value) => {
+          setNewImageAltTextInput(value)
+          if (addImageError) setAddImageError(null)
+        }}
         onSectionChange={(sectionId) => {
           setSelectedAddSectionId(sectionId)
           if (addImageError) setAddImageError(null)
@@ -4877,6 +4889,7 @@ const Canvas = () => {
         onSubmit={() => void handleAddImage()}
         onClose={() => {
           setIsAddImageModalOpen(false)
+          setNewImageAltTextInput('')
           setSelectedAddSectionId('')
         }}
       />
@@ -4910,6 +4923,7 @@ const Canvas = () => {
         open={isEditImageModalOpen}
         heading="Rediger bilde"
         urlValue={editImageUrlInput}
+        altTextValue={editImageAltTextInput}
         error={editImageError}
         isSaving={isSavingCanvasItem}
         submitLabel="Lagre"
@@ -4917,10 +4931,15 @@ const Canvas = () => {
           setEditImageUrlInput(value)
           if (editImageError) setEditImageError(null)
         }}
+        onAltTextChange={(value) => {
+          setEditImageAltTextInput(value)
+          if (editImageError) setEditImageError(null)
+        }}
         onSubmit={() => void handleSaveEditedImage()}
         onClose={() => {
           setIsEditImageModalOpen(false)
           setEditImageFrameId(null)
+          setEditImageAltTextInput('')
           setEditImageError(null)
         }}
       />

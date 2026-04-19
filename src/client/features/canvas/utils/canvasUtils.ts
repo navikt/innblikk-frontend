@@ -490,6 +490,7 @@ export const parseCanvasConfig = (raw: string): CanvasConfigPayload | null => {
       drawingColor: typeof parsed.drawingColor === 'string' ? parsed.drawingColor : undefined,
       isIllustration: typeof parsed.isIllustration === 'boolean' ? parsed.isIllustration : undefined,
       imageRotationDeg: Number.isFinite(parsed.imageRotationDeg) ? Number(parsed.imageRotationDeg) : undefined,
+      imageAltText: typeof parsed.imageAltText === 'string' ? parsed.imageAltText : undefined,
       chartType: isCanvasChartType(parsed.chartType) ? parsed.chartType : undefined,
       chartSql: typeof parsed.chartSql === 'string' ? parsed.chartSql : undefined,
       sqlQuery: typeof parsed.sqlQuery === 'string' ? parsed.sqlQuery : undefined,

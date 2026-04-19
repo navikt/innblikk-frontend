@@ -871,6 +871,7 @@ const CanvasFrameLayer = ({
                     id={frame.id}
                     src={frame.src || ''}
                     label={frame.label}
+                    imageAltText={frame.imageAltText}
                     refreshNonce={frame.refreshNonce}
                     isIllustrationFrame={isIllustrationFrame}
                     imageRotationDeg={frame.imageRotationDeg}

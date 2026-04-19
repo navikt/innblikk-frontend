@@ -489,7 +489,7 @@ const CanvasShareView = () => {
         <div className={`space-y-2 ${isIllustration ? 'w-full max-w-[640px]' : ''}`}>
           <img
             src={src}
-            alt={frame.label || 'Bilde'}
+            alt={frame.imageAltText ?? frame.label ?? 'Bilde'}
             className={`object-contain ${
               isIllustration
                 ? 'rounded-xl border-0 bg-transparent shadow-none'

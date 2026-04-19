@@ -36,6 +36,7 @@ const buildFrameSignature = (frame: CanvasFrame): string =>
     drawingColor: frame.drawingColor ?? null,
     isIllustration: frame.isIllustration ?? null,
     imageRotationDeg: frame.imageRotationDeg ?? null,
+    imageAltText: frame.imageAltText ?? null,
     chartType: frame.chartType ?? null,
     chartSql: frame.chartSql ?? null,
     sqlQuery: frame.sqlQuery ?? null,

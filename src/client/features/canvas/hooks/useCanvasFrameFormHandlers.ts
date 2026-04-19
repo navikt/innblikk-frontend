@@ -131,6 +131,8 @@ type UseCanvasFrameFormHandlersParams = {
   setEditWebsitePathInput: Setter<string>
   editImageUrlInput: string
   setEditImageUrlInput: Setter<string>
+  editImageAltTextInput: string
+  setEditImageAltTextInput: Setter<string>
   editWebsitePreviewUrlInput: string
   setEditWebsitePreviewUrlInput: Setter<string>
   editWebsiteRenderEnabled: boolean
@@ -141,6 +143,8 @@ type UseCanvasFrameFormHandlersParams = {
   setNewPagePathInput: Setter<string>
   newImageUrlInput: string
   setNewImageUrlInput: Setter<string>
+  newImageAltTextInput: string
+  setNewImageAltTextInput: Setter<string>
   selectedIllustrationPath: string
   setSelectedIllustrationPath: Setter<string>
   newPagePreviewUrlInput: string
@@ -349,6 +353,8 @@ const useCanvasFrameFormHandlers = ({
   setEditWebsitePathInput,
   editImageUrlInput,
   setEditImageUrlInput,
+  editImageAltTextInput,
+  setEditImageAltTextInput,
   editWebsitePreviewUrlInput,
   setEditWebsitePreviewUrlInput,
   editWebsiteRenderEnabled,
@@ -359,6 +365,8 @@ const useCanvasFrameFormHandlers = ({
   setNewPagePathInput,
   newImageUrlInput,
   setNewImageUrlInput,
+  newImageAltTextInput,
+  setNewImageAltTextInput,
   selectedIllustrationPath,
   setSelectedIllustrationPath,
   newPagePreviewUrlInput,
@@ -536,6 +544,7 @@ const useCanvasFrameFormHandlers = ({
         drawingColor: frame.drawingColor,
         isIllustration: frame.isIllustration,
         imageRotationDeg: frame.imageRotationDeg,
+        imageAltText: frame.imageAltText,
         chartType: frame.chartType,
         chartSql: frame.chartSql,
         sqlQuery: frame.sqlQuery,
@@ -800,6 +809,7 @@ const useCanvasFrameFormHandlers = ({
 
   const handleAddImage = () => {
     const imageUrl = normalizeInputToTargetUrl(newImageUrlInput, selectedWebsite?.domain)
+    const imageAltText = newImageAltTextInput.trim()
     if (!imageUrl) {
       setAddImageError('Legg inn en gyldig bilde-URL, for eksempel https://www.nav.no/bilde.png.')
       return
@@ -827,6 +837,7 @@ const useCanvasFrameFormHandlers = ({
         id: `${Date.now()}-${Math.random()}`,
         kind: 'image',
         targetUrl: imageUrl,
+        imageAltText,
         label: getFrameLabel(imageUrl),
         width: 420,
         height: 420,
@@ -850,6 +861,7 @@ const useCanvasFrameFormHandlers = ({
           })
           onFrameAddedInSection?.(persistedFrame)
           setNewImageUrlInput('')
+          setNewImageAltTextInput('')
           setSelectedAddSectionId('')
           setAddImageError(null)
           setIsAddImageModalOpen(false)
@@ -865,6 +877,7 @@ const useCanvasFrameFormHandlers = ({
     const frameDraft: PendingCanvasFrameDraft = {
       kind: 'image',
       targetUrl: imageUrl,
+      imageAltText,
       label: getFrameLabel(imageUrl),
       width: 420,
       height: 420,
@@ -872,6 +885,7 @@ const useCanvasFrameFormHandlers = ({
     }
     queueFrameForPlacement(frameDraft, 'bilde')
     setNewImageUrlInput('')
+    setNewImageAltTextInput('')
     setSelectedAddSectionId('')
     setAddImageError(null)
     setIsAddImageModalOpen(false)
@@ -1101,6 +1115,7 @@ const useCanvasFrameFormHandlers = ({
     if (frame.kind !== 'image') return
     setEditImageFrameId(frame.id)
     setEditImageUrlInput(frame.targetUrl || '')
+    setEditImageAltTextInput(frame.imageAltText || '')
     setEditImageError(null)
     setIsEditImageModalOpen(true)
   }
@@ -1490,6 +1505,7 @@ const useCanvasFrameFormHandlers = ({
     if (!editImageFrameId) return
 
     const imageUrl = normalizeInputToTargetUrl(editImageUrlInput, selectedWebsite?.domain)
+    const imageAltText = editImageAltTextInput.trim()
     if (!imageUrl) {
       setEditImageError('Legg inn en gyldig bilde-URL, for eksempel https://www.nav.no/bilde.png.')
       return
@@ -1515,6 +1531,7 @@ const useCanvasFrameFormHandlers = ({
     const updatedFrame: CanvasFrame = {
       ...currentFrame,
       targetUrl: imageUrl,
+      imageAltText,
       label: getFrameLabel(imageUrl),
       refreshNonce: currentFrame.refreshNonce + 1,
     }
@@ -1533,6 +1550,7 @@ const useCanvasFrameFormHandlers = ({
       setIsEditImageModalOpen(false)
       setEditImageFrameId(null)
       setEditImageUrlInput('')
+      setEditImageAltTextInput('')
       setEditImageError(null)
     } catch (error) {
       setSyncError(error instanceof Error ? error.message : 'Kunne ikke oppdatere bilde')
@@ -2335,6 +2353,7 @@ const useCanvasFrameFormHandlers = ({
   const handleOpenAddImageModal = () => {
     setAddImageError(null)
     setNewImageUrlInput('')
+    setNewImageAltTextInput('')
     setSelectedAddSectionId('')
     setIsAddImageModalOpen(true)
   }

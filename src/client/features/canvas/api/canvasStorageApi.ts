@@ -86,6 +86,7 @@ export async function fetchCanvasStorageData(projectId: number, dashboardId: num
           ? parsedConfig.isIllustration
           : parsedConfig.kind === 'image' && isIllustrationPath(parsedConfig.targetUrl),
       imageRotationDeg: parsedConfig.imageRotationDeg,
+      imageAltText: parsedConfig.imageAltText,
       chartType: parsedConfig.chartType,
       chartSql: parsedConfig.chartSql,
       sqlQuery: parsedConfig.sqlQuery,

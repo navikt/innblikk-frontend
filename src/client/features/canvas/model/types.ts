@@ -75,6 +75,7 @@ export type CanvasFrame = {
   drawingRotationDeg?: number
   isIllustration?: boolean
   imageRotationDeg?: number
+  imageAltText?: string
   chartType?: CanvasChartType
   chartSql?: string
   sqlQuery?: string
@@ -196,6 +197,7 @@ export type CanvasConfigPayload = {
   drawingRotationDeg?: number
   isIllustration?: boolean
   imageRotationDeg?: number
+  imageAltText?: string
   chartType?: CanvasChartType
   chartSql?: string
   sqlQuery?: string
