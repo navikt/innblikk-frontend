@@ -55,40 +55,55 @@ const CanvasHeadingFrame = ({
   return (
     <div className="relative overflow-visible px-4 py-2">
       {headingLevel === 4 ? (
-        <h4
-          className="m-0 cursor-text select-text whitespace-pre-wrap break-words text-[var(--ax-text-default)]"
-          onClick={() => onStartEditing(id)}
-          style={{
-            fontSize: `${fontSizePx}px`,
-            lineHeight: 1.05,
-            fontWeight: 700,
-          }}
-        >
-          {headingContent}
+        <h4 className="m-0">
+          <button
+            type="button"
+            className="w-full cursor-text whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)]"
+            onMouseDown={(event) => event.stopPropagation()}
+            onClick={() => onStartEditing(id)}
+            aria-label="Rediger overskrift"
+            style={{
+              fontSize: `${fontSizePx}px`,
+              lineHeight: 1.05,
+              fontWeight: 700,
+            }}
+          >
+            {headingContent}
+          </button>
         </h4>
       ) : headingLevel === 3 ? (
-        <h3
-          className="m-0 cursor-text select-text whitespace-pre-wrap break-words text-[var(--ax-text-default)]"
-          onClick={() => onStartEditing(id)}
-          style={{
-            fontSize: `${fontSizePx}px`,
-            lineHeight: 1.05,
-            fontWeight: 700,
-          }}
-        >
-          {headingContent}
+        <h3 className="m-0">
+          <button
+            type="button"
+            className="w-full cursor-text whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)]"
+            onMouseDown={(event) => event.stopPropagation()}
+            onClick={() => onStartEditing(id)}
+            aria-label="Rediger overskrift"
+            style={{
+              fontSize: `${fontSizePx}px`,
+              lineHeight: 1.05,
+              fontWeight: 700,
+            }}
+          >
+            {headingContent}
+          </button>
         </h3>
       ) : (
-        <h2
-          className="m-0 cursor-text select-text whitespace-pre-wrap break-words text-[var(--ax-text-default)]"
-          onClick={() => onStartEditing(id)}
-          style={{
-            fontSize: `${fontSizePx}px`,
-            lineHeight: 1.05,
-            fontWeight: 700,
-          }}
-        >
-          {headingContent}
+        <h2 className="m-0">
+          <button
+            type="button"
+            className="w-full cursor-text whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)]"
+            onMouseDown={(event) => event.stopPropagation()}
+            onClick={() => onStartEditing(id)}
+            aria-label="Rediger overskrift"
+            style={{
+              fontSize: `${fontSizePx}px`,
+              lineHeight: 1.05,
+              fontWeight: 700,
+            }}
+          >
+            {headingContent}
+          </button>
         </h2>
       )}
       {isLockedByOther && <CanvasEditLockOverlay ownerLabel={lockOwnerLabel} />}

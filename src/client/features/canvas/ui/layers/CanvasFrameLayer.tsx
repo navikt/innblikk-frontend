@@ -1133,6 +1133,12 @@ const CanvasFrameLayer = ({
                             }}
                             className="w-fit max-w-full rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)]/90 px-2 py-1 text-left text-sm font-semibold text-[var(--ax-text-default)]"
                             onMouseDown={(event) => event.stopPropagation()}
+                            onKeyDown={(event) => {
+                              if (event.key !== 'Enter' && event.key !== ' ') return
+                              event.preventDefault()
+                              event.stopPropagation()
+                              handleStartEditingFrame(frame.id)
+                            }}
                             onDoubleClick={() => {
                               handleStartEditingFrame(frame.id)
                             }}

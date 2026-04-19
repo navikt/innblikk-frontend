@@ -24,7 +24,7 @@ const CanvasTextFrame = ({
   tableHeaders,
   tableRows,
   isEditing,
-  isInteractionLocked = false,
+  isInteractionLocked: _isInteractionLocked = false,
   isLockedByOther = false,
   lockOwnerLabel = null,
   tableRowsPerPage,
@@ -45,7 +45,7 @@ const CanvasTextFrame = ({
     const visibleRows = rows.slice(pageStart, pageStart + tableRowsPerPage)
 
     return (
-      <div className="h-full overflow-auto px-2 pb-2" tabIndex={isInteractionLocked ? -1 : undefined}>
+      <div className="h-full overflow-auto px-2 pb-2">
         <div className="space-y-2" onMouseDown={(event) => event.stopPropagation()}>
           <Table size="small" zebraStripes className="w-full">
             <Table.Header>
@@ -114,15 +114,17 @@ const CanvasTextFrame = ({
   }
 
   return (
-    <div className="relative h-full overflow-auto px-2 pb-2" tabIndex={isInteractionLocked ? -1 : undefined}>
-      <div
-        className="h-full cursor-text overflow-auto whitespace-pre-wrap break-words text-[var(--ax-text-default)]"
+    <div className="relative h-full overflow-auto px-2 pb-2">
+      <button
+        type="button"
+        className="h-full w-full cursor-text overflow-auto whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)]"
         style={{ fontSize: '22px', lineHeight: 1.3, fontWeight: 500 }}
+        onMouseDown={(event) => event.stopPropagation()}
         onClick={() => onStartEditing(id)}
-        tabIndex={isInteractionLocked ? -1 : undefined}
+        aria-label="Rediger tekst"
       >
         {textContent || 'Skriv tekst'}
-      </div>
+      </button>
       {isLockedByOther && <CanvasEditLockOverlay ownerLabel={lockOwnerLabel} />}
     </div>
   )

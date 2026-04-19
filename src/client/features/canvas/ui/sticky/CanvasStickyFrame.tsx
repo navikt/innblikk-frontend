@@ -49,13 +49,16 @@ const CanvasStickyFrame = ({
 
   return (
     <div className="relative h-full overflow-auto p-4 pt-10">
-      <div
-        className="cursor-text whitespace-pre-wrap break-words text-base leading-7"
+      <button
+        type="button"
+        className="w-full cursor-text whitespace-pre-wrap break-words bg-transparent p-0 text-left text-base leading-7"
         style={{ color: colorOption.text }}
+        onMouseDown={(event) => event.stopPropagation()}
         onClick={() => onStartEditing(id)}
+        aria-label="Rediger Post-it-lapp"
       >
         {textContent || 'Skriv Post-it-lapp'}
-      </div>
+      </button>
       {isLockedByOther && <CanvasEditLockOverlay ownerLabel={lockOwnerLabel} tone="sticky" />}
     </div>
   )
