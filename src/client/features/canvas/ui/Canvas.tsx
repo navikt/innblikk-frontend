@@ -697,6 +697,13 @@ const Canvas = () => {
   }, [isCanvasLocked, isLockedModeEditing])
 
   useEffect(() => {
+    if (!isCanvasReadOnly) return
+    setActiveEditableFrameId(null)
+    setSelectedFrameIds([])
+    setSelectionBox(null)
+  }, [isCanvasReadOnly])
+
+  useEffect(() => {
     const wasRunning = previousTimerRunningRef.current
     if (!wasRunning && isTimerRunning) {
       const roundedMinutes = Math.max(1, Math.ceil(remainingSeconds / 60))
@@ -4333,6 +4340,7 @@ const Canvas = () => {
             if (!isCanvasLocked) return
             setIsLockedModeEditing((current) => !current)
             setActiveEditableFrameId(null)
+            setSelectedFrameIds([])
             setSelectionBox(null)
           }}
           onToggleCanvasLock={() => {
@@ -4340,6 +4348,7 @@ const Canvas = () => {
             setIsCanvasLocked(nextIsLocked)
             setIsLockedModeEditing(false)
             setActiveEditableFrameId(null)
+            setSelectedFrameIds([])
             setSelectionBox(null)
 
             if (!canPersistToDashboard || projectId === null || dashboardId === null) return
