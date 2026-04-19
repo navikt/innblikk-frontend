@@ -18,7 +18,7 @@ import {
   getVisualizationModeLabel,
 } from '../../utils/canvasUtils.ts'
 import { DEFAULT_CANVAS_ICON_COLOR } from '../icon/CanvasIconRegistry.ts'
-import CanvasFrameActionPoints from '../controls/CanvasFrameActionPoints.tsx'
+import CanvasFrameActionPoints, { type SectionAddAction } from '../controls/CanvasFrameActionPoints.tsx'
 import CanvasDrawingFrame from '../drawing/CanvasDrawingFrame.tsx'
 import CanvasFigureFrame from '../figure/CanvasFigureFrame.tsx'
 import CanvasHeadingFrame from '../heading/CanvasHeadingFrame.tsx'
@@ -188,11 +188,11 @@ type CanvasFrameLayerProps = {
   handleRotateIllustrationFrame: (id: string, delta: number) => void
   handleRotateFigureFrame: (id: string, delta: number) => void
   handleRotateDrawingFrame: (id: string, delta: number) => void
-  handleToggleSectionLayout: (id: string) => void
+  handleOpenSectionOptionsModal: (id: string) => void
   handleMoveFrameToSection: (frameId: string, sectionId: string) => void
   handleSetStickyColor: (frameId: string, colorId: string) => void
-  handleToggleFrameShareVisibility: (frameId: string) => void
   handleRequestRemoveFrame: (frame: CanvasFrame) => void
+  handleSelectSectionAddAction: (sectionId: string, action: SectionAddAction) => void
   startConnectionDrag: (event: React.MouseEvent, frame: CanvasFrame, side: ConnectionAnchorSide) => void
   handleAssignWebsiteToChart: (frame: CanvasFrame, website: Website | null) => Promise<void>
   handleOpenEditChartModal: (frame: CanvasFrame) => void
@@ -274,11 +274,11 @@ const CanvasFrameLayer = ({
   handleRotateIllustrationFrame,
   handleRotateFigureFrame,
   handleRotateDrawingFrame,
-  handleToggleSectionLayout,
+  handleOpenSectionOptionsModal,
   handleMoveFrameToSection,
   handleSetStickyColor,
-  handleToggleFrameShareVisibility,
   handleRequestRemoveFrame,
+  handleSelectSectionAddAction,
   startConnectionDrag,
   handleAssignWebsiteToChart,
   handleOpenEditChartModal,
@@ -415,6 +415,48 @@ const CanvasFrameLayer = ({
           const actionButtonClassName = CARD_ACTION_BUTTON_CLASSNAME.replace(
             'group-hover:opacity-100 group-focus-within:opacity-100',
             hoverRevealClass,
+          )
+          const frameActionPoints = (
+            <CanvasFrameActionPoints
+              frameKind={frame.kind}
+              isInternalDashboard={frame.isInternalDashboard}
+              isIllustrationFrame={isIllustrationFrame}
+              actionButtonClassName={actionButtonClassName}
+              onEditImage={() => handleOpenEditImageModal(frame)}
+              onEditLink={() => handleOpenEditLinkModal(frame)}
+              onEditTable={() => handleOpenEditTableModal(frame)}
+              isTableFrame={frame.kind === 'text' && Array.isArray(frame.tableHeaders) && frame.tableHeaders.length > 0}
+              onEditIllustration={() => handleOpenEditIllustrationModal(frame)}
+              onEditDashboard={() => handleOpenEditDashboardModal(frame)}
+              onEditIcon={() => handleOpenEditIconModal(frame)}
+              onDuplicateIcon={() => void handleDuplicateIconCard(frame)}
+              onRotateIconLeft={() => handleRotateIconFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
+              onRotateIconRight={() => handleRotateIconFrame(frame.id, ICON_ROTATION_STEP_DEG)}
+              onEditFigure={() => handleOpenEditFigureModal(frame)}
+              onDuplicateFigure={() => void handleDuplicateFigureCard(frame)}
+              onDuplicateSection={() => void handleDuplicateSectionCard(frame)}
+              onDuplicateSticky={() => void handleDuplicateStickyCard(frame)}
+              onDuplicateText={() => void handleDuplicateTextCard(frame)}
+              onDuplicateHeading={() => void handleDuplicateHeadingCard(frame)}
+              onDuplicateDrawing={() => void handleDuplicateDrawingCard(frame)}
+              onDuplicateImage={() => void handleDuplicateImageCard(frame)}
+              onDecreaseHeadingFontSize={() => handleAdjustHeadingFontSize(frame.id, -HEADING_FONT_SIZE_STEP)}
+              onIncreaseHeadingFontSize={() => handleAdjustHeadingFontSize(frame.id, HEADING_FONT_SIZE_STEP)}
+              onRotateIllustrationLeft={() => handleRotateIllustrationFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
+              onRotateIllustrationRight={() => handleRotateIllustrationFrame(frame.id, ICON_ROTATION_STEP_DEG)}
+              sectionLayoutMode={frame.sectionLayout === 'grid' ? 'grid' : 'freeform'}
+              onOpenSectionOptions={() => handleOpenSectionOptionsModal(frame.id)}
+              sectionMoveOptions={sectionMoveOptionsForFrame}
+              stickyColorOptions={stickyColorOptions}
+              onSetStickyColor={(colorId) => handleSetStickyColor(frame.id, colorId)}
+              onMoveToSection={(sectionId) => handleMoveFrameToSection(frame.id, sectionId)}
+              onSelectSectionAddAction={(action) => handleSelectSectionAddAction(frame.id, action)}
+              onRotateFigureLeft={() => handleRotateFigureFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
+              onRotateFigureRight={() => handleRotateFigureFrame(frame.id, ICON_ROTATION_STEP_DEG)}
+              onRotateDrawingLeft={() => handleRotateDrawingFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
+              onRotateDrawingRight={() => handleRotateDrawingFrame(frame.id, ICON_ROTATION_STEP_DEG)}
+              onRemoveFrame={() => handleRequestRemoveFrame(frame)}
+            />
           )
 
           const frameNode = (
@@ -636,51 +678,7 @@ const CanvasFrameLayer = ({
                         onTouchStart={(event) => handleDragStart(event, frame)}
                       />
                     </div>
-                    <CanvasFrameActionPoints
-                      frameKind={frame.kind}
-                      isInternalDashboard={frame.isInternalDashboard}
-                      isIllustrationFrame={isIllustrationFrame}
-                      actionButtonClassName={actionButtonClassName}
-                      onEditImage={() => handleOpenEditImageModal(frame)}
-                      onEditLink={() => handleOpenEditLinkModal(frame)}
-                      onEditTable={() => handleOpenEditTableModal(frame)}
-                      isTableFrame={
-                        frame.kind === 'text' && Array.isArray(frame.tableHeaders) && frame.tableHeaders.length > 0
-                      }
-                      onEditIllustration={() => handleOpenEditIllustrationModal(frame)}
-                      onEditDashboard={() => handleOpenEditDashboardModal(frame)}
-                      onEditIcon={() => handleOpenEditIconModal(frame)}
-                      onDuplicateIcon={() => void handleDuplicateIconCard(frame)}
-                      onRotateIconLeft={() => handleRotateIconFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
-                      onRotateIconRight={() => handleRotateIconFrame(frame.id, ICON_ROTATION_STEP_DEG)}
-                      onEditFigure={() => handleOpenEditFigureModal(frame)}
-                      onDuplicateFigure={() => void handleDuplicateFigureCard(frame)}
-                      onDuplicateSection={() => void handleDuplicateSectionCard(frame)}
-                      onDuplicateSticky={() => void handleDuplicateStickyCard(frame)}
-                      onDuplicateText={() => void handleDuplicateTextCard(frame)}
-                      onDuplicateHeading={() => void handleDuplicateHeadingCard(frame)}
-                      onDuplicateDrawing={() => void handleDuplicateDrawingCard(frame)}
-                      onDuplicateImage={() => void handleDuplicateImageCard(frame)}
-                      onDecreaseHeadingFontSize={() => handleAdjustHeadingFontSize(frame.id, -HEADING_FONT_SIZE_STEP)}
-                      onIncreaseHeadingFontSize={() => handleAdjustHeadingFontSize(frame.id, HEADING_FONT_SIZE_STEP)}
-                      onRotateIllustrationLeft={() => handleRotateIllustrationFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
-                      onRotateIllustrationRight={() => handleRotateIllustrationFrame(frame.id, ICON_ROTATION_STEP_DEG)}
-                      sectionLayoutMode={frame.sectionLayout === 'grid' ? 'grid' : 'freeform'}
-                      onToggleSectionLayout={() => handleToggleSectionLayout(frame.id)}
-                      sectionMoveOptions={sectionMoveOptionsForFrame}
-                      stickyColorOptions={stickyColorOptions}
-                      onSetStickyColor={(colorId) => handleSetStickyColor(frame.id, colorId)}
-                      onMoveToSection={(sectionId) => handleMoveFrameToSection(frame.id, sectionId)}
-                      isHiddenInShare={Boolean(frame.hideInShare)}
-                      onToggleHideInShare={
-                        frame.kind === 'section' ? undefined : () => handleToggleFrameShareVisibility(frame.id)
-                      }
-                      onRotateFigureLeft={() => handleRotateFigureFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
-                      onRotateFigureRight={() => handleRotateFigureFrame(frame.id, ICON_ROTATION_STEP_DEG)}
-                      onRotateDrawingLeft={() => handleRotateDrawingFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
-                      onRotateDrawingRight={() => handleRotateDrawingFrame(frame.id, ICON_ROTATION_STEP_DEG)}
-                      onRemoveFrame={() => handleRequestRemoveFrame(frame)}
-                    />
+                    {frame.kind !== 'section' && frameActionPoints}
                   </>
                 )}
               {!isFrameInteractionLocked &&
@@ -1133,6 +1131,7 @@ const CanvasFrameLayer = ({
                   </div>
                 )}
               </div>
+              {!isFrameInteractionLocked && frame.kind === 'section' && frameActionPoints}
               {frame.kind === 'website' &&
                 !frame.isInternalDashboard &&
                 visualizationMode === 'clickmap' &&

@@ -1,18 +1,5 @@
 import { ActionMenu, Button } from '@navikt/ds-react'
-import {
-  ArrowRightLeft,
-  Copy,
-  Edit2,
-  Eye,
-  EyeOff,
-  Grid3X3,
-  MoreVertical,
-  Move,
-  Palette,
-  RotateCcw,
-  RotateCw,
-  Trash2,
-} from 'lucide-react'
+import { ArrowRightLeft, Copy, Edit2, Palette, RotateCcw, RotateCw, Trash2 } from 'lucide-react'
 import type { MouseEvent } from 'react'
 import type { CanvasSectionLayoutMode } from '../../model/types.ts'
 
@@ -64,15 +51,33 @@ type CanvasFrameActionPointsProps = {
   onRotateDrawingLeft: () => void
   onRotateDrawingRight: () => void
   sectionLayoutMode?: CanvasSectionLayoutMode
-  onToggleSectionLayout: () => void
+  onOpenSectionOptions: () => void
   sectionMoveOptions?: Array<{ id: string; label: string }>
   stickyColorOptions?: Array<{ id: string; label: string; color: string }>
   onSetStickyColor: (colorId: string) => void
   onMoveToSection: (sectionId: string) => void
-  isHiddenInShare?: boolean
-  onToggleHideInShare?: () => void
   onRemoveFrame: () => void
+  onSelectSectionAddAction?: (action: SectionAddAction) => void
 }
+
+export type SectionAddAction =
+  | 'section'
+  | 'tab'
+  | 'heading'
+  | 'text'
+  | 'table'
+  | 'link'
+  | 'sticky'
+  | 'image'
+  | 'icon'
+  | 'figure'
+  | 'drawing'
+  | 'illustration'
+  | 'website'
+  | 'chart'
+  | 'sql-editor'
+  | 'dashboard'
+  | 'import-sticky-csv'
 
 type IconBoxActionPointsProps = {
   actionButtonClassName: string
@@ -339,7 +344,7 @@ const CanvasFrameActionPoints = ({
   onRotateIconRight,
   onEditFigure,
   onDuplicateFigure,
-  onDuplicateSection,
+  onDuplicateSection: _onDuplicateSection,
   onDuplicateSticky,
   onDuplicateText,
   onDuplicateHeading,
@@ -353,18 +358,16 @@ const CanvasFrameActionPoints = ({
   onRotateFigureRight,
   onRotateDrawingLeft,
   onRotateDrawingRight,
-  sectionLayoutMode,
-  onToggleSectionLayout,
+  sectionLayoutMode: _sectionLayoutMode,
+  onOpenSectionOptions,
   sectionMoveOptions = [],
   stickyColorOptions = [],
   onSetStickyColor,
   onMoveToSection,
-  isHiddenInShare = false,
-  onToggleHideInShare,
   onRemoveFrame,
+  onSelectSectionAddAction,
 }: CanvasFrameActionPointsProps) => {
   const showRemoveButton = frameKind !== 'website' || Boolean(isInternalDashboard)
-  const isSectionGrid = frameKind === 'section' && sectionLayoutMode === 'grid'
   const actionPointsPositionClassName =
     frameKind === 'heading' ||
     frameKind === 'text' ||
@@ -452,31 +455,122 @@ const CanvasFrameActionPoints = ({
         />
       )}
       {frameKind === 'section' && (
-        <Button
-          size="xsmall"
-          variant="tertiary"
-          icon={<Copy size={14} />}
-          onMouseDown={stopMouseDownPropagation}
-          onClick={onDuplicateSection}
-          title="Dupliser tom"
-          aria-label="Dupliser tom"
-          className={actionButtonClassName}
-        >
-          Dupliser tom
-        </Button>
+        <ActionMenu>
+          <ActionMenu.Trigger>
+            <Button
+              size="xsmall"
+              variant="tertiary"
+              onMouseDown={stopMouseDownPropagation}
+              title="Legg til i seksjon"
+              aria-label="Legg til i seksjon"
+              className={actionButtonClassName}
+            >
+              Legg til
+            </Button>
+          </ActionMenu.Trigger>
+          <ActionMenu.Content align="end">
+            <ActionMenu.Item
+              onMouseDown={stopMouseDownPropagation}
+              onClick={() => onSelectSectionAddAction?.('section')}
+            >
+              Seksjon (ved siden av)
+            </ActionMenu.Item>
+            <ActionMenu.Divider />
+            <ActionMenu.Item
+              onMouseDown={stopMouseDownPropagation}
+              onClick={() => onSelectSectionAddAction?.('heading')}
+            >
+              Overskrift
+            </ActionMenu.Item>
+            <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onSelectSectionAddAction?.('text')}>
+              Tekst
+            </ActionMenu.Item>
+            <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onSelectSectionAddAction?.('table')}>
+              Tabell
+            </ActionMenu.Item>
+            <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onSelectSectionAddAction?.('link')}>
+              Lenke
+            </ActionMenu.Item>
+            <ActionMenu.Item
+              onMouseDown={stopMouseDownPropagation}
+              onClick={() => onSelectSectionAddAction?.('sticky')}
+            >
+              Post-it-lapp
+            </ActionMenu.Item>
+            <ActionMenu.Divider />
+            <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onSelectSectionAddAction?.('image')}>
+              Bilde
+            </ActionMenu.Item>
+            <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onSelectSectionAddAction?.('icon')}>
+              Ikon
+            </ActionMenu.Item>
+            <ActionMenu.Item
+              onMouseDown={stopMouseDownPropagation}
+              onClick={() => onSelectSectionAddAction?.('figure')}
+            >
+              Figur
+            </ActionMenu.Item>
+            <ActionMenu.Item
+              onMouseDown={stopMouseDownPropagation}
+              onClick={() => onSelectSectionAddAction?.('drawing')}
+            >
+              Tegning
+            </ActionMenu.Item>
+            <ActionMenu.Item
+              onMouseDown={stopMouseDownPropagation}
+              onClick={() => onSelectSectionAddAction?.('illustration')}
+            >
+              Illustrasjoner
+            </ActionMenu.Item>
+            <ActionMenu.Divider />
+            <ActionMenu.Group label="Fra Innblikk" className="mt-1">
+              <ActionMenu.Item
+                onMouseDown={stopMouseDownPropagation}
+                onClick={() => onSelectSectionAddAction?.('website')}
+              >
+                <span className="block pl-4">Nettside</span>
+              </ActionMenu.Item>
+              <ActionMenu.Item
+                onMouseDown={stopMouseDownPropagation}
+                onClick={() => onSelectSectionAddAction?.('chart')}
+              >
+                <span className="block pl-4">Graf</span>
+              </ActionMenu.Item>
+              <ActionMenu.Item
+                onMouseDown={stopMouseDownPropagation}
+                onClick={() => onSelectSectionAddAction?.('sql-editor')}
+              >
+                <span className="block pl-4">SQL-editor</span>
+              </ActionMenu.Item>
+              <ActionMenu.Item
+                onMouseDown={stopMouseDownPropagation}
+                onClick={() => onSelectSectionAddAction?.('dashboard')}
+              >
+                <span className="block pl-4">Dashboard</span>
+              </ActionMenu.Item>
+            </ActionMenu.Group>
+            <ActionMenu.Group label="Fra Skyra / Lumi" className="mt-1">
+              <ActionMenu.Item
+                onMouseDown={stopMouseDownPropagation}
+                onClick={() => onSelectSectionAddAction?.('import-sticky-csv')}
+              >
+                <span className="block pl-4">Undersøkelse → lapper</span>
+              </ActionMenu.Item>
+            </ActionMenu.Group>
+          </ActionMenu.Content>
+        </ActionMenu>
       )}
       {frameKind === 'section' && (
         <Button
           size="xsmall"
           variant="tertiary"
-          icon={isSectionGrid ? <Move size={14} /> : <Grid3X3 size={14} />}
           onMouseDown={stopMouseDownPropagation}
-          onClick={onToggleSectionLayout}
-          title={isSectionGrid ? 'Bytt til friform' : 'Bytt til rutenett'}
-          aria-label={isSectionGrid ? 'Bytt til friform' : 'Bytt til rutenett'}
+          onClick={onOpenSectionOptions}
+          title="Tilpass seksjon"
+          aria-label="Tilpass seksjon"
           className={actionButtonClassName}
         >
-          {isSectionGrid ? 'Rutenett' : 'Friform'}
+          Tilpass
         </Button>
       )}
       {(frameKind === 'sticky' || frameKind === 'text') && sectionMoveOptions.length > 0 && (
@@ -595,29 +689,6 @@ const CanvasFrameActionPoints = ({
           aria-label="Dupliser bilde"
           className={actionButtonClassName}
         />
-      )}
-      {onToggleHideInShare && (
-        <ActionMenu>
-          <ActionMenu.Trigger>
-            <Button
-              size="xsmall"
-              variant="tertiary"
-              icon={<MoreVertical size={14} />}
-              onMouseDown={stopMouseDownPropagation}
-              title="Flere valg"
-              aria-label="Flere valg"
-              className={actionButtonClassName}
-            />
-          </ActionMenu.Trigger>
-          <ActionMenu.Content align="end">
-            <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onToggleHideInShare}>
-              <span className="inline-flex items-center gap-2">
-                {isHiddenInShare ? <Eye size={14} /> : <EyeOff size={14} />}
-                {isHiddenInShare ? 'Vis i delingsvisning' : 'Skjul i delingsvisning'}
-              </span>
-            </ActionMenu.Item>
-          </ActionMenu.Content>
-        </ActionMenu>
       )}
       {showRemoveButton && (
         <Button

@@ -27,6 +27,7 @@ import type {
   CanvasConfigPayload,
   CanvasFigureType,
   CanvasFrame,
+  CanvasSectionLayoutMode,
   PendingCanvasFrameDraft,
 } from '../model/types.ts'
 import {
@@ -92,6 +93,8 @@ type UseCanvasFrameFormHandlersParams = {
   setIsAddLinkModalOpen: Setter<boolean>
   isAddStickyModalOpen: boolean
   setIsAddStickyModalOpen: Setter<boolean>
+  isAddSectionModalOpen: boolean
+  setIsAddSectionModalOpen: Setter<boolean>
   isAddIconModalOpen: boolean
   setIsAddIconModalOpen: Setter<boolean>
   isAddFigureModalOpen: boolean
@@ -212,6 +215,12 @@ type UseCanvasFrameFormHandlersParams = {
   setSelectedStickyColor: Setter<string>
   selectedStickySectionId: string
   setSelectedStickySectionId: Setter<string>
+  sectionNameInput: string
+  setSectionNameInput: Setter<string>
+  sectionLayoutMode: CanvasSectionLayoutMode
+  setSectionLayoutMode: Setter<CanvasSectionLayoutMode>
+  addSectionError: string | null
+  setAddSectionError: Setter<string | null>
   selectedAddSectionId: string
   setSelectedAddSectionId: Setter<string>
   addStickyError: string | null
@@ -303,6 +312,8 @@ const useCanvasFrameFormHandlers = ({
   setIsAddLinkModalOpen,
   isAddStickyModalOpen: _isAddStickyModalOpen,
   setIsAddStickyModalOpen,
+  isAddSectionModalOpen: _isAddSectionModalOpen,
+  setIsAddSectionModalOpen,
   isAddIconModalOpen: _isAddIconModalOpen,
   setIsAddIconModalOpen,
   isAddFigureModalOpen: _isAddFigureModalOpen,
@@ -417,6 +428,12 @@ const useCanvasFrameFormHandlers = ({
   setSelectedStickyColor,
   selectedStickySectionId,
   setSelectedStickySectionId,
+  sectionNameInput,
+  setSectionNameInput,
+  sectionLayoutMode,
+  setSectionLayoutMode,
+  addSectionError: _addSectionError,
+  setAddSectionError,
   selectedAddSectionId,
   setSelectedAddSectionId,
   addStickyError: _addStickyError,
@@ -1991,16 +2008,21 @@ const useCanvasFrameFormHandlers = ({
   }
 
   const handleAddSectionCard = () => {
-    const nextSectionLabel = getNextAutoSectionLabel(frames)
+    const nextSectionLabel = sectionNameInput.trim() || getNextAutoSectionLabel(frames)
+
     const frameDraft: PendingCanvasFrameDraft = {
       kind: 'section',
       label: nextSectionLabel,
-      sectionLayout: 'freeform',
+      sectionLayout: sectionLayoutMode,
       width: 640,
       height: 420,
       refreshNonce: 0,
     }
     queueFrameForPlacement(frameDraft, 'seksjon')
+    setSectionNameInput('')
+    setSectionLayoutMode('grid')
+    setAddSectionError(null)
+    setIsAddSectionModalOpen(false)
   }
 
   const handleAddIconCard = () => {
@@ -2200,7 +2222,10 @@ const useCanvasFrameFormHandlers = ({
   }
 
   const handleOpenAddSection = () => {
-    handleAddSectionCard()
+    setSectionNameInput('')
+    setSectionLayoutMode('grid')
+    setAddSectionError(null)
+    setIsAddSectionModalOpen(true)
   }
 
   const handleOpenAddSqlEditor = () => {

@@ -23,7 +23,9 @@ type UseCanvasPlacementParams = {
   setImportStickyProgressTotal: Dispatch<SetStateAction<number>>
   setIsSavingCanvasItem: Dispatch<SetStateAction<boolean>>
   setSyncError: Dispatch<SetStateAction<string | null>>
+  setPlacementA11yAnnouncement: Dispatch<SetStateAction<string>>
   getCanvasPointerPosition: (clientX: number, clientY: number) => { x: number; y: number } | null
+  getAutoPlacementAnchor: () => { x: number; y: number } | null
   getPendingFrameContentAnchorOffset: (draft: PendingCanvasFrameDraft) => { x: number; y: number }
   getDefaultFrameSize: (frameOrKind: CanvasFrame | CanvasFrame['kind']) => {
     width: number
@@ -65,6 +67,7 @@ type UseCanvasPlacementResult = {
   handleCanvasSurfaceMouseDown: (event: React.MouseEvent<HTMLDivElement>) => void
   handleCanvasSurfaceMouseMove: (event: React.MouseEvent<HTMLDivElement>) => void
   handleCanvasSurfaceMouseLeave: () => void
+  handleAutoPlacePendingFrame: () => Promise<void>
 }
 
 const useCanvasPlacement = ({
@@ -87,7 +90,9 @@ const useCanvasPlacement = ({
   setImportStickyProgressTotal,
   setIsSavingCanvasItem,
   setSyncError,
+  setPlacementA11yAnnouncement,
   getCanvasPointerPosition,
+  getAutoPlacementAnchor,
   getPendingFrameContentAnchorOffset,
   getDefaultFrameSize,
   getNextAutoSectionLabel,
@@ -104,19 +109,6 @@ const useCanvasPlacement = ({
   setSelectedFrameIds,
   isInteractionLocked = false,
 }: UseCanvasPlacementParams): UseCanvasPlacementResult => {
-  useEffect(() => {
-    if (!pendingFrameDraft && !pendingCsvStickyImport) return
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        cancelPendingFramePlacement()
-      }
-    }
-
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [cancelPendingFramePlacement, pendingCsvStickyImport, pendingFrameDraft])
-
   const handlePlacePendingFrame = useCallback(
     async (clientX: number, clientY: number) => {
       if (!pendingFrameDraft) return
@@ -159,6 +151,124 @@ const useCanvasPlacement = ({
       topBuffer,
     ],
   )
+
+  const handleAutoPlacePendingFrame = useCallback(async () => {
+    if (!pendingFrameDraft) return
+    const contentAnchorOffset = getPendingFrameContentAnchorOffset(pendingFrameDraft)
+    const isSection = pendingFrameDraft.kind === 'section'
+    const sectionAutoPlacementAnchor = (() => {
+      if (!isSection) return null
+
+      const defaultSectionSize = getDefaultFrameSize('section')
+      const sectionWidth = pendingFrameDraft.width ?? defaultSectionSize.width
+      const sectionHeight = pendingFrameDraft.height ?? defaultSectionSize.height
+      const sectionGapX = 48
+      const sectionGapY = 48
+      const baseX = 24
+      // Leave vertical space so users can add a heading above the first section later.
+      const baseY = 96
+
+      const existingSections = frames.filter((frame) => frame.kind === 'section')
+      if (existingSections.length === 0) {
+        return {
+          x: baseX + contentAnchorOffset.x,
+          y: baseY + contentAnchorOffset.y,
+        }
+      }
+
+      const occupiedBounds = existingSections.map((sectionFrame) => {
+        const sectionDefaults = getDefaultFrameSize(sectionFrame)
+        return {
+          left: sectionFrame.x,
+          right: sectionFrame.x + (sectionFrame.width ?? sectionDefaults.width),
+          top: sectionFrame.y,
+          bottom: sectionFrame.y + (sectionFrame.height ?? sectionDefaults.height),
+        }
+      })
+
+      const candidateLimit = Math.max(existingSections.length + 4, 10)
+      for (let row = 0; row < candidateLimit; row += 1) {
+        for (let column = 0; column < candidateLimit; column += 1) {
+          const candidateLeft = baseX + column * (sectionWidth + sectionGapX)
+          const candidateTop = baseY + row * (sectionHeight + sectionGapY)
+          const candidateRight = candidateLeft + sectionWidth
+          const candidateBottom = candidateTop + sectionHeight
+
+          const overlapsExistingSection = occupiedBounds.some((occupied) => {
+            const intersectsHorizontally = candidateLeft < occupied.right && candidateRight > occupied.left
+            const intersectsVertically = candidateTop < occupied.bottom && candidateBottom > occupied.top
+            return intersectsHorizontally && intersectsVertically
+          })
+          if (overlapsExistingSection) continue
+
+          return {
+            x: candidateLeft + contentAnchorOffset.x,
+            y: candidateTop + contentAnchorOffset.y,
+          }
+        }
+      }
+
+      return null
+    })()
+
+    const anchor = sectionAutoPlacementAnchor ?? getAutoPlacementAnchor()
+    if (!anchor) return
+
+    const nextFrame: CanvasFrame = {
+      ...pendingFrameDraft,
+      id: `${Date.now()}-${Math.random()}`,
+      x: Math.max(0, anchor.x - contentAnchorOffset.x),
+      y: Math.max(-topBuffer, anchor.y - contentAnchorOffset.y),
+    }
+
+    try {
+      setIsSavingCanvasItem(true)
+      setSyncError(null)
+      const persistedFrame = await persistFrame(nextFrame)
+      setFrames((prev) => [...prev, persistedFrame])
+      setPlacementA11yAnnouncement(`${pendingFrameDraft.label || 'Element'} ble plassert automatisk.`)
+      setPendingFrameDraft(null)
+      setPendingFramePlacementLabel(null)
+      setPendingFramePointer(null)
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre element i canvas')
+    } finally {
+      setIsSavingCanvasItem(false)
+    }
+  }, [
+    frames,
+    getAutoPlacementAnchor,
+    getDefaultFrameSize,
+    getPendingFrameContentAnchorOffset,
+    pendingFrameDraft,
+    persistFrame,
+    setFrames,
+    setIsSavingCanvasItem,
+    setPlacementA11yAnnouncement,
+    setPendingFrameDraft,
+    setPendingFramePlacementLabel,
+    setPendingFramePointer,
+    setSyncError,
+    topBuffer,
+  ])
+
+  useEffect(() => {
+    if (!pendingFrameDraft && !pendingCsvStickyImport) return
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        cancelPendingFramePlacement()
+        return
+      }
+      if (event.key === 'Enter' && pendingFrameDraft) {
+        event.preventDefault()
+        void handleAutoPlacePendingFrame()
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [cancelPendingFramePlacement, handleAutoPlacePendingFrame, pendingCsvStickyImport, pendingFrameDraft])
 
   const handlePlacePendingCsvImport = useCallback(
     async (clientX: number, clientY: number) => {
@@ -512,6 +622,7 @@ const useCanvasPlacement = ({
     handleCanvasSurfaceMouseDown,
     handleCanvasSurfaceMouseMove,
     handleCanvasSurfaceMouseLeave,
+    handleAutoPlacePendingFrame,
   }
 }
 

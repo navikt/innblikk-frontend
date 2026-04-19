@@ -1,5 +1,6 @@
-import { Loader } from '@navikt/ds-react'
+import { Button, Loader } from '@navikt/ds-react'
 import { Plus } from 'lucide-react'
+import { useEffect, useRef } from 'react'
 import type { CanvasFrame, PendingCanvasFrameDraft, PendingCsvStickyImport } from '../../model/types.ts'
 import { getCanvasStickyColorOptionById } from '../sticky/CanvasStickyColorRegistry.ts'
 import CanvasFigureFrame from '../figure/CanvasFigureFrame.tsx'
@@ -12,6 +13,8 @@ type CanvasPlacementModeBannerProps = {
   isImportingStickyCsv: boolean
   importStickyProgressCurrent: number
   importStickyProgressTotal: number
+  onAutoPlace: () => void
+  onCancel: () => void
 }
 
 export const CanvasPlacementModeBanner = ({
@@ -22,12 +25,32 @@ export const CanvasPlacementModeBanner = ({
   isImportingStickyCsv,
   importStickyProgressCurrent,
   importStickyProgressTotal,
+  onAutoPlace,
+  onCancel,
 }: CanvasPlacementModeBannerProps) => {
+  const autoPlaceButtonRef = useRef<HTMLButtonElement | null>(null)
+  const cancelButtonRef = useRef<HTMLButtonElement | null>(null)
+  const wasPlacementModeActiveRef = useRef(false)
+  const isPlacementModeActive = Boolean(pendingFrameDraft || pendingCsvStickyImport)
+
+  useEffect(() => {
+    const startedPlacementMode = isPlacementModeActive && !wasPlacementModeActiveRef.current
+    if (startedPlacementMode) {
+      const nextFocusTarget = pendingFrameDraft ? autoPlaceButtonRef.current : cancelButtonRef.current
+      window.setTimeout(() => {
+        nextFocusTarget?.focus()
+      }, 0)
+    }
+    wasPlacementModeActiveRef.current = isPlacementModeActive
+  }, [isPlacementModeActive, pendingFrameDraft])
+
   if (!pendingFrameDraft && !pendingCsvStickyImport) return null
 
   return (
     <div
-      className="pointer-events-none fixed left-1/2 z-[120] w-[min(96vw,44rem)] -translate-x-1/2 rounded-xl border-2 border-[var(--ax-border-accent)] bg-[var(--ax-bg-default)] px-3 py-2 text-sm font-semibold leading-tight text-[var(--ax-text-default)] shadow-lg sm:px-4 sm:py-2.5 sm:text-base"
+      role="region"
+      aria-label="Plasseringsmodus"
+      className="pointer-events-auto fixed left-1/2 z-[120] w-[min(96vw,44rem)] -translate-x-1/2 rounded-xl border-2 border-[var(--ax-border-accent)] bg-[var(--ax-bg-default)] px-3 py-2 text-sm font-semibold leading-tight text-[var(--ax-text-default)] shadow-lg sm:px-4 sm:py-2.5 sm:text-base"
       style={{ top: `${topOffsetPx}px` }}
     >
       {pendingCsvStickyImport && isImportingStickyCsv ? (
@@ -42,14 +65,38 @@ export const CanvasPlacementModeBanner = ({
                 : 'Importerer CSV-lapper til canvas...'}
         </span>
       ) : (
-        <>
-          <span className="sm:hidden">
-            Plasseringsmodus: trykk for å plassere {pendingFramePlacementLabel || 'element'}.
-          </span>
-          <span className="hidden sm:inline">
-            Plasseringsmodus: klikk for å plassere {pendingFramePlacementLabel || 'element'}. Trykk Esc for å avbryte.
-          </span>
-        </>
+        <div className="space-y-2">
+          <p className="m-0">
+            Plasseringsmodus: klikk for å plassere {pendingFramePlacementLabel || 'element'}.
+            {pendingFrameDraft ? ' Trykk Enter eller bruk Autoplasser.' : ''} Trykk Esc eller Avbryt for å avslutte.
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            {pendingFrameDraft && (
+              <Button
+                size="xsmall"
+                variant="primary"
+                onClick={onAutoPlace}
+                autoFocus
+                ref={(element) => {
+                  autoPlaceButtonRef.current = element
+                }}
+              >
+                Autoplasser
+              </Button>
+            )}
+            <Button
+              size="xsmall"
+              variant="secondary"
+              onClick={onCancel}
+              autoFocus={!pendingFrameDraft}
+              ref={(element) => {
+                cancelButtonRef.current = element
+              }}
+            >
+              Avbryt
+            </Button>
+          </div>
+        </div>
       )}
     </div>
   )

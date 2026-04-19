@@ -18,6 +18,7 @@ import CanvasCoreModals from './controls/CanvasCoreModals.tsx'
 import CanvasTopBar from './controls/CanvasTopBar.tsx'
 import CanvasDotVotingModal from './controls/CanvasDotVotingModal.tsx'
 import CanvasTimerModal from './controls/CanvasTimerModal.tsx'
+import type { SectionAddAction } from './controls/CanvasFrameActionPoints.tsx'
 import CanvasDrawingToolbar from './drawing/CanvasDrawingToolbar.tsx'
 import CanvasDrawingDraftOverlay from './drawing/CanvasDrawingDraftOverlay.tsx'
 import CanvasConnectionLayer from './layers/CanvasConnectionLayer.tsx'
@@ -32,6 +33,7 @@ import CanvasTextModal from './text/CanvasTextModal.tsx'
 import CanvasTableModal from './text/CanvasTableModal.tsx'
 import CanvasLinkModal from './link/CanvasLinkModal.tsx'
 import CanvasStickyModal from './sticky/CanvasStickyModal.tsx'
+import CanvasSectionModal from './section/CanvasSectionModal.tsx'
 import {
   CANVAS_STICKY_COLOR_OPTIONS,
   DEFAULT_CANVAS_STICKY_COLOR,
@@ -96,6 +98,7 @@ import type {
   CanvasFigureType,
   CanvasFrame,
   CanvasPageInsight,
+  CanvasSectionLayoutMode,
   ConnectionAnchorSide,
   ConnectionDragState,
   PendingCanvasFrameDraft,
@@ -317,6 +320,7 @@ const Canvas = () => {
   const [isAddTableModalOpen, setIsAddTableModalOpen] = useState(false)
   const [isAddLinkModalOpen, setIsAddLinkModalOpen] = useState(false)
   const [isAddStickyModalOpen, setIsAddStickyModalOpen] = useState(false)
+  const [isAddSectionModalOpen, setIsAddSectionModalOpen] = useState(false)
   const [isImportStickyCsvModalOpen, setIsImportStickyCsvModalOpen] = useState(false)
   const [isAddIconModalOpen, setIsAddIconModalOpen] = useState(false)
   const [isAddFigureModalOpen, setIsAddFigureModalOpen] = useState(false)
@@ -410,6 +414,14 @@ const Canvas = () => {
   const [stickyContentInput, setStickyContentInput] = useState('')
   const [selectedStickyColor, setSelectedStickyColor] = useState(DEFAULT_CANVAS_STICKY_COLOR)
   const [selectedStickySectionId, setSelectedStickySectionId] = useState('')
+  const [sectionNameInput, setSectionNameInput] = useState('')
+  const [sectionLayoutMode, setSectionLayoutMode] = useState<CanvasSectionLayoutMode>('grid')
+  const [addSectionError, setAddSectionError] = useState<string | null>(null)
+  const [isSectionOptionsModalOpen, setIsSectionOptionsModalOpen] = useState(false)
+  const [sectionOptionsFrameId, setSectionOptionsFrameId] = useState<string | null>(null)
+  const [sectionOptionsNameInput, setSectionOptionsNameInput] = useState('')
+  const [sectionOptionsLayoutMode, setSectionOptionsLayoutMode] = useState<CanvasSectionLayoutMode>('grid')
+  const [sectionOptionsError, setSectionOptionsError] = useState<string | null>(null)
   const [selectedAddSectionId, setSelectedAddSectionId] = useState('')
   const [addStickyError, setAddStickyError] = useState<string | null>(null)
   const [frameTablePages, setFrameTablePages] = useState<Record<string, number>>({})
@@ -467,6 +479,7 @@ const Canvas = () => {
     | null
   >(null)
   const [timerA11yAnnouncement, setTimerA11yAnnouncement] = useState('')
+  const [placementA11yAnnouncement, setPlacementA11yAnnouncement] = useState('')
   const [, setIsLoadingCanvasItems] = useState(false)
   const [isSavingCanvasItem, setIsSavingCanvasItem] = useState(false)
   const [isImportingStickyCsv, setIsImportingStickyCsv] = useState(false)
@@ -493,6 +506,7 @@ const Canvas = () => {
   const canvasToolbarRef = useRef<HTMLDivElement | null>(null)
   const connectionMetricRequestSignatureRef = useRef<string | null>(null)
   const timerModalReopenBlockedUntilRef = useRef(0)
+  const wasPlacementModeActiveRef = useRef(false)
   const {
     pendingFrameDraft,
     setPendingFrameDraft,
@@ -688,6 +702,29 @@ const Canvas = () => {
     const timeoutId = window.setTimeout(() => setTimerA11yAnnouncement(''), 3000)
     return () => window.clearTimeout(timeoutId)
   }, [timerA11yAnnouncement])
+
+  useEffect(() => {
+    if (!placementA11yAnnouncement) return
+    const timeoutId = window.setTimeout(() => setPlacementA11yAnnouncement(''), 3000)
+    return () => window.clearTimeout(timeoutId)
+  }, [placementA11yAnnouncement])
+
+  useEffect(() => {
+    const placementModeStarted = isPlacementModeActive && !wasPlacementModeActiveRef.current
+    if (placementModeStarted) {
+      const elementLabel = pendingFramePlacementLabel || pendingFrameDraft?.label || 'element'
+      if (pendingFrameDraft) {
+        setPlacementA11yAnnouncement(
+          `Plasseringsmodus aktivert for ${elementLabel}. Velg Autoplasser, eller klikk i canvas for plassering. Velg Avbryt for å avslutte.`,
+        )
+      } else if (pendingCsvStickyImport) {
+        setPlacementA11yAnnouncement(
+          'Plasseringsmodus aktivert for import. Klikk i canvas for plassering, eller velg Avbryt for å avslutte.',
+        )
+      }
+    }
+    wasPlacementModeActiveRef.current = isPlacementModeActive
+  }, [isPlacementModeActive, pendingCsvStickyImport, pendingFrameDraft, pendingFramePlacementLabel])
 
   useEffect(() => {
     pageInsightsRef.current = pageInsights
@@ -1518,6 +1555,7 @@ const Canvas = () => {
     handleAddTableCard,
     handleAddLinkCard,
     handleAddStickyCard,
+    handleAddSectionCard,
     handleAddIconCard,
     handleAddFigureCard,
     handleAddChartCard,
@@ -1571,6 +1609,8 @@ const Canvas = () => {
     setIsAddLinkModalOpen,
     isAddStickyModalOpen,
     setIsAddStickyModalOpen,
+    isAddSectionModalOpen,
+    setIsAddSectionModalOpen,
     isAddIconModalOpen,
     setIsAddIconModalOpen,
     isAddFigureModalOpen,
@@ -1685,6 +1725,12 @@ const Canvas = () => {
     setSelectedStickyColor,
     selectedStickySectionId,
     setSelectedStickySectionId,
+    sectionNameInput,
+    setSectionNameInput,
+    sectionLayoutMode,
+    setSectionLayoutMode,
+    addSectionError,
+    setAddSectionError,
     selectedAddSectionId,
     setSelectedAddSectionId,
     addStickyError,
@@ -1729,6 +1775,68 @@ const Canvas = () => {
   const handleOpenAddDrawing = () => {
     cancelPendingFramePlacement()
     openDrawingMode()
+  }
+
+  const handleSelectSectionAddAction = (sectionId: string, action: SectionAddAction) => {
+    const openAddModalInSection = (openModal: () => void) => {
+      openModal()
+      setSelectedAddSectionId(sectionId)
+    }
+
+    switch (action) {
+      case 'section':
+        handleOpenAddSection()
+        return
+      case 'tab':
+        handleOpenCreateTabModal()
+        return
+      case 'heading':
+        openAddModalInSection(handleOpenAddHeadingModal)
+        return
+      case 'text':
+        openAddModalInSection(handleOpenAddTextModal)
+        return
+      case 'table':
+        openAddModalInSection(handleOpenAddTableModal)
+        return
+      case 'link':
+        openAddModalInSection(handleOpenAddLinkModal)
+        return
+      case 'sticky':
+        handleOpenAddStickyModal()
+        setSelectedStickySectionId(sectionId)
+        return
+      case 'image':
+        openAddModalInSection(handleOpenAddImageModal)
+        return
+      case 'icon':
+        openAddModalInSection(handleOpenAddIconModal)
+        return
+      case 'figure':
+        openAddModalInSection(handleOpenAddFigureModal)
+        return
+      case 'drawing':
+        handleOpenAddDrawing()
+        return
+      case 'illustration':
+        openAddModalInSection(handleOpenAddIllustrationModal)
+        return
+      case 'website':
+        handleOpenAddPageModal()
+        return
+      case 'chart':
+        handleOpenGrafbyggerFromAddMenu()
+        return
+      case 'sql-editor':
+        handleOpenAddSqlEditor()
+        return
+      case 'dashboard':
+        handleOpenAddDashboardModal()
+        return
+      case 'import-sticky-csv':
+        handleOpenImportStickyCsvModal()
+        return
+    }
   }
 
   useEffect(() => {
@@ -1782,6 +1890,16 @@ const Canvas = () => {
     },
     [canvasCanvasTopOffset, canvasZoom],
   )
+
+  const getAutoPlacementAnchor = useCallback((): { x: number; y: number } | null => {
+    const viewport = canvasViewportRef.current
+    if (!viewport) return null
+
+    return {
+      x: (viewport.scrollLeft + viewport.clientWidth / 2) / canvasZoom,
+      y: (viewport.scrollTop + viewport.clientHeight / 2 - canvasCanvasTopOffset) / canvasZoom,
+    }
+  }, [canvasCanvasTopOffset, canvasZoom])
 
   const handleFinalizeDrawing = useCallback(
     async ({ strokes }: { strokes: CanvasDrawingStroke[] }) => {
@@ -1866,44 +1984,50 @@ const Canvas = () => {
     defaultStrokeWidth: DEFAULT_DRAWING_STROKE_WIDTH,
   })
 
-  const { handleCanvasSurfaceMouseDown, handleCanvasSurfaceMouseMove, handleCanvasSurfaceMouseLeave } =
-    useCanvasPlacement({
-      frames,
-      setFrames,
-      pendingFrameDraft,
-      setPendingFrameDraft,
-      pendingCsvStickyImport,
-      pendingCsvStickyImportRef,
-      pendingFigureDragStart,
-      setPendingFigureDragStart,
-      pendingFramePointer,
-      setPendingFramePointer,
-      setPendingFramePlacementLabel,
-      cancelPendingFramePlacement,
-      isImportingStickyCsv,
-      setIsImportingStickyCsv,
-      isImportingStickyCsvRef,
-      setImportStickyProgressCurrent,
-      setImportStickyProgressTotal,
-      setIsSavingCanvasItem,
-      setSyncError,
-      getCanvasPointerPosition,
-      getPendingFrameContentAnchorOffset,
-      getDefaultFrameSize,
-      getNextAutoSectionLabel,
-      estimateStickyFrameHeight,
-      estimateTableFrameHeight,
-      persistFrame,
-      sectionHeaderHeight: GRID_SECTION_LAYOUT_CONFIG.paddingTop,
-      topBuffer: CANVAS_TOP_BUFFER,
-      isDrawingMode,
-      startDrawingAt,
-      continueDrawingAt,
-      selectionBox,
-      setSelectionBox,
-      setSelectedFrameIds,
-      isInteractionLocked,
-    })
+  const {
+    handleCanvasSurfaceMouseDown,
+    handleCanvasSurfaceMouseMove,
+    handleCanvasSurfaceMouseLeave,
+    handleAutoPlacePendingFrame,
+  } = useCanvasPlacement({
+    frames,
+    setFrames,
+    pendingFrameDraft,
+    setPendingFrameDraft,
+    pendingCsvStickyImport,
+    pendingCsvStickyImportRef,
+    pendingFigureDragStart,
+    setPendingFigureDragStart,
+    pendingFramePointer,
+    setPendingFramePointer,
+    setPendingFramePlacementLabel,
+    cancelPendingFramePlacement,
+    isImportingStickyCsv,
+    setIsImportingStickyCsv,
+    isImportingStickyCsvRef,
+    setImportStickyProgressCurrent,
+    setImportStickyProgressTotal,
+    setIsSavingCanvasItem,
+    setSyncError,
+    setPlacementA11yAnnouncement,
+    getCanvasPointerPosition,
+    getAutoPlacementAnchor,
+    getPendingFrameContentAnchorOffset,
+    getDefaultFrameSize,
+    getNextAutoSectionLabel,
+    estimateStickyFrameHeight,
+    estimateTableFrameHeight,
+    persistFrame,
+    sectionHeaderHeight: GRID_SECTION_LAYOUT_CONFIG.paddingTop,
+    topBuffer: CANVAS_TOP_BUFFER,
+    isDrawingMode,
+    startDrawingAt,
+    continueDrawingAt,
+    selectionBox,
+    setSelectionBox,
+    setSelectedFrameIds,
+    isInteractionLocked,
+  })
 
   const getFrameBounds = useCallback(
     (frame: CanvasFrame): { left: number; top: number; right: number; bottom: number } => {
@@ -2881,28 +3005,33 @@ const Canvas = () => {
     })
   }
 
-  const handleToggleSectionLayout = (id: string) => {
+  const handleSetSectionLayout = (
+    id: string,
+    nextSectionLayout: CanvasSectionLayoutMode,
+    nextLabel?: string,
+  ): boolean => {
     const sectionFrame = frames.find((frame) => frame.id === id)
-    if (!sectionFrame || sectionFrame.kind !== 'section') return
+    if (!sectionFrame || sectionFrame.kind !== 'section') return false
+    if (sectionFrame.sectionLayout === nextSectionLayout && nextLabel === undefined) return true
 
-    const nextSectionLayout = sectionFrame.sectionLayout === 'grid' ? 'freeform' : 'grid'
     if (sectionFrame.sectionLayout === 'freeform' && nextSectionLayout === 'grid') {
       const confirmed = window.confirm(
         'Bytte til rutenett vil flytte elementene automatisk og overstyre friform-posisjonene. Vil du fortsette?',
       )
-      if (!confirmed) return
+      if (!confirmed) return false
     }
 
     if (nextSectionLayout === 'freeform') {
       const nextSectionFrame: CanvasFrame = {
         ...sectionFrame,
+        label: nextLabel ?? sectionFrame.label,
         sectionLayout: 'freeform',
       }
       setFrames((prev) => prev.map((frame) => (frame.id === id ? nextSectionFrame : frame)))
       void persistFrame(nextSectionFrame).catch((error) => {
         setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre seksjonsoppsett')
       })
-      return
+      return true
     }
 
     const sectionBounds = getFrameBoundsForLayout(sectionFrame)
@@ -2961,6 +3090,7 @@ const Canvas = () => {
 
     const nextSectionFrame: CanvasFrame = {
       ...sectionFrame,
+      label: nextLabel ?? sectionFrame.label,
       sectionLayout: 'grid',
       height: Math.max(
         sectionFrame.height ?? getDefaultFrameSize(sectionFrame).height,
@@ -2988,6 +3118,55 @@ const Canvas = () => {
           }),
         ),
     )
+    return true
+  }
+
+  const handleOpenSectionOptionsModal = (id: string) => {
+    const sectionFrame = frames.find((frame) => frame.id === id && frame.kind === 'section')
+    if (!sectionFrame) return
+    setSectionOptionsFrameId(id)
+    setSectionOptionsNameInput(sectionFrame.label)
+    setSectionOptionsLayoutMode(sectionFrame.sectionLayout === 'grid' ? 'grid' : 'freeform')
+    setSectionOptionsError(null)
+    setIsSectionOptionsModalOpen(true)
+  }
+
+  const handleSaveSectionOptions = () => {
+    const frameId = sectionOptionsFrameId
+    if (!frameId) return
+    const sectionFrame = frames.find((frame) => frame.id === frameId && frame.kind === 'section')
+    if (!sectionFrame) {
+      setSectionOptionsError('Fant ikke seksjonen.')
+      return
+    }
+
+    const normalizedLabel = sectionOptionsNameInput.trim() || getNextAutoSectionLabel(frames, frameId)
+    const nextLayout = sectionOptionsLayoutMode
+
+    if (sectionFrame.sectionLayout !== nextLayout) {
+      const didApplyLayout = handleSetSectionLayout(frameId, nextLayout, normalizedLabel)
+      if (!didApplyLayout) return
+      setIsSectionOptionsModalOpen(false)
+      setSectionOptionsFrameId(null)
+      setSectionOptionsNameInput('')
+      setSectionOptionsLayoutMode('grid')
+      setSectionOptionsError(null)
+      return
+    }
+
+    const nextSectionFrame: CanvasFrame = {
+      ...sectionFrame,
+      label: normalizedLabel,
+    }
+    setFrames((prev) => prev.map((frame) => (frame.id === frameId ? nextSectionFrame : frame)))
+    void persistFrame(nextSectionFrame).catch((error) => {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre seksjonsinnstillinger')
+    })
+    setIsSectionOptionsModalOpen(false)
+    setSectionOptionsFrameId(null)
+    setSectionOptionsNameInput('')
+    setSectionOptionsLayoutMode('grid')
+    setSectionOptionsError(null)
   }
 
   const handleMoveFrameToSection = (frameId: string, sectionId: string) => {
@@ -3062,19 +3241,6 @@ const Canvas = () => {
     setFrames((prev) => prev.map((item) => (item.id === frameId ? nextFrame : item)))
     void persistFrame(nextFrame).catch((error) => {
       setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre farge for post-it-lapp')
-    })
-  }
-
-  const handleToggleFrameShareVisibility = (frameId: string) => {
-    const frame = frames.find((item) => item.id === frameId)
-    if (!frame || frame.kind === 'section') return
-    const nextFrame: CanvasFrame = {
-      ...frame,
-      hideInShare: !frame.hideInShare,
-    }
-    setFrames((prev) => prev.map((item) => (item.id === frameId ? nextFrame : item)))
-    void persistFrame(nextFrame).catch((error) => {
-      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre delingsvisning')
     })
   }
 
@@ -3942,6 +4108,9 @@ const Canvas = () => {
         <div className="sr-only" aria-live="polite" aria-atomic="true">
           {timerA11yAnnouncement}
         </div>
+        <div className="sr-only" aria-live="polite" aria-atomic="true">
+          {placementA11yAnnouncement}
+        </div>
         <CanvasTopBar
           canvasToolbarRef={canvasToolbarRef}
           projectId={projectId}
@@ -4042,6 +4211,13 @@ const Canvas = () => {
               isImportingStickyCsv={isImportingStickyCsv}
               importStickyProgressCurrent={importStickyProgressCurrent}
               importStickyProgressTotal={importStickyProgressTotal}
+              onAutoPlace={() => {
+                void handleAutoPlacePendingFrame()
+              }}
+              onCancel={() => {
+                cancelPendingFramePlacement()
+                setPlacementA11yAnnouncement('Plasseringsmodus avsluttet.')
+              }}
             />
             {isDrawingMode && (
               <CanvasDrawingToolbar
@@ -4199,11 +4375,11 @@ const Canvas = () => {
                     handleRotateIllustrationFrame={handleRotateIllustrationFrame}
                     handleRotateFigureFrame={handleRotateFigureFrame}
                     handleRotateDrawingFrame={handleRotateDrawingFrame}
-                    handleToggleSectionLayout={handleToggleSectionLayout}
+                    handleOpenSectionOptionsModal={handleOpenSectionOptionsModal}
                     handleMoveFrameToSection={handleMoveFrameToSection}
                     handleSetStickyColor={handleSetStickyColor}
-                    handleToggleFrameShareVisibility={handleToggleFrameShareVisibility}
                     handleRequestRemoveFrame={handleRequestRemoveFrame}
+                    handleSelectSectionAddAction={handleSelectSectionAddAction}
                     startConnectionDrag={startConnectionDrag}
                     handleAssignWebsiteToChart={handleAssignWebsiteToChart}
                     handleOpenEditChartModal={handleOpenEditChartModal}
@@ -4764,6 +4940,57 @@ const Canvas = () => {
           setIsAddTextModalOpen(false)
           setSelectedAddSectionId('')
           setAddTextError(null)
+        }}
+      />
+
+      <CanvasSectionModal
+        open={isAddSectionModalOpen}
+        nameValue={sectionNameInput}
+        layoutMode={sectionLayoutMode}
+        error={addSectionError}
+        isSaving={isSavingCanvasItem}
+        onNameChange={(value) => {
+          setSectionNameInput(value)
+          if (addSectionError) setAddSectionError(null)
+        }}
+        onLayoutModeChange={(value) => {
+          setSectionLayoutMode(value)
+          if (addSectionError) setAddSectionError(null)
+        }}
+        onSubmit={() => void handleAddSectionCard()}
+        onClose={() => {
+          setIsAddSectionModalOpen(false)
+          setSectionNameInput('')
+          setSectionLayoutMode('grid')
+          setAddSectionError(null)
+        }}
+      />
+
+      <CanvasSectionModal
+        open={isSectionOptionsModalOpen}
+        heading="Seksjonsinnstillinger"
+        submitLabel="Lagre"
+        nameValue={sectionOptionsNameInput}
+        layoutMode={sectionOptionsLayoutMode}
+        error={sectionOptionsError}
+        isSaving={isSavingCanvasItem}
+        onNameChange={(value) => {
+          setSectionOptionsNameInput(value)
+          if (sectionOptionsError) setSectionOptionsError(null)
+        }}
+        onLayoutModeChange={(value) => {
+          setSectionOptionsLayoutMode(value)
+          if (sectionOptionsError) setSectionOptionsError(null)
+        }}
+        onSubmit={() => {
+          handleSaveSectionOptions()
+        }}
+        onClose={() => {
+          setIsSectionOptionsModalOpen(false)
+          setSectionOptionsFrameId(null)
+          setSectionOptionsNameInput('')
+          setSectionOptionsLayoutMode('grid')
+          setSectionOptionsError(null)
         }}
       />
 
