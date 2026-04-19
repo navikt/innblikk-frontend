@@ -215,6 +215,7 @@ type UseCanvasFrameFormHandlersParams = {
   setSelectedStickyColor: Setter<string>
   selectedStickySectionId: string
   setSelectedStickySectionId: Setter<string>
+  onFrameAddedInSection?: (frame: CanvasFrame) => void
   sectionNameInput: string
   setSectionNameInput: Setter<string>
   sectionLayoutMode: CanvasSectionLayoutMode
@@ -428,6 +429,7 @@ const useCanvasFrameFormHandlers = ({
   setSelectedStickyColor,
   selectedStickySectionId,
   setSelectedStickySectionId,
+  onFrameAddedInSection,
   sectionNameInput,
   setSectionNameInput,
   sectionLayoutMode,
@@ -776,6 +778,7 @@ const useCanvasFrameFormHandlers = ({
           setSyncError(null)
           const persistedFrame = await persistFrame(nextFrame)
           setFrames((prev) => [...prev, persistedFrame])
+          onFrameAddedInSection?.(persistedFrame)
           setNewImageUrlInput('')
           setSelectedAddSectionId('')
           setAddImageError(null)
@@ -852,6 +855,7 @@ const useCanvasFrameFormHandlers = ({
           }
           const persistedFrame = await persistFrame(nextFrame)
           setFrames((prev) => [...prev, persistedFrame])
+          onFrameAddedInSection?.(persistedFrame)
         } else {
           const frameDraft: PendingCanvasFrameDraft = {
             kind: 'image',
@@ -1579,6 +1583,7 @@ const useCanvasFrameFormHandlers = ({
           setSyncError(null)
           const persistedFrame = await persistFrame(nextFrame)
           setFrames((prev) => [...prev, persistedFrame])
+          onFrameAddedInSection?.(persistedFrame)
           setHeadingTextInput('')
           setSelectedAddSectionId('')
           setAddHeadingError(null)
@@ -1643,6 +1648,7 @@ const useCanvasFrameFormHandlers = ({
           setSyncError(null)
           const persistedFrame = await persistFrame(nextFrame)
           setFrames((prev) => [...prev, persistedFrame])
+          onFrameAddedInSection?.(persistedFrame)
           setTextContentInput('')
           setSelectedAddSectionId('')
           setAddTextError(null)
@@ -1765,6 +1771,7 @@ const useCanvasFrameFormHandlers = ({
           setSyncError(null)
           const persistedFrame = await persistFrame(nextFrame)
           setFrames((prev) => [...prev, persistedFrame])
+          onFrameAddedInSection?.(persistedFrame)
           setTableHeadersInput('')
           setTableRowsInput('')
           setSelectedAddSectionId('')
@@ -1880,6 +1887,7 @@ const useCanvasFrameFormHandlers = ({
           setSyncError(null)
           const persistedFrame = await persistFrame(nextFrame)
           setFrames((prev) => [...prev, persistedFrame])
+          onFrameAddedInSection?.(persistedFrame)
           setLinkTitleInput('')
           setLinkUrlInput('')
           setLinkDescriptionInput('')
@@ -1976,6 +1984,7 @@ const useCanvasFrameFormHandlers = ({
           setSyncError(null)
           const persistedFrame = await persistFrame(nextFrame)
           setFrames((prev) => [...prev, persistedFrame])
+          onFrameAddedInSection?.(persistedFrame)
           setStickyContentInput('')
           setSelectedStickyColor(DEFAULT_CANVAS_STICKY_COLOR)
           setSelectedStickySectionId('')
@@ -2061,6 +2070,7 @@ const useCanvasFrameFormHandlers = ({
           setSyncError(null)
           const persistedFrame = await persistFrame(nextFrame)
           setFrames((prev) => [...prev, persistedFrame])
+          onFrameAddedInSection?.(persistedFrame)
           setSelectedAddSectionId('')
           setAddIconError(null)
           setIsAddIconModalOpen(false)

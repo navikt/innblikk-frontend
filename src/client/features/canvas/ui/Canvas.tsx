@@ -494,6 +494,7 @@ const Canvas = () => {
   const [canvasZoom, setCanvasZoom] = useState(1)
   const [activeEditableFrameId, setActiveEditableFrameId] = useState<string | null>(null)
   const [focusSectionTitleId, setFocusSectionTitleId] = useState<string | null>(null)
+  const [focusFrameId, setFocusFrameId] = useState<string | null>(null)
   const [failedImageFrameIds, setFailedImageFrameIds] = useState<Record<string, boolean>>({})
   const pageInsightsRef = useRef<Record<string, CanvasPageInsight>>({})
   const framesRef = useRef<CanvasFrame[]>([])
@@ -1726,6 +1727,7 @@ const Canvas = () => {
     setSelectedStickyColor,
     selectedStickySectionId,
     setSelectedStickySectionId,
+    onFrameAddedInSection: (frame) => setFocusFrameId(frame.id),
     sectionNameInput,
     setSectionNameInput,
     sectionLayoutMode,
@@ -2065,6 +2067,7 @@ const Canvas = () => {
     setSyncError,
     setPlacementA11yAnnouncement,
     onAutoPlacedSection: handleAutoPlacedSection,
+    onFramePlaced: (frame) => setFocusFrameId(frame.id),
     getCanvasPointerPosition,
     getAutoPlacementAnchor,
     getPendingFrameContentAnchorOffset,
@@ -4453,6 +4456,8 @@ const Canvas = () => {
                     isCanvasLocked={isCanvasLocked}
                     focusSectionTitleId={focusSectionTitleId}
                     onSectionTitleFocusHandled={() => setFocusSectionTitleId(null)}
+                    focusFrameId={focusFrameId}
+                    onFrameFocusHandled={() => setFocusFrameId(null)}
                   />
                 </div>
               </div>

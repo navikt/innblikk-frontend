@@ -117,6 +117,7 @@ const CanvasTextFrame = ({
     <div className="relative h-full overflow-auto px-2 pb-2">
       <button
         type="button"
+        data-canvas-edit-trigger="true"
         className="h-full w-full cursor-text overflow-auto whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)]"
         style={{ fontSize: '22px', lineHeight: 1.3, fontWeight: 500 }}
         onMouseDown={(event) => event.stopPropagation()}

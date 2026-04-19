@@ -58,6 +58,7 @@ const CanvasHeadingFrame = ({
         <h4 className="m-0">
           <button
             type="button"
+            data-canvas-edit-trigger="true"
             className="w-full cursor-text whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)]"
             onMouseDown={(event) => event.stopPropagation()}
             onClick={() => onStartEditing(id)}
@@ -75,6 +76,7 @@ const CanvasHeadingFrame = ({
         <h3 className="m-0">
           <button
             type="button"
+            data-canvas-edit-trigger="true"
             className="w-full cursor-text whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)]"
             onMouseDown={(event) => event.stopPropagation()}
             onClick={() => onStartEditing(id)}
@@ -92,6 +94,7 @@ const CanvasHeadingFrame = ({
         <h2 className="m-0">
           <button
             type="button"
+            data-canvas-edit-trigger="true"
             className="w-full cursor-text whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)]"
             onMouseDown={(event) => event.stopPropagation()}
             onClick={() => onStartEditing(id)}

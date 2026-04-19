@@ -25,6 +25,7 @@ type UseCanvasPlacementParams = {
   setSyncError: Dispatch<SetStateAction<string | null>>
   setPlacementA11yAnnouncement: Dispatch<SetStateAction<string>>
   onAutoPlacedSection?: (frame: CanvasFrame) => void
+  onFramePlaced?: (frame: CanvasFrame) => void
   getCanvasPointerPosition: (clientX: number, clientY: number) => { x: number; y: number } | null
   getAutoPlacementAnchor: () => { x: number; y: number } | null
   getPendingFrameContentAnchorOffset: (draft: PendingCanvasFrameDraft) => { x: number; y: number }
@@ -93,6 +94,7 @@ const useCanvasPlacement = ({
   setSyncError,
   setPlacementA11yAnnouncement,
   onAutoPlacedSection,
+  onFramePlaced,
   getCanvasPointerPosition,
   getAutoPlacementAnchor,
   getPendingFrameContentAnchorOffset,
@@ -114,6 +116,8 @@ const useCanvasPlacement = ({
   const handlePlacePendingFrame = useCallback(
     async (clientX: number, clientY: number) => {
       if (!pendingFrameDraft) return
+      const existingSectionCount =
+        pendingFrameDraft.kind === 'section' ? frames.filter((frame) => frame.kind === 'section').length : 0
       const pointer = getCanvasPointerPosition(clientX, clientY)
       if (!pointer) return
       const contentAnchorOffset = getPendingFrameContentAnchorOffset(pendingFrameDraft)
@@ -131,8 +135,15 @@ const useCanvasPlacement = ({
         const persistedFrame = await persistFrame(nextFrame)
         setFrames((prev) => [...prev, persistedFrame])
         if (pendingFrameDraft.kind === 'section') {
+          setPlacementA11yAnnouncement(
+            existingSectionCount > 0 ? 'Seksjon plassert ved siden av forrige seksjon.' : 'Seksjon plassert.',
+          )
           window.requestAnimationFrame(() => {
             onAutoPlacedSection?.(persistedFrame)
+          })
+        } else {
+          window.requestAnimationFrame(() => {
+            onFramePlaced?.(persistedFrame)
           })
         }
         setPendingFrameDraft(null)
@@ -146,13 +157,16 @@ const useCanvasPlacement = ({
     },
     [
       getCanvasPointerPosition,
+      frames,
       getPendingFrameContentAnchorOffset,
       pendingFrameDraft,
       persistFrame,
       setFrames,
       setIsSavingCanvasItem,
       onAutoPlacedSection,
+      onFramePlaced,
       setPendingFrameDraft,
+      setPlacementA11yAnnouncement,
       setPendingFramePlacementLabel,
       setPendingFramePointer,
       setSyncError,
@@ -162,6 +176,8 @@ const useCanvasPlacement = ({
 
   const handleAutoPlacePendingFrame = useCallback(async () => {
     if (!pendingFrameDraft) return
+    const existingSectionCount =
+      pendingFrameDraft.kind === 'section' ? frames.filter((frame) => frame.kind === 'section').length : 0
     const contentAnchorOffset = getPendingFrameContentAnchorOffset(pendingFrameDraft)
     const isSection = pendingFrameDraft.kind === 'section'
     const sectionAutoPlacementAnchor = (() => {
@@ -235,11 +251,20 @@ const useCanvasPlacement = ({
       const persistedFrame = await persistFrame(nextFrame)
       setFrames((prev) => [...prev, persistedFrame])
       if (pendingFrameDraft.kind === 'section') {
+        setPlacementA11yAnnouncement(
+          existingSectionCount > 0
+            ? 'Seksjon plassert automatisk ved siden av forrige seksjon.'
+            : 'Seksjon plassert automatisk.',
+        )
         window.requestAnimationFrame(() => {
           onAutoPlacedSection?.(persistedFrame)
         })
+      } else {
+        setPlacementA11yAnnouncement(`${pendingFrameDraft.label || 'Element'} ble plassert automatisk.`)
+        window.requestAnimationFrame(() => {
+          onFramePlaced?.(persistedFrame)
+        })
       }
-      setPlacementA11yAnnouncement(`${pendingFrameDraft.label || 'Element'} ble plassert automatisk.`)
       setPendingFrameDraft(null)
       setPendingFramePlacementLabel(null)
       setPendingFramePointer(null)
@@ -259,6 +284,7 @@ const useCanvasPlacement = ({
     setIsSavingCanvasItem,
     setPlacementA11yAnnouncement,
     onAutoPlacedSection,
+    onFramePlaced,
     setPendingFrameDraft,
     setPendingFramePlacementLabel,
     setPendingFramePointer,

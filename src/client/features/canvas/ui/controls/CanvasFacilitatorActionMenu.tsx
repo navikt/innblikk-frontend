@@ -57,12 +57,12 @@ const CanvasFacilitatorActionMenu = ({
       )}
     </ActionMenu.Trigger>
     <ActionMenu.Content align="end">
-      {onOpenShareView && <ActionMenu.Item onClick={onOpenShareView}>Delingsvisning (eksperimentell)</ActionMenu.Item>}
-      {onOpenShareView && <ActionMenu.Divider />}
       <ActionMenu.Item onClick={onOpenTimer}>{timerLabel ? `Nedteller (${timerLabel})` : 'Nedteller'}</ActionMenu.Item>
       <ActionMenu.Item onClick={onOpenDotVoting}>
         {dotVotingLabel ? `Prikkvotering (${dotVotingLabel})` : 'Prikkvotering'}
       </ActionMenu.Item>
+      {onOpenShareView && <ActionMenu.Divider />}
+      {onOpenShareView && <ActionMenu.Item onClick={onOpenShareView}>Delingsvisning (beta)</ActionMenu.Item>}
     </ActionMenu.Content>
   </ActionMenu>
 )

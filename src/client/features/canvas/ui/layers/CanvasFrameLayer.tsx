@@ -219,6 +219,8 @@ type CanvasFrameLayerProps = {
   isCanvasLocked?: boolean
   focusSectionTitleId?: string | null
   onSectionTitleFocusHandled?: () => void
+  focusFrameId?: string | null
+  onFrameFocusHandled?: () => void
 }
 
 const CanvasFrameLayer = ({
@@ -307,10 +309,13 @@ const CanvasFrameLayer = ({
   isCanvasLocked = false,
   focusSectionTitleId = null,
   onSectionTitleFocusHandled,
+  focusFrameId = null,
+  onFrameFocusHandled,
 }: CanvasFrameLayerProps) => {
   const [topListFilterByFrameId, setTopListFilterByFrameId] = useState<Record<string, string>>({})
   const [activeTopListItemKeyByFrameId, setActiveTopListItemKeyByFrameId] = useState<Record<string, string | null>>({})
   const sectionTitleButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+  const frameContainerRefs = useRef<Record<string, HTMLElement | null>>({})
 
   const focusAdjacentSection = useCallback(
     (sectionId: string, direction: 'next' | 'previous') => {
@@ -353,6 +358,22 @@ const CanvasFrameLayer = ({
     titleButton.focus()
     onSectionTitleFocusHandled?.()
   }, [focusSectionTitleId, frameItems, onSectionTitleFocusHandled])
+
+  useEffect(() => {
+    if (!focusFrameId) return
+    const frameElement = frameContainerRefs.current[focusFrameId]
+    if (!frameElement) return
+
+    const editTrigger = frameElement.querySelector<HTMLElement>('[data-canvas-edit-trigger="true"]')
+    if (editTrigger) {
+      editTrigger.focus()
+      onFrameFocusHandled?.()
+      return
+    }
+
+    frameElement.focus()
+    onFrameFocusHandled?.()
+  }, [focusFrameId, frameItems, onFrameFocusHandled])
 
   return (
     <>
@@ -509,6 +530,11 @@ const CanvasFrameLayer = ({
             <FrameContainerTag
               key={frame.id}
               data-canvas-frame-root="true"
+              data-canvas-frame-id={frame.id}
+              tabIndex={-1}
+              ref={(element) => {
+                frameContainerRefs.current[frame.id] = element
+              }}
               role={frame.kind === 'section' ? 'region' : undefined}
               aria-label={
                 frame.kind === 'section'
