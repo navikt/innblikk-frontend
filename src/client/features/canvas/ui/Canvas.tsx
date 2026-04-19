@@ -2320,7 +2320,7 @@ const Canvas = () => {
     getHeadingFrameHeight,
     handleDragStart,
     handleResizeStart,
-    handleAdjustHeadingFontSize,
+    handleSetHeadingFontSize,
   } = useCanvasInteractions({
     isInteractionLocked,
     frames,
@@ -4417,7 +4417,7 @@ const Canvas = () => {
                     handleDuplicateHeadingCard={handleDuplicateHeadingCard}
                     handleDuplicateDrawingCard={handleDuplicateDrawingCard}
                     handleDuplicateImageCard={handleDuplicateImageCard}
-                    handleAdjustHeadingFontSize={handleAdjustHeadingFontSize}
+                    handleSetHeadingFontSize={handleSetHeadingFontSize}
                     handleRotateIllustrationFrame={handleRotateIllustrationFrame}
                     handleRotateFigureFrame={handleRotateFigureFrame}
                     handleRotateDrawingFrame={handleRotateDrawingFrame}

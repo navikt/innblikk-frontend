@@ -18,7 +18,6 @@ import {
   CARD_ACTION_BUTTON_CLASSNAME,
   DEFAULT_DRAWING_STROKE_WIDTH,
   HEADING_CARD_HEADER_HEIGHT,
-  HEADING_FONT_SIZE_STEP,
   HEADING_TEXT_MIN_WIDTH,
   ICON_ROTATION_STEP_DEG,
   WEBSITE_CARD_HEADER_HEIGHT,
@@ -191,7 +190,7 @@ type CanvasFrameLayerProps = {
   handleDuplicateHeadingCard: (frame: CanvasFrame) => Promise<void>
   handleDuplicateDrawingCard: (frame: CanvasFrame) => Promise<void>
   handleDuplicateImageCard: (frame: CanvasFrame) => Promise<void>
-  handleAdjustHeadingFontSize: (id: string, delta: number) => void
+  handleSetHeadingFontSize: (id: string, sizePx: number) => void
   handleRotateIllustrationFrame: (id: string, delta: number) => void
   handleRotateFigureFrame: (id: string, delta: number) => void
   handleRotateDrawingFrame: (id: string, delta: number) => void
@@ -281,7 +280,7 @@ const CanvasFrameLayer = ({
   handleDuplicateHeadingCard,
   handleDuplicateDrawingCard,
   handleDuplicateImageCard,
-  handleAdjustHeadingFontSize,
+  handleSetHeadingFontSize,
   handleRotateIllustrationFrame,
   handleRotateFigureFrame,
   handleRotateDrawingFrame,
@@ -497,8 +496,7 @@ const CanvasFrameLayer = ({
               onEditDashboard={() => handleOpenEditDashboardModal(frame)}
               onEditIcon={() => handleOpenEditIconModal(frame)}
               onDuplicateIcon={() => void handleDuplicateIconCard(frame)}
-              onRotateIconLeft={() => handleRotateIconFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
-              onRotateIconRight={() => handleRotateIconFrame(frame.id, ICON_ROTATION_STEP_DEG)}
+              onRotateIcon={(delta) => handleRotateIconFrame(frame.id, delta)}
               onEditFigure={() => handleOpenEditFigureModal(frame)}
               onDuplicateFigure={() => void handleDuplicateFigureCard(frame)}
               onDuplicateSection={() => void handleDuplicateSectionCard(frame)}
@@ -507,10 +505,9 @@ const CanvasFrameLayer = ({
               onDuplicateHeading={() => void handleDuplicateHeadingCard(frame)}
               onDuplicateDrawing={() => void handleDuplicateDrawingCard(frame)}
               onDuplicateImage={() => void handleDuplicateImageCard(frame)}
-              onDecreaseHeadingFontSize={() => handleAdjustHeadingFontSize(frame.id, -HEADING_FONT_SIZE_STEP)}
-              onIncreaseHeadingFontSize={() => handleAdjustHeadingFontSize(frame.id, HEADING_FONT_SIZE_STEP)}
-              onRotateIllustrationLeft={() => handleRotateIllustrationFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
-              onRotateIllustrationRight={() => handleRotateIllustrationFrame(frame.id, ICON_ROTATION_STEP_DEG)}
+              headingFontSizePx={frame.kind === 'heading' ? getHeadingFrameFontSize(frame) : 40}
+              onSetHeadingFontSize={(sizePx) => handleSetHeadingFontSize(frame.id, sizePx)}
+              onRotateIllustration={(delta) => handleRotateIllustrationFrame(frame.id, delta)}
               sectionLayoutMode={frame.sectionLayout === 'grid' ? 'grid' : 'freeform'}
               onOpenSectionOptions={() => handleOpenSectionOptionsModal(frame.id)}
               sectionMoveOptions={sectionMoveOptionsForFrame}
@@ -518,8 +515,7 @@ const CanvasFrameLayer = ({
               onSetStickyColor={(colorId) => handleSetStickyColor(frame.id, colorId)}
               onMoveToSection={(sectionId) => handleMoveFrameToSection(frame.id, sectionId)}
               onSelectSectionAddAction={(action) => handleSelectSectionAddAction(frame.id, action)}
-              onRotateFigureLeft={() => handleRotateFigureFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
-              onRotateFigureRight={() => handleRotateFigureFrame(frame.id, ICON_ROTATION_STEP_DEG)}
+              onRotateFigure={(delta) => handleRotateFigureFrame(frame.id, delta)}
               onRotateDrawingLeft={() => handleRotateDrawingFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
               onRotateDrawingRight={() => handleRotateDrawingFrame(frame.id, ICON_ROTATION_STEP_DEG)}
               onRemoveFrame={() => handleRequestRemoveFrame(frame)}
