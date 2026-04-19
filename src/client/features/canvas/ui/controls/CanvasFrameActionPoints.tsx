@@ -228,35 +228,35 @@ const HeadingBoxActionPoints = ({
           onClick={() => onSetHeadingFontSize(40)}
           disabled={headingFontSizePx === 40}
         >
-          Ekstra stor (40 px)
+          Ekstra stor
         </ActionMenu.Item>
         <ActionMenu.Item
           onMouseDown={stopMouseDownPropagation}
           onClick={() => onSetHeadingFontSize(32)}
           disabled={headingFontSizePx === 32}
         >
-          Stor (32 px)
+          Stor
         </ActionMenu.Item>
         <ActionMenu.Item
           onMouseDown={stopMouseDownPropagation}
           onClick={() => onSetHeadingFontSize(24)}
           disabled={headingFontSizePx === 24}
         >
-          Middels (24 px)
+          Middels
         </ActionMenu.Item>
         <ActionMenu.Item
           onMouseDown={stopMouseDownPropagation}
           onClick={() => onSetHeadingFontSize(20)}
           disabled={headingFontSizePx === 20}
         >
-          Liten (20 px)
+          Liten
         </ActionMenu.Item>
         <ActionMenu.Item
           onMouseDown={stopMouseDownPropagation}
           onClick={() => onSetHeadingFontSize(18)}
           disabled={headingFontSizePx === 18}
         >
-          Ekstra liten (18 px)
+          Ekstra liten
         </ActionMenu.Item>
       </ActionMenu.Content>
     </ActionMenu>
@@ -375,11 +375,13 @@ const CanvasFrameActionPoints = ({
   const actionPointsBackdropClassName =
     frameKind === 'sticky'
       ? 'rounded-md bg-[var(--ax-bg-default)]/85 p-1 shadow-sm backdrop-blur-sm opacity-0 transition-opacity group-hover/frame:opacity-100 group-focus-within/frame:opacity-100'
-      : ''
+      : frameKind === 'heading' || frameKind === 'text' || frameKind === 'link'
+        ? 'rounded-md bg-[var(--ax-bg-default)]/85 p-1 shadow-sm backdrop-blur-sm opacity-0 transition-opacity group-hover/frame:opacity-100 group-focus-within/frame:opacity-100'
+        : ''
 
   return (
     <div
-      className={`pointer-events-none absolute z-30 ${actionPointsPositionClassName} ${actionPointsBackdropClassName}`}
+      className={`pointer-events-none absolute z-40 ${actionPointsPositionClassName} ${actionPointsBackdropClassName}`}
     >
       <ImageOrDashboardEditActionPoint
         frameKind={frameKind}

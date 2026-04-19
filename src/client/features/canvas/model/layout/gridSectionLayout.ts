@@ -9,7 +9,7 @@ export const GRID_SECTION_LAYOUT_CONFIG = {
 } as const
 
 export const GRID_SECTION_LAYOUT_MIN_COLUMN_WIDTH = 280
-const GRID_SECTION_LAYOUT_TEXT_TOP_SPACING = 10
+const GRID_SECTION_LAYOUT_TEXT_TOP_SPACING = 2
 
 type DefaultFrameSizeResolver = (frameOrKind: CanvasFrame | CanvasFrame['kind']) => {
   width: number

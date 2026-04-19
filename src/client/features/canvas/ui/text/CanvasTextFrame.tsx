@@ -106,7 +106,7 @@ const CanvasTextFrame = ({
           lang="nb-NO"
           placeholder="Skriv tekst"
           className="m-0 block min-h-full w-full resize-none overflow-auto border-none bg-transparent p-0 text-[var(--ax-text-default)] align-top outline-none placeholder:text-[var(--ax-text-subtle)] [font-family:inherit]"
-          style={{ fontSize: '22px', lineHeight: 1.3, fontWeight: 500 }}
+          style={{ fontSize: '18px', lineHeight: 1.3, fontWeight: 500 }}
           autoFocus
         />
       </div>
@@ -118,7 +118,7 @@ const CanvasTextFrame = ({
       {_isInteractionLocked ? (
         <p
           className="m-0 h-full w-full overflow-auto whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)]"
-          style={{ fontSize: '22px', lineHeight: 1.3, fontWeight: 500 }}
+          style={{ fontSize: '18px', lineHeight: 1.3, fontWeight: 500 }}
         >
           {textContent || 'Skriv tekst'}
         </p>
@@ -127,7 +127,7 @@ const CanvasTextFrame = ({
           type="button"
           data-canvas-edit-trigger="true"
           className="m-0 flex h-full w-full cursor-text items-start overflow-auto whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)] [appearance:none]"
-          style={{ fontSize: '22px', lineHeight: 1.3, fontWeight: 500 }}
+          style={{ fontSize: '18px', lineHeight: 1.3, fontWeight: 500 }}
           onMouseDown={(event) => event.stopPropagation()}
           onClick={() => onStartEditing(id)}
           aria-label="Rediger tekst"
