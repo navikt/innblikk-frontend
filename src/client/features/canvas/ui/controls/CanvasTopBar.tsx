@@ -389,7 +389,7 @@ const CanvasTopBar = ({
                   <ActionMenu.Item onClick={onOpenShareView}>
                     <span className="inline-flex items-center gap-2 whitespace-nowrap">
                       <EyeIcon size={14} />
-                      Lesevisning
+                      Lesemodus (beta)
                     </span>
                   </ActionMenu.Item>
                   <ActionMenu.Item onClick={onToggleCanvasLock}>
