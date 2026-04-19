@@ -35,6 +35,7 @@ type UseCanvasPlacementParams = {
     minHeight: number
   }
   getNextAutoSectionLabel: (frames: CanvasFrame[], excludeFrameId?: string) => string
+  activeCanvasCategoryId: number | null
   estimateStickyFrameHeight: (text: string, width: number) => number
   estimateTableFrameHeight: (rowCount: number) => number
   persistFrame: (frame: CanvasFrame) => Promise<CanvasFrame>
@@ -71,6 +72,9 @@ type UseCanvasPlacementResult = {
   handleAutoPlacePendingFrame: () => Promise<void>
 }
 
+const CSV_IMPORT_MAX_PERSIST_ATTEMPTS = 3
+const CSV_IMPORT_RETRY_BASE_DELAY_MS = 300
+
 const useCanvasPlacement = ({
   frames,
   setFrames,
@@ -98,6 +102,7 @@ const useCanvasPlacement = ({
   getPendingFrameContentAnchorOffset,
   getDefaultFrameSize,
   getNextAutoSectionLabel,
+  activeCanvasCategoryId,
   estimateStickyFrameHeight,
   estimateTableFrameHeight,
   persistFrame,
@@ -111,6 +116,53 @@ const useCanvasPlacement = ({
   setSelectedFrameIds,
   isInteractionLocked = false,
 }: UseCanvasPlacementParams): UseCanvasPlacementResult => {
+  const getNextSectionAutoPlacementPoint = useCallback(
+    (sectionWidth: number, sectionHeight: number): { x: number; y: number } | null => {
+      const sectionGapX = 48
+      const sectionGapY = 48
+      const baseX = 24
+      // Leave vertical space so users can add a heading above the first section later.
+      const baseY = 96
+
+      const existingSections = frames.filter((frame) => frame.kind === 'section')
+      if (existingSections.length === 0) {
+        return { x: baseX, y: baseY }
+      }
+
+      const occupiedBounds = existingSections.map((sectionFrame) => {
+        const sectionDefaults = getDefaultFrameSize(sectionFrame)
+        return {
+          left: sectionFrame.x,
+          right: sectionFrame.x + (sectionFrame.width ?? sectionDefaults.width),
+          top: sectionFrame.y,
+          bottom: sectionFrame.y + (sectionFrame.height ?? sectionDefaults.height),
+        }
+      })
+
+      const candidateLimit = Math.max(existingSections.length + 4, 10)
+      for (let row = 0; row < candidateLimit; row += 1) {
+        for (let column = 0; column < candidateLimit; column += 1) {
+          const candidateLeft = baseX + column * (sectionWidth + sectionGapX)
+          const candidateTop = baseY + row * (sectionHeight + sectionGapY)
+          const candidateRight = candidateLeft + sectionWidth
+          const candidateBottom = candidateTop + sectionHeight
+
+          const overlapsExistingSection = occupiedBounds.some((occupied) => {
+            const intersectsHorizontally = candidateLeft < occupied.right && candidateRight > occupied.left
+            const intersectsVertically = candidateTop < occupied.bottom && candidateBottom > occupied.top
+            return intersectsHorizontally && intersectsVertically
+          })
+          if (overlapsExistingSection) continue
+
+          return { x: candidateLeft, y: candidateTop }
+        }
+      }
+
+      return null
+    },
+    [frames, getDefaultFrameSize],
+  )
+
   const handlePlacePendingFrame = useCallback(
     async (clientX: number, clientY: number) => {
       if (!pendingFrameDraft) return
@@ -184,53 +236,12 @@ const useCanvasPlacement = ({
       const defaultSectionSize = getDefaultFrameSize('section')
       const sectionWidth = pendingFrameDraft.width ?? defaultSectionSize.width
       const sectionHeight = pendingFrameDraft.height ?? defaultSectionSize.height
-      const sectionGapX = 48
-      const sectionGapY = 48
-      const baseX = 24
-      // Leave vertical space so users can add a heading above the first section later.
-      const baseY = 96
-
-      const existingSections = frames.filter((frame) => frame.kind === 'section')
-      if (existingSections.length === 0) {
-        return {
-          x: baseX + contentAnchorOffset.x,
-          y: baseY + contentAnchorOffset.y,
-        }
+      const autoPlacementPoint = getNextSectionAutoPlacementPoint(sectionWidth, sectionHeight)
+      if (!autoPlacementPoint) return null
+      return {
+        x: autoPlacementPoint.x + contentAnchorOffset.x,
+        y: autoPlacementPoint.y + contentAnchorOffset.y,
       }
-
-      const occupiedBounds = existingSections.map((sectionFrame) => {
-        const sectionDefaults = getDefaultFrameSize(sectionFrame)
-        return {
-          left: sectionFrame.x,
-          right: sectionFrame.x + (sectionFrame.width ?? sectionDefaults.width),
-          top: sectionFrame.y,
-          bottom: sectionFrame.y + (sectionFrame.height ?? sectionDefaults.height),
-        }
-      })
-
-      const candidateLimit = Math.max(existingSections.length + 4, 10)
-      for (let row = 0; row < candidateLimit; row += 1) {
-        for (let column = 0; column < candidateLimit; column += 1) {
-          const candidateLeft = baseX + column * (sectionWidth + sectionGapX)
-          const candidateTop = baseY + row * (sectionHeight + sectionGapY)
-          const candidateRight = candidateLeft + sectionWidth
-          const candidateBottom = candidateTop + sectionHeight
-
-          const overlapsExistingSection = occupiedBounds.some((occupied) => {
-            const intersectsHorizontally = candidateLeft < occupied.right && candidateRight > occupied.left
-            const intersectsVertically = candidateTop < occupied.bottom && candidateBottom > occupied.top
-            return intersectsHorizontally && intersectsVertically
-          })
-          if (overlapsExistingSection) continue
-
-          return {
-            x: candidateLeft + contentAnchorOffset.x,
-            y: candidateTop + contentAnchorOffset.y,
-          }
-        }
-      }
-
-      return null
     })()
 
     const nonSectionAutoPlacementAnchor = (() => {
@@ -320,6 +331,7 @@ const useCanvasPlacement = ({
   }, [
     frames,
     getDefaultFrameSize,
+    getNextSectionAutoPlacementPoint,
     getPendingFrameContentAnchorOffset,
     pendingFrameDraft,
     persistFrame,
@@ -335,31 +347,11 @@ const useCanvasPlacement = ({
     topBuffer,
   ])
 
-  useEffect(() => {
-    if (!pendingFrameDraft && !pendingCsvStickyImport) return
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        cancelPendingFramePlacement()
-        return
-      }
-      if (event.key === 'Enter' && pendingFrameDraft) {
-        event.preventDefault()
-        void handleAutoPlacePendingFrame()
-      }
-    }
-
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [cancelPendingFramePlacement, handleAutoPlacePendingFrame, pendingCsvStickyImport, pendingFrameDraft])
-
-  const handlePlacePendingCsvImport = useCallback(
-    async (clientX: number, clientY: number) => {
+  const importPendingCsvAt = useCallback(
+    async (baseX: number, baseY: number) => {
       const activePendingCsvImport = pendingCsvStickyImportRef.current
       if (!activePendingCsvImport) return
       if (isImportingStickyCsvRef.current) return
-      const pointer = getCanvasPointerPosition(clientX, clientY)
-      if (!pointer) return
 
       const stickyWidth = 320
       const stickyHeight = 180
@@ -370,8 +362,7 @@ const useCanvasPlacement = ({
       const sectionLabel = sectionTitle || getNextAutoSectionLabel(frames)
       const sectionPaddingX = 24
       const sectionPaddingBottom = 24
-      const baseX = Math.max(0, pointer.x)
-      const baseY = Math.max(-topBuffer, pointer.y)
+      const importCategoryId = activeCanvasCategoryId ?? undefined
       const contentStartX = baseX + sectionPaddingX
       const contentStartY = baseY + sectionHeaderHeight
       const timestampSeed = Date.now()
@@ -389,6 +380,7 @@ const useCanvasPlacement = ({
           tableHeaders: activePendingCsvImport.tableHeaders,
           tableRows: activePendingCsvImport.tableRows,
           label: 'Tabell',
+          categoryId: importCategoryId,
           x: contentStartX,
           y: contentStartY,
           width: 700,
@@ -402,6 +394,7 @@ const useCanvasPlacement = ({
           kind: 'sticky',
           textContent: summaryText,
           label: 'Post-it-lapp',
+          categoryId: importCategoryId,
           x: contentStartX,
           y: contentStartY,
           width: stickyWidth,
@@ -427,6 +420,7 @@ const useCanvasPlacement = ({
               kind: 'sticky',
               textContent: content,
               label: 'Post-it-lapp',
+              categoryId: importCategoryId,
               x: contentStartX + rowOffset * (stickyWidth + columnGap),
               y: currentRowY,
               width: stickyWidth,
@@ -458,14 +452,53 @@ const useCanvasPlacement = ({
         kind: 'section',
         label: sectionLabel,
         sectionLayout: 'grid',
+        categoryId: importCategoryId,
         x: baseX,
         y: baseY,
         width: Math.max(420, Math.ceil(rightEdge - baseX + sectionPaddingX)),
         height: Math.max(sectionHeaderHeight + 160, Math.ceil(bottomEdge - baseY + sectionPaddingBottom)),
         refreshNonce: 0,
       }
+      const optimisticSectionFrame: CanvasFrame = {
+        ...sectionFrame,
+        width: 640,
+        height: 280,
+      }
+      const importPlaceholderFrame: CanvasFrame = {
+        id: `csv-import-placeholder-${timestampSeed}`,
+        kind: 'text',
+        label: 'Import pågår',
+        textContent: `Importerer ${importedFrames.length} elementer...`,
+        categoryId: importCategoryId,
+        x: contentStartX,
+        y: contentStartY,
+        width: 520,
+        height: 120,
+        refreshNonce: 0,
+      }
 
       const framesToPersist: CanvasFrame[] = [sectionFrame, ...importedFrames]
+      const persistedFrames: CanvasFrame[] = []
+      const optimisticFrameIds = new Set([sectionFrame.id, importPlaceholderFrame.id])
+
+      const persistWithRetry = async (frame: CanvasFrame): Promise<CanvasFrame | null> => {
+        let lastError: unknown = null
+        for (let attempt = 1; attempt <= CSV_IMPORT_MAX_PERSIST_ATTEMPTS; attempt += 1) {
+          try {
+            return await persistFrame(frame)
+          } catch (error) {
+            lastError = error
+            if (attempt >= CSV_IMPORT_MAX_PERSIST_ATTEMPTS) break
+            const delayMs = CSV_IMPORT_RETRY_BASE_DELAY_MS * attempt
+            await new Promise((resolve) => window.setTimeout(resolve, delayMs))
+          }
+        }
+        console.error('CSV import frame persist failed:', lastError)
+        return null
+      }
+      const reconcileOptimisticFrames = () => {
+        setFrames((prev) => [...prev.filter((frame) => !optimisticFrameIds.has(frame.id)), ...persistedFrames])
+      }
 
       try {
         setPendingFramePointer(null)
@@ -475,16 +508,41 @@ const useCanvasPlacement = ({
         setImportStickyProgressTotal(framesToPersist.length)
         setImportStickyProgressCurrent(0)
         setSyncError(null)
-        const persistedFrames: CanvasFrame[] = []
+        setFrames((prev) => [...prev, optimisticSectionFrame, importPlaceholderFrame])
+
         for (const [frameIndex, frame] of framesToPersist.entries()) {
-          const persistedFrame = await persistFrame(frame)
-          persistedFrames.push(persistedFrame)
+          const persistedFrame = await persistWithRetry(frame)
+          if (persistedFrame) {
+            persistedFrames.push(persistedFrame)
+          }
           setImportStickyProgressCurrent(frameIndex + 1)
         }
-        setFrames((prev) => [...prev, ...persistedFrames])
+        reconcileOptimisticFrames()
+
+        if (persistedFrames.length === 0) {
+          setSyncError('Kunne ikke importere CSV til canvas')
+          return
+        }
+
         cancelPendingFramePlacement()
+
+        const failedCount = framesToPersist.length - persistedFrames.length
+        if (failedCount > 0) {
+          setSyncError(
+            `Importerte ${persistedFrames.length} av ${framesToPersist.length}. ${failedCount} elementer feilet.`,
+          )
+        }
       } catch (error) {
-        setSyncError(error instanceof Error ? error.message : 'Kunne ikke importere CSV til canvas')
+        reconcileOptimisticFrames()
+        if (persistedFrames.length > 0) {
+          cancelPendingFramePlacement()
+          const failedCount = framesToPersist.length - persistedFrames.length
+          setSyncError(
+            `Importen ble avbrutt. Importerte ${persistedFrames.length} av ${framesToPersist.length}. ${failedCount} elementer feilet.`,
+          )
+        } else {
+          setSyncError(error instanceof Error ? error.message : 'Kunne ikke importere CSV til canvas')
+        }
       } finally {
         isImportingStickyCsvRef.current = false
         setIsImportingStickyCsv(false)
@@ -498,9 +556,9 @@ const useCanvasPlacement = ({
       estimateStickyFrameHeight,
       estimateTableFrameHeight,
       frames,
-      getCanvasPointerPosition,
       getDefaultFrameSize,
       getNextAutoSectionLabel,
+      activeCanvasCategoryId,
       isImportingStickyCsvRef,
       pendingCsvStickyImportRef,
       persistFrame,
@@ -512,9 +570,71 @@ const useCanvasPlacement = ({
       setIsSavingCanvasItem,
       setPendingFramePointer,
       setSyncError,
-      topBuffer,
     ],
   )
+
+  const handlePlacePendingCsvImport = useCallback(
+    async (clientX: number, clientY: number) => {
+      const pointer = getCanvasPointerPosition(clientX, clientY)
+      if (!pointer) return
+      await importPendingCsvAt(Math.max(0, pointer.x), Math.max(-topBuffer, pointer.y))
+    },
+    [getCanvasPointerPosition, importPendingCsvAt, topBuffer],
+  )
+
+  const handleAutoPlacePendingCsvImport = useCallback(async () => {
+    const activePendingCsvImport = pendingCsvStickyImportRef.current
+    if (!activePendingCsvImport) return
+    if (isImportingStickyCsvRef.current) return
+
+    const sectionDefaults = getDefaultFrameSize('section')
+    const autoPoint = getNextSectionAutoPlacementPoint(sectionDefaults.width, sectionDefaults.height)
+    if (!autoPoint) return
+
+    await importPendingCsvAt(autoPoint.x, Math.max(-topBuffer, autoPoint.y))
+  }, [
+    getDefaultFrameSize,
+    getNextSectionAutoPlacementPoint,
+    importPendingCsvAt,
+    isImportingStickyCsvRef,
+    pendingCsvStickyImportRef,
+    topBuffer,
+  ])
+
+  const handleAutoPlaceAnyPendingFrame = useCallback(async () => {
+    if (pendingFrameDraft) {
+      await handleAutoPlacePendingFrame()
+      return
+    }
+    if (pendingCsvStickyImport) {
+      await handleAutoPlacePendingCsvImport()
+    }
+  }, [handleAutoPlacePendingCsvImport, handleAutoPlacePendingFrame, pendingCsvStickyImport, pendingFrameDraft])
+
+  useEffect(() => {
+    if (!pendingFrameDraft && !pendingCsvStickyImport) return
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (isImportingStickyCsvRef.current) return
+      if (event.key === 'Escape') {
+        cancelPendingFramePlacement()
+        return
+      }
+      if (event.key === 'Enter' && (pendingFrameDraft || pendingCsvStickyImport)) {
+        event.preventDefault()
+        void handleAutoPlaceAnyPendingFrame()
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [
+    cancelPendingFramePlacement,
+    handleAutoPlaceAnyPendingFrame,
+    isImportingStickyCsvRef,
+    pendingCsvStickyImport,
+    pendingFrameDraft,
+  ])
 
   const handleCanvasSurfaceMouseDown = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
@@ -705,7 +825,7 @@ const useCanvasPlacement = ({
     handleCanvasSurfaceMouseDown,
     handleCanvasSurfaceMouseMove,
     handleCanvasSurfaceMouseLeave,
-    handleAutoPlacePendingFrame,
+    handleAutoPlacePendingFrame: handleAutoPlaceAnyPendingFrame,
   }
 }
 

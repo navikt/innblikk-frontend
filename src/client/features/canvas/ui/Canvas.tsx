@@ -2062,6 +2062,7 @@ const Canvas = () => {
     getPendingFrameContentAnchorOffset,
     getDefaultFrameSize,
     getNextAutoSectionLabel,
+    activeCanvasCategoryId,
     estimateStickyFrameHeight,
     estimateTableFrameHeight,
     persistFrame,
@@ -2523,6 +2524,116 @@ const Canvas = () => {
     }
   }
 
+  const handleBulkRemovePages = useCallback(
+    async (ids: string[]) => {
+      const uniqueIds = [...new Set(ids)]
+      if (uniqueIds.length === 0) return
+
+      const frameById = new Map(frames.map((frame) => [frame.id, frame]))
+      const framesToDelete = uniqueIds
+        .map((id) => frameById.get(id))
+        .filter((frame): frame is CanvasFrame => Boolean(frame))
+      if (framesToDelete.length === 0) return
+
+      const frameIdsToDelete = new Set(framesToDelete.map((frame) => frame.id))
+      const frameGraphIdsToDelete = new Set(
+        framesToDelete.map((frame) => frame.graphId).filter((graphId): graphId is number => Number.isFinite(graphId)),
+      )
+      const linkedConnections = connections.filter(
+        (connection) =>
+          (typeof connection.fromFrameId === 'string' && frameIdsToDelete.has(connection.fromFrameId)) ||
+          (typeof connection.toFrameId === 'string' && frameIdsToDelete.has(connection.toFrameId)) ||
+          (Number.isFinite(connection.fromGraphId) && frameGraphIdsToDelete.has(connection.fromGraphId as number)) ||
+          (Number.isFinite(connection.toGraphId) && frameGraphIdsToDelete.has(connection.toGraphId as number)),
+      )
+      const linkedConnectionIds = new Set(linkedConnections.map((connection) => connection.id))
+
+      const failedFramesById = new Map<string, CanvasFrame>()
+      const failedConnectionsById = new Map<string, CanvasConnection>()
+
+      setFrames((prev) => prev.filter((frame) => !frameIdsToDelete.has(frame.id)))
+      setSelectedFrameIds((prev) => prev.filter((frameId) => !frameIdsToDelete.has(frameId)))
+      setConnections((prev) => prev.filter((connection) => !linkedConnectionIds.has(connection.id)))
+
+      if (activeEditableFrameId && frameIdsToDelete.has(activeEditableFrameId)) {
+        const activeFrame = frameById.get(activeEditableFrameId)
+        setActiveEditableFrameId(null)
+        if (activeFrame) {
+          void releaseEditLock(activeFrame).catch(() => undefined)
+        }
+      }
+      if (connectionDragState?.sourceFrameId && frameIdsToDelete.has(connectionDragState.sourceFrameId)) {
+        setConnectionDragState(null)
+      }
+
+      setBulkDeleteProgress({ total: framesToDelete.length, completed: 0 })
+
+      let completedFrameDeletes = 0
+      for (const frame of framesToDelete) {
+        if (canPersistToDashboard && projectId !== null && dashboardId !== null && frame.graphId && frame.categoryId) {
+          try {
+            await deleteGraph(projectId, dashboardId, frame.categoryId, frame.graphId)
+          } catch {
+            failedFramesById.set(frame.id, frame)
+          }
+        }
+        completedFrameDeletes += 1
+        setBulkDeleteProgress({ total: framesToDelete.length, completed: completedFrameDeletes })
+      }
+
+      for (const connection of linkedConnections) {
+        if (
+          canPersistToDashboard &&
+          projectId !== null &&
+          dashboardId !== null &&
+          connection.graphId &&
+          connection.categoryId
+        ) {
+          try {
+            await deleteGraph(projectId, dashboardId, connection.categoryId, connection.graphId)
+          } catch {
+            failedConnectionsById.set(connection.id, connection)
+          }
+        }
+      }
+
+      if (failedFramesById.size > 0) {
+        const failedFrames = [...failedFramesById.values()]
+        setFrames((prev) => {
+          const existingIds = new Set(prev.map((frame) => frame.id))
+          const framesToRestore = failedFrames.filter((frame) => !existingIds.has(frame.id))
+          return framesToRestore.length > 0 ? [...prev, ...framesToRestore] : prev
+        })
+      }
+      if (failedConnectionsById.size > 0) {
+        const failedConnections = [...failedConnectionsById.values()]
+        setConnections((prev) => {
+          const existingIds = new Set(prev.map((connection) => connection.id))
+          const connectionsToRestore = failedConnections.filter((connection) => !existingIds.has(connection.id))
+          return connectionsToRestore.length > 0 ? [...prev, ...connectionsToRestore] : prev
+        })
+      }
+
+      if (failedFramesById.size > 0 || failedConnectionsById.size > 0) {
+        const succeededFrames = framesToDelete.length - failedFramesById.size
+        setSyncError(
+          `Slettet ${succeededFrames} av ${framesToDelete.length} elementer. ${failedFramesById.size} elementer feilet.`,
+        )
+      }
+    },
+    [
+      activeEditableFrameId,
+      canPersistToDashboard,
+      connectionDragState?.sourceFrameId,
+      connections,
+      dashboardId,
+      frames,
+      projectId,
+      releaseEditLock,
+      setSyncError,
+    ],
+  )
+
   const {
     editChartFrameId,
     editChartTarget,
@@ -2624,12 +2735,7 @@ const Canvas = () => {
               ? getContainedFrameIdsForSection(latestSectionFrame)
               : target.containedFrameIds
           const idsToDelete = [target.id, ...latestContainedIds]
-          setBulkDeleteProgress({ total: idsToDelete.length, completed: 0 })
-
-          for (let index = 0; index < idsToDelete.length; index += 1) {
-            await handleRemovePage(idsToDelete[index])
-            setBulkDeleteProgress({ total: idsToDelete.length, completed: index + 1 })
-          }
+          await handleBulkRemovePages(idsToDelete)
         } else {
           await handleRemovePage(target.id)
         }
@@ -2639,13 +2745,7 @@ const Canvas = () => {
       }
 
       if (target.type === 'frames') {
-        setBulkDeleteProgress({ total: target.ids.length, completed: 0 })
-
-        for (let index = 0; index < target.ids.length; index += 1) {
-          await handleRemovePage(target.ids[index])
-          setBulkDeleteProgress({ total: target.ids.length, completed: index + 1 })
-        }
-
+        await handleBulkRemovePages(target.ids)
         setBulkDeleteProgress(null)
         setDeleteTarget(null)
         return

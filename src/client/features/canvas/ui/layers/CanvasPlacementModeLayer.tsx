@@ -36,13 +36,14 @@ export const CanvasPlacementModeBanner = ({
   useEffect(() => {
     const startedPlacementMode = isPlacementModeActive && !wasPlacementModeActiveRef.current
     if (startedPlacementMode) {
-      const nextFocusTarget = pendingFrameDraft ? autoPlaceButtonRef.current : cancelButtonRef.current
+      const nextFocusTarget =
+        pendingFrameDraft || pendingCsvStickyImport ? autoPlaceButtonRef.current : cancelButtonRef.current
       window.setTimeout(() => {
         nextFocusTarget?.focus()
       }, 0)
     }
     wasPlacementModeActiveRef.current = isPlacementModeActive
-  }, [isPlacementModeActive, pendingFrameDraft])
+  }, [isPlacementModeActive, pendingCsvStickyImport, pendingFrameDraft])
 
   if (!pendingFrameDraft && !pendingCsvStickyImport) return null
 
@@ -68,10 +69,10 @@ export const CanvasPlacementModeBanner = ({
         <div className="space-y-3">
           <p className="m-0">
             Plasseringsmodus: plasser {pendingFramePlacementLabel || 'element'} i canvas.
-            {pendingFrameDraft ? ' Bruk Autoplasser ved behov.' : ''} Avbryt med Esc.
+            {pendingFrameDraft || pendingCsvStickyImport ? ' Bruk Autoplasser ved behov.' : ''} Avbryt med Esc.
           </p>
           <div className="flex flex-wrap items-center gap-2 pt-1">
-            {pendingFrameDraft && (
+            {(pendingFrameDraft || pendingCsvStickyImport) && (
               <Button
                 size="xsmall"
                 variant="primary"
@@ -88,7 +89,7 @@ export const CanvasPlacementModeBanner = ({
               size="xsmall"
               variant="secondary"
               onClick={onCancel}
-              autoFocus={!pendingFrameDraft}
+              autoFocus={!pendingFrameDraft && !pendingCsvStickyImport}
               ref={(element) => {
                 cancelButtonRef.current = element
               }}

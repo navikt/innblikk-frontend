@@ -516,9 +516,11 @@ const CanvasCoreModals = ({
                 </p>
               ) : null
             ) : null}
-            {deleteTarget?.type === 'frames' && isSavingCanvasItem && bulkDeleteProgress ? (
+            {(deleteTarget?.type === 'frames' || deleteTarget?.type === 'section') &&
+            isSavingCanvasItem &&
+            bulkDeleteProgress ? (
               <Alert variant="info" size="small">
-                Sletter kort {bulkDeleteProgress.completed} av {bulkDeleteProgress.total}...
+                Sletter {bulkDeleteProgress.completed} av {bulkDeleteProgress.total}...
               </Alert>
             ) : null}
           </div>
@@ -530,14 +532,16 @@ const CanvasCoreModals = ({
                 <Button
                   variant="secondary"
                   onClick={() => onConfirmDeleteTarget('section-only')}
-                  loading={isSavingCanvasItem}
+                  loading={isSavingCanvasItem && !bulkDeleteProgress}
+                  disabled={isSavingCanvasItem}
                 >
                   Fjern kun seksjon
                 </Button>
                 <Button
                   variant="primary"
                   onClick={() => onConfirmDeleteTarget('section-with-content')}
-                  loading={isSavingCanvasItem}
+                  loading={isSavingCanvasItem && Boolean(bulkDeleteProgress)}
+                  disabled={isSavingCanvasItem}
                 >
                   Fjern seksjon og innhold
                 </Button>
