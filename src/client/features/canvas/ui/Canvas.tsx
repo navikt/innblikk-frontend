@@ -4168,7 +4168,6 @@ const Canvas = () => {
         </div>
         <CanvasTopBar
           canvasToolbarRef={canvasToolbarRef}
-          projectId={projectId}
           canvasTitle={canvasTitle}
           period={period}
           customStartDate={customStartDate}

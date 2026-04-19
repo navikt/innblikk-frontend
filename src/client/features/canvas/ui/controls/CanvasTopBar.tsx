@@ -9,7 +9,6 @@ import CanvasFacilitatorActionMenu from './CanvasFacilitatorActionMenu.tsx'
 
 type CanvasTopBarProps = {
   canvasToolbarRef: RefObject<HTMLDivElement | null>
-  projectId: number | null
   canvasTitle: string
   period: string
   customStartDate?: Date
@@ -70,7 +69,6 @@ type CanvasTopBarProps = {
 
 const CanvasTopBar = ({
   canvasToolbarRef,
-  projectId,
   canvasTitle,
   period,
   customStartDate,
@@ -203,7 +201,7 @@ const CanvasTopBar = ({
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <a
             href="/canvas"
-            aria-label={`${headingTitle}. Til dashboard-oversikt${projectId !== null ? ` fra prosjekt ${projectId}` : ''}`}
+            aria-label={`${headingTitle}. Til dashboard-oversikt`}
             className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-sm border-0 bg-transparent p-0 text-left text-[var(--ax-text-default)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-border-accent)]"
           >
             <span className="grid h-7 w-7 shrink-0 place-items-center">
