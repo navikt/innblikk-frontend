@@ -443,6 +443,7 @@ const Canvas = () => {
   const [addChartError, setAddChartError] = useState<string | null>(null)
   const [isGrafbyggerEmbedded, setIsGrafbyggerEmbedded] = useState(false)
   const [isCanvasLocked, setIsCanvasLocked] = useState(false)
+  const [isLockedModeEditing, setIsLockedModeEditing] = useState(false)
   const [dragState, setDragState] = useState<CanvasDragState | null>(null)
   const [selectedFrameIds, setSelectedFrameIds] = useState<string[]>([])
   const [selectionBox, setSelectionBox] = useState<CanvasSelectionBox | null>(null)
@@ -678,7 +679,8 @@ const Canvas = () => {
     onSyncError: handleCanvasSyncError,
   })
   const isDotVotingActive = Boolean(dotVotingSessionPayload) && dotVotingSessionPayload?.status !== 'ended'
-  const isInteractionLocked = isDotVotingActive || isCanvasLocked
+  const isCanvasReadOnly = isCanvasLocked && !isLockedModeEditing
+  const isInteractionLocked = isDotVotingActive || isCanvasReadOnly
   const shouldRevealDotVotingTotals =
     Boolean(dotVotingSessionPayload) &&
     (dotVotingSessionPayload?.status === 'ended' || (!isDotVotingRunning && !isDotVotingPaused))
@@ -687,6 +689,12 @@ const Canvas = () => {
     () => getCanvasPeriodLabel(period, customStartDate, customEndDate),
     [period, customStartDate, customEndDate],
   )
+
+  useEffect(() => {
+    if (!isCanvasLocked && isLockedModeEditing) {
+      setIsLockedModeEditing(false)
+    }
+  }, [isCanvasLocked, isLockedModeEditing])
 
   useEffect(() => {
     const wasRunning = previousTimerRunningRef.current
@@ -1348,6 +1356,8 @@ const Canvas = () => {
       setCanvasTitle('Innblikk')
       setCanvasDashboardDescription(CANVAS_DASHBOARD_TOKEN)
       setCanvasConfiguredWebsiteId(null)
+      setIsCanvasLocked(false)
+      setIsLockedModeEditing(false)
       setCanvasDefaultPeriod('')
       setCanvasDefaultCustomStartDate(undefined)
       setCanvasDefaultCustomEndDate(undefined)
@@ -1368,6 +1378,7 @@ const Canvas = () => {
           setCanvasDashboardDescription(CANVAS_DASHBOARD_TOKEN)
           setCanvasConfiguredWebsiteId(null)
           setIsCanvasLocked(false)
+          setIsLockedModeEditing(false)
           setCanvasDefaultPeriod('')
           setCanvasDefaultCustomStartDate(undefined)
           setCanvasDefaultCustomEndDate(undefined)
@@ -1386,6 +1397,7 @@ const Canvas = () => {
         setCanvasDashboardDescription(dashboardDescription)
         setCanvasConfiguredWebsiteId(extractCanvasWebsiteIdFromDescription(dashboardDescription))
         setIsCanvasLocked(isLocked)
+        setIsLockedModeEditing(false)
         setCanvasDefaultPeriod(configuredDefaultPeriod ?? '')
         setCanvasDefaultCustomStartDate(defaultCustomStartDate)
         setCanvasDefaultCustomEndDate(defaultCustomEndDate)
@@ -1408,6 +1420,7 @@ const Canvas = () => {
         setCanvasDashboardDescription(CANVAS_DASHBOARD_TOKEN)
         setCanvasConfiguredWebsiteId(null)
         setIsCanvasLocked(false)
+        setIsLockedModeEditing(false)
         setCanvasDefaultPeriod('')
         setCanvasDefaultCustomStartDate(undefined)
         setCanvasDefaultCustomEndDate(undefined)
@@ -2286,7 +2299,7 @@ const Canvas = () => {
 
   const startConnectionDrag = useCallback(
     (event: React.MouseEvent, frame: CanvasFrame, side: ConnectionAnchorSide) => {
-      if (isCanvasLocked) return
+      if (isCanvasReadOnly) return
       if (frame.kind !== 'website' || frame.isInternalDashboard) return
       event.preventDefault()
       event.stopPropagation()
@@ -2302,7 +2315,7 @@ const Canvas = () => {
         currentTargetFrameId: null,
       })
     },
-    [getCanvasPointerPosition, isCanvasLocked],
+    [getCanvasPointerPosition, isCanvasReadOnly],
   )
 
   const openGrafbyggerFromAddMenuDirect = () => {
@@ -4315,9 +4328,17 @@ const Canvas = () => {
           participantLabels={participantLabels}
           isInteractionLocked={isDotVotingActive}
           isCanvasLocked={isCanvasLocked}
+          isCanvasReadOnly={isCanvasReadOnly}
+          onToggleLockedModeEditing={() => {
+            if (!isCanvasLocked) return
+            setIsLockedModeEditing((current) => !current)
+            setActiveEditableFrameId(null)
+            setSelectionBox(null)
+          }}
           onToggleCanvasLock={() => {
             const nextIsLocked = !isCanvasLocked
             setIsCanvasLocked(nextIsLocked)
+            setIsLockedModeEditing(false)
             setActiveEditableFrameId(null)
             setSelectionBox(null)
 
@@ -4389,9 +4410,9 @@ const Canvas = () => {
             >
               <div
                 className={`absolute left-0 top-0 origin-top-left ${pendingFrameDraft || pendingCsvStickyImport || isDrawingMode ? 'cursor-crosshair' : ''}`}
-                onMouseDown={isDrawingMode || isCanvasLocked ? undefined : handleCanvasSurfaceMouseDown}
-                onMouseMove={isDrawingMode || isCanvasLocked ? undefined : handleCanvasSurfaceMouseMove}
-                onMouseLeave={isDrawingMode || isCanvasLocked ? undefined : handleCanvasSurfaceMouseLeave}
+                onMouseDown={isDrawingMode || isCanvasReadOnly ? undefined : handleCanvasSurfaceMouseDown}
+                onMouseMove={isDrawingMode || isCanvasReadOnly ? undefined : handleCanvasSurfaceMouseMove}
+                onMouseLeave={isDrawingMode || isCanvasReadOnly ? undefined : handleCanvasSurfaceMouseLeave}
                 style={{
                   top: `${canvasCanvasTopOffset}px`,
                   width: `${canvasSurfaceWidth}px`,
@@ -4418,17 +4439,17 @@ const Canvas = () => {
                 {isPlacementModeActive && (
                   <div
                     className="absolute inset-0 z-[96] cursor-crosshair"
-                    onMouseDown={isCanvasLocked ? undefined : handleCanvasSurfaceMouseDown}
-                    onMouseMove={isCanvasLocked ? undefined : handleCanvasSurfaceMouseMove}
-                    onMouseLeave={isCanvasLocked ? undefined : handleCanvasSurfaceMouseLeave}
+                    onMouseDown={isCanvasReadOnly ? undefined : handleCanvasSurfaceMouseDown}
+                    onMouseMove={isCanvasReadOnly ? undefined : handleCanvasSurfaceMouseMove}
+                    onMouseLeave={isCanvasReadOnly ? undefined : handleCanvasSurfaceMouseLeave}
                   />
                 )}
                 {isDrawingMode && (
                   <div
                     className="absolute inset-0 z-[95] cursor-crosshair"
-                    onMouseDown={isCanvasLocked ? undefined : handleCanvasSurfaceMouseDown}
-                    onMouseMove={isCanvasLocked ? undefined : handleCanvasSurfaceMouseMove}
-                    onMouseLeave={isCanvasLocked ? undefined : handleCanvasSurfaceMouseLeave}
+                    onMouseDown={isCanvasReadOnly ? undefined : handleCanvasSurfaceMouseDown}
+                    onMouseMove={isCanvasReadOnly ? undefined : handleCanvasSurfaceMouseMove}
+                    onMouseLeave={isCanvasReadOnly ? undefined : handleCanvasSurfaceMouseLeave}
                   />
                 )}
                 {selectionBox && (
@@ -4542,7 +4563,7 @@ const Canvas = () => {
                     shouldRevealDotVotingTotals={shouldRevealDotVotingTotals}
                     onVoteSticky={handleAddDotVote}
                     onClearStickyVoteSnapshot={handleRequestClearStickyVoteSnapshot}
-                    isCanvasLocked={isCanvasLocked}
+                    isCanvasLocked={isCanvasReadOnly}
                     focusSectionTitleId={focusSectionTitleId}
                     onSectionTitleFocusHandled={() => setFocusSectionTitleId(null)}
                     focusFrameId={focusFrameId}
