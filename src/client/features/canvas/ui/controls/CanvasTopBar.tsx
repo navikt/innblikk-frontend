@@ -271,7 +271,7 @@ const CanvasTopBar = ({
                   withFloatingFrame={false}
                 />
               )}
-              {canvasInitMode === 'existing' && (
+              {canEditCanvas && (
                 <CanvasFacilitatorActionMenu
                   onOpenTimer={onOpenTimer}
                   onOpenDotVoting={onOpenDotVoting}

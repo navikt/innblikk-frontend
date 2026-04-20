@@ -69,7 +69,7 @@ const CanvasFacilitatorActionMenu = ({
         <ActionMenu.Item onClick={onToggleCanvasLock}>
           <span className="inline-flex items-center gap-2 whitespace-nowrap">
             {isCanvasLocked ? <Unlock size={14} /> : <Lock size={14} />}
-            {isCanvasLocked ? 'Lås opp canvas' : 'Lås canvas'}
+            {isCanvasLocked ? 'Aktiver samarbeidsmodus' : 'Deaktiver samarbeidsmodus'}
           </span>
         </ActionMenu.Item>
       )}
