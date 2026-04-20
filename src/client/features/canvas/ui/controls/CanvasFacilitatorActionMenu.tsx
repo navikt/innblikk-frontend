@@ -1,10 +1,13 @@
 import { PersonChatIcon } from '@navikt/aksel-icons'
 import { ActionMenu, Button } from '@navikt/ds-react'
+import { Lock, Unlock } from 'lucide-react'
 
 type CanvasFacilitatorActionMenuProps = {
   onOpenTimer: () => void
   onOpenDotVoting: () => void
   onOpenShareView?: () => void
+  isCanvasLocked?: boolean
+  onToggleCanvasLock?: () => void
   timerLabel: string | null
   dotVotingLabel: string | null
   disabled?: boolean
@@ -19,6 +22,8 @@ type CanvasFacilitatorActionMenuProps = {
 const CanvasFacilitatorActionMenu = ({
   onOpenTimer,
   onOpenDotVoting,
+  isCanvasLocked = false,
+  onToggleCanvasLock,
   timerLabel,
   dotVotingLabel,
   disabled = false,
@@ -60,6 +65,14 @@ const CanvasFacilitatorActionMenu = ({
       <ActionMenu.Item onClick={onOpenDotVoting}>
         {dotVotingLabel ? `Prikkvotering (${dotVotingLabel})` : 'Prikkvotering'}
       </ActionMenu.Item>
+      {onToggleCanvasLock && (
+        <ActionMenu.Item onClick={onToggleCanvasLock}>
+          <span className="inline-flex items-center gap-2 whitespace-nowrap">
+            {isCanvasLocked ? <Unlock size={14} /> : <Lock size={14} />}
+            {isCanvasLocked ? 'Lås opp canvas' : 'Lås canvas'}
+          </span>
+        </ActionMenu.Item>
+      )}
     </ActionMenu.Content>
   </ActionMenu>
 )

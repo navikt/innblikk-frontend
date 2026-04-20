@@ -142,9 +142,11 @@ export const extractCanvasHideDateFilterFromDescription = (description?: string)
 }
 
 export const extractCanvasLockedFromDescription = (description?: string): boolean => {
-  if (!description) return false
+  if (!description) return true
   const value = description.match(CANVAS_LOCKED_TOKEN_REGEX)?.[1]?.trim().toLowerCase()
-  return value === 'true'
+  if (value === 'true') return true
+  if (value === 'false') return false
+  return true
 }
 
 export const buildCanvasDashboardDescription = (
@@ -181,9 +183,8 @@ export const buildCanvasDashboardDescription = (
   if (hideDateFilter) {
     tokens.push('[hideDateFilter:true]')
   }
-  if (canvasLocked ?? existingCanvasLocked) {
-    tokens.push('[canvasLocked:true]')
-  }
+  const resolvedCanvasLocked = canvasLocked ?? existingCanvasLocked
+  tokens.push(`[canvasLocked:${resolvedCanvasLocked ? 'true' : 'false'}]`)
   if (withoutCanvasToken) {
     tokens.push(withoutCanvasToken)
   }

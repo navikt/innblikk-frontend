@@ -1,6 +1,6 @@
 import { ActionMenu, Alert, Button, Tabs } from '@navikt/ds-react'
 import { PersonGroupIcon, PersonIcon, ThemeIcon } from '@navikt/aksel-icons'
-import { House, EyeIcon, Lock, MoreVertical, Unlock } from 'lucide-react'
+import { House, EyeIcon, MoreVertical } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent, type RefObject, type TouchEvent } from 'react'
 import PeriodPicker from '../../../analysis/ui/PeriodPicker.tsx'
 import type { GraphCategoryDto } from '../../../oversikt/model/types.ts'
@@ -271,11 +271,13 @@ const CanvasTopBar = ({
                   withFloatingFrame={false}
                 />
               )}
-              {canEditCanvas && (
+              {canvasInitMode === 'existing' && (
                 <CanvasFacilitatorActionMenu
                   onOpenTimer={onOpenTimer}
                   onOpenDotVoting={onOpenDotVoting}
                   onOpenShareView={onOpenShareView}
+                  isCanvasLocked={isCanvasLocked}
+                  onToggleCanvasLock={onToggleCanvasLock}
                   timerLabel={timerLabel}
                   dotVotingLabel={dotVotingLabel}
                   disabled={canvasInitMode !== 'existing'}
@@ -390,12 +392,6 @@ const CanvasTopBar = ({
                     <span className="inline-flex items-center gap-2 whitespace-nowrap">
                       <EyeIcon size={14} />
                       Lesemodus (beta)
-                    </span>
-                  </ActionMenu.Item>
-                  <ActionMenu.Item onClick={onToggleCanvasLock}>
-                    <span className="inline-flex items-center gap-2 whitespace-nowrap">
-                      {isCanvasLocked ? <Unlock size={14} /> : <Lock size={14} />}
-                      {isCanvasLocked ? 'Lås opp canvas' : 'Lås canvas'}
                     </span>
                   </ActionMenu.Item>
                 </ActionMenu.Content>
