@@ -5,7 +5,6 @@ import routes, { isFullWidthPath } from './routes.tsx'
 import Footer from './shared/ui/theme/Footer/Footer.tsx'
 import ScrollToTop from './shared/ui/theme/ScrollToTop/ScrollToTop.tsx'
 import Header from './shared/ui/theme/Header/Header.tsx'
-import AnnouncementBanner from './shared/ui/theme/AnnouncementBanner/AnnouncementBanner.tsx'
 import { ErrorBoundary } from './shared/ui/ErrorBoundary.tsx'
 import { useHead } from '@unhead/react'
 import { AppBlock } from './shared/ui/theme/AppBlock/AppBlock.tsx'
@@ -82,7 +81,6 @@ const AppShell = ({ theme }: { theme: 'light' | 'dark' }) => {
     <>
       <Page>
         <Header theme={theme} />
-        <AnnouncementBanner />
         <PageLayout>
           <ErrorBoundary>
             <Suspense fallback={<PageLoader />}>{appRoutes}</Suspense>

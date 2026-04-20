@@ -26,6 +26,9 @@ dist-ssr
 service-account-key.json
 package-lock.json
 
+# AI agent artifacts
+.sisyphus/
+
 # Playwright
 test-results/
 playwright-report/
