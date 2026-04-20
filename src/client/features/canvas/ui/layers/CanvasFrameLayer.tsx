@@ -1179,6 +1179,7 @@ const CanvasFrameLayer = ({
                     showTabs={false}
                     showResultTab={false}
                     showFormatButton={false}
+                    showEditorContainerBorder={false}
                     codeLanguage="text"
                     usePlainCodeStyle={true}
                     sqlTabLabel="KODE"

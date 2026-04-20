@@ -21,6 +21,7 @@ type CanvasSqlEditorFrameProps = {
   showResultTab?: boolean
   showTabs?: boolean
   showFormatButton?: boolean
+  showEditorContainerBorder?: boolean
   codeLanguage?: CanvasCodeLanguage
   usePlainCodeStyle?: boolean
   sqlTabLabel?: string
@@ -38,6 +39,7 @@ const CanvasSqlEditorFrame = ({
   showResultTab = true,
   showTabs = true,
   showFormatButton = true,
+  showEditorContainerBorder = true,
   codeLanguage = 'sql',
   usePlainCodeStyle = false,
   sqlTabLabel = 'SQL',
@@ -241,7 +243,9 @@ const CanvasSqlEditorFrame = ({
         </Alert>
       )}
       <div
-        className="min-h-0 flex-1 overflow-hidden rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2"
+        className={`min-h-0 flex-1 overflow-hidden rounded-md bg-[var(--ax-bg-default)] p-2 ${
+          showEditorContainerBorder ? 'border border-[var(--ax-border-neutral-subtle)]' : ''
+        }`}
         onKeyDown={(event) => {
           if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f') {
             event.preventDefault()
