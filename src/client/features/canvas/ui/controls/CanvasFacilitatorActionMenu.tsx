@@ -1,6 +1,5 @@
 import { PersonChatIcon } from '@navikt/aksel-icons'
 import { ActionMenu, Button } from '@navikt/ds-react'
-import { Lock, Unlock } from 'lucide-react'
 
 type CanvasFacilitatorActionMenuProps = {
   onOpenTimer: () => void
@@ -68,7 +67,6 @@ const CanvasFacilitatorActionMenu = ({
       {onToggleCanvasLock && (
         <ActionMenu.Item onClick={onToggleCanvasLock}>
           <span className="inline-flex items-center gap-2 whitespace-nowrap">
-            {isCanvasLocked ? <Unlock size={14} /> : <Lock size={14} />}
             {isCanvasLocked ? 'Aktiver samarbeidsmodus' : 'Deaktiver samarbeidsmodus'}
           </span>
         </ActionMenu.Item>
