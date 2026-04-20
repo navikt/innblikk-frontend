@@ -10,6 +10,7 @@ export const GRID_SECTION_LAYOUT_CONFIG = {
 
 export const GRID_SECTION_LAYOUT_MIN_COLUMN_WIDTH = 280
 const GRID_SECTION_LAYOUT_TEXT_TOP_SPACING = 2
+const SECTION_ORDER_ROW_TOLERANCE_PX = 32
 
 type DefaultFrameSizeResolver = (frameOrKind: CanvasFrame | CanvasFrame['kind']) => {
   width: number
@@ -34,8 +35,9 @@ export const getFrameBoundsForLayout = (
 }
 
 export const compareFramesForSectionOrder = (a: CanvasFrame, b: CanvasFrame): number => {
-  if (a.y !== b.y) return a.y - b.y
+  if (Math.abs(a.y - b.y) > SECTION_ORDER_ROW_TOLERANCE_PX) return a.y - b.y
   if (a.x !== b.x) return a.x - b.x
+  if (a.y !== b.y) return a.y - b.y
   return a.id.localeCompare(b.id)
 }
 

@@ -62,4 +62,34 @@ describe('buildCanvasHierarchy', () => {
 
     expect(node.label).toBe('Faktisk tekst')
   })
+
+  it('orders sections left-to-right when they are nearly on the same row', () => {
+    const leftSection = baseFrame({
+      id: 'section-left',
+      kind: 'section',
+      label: 'Venstre',
+      x: 0,
+      y: 100,
+      width: 500,
+      height: 300,
+    })
+    const rightSectionSlightlyHigher = baseFrame({
+      id: 'section-right',
+      kind: 'section',
+      label: 'Hoyre',
+      x: 620,
+      y: 92,
+      width: 500,
+      height: 300,
+    })
+
+    const result = buildCanvasHierarchy({
+      frames: [rightSectionSlightlyHigher, leftSection],
+      getFrameBounds: getBounds,
+    })
+
+    expect(result.nodes).toHaveLength(2)
+    expect(result.nodes[0]?.id).toBe('section-left')
+    expect(result.nodes[1]?.id).toBe('section-right')
+  })
 })
