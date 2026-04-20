@@ -361,18 +361,45 @@ const CanvasFrameLayer = ({
 
   useEffect(() => {
     if (!focusFrameId) return
-    const frameElement = frameContainerRefs.current[focusFrameId]
-    if (!frameElement) return
+    let cancelled = false
+    let firstFrame: number | null = null
+    let secondFrame: number | null = null
 
-    const editTrigger = frameElement.querySelector<HTMLElement>('[data-canvas-edit-trigger="true"]')
-    if (editTrigger) {
-      editTrigger.focus()
+    const focusTarget = () => {
+      const frameElement = frameContainerRefs.current[focusFrameId]
+      if (!frameElement || cancelled) return
+
+      const editTrigger = frameElement.querySelector<HTMLElement>('[data-canvas-edit-trigger="true"]')
+      if (editTrigger) {
+        editTrigger.focus()
+        onFrameFocusHandled?.()
+        return
+      }
+
+      const fallbackFocusable = frameElement.querySelector<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      )
+
+      if (fallbackFocusable) {
+        fallbackFocusable.focus()
+        onFrameFocusHandled?.()
+        return
+      }
+
+      frameElement.focus()
       onFrameFocusHandled?.()
-      return
     }
 
-    frameElement.focus()
-    onFrameFocusHandled?.()
+    // Let modal focus restoration complete before we move focus to the newly created frame.
+    firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(focusTarget)
+    })
+
+    return () => {
+      cancelled = true
+      if (firstFrame !== null) window.cancelAnimationFrame(firstFrame)
+      if (secondFrame !== null) window.cancelAnimationFrame(secondFrame)
+    }
   }, [focusFrameId, frameItems, onFrameFocusHandled])
 
   return (
