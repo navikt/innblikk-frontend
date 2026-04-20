@@ -243,6 +243,17 @@ const CanvasTopBar = ({
                   />
                 </div>
               )}
+              {isCanvasLocked && (
+                <Button
+                  size="small"
+                  variant={'secondary'}
+                  onClick={onToggleLockedModeEditing}
+                  disabled={canvasInitMode !== 'existing' || isInteractionLocked}
+                  className="shrink-0 whitespace-nowrap"
+                >
+                  {isCanvasReadOnly ? 'Rediger' : 'Avslutt redigering'}
+                </Button>
+              )}
               {canEditCanvas && (
                 <CanvasAddActionMenu
                   onAddWebsite={onOpenAddPage}
@@ -336,17 +347,6 @@ const CanvasTopBar = ({
                     ))}
                   </ActionMenu.Content>
                 </ActionMenu>
-              )}
-              {isCanvasLocked && (
-                <Button
-                  size="small"
-                  variant={'secondary'}
-                  onClick={onToggleLockedModeEditing}
-                  disabled={canvasInitMode !== 'existing' || isInteractionLocked}
-                  className="shrink-0 whitespace-nowrap"
-                >
-                  {isCanvasReadOnly ? 'Rediger' : 'Avslutt redigering'}
-                </Button>
               )}
               {isGrafbyggerEmbedded && (
                 <Button size="small" variant="secondary" onClick={onCloseGrafbygger}>
