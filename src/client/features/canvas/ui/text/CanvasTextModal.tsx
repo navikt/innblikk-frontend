@@ -1,11 +1,15 @@
 import { Alert, Button, Modal, Textarea } from '@navikt/ds-react'
+import CanvasSectionPlacementSelect from '../controls/CanvasSectionPlacementSelect.tsx'
 
 type CanvasTextModalProps = {
   open: boolean
   value: string
+  selectedSectionId?: string
+  sectionOptions?: Array<{ id: string; label: string }>
   error?: string | null
   isSaving?: boolean
   onChange: (value: string) => void
+  onSectionChange?: (sectionId: string) => void
   onSubmit: () => void
   onClose: () => void
 }
@@ -13,9 +17,12 @@ type CanvasTextModalProps = {
 const CanvasTextModal = ({
   open,
   value,
+  selectedSectionId = '',
+  sectionOptions = [],
   error,
   isSaving = false,
   onChange,
+  onSectionChange = () => {},
   onSubmit,
   onClose,
 }: CanvasTextModalProps) => (
@@ -23,6 +30,11 @@ const CanvasTextModal = ({
     <Modal.Body>
       <div className="space-y-3">
         <Textarea label="Tekst" minRows={6} value={value} onChange={(event) => onChange(event.target.value)} />
+        <CanvasSectionPlacementSelect
+          sectionOptions={sectionOptions}
+          selectedSectionId={selectedSectionId}
+          onSectionChange={onSectionChange}
+        />
         {error && <Alert variant="error">{error}</Alert>}
       </div>
     </Modal.Body>

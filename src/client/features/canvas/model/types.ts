@@ -73,11 +73,14 @@ export type CanvasFrame = {
   drawingStrokeWidth?: number
   drawingColor?: string
   drawingRotationDeg?: number
+  drawingAltText?: string
   isIllustration?: boolean
   imageRotationDeg?: number
+  imageAltText?: string
   chartType?: CanvasChartType
   chartSql?: string
   sqlQuery?: string
+  hideInShare?: boolean
   label: string
   x: number
   y: number
@@ -193,11 +196,14 @@ export type CanvasConfigPayload = {
   drawingStrokeWidth?: number
   drawingColor?: string
   drawingRotationDeg?: number
+  drawingAltText?: string
   isIllustration?: boolean
   imageRotationDeg?: number
+  imageAltText?: string
   chartType?: CanvasChartType
   chartSql?: string
   sqlQuery?: string
+  hideInShare?: boolean
   label: string
   fromFrameId?: string
   toFrameId?: string

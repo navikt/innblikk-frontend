@@ -18,8 +18,10 @@ import CanvasCoreModals from './controls/CanvasCoreModals.tsx'
 import CanvasTopBar from './controls/CanvasTopBar.tsx'
 import CanvasDotVotingModal from './controls/CanvasDotVotingModal.tsx'
 import CanvasTimerModal from './controls/CanvasTimerModal.tsx'
+import type { SectionAddAction } from './controls/CanvasFrameActionPoints.tsx'
 import CanvasDrawingToolbar from './drawing/CanvasDrawingToolbar.tsx'
 import CanvasDrawingDraftOverlay from './drawing/CanvasDrawingDraftOverlay.tsx'
+import CanvasDrawingAccessibilityModal from './drawing/CanvasDrawingAccessibilityModal.tsx'
 import CanvasConnectionLayer from './layers/CanvasConnectionLayer.tsx'
 import CanvasFloatingControls from './controls/CanvasFloatingControls.tsx'
 import CanvasGrafbyggerOverlay from './controls/CanvasGrafbyggerOverlay.tsx'
@@ -32,6 +34,7 @@ import CanvasTextModal from './text/CanvasTextModal.tsx'
 import CanvasTableModal from './text/CanvasTableModal.tsx'
 import CanvasLinkModal from './link/CanvasLinkModal.tsx'
 import CanvasStickyModal from './sticky/CanvasStickyModal.tsx'
+import CanvasSectionModal from './section/CanvasSectionModal.tsx'
 import {
   CANVAS_STICKY_COLOR_OPTIONS,
   DEFAULT_CANVAS_STICKY_COLOR,
@@ -83,6 +86,7 @@ import useCanvasPlacementState from '../hooks/useCanvasPlacementState.ts'
 import useCanvasChartMutations from '../hooks/useCanvasChartMutations.ts'
 import { fetchCanvasStorageData } from '../api/canvasStorageApi.ts'
 import ChangeLogModal, { type ChangeLogEntry } from '../../../shared/ui/ChangeLogModal.tsx'
+import { buildCanvasShareUrl } from '../share/utils/canvasShareLayout.ts'
 
 import type {
   CanvasChartOption,
@@ -95,6 +99,7 @@ import type {
   CanvasFigureType,
   CanvasFrame,
   CanvasPageInsight,
+  CanvasSectionLayoutMode,
   ConnectionAnchorSide,
   ConnectionDragState,
   PendingCanvasFrameDraft,
@@ -107,6 +112,7 @@ import {
   getFrameBoundsForLayout as getFrameBoundsForLayoutBase,
   reflowGridSections as reflowGridSectionFrames,
 } from '../model/layout/gridSectionLayout.ts'
+import { buildCanvasHierarchy } from '../utils/canvasHierarchy.ts'
 import {
   CANVAS_DASHBOARD_TOKEN,
   CANVAS_FIGURE_OPTIONS,
@@ -315,9 +321,11 @@ const Canvas = () => {
   const [isAddTableModalOpen, setIsAddTableModalOpen] = useState(false)
   const [isAddLinkModalOpen, setIsAddLinkModalOpen] = useState(false)
   const [isAddStickyModalOpen, setIsAddStickyModalOpen] = useState(false)
+  const [isAddSectionModalOpen, setIsAddSectionModalOpen] = useState(false)
   const [isImportStickyCsvModalOpen, setIsImportStickyCsvModalOpen] = useState(false)
   const [isAddIconModalOpen, setIsAddIconModalOpen] = useState(false)
   const [isAddFigureModalOpen, setIsAddFigureModalOpen] = useState(false)
+  const [isDrawingAccessibilityModalOpen, setIsDrawingAccessibilityModalOpen] = useState(false)
   const [isCanvasSettingsModalOpen, setIsCanvasSettingsModalOpen] = useState(false)
   const [canvasSettingsInfo, setCanvasSettingsInfo] = useState<string | null>(null)
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false)
@@ -350,13 +358,16 @@ const Canvas = () => {
   const [editIconFrameId, setEditIconFrameId] = useState<string | null>(null)
   const [editFigureFrameId, setEditFigureFrameId] = useState<string | null>(null)
   const [editIllustrationFrameId, setEditIllustrationFrameId] = useState<string | null>(null)
+  const [editDrawingFrameId, setEditDrawingFrameId] = useState<string | null>(null)
   const [editWebsitePathInput, setEditWebsitePathInput] = useState('')
   const [editImageUrlInput, setEditImageUrlInput] = useState('')
+  const [editImageAltTextInput, setEditImageAltTextInput] = useState('')
   const [editWebsitePreviewUrlInput, setEditWebsitePreviewUrlInput] = useState('')
   const [editWebsiteRenderEnabled, setEditWebsiteRenderEnabled] = useState(true)
   const [editWebsiteVisualizationMode, setEditWebsiteVisualizationMode] = useState<VisualizationMode | ''>('')
   const [newPagePathInput, setNewPagePathInput] = useState('')
   const [newImageUrlInput, setNewImageUrlInput] = useState('')
+  const [newImageAltTextInput, setNewImageAltTextInput] = useState('')
   const [selectedIllustrationPath, setSelectedIllustrationPath] = useState(DEFAULT_CANVAS_ILLUSTRATION_PATH)
   const [newPagePreviewUrlInput, setNewPagePreviewUrlInput] = useState('')
   const [newPageRenderEnabled, setNewPageRenderEnabled] = useState(true)
@@ -405,8 +416,31 @@ const Canvas = () => {
   const [linkUrlInput, setLinkUrlInput] = useState('')
   const [linkDescriptionInput, setLinkDescriptionInput] = useState('')
   const [addLinkError, setAddLinkError] = useState<string | null>(null)
+  const [drawingIsDecorative, setDrawingIsDecorative] = useState(false)
+  const [drawingAltTextInput, setDrawingAltTextInput] = useState('')
+  const [drawingAccessibilityError, setDrawingAccessibilityError] = useState<string | null>(null)
+  const [pendingDrawingFrameDraft, setPendingDrawingFrameDraft] = useState<{
+    drawingPath: string
+    drawingStrokeStyles: string
+    drawingStrokeWidth: number
+    drawingColor: string
+    x: number
+    y: number
+    width: number
+    height: number
+  } | null>(null)
   const [stickyContentInput, setStickyContentInput] = useState('')
   const [selectedStickyColor, setSelectedStickyColor] = useState(DEFAULT_CANVAS_STICKY_COLOR)
+  const [selectedStickySectionId, setSelectedStickySectionId] = useState('')
+  const [sectionNameInput, setSectionNameInput] = useState('')
+  const [sectionLayoutMode, setSectionLayoutMode] = useState<CanvasSectionLayoutMode>('grid')
+  const [addSectionError, setAddSectionError] = useState<string | null>(null)
+  const [isSectionOptionsModalOpen, setIsSectionOptionsModalOpen] = useState(false)
+  const [sectionOptionsFrameId, setSectionOptionsFrameId] = useState<string | null>(null)
+  const [sectionOptionsNameInput, setSectionOptionsNameInput] = useState('')
+  const [sectionOptionsLayoutMode, setSectionOptionsLayoutMode] = useState<CanvasSectionLayoutMode>('grid')
+  const [sectionOptionsError, setSectionOptionsError] = useState<string | null>(null)
+  const [selectedAddSectionId, setSelectedAddSectionId] = useState('')
   const [addStickyError, setAddStickyError] = useState<string | null>(null)
   const [frameTablePages, setFrameTablePages] = useState<Record<string, number>>({})
   const [selectedIconId, setSelectedIconId] = useState(DEFAULT_CANVAS_ICON_ID)
@@ -426,7 +460,8 @@ const Canvas = () => {
   const [isLoadingChartOptions, _setIsLoadingChartOptions] = useState(false)
   const [addChartError, setAddChartError] = useState<string | null>(null)
   const [isGrafbyggerEmbedded, setIsGrafbyggerEmbedded] = useState(false)
-  const [isCanvasLocked, setIsCanvasLocked] = useState(false)
+  const [isCanvasLocked, setIsCanvasLocked] = useState(true)
+  const [isLockedModeEditing, setIsLockedModeEditing] = useState(false)
   const [dragState, setDragState] = useState<CanvasDragState | null>(null)
   const [selectedFrameIds, setSelectedFrameIds] = useState<string[]>([])
   const [selectionBox, setSelectionBox] = useState<CanvasSelectionBox | null>(null)
@@ -463,6 +498,7 @@ const Canvas = () => {
     | null
   >(null)
   const [timerA11yAnnouncement, setTimerA11yAnnouncement] = useState('')
+  const [placementA11yAnnouncement, setPlacementA11yAnnouncement] = useState('')
   const [, setIsLoadingCanvasItems] = useState(false)
   const [isSavingCanvasItem, setIsSavingCanvasItem] = useState(false)
   const [isImportingStickyCsv, setIsImportingStickyCsv] = useState(false)
@@ -476,6 +512,8 @@ const Canvas = () => {
   const [bulkDeleteProgress, setBulkDeleteProgress] = useState<{ total: number; completed: number } | null>(null)
   const [canvasZoom, setCanvasZoom] = useState(1)
   const [activeEditableFrameId, setActiveEditableFrameId] = useState<string | null>(null)
+  const [focusSectionTitleId, setFocusSectionTitleId] = useState<string | null>(null)
+  const [focusFrameId, setFocusFrameId] = useState<string | null>(null)
   const [failedImageFrameIds, setFailedImageFrameIds] = useState<Record<string, boolean>>({})
   const pageInsightsRef = useRef<Record<string, CanvasPageInsight>>({})
   const framesRef = useRef<CanvasFrame[]>([])
@@ -489,6 +527,7 @@ const Canvas = () => {
   const canvasToolbarRef = useRef<HTMLDivElement | null>(null)
   const connectionMetricRequestSignatureRef = useRef<string | null>(null)
   const timerModalReopenBlockedUntilRef = useRef(0)
+  const wasPlacementModeActiveRef = useRef(false)
   const {
     pendingFrameDraft,
     setPendingFrameDraft,
@@ -658,7 +697,8 @@ const Canvas = () => {
     onSyncError: handleCanvasSyncError,
   })
   const isDotVotingActive = Boolean(dotVotingSessionPayload) && dotVotingSessionPayload?.status !== 'ended'
-  const isInteractionLocked = isDotVotingActive || isCanvasLocked
+  const isCanvasReadOnly = isCanvasLocked && !isLockedModeEditing
+  const isInteractionLocked = isDotVotingActive || isCanvasReadOnly
   const shouldRevealDotVotingTotals =
     Boolean(dotVotingSessionPayload) &&
     (dotVotingSessionPayload?.status === 'ended' || (!isDotVotingRunning && !isDotVotingPaused))
@@ -667,6 +707,19 @@ const Canvas = () => {
     () => getCanvasPeriodLabel(period, customStartDate, customEndDate),
     [period, customStartDate, customEndDate],
   )
+
+  useEffect(() => {
+    if (!isCanvasLocked && isLockedModeEditing) {
+      setIsLockedModeEditing(false)
+    }
+  }, [isCanvasLocked, isLockedModeEditing])
+
+  useEffect(() => {
+    if (!isCanvasReadOnly) return
+    setActiveEditableFrameId(null)
+    setSelectedFrameIds([])
+    setSelectionBox(null)
+  }, [isCanvasReadOnly])
 
   useEffect(() => {
     const wasRunning = previousTimerRunningRef.current
@@ -684,6 +737,29 @@ const Canvas = () => {
     const timeoutId = window.setTimeout(() => setTimerA11yAnnouncement(''), 3000)
     return () => window.clearTimeout(timeoutId)
   }, [timerA11yAnnouncement])
+
+  useEffect(() => {
+    if (!placementA11yAnnouncement) return
+    const timeoutId = window.setTimeout(() => setPlacementA11yAnnouncement(''), 3000)
+    return () => window.clearTimeout(timeoutId)
+  }, [placementA11yAnnouncement])
+
+  useEffect(() => {
+    const placementModeStarted = isPlacementModeActive && !wasPlacementModeActiveRef.current
+    if (placementModeStarted) {
+      const elementLabel = pendingFramePlacementLabel || pendingFrameDraft?.label || 'element'
+      if (pendingFrameDraft) {
+        setPlacementA11yAnnouncement(
+          `Plasseringsmodus aktivert for ${elementLabel}. Velg Autoplasser, eller klikk i canvas for plassering. Velg Avbryt for å avslutte.`,
+        )
+      } else if (pendingCsvStickyImport) {
+        setPlacementA11yAnnouncement(
+          'Plasseringsmodus aktivert for import. Klikk i canvas for plassering, eller velg Avbryt for å avslutte.',
+        )
+      }
+    }
+    wasPlacementModeActiveRef.current = isPlacementModeActive
+  }, [isPlacementModeActive, pendingCsvStickyImport, pendingFrameDraft, pendingFramePlacementLabel])
 
   useEffect(() => {
     pageInsightsRef.current = pageInsights
@@ -1083,11 +1159,14 @@ const Canvas = () => {
         drawingStrokeStyles: frame.drawingStrokeStyles,
         drawingStrokeWidth: frame.drawingStrokeWidth,
         drawingColor: frame.drawingColor,
+        drawingAltText: frame.drawingAltText,
         isIllustration: frame.isIllustration,
         imageRotationDeg: frame.imageRotationDeg,
+        imageAltText: frame.imageAltText,
         chartType: frame.chartType,
         chartSql: frame.chartSql,
         sqlQuery: frame.sqlQuery,
+        hideInShare: frame.hideInShare,
         label: frame.label,
       }
       const serialized = serializeCanvasConfig(payload)
@@ -1304,6 +1383,8 @@ const Canvas = () => {
       setCanvasTitle('Innblikk')
       setCanvasDashboardDescription(CANVAS_DASHBOARD_TOKEN)
       setCanvasConfiguredWebsiteId(null)
+      setIsCanvasLocked(true)
+      setIsLockedModeEditing(false)
       setCanvasDefaultPeriod('')
       setCanvasDefaultCustomStartDate(undefined)
       setCanvasDefaultCustomEndDate(undefined)
@@ -1323,7 +1404,8 @@ const Canvas = () => {
           setCanvasTitle('Canvas')
           setCanvasDashboardDescription(CANVAS_DASHBOARD_TOKEN)
           setCanvasConfiguredWebsiteId(null)
-          setIsCanvasLocked(false)
+          setIsCanvasLocked(true)
+          setIsLockedModeEditing(false)
           setCanvasDefaultPeriod('')
           setCanvasDefaultCustomStartDate(undefined)
           setCanvasDefaultCustomEndDate(undefined)
@@ -1342,6 +1424,7 @@ const Canvas = () => {
         setCanvasDashboardDescription(dashboardDescription)
         setCanvasConfiguredWebsiteId(extractCanvasWebsiteIdFromDescription(dashboardDescription))
         setIsCanvasLocked(isLocked)
+        setIsLockedModeEditing(false)
         setCanvasDefaultPeriod(configuredDefaultPeriod ?? '')
         setCanvasDefaultCustomStartDate(defaultCustomStartDate)
         setCanvasDefaultCustomEndDate(defaultCustomEndDate)
@@ -1363,7 +1446,8 @@ const Canvas = () => {
         setCanvasTitle('Canvas')
         setCanvasDashboardDescription(CANVAS_DASHBOARD_TOKEN)
         setCanvasConfiguredWebsiteId(null)
-        setIsCanvasLocked(false)
+        setIsCanvasLocked(true)
+        setIsLockedModeEditing(false)
         setCanvasDefaultPeriod('')
         setCanvasDefaultCustomStartDate(undefined)
         setCanvasDefaultCustomEndDate(undefined)
@@ -1513,6 +1597,7 @@ const Canvas = () => {
     handleAddTableCard,
     handleAddLinkCard,
     handleAddStickyCard,
+    handleAddSectionCard,
     handleAddIconCard,
     handleAddFigureCard,
     handleAddChartCard,
@@ -1566,6 +1651,8 @@ const Canvas = () => {
     setIsAddLinkModalOpen,
     isAddStickyModalOpen,
     setIsAddStickyModalOpen,
+    isAddSectionModalOpen,
+    setIsAddSectionModalOpen,
     isAddIconModalOpen,
     setIsAddIconModalOpen,
     isAddFigureModalOpen,
@@ -1600,6 +1687,8 @@ const Canvas = () => {
     setEditWebsitePathInput,
     editImageUrlInput,
     setEditImageUrlInput,
+    editImageAltTextInput,
+    setEditImageAltTextInput,
     editWebsitePreviewUrlInput,
     setEditWebsitePreviewUrlInput,
     editWebsiteRenderEnabled,
@@ -1610,6 +1699,8 @@ const Canvas = () => {
     setNewPagePathInput,
     newImageUrlInput,
     setNewImageUrlInput,
+    newImageAltTextInput,
+    setNewImageAltTextInput,
     selectedIllustrationPath,
     setSelectedIllustrationPath,
     newPagePreviewUrlInput,
@@ -1678,6 +1769,17 @@ const Canvas = () => {
     setStickyContentInput,
     selectedStickyColor,
     setSelectedStickyColor,
+    selectedStickySectionId,
+    setSelectedStickySectionId,
+    onFrameAddedInSection: (frame) => setFocusFrameId(frame.id),
+    sectionNameInput,
+    setSectionNameInput,
+    sectionLayoutMode,
+    setSectionLayoutMode,
+    addSectionError,
+    setAddSectionError,
+    selectedAddSectionId,
+    setSelectedAddSectionId,
     addStickyError,
     setAddStickyError,
     selectedIconId,
@@ -1720,6 +1822,68 @@ const Canvas = () => {
   const handleOpenAddDrawing = () => {
     cancelPendingFramePlacement()
     openDrawingMode()
+  }
+
+  const handleSelectSectionAddAction = (sectionId: string, action: SectionAddAction) => {
+    const openAddModalInSection = (openModal: () => void) => {
+      openModal()
+      setSelectedAddSectionId(sectionId)
+    }
+
+    switch (action) {
+      case 'section':
+        handleOpenAddSection()
+        return
+      case 'tab':
+        handleOpenCreateTabModal()
+        return
+      case 'heading':
+        openAddModalInSection(handleOpenAddHeadingModal)
+        return
+      case 'text':
+        openAddModalInSection(handleOpenAddTextModal)
+        return
+      case 'table':
+        openAddModalInSection(handleOpenAddTableModal)
+        return
+      case 'link':
+        openAddModalInSection(handleOpenAddLinkModal)
+        return
+      case 'sticky':
+        handleOpenAddStickyModal()
+        setSelectedStickySectionId(sectionId)
+        return
+      case 'image':
+        openAddModalInSection(handleOpenAddImageModal)
+        return
+      case 'icon':
+        openAddModalInSection(handleOpenAddIconModal)
+        return
+      case 'figure':
+        openAddModalInSection(handleOpenAddFigureModal)
+        return
+      case 'drawing':
+        handleOpenAddDrawing()
+        return
+      case 'illustration':
+        openAddModalInSection(handleOpenAddIllustrationModal)
+        return
+      case 'website':
+        handleOpenAddPageModal()
+        return
+      case 'chart':
+        handleOpenGrafbyggerFromAddMenu()
+        return
+      case 'sql-editor':
+        handleOpenAddSqlEditor()
+        return
+      case 'dashboard':
+        handleOpenAddDashboardModal()
+        return
+      case 'import-sticky-csv':
+        handleOpenImportStickyCsvModal()
+        return
+    }
   }
 
   useEffect(() => {
@@ -1774,67 +1938,171 @@ const Canvas = () => {
     [canvasCanvasTopOffset, canvasZoom],
   )
 
-  const handleFinalizeDrawing = useCallback(
-    async ({ strokes }: { strokes: CanvasDrawingStroke[] }) => {
-      const normalizedStrokes = strokes
-        .map((stroke) => ({
-          ...stroke,
-          points: stroke.points.length === 1 ? [stroke.points[0], stroke.points[0]] : stroke.points,
-        }))
-        .filter((stroke) => stroke.points.length > 0)
-      const allPoints = normalizedStrokes.flatMap((stroke) => stroke.points)
-      if (allPoints.length === 0) return
+  const handleAutoPlacedSection = useCallback(
+    (frame: CanvasFrame) => {
+      if (frame.kind !== 'section') return
+      setFocusSectionTitleId(frame.id)
+      const viewport = canvasViewportRef.current
+      if (!viewport) return
 
-      const minX = Math.min(...allPoints.map((point) => point.x))
-      const maxX = Math.max(...allPoints.map((point) => point.x))
-      const minY = Math.min(...allPoints.map((point) => point.y))
-      const maxY = Math.max(...allPoints.map((point) => point.y))
-      const maxStrokeWidth = normalizedStrokes.reduce((maxValue, stroke) => Math.max(maxValue, stroke.strokeWidth), 0)
-      const padding = Math.max(4, maxStrokeWidth)
-      const baseX = minX - padding
-      const baseY = minY - padding
-      const width = Math.max(28, maxX - minX + padding * 2)
-      const height = Math.max(28, maxY - minY + padding * 2)
-      const drawingPath = normalizedStrokes
-        .map((stroke) =>
-          stroke.points.map((point) => `${(point.x - baseX).toFixed(2)},${(point.y - baseY).toFixed(2)}`).join(' '),
-        )
-        .join(' | ')
-      const drawingStrokeStyles = JSON.stringify(
-        normalizedStrokes.map((stroke) => ({
-          color: getCanvasIconColor(stroke.color),
-          strokeWidth: stroke.strokeWidth,
-        })),
-      )
+      const defaults = getDefaultFrameSize(frame)
+      const width = frame.width ?? defaults.width
+      const height = frame.height ?? defaults.height
+      const margin = 48
 
-      const nextFrame: CanvasFrame = {
-        id: `${Date.now()}-${Math.random()}`,
-        kind: 'drawing',
-        drawingPath,
-        drawingStrokeStyles,
-        drawingStrokeWidth: normalizedStrokes[0]?.strokeWidth ?? DEFAULT_DRAWING_STROKE_WIDTH,
-        drawingColor: getCanvasIconColor(normalizedStrokes[0]?.color),
-        label: 'Tegning',
-        x: Math.max(0, baseX),
-        y: Math.max(-CANVAS_TOP_BUFFER, baseY),
-        width,
-        height,
-        refreshNonce: 0,
+      const leftPx = frame.x * canvasZoom
+      const topPx = canvasCanvasTopOffset + frame.y * canvasZoom
+      const rightPx = leftPx + width * canvasZoom
+      const bottomPx = topPx + height * canvasZoom
+
+      const visibleLeft = viewport.scrollLeft
+      const visibleTop = viewport.scrollTop
+      const visibleRight = visibleLeft + viewport.clientWidth
+      const visibleBottom = visibleTop + viewport.clientHeight
+
+      const isVisibleWithMargin =
+        leftPx >= visibleLeft + margin &&
+        rightPx <= visibleRight - margin &&
+        topPx >= visibleTop + margin &&
+        bottomPx <= visibleBottom - margin
+      if (isVisibleWithMargin) return
+
+      let nextScrollLeft = visibleLeft
+      let nextScrollTop = visibleTop
+
+      if (rightPx > visibleRight - margin) {
+        nextScrollLeft = rightPx - viewport.clientWidth + margin
+      } else if (leftPx < visibleLeft + margin) {
+        nextScrollLeft = leftPx - margin
       }
 
-      try {
-        setIsSavingCanvasItem(true)
-        setSyncError(null)
+      if (bottomPx > visibleBottom - margin) {
+        nextScrollTop = bottomPx - viewport.clientHeight + margin
+      } else if (topPx < visibleTop + margin) {
+        nextScrollTop = topPx - margin
+      }
+
+      viewport.scrollTo({
+        left: Math.max(0, nextScrollLeft),
+        top: Math.max(0, nextScrollTop),
+        behavior: 'smooth',
+      })
+    },
+    [canvasCanvasTopOffset, canvasZoom],
+  )
+
+  const handleFinalizeDrawing = useCallback(({ strokes }: { strokes: CanvasDrawingStroke[] }) => {
+    const normalizedStrokes = strokes
+      .map((stroke) => ({
+        ...stroke,
+        points: stroke.points.length === 1 ? [stroke.points[0], stroke.points[0]] : stroke.points,
+      }))
+      .filter((stroke) => stroke.points.length > 0)
+    const allPoints = normalizedStrokes.flatMap((stroke) => stroke.points)
+    if (allPoints.length === 0) return
+
+    const minX = Math.min(...allPoints.map((point) => point.x))
+    const maxX = Math.max(...allPoints.map((point) => point.x))
+    const minY = Math.min(...allPoints.map((point) => point.y))
+    const maxY = Math.max(...allPoints.map((point) => point.y))
+    const maxStrokeWidth = normalizedStrokes.reduce((maxValue, stroke) => Math.max(maxValue, stroke.strokeWidth), 0)
+    const padding = Math.max(4, maxStrokeWidth)
+    const baseX = minX - padding
+    const baseY = minY - padding
+    const width = Math.max(28, maxX - minX + padding * 2)
+    const height = Math.max(28, maxY - minY + padding * 2)
+    const drawingPath = normalizedStrokes
+      .map((stroke) =>
+        stroke.points.map((point) => `${(point.x - baseX).toFixed(2)},${(point.y - baseY).toFixed(2)}`).join(' '),
+      )
+      .join(' | ')
+    const drawingStrokeStyles = JSON.stringify(
+      normalizedStrokes.map((stroke) => ({
+        color: getCanvasIconColor(stroke.color),
+        strokeWidth: stroke.strokeWidth,
+      })),
+    )
+
+    setPendingDrawingFrameDraft({
+      drawingPath,
+      drawingStrokeStyles,
+      drawingStrokeWidth: normalizedStrokes[0]?.strokeWidth ?? DEFAULT_DRAWING_STROKE_WIDTH,
+      drawingColor: getCanvasIconColor(normalizedStrokes[0]?.color),
+      x: Math.max(0, baseX),
+      y: Math.max(-CANVAS_TOP_BUFFER, baseY),
+      width,
+      height,
+    })
+    setDrawingIsDecorative(false)
+    setDrawingAltTextInput('')
+    setDrawingAccessibilityError(null)
+    setEditDrawingFrameId(null)
+    setIsDrawingAccessibilityModalOpen(true)
+  }, [])
+
+  const handleOpenEditDrawingModal = useCallback((frame: CanvasFrame) => {
+    if (frame.kind !== 'drawing') return
+    setEditDrawingFrameId(frame.id)
+    setPendingDrawingFrameDraft(null)
+    setDrawingIsDecorative(frame.drawingAltText === '')
+    setDrawingAltTextInput(frame.drawingAltText ?? '')
+    setDrawingAccessibilityError(null)
+    setIsDrawingAccessibilityModalOpen(true)
+  }, [])
+
+  const handleSaveDrawingWithAccessibility = useCallback(async () => {
+    const normalizedAltText = drawingAltTextInput.trim()
+    if (!drawingIsDecorative && !normalizedAltText) {
+      setDrawingAccessibilityError('Legg inn alternativ tekst, eller marker tegningen som dekorativ.')
+      return
+    }
+
+    const drawingAltText = drawingIsDecorative ? '' : normalizedAltText
+
+    try {
+      setIsSavingCanvasItem(true)
+      setSyncError(null)
+      if (editDrawingFrameId) {
+        const currentFrame = frames.find((frame) => frame.id === editDrawingFrameId)
+        if (!currentFrame || currentFrame.kind !== 'drawing') return
+
+        const updatedFrame: CanvasFrame = {
+          ...currentFrame,
+          drawingAltText,
+          label: drawingIsDecorative ? 'Tegning' : normalizedAltText,
+        }
+        const persistedFrame = await persistFrame(updatedFrame)
+        setFrames((prev) => prev.map((frame) => (frame.id === editDrawingFrameId ? persistedFrame : frame)))
+      } else {
+        if (!pendingDrawingFrameDraft) return
+        const nextFrame: CanvasFrame = {
+          id: `${Date.now()}-${Math.random()}`,
+          kind: 'drawing',
+          drawingPath: pendingDrawingFrameDraft.drawingPath,
+          drawingStrokeStyles: pendingDrawingFrameDraft.drawingStrokeStyles,
+          drawingStrokeWidth: pendingDrawingFrameDraft.drawingStrokeWidth,
+          drawingColor: pendingDrawingFrameDraft.drawingColor,
+          drawingAltText,
+          label: drawingIsDecorative ? 'Tegning' : normalizedAltText,
+          x: pendingDrawingFrameDraft.x,
+          y: pendingDrawingFrameDraft.y,
+          width: pendingDrawingFrameDraft.width,
+          height: pendingDrawingFrameDraft.height,
+          refreshNonce: 0,
+        }
         const persistedFrame = await persistFrame(nextFrame)
         setFrames((prev) => [...prev, persistedFrame])
-      } catch (error) {
-        setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre tegning')
-      } finally {
-        setIsSavingCanvasItem(false)
       }
-    },
-    [persistFrame],
-  )
+      setPendingDrawingFrameDraft(null)
+      setEditDrawingFrameId(null)
+      setDrawingAccessibilityError(null)
+      setIsDrawingAccessibilityModalOpen(false)
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre tegning')
+    } finally {
+      setIsSavingCanvasItem(false)
+    }
+  }, [drawingAltTextInput, drawingIsDecorative, editDrawingFrameId, frames, pendingDrawingFrameDraft, persistFrame])
 
   const {
     isDrawingMode,
@@ -1857,44 +2125,52 @@ const Canvas = () => {
     defaultStrokeWidth: DEFAULT_DRAWING_STROKE_WIDTH,
   })
 
-  const { handleCanvasSurfaceMouseDown, handleCanvasSurfaceMouseMove, handleCanvasSurfaceMouseLeave } =
-    useCanvasPlacement({
-      frames,
-      setFrames,
-      pendingFrameDraft,
-      setPendingFrameDraft,
-      pendingCsvStickyImport,
-      pendingCsvStickyImportRef,
-      pendingFigureDragStart,
-      setPendingFigureDragStart,
-      pendingFramePointer,
-      setPendingFramePointer,
-      setPendingFramePlacementLabel,
-      cancelPendingFramePlacement,
-      isImportingStickyCsv,
-      setIsImportingStickyCsv,
-      isImportingStickyCsvRef,
-      setImportStickyProgressCurrent,
-      setImportStickyProgressTotal,
-      setIsSavingCanvasItem,
-      setSyncError,
-      getCanvasPointerPosition,
-      getPendingFrameContentAnchorOffset,
-      getDefaultFrameSize,
-      getNextAutoSectionLabel,
-      estimateStickyFrameHeight,
-      estimateTableFrameHeight,
-      persistFrame,
-      sectionHeaderHeight: GRID_SECTION_LAYOUT_CONFIG.paddingTop,
-      topBuffer: CANVAS_TOP_BUFFER,
-      isDrawingMode,
-      startDrawingAt,
-      continueDrawingAt,
-      selectionBox,
-      setSelectionBox,
-      setSelectedFrameIds,
-      isInteractionLocked,
-    })
+  const {
+    handleCanvasSurfaceMouseDown,
+    handleCanvasSurfaceMouseMove,
+    handleCanvasSurfaceMouseLeave,
+    handleAutoPlacePendingFrame,
+  } = useCanvasPlacement({
+    frames,
+    setFrames,
+    pendingFrameDraft,
+    setPendingFrameDraft,
+    pendingCsvStickyImport,
+    pendingCsvStickyImportRef,
+    pendingFigureDragStart,
+    setPendingFigureDragStart,
+    pendingFramePointer,
+    setPendingFramePointer,
+    setPendingFramePlacementLabel,
+    cancelPendingFramePlacement,
+    isImportingStickyCsv,
+    setIsImportingStickyCsv,
+    isImportingStickyCsvRef,
+    setImportStickyProgressCurrent,
+    setImportStickyProgressTotal,
+    setIsSavingCanvasItem,
+    setSyncError,
+    setPlacementA11yAnnouncement,
+    onAutoPlacedSection: handleAutoPlacedSection,
+    onFramePlaced: (frame) => setFocusFrameId(frame.id),
+    getCanvasPointerPosition,
+    getPendingFrameContentAnchorOffset,
+    getDefaultFrameSize,
+    getNextAutoSectionLabel,
+    activeCanvasCategoryId,
+    estimateStickyFrameHeight,
+    estimateTableFrameHeight,
+    persistFrame,
+    sectionHeaderHeight: GRID_SECTION_LAYOUT_CONFIG.paddingTop,
+    topBuffer: CANVAS_TOP_BUFFER,
+    isDrawingMode,
+    startDrawingAt,
+    continueDrawingAt,
+    selectionBox,
+    setSelectionBox,
+    setSelectedFrameIds,
+    isInteractionLocked,
+  })
 
   const getFrameBounds = useCallback(
     (frame: CanvasFrame): { left: number; top: number; right: number; bottom: number } => {
@@ -2105,7 +2381,7 @@ const Canvas = () => {
 
   const startConnectionDrag = useCallback(
     (event: React.MouseEvent, frame: CanvasFrame, side: ConnectionAnchorSide) => {
-      if (isCanvasLocked) return
+      if (isCanvasReadOnly) return
       if (frame.kind !== 'website' || frame.isInternalDashboard) return
       event.preventDefault()
       event.stopPropagation()
@@ -2121,7 +2397,7 @@ const Canvas = () => {
         currentTargetFrameId: null,
       })
     },
-    [getCanvasPointerPosition, isCanvasLocked],
+    [getCanvasPointerPosition, isCanvasReadOnly],
   )
 
   const openGrafbyggerFromAddMenuDirect = () => {
@@ -2140,7 +2416,7 @@ const Canvas = () => {
     getHeadingFrameHeight,
     handleDragStart,
     handleResizeStart,
-    handleAdjustHeadingFontSize,
+    handleSetHeadingFontSize,
   } = useCanvasInteractions({
     isInteractionLocked,
     frames,
@@ -2343,6 +2619,116 @@ const Canvas = () => {
     }
   }
 
+  const handleBulkRemovePages = useCallback(
+    async (ids: string[]) => {
+      const uniqueIds = [...new Set(ids)]
+      if (uniqueIds.length === 0) return
+
+      const frameById = new Map(frames.map((frame) => [frame.id, frame]))
+      const framesToDelete = uniqueIds
+        .map((id) => frameById.get(id))
+        .filter((frame): frame is CanvasFrame => Boolean(frame))
+      if (framesToDelete.length === 0) return
+
+      const frameIdsToDelete = new Set(framesToDelete.map((frame) => frame.id))
+      const frameGraphIdsToDelete = new Set(
+        framesToDelete.map((frame) => frame.graphId).filter((graphId): graphId is number => Number.isFinite(graphId)),
+      )
+      const linkedConnections = connections.filter(
+        (connection) =>
+          (typeof connection.fromFrameId === 'string' && frameIdsToDelete.has(connection.fromFrameId)) ||
+          (typeof connection.toFrameId === 'string' && frameIdsToDelete.has(connection.toFrameId)) ||
+          (Number.isFinite(connection.fromGraphId) && frameGraphIdsToDelete.has(connection.fromGraphId as number)) ||
+          (Number.isFinite(connection.toGraphId) && frameGraphIdsToDelete.has(connection.toGraphId as number)),
+      )
+      const linkedConnectionIds = new Set(linkedConnections.map((connection) => connection.id))
+
+      const failedFramesById = new Map<string, CanvasFrame>()
+      const failedConnectionsById = new Map<string, CanvasConnection>()
+
+      setFrames((prev) => prev.filter((frame) => !frameIdsToDelete.has(frame.id)))
+      setSelectedFrameIds((prev) => prev.filter((frameId) => !frameIdsToDelete.has(frameId)))
+      setConnections((prev) => prev.filter((connection) => !linkedConnectionIds.has(connection.id)))
+
+      if (activeEditableFrameId && frameIdsToDelete.has(activeEditableFrameId)) {
+        const activeFrame = frameById.get(activeEditableFrameId)
+        setActiveEditableFrameId(null)
+        if (activeFrame) {
+          void releaseEditLock(activeFrame).catch(() => undefined)
+        }
+      }
+      if (connectionDragState?.sourceFrameId && frameIdsToDelete.has(connectionDragState.sourceFrameId)) {
+        setConnectionDragState(null)
+      }
+
+      setBulkDeleteProgress({ total: framesToDelete.length, completed: 0 })
+
+      let completedFrameDeletes = 0
+      for (const frame of framesToDelete) {
+        if (canPersistToDashboard && projectId !== null && dashboardId !== null && frame.graphId && frame.categoryId) {
+          try {
+            await deleteGraph(projectId, dashboardId, frame.categoryId, frame.graphId)
+          } catch {
+            failedFramesById.set(frame.id, frame)
+          }
+        }
+        completedFrameDeletes += 1
+        setBulkDeleteProgress({ total: framesToDelete.length, completed: completedFrameDeletes })
+      }
+
+      for (const connection of linkedConnections) {
+        if (
+          canPersistToDashboard &&
+          projectId !== null &&
+          dashboardId !== null &&
+          connection.graphId &&
+          connection.categoryId
+        ) {
+          try {
+            await deleteGraph(projectId, dashboardId, connection.categoryId, connection.graphId)
+          } catch {
+            failedConnectionsById.set(connection.id, connection)
+          }
+        }
+      }
+
+      if (failedFramesById.size > 0) {
+        const failedFrames = [...failedFramesById.values()]
+        setFrames((prev) => {
+          const existingIds = new Set(prev.map((frame) => frame.id))
+          const framesToRestore = failedFrames.filter((frame) => !existingIds.has(frame.id))
+          return framesToRestore.length > 0 ? [...prev, ...framesToRestore] : prev
+        })
+      }
+      if (failedConnectionsById.size > 0) {
+        const failedConnections = [...failedConnectionsById.values()]
+        setConnections((prev) => {
+          const existingIds = new Set(prev.map((connection) => connection.id))
+          const connectionsToRestore = failedConnections.filter((connection) => !existingIds.has(connection.id))
+          return connectionsToRestore.length > 0 ? [...prev, ...connectionsToRestore] : prev
+        })
+      }
+
+      if (failedFramesById.size > 0 || failedConnectionsById.size > 0) {
+        const succeededFrames = framesToDelete.length - failedFramesById.size
+        setSyncError(
+          `Slettet ${succeededFrames} av ${framesToDelete.length} elementer. ${failedFramesById.size} elementer feilet.`,
+        )
+      }
+    },
+    [
+      activeEditableFrameId,
+      canPersistToDashboard,
+      connectionDragState?.sourceFrameId,
+      connections,
+      dashboardId,
+      frames,
+      projectId,
+      releaseEditLock,
+      setSyncError,
+    ],
+  )
+
   const {
     editChartFrameId,
     editChartTarget,
@@ -2444,12 +2830,7 @@ const Canvas = () => {
               ? getContainedFrameIdsForSection(latestSectionFrame)
               : target.containedFrameIds
           const idsToDelete = [target.id, ...latestContainedIds]
-          setBulkDeleteProgress({ total: idsToDelete.length, completed: 0 })
-
-          for (let index = 0; index < idsToDelete.length; index += 1) {
-            await handleRemovePage(idsToDelete[index])
-            setBulkDeleteProgress({ total: idsToDelete.length, completed: index + 1 })
-          }
+          await handleBulkRemovePages(idsToDelete)
         } else {
           await handleRemovePage(target.id)
         }
@@ -2459,13 +2840,7 @@ const Canvas = () => {
       }
 
       if (target.type === 'frames') {
-        setBulkDeleteProgress({ total: target.ids.length, completed: 0 })
-
-        for (let index = 0; index < target.ids.length; index += 1) {
-          await handleRemovePage(target.ids[index])
-          setBulkDeleteProgress({ total: target.ids.length, completed: index + 1 })
-        }
-
+        await handleBulkRemovePages(target.ids)
         setBulkDeleteProgress(null)
         setDeleteTarget(null)
         return
@@ -2872,28 +3247,33 @@ const Canvas = () => {
     })
   }
 
-  const handleToggleSectionLayout = (id: string) => {
+  const handleSetSectionLayout = (
+    id: string,
+    nextSectionLayout: CanvasSectionLayoutMode,
+    nextLabel?: string,
+  ): boolean => {
     const sectionFrame = frames.find((frame) => frame.id === id)
-    if (!sectionFrame || sectionFrame.kind !== 'section') return
+    if (!sectionFrame || sectionFrame.kind !== 'section') return false
+    if (sectionFrame.sectionLayout === nextSectionLayout && nextLabel === undefined) return true
 
-    const nextSectionLayout = sectionFrame.sectionLayout === 'grid' ? 'freeform' : 'grid'
     if (sectionFrame.sectionLayout === 'freeform' && nextSectionLayout === 'grid') {
       const confirmed = window.confirm(
         'Bytte til rutenett vil flytte elementene automatisk og overstyre friform-posisjonene. Vil du fortsette?',
       )
-      if (!confirmed) return
+      if (!confirmed) return false
     }
 
     if (nextSectionLayout === 'freeform') {
       const nextSectionFrame: CanvasFrame = {
         ...sectionFrame,
+        label: nextLabel ?? sectionFrame.label,
         sectionLayout: 'freeform',
       }
       setFrames((prev) => prev.map((frame) => (frame.id === id ? nextSectionFrame : frame)))
       void persistFrame(nextSectionFrame).catch((error) => {
         setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre seksjonsoppsett')
       })
-      return
+      return true
     }
 
     const sectionBounds = getFrameBoundsForLayout(sectionFrame)
@@ -2952,6 +3332,7 @@ const Canvas = () => {
 
     const nextSectionFrame: CanvasFrame = {
       ...sectionFrame,
+      label: nextLabel ?? sectionFrame.label,
       sectionLayout: 'grid',
       height: Math.max(
         sectionFrame.height ?? getDefaultFrameSize(sectionFrame).height,
@@ -2979,6 +3360,55 @@ const Canvas = () => {
           }),
         ),
     )
+    return true
+  }
+
+  const handleOpenSectionOptionsModal = (id: string) => {
+    const sectionFrame = frames.find((frame) => frame.id === id && frame.kind === 'section')
+    if (!sectionFrame) return
+    setSectionOptionsFrameId(id)
+    setSectionOptionsNameInput(sectionFrame.label)
+    setSectionOptionsLayoutMode(sectionFrame.sectionLayout === 'grid' ? 'grid' : 'freeform')
+    setSectionOptionsError(null)
+    setIsSectionOptionsModalOpen(true)
+  }
+
+  const handleSaveSectionOptions = () => {
+    const frameId = sectionOptionsFrameId
+    if (!frameId) return
+    const sectionFrame = frames.find((frame) => frame.id === frameId && frame.kind === 'section')
+    if (!sectionFrame) {
+      setSectionOptionsError('Fant ikke seksjonen.')
+      return
+    }
+
+    const normalizedLabel = sectionOptionsNameInput.trim() || getNextAutoSectionLabel(frames, frameId)
+    const nextLayout = sectionOptionsLayoutMode
+
+    if (sectionFrame.sectionLayout !== nextLayout) {
+      const didApplyLayout = handleSetSectionLayout(frameId, nextLayout, normalizedLabel)
+      if (!didApplyLayout) return
+      setIsSectionOptionsModalOpen(false)
+      setSectionOptionsFrameId(null)
+      setSectionOptionsNameInput('')
+      setSectionOptionsLayoutMode('grid')
+      setSectionOptionsError(null)
+      return
+    }
+
+    const nextSectionFrame: CanvasFrame = {
+      ...sectionFrame,
+      label: normalizedLabel,
+    }
+    setFrames((prev) => prev.map((frame) => (frame.id === frameId ? nextSectionFrame : frame)))
+    void persistFrame(nextSectionFrame).catch((error) => {
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre seksjonsinnstillinger')
+    })
+    setIsSectionOptionsModalOpen(false)
+    setSectionOptionsFrameId(null)
+    setSectionOptionsNameInput('')
+    setSectionOptionsLayoutMode('grid')
+    setSectionOptionsError(null)
   }
 
   const handleMoveFrameToSection = (frameId: string, sectionId: string) => {
@@ -3220,6 +3650,16 @@ const Canvas = () => {
 
   const handleOpenInventoryModal = () => {
     setIsInventoryModalOpen(true)
+  }
+
+  const handleOpenShareView = () => {
+    window.location.assign(
+      buildCanvasShareUrl({
+        projectId,
+        dashboardId,
+        categoryId: activeCanvasCategoryId,
+      }),
+    )
   }
 
   const loadCanvasChangeLog = useCallback(async () => {
@@ -3818,112 +4258,41 @@ const Canvas = () => {
     setDotVotingSelectedSectionId(dotVotingSectionOptions[0]?.id ?? '')
   }, [dotVotingSectionOptions, dotVotingSelectedSectionId, dotVotingSessionPayload])
 
-  const frameContainingSectionIdByFrameId = useMemo(() => {
-    const byId: Record<string, string> = {}
-    const sections = visibleFrames.filter((frame) => frame.kind === 'section')
-
-    visibleFrames.forEach((frame) => {
-      if (frame.kind === 'section') return
-      const bounds = getFrameBounds(frame)
-      const centerX = (bounds.left + bounds.right) / 2
-      const centerY = (bounds.top + bounds.bottom) / 2
-      const containingSection = sections.find((section) => {
-        const sectionBounds = getFrameBounds(section)
-        return (
-          centerX >= sectionBounds.left &&
-          centerX <= sectionBounds.right &&
-          centerY >= sectionBounds.top &&
-          centerY <= sectionBounds.bottom
-        )
-      })
-      if (containingSection) {
-        byId[frame.id] = containingSection.id
-      }
-    })
-
-    return byId
-  }, [getFrameBounds, visibleFrames])
-
-  const inventoryHierarchy = useMemo(() => {
-    const mapFrameToNode = (frame: CanvasFrame) => {
-      const fallbackLabel = frame.label.trim() || `${frame.kind} ${frame.id}`
-      let label = fallbackLabel
-      if (frame.kind === 'heading') {
-        label = frame.headingText?.trim() || fallbackLabel
-      } else if (frame.kind === 'text' || frame.kind === 'sticky') {
-        label = frame.textContent?.trim() || fallbackLabel
-      }
-
-      const kindLabel = CANVAS_INVENTORY_KIND_OPTIONS.find((option) => option.kind === frame.kind)?.label || frame.kind
-      return {
-        id: frame.id,
-        kindLabel,
-        label,
-      }
-    }
-
-    const sortByCanvasOrder = (a: CanvasFrame, b: CanvasFrame) => {
-      if (a.y !== b.y) return a.y - b.y
-      if (a.x !== b.x) return a.x - b.x
-      return a.id.localeCompare(b.id)
-    }
-
-    const sortedFrames = [...visibleFrames].sort(sortByCanvasOrder)
-    const sectionElementFramesBySectionId = new Map<string, CanvasFrame[]>()
-    const topLevelNodes: Array<
-      | {
-          type: 'section'
-          id: string
-          label: string
-          elements: Array<{ id: string; kindLabel: string; label: string }>
-        }
-      | {
-          type: 'element'
-          id: string
-          kindLabel: string
-          label: string
-        }
-    > = []
-
-    sortedFrames.forEach((frame) => {
-      if (frame.kind === 'section') {
-        topLevelNodes.push({
-          type: 'section',
-          id: frame.id,
-          label: frame.label.trim() || 'Seksjon',
-          elements: [],
-        })
-        sectionElementFramesBySectionId.set(frame.id, [])
-        return
-      }
-
-      const containingSectionId = frameContainingSectionIdByFrameId[frame.id]
-      if (containingSectionId) {
-        const current = sectionElementFramesBySectionId.get(containingSectionId) ?? []
-        current.push(frame)
-        sectionElementFramesBySectionId.set(containingSectionId, current)
-        return
-      }
-
-      topLevelNodes.push({
-        type: 'element',
-        ...mapFrameToNode(frame),
-      })
-    })
-
-    return {
-      nodes: topLevelNodes.map((node) => {
-        if (node.type !== 'section') return node
-        const elements = (sectionElementFramesBySectionId.get(node.id) ?? [])
-          .sort(sortByCanvasOrder)
-          .map(mapFrameToNode)
-        return {
-          ...node,
-          elements,
-        }
+  const canvasHierarchy = useMemo(
+    () =>
+      buildCanvasHierarchy({
+        frames: visibleFrames,
+        getFrameBounds,
       }),
-    }
-  }, [frameContainingSectionIdByFrameId, visibleFrames])
+    [getFrameBounds, visibleFrames],
+  )
+
+  const frameContainingSectionIdByFrameId = canvasHierarchy.frameContainingSectionIdByFrameId
+
+  const inventoryHierarchy = useMemo(
+    () => ({
+      nodes: canvasHierarchy.nodes.map((node) =>
+        node.type === 'section'
+          ? {
+              type: 'section' as const,
+              id: node.id,
+              label: node.label,
+              elements: node.elements.map((element) => ({
+                id: element.id,
+                kindLabel: element.kindLabel,
+                label: element.label,
+              })),
+            }
+          : {
+              type: 'element' as const,
+              id: node.id,
+              kindLabel: node.kindLabel,
+              label: node.label,
+            },
+      ),
+    }),
+    [canvasHierarchy.nodes],
+  )
 
   const canvasSurfaceHeight = useMemo(() => {
     const lowestFrameEdge = frameItems.reduce((maxBottom, frame) => {
@@ -3975,16 +4344,17 @@ const Canvas = () => {
   return (
     <>
       <section
-        aria-label="Canvas arbeidsflate"
         className="relative h-[100dvh] min-h-[100dvh] bg-[var(--ax-bg-neutral-soft)]"
         style={canvasFrontpageBackgroundStyle}
       >
         <div className="sr-only" aria-live="polite" aria-atomic="true">
           {timerA11yAnnouncement}
         </div>
+        <div className="sr-only" aria-live="polite" aria-atomic="true">
+          {placementA11yAnnouncement}
+        </div>
         <CanvasTopBar
           canvasToolbarRef={canvasToolbarRef}
-          projectId={projectId}
           canvasTitle={canvasTitle}
           period={period}
           customStartDate={customStartDate}
@@ -4019,6 +4389,7 @@ const Canvas = () => {
           elementCount={inventoryItems.reduce((total, item) => total + item.count, 0)}
           onOpenTimer={handleOpenTimerModal}
           onOpenDotVoting={handleOpenDotVotingModal}
+          onOpenShareView={handleOpenShareView}
           timerLabel={timerLabel}
           dotVotingLabel={dotVotingLabel}
           isTimerRunning={isTimerRunning}
@@ -4039,10 +4410,20 @@ const Canvas = () => {
           participantLabels={participantLabels}
           isInteractionLocked={isDotVotingActive}
           isCanvasLocked={isCanvasLocked}
+          isCanvasReadOnly={isCanvasReadOnly}
+          onToggleLockedModeEditing={() => {
+            if (!isCanvasLocked) return
+            setIsLockedModeEditing((current) => !current)
+            setActiveEditableFrameId(null)
+            setSelectedFrameIds([])
+            setSelectionBox(null)
+          }}
           onToggleCanvasLock={() => {
             const nextIsLocked = !isCanvasLocked
             setIsCanvasLocked(nextIsLocked)
+            setIsLockedModeEditing(false)
             setActiveEditableFrameId(null)
+            setSelectedFrameIds([])
             setSelectionBox(null)
 
             if (!canPersistToDashboard || projectId === null || dashboardId === null) return
@@ -4072,7 +4453,7 @@ const Canvas = () => {
         />
 
         <div className="flex h-full">
-          <main ref={canvasViewportRef} className="relative flex-1 overflow-auto">
+          <main ref={canvasViewportRef} aria-label="Canvas arbeidsflate" className="relative flex-1 overflow-auto">
             <CanvasPlacementModeBanner
               topOffsetPx={canvasCanvasTopOffset + 20}
               pendingFrameDraft={pendingFrameDraft}
@@ -4081,6 +4462,13 @@ const Canvas = () => {
               isImportingStickyCsv={isImportingStickyCsv}
               importStickyProgressCurrent={importStickyProgressCurrent}
               importStickyProgressTotal={importStickyProgressTotal}
+              onAutoPlace={() => {
+                void handleAutoPlacePendingFrame()
+              }}
+              onCancel={() => {
+                cancelPendingFramePlacement()
+                setPlacementA11yAnnouncement('Plasseringsmodus avsluttet.')
+              }}
             />
             {isDrawingMode && (
               <CanvasDrawingToolbar
@@ -4097,6 +4485,31 @@ const Canvas = () => {
                 onCancel={handleExitDrawingMode}
               />
             )}
+            <CanvasDrawingAccessibilityModal
+              open={isDrawingAccessibilityModalOpen}
+              heading={editDrawingFrameId ? 'Rediger tegning' : 'Beskriv tegning'}
+              submitLabel={editDrawingFrameId ? 'Lagre' : 'Legg til'}
+              isDecorative={drawingIsDecorative}
+              altTextValue={drawingAltTextInput}
+              error={drawingAccessibilityError}
+              isSaving={isSavingCanvasItem}
+              onDecorativeChange={(value) => {
+                setDrawingIsDecorative(value)
+                if (value) setDrawingAltTextInput('')
+                setDrawingAccessibilityError(null)
+              }}
+              onAltTextChange={(value) => {
+                setDrawingAltTextInput(value)
+                setDrawingAccessibilityError(null)
+              }}
+              onSubmit={() => void handleSaveDrawingWithAccessibility()}
+              onClose={() => {
+                setIsDrawingAccessibilityModalOpen(false)
+                setPendingDrawingFrameDraft(null)
+                setEditDrawingFrameId(null)
+                setDrawingAccessibilityError(null)
+              }}
+            />
             <div
               className="relative"
               style={{
@@ -4106,9 +4519,9 @@ const Canvas = () => {
             >
               <div
                 className={`absolute left-0 top-0 origin-top-left ${pendingFrameDraft || pendingCsvStickyImport || isDrawingMode ? 'cursor-crosshair' : ''}`}
-                onMouseDown={isDrawingMode || isCanvasLocked ? undefined : handleCanvasSurfaceMouseDown}
-                onMouseMove={isDrawingMode || isCanvasLocked ? undefined : handleCanvasSurfaceMouseMove}
-                onMouseLeave={isDrawingMode || isCanvasLocked ? undefined : handleCanvasSurfaceMouseLeave}
+                onMouseDown={isDrawingMode || isCanvasReadOnly ? undefined : handleCanvasSurfaceMouseDown}
+                onMouseMove={isDrawingMode || isCanvasReadOnly ? undefined : handleCanvasSurfaceMouseMove}
+                onMouseLeave={isDrawingMode || isCanvasReadOnly ? undefined : handleCanvasSurfaceMouseLeave}
                 style={{
                   top: `${canvasCanvasTopOffset}px`,
                   width: `${canvasSurfaceWidth}px`,
@@ -4135,17 +4548,42 @@ const Canvas = () => {
                 {isPlacementModeActive && (
                   <div
                     className="absolute inset-0 z-[96] cursor-crosshair"
-                    onMouseDown={isCanvasLocked ? undefined : handleCanvasSurfaceMouseDown}
-                    onMouseMove={isCanvasLocked ? undefined : handleCanvasSurfaceMouseMove}
-                    onMouseLeave={isCanvasLocked ? undefined : handleCanvasSurfaceMouseLeave}
+                    onMouseDown={isCanvasReadOnly ? undefined : handleCanvasSurfaceMouseDown}
+                    onMouseMove={isCanvasReadOnly ? undefined : handleCanvasSurfaceMouseMove}
+                    onMouseLeave={isCanvasReadOnly ? undefined : handleCanvasSurfaceMouseLeave}
                   />
                 )}
                 {isDrawingMode && (
                   <div
-                    className="absolute inset-0 z-[95] cursor-crosshair"
-                    onMouseDown={isCanvasLocked ? undefined : handleCanvasSurfaceMouseDown}
-                    onMouseMove={isCanvasLocked ? undefined : handleCanvasSurfaceMouseMove}
-                    onMouseLeave={isCanvasLocked ? undefined : handleCanvasSurfaceMouseLeave}
+                    className="absolute inset-0 z-[95] touch-none cursor-crosshair"
+                    onMouseDown={isCanvasReadOnly ? undefined : handleCanvasSurfaceMouseDown}
+                    onMouseMove={isCanvasReadOnly ? undefined : handleCanvasSurfaceMouseMove}
+                    onMouseLeave={isCanvasReadOnly ? undefined : handleCanvasSurfaceMouseLeave}
+                    onTouchStart={
+                      isCanvasReadOnly
+                        ? undefined
+                        : (event) => {
+                            const touch = event.touches[0]
+                            if (!touch) return
+                            const pointer = getCanvasPointerPosition(touch.clientX, touch.clientY)
+                            if (!pointer) return
+                            event.preventDefault()
+                            event.stopPropagation()
+                            startDrawingAt(pointer)
+                          }
+                    }
+                    onTouchMove={
+                      isCanvasReadOnly
+                        ? undefined
+                        : (event) => {
+                            const touch = event.touches[0]
+                            if (!touch) return
+                            const pointer = getCanvasPointerPosition(touch.clientX, touch.clientY)
+                            if (!pointer) return
+                            event.preventDefault()
+                            continueDrawingAt(pointer)
+                          }
+                    }
                   />
                 )}
                 {selectionBox && (
@@ -4220,6 +4658,7 @@ const Canvas = () => {
                     handleOpenEditDashboardModal={handleOpenEditDashboardModal}
                     handleOpenEditWebsiteModal={handleOpenEditWebsiteModal}
                     handleOpenEditImageModal={handleOpenEditImageModal}
+                    handleOpenEditDrawingModal={handleOpenEditDrawingModal}
                     handleOpenEditTableModal={handleOpenEditTableModal}
                     handleOpenEditLinkModal={handleOpenEditLinkModal}
                     handleOpenEditIllustrationModal={handleOpenEditIllustrationModal}
@@ -4234,14 +4673,15 @@ const Canvas = () => {
                     handleDuplicateHeadingCard={handleDuplicateHeadingCard}
                     handleDuplicateDrawingCard={handleDuplicateDrawingCard}
                     handleDuplicateImageCard={handleDuplicateImageCard}
-                    handleAdjustHeadingFontSize={handleAdjustHeadingFontSize}
+                    handleSetHeadingFontSize={handleSetHeadingFontSize}
                     handleRotateIllustrationFrame={handleRotateIllustrationFrame}
                     handleRotateFigureFrame={handleRotateFigureFrame}
                     handleRotateDrawingFrame={handleRotateDrawingFrame}
-                    handleToggleSectionLayout={handleToggleSectionLayout}
+                    handleOpenSectionOptionsModal={handleOpenSectionOptionsModal}
                     handleMoveFrameToSection={handleMoveFrameToSection}
                     handleSetStickyColor={handleSetStickyColor}
                     handleRequestRemoveFrame={handleRequestRemoveFrame}
+                    handleSelectSectionAddAction={handleSelectSectionAddAction}
                     startConnectionDrag={startConnectionDrag}
                     handleAssignWebsiteToChart={handleAssignWebsiteToChart}
                     handleOpenEditChartModal={handleOpenEditChartModal}
@@ -4258,7 +4698,11 @@ const Canvas = () => {
                     shouldRevealDotVotingTotals={shouldRevealDotVotingTotals}
                     onVoteSticky={handleAddDotVote}
                     onClearStickyVoteSnapshot={handleRequestClearStickyVoteSnapshot}
-                    isCanvasLocked={isCanvasLocked}
+                    isCanvasLocked={isCanvasReadOnly}
+                    focusSectionTitleId={focusSectionTitleId}
+                    onSectionTitleFocusHandled={() => setFocusSectionTitleId(null)}
+                    focusFrameId={focusFrameId}
+                    onFrameFocusHandled={() => setFocusFrameId(null)}
                   />
                 </div>
               </div>
@@ -4541,8 +4985,11 @@ const Canvas = () => {
 
       <CanvasImageUrlModal
         open={isAddImageModalOpen}
-        heading="Legg til bilde i canvas"
+        heading="Legg til bilde"
         urlValue={newImageUrlInput}
+        altTextValue={newImageAltTextInput}
+        selectedSectionId={selectedAddSectionId}
+        sectionOptions={sectionMoveOptions}
         error={addImageError}
         isSaving={isSavingCanvasItem}
         submitLabel="Legg til"
@@ -4550,24 +4997,43 @@ const Canvas = () => {
           setNewImageUrlInput(value)
           if (addImageError) setAddImageError(null)
         }}
+        onAltTextChange={(value) => {
+          setNewImageAltTextInput(value)
+          if (addImageError) setAddImageError(null)
+        }}
+        onSectionChange={(sectionId) => {
+          setSelectedAddSectionId(sectionId)
+          if (addImageError) setAddImageError(null)
+        }}
         onSubmit={() => void handleAddImage()}
-        onClose={() => setIsAddImageModalOpen(false)}
+        onClose={() => {
+          setIsAddImageModalOpen(false)
+          setNewImageAltTextInput('')
+          setSelectedAddSectionId('')
+        }}
       />
 
       <CanvasIllustrationModal
         open={isAddIllustrationModalOpen}
         isEdit={Boolean(editIllustrationFrameId)}
         selectedPath={selectedIllustrationPath}
+        selectedSectionId={selectedAddSectionId}
+        sectionOptions={sectionMoveOptions}
         error={addIllustrationError}
         isSaving={isSavingCanvasItem}
         onSelectPath={(path) => {
           setSelectedIllustrationPath(path)
           if (addIllustrationError) setAddIllustrationError(null)
         }}
+        onSectionChange={(sectionId) => {
+          setSelectedAddSectionId(sectionId)
+          if (addIllustrationError) setAddIllustrationError(null)
+        }}
         onSubmit={() => void handleAddIllustration()}
         onClose={() => {
           setIsAddIllustrationModalOpen(false)
           setEditIllustrationFrameId(null)
+          setSelectedAddSectionId('')
           setAddIllustrationError(null)
         }}
       />
@@ -4576,6 +5042,7 @@ const Canvas = () => {
         open={isEditImageModalOpen}
         heading="Rediger bilde"
         urlValue={editImageUrlInput}
+        altTextValue={editImageAltTextInput}
         error={editImageError}
         isSaving={isSavingCanvasItem}
         submitLabel="Lagre"
@@ -4583,10 +5050,15 @@ const Canvas = () => {
           setEditImageUrlInput(value)
           if (editImageError) setEditImageError(null)
         }}
+        onAltTextChange={(value) => {
+          setEditImageAltTextInput(value)
+          if (editImageError) setEditImageError(null)
+        }}
         onSubmit={() => void handleSaveEditedImage()}
         onClose={() => {
           setIsEditImageModalOpen(false)
           setEditImageFrameId(null)
+          setEditImageAltTextInput('')
           setEditImageError(null)
         }}
       />
@@ -4746,15 +5218,22 @@ const Canvas = () => {
       <CanvasHeadingModal
         open={isAddHeadingModalOpen}
         value={headingTextInput}
+        selectedSectionId={selectedAddSectionId}
+        sectionOptions={sectionMoveOptions}
         error={addHeadingError}
         isSaving={isSavingCanvasItem}
         onChange={(value) => {
           setHeadingTextInput(value)
           if (addHeadingError) setAddHeadingError(null)
         }}
+        onSectionChange={(sectionId) => {
+          setSelectedAddSectionId(sectionId)
+          if (addHeadingError) setAddHeadingError(null)
+        }}
         onSubmit={() => void handleAddHeadingCard()}
         onClose={() => {
           setIsAddHeadingModalOpen(false)
+          setSelectedAddSectionId('')
           setAddHeadingError(null)
         }}
       />
@@ -4762,16 +5241,74 @@ const Canvas = () => {
       <CanvasTextModal
         open={isAddTextModalOpen}
         value={textContentInput}
+        selectedSectionId={selectedAddSectionId}
+        sectionOptions={sectionMoveOptions}
         error={addTextError}
         isSaving={isSavingCanvasItem}
         onChange={(value) => {
           setTextContentInput(value)
           if (addTextError) setAddTextError(null)
         }}
+        onSectionChange={(sectionId) => {
+          setSelectedAddSectionId(sectionId)
+          if (addTextError) setAddTextError(null)
+        }}
         onSubmit={() => void handleAddTextCard()}
         onClose={() => {
           setIsAddTextModalOpen(false)
+          setSelectedAddSectionId('')
           setAddTextError(null)
+        }}
+      />
+
+      <CanvasSectionModal
+        open={isAddSectionModalOpen}
+        nameValue={sectionNameInput}
+        layoutMode={sectionLayoutMode}
+        error={addSectionError}
+        isSaving={isSavingCanvasItem}
+        onNameChange={(value) => {
+          setSectionNameInput(value)
+          if (addSectionError) setAddSectionError(null)
+        }}
+        onLayoutModeChange={(value) => {
+          setSectionLayoutMode(value)
+          if (addSectionError) setAddSectionError(null)
+        }}
+        onSubmit={() => void handleAddSectionCard()}
+        onClose={() => {
+          setIsAddSectionModalOpen(false)
+          setSectionNameInput('')
+          setSectionLayoutMode('grid')
+          setAddSectionError(null)
+        }}
+      />
+
+      <CanvasSectionModal
+        open={isSectionOptionsModalOpen}
+        heading="Seksjonsinnstillinger"
+        submitLabel="Lagre"
+        nameValue={sectionOptionsNameInput}
+        layoutMode={sectionOptionsLayoutMode}
+        error={sectionOptionsError}
+        isSaving={isSavingCanvasItem}
+        onNameChange={(value) => {
+          setSectionOptionsNameInput(value)
+          if (sectionOptionsError) setSectionOptionsError(null)
+        }}
+        onLayoutModeChange={(value) => {
+          setSectionOptionsLayoutMode(value)
+          if (sectionOptionsError) setSectionOptionsError(null)
+        }}
+        onSubmit={() => {
+          handleSaveSectionOptions()
+        }}
+        onClose={() => {
+          setIsSectionOptionsModalOpen(false)
+          setSectionOptionsFrameId(null)
+          setSectionOptionsNameInput('')
+          setSectionOptionsLayoutMode('grid')
+          setSectionOptionsError(null)
         }}
       />
 
@@ -4781,6 +5318,8 @@ const Canvas = () => {
         submitLabel={editTableFrameId ? 'Lagre' : 'Legg til'}
         headersValue={tableHeadersInput}
         rowsValue={tableRowsInput}
+        selectedSectionId={editTableFrameId ? '' : selectedAddSectionId}
+        sectionOptions={editTableFrameId ? [] : sectionMoveOptions}
         error={addTableError}
         isSaving={isSavingCanvasItem}
         onHeadersChange={(value) => {
@@ -4791,10 +5330,15 @@ const Canvas = () => {
           setTableRowsInput(value)
           if (addTableError) setAddTableError(null)
         }}
+        onSectionChange={(sectionId) => {
+          setSelectedAddSectionId(sectionId)
+          if (addTableError) setAddTableError(null)
+        }}
         onSubmit={() => void handleAddTableCard()}
         onClose={() => {
           setIsAddTableModalOpen(false)
           setEditTableFrameId(null)
+          setSelectedAddSectionId('')
           setAddTableError(null)
         }}
       />
@@ -4804,6 +5348,8 @@ const Canvas = () => {
         titleValue={linkTitleInput}
         hrefValue={linkUrlInput}
         descriptionValue={linkDescriptionInput}
+        selectedSectionId={editLinkFrameId ? '' : selectedAddSectionId}
+        sectionOptions={editLinkFrameId ? [] : sectionMoveOptions}
         error={addLinkError}
         isSaving={isSavingCanvasItem}
         onTitleChange={(value) => {
@@ -4818,10 +5364,15 @@ const Canvas = () => {
           setLinkDescriptionInput(value)
           if (addLinkError) setAddLinkError(null)
         }}
+        onSectionChange={(sectionId) => {
+          setSelectedAddSectionId(sectionId)
+          if (addLinkError) setAddLinkError(null)
+        }}
         onSubmit={() => void handleAddLinkCard()}
         onClose={() => {
           setIsAddLinkModalOpen(false)
           setEditLinkFrameId(null)
+          setSelectedAddSectionId('')
           setAddLinkError(null)
         }}
       />
@@ -4831,6 +5382,8 @@ const Canvas = () => {
         heading="Legg til ikon"
         selectedIconId={selectedIconId}
         selectedColor={selectedIconColor}
+        selectedSectionId={selectedAddSectionId}
+        sectionOptions={sectionMoveOptions}
         colorOptions={CANVAS_ICON_COLOR_OPTIONS}
         error={addIconError}
         isSaving={isSavingCanvasItem}
@@ -4843,9 +5396,14 @@ const Canvas = () => {
           setSelectedIconColor(color)
           if (addIconError) setAddIconError(null)
         }}
+        onSectionChange={(sectionId) => {
+          setSelectedAddSectionId(sectionId)
+          if (addIconError) setAddIconError(null)
+        }}
         onSubmit={() => void handleAddIconCard()}
         onClose={() => {
           setIsAddIconModalOpen(false)
+          setSelectedAddSectionId('')
           setAddIconError(null)
         }}
       />
@@ -4901,6 +5459,8 @@ const Canvas = () => {
         open={isAddStickyModalOpen}
         value={stickyContentInput}
         selectedColorId={selectedStickyColor}
+        selectedSectionId={selectedStickySectionId}
+        sectionOptions={sectionMoveOptions}
         colorOptions={CANVAS_STICKY_COLOR_OPTIONS}
         error={addStickyError}
         isSaving={isSavingCanvasItem}
@@ -4909,9 +5469,14 @@ const Canvas = () => {
           if (addStickyError) setAddStickyError(null)
         }}
         onColorChange={(colorId) => setSelectedStickyColor(getCanvasStickyColor(colorId))}
+        onSectionChange={(sectionId) => {
+          setSelectedStickySectionId(sectionId)
+          if (addStickyError) setAddStickyError(null)
+        }}
         onSubmit={() => void handleAddStickyCard()}
         onClose={() => {
           setIsAddStickyModalOpen(false)
+          setSelectedStickySectionId('')
           setAddStickyError(null)
         }}
       />

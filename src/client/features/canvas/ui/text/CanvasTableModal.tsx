@@ -1,5 +1,6 @@
 import { Alert, BodyShort, Button, Modal, Table, TextField, Textarea } from '@navikt/ds-react'
 import { useMemo, useState } from 'react'
+import CanvasSectionPlacementSelect from '../controls/CanvasSectionPlacementSelect.tsx'
 
 type CanvasTableModalProps = {
   open: boolean
@@ -7,10 +8,13 @@ type CanvasTableModalProps = {
   submitLabel?: string
   headersValue: string
   rowsValue: string
+  selectedSectionId?: string
+  sectionOptions?: Array<{ id: string; label: string }>
   error?: string | null
   isSaving?: boolean
   onHeadersChange: (value: string) => void
   onRowsChange: (value: string) => void
+  onSectionChange?: (sectionId: string) => void
   onSubmit: () => void
   onClose: () => void
 }
@@ -28,10 +32,13 @@ const CanvasTableModal = ({
   submitLabel = 'Legg til',
   headersValue,
   rowsValue,
+  selectedSectionId = '',
+  sectionOptions = [],
   error,
   isSaving = false,
   onHeadersChange,
   onRowsChange,
+  onSectionChange = () => {},
   onSubmit,
   onClose,
 }: CanvasTableModalProps) => {
@@ -65,6 +72,11 @@ const CanvasTableModal = ({
             minRows={5}
             value={rowsValue}
             onChange={(event) => onRowsChange(event.target.value)}
+          />
+          <CanvasSectionPlacementSelect
+            sectionOptions={sectionOptions}
+            selectedSectionId={selectedSectionId}
+            onSectionChange={onSectionChange}
           />
           <details className="rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] p-3">
             <summary className="cursor-pointer text-sm font-medium">Avansert: lim inn CSV/TSV</summary>

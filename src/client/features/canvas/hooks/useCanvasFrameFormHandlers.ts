@@ -21,15 +21,18 @@ import {
 } from '../ui/illustration/CanvasIllustrationRegistry.ts'
 import { isIllustrationImageFrame } from '../ui/image/CanvasImageUtils.ts'
 import { DEFAULT_CANVAS_STICKY_COLOR, getCanvasStickyColor } from '../ui/sticky/CanvasStickyColorRegistry.ts'
+import { GRID_SECTION_LAYOUT_CONFIG, getFrameBoundsForLayout } from '../model/layout/gridSectionLayout.ts'
 import type {
   CanvasChartOption,
   CanvasConfigPayload,
   CanvasFigureType,
   CanvasFrame,
+  CanvasSectionLayoutMode,
   PendingCanvasFrameDraft,
 } from '../model/types.ts'
 import {
   CANVAS_DASHBOARD_TOKEN,
+  CANVAS_TOP_BUFFER,
   CANVAS_FIGURE_OPTIONS,
   CANVAS_QUERY_NAME,
   HEADING_FONT_SIZE_DEFAULT,
@@ -90,6 +93,8 @@ type UseCanvasFrameFormHandlersParams = {
   setIsAddLinkModalOpen: Setter<boolean>
   isAddStickyModalOpen: boolean
   setIsAddStickyModalOpen: Setter<boolean>
+  isAddSectionModalOpen: boolean
+  setIsAddSectionModalOpen: Setter<boolean>
   isAddIconModalOpen: boolean
   setIsAddIconModalOpen: Setter<boolean>
   isAddFigureModalOpen: boolean
@@ -126,6 +131,8 @@ type UseCanvasFrameFormHandlersParams = {
   setEditWebsitePathInput: Setter<string>
   editImageUrlInput: string
   setEditImageUrlInput: Setter<string>
+  editImageAltTextInput: string
+  setEditImageAltTextInput: Setter<string>
   editWebsitePreviewUrlInput: string
   setEditWebsitePreviewUrlInput: Setter<string>
   editWebsiteRenderEnabled: boolean
@@ -136,6 +143,8 @@ type UseCanvasFrameFormHandlersParams = {
   setNewPagePathInput: Setter<string>
   newImageUrlInput: string
   setNewImageUrlInput: Setter<string>
+  newImageAltTextInput: string
+  setNewImageAltTextInput: Setter<string>
   selectedIllustrationPath: string
   setSelectedIllustrationPath: Setter<string>
   newPagePreviewUrlInput: string
@@ -208,6 +217,17 @@ type UseCanvasFrameFormHandlersParams = {
   setStickyContentInput: Setter<string>
   selectedStickyColor: string
   setSelectedStickyColor: Setter<string>
+  selectedStickySectionId: string
+  setSelectedStickySectionId: Setter<string>
+  onFrameAddedInSection?: (frame: CanvasFrame) => void
+  sectionNameInput: string
+  setSectionNameInput: Setter<string>
+  sectionLayoutMode: CanvasSectionLayoutMode
+  setSectionLayoutMode: Setter<CanvasSectionLayoutMode>
+  addSectionError: string | null
+  setAddSectionError: Setter<string | null>
+  selectedAddSectionId: string
+  setSelectedAddSectionId: Setter<string>
   addStickyError: string | null
   setAddStickyError: Setter<string | null>
 
@@ -297,6 +317,8 @@ const useCanvasFrameFormHandlers = ({
   setIsAddLinkModalOpen,
   isAddStickyModalOpen: _isAddStickyModalOpen,
   setIsAddStickyModalOpen,
+  isAddSectionModalOpen: _isAddSectionModalOpen,
+  setIsAddSectionModalOpen,
   isAddIconModalOpen: _isAddIconModalOpen,
   setIsAddIconModalOpen,
   isAddFigureModalOpen: _isAddFigureModalOpen,
@@ -331,6 +353,8 @@ const useCanvasFrameFormHandlers = ({
   setEditWebsitePathInput,
   editImageUrlInput,
   setEditImageUrlInput,
+  editImageAltTextInput,
+  setEditImageAltTextInput,
   editWebsitePreviewUrlInput,
   setEditWebsitePreviewUrlInput,
   editWebsiteRenderEnabled,
@@ -341,6 +365,8 @@ const useCanvasFrameFormHandlers = ({
   setNewPagePathInput,
   newImageUrlInput,
   setNewImageUrlInput,
+  newImageAltTextInput,
+  setNewImageAltTextInput,
   selectedIllustrationPath,
   setSelectedIllustrationPath,
   newPagePreviewUrlInput,
@@ -409,6 +435,17 @@ const useCanvasFrameFormHandlers = ({
   setStickyContentInput,
   selectedStickyColor,
   setSelectedStickyColor,
+  selectedStickySectionId,
+  setSelectedStickySectionId,
+  onFrameAddedInSection,
+  sectionNameInput,
+  setSectionNameInput,
+  sectionLayoutMode,
+  setSectionLayoutMode,
+  addSectionError: _addSectionError,
+  setAddSectionError,
+  selectedAddSectionId,
+  setSelectedAddSectionId,
   addStickyError: _addStickyError,
   setAddStickyError,
   selectedIconId,
@@ -437,6 +474,37 @@ const useCanvasFrameFormHandlers = ({
   setEditFigureError,
   setActiveInsightFrameId,
 }: UseCanvasFrameFormHandlersParams) => {
+  const getDefaultFrameSize = useCallback(
+    (
+      frameOrKind: CanvasFrame | CanvasFrame['kind'],
+    ): {
+      width: number
+      height: number
+      minWidth: number
+      minHeight: number
+    } => {
+      const kind = typeof frameOrKind === 'string' ? frameOrKind : frameOrKind.kind
+      const isInternalDashboard = typeof frameOrKind === 'string' ? false : Boolean(frameOrKind.isInternalDashboard)
+      const isIllustration = typeof frameOrKind === 'string' ? false : isIllustrationImageFrame(frameOrKind)
+
+      if (kind === 'website' && isInternalDashboard) return { width: 760, height: 760, minWidth: 520, minHeight: 420 }
+      if (kind === 'website') return { width: 420, height: 700, minWidth: 220, minHeight: 160 }
+      if (kind === 'image' && isIllustration) return { width: 420, height: 420, minWidth: 96, minHeight: 96 }
+      if (kind === 'image') return { width: 420, height: 420, minWidth: 240, minHeight: 200 }
+      if (kind === 'chart') return { width: 560, height: 360, minWidth: 280, minHeight: 200 }
+      if (kind === 'sql-editor') return { width: 420, height: 760, minWidth: 260, minHeight: 320 }
+      if (kind === 'heading') return { width: 420, height: 72, minWidth: 260, minHeight: 48 }
+      if (kind === 'text') return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
+      if (kind === 'link') return { width: 380, height: 112, minWidth: 280, minHeight: 92 }
+      if (kind === 'icon') return { width: 280, height: 240, minWidth: 72, minHeight: 72 }
+      if (kind === 'figure') return { width: 240, height: 240, minWidth: 120, minHeight: 120 }
+      if (kind === 'drawing') return { width: 240, height: 160, minWidth: 28, minHeight: 28 }
+      if (kind === 'section') return { width: 640, height: 420, minWidth: 240, minHeight: 180 }
+      return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
+    },
+    [],
+  )
+
   const persistFrame = useCallback(
     async (frame: CanvasFrame): Promise<CanvasFrame> => {
       if (projectId === null || dashboardId === null) return frame
@@ -474,11 +542,14 @@ const useCanvasFrameFormHandlers = ({
         drawingStrokeStyles: frame.drawingStrokeStyles,
         drawingStrokeWidth: frame.drawingStrokeWidth,
         drawingColor: frame.drawingColor,
+        drawingAltText: frame.drawingAltText,
         isIllustration: frame.isIllustration,
         imageRotationDeg: frame.imageRotationDeg,
+        imageAltText: frame.imageAltText,
         chartType: frame.chartType,
         chartSql: frame.chartSql,
         sqlQuery: frame.sqlQuery,
+        hideInShare: frame.hideInShare,
         label: frame.label,
       }
       const serialized = serializeCanvasConfig(payload)
@@ -521,6 +592,105 @@ const useCanvasFrameFormHandlers = ({
       }
     },
     [dashboardId, ensureCanvasCategory, projectId],
+  )
+
+  const resolvePlacementInSection = useCallback(
+    (
+      sectionId: string,
+      frameSize?: { width?: number; height?: number },
+    ): { x: number; y: number; categoryId?: number } | null => {
+      const targetSection = frames.find((frame) => frame.id === sectionId && frame.kind === 'section')
+      if (!targetSection) return null
+      const targetBounds = getFrameBoundsForLayout(targetSection, getDefaultFrameSize)
+      const contentLeft = targetBounds.left + GRID_SECTION_LAYOUT_CONFIG.paddingX
+      const contentRight = targetBounds.right - GRID_SECTION_LAYOUT_CONFIG.paddingX
+      const contentTop = targetBounds.top + GRID_SECTION_LAYOUT_CONFIG.paddingTop
+      const contentBottom = targetBounds.bottom - GRID_SECTION_LAYOUT_CONFIG.paddingBottom
+      const frameWidth = Math.max(1, frameSize?.width ?? 360)
+      const frameHeight = Math.max(1, frameSize?.height ?? 180)
+      const existingItemsInTargetSection = frames.filter((frame) => {
+        if (frame.id === targetSection.id || frame.kind === 'section') return false
+        if ((frame.categoryId ?? null) !== (targetSection.categoryId ?? null)) return false
+        const bounds = getFrameBoundsForLayout(frame, getDefaultFrameSize)
+        const centerX = (bounds.left + bounds.right) / 2
+        const centerY = (bounds.top + bounds.bottom) / 2
+        return (
+          centerX >= targetBounds.left &&
+          centerX <= targetBounds.right &&
+          centerY >= targetBounds.top &&
+          centerY <= targetBounds.bottom
+        )
+      })
+
+      const occupiedBounds = existingItemsInTargetSection.map((frame) =>
+        getFrameBoundsForLayout(frame, getDefaultFrameSize),
+      )
+      const contentWidth = Math.max(1, contentRight - contentLeft)
+      const maxColumns = Math.max(
+        1,
+        Math.floor((contentWidth + GRID_SECTION_LAYOUT_CONFIG.gapX) / (frameWidth + GRID_SECTION_LAYOUT_CONFIG.gapX)),
+      )
+      const candidateRowLimit = Math.max(existingItemsInTargetSection.length + 6, 12)
+
+      for (let row = 0; row < candidateRowLimit; row += 1) {
+        for (let column = 0; column < maxColumns; column += 1) {
+          const candidateLeft = contentLeft + column * (frameWidth + GRID_SECTION_LAYOUT_CONFIG.gapX)
+          const candidateTop = contentTop + row * (frameHeight + GRID_SECTION_LAYOUT_CONFIG.gapY)
+          const candidateRight = candidateLeft + frameWidth
+          const candidateBottom = candidateTop + frameHeight
+          if (candidateRight > contentRight || candidateBottom > contentBottom) continue
+
+          const overlapsExisting = occupiedBounds.some((occupied) => {
+            const intersectsHorizontally = candidateLeft < occupied.right && candidateRight > occupied.left
+            const intersectsVertically = candidateTop < occupied.bottom && candidateBottom > occupied.top
+            return intersectsHorizontally && intersectsVertically
+          })
+          if (overlapsExisting) continue
+
+          return {
+            x: Math.max(0, candidateLeft),
+            y: Math.max(-CANVAS_TOP_BUFFER, candidateTop),
+            categoryId: targetSection.categoryId,
+          }
+        }
+      }
+
+      const fallbackY =
+        occupiedBounds.length > 0
+          ? Math.max(...occupiedBounds.map((bounds) => bounds.bottom)) + GRID_SECTION_LAYOUT_CONFIG.gapY
+          : contentTop
+      return {
+        x: Math.max(0, contentLeft),
+        y: Math.max(-CANVAS_TOP_BUFFER, fallbackY),
+        categoryId: targetSection.categoryId,
+      }
+    },
+    [frames, getDefaultFrameSize],
+  )
+
+  const ensureSectionContainsFrame = useCallback(
+    async (sectionId: string, frame: CanvasFrame): Promise<CanvasFrame | null> => {
+      const targetSection = frames.find((candidate) => candidate.id === sectionId && candidate.kind === 'section')
+      if (!targetSection) return null
+
+      const sectionBounds = getFrameBoundsForLayout(targetSection, getDefaultFrameSize)
+      const frameBounds = getFrameBoundsForLayout(frame, getDefaultFrameSize)
+      const requiredBottom = frameBounds.bottom + GRID_SECTION_LAYOUT_CONFIG.paddingBottom
+      if (requiredBottom <= sectionBounds.bottom) return null
+
+      const defaultSectionSize = getDefaultFrameSize(targetSection)
+      const nextSectionHeight = Math.max(
+        targetSection.height ?? defaultSectionSize.height,
+        Math.ceil(requiredBottom - targetSection.y),
+      )
+      const nextSection: CanvasFrame = {
+        ...targetSection,
+        height: nextSectionHeight,
+      }
+
+      return persistFrame(nextSection)
+    },
+    [frames, getDefaultFrameSize, persistFrame],
   )
 
   const loadDashboardOptions = useCallback(
@@ -640,6 +810,7 @@ const useCanvasFrameFormHandlers = ({
 
   const handleAddImage = () => {
     const imageUrl = normalizeInputToTargetUrl(newImageUrlInput, selectedWebsite?.domain)
+    const imageAltText = newImageAltTextInput.trim()
     if (!imageUrl) {
       setAddImageError('Legg inn en gyldig bilde-URL, for eksempel https://www.nav.no/bilde.png.')
       return
@@ -655,9 +826,59 @@ const useCanvasFrameFormHandlers = ({
       return
     }
 
+    const targetSectionId = selectedAddSectionId.trim()
+    if (targetSectionId) {
+      const placement = resolvePlacementInSection(targetSectionId, { width: 420, height: 420 })
+      if (!placement) {
+        setAddImageError('Fant ikke valgt seksjon.')
+        return
+      }
+
+      const nextFrame: CanvasFrame = {
+        id: `${Date.now()}-${Math.random()}`,
+        kind: 'image',
+        targetUrl: imageUrl,
+        imageAltText,
+        label: getFrameLabel(imageUrl),
+        width: 420,
+        height: 420,
+        x: placement.x,
+        y: placement.y,
+        categoryId: placement.categoryId,
+        refreshNonce: 1,
+      }
+
+      void (async () => {
+        try {
+          setIsSavingCanvasItem(true)
+          setSyncError(null)
+          const persistedFrame = await persistFrame(nextFrame)
+          const persistedSection = await ensureSectionContainsFrame(targetSectionId, persistedFrame)
+          setFrames((prev) => {
+            const withSection = persistedSection
+              ? prev.map((frame) => (frame.id === persistedSection.id ? persistedSection : frame))
+              : prev
+            return [...withSection, persistedFrame]
+          })
+          onFrameAddedInSection?.(persistedFrame)
+          setNewImageUrlInput('')
+          setNewImageAltTextInput('')
+          setSelectedAddSectionId('')
+          setAddImageError(null)
+          setIsAddImageModalOpen(false)
+        } catch (error) {
+          setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre bilde i canvas')
+        } finally {
+          setIsSavingCanvasItem(false)
+        }
+      })()
+      return
+    }
+
     const frameDraft: PendingCanvasFrameDraft = {
       kind: 'image',
       targetUrl: imageUrl,
+      imageAltText,
       label: getFrameLabel(imageUrl),
       width: 420,
       height: 420,
@@ -665,6 +886,8 @@ const useCanvasFrameFormHandlers = ({
     }
     queueFrameForPlacement(frameDraft, 'bilde')
     setNewImageUrlInput('')
+    setNewImageAltTextInput('')
+    setSelectedAddSectionId('')
     setAddImageError(null)
     setIsAddImageModalOpen(false)
   }
@@ -693,20 +916,54 @@ const useCanvasFrameFormHandlers = ({
         const persistedFrame = await persistFrame(updatedFrame)
         setFrames((prev) => prev.map((frame) => (frame.id === editIllustrationFrameId ? persistedFrame : frame)))
       } else {
-        const frameDraft: PendingCanvasFrameDraft = {
-          kind: 'image',
-          targetUrl: selectedIllustration.path,
-          label: selectedIllustration.label,
-          isIllustration: true,
-          imageRotationDeg: 0,
-          width: 420,
-          height: 420,
-          refreshNonce: 1,
+        const targetSectionId = selectedAddSectionId.trim()
+        if (targetSectionId) {
+          const placement = resolvePlacementInSection(targetSectionId, { width: 420, height: 420 })
+          if (!placement) {
+            setAddIllustrationError('Fant ikke valgt seksjon.')
+            return
+          }
+
+          const nextFrame: CanvasFrame = {
+            id: `${Date.now()}-${Math.random()}`,
+            kind: 'image',
+            targetUrl: selectedIllustration.path,
+            label: selectedIllustration.label,
+            isIllustration: true,
+            imageRotationDeg: 0,
+            width: 420,
+            height: 420,
+            x: placement.x,
+            y: placement.y,
+            categoryId: placement.categoryId,
+            refreshNonce: 1,
+          }
+          const persistedFrame = await persistFrame(nextFrame)
+          const persistedSection = await ensureSectionContainsFrame(targetSectionId, persistedFrame)
+          setFrames((prev) => {
+            const withSection = persistedSection
+              ? prev.map((frame) => (frame.id === persistedSection.id ? persistedSection : frame))
+              : prev
+            return [...withSection, persistedFrame]
+          })
+          onFrameAddedInSection?.(persistedFrame)
+        } else {
+          const frameDraft: PendingCanvasFrameDraft = {
+            kind: 'image',
+            targetUrl: selectedIllustration.path,
+            label: selectedIllustration.label,
+            isIllustration: true,
+            imageRotationDeg: 0,
+            width: 420,
+            height: 420,
+            refreshNonce: 1,
+          }
+          queueFrameForPlacement(frameDraft, 'illustrasjon')
         }
-        queueFrameForPlacement(frameDraft, 'illustrasjon')
       }
       setAddIllustrationError(null)
       setEditIllustrationFrameId(null)
+      setSelectedAddSectionId('')
       setIsAddIllustrationModalOpen(false)
     } catch (error) {
       setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre illustrasjon i canvas')
@@ -859,6 +1116,7 @@ const useCanvasFrameFormHandlers = ({
     if (frame.kind !== 'image') return
     setEditImageFrameId(frame.id)
     setEditImageUrlInput(frame.targetUrl || '')
+    setEditImageAltTextInput(frame.imageAltText || '')
     setEditImageError(null)
     setIsEditImageModalOpen(true)
   }
@@ -1248,6 +1506,7 @@ const useCanvasFrameFormHandlers = ({
     if (!editImageFrameId) return
 
     const imageUrl = normalizeInputToTargetUrl(editImageUrlInput, selectedWebsite?.domain)
+    const imageAltText = editImageAltTextInput.trim()
     if (!imageUrl) {
       setEditImageError('Legg inn en gyldig bilde-URL, for eksempel https://www.nav.no/bilde.png.')
       return
@@ -1273,6 +1532,7 @@ const useCanvasFrameFormHandlers = ({
     const updatedFrame: CanvasFrame = {
       ...currentFrame,
       targetUrl: imageUrl,
+      imageAltText,
       label: getFrameLabel(imageUrl),
       refreshNonce: currentFrame.refreshNonce + 1,
     }
@@ -1291,6 +1551,7 @@ const useCanvasFrameFormHandlers = ({
       setIsEditImageModalOpen(false)
       setEditImageFrameId(null)
       setEditImageUrlInput('')
+      setEditImageAltTextInput('')
       setEditImageError(null)
     } catch (error) {
       setSyncError(error instanceof Error ? error.message : 'Kunne ikke oppdatere bilde')
@@ -1389,6 +1650,54 @@ const useCanvasFrameFormHandlers = ({
       .reduce((count, line) => count + Math.max(1, Math.ceil(line.length / charsPerLine)), 0)
     const height = Math.max(28, lineCount * Math.ceil(HEADING_FONT_SIZE_DEFAULT * 1.05) + HEADING_TEXT_VERTICAL_PADDING)
 
+    const targetSectionId = selectedAddSectionId.trim()
+    if (targetSectionId) {
+      const placement = resolvePlacementInSection(targetSectionId, { width, height })
+      if (!placement) {
+        setAddHeadingError('Fant ikke valgt seksjon.')
+        return
+      }
+
+      const nextFrame: CanvasFrame = {
+        id: `${Date.now()}-${Math.random()}`,
+        kind: 'heading',
+        headingText: heading,
+        headingFontSize: HEADING_FONT_SIZE_DEFAULT,
+        label: heading,
+        width,
+        height,
+        x: placement.x,
+        y: placement.y,
+        categoryId: placement.categoryId,
+        refreshNonce: 0,
+      }
+
+      void (async () => {
+        try {
+          setIsSavingCanvasItem(true)
+          setSyncError(null)
+          const persistedFrame = await persistFrame(nextFrame)
+          const persistedSection = await ensureSectionContainsFrame(targetSectionId, persistedFrame)
+          setFrames((prev) => {
+            const withSection = persistedSection
+              ? prev.map((frame) => (frame.id === persistedSection.id ? persistedSection : frame))
+              : prev
+            return [...withSection, persistedFrame]
+          })
+          onFrameAddedInSection?.(persistedFrame)
+          setHeadingTextInput('')
+          setSelectedAddSectionId('')
+          setAddHeadingError(null)
+          setIsAddHeadingModalOpen(false)
+        } catch (error) {
+          setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre overskrift')
+        } finally {
+          setIsSavingCanvasItem(false)
+        }
+      })()
+      return
+    }
+
     const frameDraft: PendingCanvasFrameDraft = {
       kind: 'heading',
       headingText: heading,
@@ -1400,6 +1709,7 @@ const useCanvasFrameFormHandlers = ({
     }
     queueFrameForPlacement(frameDraft, 'overskrift')
     setHeadingTextInput('')
+    setSelectedAddSectionId('')
     setAddHeadingError(null)
     setIsAddHeadingModalOpen(false)
   }
@@ -1409,6 +1719,53 @@ const useCanvasFrameFormHandlers = ({
 
     if (!content) {
       setAddTextError('Legg inn tekst.')
+      return
+    }
+
+    const targetSectionId = selectedAddSectionId.trim()
+    if (targetSectionId) {
+      const placement = resolvePlacementInSection(targetSectionId, { width: 340, height: 170 })
+      if (!placement) {
+        setAddTextError('Fant ikke valgt seksjon.')
+        return
+      }
+
+      const nextFrame: CanvasFrame = {
+        id: `${Date.now()}-${Math.random()}`,
+        kind: 'text',
+        textContent: content,
+        label: 'Tekst',
+        width: 340,
+        height: 170,
+        x: placement.x,
+        y: placement.y,
+        categoryId: placement.categoryId,
+        refreshNonce: 0,
+      }
+
+      void (async () => {
+        try {
+          setIsSavingCanvasItem(true)
+          setSyncError(null)
+          const persistedFrame = await persistFrame(nextFrame)
+          const persistedSection = await ensureSectionContainsFrame(targetSectionId, persistedFrame)
+          setFrames((prev) => {
+            const withSection = persistedSection
+              ? prev.map((frame) => (frame.id === persistedSection.id ? persistedSection : frame))
+              : prev
+            return [...withSection, persistedFrame]
+          })
+          onFrameAddedInSection?.(persistedFrame)
+          setTextContentInput('')
+          setSelectedAddSectionId('')
+          setAddTextError(null)
+          setIsAddTextModalOpen(false)
+        } catch (error) {
+          setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre tekst')
+        } finally {
+          setIsSavingCanvasItem(false)
+        }
+      })()
       return
     }
 
@@ -1422,6 +1779,7 @@ const useCanvasFrameFormHandlers = ({
     }
     queueFrameForPlacement(frameDraft, 'tekst')
     setTextContentInput('')
+    setSelectedAddSectionId('')
     setAddTextError(null)
     setIsAddTextModalOpen(false)
   }
@@ -1492,6 +1850,57 @@ const useCanvasFrameFormHandlers = ({
       return
     }
 
+    const targetSectionId = selectedAddSectionId.trim()
+    if (targetSectionId) {
+      const tableHeight = estimateTableFrameHeight(rows.length)
+      const placement = resolvePlacementInSection(targetSectionId, { width: 640, height: tableHeight })
+      if (!placement) {
+        setAddTableError('Fant ikke valgt seksjon.')
+        return
+      }
+
+      const nextFrame: CanvasFrame = {
+        id: `${Date.now()}-${Math.random()}`,
+        kind: 'text',
+        label: 'Tabell',
+        tableHeaders: headers,
+        tableRows: rows,
+        width: 640,
+        height: tableHeight,
+        x: placement.x,
+        y: placement.y,
+        categoryId: placement.categoryId,
+        refreshNonce: 0,
+      }
+
+      void (async () => {
+        try {
+          setIsSavingCanvasItem(true)
+          setSyncError(null)
+          const persistedFrame = await persistFrame(nextFrame)
+          const persistedSection = await ensureSectionContainsFrame(targetSectionId, persistedFrame)
+          setFrames((prev) => {
+            const withSection = persistedSection
+              ? prev.map((frame) => (frame.id === persistedSection.id ? persistedSection : frame))
+              : prev
+            return [...withSection, persistedFrame]
+          })
+          onFrameAddedInSection?.(persistedFrame)
+          setTableHeadersInput('')
+          setTableRowsInput('')
+          setSelectedAddSectionId('')
+          setAddTableError(null)
+          setEditTableFrameId(null)
+          setIsAddTableModalOpen(false)
+        } catch (error) {
+          setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre tabell')
+        } finally {
+          setIsSavingCanvasItem(false)
+        }
+      })()
+      return
+    }
+
     const frameDraft: PendingCanvasFrameDraft = {
       kind: 'text',
       label: 'Tabell',
@@ -1504,6 +1913,7 @@ const useCanvasFrameFormHandlers = ({
     queueFrameForPlacement(frameDraft, 'tabell')
     setTableHeadersInput('')
     setTableRowsInput('')
+    setSelectedAddSectionId('')
     setAddTableError(null)
     setEditTableFrameId(null)
     setIsAddTableModalOpen(false)
@@ -1563,6 +1973,57 @@ const useCanvasFrameFormHandlers = ({
       return
     }
 
+    const targetSectionId = selectedAddSectionId.trim()
+    if (targetSectionId) {
+      const placement = resolvePlacementInSection(targetSectionId, { width: 380, height: estimatedHeight })
+      if (!placement) {
+        setAddLinkError('Fant ikke valgt seksjon.')
+        return
+      }
+
+      const nextFrame: CanvasFrame = {
+        id: `${Date.now()}-${Math.random()}`,
+        kind: 'link',
+        targetUrl: href,
+        textContent: description || undefined,
+        label: title,
+        width: 380,
+        height: estimatedHeight,
+        x: placement.x,
+        y: placement.y,
+        categoryId: placement.categoryId,
+        refreshNonce: 0,
+      }
+
+      void (async () => {
+        try {
+          setIsSavingCanvasItem(true)
+          setSyncError(null)
+          const persistedFrame = await persistFrame(nextFrame)
+          const persistedSection = await ensureSectionContainsFrame(targetSectionId, persistedFrame)
+          setFrames((prev) => {
+            const withSection = persistedSection
+              ? prev.map((frame) => (frame.id === persistedSection.id ? persistedSection : frame))
+              : prev
+            return [...withSection, persistedFrame]
+          })
+          onFrameAddedInSection?.(persistedFrame)
+          setLinkTitleInput('')
+          setLinkUrlInput('')
+          setLinkDescriptionInput('')
+          setSelectedAddSectionId('')
+          setAddLinkError(null)
+          setEditLinkFrameId(null)
+          setIsAddLinkModalOpen(false)
+        } catch (error) {
+          setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre lenke')
+        } finally {
+          setIsSavingCanvasItem(false)
+        }
+      })()
+      return
+    }
+
     const frameDraft: PendingCanvasFrameDraft = {
       kind: 'link',
       targetUrl: href,
@@ -1576,6 +2037,7 @@ const useCanvasFrameFormHandlers = ({
     setLinkTitleInput('')
     setLinkUrlInput('')
     setLinkDescriptionInput('')
+    setSelectedAddSectionId('')
     setAddLinkError(null)
     setEditLinkFrameId(null)
     setIsAddLinkModalOpen(false)
@@ -1589,10 +2051,61 @@ const useCanvasFrameFormHandlers = ({
       return
     }
 
+    const normalizedStickyColor = getCanvasStickyColor(selectedStickyColor)
+    const targetSectionId = selectedStickySectionId.trim()
+
+    if (targetSectionId) {
+      const placement = resolvePlacementInSection(targetSectionId, { width: 360, height: 180 })
+      if (!placement) {
+        setAddStickyError('Fant ikke valgt seksjon.')
+        return
+      }
+
+      const nextFrame: CanvasFrame = {
+        id: `${Date.now()}-${Math.random()}`,
+        kind: 'sticky',
+        textContent: content,
+        stickyColor: normalizedStickyColor,
+        label: 'Post-it-lapp',
+        width: 360,
+        height: 180,
+        x: placement.x,
+        y: placement.y,
+        categoryId: placement.categoryId,
+        refreshNonce: 0,
+      }
+
+      void (async () => {
+        try {
+          setIsSavingCanvasItem(true)
+          setSyncError(null)
+          const persistedFrame = await persistFrame(nextFrame)
+          const persistedSection = await ensureSectionContainsFrame(targetSectionId, persistedFrame)
+          setFrames((prev) => {
+            const withSection = persistedSection
+              ? prev.map((frame) => (frame.id === persistedSection.id ? persistedSection : frame))
+              : prev
+            return [...withSection, persistedFrame]
+          })
+          onFrameAddedInSection?.(persistedFrame)
+          setStickyContentInput('')
+          setSelectedStickyColor(DEFAULT_CANVAS_STICKY_COLOR)
+          setSelectedStickySectionId('')
+          setAddStickyError(null)
+          setIsAddStickyModalOpen(false)
+        } catch (error) {
+          setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre post-it-lapp')
+        } finally {
+          setIsSavingCanvasItem(false)
+        }
+      })()
+      return
+    }
+
     const frameDraft: PendingCanvasFrameDraft = {
       kind: 'sticky',
       textContent: content,
-      stickyColor: getCanvasStickyColor(selectedStickyColor),
+      stickyColor: normalizedStickyColor,
       label: 'Post-it-lapp',
       width: 360,
       height: 180,
@@ -1601,27 +2114,81 @@ const useCanvasFrameFormHandlers = ({
     queueFrameForPlacement(frameDraft, 'Post-it-lapp')
     setStickyContentInput('')
     setSelectedStickyColor(DEFAULT_CANVAS_STICKY_COLOR)
+    setSelectedStickySectionId('')
     setAddStickyError(null)
     setIsAddStickyModalOpen(false)
   }
 
   const handleAddSectionCard = () => {
-    const nextSectionLabel = getNextAutoSectionLabel(frames)
+    const nextSectionLabel = sectionNameInput.trim() || getNextAutoSectionLabel(frames)
+
     const frameDraft: PendingCanvasFrameDraft = {
       kind: 'section',
       label: nextSectionLabel,
-      sectionLayout: 'freeform',
+      sectionLayout: sectionLayoutMode,
       width: 640,
       height: 420,
       refreshNonce: 0,
     }
     queueFrameForPlacement(frameDraft, 'seksjon')
+    setSectionNameInput('')
+    setSectionLayoutMode('grid')
+    setAddSectionError(null)
+    setIsAddSectionModalOpen(false)
   }
 
   const handleAddIconCard = () => {
     const selectedIcon = getCanvasIconOptionById(selectedIconId)
     if (!selectedIcon) {
       setAddIconError('Velg et ikon.')
+      return
+    }
+
+    const targetSectionId = selectedAddSectionId.trim()
+    if (targetSectionId) {
+      const placement = resolvePlacementInSection(targetSectionId, { width: 280, height: 240 })
+      if (!placement) {
+        setAddIconError('Fant ikke valgt seksjon.')
+        return
+      }
+
+      const nextFrame: CanvasFrame = {
+        id: `${Date.now()}-${Math.random()}`,
+        kind: 'icon',
+        iconName: selectedIcon.id,
+        iconRotationDeg: 0,
+        iconColor: getCanvasIconColor(selectedIconColor),
+        label: selectedIcon.label,
+        width: 280,
+        height: 240,
+        x: placement.x,
+        y: placement.y,
+        categoryId: placement.categoryId,
+        refreshNonce: 0,
+      }
+
+      void (async () => {
+        try {
+          setIsSavingCanvasItem(true)
+          setSyncError(null)
+          const persistedFrame = await persistFrame(nextFrame)
+          const persistedSection = await ensureSectionContainsFrame(targetSectionId, persistedFrame)
+          setFrames((prev) => {
+            const withSection = persistedSection
+              ? prev.map((frame) => (frame.id === persistedSection.id ? persistedSection : frame))
+              : prev
+            return [...withSection, persistedFrame]
+          })
+          onFrameAddedInSection?.(persistedFrame)
+          setSelectedAddSectionId('')
+          setAddIconError(null)
+          setIsAddIconModalOpen(false)
+        } catch (error) {
+          setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre ikon')
+        } finally {
+          setIsSavingCanvasItem(false)
+        }
+      })()
       return
     }
 
@@ -1636,6 +2203,7 @@ const useCanvasFrameFormHandlers = ({
       refreshNonce: 0,
     }
     queueFrameForPlacement(frameDraft, 'ikon')
+    setSelectedAddSectionId('')
     setAddIconError(null)
     setIsAddIconModalOpen(false)
   }
@@ -1736,11 +2304,13 @@ const useCanvasFrameFormHandlers = ({
 
   const handleOpenAddHeadingModal = () => {
     setAddHeadingError(null)
+    setSelectedAddSectionId('')
     setIsAddHeadingModalOpen(true)
   }
 
   const handleOpenAddTextModal = () => {
     setAddTextError(null)
+    setSelectedAddSectionId('')
     setIsAddTextModalOpen(true)
   }
 
@@ -1749,12 +2319,14 @@ const useCanvasFrameFormHandlers = ({
     setAddTableError(null)
     setTableHeadersInput('')
     setTableRowsInput('')
+    setSelectedAddSectionId('')
     setIsAddTableModalOpen(true)
   }
 
   const handleOpenAddStickyModal = () => {
     setAddStickyError(null)
     setSelectedStickyColor((current) => getCanvasStickyColor(current))
+    setSelectedStickySectionId('')
     setIsAddStickyModalOpen(true)
   }
 
@@ -1764,11 +2336,15 @@ const useCanvasFrameFormHandlers = ({
     setLinkUrlInput('')
     setLinkDescriptionInput('')
     setAddLinkError(null)
+    setSelectedAddSectionId('')
     setIsAddLinkModalOpen(true)
   }
 
   const handleOpenAddSection = () => {
-    handleAddSectionCard()
+    setSectionNameInput('')
+    setSectionLayoutMode('grid')
+    setAddSectionError(null)
+    setIsAddSectionModalOpen(true)
   }
 
   const handleOpenAddSqlEditor = () => {
@@ -1778,6 +2354,8 @@ const useCanvasFrameFormHandlers = ({
   const handleOpenAddImageModal = () => {
     setAddImageError(null)
     setNewImageUrlInput('')
+    setNewImageAltTextInput('')
+    setSelectedAddSectionId('')
     setIsAddImageModalOpen(true)
   }
 
@@ -1785,6 +2363,7 @@ const useCanvasFrameFormHandlers = ({
     setAddIconError(null)
     setSelectedIconId((current) => current || DEFAULT_CANVAS_ICON_ID)
     setSelectedIconColor((current) => getCanvasIconColor(current))
+    setSelectedAddSectionId('')
     setIsAddIconModalOpen(true)
   }
 
@@ -1799,6 +2378,7 @@ const useCanvasFrameFormHandlers = ({
     setEditIllustrationFrameId(null)
     setAddIllustrationError(null)
     setSelectedIllustrationPath((current) => current || DEFAULT_CANVAS_ILLUSTRATION_PATH)
+    setSelectedAddSectionId('')
     setIsAddIllustrationModalOpen(true)
   }
 

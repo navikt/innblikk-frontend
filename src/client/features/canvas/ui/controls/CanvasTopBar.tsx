@@ -1,6 +1,6 @@
-import { ActionMenu, Alert, BodyShort, Button, Modal, Tabs } from '@navikt/ds-react'
+import { ActionMenu, Alert, Button, Tabs } from '@navikt/ds-react'
 import { PersonGroupIcon, PersonIcon, ThemeIcon } from '@navikt/aksel-icons'
-import { House, EyeIcon, Lock, MoreVertical, Unlock } from 'lucide-react'
+import { House, EyeIcon, MoreVertical } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent, type RefObject, type TouchEvent } from 'react'
 import PeriodPicker from '../../../analysis/ui/PeriodPicker.tsx'
 import type { GraphCategoryDto } from '../../../oversikt/model/types.ts'
@@ -9,7 +9,6 @@ import CanvasFacilitatorActionMenu from './CanvasFacilitatorActionMenu.tsx'
 
 type CanvasTopBarProps = {
   canvasToolbarRef: RefObject<HTMLDivElement | null>
-  projectId: number | null
   canvasTitle: string
   period: string
   customStartDate?: Date
@@ -36,6 +35,7 @@ type CanvasTopBarProps = {
   onOpenAddIllustration: () => void
   onOpenTimer: () => void
   onOpenDotVoting: () => void
+  onOpenShareView: () => void
   timerLabel: string | null
   dotVotingLabel: string | null
   isTimerRunning: boolean
@@ -64,12 +64,13 @@ type CanvasTopBarProps = {
   participantLabels?: string[]
   isInteractionLocked?: boolean
   isCanvasLocked?: boolean
+  isCanvasReadOnly?: boolean
   onToggleCanvasLock?: () => void
+  onToggleLockedModeEditing?: () => void
 }
 
 const CanvasTopBar = ({
   canvasToolbarRef,
-  projectId,
   canvasTitle,
   period,
   customStartDate,
@@ -96,6 +97,7 @@ const CanvasTopBar = ({
   onOpenAddIllustration,
   onOpenTimer,
   onOpenDotVoting,
+  onOpenShareView,
   timerLabel,
   dotVotingLabel,
   isTimerRunning,
@@ -123,10 +125,12 @@ const CanvasTopBar = ({
   participantLabels = [],
   isInteractionLocked = false,
   isCanvasLocked = false,
+  isCanvasReadOnly = isCanvasLocked,
   onToggleCanvasLock,
+  onToggleLockedModeEditing,
 }: CanvasTopBarProps) => {
   const participantCountText = `${activeParticipantCount} ${activeParticipantCount === 1 ? 'person' : 'personer'} i canvas`
-  const [isLockModalOpen, setIsLockModalOpen] = useState(false)
+  const canEditCanvas = !isCanvasReadOnly
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const storedTheme = localStorage.getItem('umami-theme')
@@ -191,12 +195,17 @@ const CanvasTopBar = ({
   }
 
   return (
-    <div ref={canvasToolbarRef} className="pointer-events-none fixed left-4 right-4 top-4 z-30">
+    <div
+      ref={canvasToolbarRef}
+      role="region"
+      aria-label="Canvas toppfelt"
+      className="pointer-events-none fixed left-4 right-4 top-4 z-30"
+    >
       <div className="pointer-events-auto rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2 shadow-sm">
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <a
             href="/canvas"
-            aria-label={`Til dashboard-oversikt${projectId !== null ? ` fra prosjekt ${projectId}` : ''}`}
+            aria-label={`${headingTitle}. Til dashboard-oversikt`}
             className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-sm border-0 bg-transparent p-0 text-left text-[var(--ax-text-default)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-border-accent)]"
           >
             <span className="grid h-7 w-7 shrink-0 place-items-center">
@@ -234,7 +243,18 @@ const CanvasTopBar = ({
                   />
                 </div>
               )}
-              {!isCanvasLocked && (
+              {isCanvasLocked && (
+                <Button
+                  size="small"
+                  variant={'secondary'}
+                  onClick={onToggleLockedModeEditing}
+                  disabled={canvasInitMode !== 'existing' || isInteractionLocked}
+                  className="shrink-0 whitespace-nowrap"
+                >
+                  {isCanvasReadOnly ? 'Rediger' : 'Avslutt redigering'}
+                </Button>
+              )}
+              {canEditCanvas && (
                 <CanvasAddActionMenu
                   onAddWebsite={onOpenAddPage}
                   onOpenGrafbygger={onOpenCreateChart}
@@ -262,10 +282,13 @@ const CanvasTopBar = ({
                   withFloatingFrame={false}
                 />
               )}
-              {!isCanvasLocked && (
+              {canEditCanvas && (
                 <CanvasFacilitatorActionMenu
                   onOpenTimer={onOpenTimer}
                   onOpenDotVoting={onOpenDotVoting}
+                  onOpenShareView={onOpenShareView}
+                  isCanvasLocked={isCanvasLocked}
+                  onToggleCanvasLock={onToggleCanvasLock}
                   timerLabel={timerLabel}
                   dotVotingLabel={dotVotingLabel}
                   disabled={canvasInitMode !== 'existing'}
@@ -296,7 +319,7 @@ const CanvasTopBar = ({
                   {isDotVotingPaused ? `Pauset prikkvotering: ${dotVotingLabel}` : `Prikkvotering: ${dotVotingLabel}`}
                 </Button>
               )}
-              {!isCanvasLocked ? (
+              {canEditCanvas && (
                 <ActionMenu>
                   <ActionMenu.Trigger>
                     <Button
@@ -324,16 +347,6 @@ const CanvasTopBar = ({
                     ))}
                   </ActionMenu.Content>
                 </ActionMenu>
-              ) : (
-                <Button
-                  size="small"
-                  variant="tertiary"
-                  icon={<EyeIcon size={14} />}
-                  onClick={() => setIsLockModalOpen(true)}
-                  className="shrink-0 whitespace-nowrap"
-                >
-                  Visningsmodus
-                </Button>
               )}
               {isGrafbyggerEmbedded && (
                 <Button size="small" variant="secondary" onClick={onCloseGrafbygger}>
@@ -354,7 +367,7 @@ const CanvasTopBar = ({
                   <ActionMenu.Item onClick={() => window.location.assign('/canvas')}>Canvas-oversikt</ActionMenu.Item>
                   <ActionMenu.Divider />
                   <ActionMenu.Item onClick={onOpenInventory}>
-                    Elementer{!isCanvasLocked && elementCount !== undefined ? ` (${elementCount})` : ''}
+                    Elementer{canEditCanvas && elementCount !== undefined ? ` (${elementCount})` : ''}
                   </ActionMenu.Item>
                   <ActionMenu.Item onClick={onOpenChangeLog}>Endringslogg</ActionMenu.Item>
                   {canManageTabs && (
@@ -375,10 +388,10 @@ const CanvasTopBar = ({
                       Bytt til {theme === 'dark' ? 'lyst' : 'mørkt'} tema
                     </span>
                   </ActionMenu.Item>
-                  <ActionMenu.Item onClick={onToggleCanvasLock}>
+                  <ActionMenu.Item onClick={onOpenShareView}>
                     <span className="inline-flex items-center gap-2 whitespace-nowrap">
-                      {isCanvasLocked ? <Unlock size={14} /> : <Lock size={14} />}
-                      {isCanvasLocked ? 'Lås opp canvas' : 'Lås canvas'}
+                      <EyeIcon size={14} />
+                      Delingsvisning
                     </span>
                   </ActionMenu.Item>
                 </ActionMenu.Content>
@@ -419,35 +432,6 @@ const CanvasTopBar = ({
             </Tabs>
           </div>
         )}
-        <Modal
-          open={isLockModalOpen}
-          onClose={() => setIsLockModalOpen(false)}
-          closeOnBackdropClick
-          header={{
-            heading: 'Canvas er låst',
-          }}
-          width="small"
-        >
-          <Modal.Body>
-            <BodyShort spacing>Redigering er skrudd av i låst modus.</BodyShort>
-          </Modal.Body>
-          <Modal.Footer>
-            <Button
-              size="small"
-              variant="primary"
-              icon={<Unlock size={14} />}
-              onClick={() => {
-                onToggleCanvasLock?.()
-                setIsLockModalOpen(false)
-              }}
-            >
-              Lås opp canvas
-            </Button>
-            <Button size="small" variant="tertiary" onClick={() => setIsLockModalOpen(false)}>
-              Lukk
-            </Button>
-          </Modal.Footer>
-        </Modal>
       </div>
     </div>
   )

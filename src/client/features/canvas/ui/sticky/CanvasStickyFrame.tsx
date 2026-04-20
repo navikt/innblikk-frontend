@@ -6,6 +6,7 @@ type CanvasStickyFrameProps = {
   textContent?: string
   stickyColor?: string
   isEditing: boolean
+  isInteractionLocked?: boolean
   isLockedByOther?: boolean
   lockOwnerLabel?: string | null
   onChange: (id: string, nextValue: string) => void
@@ -18,6 +19,7 @@ const CanvasStickyFrame = ({
   textContent,
   stickyColor,
   isEditing,
+  isInteractionLocked = false,
   isLockedByOther = false,
   lockOwnerLabel = null,
   onChange,
@@ -49,13 +51,26 @@ const CanvasStickyFrame = ({
 
   return (
     <div className="relative h-full overflow-auto p-4 pt-10">
-      <div
-        className="cursor-text whitespace-pre-wrap break-words text-base leading-7"
-        style={{ color: colorOption.text }}
-        onClick={() => onStartEditing(id)}
-      >
-        {textContent || 'Skriv Post-it-lapp'}
-      </div>
+      {isInteractionLocked ? (
+        <p
+          className="w-full whitespace-pre-wrap break-words bg-transparent p-0 text-left text-base leading-7"
+          style={{ color: colorOption.text }}
+        >
+          {textContent || 'Skriv Post-it-lapp'}
+        </p>
+      ) : (
+        <button
+          type="button"
+          data-canvas-edit-trigger="true"
+          className="m-0 block w-full cursor-text whitespace-pre-wrap break-words bg-transparent p-0 text-left text-base leading-7 [appearance:none]"
+          style={{ color: colorOption.text }}
+          onMouseDown={(event) => event.stopPropagation()}
+          onClick={() => onStartEditing(id)}
+          aria-label="Rediger Post-it-lapp"
+        >
+          {textContent || 'Skriv Post-it-lapp'}
+        </button>
+      )}
       {isLockedByOther && <CanvasEditLockOverlay ownerLabel={lockOwnerLabel} tone="sticky" />}
     </div>
   )

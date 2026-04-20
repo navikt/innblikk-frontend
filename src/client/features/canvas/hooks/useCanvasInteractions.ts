@@ -82,6 +82,7 @@ type UseCanvasInteractionsResult = {
   handleDragStart: (event: React.MouseEvent | React.TouchEvent, frame: CanvasFrame) => void
   handleResizeStart: (event: React.MouseEvent, frame: CanvasFrame, dir?: 'se' | 'sw' | 'ne' | 'nw') => void
   handleAdjustHeadingFontSize: (id: string, delta: number) => void
+  handleSetHeadingFontSize: (id: string, sizePx: number) => void
 }
 
 const useCanvasInteractions = ({
@@ -249,6 +250,29 @@ const useCanvasInteractions = ({
 
       const currentSize = currentFrame.headingFontSize ?? HEADING_FONT_SIZE_DEFAULT
       const nextSize = Math.max(HEADING_FONT_SIZE_MIN, Math.min(HEADING_FONT_SIZE_MAX, currentSize + delta))
+      if (nextSize === currentSize) return
+
+      const nextFrame: CanvasFrame = {
+        ...currentFrame,
+        headingFontSize: nextSize,
+        refreshNonce: currentFrame.refreshNonce + 1,
+      }
+
+      setFrames((prev) => prev.map((frame) => (frame.id === id ? nextFrame : frame)))
+      void persistFrame(nextFrame).catch((error) => {
+        setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre skriftstorrelse')
+      })
+    },
+    [frames, persistFrame, setFrames, setSyncError],
+  )
+
+  const handleSetHeadingFontSize = useCallback(
+    (id: string, sizePx: number) => {
+      const currentFrame = frames.find((frame) => frame.id === id)
+      if (!currentFrame || currentFrame.kind !== 'heading') return
+
+      const currentSize = currentFrame.headingFontSize ?? HEADING_FONT_SIZE_DEFAULT
+      const nextSize = Math.max(HEADING_FONT_SIZE_MIN, Math.min(HEADING_FONT_SIZE_MAX, sizePx))
       if (nextSize === currentSize) return
 
       const nextFrame: CanvasFrame = {
@@ -678,6 +702,7 @@ const useCanvasInteractions = ({
     handleDragStart,
     handleResizeStart,
     handleAdjustHeadingFontSize,
+    handleSetHeadingFontSize,
   }
 }
 

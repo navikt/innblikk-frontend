@@ -10,7 +10,7 @@ export type CanvasDrawingStroke = {
 
 type UseCanvasDrawingToolOptions = {
   getCanvasPointerPosition: (clientX: number, clientY: number) => CanvasDrawingPoint | null
-  onCompleteDrawing: (params: { strokes: CanvasDrawingStroke[] }) => Promise<void>
+  onCompleteDrawing: (params: { strokes: CanvasDrawingStroke[] }) => void | Promise<void>
   defaultColor: string
   defaultStrokeWidth: number
 }
@@ -83,9 +83,11 @@ const useCanvasDrawingTool = ({
     ]
 
     if (completedStrokes.length > 0) {
-      await onCompleteDrawing({
-        strokes: completedStrokes,
-      })
+      await Promise.resolve(
+        onCompleteDrawing({
+          strokes: completedStrokes,
+        }),
+      )
     }
 
     clearDrawingInternal()
@@ -165,11 +167,34 @@ const useCanvasDrawingTool = ({
       }
     }
 
+    const onTouchMove = (event: TouchEvent) => {
+      const touch = event.touches[0]
+      if (!touch) return
+      const pointer = getCanvasPointerPosition(touch.clientX, touch.clientY)
+      if (!pointer) return
+      continueDrawingAt(pointer)
+      event.preventDefault()
+    }
+
+    const onTouchEnd = () => {
+      const stroke = activeDrawingStrokeRef.current
+      setActiveDrawingStroke(null)
+      if (stroke?.points.length) {
+        setDrawingDraftStrokes((current) => [...current, stroke])
+      }
+    }
+
     window.addEventListener('mousemove', onMouseMove)
     window.addEventListener('mouseup', onMouseUp)
+    window.addEventListener('touchmove', onTouchMove, { passive: false })
+    window.addEventListener('touchend', onTouchEnd)
+    window.addEventListener('touchcancel', onTouchEnd)
     return () => {
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mouseup', onMouseUp)
+      window.removeEventListener('touchmove', onTouchMove)
+      window.removeEventListener('touchend', onTouchEnd)
+      window.removeEventListener('touchcancel', onTouchEnd)
     }
   }, [activeDrawingStroke, continueDrawingAt, getCanvasPointerPosition, isDrawingMode])
 

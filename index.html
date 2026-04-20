@@ -7,6 +7,22 @@
     <title>Innblikk</title>
   </head>
   <body>
+    <script>
+      ;(() => {
+        try {
+          const stored = localStorage.getItem('umami-theme')
+          const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+          const theme = stored === 'dark' || stored === 'light' ? stored : prefersDark ? 'dark' : 'light'
+          const darkBg = '#101b30'
+          const lightBg = '#f4f6fb'
+          document.documentElement.classList.remove('light', 'dark')
+          document.documentElement.classList.add(theme)
+          document.body.style.backgroundColor = theme === 'dark' ? darkBg : lightBg
+        } catch {
+          // Ignore early-theme init errors.
+        }
+      })()
+    </script>
     <div id="root"></div>
     <script type="module">
       const { VITE_GCP_PROJECT_ID } = import.meta.env

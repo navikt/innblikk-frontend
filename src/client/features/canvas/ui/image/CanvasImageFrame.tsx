@@ -2,6 +2,7 @@ type CanvasImageFrameProps = {
   id: string
   src: string
   label: string
+  imageAltText?: string
   refreshNonce: number
   isIllustrationFrame: boolean
   imageRotationDeg?: number
@@ -14,6 +15,7 @@ const CanvasImageFrame = ({
   id,
   src,
   label,
+  imageAltText,
   refreshNonce,
   isIllustrationFrame,
   imageRotationDeg,
@@ -26,7 +28,7 @@ const CanvasImageFrame = ({
       <div className={`h-full w-full overflow-hidden ${isIllustrationFrame ? 'bg-transparent p-0' : 'bg-white p-2'}`}>
         <img
           key={`${id}-${refreshNonce}`}
-          alt={label}
+          alt={imageAltText ?? label}
           src={src}
           className={`h-full w-full object-contain ${isIllustrationFrame ? '' : 'rounded'}`}
           style={isIllustrationFrame ? { transform: `rotate(${imageRotationDeg ?? 0}deg)` } : undefined}

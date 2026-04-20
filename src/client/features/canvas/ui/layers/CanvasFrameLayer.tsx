@@ -1,5 +1,14 @@
 import { Button, HelpText, Loader, Select } from '@navikt/ds-react'
-import { useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
+import { ExternalLink } from 'lucide-react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+} from 'react'
 import { createPortal } from 'react-dom'
 import type { Website } from '../../../../shared/types/website.ts'
 import { DashboardWidget } from '../../../dashboard'
@@ -9,15 +18,13 @@ import {
   CARD_ACTION_BUTTON_CLASSNAME,
   DEFAULT_DRAWING_STROKE_WIDTH,
   HEADING_CARD_HEADER_HEIGHT,
-  HEADING_FONT_SIZE_STEP,
   HEADING_TEXT_MIN_WIDTH,
-  ICON_ROTATION_STEP_DEG,
   WEBSITE_CARD_HEADER_HEIGHT,
   getCanvasFrameVisualizationMode,
   getVisualizationModeLabel,
 } from '../../utils/canvasUtils.ts'
 import { DEFAULT_CANVAS_ICON_COLOR } from '../icon/CanvasIconRegistry.ts'
-import CanvasFrameActionPoints from '../controls/CanvasFrameActionPoints.tsx'
+import CanvasFrameActionPoints, { type SectionAddAction } from '../controls/CanvasFrameActionPoints.tsx'
 import CanvasDrawingFrame from '../drawing/CanvasDrawingFrame.tsx'
 import CanvasFigureFrame from '../figure/CanvasFigureFrame.tsx'
 import CanvasHeadingFrame from '../heading/CanvasHeadingFrame.tsx'
@@ -100,12 +107,11 @@ const CanvasResizeHandles = ({
   return (
     <>
       {RESIZE_HANDLE_CONFIGS.map((handle) => (
-        <button
+        <span
           key={handle.dir}
-          type="button"
+          aria-hidden="true"
           onMouseDown={(event) => handleResizeStart(event, frame, handle.dir)}
           title={handle.title}
-          aria-label={handle.ariaLabel}
           className={`absolute ${handle.className} ${sizeClassName} rounded-sm border-[#1f8fff] bg-white shadow-[0_0_0_2px_white] transition-opacity ${visibilityClassName}`}
         />
       ))}
@@ -169,6 +175,7 @@ type CanvasFrameLayerProps = {
   handleOpenEditDashboardModal: (frame: CanvasFrame) => void
   handleOpenEditWebsiteModal: (frame: CanvasFrame) => void
   handleOpenEditImageModal: (frame: CanvasFrame) => void
+  handleOpenEditDrawingModal: (frame: CanvasFrame) => void
   handleOpenEditLinkModal: (frame: CanvasFrame) => void
   handleOpenEditTableModal: (frame: CanvasFrame) => void
   handleOpenEditIllustrationModal: (frame: CanvasFrame) => void
@@ -183,14 +190,15 @@ type CanvasFrameLayerProps = {
   handleDuplicateHeadingCard: (frame: CanvasFrame) => Promise<void>
   handleDuplicateDrawingCard: (frame: CanvasFrame) => Promise<void>
   handleDuplicateImageCard: (frame: CanvasFrame) => Promise<void>
-  handleAdjustHeadingFontSize: (id: string, delta: number) => void
+  handleSetHeadingFontSize: (id: string, sizePx: number) => void
   handleRotateIllustrationFrame: (id: string, delta: number) => void
   handleRotateFigureFrame: (id: string, delta: number) => void
   handleRotateDrawingFrame: (id: string, delta: number) => void
-  handleToggleSectionLayout: (id: string) => void
+  handleOpenSectionOptionsModal: (id: string) => void
   handleMoveFrameToSection: (frameId: string, sectionId: string) => void
   handleSetStickyColor: (frameId: string, colorId: string) => void
   handleRequestRemoveFrame: (frame: CanvasFrame) => void
+  handleSelectSectionAddAction: (sectionId: string, action: SectionAddAction) => void
   startConnectionDrag: (event: React.MouseEvent, frame: CanvasFrame, side: ConnectionAnchorSide) => void
   handleAssignWebsiteToChart: (frame: CanvasFrame, website: Website | null) => Promise<void>
   handleOpenEditChartModal: (frame: CanvasFrame) => void
@@ -208,6 +216,10 @@ type CanvasFrameLayerProps = {
   onVoteSticky?: (stickyId: string) => void
   onClearStickyVoteSnapshot?: (stickyId: string) => void
   isCanvasLocked?: boolean
+  focusSectionTitleId?: string | null
+  onSectionTitleFocusHandled?: () => void
+  focusFrameId?: string | null
+  onFrameFocusHandled?: () => void
 }
 
 const CanvasFrameLayer = ({
@@ -254,6 +266,7 @@ const CanvasFrameLayer = ({
   handleOpenEditDashboardModal,
   handleOpenEditWebsiteModal,
   handleOpenEditImageModal,
+  handleOpenEditDrawingModal,
   handleOpenEditLinkModal,
   handleOpenEditTableModal,
   handleOpenEditIllustrationModal,
@@ -268,14 +281,15 @@ const CanvasFrameLayer = ({
   handleDuplicateHeadingCard,
   handleDuplicateDrawingCard,
   handleDuplicateImageCard,
-  handleAdjustHeadingFontSize,
+  handleSetHeadingFontSize,
   handleRotateIllustrationFrame,
   handleRotateFigureFrame,
   handleRotateDrawingFrame,
-  handleToggleSectionLayout,
+  handleOpenSectionOptionsModal,
   handleMoveFrameToSection,
   handleSetStickyColor,
   handleRequestRemoveFrame,
+  handleSelectSectionAddAction,
   startConnectionDrag,
   handleAssignWebsiteToChart,
   handleOpenEditChartModal,
@@ -293,17 +307,100 @@ const CanvasFrameLayer = ({
   onVoteSticky,
   onClearStickyVoteSnapshot,
   isCanvasLocked = false,
+  focusSectionTitleId = null,
+  onSectionTitleFocusHandled,
+  focusFrameId = null,
+  onFrameFocusHandled,
 }: CanvasFrameLayerProps) => {
   const [topListFilterByFrameId, setTopListFilterByFrameId] = useState<Record<string, string>>({})
   const [activeTopListItemKeyByFrameId, setActiveTopListItemKeyByFrameId] = useState<Record<string, string | null>>({})
+  const sectionTitleButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+  const frameContainerRefs = useRef<Record<string, HTMLElement | null>>({})
+
+  const focusAdjacentSection = useCallback(
+    (sectionId: string, direction: 'next' | 'previous') => {
+      const orderedSections = frameItems
+        .filter((item) => item.kind === 'section')
+        .sort((a, b) => {
+          if (a.y !== b.y) return a.y - b.y
+          return a.x - b.x
+        })
+      const currentIndex = orderedSections.findIndex((section) => section.id === sectionId)
+      if (currentIndex < 0) return
+      const targetIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1
+      const targetSection = orderedSections[targetIndex]
+      if (!targetSection) return
+      sectionTitleButtonRefs.current[targetSection.id]?.focus()
+    },
+    [frameItems],
+  )
 
   const cleanText = (value: string): string => value.replace(/\s+/g, ' ').trim().toLowerCase()
+  const sectionCount = frameItems.filter((item) => item.kind === 'section').length
+  const orderedSectionIds = frameItems
+    .filter((item) => item.kind === 'section')
+    .sort((a, b) => {
+      if (a.y !== b.y) return a.y - b.y
+      return a.x - b.x
+    })
+    .map((item) => item.id)
 
   const isAccordionLike = (value: string): boolean => {
     const cleaned = cleanText(value)
     return cleaned.includes('accordion') || cleaned.includes('trekkspill')
   }
   const isFrameInteractionLocked = isDotVotingActive || isCanvasLocked
+
+  useEffect(() => {
+    if (!focusSectionTitleId) return
+    const titleButton = sectionTitleButtonRefs.current[focusSectionTitleId]
+    if (!titleButton) return
+    titleButton.focus()
+    onSectionTitleFocusHandled?.()
+  }, [focusSectionTitleId, frameItems, onSectionTitleFocusHandled])
+
+  useEffect(() => {
+    if (!focusFrameId) return
+    let cancelled = false
+    let firstFrame: number | null = null
+    let secondFrame: number | null = null
+
+    const focusTarget = () => {
+      const frameElement = frameContainerRefs.current[focusFrameId]
+      if (!frameElement || cancelled) return
+
+      const editTrigger = frameElement.querySelector<HTMLElement>('[data-canvas-edit-trigger="true"]')
+      if (editTrigger) {
+        editTrigger.focus()
+        onFrameFocusHandled?.()
+        return
+      }
+
+      const fallbackFocusable = frameElement.querySelector<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      )
+
+      if (fallbackFocusable) {
+        fallbackFocusable.focus()
+        onFrameFocusHandled?.()
+        return
+      }
+
+      frameElement.focus()
+      onFrameFocusHandled?.()
+    }
+
+    // Let modal focus restoration complete before we move focus to the newly created frame.
+    firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(focusTarget)
+    })
+
+    return () => {
+      cancelled = true
+      if (firstFrame !== null) window.cancelAnimationFrame(firstFrame)
+      if (secondFrame !== null) window.cancelAnimationFrame(secondFrame)
+    }
+  }, [focusFrameId, frameItems, onFrameFocusHandled])
 
   return (
     <>
@@ -413,11 +510,55 @@ const CanvasFrameLayer = ({
             'group-hover:opacity-100 group-focus-within:opacity-100',
             hoverRevealClass,
           )
+          const frameActionPoints = (
+            <CanvasFrameActionPoints
+              frameKind={frame.kind}
+              isInternalDashboard={frame.isInternalDashboard}
+              isIllustrationFrame={isIllustrationFrame}
+              actionButtonClassName={actionButtonClassName}
+              onEditImage={() => handleOpenEditImageModal(frame)}
+              onEditDrawing={() => handleOpenEditDrawingModal(frame)}
+              onEditLink={() => handleOpenEditLinkModal(frame)}
+              onEditTable={() => handleOpenEditTableModal(frame)}
+              isTableFrame={frame.kind === 'text' && Array.isArray(frame.tableHeaders) && frame.tableHeaders.length > 0}
+              onEditIllustration={() => handleOpenEditIllustrationModal(frame)}
+              onEditDashboard={() => handleOpenEditDashboardModal(frame)}
+              onEditIcon={() => handleOpenEditIconModal(frame)}
+              onDuplicateIcon={() => void handleDuplicateIconCard(frame)}
+              onRotateIcon={(delta) => handleRotateIconFrame(frame.id, delta)}
+              onEditFigure={() => handleOpenEditFigureModal(frame)}
+              onDuplicateFigure={() => void handleDuplicateFigureCard(frame)}
+              onDuplicateSection={() => void handleDuplicateSectionCard(frame)}
+              onDuplicateSticky={() => void handleDuplicateStickyCard(frame)}
+              onDuplicateText={() => void handleDuplicateTextCard(frame)}
+              onDuplicateHeading={() => void handleDuplicateHeadingCard(frame)}
+              onDuplicateDrawing={() => void handleDuplicateDrawingCard(frame)}
+              onDuplicateImage={() => void handleDuplicateImageCard(frame)}
+              headingFontSizePx={frame.kind === 'heading' ? getHeadingFrameFontSize(frame) : 40}
+              onSetHeadingFontSize={(sizePx) => handleSetHeadingFontSize(frame.id, sizePx)}
+              onRotateIllustration={(delta) => handleRotateIllustrationFrame(frame.id, delta)}
+              sectionLayoutMode={frame.sectionLayout === 'grid' ? 'grid' : 'freeform'}
+              onOpenSectionOptions={() => handleOpenSectionOptionsModal(frame.id)}
+              sectionMoveOptions={sectionMoveOptionsForFrame}
+              stickyColorOptions={stickyColorOptions}
+              onSetStickyColor={(colorId) => handleSetStickyColor(frame.id, colorId)}
+              onMoveToSection={(sectionId) => handleMoveFrameToSection(frame.id, sectionId)}
+              onSelectSectionAddAction={(action) => handleSelectSectionAddAction(frame.id, action)}
+              onRotateFigure={(delta) => handleRotateFigureFrame(frame.id, delta)}
+              onRotateDrawing={(delta) => handleRotateDrawingFrame(frame.id, delta)}
+              onRemoveFrame={() => handleRequestRemoveFrame(frame)}
+            />
+          )
 
           const frameNode = (
             <FrameContainerTag
               key={frame.id}
               data-canvas-frame-root="true"
+              data-canvas-frame-id={frame.id}
+              tabIndex={-1}
+              ref={(element) => {
+                frameContainerRefs.current[frame.id] = element
+              }}
               role={frame.kind === 'section' ? 'region' : undefined}
               aria-label={
                 frame.kind === 'section'
@@ -506,12 +647,27 @@ const CanvasFrameLayer = ({
                 >
                   <div className="flex min-w-0 flex-1 items-start gap-2">
                     <div className="min-w-0">
-                      <div
-                        className="min-w-0 break-words text-sm font-semibold leading-tight text-[var(--ax-text-default)]"
-                        title={frame.label}
-                      >
-                        {frame.label}
-                      </div>
+                      {frame.targetUrl ? (
+                        <a
+                          href={frame.targetUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex min-w-0 max-w-full items-center gap-1 text-sm font-semibold leading-tight text-[var(--ax-text-default)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-border-accent)]"
+                          title={frame.label}
+                          onMouseDown={(event) => event.stopPropagation()}
+                          onTouchStart={(event) => event.stopPropagation()}
+                        >
+                          <span className="min-w-0 break-words">{frame.label}</span>
+                          <ExternalLink size={12} aria-hidden="true" className="shrink-0" />
+                        </a>
+                      ) : (
+                        <div
+                          className="min-w-0 break-words text-sm font-semibold leading-tight text-[var(--ax-text-default)]"
+                          title={frame.label}
+                        >
+                          {frame.label}
+                        </div>
+                      )}
                       {visualizationMode && (
                         <div className="flex min-w-0 items-center gap-1 text-xs text-[var(--ax-text-subtle)]">
                           <span className="break-words">
@@ -618,47 +774,7 @@ const CanvasFrameLayer = ({
                         onTouchStart={(event) => handleDragStart(event, frame)}
                       />
                     </div>
-                    <CanvasFrameActionPoints
-                      frameKind={frame.kind}
-                      isInternalDashboard={frame.isInternalDashboard}
-                      isIllustrationFrame={isIllustrationFrame}
-                      actionButtonClassName={actionButtonClassName}
-                      onEditImage={() => handleOpenEditImageModal(frame)}
-                      onEditLink={() => handleOpenEditLinkModal(frame)}
-                      onEditTable={() => handleOpenEditTableModal(frame)}
-                      isTableFrame={
-                        frame.kind === 'text' && Array.isArray(frame.tableHeaders) && frame.tableHeaders.length > 0
-                      }
-                      onEditIllustration={() => handleOpenEditIllustrationModal(frame)}
-                      onEditDashboard={() => handleOpenEditDashboardModal(frame)}
-                      onEditIcon={() => handleOpenEditIconModal(frame)}
-                      onDuplicateIcon={() => void handleDuplicateIconCard(frame)}
-                      onRotateIconLeft={() => handleRotateIconFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
-                      onRotateIconRight={() => handleRotateIconFrame(frame.id, ICON_ROTATION_STEP_DEG)}
-                      onEditFigure={() => handleOpenEditFigureModal(frame)}
-                      onDuplicateFigure={() => void handleDuplicateFigureCard(frame)}
-                      onDuplicateSection={() => void handleDuplicateSectionCard(frame)}
-                      onDuplicateSticky={() => void handleDuplicateStickyCard(frame)}
-                      onDuplicateText={() => void handleDuplicateTextCard(frame)}
-                      onDuplicateHeading={() => void handleDuplicateHeadingCard(frame)}
-                      onDuplicateDrawing={() => void handleDuplicateDrawingCard(frame)}
-                      onDuplicateImage={() => void handleDuplicateImageCard(frame)}
-                      onDecreaseHeadingFontSize={() => handleAdjustHeadingFontSize(frame.id, -HEADING_FONT_SIZE_STEP)}
-                      onIncreaseHeadingFontSize={() => handleAdjustHeadingFontSize(frame.id, HEADING_FONT_SIZE_STEP)}
-                      onRotateIllustrationLeft={() => handleRotateIllustrationFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
-                      onRotateIllustrationRight={() => handleRotateIllustrationFrame(frame.id, ICON_ROTATION_STEP_DEG)}
-                      sectionLayoutMode={frame.sectionLayout === 'grid' ? 'grid' : 'freeform'}
-                      onToggleSectionLayout={() => handleToggleSectionLayout(frame.id)}
-                      sectionMoveOptions={sectionMoveOptionsForFrame}
-                      stickyColorOptions={stickyColorOptions}
-                      onSetStickyColor={(colorId) => handleSetStickyColor(frame.id, colorId)}
-                      onMoveToSection={(sectionId) => handleMoveFrameToSection(frame.id, sectionId)}
-                      onRotateFigureLeft={() => handleRotateFigureFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
-                      onRotateFigureRight={() => handleRotateFigureFrame(frame.id, ICON_ROTATION_STEP_DEG)}
-                      onRotateDrawingLeft={() => handleRotateDrawingFrame(frame.id, -ICON_ROTATION_STEP_DEG)}
-                      onRotateDrawingRight={() => handleRotateDrawingFrame(frame.id, ICON_ROTATION_STEP_DEG)}
-                      onRemoveFrame={() => handleRequestRemoveFrame(frame)}
-                    />
+                    {frame.kind !== 'section' && frameActionPoints}
                   </>
                 )}
               {!isFrameInteractionLocked &&
@@ -783,6 +899,7 @@ const CanvasFrameLayer = ({
                     id={frame.id}
                     src={frame.src || ''}
                     label={frame.label}
+                    imageAltText={frame.imageAltText}
                     refreshNonce={frame.refreshNonce}
                     isIllustrationFrame={isIllustrationFrame}
                     imageRotationDeg={frame.imageRotationDeg}
@@ -806,6 +923,7 @@ const CanvasFrameLayer = ({
                     isInsightOpen={isWebsiteInsightOpen}
                     activeInsightPeriodLabel={activeInsightPeriodLabel}
                     websiteInsight={websiteInsight}
+                    isInteractionLocked={isFrameInteractionLocked}
                     onIframeRef={setWebsiteIframeRef}
                     onIframeLoad={() => handleWebsiteFrameLoad(frame)}
                     formatCanvasPathLabel={formatCanvasPathLabel}
@@ -959,6 +1077,7 @@ const CanvasFrameLayer = ({
                         strokeWidth={frame.drawingStrokeWidth ?? DEFAULT_DRAWING_STROKE_WIDTH}
                         rotationDeg={frame.drawingRotationDeg}
                         label={frame.label}
+                        drawingAltText={frame.drawingAltText}
                       />
                     )
                   })()
@@ -969,9 +1088,10 @@ const CanvasFrameLayer = ({
                     label={frame.label}
                     fontSizePx={getHeadingFrameFontSize(frame)}
                     headingLevel={contextualHeadingLevel}
-                    isEditing={activeEditableFrameId === frame.id}
-                    isLockedByOther={editLockStatus.isLockedByOther}
-                    lockOwnerLabel={editLockStatus.ownerLabel}
+                    isEditing={!isFrameInteractionLocked && activeEditableFrameId === frame.id}
+                    isInteractionLocked={isFrameInteractionLocked}
+                    isLockedByOther={!isFrameInteractionLocked && editLockStatus.isLockedByOther}
+                    lockOwnerLabel={!isFrameInteractionLocked ? editLockStatus.ownerLabel : null}
                     onChange={handleEditableFrameChange}
                     onBlur={handleEditableFrameBlur}
                     onStartEditing={handleStartEditingFrame}
@@ -982,7 +1102,8 @@ const CanvasFrameLayer = ({
                     textContent={frame.textContent}
                     tableHeaders={frame.tableHeaders}
                     tableRows={frame.tableRows}
-                    isEditing={activeEditableFrameId === frame.id}
+                    isEditing={!isFrameInteractionLocked && activeEditableFrameId === frame.id}
+                    isInteractionLocked={isFrameInteractionLocked}
                     isLockedByOther={editLockStatus.isLockedByOther}
                     lockOwnerLabel={editLockStatus.ownerLabel}
                     tableRowsPerPage={CANVAS_TABLE_ROWS_PER_PAGE}
@@ -1016,6 +1137,7 @@ const CanvasFrameLayer = ({
                       textContent={frame.textContent}
                       stickyColor={frame.stickyColor}
                       isEditing={!isFrameInteractionLocked && activeEditableFrameId === frame.id}
+                      isInteractionLocked={isFrameInteractionLocked}
                       isLockedByOther={!isFrameInteractionLocked && editLockStatus.isLockedByOther}
                       lockOwnerLabel={!isFrameInteractionLocked ? editLockStatus.ownerLabel : null}
                       onChange={handleEditableFrameChange}
@@ -1074,21 +1196,30 @@ const CanvasFrameLayer = ({
                         onMouseDown={(event) => event.stopPropagation()}
                         onChange={(event) => handleEditableFrameChange(frame.id, event.target.value)}
                         onBlur={() => handleEditableFrameBlur(frame.id)}
-                        className="w-full resize-none rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)]/95 px-2 py-1 text-sm font-semibold text-[var(--ax-text-default)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-border-accent)]"
+                        className="w-full resize-none rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)]/95 px-2.5 py-1.5 text-lg font-semibold leading-tight text-[var(--ax-text-default)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-border-accent)]"
                         rows={2}
                         autoFocus
                       />
                     ) : (
                       <h3 className="m-0">
                         {isCanvasLocked ? (
-                          <span className="inline-block w-fit max-w-full rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)]/90 px-2 py-1 text-left text-sm font-semibold text-[var(--ax-text-default)]">
+                          <span className="inline-block w-fit max-w-full rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)]/90 px-2.5 py-1.5 text-left text-lg font-semibold leading-tight text-[var(--ax-text-default)]">
                             <span className="block truncate">{frame.label || 'Seksjon'}</span>
                           </span>
                         ) : (
                           <button
                             type="button"
-                            className="w-fit max-w-full rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)]/90 px-2 py-1 text-left text-sm font-semibold text-[var(--ax-text-default)]"
+                            ref={(element) => {
+                              sectionTitleButtonRefs.current[frame.id] = element
+                            }}
+                            className="w-fit max-w-full rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)]/90 px-2.5 py-1.5 text-left text-lg font-semibold leading-tight text-[var(--ax-text-default)]"
                             onMouseDown={(event) => event.stopPropagation()}
+                            onKeyDown={(event) => {
+                              if (event.key !== 'Enter' && event.key !== ' ') return
+                              event.preventDefault()
+                              event.stopPropagation()
+                              handleStartEditingFrame(frame.id)
+                            }}
                             onDoubleClick={() => {
                               handleStartEditingFrame(frame.id)
                             }}
@@ -1098,6 +1229,20 @@ const CanvasFrameLayer = ({
                           </button>
                         )}
                       </h3>
+                    )}
+                    {sectionCount > 1 && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {orderedSectionIds.indexOf(frame.id) < orderedSectionIds.length - 1 && (
+                          <button
+                            type="button"
+                            onMouseDown={(event) => event.stopPropagation()}
+                            onClick={() => focusAdjacentSection(frame.id, 'next')}
+                            className="absolute left-[-9999px] top-auto h-px w-px overflow-hidden rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-2 py-1 text-xs font-medium text-[var(--ax-text-default)] focus:static focus:z-[80] focus:h-auto focus:w-auto focus:overflow-visible"
+                          >
+                            Hopp til neste seksjon
+                          </button>
+                        )}
+                      </div>
                     )}
                     {shouldShowSectionItemCount && (
                       <p className="text-xs text-[var(--ax-text-subtle)]">{sectionItemCount} elementer.</p>
@@ -1109,12 +1254,14 @@ const CanvasFrameLayer = ({
                   </div>
                 )}
               </div>
+              {!isFrameInteractionLocked && frame.kind === 'section' && frameActionPoints}
               {frame.kind === 'website' &&
                 !frame.isInternalDashboard &&
                 visualizationMode === 'clickmap' &&
                 !isDotVotingActive &&
                 websiteTopListEnabled && (
-                  <aside
+                  <section
+                    aria-label={`Klikktoppliste for ${frame.label || 'nettsted'}`}
                     className="absolute left-[calc(100%+12px)] top-0 z-[75] flex h-full w-[300px] min-w-0 flex-col overflow-hidden rounded-lg border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] shadow-md"
                     onMouseDown={(event) => event.stopPropagation()}
                   >
@@ -1191,7 +1338,7 @@ const CanvasFrameLayer = ({
                         })}
                       </div>
                     )}
-                  </aside>
+                  </section>
                 )}
               {!isFrameInteractionLocked && (
                 <CanvasResizeHandles

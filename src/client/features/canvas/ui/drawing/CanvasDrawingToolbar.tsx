@@ -39,11 +39,11 @@ const CanvasDrawingToolbar = ({
 
   return (
     <div
-      className="fixed left-1/2 z-[120] w-[min(94vw,52rem)] -translate-x-1/2 rounded-xl border border-[var(--ax-border-accent)] bg-[var(--ax-bg-default)] px-3 py-2 shadow-lg"
+      className="fixed left-1/2 z-[120] w-[min(96vw,52rem)] -translate-x-1/2 rounded-xl border border-[var(--ax-border-accent)] bg-[var(--ax-bg-default)] px-2 py-2 shadow-lg sm:px-3"
       style={{ top: `${topOffsetPx}px` }}
     >
-      <div className="flex items-center gap-3">
-        <span className="text-sm font-medium text-[var(--ax-text-default)]">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <span className="w-full text-xs font-medium text-[var(--ax-text-default)] sm:text-sm">
           Tegnemodus: tegn flere strøk og velg Ferdig
         </span>
         <div className="flex items-center gap-1">
@@ -54,7 +54,7 @@ const CanvasDrawingToolbar = ({
                 key={colorOption.id}
                 type="button"
                 onClick={() => onStrokeColorChange(colorOption.value)}
-                className={`h-6 w-6 rounded-full border-2 ${
+                className={`h-7 w-7 rounded-full border-2 sm:h-6 sm:w-6 ${
                   isSelected ? 'border-[var(--ax-border-accent)]' : 'border-[var(--ax-border-neutral-subtle)]'
                 }`}
                 aria-label={`Velg farge ${colorOption.label}`}

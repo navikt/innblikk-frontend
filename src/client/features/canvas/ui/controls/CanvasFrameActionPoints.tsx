@@ -1,7 +1,8 @@
 import { ActionMenu, Button } from '@navikt/ds-react'
-import { ArrowRightLeft, Copy, Edit2, Grid3X3, Move, Palette, RotateCcw, RotateCw, Trash2 } from 'lucide-react'
+import { ArrowRightLeft, Copy, Edit2, Palette, RotateCw, Trash2 } from 'lucide-react'
 import type { MouseEvent } from 'react'
 import type { CanvasSectionLayoutMode } from '../../model/types.ts'
+import { ICON_ROTATION_STEP_DEG } from '../../utils/canvasUtils.ts'
 
 const stopMouseDownPropagation = (event: MouseEvent<HTMLElement>) => {
   event.stopPropagation()
@@ -25,6 +26,7 @@ type CanvasFrameActionPointsProps = {
   isIllustrationFrame: boolean
   actionButtonClassName: string
   onEditImage: () => void
+  onEditDrawing: () => void
   onEditIllustration: () => void
   onEditDashboard: () => void
   onEditLink: () => void
@@ -32,8 +34,7 @@ type CanvasFrameActionPointsProps = {
   isTableFrame?: boolean
   onEditIcon: () => void
   onDuplicateIcon: () => void
-  onRotateIconLeft: () => void
-  onRotateIconRight: () => void
+  onRotateIcon: (delta: number) => void
   onEditFigure: () => void
   onDuplicateFigure: () => void
   onDuplicateSection: () => void
@@ -42,37 +43,85 @@ type CanvasFrameActionPointsProps = {
   onDuplicateHeading: () => void
   onDuplicateDrawing: () => void
   onDuplicateImage: () => void
-  onDecreaseHeadingFontSize: () => void
-  onIncreaseHeadingFontSize: () => void
-  onRotateIllustrationLeft: () => void
-  onRotateIllustrationRight: () => void
-  onRotateFigureLeft: () => void
-  onRotateFigureRight: () => void
-  onRotateDrawingLeft: () => void
-  onRotateDrawingRight: () => void
+  headingFontSizePx: number
+  onSetHeadingFontSize: (sizePx: number) => void
+  onRotateIllustration: (delta: number) => void
+  onRotateFigure: (delta: number) => void
+  onRotateDrawing: (delta: number) => void
   sectionLayoutMode?: CanvasSectionLayoutMode
-  onToggleSectionLayout: () => void
+  onOpenSectionOptions: () => void
   sectionMoveOptions?: Array<{ id: string; label: string }>
   stickyColorOptions?: Array<{ id: string; label: string; color: string }>
   onSetStickyColor: (colorId: string) => void
   onMoveToSection: (sectionId: string) => void
   onRemoveFrame: () => void
+  onSelectSectionAddAction?: (action: SectionAddAction) => void
 }
+
+export type SectionAddAction =
+  | 'section'
+  | 'tab'
+  | 'heading'
+  | 'text'
+  | 'table'
+  | 'link'
+  | 'sticky'
+  | 'image'
+  | 'icon'
+  | 'figure'
+  | 'drawing'
+  | 'illustration'
+  | 'website'
+  | 'chart'
+  | 'sql-editor'
+  | 'dashboard'
+  | 'import-sticky-csv'
 
 type IconBoxActionPointsProps = {
   actionButtonClassName: string
   onEditIcon: () => void
   onDuplicateIcon: () => void
-  onRotateIconLeft: () => void
-  onRotateIconRight: () => void
+  onRotateIcon: (delta: number) => void
 }
+
+type RotateActionMenuProps = {
+  actionButtonClassName: string
+  title?: string
+  onRotateBy: (delta: number) => void
+}
+
+const RotateActionMenu = ({ actionButtonClassName, title = 'Roter', onRotateBy }: RotateActionMenuProps) => (
+  <ActionMenu>
+    <ActionMenu.Trigger>
+      <Button
+        size="xsmall"
+        variant="tertiary"
+        icon={<RotateCw size={14} />}
+        onMouseDown={stopMouseDownPropagation}
+        title={title}
+        aria-label={title}
+        className={actionButtonClassName}
+      />
+    </ActionMenu.Trigger>
+    <ActionMenu.Content align="end">
+      <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onRotateBy(ICON_ROTATION_STEP_DEG)}>
+        Roter ({ICON_ROTATION_STEP_DEG} grader)
+      </ActionMenu.Item>
+      <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onRotateBy(45)}>
+        Roter (45 grader)
+      </ActionMenu.Item>
+      <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onRotateBy(90)}>
+        Roter (90 grader)
+      </ActionMenu.Item>
+    </ActionMenu.Content>
+  </ActionMenu>
+)
 
 const IconBoxActionPoints = ({
   actionButtonClassName,
   onEditIcon,
   onDuplicateIcon,
-  onRotateIconLeft,
-  onRotateIconRight,
+  onRotateIcon,
 }: IconBoxActionPointsProps) => (
   <>
     <Button
@@ -95,26 +144,7 @@ const IconBoxActionPoints = ({
       aria-label="Dupliser ikon"
       className={actionButtonClassName}
     />
-    <Button
-      size="xsmall"
-      variant="tertiary"
-      icon={<RotateCcw size={14} />}
-      onMouseDown={stopMouseDownPropagation}
-      onClick={onRotateIconLeft}
-      title="Roter venstre"
-      aria-label="Roter venstre"
-      className={actionButtonClassName}
-    />
-    <Button
-      size="xsmall"
-      variant="tertiary"
-      icon={<RotateCw size={14} />}
-      onMouseDown={stopMouseDownPropagation}
-      onClick={onRotateIconRight}
-      title="Roter hoyre"
-      aria-label="Roter hoyre"
-      className={actionButtonClassName}
-    />
+    <RotateActionMenu actionButtonClassName={actionButtonClassName} title="Roter ikon" onRotateBy={onRotateIcon} />
   </>
 )
 
@@ -122,16 +152,14 @@ type FigureBoxActionPointsProps = {
   actionButtonClassName: string
   onEditFigure: () => void
   onDuplicateFigure: () => void
-  onRotateFigureLeft: () => void
-  onRotateFigureRight: () => void
+  onRotateFigure: (delta: number) => void
 }
 
 const FigureBoxActionPoints = ({
   actionButtonClassName,
   onEditFigure,
   onDuplicateFigure,
-  onRotateFigureLeft,
-  onRotateFigureRight,
+  onRotateFigure,
 }: FigureBoxActionPointsProps) => (
   <>
     <Button
@@ -154,40 +182,21 @@ const FigureBoxActionPoints = ({
       aria-label="Dupliser figur"
       className={actionButtonClassName}
     />
-    <Button
-      size="xsmall"
-      variant="tertiary"
-      icon={<RotateCcw size={14} />}
-      onMouseDown={stopMouseDownPropagation}
-      onClick={onRotateFigureLeft}
-      title="Roter venstre"
-      aria-label="Roter venstre"
-      className={actionButtonClassName}
-    />
-    <Button
-      size="xsmall"
-      variant="tertiary"
-      icon={<RotateCw size={14} />}
-      onMouseDown={stopMouseDownPropagation}
-      onClick={onRotateFigureRight}
-      title="Roter høyre"
-      aria-label="Roter høyre"
-      className={actionButtonClassName}
-    />
+    <RotateActionMenu actionButtonClassName={actionButtonClassName} title="Roter figur" onRotateBy={onRotateFigure} />
   </>
 )
 
 type HeadingBoxActionPointsProps = {
   actionButtonClassName: string
-  onDecreaseHeadingFontSize: () => void
-  onIncreaseHeadingFontSize: () => void
+  headingFontSizePx: number
+  onSetHeadingFontSize: (sizePx: number) => void
 }
 
 const HeadingBoxActionPoints = ({
   actionButtonClassName,
+  headingFontSizePx,
   onDuplicateHeading,
-  onDecreaseHeadingFontSize,
-  onIncreaseHeadingFontSize,
+  onSetHeadingFontSize,
 }: HeadingBoxActionPointsProps & { onDuplicateHeading: () => void }) => (
   <>
     <Button
@@ -200,64 +209,71 @@ const HeadingBoxActionPoints = ({
       aria-label="Dupliser tittel"
       className={actionButtonClassName}
     />
-    <Button
-      size="xsmall"
-      variant="tertiary"
-      onMouseDown={stopMouseDownPropagation}
-      onClick={onDecreaseHeadingFontSize}
-      title="Mindre tekststorrelse"
-      aria-label="Mindre tekststorrelse"
-      className={actionButtonClassName}
-    >
-      A-
-    </Button>
-    <Button
-      size="xsmall"
-      variant="tertiary"
-      onMouseDown={stopMouseDownPropagation}
-      onClick={onIncreaseHeadingFontSize}
-      title="Storre tekststorrelse"
-      aria-label="Storre tekststorrelse"
-      className={actionButtonClassName}
-    >
-      A+
-    </Button>
+    <ActionMenu>
+      <ActionMenu.Trigger>
+        <Button
+          size="xsmall"
+          variant="tertiary"
+          onMouseDown={stopMouseDownPropagation}
+          title="Endre tekststorrelse"
+          aria-label="Endre tekststorrelse"
+          className={actionButtonClassName}
+        >
+          A
+        </Button>
+      </ActionMenu.Trigger>
+      <ActionMenu.Content align="end">
+        <ActionMenu.Item
+          onMouseDown={stopMouseDownPropagation}
+          onClick={() => onSetHeadingFontSize(40)}
+          disabled={headingFontSizePx === 40}
+        >
+          Ekstra stor
+        </ActionMenu.Item>
+        <ActionMenu.Item
+          onMouseDown={stopMouseDownPropagation}
+          onClick={() => onSetHeadingFontSize(32)}
+          disabled={headingFontSizePx === 32}
+        >
+          Stor
+        </ActionMenu.Item>
+        <ActionMenu.Item
+          onMouseDown={stopMouseDownPropagation}
+          onClick={() => onSetHeadingFontSize(24)}
+          disabled={headingFontSizePx === 24}
+        >
+          Middels
+        </ActionMenu.Item>
+        <ActionMenu.Item
+          onMouseDown={stopMouseDownPropagation}
+          onClick={() => onSetHeadingFontSize(20)}
+          disabled={headingFontSizePx === 20}
+        >
+          Liten
+        </ActionMenu.Item>
+        <ActionMenu.Item
+          onMouseDown={stopMouseDownPropagation}
+          onClick={() => onSetHeadingFontSize(18)}
+          disabled={headingFontSizePx === 18}
+        >
+          Ekstra liten
+        </ActionMenu.Item>
+      </ActionMenu.Content>
+    </ActionMenu>
   </>
 )
 
 type IllustrationActionPointsProps = {
   actionButtonClassName: string
-  onRotateIllustrationLeft: () => void
-  onRotateIllustrationRight: () => void
+  onRotateIllustration: (delta: number) => void
 }
 
-const IllustrationActionPoints = ({
-  actionButtonClassName,
-  onRotateIllustrationLeft,
-  onRotateIllustrationRight,
-}: IllustrationActionPointsProps) => (
-  <>
-    <Button
-      size="xsmall"
-      variant="tertiary"
-      icon={<RotateCcw size={14} />}
-      onMouseDown={stopMouseDownPropagation}
-      onClick={onRotateIllustrationLeft}
-      title="Roter venstre"
-      aria-label="Roter venstre"
-      className={actionButtonClassName}
-    />
-    <Button
-      size="xsmall"
-      variant="tertiary"
-      icon={<RotateCw size={14} />}
-      onMouseDown={stopMouseDownPropagation}
-      onClick={onRotateIllustrationRight}
-      title="Roter hoyre"
-      aria-label="Roter hoyre"
-      className={actionButtonClassName}
-    />
-  </>
+const IllustrationActionPoints = ({ actionButtonClassName, onRotateIllustration }: IllustrationActionPointsProps) => (
+  <RotateActionMenu
+    actionButtonClassName={actionButtonClassName}
+    title="Roter bilde"
+    onRotateBy={onRotateIllustration}
+  />
 )
 
 const ImageOrDashboardEditActionPoint = ({
@@ -266,6 +282,7 @@ const ImageOrDashboardEditActionPoint = ({
   isIllustrationFrame,
   actionButtonClassName,
   onEditImage,
+  onEditDrawing,
   onEditIllustration,
   onEditDashboard,
 }: Pick<
@@ -275,13 +292,22 @@ const ImageOrDashboardEditActionPoint = ({
   | 'isIllustrationFrame'
   | 'actionButtonClassName'
   | 'onEditImage'
+  | 'onEditDrawing'
   | 'onEditIllustration'
   | 'onEditDashboard'
 >) => {
-  if (!(frameKind === 'image' || (frameKind === 'website' && isInternalDashboard))) return null
+  if (!(frameKind === 'image' || frameKind === 'drawing' || (frameKind === 'website' && isInternalDashboard)))
+    return null
 
   const isImage = frameKind === 'image'
-  const title = isImage ? (isIllustrationFrame ? 'Rediger illustrasjon' : 'Rediger bilde') : 'Rediger dashboard'
+  const isDrawing = frameKind === 'drawing'
+  const title = isImage
+    ? isIllustrationFrame
+      ? 'Rediger illustrasjon'
+      : 'Rediger bilde'
+    : isDrawing
+      ? 'Rediger tegning'
+      : 'Rediger dashboard'
 
   return (
     <Button
@@ -296,6 +322,8 @@ const ImageOrDashboardEditActionPoint = ({
           } else {
             onEditImage()
           }
+        } else if (isDrawing) {
+          onEditDrawing()
         } else {
           onEditDashboard()
         }
@@ -313,6 +341,7 @@ const CanvasFrameActionPoints = ({
   isIllustrationFrame,
   actionButtonClassName,
   onEditImage,
+  onEditDrawing,
   onEditIllustration,
   onEditDashboard,
   onEditLink,
@@ -320,34 +349,30 @@ const CanvasFrameActionPoints = ({
   isTableFrame = false,
   onEditIcon,
   onDuplicateIcon,
-  onRotateIconLeft,
-  onRotateIconRight,
+  onRotateIcon,
   onEditFigure,
   onDuplicateFigure,
-  onDuplicateSection,
+  onDuplicateSection: _onDuplicateSection,
   onDuplicateSticky,
   onDuplicateText,
   onDuplicateHeading,
   onDuplicateDrawing,
   onDuplicateImage,
-  onDecreaseHeadingFontSize,
-  onIncreaseHeadingFontSize,
-  onRotateIllustrationLeft,
-  onRotateIllustrationRight,
-  onRotateFigureLeft,
-  onRotateFigureRight,
-  onRotateDrawingLeft,
-  onRotateDrawingRight,
-  sectionLayoutMode,
-  onToggleSectionLayout,
+  headingFontSizePx,
+  onSetHeadingFontSize,
+  onRotateIllustration,
+  onRotateFigure,
+  onRotateDrawing,
+  sectionLayoutMode: _sectionLayoutMode,
+  onOpenSectionOptions,
   sectionMoveOptions = [],
   stickyColorOptions = [],
   onSetStickyColor,
   onMoveToSection,
   onRemoveFrame,
+  onSelectSectionAddAction,
 }: CanvasFrameActionPointsProps) => {
   const showRemoveButton = frameKind !== 'website' || Boolean(isInternalDashboard)
-  const isSectionGrid = frameKind === 'section' && sectionLayoutMode === 'grid'
   const actionPointsPositionClassName =
     frameKind === 'heading' ||
     frameKind === 'text' ||
@@ -362,11 +387,13 @@ const CanvasFrameActionPoints = ({
   const actionPointsBackdropClassName =
     frameKind === 'sticky'
       ? 'rounded-md bg-[var(--ax-bg-default)]/85 p-1 shadow-sm backdrop-blur-sm opacity-0 transition-opacity group-hover/frame:opacity-100 group-focus-within/frame:opacity-100'
-      : ''
+      : frameKind === 'heading' || frameKind === 'text' || frameKind === 'link'
+        ? 'rounded-md bg-[var(--ax-bg-default)]/85 p-1 shadow-sm backdrop-blur-sm opacity-0 transition-opacity group-hover/frame:opacity-100 group-focus-within/frame:opacity-100'
+        : ''
 
   return (
     <div
-      className={`pointer-events-none absolute z-30 ${actionPointsPositionClassName} ${actionPointsBackdropClassName}`}
+      className={`pointer-events-none absolute z-40 ${actionPointsPositionClassName} ${actionPointsBackdropClassName}`}
     >
       <ImageOrDashboardEditActionPoint
         frameKind={frameKind}
@@ -374,6 +401,7 @@ const CanvasFrameActionPoints = ({
         isIllustrationFrame={isIllustrationFrame}
         actionButtonClassName={actionButtonClassName}
         onEditImage={onEditImage}
+        onEditDrawing={onEditDrawing}
         onEditIllustration={onEditIllustration}
         onEditDashboard={onEditDashboard}
       />
@@ -406,8 +434,7 @@ const CanvasFrameActionPoints = ({
           actionButtonClassName={actionButtonClassName}
           onEditIcon={onEditIcon}
           onDuplicateIcon={onDuplicateIcon}
-          onRotateIconLeft={onRotateIconLeft}
-          onRotateIconRight={onRotateIconRight}
+          onRotateIcon={onRotateIcon}
         />
       )}
       {frameKind === 'figure' && (
@@ -415,51 +442,140 @@ const CanvasFrameActionPoints = ({
           actionButtonClassName={actionButtonClassName}
           onEditFigure={onEditFigure}
           onDuplicateFigure={onDuplicateFigure}
-          onRotateFigureLeft={onRotateFigureLeft}
-          onRotateFigureRight={onRotateFigureRight}
+          onRotateFigure={onRotateFigure}
         />
       )}
       {frameKind === 'heading' && (
         <HeadingBoxActionPoints
           actionButtonClassName={actionButtonClassName}
+          headingFontSizePx={headingFontSizePx}
           onDuplicateHeading={onDuplicateHeading}
-          onDecreaseHeadingFontSize={onDecreaseHeadingFontSize}
-          onIncreaseHeadingFontSize={onIncreaseHeadingFontSize}
+          onSetHeadingFontSize={onSetHeadingFontSize}
         />
       )}
       {isIllustrationFrame && (
         <IllustrationActionPoints
           actionButtonClassName={actionButtonClassName}
-          onRotateIllustrationLeft={onRotateIllustrationLeft}
-          onRotateIllustrationRight={onRotateIllustrationRight}
+          onRotateIllustration={onRotateIllustration}
         />
       )}
       {frameKind === 'section' && (
-        <Button
-          size="xsmall"
-          variant="tertiary"
-          icon={<Copy size={14} />}
-          onMouseDown={stopMouseDownPropagation}
-          onClick={onDuplicateSection}
-          title="Dupliser tom"
-          aria-label="Dupliser tom"
-          className={actionButtonClassName}
-        >
-          Dupliser tom
-        </Button>
+        <ActionMenu>
+          <ActionMenu.Trigger>
+            <Button
+              size="xsmall"
+              variant="tertiary"
+              onMouseDown={stopMouseDownPropagation}
+              title="Legg til i seksjon"
+              aria-label="Legg til i seksjon"
+              className={actionButtonClassName}
+            >
+              Legg til
+            </Button>
+          </ActionMenu.Trigger>
+          <ActionMenu.Content align="end">
+            <ActionMenu.Item
+              onMouseDown={stopMouseDownPropagation}
+              onClick={() => onSelectSectionAddAction?.('section')}
+            >
+              Seksjon (ved siden av)
+            </ActionMenu.Item>
+            <ActionMenu.Divider />
+            <ActionMenu.Item
+              onMouseDown={stopMouseDownPropagation}
+              onClick={() => onSelectSectionAddAction?.('heading')}
+            >
+              Overskrift
+            </ActionMenu.Item>
+            <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onSelectSectionAddAction?.('text')}>
+              Tekst
+            </ActionMenu.Item>
+            <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onSelectSectionAddAction?.('table')}>
+              Tabell
+            </ActionMenu.Item>
+            <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onSelectSectionAddAction?.('link')}>
+              Lenke
+            </ActionMenu.Item>
+            <ActionMenu.Item
+              onMouseDown={stopMouseDownPropagation}
+              onClick={() => onSelectSectionAddAction?.('sticky')}
+            >
+              Post-it-lapp
+            </ActionMenu.Item>
+            <ActionMenu.Divider />
+            <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onSelectSectionAddAction?.('image')}>
+              Bilde
+            </ActionMenu.Item>
+            <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onSelectSectionAddAction?.('icon')}>
+              Ikon
+            </ActionMenu.Item>
+            <ActionMenu.Item
+              onMouseDown={stopMouseDownPropagation}
+              onClick={() => onSelectSectionAddAction?.('figure')}
+            >
+              Figur
+            </ActionMenu.Item>
+            <ActionMenu.Item
+              onMouseDown={stopMouseDownPropagation}
+              onClick={() => onSelectSectionAddAction?.('drawing')}
+            >
+              Tegning
+            </ActionMenu.Item>
+            <ActionMenu.Item
+              onMouseDown={stopMouseDownPropagation}
+              onClick={() => onSelectSectionAddAction?.('illustration')}
+            >
+              Illustrasjoner
+            </ActionMenu.Item>
+            <ActionMenu.Divider />
+            <ActionMenu.Group label="Fra Innblikk" className="mt-1">
+              <ActionMenu.Item
+                onMouseDown={stopMouseDownPropagation}
+                onClick={() => onSelectSectionAddAction?.('website')}
+              >
+                <span className="block pl-4">Nettside</span>
+              </ActionMenu.Item>
+              <ActionMenu.Item
+                onMouseDown={stopMouseDownPropagation}
+                onClick={() => onSelectSectionAddAction?.('chart')}
+              >
+                <span className="block pl-4">Graf</span>
+              </ActionMenu.Item>
+              <ActionMenu.Item
+                onMouseDown={stopMouseDownPropagation}
+                onClick={() => onSelectSectionAddAction?.('sql-editor')}
+              >
+                <span className="block pl-4">SQL-editor</span>
+              </ActionMenu.Item>
+              <ActionMenu.Item
+                onMouseDown={stopMouseDownPropagation}
+                onClick={() => onSelectSectionAddAction?.('dashboard')}
+              >
+                <span className="block pl-4">Dashboard</span>
+              </ActionMenu.Item>
+            </ActionMenu.Group>
+            <ActionMenu.Group label="Fra Skyra / Lumi" className="mt-1">
+              <ActionMenu.Item
+                onMouseDown={stopMouseDownPropagation}
+                onClick={() => onSelectSectionAddAction?.('import-sticky-csv')}
+              >
+                <span className="block pl-4">Undersøkelse → lapper</span>
+              </ActionMenu.Item>
+            </ActionMenu.Group>
+          </ActionMenu.Content>
+        </ActionMenu>
       )}
       {frameKind === 'section' && (
         <Button
           size="xsmall"
           variant="tertiary"
-          icon={isSectionGrid ? <Move size={14} /> : <Grid3X3 size={14} />}
           onMouseDown={stopMouseDownPropagation}
-          onClick={onToggleSectionLayout}
-          title={isSectionGrid ? 'Bytt til friform' : 'Bytt til rutenett'}
-          aria-label={isSectionGrid ? 'Bytt til friform' : 'Bytt til rutenett'}
+          onClick={onOpenSectionOptions}
+          title="Tilpass seksjon"
+          aria-label="Tilpass seksjon"
           className={actionButtonClassName}
         >
-          {isSectionGrid ? 'Rutenett' : 'Friform'}
+          Tilpass
         </Button>
       )}
       {(frameKind === 'sticky' || frameKind === 'text') && sectionMoveOptions.length > 0 && (
@@ -535,6 +651,11 @@ const CanvasFrameActionPoints = ({
       )}
       {frameKind === 'drawing' && (
         <>
+          <RotateActionMenu
+            actionButtonClassName={actionButtonClassName}
+            title="Roter tegning"
+            onRotateBy={onRotateDrawing}
+          />
           <Button
             size="xsmall"
             variant="tertiary"
@@ -543,26 +664,6 @@ const CanvasFrameActionPoints = ({
             onClick={onDuplicateDrawing}
             title="Dupliser tegning"
             aria-label="Dupliser tegning"
-            className={actionButtonClassName}
-          />
-          <Button
-            size="xsmall"
-            variant="tertiary"
-            icon={<RotateCcw size={14} />}
-            onMouseDown={stopMouseDownPropagation}
-            onClick={onRotateDrawingLeft}
-            title="Roter venstre"
-            aria-label="Roter venstre"
-            className={actionButtonClassName}
-          />
-          <Button
-            size="xsmall"
-            variant="tertiary"
-            icon={<RotateCw size={14} />}
-            onMouseDown={stopMouseDownPropagation}
-            onClick={onRotateDrawingRight}
-            title="Roter høyre"
-            aria-label="Roter høyre"
             className={actionButtonClassName}
           />
         </>

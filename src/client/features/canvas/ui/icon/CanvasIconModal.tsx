@@ -1,5 +1,6 @@
 import { Alert, Button, Modal } from '@navikt/ds-react'
 import CanvasIconPicker from './CanvasIconPicker.tsx'
+import CanvasSectionPlacementSelect from '../controls/CanvasSectionPlacementSelect.tsx'
 
 type CanvasIconColorOption = {
   id: string
@@ -12,12 +13,15 @@ type CanvasIconModalProps = {
   heading: string
   selectedIconId: string
   selectedColor: string
+  selectedSectionId?: string
+  sectionOptions?: Array<{ id: string; label: string }>
   colorOptions: CanvasIconColorOption[]
   error?: string | null
   isSaving?: boolean
   submitLabel: string
   onSelectIcon: (iconId: string) => void
   onSelectColor: (color: string) => void
+  onSectionChange?: (sectionId: string) => void
   onSubmit: () => void
   onClose: () => void
 }
@@ -27,12 +31,15 @@ const CanvasIconModal = ({
   heading,
   selectedIconId,
   selectedColor,
+  selectedSectionId = '',
+  sectionOptions = [],
   colorOptions,
   error,
   isSaving = false,
   submitLabel,
   onSelectIcon,
   onSelectColor,
+  onSectionChange = () => {},
   onSubmit,
   onClose,
 }: CanvasIconModalProps) => {
@@ -70,6 +77,11 @@ const CanvasIconModal = ({
               })}
             </div>
           </div>
+          <CanvasSectionPlacementSelect
+            sectionOptions={sectionOptions}
+            selectedSectionId={selectedSectionId}
+            onSectionChange={onSectionChange}
+          />
           {error && <Alert variant="error">{error}</Alert>}
         </div>
       </Modal.Body>

@@ -37,8 +37,8 @@ export const CANVAS_SURFACE_BOTTOM_BUFFER = 420
 export const CANVAS_ZOOM_MIN = 0.5
 export const CANVAS_ZOOM_MAX = 1.5
 export const CANVAS_ZOOM_STEP = 0.1
-export const HEADING_FONT_SIZE_DEFAULT = 40
-export const HEADING_FONT_SIZE_MIN = 20
+export const HEADING_FONT_SIZE_DEFAULT = 24
+export const HEADING_FONT_SIZE_MIN = 18
 export const HEADING_FONT_SIZE_MAX = 96
 export const HEADING_FONT_SIZE_STEP = 4
 export const ICON_ROTATION_STEP_DEG = 15
@@ -142,9 +142,11 @@ export const extractCanvasHideDateFilterFromDescription = (description?: string)
 }
 
 export const extractCanvasLockedFromDescription = (description?: string): boolean => {
-  if (!description) return false
+  if (!description) return true
   const value = description.match(CANVAS_LOCKED_TOKEN_REGEX)?.[1]?.trim().toLowerCase()
-  return value === 'true'
+  if (value === 'true') return true
+  if (value === 'false') return false
+  return true
 }
 
 export const buildCanvasDashboardDescription = (
@@ -181,9 +183,8 @@ export const buildCanvasDashboardDescription = (
   if (hideDateFilter) {
     tokens.push('[hideDateFilter:true]')
   }
-  if (canvasLocked ?? existingCanvasLocked) {
-    tokens.push('[canvasLocked:true]')
-  }
+  const resolvedCanvasLocked = canvasLocked ?? existingCanvasLocked
+  tokens.push(`[canvasLocked:${resolvedCanvasLocked ? 'true' : 'false'}]`)
   if (withoutCanvasToken) {
     tokens.push(withoutCanvasToken)
   }
@@ -488,11 +489,14 @@ export const parseCanvasConfig = (raw: string): CanvasConfigPayload | null => {
       drawingStrokeStyles: typeof parsed.drawingStrokeStyles === 'string' ? parsed.drawingStrokeStyles : undefined,
       drawingStrokeWidth: Number.isFinite(parsed.drawingStrokeWidth) ? Number(parsed.drawingStrokeWidth) : undefined,
       drawingColor: typeof parsed.drawingColor === 'string' ? parsed.drawingColor : undefined,
+      drawingAltText: typeof parsed.drawingAltText === 'string' ? parsed.drawingAltText : undefined,
       isIllustration: typeof parsed.isIllustration === 'boolean' ? parsed.isIllustration : undefined,
       imageRotationDeg: Number.isFinite(parsed.imageRotationDeg) ? Number(parsed.imageRotationDeg) : undefined,
+      imageAltText: typeof parsed.imageAltText === 'string' ? parsed.imageAltText : undefined,
       chartType: isCanvasChartType(parsed.chartType) ? parsed.chartType : undefined,
       chartSql: typeof parsed.chartSql === 'string' ? parsed.chartSql : undefined,
       sqlQuery: typeof parsed.sqlQuery === 'string' ? parsed.sqlQuery : undefined,
+      hideInShare: typeof parsed.hideInShare === 'boolean' ? parsed.hideInShare : undefined,
       label: parsed.label,
       fromFrameId: typeof parsed.fromFrameId === 'string' ? parsed.fromFrameId : undefined,
       toFrameId: typeof parsed.toFrameId === 'string' ? parsed.toFrameId : undefined,

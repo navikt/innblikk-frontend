@@ -7,6 +7,7 @@ type CanvasTextFrameProps = {
   tableHeaders?: string[]
   tableRows?: string[][]
   isEditing: boolean
+  isInteractionLocked?: boolean
   isLockedByOther?: boolean
   lockOwnerLabel?: string | null
   tableRowsPerPage: number
@@ -23,6 +24,7 @@ const CanvasTextFrame = ({
   tableHeaders,
   tableRows,
   isEditing,
+  isInteractionLocked: _isInteractionLocked = false,
   isLockedByOther = false,
   lockOwnerLabel = null,
   tableRowsPerPage,
@@ -103,8 +105,8 @@ const CanvasTextFrame = ({
           onMouseDown={(event) => event.stopPropagation()}
           lang="nb-NO"
           placeholder="Skriv tekst"
-          className="h-full w-full resize-none overflow-auto border-none bg-transparent p-0 text-[var(--ax-text-default)] outline-none placeholder:text-[var(--ax-text-subtle)] [font-family:inherit]"
-          style={{ fontSize: '22px', lineHeight: 1.3, fontWeight: 500 }}
+          className="m-0 block min-h-full w-full resize-none overflow-auto border-none bg-transparent p-0 text-[var(--ax-text-default)] align-top outline-none placeholder:text-[var(--ax-text-subtle)] [font-family:inherit]"
+          style={{ fontSize: '18px', lineHeight: 1.3, fontWeight: 500 }}
           autoFocus
         />
       </div>
@@ -113,13 +115,26 @@ const CanvasTextFrame = ({
 
   return (
     <div className="relative h-full overflow-auto px-2 pb-2">
-      <div
-        className="h-full cursor-text overflow-auto whitespace-pre-wrap break-words text-[var(--ax-text-default)]"
-        style={{ fontSize: '22px', lineHeight: 1.3, fontWeight: 500 }}
-        onClick={() => onStartEditing(id)}
-      >
-        {textContent || 'Skriv tekst'}
-      </div>
+      {_isInteractionLocked ? (
+        <p
+          className="m-0 h-full w-full overflow-auto whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)]"
+          style={{ fontSize: '18px', lineHeight: 1.3, fontWeight: 500 }}
+        >
+          {textContent || 'Skriv tekst'}
+        </p>
+      ) : (
+        <button
+          type="button"
+          data-canvas-edit-trigger="true"
+          className="m-0 flex h-full w-full cursor-text items-start overflow-auto whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)] [appearance:none]"
+          style={{ fontSize: '18px', lineHeight: 1.3, fontWeight: 500 }}
+          onMouseDown={(event) => event.stopPropagation()}
+          onClick={() => onStartEditing(id)}
+          aria-label="Rediger tekst"
+        >
+          {textContent || 'Skriv tekst'}
+        </button>
+      )}
       {isLockedByOther && <CanvasEditLockOverlay ownerLabel={lockOwnerLabel} />}
     </div>
   )

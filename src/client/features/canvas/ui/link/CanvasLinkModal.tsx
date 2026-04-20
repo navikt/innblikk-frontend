@@ -1,15 +1,19 @@
 import { Alert, Button, Modal, TextField, Textarea } from '@navikt/ds-react'
+import CanvasSectionPlacementSelect from '../controls/CanvasSectionPlacementSelect.tsx'
 
 type CanvasLinkModalProps = {
   open: boolean
   titleValue: string
   hrefValue: string
   descriptionValue: string
+  selectedSectionId?: string
+  sectionOptions?: Array<{ id: string; label: string }>
   error?: string | null
   isSaving?: boolean
   onTitleChange: (value: string) => void
   onHrefChange: (value: string) => void
   onDescriptionChange: (value: string) => void
+  onSectionChange?: (sectionId: string) => void
   onSubmit: () => void
   onClose: () => void
 }
@@ -19,11 +23,14 @@ const CanvasLinkModal = ({
   titleValue,
   hrefValue,
   descriptionValue,
+  selectedSectionId = '',
+  sectionOptions = [],
   error,
   isSaving = false,
   onTitleChange,
   onHrefChange,
   onDescriptionChange,
+  onSectionChange = () => {},
   onSubmit,
   onClose,
 }: CanvasLinkModalProps) => (
@@ -42,6 +49,11 @@ const CanvasLinkModal = ({
           minRows={3}
           value={descriptionValue}
           onChange={(event) => onDescriptionChange(event.target.value)}
+        />
+        <CanvasSectionPlacementSelect
+          sectionOptions={sectionOptions}
+          selectedSectionId={selectedSectionId}
+          onSectionChange={onSectionChange}
         />
         {error && <Alert variant="error">{error}</Alert>}
       </div>

@@ -116,6 +116,12 @@ const CanvasAddActionMenu = ({
         )}
       </ActionMenu.Trigger>
       <ActionMenu.Content align="end">
+        {layoutItems.map(({ label, onClick }) => (
+          <ActionMenu.Item key={label} onClick={onClick}>
+            {label}
+          </ActionMenu.Item>
+        ))}
+        <ActionMenu.Divider />
         {textItems.map(({ label, onClick }) => (
           <ActionMenu.Item key={label} onClick={onClick}>
             {label}
@@ -140,12 +146,6 @@ const CanvasAddActionMenu = ({
             <span className="block pl-4">Undersøkelse → lapper</span>
           </ActionMenu.Item>
         </ActionMenu.Group>
-        <ActionMenu.Divider />
-        {layoutItems.map(({ label, onClick }) => (
-          <ActionMenu.Item key={label} onClick={onClick}>
-            {label}
-          </ActionMenu.Item>
-        ))}
       </ActionMenu.Content>
     </ActionMenu>
   )
