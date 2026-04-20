@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BodyShort, Checkbox, CheckboxGroup, Heading } from '@navikt/ds-react'
+import { BodyShort, Checkbox, Heading } from '@navikt/ds-react'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { getFeatureFlags, setFeatureFlag, type FeatureFlags } from '../../../shared/lib/featureFlags.ts'
@@ -34,17 +34,15 @@ function Innstillinger() {
               Innstillinger som påvirker grafbygger-siden.
             </BodyShort>
 
-            <CheckboxGroup legend="Funksjoner" hideLegend>
-              <Checkbox
-                checked={flags.grafbygger_always_show_sql}
-                onChange={(e) => toggle('grafbygger_always_show_sql', e.target.checked)}
-              >
-                Vis alltid SQL-spørringen
-                <BodyShort as="span" size="small" className="block text-[var(--ax-text-subtle)] font-normal mt-0.5">
-                  Viser SQL-koden som genereres direkte i resultatpanelet, uten at du trenger å kjøre spørringen først.
-                </BodyShort>
-              </Checkbox>
-            </CheckboxGroup>
+            <Checkbox
+              checked={flags.grafbygger_always_show_sql}
+              onChange={(e) => toggle('grafbygger_always_show_sql', e.target.checked)}
+            >
+              Vis alltid SQL-spørringen
+              <BodyShort as="span" size="small" className="block text-[var(--ax-text-subtle)] font-normal mt-0.5">
+                Viser SQL-koden som genereres direkte i resultatpanelet, uten at du trenger å kjøre spørringen først.
+              </BodyShort>
+            </Checkbox>
           </section>
         </div>
       </AppBlock>
