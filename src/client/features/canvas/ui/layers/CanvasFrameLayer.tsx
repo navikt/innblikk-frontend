@@ -12,13 +12,7 @@ import {
 import { createPortal } from 'react-dom'
 import type { Website } from '../../../../shared/types/website.ts'
 import { DashboardWidget } from '../../../dashboard'
-import type {
-  CanvasCodeLanguage,
-  CanvasFrame,
-  CanvasPageInsight,
-  ConnectionAnchorSide,
-  ConnectionDragState,
-} from '../../model/types.ts'
+import type { CanvasFrame, CanvasPageInsight, ConnectionAnchorSide, ConnectionDragState } from '../../model/types.ts'
 import {
   CANVAS_TABLE_ROWS_PER_PAGE,
   CARD_ACTION_BUTTON_CLASSNAME,
@@ -244,7 +238,6 @@ type CanvasFrameLayerProps = {
   handleOpenEditChartModal: (frame: CanvasFrame) => void
   handleOpenDeleteChartModal: (frame: CanvasFrame) => void
   handlePersistSqlEditorFrame: (id: string) => Promise<void> | void
-  handleCodeBlockLanguageChange: (id: string, codeLanguage: CanvasCodeLanguage) => void
   handleEditableFrameChange: (id: string, nextValue: string) => void
   handleEditableFrameBlur: (id: string) => void
   handleStartEditingFrame: (id: string) => void
@@ -340,7 +333,6 @@ const CanvasFrameLayer = ({
   handleOpenEditChartModal,
   handleOpenDeleteChartModal,
   handlePersistSqlEditorFrame,
-  handleCodeBlockLanguageChange,
   handleEditableFrameChange,
   handleEditableFrameBlur,
   handleStartEditingFrame,
@@ -1174,6 +1166,7 @@ const CanvasFrameLayer = ({
                     id={frame.id}
                     sqlQuery={frame.sqlQuery}
                     websiteId={frame.websiteId || selectedWebsite?.id}
+                    isInteractionLocked={isFrameInteractionLocked}
                     isLockedByOther={editLockStatus.isLockedByOther}
                     lockOwnerLabel={editLockStatus.ownerLabel}
                     onChange={handleEditableFrameChange}
@@ -1186,10 +1179,10 @@ const CanvasFrameLayer = ({
                     showTabs={false}
                     showResultTab={false}
                     showFormatButton={false}
-                    showLanguageSelector={true}
-                    codeLanguage={frame.codeLanguage ?? 'text'}
-                    onCodeLanguageChange={handleCodeBlockLanguageChange}
+                    codeLanguage="text"
+                    usePlainCodeStyle={true}
                     sqlTabLabel="KODE"
+                    isInteractionLocked={isFrameInteractionLocked}
                     isLockedByOther={editLockStatus.isLockedByOther}
                     lockOwnerLabel={editLockStatus.ownerLabel}
                     onChange={handleEditableFrameChange}

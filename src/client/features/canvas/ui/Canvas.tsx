@@ -89,7 +89,6 @@ import ChangeLogModal, { type ChangeLogEntry } from '../../../shared/ui/ChangeLo
 import { buildCanvasShareUrl } from '../share/utils/canvasShareLayout.ts'
 
 import type {
-  CanvasCodeLanguage,
   CanvasChartOption,
   CanvasChartReadyMessage,
   CanvasConfigPayload,
@@ -3572,23 +3571,6 @@ const Canvas = () => {
     }
   }
 
-  const handleCodeBlockLanguageChange = (id: string, codeLanguage: CanvasCodeLanguage) => {
-    if (isInteractionLocked) return
-
-    const frame = frames.find((item) => item.id === id)
-    if (!frame || frame.kind !== 'code-block') return
-
-    const nextFrame: CanvasFrame = {
-      ...frame,
-      codeLanguage,
-    }
-
-    setFrames((prev) => prev.map((item) => (item.id === id ? nextFrame : item)))
-    void persistFrame(nextFrame).catch((error) => {
-      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre språkvalg for kodeblokk')
-    })
-  }
-
   const handleEditableFrameBlur = (id: string) => {
     if (isInteractionLocked) return
     const frame = frames.find((item) => item.id === id)
@@ -4713,7 +4695,6 @@ const Canvas = () => {
                     handleOpenEditChartModal={handleOpenEditChartModal}
                     handleOpenDeleteChartModal={handleOpenDeleteChartModal}
                     handlePersistSqlEditorFrame={handlePersistSqlEditorFrame}
-                    handleCodeBlockLanguageChange={handleCodeBlockLanguageChange}
                     handleEditableFrameChange={handleEditableFrameChange}
                     handleEditableFrameBlur={handleEditableFrameBlur}
                     handleStartEditingFrame={handleStartEditingFrame}

@@ -1,4 +1,4 @@
-import { Alert, Button, Select, Tabs, TextField } from '@navikt/ds-react'
+import { Alert, Button, Tabs, TextField } from '@navikt/ds-react'
 import CodeMirror from '@uiw/react-codemirror'
 import { sql } from '@codemirror/lang-sql'
 import { oneDark } from '@codemirror/theme-one-dark'
@@ -21,10 +21,10 @@ type CanvasSqlEditorFrameProps = {
   showResultTab?: boolean
   showTabs?: boolean
   showFormatButton?: boolean
-  showLanguageSelector?: boolean
   codeLanguage?: CanvasCodeLanguage
-  onCodeLanguageChange?: (id: string, codeLanguage: CanvasCodeLanguage) => void
+  usePlainCodeStyle?: boolean
   sqlTabLabel?: string
+  isInteractionLocked?: boolean
   isLockedByOther?: boolean
   lockOwnerLabel?: string | null
   onChange: (id: string, nextValue: string) => void
@@ -38,15 +38,16 @@ const CanvasSqlEditorFrame = ({
   showResultTab = true,
   showTabs = true,
   showFormatButton = true,
-  showLanguageSelector = false,
   codeLanguage = 'sql',
-  onCodeLanguageChange,
+  usePlainCodeStyle = false,
   sqlTabLabel = 'SQL',
+  isInteractionLocked = false,
   isLockedByOther = false,
   lockOwnerLabel = null,
   onChange,
   onPersist,
 }: CanvasSqlEditorFrameProps) => {
+  const isEditorReadOnly = isInteractionLocked || isLockedByOther
   const [result, setResult] = useState<QueryResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -227,36 +228,11 @@ const CanvasSqlEditorFrame = ({
 
   const sqlEditorPanel = (
     <div className="flex h-full min-h-0 flex-col gap-2 pt-2">
-      {showFormatButton || showLanguageSelector ? (
+      {showFormatButton ? (
         <div className="flex flex-wrap items-center gap-2">
-          {showFormatButton ? (
-            <Button size="xsmall" variant="secondary" onClick={handleFormatSql} disabled={isLockedByOther}>
-              {formatSuccess ? '✓ Formatert' : 'Formater'}
-            </Button>
-          ) : null}
-          {showLanguageSelector ? (
-            <div className="min-w-[170px]">
-              <Select
-                hideLabel
-                label="Språk"
-                size="small"
-                value={codeLanguage}
-                onChange={(event) => {
-                  const value = event.target.value as CanvasCodeLanguage
-                  onCodeLanguageChange?.(id, value)
-                }}
-                disabled={isLockedByOther}
-              >
-                <option value="text">Tekst</option>
-                <option value="sql">SQL</option>
-                <option value="react">React</option>
-                <option value="kotlin">Kotlin</option>
-                <option value="html">HTML</option>
-                <option value="css">CSS</option>
-                <option value="other">Annet</option>
-              </Select>
-            </div>
-          ) : null}
+          <Button size="xsmall" variant="secondary" onClick={handleFormatSql} disabled={isEditorReadOnly}>
+            {formatSuccess ? '✓ Formatert' : 'Formater'}
+          </Button>
         </div>
       ) : null}
       {error && !hasAttemptedFetch && (
@@ -278,15 +254,22 @@ const CanvasSqlEditorFrame = ({
           height="100%"
           theme={oneDark}
           extensions={codeLanguage === 'sql' ? [sql()] : []}
-          editable={!isLockedByOther}
-          onChange={(value) => onChange(id, value)}
+          editable={!isEditorReadOnly}
+          onChange={(value) => {
+            if (isEditorReadOnly) return
+            onChange(id, value)
+          }}
           basicSetup={{
             lineNumbers: true,
             foldGutter: false,
             highlightActiveLineGutter: true,
             autocompletion: true,
           }}
-          className="h-full overflow-hidden text-sm"
+          className={`h-full overflow-hidden text-sm ${
+            usePlainCodeStyle
+              ? '[&_.cm-content]:!text-[#d5dbe4] [&_.cm-line]:!text-[#d5dbe4] [&_.cm-gutters]:!text-[#8b95a6]'
+              : ''
+          }`}
         />
       </div>
     </div>
@@ -349,7 +332,7 @@ const CanvasSqlEditorFrame = ({
                     size="xsmall"
                     onClick={() => void handleExecuteQuery()}
                     loading={loading}
-                    disabled={isLockedByOther}
+                    disabled={isEditorReadOnly}
                   >
                     Vis resultater
                   </Button>
@@ -358,7 +341,7 @@ const CanvasSqlEditorFrame = ({
                     variant="secondary"
                     onClick={() => void handleDryRun()}
                     loading={estimating}
-                    disabled={isLockedByOther}
+                    disabled={isEditorReadOnly}
                   >
                     Prøvekjøring
                   </Button>
