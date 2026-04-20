@@ -1,11 +1,37 @@
+import { getOrCreateAnalyticsId } from './analyticsId.ts'
+
 const FEATURE_FLAGS_KEY = 'innblikk_feature_flags'
+
+function syncSettingsToBackend(flags: FeatureFlags): void {
+  const settings: Record<string, string> = {}
+  for (const [k, v] of Object.entries(flags)) {
+    settings[k] = String(v)
+  }
+  fetch('/api/backend/user-settings', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ settings, analyticsId: getOrCreateAnalyticsId() }),
+  }).catch(() => {
+    // silent fail — localStorage is source of truth
+  })
+}
+
+function trackFlagChange<K extends keyof FeatureFlags>(key: K, value: FeatureFlags[K]): void {
+  window.umami?.track('avkrysningsboks endret', {
+    checked: value,
+    komponentId: key,
+    seksjon: 'innstillinger',
+  })
+}
 
 export type FeatureFlags = {
   grafbygger_always_show_sql: boolean
+  beta_opt_in: boolean
 }
 
 const DEFAULT_FLAGS: FeatureFlags = {
   grafbygger_always_show_sql: false,
+  beta_opt_in: false,
 }
 
 export const getFeatureFlags = (): FeatureFlags => {
@@ -24,6 +50,8 @@ export const setFeatureFlag = <K extends keyof FeatureFlags>(key: K, value: Feat
     const current = getFeatureFlags()
     const updated = { ...current, [key]: value }
     localStorage.setItem(FEATURE_FLAGS_KEY, JSON.stringify(updated))
+    syncSettingsToBackend(updated)
+    trackFlagChange(key, value)
     window.dispatchEvent(new CustomEvent('featureFlagsChange', { detail: updated }))
   } catch {
     // ignore
