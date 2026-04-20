@@ -1,5 +1,17 @@
 /// <reference types="vite/client" />
 
+interface UmamiTracker {
+  track(eventName: string, data?: Record<string, unknown>): void
+  track(dataCallback: (props: Record<string, unknown>) => Record<string, unknown>): void
+}
+
+declare global {
+  interface Window {
+    umami?: UmamiTracker
+    __innblikk_sporing_dev__?: (type: string, payload: Record<string, unknown>) => false
+  }
+}
+
 declare module 'xlsx-js-style' {
   export const utils: {
     aoa_to_sheet(data: unknown[][]): unknown

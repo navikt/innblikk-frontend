@@ -5,6 +5,7 @@ import routes, { isFullWidthPath } from './routes.tsx'
 import Footer from './shared/ui/theme/Footer/Footer.tsx'
 import ScrollToTop from './shared/ui/theme/ScrollToTop/ScrollToTop.tsx'
 import Header from './shared/ui/theme/Header/Header.tsx'
+import AnnouncementBanner from './shared/ui/theme/AnnouncementBanner/AnnouncementBanner.tsx'
 import { ErrorBoundary } from './shared/ui/ErrorBoundary.tsx'
 import { useHead } from '@unhead/react'
 import { AppBlock } from './shared/ui/theme/AppBlock/AppBlock.tsx'
@@ -81,6 +82,7 @@ const AppShell = ({ theme }: { theme: 'light' | 'dark' }) => {
     <>
       <Page>
         <Header theme={theme} />
+        <AnnouncementBanner />
         <PageLayout>
           <ErrorBoundary>
             <Suspense fallback={<PageLoader />}>{appRoutes}</Suspense>
@@ -112,13 +114,19 @@ function App() {
     }
   }, [])
 
+  const hostname = window.location.hostname
+  const isProd = hostname === 'innblikk.ansatt.nav.no'
+  const isDev = hostname.includes('.dev.nav.no')
+
   useHead({
     script: [
       {
         defer: true,
-        src: 'https://cdn.nav.no/team-researchops/sporing/sporing.js',
-        'data-domains': 'innblikk.ansatt.nav.no',
-        'data-website-id': '0b8f9b86-ad39-48c3-9083-86ed6a399217',
+        src: `https://cdn.nav.no/team-researchops/sporing/sporing${isProd ? '' : '-dev'}.js`,
+        'data-website-id': isProd ? '0b8f9b86-ad39-48c3-9083-86ed6a399217' : '51546eed-1f17-4203-bc3a-e740671d7704',
+        ...(isProd || isDev
+          ? { 'data-domains': isProd ? 'innblikk.ansatt.nav.no' : 'innblikk.ansatt.dev.nav.no' }
+          : { 'data-before-send': '__innblikk_sporing_dev__' }),
       },
       {
         type: 'text/javascript',
@@ -131,6 +139,14 @@ function App() {
           document.body.appendChild(script);
         `,
       },
+      ...(!isProd && !isDev
+        ? [
+            {
+              type: 'text/javascript',
+              innerHTML: `window.__innblikk_sporing_dev__ = function(type, payload) { console.debug('[sporing]', type, payload); return false; }`,
+            },
+          ]
+        : []),
     ],
   })
 
