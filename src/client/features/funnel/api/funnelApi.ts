@@ -196,11 +196,15 @@ export async function fetchTimingData(params: FetchTimingParams): Promise<FetchT
   }
 }
 
-export async function fetchWebsiteEvents(websiteId: string): Promise<string[]> {
+export async function fetchWebsiteEvents(websiteId: string, urlPath?: string): Promise<string[]> {
   try {
-    const response = await fetch(
-      `/api/bigquery/websites/${websiteId}/events?startAt=${Date.now() - 30 * 24 * 60 * 60 * 1000}`,
-    )
+    const params = new URLSearchParams({
+      startAt: String(Date.now() - 30 * 24 * 60 * 60 * 1000),
+    })
+    if (urlPath?.trim()) {
+      params.set('urlPath', urlPath.trim())
+    }
+    const response = await fetch(`/api/bigquery/websites/${websiteId}/events?${params.toString()}`)
     if (response.ok) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const data: EventsApiResponse = await response.json()

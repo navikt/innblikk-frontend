@@ -1,6 +1,156 @@
 import express from 'express'
 import { addAuditLogging } from '../../bigquery/audit.js'
-import { requireBigQuery, getNavIdent, getDryRunStats, MAX_BYTES_BILLED } from './helpers.js'
+import {
+  requireBigQuery,
+  getNavIdent,
+  getDryRunStats,
+  normalizeUrlSql,
+  normalizeUrlQuerySql,
+  MAX_BYTES_BILLED,
+} from './helpers.js'
+
+const normalizeStepQuery = (value) => (value ?? '').trim().replace(/^\?/, '').replace(/#.*$/, '')
+
+const splitUrlStepInput = (value, query = '') => {
+  const trimmedValue = (value ?? '').trim()
+  if (!trimmedValue) return { value: '', query: normalizeStepQuery(query) }
+
+  const queryIndex = trimmedValue.indexOf('?')
+  const rawPath = queryIndex === -1 ? trimmedValue : trimmedValue.substring(0, queryIndex)
+  const rawQuery = query.trim() ? query : queryIndex === -1 ? '' : trimmedValue.substring(queryIndex + 1)
+
+  return {
+    value: rawPath,
+    query: normalizeStepQuery(rawQuery),
+  }
+}
+
+const normalizeLegacyUrlStep = (value, operator) => {
+  const parsed = splitUrlStepInput(value)
+  if (operator === 'starts-with' && parsed.value && !parsed.value.includes('*')) {
+    return { ...parsed, value: `${parsed.value}*` }
+  }
+  return parsed
+}
+
+const normalizeStep = (step) => {
+  if (!step || typeof step !== 'object') {
+    return { type: 'url', value: '', query: '' }
+  }
+
+  if (step.type === 'event') {
+    const normalizedUrl = splitUrlStepInput(step.urlPath, step.urlQuery)
+    return {
+      type: 'event',
+      value: (step.value ?? '').trim(),
+      urlPath: normalizedUrl.value || '',
+      urlQuery: normalizedUrl.query || '',
+      params: Array.isArray(step.params)
+        ? step.params
+            .map((param) => ({
+              key: (param?.key ?? '').trim(),
+              value: (param?.value ?? '').trim(),
+              operator: param?.operator === 'contains' ? 'contains' : 'equals',
+            }))
+            .filter((param) => param.key && param.value)
+        : [],
+    }
+  }
+
+  const normalized = splitUrlStepInput(step.value, step.query)
+  return {
+    type: 'url',
+    value: normalized.value,
+    query: normalized.query,
+  }
+}
+
+const buildStepMatchClause = (step, prefix, alias = 'b') => {
+  if (step.type === 'url') {
+    const pathParam = `${prefix}Path`
+    const queryParam = `${prefix}Query`
+    const pathOperator = step.value.includes('*') ? 'LIKE' : '='
+    const queryOperator = (step.query ?? '').includes('*') ? 'LIKE' : '='
+
+    let clause = `${alias}.url_path_normalized ${pathOperator} @${pathParam}`
+    if (step.query) {
+      clause += ` AND ${alias}.url_query_normalized ${queryOperator} @${queryParam}`
+    }
+
+    return {
+      clause,
+      typeCheck: `${alias}.event_type = 1`,
+    }
+  }
+
+  const eventParam = `${prefix}Event`
+  const eventOperator = step.value.includes('*') ? 'LIKE' : '='
+  const eventPathParam = `${prefix}EventPath`
+  const eventQueryParam = `${prefix}EventQuery`
+  const pathOperator = (step.urlPath ?? '').includes('*') ? 'LIKE' : '='
+  const queryOperator = (step.urlQuery ?? '').includes('*') ? 'LIKE' : '='
+
+  let clause = `${alias}.event_name ${eventOperator} @${eventParam}`
+  if (step.urlPath) {
+    clause += ` AND ${alias}.url_path_normalized ${pathOperator} @${eventPathParam}`
+  }
+  if (step.urlQuery) {
+    clause += ` AND ${alias}.url_query_normalized ${queryOperator} @${eventQueryParam}`
+  }
+
+  return {
+    clause,
+    typeCheck: `${alias}.event_type = 2`,
+  }
+}
+
+const buildEventParamFilters = (step, prefix, alias = 'b', projectId) => {
+  if (step.type !== 'event' || !Array.isArray(step.params) || step.params.length === 0) return ''
+
+  const conditions = step.params.map((_, index) => {
+    const keyParam = `${prefix}ParamKey${index}`
+    const valueParam = `${prefix}ParamValue${index}`
+    const operator = step.params[index].operator === 'contains' ? 'LIKE' : '='
+
+    return `EXISTS (
+      SELECT 1
+      FROM \`${projectId}.umami_views.event_data\` d_${prefix}_${index}
+      CROSS JOIN UNNEST(d_${prefix}_${index}.event_parameters) p_${prefix}_${index}
+      WHERE d_${prefix}_${index}.website_event_id = ${alias}.event_id
+        AND d_${prefix}_${index}.website_id = ${alias}.website_id
+        AND d_${prefix}_${index}.created_at = ${alias}.created_at
+        AND p_${prefix}_${index}.data_key = @${keyParam}
+        AND p_${prefix}_${index}.string_value ${operator} @${valueParam}
+    )`
+  })
+
+  return conditions.length > 0 ? `AND ${conditions.join(' AND ')}` : ''
+}
+
+const assignStepParams = (params, step, prefix) => {
+  if (step.type === 'url') {
+    params[`${prefix}Path`] = step.value.includes('*') ? step.value.replace(/\*/g, '%') : step.value
+    if (step.query) {
+      params[`${prefix}Query`] = step.query.includes('*') ? step.query.replace(/\*/g, '%') : step.query
+    }
+    return
+  }
+
+  params[`${prefix}Event`] = step.value.includes('*') ? step.value.replace(/\*/g, '%') : step.value
+  if (step.urlPath) {
+    params[`${prefix}EventPath`] = step.urlPath.includes('*') ? step.urlPath.replace(/\*/g, '%') : step.urlPath
+  }
+  if (step.urlQuery) {
+    params[`${prefix}EventQuery`] = step.urlQuery.includes('*') ? step.urlQuery.replace(/\*/g, '%') : step.urlQuery
+  }
+
+  if (Array.isArray(step.params)) {
+    step.params.forEach((param, index) => {
+      params[`${prefix}ParamKey${index}`] = param.key
+      params[`${prefix}ParamValue${index}`] = param.operator === 'contains' ? `%${param.value}%` : param.value
+    })
+  }
+}
 
 export function createGoalCompletionRoutes({ bigquery, GCP_PROJECT_ID }) {
   const router = express.Router()
@@ -11,6 +161,8 @@ export function createGoalCompletionRoutes({ bigquery, GCP_PROJECT_ID }) {
         websiteId,
         startDate,
         endDate,
+        startStep: inputStartStep,
+        goalStep: inputGoalStep,
         startUrl,
         startPathOperator,
         goalUrl,
@@ -21,31 +173,45 @@ export function createGoalCompletionRoutes({ bigquery, GCP_PROJECT_ID }) {
       const navIdent = getNavIdent(req)
 
       if (!requireBigQuery(bigquery, res)) return
-      if (!startUrl || !goalUrl) {
-        return res.status(400).json({ error: 'Både start-URL og mål-URL må være satt.' })
+
+      const legacyStartStep = normalizeLegacyUrlStep(startUrl || '', startPathOperator)
+      const legacyGoalStep = normalizeLegacyUrlStep(goalUrl || '', goalPathOperator)
+
+      const startStep = normalizeStep(
+        inputStartStep || { type: 'url', value: legacyStartStep.value, query: legacyStartStep.query },
+      )
+      const goalStep = normalizeStep(
+        inputGoalStep || { type: 'url', value: legacyGoalStep.value, query: legacyGoalStep.query },
+      )
+
+      if (!startStep.value || !goalStep.value) {
+        return res.status(400).json({ error: 'Både startsteg og målsteg må være satt.' })
       }
 
       const countBySwitchAtMs = countBySwitchAt ? parseInt(countBySwitchAt) : NaN
       const hasCountBySwitchAt = Number.isFinite(countBySwitchAtMs)
       const useDistinctId = countBy === 'distinct_id'
       const useSwitch = useDistinctId && hasCountBySwitchAt
-      const col = useDistinctId ? 'e.' : ''
-      const fromClause = useDistinctId
-        ? `\`${GCP_PROJECT_ID}.umami.public_website_event\` e LEFT JOIN \`${GCP_PROJECT_ID}.umami_views.session\` s ON e.session_id = s.session_id`
-        : `\`${GCP_PROJECT_ID}.umami.public_website_event\``
+      const fromClause = `\`${GCP_PROJECT_ID}.umami.public_website_event\` e ${
+        useDistinctId ? `LEFT JOIN \`${GCP_PROJECT_ID}.umami_views.session\` s ON e.session_id = s.session_id` : ''
+      }`
       const userIdExpression = useSwitch
-        ? `IF(${col}created_at >= @countBySwitchAt, s.distinct_id, ${col}session_id)`
+        ? `IF(e.created_at >= @countBySwitchAt, s.distinct_id, e.session_id)`
         : useDistinctId
           ? 's.distinct_id'
-          : `${col}session_id`
+          : 'e.session_id'
 
-      const startMatchCondition =
-        startPathOperator === 'starts-with'
-          ? 'LOWER(url_path_clean) LIKE @startUrlPattern'
-          : 'url_path_clean = @startUrl'
-      const goalMatchCondition =
-        goalPathOperator === 'starts-with' ? 'LOWER(url_path_clean) LIKE @goalUrlPattern' : 'url_path_clean = @goalUrl'
+      const neededEventTypes = new Set()
+      if (startStep.type === 'url' || goalStep.type === 'url') neededEventTypes.add(1)
+      if (startStep.type === 'event' || goalStep.type === 'event') neededEventTypes.add(2)
+      const eventTypesList = Array.from(neededEventTypes).join(', ')
+      const urlNormSql = normalizeUrlSql()
+      const urlQueryNormSql = normalizeUrlQuerySql()
 
+      const startMatch = buildStepMatchClause(startStep, 'start')
+      const goalMatch = buildStepMatchClause(goalStep, 'goal')
+      const startParamFilters = buildEventParamFilters(startStep, 'start', 'b', GCP_PROJECT_ID)
+      const goalParamFilters = buildEventParamFilters(goalStep, 'goal', 'b', GCP_PROJECT_ID)
       const start = new Date(startDate)
       const end = new Date(endDate)
       const daysDiff = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
@@ -55,32 +221,40 @@ export function createGoalCompletionRoutes({ bigquery, GCP_PROJECT_ID }) {
         WITH base AS (
           SELECT
             ${userIdExpression} AS user_id,
-            ${col}created_at,
-            IFNULL(
-              NULLIF(
-                RTRIM(
-                  REGEXP_REPLACE(
-                    REGEXP_REPLACE(${col}url_path, r'[?#].*', ''),
-                    r'//+', '/'
-                  ),
-                  '/'
-                ),
-                ''
-              ),
-              '/'
-            ) AS url_path_clean
+            e.created_at,
+            e.event_id,
+            e.website_id,
+            e.event_type,
+            e.event_name,
+            ${urlNormSql} AS url_path_normalized,
+            ${urlQueryNormSql} AS url_query_normalized
           FROM ${fromClause}
-          WHERE ${col}website_id = @websiteId
-            AND ${col}created_at BETWEEN @startDate AND @endDate
+          WHERE e.website_id = @websiteId
+            AND e.created_at BETWEEN @startDate AND @endDate
+            AND e.event_type IN (${eventTypesList})
+        ),
+        start_candidates AS (
+          SELECT
+            b.user_id,
+            b.created_at
+          FROM base b
+          WHERE ${startMatch.clause}
+            AND ${startMatch.typeCheck}
+            ${startParamFilters}
+        ),
+        starter_first AS (
+          SELECT
+            user_id,
+            MIN(created_at) AS first_start_at
+          FROM start_candidates
+          GROUP BY user_id
         ),
         starters AS (
           SELECT
-            user_id,
-            MIN(created_at) AS first_start_at,
-            DATE(MIN(created_at), 'Europe/Oslo') AS first_start_date
-          FROM base
-          WHERE ${startMatchCondition}
-          GROUP BY user_id
+            sf.user_id,
+            sf.first_start_at,
+            DATE(sf.first_start_at, 'Europe/Oslo') AS first_start_date
+          FROM starter_first sf
         ),
         goal_candidates AS (
           SELECT
@@ -90,8 +264,10 @@ export function createGoalCompletionRoutes({ bigquery, GCP_PROJECT_ID }) {
           FROM starters s
           JOIN base b
             ON b.user_id = s.user_id
-          WHERE ${goalMatchCondition}
-            AND b.created_at > s.first_start_at
+          WHERE b.created_at > s.first_start_at
+            AND ${goalMatch.clause}
+            AND ${goalMatch.typeCheck}
+            ${goalParamFilters}
         ),
         first_completion AS (
           SELECT
@@ -143,17 +319,12 @@ export function createGoalCompletionRoutes({ bigquery, GCP_PROJECT_ID }) {
         ORDER BY day
       `
 
-      const params = { websiteId, startDate, endDate, maxDays, startUrl, goalUrl }
+      const params = { websiteId, startDate, endDate, maxDays }
       if (useSwitch) {
         params.countBySwitchAt = new Date(countBySwitchAtMs).toISOString()
       }
-
-      if (startPathOperator === 'starts-with') {
-        params.startUrlPattern = startUrl.toLowerCase() + '%'
-      }
-      if (goalPathOperator === 'starts-with') {
-        params.goalUrlPattern = goalUrl.toLowerCase() + '%'
-      }
+      assignStepParams(params, startStep, 'start')
+      assignStepParams(params, goalStep, 'goal')
 
       const queryStats = await getDryRunStats(
         bigquery,

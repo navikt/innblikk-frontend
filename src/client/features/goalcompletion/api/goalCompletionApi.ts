@@ -1,14 +1,13 @@
-import type { GoalCompletionRow, GoalCompletionSummary, QueryStats } from '../model/types'
+import type { GoalCompletionRow, GoalCompletionSummary, GoalStep, QueryStats } from '../model/types'
 import { normalizeUrlToPath, getCookieCountByParams } from '../../../shared/lib/utils'
+import { normalizeGoalStep } from '../utils/goalStepUtils'
 
 export interface FetchGoalCompletionParams {
   websiteId: string
   startDate: Date
   endDate: Date
-  startUrl: string
-  startPathOperator: string
-  goalUrl: string
-  goalPathOperator: string
+  startStep: GoalStep
+  goalStep: GoalStep
   usesCookies: boolean
   cookieStartDate: Date | null
 }
@@ -21,20 +20,10 @@ export interface FetchGoalCompletionResult {
 }
 
 export async function fetchGoalCompletionData(params: FetchGoalCompletionParams): Promise<FetchGoalCompletionResult> {
-  const {
-    websiteId,
-    startDate,
-    endDate,
-    startUrl,
-    startPathOperator,
-    goalUrl,
-    goalPathOperator,
-    usesCookies,
-    cookieStartDate,
-  } = params
+  const { websiteId, startDate, endDate, startStep, goalStep, usesCookies, cookieStartDate } = params
 
-  const normalizedStartUrl = normalizeUrlToPath(startUrl)
-  const normalizedGoalUrl = normalizeUrlToPath(goalUrl)
+  const normalizedStartStep = normalizeGoalStep(startStep)
+  const normalizedGoalStep = normalizeGoalStep(goalStep)
   const { countBy, countBySwitchAt } = getCookieCountByParams(usesCookies, cookieStartDate, startDate, endDate)
 
   const emptySummary: GoalCompletionSummary = {
@@ -42,6 +31,15 @@ export async function fetchGoalCompletionData(params: FetchGoalCompletionParams)
     totalCompleted: 0,
     sameDayCompleted: 0,
     nonCompleted: 0,
+  }
+
+  if (
+    (normalizedStartStep.type === 'url' && !normalizeUrlToPath(normalizedStartStep.value)) ||
+    (normalizedGoalStep.type === 'url' && !normalizeUrlToPath(normalizedGoalStep.value)) ||
+    (normalizedStartStep.type === 'event' && !normalizedStartStep.value) ||
+    (normalizedGoalStep.type === 'event' && !normalizedGoalStep.value)
+  ) {
+    return { data: [], summary: emptySummary, queryStats: null, error: 'Vennligst velg både startsteg og målsteg.' }
   }
 
   try {
@@ -54,10 +52,8 @@ export async function fetchGoalCompletionData(params: FetchGoalCompletionParams)
         websiteId,
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
-        startUrl: normalizedStartUrl,
-        startPathOperator,
-        goalUrl: normalizedGoalUrl,
-        goalPathOperator,
+        startStep: normalizedStartStep,
+        goalStep: normalizedGoalStep,
         countBy,
         countBySwitchAt,
       }),

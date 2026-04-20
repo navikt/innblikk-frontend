@@ -2,12 +2,14 @@ import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import type { ILineChartProps } from '@fluentui/react-charting'
 import { parseISO } from 'date-fns'
-import type { GoalCompletionRow, GoalCompletionSummary, QueryStats } from '../model/types'
+import type { GoalCompletionRow, GoalCompletionSummary, GoalStep, QueryStats } from '../model/types'
 import type { Website } from '../../../shared/types/chart'
 import { useCookieSupport, useCookieStartDate } from '../../../shared/hooks/useSiteimproveSupport'
-import { normalizeUrlToPath, getStoredPeriod, getCookieBadge } from '../../../shared/lib/utils'
+import { getStoredPeriod, getCookieBadge } from '../../../shared/lib/utils'
 import { fetchGoalCompletionData } from '../api/goalCompletionApi'
 import { getGoalCompletionDateRange, buildGoalCompletionChartData } from '../utils/goalCompletionUtils'
+import { normalizeGoalStep, parseGoalStepsFromParams } from '../utils/goalStepUtils'
+import { fetchWebsiteEvents } from '../../funnel/api/funnelApi'
 
 const EMPTY_SUMMARY: GoalCompletionSummary = {
   totalStarters: 0,
@@ -20,14 +22,11 @@ export interface GoalCompletionState {
   selectedWebsite: Website | null
   setSelectedWebsite: (w: Website | null) => void
   usesCookies: boolean
-  startUrl: string
-  setStartUrl: (v: string) => void
-  startPathOperator: string
-  setStartPathOperator: (v: string) => void
-  goalUrl: string
-  setGoalUrl: (v: string) => void
-  goalPathOperator: string
-  setGoalPathOperator: (v: string) => void
+  startStep: GoalStep
+  setStartStep: (step: GoalStep) => void
+  goalStep: GoalStep
+  setGoalStep: (step: GoalStep) => void
+  fetchAvailableEvents: (urlPath?: string) => Promise<string[]>
   period: string
   setPeriod: (p: string) => void
   customStartDate: Date | undefined
@@ -54,15 +53,8 @@ export function useGoalCompletion(): GoalCompletionState {
   const cookieStartDate = useCookieStartDate(selectedWebsite?.domain)
   const [searchParams] = useSearchParams()
   const goalPeriodFromUrl = searchParams.get('goalPeriod') || searchParams.get('period')
-
-  const [startUrl, setStartUrl] = useState<string>(() => searchParams.get('startUrl') || '')
-  const [startPathOperator, setStartPathOperator] = useState<string>(
-    () => searchParams.get('startPathOperator') || 'equals',
-  )
-  const [goalUrl, setGoalUrl] = useState<string>(() => searchParams.get('goalUrl') || '')
-  const [goalPathOperator, setGoalPathOperator] = useState<string>(
-    () => searchParams.get('goalPathOperator') || 'equals',
-  )
+  const [startStep, setStartStep] = useState<GoalStep>(() => parseGoalStepsFromParams(searchParams).startStep)
+  const [goalStep, setGoalStep] = useState<GoalStep>(() => parseGoalStepsFromParams(searchParams).goalStep)
 
   const [period, setPeriod] = useState<string>(() => {
     const initial = getStoredPeriod(goalPeriodFromUrl)
@@ -95,29 +87,34 @@ export function useGoalCompletion(): GoalCompletionState {
   const [error, setError] = useState<string | null>(null)
   const [hasAttemptedFetch, setHasAttemptedFetch] = useState<boolean>(false)
   const [lastAppliedFilterKey, setLastAppliedFilterKey] = useState<string | null>(null)
+  const [eventsCache, setEventsCache] = useState<Record<string, string[]>>({})
+
+  const fetchAvailableEvents = useCallback(
+    async (urlPath?: string) => {
+      if (!selectedWebsite) return []
+      const normalizedUrlPath = urlPath?.trim() || ''
+      const cacheKey = `${selectedWebsite.id}:${normalizedUrlPath}`
+      const cached = eventsCache[cacheKey]
+      if (cached) return cached
+
+      const events = await fetchWebsiteEvents(selectedWebsite.id, normalizedUrlPath || undefined)
+      setEventsCache((prev) => ({ ...prev, [cacheKey]: events }))
+      return events
+    },
+    [eventsCache, selectedWebsite],
+  )
 
   const buildFilterKey = useCallback(
     () =>
       JSON.stringify({
         websiteId: selectedWebsite?.id ?? null,
-        startUrl: normalizeUrlToPath(startUrl),
-        startPathOperator,
-        goalUrl: normalizeUrlToPath(goalUrl),
-        goalPathOperator,
+        startStep: normalizeGoalStep(startStep),
+        goalStep: normalizeGoalStep(goalStep),
         period,
         customStartDate: customStartDate?.toISOString() ?? null,
         customEndDate: customEndDate?.toISOString() ?? null,
       }),
-    [
-      selectedWebsite?.id,
-      startUrl,
-      startPathOperator,
-      goalUrl,
-      goalPathOperator,
-      period,
-      customStartDate,
-      customEndDate,
-    ],
+    [selectedWebsite?.id, startStep, goalStep, period, customStartDate, customEndDate],
   )
 
   const hasUnappliedFilterChanges = buildFilterKey() !== lastAppliedFilterKey
@@ -140,11 +137,11 @@ export function useGoalCompletion(): GoalCompletionState {
   const fetchData = useCallback(async () => {
     if (!selectedWebsite) return
     const appliedFilterKey = buildFilterKey()
-    const normalizedStartUrl = normalizeUrlToPath(startUrl)
-    const normalizedGoalUrl = normalizeUrlToPath(goalUrl)
+    const normalizedStartStep = normalizeGoalStep(startStep)
+    const normalizedGoalStep = normalizeGoalStep(goalStep)
 
-    if (!normalizedStartUrl || !normalizedGoalUrl) {
-      setError('Vennligst velg både start-URL og mål-URL.')
+    if (!normalizedStartStep.value || !normalizedGoalStep.value) {
+      setError('Vennligst velg både startsteg og målsteg.')
       return
     }
 
@@ -166,10 +163,8 @@ export function useGoalCompletion(): GoalCompletionState {
       websiteId: selectedWebsite.id,
       startDate: range.startDate,
       endDate: range.endDate,
-      startUrl: normalizedStartUrl,
-      startPathOperator,
-      goalUrl: normalizedGoalUrl,
-      goalPathOperator,
+      startStep: normalizedStartStep,
+      goalStep: normalizedGoalStep,
       usesCookies,
       cookieStartDate,
     })
@@ -185,10 +180,12 @@ export function useGoalCompletion(): GoalCompletionState {
       const newParams = new URLSearchParams(window.location.search)
       newParams.set('goalPeriod', period)
       newParams.delete('period')
-      newParams.set('startUrl', normalizedStartUrl)
-      newParams.set('startPathOperator', startPathOperator)
-      newParams.set('goalUrl', normalizedGoalUrl)
-      newParams.set('goalPathOperator', goalPathOperator)
+      newParams.delete('startStep')
+      newParams.delete('goalStep')
+      newParams.delete('startUrl')
+      newParams.delete('goalUrl')
+      newParams.delete('startPathOperator')
+      newParams.delete('goalPathOperator')
       window.history.replaceState({}, '', `${window.location.pathname}?${newParams.toString()}`)
       setLastAppliedFilterKey(appliedFilterKey)
     }
@@ -197,10 +194,8 @@ export function useGoalCompletion(): GoalCompletionState {
   }, [
     selectedWebsite,
     buildFilterKey,
-    startUrl,
-    startPathOperator,
-    goalUrl,
-    goalPathOperator,
+    startStep,
+    goalStep,
     usesCookies,
     cookieStartDate,
     period,
@@ -212,14 +207,11 @@ export function useGoalCompletion(): GoalCompletionState {
     selectedWebsite,
     setSelectedWebsite,
     usesCookies,
-    startUrl,
-    setStartUrl,
-    startPathOperator,
-    setStartPathOperator,
-    goalUrl,
-    setGoalUrl,
-    goalPathOperator,
-    setGoalPathOperator,
+    startStep,
+    setStartStep,
+    goalStep,
+    setGoalStep,
+    fetchAvailableEvents,
     period,
     setPeriod,
     customStartDate,
