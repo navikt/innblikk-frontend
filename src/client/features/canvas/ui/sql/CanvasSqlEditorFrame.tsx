@@ -1,4 +1,4 @@
-import { Alert, Button, Tabs, TextField } from '@navikt/ds-react'
+import { Alert, Button, Select, Tabs, TextField } from '@navikt/ds-react'
 import CodeMirror from '@uiw/react-codemirror'
 import { sql } from '@codemirror/lang-sql'
 import { oneDark } from '@codemirror/theme-one-dark'
@@ -11,6 +11,7 @@ import { estimateQueryCost, executeQueryApi } from '../../../sql/api/sqlApi.ts'
 import type { QueryResult, QueryStats } from '../../../sql/model/types'
 import { prepareBarChartData, prepareLineChartData, preparePieChartData } from '../../../sql/utils/chartHelpers'
 import { applyUrlFiltersToSql, restorePlaceholders, sanitizePlaceholders } from '../../../sql/utils/sqlProcessing.ts'
+import type { CanvasCodeLanguage } from '../../model/types.ts'
 import CanvasEditLockOverlay from '../controls/CanvasEditLockOverlay.tsx'
 
 type CanvasSqlEditorFrameProps = {
@@ -18,6 +19,11 @@ type CanvasSqlEditorFrameProps = {
   sqlQuery?: string
   websiteId?: string
   showResultTab?: boolean
+  showTabs?: boolean
+  showFormatButton?: boolean
+  showLanguageSelector?: boolean
+  codeLanguage?: CanvasCodeLanguage
+  onCodeLanguageChange?: (id: string, codeLanguage: CanvasCodeLanguage) => void
   sqlTabLabel?: string
   isLockedByOther?: boolean
   lockOwnerLabel?: string | null
@@ -30,6 +36,11 @@ const CanvasSqlEditorFrame = ({
   sqlQuery,
   websiteId,
   showResultTab = true,
+  showTabs = true,
+  showFormatButton = true,
+  showLanguageSelector = false,
+  codeLanguage = 'sql',
+  onCodeLanguageChange,
   sqlTabLabel = 'SQL',
   isLockedByOther = false,
   lockOwnerLabel = null,
@@ -214,166 +225,201 @@ const CanvasSqlEditorFrame = ({
     }
   }, [id, onChange, sqlQuery])
 
+  const sqlEditorPanel = (
+    <div className="flex h-full min-h-0 flex-col gap-2 pt-2">
+      {showFormatButton || showLanguageSelector ? (
+        <div className="flex flex-wrap items-center gap-2">
+          {showFormatButton ? (
+            <Button size="xsmall" variant="secondary" onClick={handleFormatSql} disabled={isLockedByOther}>
+              {formatSuccess ? '✓ Formatert' : 'Formater'}
+            </Button>
+          ) : null}
+          {showLanguageSelector ? (
+            <div className="min-w-[170px]">
+              <Select
+                hideLabel
+                label="Språk"
+                size="small"
+                value={codeLanguage}
+                onChange={(event) => {
+                  const value = event.target.value as CanvasCodeLanguage
+                  onCodeLanguageChange?.(id, value)
+                }}
+                disabled={isLockedByOther}
+              >
+                <option value="text">Tekst</option>
+                <option value="sql">SQL</option>
+                <option value="react">React</option>
+                <option value="kotlin">Kotlin</option>
+                <option value="html">HTML</option>
+                <option value="css">CSS</option>
+                <option value="other">Annet</option>
+              </Select>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      {error && !hasAttemptedFetch && (
+        <Alert variant="error" size="small">
+          {error}
+        </Alert>
+      )}
+      <div
+        className="min-h-0 flex-1 overflow-hidden rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2"
+        onKeyDown={(event) => {
+          if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f') {
+            event.preventDefault()
+            event.stopPropagation()
+          }
+        }}
+      >
+        <CodeMirror
+          value={sqlQuery || ''}
+          height="100%"
+          theme={oneDark}
+          extensions={codeLanguage === 'sql' ? [sql()] : []}
+          editable={!isLockedByOther}
+          onChange={(value) => onChange(id, value)}
+          basicSetup={{
+            lineNumbers: true,
+            foldGutter: false,
+            highlightActiveLineGutter: true,
+            autocompletion: true,
+          }}
+          className="h-full overflow-hidden text-sm"
+        />
+      </div>
+    </div>
+  )
+
   return (
     <div className="relative h-full overflow-hidden p-2">
-      <Tabs
-        value={activeTab}
-        onChange={(value) => setActiveTab(value === 'resultat' ? 'resultat' : 'sql')}
-        className="flex h-full min-h-0 flex-col"
-      >
-        <Tabs.List>
-          <Tabs.Tab value="sql" label={sqlTabLabel} />
-          {showResultTab ? <Tabs.Tab value="resultat" label="Resultat" /> : null}
-        </Tabs.List>
-        <Tabs.Panel value="sql" className="min-h-0 flex-1">
-          <div className="flex h-full min-h-0 flex-col gap-2 pt-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <Button size="xsmall" variant="secondary" onClick={handleFormatSql} disabled={isLockedByOther}>
-                {formatSuccess ? '✓ Formatert' : 'Formater'}
-              </Button>
-            </div>
-            {error && !hasAttemptedFetch && (
-              <Alert variant="error" size="small">
-                {error}
-              </Alert>
-            )}
-            <div
-              className="min-h-0 flex-1 overflow-hidden rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2"
-              onKeyDown={(event) => {
-                if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f') {
-                  event.preventDefault()
-                  event.stopPropagation()
-                }
-              }}
-            >
-              <CodeMirror
-                value={sqlQuery || ''}
-                height="100%"
-                theme={oneDark}
-                extensions={[sql()]}
-                editable={!isLockedByOther}
-                onChange={(value) => onChange(id, value)}
-                basicSetup={{
-                  lineNumbers: true,
-                  foldGutter: false,
-                  highlightActiveLineGutter: true,
-                  autocompletion: true,
-                }}
-                className="h-full overflow-hidden text-sm"
-              />
-            </div>
-          </div>
-        </Tabs.Panel>
-        {showResultTab ? (
-          <Tabs.Panel value="resultat" className="min-h-0 flex-1">
-            <div className="flex h-full min-h-0 flex-col gap-2 pt-2">
-              {hasMetabaseDateFilter || hasUrlPathFilter ? (
-                <div className="flex flex-wrap items-end gap-2">
-                  {hasMetabaseDateFilter ? (
-                    <div className="max-w-[260px]">
-                      <PeriodPicker
-                        period={period}
-                        onPeriodChange={handlePeriodChange}
-                        startDate={dateRange.from}
-                        onStartDateChange={(date) => {
-                          setDateRange((prev) => ({ ...prev, from: date }))
-                          setPeriod('custom')
-                        }}
-                        endDate={dateRange.to}
-                        onEndDateChange={(date) => {
-                          setDateRange((prev) => ({ ...prev, to: date }))
-                          setPeriod('custom')
-                        }}
-                      />
-                    </div>
-                  ) : null}
-                  {hasUrlPathFilter ? (
-                    <div className="min-w-[220px] max-w-[320px]">
-                      <TextField
-                        label="URL"
-                        size="small"
-                        value={urlPath}
-                        onChange={(event) => setUrlPath(event.target.value)}
-                      />
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  size="xsmall"
-                  onClick={() => void handleExecuteQuery()}
-                  loading={loading}
-                  disabled={isLockedByOther}
-                >
-                  Vis resultater
-                </Button>
-                <Button
-                  size="xsmall"
-                  variant="secondary"
-                  onClick={() => void handleDryRun()}
-                  loading={estimating}
-                  disabled={isLockedByOther}
-                >
-                  Prøvekjøring
-                </Button>
-              </div>
-              <div className="min-h-0 h-full overflow-auto rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2">
-                {dryRunEstimate && (
-                  <Alert variant="info" size="small" className="mb-3">
-                    <div className="space-y-1 text-sm">
-                      <div className="font-semibold">Prøvekjøring fullført</div>
-                      {Number.isFinite(dryRunGb) && dryRunGb >= 0 ? (
-                        <div>Datamengde: {dryRunGb.toFixed(2)} GB</div>
-                      ) : Number.isFinite(dryRunBytes) && dryRunBytes >= 0 ? (
-                        <div>Datamengde: {dryRunBytes.toLocaleString('nb-NO')} bytes</div>
-                      ) : null}
-                      {Number.isFinite(dryRunCost) && dryRunCost >= 0 ? (
-                        <div>Estimert kostnad: ${dryRunCost.toFixed(2)} USD</div>
-                      ) : null}
-                      {dryRunEstimate.cacheHit ? <div>Resultat er cachet (ingen kostnad).</div> : null}
-                      <div className="pt-1">
-                        <Button size="xsmall" variant="tertiary" onClick={() => setDryRunEstimate(null)}>
-                          Skjul
-                        </Button>
-                      </div>
-                    </div>
-                  </Alert>
-                )}
-                {hasAttemptedFetch ? (
-                  <ResultsPanel
-                    result={result}
-                    loading={loading}
-                    error={error}
-                    queryStats={result?.queryStats}
-                    lastAction="run"
-                    showLoadingMessage={loading}
-                    executeQuery={() => void handleExecuteQuery()}
-                    handleRetry={() => void handleExecuteQuery()}
-                    prepareLineChartData={getLineChartData}
-                    prepareBarChartData={getBarChartData}
-                    preparePieChartData={getPieChartData}
-                    sql={lastProcessedSql || sqlQuery || ''}
-                    showSqlCode={true}
-                    showEditButton={false}
-                    showSqlMetabaseActions={false}
-                    showCost={true}
-                    showDownloadReadMore={false}
-                    compactTableActions={true}
-                    hideTableFooter={true}
-                    compactTableTitle="Resultater"
-                    websiteId={websiteId}
-                  />
-                ) : (
-                  <div className="flex h-full min-h-[180px] items-center justify-center text-sm text-[var(--ax-text-subtle)]">
-                    Kjør spørring for å vise resultater og grafer.
-                  </div>
-                )}
-              </div>
-            </div>
+      {!showTabs ? (
+        <div className="flex h-full min-h-0 flex-col">{sqlEditorPanel}</div>
+      ) : (
+        <Tabs
+          value={activeTab}
+          onChange={(value) => setActiveTab(value === 'resultat' ? 'resultat' : 'sql')}
+          className="flex h-full min-h-0 flex-col"
+        >
+          <Tabs.List>
+            <Tabs.Tab value="sql" label={sqlTabLabel} />
+            {showResultTab ? <Tabs.Tab value="resultat" label="Resultat" /> : null}
+          </Tabs.List>
+          <Tabs.Panel value="sql" className="min-h-0 flex-1">
+            {sqlEditorPanel}
           </Tabs.Panel>
-        ) : null}
-      </Tabs>
+          {showResultTab ? (
+            <Tabs.Panel value="resultat" className="min-h-0 flex-1">
+              <div className="flex h-full min-h-0 flex-col gap-2 pt-2">
+                {hasMetabaseDateFilter || hasUrlPathFilter ? (
+                  <div className="flex flex-wrap items-end gap-2">
+                    {hasMetabaseDateFilter ? (
+                      <div className="max-w-[260px]">
+                        <PeriodPicker
+                          period={period}
+                          onPeriodChange={handlePeriodChange}
+                          startDate={dateRange.from}
+                          onStartDateChange={(date) => {
+                            setDateRange((prev) => ({ ...prev, from: date }))
+                            setPeriod('custom')
+                          }}
+                          endDate={dateRange.to}
+                          onEndDateChange={(date) => {
+                            setDateRange((prev) => ({ ...prev, to: date }))
+                            setPeriod('custom')
+                          }}
+                        />
+                      </div>
+                    ) : null}
+                    {hasUrlPathFilter ? (
+                      <div className="min-w-[220px] max-w-[320px]">
+                        <TextField
+                          label="URL"
+                          size="small"
+                          value={urlPath}
+                          onChange={(event) => setUrlPath(event.target.value)}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    size="xsmall"
+                    onClick={() => void handleExecuteQuery()}
+                    loading={loading}
+                    disabled={isLockedByOther}
+                  >
+                    Vis resultater
+                  </Button>
+                  <Button
+                    size="xsmall"
+                    variant="secondary"
+                    onClick={() => void handleDryRun()}
+                    loading={estimating}
+                    disabled={isLockedByOther}
+                  >
+                    Prøvekjøring
+                  </Button>
+                </div>
+                <div className="min-h-0 h-full overflow-auto rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2">
+                  {dryRunEstimate && (
+                    <Alert variant="info" size="small" className="mb-3">
+                      <div className="space-y-1 text-sm">
+                        <div className="font-semibold">Prøvekjøring fullført</div>
+                        {Number.isFinite(dryRunGb) && dryRunGb >= 0 ? (
+                          <div>Datamengde: {dryRunGb.toFixed(2)} GB</div>
+                        ) : Number.isFinite(dryRunBytes) && dryRunBytes >= 0 ? (
+                          <div>Datamengde: {dryRunBytes.toLocaleString('nb-NO')} bytes</div>
+                        ) : null}
+                        {Number.isFinite(dryRunCost) && dryRunCost >= 0 ? (
+                          <div>Estimert kostnad: ${dryRunCost.toFixed(2)} USD</div>
+                        ) : null}
+                        {dryRunEstimate.cacheHit ? <div>Resultat er cachet (ingen kostnad).</div> : null}
+                        <div className="pt-1">
+                          <Button size="xsmall" variant="tertiary" onClick={() => setDryRunEstimate(null)}>
+                            Skjul
+                          </Button>
+                        </div>
+                      </div>
+                    </Alert>
+                  )}
+                  {hasAttemptedFetch ? (
+                    <ResultsPanel
+                      result={result}
+                      loading={loading}
+                      error={error}
+                      queryStats={result?.queryStats}
+                      lastAction="run"
+                      showLoadingMessage={loading}
+                      executeQuery={() => void handleExecuteQuery()}
+                      handleRetry={() => void handleExecuteQuery()}
+                      prepareLineChartData={getLineChartData}
+                      prepareBarChartData={getBarChartData}
+                      preparePieChartData={getPieChartData}
+                      sql={lastProcessedSql || sqlQuery || ''}
+                      showSqlCode={true}
+                      showEditButton={false}
+                      showSqlMetabaseActions={false}
+                      showCost={true}
+                      showDownloadReadMore={false}
+                      compactTableActions={true}
+                      hideTableFooter={true}
+                      compactTableTitle="Resultater"
+                      websiteId={websiteId}
+                    />
+                  ) : (
+                    <div className="flex h-full min-h-[180px] items-center justify-center text-sm text-[var(--ax-text-subtle)]">
+                      Kjør spørring for å vise resultater og grafer.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Tabs.Panel>
+          ) : null}
+        </Tabs>
+      )}
       {isLockedByOther && <CanvasEditLockOverlay ownerLabel={lockOwnerLabel} />}
     </div>
   )

@@ -2269,6 +2269,7 @@ const useCanvasFrameFormHandlers = ({
       kind: 'code-block',
       label: 'Kodeblokk',
       sqlQuery: '',
+      codeLanguage: 'text',
       width: 420,
       height: 760,
       refreshNonce: 0,

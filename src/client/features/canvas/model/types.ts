@@ -7,6 +7,7 @@ export type CanvasFigureType = 'square' | 'circle' | 'line' | 'arrow'
 export type CanvasSectionLayoutMode = 'freeform' | 'grid'
 export type CanvasCsvImportStyle = 'sticky' | 'table'
 export type CanvasCsvTableMode = 'rows' | 'summary'
+export type CanvasCodeLanguage = 'sql' | 'text' | 'react' | 'kotlin' | 'html' | 'css' | 'other'
 
 export type CanvasPayloadKind =
   | 'website'
@@ -82,6 +83,7 @@ export type CanvasFrame = {
   chartType?: CanvasChartType
   chartSql?: string
   sqlQuery?: string
+  codeLanguage?: CanvasCodeLanguage
   hideInShare?: boolean
   label: string
   x: number
@@ -205,6 +207,7 @@ export type CanvasConfigPayload = {
   chartType?: CanvasChartType
   chartSql?: string
   sqlQuery?: string
+  codeLanguage?: CanvasCodeLanguage
   hideInShare?: boolean
   label: string
   fromFrameId?: string

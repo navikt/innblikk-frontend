@@ -12,7 +12,13 @@ import {
 import { createPortal } from 'react-dom'
 import type { Website } from '../../../../shared/types/website.ts'
 import { DashboardWidget } from '../../../dashboard'
-import type { CanvasFrame, CanvasPageInsight, ConnectionAnchorSide, ConnectionDragState } from '../../model/types.ts'
+import type {
+  CanvasCodeLanguage,
+  CanvasFrame,
+  CanvasPageInsight,
+  ConnectionAnchorSide,
+  ConnectionDragState,
+} from '../../model/types.ts'
 import {
   CANVAS_TABLE_ROWS_PER_PAGE,
   CARD_ACTION_BUTTON_CLASSNAME,
@@ -46,13 +52,14 @@ type CanvasFrameItem = CanvasFrame & {
   src: string
 }
 
-type ResizeHandleDirection = 'se' | 'sw' | 'ne' | 'nw'
+type ResizeHandleDirection = 'se' | 'sw' | 'ne' | 'nw' | 'n' | 's' | 'e' | 'w'
 
 const RESIZE_HANDLE_CONFIGS: Array<{
   dir: ResizeHandleDirection
   title: string
   ariaLabel: string
   className: string
+  sizeClassName?: string
 }> = [
   {
     dir: 'nw',
@@ -78,6 +85,34 @@ const RESIZE_HANDLE_CONFIGS: Array<{
     ariaLabel: 'Endre størrelse fra nedre høyre hjørne',
     className: '-bottom-2 -right-2 cursor-nwse-resize',
   },
+  {
+    dir: 'n',
+    title: 'Endre høyde fra toppen',
+    ariaLabel: 'Endre høyde fra toppen',
+    className: 'left-1/2 -top-2 -translate-x-1/2 cursor-ns-resize',
+    sizeClassName: 'h-4 w-10',
+  },
+  {
+    dir: 's',
+    title: 'Endre høyde fra bunnen',
+    ariaLabel: 'Endre høyde fra bunnen',
+    className: 'bottom-[-0.5rem] left-1/2 -translate-x-1/2 cursor-ns-resize',
+    sizeClassName: 'h-4 w-10',
+  },
+  {
+    dir: 'w',
+    title: 'Endre bredde fra venstre',
+    ariaLabel: 'Endre bredde fra venstre',
+    className: '-left-2 top-1/2 -translate-y-1/2 cursor-ew-resize',
+    sizeClassName: 'h-10 w-4',
+  },
+  {
+    dir: 'e',
+    title: 'Endre bredde fra høyre',
+    ariaLabel: 'Endre bredde fra høyre',
+    className: '-right-2 top-1/2 -translate-y-1/2 cursor-ew-resize',
+    sizeClassName: 'h-10 w-4',
+  },
 ]
 
 const getVoteLabel = (voteCount: number): 'stemme' | 'stemmer' => (voteCount === 1 ? 'stemme' : 'stemmer')
@@ -85,7 +120,11 @@ const getVoteLabel = (voteCount: number): 'stemme' | 'stemmer' => (voteCount ===
 type CanvasResizeHandlesProps = {
   frame: CanvasFrame
   isVisible: boolean
-  handleResizeStart: (event: React.MouseEvent, frame: CanvasFrame, dir?: ResizeHandleDirection) => void
+  handleResizeStart: (
+    event: React.MouseEvent | React.TouchEvent,
+    frame: CanvasFrame,
+    dir?: ResizeHandleDirection,
+  ) => void
   size?: 'default' | 'large'
   groupScope?: 'frame' | 'section'
 }
@@ -111,8 +150,9 @@ const CanvasResizeHandles = ({
           key={handle.dir}
           aria-hidden="true"
           onMouseDown={(event) => handleResizeStart(event, frame, handle.dir)}
+          onTouchStart={(event) => handleResizeStart(event, frame, handle.dir)}
           title={handle.title}
-          className={`absolute ${handle.className} ${sizeClassName} rounded-sm border-[#1f8fff] bg-white shadow-[0_0_0_2px_white] transition-opacity ${visibilityClassName}`}
+          className={`absolute touch-none ${handle.className} ${handle.sizeClassName ?? sizeClassName} rounded-sm border-[#1f8fff] bg-white shadow-[0_0_0_2px_white] transition-opacity ${visibilityClassName}`}
         />
       ))}
     </>
@@ -204,10 +244,15 @@ type CanvasFrameLayerProps = {
   handleOpenEditChartModal: (frame: CanvasFrame) => void
   handleOpenDeleteChartModal: (frame: CanvasFrame) => void
   handlePersistSqlEditorFrame: (id: string) => Promise<void> | void
+  handleCodeBlockLanguageChange: (id: string, codeLanguage: CanvasCodeLanguage) => void
   handleEditableFrameChange: (id: string, nextValue: string) => void
   handleEditableFrameBlur: (id: string) => void
   handleStartEditingFrame: (id: string) => void
-  handleResizeStart: (event: React.MouseEvent, frame: CanvasFrame, dir?: 'se' | 'sw' | 'ne' | 'nw') => void
+  handleResizeStart: (
+    event: React.MouseEvent | React.TouchEvent,
+    frame: CanvasFrame,
+    dir?: ResizeHandleDirection,
+  ) => void
   isDotVotingActive?: boolean
   dotVotingTargetSectionId?: string | null
   dotVotingTotalVotesByFrameId?: Record<string, number>
@@ -295,6 +340,7 @@ const CanvasFrameLayer = ({
   handleOpenEditChartModal,
   handleOpenDeleteChartModal,
   handlePersistSqlEditorFrame,
+  handleCodeBlockLanguageChange,
   handleEditableFrameChange,
   handleEditableFrameBlur,
   handleStartEditingFrame,
@@ -1137,7 +1183,12 @@ const CanvasFrameLayer = ({
                   <CanvasSqlEditorFrame
                     id={frame.id}
                     sqlQuery={frame.sqlQuery}
+                    showTabs={false}
                     showResultTab={false}
+                    showFormatButton={false}
+                    showLanguageSelector={true}
+                    codeLanguage={frame.codeLanguage ?? 'text'}
+                    onCodeLanguageChange={handleCodeBlockLanguageChange}
                     sqlTabLabel="KODE"
                     isLockedByOther={editLockStatus.isLockedByOther}
                     lockOwnerLabel={editLockStatus.ownerLabel}

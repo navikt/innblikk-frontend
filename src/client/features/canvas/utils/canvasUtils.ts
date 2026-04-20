@@ -6,6 +6,7 @@ import { isVisualizationMode, type VisualizationMode } from '../../clickmap/mode
 import { normalizeUrlToPath } from '../../../shared/lib/utils.ts'
 import type { GraphType } from '../../oversikt/model/types.ts'
 import type {
+  CanvasCodeLanguage,
   CanvasCategoricalSummaryRow,
   CanvasChartType,
   CanvasConfigPayload,
@@ -443,6 +444,15 @@ const isCanvasFigureType = (value: unknown): value is CanvasFigureType =>
 const isCanvasSectionLayoutMode = (value: unknown): value is CanvasSectionLayoutMode =>
   value === 'freeform' || value === 'grid'
 
+const isCanvasCodeLanguage = (value: unknown): value is CanvasCodeLanguage =>
+  value === 'sql' ||
+  value === 'text' ||
+  value === 'react' ||
+  value === 'kotlin' ||
+  value === 'html' ||
+  value === 'css' ||
+  value === 'other'
+
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === 'string')
 
@@ -499,6 +509,7 @@ export const parseCanvasConfig = (raw: string): CanvasConfigPayload | null => {
       chartType: isCanvasChartType(parsed.chartType) ? parsed.chartType : undefined,
       chartSql: typeof parsed.chartSql === 'string' ? parsed.chartSql : undefined,
       sqlQuery: typeof parsed.sqlQuery === 'string' ? parsed.sqlQuery : undefined,
+      codeLanguage: isCanvasCodeLanguage(parsed.codeLanguage) ? parsed.codeLanguage : undefined,
       hideInShare: typeof parsed.hideInShare === 'boolean' ? parsed.hideInShare : undefined,
       label: parsed.label,
       fromFrameId: typeof parsed.fromFrameId === 'string' ? parsed.fromFrameId : undefined,

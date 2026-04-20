@@ -41,6 +41,7 @@ const buildFrameSignature = (frame: CanvasFrame): string =>
     chartType: frame.chartType ?? null,
     chartSql: frame.chartSql ?? null,
     sqlQuery: frame.sqlQuery ?? null,
+    codeLanguage: frame.codeLanguage ?? null,
     label: frame.label ?? null,
     x: frame.x,
     y: frame.y,

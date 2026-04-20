@@ -38,7 +38,7 @@ type CanvasResizeState = {
   startFrameY: number
   startWidth: number
   startHeight: number
-  dir: 'se' | 'sw' | 'ne' | 'nw'
+  dir: 'se' | 'sw' | 'ne' | 'nw' | 'n' | 's' | 'e' | 'w'
 }
 
 type UseCanvasInteractionsParams = {
@@ -80,7 +80,11 @@ type UseCanvasInteractionsResult = {
   getHeadingFrameWidth: (frame: CanvasFrame) => number
   getHeadingFrameHeight: (frame: CanvasFrame) => number
   handleDragStart: (event: React.MouseEvent | React.TouchEvent, frame: CanvasFrame) => void
-  handleResizeStart: (event: React.MouseEvent, frame: CanvasFrame, dir?: 'se' | 'sw' | 'ne' | 'nw') => void
+  handleResizeStart: (
+    event: React.MouseEvent | React.TouchEvent,
+    frame: CanvasFrame,
+    dir?: 'se' | 'sw' | 'ne' | 'nw' | 'n' | 's' | 'e' | 'w',
+  ) => void
   handleAdjustHeadingFontSize: (id: string, delta: number) => void
   handleSetHeadingFontSize: (id: string, sizePx: number) => void
 }
@@ -224,15 +228,22 @@ const useCanvasInteractions = ({
   )
 
   const handleResizeStart = useCallback(
-    (event: React.MouseEvent, frame: CanvasFrame, dir: 'se' | 'sw' | 'ne' | 'nw' = 'se') => {
+    (
+      event: React.MouseEvent | React.TouchEvent,
+      frame: CanvasFrame,
+      dir: 'se' | 'sw' | 'ne' | 'nw' | 'n' | 's' | 'e' | 'w' = 'se',
+    ) => {
       if (isInteractionLocked) return
       event.preventDefault()
       event.stopPropagation()
+      const clientX = 'touches' in event ? event.touches[0]?.clientX : event.clientX
+      const clientY = 'touches' in event ? event.touches[0]?.clientY : event.clientY
+      if (clientX === undefined || clientY === undefined) return
       const defaults = getDefaultFrameSize(frame)
       setResizeState({
         id: frame.id,
-        startX: event.clientX,
-        startY: event.clientY,
+        startX: clientX,
+        startY: clientY,
         startFrameX: frame.x,
         startFrameY: frame.y,
         startWidth: frame.kind === 'heading' ? getHeadingFrameWidth(frame) : (frame.width ?? defaults.width),
@@ -506,23 +517,30 @@ const useCanvasInteractions = ({
       setResizeState(null)
     }
 
-    const onMouseMove = (event: MouseEvent) => {
-      if (event.buttons === 0) {
+    const onPointerMove = (event: MouseEvent | TouchEvent) => {
+      if ('buttons' in event && event.buttons === 0) {
         stopResize()
         return
+      }
+      const clientX = 'touches' in event ? event.touches[0]?.clientX : event.clientX
+      const clientY = 'touches' in event ? event.touches[0]?.clientY : event.clientY
+      if (clientX === undefined || clientY === undefined) return
+      if ('touches' in event) {
+        event.preventDefault()
       }
       setFrames((prev) =>
         (() => {
           const nextFrames = prev.map((frame) => {
             if (frame.id !== resizeState.id) return frame
             const defaults = getDefaultFrameSize(frame)
-            const deltaX = (event.clientX - resizeState.startX) / canvasZoom
-            const deltaY = (event.clientY - resizeState.startY) / canvasZoom
+            const deltaX = (clientX - resizeState.startX) / canvasZoom
+            const deltaY = (clientY - resizeState.startY) / canvasZoom
             if (frame.kind === 'heading') {
-              const nextWidth = resizeState.dir.endsWith('w')
+              const isWestResize = resizeState.dir === 'w' || resizeState.dir === 'sw' || resizeState.dir === 'nw'
+              const nextWidth = isWestResize
                 ? Math.min(HEADING_TEXT_MAX_WIDTH, Math.max(HEADING_TEXT_MIN_WIDTH, resizeState.startWidth - deltaX))
                 : Math.min(HEADING_TEXT_MAX_WIDTH, Math.max(HEADING_TEXT_MIN_WIDTH, resizeState.startWidth + deltaX))
-              const nextX = resizeState.dir.endsWith('w')
+              const nextX = isWestResize
                 ? resizeState.startFrameX + (resizeState.startWidth - nextWidth)
                 : resizeState.startFrameX
               return {
@@ -536,20 +554,20 @@ const useCanvasInteractions = ({
             let nextWidth = resizeState.startWidth
             let nextHeight = resizeState.startHeight
 
-            if (resizeState.dir.endsWith('e')) {
+            if (resizeState.dir === 'e' || resizeState.dir === 'se' || resizeState.dir === 'ne') {
               nextWidth = Math.max(defaults.minWidth, resizeState.startWidth + deltaX)
             }
 
-            if (resizeState.dir.endsWith('w')) {
+            if (resizeState.dir === 'w' || resizeState.dir === 'sw' || resizeState.dir === 'nw') {
               nextWidth = Math.max(defaults.minWidth, resizeState.startWidth - deltaX)
               nextX = resizeState.startFrameX + (resizeState.startWidth - nextWidth)
             }
 
-            if (resizeState.dir.startsWith('s')) {
+            if (resizeState.dir === 's' || resizeState.dir === 'se' || resizeState.dir === 'sw') {
               nextHeight = Math.max(defaults.minHeight, resizeState.startHeight + deltaY)
             }
 
-            if (resizeState.dir.startsWith('n')) {
+            if (resizeState.dir === 'n' || resizeState.dir === 'ne' || resizeState.dir === 'nw') {
               nextHeight = Math.max(defaults.minHeight, resizeState.startHeight - deltaY)
               nextY = resizeState.startFrameY + (resizeState.startHeight - nextHeight)
             }
@@ -572,19 +590,25 @@ const useCanvasInteractions = ({
       )
     }
 
-    const onMouseUp = () => stopResize()
+    const onPointerUp = () => stopResize()
     const onWindowBlur = () => stopResize()
 
-    window.addEventListener('mousemove', onMouseMove)
-    window.addEventListener('mouseup', onMouseUp)
-    document.addEventListener('mousemove', onMouseMove, true)
-    document.addEventListener('mouseup', onMouseUp, true)
+    window.addEventListener('mousemove', onPointerMove as EventListener)
+    window.addEventListener('mouseup', onPointerUp)
+    window.addEventListener('touchmove', onPointerMove as EventListener, { passive: false })
+    window.addEventListener('touchend', onPointerUp)
+    window.addEventListener('touchcancel', onPointerUp)
+    document.addEventListener('mousemove', onPointerMove as EventListener, true)
+    document.addEventListener('mouseup', onPointerUp, true)
     window.addEventListener('blur', onWindowBlur)
     return () => {
-      window.removeEventListener('mousemove', onMouseMove)
-      window.removeEventListener('mouseup', onMouseUp)
-      document.removeEventListener('mousemove', onMouseMove, true)
-      document.removeEventListener('mouseup', onMouseUp, true)
+      window.removeEventListener('mousemove', onPointerMove as EventListener)
+      window.removeEventListener('mouseup', onPointerUp)
+      window.removeEventListener('touchmove', onPointerMove as EventListener)
+      window.removeEventListener('touchend', onPointerUp)
+      window.removeEventListener('touchcancel', onPointerUp)
+      document.removeEventListener('mousemove', onPointerMove as EventListener, true)
+      document.removeEventListener('mouseup', onPointerUp, true)
       window.removeEventListener('blur', onWindowBlur)
     }
   }, [
