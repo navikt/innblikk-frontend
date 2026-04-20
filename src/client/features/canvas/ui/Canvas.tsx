@@ -184,6 +184,7 @@ const getDefaultFrameSize = (
   if (kind === 'image') return { width: 420, height: 420, minWidth: 240, minHeight: 200 }
   if (kind === 'chart') return { width: 560, height: 360, minWidth: 280, minHeight: 200 }
   if (kind === 'sql-editor') return { width: 420, height: 760, minWidth: 260, minHeight: 320 }
+  if (kind === 'code-block') return { width: 420, height: 760, minWidth: 260, minHeight: 320 }
   if (kind === 'heading') return { width: 420, height: 72, minWidth: 260, minHeight: 48 }
   if (kind === 'text') return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
   if (kind === 'link') return { width: 380, height: 112, minWidth: 280, minHeight: 92 }
@@ -1610,6 +1611,7 @@ const Canvas = () => {
     handleOpenAddStickyModal,
     handleOpenAddSection,
     handleOpenAddSqlEditor,
+    handleOpenAddCodeBlock,
     handleOpenAddImageModal,
     handleOpenAddIconModal,
     handleOpenAddFigureModal,
@@ -1852,6 +1854,9 @@ const Canvas = () => {
       case 'sticky':
         handleOpenAddStickyModal()
         setSelectedStickySectionId(sectionId)
+        return
+      case 'code-block':
+        handleOpenAddCodeBlock()
         return
       case 'image':
         openAddModalInSection(handleOpenAddImageModal)
@@ -3537,7 +3542,7 @@ const Canvas = () => {
             textContent: nextValue,
           }
         }
-        if (frame.kind === 'sql-editor') {
+        if (frame.kind === 'sql-editor' || frame.kind === 'code-block') {
           return {
             ...frame,
             sqlQuery: nextValue,
@@ -3550,7 +3555,7 @@ const Canvas = () => {
 
   const handlePersistSqlEditorFrame = async (id: string): Promise<void> => {
     const frame = frames.find((item) => item.id === id)
-    if (!frame || frame.kind !== 'sql-editor') return
+    if (!frame || (frame.kind !== 'sql-editor' && frame.kind !== 'code-block')) return
 
     const nextFrame: CanvasFrame = {
       ...frame,
@@ -3561,7 +3566,7 @@ const Canvas = () => {
     try {
       await persistFrame(nextFrame)
     } catch (error) {
-      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre SQL-editor')
+      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre kode')
     }
   }
 
@@ -3623,7 +3628,8 @@ const Canvas = () => {
         frame.kind !== 'text' &&
         frame.kind !== 'sticky' &&
         frame.kind !== 'section' &&
-        frame.kind !== 'sql-editor')
+        frame.kind !== 'sql-editor' &&
+        frame.kind !== 'code-block')
     )
       return
 
@@ -4371,6 +4377,7 @@ const Canvas = () => {
           onOpenAddTable={handleOpenAddTableModal}
           onOpenAddLink={handleOpenAddLinkModal}
           onOpenAddSticky={handleOpenAddStickyModal}
+          onOpenAddCodeBlock={handleOpenAddCodeBlock}
           onOpenAddSection={handleOpenAddSection}
           onOpenImportStickyCsv={handleOpenImportStickyCsvModal}
           onOpenAddImage={handleOpenAddImageModal}

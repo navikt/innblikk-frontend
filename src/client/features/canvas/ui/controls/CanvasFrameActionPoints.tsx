@@ -16,6 +16,7 @@ type CanvasFrameActionPointsProps = {
     | 'text'
     | 'link'
     | 'sticky'
+    | 'code-block'
     | 'section'
     | 'chart'
     | 'sql-editor'
@@ -66,6 +67,7 @@ export type SectionAddAction =
   | 'table'
   | 'link'
   | 'sticky'
+  | 'code-block'
   | 'image'
   | 'icon'
   | 'figure'
@@ -501,6 +503,12 @@ const CanvasFrameActionPoints = ({
               onClick={() => onSelectSectionAddAction?.('sticky')}
             >
               Post-it-lapp
+            </ActionMenu.Item>
+            <ActionMenu.Item
+              onMouseDown={stopMouseDownPropagation}
+              onClick={() => onSelectSectionAddAction?.('code-block')}
+            >
+              Kodeblokk
             </ActionMenu.Item>
             <ActionMenu.Divider />
             <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onSelectSectionAddAction?.('image')}>

@@ -46,7 +46,7 @@ const getSectionElementLayoutClass = (frame: CanvasFrame): string => {
   if (frame.kind === 'website') return 'md:col-span-2'
   if (frame.kind === 'image') return 'md:col-span-2'
   if (frame.kind === 'chart') return 'md:col-span-2'
-  if (frame.kind === 'sql-editor') return 'md:col-span-2'
+  if (frame.kind === 'sql-editor' || frame.kind === 'code-block') return 'md:col-span-2'
   return ''
 }
 
@@ -614,11 +614,11 @@ const CanvasShareView = () => {
       )
     }
 
-    if (frame.kind === 'sql-editor') {
+    if (frame.kind === 'sql-editor' || frame.kind === 'code-block') {
       return (
         <div className="rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-4 sm:p-5">
           <BodyShort className="m-0 whitespace-pre-wrap break-words text-[var(--ax-text-subtle)]">
-            {(frame.sqlQuery || '').trim() || 'SQL-editor'}
+            {(frame.sqlQuery || '').trim() || (frame.kind === 'code-block' ? 'Kodeblokk' : 'SQL-editor')}
           </BodyShort>
         </div>
       )

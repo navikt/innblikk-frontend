@@ -57,6 +57,7 @@ export const CANVAS_INVENTORY_KIND_OPTIONS: Array<{ kind: CanvasFrame['kind']; l
   { kind: 'text', label: 'Tekstblokker' },
   { kind: 'link', label: 'Lenkekort' },
   { kind: 'sticky', label: 'Post-it-lapper' },
+  { kind: 'code-block', label: 'Kodeblokker' },
   { kind: 'section', label: 'Seksjoner' },
   { kind: 'chart', label: 'Grafer' },
   { kind: 'sql-editor', label: 'SQL-editorer' },
@@ -409,6 +410,7 @@ const isCanvasPayloadKind = (value: unknown): value is CanvasPayloadKind =>
   value === 'text' ||
   value === 'link' ||
   value === 'sticky' ||
+  value === 'code-block' ||
   value === 'section' ||
   value === 'chart' ||
   value === 'sql-editor' ||
@@ -424,6 +426,7 @@ export const isRenderableCanvasFrameKind = (value: unknown): value is CanvasFram
   value === 'text' ||
   value === 'link' ||
   value === 'sticky' ||
+  value === 'code-block' ||
   value === 'section' ||
   value === 'chart' ||
   value === 'sql-editor' ||

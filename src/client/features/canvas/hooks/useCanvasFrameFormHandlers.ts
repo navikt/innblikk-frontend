@@ -492,7 +492,8 @@ const useCanvasFrameFormHandlers = ({
       if (kind === 'image' && isIllustration) return { width: 420, height: 420, minWidth: 96, minHeight: 96 }
       if (kind === 'image') return { width: 420, height: 420, minWidth: 240, minHeight: 200 }
       if (kind === 'chart') return { width: 560, height: 360, minWidth: 280, minHeight: 200 }
-      if (kind === 'sql-editor') return { width: 420, height: 760, minWidth: 260, minHeight: 320 }
+      if (kind === 'sql-editor' || kind === 'code-block')
+        return { width: 420, height: 760, minWidth: 260, minHeight: 320 }
       if (kind === 'heading') return { width: 420, height: 72, minWidth: 260, minHeight: 48 }
       if (kind === 'text') return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
       if (kind === 'link') return { width: 380, height: 112, minWidth: 280, minHeight: 92 }
@@ -2263,6 +2264,18 @@ const useCanvasFrameFormHandlers = ({
     queueFrameForPlacement(frameDraft, 'SQL-editor')
   }
 
+  const handleAddCodeBlockCard = () => {
+    const frameDraft: PendingCanvasFrameDraft = {
+      kind: 'code-block',
+      label: 'Kodeblokk',
+      sqlQuery: '',
+      width: 420,
+      height: 760,
+      refreshNonce: 0,
+    }
+    queueFrameForPlacement(frameDraft, 'Kodeblokk')
+  }
+
   const openAddPageModalDirect = () => {
     setAddPageError(null)
     setNewPagePreviewUrlInput('')
@@ -2351,6 +2364,10 @@ const useCanvasFrameFormHandlers = ({
     handleAddSqlEditorCard()
   }
 
+  const handleOpenAddCodeBlock = () => {
+    handleAddCodeBlockCard()
+  }
+
   const handleOpenAddImageModal = () => {
     setAddImageError(null)
     setNewImageUrlInput('')
@@ -2423,6 +2440,7 @@ const useCanvasFrameFormHandlers = ({
     handleAddFigureCard,
     handleAddChartCard,
     handleAddSqlEditorCard,
+    handleAddCodeBlockCard,
     handleOpenAddPageModal,
     handleAssignWebsiteToChart,
     handleOpenAddHeadingModal,
@@ -2432,6 +2450,7 @@ const useCanvasFrameFormHandlers = ({
     handleOpenAddStickyModal,
     handleOpenAddSection,
     handleOpenAddSqlEditor,
+    handleOpenAddCodeBlock,
     handleOpenAddImageModal,
     handleOpenAddIconModal,
     handleOpenAddFigureModal,

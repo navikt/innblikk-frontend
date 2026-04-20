@@ -17,6 +17,8 @@ type CanvasSqlEditorFrameProps = {
   id: string
   sqlQuery?: string
   websiteId?: string
+  showResultTab?: boolean
+  sqlTabLabel?: string
   isLockedByOther?: boolean
   lockOwnerLabel?: string | null
   onChange: (id: string, nextValue: string) => void
@@ -27,6 +29,8 @@ const CanvasSqlEditorFrame = ({
   id,
   sqlQuery,
   websiteId,
+  showResultTab = true,
+  sqlTabLabel = 'SQL',
   isLockedByOther = false,
   lockOwnerLabel = null,
   onChange,
@@ -214,12 +218,12 @@ const CanvasSqlEditorFrame = ({
     <div className="relative h-full overflow-hidden p-2">
       <Tabs
         value={activeTab}
-        onChange={(value) => setActiveTab(value as 'sql' | 'resultat')}
+        onChange={(value) => setActiveTab(value === 'resultat' ? 'resultat' : 'sql')}
         className="flex h-full min-h-0 flex-col"
       >
         <Tabs.List>
-          <Tabs.Tab value="sql" label="SQL" />
-          <Tabs.Tab value="resultat" label="Resultat" />
+          <Tabs.Tab value="sql" label={sqlTabLabel} />
+          {showResultTab ? <Tabs.Tab value="resultat" label="Resultat" /> : null}
         </Tabs.List>
         <Tabs.Panel value="sql" className="min-h-0 flex-1">
           <div className="flex h-full min-h-0 flex-col gap-2 pt-2">
@@ -260,113 +264,115 @@ const CanvasSqlEditorFrame = ({
             </div>
           </div>
         </Tabs.Panel>
-        <Tabs.Panel value="resultat" className="min-h-0 flex-1">
-          <div className="flex h-full min-h-0 flex-col gap-2 pt-2">
-            {hasMetabaseDateFilter || hasUrlPathFilter ? (
-              <div className="flex flex-wrap items-end gap-2">
-                {hasMetabaseDateFilter ? (
-                  <div className="max-w-[260px]">
-                    <PeriodPicker
-                      period={period}
-                      onPeriodChange={handlePeriodChange}
-                      startDate={dateRange.from}
-                      onStartDateChange={(date) => {
-                        setDateRange((prev) => ({ ...prev, from: date }))
-                        setPeriod('custom')
-                      }}
-                      endDate={dateRange.to}
-                      onEndDateChange={(date) => {
-                        setDateRange((prev) => ({ ...prev, to: date }))
-                        setPeriod('custom')
-                      }}
-                    />
-                  </div>
-                ) : null}
-                {hasUrlPathFilter ? (
-                  <div className="min-w-[220px] max-w-[320px]">
-                    <TextField
-                      label="URL"
-                      size="small"
-                      value={urlPath}
-                      onChange={(event) => setUrlPath(event.target.value)}
-                    />
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                size="xsmall"
-                onClick={() => void handleExecuteQuery()}
-                loading={loading}
-                disabled={isLockedByOther}
-              >
-                Vis resultater
-              </Button>
-              <Button
-                size="xsmall"
-                variant="secondary"
-                onClick={() => void handleDryRun()}
-                loading={estimating}
-                disabled={isLockedByOther}
-              >
-                Prøvekjøring
-              </Button>
-            </div>
-            <div className="min-h-0 h-full overflow-auto rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2">
-              {dryRunEstimate && (
-                <Alert variant="info" size="small" className="mb-3">
-                  <div className="space-y-1 text-sm">
-                    <div className="font-semibold">Prøvekjøring fullført</div>
-                    {Number.isFinite(dryRunGb) && dryRunGb >= 0 ? (
-                      <div>Datamengde: {dryRunGb.toFixed(2)} GB</div>
-                    ) : Number.isFinite(dryRunBytes) && dryRunBytes >= 0 ? (
-                      <div>Datamengde: {dryRunBytes.toLocaleString('nb-NO')} bytes</div>
-                    ) : null}
-                    {Number.isFinite(dryRunCost) && dryRunCost >= 0 ? (
-                      <div>Estimert kostnad: ${dryRunCost.toFixed(2)} USD</div>
-                    ) : null}
-                    {dryRunEstimate.cacheHit ? <div>Resultat er cachet (ingen kostnad).</div> : null}
-                    <div className="pt-1">
-                      <Button size="xsmall" variant="tertiary" onClick={() => setDryRunEstimate(null)}>
-                        Skjul
-                      </Button>
+        {showResultTab ? (
+          <Tabs.Panel value="resultat" className="min-h-0 flex-1">
+            <div className="flex h-full min-h-0 flex-col gap-2 pt-2">
+              {hasMetabaseDateFilter || hasUrlPathFilter ? (
+                <div className="flex flex-wrap items-end gap-2">
+                  {hasMetabaseDateFilter ? (
+                    <div className="max-w-[260px]">
+                      <PeriodPicker
+                        period={period}
+                        onPeriodChange={handlePeriodChange}
+                        startDate={dateRange.from}
+                        onStartDateChange={(date) => {
+                          setDateRange((prev) => ({ ...prev, from: date }))
+                          setPeriod('custom')
+                        }}
+                        endDate={dateRange.to}
+                        onEndDateChange={(date) => {
+                          setDateRange((prev) => ({ ...prev, to: date }))
+                          setPeriod('custom')
+                        }}
+                      />
                     </div>
-                  </div>
-                </Alert>
-              )}
-              {hasAttemptedFetch ? (
-                <ResultsPanel
-                  result={result}
-                  loading={loading}
-                  error={error}
-                  queryStats={result?.queryStats}
-                  lastAction="run"
-                  showLoadingMessage={loading}
-                  executeQuery={() => void handleExecuteQuery()}
-                  handleRetry={() => void handleExecuteQuery()}
-                  prepareLineChartData={getLineChartData}
-                  prepareBarChartData={getBarChartData}
-                  preparePieChartData={getPieChartData}
-                  sql={lastProcessedSql || sqlQuery || ''}
-                  showSqlCode={true}
-                  showEditButton={false}
-                  showSqlMetabaseActions={false}
-                  showCost={true}
-                  showDownloadReadMore={false}
-                  compactTableActions={true}
-                  hideTableFooter={true}
-                  compactTableTitle="Resultater"
-                  websiteId={websiteId}
-                />
-              ) : (
-                <div className="flex h-full min-h-[180px] items-center justify-center text-sm text-[var(--ax-text-subtle)]">
-                  Kjør spørring for å vise resultater og grafer.
+                  ) : null}
+                  {hasUrlPathFilter ? (
+                    <div className="min-w-[220px] max-w-[320px]">
+                      <TextField
+                        label="URL"
+                        size="small"
+                        value={urlPath}
+                        onChange={(event) => setUrlPath(event.target.value)}
+                      />
+                    </div>
+                  ) : null}
                 </div>
-              )}
+              ) : null}
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  size="xsmall"
+                  onClick={() => void handleExecuteQuery()}
+                  loading={loading}
+                  disabled={isLockedByOther}
+                >
+                  Vis resultater
+                </Button>
+                <Button
+                  size="xsmall"
+                  variant="secondary"
+                  onClick={() => void handleDryRun()}
+                  loading={estimating}
+                  disabled={isLockedByOther}
+                >
+                  Prøvekjøring
+                </Button>
+              </div>
+              <div className="min-h-0 h-full overflow-auto rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2">
+                {dryRunEstimate && (
+                  <Alert variant="info" size="small" className="mb-3">
+                    <div className="space-y-1 text-sm">
+                      <div className="font-semibold">Prøvekjøring fullført</div>
+                      {Number.isFinite(dryRunGb) && dryRunGb >= 0 ? (
+                        <div>Datamengde: {dryRunGb.toFixed(2)} GB</div>
+                      ) : Number.isFinite(dryRunBytes) && dryRunBytes >= 0 ? (
+                        <div>Datamengde: {dryRunBytes.toLocaleString('nb-NO')} bytes</div>
+                      ) : null}
+                      {Number.isFinite(dryRunCost) && dryRunCost >= 0 ? (
+                        <div>Estimert kostnad: ${dryRunCost.toFixed(2)} USD</div>
+                      ) : null}
+                      {dryRunEstimate.cacheHit ? <div>Resultat er cachet (ingen kostnad).</div> : null}
+                      <div className="pt-1">
+                        <Button size="xsmall" variant="tertiary" onClick={() => setDryRunEstimate(null)}>
+                          Skjul
+                        </Button>
+                      </div>
+                    </div>
+                  </Alert>
+                )}
+                {hasAttemptedFetch ? (
+                  <ResultsPanel
+                    result={result}
+                    loading={loading}
+                    error={error}
+                    queryStats={result?.queryStats}
+                    lastAction="run"
+                    showLoadingMessage={loading}
+                    executeQuery={() => void handleExecuteQuery()}
+                    handleRetry={() => void handleExecuteQuery()}
+                    prepareLineChartData={getLineChartData}
+                    prepareBarChartData={getBarChartData}
+                    preparePieChartData={getPieChartData}
+                    sql={lastProcessedSql || sqlQuery || ''}
+                    showSqlCode={true}
+                    showEditButton={false}
+                    showSqlMetabaseActions={false}
+                    showCost={true}
+                    showDownloadReadMore={false}
+                    compactTableActions={true}
+                    hideTableFooter={true}
+                    compactTableTitle="Resultater"
+                    websiteId={websiteId}
+                  />
+                ) : (
+                  <div className="flex h-full min-h-[180px] items-center justify-center text-sm text-[var(--ax-text-subtle)]">
+                    Kjør spørring for å vise resultater og grafer.
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        </Tabs.Panel>
+          </Tabs.Panel>
+        ) : null}
       </Tabs>
       {isLockedByOther && <CanvasEditLockOverlay ownerLabel={lockOwnerLabel} />}
     </div>

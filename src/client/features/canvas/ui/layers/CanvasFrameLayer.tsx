@@ -460,7 +460,8 @@ const CanvasFrameLayer = ({
             frame.kind === 'text' ||
             frame.kind === 'sticky' ||
             frame.kind === 'section' ||
-            frame.kind === 'sql-editor'
+            frame.kind === 'sql-editor' ||
+            frame.kind === 'code-block'
               ? getFrameLockStatus(frame)
               : { isLockedByOther: false, ownerLabel: null }
           const currentSectionId = frameContainingSectionIdByFrameId[frame.id]
@@ -596,7 +597,7 @@ const CanvasFrameLayer = ({
                                 ? `${frameGroupClass} absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none`
                                 : frame.kind === 'drawing'
                                   ? `${frameGroupClass} absolute flex flex-col overflow-visible rounded-lg border border-transparent bg-transparent shadow-none`
-                                  : frame.kind === 'sql-editor'
+                                  : frame.kind === 'sql-editor' || frame.kind === 'code-block'
                                     ? `${frameGroupClass} absolute flex flex-col overflow-hidden rounded-xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] shadow-sm`
                                     : `${frameGroupClass} absolute flex flex-col overflow-visible rounded-xl border shadow-sm`
               } ${isSelectedFrame ? 'ring-2 ring-[var(--ax-border-accent)]/60' : ''} ${isTargetVotingSection ? 'ring-4 ring-[var(--ax-border-accent)]/40' : ''} ${isDotVotingActive && frame.kind === 'sticky' && isInVotingScope ? 'ring-1 ring-white/80 shadow-md' : ''} ${shouldDimFrame ? 'opacity-20' : 'opacity-100'}`}
@@ -748,6 +749,7 @@ const CanvasFrameLayer = ({
                   frame.kind === 'figure' ||
                   frame.kind === 'drawing' ||
                   frame.kind === 'sql-editor' ||
+                  frame.kind === 'code-block' ||
                   frame.kind === 'image' ||
                   frame.kind === 'website') && (
                   <>
@@ -785,7 +787,8 @@ const CanvasFrameLayer = ({
                   frame.kind === 'icon' ||
                   frame.kind === 'figure' ||
                   frame.kind === 'drawing' ||
-                  frame.kind === 'sql-editor') && (
+                  frame.kind === 'sql-editor' ||
+                  frame.kind === 'code-block') && (
                   <div
                     aria-hidden="true"
                     className={`pointer-events-none absolute z-10 opacity-0 transition-opacity ${hoverRevealClass} ${
@@ -816,7 +819,7 @@ const CanvasFrameLayer = ({
                             ? 'overflow-visible bg-transparent'
                             : frame.kind === 'drawing'
                               ? 'overflow-visible bg-transparent'
-                              : frame.kind === 'sql-editor'
+                              : frame.kind === 'sql-editor' || frame.kind === 'code-block'
                                 ? 'overflow-hidden bg-[var(--ax-bg-default)]'
                                 : frame.kind === 'heading'
                                   ? 'pt-1'
@@ -1125,6 +1128,17 @@ const CanvasFrameLayer = ({
                     id={frame.id}
                     sqlQuery={frame.sqlQuery}
                     websiteId={frame.websiteId || selectedWebsite?.id}
+                    isLockedByOther={editLockStatus.isLockedByOther}
+                    lockOwnerLabel={editLockStatus.ownerLabel}
+                    onChange={handleEditableFrameChange}
+                    onPersist={handlePersistSqlEditorFrame}
+                  />
+                ) : frame.kind === 'code-block' ? (
+                  <CanvasSqlEditorFrame
+                    id={frame.id}
+                    sqlQuery={frame.sqlQuery}
+                    showResultTab={false}
+                    sqlTabLabel="KODE"
                     isLockedByOther={editLockStatus.isLockedByOther}
                     lockOwnerLabel={editLockStatus.ownerLabel}
                     onChange={handleEditableFrameChange}

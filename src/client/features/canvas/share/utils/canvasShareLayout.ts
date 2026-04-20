@@ -50,6 +50,7 @@ const getCanvasShareDefaultFrameSize = (frame: CanvasFrame): { width: number; he
   if (frame.kind === 'image') return { width: 420, height: 420 }
   if (frame.kind === 'chart') return { width: 560, height: 360 }
   if (frame.kind === 'sql-editor') return { width: 420, height: 760 }
+  if (frame.kind === 'code-block') return { width: 420, height: 760 }
   if (frame.kind === 'heading') return { width: 420, height: 72 }
   if (frame.kind === 'text') return { width: 360, height: 180 }
   if (frame.kind === 'link') return { width: 380, height: 112 }
