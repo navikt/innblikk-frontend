@@ -17,6 +17,8 @@ All notable changes to this project will be documented in this file.
 
 - Use pnpm consistently in start script
 - Remove setState calls inside useEffect in ThemeButton
+- Identify umami user with innblikk_analytics_id on load
+- Merge main into feature/user-settings-persistence, resolve conflicts in App.tsx
 
 ### 👷 CI
 
@@ -64,6 +66,8 @@ All notable changes to this project will be documented in this file.
 ### 🔧 Refactor
 
 - Improve security, error handling, and code structure (#120)
+- Replace AnnouncementBanner with BetaBadge on home page
+- Remove analytics_id from user settings, drop umami.identify()
 
 ### 🚀 Features
 
@@ -89,5 +93,16 @@ All notable changes to this project will be documented in this file.
 - Remove data-host-url reference formatting
 - Remove data-host-url reference formatting
 - Bytte til innsikt website-id
+- Load sporing-dev on localhost with data-before-send interceptor
+- Persist feature flags to backend and track changes via umami
+- Add AnnouncementBanner component
+- Merge Innstillinger into Profil page, redirect /innstillinger
+- Add BetaBadge component
+- Sync user settings from backend on app load
+- Use @navikt/analytics-types for typed umami tracking
+
+### 🧪 Testing
+
+- Update featureFlags tests after removing analytics_id
 
 
