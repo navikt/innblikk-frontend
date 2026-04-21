@@ -37,6 +37,7 @@ const getSectionElementLayoutClass = (frame: CanvasFrame): string => {
   if (frame.kind === 'text' && Array.isArray(frame.tableHeaders) && frame.tableHeaders.length > 0)
     return 'w-full max-w-[1100px]'
   if (frame.kind === 'text') return 'w-full max-w-[1100px]'
+  if (frame.kind === 'link') return 'w-full max-w-[760px]'
   if (frame.kind === 'sticky') return 'w-full max-w-[520px]'
   if (frame.kind === 'website') return 'w-full max-w-[1200px]'
   if (frame.kind === 'image') return 'mx-auto w-full max-w-[1440px]'
@@ -556,7 +557,7 @@ const CanvasPresentationView = () => {
     if (frame.kind === 'link') {
       const href = frame.targetUrl || ''
       return (
-        <div className="rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-4 sm:p-5">
+        <div className="rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-3.5 sm:p-4.5">
           <Link href={href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5">
             {frame.label || formatCanvasPathLabel(frame.targetUrl, href)}
             <ExternalLink size={14} aria-hidden="true" />
@@ -836,6 +837,7 @@ const CanvasPresentationView = () => {
                           (!Array.isArray(element.frame.tableHeaders) || element.frame.tableHeaders.length === 0)
                             ? 'justify-self-center pt-6 md:pt-10'
                             : ''
+                        const linkLayoutClass = element.frame.kind === 'link' ? 'justify-self-center' : ''
                         const tableLayoutClass =
                           element.frame.kind === 'text' &&
                           Array.isArray(element.frame.tableHeaders) &&
@@ -845,7 +847,7 @@ const CanvasPresentationView = () => {
                         return (
                           <section
                             key={element.id}
-                            className={`space-y-2 ${getSectionElementGridClass(element.frame)} ${getSectionElementLayoutClass(element.frame)} ${headingLayoutClass} ${imageLayoutClass} ${textLayoutClass} ${tableLayoutClass}`}
+                            className={`space-y-2 ${getSectionElementGridClass(element.frame)} ${getSectionElementLayoutClass(element.frame)} ${headingLayoutClass} ${imageLayoutClass} ${textLayoutClass} ${linkLayoutClass} ${tableLayoutClass}`}
                           >
                             {renderFrame(element.frame, { headingLevel: 3 })}
                           </section>
