@@ -1,4 +1,5 @@
 import { Button, Table } from '@navikt/ds-react'
+import { markdownToHtml } from '../../utils/canvasMarkdown.ts'
 import CanvasEditLockOverlay from '../controls/CanvasEditLockOverlay.tsx'
 
 type CanvasTextFrameProps = {
@@ -113,27 +114,35 @@ const CanvasTextFrame = ({
     )
   }
 
+  const markdownClassName =
+    'w-full text-left text-[var(--ax-text-default)] [&_a]:underline [&_a]:underline-offset-2 [&_h1]:mb-2 [&_h1]:mt-0 [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:mt-0 [&_h2]:font-semibold [&_h3]:mb-1 [&_h3]:mt-0 [&_h3]:font-semibold [&_ol]:my-0 [&_ol]:list-decimal [&_ol]:pl-[1.1em] [&_p]:m-0 [&_p+p]:mt-2 [&_strong]:font-semibold [&_ul]:my-0 [&_ul]:list-disc [&_ul]:pl-[1.1em] [&_ul>li+li]:mt-1'
+  const renderedMarkdown = markdownToHtml((textContent || '').trim() || 'Skriv tekst')
+
   return (
     <div className="relative h-full overflow-auto px-2 pb-2">
       {_isInteractionLocked ? (
-        <p
-          className="m-0 h-full w-full overflow-auto whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)]"
+        <div
+          className={`h-full overflow-auto bg-transparent p-0 ${markdownClassName}`}
           style={{ fontSize: '18px', lineHeight: 1.3, fontWeight: 500 }}
-        >
-          {textContent || 'Skriv tekst'}
-        </p>
+          dangerouslySetInnerHTML={{ __html: renderedMarkdown }}
+        />
       ) : (
-        <button
-          type="button"
+        <div
+          role="button"
+          tabIndex={0}
           data-canvas-edit-trigger="true"
-          className="m-0 flex h-full w-full cursor-text items-start overflow-auto whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)] [appearance:none]"
+          className={`m-0 flex h-full w-full cursor-text items-start overflow-auto bg-transparent p-0 [appearance:none] ${markdownClassName}`}
           style={{ fontSize: '18px', lineHeight: 1.3, fontWeight: 500 }}
           onMouseDown={(event) => event.stopPropagation()}
           onClick={() => onStartEditing(id)}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return
+            event.preventDefault()
+            onStartEditing(id)
+          }}
           aria-label="Rediger tekst"
-        >
-          {textContent || 'Skriv tekst'}
-        </button>
+          dangerouslySetInnerHTML={{ __html: renderedMarkdown }}
+        />
       )}
       {isLockedByOther && <CanvasEditLockOverlay ownerLabel={lockOwnerLabel} />}
     </div>

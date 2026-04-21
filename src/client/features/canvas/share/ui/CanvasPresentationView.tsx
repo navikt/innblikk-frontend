@@ -17,6 +17,7 @@ import {
   getWebsiteFrameRenderSrc,
   isImagePreviewUrl,
 } from '../../utils/canvasUtils.ts'
+import { markdownToHtml } from '../../utils/canvasMarkdown.ts'
 import { buildCanvasHierarchy } from '../../utils/canvasHierarchy.ts'
 import type { CanvasFrame } from '../../model/types.ts'
 import { useCanvasShareData } from '../hooks/useCanvasShareData.ts'
@@ -35,7 +36,7 @@ const getSectionElementLayoutClass = (frame: CanvasFrame): string => {
   if (frame.kind === 'heading') return 'w-full max-w-[72ch]'
   if (frame.kind === 'text' && Array.isArray(frame.tableHeaders) && frame.tableHeaders.length > 0)
     return 'w-full max-w-[1100px]'
-  if (frame.kind === 'text') return 'w-full max-w-[60ch]'
+  if (frame.kind === 'text') return 'w-full max-w-[1100px]'
   if (frame.kind === 'sticky') return 'w-full max-w-[520px]'
   if (frame.kind === 'website') return 'w-full max-w-[1200px]'
   if (frame.kind === 'image') return 'mx-auto w-full max-w-[1440px]'
@@ -520,16 +521,15 @@ const CanvasPresentationView = () => {
       }
 
       return (
-        <BodyLong
-          className="m-0 w-full max-w-[60ch] whitespace-pre-wrap break-words"
+        <div
+          className="w-full max-w-[1100px] text-[var(--ax-text-default)] [&_a]:underline [&_a]:underline-offset-4 [&_h1]:mb-5 [&_h1]:mt-0 [&_h1]:font-semibold [&_h2]:mb-4 [&_h2]:mt-0 [&_h2]:font-semibold [&_h3]:mb-3 [&_h3]:mt-0 [&_h3]:font-semibold [&_ol]:my-0 [&_ol]:list-decimal [&_ol]:pl-[1.15em] [&_p]:m-0 [&_p+p]:mt-5 [&_strong]:font-semibold [&_ul]:my-0 [&_ul]:list-disc [&_ul]:pl-[1.15em] [&_ul>li+li]:mt-3"
           style={{
             fontSize: 'clamp(1.9rem, 2.8vw, 2.7rem)',
             lineHeight: 1.55,
             fontWeight: 500,
           }}
-        >
-          {(frame.textContent || '').trim() || ' '}
-        </BodyLong>
+          dangerouslySetInnerHTML={{ __html: markdownToHtml((frame.textContent || '').trim() || ' ') }}
+        />
       )
     }
 
@@ -834,7 +834,7 @@ const CanvasPresentationView = () => {
                         const textLayoutClass =
                           element.frame.kind === 'text' &&
                           (!Array.isArray(element.frame.tableHeaders) || element.frame.tableHeaders.length === 0)
-                            ? 'justify-self-start pt-6 md:pt-10 md:pl-20 lg:pl-28 xl:pl-36'
+                            ? 'justify-self-center pt-6 md:pt-10'
                             : ''
                         const tableLayoutClass =
                           element.frame.kind === 'text' &&

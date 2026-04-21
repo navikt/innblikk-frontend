@@ -20,6 +20,7 @@ import {
   getWebsiteFrameRenderSrc,
   isImagePreviewUrl,
 } from '../../utils/canvasUtils.ts'
+import { markdownToHtml } from '../../utils/canvasMarkdown.ts'
 import { buildCanvasHierarchy } from '../../utils/canvasHierarchy.ts'
 import type { CanvasFrame } from '../../model/types.ts'
 import { useCanvasShareData } from '../hooks/useCanvasShareData.ts'
@@ -439,9 +440,10 @@ const CanvasShareView = () => {
       }
 
       return (
-        <BodyLong className="m-0 max-w-[62ch] whitespace-pre-wrap break-words text-[1.05rem] leading-8">
-          {(frame.textContent || '').trim() || ' '}
-        </BodyLong>
+        <div
+          className="max-w-[62ch] text-[var(--ax-text-default)] [&_a]:underline [&_a]:underline-offset-2 [&_h1]:mb-3 [&_h1]:mt-0 [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:mt-0 [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:mt-0 [&_h3]:font-semibold [&_ol]:my-0 [&_ol]:list-decimal [&_ol]:pl-[1.1em] [&_p]:m-0 [&_p+p]:mt-3 [&_strong]:font-semibold [&_ul]:my-0 [&_ul]:list-disc [&_ul]:pl-[1.1em] [&_ul>li+li]:mt-2"
+          dangerouslySetInnerHTML={{ __html: markdownToHtml((frame.textContent || '').trim() || ' ') }}
+        />
       )
     }
 
