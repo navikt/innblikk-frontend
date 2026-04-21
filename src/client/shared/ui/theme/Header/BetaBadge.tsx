@@ -5,7 +5,7 @@ import styles from './BetaBadge.module.css'
 export function BetaBadge() {
   function handleClick() {
     const properties: NavigereProperties = {
-      lenketekst: 'Meld deg på betaprogrammet',
+      lenketekst: 'Noe nytt er på vei',
       destinasjon: '/profil#betaprogram',
       seksjon: 'header',
     }
@@ -17,7 +17,7 @@ export function BetaBadge() {
       <span className={styles.promoTagContent}>
         <span className={styles.promoTagLabel}>Beta</span>
         <span className={styles.promoTagText}>
-          Meld deg på betaprogrammet 💖
+          Noe nytt er på vei 💖
           <ArrowRightIcon aria-hidden fontSize="1.25rem" className={styles.animatedArrow} />
         </span>
       </span>

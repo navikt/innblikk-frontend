@@ -9,6 +9,7 @@ import {
   Heading,
   HStack,
   Label,
+  Link,
   Loader,
   VStack,
 } from '@navikt/ds-react'
@@ -117,21 +118,31 @@ export default function UserProfile() {
                   <div>
                     <Box asChild marginBlock={'space-0 space-6'}>
                       <Heading level="2" size="medium" className="text-[var(--ax-text-brand-beige)]">
-                        Betaprogram ❤️
+                        Beta ❤️
                       </Heading>
                     </Box>
                     <BodyLong textColor="subtle">
-                      Få tidlig tilgang til nye funksjoner og hjelp oss å gjøre Innblikk bedre. Som betadeltaker kan du
-                      prøve eksperimentelle verktøy og gi tilbakemelding direkte til teamet.
+                      Prøv nye funksjoner, og hjelp oss å videreutvikle Innblikk – som faktisk funker for deg!
+                    </BodyLong>
+                    <BodyLong textColor="subtle" className="mt-2">
+                      Gi oss tilbakemeldinger i{' '}
+                      <Link href="https://nav-it.slack.com/archives/C02UGFS2J4B" target="_blank">
+                        #researchops
+                      </Link>
+                      , svar på{' '}
+                      <Link href="https://surveys.hotjar.com" target="_blank">
+                        brukerundersøkelsene
+                      </Link>{' '}
+                      når de dukker opp, eller{' '}
+                      <Link href="https://github.com/navikt/innblikk-frontend/issues/new" target="_blank">
+                        opprett et issue på GitHub
+                      </Link>{' '}
+                      om noe skurrer.
                     </BodyLong>
                   </div>
 
                   <Checkbox checked={flags.beta_opt_in} onChange={(e) => toggle('beta_opt_in', e.target.checked)}>
-                    Meld meg på betaprogrammet
-                    <BodyShort as="span" size="small" textColor="subtle" className="block font-normal mt-0.5">
-                      Du kan melde deg av når som helst. Preferansen lagres lokalt i nettleseren din og synkroniseres
-                      med serveren.
-                    </BodyShort>
+                    Meld meg på
                   </Checkbox>
                 </VStack>
               </section>

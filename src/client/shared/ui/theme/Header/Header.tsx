@@ -1,9 +1,10 @@
-import { CogIcon, ExternalLinkIcon, MenuHamburgerIcon, PersonIcon, ThemeIcon } from '@navikt/aksel-icons'
+import { CogIcon, ExternalLinkIcon, MenuHamburgerIcon, PersonIcon, TestFlaskIcon, ThemeIcon } from '@navikt/aksel-icons'
 import { Events, type ActionMenuApnetProperties, type ActionMenuValgValgtProperties } from '@navikt/analytics-types'
 import { ActionMenu, Button, Dropdown, Link, Tooltip } from '@navikt/ds-react'
 import { useEffect, useState } from 'react'
 import '../../../../tailwind.css'
 import { AppBlock } from '../AppBlock/AppBlock.tsx'
+import { getFeatureFlag } from '../../../lib/featureFlags.ts'
 
 interface HeaderProps {
   theme: 'light' | 'dark'
@@ -21,6 +22,7 @@ export default function Header({ theme }: HeaderProps) {
   const currentPath = `${pathname}${search}${hash}`
   const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
   const isDevEnvironment = isLocalhost || hostname.includes('.dev.nav.no')
+  const isBeta = getFeatureFlag('beta_opt_in')
 
   const guideLinks = [
     {
@@ -277,6 +279,25 @@ export default function Header({ theme }: HeaderProps) {
                 <div className="flex flex-col items-start leading-tight">
                   <div className="flex items-center gap-2">
                     <span className="text-xl md:text-2xl font-bold tracking-tight whitespace-nowrap">Innblikk</span>
+                    {isBeta && (
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          padding: 'var(--ax-space-2) var(--ax-space-8)',
+                          borderRadius: 'var(--ax-radius-12)',
+                          backgroundColor: 'var(--ax-bg-brand-blue-strong)',
+                          color: 'var(--ax-text-contrast)',
+                          fontSize: 'var(--ax-font-size-detail)',
+                          lineHeight: 'var(--ax-line-height-detail)',
+                          fontWeight: 600,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        Beta
+                        <TestFlaskIcon aria-hidden fontSize="1rem" style={{ marginLeft: 'var(--ax-space-4)' }} />
+                      </span>
+                    )}
                     {isDevEnvironment && (
                       <span className="text-[11px] uppercase tracking-[0.08em] font-semibold px-2 py-[1px] rounded-full border border-current/40">
                         {environmentBadgeLabel}
