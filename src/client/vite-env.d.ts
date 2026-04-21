@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
 interface UmamiTracker {
-  track(eventName: string, data?: Record<string, unknown>): void
+  track(eventName: string, data?: Record<string, unknown> | object): void
   track(dataCallback: (props: Record<string, unknown>) => Record<string, unknown>): void
 }
 
@@ -11,6 +11,8 @@ declare global {
     __innblikk_sporing_dev__?: (type: string, payload: Record<string, unknown>) => false
   }
 }
+
+export {}
 
 declare module 'xlsx-js-style' {
   export const utils: {
@@ -47,11 +49,13 @@ declare module '*.less' {
   export default content
 }
 
-interface ImportMetaEnv {
-  VITE_APP_TITLE: string
-  VITE_APP_VERSION: string
-}
+declare global {
+  interface ImportMetaEnv {
+    VITE_APP_TITLE: string
+    VITE_APP_VERSION: string
+  }
 
-interface ImportMeta {
-  readonly env: ImportMetaEnv
+  interface ImportMeta {
+    readonly env: ImportMetaEnv
+  }
 }
