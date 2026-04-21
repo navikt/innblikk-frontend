@@ -48,6 +48,33 @@ pnpm run dev
 
 ---
 
+## Kjøre mot lokal backend (innblikk-backend)
+
+Vil du teste mot en lokal backend i stedet for dev-miljøet? Start backend først:
+
+```bash
+# I innblikk-backend-repoet
+docker compose up                        # start databasen
+./gradlew bootRun -Dspring-boot.run.profiles=local   # start Spring Boot på :8086
+```
+
+> Flyway-migrasjoner kjøres automatisk ved oppstart. Feiler migrasjonene (f.eks. etter en schemaendring),
+> kjør `docker compose down -v && docker compose up` for å nullstille databasen.
+
+Start så frontend-serveren med `BACKEND_BASE_URL` pekende mot lokal backend:
+
+```bash
+BACKEND_BASE_URL=http://localhost:8086 \
+  MOCK_NAV_IDENT="Z123456" \
+  pnpm run server
+```
+
+```bash
+pnpm run dev
+```
+
+---
+
 ## Miljøvariabler
 
 | Variabel                         | Påkrevd | Beskrivelse                                    |
