@@ -139,6 +139,15 @@ const CanvasPresentationView = () => {
     [data?.defaultCustomEndDate, data?.defaultCustomStartDate, data?.defaultPeriod],
   )
 
+  const canvasPath = useMemo(() => {
+    const params = new URLSearchParams()
+    if (routeContext.projectId !== null) params.set('projectId', String(routeContext.projectId))
+    if (routeContext.dashboardId !== null) params.set('dashboardId', String(routeContext.dashboardId))
+    if (activeCategoryId !== null) params.set('categoryId', String(activeCategoryId))
+    const query = params.toString()
+    return `/canvas${query ? `?${query}` : ''}`
+  }, [activeCategoryId, routeContext.dashboardId, routeContext.projectId])
+
   const availableWebsites = Array.isArray(data?.availableWebsites) ? data.availableWebsites : []
   const selectedWebsiteDomain = data?.canvasConfiguredWebsiteId
     ? (availableWebsites.find((website) => website.id === data.canvasConfiguredWebsiteId)?.domain ?? null)
@@ -736,7 +745,7 @@ const CanvasPresentationView = () => {
               <Alert variant="warning">Ingen synlige elementer i denne fanen.</Alert>
             ) : (
               <article className="w-full" aria-label="Canvas presentasjon">
-                <div className="fixed right-4 top-4 z-30 h-11 w-44 group/corner">
+                <div className="fixed right-4 top-4 z-30 h-11 group/corner">
                   <div className="pointer-events-none inline-flex items-center gap-1 rounded-xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)]/92 p-1 opacity-0 shadow-[0_6px_18px_rgba(0,0,0,0.18)] backdrop-blur-sm transition-opacity duration-200 group-hover/corner:pointer-events-auto group-hover/corner:opacity-100 group-focus-within/corner:pointer-events-auto group-focus-within/corner:opacity-100">
                     <Button
                       size="xsmall"
@@ -769,6 +778,15 @@ const CanvasPresentationView = () => {
                       aria-label="Neste slide"
                       title="Neste slide"
                     />
+                    <Button
+                      size="xsmall"
+                      variant="tertiary-neutral"
+                      onClick={() => window.location.assign(canvasPath)}
+                      aria-label="Ferdig"
+                      title="Ferdig"
+                    >
+                      Ferdig
+                    </Button>
                   </div>
                 </div>
                 <section
