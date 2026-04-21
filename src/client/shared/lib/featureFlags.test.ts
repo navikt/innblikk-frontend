@@ -1,5 +1,5 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { getFeatureFlags, getFeatureFlag, setFeatureFlag } from './featureFlags.ts'
+import { getFeatureFlags, getFeatureFlag, setFeatureFlag, loadFeatureFlagsFromBackend } from './featureFlags.ts'
 
 describe('featureFlags', () => {
   beforeEach(() => {
@@ -111,6 +111,95 @@ describe('featureFlags', () => {
         vi.fn(() => Promise.reject(new Error('network error'))),
       )
       expect(() => setFeatureFlag('beta_opt_in', true)).not.toThrow()
+    })
+  })
+
+  describe('loadFeatureFlagsFromBackend', () => {
+    it('merges backend settings into localStorage and dispatches event', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() =>
+          Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ settings: { beta_opt_in: 'true', grafbygger_always_show_sql: 'true' } }),
+          }),
+        ),
+      )
+      const listener = vi.fn()
+      window.addEventListener('featureFlagsChange', listener)
+
+      loadFeatureFlagsFromBackend()
+      await new Promise((r) => setTimeout(r, 0))
+
+      const stored = JSON.parse(localStorage.getItem('innblikk_feature_flags')!)
+      expect(stored.beta_opt_in).toBe(true)
+      expect(stored.grafbygger_always_show_sql).toBe(true)
+      expect(listener).toHaveBeenCalledOnce()
+      const detail = (listener.mock.calls[0][0] as CustomEvent).detail
+      expect(detail.beta_opt_in).toBe(true)
+      window.removeEventListener('featureFlagsChange', listener)
+    })
+
+    it('backend false overrides existing localStorage true', async () => {
+      localStorage.setItem('innblikk_feature_flags', JSON.stringify({ beta_opt_in: true }))
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() =>
+          Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ settings: { beta_opt_in: 'false' } }),
+          }),
+        ),
+      )
+
+      loadFeatureFlagsFromBackend()
+      await new Promise((r) => setTimeout(r, 0))
+
+      const stored = JSON.parse(localStorage.getItem('innblikk_feature_flags')!)
+      expect(stored.beta_opt_in).toBe(false)
+    })
+
+    it('does nothing when backend returns non-ok response', async () => {
+      localStorage.setItem('innblikk_feature_flags', JSON.stringify({ beta_opt_in: true }))
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() => Promise.resolve({ ok: false })),
+      )
+
+      loadFeatureFlagsFromBackend()
+      await new Promise((r) => setTimeout(r, 0))
+
+      const stored = JSON.parse(localStorage.getItem('innblikk_feature_flags')!)
+      expect(stored.beta_opt_in).toBe(true)
+    })
+
+    it('does not throw when fetch fails', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() => Promise.reject(new Error('network error'))),
+      )
+
+      loadFeatureFlagsFromBackend()
+      await new Promise((r) => setTimeout(r, 0))
+    })
+
+    it('ignores unknown keys from backend', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() =>
+          Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ settings: { unknown_key: 'true', beta_opt_in: 'true' } }),
+          }),
+        ),
+      )
+
+      loadFeatureFlagsFromBackend()
+      await new Promise((r) => setTimeout(r, 0))
+
+      const stored = JSON.parse(localStorage.getItem('innblikk_feature_flags')!)
+      expect(stored.unknown_key).toBeUndefined()
+      expect(stored.beta_opt_in).toBe(true)
     })
   })
 })

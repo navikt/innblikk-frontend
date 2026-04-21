@@ -59,3 +59,25 @@ export const setFeatureFlag = <K extends keyof FeatureFlags>(key: K, value: Feat
 export const getFeatureFlag = <K extends keyof FeatureFlags>(key: K): FeatureFlags[K] => {
   return getFeatureFlags()[key]
 }
+
+export function loadFeatureFlagsFromBackend(): void {
+  fetch('/api/backend/user-settings')
+    .then((res) => {
+      if (!res.ok) return
+      return res.json() as Promise<{ settings: Record<string, string> }>
+    })
+    .then((data) => {
+      if (!data?.settings) return
+      const current = getFeatureFlags()
+      const merged: FeatureFlags = { ...current }
+      for (const key of Object.keys(DEFAULT_FLAGS) as (keyof FeatureFlags)[]) {
+        const raw = data.settings[key]
+        if (raw !== undefined) {
+          merged[key] = raw === 'true'
+        }
+      }
+      localStorage.setItem(FEATURE_FLAGS_KEY, JSON.stringify(merged))
+      window.dispatchEvent(new CustomEvent('featureFlagsChange', { detail: merged }))
+    })
+    .catch(() => {})
+}

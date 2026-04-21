@@ -8,6 +8,7 @@ import Header from './shared/ui/theme/Header/Header.tsx'
 import { ErrorBoundary } from './shared/ui/ErrorBoundary.tsx'
 import { useHead } from '@unhead/react'
 import { AppBlock } from './shared/ui/theme/AppBlock/AppBlock.tsx'
+import { loadFeatureFlagsFromBackend } from './shared/lib/featureFlags.ts'
 
 import './App.css'
 
@@ -99,6 +100,10 @@ function App() {
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
     return storedTheme || (prefersDark ? 'dark' : 'light')
   })
+
+  useEffect(() => {
+    loadFeatureFlagsFromBackend()
+  }, [])
 
   useEffect(() => {
     // Listen for theme changes from ThemeButton
