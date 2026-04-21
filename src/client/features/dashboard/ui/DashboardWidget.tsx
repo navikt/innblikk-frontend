@@ -290,6 +290,8 @@ interface DashboardWidgetProps {
   compactMode?: boolean
   chartHeightPx?: number
   headingLevel?: 2 | 3 | 4 | 5
+  titleClassName?: string
+  chartPresentationMode?: boolean
 }
 
 export const DashboardWidget = ({
@@ -313,6 +315,8 @@ export const DashboardWidget = ({
   compactMode = false,
   chartHeightPx,
   headingLevel = 2,
+  titleClassName = '',
+  chartPresentationMode = false,
 }: DashboardWidgetProps) => {
   const [loading, setLoading] = useState(shouldWaitForBatch ?? false)
   const [error, setError] = useState<string | null>(null)
@@ -465,9 +469,16 @@ export const DashboardWidget = ({
       return <div className="text-[var(--ax-text-subtle)] p-8 text-center">Ingen data funnet</div>
 
     if (chart.type === 'line') {
-      return <DashboardWidgetLineChart data={data} title={chart.title} heightPx={chartHeightPx} />
+      return (
+        <DashboardWidgetLineChart
+          data={data}
+          title={chart.title}
+          heightPx={chartHeightPx}
+          presentationMode={chartPresentationMode}
+        />
+      )
     } else if (chart.type === 'bar') {
-      return <DashboardWidgetBarChart data={data} heightPx={chartHeightPx} />
+      return <DashboardWidgetBarChart data={data} heightPx={chartHeightPx} presentationMode={chartPresentationMode} />
     } else if (chart.type === 'pie') {
       return <DashboardWidgetPieChart data={data} heightPx={chartHeightPx} />
     } else if (chart.type === 'table') {
@@ -649,19 +660,27 @@ export const DashboardWidget = ({
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   {titlePrefix}
                   {headingLevel === 5 ? (
-                    <h5 className="text-xl font-semibold text-[var(--ax-text-default)] whitespace-normal break-words">
+                    <h5
+                      className={`text-xl font-semibold text-[var(--ax-text-default)] whitespace-normal break-words ${titleClassName}`}
+                    >
                       {chart.title}
                     </h5>
                   ) : headingLevel === 4 ? (
-                    <h4 className="text-xl font-semibold text-[var(--ax-text-default)] whitespace-normal break-words">
+                    <h4
+                      className={`text-xl font-semibold text-[var(--ax-text-default)] whitespace-normal break-words ${titleClassName}`}
+                    >
                       {chart.title}
                     </h4>
                   ) : headingLevel === 3 ? (
-                    <h3 className="text-xl font-semibold text-[var(--ax-text-default)] whitespace-normal break-words">
+                    <h3
+                      className={`text-xl font-semibold text-[var(--ax-text-default)] whitespace-normal break-words ${titleClassName}`}
+                    >
                       {chart.title}
                     </h3>
                   ) : (
-                    <h2 className="text-xl font-semibold text-[var(--ax-text-default)] whitespace-normal break-words">
+                    <h2
+                      className={`text-xl font-semibold text-[var(--ax-text-default)] whitespace-normal break-words ${titleClassName}`}
+                    >
                       {chart.title}
                     </h2>
                   )}

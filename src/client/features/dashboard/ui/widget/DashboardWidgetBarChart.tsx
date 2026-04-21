@@ -6,6 +6,7 @@ import { extractJsonValue } from '../../utils/widgetUtils.ts'
 interface DashboardWidgetBarChartProps {
   data: DashboardRow[]
   heightPx?: number
+  presentationMode?: boolean
 }
 
 const MAX_CATEGORIES = 12
@@ -16,8 +17,12 @@ const toNumber = (value: unknown): number => {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
-const DashboardWidgetBarChart = ({ data, heightPx }: DashboardWidgetBarChartProps) => {
+const DashboardWidgetBarChart = ({ data, heightPx, presentationMode = false }: DashboardWidgetBarChartProps) => {
   const chartHeight = Math.max(160, heightPx ?? 350)
+  const axisFontSize = presentationMode ? 16 : undefined
+  const chartMargins = presentationMode
+    ? { left: 70, right: 20, top: 24, bottom: 52 }
+    : { left: 50, right: 20, top: 20, bottom: 35 }
   const keys = Object.keys(data[0] ?? {})
   if (keys.length < 2) {
     return <div className="text-[var(--ax-text-subtle)]">Trenger minst to kolonner (kategori og verdi)</div>
@@ -52,9 +57,13 @@ const DashboardWidgetBarChart = ({ data, heightPx }: DashboardWidgetBarChartProp
       <ResponsiveContainer>
         <VerticalBarChart
           data={displayData}
-          margins={{ left: 50, right: 20, top: 20, bottom: 35 }}
+          margins={chartMargins}
           yAxisTickCount={5}
           barWidth="auto"
+          styles={{
+            xAxis: { text: { fill: 'var(--ax-text-subtle)', fontSize: axisFontSize } },
+            yAxis: { text: { fill: 'var(--ax-text-subtle)', fontSize: axisFontSize } },
+          }}
         />
       </ResponsiveContainer>
     </div>

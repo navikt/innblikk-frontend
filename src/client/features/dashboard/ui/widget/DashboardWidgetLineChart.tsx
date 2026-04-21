@@ -8,10 +8,21 @@ interface DashboardWidgetLineChartProps {
   data: DashboardRow[]
   title: string
   heightPx?: number
+  presentationMode?: boolean
 }
 
-const DashboardWidgetLineChart = ({ data, title, heightPx }: DashboardWidgetLineChartProps) => {
+const DashboardWidgetLineChart = ({
+  data,
+  title,
+  heightPx,
+  presentationMode = false,
+}: DashboardWidgetLineChartProps) => {
   const chartHeight = Math.max(160, heightPx ?? 350)
+  const axisFontSize = presentationMode ? 16 : undefined
+  const legendFontSize = presentationMode ? 16 : undefined
+  const chartMargins = presentationMode
+    ? { left: 78, right: 40, top: 24, bottom: 54 }
+    : { left: 60, right: 40, top: 20, bottom: 40 }
   const keys = Object.keys(data[0] ?? {})
 
   const toChartX = (xVal: unknown, fallbackIndex: number): Date | number => {
@@ -75,14 +86,14 @@ const DashboardWidgetLineChart = ({ data, title, heightPx }: DashboardWidgetLine
             key={`line-multi-${lines.length}-${data.length}`}
             data={{ lineChartData: lines }}
             yAxisTickFormat={(d: number) => d.toLocaleString('nb-NO')}
-            margins={{ left: 60, right: 40, top: 20, bottom: 40 }}
+            margins={chartMargins}
             styles={{
-              xAxis: { text: { fill: 'var(--ax-text-subtle)' } },
-              yAxis: { text: { fill: 'var(--ax-text-subtle)' } },
+              xAxis: { text: { fill: 'var(--ax-text-subtle)', fontSize: axisFontSize } },
+              yAxis: { text: { fill: 'var(--ax-text-subtle)', fontSize: axisFontSize } },
             }}
             legendProps={{
               styles: {
-                text: { color: 'var(--ax-text-subtle)' },
+                text: { color: 'var(--ax-text-subtle)', fontSize: legendFontSize },
               },
             }}
           />
@@ -127,14 +138,14 @@ const DashboardWidgetLineChart = ({ data, title, heightPx }: DashboardWidgetLine
           key={chartKey}
           data={{ lineChartData: lines }}
           yAxisTickFormat={(d: number) => d.toLocaleString('nb-NO')}
-          margins={{ left: 60, right: 40, top: 20, bottom: 40 }}
+          margins={chartMargins}
           styles={{
-            xAxis: { text: { fill: 'var(--ax-text-subtle)' } },
-            yAxis: { text: { fill: 'var(--ax-text-subtle)' } },
+            xAxis: { text: { fill: 'var(--ax-text-subtle)', fontSize: axisFontSize } },
+            yAxis: { text: { fill: 'var(--ax-text-subtle)', fontSize: axisFontSize } },
           }}
           legendProps={{
             styles: {
-              text: { color: 'var(--ax-text-subtle)' },
+              text: { color: 'var(--ax-text-subtle)', fontSize: legendFontSize },
             },
           }}
         />

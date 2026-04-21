@@ -5,11 +5,14 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { DashboardWidget } from '../../../dashboard'
 import { getCanvasStickyColorOptionById } from '../../ui/sticky/CanvasStickyColorRegistry.ts'
 import { isIllustrationImageFrame } from '../../ui/image/CanvasImageUtils.ts'
+import CanvasDrawingFrame from '../../ui/drawing/CanvasDrawingFrame.tsx'
+import CanvasSqlEditorFrame from '../../ui/sql/CanvasSqlEditorFrame.tsx'
 import useCanvasWebsiteVisualization from '../../ui/website/useCanvasWebsiteVisualization.ts'
 import type { ClickmapItem } from '../../../clickmap/model/types.ts'
 import {
   CANVAS_TABLE_ROWS_PER_PAGE,
   CLICKMAP_EVENTS,
+  DEFAULT_DRAWING_STROKE_WIDTH,
   formatCanvasPathLabel,
   getCanvasFrameVisualizationMode,
   getVisualizationModeLabel,
@@ -20,6 +23,7 @@ import {
 import { markdownToHtml } from '../../utils/canvasMarkdown.ts'
 import { buildCanvasHierarchy } from '../../utils/canvasHierarchy.ts'
 import type { CanvasFrame } from '../../model/types.ts'
+import { DEFAULT_CANVAS_ICON_COLOR } from '../../ui/icon/CanvasIconRegistry.ts'
 import { useCanvasShareData } from '../hooks/useCanvasShareData.ts'
 import { getCanvasShareFrameBounds, parseCanvasShareRouteContext } from '../utils/canvasShareLayout.ts'
 
@@ -33,14 +37,15 @@ const isAccordionLike = (value: string): boolean => {
 }
 
 const getSectionElementLayoutClass = (frame: CanvasFrame): string => {
-  if (frame.kind === 'heading') return 'w-full max-w-[72ch]'
+  if (frame.kind === 'heading') return 'w-full max-w-[1100px]'
   if (frame.kind === 'text' && Array.isArray(frame.tableHeaders) && frame.tableHeaders.length > 0)
     return 'w-full max-w-[1100px]'
   if (frame.kind === 'text') return 'w-full max-w-[1100px]'
-  if (frame.kind === 'link') return 'w-full max-w-[760px]'
-  if (frame.kind === 'sticky') return 'w-full max-w-[520px]'
+  if (frame.kind === 'link') return 'w-full max-w-[1100px]'
+  if (frame.kind === 'sticky') return 'w-full max-w-[1100px]'
   if (frame.kind === 'website') return 'w-full max-w-[1200px]'
-  if (frame.kind === 'image') return 'mx-auto w-full max-w-[1440px]'
+  if (frame.kind === 'image') return 'w-full max-w-[1100px]'
+  if (frame.kind === 'drawing') return 'w-full max-w-[1100px]'
   if (frame.kind === 'chart') return 'w-full max-w-[1100px]'
   if (frame.kind === 'sql-editor' || frame.kind === 'code-block') return 'w-full max-w-[1100px]'
   return 'w-full max-w-[960px]'
@@ -433,7 +438,7 @@ const CanvasPresentationView = () => {
         <Heading
           level={headingLevelStr}
           size={headingLevel === 2 ? 'xlarge' : 'large'}
-          className="m-0 mx-auto max-w-[72ch] whitespace-pre-wrap break-words py-2 text-center text-[var(--ax-text-default)]"
+          className="m-0 w-full max-w-[1100px] whitespace-pre-wrap break-words py-2 text-left text-[var(--ax-text-default)]"
           style={headingStyle}
         >
           {(frame.headingText || frame.label || 'Overskrift').trim() || 'Overskrift'}
@@ -538,7 +543,7 @@ const CanvasPresentationView = () => {
       const stickyColor = getCanvasStickyColorOptionById(frame.stickyColor)
       return (
         <div
-          className="rounded-2xl border px-5 py-4 shadow-[0_8px_24px_rgba(0,0,0,0.07)]"
+          className="max-w-[520px] rounded-2xl border px-5 py-4 shadow-[0_8px_24px_rgba(0,0,0,0.07)]"
           style={{
             backgroundColor: stickyColor.background,
             borderColor: stickyColor.border,
@@ -557,7 +562,7 @@ const CanvasPresentationView = () => {
     if (frame.kind === 'link') {
       const href = frame.targetUrl || ''
       return (
-        <div className="rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-3.5 sm:p-4.5">
+        <div className="max-w-[560px] rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-3.5 sm:p-4.5">
           <Link href={href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5">
             {frame.label || formatCanvasPathLabel(frame.targetUrl, href)}
             <ExternalLink size={14} aria-hidden="true" />
@@ -575,7 +580,7 @@ const CanvasPresentationView = () => {
       const isIllustration = isIllustrationImageFrame(frame)
 
       return (
-        <div className={`flex w-full justify-center ${isIllustration ? 'max-w-[760px]' : ''}`}>
+        <div className="flex w-full justify-start">
           <img
             src={src}
             alt={frame.imageAltText ?? frame.label ?? 'Bilde'}
@@ -586,6 +591,38 @@ const CanvasPresentationView = () => {
             } ${isIllustration ? 'h-auto max-h-[560px] w-auto max-w-full' : ''}`}
             loading="lazy"
           />
+        </div>
+      )
+    }
+
+    if (frame.kind === 'drawing') {
+      const width = Math.max(320, frame.width ?? 720)
+      const height = Math.max(200, frame.height ?? 400)
+      const drawingRatio = width / height
+
+      return (
+        <div className="flex w-full justify-start">
+          <div className="w-full max-w-[1100px]">
+            <div
+              className="overflow-hidden rounded-2xl"
+              style={{
+                width: `min(100%, calc(68vh * ${drawingRatio}))`,
+                aspectRatio: `${width} / ${height}`,
+              }}
+            >
+              <CanvasDrawingFrame
+                width={width}
+                height={height}
+                drawingPath={frame.drawingPath}
+                drawingStrokeStyles={frame.drawingStrokeStyles}
+                strokeColor={frame.drawingColor || DEFAULT_CANVAS_ICON_COLOR}
+                strokeWidth={frame.drawingStrokeWidth ?? DEFAULT_DRAWING_STROKE_WIDTH}
+                rotationDeg={frame.drawingRotationDeg}
+                label={frame.label}
+                drawingAltText={frame.drawingAltText}
+              />
+            </div>
+          </div>
         </div>
       )
     }
@@ -698,17 +735,45 @@ const CanvasPresentationView = () => {
           chartLinksEnabled={false}
           compactMode
           headingLevel={4}
+          titleClassName="text-2xl md:text-3xl"
+          chartPresentationMode
           chartHeightPx={300}
         />
       )
     }
 
-    if (frame.kind === 'sql-editor' || frame.kind === 'code-block') {
+    if (frame.kind === 'sql-editor') {
       return (
-        <div className="rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-4 sm:p-5">
-          <BodyShort className="m-0 whitespace-pre-wrap break-words text-[var(--ax-text-subtle)]">
-            {(frame.sqlQuery || '').trim() || (frame.kind === 'code-block' ? 'Kodeblokk' : 'SQL-editor')}
-          </BodyShort>
+        <div className="w-full max-w-[1100px] rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2 sm:p-3">
+          <CanvasSqlEditorFrame
+            id={frame.id}
+            sqlQuery={frame.sqlQuery}
+            websiteId={frame.websiteId || data?.canvasConfiguredWebsiteId || undefined}
+            isInteractionLocked
+            onChange={() => undefined}
+            onPersist={() => undefined}
+          />
+        </div>
+      )
+    }
+
+    if (frame.kind === 'code-block') {
+      return (
+        <div className="w-full max-w-[1100px] rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2 sm:p-3">
+          <CanvasSqlEditorFrame
+            id={frame.id}
+            sqlQuery={frame.sqlQuery}
+            showTabs={false}
+            showResultTab={false}
+            showFormatButton={false}
+            showEditorContainerBorder={false}
+            codeLanguage="text"
+            usePlainCodeStyle
+            sqlTabLabel="KODE"
+            isInteractionLocked
+            onChange={() => undefined}
+            onPersist={() => undefined}
+          />
         </div>
       )
     }
@@ -807,7 +872,7 @@ const CanvasPresentationView = () => {
                       level="2"
                       size="xlarge"
                       id={`presentation-slide-${currentSlide.id}`}
-                      className="m-0 text-center"
+                      className="m-0 w-full max-w-[1100px] self-center text-left"
                       style={{
                         fontSize: 'clamp(2.8rem, 5.2vw, 4.6rem)',
                         lineHeight: 1.02,
@@ -832,12 +897,19 @@ const CanvasPresentationView = () => {
                         const headingLayoutClass =
                           element.frame.kind === 'heading' ? 'justify-self-center mb-16 md:mb-24' : ''
                         const imageLayoutClass = element.frame.kind === 'image' ? 'justify-self-center' : ''
+                        const drawingLayoutClass = element.frame.kind === 'drawing' ? 'justify-self-center' : ''
                         const textLayoutClass =
                           element.frame.kind === 'text' &&
                           (!Array.isArray(element.frame.tableHeaders) || element.frame.tableHeaders.length === 0)
                             ? 'justify-self-center pt-6 md:pt-10'
                             : ''
-                        const linkLayoutClass = element.frame.kind === 'link' ? 'justify-self-center' : ''
+                        const linkLayoutClass = element.frame.kind === 'link' ? 'justify-self-start' : ''
+                        const stickyLayoutClass = element.frame.kind === 'sticky' ? 'justify-self-center' : ''
+                        const chartLayoutClass = element.frame.kind === 'chart' ? 'justify-self-center' : ''
+                        const stickyGridClass =
+                          element.frame.kind === 'sticky' && !isStickyGridSlide && !isStickyOnlySlide
+                            ? 'md:col-span-2'
+                            : ''
                         const tableLayoutClass =
                           element.frame.kind === 'text' &&
                           Array.isArray(element.frame.tableHeaders) &&
@@ -847,7 +919,7 @@ const CanvasPresentationView = () => {
                         return (
                           <section
                             key={element.id}
-                            className={`space-y-2 ${getSectionElementGridClass(element.frame)} ${getSectionElementLayoutClass(element.frame)} ${headingLayoutClass} ${imageLayoutClass} ${textLayoutClass} ${linkLayoutClass} ${tableLayoutClass}`}
+                            className={`space-y-2 ${getSectionElementGridClass(element.frame)} ${getSectionElementLayoutClass(element.frame)} ${headingLayoutClass} ${imageLayoutClass} ${drawingLayoutClass} ${textLayoutClass} ${linkLayoutClass} ${stickyLayoutClass} ${chartLayoutClass} ${stickyGridClass} ${tableLayoutClass}`}
                           >
                             {renderFrame(element.frame, { headingLevel: 3 })}
                           </section>

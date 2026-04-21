@@ -118,7 +118,7 @@ const useCanvasPlacement = ({
 }: UseCanvasPlacementParams): UseCanvasPlacementResult => {
   const getNextSectionAutoPlacementPoint = useCallback(
     (sectionWidth: number, sectionHeight: number): { x: number; y: number } | null => {
-      const sectionGapX = 48
+      const sectionGapX = 24
       const sectionGapY = 48
       const baseX = 24
       // Leave vertical space so users can add a heading above the first section later.
@@ -138,6 +138,31 @@ const useCanvasPlacement = ({
           bottom: sectionFrame.y + (sectionFrame.height ?? sectionDefaults.height),
         }
       })
+
+      const previousSection = existingSections[existingSections.length - 1]
+      if (previousSection) {
+        const previousDefaults = getDefaultFrameSize(previousSection)
+        const previousRight = previousSection.x + (previousSection.width ?? previousDefaults.width)
+        const candidateTop = previousSection.y
+
+        let candidateLeft = previousRight + sectionGapX
+        const maxAdjustments = Math.max(existingSections.length * 2, 8)
+        for (let attempt = 0; attempt < maxAdjustments; attempt += 1) {
+          const candidateRight = candidateLeft + sectionWidth
+          const candidateBottom = candidateTop + sectionHeight
+          const overlappingSection = occupiedBounds.find((occupied) => {
+            const intersectsHorizontally = candidateLeft < occupied.right && candidateRight > occupied.left
+            const intersectsVertically = candidateTop < occupied.bottom && candidateBottom > occupied.top
+            return intersectsHorizontally && intersectsVertically
+          })
+
+          if (!overlappingSection) {
+            return { x: candidateLeft, y: candidateTop }
+          }
+
+          candidateLeft = overlappingSection.right + sectionGapX
+        }
+      }
 
       const candidateLimit = Math.max(existingSections.length + 4, 10)
       for (let row = 0; row < candidateLimit; row += 1) {
