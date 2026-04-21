@@ -7,12 +7,14 @@ import { DashboardWidget } from '../../../dashboard'
 import { copyToClipboard } from '../../../../shared/lib/clipboard.ts'
 import { getCanvasStickyColorOptionById } from '../../ui/sticky/CanvasStickyColorRegistry.ts'
 import { isIllustrationImageFrame } from '../../ui/image/CanvasImageUtils.ts'
+import CanvasDrawingFrame from '../../ui/drawing/CanvasDrawingFrame.tsx'
 import CanvasSqlEditorFrame from '../../ui/sql/CanvasSqlEditorFrame.tsx'
 import useCanvasWebsiteVisualization from '../../ui/website/useCanvasWebsiteVisualization.ts'
 import type { ClickmapItem } from '../../../clickmap/model/types.ts'
 import {
   CANVAS_TABLE_ROWS_PER_PAGE,
   CLICKMAP_EVENTS,
+  DEFAULT_DRAWING_STROKE_WIDTH,
   formatCanvasPathLabel,
   getCanvasCategoryDisplayName,
   getCanvasFrameVisualizationMode,
@@ -24,6 +26,7 @@ import {
 import { markdownToHtml } from '../../utils/canvasMarkdown.ts'
 import { buildCanvasHierarchy } from '../../utils/canvasHierarchy.ts'
 import type { CanvasFrame } from '../../model/types.ts'
+import { DEFAULT_CANVAS_ICON_COLOR } from '../../ui/icon/CanvasIconRegistry.ts'
 import { useCanvasShareData } from '../hooks/useCanvasShareData.ts'
 import {
   buildCanvasShareUrl,
@@ -47,6 +50,7 @@ const getSectionElementLayoutClass = (frame: CanvasFrame): string => {
   if (frame.kind === 'text') return 'md:col-span-2 md:max-w-[62ch]'
   if (frame.kind === 'website') return 'md:col-span-2'
   if (frame.kind === 'image') return 'md:col-span-2'
+  if (frame.kind === 'drawing') return 'md:col-span-2'
   if (frame.kind === 'chart') return 'md:col-span-2'
   if (frame.kind === 'sql-editor' || frame.kind === 'code-block') return 'md:col-span-2'
   return ''
@@ -489,17 +493,49 @@ const CanvasShareView = () => {
       const isIllustration = isIllustrationImageFrame(frame)
 
       return (
-        <div className={`space-y-2 ${isIllustration ? 'w-full max-w-[640px]' : ''}`}>
+        <div className="flex w-full justify-start">
           <img
             src={src}
             alt={frame.imageAltText ?? frame.label ?? 'Bilde'}
             className={`object-contain ${
               isIllustration
                 ? 'rounded-xl border-0 bg-transparent shadow-none'
-                : 'rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-white shadow-[0_10px_32px_rgba(0,0,0,0.06)]'
-            } ${isIllustration ? 'h-auto max-h-[420px] w-auto max-w-full' : 'max-h-[420px] w-full max-w-full'}`}
+                : 'h-auto max-h-[68vh] w-auto max-w-full rounded-2xl object-contain object-center shadow-[0_12px_34px_rgba(0,0,0,0.24)]'
+            } ${isIllustration ? 'h-auto max-h-[560px] w-auto max-w-full' : ''}`}
             loading="lazy"
           />
+        </div>
+      )
+    }
+
+    if (frame.kind === 'drawing') {
+      const width = Math.max(320, frame.width ?? 720)
+      const height = Math.max(200, frame.height ?? 400)
+      const drawingRatio = width / height
+
+      return (
+        <div className="flex w-full justify-start">
+          <div className="w-full max-w-[1100px]">
+            <div
+              className="overflow-hidden rounded-2xl"
+              style={{
+                width: `min(100%, calc(68vh * ${drawingRatio}))`,
+                aspectRatio: `${width} / ${height}`,
+              }}
+            >
+              <CanvasDrawingFrame
+                width={width}
+                height={height}
+                drawingPath={frame.drawingPath}
+                drawingStrokeStyles={frame.drawingStrokeStyles}
+                strokeColor={frame.drawingColor || DEFAULT_CANVAS_ICON_COLOR}
+                strokeWidth={frame.drawingStrokeWidth ?? DEFAULT_DRAWING_STROKE_WIDTH}
+                rotationDeg={frame.drawingRotationDeg}
+                label={frame.label}
+                drawingAltText={frame.drawingAltText}
+              />
+            </div>
+          </div>
         </div>
       )
     }
