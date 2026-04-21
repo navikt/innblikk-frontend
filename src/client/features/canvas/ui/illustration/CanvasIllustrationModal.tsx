@@ -33,7 +33,7 @@ const CanvasIllustrationModal = ({
     open={open}
     onClose={onClose}
     header={{ heading: isEdit ? 'Rediger Nav-illustrasjon' : 'Legg til Nav-illustrasjon' }}
-    width="large"
+    width="medium"
   >
     <Modal.Body>
       <div className="space-y-3">

@@ -286,7 +286,7 @@ const getDashboardOptionLabel = (dashboard: {
   name?: string | null
   description?: string | null
 }): string =>
-  `${dashboard.name?.trim() || `Dashboard ${dashboard.id}`}${isCanvasDashboardDescription(dashboard.description) ? ' (canvas)' : ''}`
+  `${dashboard.name?.trim() || `Dashboard ${dashboard.id}`}${isCanvasDashboardDescription(dashboard.description ?? undefined) ? ' (canvas)' : ''}`
 
 const buildDashboardTargetUrl = (dashboardId: number, projectId: number, isCanvas: boolean): string => {
   if (isCanvas) return `/canvas?dashboardId=${dashboardId}&projectId=${projectId}`
