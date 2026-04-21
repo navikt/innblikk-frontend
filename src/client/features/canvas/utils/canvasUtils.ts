@@ -259,8 +259,10 @@ export const parseDashboardTargetUrl = (
   if (!targetUrl) return { projectId: null, dashboardId: null }
   try {
     const url = new URL(targetUrl, window.location.origin)
-    const match = url.pathname.match(/^\/dashboard\/(\d+)\b/)
-    const dashboardId = match ? Number(match[1]) : NaN
+    const dashboardPathMatch = url.pathname.match(/^\/dashboard\/(\d+)\b/)
+    const dashboardIdFromPath = dashboardPathMatch ? Number(dashboardPathMatch[1]) : NaN
+    const dashboardIdFromQuery = Number(url.searchParams.get('dashboardId'))
+    const dashboardId = Number.isFinite(dashboardIdFromPath) ? dashboardIdFromPath : dashboardIdFromQuery
     const projectId = Number(url.searchParams.get('projectId'))
     return {
       projectId: Number.isFinite(projectId) ? projectId : null,

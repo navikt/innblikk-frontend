@@ -382,7 +382,7 @@ const Canvas = () => {
   const [editImageError, setEditImageError] = useState<string | null>(null)
   const [projectOptions, setProjectOptions] = useState<Array<{ id: number; name: string }>>([])
   const [selectedProjectToAddId, setSelectedProjectToAddId] = useState('')
-  const [dashboardOptions, setDashboardOptions] = useState<Array<{ id: number; name: string }>>([])
+  const [dashboardOptions, setDashboardOptions] = useState<Array<{ id: number; name: string; isCanvas: boolean }>>([])
   const [selectedDashboardToAddId, setSelectedDashboardToAddId] = useState('')
   const [isLoadingDashboardOptions, setIsLoadingDashboardOptions] = useState(false)
   const [createCanvasProjectOptions, setCreateCanvasProjectOptions] = useState<Array<{ id: number; name: string }>>([])
@@ -403,7 +403,9 @@ const Canvas = () => {
     [],
   )
   const [editDashboardSelectedProjectId, setEditDashboardSelectedProjectId] = useState('')
-  const [editDashboardOptions, setEditDashboardOptions] = useState<Array<{ id: number; name: string }>>([])
+  const [editDashboardOptions, setEditDashboardOptions] = useState<
+    Array<{ id: number; name: string; isCanvas: boolean }>
+  >([])
   const [editDashboardSelectedDashboardId, setEditDashboardSelectedDashboardId] = useState('')
   const [isLoadingEditDashboardOptions, setIsLoadingEditDashboardOptions] = useState(false)
   const [headingTextInput, setHeadingTextInput] = useState('')

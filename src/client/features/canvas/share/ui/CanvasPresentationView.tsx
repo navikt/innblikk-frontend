@@ -1,5 +1,5 @@
 import { Alert, BodyLong, BodyShort, Button, Heading, Link, Loader, Select, Table } from '@navikt/ds-react'
-import { ChevronLeft, ChevronRight, ExternalLink, Maximize2, Minimize2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ExternalLink, Maximize2, Minimize2, Moon, Sun } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { DashboardWidget } from '../../../dashboard'
@@ -283,6 +283,18 @@ const CanvasPresentationView = () => {
       return
     }
     await document.exitFullscreen()
+  }, [])
+
+  const toggleTheme = useCallback(() => {
+    setTheme((current) => {
+      const nextTheme = current === 'dark' ? 'light' : 'dark'
+      try {
+        window.localStorage.setItem('umami-theme', nextTheme)
+      } catch {
+        // Ignore storage errors and still update the runtime theme.
+      }
+      return nextTheme
+    })
   }, [])
 
   const renderClickmapTopList = (
@@ -855,6 +867,14 @@ const CanvasPresentationView = () => {
                       disabled={currentSlideIndex >= slides.length - 1}
                       aria-label="Neste slide"
                       title="Neste slide"
+                    />
+                    <Button
+                      size="xsmall"
+                      variant="tertiary-neutral"
+                      icon={theme === 'dark' ? <Sun size={16} aria-hidden /> : <Moon size={16} aria-hidden />}
+                      onClick={toggleTheme}
+                      aria-label={theme === 'dark' ? 'Bytt til lyst tema' : 'Bytt til mørkt tema'}
+                      title={theme === 'dark' ? 'Bytt til lyst tema' : 'Bytt til mørkt tema'}
                     />
                     <Button
                       size="xsmall"

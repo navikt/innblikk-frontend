@@ -53,6 +53,7 @@ import {
 } from '../utils/canvasUtils.ts'
 
 type Setter<T> = Dispatch<SetStateAction<T>>
+type DashboardOption = { id: number; name: string; isCanvas: boolean }
 
 type UseCanvasFrameFormHandlersParams = {
   projectId: number | null
@@ -173,8 +174,8 @@ type UseCanvasFrameFormHandlersParams = {
   setProjectOptions: Setter<Array<{ id: number; name: string }>>
   selectedProjectToAddId: string
   setSelectedProjectToAddId: Setter<string>
-  dashboardOptions: Array<{ id: number; name: string }>
-  setDashboardOptions: Setter<Array<{ id: number; name: string }>>
+  dashboardOptions: DashboardOption[]
+  setDashboardOptions: Setter<DashboardOption[]>
   selectedDashboardToAddId: string
   setSelectedDashboardToAddId: Setter<string>
   isLoadingDashboardOptions: boolean
@@ -184,8 +185,8 @@ type UseCanvasFrameFormHandlersParams = {
   setEditDashboardProjectOptions: Setter<Array<{ id: number; name: string }>>
   editDashboardSelectedProjectId: string
   setEditDashboardSelectedProjectId: Setter<string>
-  editDashboardOptions: Array<{ id: number; name: string }>
-  setEditDashboardOptions: Setter<Array<{ id: number; name: string }>>
+  editDashboardOptions: DashboardOption[]
+  setEditDashboardOptions: Setter<DashboardOption[]>
   editDashboardSelectedDashboardId: string
   setEditDashboardSelectedDashboardId: Setter<string>
   isLoadingEditDashboardOptions: boolean
@@ -278,6 +279,18 @@ const getNextAutoSectionLabel = (frames: CanvasFrame[], excludeFrameId?: string)
   let next = 1
   while (usedNumbers.has(next)) next += 1
   return `Seksjon ${next}`
+}
+
+const getDashboardOptionLabel = (dashboard: {
+  id: number
+  name?: string | null
+  description?: string | null
+}): string =>
+  `${dashboard.name?.trim() || `Dashboard ${dashboard.id}`}${isCanvasDashboardDescription(dashboard.description) ? ' (canvas)' : ''}`
+
+const buildDashboardTargetUrl = (dashboardId: number, projectId: number, isCanvas: boolean): string => {
+  if (isCanvas) return `/canvas?dashboardId=${dashboardId}&projectId=${projectId}`
+  return `/dashboard/${dashboardId}?projectId=${projectId}&focused=true`
 }
 
 const useCanvasFrameFormHandlers = ({
@@ -706,12 +719,11 @@ const useCanvasFrameFormHandlers = ({
       setAddDashboardError(null)
 
       try {
-        const dashboards = (await fetchDashboards(projectIdToLoad)).filter(
-          (dashboard) => !isCanvasDashboardDescription(dashboard.description),
-        )
+        const dashboards = await fetchDashboards(projectIdToLoad)
         const options = dashboards.map((dashboard) => ({
           id: dashboard.id,
-          name: dashboard.name?.trim() || `Dashboard ${dashboard.id}`,
+          name: getDashboardOptionLabel(dashboard),
+          isCanvas: isCanvasDashboardDescription(dashboard.description),
         }))
         setDashboardOptions(options)
         setSelectedDashboardToAddId((prev) => {
@@ -741,12 +753,11 @@ const useCanvasFrameFormHandlers = ({
       setEditDashboardError(null)
 
       try {
-        const dashboards = (await fetchDashboards(projectIdToLoad)).filter(
-          (dashboard) => !isCanvasDashboardDescription(dashboard.description),
-        )
+        const dashboards = await fetchDashboards(projectIdToLoad)
         const options = dashboards.map((dashboard) => ({
           id: dashboard.id,
-          name: dashboard.name?.trim() || `Dashboard ${dashboard.id}`,
+          name: getDashboardOptionLabel(dashboard),
+          isCanvas: isCanvasDashboardDescription(dashboard.description),
         }))
         setEditDashboardOptions(options)
         setEditDashboardSelectedDashboardId((prev) => {
@@ -1012,7 +1023,7 @@ const useCanvasFrameFormHandlers = ({
     const normalizedProjectId = Number.isFinite(selectedProjectId) ? selectedProjectId : null
     const dashboardUrl =
       normalizedProjectId !== null
-        ? `/dashboard/${selectedDashboard.id}?projectId=${normalizedProjectId}&focused=true`
+        ? buildDashboardTargetUrl(selectedDashboard.id, normalizedProjectId, selectedDashboard.isCanvas)
         : null
     if (!dashboardUrl) {
       setAddDashboardError('Mangler prosjekt-kontekst. Åpne canvas fra ProjectManager.')
@@ -1085,15 +1096,11 @@ const useCanvasFrameFormHandlers = ({
               : (projectOptions[0]?.id ?? null)
         setEditDashboardSelectedProjectId(preferredProjectId ? String(preferredProjectId) : '')
 
-        const dashboards =
-          preferredProjectId !== null
-            ? (await fetchDashboards(preferredProjectId)).filter(
-                (dashboard) => !isCanvasDashboardDescription(dashboard.description),
-              )
-            : []
+        const dashboards = preferredProjectId !== null ? await fetchDashboards(preferredProjectId) : []
         const dashboardOptions = dashboards.map((dashboard) => ({
           id: dashboard.id,
-          name: dashboard.name?.trim() || `Dashboard ${dashboard.id}`,
+          name: getDashboardOptionLabel(dashboard),
+          isCanvas: isCanvasDashboardDescription(dashboard.description),
         }))
         setEditDashboardOptions(dashboardOptions)
         const preferredDashboardId =
@@ -1458,7 +1465,7 @@ const useCanvasFrameFormHandlers = ({
       return
     }
 
-    const targetUrl = `/dashboard/${normalizedDashboardId}?projectId=${normalizedProjectId}&focused=true`
+    const targetUrl = buildDashboardTargetUrl(normalizedDashboardId, normalizedProjectId, selectedDashboard.isCanvas)
     const comparableUrl = getComparableUrl(window.location.origin + targetUrl)
     if (
       frames.some(
