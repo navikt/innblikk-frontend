@@ -152,18 +152,7 @@ function App() {
           document.body.appendChild(script);
         `,
       },
-      {
-        type: 'text/javascript',
-        innerHTML: `
-          (function() {
-            var id = localStorage.getItem('innblikk_analytics_id');
-            if (!id) { id = crypto.randomUUID(); localStorage.setItem('innblikk_analytics_id', id); }
-            var interval = setInterval(function() {
-              if (window.umami) { clearInterval(interval); window.umami.identify(id); }
-            }, 100);
-          })();
-        `,
-      },
+
       ...(!isProd && !isDev
         ? [
             {

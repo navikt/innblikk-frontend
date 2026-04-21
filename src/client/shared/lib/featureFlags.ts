@@ -1,5 +1,3 @@
-import { getOrCreateAnalyticsId } from './analyticsId.ts'
-
 const FEATURE_FLAGS_KEY = 'innblikk_feature_flags'
 
 function syncSettingsToBackend(flags: FeatureFlags): void {
@@ -10,7 +8,7 @@ function syncSettingsToBackend(flags: FeatureFlags): void {
   fetch('/api/backend/user-settings', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ settings, analyticsId: getOrCreateAnalyticsId() }),
+    body: JSON.stringify({ settings }),
   }).catch(() => {
     // silent fail — localStorage is source of truth
   })
