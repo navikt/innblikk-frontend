@@ -30,6 +30,8 @@ type CanvasSqlEditorFrameProps = {
   lockOwnerLabel?: string | null
   onChange: (id: string, nextValue: string) => void
   onPersist: (id: string) => Promise<void> | void
+  onStartEditing?: (id: string) => void
+  onBlur?: (id: string) => void
 }
 
 const CanvasSqlEditorFrame = ({
@@ -48,6 +50,8 @@ const CanvasSqlEditorFrame = ({
   lockOwnerLabel = null,
   onChange,
   onPersist,
+  onStartEditing,
+  onBlur,
 }: CanvasSqlEditorFrameProps) => {
   const isEditorReadOnly = isInteractionLocked || isLockedByOther
   const [result, setResult] = useState<QueryResult | null>(null)
@@ -228,6 +232,16 @@ const CanvasSqlEditorFrame = ({
     }
   }, [id, onChange, sqlQuery])
 
+  const handleEditorFocus = useCallback(() => {
+    if (isEditorReadOnly) return
+    onStartEditing?.(id)
+  }, [id, isEditorReadOnly, onStartEditing])
+
+  const handleEditorBlur = useCallback(() => {
+    if (isEditorReadOnly) return
+    onBlur?.(id)
+  }, [id, isEditorReadOnly, onBlur])
+
   const sqlEditorPanel = (
     <div className="flex h-full min-h-0 flex-col gap-2 pt-2">
       {showFormatButton ? (
@@ -259,6 +273,8 @@ const CanvasSqlEditorFrame = ({
           theme={oneDark}
           extensions={codeLanguage === 'sql' ? [sql()] : []}
           editable={!isEditorReadOnly}
+          onFocus={handleEditorFocus}
+          onBlur={handleEditorBlur}
           onChange={(value) => {
             if (isEditorReadOnly) return
             onChange(id, value)

@@ -1171,6 +1171,8 @@ const CanvasFrameLayer = ({
                     lockOwnerLabel={editLockStatus.ownerLabel}
                     onChange={handleEditableFrameChange}
                     onPersist={handlePersistSqlEditorFrame}
+                    onStartEditing={handleStartEditingFrame}
+                    onBlur={handleEditableFrameBlur}
                   />
                 ) : frame.kind === 'code-block' ? (
                   <CanvasSqlEditorFrame
@@ -1188,6 +1190,8 @@ const CanvasFrameLayer = ({
                     lockOwnerLabel={editLockStatus.ownerLabel}
                     onChange={handleEditableFrameChange}
                     onPersist={handlePersistSqlEditorFrame}
+                    onStartEditing={handleStartEditingFrame}
+                    onBlur={handleEditableFrameBlur}
                   />
                 ) : frame.kind === 'sticky' ? (
                   <div className="relative h-full">
