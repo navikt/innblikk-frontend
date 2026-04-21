@@ -1,6 +1,16 @@
 import type { GoalStep } from '../model/types'
 import { normalizeUrlToPath, normalizeUrlQuery } from '../../../shared/lib/utils'
 
+const decodeParamToken = (value: string): string => {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}
+
+const encodeParamToken = (value: string): string => encodeURIComponent(value)
+
 export function createDefaultStartStep(): GoalStep {
   return { type: 'url', value: '', query: '' }
 }
@@ -55,7 +65,102 @@ export function getGoalStepUrlDisplay(step: Pick<GoalStep, 'value' | 'query'>): 
   return query ? `${path}?${query}` : path
 }
 
+function parseGoalStepParam(param: string): GoalStep | null {
+  if (param.startsWith('url:')) {
+    const rawValue = decodeParamToken(param.substring(4))
+    const { value, query } = splitGoalStepUrlInput(rawValue)
+    return { type: 'url', value, query }
+  }
+
+  if (param.startsWith('event:')) {
+    const parts = param.split('|')
+    const eventName = decodeParamToken(parts[0].substring(6)).trim()
+    if (!eventName) return null
+
+    let urlPath: string | undefined
+    let urlQuery: string | undefined
+    const parsedParams: NonNullable<GoalStep['params']> = []
+
+    for (let i = 1; i < parts.length; i++) {
+      const part = parts[i]
+      if (part.startsWith('url:')) {
+        const rawUrl = decodeParamToken(part.substring(4))
+        const parsedUrl = splitGoalStepUrlInput(rawUrl)
+        urlPath = parsedUrl.value || undefined
+        urlQuery = parsedUrl.query || undefined
+      } else if (part.startsWith('param:')) {
+        const payload = part.substring(6)
+        const [encodedKey = '', operator = 'equals', ...encodedValueParts] = payload.split(':')
+        const key = decodeParamToken(encodedKey).trim()
+        const rawOperator = decodeParamToken(operator)
+        const value = decodeParamToken(encodedValueParts.join(':')).trim()
+        if (!key || !value) continue
+
+        parsedParams.push({
+          key,
+          operator: rawOperator === 'contains' ? 'contains' : 'equals',
+          value,
+        })
+      }
+    }
+
+    return {
+      type: 'event',
+      value: eventName,
+      query: undefined,
+      urlPath,
+      urlQuery,
+      params: parsedParams,
+    }
+  }
+
+  return null
+}
+
+export function serializeGoalStep(step: GoalStep): string {
+  const normalized = normalizeGoalStep(step)
+  if (normalized.type === 'url') {
+    return `url:${encodeParamToken(getGoalStepUrlDisplay(normalized))}`
+  }
+
+  const parts = [`event:${encodeParamToken(normalized.value)}`]
+  const eventUrl = getGoalStepUrlDisplay({ value: normalized.urlPath ?? '', query: normalized.urlQuery ?? '' })
+  if (eventUrl) {
+    parts.push(`url:${encodeParamToken(eventUrl)}`)
+  }
+
+  for (const param of normalized.params ?? []) {
+    parts.push(
+      `param:${encodeParamToken(param.key)}:${encodeParamToken(param.operator)}:${encodeParamToken(param.value)}`,
+    )
+  }
+
+  return parts.join('|')
+}
+
 export function parseGoalStepsFromParams(searchParams: URLSearchParams): { startStep: GoalStep; goalStep: GoalStep } {
+  const parsedStart = parseGoalStepParam(searchParams.get('startStep') || '')
+  const parsedGoal = parseGoalStepParam(searchParams.get('goalStep') || '')
+  if (parsedStart || parsedGoal) {
+    return {
+      startStep: parsedStart ?? createDefaultStartStep(),
+      goalStep: parsedGoal ?? createDefaultGoalStep(),
+    }
+  }
+
+  const legacyStart = splitGoalStepUrlInput(searchParams.get('startUrl') || '')
+  const legacyGoal = splitGoalStepUrlInput(searchParams.get('goalUrl') || '')
+  if (legacyStart.value || legacyGoal.value) {
+    return {
+      startStep: legacyStart.value
+        ? { type: 'url', value: legacyStart.value, query: legacyStart.query }
+        : createDefaultStartStep(),
+      goalStep: legacyGoal.value
+        ? { type: 'url', value: legacyGoal.value, query: legacyGoal.query }
+        : createDefaultGoalStep(),
+    }
+  }
+
   const urlPathFallback = searchParams.get('urlPath') || searchParams.get('pagePath') || ''
   const fallbackStart = splitGoalStepUrlInput(urlPathFallback)
 

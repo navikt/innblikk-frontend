@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Alert,
   BodyShort,
@@ -83,6 +83,35 @@ const GoalCompletion = () => {
   const [eventInputByStep, setEventInputByStep] = useState<Record<string, string>>({})
   const hasValidSteps = startStep.value.trim() !== '' && goalStep.value.trim() !== ''
 
+  useEffect(() => {
+    if (!selectedWebsite) return
+
+    const steps: Array<{ id: 'start' | 'goal'; step: GoalStep }> = [
+      { id: 'start', step: startStep },
+      { id: 'goal', step: goalStep },
+    ]
+
+    for (const { id, step } of steps) {
+      if (step.type !== 'event' || !step.value.trim()) continue
+      const scopeKey = `${selectedWebsite.id}:${id}`
+      const stepUrlData = getStepUrlData(step)
+      const hasOptions = (eventOptionsByStep[scopeKey]?.length ?? 0) > 0
+      const isLoading = loadingEventsByStep[scopeKey] ?? false
+      if (hasOptions || isLoading) continue
+
+      void (async () => {
+        setLoadingEventsByStep((prev) => ({ ...prev, [scopeKey]: true }))
+        try {
+          const events = await fetchAvailableEvents(stepUrlData.value)
+          setEventOptionsByStep((prev) => ({ ...prev, [scopeKey]: events }))
+          setEventInputByStep((prev) => ({ ...prev, [scopeKey]: step.value }))
+        } finally {
+          setLoadingEventsByStep((prev) => ({ ...prev, [scopeKey]: false }))
+        }
+      })()
+    }
+  }, [selectedWebsite, startStep, goalStep, eventOptionsByStep, loadingEventsByStep, fetchAvailableEvents])
+
   return (
     <ChartLayout
       title="Måloppnåelse"
@@ -133,7 +162,7 @@ const GoalCompletion = () => {
                   const scopeKey = `${selectedWebsite?.id ?? 'none'}:${id}`
                   const eventOptions = eventOptionsByStep[scopeKey] ?? []
                   const isLoadingEvents = loadingEventsByStep[scopeKey] ?? false
-                  const eventInput = eventInputByStep[scopeKey] ?? ''
+                  const eventInput = eventInputByStep[scopeKey] ?? (step.type === 'event' ? step.value : '')
                   const stepUrlData = getStepUrlData(step)
                   return (
                     <>
@@ -169,7 +198,7 @@ const GoalCompletion = () => {
                         <Label size="small" htmlFor={`goal-step-event-${scopeKey}`}>
                           Hendelse (valgfritt)
                         </Label>
-                        {eventOptions.length === 0 && (
+                        {eventOptions.length === 0 && step.type !== 'event' && (
                           <div className="flex justify-start">
                             <Button
                               size="small"

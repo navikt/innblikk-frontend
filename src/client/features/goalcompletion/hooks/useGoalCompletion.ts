@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import type { ILineChartProps } from '@fluentui/react-charting'
 import { parseISO } from 'date-fns'
@@ -8,7 +8,7 @@ import { useCookieSupport, useCookieStartDate } from '../../../shared/hooks/useS
 import { getStoredPeriod, getCookieBadge } from '../../../shared/lib/utils'
 import { fetchGoalCompletionData } from '../api/goalCompletionApi'
 import { getGoalCompletionDateRange, buildGoalCompletionChartData } from '../utils/goalCompletionUtils'
-import { normalizeGoalStep, parseGoalStepsFromParams } from '../utils/goalStepUtils'
+import { normalizeGoalStep, parseGoalStepsFromParams, serializeGoalStep } from '../utils/goalStepUtils'
 import { fetchWebsiteEvents } from '../../funnel/api/funnelApi'
 
 const EMPTY_SUMMARY: GoalCompletionSummary = {
@@ -86,6 +86,7 @@ export function useGoalCompletion(): GoalCompletionState {
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
   const [hasAttemptedFetch, setHasAttemptedFetch] = useState<boolean>(false)
+  const hasAutoSubmittedRef = useRef(false)
   const [lastAppliedFilterKey, setLastAppliedFilterKey] = useState<string | null>(null)
   const [eventsCache, setEventsCache] = useState<Record<string, string[]>>({})
 
@@ -186,6 +187,8 @@ export function useGoalCompletion(): GoalCompletionState {
       newParams.delete('goalUrl')
       newParams.delete('startPathOperator')
       newParams.delete('goalPathOperator')
+      newParams.set('startStep', serializeGoalStep(normalizedStartStep))
+      newParams.set('goalStep', serializeGoalStep(normalizedGoalStep))
       window.history.replaceState({}, '', `${window.location.pathname}?${newParams.toString()}`)
       setLastAppliedFilterKey(appliedFilterKey)
     }
@@ -202,6 +205,28 @@ export function useGoalCompletion(): GoalCompletionState {
     customStartDate,
     customEndDate,
   ])
+
+  useEffect(() => {
+    const hasConfigParams =
+      searchParams.has('startStep') ||
+      searchParams.has('goalStep') ||
+      searchParams.has('startUrl') ||
+      searchParams.has('goalUrl') ||
+      searchParams.has('urlPath') ||
+      searchParams.has('pagePath')
+
+    const normalizedStartStep = normalizeGoalStep(startStep)
+    const normalizedGoalStep = normalizeGoalStep(goalStep)
+    const hasValidSteps = Boolean(normalizedStartStep.value && normalizedGoalStep.value)
+
+    if (selectedWebsite && hasConfigParams && hasValidSteps && !hasAutoSubmittedRef.current && !loading) {
+      hasAutoSubmittedRef.current = true
+      const timer = window.setTimeout(() => {
+        void fetchData()
+      }, 0)
+      return () => window.clearTimeout(timer)
+    }
+  }, [fetchData, goalStep, loading, searchParams, selectedWebsite, startStep])
 
   return {
     selectedWebsite,
