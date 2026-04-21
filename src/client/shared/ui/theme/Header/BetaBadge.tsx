@@ -6,14 +6,14 @@ export function BetaBadge() {
   function handleClick() {
     const properties: NavigereProperties = {
       lenketekst: 'Noe nytt er på vei',
-      destinasjon: '/profil#betaprogram',
+      destinasjon: '/profil#beta',
       seksjon: 'header',
     }
     window.umami?.track(Events.NAVIGERE, properties)
   }
 
   return (
-    <a href="/profil#betaprogram" className={styles.promoTag} onClick={handleClick}>
+    <a href="/profil#beta" className={styles.promoTag} onClick={handleClick}>
       <span className={styles.promoTagContent}>
         <span className={styles.promoTagLabel}>Beta</span>
         <span className={styles.promoTagText}>

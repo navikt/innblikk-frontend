@@ -5,7 +5,7 @@ import { getFeatureFlag } from './shared/lib/featureFlags.ts'
 
 const BetaGuard = ({ children }: { children: ReactElement }) => {
   if (!getFeatureFlag('beta_opt_in')) {
-    return <Navigate to="/profil#betaprogram" replace />
+    return <Navigate to="/profil#beta" replace />
   }
   return children
 }

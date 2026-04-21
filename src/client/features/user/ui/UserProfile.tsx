@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import {
   Alert,
   Bleed,
@@ -24,6 +25,16 @@ export default function UserProfile() {
   const [loading, setLoading] = useState(true)
   const [userError, setUserError] = useState<string | null>(null)
   const [flags, setFlags] = useState<FeatureFlags>(getFeatureFlags)
+  const { hash } = useLocation()
+
+  useEffect(() => {
+    if (!hash) return
+    const el = document.querySelector(hash)
+    if (el) {
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      el.scrollIntoView({ behavior: prefersReducedMotion ? 'instant' : 'smooth', block: 'start' })
+    }
+  }, [hash, loading])
 
   useEffect(() => {
     fetch('/api/user/me')
@@ -113,7 +124,7 @@ export default function UserProfile() {
 
           <Bleed asChild reflectivePadding marginBlock={'space-32'} marginInline={'space-32'}>
             <Box background={'brand-beige-soft'} borderColor="brand-beige" borderWidth="1" borderRadius={'12'}>
-              <section id="betaprogram">
+              <section id="beta">
                 <VStack gap="space-16">
                   <div>
                     <Box asChild marginBlock={'space-0 space-6'}>
