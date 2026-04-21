@@ -43,10 +43,11 @@ const getSectionElementLayoutClass = (frame: CanvasFrame): string => {
   if (frame.kind === 'text') return 'w-full max-w-[1100px]'
   if (frame.kind === 'link') return 'w-full max-w-[1100px]'
   if (frame.kind === 'sticky') return 'w-full max-w-[1100px]'
+  if (frame.kind === 'website' && frame.isInternalDashboard) return 'w-full max-w-[1400px]'
   if (frame.kind === 'website') return 'w-full max-w-[1200px]'
   if (frame.kind === 'image') return 'w-full max-w-[1100px]'
   if (frame.kind === 'drawing') return 'w-full max-w-[1100px]'
-  if (frame.kind === 'chart') return 'w-full max-w-[1100px]'
+  if (frame.kind === 'chart') return 'w-full max-w-[1400px]'
   if (frame.kind === 'sql-editor' || frame.kind === 'code-block') return 'w-full max-w-[1100px]'
   return 'w-full max-w-[960px]'
 }
@@ -635,6 +636,7 @@ const CanvasPresentationView = () => {
       const shouldRenderAsImage = Boolean(displayUrl && isImagePreviewUrl(displayUrl))
       const visualizationMode = getCanvasFrameVisualizationMode(frame)
       const visualizationData = frameVisualizationData[frame.id]
+      const iframeHeightPx = frame.isInternalDashboard ? 760 : 560
       const showClickmapTopList =
         visualizationMode === 'clickmap' &&
         websiteTopListEnabled &&
@@ -682,7 +684,8 @@ const CanvasPresentationView = () => {
                     <iframe
                       title={`Forhandsvisning av ${frame.label || 'nettside'}`}
                       src={src}
-                      className="h-[560px] w-full bg-white"
+                      className="w-full bg-white"
+                      style={{ height: `min(78vh, ${iframeHeightPx}px)` }}
                       loading="lazy"
                       sandbox="allow-same-origin allow-scripts allow-forms"
                       ref={(node) => setWebsiteIframeRef(frame.id, node)}
@@ -737,7 +740,7 @@ const CanvasPresentationView = () => {
           headingLevel={4}
           titleClassName="text-2xl md:text-3xl"
           chartPresentationMode
-          chartHeightPx={300}
+          chartHeightPx={460}
         />
       )
     }
@@ -749,6 +752,7 @@ const CanvasPresentationView = () => {
             id={frame.id}
             sqlQuery={frame.sqlQuery}
             websiteId={frame.websiteId || data?.canvasConfiguredWebsiteId || undefined}
+            usePresentationEditorFont
             isInteractionLocked
             onChange={() => undefined}
             onPersist={() => undefined}
@@ -769,6 +773,7 @@ const CanvasPresentationView = () => {
             showEditorContainerBorder={false}
             codeLanguage="text"
             usePlainCodeStyle
+            usePresentationEditorFont
             sqlTabLabel="KODE"
             isInteractionLocked
             onChange={() => undefined}
@@ -867,59 +872,48 @@ const CanvasPresentationView = () => {
                   aria-labelledby={`presentation-slide-${currentSlide.id}`}
                   className="min-h-[calc(100vh-13rem)] p-2 sm:p-4"
                 >
-                  <div className="flex min-h-[calc(100vh-17rem)] flex-col justify-center">
-                    <Heading
-                      level="2"
-                      size="xlarge"
-                      id={`presentation-slide-${currentSlide.id}`}
-                      className="m-0 w-full max-w-[1100px] self-center text-left"
-                      style={{
-                        fontSize: 'clamp(2.8rem, 5.2vw, 4.6rem)',
-                        lineHeight: 1.02,
-                        letterSpacing: '-0.02em',
-                        fontWeight: 800,
-                        marginBottom: 'clamp(4rem, 8vh, 7rem)',
-                      }}
-                    >
-                      {currentSlide.label}
-                    </Heading>
+                  <div className="flex min-h-[calc(100vh-17rem)] flex-col justify-start pt-[clamp(0.75rem,2vh,1.5rem)]">
+                    <header className="w-full max-w-[1100px] self-start pb-[clamp(4rem,8vh,7rem)] min-h-[clamp(9.5rem,18vh,14rem)]">
+                      <Heading
+                        level="2"
+                        size="xlarge"
+                        id={`presentation-slide-${currentSlide.id}`}
+                        className="m-0 w-full text-left"
+                        style={{
+                          fontSize: 'clamp(2.8rem, 5.2vw, 4.6rem)',
+                          lineHeight: 1.02,
+                          letterSpacing: '-0.02em',
+                          fontWeight: 800,
+                        }}
+                      >
+                        {currentSlide.label}
+                      </Heading>
+                    </header>
 
                     <div
                       className={`grid grid-cols-1 items-start justify-items-stretch ${
                         isStickyGridSlide
-                          ? 'gap-y-3 md:grid-cols-[520px_520px] md:justify-center md:gap-x-3 md:gap-y-4'
+                          ? 'gap-y-3 md:grid-cols-[520px_520px] md:justify-start md:gap-x-3 md:gap-y-4'
                           : isStickyOnlySlide
-                            ? 'gap-y-3 md:grid-cols-[520px_520px] md:justify-center md:gap-x-3 md:gap-y-4'
+                            ? 'gap-y-3 md:grid-cols-[520px_520px] md:justify-start md:gap-x-3 md:gap-y-4'
                             : 'gap-5 md:grid-cols-2'
                       }`}
                     >
                       {currentSlide.elements.map((element) => {
-                        const headingLayoutClass =
-                          element.frame.kind === 'heading' ? 'justify-self-center mb-16 md:mb-24' : ''
-                        const imageLayoutClass = element.frame.kind === 'image' ? 'justify-self-center' : ''
-                        const drawingLayoutClass = element.frame.kind === 'drawing' ? 'justify-self-center' : ''
+                        const headingLayoutClass = element.frame.kind === 'heading' ? 'mb-16 md:mb-24' : ''
                         const textLayoutClass =
                           element.frame.kind === 'text' &&
                           (!Array.isArray(element.frame.tableHeaders) || element.frame.tableHeaders.length === 0)
-                            ? 'justify-self-center pt-6 md:pt-10'
+                            ? 'pt-6 md:pt-10'
                             : ''
-                        const linkLayoutClass = element.frame.kind === 'link' ? 'justify-self-start' : ''
-                        const stickyLayoutClass = element.frame.kind === 'sticky' ? 'justify-self-center' : ''
-                        const chartLayoutClass = element.frame.kind === 'chart' ? 'justify-self-center' : ''
                         const stickyGridClass =
                           element.frame.kind === 'sticky' && !isStickyGridSlide && !isStickyOnlySlide
                             ? 'md:col-span-2'
                             : ''
-                        const tableLayoutClass =
-                          element.frame.kind === 'text' &&
-                          Array.isArray(element.frame.tableHeaders) &&
-                          element.frame.tableHeaders.length > 0
-                            ? 'justify-self-center'
-                            : ''
                         return (
                           <section
                             key={element.id}
-                            className={`space-y-2 ${getSectionElementGridClass(element.frame)} ${getSectionElementLayoutClass(element.frame)} ${headingLayoutClass} ${imageLayoutClass} ${drawingLayoutClass} ${textLayoutClass} ${linkLayoutClass} ${stickyLayoutClass} ${chartLayoutClass} ${stickyGridClass} ${tableLayoutClass}`}
+                            className={`justify-self-start space-y-2 ${getSectionElementGridClass(element.frame)} ${getSectionElementLayoutClass(element.frame)} ${headingLayoutClass} ${textLayoutClass} ${stickyGridClass}`}
                           >
                             {renderFrame(element.frame, { headingLevel: 3 })}
                           </section>

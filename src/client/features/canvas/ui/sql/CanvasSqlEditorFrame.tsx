@@ -2,7 +2,7 @@ import { Alert, Button, Tabs, TextField } from '@navikt/ds-react'
 import CodeMirror from '@uiw/react-codemirror'
 import { sql } from '@codemirror/lang-sql'
 import { oneDark } from '@codemirror/theme-one-dark'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { endOfWeek, startOfWeek, subDays, subWeeks } from 'date-fns'
 import * as sqlFormatter from 'sql-formatter'
 import { ResultsPanel } from '../../../chartbuilder'
@@ -24,14 +24,15 @@ type CanvasSqlEditorFrameProps = {
   showEditorContainerBorder?: boolean
   codeLanguage?: CanvasCodeLanguage
   usePlainCodeStyle?: boolean
+  usePresentationEditorFont?: boolean
   sqlTabLabel?: string
   isInteractionLocked?: boolean
   isLockedByOther?: boolean
   lockOwnerLabel?: string | null
   onChange: (id: string, nextValue: string) => void
-  onPersist: (id: string) => Promise<void> | void
+  onPersist: (id: string, nextValue?: string) => Promise<void> | void
   onStartEditing?: (id: string) => void
-  onBlur?: (id: string) => void
+  onBlur?: (id: string, nextValue?: string) => void
 }
 
 const CanvasSqlEditorFrame = ({
@@ -44,6 +45,7 @@ const CanvasSqlEditorFrame = ({
   showEditorContainerBorder = true,
   codeLanguage = 'sql',
   usePlainCodeStyle = false,
+  usePresentationEditorFont = false,
   sqlTabLabel = 'SQL',
   isInteractionLocked = false,
   isLockedByOther = false,
@@ -54,6 +56,7 @@ const CanvasSqlEditorFrame = ({
   onBlur,
 }: CanvasSqlEditorFrameProps) => {
   const isEditorReadOnly = isInteractionLocked || isLockedByOther
+  const latestSqlRef = useRef(sqlQuery || '')
   const [result, setResult] = useState<QueryResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -63,6 +66,8 @@ const CanvasSqlEditorFrame = ({
   const [estimating, setEstimating] = useState(false)
   const [activeTab, setActiveTab] = useState<'sql' | 'resultat'>('sql')
   const [formatSuccess, setFormatSuccess] = useState(false)
+  const [saveSuccess, setSaveSuccess] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>(() => {
     const now = new Date()
     return {
@@ -79,6 +84,10 @@ const CanvasSqlEditorFrame = ({
     /\[\[\s*\{\{url_path\}\}\s*--\s*\]\]\s*'\/'/i.test(sqlQuery || '') ||
     /\[\[\s*AND\s*\{\{url_path\}\}\s*\]\]/i.test(sqlQuery || '') ||
     /\{\{\s*url_(?:sti|path)\s*\}\}/i.test(sqlQuery || '')
+
+  useEffect(() => {
+    latestSqlRef.current = sqlQuery || ''
+  }, [sqlQuery])
 
   const handlePeriodChange = useCallback((newPeriod: string) => {
     setPeriod(newPeriod)
@@ -135,7 +144,7 @@ const CanvasSqlEditorFrame = ({
   )
 
   const handleExecuteQuery = useCallback(async () => {
-    const trimmedSql = (sqlQuery || '').trim()
+    const trimmedSql = (latestSqlRef.current || '').trim()
     if (!trimmedSql) {
       setError('Legg inn SQL før du kjører spørring.')
       setHasAttemptedFetch(true)
@@ -149,7 +158,7 @@ const CanvasSqlEditorFrame = ({
     setLastProcessedSql(processedSql)
 
     try {
-      await Promise.resolve(onPersist(id))
+      await Promise.resolve(onPersist(id, trimmedSql))
       const data = await executeQueryApi(processedSql)
       setResult(data)
     } catch (err: unknown) {
@@ -159,10 +168,10 @@ const CanvasSqlEditorFrame = ({
     } finally {
       setLoading(false)
     }
-  }, [getProcessedSql, id, onPersist, sqlQuery])
+  }, [getProcessedSql, id, onPersist])
 
   const handleDryRun = useCallback(async () => {
-    const trimmedSql = (sqlQuery || '').trim()
+    const trimmedSql = (latestSqlRef.current || '').trim()
     if (!trimmedSql) {
       setError('Legg inn SQL før du kjører dry run.')
       return
@@ -174,7 +183,7 @@ const CanvasSqlEditorFrame = ({
     setLastProcessedSql(processedSql)
 
     try {
-      await Promise.resolve(onPersist(id))
+      await Promise.resolve(onPersist(id, trimmedSql))
       const estimate = await estimateQueryCost(processedSql)
       setDryRunEstimate(estimate)
     } catch (err: unknown) {
@@ -184,7 +193,7 @@ const CanvasSqlEditorFrame = ({
     } finally {
       setEstimating(false)
     }
-  }, [getProcessedSql, id, onPersist, sqlQuery])
+  }, [getProcessedSql, id, onPersist])
 
   const getLineChartData = useCallback(
     (includeAverage: boolean = false) => {
@@ -209,7 +218,7 @@ const CanvasSqlEditorFrame = ({
   const dryRunCost = Number(dryRunEstimate?.estimatedCostUSD ?? NaN)
 
   const handleFormatSql = useCallback(() => {
-    const input = sqlQuery || ''
+    const input = latestSqlRef.current || ''
     if (!input.trim()) return
 
     try {
@@ -223,6 +232,7 @@ const CanvasSqlEditorFrame = ({
         throw new Error('Formattering kan endre BigQuery-regex. Beholder original SQL.')
       }
 
+      latestSqlRef.current = restored
       onChange(id, restored)
       setFormatSuccess(true)
       window.setTimeout(() => setFormatSuccess(false), 1800)
@@ -230,7 +240,23 @@ const CanvasSqlEditorFrame = ({
       const message = err instanceof Error ? err.message : 'Kunne ikke formatere SQL trygt'
       setError(message)
     }
-  }, [id, onChange, sqlQuery])
+  }, [id, onChange])
+
+  const handleSave = useCallback(async () => {
+    if (isEditorReadOnly) return
+    setSaving(true)
+    setError(null)
+    try {
+      await Promise.resolve(onPersist(id))
+      setSaveSuccess(true)
+      window.setTimeout(() => setSaveSuccess(false), 1800)
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Kunne ikke lagre kode'
+      setError(message)
+    } finally {
+      setSaving(false)
+    }
+  }, [id, isEditorReadOnly, onPersist])
 
   const handleEditorFocus = useCallback(() => {
     if (isEditorReadOnly) return
@@ -239,16 +265,23 @@ const CanvasSqlEditorFrame = ({
 
   const handleEditorBlur = useCallback(() => {
     if (isEditorReadOnly) return
-    onBlur?.(id)
+    onBlur?.(id, latestSqlRef.current)
   }, [id, isEditorReadOnly, onBlur])
 
   const sqlEditorPanel = (
     <div className="flex h-full min-h-0 flex-col gap-2 pt-2">
-      {showFormatButton ? (
+      {showFormatButton || !isEditorReadOnly ? (
         <div className="flex flex-wrap items-center gap-2">
-          <Button size="xsmall" variant="secondary" onClick={handleFormatSql} disabled={isEditorReadOnly}>
-            {formatSuccess ? '✓ Formatert' : 'Formater'}
-          </Button>
+          {showFormatButton ? (
+            <Button size="xsmall" variant="secondary" onClick={handleFormatSql} disabled={isEditorReadOnly || saving}>
+              {formatSuccess ? '✓ Formatert' : 'Formater'}
+            </Button>
+          ) : null}
+          {!isEditorReadOnly ? (
+            <Button size="xsmall" variant="secondary" onClick={() => void handleSave()} loading={saving}>
+              {saveSuccess ? '✓ Lagret' : 'Lagre'}
+            </Button>
+          ) : null}
         </div>
       ) : null}
       {error && !hasAttemptedFetch && (
@@ -277,6 +310,7 @@ const CanvasSqlEditorFrame = ({
           onBlur={handleEditorBlur}
           onChange={(value) => {
             if (isEditorReadOnly) return
+            latestSqlRef.current = value
             onChange(id, value)
           }}
           basicSetup={{
@@ -288,6 +322,10 @@ const CanvasSqlEditorFrame = ({
           className={`h-full overflow-hidden text-sm ${
             usePlainCodeStyle
               ? '[&_.cm-content]:!text-[#d5dbe4] [&_.cm-line]:!text-[#d5dbe4] [&_.cm-gutters]:!text-[#8b95a6]'
+              : ''
+          } ${
+            usePresentationEditorFont
+              ? '[&_.cm-content]:!text-[1.25rem] [&_.cm-content]:!leading-[1.7] [&_.cm-line]:!text-[1.25rem] [&_.cm-gutters]:!text-[1rem] [&_.cm-lineNumbers]:!text-[1rem]'
               : ''
           }`}
         />
@@ -352,7 +390,7 @@ const CanvasSqlEditorFrame = ({
                     size="xsmall"
                     onClick={() => void handleExecuteQuery()}
                     loading={loading}
-                    disabled={isEditorReadOnly}
+                    disabled={saving || estimating}
                   >
                     Vis resultater
                   </Button>
@@ -361,7 +399,7 @@ const CanvasSqlEditorFrame = ({
                     variant="secondary"
                     onClick={() => void handleDryRun()}
                     loading={estimating}
-                    disabled={isEditorReadOnly}
+                    disabled={saving || loading}
                   >
                     Prøvekjøring
                   </Button>

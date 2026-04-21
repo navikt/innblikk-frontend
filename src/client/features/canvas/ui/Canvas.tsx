@@ -3554,13 +3554,13 @@ const Canvas = () => {
     )
   }
 
-  const handlePersistSqlEditorFrame = async (id: string): Promise<void> => {
+  const handlePersistSqlEditorFrame = async (id: string, nextValue?: string): Promise<void> => {
     const frame = frames.find((item) => item.id === id)
     if (!frame || (frame.kind !== 'sql-editor' && frame.kind !== 'code-block')) return
 
     const nextFrame: CanvasFrame = {
       ...frame,
-      sqlQuery: (frame.sqlQuery || '').trim(),
+      sqlQuery: ((nextValue ?? frame.sqlQuery) || '').trim(),
     }
 
     setFrames((prev) => prev.map((item) => (item.id === id ? nextFrame : item)))
@@ -3571,7 +3571,7 @@ const Canvas = () => {
     }
   }
 
-  const handleEditableFrameBlur = (id: string) => {
+  const handleEditableFrameBlur = (id: string, nextValue?: string) => {
     if (isInteractionLocked) return
     const frame = frames.find((item) => item.id === id)
     if (
@@ -3608,7 +3608,7 @@ const Canvas = () => {
     } else {
       nextFrame = {
         ...frame,
-        sqlQuery: (frame.sqlQuery || '').trim(),
+        sqlQuery: ((nextValue ?? frame.sqlQuery) || '').trim(),
       }
     }
 

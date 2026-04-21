@@ -164,7 +164,7 @@ const serializeCanvasConfig = (payload: {
   chartType: 'line' | 'bar' | 'pie' | 'table'
   chartSql: string
 }): string => {
-  const escaped = JSON.stringify(payload).replace(/'/g, "''")
+  const escaped = JSON.stringify(payload).replace(/'/g, "''").replace(/;/g, '\\u003B')
   return `SELECT '${escaped}' AS canvas_config`
 }
 

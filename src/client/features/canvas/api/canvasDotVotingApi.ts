@@ -54,13 +54,13 @@ const hasDotVotingToken = (description?: string): boolean =>
 
 const serializeCanvasDotVotingSession = (payload: CanvasDotVotingSessionPayload): string => {
   const json = JSON.stringify(payload)
-  const escaped = json.replace(/'/g, "''")
+  const escaped = json.replace(/'/g, "''").replace(/;/g, '\\u003B')
   return `SELECT '${escaped}' AS canvas_dot_voting_session`
 }
 
 const serializeCanvasDotVotingBallot = (payload: CanvasDotVotingBallotPayload): string => {
   const json = JSON.stringify(payload)
-  const escaped = json.replace(/'/g, "''")
+  const escaped = json.replace(/'/g, "''").replace(/;/g, '\\u003B')
   return `SELECT '${escaped}' AS canvas_dot_voting_ballot`
 }
 

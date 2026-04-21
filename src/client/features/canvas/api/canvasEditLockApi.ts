@@ -46,7 +46,7 @@ export type CanvasEditLockRecord = {
 
 const serializeCanvasEditLock = (payload: CanvasEditLockPayload): string => {
   const json = JSON.stringify(payload)
-  const escaped = json.replace(/'/g, "''")
+  const escaped = json.replace(/'/g, "''").replace(/;/g, '\\u003B')
   return `SELECT '${escaped}' AS canvas_edit_lock`
 }
 

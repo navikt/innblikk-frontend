@@ -393,7 +393,7 @@ export const isImagePreviewUrl = (value: string): boolean => {
 
 export const serializeCanvasConfig = (frame: CanvasConfigPayload): string => {
   const json = JSON.stringify(frame)
-  const escaped = json.replace(/'/g, "''")
+  const escaped = json.replace(/'/g, "''").replace(/;/g, '\\u003B')
   return `SELECT '${escaped}' AS canvas_config`
 }
 

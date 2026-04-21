@@ -237,9 +237,9 @@ type CanvasFrameLayerProps = {
   handleAssignWebsiteToChart: (frame: CanvasFrame, website: Website | null) => Promise<void>
   handleOpenEditChartModal: (frame: CanvasFrame) => void
   handleOpenDeleteChartModal: (frame: CanvasFrame) => void
-  handlePersistSqlEditorFrame: (id: string) => Promise<void> | void
+  handlePersistSqlEditorFrame: (id: string, nextValue?: string) => Promise<void> | void
   handleEditableFrameChange: (id: string, nextValue: string) => void
-  handleEditableFrameBlur: (id: string) => void
+  handleEditableFrameBlur: (id: string, nextValue?: string) => void
   handleStartEditingFrame: (id: string) => void
   handleResizeStart: (
     event: React.MouseEvent | React.TouchEvent,

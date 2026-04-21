@@ -189,7 +189,7 @@ export function createBackendProxyRouter({ BACKEND_BASE_URL }) {
 
   const serializeCanvasPresence = (payload) => {
     const json = JSON.stringify(payload)
-    const escaped = json.replace(/'/g, "''")
+    const escaped = json.replace(/'/g, "''").replace(/;/g, '\\u003B')
     return `SELECT '${escaped}' AS canvas_presence`
   }
 

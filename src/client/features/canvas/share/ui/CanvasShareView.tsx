@@ -7,6 +7,7 @@ import { DashboardWidget } from '../../../dashboard'
 import { copyToClipboard } from '../../../../shared/lib/clipboard.ts'
 import { getCanvasStickyColorOptionById } from '../../ui/sticky/CanvasStickyColorRegistry.ts'
 import { isIllustrationImageFrame } from '../../ui/image/CanvasImageUtils.ts'
+import CanvasSqlEditorFrame from '../../ui/sql/CanvasSqlEditorFrame.tsx'
 import useCanvasWebsiteVisualization from '../../ui/website/useCanvasWebsiteVisualization.ts'
 import type { ClickmapItem } from '../../../clickmap/model/types.ts'
 import {
@@ -616,12 +617,38 @@ const CanvasShareView = () => {
       )
     }
 
-    if (frame.kind === 'sql-editor' || frame.kind === 'code-block') {
+    if (frame.kind === 'sql-editor') {
       return (
-        <div className="rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-4 sm:p-5">
-          <BodyShort className="m-0 whitespace-pre-wrap break-words text-[var(--ax-text-subtle)]">
-            {(frame.sqlQuery || '').trim() || (frame.kind === 'code-block' ? 'Kodeblokk' : 'SQL-editor')}
-          </BodyShort>
+        <div className="w-full max-w-[1100px] rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2 sm:p-3">
+          <CanvasSqlEditorFrame
+            id={frame.id}
+            sqlQuery={frame.sqlQuery}
+            websiteId={frame.websiteId || data?.canvasConfiguredWebsiteId || undefined}
+            isInteractionLocked
+            onChange={() => undefined}
+            onPersist={() => undefined}
+          />
+        </div>
+      )
+    }
+
+    if (frame.kind === 'code-block') {
+      return (
+        <div className="w-full max-w-[1100px] rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2 sm:p-3">
+          <CanvasSqlEditorFrame
+            id={frame.id}
+            sqlQuery={frame.sqlQuery}
+            showTabs={false}
+            showResultTab={false}
+            showFormatButton={false}
+            showEditorContainerBorder={false}
+            codeLanguage="text"
+            usePlainCodeStyle
+            sqlTabLabel="KODE"
+            isInteractionLocked
+            onChange={() => undefined}
+            onPersist={() => undefined}
+          />
         </div>
       )
     }
