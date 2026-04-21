@@ -35,7 +35,7 @@ const getSectionElementLayoutClass = (frame: CanvasFrame): string => {
   if (frame.kind === 'heading') return 'w-full max-w-[72ch]'
   if (frame.kind === 'text' && Array.isArray(frame.tableHeaders) && frame.tableHeaders.length > 0)
     return 'w-full max-w-[1100px]'
-  if (frame.kind === 'text') return 'w-full max-w-[62ch]'
+  if (frame.kind === 'text') return 'w-full max-w-[60ch]'
   if (frame.kind === 'sticky') return 'w-full max-w-[520px]'
   if (frame.kind === 'website') return 'w-full max-w-[1200px]'
   if (frame.kind === 'image') return 'mx-auto w-full max-w-[1440px]'
@@ -520,7 +520,14 @@ const CanvasPresentationView = () => {
       }
 
       return (
-        <BodyLong className="m-0 max-w-[62ch] whitespace-pre-wrap break-words text-[1.2rem] leading-9">
+        <BodyLong
+          className="m-0 w-full max-w-[60ch] whitespace-pre-wrap break-words"
+          style={{
+            fontSize: 'clamp(1.9rem, 2.8vw, 2.7rem)',
+            lineHeight: 1.55,
+            fontWeight: 500,
+          }}
+        >
           {(frame.textContent || '').trim() || ' '}
         </BodyLong>
       )
@@ -805,7 +812,7 @@ const CanvasPresentationView = () => {
                         lineHeight: 1.02,
                         letterSpacing: '-0.02em',
                         fontWeight: 800,
-                        marginBottom: 'clamp(2.5rem, 5vh, 4.5rem)',
+                        marginBottom: 'clamp(4rem, 8vh, 7rem)',
                       }}
                     >
                       {currentSlide.label}
@@ -824,6 +831,11 @@ const CanvasPresentationView = () => {
                         const headingLayoutClass =
                           element.frame.kind === 'heading' ? 'justify-self-center mb-16 md:mb-24' : ''
                         const imageLayoutClass = element.frame.kind === 'image' ? 'justify-self-center' : ''
+                        const textLayoutClass =
+                          element.frame.kind === 'text' &&
+                          (!Array.isArray(element.frame.tableHeaders) || element.frame.tableHeaders.length === 0)
+                            ? 'justify-self-start pt-6 md:pt-10 md:pl-20 lg:pl-28 xl:pl-36'
+                            : ''
                         const tableLayoutClass =
                           element.frame.kind === 'text' &&
                           Array.isArray(element.frame.tableHeaders) &&
@@ -833,7 +845,7 @@ const CanvasPresentationView = () => {
                         return (
                           <section
                             key={element.id}
-                            className={`space-y-2 ${getSectionElementGridClass(element.frame)} ${getSectionElementLayoutClass(element.frame)} ${headingLayoutClass} ${imageLayoutClass} ${tableLayoutClass}`}
+                            className={`space-y-2 ${getSectionElementGridClass(element.frame)} ${getSectionElementLayoutClass(element.frame)} ${headingLayoutClass} ${imageLayoutClass} ${textLayoutClass} ${tableLayoutClass}`}
                           >
                             {renderFrame(element.frame, { headingLevel: 3 })}
                           </section>
