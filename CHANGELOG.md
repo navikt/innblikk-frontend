@@ -104,6 +104,7 @@ All notable changes to this project will be documented in this file.
 - Add click tracking to BetaBadge using NAVIGERE_EVENT
 - Add analytics tracking to teknisk meny (ActionMenu)
 - Gate Måloppnåelse behind beta flag with visual indicators
+- Beta indicators in navbar and profile page copy refresh
 
 ### 🧪 Testing
 
