@@ -1,5 +1,10 @@
 import { ActionMenu, Button } from '@navikt/ds-react'
 import { ChartNoAxesCombined, Copy, Edit2, List, MoreVertical, RefreshCw, Trash2 } from 'lucide-react'
+import type { MouseEvent } from 'react'
+
+const stopMouseDownPropagation = (event: MouseEvent<HTMLElement>) => {
+  event.stopPropagation()
+}
 
 type CanvasWebsiteActionMenuProps = {
   isInternalDashboard?: boolean
@@ -48,26 +53,30 @@ const CanvasWebsiteActionMenu = ({
       />
     </ActionMenu.Trigger>
     <ActionMenu.Content align="end">
-      <ActionMenu.Item onClick={onRefresh}>
+      <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onRefresh}>
         <span className="inline-flex items-center gap-2">
           <RefreshCw size={14} aria-hidden="true" />
           <span>Last inn på nytt</span>
         </span>
       </ActionMenu.Item>
-      <ActionMenu.Item onClick={onDuplicate} disabled={isEditingLocked}>
+      <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onDuplicate} disabled={isEditingLocked}>
         <span className="inline-flex items-center gap-2">
           <Copy size={14} aria-hidden="true" />
           <span>Dupliser</span>
         </span>
       </ActionMenu.Item>
-      <ActionMenu.Item onClick={onEdit} disabled={isEditingLocked}>
+      <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onEdit} disabled={isEditingLocked}>
         <span className="inline-flex items-center gap-2">
           <Edit2 size={14} aria-hidden="true" />
           <span>{isInternalDashboard ? 'Rediger dashboard' : 'Rediger nettside'}</span>
         </span>
       </ActionMenu.Item>
       {showVisualizationOption && onOpenVisualization && (
-        <ActionMenu.Item onClick={onOpenVisualization} disabled={isEditingLocked}>
+        <ActionMenu.Item
+          onMouseDown={stopMouseDownPropagation}
+          onClick={onOpenVisualization}
+          disabled={isEditingLocked}
+        >
           <span className="inline-flex items-center gap-2">
             <ChartNoAxesCombined size={14} aria-hidden="true" />
             <span>Visualisering</span>
@@ -75,7 +84,7 @@ const CanvasWebsiteActionMenu = ({
         </ActionMenu.Item>
       )}
       {showInsightOption && onToggleInsight && (
-        <ActionMenu.Item onClick={onToggleInsight} disabled={insightDisabled}>
+        <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onToggleInsight} disabled={insightDisabled}>
           <span className="inline-flex items-center gap-2">
             <ChartNoAxesCombined size={14} aria-hidden="true" />
             <span>{isInsightOpen ? 'Skjul innsikt' : 'Vis innsikt'}</span>
@@ -83,14 +92,14 @@ const CanvasWebsiteActionMenu = ({
         </ActionMenu.Item>
       )}
       {showTopListOption && onToggleTopList && (
-        <ActionMenu.Item onClick={onToggleTopList}>
+        <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onToggleTopList}>
           <span className="inline-flex items-center gap-2">
             <List size={14} aria-hidden="true" />
             <span>{isTopListEnabled ? 'Skjul toppliste' : 'Vis toppliste'}</span>
           </span>
         </ActionMenu.Item>
       )}
-      <ActionMenu.Item onClick={onRemove} disabled={isEditingLocked}>
+      <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onRemove} disabled={isEditingLocked}>
         <span className="inline-flex items-center gap-2">
           <Trash2 size={14} aria-hidden="true" />
           <span>Fjern kort</span>

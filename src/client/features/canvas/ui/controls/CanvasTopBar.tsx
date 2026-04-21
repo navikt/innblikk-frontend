@@ -1,6 +1,6 @@
 import { ActionMenu, Alert, Button, Tabs } from '@navikt/ds-react'
 import { PersonGroupIcon, PersonIcon, ThemeIcon } from '@navikt/aksel-icons'
-import { House, EyeIcon, MoreVertical } from 'lucide-react'
+import { House, EyeIcon, MoreVertical, Presentation } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent, type RefObject, type TouchEvent } from 'react'
 import PeriodPicker from '../../../analysis/ui/PeriodPicker.tsx'
 import type { GraphCategoryDto } from '../../../oversikt/model/types.ts'
@@ -37,6 +37,7 @@ type CanvasTopBarProps = {
   onOpenTimer: () => void
   onOpenDotVoting: () => void
   onOpenShareView: () => void
+  onOpenPresentationView: () => void
   timerLabel: string | null
   dotVotingLabel: string | null
   isTimerRunning: boolean
@@ -50,7 +51,6 @@ type CanvasTopBarProps = {
   onOpenCanvasSettings: () => void
   onOpenInventory: () => void
   onOpenChangeLog: () => void
-  elementCount?: number
   canManageTabs: boolean
   canPersistToDashboard: boolean
   shouldShowCreateCanvasModal: boolean
@@ -100,6 +100,7 @@ const CanvasTopBar = ({
   onOpenTimer,
   onOpenDotVoting,
   onOpenShareView,
+  onOpenPresentationView,
   timerLabel,
   dotVotingLabel,
   isTimerRunning,
@@ -113,7 +114,6 @@ const CanvasTopBar = ({
   onOpenCanvasSettings,
   onOpenInventory,
   onOpenChangeLog,
-  elementCount,
   canManageTabs,
   canPersistToDashboard,
   shouldShowCreateCanvasModal,
@@ -369,9 +369,7 @@ const CanvasTopBar = ({
                 <ActionMenu.Content align="end">
                   <ActionMenu.Item onClick={() => window.location.assign('/canvas')}>Canvas-oversikt</ActionMenu.Item>
                   <ActionMenu.Divider />
-                  <ActionMenu.Item onClick={onOpenInventory}>
-                    Elementer{canEditCanvas && elementCount !== undefined ? ` (${elementCount})` : ''}
-                  </ActionMenu.Item>
+                  <ActionMenu.Item onClick={onOpenInventory}>Elementer</ActionMenu.Item>
                   <ActionMenu.Item onClick={onOpenChangeLog}>Endringslogg</ActionMenu.Item>
                   {canManageTabs && (
                     <ActionMenu.Item onClick={() => onOpenManageTabs()}>Administrer faner</ActionMenu.Item>
@@ -395,6 +393,12 @@ const CanvasTopBar = ({
                     <span className="inline-flex items-center gap-2 whitespace-nowrap">
                       <EyeIcon size={14} />
                       Delingsvisning
+                    </span>
+                  </ActionMenu.Item>
+                  <ActionMenu.Item onClick={onOpenPresentationView}>
+                    <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                      <Presentation size={14} />
+                      Presentasjon
                     </span>
                   </ActionMenu.Item>
                 </ActionMenu.Content>

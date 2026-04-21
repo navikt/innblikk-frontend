@@ -1307,9 +1307,6 @@ const CanvasFrameLayer = ({
                         )}
                       </div>
                     )}
-                    {shouldShowSectionItemCount && (
-                      <p className="text-xs text-[var(--ax-text-subtle)]">{sectionItemCount} elementer.</p>
-                    )}
                   </div>
                 ) : (
                   <div className="flex h-full items-center justify-center px-6 text-center text-sm text-[var(--ax-text-subtle)]">

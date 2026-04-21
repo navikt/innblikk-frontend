@@ -86,7 +86,7 @@ import useCanvasPlacementState from '../hooks/useCanvasPlacementState.ts'
 import useCanvasChartMutations from '../hooks/useCanvasChartMutations.ts'
 import { fetchCanvasStorageData } from '../api/canvasStorageApi.ts'
 import ChangeLogModal, { type ChangeLogEntry } from '../../../shared/ui/ChangeLogModal.tsx'
-import { buildCanvasShareUrl } from '../share/utils/canvasShareLayout.ts'
+import { buildCanvasPresentationUrl, buildCanvasShareUrl } from '../share/utils/canvasShareLayout.ts'
 
 import type {
   CanvasChartOption,
@@ -3669,6 +3669,16 @@ const Canvas = () => {
     )
   }
 
+  const handleOpenPresentationView = () => {
+    window.location.assign(
+      buildCanvasPresentationUrl({
+        projectId,
+        dashboardId,
+        categoryId: activeCanvasCategoryId,
+      }),
+    )
+  }
+
   const loadCanvasChangeLog = useCallback(async () => {
     if (!canPersistToDashboard || projectId === null || dashboardId === null) {
       setChangeLogEntries([])
@@ -4394,10 +4404,10 @@ const Canvas = () => {
           onOpenCanvasSettings={handleOpenCanvasSettingsModal}
           onOpenInventory={handleOpenInventoryModal}
           onOpenChangeLog={handleOpenChangeLogModal}
-          elementCount={inventoryItems.reduce((total, item) => total + item.count, 0)}
           onOpenTimer={handleOpenTimerModal}
           onOpenDotVoting={handleOpenDotVotingModal}
           onOpenShareView={handleOpenShareView}
+          onOpenPresentationView={handleOpenPresentationView}
           timerLabel={timerLabel}
           dotVotingLabel={dotVotingLabel}
           isTimerRunning={isTimerRunning}

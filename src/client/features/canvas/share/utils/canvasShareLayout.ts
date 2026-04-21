@@ -44,6 +44,21 @@ export const buildCanvasShareUrl = (params: {
   return `/canvas/share${serialized ? `?${serialized}` : ''}`
 }
 
+export const buildCanvasPresentationUrl = (params: {
+  projectId: number | null
+  dashboardId: number | null
+  categoryId: number | null
+  slide?: number
+}): string => {
+  const query = new URLSearchParams()
+  if (params.projectId !== null) query.set('projectId', String(params.projectId))
+  if (params.dashboardId !== null) query.set('dashboardId', String(params.dashboardId))
+  if (params.categoryId !== null) query.set('categoryId', String(params.categoryId))
+  if (Number.isFinite(params.slide) && Number(params.slide) > 0) query.set('slide', String(params.slide))
+  const serialized = query.toString()
+  return `/canvas/presentation${serialized ? `?${serialized}` : ''}`
+}
+
 const getCanvasShareDefaultFrameSize = (frame: CanvasFrame): { width: number; height: number } => {
   if (frame.kind === 'website' && frame.isInternalDashboard) return { width: 760, height: 760 }
   if (frame.kind === 'website') return { width: 420, height: 700 }
