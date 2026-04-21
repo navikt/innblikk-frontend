@@ -1,3 +1,5 @@
+import { Events, type AvkrysningsboksEndretProperties } from '@navikt/analytics-types'
+
 const FEATURE_FLAGS_KEY = 'innblikk_feature_flags'
 
 function syncSettingsToBackend(flags: FeatureFlags): void {
@@ -15,11 +17,12 @@ function syncSettingsToBackend(flags: FeatureFlags): void {
 }
 
 function trackFlagChange<K extends keyof FeatureFlags>(key: K, value: FeatureFlags[K]): void {
-  window.umami?.track('avkrysningsboks endret', {
+  const properties: AvkrysningsboksEndretProperties = {
     checked: value,
     komponentId: key,
     seksjon: 'innstillinger',
-  })
+  }
+  window.umami?.track(Events.AVKRYSNINGSBOKS_ENDRET, properties)
 }
 
 export type FeatureFlags = {

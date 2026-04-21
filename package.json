@@ -35,6 +35,7 @@
     "@fluentui/react": "^8.125.3",
     "@fluentui/react-charting": "^5.25.5",
     "@monaco-editor/react": "^4.7.0",
+    "@navikt/analytics-types": "0.0.9",
     "@navikt/ds-css": "^8.0.0",
     "@navikt/ds-react": "^8.0.0",
     "@navikt/ds-tailwind": "^8.0.0",

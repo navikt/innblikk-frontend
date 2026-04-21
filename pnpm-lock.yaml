@@ -55,6 +55,9 @@ importers:
       '@monaco-editor/react':
         specifier: ^4.7.0
         version: 4.7.0(monaco-editor@0.55.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@navikt/analytics-types':
+        specifier: 0.0.9
+        version: 0.0.9
       '@navikt/ds-css':
         specifier: ^8.0.0
         version: 8.3.0
@@ -759,6 +762,10 @@ packages:
 
   '@navikt/aksel-icons@8.3.0':
     resolution: {integrity: sha512-IDwQLQqOZiUH78g1nnvNl06m+1B4rDn1o0E747Xe9IuqQgX2qafr6HAe5g0WUxCe2y6O6uxAcOoHFZlyXqeIcg==, tarball: https://npm.pkg.github.com/download/@navikt/aksel-icons/8.3.0/371336d2d5b195c2312454eebef9ee36148017aa}
+
+  '@navikt/analytics-types@0.0.9':
+    resolution: {integrity: sha512-bopCvqEogyFcmrJiBxK/Mr25d6yPKF7GR36MGrJqiHCPJYf1rDu6lK4cpooTG4Q//D/1xTkHRom8ZH5BI6dTew==, tarball: https://npm.pkg.github.com/download/@navikt/analytics-types/0.0.9/5919241a6dbb782eb101fff3234ce5c36d16e942}
+    engines: {node: '>=20.0.0', npm: '>=9.0.0'}
 
   '@navikt/ds-css@8.3.0':
     resolution: {integrity: sha512-yl0AZEjnRz2bTUl8MpD5GDdy3j/BzIBcAflOjznnSLc8QZ/80Z1QhUuvOzSxbCNj2stPO/nIEfCXzGIr+NG2rw==, tarball: https://npm.pkg.github.com/download/@navikt/ds-css/8.3.0/93862b05ed47bfeb157e83b5147e56a01462dc5f}
@@ -3910,6 +3917,8 @@ snapshots:
       react-dom: 19.2.4(react@19.2.4)
 
   '@navikt/aksel-icons@8.3.0': {}
+
+  '@navikt/analytics-types@0.0.9': {}
 
   '@navikt/ds-css@8.3.0': {}
 
