@@ -103,6 +103,7 @@ All notable changes to this project will be documented in this file.
 - Use @navikt/analytics-types for typed umami tracking
 - Add click tracking to BetaBadge using NAVIGERE_EVENT
 - Add analytics tracking to teknisk meny (ActionMenu)
+- Gate Måloppnåelse behind beta flag with visual indicators
 
 ### 🧪 Testing
 
