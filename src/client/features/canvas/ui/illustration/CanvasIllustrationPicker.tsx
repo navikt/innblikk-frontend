@@ -131,7 +131,7 @@ const CanvasIllustrationPicker = ({ selectedPath, onSelectPath }: CanvasIllustra
           </Chips>
         </div>
       )}
-      <div className="max-h-[380px] space-y-3 overflow-auto pr-1">
+      <div className="max-h-[520px] space-y-3 overflow-auto pr-1">
         {groupedOptions.map((group) => (
           <section key={group.key} className="space-y-2">
             <div className="text-xs font-semibold text-[var(--ax-text-subtle)]">
@@ -146,7 +146,7 @@ const CanvasIllustrationPicker = ({ selectedPath, onSelectPath }: CanvasIllustra
                     key={option.id}
                     type="button"
                     onClick={() => onSelectPath(option.path)}
-                    className={`flex min-h-[72px] items-center gap-2 rounded-md border px-2 py-2 text-left transition-colors ${
+                    className={`flex min-h-[120px] items-center gap-4 rounded-md border px-3 py-3 text-left transition-colors ${
                       isSelected
                         ? 'border-[var(--ax-border-accent)] bg-[var(--ax-bg-accent-soft)]'
                         : 'border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] hover:bg-[var(--ax-bg-neutral-soft)]'
@@ -157,7 +157,7 @@ const CanvasIllustrationPicker = ({ selectedPath, onSelectPath }: CanvasIllustra
                     <img
                       src={option.path}
                       alt={option.label}
-                      className="h-12 w-12 shrink-0 rounded object-contain bg-white"
+                      className="h-20 w-20 shrink-0 rounded object-contain bg-white"
                       loading="lazy"
                     />
                     <span className="min-w-0">
