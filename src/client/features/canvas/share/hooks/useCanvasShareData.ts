@@ -65,7 +65,7 @@ export const useCanvasShareData = (routeContext: CanvasShareRouteContext): UseCa
         })
       } catch (loadError) {
         if (!isActive) return
-        setError(loadError instanceof Error ? loadError.message : 'Kunne ikke laste delingsvisning')
+        setError(loadError instanceof Error ? loadError.message : 'Kunne ikke laste artikkelvisning')
         setData(null)
       } finally {
         if (isActive) setIsLoading(false)

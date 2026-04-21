@@ -700,7 +700,7 @@ const CanvasShareView = () => {
     return (
       <main className="mx-auto max-w-3xl px-4 py-8">
         <Alert variant="warning">
-          Delingsvisning krever både <code>projectId</code> og <code>dashboardId</code> i URL.
+          Artikkelvisning krever både <code>projectId</code> og <code>dashboardId</code> i URL.
         </Alert>
       </main>
     )
@@ -713,7 +713,7 @@ const CanvasShareView = () => {
     >
       <main
         className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:max-w-4xl sm:py-10 xl:max-w-[60rem]"
-        aria-label="Canvas delingsvisning"
+        aria-label="Canvas artikkelvisning"
       >
         <header className="px-1 py-1">
           <div className="flex items-start justify-between gap-3">
@@ -765,7 +765,7 @@ const CanvasShareView = () => {
 
         {isLoading && (
           <div className="flex items-center justify-center py-16">
-            <Loader title="Laster delingsvisning" size="xlarge" />
+            <Loader title="Laster artikkelvisning" size="xlarge" />
           </div>
         )}
 
@@ -777,7 +777,7 @@ const CanvasShareView = () => {
               <Alert variant="info" size="small">
                 <span className="inline-flex items-center gap-2">
                   <EyeOff size={14} aria-hidden="true" />
-                  {hiddenCount} element{hiddenCount === 1 ? '' : 'er'} er skjult i delingsvisning.
+                  {hiddenCount} element{hiddenCount === 1 ? '' : 'er'} er skjult i artikkelvisning.
                 </span>
               </Alert>
             )}

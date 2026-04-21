@@ -1,10 +1,12 @@
-import { PersonChatIcon } from '@navikt/aksel-icons'
+import { PersonChatIcon, PersonGroupIcon } from '@navikt/aksel-icons'
 import { ActionMenu, Button } from '@navikt/ds-react'
+import { CircleDot, Clock3, FileText, Presentation } from 'lucide-react'
 
 type CanvasFacilitatorActionMenuProps = {
   onOpenTimer: () => void
   onOpenDotVoting: () => void
   onOpenShareView?: () => void
+  onOpenPresentationView?: () => void
   isCanvasLocked?: boolean
   onToggleCanvasLock?: () => void
   timerLabel: string | null
@@ -21,6 +23,8 @@ type CanvasFacilitatorActionMenuProps = {
 const CanvasFacilitatorActionMenu = ({
   onOpenTimer,
   onOpenDotVoting,
+  onOpenShareView,
+  onOpenPresentationView,
   isCanvasLocked = false,
   onToggleCanvasLock,
   timerLabel,
@@ -60,14 +64,40 @@ const CanvasFacilitatorActionMenu = ({
       )}
     </ActionMenu.Trigger>
     <ActionMenu.Content align="end">
-      <ActionMenu.Item onClick={onOpenTimer}>{timerLabel ? `Nedteller (${timerLabel})` : 'Nedteller'}</ActionMenu.Item>
+      <ActionMenu.Item onClick={onOpenTimer}>
+        <span className="inline-flex items-center gap-2 whitespace-nowrap">
+          <Clock3 size={14} />
+          {timerLabel ? `Nedteller (${timerLabel})` : 'Nedteller'}
+        </span>
+      </ActionMenu.Item>
       <ActionMenu.Item onClick={onOpenDotVoting}>
-        {dotVotingLabel ? `Prikkvotering (${dotVotingLabel})` : 'Prikkvotering'}
+        <span className="inline-flex items-center gap-2 whitespace-nowrap">
+          <CircleDot size={14} />
+          {dotVotingLabel ? `Prikkvotering (${dotVotingLabel})` : 'Prikkvotering'}
+        </span>
       </ActionMenu.Item>
       {onToggleCanvasLock && (
         <ActionMenu.Item onClick={onToggleCanvasLock}>
           <span className="inline-flex items-center gap-2 whitespace-nowrap">
+            <PersonGroupIcon aria-hidden fontSize="0.95rem" />
             {isCanvasLocked ? 'Aktiver samarbeidsmodus' : 'Deaktiver samarbeidsmodus'}
+          </span>
+        </ActionMenu.Item>
+      )}
+      {(onOpenShareView || onOpenPresentationView) && <ActionMenu.Divider />}
+      {onOpenShareView && (
+        <ActionMenu.Item onClick={onOpenShareView}>
+          <span className="inline-flex items-center gap-2 whitespace-nowrap">
+            <FileText size={14} />
+            Artikkelvisning
+          </span>
+        </ActionMenu.Item>
+      )}
+      {onOpenPresentationView && (
+        <ActionMenu.Item onClick={onOpenPresentationView}>
+          <span className="inline-flex items-center gap-2 whitespace-nowrap">
+            <Presentation size={14} />
+            Presentasjon
           </span>
         </ActionMenu.Item>
       )}

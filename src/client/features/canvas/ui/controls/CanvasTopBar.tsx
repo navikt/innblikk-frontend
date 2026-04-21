@@ -1,6 +1,6 @@
 import { ActionMenu, Alert, Button, Tabs } from '@navikt/ds-react'
 import { PersonGroupIcon, PersonIcon, ThemeIcon } from '@navikt/aksel-icons'
-import { House, EyeIcon, MoreVertical, Presentation } from 'lucide-react'
+import { House, FileText, MoreVertical, Presentation } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent, type RefObject, type TouchEvent } from 'react'
 import PeriodPicker from '../../../analysis/ui/PeriodPicker.tsx'
 import type { GraphCategoryDto } from '../../../oversikt/model/types.ts'
@@ -290,6 +290,7 @@ const CanvasTopBar = ({
                   onOpenTimer={onOpenTimer}
                   onOpenDotVoting={onOpenDotVoting}
                   onOpenShareView={onOpenShareView}
+                  onOpenPresentationView={onOpenPresentationView}
                   isCanvasLocked={isCanvasLocked}
                   onToggleCanvasLock={onToggleCanvasLock}
                   timerLabel={timerLabel}
@@ -391,8 +392,8 @@ const CanvasTopBar = ({
                   </ActionMenu.Item>
                   <ActionMenu.Item onClick={onOpenShareView}>
                     <span className="inline-flex items-center gap-2 whitespace-nowrap">
-                      <EyeIcon size={14} />
-                      Delingsvisning
+                      <FileText size={14} />
+                      Artikkelvisning
                     </span>
                   </ActionMenu.Item>
                   <ActionMenu.Item onClick={onOpenPresentationView}>
