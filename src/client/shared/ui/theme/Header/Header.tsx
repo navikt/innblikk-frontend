@@ -1,4 +1,4 @@
-import { CogIcon, ExternalLinkIcon, MenuHamburgerIcon, ThemeIcon, WrenchIcon } from '@navikt/aksel-icons'
+import { CogIcon, ExternalLinkIcon, MenuHamburgerIcon, PersonIcon, ThemeIcon } from '@navikt/aksel-icons'
 import { ActionMenu, Button, Dropdown, Link, Tooltip } from '@navikt/ds-react'
 import { useEffect, useState } from 'react'
 import '../../../../tailwind.css'
@@ -168,10 +168,10 @@ export default function Header({ theme }: HeaderProps) {
               Bytt til {theme === 'dark' ? 'lyst' : 'mørkt'} tema
             </span>
           </ActionMenu.Item>
-          <ActionMenu.Item as="a" href="/innstillinger">
+          <ActionMenu.Item as="a" href="/profil">
             <span className="inline-flex items-center gap-2 whitespace-nowrap">
-              <WrenchIcon aria-hidden fontSize="1.2rem" />
-              Tilpasning
+              <PersonIcon aria-hidden fontSize="1.2rem" />
+              Profil
             </span>
           </ActionMenu.Item>
         </ActionMenu.Group>
@@ -184,7 +184,6 @@ export default function Header({ theme }: HeaderProps) {
       style={{
         background: theme === 'dark' ? 'var(--ax-bg-default)' : 'rgba(19, 17, 54, 1)',
       }}
-      className="border-b border-[var(--ax-border-neutral-subtle)]"
     >
       <AppBlock>
         <header className="flex py-1 z-10 items-center justify-between">

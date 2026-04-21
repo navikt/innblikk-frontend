@@ -1,1 +1,3 @@
 minimumReleaseAge: 4320
+minimumReleaseAgeExclude:
+  - "@navikt/analytics-types"

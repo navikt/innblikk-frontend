@@ -8,6 +8,7 @@ import Header from './shared/ui/theme/Header/Header.tsx'
 import { ErrorBoundary } from './shared/ui/ErrorBoundary.tsx'
 import { useHead } from '@unhead/react'
 import { AppBlock } from './shared/ui/theme/AppBlock/AppBlock.tsx'
+import { loadFeatureFlagsFromBackend } from './shared/lib/featureFlags.ts'
 
 import './App.css'
 
@@ -101,6 +102,10 @@ function App() {
   })
 
   useEffect(() => {
+    loadFeatureFlagsFromBackend()
+  }, [])
+
+  useEffect(() => {
     // Listen for theme changes from ThemeButton
     const handleThemeChange = (event: CustomEvent<'light' | 'dark'>) => {
       setTheme(event.detail)
@@ -127,13 +132,19 @@ function App() {
     document.body.style.backgroundColor = theme === 'dark' ? darkBg : lightBg
   }, [theme])
 
+  const hostname = window.location.hostname
+  const isProd = hostname === 'innblikk.ansatt.nav.no'
+  const isDev = hostname.includes('.dev.nav.no')
+
   useHead({
     script: [
       {
         defer: true,
-        src: 'https://cdn.nav.no/team-researchops/sporing/sporing.js',
-        'data-domains': 'innblikk.ansatt.nav.no',
-        'data-website-id': '0b8f9b86-ad39-48c3-9083-86ed6a399217',
+        src: `https://cdn.nav.no/team-researchops/sporing/sporing${isProd ? '' : '-dev'}.js`,
+        'data-website-id': isProd ? '0b8f9b86-ad39-48c3-9083-86ed6a399217' : '51546eed-1f17-4203-bc3a-e740671d7704',
+        ...(isProd || isDev
+          ? { 'data-domains': isProd ? 'innblikk.ansatt.nav.no' : 'innblikk.ansatt.dev.nav.no' }
+          : { 'data-before-send': '__innblikk_sporing_dev__' }),
       },
       {
         type: 'text/javascript',
@@ -146,6 +157,15 @@ function App() {
           document.body.appendChild(script);
         `,
       },
+
+      ...(!isProd && !isDev
+        ? [
+            {
+              type: 'text/javascript',
+              innerHTML: `window.__innblikk_sporing_dev__ = function(type, payload) { console.debug('[sporing]', type, payload); return false; }`,
+            },
+          ]
+        : []),
     ],
   })
 

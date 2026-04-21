@@ -60,8 +60,7 @@ const GoalCompletion = lazy(() => import('./features/goalcompletion').then((m) =
 // SQL Feature
 const SqlEditor = lazy(() => import('./features/sql').then((m) => ({ default: m.SqlEditor })))
 
-// Customization Feature
-const Innstillinger = lazy(() => import('./features/customization').then((m) => ({ default: m.Innstillinger })))
+const InnstillingerRedirect = () => <Navigate to="/profil" replace />
 
 const DashboardRouteResolver = () => {
   const location = useLocation()
@@ -151,7 +150,7 @@ export const routes: AppRoute[] = [
   { path: '/metabase', component: <MetabaseGuide />, fullWidth: true },
 
   { path: '/sql', component: <SqlEditor />, fullWidth: true },
-  { path: '/innstillinger', component: <Innstillinger />, fullWidth: true },
+  { path: '/innstillinger', component: <InnstillingerRedirect />, fullWidth: true },
   { path: '/grafdeling', component: <Grafdeling />, fullWidth: true },
   { path: '/dashboard', component: <DashboardRouteResolver />, fullWidth: true },
   { path: '/dashboard/:dashboardId', component: <DashboardDetailRoute />, fullWidth: true },
