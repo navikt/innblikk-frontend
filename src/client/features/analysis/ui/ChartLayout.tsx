@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { Accordion } from '@navikt/ds-react'
+import { Accordion, Tooltip } from '@navikt/ds-react'
+import { TestFlaskIcon } from '@navikt/aksel-icons'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { type AnalyticsPage, analyticsPages } from '../model/analyticsNavigation.ts'
 import { type ChartGroup } from '../model/chartGroups.tsx'
@@ -78,7 +79,23 @@ const SidebarNavigationContent: React.FC<SidebarNavigationContentProps> = ({
                   }`}
                   title={page.label}
                 >
-                  {page.label}
+                  <span className="flex items-center gap-1.5">
+                    {page.label}
+                    {'beta' in page && page.beta && (
+                      <Tooltip content="Beta-funksjon" placement="right">
+                        <span style={{ display: 'inline-flex' }}>
+                          <TestFlaskIcon
+                            aria-hidden
+                            fontSize="1.4rem"
+                            style={{
+                              color: isActive ? 'inherit' : 'var(--ax-text-meta-purple-subtle)',
+                              flexShrink: 0,
+                            }}
+                          />
+                        </span>
+                      </Tooltip>
+                    )}
+                  </span>
                 </a>
               </li>
             )
@@ -109,10 +126,13 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
     hideAnalysisSelector,
   )
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const isCurrentPageBeta = currentPage
+    ? ((analyticsPages.find((p) => p.id === currentPage) as { beta?: boolean } | undefined)?.beta ?? false)
+    : false
 
   return (
     <>
-      <PageHeader title={title} description={description} />
+      <PageHeader title={title} description={description} beta={isCurrentPageBeta} />
 
       <AppBlock className="pb-16">
         <div className="rounded-lg shadow-sm border border-[var(--ax-border-neutral-subtle)] mb-8 bg-[var(--ax-bg-default)] overflow-hidden">

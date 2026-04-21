@@ -3,8 +3,10 @@ import { UrlSearchForm } from '../../dashboard'
 import { KontaktSeksjon } from '../../../shared/ui/theme/Kontakt/KontaktSeksjon.tsx'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { BetaBadge } from '../../../shared/ui/theme/Header/BetaBadge.tsx'
+import { getFeatureFlag } from '../../../shared/lib/featureFlags.ts'
 
 function Home() {
+  const isBetaUser = getFeatureFlag('beta_opt_in')
   return (
     <div
       style={{
@@ -31,7 +33,7 @@ function Home() {
         <AppBlock style={{ width: '100%' }}>
           <div style={{ width: '100%', maxWidth: '680px', margin: '0 auto' }}>
             <HStack justify={'center'} style={{ marginBottom: 'var(--ax-space-64)' }}>
-              <BetaBadge />
+              {!isBetaUser && <BetaBadge />}
             </HStack>
             <Heading spacing={true} as="h1" size="xlarge">
               Forstå brukeradferd med Innblikk

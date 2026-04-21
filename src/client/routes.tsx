@@ -1,6 +1,14 @@
 import { lazy } from 'react'
 import type { ReactElement } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
+import { getFeatureFlag } from './shared/lib/featureFlags.ts'
+
+const BetaGuard = ({ children }: { children: ReactElement }) => {
+  if (!getFeatureFlag('beta_opt_in')) {
+    return <Navigate to="/profil#betaprogram" replace />
+  }
+  return children
+}
 
 // Content Feature
 const Home = lazy(() => import('./features/content').then((m) => ({ default: m.Home })))
@@ -159,7 +167,15 @@ export const routes: AppRoute[] = [
   { path: '/hendelsesreiser/visualisering', component: <EventJourneyClickmap />, fullWidth: true },
   { path: '/trakt', component: <Funnel />, fullWidth: true },
   { path: '/brukerlojalitet', component: <Retention />, fullWidth: true },
-  { path: '/maloppnaelse', component: <GoalCompletion />, fullWidth: true },
+  {
+    path: '/maloppnaelse',
+    component: (
+      <BetaGuard>
+        <GoalCompletion />
+      </BetaGuard>
+    ),
+    fullWidth: true,
+  },
   { path: '/brukersammensetning', component: <UserComposition />, fullWidth: true },
   { path: '/brukerprofiler', component: <UserProfiles />, fullWidth: true },
   { path: '/utforsk-hendelser', component: <EventExplorer />, fullWidth: true },

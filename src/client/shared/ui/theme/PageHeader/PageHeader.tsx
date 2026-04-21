@@ -1,4 +1,5 @@
-import { BodyLong, BodyShort, Heading } from '@navikt/ds-react'
+import { BodyLong, BodyShort, Heading, Tag } from '@navikt/ds-react'
+import { TestFlaskIcon } from '@navikt/aksel-icons'
 import React from 'react'
 import { AppBlock } from '../AppBlock/AppBlock.tsx'
 
@@ -8,9 +9,10 @@ interface PageHeaderProps {
   description?: React.ReactNode
   actions?: React.ReactNode
   variant?: 'regular' | 'article'
+  beta?: boolean
 }
 
-export const PageHeader = ({ title, subtitle, description, actions, variant = 'regular' }: PageHeaderProps) => {
+export const PageHeader = ({ title, subtitle, description, actions, variant = 'regular', beta }: PageHeaderProps) => {
   const isArticle = variant === 'article'
   const padding = isArticle ? '64px' : '32px'
 
@@ -32,9 +34,16 @@ export const PageHeader = ({ title, subtitle, description, actions, variant = 'r
           }`}
         >
           <div className="flex flex-col gap-[6px] md:col-start-1 md:row-start-1">
-            <Heading level="1" size="xlarge">
-              {title}
-            </Heading>
+            <div className="flex items-center gap-3 flex-wrap">
+              <Heading level="1" size="xlarge">
+                {title}
+              </Heading>
+              {beta && (
+                <Tag variant="moderate" size="small" data-color="meta-purple" icon={<TestFlaskIcon aria-hidden />}>
+                  Beta
+                </Tag>
+              )}
+            </div>
             {subtitle && (
               <Heading level="2" size="medium" className="text-[var(--ax-text-neutral-subtle)] font-normal">
                 {subtitle}
