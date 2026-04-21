@@ -20,6 +20,7 @@ All notable changes to this project will be documented in this file.
 - Identify umami user with innblikk_analytics_id on load
 - Merge main into feature/user-settings-persistence, resolve conflicts in App.tsx
 - Export Window type augmentation as module to fix umami type errors
+- Rename #betaprogram fragment to #beta, fix hash scroll on profile page
 
 ### 👷 CI
 
