@@ -19,6 +19,7 @@ All notable changes to this project will be documented in this file.
 - Remove setState calls inside useEffect in ThemeButton
 - Identify umami user with innblikk_analytics_id on load
 - Merge main into feature/user-settings-persistence, resolve conflicts in App.tsx
+- Export Window type augmentation as module to fix umami type errors
 
 ### 👷 CI
 
