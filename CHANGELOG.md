@@ -24,6 +24,10 @@ All notable changes to this project will be documented in this file.
 - Changelog
 - Changelog
 
+### 📚 Documentation
+
+- Add local backend setup instructions to README
+
 ### 📦 Miscellaneous
 
 - Bytte tenant til nav.no
