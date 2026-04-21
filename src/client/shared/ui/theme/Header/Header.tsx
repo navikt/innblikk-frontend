@@ -1,4 +1,5 @@
 import { CogIcon, ExternalLinkIcon, MenuHamburgerIcon, PersonIcon, ThemeIcon } from '@navikt/aksel-icons'
+import { Events, type ActionMenuApnetProperties, type ActionMenuValgValgtProperties } from '@navikt/analytics-types'
 import { ActionMenu, Button, Dropdown, Link, Tooltip } from '@navikt/ds-react'
 import { useEffect, useState } from 'react'
 import '../../../../tailwind.css'
@@ -118,7 +119,17 @@ export default function Header({ theme }: HeaderProps) {
   }
 
   const setupMenu = (
-    <ActionMenu>
+    <ActionMenu
+      onOpenChange={(open) => {
+        if (open) {
+          const properties: ActionMenuApnetProperties = {
+            triggerTekst: 'Teknisk meny',
+            seksjon: 'header',
+          }
+          window.umami?.track(Events.ACTIONMENU_APNET, properties)
+        }
+      }}
+    >
       <Tooltip content="Teknisk meny" describesChild>
         <ActionMenu.Trigger>
           <Button
@@ -132,7 +143,19 @@ export default function Header({ theme }: HeaderProps) {
       <ActionMenu.Content align="end">
         <ActionMenu.Group label="Veiledninger">
           {guideLinks.map((item) => (
-            <ActionMenu.Item key={item.href} as="a" href={item.href}>
+            <ActionMenu.Item
+              key={item.href}
+              as="a"
+              href={item.href}
+              onSelect={() => {
+                const properties: ActionMenuValgValgtProperties = {
+                  valgTekst: item.label,
+                  gruppeLabel: 'Veiledninger',
+                  seksjon: 'header',
+                }
+                window.umami?.track(Events.ACTIONMENU_VALG_VALGT, properties)
+              }}
+            >
               <span className="inline-flex items-center gap-1">
                 {item.label}
                 {item.external && <ExternalLinkIcon aria-hidden fontSize="0.9rem" />}
@@ -143,7 +166,19 @@ export default function Header({ theme }: HeaderProps) {
         <ActionMenu.Divider />
         <ActionMenu.Group label="Utviklerverktøy">
           {developerLinks.map((item) => (
-            <ActionMenu.Item key={item.href} as="a" href={item.href}>
+            <ActionMenu.Item
+              key={item.href}
+              as="a"
+              href={item.href}
+              onSelect={() => {
+                const properties: ActionMenuValgValgtProperties = {
+                  valgTekst: item.label,
+                  gruppeLabel: 'Utviklerverktøy',
+                  seksjon: 'header',
+                }
+                window.umami?.track(Events.ACTIONMENU_VALG_VALGT, properties)
+              }}
+            >
               {item.label}
             </ActionMenu.Item>
           ))}
@@ -153,7 +188,19 @@ export default function Header({ theme }: HeaderProps) {
             <ActionMenu.Divider />
             <ActionMenu.Group label="Miljø">
               {environmentLinks.map((item) => (
-                <ActionMenu.Item key={item.href} as="a" href={item.href}>
+                <ActionMenu.Item
+                  key={item.href}
+                  as="a"
+                  href={item.href}
+                  onSelect={() => {
+                    const properties: ActionMenuValgValgtProperties = {
+                      valgTekst: item.label,
+                      gruppeLabel: 'Miljø',
+                      seksjon: 'header',
+                    }
+                    window.umami?.track(Events.ACTIONMENU_VALG_VALGT, properties)
+                  }}
+                >
                   {item.label}
                 </ActionMenu.Item>
               ))}
@@ -162,13 +209,34 @@ export default function Header({ theme }: HeaderProps) {
         )}
         <ActionMenu.Divider />
         <ActionMenu.Group label="Preferanser">
-          <ActionMenu.Item onClick={toggleTheme}>
+          <ActionMenu.Item
+            onClick={toggleTheme}
+            onSelect={() => {
+              const properties: ActionMenuValgValgtProperties = {
+                valgTekst: `Bytt til ${theme === 'dark' ? 'lyst' : 'mørkt'} tema`,
+                gruppeLabel: 'Preferanser',
+                seksjon: 'header',
+              }
+              window.umami?.track(Events.ACTIONMENU_VALG_VALGT, properties)
+            }}
+          >
             <span className="inline-flex items-center gap-2 whitespace-nowrap">
               <ThemeIcon aria-hidden fontSize="1.2rem" />
               Bytt til {theme === 'dark' ? 'lyst' : 'mørkt'} tema
             </span>
           </ActionMenu.Item>
-          <ActionMenu.Item as="a" href="/profil">
+          <ActionMenu.Item
+            as="a"
+            href="/profil"
+            onSelect={() => {
+              const properties: ActionMenuValgValgtProperties = {
+                valgTekst: 'Profil',
+                gruppeLabel: 'Preferanser',
+                seksjon: 'header',
+              }
+              window.umami?.track(Events.ACTIONMENU_VALG_VALGT, properties)
+            }}
+          >
             <span className="inline-flex items-center gap-2 whitespace-nowrap">
               <PersonIcon aria-hidden fontSize="1.2rem" />
               Profil
