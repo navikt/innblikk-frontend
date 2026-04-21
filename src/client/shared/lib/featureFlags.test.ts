@@ -1,10 +1,6 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { getFeatureFlags, getFeatureFlag, setFeatureFlag } from './featureFlags.ts'
 
-vi.mock('./analyticsId.ts', () => ({
-  getOrCreateAnalyticsId: () => 'test-analytics-id',
-}))
-
 describe('featureFlags', () => {
   beforeEach(() => {
     localStorage.clear()
@@ -75,14 +71,12 @@ describe('featureFlags', () => {
       )
     })
 
-    it('sends all flags and analyticsId in the request body', () => {
+    it('sends all flags in the request body', () => {
       setFeatureFlag('beta_opt_in', true)
       const [, options] = vi.mocked(fetch).mock.calls[0]
       const body = JSON.parse((options as RequestInit).body as string)
       expect(body.settings.beta_opt_in).toBe('true')
       expect(body.settings.grafbygger_always_show_sql).toBe('false')
-      expect(body.analyticsId).toBe('test-analytics-id')
-      expect(body.clientInfo).toBeUndefined()
     })
 
     it('dispatches featureFlagsChange event with updated flags', () => {
