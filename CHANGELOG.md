@@ -64,6 +64,7 @@ All notable changes to this project will be documented in this file.
 - Split dashboardRoutes into smaller routes
 - Shared components
 - MAX_BYTES_BILLED 500 GB
+- **deps:** Add ws@8.20.0 dependency
 
 ### 🔧 Refactor
 
@@ -109,6 +110,9 @@ All notable changes to this project will be documented in this file.
 - Show generated SQL on personvernssjekk page
 - Show generated SQL on brukerreiser, utforsk-hendelser, hendelsesreiser, brukerprofiler, brukerlojalitet
 - Add generatedSql field to eventjourney types and retention hook
+- **canvas:** Add BFF WebSocket server with room-based auth
+- **canvas:** Add useCanvasWebSocket hook with exponential backoff reconnect
+- **canvas:** Replace polling with WebSocket real-time sync
 
 ### 🧪 Testing
 
