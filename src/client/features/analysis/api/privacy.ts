@@ -5,6 +5,7 @@ export interface PrivacyCheckResponse {
   dryRun?: boolean
   data?: PrivacyRow[]
   queryStats?: QueryStats
+  generatedSql?: string
 }
 
 export const fetchPrivacyCheck = async (params: {

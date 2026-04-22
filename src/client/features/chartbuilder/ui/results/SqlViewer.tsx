@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Button, CopyButton, ReadMore, Heading, Link } from '@navikt/ds-react'
 import { Copy, ExternalLink } from 'lucide-react'
 import Editor from '@monaco-editor/react'
+import * as sqlFormatter from 'sql-formatter'
 
 interface SqlViewerProps {
   sql: string
@@ -18,6 +19,14 @@ const SqlViewer = ({
 }: SqlViewerProps) => {
   const [copiedMetabase, setCopiedMetabase] = useState(false)
   const isDevEnvironment = typeof window !== 'undefined' && window.location.hostname.includes('.dev.nav.no')
+
+  const formattedSql = useMemo(() => {
+    try {
+      return sqlFormatter.format(sql)
+    } catch {
+      return sql
+    }
+  }, [sql])
   const metabaseQuestionUrl = isDevEnvironment
     ? 'https://metabase.ansatt.dev.nav.no/question#eyJkYXRhc2V0X3F1ZXJ5Ijp7ImxpYi90eXBlIjoibWJxbC9xdWVyeSIsImRhdGFiYXNlIjo1Njg2LCJzdGFnZXMiOlt7ImxpYi90eXBlIjoibWJxbC5zdGFnZS9uYXRpdmUiLCJuYXRpdmUiOiIiLCJ0ZW1wbGF0ZS10YWdzIjp7fX1dfSwiZGlzcGxheSI6InRhYmxlIiwidmlzdWFsaXphdGlvbl9zZXR0aW5ncyI6e30sInR5cGUiOiJxdWVzdGlvbiJ9'
     : 'https://metabase.ansatt.nav.no/question#eyJkYXRhc2V0X3F1ZXJ5Ijp7ImxpYi90eXBlIjoibWJxbC9xdWVyeSIsImRhdGFiYXNlIjoxNTQ4LCJzdGFnZXMiOlt7ImxpYi90eXBlIjoibWJxbC5zdGFnZS9uYXRpdmUiLCJuYXRpdmUiOiIiLCJ0ZW1wbGF0ZS10YWdzIjp7fX1dfSwiZGlzcGxheSI6InRhYmxlIiwidmlzdWFsaXphdGlvbl9zZXR0aW5ncyI6e30sInR5cGUiOiJxdWVzdGlvbiJ9'
@@ -63,7 +72,7 @@ const SqlViewer = ({
         <Editor
           height="400px"
           defaultLanguage="sql"
-          value={sql}
+          value={formattedSql}
           theme="vs-dark"
           options={{
             readOnly: true,

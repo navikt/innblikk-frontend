@@ -6,6 +6,7 @@ import PeriodPicker from './PeriodPicker.tsx'
 import { PATTERNS } from '../utils/privacyPatterns.ts'
 import { getEmailStats, getTableColumnGroups } from '../utils/privacy.ts'
 import { usePrivacyCheck } from '../hooks/usePrivacyCheck.ts'
+import { SqlViewer } from '../../chartbuilder'
 
 const HighlightedText = ({ text, type }: { text: string; type: string }) => {
   const sourcePattern = PATTERNS[type]
@@ -177,6 +178,7 @@ const PrivacyCheck = () => {
     loading,
     error,
     queryStats,
+    generatedSql,
     dryRunStats,
     showDryRunWarning,
     setShowDryRunWarning,
@@ -506,6 +508,8 @@ const PrivacyCheck = () => {
               <div>Data prosessert: {queryStats.totalBytesProcessedGB} GB</div>
             </div>
           )}
+
+          {generatedSql && <SqlViewer sql={generatedSql} showEditButton />}
         </>
       )}
     </ChartLayout>

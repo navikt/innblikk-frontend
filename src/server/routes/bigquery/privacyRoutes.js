@@ -96,7 +96,7 @@ export function createPrivacyRoutes({ bigquery, GCP_PROJECT_ID }) {
                     ${type === 'E-post' ? `COUNT(DISTINCT CASE WHEN NOT REGEXP_CONTAINS(${check.column}, r'@nav') THEN ${check.column} END)` : '0'} as unique_other_count,
                     ARRAY_AGG(DISTINCT ${check.column} LIMIT 5) as examples,
                     ${relatedPathsExpression} as related_paths
-                FROM \`.umami.${check.table}\`
+                FROM \`${GCP_PROJECT_ID}.umami.${check.table}\`
                 WHERE website_id = @websiteId
                 AND created_at BETWEEN @startDate AND @endDate
                 AND REGEXP_CONTAINS(${check.column}, r'${pattern}')
@@ -121,7 +121,7 @@ export function createPrivacyRoutes({ bigquery, GCP_PROJECT_ID }) {
                     ${type === 'E-post' ? `COUNT(DISTINCT CASE WHEN NOT REGEXP_CONTAINS(${check.column}, r'@nav') THEN ${check.column} END)` : '0'} as unique_other_count,
                     ARRAY_AGG(DISTINCT ${check.column} LIMIT 5) as examples,
                     ${relatedPathsExpression} as related_paths
-                FROM \`.umami.${check.table}\`
+                FROM \`${GCP_PROJECT_ID}.umami.${check.table}\`
                 WHERE created_at BETWEEN @startDate AND @endDate
                 AND REGEXP_CONTAINS(${check.column}, r'${pattern}')
                 ${extraFilter}
@@ -215,6 +215,7 @@ export function createPrivacyRoutes({ bigquery, GCP_PROJECT_ID }) {
 
         return res.json({
           dryRun: true,
+          generatedSql: finalQuery,
           queryStats: {
             totalBytesProcessedGB: stats.totalBytesProcessedGB,
             estimatedCostUSD: stats.estimatedCostUSD,
@@ -267,7 +268,7 @@ export function createPrivacyRoutes({ bigquery, GCP_PROJECT_ID }) {
         addAuditLogging,
       )
 
-      res.json({ data: processedRows, queryStats })
+      res.json({ data: processedRows, generatedSql: finalQuery, queryStats })
     } catch (error) {
       console.error('Privacy check error:', error)
       res.status(500).json({ error: error.message })

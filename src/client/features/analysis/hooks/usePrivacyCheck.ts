@@ -24,6 +24,7 @@ export const usePrivacyCheck = () => {
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
   const [queryStats, setQueryStats] = useState<QueryStats | null>(null)
+  const [generatedSql, setGeneratedSql] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<string>('summary')
   const [selectedType, setSelectedType] = useState<string | null>(null)
   const [showEmpty, setShowEmpty] = useState<boolean>(false)
@@ -55,6 +56,7 @@ export const usePrivacyCheck = () => {
       } else {
         setData(null)
         setQueryStats(null)
+        setGeneratedSql(null)
         setSelectedType(null)
         setDryRunStats(null)
         setShowDryRunWarning(false)
@@ -106,6 +108,7 @@ export const usePrivacyCheck = () => {
 
             setData(filteredData)
             setQueryStats(result.queryStats ?? null)
+            setGeneratedSql(result.generatedSql ?? null)
             setLoading(false)
 
             // Update URL with selected period for sharing
@@ -178,6 +181,7 @@ export const usePrivacyCheck = () => {
     loading,
     error,
     queryStats,
+    generatedSql,
     dryRunStats,
     showDryRunWarning,
     setShowDryRunWarning,
