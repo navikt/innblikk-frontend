@@ -5,6 +5,7 @@ import {
   sendCanvasPresenceHeartbeat,
   type CanvasParticipant,
 } from '../api/canvasPresenceApi.ts'
+import type { CanvasWebSocketHandle } from './useCanvasWebSocket.ts'
 
 const PRESENCE_HEARTBEAT_MS = 10000
 const PRESENCE_POLL_MS = 10000
@@ -20,9 +21,10 @@ type UseCanvasPresenceParams = {
   enabled: boolean
   projectId: number | null
   dashboardId: number | null
+  ws?: CanvasWebSocketHandle
 }
 
-const useCanvasPresence = ({ enabled, projectId, dashboardId }: UseCanvasPresenceParams) => {
+const useCanvasPresence = ({ enabled, projectId, dashboardId, ws }: UseCanvasPresenceParams) => {
   const [clientId] = useState<string>(() => createCanvasClientId())
   const [ownerId, setOwnerId] = useState<string>('')
   const [ownerLabel, setOwnerLabel] = useState<string>('En kollega')
@@ -49,6 +51,8 @@ const useCanvasPresence = ({ enabled, projectId, dashboardId }: UseCanvasPresenc
     }
   }, [])
 
+  const wsConnected = ws?.isConnected ?? false
+
   useEffect(() => {
     if (!enabled || projectId === null || dashboardId === null) return
 
@@ -71,34 +75,51 @@ const useCanvasPresence = ({ enabled, projectId, dashboardId }: UseCanvasPresenc
       if (!isActive) return
       setParticipants(nextParticipants)
       setIsPresenceReady(true)
+      ws?.broadcast('canvas:presence', nextParticipants)
     }
 
     const runTick = async () => {
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
       try {
         await sendHeartbeat()
-        await pollParticipants()
+        if (!wsConnected) await pollParticipants()
       } catch {
         // Presence errors should not block canvas usage.
       }
     }
 
     void runTick()
+
     heartbeatId = window.setInterval(() => {
       void sendHeartbeat().catch(() => undefined)
     }, PRESENCE_HEARTBEAT_MS)
-    pollId = window.setInterval(() => {
-      void pollParticipants().catch(() => undefined)
-    }, PRESENCE_POLL_MS)
+
+    if (!wsConnected) {
+      pollId = window.setInterval(() => {
+        void pollParticipants().catch(() => undefined)
+      }, PRESENCE_POLL_MS)
+    }
 
     return () => {
       isActive = false
       if (heartbeatId !== null) window.clearInterval(heartbeatId)
       if (pollId !== null) window.clearInterval(pollId)
     }
-  }, [clientId, dashboardId, enabled, ownerId, ownerLabel, projectId])
+  }, [clientId, dashboardId, enabled, ownerId, ownerLabel, projectId, ws, wsConnected])
 
   const effectiveParticipants = useMemo(() => (enabled ? participants : []), [enabled, participants])
+
+  useEffect(() => {
+    if (!ws) return
+    const unsubscribe = ws.subscribe('canvas:presence', (payload) => {
+      const next = payload as CanvasParticipant[]
+      if (Array.isArray(next)) {
+        setParticipants(next)
+        setIsPresenceReady(true)
+      }
+    })
+    return unsubscribe
+  }, [ws])
   const effectivePresenceReady = enabled ? isPresenceReady : false
   const uniqueParticipants = useMemo(() => {
     const byOwnerKey = new Map<string, CanvasParticipant>()

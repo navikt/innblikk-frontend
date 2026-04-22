@@ -12,6 +12,7 @@ import {
   type CanvasDotVotingBallotPayload,
   type CanvasDotVotingSessionPayload,
 } from '../api/canvasDotVotingApi.ts'
+import type { CanvasWebSocketHandle } from './useCanvasWebSocket.ts'
 
 const DOT_VOTING_ACTIVE_SYNC_INTERVAL_MS = 2000
 const DOT_VOTING_IDLE_SYNC_INTERVAL_MS = 10000
@@ -30,6 +31,7 @@ type UseCanvasDotVotingSyncParams = {
   projectId: number | null
   dashboardId: number | null
   onSyncError?: (message: string) => void
+  ws?: CanvasWebSocketHandle
 }
 
 const useCanvasDotVotingSync = ({
@@ -39,6 +41,7 @@ const useCanvasDotVotingSync = ({
   projectId,
   dashboardId,
   onSyncError,
+  ws,
 }: UseCanvasDotVotingSyncParams) => {
   const [sessionPayload, setSessionPayload] = useState<CanvasDotVotingSessionPayload | null>(null)
   const [ballots, setBallots] = useState<CanvasDotVotingBallotPayload[]>([])
@@ -46,15 +49,35 @@ const useCanvasDotVotingSync = ({
   const [nowMs, setNowMs] = useState(() => Date.now())
   const [isSavingVoting, setIsSavingVoting] = useState(false)
   const onSyncErrorRef = useRef<typeof onSyncError>(onSyncError)
+  const wsRef = useRef(ws)
 
   useEffect(() => {
     onSyncErrorRef.current = onSyncError
   }, [onSyncError])
 
   useEffect(() => {
+    wsRef.current = ws
+  })
+
+  useEffect(() => {
     const intervalId = window.setInterval(() => setNowMs(Date.now()), 1000)
     return () => window.clearInterval(intervalId)
   }, [])
+
+  useEffect(() => {
+    if (!ws) return
+    const fromWsRef = { current: false }
+    const unsubscribe = ws.subscribe('canvas:dotvoting', (payload) => {
+      const data = payload as { session: CanvasDotVotingSessionPayload | null; ballots: CanvasDotVotingBallotPayload[] }
+      if (data && typeof data === 'object') {
+        fromWsRef.current = true
+        setSessionPayload(data.session ?? null)
+        setBallots(Array.isArray(data.ballots) ? data.ballots : [])
+        fromWsRef.current = false
+      }
+    })
+    return unsubscribe
+  }, [ws])
 
   useEffect(() => {
     let isActive = true
@@ -178,6 +201,7 @@ const useCanvasDotVotingSync = ({
         })
         setSessionPayload(nextSession)
         setBallots([])
+        wsRef.current?.broadcast('canvas:dotvoting', { session: nextSession, ballots: [] })
       } catch (error) {
         onSyncError?.(error instanceof Error ? error.message : 'Kunne ikke starte prikkvotering')
       } finally {
@@ -193,6 +217,7 @@ const useCanvasDotVotingSync = ({
       setIsSavingVoting(true)
       const nextSession = await pauseCanvasDotVoting(projectId, dashboardId)
       setSessionPayload(nextSession)
+      wsRef.current?.broadcast('canvas:dotvoting', { session: nextSession, ballots: [] })
     } catch (error) {
       onSyncError?.(error instanceof Error ? error.message : 'Kunne ikke pause prikkvotering')
     } finally {
@@ -206,6 +231,7 @@ const useCanvasDotVotingSync = ({
       setIsSavingVoting(true)
       const nextSession = await resumeCanvasDotVoting(projectId, dashboardId)
       setSessionPayload(nextSession)
+      wsRef.current?.broadcast('canvas:dotvoting', { session: nextSession, ballots: [] })
     } catch (error) {
       onSyncError?.(error instanceof Error ? error.message : 'Kunne ikke fortsette prikkvotering')
     } finally {
@@ -223,6 +249,7 @@ const useCanvasDotVotingSync = ({
         setIsSavingVoting(true)
         const nextSession = await adjustCanvasDotVoting(projectId, dashboardId, deltaSeconds)
         setSessionPayload(nextSession)
+        wsRef.current?.broadcast('canvas:dotvoting', { session: nextSession, ballots: [] })
       } catch (error) {
         onSyncError?.(error instanceof Error ? error.message : 'Kunne ikke oppdatere prikkvotering')
       } finally {
@@ -238,6 +265,7 @@ const useCanvasDotVotingSync = ({
       setIsSavingVoting(true)
       const nextSession = await endCanvasDotVoting(projectId, dashboardId)
       setSessionPayload(nextSession)
+      wsRef.current?.broadcast('canvas:dotvoting', { session: nextSession, ballots: [] })
     } catch (error) {
       onSyncError?.(error instanceof Error ? error.message : 'Kunne ikke avslutte prikkvotering')
     } finally {
@@ -252,6 +280,7 @@ const useCanvasDotVotingSync = ({
       await clearCanvasDotVoting(projectId, dashboardId)
       setSessionPayload(null)
       setBallots([])
+      wsRef.current?.broadcast('canvas:dotvoting', { session: null, ballots: [] })
     } catch (error) {
       onSyncError?.(error instanceof Error ? error.message : 'Kunne ikke nullstille prikkvotering')
     } finally {

@@ -26,7 +26,8 @@
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
-    "helmet": "^8.1.0"
+    "helmet": "^8.1.0",
+    "ws": "^8.20.0"
   },
   "devDependencies": {
     "@codemirror/lang-sql": "^6.10.0",

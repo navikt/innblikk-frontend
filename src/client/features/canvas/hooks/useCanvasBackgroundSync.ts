@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import type { GraphCategoryDto } from '../../oversikt/model/types.ts'
 import type { CanvasConnection, CanvasFrame } from '../model/types.ts'
 import { fetchCanvasStorageData } from '../api/canvasStorageApi.ts'
+import type { CanvasWebSocketHandle } from './useCanvasWebSocket.ts'
 
 const DEFAULT_SYNC_INTERVAL_MS = 4000
 const MAX_SYNC_INTERVAL_MS = 30000
@@ -181,6 +182,7 @@ type UseCanvasBackgroundSyncParams = {
   setSyncError: Dispatch<SetStateAction<string | null>>
   onBeforeApplyRemoteData?: () => void
   intervalMs?: number
+  ws?: CanvasWebSocketHandle
 }
 
 const useCanvasBackgroundSync = ({
@@ -197,7 +199,18 @@ const useCanvasBackgroundSync = ({
   setSyncError,
   onBeforeApplyRemoteData,
   intervalMs = DEFAULT_SYNC_INTERVAL_MS,
+  ws,
 }: UseCanvasBackgroundSyncParams) => {
+  useEffect(() => {
+    if (!ws) return
+    const unsubscribe = ws.subscribe('canvas:frame', (payload) => {
+      const frame = payload as CanvasFrame
+      if (!frame?.id) return
+      setFrames((current) => reconcileFrames(current, [frame], new Set()))
+    })
+    return unsubscribe
+  }, [ws, setFrames])
+
   useEffect(() => {
     if (!enabled || projectId === null || dashboardId === null) return
 

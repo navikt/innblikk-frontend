@@ -7,6 +7,7 @@ import {
   releaseCanvasEditLock,
   type CanvasEditLockRecord,
 } from '../api/canvasEditLockApi.ts'
+import type { CanvasWebSocketHandle } from './useCanvasWebSocket.ts'
 
 const LOCK_SYNC_INTERVAL_MS = 3000
 
@@ -41,6 +42,7 @@ type UseCanvasEditLocksParams = {
   dashboardId: number | null
   activeEditableFrame: CanvasFrame | null
   onLostActiveLock?: () => void
+  ws?: CanvasWebSocketHandle
 }
 
 const useCanvasEditLocks = ({
@@ -49,6 +51,7 @@ const useCanvasEditLocks = ({
   dashboardId,
   activeEditableFrame,
   onLostActiveLock,
+  ws,
 }: UseCanvasEditLocksParams) => {
   const editorId = useMemo(() => createEditorId(), [])
   const editorLabel = 'En kollega'
@@ -56,6 +59,20 @@ const useCanvasEditLocks = ({
     Record<number, { ownerId: string; ownerLabel: string; expiresAt: string }>
   >({})
   const isPollingRef = useRef(false)
+  const wsRef = useRef(ws)
+  useEffect(() => {
+    wsRef.current = ws
+  })
+
+  useEffect(() => {
+    if (!ws) return
+    return ws.subscribe('canvas:locks', (payload) => {
+      const nextLocks = payload as Record<number, { ownerId: string; ownerLabel: string; expiresAt: string }>
+      if (nextLocks && typeof nextLocks === 'object') {
+        setActiveLocksByFrameGraphId(nextLocks)
+      }
+    })
+  }, [ws])
 
   const syncLocks = useCallback(async () => {
     if (!enabled || projectId === null || dashboardId === null) return
@@ -67,6 +84,7 @@ const useCanvasEditLocks = ({
       const records = await listCanvasEditLocks(projectId, dashboardId)
       const nextLocks = toActiveLocksByFrameGraphId(records)
       setActiveLocksByFrameGraphId(nextLocks)
+      wsRef.current?.broadcast('canvas:locks', nextLocks)
 
       const activeFrameGraphId = activeEditableFrame?.graphId
       if (!activeFrameGraphId) return
