@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Button, Alert, Loader } from '@navikt/ds-react'
 import { Share2, Check } from 'lucide-react'
+import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
@@ -54,6 +55,8 @@ const EventExplorer = () => {
   const copyShareLink = async () => {
     const success = await copyToClipboard(window.location.href)
     if (success) {
+      const properties: KopierLenkeProperties = { seksjon: 'event-explorer' }
+      window.umami?.track(Events.KOPIER_LENKE, properties)
       setCopySuccess(true)
       setTimeout(() => setCopySuccess(false), 2000)
     }
@@ -128,7 +131,7 @@ const EventExplorer = () => {
           onSelectEvent={setSelectedEvent}
         />
       )}
-      {!selectedEvent && generatedSql && <SqlViewer sql={generatedSql} />}
+      {!selectedEvent && generatedSql && <SqlViewer sql={generatedSql} seksjon="event-explorer" />}
 
       {selectedEvent && (
         <EventDetailView

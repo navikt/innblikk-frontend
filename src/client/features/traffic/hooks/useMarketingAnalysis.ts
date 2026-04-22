@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
+import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
 import {
   useMarketingSupport,
   useCookieSupport,
@@ -198,6 +199,8 @@ export const useMarketingAnalysis = () => {
   const copyShareLink = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href)
+      const properties: KopierLenkeProperties = { seksjon: 'markedsføring' }
+      window.umami?.track(Events.KOPIER_LENKE, properties)
       setCopySuccess(true)
       setTimeout(() => setCopySuccess(false), 2000)
     } catch (err) {

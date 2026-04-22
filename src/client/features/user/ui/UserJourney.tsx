@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ActionMenu, Alert, Button, Loader, ReadMore, Select, Switch, TextField, Tooltip } from '@navikt/ds-react'
 import { Minimize2, ExternalLink, MoreVertical, Search } from 'lucide-react'
+import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
@@ -101,6 +102,8 @@ const UserJourney = () => {
   const handleCopyShareLink = async () => {
     const success = await copyShareLink()
     if (success) {
+      const properties: KopierLenkeProperties = { seksjon: 'brukerreise' }
+      window.umami?.track(Events.KOPIER_LENKE, properties)
       setCopySuccess(true)
       setTimeout(() => setCopySuccess(false), 2000)
     }
@@ -291,7 +294,7 @@ const UserJourney = () => {
                 Data prosessert: {queryStats.totalBytesProcessedGB} GB
               </div>
             )}
-            {generatedSql && <SqlViewer sql={generatedSql} />}
+            {generatedSql && <SqlViewer sql={generatedSql} seksjon="brukerreise" />}
             <div className="mt-4 flex justify-end">
               <div className="flex flex-col items-end gap-2">
                 <Switch checked={showTableSection} onChange={(e) => setShowTableSection(e.target.checked)} size="small">

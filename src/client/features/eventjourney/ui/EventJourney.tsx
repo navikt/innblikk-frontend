@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { TextField, Button, Alert, Loader, Switch, UNSAFE_Combobox } from '@navikt/ds-react'
 import { Share2, Check, ExternalLink } from 'lucide-react'
+import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
 import { format } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
@@ -62,6 +63,8 @@ const EventJourney = () => {
   const copyShareLink = async () => {
     const success = await copyToClipboard(window.location.href)
     if (success) {
+      const properties: KopierLenkeProperties = { seksjon: 'event-journey' }
+      window.umami?.track(Events.KOPIER_LENKE, properties)
       setCopySuccess(true)
       setTimeout(() => setCopySuccess(false), 2000)
     }
@@ -306,7 +309,7 @@ const EventJourney = () => {
           Data prosessert: {queryStats.totalBytesProcessedGB} GB
         </div>
       )}
-      {generatedSql && <SqlViewer sql={generatedSql} />}
+      {generatedSql && <SqlViewer sql={generatedSql} seksjon="event-journey" />}
 
       {!loading && hasSearched && urlPath && data.length === 0 && !error && (
         <div className="flex justify-center items-center h-full text-gray-500">

@@ -3,12 +3,14 @@ import { Button, CopyButton, ReadMore, Heading, Link } from '@navikt/ds-react'
 import { Copy, ExternalLink } from 'lucide-react'
 import Editor from '@monaco-editor/react'
 import * as sqlFormatter from 'sql-formatter'
+import { Events, type LesMerApnetProperties } from '@navikt/analytics-types'
 
 interface SqlViewerProps {
   sql: string
   showEditButton?: boolean
   withoutReadMore?: boolean
   showMetabaseActions?: boolean
+  seksjon?: string
 }
 
 const SqlViewer = ({
@@ -16,6 +18,7 @@ const SqlViewer = ({
   showEditButton = false,
   withoutReadMore = false,
   showMetabaseActions = true,
+  seksjon,
 }: SqlViewerProps) => {
   const [copiedMetabase, setCopiedMetabase] = useState(false)
   const isDevEnvironment = typeof window !== 'undefined' && window.location.hostname.includes('.dev.nav.no')
@@ -128,7 +131,19 @@ const SqlViewer = ({
 
   return (
     <div className="mt-2">
-      <ReadMore header="Vis SQL-kode" size="medium">
+      <ReadMore
+        header="Vis SQL-kode"
+        size="medium"
+        onOpenChange={(open) => {
+          if (open) {
+            const properties: LesMerApnetProperties = {
+              tittel: 'Vis SQL-kode',
+              ...(seksjon ? { seksjon } : {}),
+            }
+            window.umami?.track(Events.LES_MER_APNET, properties)
+          }
+        }}
+      >
         {content}
       </ReadMore>
     </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Modal, Button, Textarea, Select, Checkbox, CheckboxGroup, ReadMore, CopyButton } from '@navikt/ds-react'
+import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
 
 interface ShareResultsModalProps {
   sql: string
@@ -140,6 +141,10 @@ const ShareResultsModal = ({ sql, open, onClose }: ShareResultsModalProps) => {
           size="medium"
           variant="action"
           className="mr-2"
+          onClick={() => {
+            const properties: KopierLenkeProperties = { seksjon: 'grafbygger-deling' }
+            window.umami?.track(Events.KOPIER_LENKE, properties)
+          }}
         />
       </Modal.Footer>
     </Modal>

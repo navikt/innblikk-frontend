@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { Events, type LastNedProperties } from '@navikt/analytics-types'
 import {
   Heading,
   Button,
@@ -523,6 +524,8 @@ const ResultsPanel = ({
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+    const properties: LastNedProperties = { tittel: 'query_results', type: 'CSV', seksjon: 'grafbygger' }
+    window.umami?.track(Events.LAST_NED, properties)
   }
 
   // Function to convert results to a real XLSX file
@@ -574,6 +577,8 @@ const ResultsPanel = ({
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
+    const properties: LastNedProperties = { tittel: 'query_results', type: 'Excel', seksjon: 'grafbygger' }
+    window.umami?.track(Events.LAST_NED, properties)
   }
 
   // Function to convert results to JSON
@@ -1394,7 +1399,12 @@ const ResultsPanel = ({
 
         {/* SQL Code Display */}
         {sql && (alwaysShowSql || (showSqlCode && result)) && (
-          <SqlViewer sql={sql} showEditButton={showEditButton} showMetabaseActions={showSqlMetabaseActions} />
+          <SqlViewer
+            sql={sql}
+            showEditButton={showEditButton}
+            showMetabaseActions={showSqlMetabaseActions}
+            seksjon="grafbygger"
+          />
         )}
       </div>
 

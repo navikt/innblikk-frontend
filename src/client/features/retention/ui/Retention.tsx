@@ -308,7 +308,7 @@ const Retention = () => {
           Ingen data funnet for valgt periode.
         </div>
       )}
-      {generatedSql && <SqlViewer sql={generatedSql} />}
+      {generatedSql && <SqlViewer sql={generatedSql} seksjon="retention" />}
     </ChartLayout>
   )
 }

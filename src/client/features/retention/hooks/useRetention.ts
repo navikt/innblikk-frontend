@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import type { ILineChartProps } from '@fluentui/react-charting'
 import { parseISO } from 'date-fns'
+import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
 import type { RetentionRow, QueryStats, RetentionStats } from '../model/types'
 import type { Website } from '../../../shared/types/chart'
 import { useCookieSupport, useCookieStartDate } from '../../../shared/hooks/useSiteimproveSupport'
@@ -259,6 +260,8 @@ export function useRetention(): RetentionState {
   const copyShareLinkAction = useCallback(async () => {
     try {
       await copyShareLinkUtil()
+      const properties: KopierLenkeProperties = { seksjon: 'retention' }
+      window.umami?.track(Events.KOPIER_LENKE, properties)
       setCopySuccess(true)
       setTimeout(() => setCopySuccess(false), 2000)
     } catch (err) {

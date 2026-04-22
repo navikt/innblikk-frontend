@@ -509,7 +509,7 @@ const PrivacyCheck = () => {
             </div>
           )}
 
-          {generatedSql && <SqlViewer sql={generatedSql} showEditButton />}
+          {generatedSql && <SqlViewer sql={generatedSql} showEditButton seksjon="personvernsjekk" />}
         </>
       )}
     </ChartLayout>

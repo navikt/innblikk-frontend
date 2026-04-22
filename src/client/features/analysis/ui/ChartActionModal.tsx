@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Modal, Button } from '@navikt/ds-react'
 import { ZoomPlusIcon, DownloadIcon, LinkIcon, CheckmarkIcon } from '@navikt/aksel-icons'
 import { Code2, Copy, Pencil, Trash2 } from 'lucide-react'
+import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
 import type { ChartActionModalProps } from '../model/types.ts'
 import { buildEditorUrl, generateShareUrl, downloadChartCsv } from '../utils/chartActions.ts'
 
@@ -35,6 +36,8 @@ const ChartActionModal: React.FC<ChartActionModalProps> = ({
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(generateShareUrl(chart, websiteId, filters, domain, dashboardTitle))
+      const properties: KopierLenkeProperties = { seksjon: 'graf-deling' }
+      window.umami?.track(Events.KOPIER_LENKE, properties)
       setCopyFeedback(true)
       setTimeout(() => setCopyFeedback(false), 2000)
     } catch (err) {

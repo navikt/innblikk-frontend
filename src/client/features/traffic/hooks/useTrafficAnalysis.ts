@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
 import { nb } from 'date-fns/locale'
 import type { ILineChartDataPoint } from '@fluentui/react-charting'
+import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
 import { useCookieSupport, useCookieStartDate } from '../../../shared/hooks/useSiteimproveSupport.ts'
 import type { Website } from '../../../shared/types/chart.ts'
 import {
@@ -776,6 +777,8 @@ export const useTrafficAnalysis = () => {
   const copyShareLink = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href)
+      const properties: KopierLenkeProperties = { seksjon: 'trafikk' }
+      window.umami?.track(Events.KOPIER_LENKE, properties)
       setCopySuccess(true)
       setTimeout(() => setCopySuccess(false), 2000)
     } catch (err) {

@@ -821,7 +821,7 @@ const UserProfiles = () => {
         websiteId={selectedWebsite?.id}
         period={period}
       />
-      {generatedSql && <SqlViewer sql={generatedSql} />}
+      {generatedSql && <SqlViewer sql={generatedSql} seksjon="brukerprofiler" />}
     </ChartLayout>
   )
 }

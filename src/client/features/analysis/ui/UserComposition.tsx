@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Button, Alert, Loader, Tabs, Switch } from '@navikt/ds-react'
 import { Share2, Check } from 'lucide-react'
+import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
 import { parseISO } from 'date-fns'
 import { ResponsiveContainer, VerticalBarChart, PieChart } from '@fluentui/react-charting'
 import ChartLayout from './ChartLayout.tsx'
@@ -192,6 +193,8 @@ const UserComposition = () => {
   const copyShareLink = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href)
+      const properties: KopierLenkeProperties = { seksjon: 'brukersammensetning' }
+      window.umami?.track(Events.KOPIER_LENKE, properties)
       setCopySuccess(true)
       setTimeout(() => setCopySuccess(false), 2000)
     } catch {
@@ -490,7 +493,7 @@ const UserComposition = () => {
               {copySuccess ? 'Kopiert!' : 'Del analyse'}
             </Button>
           </div>
-          {generatedSql && <SqlViewer sql={generatedSql} />}
+          {generatedSql && <SqlViewer sql={generatedSql} seksjon="brukersammensetning" />}
           {addToDashboardSqlTemplate && (
             <AddToDashboardDialog
               open={showAddToDashboardDialog}

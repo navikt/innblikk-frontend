@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { parseISO } from 'date-fns'
+import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
 import type { FunnelStep, FunnelResultRow, TimingResultRow, QueryStats } from '../model/types'
 import type { Website } from '../../../shared/types/chart'
 import { getStoredPeriod, savePeriodPreference } from '../../../shared/lib/utils'
@@ -207,6 +208,8 @@ export function useFunnel(): FunnelState {
   const copyShareLink = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href)
+      const properties: KopierLenkeProperties = { seksjon: 'funnel' }
+      window.umami?.track(Events.KOPIER_LENKE, properties)
       setCopySuccess(true)
       setTimeout(() => setCopySuccess(false), 2000)
     } catch (err) {
