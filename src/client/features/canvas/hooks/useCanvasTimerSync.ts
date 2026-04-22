@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   adjustCanvasTimer,
   clearCanvasTimer,
@@ -8,6 +8,7 @@ import {
   upsertCanvasTimer,
   type CanvasTimerPayload,
 } from '../api/canvasTimerApi.ts'
+import type { CanvasWebSocketHandle } from './useCanvasWebSocket.ts'
 
 const TIMER_ACTIVE_SYNC_INTERVAL_MS = 2000
 const TIMER_FINISHED_VISIBLE_MS = 15000
@@ -24,12 +25,24 @@ type UseCanvasTimerSyncParams = {
   projectId: number | null
   dashboardId: number | null
   onSyncError?: (message: string) => void
+  ws?: CanvasWebSocketHandle
 }
 
-const useCanvasTimerSync = ({ enabled, projectId, dashboardId, onSyncError }: UseCanvasTimerSyncParams) => {
+const useCanvasTimerSync = ({ enabled, projectId, dashboardId, onSyncError, ws }: UseCanvasTimerSyncParams) => {
   const [timerPayload, setTimerPayload] = useState<CanvasTimerPayload | null>(null)
   const [nowMs, setNowMs] = useState(() => Date.now())
   const [isSavingTimer, setIsSavingTimer] = useState(false)
+  const wsRef = useRef(ws)
+  useEffect(() => {
+    wsRef.current = ws
+  })
+
+  useEffect(() => {
+    if (!ws) return
+    return ws.subscribe('canvas:timer', (payload) => {
+      setTimerPayload((payload as CanvasTimerPayload | null) ?? null)
+    })
+  }, [ws])
 
   useEffect(() => {
     const intervalId = window.setInterval(() => setNowMs(Date.now()), 1000)
@@ -97,6 +110,7 @@ const useCanvasTimerSync = ({ enabled, projectId, dashboardId, onSyncError }: Us
           durationSeconds,
         })
         setTimerPayload(nextPayload)
+        wsRef.current?.broadcast('canvas:timer', nextPayload)
       } catch (error) {
         onSyncError?.(error instanceof Error ? error.message : 'Kunne ikke starte timer')
       } finally {
@@ -112,6 +126,7 @@ const useCanvasTimerSync = ({ enabled, projectId, dashboardId, onSyncError }: Us
       setIsSavingTimer(true)
       await clearCanvasTimer(projectId, dashboardId)
       setTimerPayload(null)
+      wsRef.current?.broadcast('canvas:timer', null)
     } catch (error) {
       onSyncError?.(error instanceof Error ? error.message : 'Kunne ikke stoppe timer')
     } finally {
@@ -125,12 +140,11 @@ const useCanvasTimerSync = ({ enabled, projectId, dashboardId, onSyncError }: Us
       setIsSavingTimer(true)
       const nextPayload = await pauseCanvasTimer(projectId, dashboardId)
       setTimerPayload(nextPayload)
-    } catch (error) {
-      onSyncError?.(error instanceof Error ? error.message : 'Kunne ikke pause nedtelling')
+      wsRef.current?.broadcast('canvas:timer', nextPayload)
     } finally {
       setIsSavingTimer(false)
     }
-  }, [dashboardId, enabled, onSyncError, projectId])
+  }, [dashboardId, enabled, projectId])
 
   const resumeTimer = useCallback(async () => {
     if (!enabled || projectId === null || dashboardId === null) return
@@ -138,6 +152,7 @@ const useCanvasTimerSync = ({ enabled, projectId, dashboardId, onSyncError }: Us
       setIsSavingTimer(true)
       const nextPayload = await resumeCanvasTimer(projectId, dashboardId)
       setTimerPayload(nextPayload)
+      wsRef.current?.broadcast('canvas:timer', nextPayload)
     } catch (error) {
       onSyncError?.(error instanceof Error ? error.message : 'Kunne ikke fortsette nedtelling')
     } finally {
@@ -154,6 +169,7 @@ const useCanvasTimerSync = ({ enabled, projectId, dashboardId, onSyncError }: Us
         setIsSavingTimer(true)
         const nextPayload = await adjustCanvasTimer(projectId, dashboardId, deltaSeconds)
         setTimerPayload(nextPayload)
+        wsRef.current?.broadcast('canvas:timer', nextPayload)
       } catch (error) {
         onSyncError?.(error instanceof Error ? error.message : 'Kunne ikke oppdatere nedtelling')
       } finally {

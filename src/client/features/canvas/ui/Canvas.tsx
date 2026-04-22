@@ -76,6 +76,7 @@ import useCanvasFrameFormHandlers from '../hooks/useCanvasFrameFormHandlers.ts'
 import useCanvasPresence from '../hooks/useCanvasPresence.ts'
 import useCanvasDotVotingSync from '../hooks/useCanvasDotVotingSync.ts'
 import useCanvasTimerSync from '../hooks/useCanvasTimerSync.ts'
+import useCanvasWebSocket from '../hooks/useCanvasWebSocket.ts'
 import useCanvasInteractions, {
   type CanvasDragState,
   type CanvasResizeState,
@@ -657,11 +658,23 @@ const Canvas = () => {
 
   const canvasSyncContextEnabled =
     canPersistToDashboard && projectId !== null && dashboardId !== null && canvasInitMode === 'existing'
+
+  const canvasWebSocket = useCanvasWebSocket({
+    enabled: canvasSyncContextEnabled,
+    projectId,
+    dashboardId,
+  })
+  const canvasWebSocketRef = useRef(canvasWebSocket)
+  useEffect(() => {
+    canvasWebSocketRef.current = canvasWebSocket
+  })
+
   const { activeParticipantCount, activeOtherParticipantCount, shouldEnableBackgroundSync, participantLabels } =
     useCanvasPresence({
       enabled: canvasSyncContextEnabled,
       projectId,
       dashboardId,
+      ws: canvasWebSocket,
     })
   const shouldEnableEditLockSync = activeEditableFrameId !== null
 
@@ -682,6 +695,7 @@ const Canvas = () => {
     projectId,
     dashboardId,
     onSyncError: handleCanvasSyncError,
+    ws: canvasWebSocket,
   })
 
   const {
@@ -710,6 +724,7 @@ const Canvas = () => {
     projectId,
     dashboardId,
     onSyncError: handleCanvasSyncError,
+    ws: canvasWebSocket,
   })
   const isDotVotingActive = Boolean(dotVotingSessionPayload) && dotVotingSessionPayload?.status !== 'ended'
   const isCanvasReadOnly = isCanvasLocked && !isLockedModeEditing
@@ -1214,12 +1229,14 @@ const Canvas = () => {
           name: CANVAS_QUERY_NAME,
           sqlText: serialized,
         })
-        return {
+        const persistedFrame = {
           ...frame,
           categoryId,
           graphId: createdGraph.id,
           queryId: createdQuery.id,
         }
+        canvasWebSocketRef.current.broadcast('canvas:frame', persistedFrame)
+        return persistedFrame
       }
 
       if (frame.queryId) {
@@ -1227,6 +1244,7 @@ const Canvas = () => {
           name: CANVAS_QUERY_NAME,
           sqlText: serialized,
         })
+        canvasWebSocketRef.current.broadcast('canvas:frame', frame)
         return frame
       }
 
@@ -1234,11 +1252,13 @@ const Canvas = () => {
         name: CANVAS_QUERY_NAME,
         sqlText: serialized,
       })
-      return {
+      const persistedFrame = {
         ...frame,
         categoryId,
         queryId: createdQuery.id,
       }
+      canvasWebSocketRef.current.broadcast('canvas:frame', persistedFrame)
+      return persistedFrame
     },
     [canPersistToDashboard, projectId, dashboardId, ensureCanvasCategory],
   )
@@ -1362,6 +1382,7 @@ const Canvas = () => {
     setConnections,
     setSyncError,
     onBeforeApplyRemoteData: markRemoteCanvasFramesApplied,
+    ws: canvasWebSocket,
   })
 
   const {
@@ -1377,6 +1398,7 @@ const Canvas = () => {
       setActiveEditableFrameId(null)
       setSyncError('Kortet blir redigert av en kollega akkurat nå.')
     },
+    ws: canvasWebSocket,
   })
 
   useEffect(() => {
