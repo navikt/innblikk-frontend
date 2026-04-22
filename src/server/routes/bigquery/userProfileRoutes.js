@@ -1,6 +1,13 @@
 import express from 'express'
 import { addAuditLogging } from '../../bigquery/audit.js'
-import { requireBigQuery, getNavIdent, getDryRunStats, normalizeUrlSql, MAX_BYTES_BILLED } from './helpers.js'
+import {
+  requireBigQuery,
+  getNavIdent,
+  getDryRunStats,
+  normalizeUrlSql,
+  MAX_BYTES_BILLED,
+  prepareGeneratedSql,
+} from './helpers.js'
 
 export function createUserProfileRoutes({ bigquery, GCP_PROJECT_ID }) {
   const router = express.Router()
@@ -216,7 +223,7 @@ export function createUserProfileRoutes({ bigquery, GCP_PROJECT_ID }) {
         eventCount: parseInt(row.event_count),
       }))
 
-      res.json({ users, total, generatedSql: query, queryStats })
+      res.json({ users, total, generatedSql: prepareGeneratedSql(query, params), queryStats })
     } catch (error) {
       console.error('BigQuery users error:', error)
       res.status(500).json({ error: error.message })

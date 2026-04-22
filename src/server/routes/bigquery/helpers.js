@@ -1,6 +1,4 @@
-/**
- * Shared helpers for BigQuery route handlers.
- */
+import { format as formatSql } from 'sql-formatter'
 
 /**
  * Maximum bytes a single query is allowed to scan (500 GB).
@@ -83,4 +81,26 @@ export function normalizeUrlSql(column = 'url_path') {
 export function normalizeUrlQuerySql(column = 'url_query') {
   return `
     COALESCE(REGEXP_REPLACE(REGEXP_REPLACE(${column}, r'^[?]', ''), r'#.*$', ''), '')`
+}
+
+export function prepareGeneratedSql(sql, params) {
+  // Sort by descending key length so longer names are replaced before shorter
+  // prefixes (e.g. @urlPathSlash before @urlPath).
+  const sortedKeys = Object.keys(params).sort((a, b) => b.length - a.length)
+
+  let substituted = sql
+  for (const key of sortedKeys) {
+    const value = params[key]
+    const literal =
+      typeof value === 'number' || typeof value === 'boolean'
+        ? String(value)
+        : `'${String(value).replace(/'/g, "\\'")}'`
+    substituted = substituted.replaceAll(`@${key}`, literal)
+  }
+
+  try {
+    return formatSql(substituted, { language: 'bigquery', tabWidth: 2, keywordCase: 'upper' })
+  } catch {
+    return substituted
+  }
 }

@@ -1,6 +1,13 @@
 import express from 'express'
 import { addAuditLogging } from '../../bigquery/audit.js'
-import { requireBigQuery, getNavIdent, getDryRunStats, normalizeUrlSql, MAX_BYTES_BILLED } from './helpers.js'
+import {
+  requireBigQuery,
+  getNavIdent,
+  getDryRunStats,
+  normalizeUrlSql,
+  MAX_BYTES_BILLED,
+  prepareGeneratedSql,
+} from './helpers.js'
 
 export function createJourneyRoutes({ bigquery, GCP_PROJECT_ID }) {
   const router = express.Router()
@@ -157,7 +164,7 @@ export function createJourneyRoutes({ bigquery, GCP_PROJECT_ID }) {
         addAuditLogging,
       )
 
-      res.json({ nodes, links, generatedSql: query, queryStats })
+      res.json({ nodes, links, generatedSql: prepareGeneratedSql(query, params), queryStats })
     } catch (error) {
       console.error('BigQuery journeys error:', error)
       res.status(500).json({

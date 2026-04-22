@@ -1,6 +1,6 @@
 import express from 'express'
 import { addAuditLogging } from '../../bigquery/audit.js'
-import { requireBigQuery, getNavIdent, getDryRunStats, MAX_BYTES_BILLED } from './helpers.js'
+import { requireBigQuery, getNavIdent, getDryRunStats, MAX_BYTES_BILLED, prepareGeneratedSql } from './helpers.js'
 
 export function createRetentionRoutes({ bigquery, GCP_PROJECT_ID }) {
   const router = express.Router()
@@ -221,7 +221,13 @@ export function createRetentionRoutes({ bigquery, GCP_PROJECT_ID }) {
       const nonReturningUsers =
         rows.length > 0 && rows[0].non_returning_users != null ? parseInt(rows[0].non_returning_users) : 0
 
-      res.json({ data, generatedSql: query, queryStats, sameDayReturningUsers, nonReturningUsers })
+      res.json({
+        data,
+        generatedSql: prepareGeneratedSql(query, params),
+        queryStats,
+        sameDayReturningUsers,
+        nonReturningUsers,
+      })
     } catch (error) {
       console.error('BigQuery retention error:', error)
       res.status(500).json({

@@ -17,6 +17,7 @@ export interface FetchRetentionResult {
   queryStats: QueryStats | null
   sameDayReturningUsers: number | null
   nonReturningUsers: number | null
+  generatedSql: string | null
   error: string | null
 }
 
@@ -51,6 +52,7 @@ export async function fetchRetentionData(params: FetchRetentionParams): Promise<
         queryStats: null,
         sameDayReturningUsers: null,
         nonReturningUsers: null,
+        generatedSql: null,
         error: 'Kunne ikke hente retensjonsdata',
       }
     }
@@ -62,11 +64,19 @@ export async function fetchRetentionData(params: FetchRetentionParams): Promise<
       queryStats?: QueryStats
       sameDayReturningUsers?: number
       nonReturningUsers?: number
+      generatedSql?: string
     } = await response.json()
     console.log('Retention data received:', result)
 
     if (result.error) {
-      return { data: [], queryStats: null, sameDayReturningUsers: null, nonReturningUsers: null, error: result.error }
+      return {
+        data: [],
+        queryStats: null,
+        sameDayReturningUsers: null,
+        nonReturningUsers: null,
+        generatedSql: null,
+        error: result.error,
+      }
     }
 
     return {
@@ -74,6 +84,7 @@ export async function fetchRetentionData(params: FetchRetentionParams): Promise<
       queryStats: result.queryStats ?? null,
       sameDayReturningUsers: result.sameDayReturningUsers ?? null,
       nonReturningUsers: result.nonReturningUsers ?? null,
+      generatedSql: result.generatedSql ?? null,
       error: null,
     }
   } catch (err) {
@@ -83,6 +94,7 @@ export async function fetchRetentionData(params: FetchRetentionParams): Promise<
       queryStats: null,
       sameDayReturningUsers: null,
       nonReturningUsers: null,
+      generatedSql: null,
       error: 'Det oppstod en feil ved henting av data.',
     }
   }

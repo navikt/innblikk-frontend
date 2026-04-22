@@ -25,6 +25,7 @@ export type LatestEvent = {
 export type EventsResponse = {
   events?: { name: string; count: number }[]
   queryStats?: QueryStats
+  generatedSql?: string
 }
 
 export type SeriesResponse = {

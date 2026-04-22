@@ -1,6 +1,6 @@
 import express from 'express'
 import { addAuditLogging } from '../../bigquery/audit.js'
-import { requireBigQuery, getNavIdent, getDryRunStats, MAX_BYTES_BILLED } from './helpers.js'
+import { requireBigQuery, getNavIdent, getDryRunStats, MAX_BYTES_BILLED, prepareGeneratedSql } from './helpers.js'
 
 export function createPrivacyRoutes({ bigquery, GCP_PROJECT_ID }) {
   const router = express.Router()
@@ -215,7 +215,7 @@ export function createPrivacyRoutes({ bigquery, GCP_PROJECT_ID }) {
 
         return res.json({
           dryRun: true,
-          generatedSql: finalQuery,
+          generatedSql: prepareGeneratedSql(finalQuery, params),
           queryStats: {
             totalBytesProcessedGB: stats.totalBytesProcessedGB,
             estimatedCostUSD: stats.estimatedCostUSD,
@@ -268,7 +268,7 @@ export function createPrivacyRoutes({ bigquery, GCP_PROJECT_ID }) {
         addAuditLogging,
       )
 
-      res.json({ data: processedRows, generatedSql: finalQuery, queryStats })
+      res.json({ data: processedRows, generatedSql: prepareGeneratedSql(finalQuery, params), queryStats })
     } catch (error) {
       console.error('Privacy check error:', error)
       res.status(500).json({ error: error.message })

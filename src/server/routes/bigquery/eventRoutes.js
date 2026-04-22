@@ -1,6 +1,6 @@
 import express from 'express'
 import { addAuditLogging } from '../../bigquery/audit.js'
-import { MAX_BYTES_BILLED } from './helpers.js'
+import { MAX_BYTES_BILLED, prepareGeneratedSql } from './helpers.js'
 
 export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE }) {
   const router = express.Router()
@@ -111,7 +111,7 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
         console.log('[Events] Dry run failed:', dryRunError.message)
       }
 
-      res.json({ events, generatedSql: query, queryStats })
+      res.json({ events, generatedSql: prepareGeneratedSql(query, params), queryStats })
     } catch (error) {
       console.error('BigQuery events error:', error)
       res.status(500).json({
@@ -1245,7 +1245,7 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
       res.json({
         journeys,
         journeyStats,
-        generatedSql: query,
+        generatedSql: prepareGeneratedSql(query, params),
         queryStats,
       })
     } catch (error) {

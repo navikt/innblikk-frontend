@@ -8,7 +8,7 @@ import ChartLayout from './ChartLayout.tsx'
 import WebsitePicker from './WebsitePicker.tsx'
 import PeriodPicker from './PeriodPicker.tsx'
 import UrlPathFilter from './UrlPathFilter.tsx'
-import { ResultsPanel } from '../../chartbuilder'
+import { ResultsPanel, SqlViewer } from '../../chartbuilder'
 import type { Website } from '../../../shared/types/chart.ts'
 import {
   normalizeUrlToPath,
@@ -68,13 +68,16 @@ const UserComposition = () => {
     estimatedCostUSD?: string
   }
 
-  type CompositionApiResponse = { error: string } | { data: CompositionRow[]; queryStats?: QueryStatsLike }
+  type CompositionApiResponse =
+    | { error: string }
+    | { data: CompositionRow[]; queryStats?: QueryStatsLike; generatedSql?: string }
 
   const [data, setData] = useState<CompositionRow[] | null>(null)
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
   const [activeCategory, setActiveCategory] = useState<string>('browser')
   const [queryStats, setQueryStats] = useState<QueryStatsLike | null>(null)
+  const [generatedSql, setGeneratedSql] = useState<string | null>(null)
   const [copySuccess, setCopySuccess] = useState<boolean>(false)
   const [hasAutoSubmitted, setHasAutoSubmitted] = useState<boolean>(false)
   const [lastAppliedFilterKey, setLastAppliedFilterKey] = useState<string | null>(null)
@@ -145,6 +148,7 @@ const UserComposition = () => {
       }
 
       setQueryStats(result.queryStats ?? null)
+      if ('generatedSql' in result && result.generatedSql) setGeneratedSql(result.generatedSql)
 
       const newParams = new URLSearchParams(window.location.search)
       newParams.set('period', period)
@@ -486,6 +490,7 @@ const UserComposition = () => {
               {copySuccess ? 'Kopiert!' : 'Del analyse'}
             </Button>
           </div>
+          {generatedSql && <SqlViewer sql={generatedSql} />}
           {addToDashboardSqlTemplate && (
             <AddToDashboardDialog
               open={showAddToDashboardDialog}

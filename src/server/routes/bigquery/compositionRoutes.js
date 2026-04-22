@@ -1,6 +1,13 @@
 import express from 'express'
 import { addAuditLogging } from '../../bigquery/audit.js'
-import { requireBigQuery, getNavIdent, getDryRunStats, normalizeUrlSql, MAX_BYTES_BILLED } from './helpers.js'
+import {
+  requireBigQuery,
+  getNavIdent,
+  getDryRunStats,
+  normalizeUrlSql,
+  MAX_BYTES_BILLED,
+  prepareGeneratedSql,
+} from './helpers.js'
 
 export function createCompositionRoutes({ bigquery, GCP_PROJECT_ID }) {
   const router = express.Router()
@@ -120,6 +127,7 @@ export function createCompositionRoutes({ bigquery, GCP_PROJECT_ID }) {
       res.json({
         data: rows,
         queryStats,
+        generatedSql: prepareGeneratedSql(query, params),
         meta: { usedDistinctId: useDistinctId },
       })
     } catch (error) {

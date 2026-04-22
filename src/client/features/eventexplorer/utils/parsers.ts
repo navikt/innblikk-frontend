@@ -51,7 +51,8 @@ export const parseEventsResponse = (value: unknown): EventsResponse => {
     ? value.events.filter((item) => isRecord(item) && typeof item.name === 'string' && typeof item.count === 'number')
     : undefined
   const queryStats = parseQueryStats(value.queryStats) ?? undefined
-  return { events, queryStats }
+  const generatedSql = typeof value.generatedSql === 'string' ? value.generatedSql : undefined
+  return { events, queryStats, generatedSql }
 }
 
 export const parseSeriesResponse = (value: unknown): SeriesResponse => {
