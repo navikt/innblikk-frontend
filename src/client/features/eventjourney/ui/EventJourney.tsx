@@ -14,6 +14,7 @@ import { copyToClipboard } from '../utils/clipboard.ts'
 import JourneyStatsGrid from './journey/JourneyStatsGrid.tsx'
 import JourneyVisualView from './journey/JourneyVisualView.tsx'
 import JourneyTableView from './journey/JourneyTableView.tsx'
+import { SqlViewer } from '../../chartbuilder'
 
 type SelectedFunnelStep = {
   id: string
@@ -41,6 +42,7 @@ const EventJourney = () => {
     hasSearched,
     journeyStats,
     queryStats,
+    generatedSql,
     hasUnappliedFilterChanges,
     fetchData,
   } = useEventJourney()
@@ -304,6 +306,7 @@ const EventJourney = () => {
           Data prosessert: {queryStats.totalBytesProcessedGB} GB
         </div>
       )}
+      {generatedSql && <SqlViewer sql={generatedSql} />}
 
       {!loading && hasSearched && urlPath && data.length === 0 && !error && (
         <div className="flex justify-center items-center h-full text-gray-500">

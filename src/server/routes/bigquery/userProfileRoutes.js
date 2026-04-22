@@ -216,7 +216,7 @@ export function createUserProfileRoutes({ bigquery, GCP_PROJECT_ID }) {
         eventCount: parseInt(row.event_count),
       }))
 
-      res.json({ users, total, queryStats })
+      res.json({ users, total, generatedSql: query, queryStats })
     } catch (error) {
       console.error('BigQuery users error:', error)
       res.status(500).json({ error: error.message })

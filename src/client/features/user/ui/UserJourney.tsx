@@ -12,6 +12,7 @@ import type { Website } from '../../../shared/types/chart.ts'
 import { normalizeUrlToPath } from '../../../shared/lib/utils.ts'
 import type { JourneyLink } from '../model'
 import { useUrlState, useJourneyData } from '../hooks'
+import { SqlViewer } from '../../chartbuilder'
 import { buildAppliedFilterKey, downloadJourneyCSV, downloadJourneyExcel, copyShareLink } from '../utils'
 
 const UserJourney = () => {
@@ -41,8 +42,18 @@ const UserJourney = () => {
 
   // Use custom hook for journey data fetching
   const journeyData = useJourneyData(selectedWebsite, period, customStartDate, customEndDate, limit, journeyDirection)
-  const { data, rawData, loading, isUpdating, error, queryStats, lastAppliedFilterKey, reverseVisualOrder, fetchData } =
-    journeyData
+  const {
+    data,
+    rawData,
+    loading,
+    isUpdating,
+    error,
+    queryStats,
+    generatedSql,
+    lastAppliedFilterKey,
+    reverseVisualOrder,
+    fetchData,
+  } = journeyData
 
   // UI state
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false)
@@ -280,6 +291,7 @@ const UserJourney = () => {
                 Data prosessert: {queryStats.totalBytesProcessedGB} GB
               </div>
             )}
+            {generatedSql && <SqlViewer sql={generatedSql} />}
             <div className="mt-4 flex justify-end">
               <div className="flex flex-col items-end gap-2">
                 <Switch checked={showTableSection} onChange={(e) => setShowTableSection(e.target.checked)} size="small">

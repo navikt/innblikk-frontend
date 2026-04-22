@@ -35,6 +35,7 @@ export type { QueryStats }
 export type UsersApiResponse = {
   users: UserProfile[]
   total: number
+  generatedSql?: string
   queryStats?: QueryStats | null
 }
 

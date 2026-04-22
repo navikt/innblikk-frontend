@@ -60,6 +60,7 @@ export const useEventExplorer = () => {
   const [error, setError] = useState<string | null>(null)
   const [queryStats, setQueryStats] = useState<QueryStats | null>(null)
   const [eventsQueryStats, setEventsQueryStats] = useState<QueryStats | null>(null)
+  const [generatedSql, setGeneratedSql] = useState<string | null>(null)
 
   // Parameter values state
   const [allParameterValues, setAllParameterValues] = useState<Record<string, ParameterValue[]>>({})
@@ -124,6 +125,9 @@ export const useEventExplorer = () => {
       setEvents(result.events ?? [])
       if (result.queryStats) {
         setEventsQueryStats(result.queryStats)
+      }
+      if (result.generatedSql) {
+        setGeneratedSql(result.generatedSql)
       }
 
       // Update URL with configuration for sharing
@@ -345,6 +349,7 @@ export const useEventExplorer = () => {
     error,
     queryStats,
     eventsQueryStats,
+    generatedSql,
     allParameterValues,
     loadingValues,
     hasLoadedValues,

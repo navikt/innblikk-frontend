@@ -111,7 +111,7 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
         console.log('[Events] Dry run failed:', dryRunError.message)
       }
 
-      res.json({ events, queryStats })
+      res.json({ events, generatedSql: query, queryStats })
     } catch (error) {
       console.error('BigQuery events error:', error)
       res.status(500).json({
@@ -1245,6 +1245,7 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
       res.json({
         journeys,
         journeyStats,
+        generatedSql: query,
         queryStats,
       })
     } catch (error) {

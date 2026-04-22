@@ -15,6 +15,7 @@ type CachedJourneyResult = {
   data: { path: string[]; count: number }[]
   journeyStats: JourneyStats | null
   queryStats: QueryStats | null
+  generatedSql: string | null
 }
 
 const eventJourneyCache = new Map<string, CachedJourneyResult>()
@@ -49,6 +50,7 @@ export const useEventJourney = () => {
   const [hasSearched, setHasSearched] = useState<boolean>(false)
   const [journeyStats, setJourneyStats] = useState<JourneyStats | null>(null)
   const [queryStats, setQueryStats] = useState<QueryStats | null>(null)
+  const [generatedSql, setGeneratedSql] = useState<string | null>(null)
   const [hasAutoSubmitted, setHasAutoSubmitted] = useState<boolean>(false)
   const [lastAppliedFilterKey, setLastAppliedFilterKey] = useState<string | null>(null)
 
@@ -103,6 +105,7 @@ export const useEventJourney = () => {
       setData(cachedResult.data)
       setJourneyStats(cachedResult.journeyStats)
       setQueryStats(cachedResult.queryStats)
+      setGeneratedSql(cachedResult.generatedSql)
       setLastAppliedFilterKey(appliedFilterKey)
       syncSearchParams()
       return
@@ -128,13 +131,16 @@ export const useEventJourney = () => {
       const nextData = result.journeys || []
       const nextJourneyStats = result.journeyStats || null
       const nextQueryStats = result.queryStats || null
+      const nextGeneratedSql = result.generatedSql || null
       setData(nextData)
       setJourneyStats(nextJourneyStats)
       setQueryStats(nextQueryStats)
+      setGeneratedSql(nextGeneratedSql)
       eventJourneyCache.set(appliedFilterKey, {
         data: nextData,
         journeyStats: nextJourneyStats,
         queryStats: nextQueryStats,
+        generatedSql: nextGeneratedSql,
       })
       syncSearchParams()
       setLastAppliedFilterKey(appliedFilterKey)
@@ -172,6 +178,7 @@ export const useEventJourney = () => {
     hasSearched,
     journeyStats,
     queryStats,
+    generatedSql,
     hasUnappliedFilterChanges,
     fetchData,
   }

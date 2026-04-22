@@ -221,7 +221,7 @@ export function createRetentionRoutes({ bigquery, GCP_PROJECT_ID }) {
       const nonReturningUsers =
         rows.length > 0 && rows[0].non_returning_users != null ? parseInt(rows[0].non_returning_users) : 0
 
-      res.json({ data, queryStats, sameDayReturningUsers, nonReturningUsers })
+      res.json({ data, generatedSql: query, queryStats, sameDayReturningUsers, nonReturningUsers })
     } catch (error) {
       console.error('BigQuery retention error:', error)
       res.status(500).json({

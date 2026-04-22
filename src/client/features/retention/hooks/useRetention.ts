@@ -123,6 +123,7 @@ export function useRetention(): RetentionState {
   const [activeTab, setActiveTab] = useState<string>('chart')
   const [hasAttemptedFetch, setHasAttemptedFetch] = useState<boolean>(false)
   const [queryStats, setQueryStats] = useState<QueryStats | null>(null)
+  const [generatedSql, setGeneratedSql] = useState<string | null>(null)
   const [sameDayReturningUsers, setSameDayReturningUsers] = useState<number>(0)
   const [nonReturningUsers, setNonReturningUsers] = useState<number>(0)
   const [copySuccess, setCopySuccess] = useState<boolean>(false)
@@ -217,6 +218,7 @@ export function useRetention(): RetentionState {
       setRetentionData(result.data)
       setChartData(buildChartData(result.data))
       setQueryStats(result.queryStats)
+      if (result.generatedSql) setGeneratedSql(result.generatedSql)
       setSameDayReturningUsers(result.sameDayReturningUsers ?? 0)
       setNonReturningUsers(result.nonReturningUsers ?? 0)
 
@@ -283,6 +285,7 @@ export function useRetention(): RetentionState {
     chartData,
     retentionStats,
     queryStats,
+    generatedSql,
     loading,
     error,
     hasAttemptedFetch,

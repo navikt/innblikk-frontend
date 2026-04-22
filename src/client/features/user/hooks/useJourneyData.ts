@@ -20,6 +20,7 @@ export function useJourneyData(
   const [isUpdating, setIsUpdating] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
   const [queryStats, setQueryStats] = useState<QueryStats | null>(null)
+  const [generatedSql, setGeneratedSql] = useState<string | null>(null)
   const [lastAppliedFilterKey, setLastAppliedFilterKey] = useState<string | null>(null)
   const [reverseVisualOrder, setReverseVisualOrder] = useState<boolean>(false)
 
@@ -89,11 +90,15 @@ export function useJourneyData(
         const result: {
           nodes?: JourneyNode[]
           links?: JourneyLink[]
+          generatedSql?: string
           queryStats?: QueryStats
         } = await response.json()
 
         if (result.queryStats) {
           setQueryStats(result.queryStats)
+        }
+        if (result.generatedSql) {
+          setGeneratedSql(result.generatedSql)
         }
 
         const nodes: JourneyNode[] = Array.isArray(result.nodes) ? result.nodes : []
@@ -146,6 +151,7 @@ export function useJourneyData(
     isUpdating,
     error,
     queryStats,
+    generatedSql,
     lastAppliedFilterKey,
     reverseVisualOrder,
     fetchData,

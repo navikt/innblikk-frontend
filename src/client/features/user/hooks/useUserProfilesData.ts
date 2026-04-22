@@ -14,6 +14,7 @@ export function useUserProfilesData(
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
   const [queryStats, setQueryStats] = useState<QueryStats | null>(null)
+  const [generatedSql, setGeneratedSql] = useState<string | null>(null)
 
   const getDateRange = useCallback(() => {
     const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
@@ -68,6 +69,9 @@ export function useUserProfilesData(
         if (result.queryStats) {
           setQueryStats(result.queryStats)
         }
+        if (result.generatedSql) {
+          setGeneratedSql(result.generatedSql)
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch user profiles')
       } finally {
@@ -83,6 +87,7 @@ export function useUserProfilesData(
     loading,
     error,
     queryStats,
+    generatedSql,
     fetchUsers,
     getDateRange,
   }

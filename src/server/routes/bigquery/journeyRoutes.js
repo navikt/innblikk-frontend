@@ -157,7 +157,7 @@ export function createJourneyRoutes({ bigquery, GCP_PROJECT_ID }) {
         addAuditLogging,
       )
 
-      res.json({ nodes, links, queryStats })
+      res.json({ nodes, links, generatedSql: query, queryStats })
     } catch (error) {
       console.error('BigQuery journeys error:', error)
       res.status(500).json({

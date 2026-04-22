@@ -49,6 +49,7 @@ import { TextField } from '@navikt/ds-react'
 import { useCookieSupport, useCookieStartDate } from '../../../shared/hooks/useSiteimproveSupport.ts'
 import type { UserProfile, ActivityItem, QueryStats, UsersApiResponse, ActivityApiResponse } from '../model'
 import { getUserProfilesSqlTemplate } from '../utils/userProfilesDashboardSql.ts'
+import { SqlViewer } from '../../chartbuilder'
 
 const ROWS_PER_PAGE = 50
 const DEFAULT_MAX_USERS = 1000
@@ -90,6 +91,7 @@ const UserProfiles = () => {
   const [page, setPage] = useState<number>(1)
   const [maxUsers, setMaxUsers] = useState<number>(DEFAULT_MAX_USERS)
   const [queryStats, setQueryStats] = useState<QueryStats | null>(null)
+  const [generatedSql, setGeneratedSql] = useState<string | null>(null)
   const [showTableSearch, setShowTableSearch] = useState(false)
   const [showAddToDashboardDialog, setShowAddToDashboardDialog] = useState(false)
   const [showTransferToMetabaseDialog, setShowTransferToMetabaseDialog] = useState(false)
@@ -165,6 +167,7 @@ const UserProfiles = () => {
         setUsers(result.users)
         setTotalUsers(result.total)
         setQueryStats(result.queryStats ?? null)
+        if (result.generatedSql) setGeneratedSql(result.generatedSql)
 
         // Update URL with configuration for sharing
         const newParams = new URLSearchParams(window.location.search)
@@ -818,6 +821,7 @@ const UserProfiles = () => {
         websiteId={selectedWebsite?.id}
         period={period}
       />
+      {generatedSql && <SqlViewer sql={generatedSql} />}
     </ChartLayout>
   )
 }

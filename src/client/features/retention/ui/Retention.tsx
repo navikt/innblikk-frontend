@@ -14,6 +14,7 @@ import TableSectionHeader from '../../../shared/ui/TableSectionHeader.tsx'
 import RetentionStatsCards from './RetentionStatsCards.tsx'
 import { useRetention } from '../hooks/useRetention'
 import { getRetentionSqlTemplate } from '../utils/retentionDashboardSql.ts'
+import { SqlViewer } from '../../chartbuilder'
 
 const Retention = () => {
   const {
@@ -36,6 +37,7 @@ const Retention = () => {
     chartData,
     retentionStats,
     queryStats,
+    generatedSql,
     loading,
     error,
     hasAttemptedFetch,
@@ -306,6 +308,7 @@ const Retention = () => {
           Ingen data funnet for valgt periode.
         </div>
       )}
+      {generatedSql && <SqlViewer sql={generatedSql} />}
     </ChartLayout>
   )
 }
