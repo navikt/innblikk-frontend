@@ -23,4 +23,5 @@ export type EventJourneyResponse = {
   journeys?: { path: string[]; count: number }[]
   journeyStats?: JourneyStats
   queryStats?: QueryStats
+  generatedSql?: string | null
 }

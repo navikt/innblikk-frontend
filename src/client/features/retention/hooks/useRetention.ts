@@ -41,6 +41,7 @@ export interface RetentionState {
   chartData: ILineChartProps | null
   retentionStats: RetentionStats | null
   queryStats: QueryStats | null
+  generatedSql: string | null
 
   // UI state
   loading: boolean
