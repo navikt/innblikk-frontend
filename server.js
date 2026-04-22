@@ -1,7 +1,9 @@
+import http from 'http'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
 import { createApp } from './src/server/app.js'
+import { createCanvasWebSocketServer } from './src/server/websocket/canvasWebSocketServer.js'
 import { registerFrontend } from './src/server/frontend/serveFrontend.js'
 import { createBigQueryClient } from './src/server/bigquery/client.js'
 import { createBigQueryRouter } from './src/server/routes/bigquery/index.js'
@@ -47,7 +49,11 @@ registerFrontend(app, { buildPath, GCP_PROJECT_ID })
 const isProduction = process.env.NODE_ENV === 'production'
 const port = Number(process.env.PORT) || (isProduction ? 8080 : 8081)
 
-const server = app.listen(port, () => {
+const httpServer = http.createServer(app)
+createCanvasWebSocketServer(httpServer)
+
+const server = httpServer
+httpServer.listen(port, () => {
   console.log(`Listening on port ${port}`)
   console.log('Server timeout set to 2 minutes')
 })
