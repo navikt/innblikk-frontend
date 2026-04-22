@@ -178,6 +178,8 @@ type UseCanvasFrameFormHandlersParams = {
   setDashboardOptions: Setter<DashboardOption[]>
   selectedDashboardToAddId: string
   setSelectedDashboardToAddId: Setter<string>
+  addDashboardInternalPathInput: string
+  setAddDashboardInternalPathInput: Setter<string>
   isLoadingDashboardOptions: boolean
   setIsLoadingDashboardOptions: Setter<boolean>
 
@@ -189,6 +191,8 @@ type UseCanvasFrameFormHandlersParams = {
   setEditDashboardOptions: Setter<DashboardOption[]>
   editDashboardSelectedDashboardId: string
   setEditDashboardSelectedDashboardId: Setter<string>
+  editDashboardInternalPathInput: string
+  setEditDashboardInternalPathInput: Setter<string>
   isLoadingEditDashboardOptions: boolean
   setIsLoadingEditDashboardOptions: Setter<boolean>
 
@@ -291,6 +295,23 @@ const getDashboardOptionLabel = (dashboard: {
 const buildDashboardTargetUrl = (dashboardId: number, projectId: number, isCanvas: boolean): string => {
   if (isCanvas) return `/canvas?dashboardId=${dashboardId}&projectId=${projectId}`
   return `/dashboard/${dashboardId}?projectId=${projectId}&focused=true`
+}
+
+const normalizeInternalPathInput = (value: string): string | null => {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  const withoutHash = trimmed.split('#')[0].trim()
+  if (!withoutHash) return null
+  if (/^https?:\/\//i.test(withoutHash)) {
+    try {
+      const parsed = new URL(withoutHash)
+      const resolvedPath = `${parsed.pathname}${parsed.search}`
+      return resolvedPath.startsWith('/') ? resolvedPath : `/${resolvedPath}`
+    } catch {
+      return null
+    }
+  }
+  return withoutHash.startsWith('/') ? withoutHash : `/${withoutHash}`
 }
 
 const useCanvasFrameFormHandlers = ({
@@ -410,6 +431,8 @@ const useCanvasFrameFormHandlers = ({
   setDashboardOptions,
   selectedDashboardToAddId,
   setSelectedDashboardToAddId,
+  addDashboardInternalPathInput,
+  setAddDashboardInternalPathInput,
   isLoadingDashboardOptions: _isLoadingDashboardOptions,
   setIsLoadingDashboardOptions,
   editDashboardProjectOptions: _editDashboardProjectOptions,
@@ -420,6 +443,8 @@ const useCanvasFrameFormHandlers = ({
   setEditDashboardOptions,
   editDashboardSelectedDashboardId,
   setEditDashboardSelectedDashboardId,
+  editDashboardInternalPathInput,
+  setEditDashboardInternalPathInput,
   isLoadingEditDashboardOptions: _isLoadingEditDashboardOptions,
   setIsLoadingEditDashboardOptions,
   headingTextInput,
@@ -986,6 +1011,7 @@ const useCanvasFrameFormHandlers = ({
 
   const handleOpenAddDashboardModal = () => {
     setAddDashboardError(null)
+    setAddDashboardInternalPathInput('')
     setIsAddDashboardModalOpen(true)
     void (async () => {
       setIsLoadingDashboardOptions(true)
@@ -1013,24 +1039,26 @@ const useCanvasFrameFormHandlers = ({
   }
 
   const handleAddDashboardCard = () => {
+    const customTargetUrl = normalizeInternalPathInput(addDashboardInternalPathInput)
     const selectedDashboard = dashboardOptions.find((option) => String(option.id) === selectedDashboardToAddId)
-    if (!selectedDashboard) {
+    if (!customTargetUrl && !selectedDashboard) {
       setAddDashboardError('Velg et dashboard.')
       return
     }
 
     const selectedProjectId = Number(selectedProjectToAddId)
     const normalizedProjectId = Number.isFinite(selectedProjectId) ? selectedProjectId : null
-    const dashboardUrl =
-      normalizedProjectId !== null
+    const fallbackTargetUrl =
+      normalizedProjectId !== null && selectedDashboard
         ? buildDashboardTargetUrl(selectedDashboard.id, normalizedProjectId, selectedDashboard.isCanvas)
         : null
-    if (!dashboardUrl) {
-      setAddDashboardError('Mangler prosjekt-kontekst. Åpne canvas fra ProjectManager.')
+    const targetUrl = customTargetUrl ?? fallbackTargetUrl
+    if (!targetUrl) {
+      setAddDashboardError('Velg dashboard eller oppgi intern URL-sti.')
       return
     }
 
-    const comparableUrl = getComparableUrl(window.location.origin + dashboardUrl)
+    const comparableUrl = getComparableUrl(window.location.origin + targetUrl)
     if (
       frames.some(
         (frame) =>
@@ -1041,17 +1069,17 @@ const useCanvasFrameFormHandlers = ({
           ) === comparableUrl,
       )
     ) {
-      setAddDashboardError('Dashboardet er allerede lagt til i canvaset.')
+      setAddDashboardError('Siden er allerede lagt til i canvaset.')
       return
     }
 
     const frameDraft: PendingCanvasFrameDraft = {
       kind: 'website',
-      targetUrl: dashboardUrl,
-      previewUrl: dashboardUrl,
+      targetUrl,
+      previewUrl: targetUrl,
       renderWebsite: false,
       isInternalDashboard: true,
-      label: selectedDashboard.name,
+      label: customTargetUrl ? getFrameLabel(targetUrl) : (selectedDashboard?.name ?? getFrameLabel(targetUrl)),
       width: 760,
       height: 620,
       refreshNonce: 1,
@@ -1075,6 +1103,7 @@ const useCanvasFrameFormHandlers = ({
   const handleOpenEditDashboardModal = (frame: CanvasFrame) => {
     if (frame.kind !== 'website' || !frame.isInternalDashboard) return
     setEditDashboardFrameId(frame.id)
+    setEditDashboardInternalPathInput(frame.targetUrl || '')
     setEditDashboardError(null)
     setIsEditDashboardModalOpen(true)
 
@@ -1449,23 +1478,34 @@ const useCanvasFrameFormHandlers = ({
   const handleSaveEditedDashboard = async () => {
     if (!editDashboardFrameId) return
 
+    const customTargetUrl = normalizeInternalPathInput(editDashboardInternalPathInput)
     const selectedProjectId = Number(editDashboardSelectedProjectId)
     const selectedDashboardId = Number(editDashboardSelectedDashboardId)
     const normalizedProjectId = Number.isFinite(selectedProjectId) ? selectedProjectId : null
     const normalizedDashboardId = Number.isFinite(selectedDashboardId) ? selectedDashboardId : null
 
-    if (normalizedProjectId === null || normalizedDashboardId === null) {
-      setEditDashboardError('Velg team og dashboard.')
+    if (!customTargetUrl && (normalizedProjectId === null || normalizedDashboardId === null)) {
+      setEditDashboardError('Velg team og dashboard, eller oppgi intern URL-sti.')
       return
     }
 
-    const selectedDashboard = editDashboardOptions.find((option) => option.id === normalizedDashboardId)
-    if (!selectedDashboard) {
+    const selectedDashboard =
+      normalizedDashboardId === null ? null : editDashboardOptions.find((option) => option.id === normalizedDashboardId)
+    if (!customTargetUrl && !selectedDashboard) {
       setEditDashboardError('Velg et gyldig dashboard.')
       return
     }
 
-    const targetUrl = buildDashboardTargetUrl(normalizedDashboardId, normalizedProjectId, selectedDashboard.isCanvas)
+    const fallbackTargetUrl =
+      normalizedProjectId !== null && normalizedDashboardId !== null && selectedDashboard
+        ? buildDashboardTargetUrl(normalizedDashboardId, normalizedProjectId, selectedDashboard.isCanvas)
+        : null
+    const targetUrl = customTargetUrl ?? fallbackTargetUrl
+    if (!targetUrl) {
+      setEditDashboardError('Velg et gyldig dashboard eller intern URL-sti.')
+      return
+    }
+
     const comparableUrl = getComparableUrl(window.location.origin + targetUrl)
     if (
       frames.some(
@@ -1478,7 +1518,7 @@ const useCanvasFrameFormHandlers = ({
           ) === comparableUrl,
       )
     ) {
-      setEditDashboardError('Dashboardet er allerede lagt til i canvaset.')
+      setEditDashboardError('Siden er allerede lagt til i canvaset.')
       return
     }
 
@@ -1491,7 +1531,7 @@ const useCanvasFrameFormHandlers = ({
       previewUrl: targetUrl,
       renderWebsite: false,
       isInternalDashboard: true,
-      label: selectedDashboard.name,
+      label: customTargetUrl ? getFrameLabel(targetUrl) : (selectedDashboard?.name ?? getFrameLabel(targetUrl)),
       refreshNonce: currentFrame.refreshNonce + 1,
     }
 
@@ -1502,6 +1542,7 @@ const useCanvasFrameFormHandlers = ({
       setFrames((prev) => prev.map((frame) => (frame.id === editDashboardFrameId ? persistedFrame : frame)))
       setIsEditDashboardModalOpen(false)
       setEditDashboardFrameId(null)
+      setEditDashboardInternalPathInput('')
       setEditDashboardError(null)
     } catch (error) {
       setSyncError(error instanceof Error ? error.message : 'Kunne ikke oppdatere dashboard')

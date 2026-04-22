@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Alert, Button, Label, Modal, Select, TextField, UNSAFE_Combobox as Combobox } from '@navikt/ds-react'
+import { Alert, Button, Label, Modal, ReadMore, Select, TextField, UNSAFE_Combobox as Combobox } from '@navikt/ds-react'
 import { FolderOpen, Plus } from 'lucide-react'
 import type { CanvasChartOption, CanvasDeleteTarget } from '../../model/types.ts'
 import CanvasActionMenu from '../../../../shared/ui/CanvasActionMenu.tsx'
@@ -37,23 +37,27 @@ type CanvasCoreModalsProps = {
   selectedProjectToAddId: string
   projectOptions: SelectOption[]
   selectedDashboardToAddId: string
+  addDashboardInternalPathInput: string
   dashboardOptions: SelectOption[]
   addDashboardError: string | null
   isSavingCanvasItem: boolean
   onCloseAddDashboardModal: () => void
   onAddDashboardProjectChange: (value: string) => void
   onAddDashboardSelectionChange: (value: string) => void
+  onAddDashboardInternalPathChange: (value: string) => void
   onSubmitAddDashboard: () => void
   isEditDashboardModalOpen: boolean
   isLoadingEditDashboardOptions: boolean
   editDashboardSelectedProjectId: string
   editDashboardProjectOptions: SelectOption[]
   editDashboardSelectedDashboardId: string
+  editDashboardInternalPathInput: string
   editDashboardOptions: SelectOption[]
   editDashboardError: string | null
   onCloseEditDashboardModal: () => void
   onEditDashboardProjectChange: (value: string) => void
   onEditDashboardSelectionChange: (value: string) => void
+  onEditDashboardInternalPathChange: (value: string) => void
   onSubmitEditDashboard: () => void
   deleteTarget: CanvasDeleteTarget | null
   bulkDeleteProgress: { total: number; completed: number } | null
@@ -97,23 +101,27 @@ const CanvasCoreModals = ({
   selectedProjectToAddId,
   projectOptions,
   selectedDashboardToAddId,
+  addDashboardInternalPathInput,
   dashboardOptions,
   addDashboardError,
   isSavingCanvasItem,
   onCloseAddDashboardModal,
   onAddDashboardProjectChange,
   onAddDashboardSelectionChange,
+  onAddDashboardInternalPathChange,
   onSubmitAddDashboard,
   isEditDashboardModalOpen,
   isLoadingEditDashboardOptions,
   editDashboardSelectedProjectId,
   editDashboardProjectOptions,
   editDashboardSelectedDashboardId,
+  editDashboardInternalPathInput,
   editDashboardOptions,
   editDashboardError,
   onCloseEditDashboardModal,
   onEditDashboardProjectChange,
   onEditDashboardSelectionChange,
+  onEditDashboardInternalPathChange,
   onSubmitEditDashboard,
   deleteTarget,
   bulkDeleteProgress,
@@ -379,6 +387,15 @@ const CanvasCoreModals = ({
                 ))}
               </Select>
             )}
+            <ReadMore header="Avansert: intern URL-sti" size="small">
+              <TextField
+                size="small"
+                label="Intern URL-sti (valgfri)"
+                value={addDashboardInternalPathInput}
+                onChange={(event) => onAddDashboardInternalPathChange(event.target.value)}
+                description="Eksempel: /analysis/traffic?projectId=1. Når feltet er fylt ut brukes denne stien."
+              />
+            </ReadMore>
             {addDashboardError && <Alert variant="error">{addDashboardError}</Alert>}
           </div>
         </Modal.Body>
@@ -439,6 +456,15 @@ const CanvasCoreModals = ({
                 ))}
               </Select>
             )}
+            <ReadMore header="Avansert: intern URL-sti" size="small">
+              <TextField
+                size="small"
+                label="Intern URL-sti (valgfri)"
+                value={editDashboardInternalPathInput}
+                onChange={(event) => onEditDashboardInternalPathChange(event.target.value)}
+                description="Eksempel: /analysis/traffic?projectId=1. Når feltet er fylt ut brukes denne stien."
+              />
+            </ReadMore>
             {editDashboardError && <Alert variant="error">{editDashboardError}</Alert>}
           </div>
         </Modal.Body>

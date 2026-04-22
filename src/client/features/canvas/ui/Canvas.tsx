@@ -388,6 +388,7 @@ const Canvas = () => {
   const [selectedProjectToAddId, setSelectedProjectToAddId] = useState('')
   const [dashboardOptions, setDashboardOptions] = useState<Array<{ id: number; name: string; isCanvas: boolean }>>([])
   const [selectedDashboardToAddId, setSelectedDashboardToAddId] = useState('')
+  const [addDashboardInternalPathInput, setAddDashboardInternalPathInput] = useState('')
   const [isLoadingDashboardOptions, setIsLoadingDashboardOptions] = useState(false)
   const [createCanvasProjectOptions, setCreateCanvasProjectOptions] = useState<Array<{ id: number; name: string }>>([])
   const [createCanvasProjectId, setCreateCanvasProjectId] = useState('')
@@ -411,6 +412,7 @@ const Canvas = () => {
     Array<{ id: number; name: string; isCanvas: boolean }>
   >([])
   const [editDashboardSelectedDashboardId, setEditDashboardSelectedDashboardId] = useState('')
+  const [editDashboardInternalPathInput, setEditDashboardInternalPathInput] = useState('')
   const [isLoadingEditDashboardOptions, setIsLoadingEditDashboardOptions] = useState(false)
   const [headingTextInput, setHeadingTextInput] = useState('')
   const [addHeadingError, setAddHeadingError] = useState<string | null>(null)
@@ -1774,6 +1776,8 @@ const Canvas = () => {
     setDashboardOptions,
     selectedDashboardToAddId,
     setSelectedDashboardToAddId,
+    addDashboardInternalPathInput,
+    setAddDashboardInternalPathInput,
     isLoadingDashboardOptions,
     setIsLoadingDashboardOptions,
     editDashboardProjectOptions,
@@ -1784,6 +1788,8 @@ const Canvas = () => {
     setEditDashboardOptions,
     editDashboardSelectedDashboardId,
     setEditDashboardSelectedDashboardId,
+    editDashboardInternalPathInput,
+    setEditDashboardInternalPathInput,
     isLoadingEditDashboardOptions,
     setIsLoadingEditDashboardOptions,
     headingTextInput,
@@ -4835,11 +4841,13 @@ const Canvas = () => {
         selectedProjectToAddId={selectedProjectToAddId}
         projectOptions={projectOptions}
         selectedDashboardToAddId={selectedDashboardToAddId}
+        addDashboardInternalPathInput={addDashboardInternalPathInput}
         dashboardOptions={dashboardOptions}
         addDashboardError={addDashboardError}
         onCloseAddDashboardModal={() => {
           setIsAddDashboardModalOpen(false)
           setAddDashboardError(null)
+          setAddDashboardInternalPathInput('')
         }}
         onAddDashboardProjectChange={(value) => {
           setSelectedProjectToAddId(value)
@@ -4852,18 +4860,24 @@ const Canvas = () => {
           setSelectedDashboardToAddId(value)
           if (addDashboardError) setAddDashboardError(null)
         }}
+        onAddDashboardInternalPathChange={(value) => {
+          setAddDashboardInternalPathInput(value)
+          if (addDashboardError) setAddDashboardError(null)
+        }}
         onSubmitAddDashboard={() => void handleAddDashboardCard()}
         isEditDashboardModalOpen={isEditDashboardModalOpen}
         isLoadingEditDashboardOptions={isLoadingEditDashboardOptions}
         editDashboardSelectedProjectId={editDashboardSelectedProjectId}
         editDashboardProjectOptions={editDashboardProjectOptions}
         editDashboardSelectedDashboardId={editDashboardSelectedDashboardId}
+        editDashboardInternalPathInput={editDashboardInternalPathInput}
         editDashboardOptions={editDashboardOptions}
         editDashboardError={editDashboardError}
         onCloseEditDashboardModal={() => {
           setIsEditDashboardModalOpen(false)
           setEditDashboardFrameId(null)
           setEditDashboardError(null)
+          setEditDashboardInternalPathInput('')
         }}
         onEditDashboardProjectChange={(value) => {
           setEditDashboardSelectedProjectId(value)
@@ -4874,6 +4888,10 @@ const Canvas = () => {
         }}
         onEditDashboardSelectionChange={(value) => {
           setEditDashboardSelectedDashboardId(value)
+          if (editDashboardError) setEditDashboardError(null)
+        }}
+        onEditDashboardInternalPathChange={(value) => {
+          setEditDashboardInternalPathInput(value)
           if (editDashboardError) setEditDashboardError(null)
         }}
         onSubmitEditDashboard={() => void handleSaveEditedDashboard()}
