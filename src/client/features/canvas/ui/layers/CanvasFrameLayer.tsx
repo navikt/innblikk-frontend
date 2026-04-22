@@ -1,14 +1,6 @@
 import { Button, HelpText, Loader, Select } from '@navikt/ds-react'
 import { ExternalLink } from 'lucide-react'
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type Dispatch,
-  type MutableRefObject,
-  type SetStateAction,
-} from 'react'
+import { useEffect, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
 import { createPortal } from 'react-dom'
 import type { Website } from '../../../../shared/types/website.ts'
 import { DashboardWidget } from '../../../dashboard'
@@ -365,33 +357,7 @@ const CanvasFrameLayer = ({
   const sectionTitleButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   const frameContainerRefs = useRef<Record<string, HTMLElement | null>>({})
 
-  const focusAdjacentSection = useCallback(
-    (sectionId: string, direction: 'next' | 'previous') => {
-      const orderedSections = frameItems
-        .filter((item) => item.kind === 'section')
-        .sort((a, b) => {
-          if (a.y !== b.y) return a.y - b.y
-          return a.x - b.x
-        })
-      const currentIndex = orderedSections.findIndex((section) => section.id === sectionId)
-      if (currentIndex < 0) return
-      const targetIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1
-      const targetSection = orderedSections[targetIndex]
-      if (!targetSection) return
-      sectionTitleButtonRefs.current[targetSection.id]?.focus()
-    },
-    [frameItems],
-  )
-
   const cleanText = (value: string): string => value.replace(/\s+/g, ' ').trim().toLowerCase()
-  const sectionCount = frameItems.filter((item) => item.kind === 'section').length
-  const orderedSectionIds = frameItems
-    .filter((item) => item.kind === 'section')
-    .sort((a, b) => {
-      if (a.y !== b.y) return a.y - b.y
-      return a.x - b.x
-    })
-    .map((item) => item.id)
 
   const isAccordionLike = (value: string): boolean => {
     const cleaned = cleanText(value)
@@ -1325,20 +1291,6 @@ const CanvasFrameLayer = ({
                           </button>
                         )}
                       </h3>
-                    )}
-                    {sectionCount > 1 && (
-                      <div className="flex flex-wrap items-center gap-2">
-                        {orderedSectionIds.indexOf(frame.id) < orderedSectionIds.length - 1 && (
-                          <button
-                            type="button"
-                            onMouseDown={(event) => event.stopPropagation()}
-                            onClick={() => focusAdjacentSection(frame.id, 'next')}
-                            className="absolute left-[-9999px] top-auto h-px w-px overflow-hidden rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-2 py-1 text-xs font-medium text-[var(--ax-text-default)] focus:static focus:z-[80] focus:h-auto focus:w-auto focus:overflow-visible"
-                          >
-                            Hopp til neste seksjon
-                          </button>
-                        )}
-                      </div>
                     )}
                   </div>
                 ) : (
