@@ -108,6 +108,7 @@ All notable changes to this project will be documented in this file.
 - Beta indicators in navbar and profile page copy refresh
 - Show generated SQL on personvernssjekk page
 - Show generated SQL on brukerreiser, utforsk-hendelser, hendelsesreiser, brukerprofiler, brukerlojalitet
+- Add generatedSql field to eventjourney types and retention hook
 
 ### 🧪 Testing
 
