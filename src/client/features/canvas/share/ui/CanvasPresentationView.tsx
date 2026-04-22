@@ -83,6 +83,7 @@ const CanvasPresentationView = () => {
     return storedTheme === 'dark' ? 'dark' : 'light'
   })
   const [isFullscreen, setIsFullscreen] = useState<boolean>(() => Boolean(document.fullscreenElement))
+  const [maximizedDashboardFrameId, setMaximizedDashboardFrameId] = useState<string | null>(null)
 
   const routeContext = useMemo(() => parseCanvasShareRouteContext(location.search), [location.search])
   const { data, error, isLoading, activeCategoryId } = useCanvasShareData(routeContext)
@@ -124,6 +125,13 @@ const CanvasPresentationView = () => {
   }, [location.search, slides.length])
 
   const currentSlide = slides[currentSlideIndex] ?? null
+  const maximizedDashboardFrame = useMemo(
+    () =>
+      maximizedDashboardFrameId
+        ? (visibleFrames.find((frame) => frame.id === maximizedDashboardFrameId && frame.kind === 'website') ?? null)
+        : null,
+    [maximizedDashboardFrameId, visibleFrames],
+  )
   const isStickyOnlySlide = Boolean(
     currentSlide &&
     currentSlide.elements.length > 0 &&
@@ -218,6 +226,14 @@ const CanvasPresentationView = () => {
         Boolean(target?.isContentEditable) || tagName === 'input' || tagName === 'textarea' || tagName === 'select'
       if (isEditingContext) return
 
+      if (maximizedDashboardFrameId && event.key === 'Escape') {
+        event.preventDefault()
+        setMaximizedDashboardFrameId(null)
+        return
+      }
+
+      if (maximizedDashboardFrameId) return
+
       if (event.key === 'ArrowLeft') {
         event.preventDefault()
         goToPreviousSlide()
@@ -233,7 +249,7 @@ const CanvasPresentationView = () => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [goToNextSlide, goToPreviousSlide])
+  }, [goToNextSlide, goToPreviousSlide, maximizedDashboardFrameId])
 
   useEffect(() => {
     const handleThemeChange = (event: Event) => {
@@ -671,15 +687,27 @@ const CanvasPresentationView = () => {
                   </div>
                 )}
               </div>
-              {visualizationMode === 'clickmap' && !shouldRenderAsImage && src && frame.renderWebsite !== false && (
-                <Button
-                  size="xsmall"
-                  variant="tertiary"
-                  onClick={() => setWebsiteTopListEnabled((current) => !current)}
-                >
-                  {websiteTopListEnabled ? 'Skjul toppliste' : 'Vis toppliste'}
-                </Button>
-              )}
+              <div className="flex items-center gap-2">
+                {frame.isInternalDashboard && (
+                  <Button
+                    size="xsmall"
+                    variant="tertiary"
+                    icon={<Maximize2 size={14} aria-hidden="true" />}
+                    onClick={() => setMaximizedDashboardFrameId(frame.id)}
+                    title="Maksimer dashboard"
+                    aria-label="Maksimer dashboard"
+                  />
+                )}
+                {visualizationMode === 'clickmap' && !shouldRenderAsImage && src && frame.renderWebsite !== false && (
+                  <Button
+                    size="xsmall"
+                    variant="tertiary"
+                    onClick={() => setWebsiteTopListEnabled((current) => !current)}
+                  >
+                    {websiteTopListEnabled ? 'Skjul toppliste' : 'Vis toppliste'}
+                  </Button>
+                )}
+              </div>
             </div>
 
             <div className={showClickmapTopList ? 'grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px]' : ''}>
@@ -942,6 +970,74 @@ const CanvasPresentationView = () => {
                     </div>
                   </div>
                 </section>
+                {maximizedDashboardFrame && (
+                  <div
+                    className="fixed inset-0 z-[80] bg-black/55 p-3 sm:p-6"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={`Maksimert ${maximizedDashboardFrame.label || 'dashboard'}`}
+                    onClick={() => setMaximizedDashboardFrameId(null)}
+                  >
+                    <div
+                      className="mx-auto flex h-full w-full max-w-[1800px] flex-col overflow-hidden rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] shadow-[0_20px_40px_rgba(0,0,0,0.35)]"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <div className="flex items-center justify-between gap-3 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] px-4 py-3">
+                        <div className="min-w-0 break-words text-sm font-semibold text-[var(--ax-text-default)]">
+                          {maximizedDashboardFrame.label || formatCanvasPathLabel(maximizedDashboardFrame.targetUrl)}
+                        </div>
+                        <Button
+                          size="xsmall"
+                          variant="tertiary"
+                          icon={<Minimize2 size={14} aria-hidden="true" />}
+                          onClick={() => setMaximizedDashboardFrameId(null)}
+                          title="Lukk maksimering"
+                          aria-label="Lukk maksimering"
+                        />
+                      </div>
+                      <div className="min-h-0 flex-1 bg-white">
+                        {(() => {
+                          const src = getWebsiteFrameRenderSrc(maximizedDashboardFrame)
+                          const displayUrl = getWebsiteFrameDisplayUrl(maximizedDashboardFrame)
+                          const shouldRenderAsImage = Boolean(displayUrl && isImagePreviewUrl(displayUrl))
+
+                          if (!src) {
+                            return (
+                              <BodyShort className="p-4 text-[var(--ax-text-subtle)]">
+                                Kunne ikke laste nettside-forhåndsvisning for{' '}
+                                {formatCanvasPathLabel(maximizedDashboardFrame.targetUrl, displayUrl)}.
+                              </BodyShort>
+                            )
+                          }
+
+                          if (shouldRenderAsImage) {
+                            return (
+                              <img
+                                src={src}
+                                alt={
+                                  maximizedDashboardFrame.label ||
+                                  formatCanvasPathLabel(maximizedDashboardFrame.targetUrl)
+                                }
+                                className="h-full w-full object-contain"
+                                loading="lazy"
+                              />
+                            )
+                          }
+
+                          return (
+                            <iframe
+                              title={`Maksimert forhandsvisning av ${maximizedDashboardFrame.label || 'dashboard'}`}
+                              src={src}
+                              className="h-full w-full bg-white"
+                              loading="lazy"
+                              sandbox="allow-same-origin allow-scripts allow-forms"
+                            />
+                          )
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </article>
             )}
           </>
