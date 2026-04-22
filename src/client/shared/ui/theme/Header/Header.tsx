@@ -1,6 +1,6 @@
 import { CogIcon, ExternalLinkIcon, MenuHamburgerIcon, PersonIcon, TestFlaskIcon, ThemeIcon } from '@navikt/aksel-icons'
 import { Events, type ActionMenuApnetProperties, type ActionMenuValgValgtProperties } from '@navikt/analytics-types'
-import { ActionMenu, Button, Dropdown, Link, Tooltip } from '@navikt/ds-react'
+import { ActionMenu, Button, Dropdown, Link, Tag, Tooltip } from '@navikt/ds-react'
 import { useEffect, useState } from 'react'
 import '../../../../tailwind.css'
 import { AppBlock } from '../AppBlock/AppBlock.tsx'
@@ -257,7 +257,7 @@ export default function Header({ theme }: HeaderProps) {
     >
       <AppBlock>
         <header className="flex py-1 z-10 items-center justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
             <Button as={Link} variant="tertiary" className={`${linkButton} !px-0`} href="/">
               <div className="flex items-start gap-1.5 py-1">
                 <span aria-hidden="true" className="grid place-items-center mt-0.5 shrink-0">
@@ -277,36 +277,20 @@ export default function Header({ theme }: HeaderProps) {
                   </svg>
                 </span>
                 <div className="flex flex-col items-start leading-tight">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl md:text-2xl font-bold tracking-tight whitespace-nowrap">Innblikk</span>
-                    {isBeta && (
-                      <span
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          padding: 'var(--ax-space-2) var(--ax-space-8)',
-                          borderRadius: 'var(--ax-radius-12)',
-                          backgroundColor: 'var(--ax-bg-brand-blue-strong)',
-                          color: 'var(--ax-text-contrast)',
-                          fontSize: 'var(--ax-font-size-detail)',
-                          lineHeight: 'var(--ax-line-height-detail)',
-                          fontWeight: 600,
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        Beta
-                        <TestFlaskIcon aria-hidden fontSize="1rem" style={{ marginLeft: 'var(--ax-space-4)' }} />
-                      </span>
-                    )}
-                    {isDevEnvironment && (
-                      <span className="text-[11px] uppercase tracking-[0.08em] font-semibold px-2 py-[1px] rounded-full border border-current/40">
-                        {environmentBadgeLabel}
-                      </span>
-                    )}
-                  </div>
+                  <span className="text-xl md:text-2xl font-bold tracking-tight whitespace-nowrap">Innblikk</span>
                 </div>
               </div>
             </Button>
+            {isBeta && (
+              <Tag data-color="meta-purple" variant="strong" size="small" icon={<TestFlaskIcon aria-hidden />}>
+                Beta
+              </Tag>
+            )}
+            {isDevEnvironment && (
+              <Tag data-color="info" variant="outline" size="small">
+                {environmentBadgeLabel}
+              </Tag>
+            )}
           </div>
           {isMobile ? (
             <div className="flex items-center">
