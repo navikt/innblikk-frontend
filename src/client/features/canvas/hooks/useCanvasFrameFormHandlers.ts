@@ -54,6 +54,30 @@ import {
 
 type Setter<T> = Dispatch<SetStateAction<T>>
 type DashboardOption = { id: number; name: string; isCanvas: boolean }
+const TEXT_CARD_CONTENT_HORIZONTAL_PADDING = 16
+const TEXT_CARD_MIN_HEIGHT = 72
+const TEXT_CARD_LINE_HEIGHT = 26
+const TEXT_CARD_VERTICAL_PADDING = 24
+const TEXT_CARD_PARAGRAPH_GAP = 12
+const TEXT_CARD_APPROX_CHAR_WIDTH = 10
+
+const estimateTextFrameHeight = (text: string, width: number): number => {
+  const normalized = text.trim()
+  const usableWidth = Math.max(120, width - TEXT_CARD_CONTENT_HORIZONTAL_PADDING)
+  const approxCharsPerLine = Math.max(12, Math.floor(usableWidth / TEXT_CARD_APPROX_CHAR_WIDTH))
+  if (!normalized) return TEXT_CARD_MIN_HEIGHT
+
+  const lines = normalized.split('\n')
+  const wrappedLineCount = lines.reduce((count, line) => {
+    if (!line.trim()) return count
+    return count + Math.max(1, Math.ceil(line.length / approxCharsPerLine))
+  }, 0)
+  const blankLineCount = lines.reduce((count, line) => count + (line.trim() ? 0 : 1), 0)
+  const estimatedHeight =
+    wrappedLineCount * TEXT_CARD_LINE_HEIGHT + blankLineCount * TEXT_CARD_PARAGRAPH_GAP + TEXT_CARD_VERTICAL_PADDING
+
+  return Math.max(TEXT_CARD_MIN_HEIGHT, estimatedHeight)
+}
 
 type UseCanvasFrameFormHandlersParams = {
   projectId: number | null
@@ -1765,6 +1789,8 @@ const useCanvasFrameFormHandlers = ({
 
   const handleAddTextCard = () => {
     const content = textContentInput.trim()
+    const textCardWidth = 340
+    const textCardHeight = estimateTextFrameHeight(content, textCardWidth)
 
     if (!content) {
       setAddTextError('Legg inn tekst.')
@@ -1773,7 +1799,7 @@ const useCanvasFrameFormHandlers = ({
 
     const targetSectionId = selectedAddSectionId.trim()
     if (targetSectionId) {
-      const placement = resolvePlacementInSection(targetSectionId, { width: 340, height: 170 })
+      const placement = resolvePlacementInSection(targetSectionId, { width: textCardWidth, height: textCardHeight })
       if (!placement) {
         setAddTextError('Fant ikke valgt seksjon.')
         return
@@ -1784,8 +1810,8 @@ const useCanvasFrameFormHandlers = ({
         kind: 'text',
         textContent: content,
         label: 'Tekst',
-        width: 340,
-        height: 170,
+        width: textCardWidth,
+        height: textCardHeight,
         x: placement.x,
         y: placement.y,
         categoryId: placement.categoryId,
@@ -1822,8 +1848,8 @@ const useCanvasFrameFormHandlers = ({
       kind: 'text',
       textContent: content,
       label: 'Tekst',
-      width: 340,
-      height: 170,
+      width: textCardWidth,
+      height: textCardHeight,
       refreshNonce: 0,
     }
     queueFrameForPlacement(frameDraft, 'tekst')

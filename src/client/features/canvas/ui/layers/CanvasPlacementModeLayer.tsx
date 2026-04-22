@@ -236,7 +236,7 @@ const CanvasPlacementModeLayer = ({
                         <div className="h-full w-full overflow-hidden px-2 pb-2">
                           <span
                             className="block select-none overflow-hidden whitespace-pre-wrap break-words text-[var(--ax-text-default)]"
-                            style={{ fontSize: '24px', lineHeight: 1.3, fontWeight: 500 }}
+                            style={{ fontSize: '18px', lineHeight: 1.45, fontWeight: 500 }}
                           >
                             {pendingFrameDraft.textContent || 'Skriv tekst'}
                           </span>
