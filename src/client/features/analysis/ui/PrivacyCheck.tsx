@@ -383,8 +383,8 @@ const PrivacyCheck = () => {
 
                 <div className="flex justify-between items-end mb-4">
                   {selectedType ? (
-                    <div className="flex items-center gap-4 bg-blue-50 p-2 px-4 rounded-md border border-blue-100">
-                      <div>
+                    <div className="flex items-center gap-4 p-2 px-4 rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)]">
+                      <div className="text-[var(--ax-text-default)]">
                         Viser detaljer for: <strong>{selectedType}</strong>
                       </div>
                       <Button size="small" variant="tertiary" onClick={() => setSelectedType(null)}>
