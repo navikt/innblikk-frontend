@@ -108,15 +108,15 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
         bucketSeriesSql = `
                   SELECT bucket_time AS time
                   FROM UNNEST(
-                      GENERATE_DATETIME_ARRAY(
-                          DATETIME_TRUNC(DATETIME(TIMESTAMP(@startDate), '${BIGQUERY_TIMEZONE}'), HOUR),
-                          DATETIME_TRUNC(DATETIME(TIMESTAMP(@endDate), '${BIGQUERY_TIMEZONE}'), HOUR),
+                      GENERATE_TIMESTAMP_ARRAY(
+                          TIMESTAMP_TRUNC(TIMESTAMP(@startDate), HOUR, '${BIGQUERY_TIMEZONE}'),
+                          TIMESTAMP_TRUNC(TIMESTAMP(@endDate), HOUR, '${BIGQUERY_TIMEZONE}'),
                           INTERVAL 1 HOUR
                       )
                   ) AS bucket_time
               `
-        eventBucketExpression = `DATETIME_TRUNC(DATETIME(${col}created_at, '${BIGQUERY_TIMEZONE}'), HOUR)`
-        outputBucketAsTimestamp = `TIMESTAMP(buckets.time, '${BIGQUERY_TIMEZONE}')`
+        eventBucketExpression = `TIMESTAMP_TRUNC(${col}created_at, HOUR, '${BIGQUERY_TIMEZONE}')`
+        outputBucketAsTimestamp = `buckets.time`
       } else if (interval === 'week') {
         bucketSeriesSql = `
                   SELECT bucket_time AS time
