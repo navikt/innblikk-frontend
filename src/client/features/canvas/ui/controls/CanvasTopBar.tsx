@@ -10,6 +10,7 @@ import CanvasFacilitatorActionMenu from './CanvasFacilitatorActionMenu.tsx'
 type CanvasTopBarProps = {
   canvasToolbarRef: RefObject<HTMLDivElement | null>
   canvasTitle: string
+  projectId: number | null
   period: string
   customStartDate?: Date
   customEndDate?: Date
@@ -76,6 +77,7 @@ type CanvasTopBarProps = {
 const CanvasTopBar = ({
   canvasToolbarRef,
   canvasTitle,
+  projectId,
   period,
   customStartDate,
   customEndDate,
@@ -137,6 +139,7 @@ const CanvasTopBar = ({
   onToggleCanvasLock,
   onToggleLockedModeEditing,
 }: CanvasTopBarProps) => {
+  const canvasHomeHref = projectId !== null ? `/canvas?projectId=${projectId}` : '/canvas'
   const participantCountText = `${activeParticipantCount} ${activeParticipantCount === 1 ? 'person' : 'personer'} i canvas`
   const canEditCanvas = !isCanvasReadOnly
   const shouldReserveFilterSlots = showDateFilter || showUrlPathFilter
@@ -213,7 +216,7 @@ const CanvasTopBar = ({
       <div className="pointer-events-auto rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2 shadow-sm">
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <a
-            href="/canvas"
+            href={canvasHomeHref}
             aria-label={`${headingTitle}. Til dashboard-oversikt`}
             className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-sm border-0 bg-transparent p-0 text-left text-[var(--ax-text-default)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-border-accent)]"
           >
