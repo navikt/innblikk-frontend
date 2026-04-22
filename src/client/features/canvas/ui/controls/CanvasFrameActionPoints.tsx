@@ -383,6 +383,7 @@ const CanvasFrameActionPoints = ({
     frameKind === 'icon' ||
     frameKind === 'figure' ||
     frameKind === 'drawing' ||
+    Boolean(isInternalDashboard) ||
     isIllustrationFrame
       ? 'right-8 -top-6 flex items-center gap-1'
       : 'right-2 top-4 flex items-center gap-1'
