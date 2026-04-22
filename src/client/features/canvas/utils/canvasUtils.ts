@@ -28,6 +28,8 @@ export const CANVAS_PERIOD_TOKEN_REGEX = /\[period:([^\]]+)\]/i
 export const CANVAS_CUSTOM_START_DATE_TOKEN_REGEX = /\[customStartDate:([^\]]+)\]/i
 export const CANVAS_CUSTOM_END_DATE_TOKEN_REGEX = /\[customEndDate:([^\]]+)\]/i
 export const CANVAS_HIDE_DATE_FILTER_TOKEN_REGEX = /\[hideDateFilter:(true|false)\]/i
+export const CANVAS_URL_PATH_TOKEN_REGEX = /\[urlPath:([^\]]+)\]/i
+export const CANVAS_HIDE_URL_PATH_FILTER_TOKEN_REGEX = /\[hideUrlPathFilter:(true|false)\]/i
 export const CANVAS_LOCKED_TOKEN_REGEX = /\[canvasLocked:(true|false)\]/i
 export const CANVAS_QUERY_NAME = 'canvas-config'
 export const CANVAS_SURFACE_WIDTH = 2200
@@ -143,6 +145,24 @@ export const extractCanvasHideDateFilterFromDescription = (description?: string)
   return value === 'true'
 }
 
+export const extractCanvasUrlPathFromDescription = (description?: string): string | null => {
+  if (!description) return null
+  const value = description.match(CANVAS_URL_PATH_TOKEN_REGEX)?.[1]?.trim()
+  if (!value) return null
+  try {
+    const decoded = decodeURIComponent(value)
+    return decoded || null
+  } catch {
+    return value
+  }
+}
+
+export const extractCanvasHideUrlPathFilterFromDescription = (description?: string): boolean => {
+  if (!description) return false
+  const value = description.match(CANVAS_HIDE_URL_PATH_FILTER_TOKEN_REGEX)?.[1]?.trim().toLowerCase()
+  return value === 'true'
+}
+
 export const extractCanvasLockedFromDescription = (description?: string): boolean => {
   if (!description) return true
   const value = description.match(CANVAS_LOCKED_TOKEN_REGEX)?.[1]?.trim().toLowerCase()
@@ -158,6 +178,8 @@ export const buildCanvasDashboardDescription = (
   customStartDate?: Date,
   customEndDate?: Date,
   hideDateFilter?: boolean,
+  urlPath?: string,
+  hideUrlPathFilter?: boolean,
   canvasLocked?: boolean,
 ): string => {
   const existingCanvasLocked = extractCanvasLockedFromDescription(description)
@@ -168,6 +190,8 @@ export const buildCanvasDashboardDescription = (
     .replace(CANVAS_CUSTOM_START_DATE_TOKEN_REGEX, ' ')
     .replace(CANVAS_CUSTOM_END_DATE_TOKEN_REGEX, ' ')
     .replace(CANVAS_HIDE_DATE_FILTER_TOKEN_REGEX, ' ')
+    .replace(CANVAS_URL_PATH_TOKEN_REGEX, ' ')
+    .replace(CANVAS_HIDE_URL_PATH_FILTER_TOKEN_REGEX, ' ')
     .replace(CANVAS_LOCKED_TOKEN_REGEX, ' ')
     .replace(/\s+/g, ' ')
     .trim()
@@ -184,6 +208,12 @@ export const buildCanvasDashboardDescription = (
   }
   if (hideDateFilter) {
     tokens.push('[hideDateFilter:true]')
+  }
+  if (urlPath?.trim()) {
+    tokens.push(`[urlPath:${encodeURIComponent(urlPath.trim())}]`)
+  }
+  if (hideUrlPathFilter) {
+    tokens.push('[hideUrlPathFilter:true]')
   }
   const resolvedCanvasLocked = canvasLocked ?? existingCanvasLocked
   tokens.push(`[canvasLocked:${resolvedCanvasLocked ? 'true' : 'false'}]`)

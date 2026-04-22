@@ -75,6 +75,40 @@ const ExampleList = ({ examples, type }: { examples?: string[]; type: string }) 
   )
 }
 
+const PathList = ({ paths }: { paths?: string[] }) => {
+  const [showAll, setShowAll] = useState(false)
+
+  if (!paths || paths.length === 0) {
+    return <span className="text-[var(--ax-text-subtle)]">-</span>
+  }
+
+  if (paths.length === 1) {
+    return <div className="font-mono text-sm break-all">{paths[0]}</div>
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="font-mono text-sm break-all">{paths[0]}</div>
+      {showAll ? (
+        <>
+          {paths.slice(1).map((path, i) => (
+            <div key={i} className="font-mono text-sm break-all">
+              {path}
+            </div>
+          ))}
+          <Button size="xsmall" variant="tertiary" onClick={() => setShowAll(false)} className="self-start mt-1">
+            Vis færre
+          </Button>
+        </>
+      ) : (
+        <Button size="xsmall" variant="tertiary" onClick={() => setShowAll(true)} className="self-start">
+          + {paths.length - 1} til
+        </Button>
+      )}
+    </div>
+  )
+}
+
 const MetadataOverview = ({
   data,
   showWebsites,
@@ -373,6 +407,7 @@ const PrivacyCheck = () => {
                           {!selectedWebsite && <Table.HeaderCell>Nettside</Table.HeaderCell>}
                           <Table.HeaderCell>Tabell</Table.HeaderCell>
                           <Table.HeaderCell>Kolonne</Table.HeaderCell>
+                          <Table.HeaderCell>Sti</Table.HeaderCell>
                           {!selectedType && <Table.HeaderCell>Type</Table.HeaderCell>}
                           <Table.HeaderCell>Antall</Table.HeaderCell>
                           <Table.HeaderCell>Eksempler</Table.HeaderCell>
@@ -386,6 +421,9 @@ const PrivacyCheck = () => {
                             )}
                             <Table.DataCell className="whitespace-nowrap">{row.table_name}</Table.DataCell>
                             <Table.DataCell className="whitespace-nowrap">{row.column_name}</Table.DataCell>
+                            <Table.DataCell>
+                              <PathList paths={row.related_paths} />
+                            </Table.DataCell>
                             {!selectedType && (
                               <Table.DataCell className="whitespace-nowrap">{row.match_type}</Table.DataCell>
                             )}
@@ -423,6 +461,7 @@ const PrivacyCheck = () => {
                           {!selectedWebsite && <Table.HeaderCell>Nettside</Table.HeaderCell>}
                           <Table.HeaderCell>Tabell</Table.HeaderCell>
                           <Table.HeaderCell>Kolonne</Table.HeaderCell>
+                          <Table.HeaderCell>Sti</Table.HeaderCell>
                           <Table.HeaderCell>Antall</Table.HeaderCell>
                           <Table.HeaderCell>Eksempler</Table.HeaderCell>
                         </Table.Row>
@@ -435,6 +474,9 @@ const PrivacyCheck = () => {
                             )}
                             <Table.DataCell className="whitespace-nowrap">{row.table_name}</Table.DataCell>
                             <Table.DataCell className="whitespace-nowrap">{row.column_name}</Table.DataCell>
+                            <Table.DataCell>
+                              <PathList paths={row.related_paths} />
+                            </Table.DataCell>
                             <Table.DataCell className="whitespace-nowrap">
                               {row.count.toLocaleString('no-NO')}
                             </Table.DataCell>

@@ -12,6 +12,8 @@ type CanvasAdminModalsProps = {
   defaultCanvasCustomStartDateInitialValue?: Date
   defaultCanvasCustomEndDateInitialValue?: Date
   hideDateFilterInitialValue?: boolean
+  defaultUrlPathInitialValue?: string
+  hideUrlPathFilterInitialValue?: boolean
   renameCanvasError: string | null
   onRenameCanvas: (
     value: string,
@@ -19,6 +21,8 @@ type CanvasAdminModalsProps = {
     customStartDate?: Date,
     customEndDate?: Date,
     hideDateFilter?: boolean,
+    defaultUrlPath?: string,
+    hideUrlPathFilter?: boolean,
   ) => void
   isSavingCanvasItem: boolean
   isCreateTabModalOpen: boolean
@@ -78,6 +82,8 @@ const CanvasAdminModals = ({
   defaultCanvasCustomStartDateInitialValue,
   defaultCanvasCustomEndDateInitialValue,
   hideDateFilterInitialValue = false,
+  defaultUrlPathInitialValue = '/',
+  hideUrlPathFilterInitialValue = false,
   renameCanvasError,
   onRenameCanvas,
   isSavingCanvasItem,
@@ -124,6 +130,8 @@ const CanvasAdminModals = ({
     defaultCanvasCustomEndDateInitialValue,
   )
   const [hideDateFilter, setHideDateFilter] = useState(Boolean(hideDateFilterInitialValue))
+  const [defaultUrlPath, setDefaultUrlPath] = useState(defaultUrlPathInitialValue)
+  const [hideUrlPathFilter, setHideUrlPathFilter] = useState(Boolean(hideUrlPathFilterInitialValue))
   const newTabInputRef = useRef<HTMLInputElement | null>(null)
   const manageTabInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -211,6 +219,16 @@ const CanvasAdminModals = ({
             <Checkbox checked={hideDateFilter} onChange={(event) => setHideDateFilter(event.target.checked)}>
               Skjul datofilter i toppbar
             </Checkbox>
+            <TextField
+              key={`default-url-path-${isCanvasSettingsModalOpen ? defaultUrlPathInitialValue : 'closed'}`}
+              label="Standard URL-sti"
+              value={defaultUrlPath}
+              onChange={(event) => setDefaultUrlPath(event.target.value)}
+              size="small"
+            />
+            <Checkbox checked={hideUrlPathFilter} onChange={(event) => setHideUrlPathFilter(event.target.checked)}>
+              Skjul URL-sti-filter i toppbar
+            </Checkbox>
             {renameCanvasError && <Alert variant="error">{renameCanvasError}</Alert>}
           </div>
         </Modal.Body>
@@ -223,6 +241,8 @@ const CanvasAdminModals = ({
                 defaultCanvasPeriod === 'custom' ? defaultCustomStartDate : undefined,
                 defaultCanvasPeriod === 'custom' ? defaultCustomEndDate : undefined,
                 hideDateFilter,
+                defaultUrlPath,
+                hideUrlPathFilter,
               )
             }
             size="small"

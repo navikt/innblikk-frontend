@@ -82,6 +82,7 @@ export type DiagnosisHistoryResponse = {
 export type PrivacyRow = {
   match_type: string
   examples?: string[]
+  related_paths?: string[]
   count: number
   unique_count?: number
   nav_count?: number

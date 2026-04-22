@@ -42,6 +42,8 @@ type UseCanvasAdminFlowParams = {
   setCanvasDefaultCustomStartDate: (next: Date | undefined) => void
   setCanvasDefaultCustomEndDate: (next: Date | undefined) => void
   setCanvasHideDateFilter: (next: boolean) => void
+  setCanvasUrlPathFilter: (next: string) => void
+  setCanvasHideUrlPathFilter: (next: boolean) => void
   selectedWebsiteId: string | null
   setSyncError: (next: string | null) => void
   setIsSavingCanvasItem: (next: boolean) => void
@@ -99,6 +101,8 @@ const useCanvasAdminFlow = ({
   setCanvasDefaultCustomStartDate,
   setCanvasDefaultCustomEndDate,
   setCanvasHideDateFilter,
+  setCanvasUrlPathFilter,
+  setCanvasHideUrlPathFilter,
   selectedWebsiteId,
   setSyncError,
   setIsSavingCanvasItem,
@@ -366,6 +370,8 @@ const useCanvasAdminFlow = ({
     defaultCustomStartDate?: Date,
     defaultCustomEndDate?: Date,
     hideDateFilter?: boolean,
+    defaultUrlPath?: string,
+    hideUrlPathFilter?: boolean,
   ) => {
     const nextName = inputValue.trim()
     const nextDefaultPeriod = defaultPeriod.trim()
@@ -384,6 +390,8 @@ const useCanvasAdminFlow = ({
       setCanvasDefaultCustomStartDate(nextDefaultPeriod === 'custom' ? defaultCustomStartDate : undefined)
       setCanvasDefaultCustomEndDate(nextDefaultPeriod === 'custom' ? defaultCustomEndDate : undefined)
       setCanvasHideDateFilter(Boolean(hideDateFilter))
+      setCanvasUrlPathFilter(defaultUrlPath?.trim() || '/')
+      setCanvasHideUrlPathFilter(Boolean(hideUrlPathFilter))
       setIsCanvasSettingsModalOpen(false)
       return
     }
@@ -398,6 +406,8 @@ const useCanvasAdminFlow = ({
         defaultCustomStartDate,
         defaultCustomEndDate,
         Boolean(hideDateFilter),
+        defaultUrlPath?.trim() || '/',
+        Boolean(hideUrlPathFilter),
       )
       await updateDashboard(projectId, dashboardId, { name: nextName, description: nextDescription })
       setCanvasTitle(nextName)
@@ -407,6 +417,8 @@ const useCanvasAdminFlow = ({
       setCanvasDefaultCustomStartDate(nextDefaultPeriod === 'custom' ? defaultCustomStartDate : undefined)
       setCanvasDefaultCustomEndDate(nextDefaultPeriod === 'custom' ? defaultCustomEndDate : undefined)
       setCanvasHideDateFilter(Boolean(hideDateFilter))
+      setCanvasUrlPathFilter(defaultUrlPath?.trim() || '/')
+      setCanvasHideUrlPathFilter(Boolean(hideUrlPathFilter))
       setIsCanvasSettingsModalOpen(false)
       setRenameCanvasError(null)
     } catch (error) {

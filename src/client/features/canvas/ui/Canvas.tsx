@@ -147,8 +147,10 @@ import {
   extractCanvasCustomEndDateFromDescription,
   extractCanvasCustomStartDateFromDescription,
   extractCanvasHideDateFilterFromDescription,
+  extractCanvasHideUrlPathFilterFromDescription,
   extractCanvasLockedFromDescription,
   extractCanvasPeriodFromDescription,
+  extractCanvasUrlPathFromDescription,
   extractCanvasWebsiteIdFromDescription,
   buildCanvasDashboardDescription,
   formatCanvasPathLabel,
@@ -290,6 +292,8 @@ const Canvas = () => {
   const [canvasDefaultCustomStartDate, setCanvasDefaultCustomStartDate] = useState<Date | undefined>(undefined)
   const [canvasDefaultCustomEndDate, setCanvasDefaultCustomEndDate] = useState<Date | undefined>(undefined)
   const [canvasHideDateFilter, setCanvasHideDateFilter] = useState(false)
+  const [canvasUrlPathFilter, setCanvasUrlPathFilter] = useState('/')
+  const [canvasHideUrlPathFilter, setCanvasHideUrlPathFilter] = useState(false)
   const usesCookies = useCookieSupport(selectedWebsite?.domain, selectedWebsite?.id)
   const cookieStartDate = useCookieStartDate(selectedWebsite?.domain, selectedWebsite?.id)
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined)
@@ -597,12 +601,18 @@ const Canvas = () => {
     savePeriodPreference(nextPeriod)
   }
 
-  const activeInsightUrlPath = useMemo(() => {
-    if (!activeInsightFrameId) return ''
-    const activeFrame = frames.find((frame) => frame.id === activeInsightFrameId)
-    if (!activeFrame || activeFrame.kind !== 'website' || activeFrame.isInternalDashboard) return ''
-    return normalizeUrlToPath(activeFrame.targetUrl || '') || ''
-  }, [activeInsightFrameId, frames])
+  const getNormalizedCanvasUrlPath = useCallback((value: string) => {
+    const normalized = normalizeUrlToPath(value).trim()
+    if (!normalized) return '/'
+    return normalized.startsWith('/') ? normalized : `/${normalized}`
+  }, [])
+
+  const handleCanvasUrlPathFilterChange = useCallback(
+    (value: string) => {
+      setCanvasUrlPathFilter(getNormalizedCanvasUrlPath(value))
+    },
+    [getNormalizedCanvasUrlPath],
+  )
 
   const hasDynamicUrlPathCharts = useMemo(
     () =>
@@ -616,14 +626,14 @@ const Canvas = () => {
 
   const dashboardWidgetFilters = useMemo(
     () => ({
-      urlFilters: hasDynamicUrlPathCharts && activeInsightUrlPath ? [activeInsightUrlPath] : [],
+      urlFilters: hasDynamicUrlPathCharts ? [getNormalizedCanvasUrlPath(canvasUrlPathFilter)] : [],
       dateRange: period,
       pathOperator: 'equals',
       metricType: 'visitors' as const,
       customStartDate,
       customEndDate,
     }),
-    [activeInsightUrlPath, customEndDate, customStartDate, hasDynamicUrlPathCharts, period],
+    [canvasUrlPathFilter, customEndDate, customStartDate, getNormalizedCanvasUrlPath, hasDynamicUrlPathCharts, period],
   )
 
   const activeInsightFrame = useMemo(
@@ -926,6 +936,11 @@ const Canvas = () => {
     [canvasHideDateFilter, frameItems],
   )
 
+  const showUrlPathFilter = useMemo(
+    () => !canvasHideUrlPathFilter && hasDynamicUrlPathCharts,
+    [canvasHideUrlPathFilter, hasDynamicUrlPathCharts],
+  )
+
   const {
     importStickyCsvFileInputRef,
     importStickyCsvFileName,
@@ -1067,10 +1082,12 @@ const Canvas = () => {
       const current = pageInsightsRef.current[frame.id]
       if (current?.requestKey === requestKey && !current.error) {
         setActiveInsightFrameId(frame.id)
+        setCanvasUrlPathFilter(getNormalizedCanvasUrlPath(pagePath))
         return
       }
 
       setActiveInsightFrameId(frame.id)
+      setCanvasUrlPathFilter(getNormalizedCanvasUrlPath(pagePath))
       setPageInsights((currentState) => ({
         ...currentState,
         [frame.id]: {
@@ -1117,7 +1134,16 @@ const Canvas = () => {
         }))
       }
     },
-    [cookieStartDate, customEndDate, customStartDate, onlyDirectEntry, period, selectedWebsite?.id, usesCookies],
+    [
+      cookieStartDate,
+      customEndDate,
+      customStartDate,
+      getNormalizedCanvasUrlPath,
+      onlyDirectEntry,
+      period,
+      selectedWebsite?.id,
+      usesCookies,
+    ],
   )
 
   useEffect(() => {
@@ -1393,6 +1419,8 @@ const Canvas = () => {
       setCanvasDefaultCustomStartDate(undefined)
       setCanvasDefaultCustomEndDate(undefined)
       setCanvasHideDateFilter(false)
+      setCanvasUrlPathFilter('/')
+      setCanvasHideUrlPathFilter(false)
       return
     }
     let isActive = true
@@ -1414,6 +1442,8 @@ const Canvas = () => {
           setCanvasDefaultCustomStartDate(undefined)
           setCanvasDefaultCustomEndDate(undefined)
           setCanvasHideDateFilter(false)
+          setCanvasUrlPathFilter('/')
+          setCanvasHideUrlPathFilter(false)
           return
         }
         setCanvasInitMode('existing')
@@ -1423,6 +1453,8 @@ const Canvas = () => {
         const defaultCustomStartDate = extractCanvasCustomStartDateFromDescription(dashboardDescription)
         const defaultCustomEndDate = extractCanvasCustomEndDateFromDescription(dashboardDescription)
         const hideDateFilter = extractCanvasHideDateFilterFromDescription(dashboardDescription)
+        const defaultUrlPath = extractCanvasUrlPathFromDescription(dashboardDescription)
+        const hideUrlPathFilter = extractCanvasHideUrlPathFilterFromDescription(dashboardDescription)
         const isLocked = extractCanvasLockedFromDescription(dashboardDescription)
         const hasPeriodInUrl = new URLSearchParams(window.location.search).has('period')
         setCanvasDashboardDescription(dashboardDescription)
@@ -1433,6 +1465,8 @@ const Canvas = () => {
         setCanvasDefaultCustomStartDate(defaultCustomStartDate)
         setCanvasDefaultCustomEndDate(defaultCustomEndDate)
         setCanvasHideDateFilter(hideDateFilter)
+        setCanvasUrlPathFilter(getNormalizedCanvasUrlPath(defaultUrlPath ?? '/'))
+        setCanvasHideUrlPathFilter(hideUrlPathFilter)
         if (!hasPeriodInUrl) {
           const nextPeriod = configuredDefaultPeriod ? getStoredPeriod(configuredDefaultPeriod) : getStoredPeriod(null)
           setPeriodState(nextPeriod)
@@ -1456,6 +1490,8 @@ const Canvas = () => {
         setCanvasDefaultCustomStartDate(undefined)
         setCanvasDefaultCustomEndDate(undefined)
         setCanvasHideDateFilter(false)
+        setCanvasUrlPathFilter('/')
+        setCanvasHideUrlPathFilter(false)
       }
     }
 
@@ -1463,7 +1499,7 @@ const Canvas = () => {
     return () => {
       isActive = false
     }
-  }, [canPersistToDashboard, isCanvasFrontpage, projectId, dashboardId])
+  }, [canPersistToDashboard, dashboardId, getNormalizedCanvasUrlPath, isCanvasFrontpage, projectId])
 
   const {
     loadExistingCanvasOptions,
@@ -1501,6 +1537,8 @@ const Canvas = () => {
     setCanvasDefaultCustomStartDate,
     setCanvasDefaultCustomEndDate,
     setCanvasHideDateFilter,
+    setCanvasUrlPathFilter,
+    setCanvasHideUrlPathFilter,
     selectedWebsiteId: selectedWebsite?.id ?? null,
     setSyncError,
     setIsSavingCanvasItem,
@@ -4425,6 +4463,9 @@ const Canvas = () => {
           getCanvasCategoryDisplayName={getCanvasCategoryDisplayName}
           isCanvasFrontpage={isCanvasFrontpage}
           showDateFilter={showDateFilter}
+          showUrlPathFilter={showUrlPathFilter}
+          urlPathFilterValue={canvasUrlPathFilter}
+          onUrlPathFilterChange={handleCanvasUrlPathFilterChange}
           activeParticipantCount={activeParticipantCount}
           activeOtherParticipantCount={activeOtherParticipantCount}
           participantLabels={participantLabels}
@@ -4457,6 +4498,8 @@ const Canvas = () => {
                   canvasDefaultCustomStartDate,
                   canvasDefaultCustomEndDate,
                   canvasHideDateFilter,
+                  canvasUrlPathFilter,
+                  canvasHideUrlPathFilter,
                   nextIsLocked,
                 )
                 await updateDashboard(projectId, dashboardId, {
@@ -4865,7 +4908,7 @@ const Canvas = () => {
       />
 
       <CanvasAdminModals
-        key={`canvas-admin-modals-${dashboardId ?? 'none'}-${canvasDefaultPeriod}-${canvasDefaultCustomStartDate?.toISOString() ?? 'none'}-${canvasDefaultCustomEndDate?.toISOString() ?? 'none'}-${canvasHideDateFilter ? 'hide' : 'show'}`}
+        key={`canvas-admin-modals-${dashboardId ?? 'none'}-${canvasDefaultPeriod}-${canvasDefaultCustomStartDate?.toISOString() ?? 'none'}-${canvasDefaultCustomEndDate?.toISOString() ?? 'none'}-${canvasHideDateFilter ? 'hide' : 'show'}-${canvasUrlPathFilter}-${canvasHideUrlPathFilter ? 'hide-url' : 'show-url'}`}
         isCanvasSettingsModalOpen={isCanvasSettingsModalOpen}
         onCloseCanvasSettings={() => {
           setIsCanvasSettingsModalOpen(false)
@@ -4878,9 +4921,19 @@ const Canvas = () => {
         defaultCanvasCustomStartDateInitialValue={canvasDefaultCustomStartDate}
         defaultCanvasCustomEndDateInitialValue={canvasDefaultCustomEndDate}
         hideDateFilterInitialValue={canvasHideDateFilter}
+        defaultUrlPathInitialValue={canvasUrlPathFilter}
+        hideUrlPathFilterInitialValue={canvasHideUrlPathFilter}
         renameCanvasError={renameCanvasError}
-        onRenameCanvas={(value, defaultPeriod, customStartDate, customEndDate, hideDateFilter) =>
-          void handleRenameCanvas(value, defaultPeriod, customStartDate, customEndDate, hideDateFilter)
+        onRenameCanvas={(value, defaultPeriod, customStartDate, customEndDate, hideDateFilter, urlPath, hideUrlPath) =>
+          void handleRenameCanvas(
+            value,
+            defaultPeriod,
+            customStartDate,
+            customEndDate,
+            hideDateFilter,
+            urlPath,
+            hideUrlPath,
+          )
         }
         isSavingCanvasItem={isSavingCanvasItem}
         isCreateTabModalOpen={isCreateTabModalOpen}

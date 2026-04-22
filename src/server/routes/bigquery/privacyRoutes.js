@@ -79,6 +79,11 @@ export function createPrivacyRoutes({ bigquery, GCP_PROJECT_ID }) {
           const extraFilter = type === 'Telefonnummer' ? `AND NOT REGEXP_CONTAINS(${check.column}, r'/vis/[0-9]+')` : ''
 
           if (websiteId) {
+            const relatedPathsExpression =
+              check.table === 'public_website_event'
+                ? 'ARRAY_AGG(DISTINCT url_path IGNORE NULLS LIMIT 5)'
+                : 'CAST([] AS ARRAY<STRING>)'
+
             unionQueries.push(`
                 SELECT 
                     '${check.table}' as table_name,
@@ -89,7 +94,8 @@ export function createPrivacyRoutes({ bigquery, GCP_PROJECT_ID }) {
                     ${type === 'E-post' ? `COUNT(DISTINCT ${check.column})` : '0'} as unique_count,
                     ${type === 'E-post' ? `COUNT(DISTINCT CASE WHEN REGEXP_CONTAINS(${check.column}, r'@nav') THEN ${check.column} END)` : '0'} as unique_nav_count,
                     ${type === 'E-post' ? `COUNT(DISTINCT CASE WHEN NOT REGEXP_CONTAINS(${check.column}, r'@nav') THEN ${check.column} END)` : '0'} as unique_other_count,
-                    ARRAY_AGG(DISTINCT ${check.column} LIMIT 5) as examples
+                    ARRAY_AGG(DISTINCT ${check.column} LIMIT 5) as examples,
+                    ${relatedPathsExpression} as related_paths
                 FROM \`.umami.${check.table}\`
                 WHERE website_id = @websiteId
                 AND created_at BETWEEN @startDate AND @endDate
@@ -97,6 +103,11 @@ export function createPrivacyRoutes({ bigquery, GCP_PROJECT_ID }) {
                 ${extraFilter}
             `)
           } else {
+            const relatedPathsExpression =
+              check.table === 'public_website_event'
+                ? 'ARRAY_AGG(DISTINCT url_path IGNORE NULLS LIMIT 5)'
+                : 'CAST([] AS ARRAY<STRING>)'
+
             unionQueries.push(`
                 SELECT 
                     website_id,
@@ -108,7 +119,8 @@ export function createPrivacyRoutes({ bigquery, GCP_PROJECT_ID }) {
                     ${type === 'E-post' ? `COUNT(DISTINCT ${check.column})` : '0'} as unique_count,
                     ${type === 'E-post' ? `COUNT(DISTINCT CASE WHEN REGEXP_CONTAINS(${check.column}, r'@nav') THEN ${check.column} END)` : '0'} as unique_nav_count,
                     ${type === 'E-post' ? `COUNT(DISTINCT CASE WHEN NOT REGEXP_CONTAINS(${check.column}, r'@nav') THEN ${check.column} END)` : '0'} as unique_other_count,
-                    ARRAY_AGG(DISTINCT ${check.column} LIMIT 5) as examples
+                    ARRAY_AGG(DISTINCT ${check.column} LIMIT 5) as examples,
+                    ${relatedPathsExpression} as related_paths
                 FROM \`.umami.${check.table}\`
                 WHERE created_at BETWEEN @startDate AND @endDate
                 AND REGEXP_CONTAINS(${check.column}, r'${pattern}')
@@ -134,7 +146,8 @@ export function createPrivacyRoutes({ bigquery, GCP_PROJECT_ID }) {
                   ${type === 'E-post' ? `COUNT(DISTINCT p.string_value)` : '0'} as unique_count,
                   ${type === 'E-post' ? `COUNT(DISTINCT CASE WHEN REGEXP_CONTAINS(p.string_value, r'@nav') THEN p.string_value END)` : '0'} as unique_nav_count,
                   ${type === 'E-post' ? `COUNT(DISTINCT CASE WHEN NOT REGEXP_CONTAINS(p.string_value, r'@nav') THEN p.string_value END)` : '0'} as unique_other_count,
-                  ARRAY_AGG(DISTINCT p.string_value LIMIT 5) as examples
+              ARRAY_AGG(DISTINCT p.string_value LIMIT 5) as examples,
+              ARRAY_AGG(DISTINCT e.url_path IGNORE NULLS LIMIT 5) as related_paths
               FROM \`${GCP_PROJECT_ID}.umami.public_website_event\` e
               JOIN \`${GCP_PROJECT_ID}.umami_views.event_data\` d
                   ON e.event_id = d.website_event_id
@@ -158,7 +171,8 @@ export function createPrivacyRoutes({ bigquery, GCP_PROJECT_ID }) {
                   ${type === 'E-post' ? `COUNT(DISTINCT p.string_value)` : '0'} as unique_count,
                   ${type === 'E-post' ? `COUNT(DISTINCT CASE WHEN REGEXP_CONTAINS(p.string_value, r'@nav') THEN p.string_value END)` : '0'} as unique_nav_count,
                   ${type === 'E-post' ? `COUNT(DISTINCT CASE WHEN NOT REGEXP_CONTAINS(p.string_value, r'@nav') THEN p.string_value END)` : '0'} as unique_other_count,
-                  ARRAY_AGG(DISTINCT p.string_value LIMIT 5) as examples
+              ARRAY_AGG(DISTINCT p.string_value LIMIT 5) as examples,
+              ARRAY_AGG(DISTINCT e.url_path IGNORE NULLS LIMIT 5) as related_paths
               FROM \`${GCP_PROJECT_ID}.umami.public_website_event\` e
               JOIN \`${GCP_PROJECT_ID}.umami_views.event_data\` d
                   ON e.event_id = d.website_event_id

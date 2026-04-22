@@ -1,4 +1,4 @@
-import { ActionMenu, Alert, Button, Tabs } from '@navikt/ds-react'
+import { ActionMenu, Alert, Button, Tabs, TextField } from '@navikt/ds-react'
 import { PersonGroupIcon, PersonIcon, ThemeIcon } from '@navikt/aksel-icons'
 import { House, FileText, MoreVertical, Presentation } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent, type RefObject, type TouchEvent } from 'react'
@@ -60,6 +60,9 @@ type CanvasTopBarProps = {
   getCanvasCategoryDisplayName: (name?: string) => string
   isCanvasFrontpage: boolean
   showDateFilter: boolean
+  showUrlPathFilter: boolean
+  urlPathFilterValue: string
+  onUrlPathFilterChange: (value: string) => void
   activeParticipantCount?: number
   activeOtherParticipantCount?: number
   participantLabels?: string[]
@@ -123,6 +126,9 @@ const CanvasTopBar = ({
   getCanvasCategoryDisplayName,
   isCanvasFrontpage,
   showDateFilter,
+  showUrlPathFilter,
+  urlPathFilterValue,
+  onUrlPathFilterChange,
   activeParticipantCount = 1,
   participantLabels = [],
   isInteractionLocked = false,
@@ -133,6 +139,7 @@ const CanvasTopBar = ({
 }: CanvasTopBarProps) => {
   const participantCountText = `${activeParticipantCount} ${activeParticipantCount === 1 ? 'person' : 'personer'} i canvas`
   const canEditCanvas = !isCanvasReadOnly
+  const shouldReserveFilterSlots = showDateFilter || showUrlPathFilter
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const storedTheme = localStorage.getItem('umami-theme')
@@ -231,19 +238,39 @@ const CanvasTopBar = ({
             </h1>
           </a>
           {!isCanvasFrontpage && (
-            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
-              {showDateFilter && (
-                <div className="w-[220px] shrink-0 [&_label]:sr-only">
-                  <PeriodPicker
-                    period={period}
-                    onPeriodChange={onPeriodChange}
-                    startDate={customStartDate}
-                    onStartDateChange={onCustomStartDateChange}
-                    endDate={customEndDate}
-                    onEndDateChange={onCustomEndDateChange}
-                    className="w-full sm:w-auto min-w-[220px]"
-                  />
-                </div>
+            <div className="flex w-full flex-wrap items-end gap-2 sm:w-auto sm:justify-end">
+              {shouldReserveFilterSlots && (
+                <>
+                  <div className="w-[220px] shrink-0">
+                    {showDateFilter ? (
+                      <PeriodPicker
+                        period={period}
+                        onPeriodChange={onPeriodChange}
+                        startDate={customStartDate}
+                        onStartDateChange={onCustomStartDateChange}
+                        endDate={customEndDate}
+                        onEndDateChange={onCustomEndDateChange}
+                        className="w-full sm:w-auto min-w-[220px]"
+                      />
+                    ) : (
+                      <div aria-hidden="true" className="h-[64px]"></div>
+                    )}
+                  </div>
+                  <div className="w-[220px] shrink-0">
+                    {showUrlPathFilter ? (
+                      <TextField
+                        label="URL-sti"
+                        size="small"
+                        value={urlPathFilterValue}
+                        onChange={(event) => onUrlPathFilterChange(event.target.value)}
+                        placeholder="/"
+                        className="w-full sm:w-auto min-w-[220px]"
+                      />
+                    ) : (
+                      <div aria-hidden="true" className="h-[64px]"></div>
+                    )}
+                  </div>
+                </>
               )}
               {isCanvasLocked && (
                 <Button
