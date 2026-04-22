@@ -794,7 +794,7 @@ const CanvasFrameLayer = ({
                   frame.kind === 'website') && (
                   <>
                     <div className="pointer-events-none absolute inset-0 z-20 overflow-visible" aria-hidden="true">
-                      {frame.kind !== 'website' && (
+                      {(frame.kind !== 'website' || frame.isInternalDashboard) && (
                         <div className={topDragStripClass} onMouseDown={(event) => handleDragStart(event, frame)} />
                       )}
                       <div
