@@ -53,7 +53,6 @@ const RESIZE_HANDLE_CONFIGS: Array<{
   title: string
   ariaLabel: string
   className: string
-  sizeClassName?: string
 }> = [
   {
     dir: 'nw',
@@ -84,28 +83,24 @@ const RESIZE_HANDLE_CONFIGS: Array<{
     title: 'Endre høyde fra toppen',
     ariaLabel: 'Endre høyde fra toppen',
     className: 'left-1/2 -top-2 -translate-x-1/2 cursor-ns-resize',
-    sizeClassName: 'h-4 w-10',
   },
   {
     dir: 's',
     title: 'Endre høyde fra bunnen',
     ariaLabel: 'Endre høyde fra bunnen',
     className: 'bottom-[-0.5rem] left-1/2 -translate-x-1/2 cursor-ns-resize',
-    sizeClassName: 'h-4 w-10',
   },
   {
     dir: 'w',
     title: 'Endre bredde fra venstre',
     ariaLabel: 'Endre bredde fra venstre',
     className: '-left-2 top-1/2 -translate-y-1/2 cursor-ew-resize',
-    sizeClassName: 'h-10 w-4',
   },
   {
     dir: 'e',
     title: 'Endre bredde fra høyre',
     ariaLabel: 'Endre bredde fra høyre',
     className: '-right-2 top-1/2 -translate-y-1/2 cursor-ew-resize',
-    sizeClassName: 'h-10 w-4',
   },
 ]
 
@@ -119,7 +114,7 @@ type CanvasResizeHandlesProps = {
     frame: CanvasFrame,
     dir?: ResizeHandleDirection,
   ) => void
-  size?: 'default' | 'large'
+  size?: 'compact' | 'default' | 'large'
   groupScope?: 'frame' | 'section'
 }
 
@@ -130,7 +125,16 @@ const CanvasResizeHandles = ({
   size = 'default',
   groupScope = 'frame',
 }: CanvasResizeHandlesProps) => {
-  const sizeClassName = size === 'large' ? 'h-6 w-6 border-[4px]' : 'h-5 w-5 border-[3px]'
+  const cornerSizeClassName =
+    size === 'compact'
+      ? 'h-3.5 w-3.5 border-2 rounded-sm'
+      : size === 'large'
+        ? 'h-5 w-5 border-[3px] rounded-sm'
+        : 'h-4 w-4 border-2 rounded-sm'
+  const horizontalEdgeSizeClassName =
+    size === 'compact' ? 'h-3 w-8 rounded-full' : size === 'large' ? 'h-4 w-10 rounded-full' : 'h-3 w-9 rounded-full'
+  const verticalEdgeSizeClassName =
+    size === 'compact' ? 'h-8 w-3 rounded-full' : size === 'large' ? 'h-10 w-4 rounded-full' : 'h-9 w-3 rounded-full'
   const visibilityClassName = isVisible
     ? 'opacity-100'
     : groupScope === 'section'
@@ -146,7 +150,13 @@ const CanvasResizeHandles = ({
           onMouseDown={(event) => handleResizeStart(event, frame, handle.dir)}
           onTouchStart={(event) => handleResizeStart(event, frame, handle.dir)}
           title={handle.title}
-          className={`absolute touch-none ${handle.className} ${handle.sizeClassName ?? sizeClassName} rounded-sm border-[#1f8fff] bg-white shadow-[0_0_0_2px_white] transition-opacity ${visibilityClassName}`}
+          className={`absolute z-30 touch-none ${handle.className} border-white bg-[var(--ax-bg-default)] shadow-[0_0_0_1px_var(--ax-border-accent),0_1px_2px_rgba(0,0,0,0.18)] transition-opacity ${
+            handle.dir === 'n' || handle.dir === 's'
+              ? horizontalEdgeSizeClassName
+              : handle.dir === 'e' || handle.dir === 'w'
+                ? verticalEdgeSizeClassName
+                : cornerSizeClassName
+          } ${visibilityClassName}`}
         />
       ))}
     </>
@@ -448,6 +458,11 @@ const CanvasFrameLayer = ({
       {frameItems.map((frame) =>
         (() => {
           const defaults = getDefaultFrameSize(frame)
+          const frameWidth = frame.kind === 'heading' ? getHeadingFrameWidth(frame) : (frame.width ?? defaults.width)
+          const frameHeight =
+            frame.kind === 'heading'
+              ? getHeadingFrameHeight(frame) + HEADING_CARD_HEADER_HEIGHT
+              : (frame.height ?? defaults.height)
           const isIllustrationFrame = isIllustrationImageFrame(frame)
           const isSelectedFrame = selectedFrameIds.includes(frame.id)
           const isWebsiteInsightOpen = frame.kind === 'website' && activeInsightFrameId === frame.id
@@ -524,6 +539,25 @@ const CanvasFrameLayer = ({
             frame.kind === 'sticky' || frame.kind === 'text'
               ? sectionMoveOptions.filter((option) => option.id !== currentSectionId)
               : sectionMoveOptions
+          const isInlineEditableFrame =
+            frame.kind === 'heading' ||
+            frame.kind === 'text' ||
+            frame.kind === 'sticky' ||
+            frame.kind === 'link' ||
+            frame.kind === 'sql-editor' ||
+            frame.kind === 'code-block'
+          const topDragStripClass = isInlineEditableFrame
+            ? 'pointer-events-auto absolute inset-x-2 top-0 h-3 cursor-move'
+            : 'pointer-events-auto absolute inset-x-3 top-1 h-5 cursor-move'
+          const bottomDragStripClass = isInlineEditableFrame
+            ? 'pointer-events-auto absolute inset-x-2 bottom-0 h-3 cursor-move'
+            : 'pointer-events-auto absolute inset-x-3 bottom-1 h-5 cursor-move'
+          const leftDragStripClass = isInlineEditableFrame
+            ? 'pointer-events-auto absolute inset-y-2 left-0 w-3 cursor-move'
+            : 'pointer-events-auto absolute inset-y-3 left-1 w-5 cursor-move'
+          const rightDragStripClass = isInlineEditableFrame
+            ? 'pointer-events-auto absolute inset-y-2 right-0 w-3 cursor-move'
+            : 'pointer-events-auto absolute inset-y-3 right-1 w-5 cursor-move'
           const stickyColorOption = frame.kind === 'sticky' ? getCanvasStickyColorOptionById(frame.stickyColor) : null
           const isInVotingScope =
             !isDotVotingActive ||
@@ -539,6 +573,12 @@ const CanvasFrameLayer = ({
             frame.kind === 'sticky' && Number.isFinite(frame.finalVoteCount) ? Number(frame.finalVoteCount) : null
           const sectionItemCount = sectionItemCountsById[frame.id] ?? 0
           const shouldShowSectionItemCount = frame.kind === 'section' && sectionItemCount >= 8
+          const isCompactResizeFrame = frameWidth < 260 || frameHeight < 170
+          const resizeHandleSize: 'compact' | 'default' | 'large' = isCompactResizeFrame
+            ? 'compact'
+            : frame.kind === 'section' && frameWidth >= 960 && frameHeight >= 560
+              ? 'large'
+              : 'default'
           const FrameContainerTag = frame.kind === 'section' ? 'section' : 'div'
           const frameGroupClass = frame.kind === 'section' ? 'group/section' : 'group/frame'
           const hoverRevealClass =
@@ -663,12 +703,8 @@ const CanvasFrameLayer = ({
                               : frame.kind === 'figure' || frame.kind === 'drawing'
                                 ? 60
                                 : undefined,
-                width:
-                  frame.kind === 'heading' ? `${getHeadingFrameWidth(frame)}px` : `${frame.width ?? defaults.width}px`,
-                height:
-                  frame.kind === 'heading'
-                    ? `${getHeadingFrameHeight(frame) + HEADING_CARD_HEADER_HEIGHT}px`
-                    : `${frame.height ?? defaults.height}px`,
+                width: frame.kind === 'heading' ? `${frameWidth}px` : `${frame.width ?? defaults.width}px`,
+                height: frame.kind === 'heading' ? `${frameHeight}px` : `${frame.height ?? defaults.height}px`,
                 minWidth: frame.kind === 'heading' ? `${HEADING_TEXT_MIN_WIDTH}px` : `${defaults.minWidth}px`,
                 minHeight:
                   frame.kind === 'heading' ? `${HEADING_CARD_HEADER_HEIGHT + 12}px` : `${defaults.minHeight}px`,
@@ -756,22 +792,22 @@ const CanvasFrameLayer = ({
               {frame.kind === 'chart' && !isFrameInteractionLocked && (
                 <div className="pointer-events-none absolute inset-0 z-20 overflow-visible" aria-hidden="true">
                   <div
-                    className="pointer-events-auto absolute inset-x-2 top-0 h-3 cursor-move"
+                    className={topDragStripClass}
                     onMouseDown={(event) => handleDragStart(event, frame)}
                     onTouchStart={(event) => handleDragStart(event, frame)}
                   />
                   <div
-                    className="pointer-events-auto absolute inset-x-2 bottom-0 h-3 cursor-move"
+                    className={bottomDragStripClass}
                     onMouseDown={(event) => handleDragStart(event, frame)}
                     onTouchStart={(event) => handleDragStart(event, frame)}
                   />
                   <div
-                    className="pointer-events-auto absolute inset-y-2 left-0 w-3 cursor-move"
+                    className={leftDragStripClass}
                     onMouseDown={(event) => handleDragStart(event, frame)}
                     onTouchStart={(event) => handleDragStart(event, frame)}
                   />
                   <div
-                    className="pointer-events-auto absolute inset-y-2 right-0 w-3 cursor-move"
+                    className={rightDragStripClass}
                     onMouseDown={(event) => handleDragStart(event, frame)}
                     onTouchStart={(event) => handleDragStart(event, frame)}
                   />
@@ -793,23 +829,20 @@ const CanvasFrameLayer = ({
                   <>
                     <div className="pointer-events-none absolute inset-0 z-20 overflow-visible" aria-hidden="true">
                       {frame.kind !== 'website' && (
-                        <div
-                          className="pointer-events-auto absolute inset-x-2 top-0 h-3 cursor-move"
-                          onMouseDown={(event) => handleDragStart(event, frame)}
-                        />
+                        <div className={topDragStripClass} onMouseDown={(event) => handleDragStart(event, frame)} />
                       )}
                       <div
-                        className="pointer-events-auto absolute inset-x-2 bottom-0 h-3 cursor-move"
+                        className={bottomDragStripClass}
                         onMouseDown={(event) => handleDragStart(event, frame)}
                         onTouchStart={(event) => handleDragStart(event, frame)}
                       />
                       <div
-                        className="pointer-events-auto absolute inset-y-2 left-0 w-3 cursor-move"
+                        className={leftDragStripClass}
                         onMouseDown={(event) => handleDragStart(event, frame)}
                         onTouchStart={(event) => handleDragStart(event, frame)}
                       />
                       <div
-                        className="pointer-events-auto absolute inset-y-2 right-0 w-3 cursor-move"
+                        className={rightDragStripClass}
                         onMouseDown={(event) => handleDragStart(event, frame)}
                         onTouchStart={(event) => handleDragStart(event, frame)}
                       />
@@ -1405,7 +1438,7 @@ const CanvasFrameLayer = ({
                   frame={frame}
                   isVisible={isSelectedFrame || resizeState?.id === frame.id}
                   handleResizeStart={handleResizeStart}
-                  size={frame.kind === 'section' ? 'large' : 'default'}
+                  size={resizeHandleSize}
                   groupScope={frame.kind === 'section' ? 'section' : 'frame'}
                 />
               )}
