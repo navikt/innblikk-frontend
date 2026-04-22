@@ -106,6 +106,7 @@ All notable changes to this project will be documented in this file.
 - Add analytics tracking to teknisk meny (ActionMenu)
 - Gate Måloppnåelse behind beta flag with visual indicators
 - Beta indicators in navbar and profile page copy refresh
+- Show generated SQL on personvernssjekk page
 
 ### 🧪 Testing
 
