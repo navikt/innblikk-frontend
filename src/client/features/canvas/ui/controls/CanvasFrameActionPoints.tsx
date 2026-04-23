@@ -1,5 +1,5 @@
 import { ActionMenu, Button } from '@navikt/ds-react'
-import { Check, Edit2, MoreVertical, Trash2 } from 'lucide-react'
+import { Check, Edit2, Trash2 } from 'lucide-react'
 import type { MouseEvent } from 'react'
 import type { CanvasSectionLayoutMode } from '../../model/types.ts'
 import { ICON_ROTATION_STEP_DEG } from '../../utils/canvasUtils.ts'
@@ -103,10 +103,10 @@ const HeadingActionMenu = ({
       <Button
         size="xsmall"
         variant="tertiary"
-        icon={<MoreVertical size={14} />}
+        icon={<Edit2 size={14} />}
         onMouseDown={stopMouseDownPropagation}
-        title="Flere valg"
-        aria-label="Flere valg"
+        title="Rediger"
+        aria-label="Rediger"
         className={actionButtonClassName}
       />
     </ActionMenu.Trigger>
@@ -182,10 +182,10 @@ const TextActionMenu = ({
       <Button
         size="xsmall"
         variant="tertiary"
-        icon={<MoreVertical size={14} />}
+        icon={<Edit2 size={14} />}
         onMouseDown={stopMouseDownPropagation}
-        title="Flere valg"
-        aria-label="Flere valg"
+        title="Rediger"
+        aria-label="Rediger"
         className={actionButtonClassName}
       />
     </ActionMenu.Trigger>
@@ -287,10 +287,10 @@ const VisualAssetActionMenu = ({
       <Button
         size="xsmall"
         variant="tertiary"
-        icon={<MoreVertical size={14} />}
+        icon={<Edit2 size={14} />}
         onMouseDown={stopMouseDownPropagation}
-        title="Flere valg"
-        aria-label="Flere valg"
+        title="Rediger"
+        aria-label="Rediger"
         className={actionButtonClassName}
       />
     </ActionMenu.Trigger>
@@ -435,10 +435,10 @@ const TableActionMenu = ({
       <Button
         size="xsmall"
         variant="tertiary"
-        icon={<MoreVertical size={14} />}
+        icon={<Edit2 size={14} />}
         onMouseDown={stopMouseDownPropagation}
-        title="Flere valg"
-        aria-label="Flere valg"
+        title="Rediger"
+        aria-label="Rediger"
         className={actionButtonClassName}
       />
     </ActionMenu.Trigger>
@@ -484,10 +484,10 @@ const SectionActionMenu = ({
       <Button
         size="xsmall"
         variant="tertiary"
-        icon={<MoreVertical size={14} />}
+        icon={<Edit2 size={14} />}
         onMouseDown={stopMouseDownPropagation}
-        title="Flere valg"
-        aria-label="Flere valg"
+        title="Rediger"
+        aria-label="Rediger"
         className={`${actionButtonClassName} ${SECTION_MENU_BUTTON_CLASSNAME}`}
       />
     </ActionMenu.Trigger>
@@ -602,10 +602,10 @@ const StickyActionMenu = ({
         <Button
           size="xsmall"
           variant="tertiary"
-          icon={<MoreVertical size={14} />}
+          icon={<Edit2 size={14} />}
           onMouseDown={stopMouseDownPropagation}
-          title="Flere valg"
-          aria-label="Flere valg"
+          title="Rediger"
+          aria-label="Rediger"
           className={actionButtonClassName}
         />
       </ActionMenu.Trigger>
@@ -735,6 +735,8 @@ const CanvasFrameActionPoints = ({
     frameKind !== 'section' &&
     frameKind !== 'heading' &&
     frameKind !== 'text' &&
+    frameKind !== 'link' &&
+    frameKind !== 'website' &&
     frameKind !== 'image' &&
     frameKind !== 'icon' &&
     frameKind !== 'figure' &&

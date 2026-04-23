@@ -4918,6 +4918,18 @@ const Canvas = () => {
           if (editDashboardError) setEditDashboardError(null)
         }}
         onSubmitEditDashboard={() => void handleSaveEditedDashboard()}
+        onDeleteEditDashboard={() => {
+          if (!editDashboardFrameId) return
+          const frame = frames.find(
+            (candidate) => candidate.id === editDashboardFrameId && candidate.kind === 'website',
+          )
+          if (!frame) return
+          setIsEditDashboardModalOpen(false)
+          setEditDashboardFrameId(null)
+          setEditDashboardError(null)
+          setEditDashboardInternalPathInput('')
+          handleRequestRemoveFrame(frame)
+        }}
         deleteTarget={deleteTarget}
         bulkDeleteProgress={bulkDeleteProgress}
         onCloseDeleteModal={() => setDeleteTarget(null)}
@@ -5459,6 +5471,8 @@ const Canvas = () => {
 
       <CanvasLinkModal
         open={isAddLinkModalOpen}
+        heading={editLinkFrameId ? 'Rediger lenke' : 'Legg til lenke'}
+        submitLabel={editLinkFrameId ? 'Lagre' : 'Legg til'}
         titleValue={linkTitleInput}
         hrefValue={linkUrlInput}
         descriptionValue={linkDescriptionInput}
@@ -5483,6 +5497,20 @@ const Canvas = () => {
           if (addLinkError) setAddLinkError(null)
         }}
         onSubmit={() => void handleAddLinkCard()}
+        onDelete={
+          editLinkFrameId
+            ? () => {
+                const frame = frames.find((candidate) => candidate.id === editLinkFrameId && candidate.kind === 'link')
+                if (!frame) return
+                setIsAddLinkModalOpen(false)
+                setEditLinkFrameId(null)
+                setSelectedAddSectionId('')
+                setAddLinkError(null)
+                handleRequestRemoveFrame(frame)
+              }
+            : undefined
+        }
+        deleteLabel="Slett"
         onClose={() => {
           setIsAddLinkModalOpen(false)
           setEditLinkFrameId(null)

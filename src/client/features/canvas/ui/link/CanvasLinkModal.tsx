@@ -3,6 +3,8 @@ import CanvasSectionPlacementSelect from '../controls/CanvasSectionPlacementSele
 
 type CanvasLinkModalProps = {
   open: boolean
+  heading?: string
+  submitLabel?: string
   titleValue: string
   hrefValue: string
   descriptionValue: string
@@ -15,11 +17,15 @@ type CanvasLinkModalProps = {
   onDescriptionChange: (value: string) => void
   onSectionChange?: (sectionId: string) => void
   onSubmit: () => void
+  onDelete?: () => void
+  deleteLabel?: string
   onClose: () => void
 }
 
 const CanvasLinkModal = ({
   open,
+  heading = 'Legg til lenke',
+  submitLabel = 'Legg til',
   titleValue,
   hrefValue,
   descriptionValue,
@@ -32,9 +38,11 @@ const CanvasLinkModal = ({
   onDescriptionChange,
   onSectionChange = () => {},
   onSubmit,
+  onDelete,
+  deleteLabel = 'Slett',
   onClose,
 }: CanvasLinkModalProps) => (
-  <Modal open={open} onClose={onClose} header={{ heading: 'Legg til lenke' }} width="small">
+  <Modal open={open} onClose={onClose} header={{ heading }} width="small">
     <Modal.Body>
       <div className="space-y-3">
         <TextField
@@ -60,8 +68,13 @@ const CanvasLinkModal = ({
     </Modal.Body>
     <Modal.Footer>
       <Button onClick={onSubmit} size="small" loading={isSaving}>
-        Legg til
+        {submitLabel}
       </Button>
+      {onDelete && (
+        <Button variant="secondary" size="small" onClick={onDelete} disabled={isSaving}>
+          {deleteLabel}
+        </Button>
+      )}
       <Button variant="secondary" size="small" onClick={onClose}>
         Avbryt
       </Button>

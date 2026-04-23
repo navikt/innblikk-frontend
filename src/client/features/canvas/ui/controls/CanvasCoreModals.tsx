@@ -59,6 +59,7 @@ type CanvasCoreModalsProps = {
   onEditDashboardSelectionChange: (value: string) => void
   onEditDashboardInternalPathChange: (value: string) => void
   onSubmitEditDashboard: () => void
+  onDeleteEditDashboard?: () => void
   deleteTarget: CanvasDeleteTarget | null
   bulkDeleteProgress: { total: number; completed: number } | null
   onCloseDeleteModal: () => void
@@ -123,6 +124,7 @@ const CanvasCoreModals = ({
   onEditDashboardSelectionChange,
   onEditDashboardInternalPathChange,
   onSubmitEditDashboard,
+  onDeleteEditDashboard,
   deleteTarget,
   bulkDeleteProgress,
   onCloseDeleteModal,
@@ -477,6 +479,11 @@ const CanvasCoreModals = ({
               disabled={!editDashboardSelectedDashboardId}
             >
               Lagre
+            </Button>
+          )}
+          {onDeleteEditDashboard && (
+            <Button variant="secondary" size="small" onClick={onDeleteEditDashboard} disabled={isSavingCanvasItem}>
+              Slett
             </Button>
           )}
           <Button variant="secondary" size="small" onClick={onCloseEditDashboardModal}>
