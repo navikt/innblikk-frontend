@@ -1,5 +1,5 @@
 import { ActionMenu, Button } from '@navikt/ds-react'
-import { ArrowRightLeft, Check, Copy, Edit2, MoreVertical, Trash2 } from 'lucide-react'
+import { Check, Edit2, MoreVertical, Trash2 } from 'lucide-react'
 import type { MouseEvent } from 'react'
 import type { CanvasSectionLayoutMode } from '../../model/types.ts'
 import { ICON_ROTATION_STEP_DEG } from '../../utils/canvasUtils.ts'
@@ -83,81 +83,137 @@ export type SectionAddAction =
   | 'dashboard'
   | 'import-sticky-csv'
 
-type HeadingBoxActionPointsProps = {
+type HeadingActionMenuProps = {
   actionButtonClassName: string
   headingFontSizePx: number
   onSetHeadingFontSize: (sizePx: number) => void
+  onDuplicateHeading: () => void
+  onRemoveFrame: () => void
 }
 
-const HeadingBoxActionPoints = ({
+const HeadingActionMenu = ({
   actionButtonClassName,
   headingFontSizePx,
   onDuplicateHeading,
   onSetHeadingFontSize,
-}: HeadingBoxActionPointsProps & { onDuplicateHeading: () => void }) => (
-  <>
-    <Button
-      size="xsmall"
-      variant="tertiary"
-      icon={<Copy size={14} />}
-      onMouseDown={stopMouseDownPropagation}
-      onClick={onDuplicateHeading}
-      title="Dupliser tittel"
-      aria-label="Dupliser tittel"
-      className={actionButtonClassName}
-    />
-    <ActionMenu>
-      <ActionMenu.Trigger>
-        <Button
-          size="xsmall"
-          variant="tertiary"
-          onMouseDown={stopMouseDownPropagation}
-          title="Endre tekststorrelse"
-          aria-label="Endre tekststorrelse"
-          className={actionButtonClassName}
-        >
-          A
-        </Button>
-      </ActionMenu.Trigger>
-      <ActionMenu.Content align="end">
-        <ActionMenu.Item
-          onMouseDown={stopMouseDownPropagation}
-          onClick={() => onSetHeadingFontSize(40)}
-          disabled={headingFontSizePx === 40}
-        >
-          Ekstra stor
-        </ActionMenu.Item>
-        <ActionMenu.Item
-          onMouseDown={stopMouseDownPropagation}
-          onClick={() => onSetHeadingFontSize(32)}
-          disabled={headingFontSizePx === 32}
-        >
-          Stor
-        </ActionMenu.Item>
-        <ActionMenu.Item
-          onMouseDown={stopMouseDownPropagation}
-          onClick={() => onSetHeadingFontSize(24)}
-          disabled={headingFontSizePx === 24}
-        >
-          Middels
-        </ActionMenu.Item>
-        <ActionMenu.Item
-          onMouseDown={stopMouseDownPropagation}
-          onClick={() => onSetHeadingFontSize(20)}
-          disabled={headingFontSizePx === 20}
-        >
-          Liten
-        </ActionMenu.Item>
-        <ActionMenu.Item
-          onMouseDown={stopMouseDownPropagation}
-          onClick={() => onSetHeadingFontSize(18)}
-          disabled={headingFontSizePx === 18}
-        >
-          Ekstra liten
-        </ActionMenu.Item>
-      </ActionMenu.Content>
-    </ActionMenu>
-  </>
+  onRemoveFrame,
+}: HeadingActionMenuProps) => (
+  <ActionMenu>
+    <ActionMenu.Trigger>
+      <Button
+        size="xsmall"
+        variant="tertiary"
+        icon={<MoreVertical size={14} />}
+        onMouseDown={stopMouseDownPropagation}
+        title="Flere valg"
+        aria-label="Flere valg"
+        className={actionButtonClassName}
+      />
+    </ActionMenu.Trigger>
+    <ActionMenu.Content align="end">
+      <ActionMenu.Sub>
+        <ActionMenu.SubTrigger onMouseDown={stopMouseDownPropagation}>Tekststorrelse</ActionMenu.SubTrigger>
+        <ActionMenu.SubContent>
+          <ActionMenu.Item
+            onMouseDown={stopMouseDownPropagation}
+            onClick={() => onSetHeadingFontSize(40)}
+            disabled={headingFontSizePx === 40}
+          >
+            Ekstra stor
+          </ActionMenu.Item>
+          <ActionMenu.Item
+            onMouseDown={stopMouseDownPropagation}
+            onClick={() => onSetHeadingFontSize(32)}
+            disabled={headingFontSizePx === 32}
+          >
+            Stor
+          </ActionMenu.Item>
+          <ActionMenu.Item
+            onMouseDown={stopMouseDownPropagation}
+            onClick={() => onSetHeadingFontSize(24)}
+            disabled={headingFontSizePx === 24}
+          >
+            Middels
+          </ActionMenu.Item>
+          <ActionMenu.Item
+            onMouseDown={stopMouseDownPropagation}
+            onClick={() => onSetHeadingFontSize(20)}
+            disabled={headingFontSizePx === 20}
+          >
+            Liten
+          </ActionMenu.Item>
+          <ActionMenu.Item
+            onMouseDown={stopMouseDownPropagation}
+            onClick={() => onSetHeadingFontSize(18)}
+            disabled={headingFontSizePx === 18}
+          >
+            Ekstra liten
+          </ActionMenu.Item>
+        </ActionMenu.SubContent>
+      </ActionMenu.Sub>
+      <ActionMenu.Divider />
+      <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onDuplicateHeading}>
+        Dupliser
+      </ActionMenu.Item>
+      <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onRemoveFrame}>
+        Fjern
+      </ActionMenu.Item>
+    </ActionMenu.Content>
+  </ActionMenu>
+)
+
+type TextActionMenuProps = {
+  actionButtonClassName: string
+  sectionMoveOptions: Array<{ id: string; label: string }>
+  onMoveToSection: (sectionId: string) => void
+  onDuplicateText: () => void
+  onRemoveFrame: () => void
+}
+
+const TextActionMenu = ({
+  actionButtonClassName,
+  sectionMoveOptions,
+  onMoveToSection,
+  onDuplicateText,
+  onRemoveFrame,
+}: TextActionMenuProps) => (
+  <ActionMenu>
+    <ActionMenu.Trigger>
+      <Button
+        size="xsmall"
+        variant="tertiary"
+        icon={<MoreVertical size={14} />}
+        onMouseDown={stopMouseDownPropagation}
+        title="Flere valg"
+        aria-label="Flere valg"
+        className={actionButtonClassName}
+      />
+    </ActionMenu.Trigger>
+    <ActionMenu.Content align="end">
+      {sectionMoveOptions.length > 0 && (
+        <ActionMenu.Sub>
+          <ActionMenu.SubTrigger onMouseDown={stopMouseDownPropagation}>Flytt til seksjon</ActionMenu.SubTrigger>
+          <ActionMenu.SubContent>
+            {sectionMoveOptions.map((option) => (
+              <ActionMenu.Item
+                key={option.id}
+                onMouseDown={stopMouseDownPropagation}
+                onClick={() => onMoveToSection(option.id)}
+              >
+                {option.label}
+              </ActionMenu.Item>
+            ))}
+          </ActionMenu.SubContent>
+        </ActionMenu.Sub>
+      )}
+      <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onDuplicateText}>
+        Dupliser tekst
+      </ActionMenu.Item>
+      <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onRemoveFrame}>
+        Fjern
+      </ActionMenu.Item>
+    </ActionMenu.Content>
+  </ActionMenu>
 )
 
 type StickyActionMenuProps = {
@@ -176,6 +232,15 @@ type SectionActionMenuProps = {
   onOpenSectionOptions: () => void
   onRemoveFrame: () => void
   onSelectSectionAddAction?: (action: SectionAddAction) => void
+}
+
+type TableActionMenuProps = {
+  actionButtonClassName: string
+  sectionMoveOptions: Array<{ id: string; label: string }>
+  onEditTable: () => void
+  onMoveToSection: (sectionId: string) => void
+  onDuplicateText: () => void
+  onRemoveFrame: () => void
 }
 
 type VisualAssetActionMenuProps = {
@@ -350,6 +415,57 @@ const VisualAssetActionMenu = ({
         </ActionMenu.Item>
       )}
       <ActionMenu.Divider />
+      <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onRemoveFrame}>
+        Fjern
+      </ActionMenu.Item>
+    </ActionMenu.Content>
+  </ActionMenu>
+)
+
+const TableActionMenu = ({
+  actionButtonClassName,
+  sectionMoveOptions,
+  onEditTable,
+  onMoveToSection,
+  onDuplicateText,
+  onRemoveFrame,
+}: TableActionMenuProps) => (
+  <ActionMenu>
+    <ActionMenu.Trigger>
+      <Button
+        size="xsmall"
+        variant="tertiary"
+        icon={<MoreVertical size={14} />}
+        onMouseDown={stopMouseDownPropagation}
+        title="Flere valg"
+        aria-label="Flere valg"
+        className={actionButtonClassName}
+      />
+    </ActionMenu.Trigger>
+    <ActionMenu.Content align="end">
+      <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onEditTable}>
+        Rediger tabell
+      </ActionMenu.Item>
+      {sectionMoveOptions.length > 0 && (
+        <ActionMenu.Sub>
+          <ActionMenu.SubTrigger onMouseDown={stopMouseDownPropagation}>Flytt til seksjon</ActionMenu.SubTrigger>
+          <ActionMenu.SubContent>
+            {sectionMoveOptions.map((option) => (
+              <ActionMenu.Item
+                key={option.id}
+                onMouseDown={stopMouseDownPropagation}
+                onClick={() => onMoveToSection(option.id)}
+              >
+                {option.label}
+              </ActionMenu.Item>
+            ))}
+          </ActionMenu.SubContent>
+        </ActionMenu.Sub>
+      )}
+      <ActionMenu.Divider />
+      <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onDuplicateText}>
+        Dupliser tabell
+      </ActionMenu.Item>
       <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onRemoveFrame}>
         Fjern
       </ActionMenu.Item>
@@ -617,22 +733,24 @@ const CanvasFrameActionPoints = ({
     (frameKind !== 'website' || Boolean(isInternalDashboard)) &&
     frameKind !== 'sticky' &&
     frameKind !== 'section' &&
+    frameKind !== 'heading' &&
+    frameKind !== 'text' &&
     frameKind !== 'image' &&
     frameKind !== 'icon' &&
     frameKind !== 'figure' &&
     frameKind !== 'drawing'
   const actionPointsPositionClassName =
-    frameKind === 'heading' ||
-    frameKind === 'text' ||
-    frameKind === 'link' ||
-    frameKind === 'image' ||
-    frameKind === 'icon' ||
-    frameKind === 'figure' ||
-    frameKind === 'drawing' ||
-    Boolean(isInternalDashboard) ||
-    isIllustrationFrame
-      ? 'right-8 -top-6 flex items-center gap-1'
-      : 'right-2 top-4 flex items-center gap-1'
+    frameKind === 'heading' || frameKind === 'text'
+      ? 'right-8 -top-8 flex items-center gap-1'
+      : frameKind === 'link' ||
+          frameKind === 'image' ||
+          frameKind === 'icon' ||
+          frameKind === 'figure' ||
+          frameKind === 'drawing' ||
+          Boolean(isInternalDashboard) ||
+          isIllustrationFrame
+        ? 'right-8 -top-6 flex items-center gap-1'
+        : 'right-2 top-4 flex items-center gap-1'
   const actionPointsBackdropClassName =
     frameKind === 'sticky'
       ? 'rounded-md bg-[var(--ax-bg-default)]/85 p-1 shadow-sm backdrop-blur-sm opacity-0 transition-opacity group-hover/frame:opacity-100 group-focus-within/frame:opacity-100'
@@ -663,15 +781,13 @@ const CanvasFrameActionPoints = ({
         />
       )}
       {frameKind === 'text' && isTableFrame && (
-        <Button
-          size="xsmall"
-          variant="tertiary"
-          icon={<Edit2 size={14} />}
-          onMouseDown={stopMouseDownPropagation}
-          onClick={onEditTable}
-          title="Rediger tabell"
-          aria-label="Rediger tabell"
-          className={actionButtonClassName}
+        <TableActionMenu
+          actionButtonClassName={actionButtonClassName}
+          sectionMoveOptions={sectionMoveOptions}
+          onEditTable={onEditTable}
+          onMoveToSection={onMoveToSection}
+          onDuplicateText={onDuplicateText}
+          onRemoveFrame={onRemoveFrame}
         />
       )}
       {(frameKind === 'image' || frameKind === 'icon' || frameKind === 'figure' || frameKind === 'drawing') && (
@@ -696,11 +812,12 @@ const CanvasFrameActionPoints = ({
         />
       )}
       {frameKind === 'heading' && (
-        <HeadingBoxActionPoints
+        <HeadingActionMenu
           actionButtonClassName={actionButtonClassName}
           headingFontSizePx={headingFontSizePx}
           onDuplicateHeading={onDuplicateHeading}
           onSetHeadingFontSize={onSetHeadingFontSize}
+          onRemoveFrame={onRemoveFrame}
         />
       )}
       {frameKind === 'section' && (
@@ -710,32 +827,6 @@ const CanvasFrameActionPoints = ({
           onRemoveFrame={onRemoveFrame}
           onSelectSectionAddAction={onSelectSectionAddAction}
         />
-      )}
-      {frameKind === 'text' && sectionMoveOptions.length > 0 && (
-        <ActionMenu>
-          <ActionMenu.Trigger>
-            <Button
-              size="xsmall"
-              variant="tertiary"
-              icon={<ArrowRightLeft size={14} />}
-              onMouseDown={stopMouseDownPropagation}
-              title="Flytt til seksjon"
-              aria-label="Flytt til seksjon"
-              className={actionButtonClassName}
-            />
-          </ActionMenu.Trigger>
-          <ActionMenu.Content align="end">
-            {sectionMoveOptions.map((option) => (
-              <ActionMenu.Item
-                key={option.id}
-                onMouseDown={stopMouseDownPropagation}
-                onClick={() => onMoveToSection(option.id)}
-              >
-                {option.label}
-              </ActionMenu.Item>
-            ))}
-          </ActionMenu.Content>
-        </ActionMenu>
       )}
       {frameKind === 'sticky' && (
         <StickyActionMenu
@@ -749,16 +840,13 @@ const CanvasFrameActionPoints = ({
           onRemoveFrame={onRemoveFrame}
         />
       )}
-      {frameKind === 'text' && (
-        <Button
-          size="xsmall"
-          variant="tertiary"
-          icon={<Copy size={14} />}
-          onMouseDown={stopMouseDownPropagation}
-          onClick={onDuplicateText}
-          title="Dupliser tekst"
-          aria-label="Dupliser tekst"
-          className={actionButtonClassName}
+      {frameKind === 'text' && !isTableFrame && (
+        <TextActionMenu
+          actionButtonClassName={actionButtonClassName}
+          sectionMoveOptions={sectionMoveOptions}
+          onMoveToSection={onMoveToSection}
+          onDuplicateText={onDuplicateText}
+          onRemoveFrame={onRemoveFrame}
         />
       )}
       {showRemoveButton && (
