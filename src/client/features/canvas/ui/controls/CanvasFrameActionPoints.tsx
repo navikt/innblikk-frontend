@@ -8,6 +8,9 @@ const stopMouseDownPropagation = (event: MouseEvent<HTMLElement>) => {
   event.stopPropagation()
 }
 
+const SECTION_MENU_BUTTON_CLASSNAME =
+  '!h-8 !w-8 rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] shadow-sm'
+
 type CanvasFrameActionPointsProps = {
   frameKind:
     | 'website'
@@ -290,6 +293,124 @@ type StickyActionMenuProps = {
   onRemoveFrame: () => void
 }
 
+type SectionActionMenuProps = {
+  actionButtonClassName: string
+  onOpenSectionOptions: () => void
+  onRemoveFrame: () => void
+  onSelectSectionAddAction?: (action: SectionAddAction) => void
+}
+
+const SectionActionMenu = ({
+  actionButtonClassName,
+  onOpenSectionOptions,
+  onRemoveFrame,
+  onSelectSectionAddAction,
+}: SectionActionMenuProps) => (
+  <ActionMenu>
+    <ActionMenu.Trigger>
+      <Button
+        size="xsmall"
+        variant="tertiary"
+        icon={<MoreVertical size={14} />}
+        onMouseDown={stopMouseDownPropagation}
+        title="Flere valg"
+        aria-label="Flere valg"
+        className={`${actionButtonClassName} ${SECTION_MENU_BUTTON_CLASSNAME}`}
+      />
+    </ActionMenu.Trigger>
+    <ActionMenu.Content align="end">
+      <ActionMenu.Sub>
+        <ActionMenu.SubTrigger onMouseDown={stopMouseDownPropagation}>Legg til</ActionMenu.SubTrigger>
+        <ActionMenu.SubContent>
+          <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onSelectSectionAddAction?.('section')}>
+            Seksjon (ved siden av)
+          </ActionMenu.Item>
+          <ActionMenu.Divider />
+          <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onSelectSectionAddAction?.('heading')}>
+            Overskrift
+          </ActionMenu.Item>
+          <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onSelectSectionAddAction?.('text')}>
+            Tekst
+          </ActionMenu.Item>
+          <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onSelectSectionAddAction?.('table')}>
+            Tabell
+          </ActionMenu.Item>
+          <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onSelectSectionAddAction?.('link')}>
+            Lenke
+          </ActionMenu.Item>
+          <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onSelectSectionAddAction?.('sticky')}>
+            Post-it-lapp
+          </ActionMenu.Item>
+          <ActionMenu.Item
+            onMouseDown={stopMouseDownPropagation}
+            onClick={() => onSelectSectionAddAction?.('code-block')}
+          >
+            Kodeblokk
+          </ActionMenu.Item>
+          <ActionMenu.Divider />
+          <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onSelectSectionAddAction?.('image')}>
+            Bilde
+          </ActionMenu.Item>
+          <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onSelectSectionAddAction?.('icon')}>
+            Ikon
+          </ActionMenu.Item>
+          <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onSelectSectionAddAction?.('figure')}>
+            Figur
+          </ActionMenu.Item>
+          <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onSelectSectionAddAction?.('drawing')}>
+            Tegning
+          </ActionMenu.Item>
+          <ActionMenu.Item
+            onMouseDown={stopMouseDownPropagation}
+            onClick={() => onSelectSectionAddAction?.('illustration')}
+          >
+            Illustrasjoner
+          </ActionMenu.Item>
+          <ActionMenu.Divider />
+          <ActionMenu.Group label="Fra Innblikk" className="mt-1">
+            <ActionMenu.Item
+              onMouseDown={stopMouseDownPropagation}
+              onClick={() => onSelectSectionAddAction?.('website')}
+            >
+              <span className="block pl-4">Nettside</span>
+            </ActionMenu.Item>
+            <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onSelectSectionAddAction?.('chart')}>
+              <span className="block pl-4">Graf</span>
+            </ActionMenu.Item>
+            <ActionMenu.Item
+              onMouseDown={stopMouseDownPropagation}
+              onClick={() => onSelectSectionAddAction?.('sql-editor')}
+            >
+              <span className="block pl-4">SQL-editor</span>
+            </ActionMenu.Item>
+            <ActionMenu.Item
+              onMouseDown={stopMouseDownPropagation}
+              onClick={() => onSelectSectionAddAction?.('dashboard')}
+            >
+              <span className="block pl-4">Dashboard</span>
+            </ActionMenu.Item>
+          </ActionMenu.Group>
+          <ActionMenu.Group label="Fra Skyra / Lumi" className="mt-1">
+            <ActionMenu.Item
+              onMouseDown={stopMouseDownPropagation}
+              onClick={() => onSelectSectionAddAction?.('import-sticky-csv')}
+            >
+              <span className="block pl-4">Undersøkelse → lapper</span>
+            </ActionMenu.Item>
+          </ActionMenu.Group>
+        </ActionMenu.SubContent>
+      </ActionMenu.Sub>
+      <ActionMenu.Divider />
+      <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onOpenSectionOptions}>
+        Tilpass
+      </ActionMenu.Item>
+      <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onRemoveFrame}>
+        Fjern
+      </ActionMenu.Item>
+    </ActionMenu.Content>
+  </ActionMenu>
+)
+
 const StickyActionMenu = ({
   actionButtonClassName,
   sectionMoveOptions,
@@ -360,10 +481,10 @@ const StickyActionMenu = ({
         )}
         {hasGroupedOptions && <ActionMenu.Divider />}
         <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onDuplicateSticky}>
-          Dupliser lapp
+          Dupliser
         </ActionMenu.Item>
         <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onRemoveFrame}>
-          Fjern kort
+          Fjern
         </ActionMenu.Item>
       </ActionMenu.Content>
     </ActionMenu>
@@ -467,7 +588,8 @@ const CanvasFrameActionPoints = ({
   onRemoveFrame,
   onSelectSectionAddAction,
 }: CanvasFrameActionPointsProps) => {
-  const showRemoveButton = (frameKind !== 'website' || Boolean(isInternalDashboard)) && frameKind !== 'sticky'
+  const showRemoveButton =
+    (frameKind !== 'website' || Boolean(isInternalDashboard)) && frameKind !== 'sticky' && frameKind !== 'section'
   const actionPointsPositionClassName =
     frameKind === 'heading' ||
     frameKind === 'text' ||
@@ -556,129 +678,12 @@ const CanvasFrameActionPoints = ({
         />
       )}
       {frameKind === 'section' && (
-        <ActionMenu>
-          <ActionMenu.Trigger>
-            <Button
-              size="xsmall"
-              variant="tertiary"
-              onMouseDown={stopMouseDownPropagation}
-              title="Legg til i seksjon"
-              aria-label="Legg til i seksjon"
-              className={actionButtonClassName}
-            >
-              Legg til
-            </Button>
-          </ActionMenu.Trigger>
-          <ActionMenu.Content align="end">
-            <ActionMenu.Item
-              onMouseDown={stopMouseDownPropagation}
-              onClick={() => onSelectSectionAddAction?.('section')}
-            >
-              Seksjon (ved siden av)
-            </ActionMenu.Item>
-            <ActionMenu.Divider />
-            <ActionMenu.Item
-              onMouseDown={stopMouseDownPropagation}
-              onClick={() => onSelectSectionAddAction?.('heading')}
-            >
-              Overskrift
-            </ActionMenu.Item>
-            <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onSelectSectionAddAction?.('text')}>
-              Tekst
-            </ActionMenu.Item>
-            <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onSelectSectionAddAction?.('table')}>
-              Tabell
-            </ActionMenu.Item>
-            <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onSelectSectionAddAction?.('link')}>
-              Lenke
-            </ActionMenu.Item>
-            <ActionMenu.Item
-              onMouseDown={stopMouseDownPropagation}
-              onClick={() => onSelectSectionAddAction?.('sticky')}
-            >
-              Post-it-lapp
-            </ActionMenu.Item>
-            <ActionMenu.Item
-              onMouseDown={stopMouseDownPropagation}
-              onClick={() => onSelectSectionAddAction?.('code-block')}
-            >
-              Kodeblokk
-            </ActionMenu.Item>
-            <ActionMenu.Divider />
-            <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onSelectSectionAddAction?.('image')}>
-              Bilde
-            </ActionMenu.Item>
-            <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onSelectSectionAddAction?.('icon')}>
-              Ikon
-            </ActionMenu.Item>
-            <ActionMenu.Item
-              onMouseDown={stopMouseDownPropagation}
-              onClick={() => onSelectSectionAddAction?.('figure')}
-            >
-              Figur
-            </ActionMenu.Item>
-            <ActionMenu.Item
-              onMouseDown={stopMouseDownPropagation}
-              onClick={() => onSelectSectionAddAction?.('drawing')}
-            >
-              Tegning
-            </ActionMenu.Item>
-            <ActionMenu.Item
-              onMouseDown={stopMouseDownPropagation}
-              onClick={() => onSelectSectionAddAction?.('illustration')}
-            >
-              Illustrasjoner
-            </ActionMenu.Item>
-            <ActionMenu.Divider />
-            <ActionMenu.Group label="Fra Innblikk" className="mt-1">
-              <ActionMenu.Item
-                onMouseDown={stopMouseDownPropagation}
-                onClick={() => onSelectSectionAddAction?.('website')}
-              >
-                <span className="block pl-4">Nettside</span>
-              </ActionMenu.Item>
-              <ActionMenu.Item
-                onMouseDown={stopMouseDownPropagation}
-                onClick={() => onSelectSectionAddAction?.('chart')}
-              >
-                <span className="block pl-4">Graf</span>
-              </ActionMenu.Item>
-              <ActionMenu.Item
-                onMouseDown={stopMouseDownPropagation}
-                onClick={() => onSelectSectionAddAction?.('sql-editor')}
-              >
-                <span className="block pl-4">SQL-editor</span>
-              </ActionMenu.Item>
-              <ActionMenu.Item
-                onMouseDown={stopMouseDownPropagation}
-                onClick={() => onSelectSectionAddAction?.('dashboard')}
-              >
-                <span className="block pl-4">Dashboard</span>
-              </ActionMenu.Item>
-            </ActionMenu.Group>
-            <ActionMenu.Group label="Fra Skyra / Lumi" className="mt-1">
-              <ActionMenu.Item
-                onMouseDown={stopMouseDownPropagation}
-                onClick={() => onSelectSectionAddAction?.('import-sticky-csv')}
-              >
-                <span className="block pl-4">Undersøkelse → lapper</span>
-              </ActionMenu.Item>
-            </ActionMenu.Group>
-          </ActionMenu.Content>
-        </ActionMenu>
-      )}
-      {frameKind === 'section' && (
-        <Button
-          size="xsmall"
-          variant="tertiary"
-          onMouseDown={stopMouseDownPropagation}
-          onClick={onOpenSectionOptions}
-          title="Tilpass seksjon"
-          aria-label="Tilpass seksjon"
-          className={actionButtonClassName}
-        >
-          Tilpass
-        </Button>
+        <SectionActionMenu
+          actionButtonClassName={actionButtonClassName}
+          onOpenSectionOptions={onOpenSectionOptions}
+          onRemoveFrame={onRemoveFrame}
+          onSelectSectionAddAction={onSelectSectionAddAction}
+        />
       )}
       {frameKind === 'text' && sectionMoveOptions.length > 0 && (
         <ActionMenu>
