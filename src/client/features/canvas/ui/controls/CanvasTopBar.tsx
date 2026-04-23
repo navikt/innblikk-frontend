@@ -142,8 +142,6 @@ const CanvasTopBar = ({
   const canvasHomeHref = projectId !== null ? `/canvas?projectId=${projectId}` : '/canvas'
   const participantCountText = `${activeParticipantCount} ${activeParticipantCount === 1 ? 'person' : 'personer'} i canvas`
   const canEditCanvas = !isCanvasReadOnly
-  const shouldReserveFilterSlots = showDateFilter || showUrlPathFilter
-
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const storedTheme = localStorage.getItem('umami-theme')
     return storedTheme === 'dark' ? 'dark' : 'light'
@@ -242,38 +240,30 @@ const CanvasTopBar = ({
           </a>
           {!isCanvasFrontpage && (
             <div className="flex w-full flex-wrap items-end gap-2 sm:w-auto sm:justify-end">
-              {shouldReserveFilterSlots && (
-                <>
-                  <div className="w-[220px] shrink-0">
-                    {showDateFilter ? (
-                      <PeriodPicker
-                        period={period}
-                        onPeriodChange={onPeriodChange}
-                        startDate={customStartDate}
-                        onStartDateChange={onCustomStartDateChange}
-                        endDate={customEndDate}
-                        onEndDateChange={onCustomEndDateChange}
-                        className="w-full sm:w-auto min-w-[220px]"
-                      />
-                    ) : (
-                      <div aria-hidden="true" className="h-[64px]"></div>
-                    )}
-                  </div>
-                  <div className="w-[220px] shrink-0">
-                    {showUrlPathFilter ? (
-                      <TextField
-                        label="URL-sti"
-                        size="small"
-                        value={urlPathFilterValue}
-                        onChange={(event) => onUrlPathFilterChange(event.target.value)}
-                        placeholder="/"
-                        className="w-full sm:w-auto min-w-[220px]"
-                      />
-                    ) : (
-                      <div aria-hidden="true" className="h-[64px]"></div>
-                    )}
-                  </div>
-                </>
+              {showDateFilter && (
+                <div className="w-[220px] shrink-0">
+                  <PeriodPicker
+                    period={period}
+                    onPeriodChange={onPeriodChange}
+                    startDate={customStartDate}
+                    onStartDateChange={onCustomStartDateChange}
+                    endDate={customEndDate}
+                    onEndDateChange={onCustomEndDateChange}
+                    className="w-full sm:w-auto min-w-[220px]"
+                  />
+                </div>
+              )}
+              {showUrlPathFilter && (
+                <div className="w-[220px] shrink-0">
+                  <TextField
+                    label="URL-sti"
+                    size="small"
+                    value={urlPathFilterValue}
+                    onChange={(event) => onUrlPathFilterChange(event.target.value)}
+                    placeholder="/"
+                    className="w-full sm:w-auto min-w-[220px]"
+                  />
+                </div>
               )}
               {isCanvasLocked && (
                 <Button
