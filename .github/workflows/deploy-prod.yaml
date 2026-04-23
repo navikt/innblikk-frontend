@@ -102,6 +102,8 @@ jobs:
         env:
           CLUSTER: 'prod-gcp'
           RESOURCE: .nais/prod/nais-prod.yaml
+          TIMEOUT: 20m
+          PRINT_PAYLOAD: true
           VAR: image=${{ needs.preflight.outputs.image }},version=${{ needs.preflight.outputs.version }}
       - name: 'Show promoted artifact'
         run: |
