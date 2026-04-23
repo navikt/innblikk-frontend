@@ -492,7 +492,7 @@ const CanvasFrameLayer = ({
           const contextualHeadingLevel: 2 | 3 | 4 = currentSectionId ? (parentSectionHasTitle ? 4 : 2) : 2
           const sectionPortalTarget =
             currentSectionId && typeof document !== 'undefined'
-              ? document.querySelector<HTMLElement>(`[data-canvas-section-id="${currentSectionId}"]`)
+              ? document.querySelector<HTMLElement>(`[data-canvas-section-content-id="${currentSectionId}"]`)
               : null
           const shouldRenderInsideSectionDuringInteraction = dragState !== null || resizeState !== null
           const renderInsideSection = Boolean(
@@ -1293,6 +1293,8 @@ const CanvasFrameLayer = ({
                         )}
                       </h3>
                     )}
+                    {!isFrameInteractionLocked && frameActionPoints}
+                    <div data-canvas-section-content-id={frame.id} className="min-h-0 flex-1" />
                   </div>
                 ) : (
                   <div className="flex h-full items-center justify-center px-6 text-center text-sm text-[var(--ax-text-subtle)]">
@@ -1300,7 +1302,6 @@ const CanvasFrameLayer = ({
                   </div>
                 )}
               </div>
-              {!isFrameInteractionLocked && frame.kind === 'section' && frameActionPoints}
               {frame.kind === 'website' &&
                 !frame.isInternalDashboard &&
                 visualizationMode === 'clickmap' &&
