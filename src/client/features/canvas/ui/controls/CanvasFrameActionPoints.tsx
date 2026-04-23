@@ -1,5 +1,5 @@
 import { ActionMenu, Button } from '@navikt/ds-react'
-import { ArrowRightLeft, Check, Copy, Edit2, MoreVertical, RotateCw, Trash2 } from 'lucide-react'
+import { ArrowRightLeft, Check, Copy, Edit2, MoreVertical, Trash2 } from 'lucide-react'
 import type { MouseEvent } from 'react'
 import type { CanvasSectionLayoutMode } from '../../model/types.ts'
 import { ICON_ROTATION_STEP_DEG } from '../../utils/canvasUtils.ts'
@@ -83,115 +83,6 @@ export type SectionAddAction =
   | 'dashboard'
   | 'import-sticky-csv'
 
-type IconBoxActionPointsProps = {
-  actionButtonClassName: string
-  onEditIcon: () => void
-  onDuplicateIcon: () => void
-  onRotateIcon: (delta: number) => void
-}
-
-type RotateActionMenuProps = {
-  actionButtonClassName: string
-  title?: string
-  onRotateBy: (delta: number) => void
-}
-
-const RotateActionMenu = ({ actionButtonClassName, title = 'Roter', onRotateBy }: RotateActionMenuProps) => (
-  <ActionMenu>
-    <ActionMenu.Trigger>
-      <Button
-        size="xsmall"
-        variant="tertiary"
-        icon={<RotateCw size={14} />}
-        onMouseDown={stopMouseDownPropagation}
-        title={title}
-        aria-label={title}
-        className={actionButtonClassName}
-      />
-    </ActionMenu.Trigger>
-    <ActionMenu.Content align="end">
-      <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onRotateBy(ICON_ROTATION_STEP_DEG)}>
-        Roter ({ICON_ROTATION_STEP_DEG} grader)
-      </ActionMenu.Item>
-      <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onRotateBy(45)}>
-        Roter (45 grader)
-      </ActionMenu.Item>
-      <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onRotateBy(90)}>
-        Roter (90 grader)
-      </ActionMenu.Item>
-    </ActionMenu.Content>
-  </ActionMenu>
-)
-
-const IconBoxActionPoints = ({
-  actionButtonClassName,
-  onEditIcon,
-  onDuplicateIcon,
-  onRotateIcon,
-}: IconBoxActionPointsProps) => (
-  <>
-    <Button
-      size="xsmall"
-      variant="tertiary"
-      icon={<Edit2 size={14} />}
-      onMouseDown={stopMouseDownPropagation}
-      onClick={onEditIcon}
-      title="Rediger ikon"
-      aria-label="Rediger ikon"
-      className={actionButtonClassName}
-    />
-    <Button
-      size="xsmall"
-      variant="tertiary"
-      icon={<Copy size={14} />}
-      onMouseDown={stopMouseDownPropagation}
-      onClick={onDuplicateIcon}
-      title="Dupliser ikon"
-      aria-label="Dupliser ikon"
-      className={actionButtonClassName}
-    />
-    <RotateActionMenu actionButtonClassName={actionButtonClassName} title="Roter ikon" onRotateBy={onRotateIcon} />
-  </>
-)
-
-type FigureBoxActionPointsProps = {
-  actionButtonClassName: string
-  onEditFigure: () => void
-  onDuplicateFigure: () => void
-  onRotateFigure: (delta: number) => void
-}
-
-const FigureBoxActionPoints = ({
-  actionButtonClassName,
-  onEditFigure,
-  onDuplicateFigure,
-  onRotateFigure,
-}: FigureBoxActionPointsProps) => (
-  <>
-    <Button
-      size="xsmall"
-      variant="tertiary"
-      icon={<Edit2 size={14} />}
-      onMouseDown={stopMouseDownPropagation}
-      onClick={onEditFigure}
-      title="Rediger figur"
-      aria-label="Rediger figur"
-      className={actionButtonClassName}
-    />
-    <Button
-      size="xsmall"
-      variant="tertiary"
-      icon={<Copy size={14} />}
-      onMouseDown={stopMouseDownPropagation}
-      onClick={onDuplicateFigure}
-      title="Dupliser figur"
-      aria-label="Dupliser figur"
-      className={actionButtonClassName}
-    />
-    <RotateActionMenu actionButtonClassName={actionButtonClassName} title="Roter figur" onRotateBy={onRotateFigure} />
-  </>
-)
-
 type HeadingBoxActionPointsProps = {
   actionButtonClassName: string
   headingFontSizePx: number
@@ -269,19 +160,6 @@ const HeadingBoxActionPoints = ({
   </>
 )
 
-type IllustrationActionPointsProps = {
-  actionButtonClassName: string
-  onRotateIllustration: (delta: number) => void
-}
-
-const IllustrationActionPoints = ({ actionButtonClassName, onRotateIllustration }: IllustrationActionPointsProps) => (
-  <RotateActionMenu
-    actionButtonClassName={actionButtonClassName}
-    title="Roter bilde"
-    onRotateBy={onRotateIllustration}
-  />
-)
-
 type StickyActionMenuProps = {
   actionButtonClassName: string
   sectionMoveOptions: Array<{ id: string; label: string }>
@@ -299,6 +177,185 @@ type SectionActionMenuProps = {
   onRemoveFrame: () => void
   onSelectSectionAddAction?: (action: SectionAddAction) => void
 }
+
+type VisualAssetActionMenuProps = {
+  frameKind: CanvasFrameActionPointsProps['frameKind']
+  isIllustrationFrame: boolean
+  actionButtonClassName: string
+  onEditImage: () => void
+  onEditDrawing: () => void
+  onEditIllustration: () => void
+  onEditFigure: () => void
+  onEditIcon: () => void
+  onDuplicateIcon: () => void
+  onDuplicateFigure: () => void
+  onDuplicateDrawing: () => void
+  onDuplicateImage: () => void
+  onRotateIcon: (delta: number) => void
+  onRotateIllustration: (delta: number) => void
+  onRotateFigure: (delta: number) => void
+  onRotateDrawing: (delta: number) => void
+  onRemoveFrame: () => void
+}
+
+const VisualAssetActionMenu = ({
+  frameKind,
+  isIllustrationFrame,
+  actionButtonClassName,
+  onEditImage,
+  onEditDrawing,
+  onEditIllustration,
+  onEditFigure,
+  onEditIcon,
+  onDuplicateIcon,
+  onDuplicateFigure,
+  onDuplicateDrawing,
+  onDuplicateImage,
+  onRotateIcon,
+  onRotateIllustration,
+  onRotateFigure,
+  onRotateDrawing,
+  onRemoveFrame,
+}: VisualAssetActionMenuProps) => (
+  <ActionMenu>
+    <ActionMenu.Trigger>
+      <Button
+        size="xsmall"
+        variant="tertiary"
+        icon={<MoreVertical size={14} />}
+        onMouseDown={stopMouseDownPropagation}
+        title="Flere valg"
+        aria-label="Flere valg"
+        className={actionButtonClassName}
+      />
+    </ActionMenu.Trigger>
+    <ActionMenu.Content align="end">
+      {frameKind === 'icon' && (
+        <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onEditIcon}>
+          Rediger ikon
+        </ActionMenu.Item>
+      )}
+      {frameKind === 'image' && (
+        <ActionMenu.Item
+          onMouseDown={stopMouseDownPropagation}
+          onClick={isIllustrationFrame ? onEditIllustration : onEditImage}
+        >
+          {isIllustrationFrame ? 'Rediger illustrasjon' : 'Rediger bilde'}
+        </ActionMenu.Item>
+      )}
+      {frameKind === 'drawing' && (
+        <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onEditDrawing}>
+          Rediger tegning
+        </ActionMenu.Item>
+      )}
+      {frameKind === 'figure' && (
+        <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onEditFigure}>
+          Rediger figur
+        </ActionMenu.Item>
+      )}
+      {frameKind === 'icon' && (
+        <ActionMenu.Sub>
+          <ActionMenu.SubTrigger onMouseDown={stopMouseDownPropagation}>Roter ikon</ActionMenu.SubTrigger>
+          <ActionMenu.SubContent>
+            <ActionMenu.Item
+              onMouseDown={stopMouseDownPropagation}
+              onClick={() => onRotateIcon(ICON_ROTATION_STEP_DEG)}
+            >
+              Roter ({ICON_ROTATION_STEP_DEG} grader)
+            </ActionMenu.Item>
+            <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onRotateIcon(45)}>
+              Roter (45 grader)
+            </ActionMenu.Item>
+            <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onRotateIcon(90)}>
+              Roter (90 grader)
+            </ActionMenu.Item>
+          </ActionMenu.SubContent>
+        </ActionMenu.Sub>
+      )}
+      {frameKind === 'image' && isIllustrationFrame && (
+        <ActionMenu.Sub>
+          <ActionMenu.SubTrigger onMouseDown={stopMouseDownPropagation}>Roter bilde</ActionMenu.SubTrigger>
+          <ActionMenu.SubContent>
+            <ActionMenu.Item
+              onMouseDown={stopMouseDownPropagation}
+              onClick={() => onRotateIllustration(ICON_ROTATION_STEP_DEG)}
+            >
+              Roter ({ICON_ROTATION_STEP_DEG} grader)
+            </ActionMenu.Item>
+            <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onRotateIllustration(45)}>
+              Roter (45 grader)
+            </ActionMenu.Item>
+            <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onRotateIllustration(90)}>
+              Roter (90 grader)
+            </ActionMenu.Item>
+          </ActionMenu.SubContent>
+        </ActionMenu.Sub>
+      )}
+      {frameKind === 'drawing' && (
+        <ActionMenu.Sub>
+          <ActionMenu.SubTrigger onMouseDown={stopMouseDownPropagation}>Roter tegning</ActionMenu.SubTrigger>
+          <ActionMenu.SubContent>
+            <ActionMenu.Item
+              onMouseDown={stopMouseDownPropagation}
+              onClick={() => onRotateDrawing(ICON_ROTATION_STEP_DEG)}
+            >
+              Roter ({ICON_ROTATION_STEP_DEG} grader)
+            </ActionMenu.Item>
+            <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onRotateDrawing(45)}>
+              Roter (45 grader)
+            </ActionMenu.Item>
+            <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onRotateDrawing(90)}>
+              Roter (90 grader)
+            </ActionMenu.Item>
+          </ActionMenu.SubContent>
+        </ActionMenu.Sub>
+      )}
+      {frameKind === 'figure' && (
+        <ActionMenu.Sub>
+          <ActionMenu.SubTrigger onMouseDown={stopMouseDownPropagation}>Roter figur</ActionMenu.SubTrigger>
+          <ActionMenu.SubContent>
+            <ActionMenu.Item
+              onMouseDown={stopMouseDownPropagation}
+              onClick={() => onRotateFigure(ICON_ROTATION_STEP_DEG)}
+            >
+              Roter ({ICON_ROTATION_STEP_DEG} grader)
+            </ActionMenu.Item>
+            <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onRotateFigure(45)}>
+              Roter (45 grader)
+            </ActionMenu.Item>
+            <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={() => onRotateFigure(90)}>
+              Roter (90 grader)
+            </ActionMenu.Item>
+          </ActionMenu.SubContent>
+        </ActionMenu.Sub>
+      )}
+      {frameKind === 'image' && (
+        <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onDuplicateImage}>
+          Dupliser bilde
+        </ActionMenu.Item>
+      )}
+      {frameKind === 'drawing' && (
+        <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onDuplicateDrawing}>
+          Dupliser tegning
+        </ActionMenu.Item>
+      )}
+      {frameKind === 'figure' && (
+        <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onDuplicateFigure}>
+          Dupliser figur
+        </ActionMenu.Item>
+      )}
+      {frameKind === 'icon' && (
+        <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onDuplicateIcon}>
+          Dupliser ikon
+        </ActionMenu.Item>
+      )}
+      <ActionMenu.Divider />
+      <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onRemoveFrame}>
+        Fjern
+      </ActionMenu.Item>
+    </ActionMenu.Content>
+  </ActionMenu>
+)
 
 const SectionActionMenu = ({
   actionButtonClassName,
@@ -494,35 +551,15 @@ const StickyActionMenu = ({
 const ImageOrDashboardEditActionPoint = ({
   frameKind,
   isInternalDashboard,
-  isIllustrationFrame,
   actionButtonClassName,
-  onEditImage,
-  onEditDrawing,
-  onEditIllustration,
   onEditDashboard,
 }: Pick<
   CanvasFrameActionPointsProps,
-  | 'frameKind'
-  | 'isInternalDashboard'
-  | 'isIllustrationFrame'
-  | 'actionButtonClassName'
-  | 'onEditImage'
-  | 'onEditDrawing'
-  | 'onEditIllustration'
-  | 'onEditDashboard'
+  'frameKind' | 'isInternalDashboard' | 'actionButtonClassName' | 'onEditDashboard'
 >) => {
-  if (!(frameKind === 'image' || frameKind === 'drawing' || (frameKind === 'website' && isInternalDashboard)))
-    return null
+  if (!(frameKind === 'website' && isInternalDashboard)) return null
 
-  const isImage = frameKind === 'image'
-  const isDrawing = frameKind === 'drawing'
-  const title = isImage
-    ? isIllustrationFrame
-      ? 'Rediger illustrasjon'
-      : 'Rediger bilde'
-    : isDrawing
-      ? 'Rediger tegning'
-      : 'Rediger dashboard'
+  const title = 'Rediger dashboard'
 
   return (
     <Button
@@ -530,19 +567,7 @@ const ImageOrDashboardEditActionPoint = ({
       variant="tertiary"
       icon={<Edit2 size={14} />}
       onMouseDown={stopMouseDownPropagation}
-      onClick={() => {
-        if (isImage) {
-          if (isIllustrationFrame) {
-            onEditIllustration()
-          } else {
-            onEditImage()
-          }
-        } else if (isDrawing) {
-          onEditDrawing()
-        } else {
-          onEditDashboard()
-        }
-      }}
+      onClick={onEditDashboard}
       title={title}
       aria-label={title}
       className={actionButtonClassName}
@@ -589,7 +614,13 @@ const CanvasFrameActionPoints = ({
   onSelectSectionAddAction,
 }: CanvasFrameActionPointsProps) => {
   const showRemoveButton =
-    (frameKind !== 'website' || Boolean(isInternalDashboard)) && frameKind !== 'sticky' && frameKind !== 'section'
+    (frameKind !== 'website' || Boolean(isInternalDashboard)) &&
+    frameKind !== 'sticky' &&
+    frameKind !== 'section' &&
+    frameKind !== 'image' &&
+    frameKind !== 'icon' &&
+    frameKind !== 'figure' &&
+    frameKind !== 'drawing'
   const actionPointsPositionClassName =
     frameKind === 'heading' ||
     frameKind === 'text' ||
@@ -616,11 +647,7 @@ const CanvasFrameActionPoints = ({
       <ImageOrDashboardEditActionPoint
         frameKind={frameKind}
         isInternalDashboard={isInternalDashboard}
-        isIllustrationFrame={isIllustrationFrame}
         actionButtonClassName={actionButtonClassName}
-        onEditImage={onEditImage}
-        onEditDrawing={onEditDrawing}
-        onEditIllustration={onEditIllustration}
         onEditDashboard={onEditDashboard}
       />
       {frameKind === 'link' && (
@@ -647,20 +674,25 @@ const CanvasFrameActionPoints = ({
           className={actionButtonClassName}
         />
       )}
-      {frameKind === 'icon' && (
-        <IconBoxActionPoints
+      {(frameKind === 'image' || frameKind === 'icon' || frameKind === 'figure' || frameKind === 'drawing') && (
+        <VisualAssetActionMenu
+          frameKind={frameKind}
+          isIllustrationFrame={isIllustrationFrame}
           actionButtonClassName={actionButtonClassName}
+          onEditImage={onEditImage}
+          onEditDrawing={onEditDrawing}
+          onEditIllustration={onEditIllustration}
+          onEditFigure={onEditFigure}
           onEditIcon={onEditIcon}
           onDuplicateIcon={onDuplicateIcon}
-          onRotateIcon={onRotateIcon}
-        />
-      )}
-      {frameKind === 'figure' && (
-        <FigureBoxActionPoints
-          actionButtonClassName={actionButtonClassName}
-          onEditFigure={onEditFigure}
           onDuplicateFigure={onDuplicateFigure}
+          onDuplicateDrawing={onDuplicateDrawing}
+          onDuplicateImage={onDuplicateImage}
+          onRotateIcon={onRotateIcon}
+          onRotateIllustration={onRotateIllustration}
           onRotateFigure={onRotateFigure}
+          onRotateDrawing={onRotateDrawing}
+          onRemoveFrame={onRemoveFrame}
         />
       )}
       {frameKind === 'heading' && (
@@ -669,12 +701,6 @@ const CanvasFrameActionPoints = ({
           headingFontSizePx={headingFontSizePx}
           onDuplicateHeading={onDuplicateHeading}
           onSetHeadingFontSize={onSetHeadingFontSize}
-        />
-      )}
-      {isIllustrationFrame && (
-        <IllustrationActionPoints
-          actionButtonClassName={actionButtonClassName}
-          onRotateIllustration={onRotateIllustration}
         />
       )}
       {frameKind === 'section' && (
@@ -735,37 +761,6 @@ const CanvasFrameActionPoints = ({
           className={actionButtonClassName}
         />
       )}
-      {frameKind === 'drawing' && (
-        <>
-          <RotateActionMenu
-            actionButtonClassName={actionButtonClassName}
-            title="Roter tegning"
-            onRotateBy={onRotateDrawing}
-          />
-          <Button
-            size="xsmall"
-            variant="tertiary"
-            icon={<Copy size={14} />}
-            onMouseDown={stopMouseDownPropagation}
-            onClick={onDuplicateDrawing}
-            title="Dupliser tegning"
-            aria-label="Dupliser tegning"
-            className={actionButtonClassName}
-          />
-        </>
-      )}
-      {frameKind === 'image' && (
-        <Button
-          size="xsmall"
-          variant="tertiary"
-          icon={<Copy size={14} />}
-          onMouseDown={stopMouseDownPropagation}
-          onClick={onDuplicateImage}
-          title="Dupliser bilde"
-          aria-label="Dupliser bilde"
-          className={actionButtonClassName}
-        />
-      )}
       {showRemoveButton && (
         <Button
           size="xsmall"
@@ -773,8 +768,8 @@ const CanvasFrameActionPoints = ({
           icon={<Trash2 size={14} />}
           onMouseDown={stopMouseDownPropagation}
           onClick={onRemoveFrame}
-          title="Fjern kort"
-          aria-label="Fjern kort"
+          title="Fjern"
+          aria-label="Fjern"
           className={actionButtonClassName}
         />
       )}
