@@ -113,6 +113,24 @@ const reconcileConnections = (current: CanvasConnection[], incoming: CanvasConne
   return [...nextFromIncoming, ...localUnsyncedConnections]
 }
 
+const upsertIncomingFrame = (current: CanvasFrame[], incoming: CanvasFrame): CanvasFrame[] => {
+  const incomingGraphId = incoming.graphId ?? null
+  let didReplace = false
+
+  const next = current.map((frame) => {
+    const matchesById = frame.id === incoming.id
+    const matchesByGraphId = incomingGraphId !== null && frame.graphId === incomingGraphId
+
+    if (!matchesById && !matchesByGraphId) return frame
+    didReplace = true
+    const hasSamePayload = buildFrameSignature(frame) === buildFrameSignature(incoming)
+    return hasSamePayload ? frame : incoming
+  })
+
+  if (didReplace) return next
+  return [...current, incoming]
+}
+
 const buildCanvasDataSignature = (params: {
   categories: GraphCategoryDto[]
   frames: CanvasFrame[]
@@ -206,7 +224,7 @@ const useCanvasBackgroundSync = ({
     const unsubscribe = ws.subscribe('canvas:frame', (payload) => {
       const frame = payload as CanvasFrame
       if (!frame?.id) return
-      setFrames((current) => reconcileFrames(current, [frame], new Set()))
+      setFrames((current) => upsertIncomingFrame(current, frame))
     })
     return unsubscribe
   }, [ws, setFrames])
