@@ -729,32 +729,35 @@ const CanvasFrameLayer = ({
                       </div>
                     )}
                   </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <CanvasWebsiteActionMenu
-                      isInternalDashboard={frame.isInternalDashboard}
-                      showVisualizationOption={!frame.isInternalDashboard}
-                      onOpenVisualization={() => handleOpenEditWebsiteModal(frame)}
-                      showInsightOption={!frame.isInternalDashboard}
-                      isInsightOpen={isWebsiteInsightOpen}
-                      insightDisabled={!selectedWebsite}
-                      onToggleInsight={() => handleToggleInsightPanel(frame)}
-                      showTopListOption={visualizationMode === 'clickmap'}
-                      isTopListEnabled={websiteTopListEnabled}
-                      onToggleTopList={onToggleWebsiteTopList}
-                      onRefresh={() => handleRefreshFrame(frame.id)}
-                      onDuplicate={() => handleDuplicateWebsiteCard(frame)}
-                      isEditingLocked={isCanvasLocked}
-                      onEdit={() => {
-                        if (frame.isInternalDashboard) {
-                          handleOpenEditDashboardModal(frame)
-                        } else {
-                          handleOpenEditWebsiteModal(frame)
-                        }
-                      }}
-                      onRemove={() => handleRequestRemoveFrame(frame)}
-                    />
-                  </div>
                 </header>
+              )}
+              {frame.kind === 'website' && !frame.isInternalDashboard && !isDotVotingActive && (
+                <div className="pointer-events-none absolute right-8 -top-6 z-40 flex items-center gap-1">
+                  <CanvasWebsiteActionMenu
+                    isInternalDashboard={frame.isInternalDashboard}
+                    showVisualizationOption={!frame.isInternalDashboard}
+                    onOpenVisualization={() => handleOpenEditWebsiteModal(frame)}
+                    showInsightOption={!frame.isInternalDashboard}
+                    isInsightOpen={isWebsiteInsightOpen}
+                    insightDisabled={!selectedWebsite}
+                    onToggleInsight={() => handleToggleInsightPanel(frame)}
+                    showTopListOption={visualizationMode === 'clickmap'}
+                    isTopListEnabled={websiteTopListEnabled}
+                    onToggleTopList={onToggleWebsiteTopList}
+                    onRefresh={() => handleRefreshFrame(frame.id)}
+                    onDuplicate={() => handleDuplicateWebsiteCard(frame)}
+                    isEditingLocked={isCanvasLocked}
+                    triggerClassName={actionButtonClassName}
+                    onEdit={() => {
+                      if (frame.isInternalDashboard) {
+                        handleOpenEditDashboardModal(frame)
+                      } else {
+                        handleOpenEditWebsiteModal(frame)
+                      }
+                    }}
+                    onRemove={() => handleRequestRemoveFrame(frame)}
+                  />
+                </div>
               )}
               {frame.kind === 'chart' && !isFrameInteractionLocked && (
                 <div className="pointer-events-none absolute inset-0 z-20 overflow-visible" aria-hidden="true">

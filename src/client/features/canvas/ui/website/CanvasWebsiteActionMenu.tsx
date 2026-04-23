@@ -1,5 +1,5 @@
 import { ActionMenu, Button } from '@navikt/ds-react'
-import { ChartNoAxesCombined, Copy, Edit2, List, MoreVertical, RefreshCw, Trash2 } from 'lucide-react'
+import { ChartNoAxesCombined, Copy, Edit2, List, RefreshCw, Trash2 } from 'lucide-react'
 import type { MouseEvent } from 'react'
 
 const stopMouseDownPropagation = (event: MouseEvent<HTMLElement>) => {
@@ -22,6 +22,8 @@ type CanvasWebsiteActionMenuProps = {
   onEdit: () => void
   onRemove: () => void
   isEditingLocked?: boolean
+  onTriggerHoverChange?: (hovered: boolean) => void
+  triggerClassName?: string
 }
 
 const CanvasWebsiteActionMenu = ({
@@ -40,17 +42,29 @@ const CanvasWebsiteActionMenu = ({
   onEdit,
   onRemove,
   isEditingLocked = false,
+  onTriggerHoverChange,
+  triggerClassName,
 }: CanvasWebsiteActionMenuProps) => (
   <ActionMenu>
     <ActionMenu.Trigger>
-      <Button
-        size="xsmall"
-        variant="tertiary"
-        icon={<MoreVertical size={14} />}
-        onMouseDown={(event) => event.stopPropagation()}
-        title="Flere valg"
-        aria-label="Flere valg"
-      />
+      <span
+        className="-m-2 inline-flex p-2"
+        onMouseDown={stopMouseDownPropagation}
+        onMouseEnter={() => onTriggerHoverChange?.(true)}
+        onMouseLeave={() => onTriggerHoverChange?.(false)}
+        onFocus={() => onTriggerHoverChange?.(true)}
+        onBlur={() => onTriggerHoverChange?.(false)}
+      >
+        <Button
+          size="xsmall"
+          variant="tertiary"
+          className={triggerClassName}
+          icon={<Edit2 size={14} />}
+          onMouseDown={stopMouseDownPropagation}
+          title="Flere valg"
+          aria-label="Flere valg"
+        />
+      </span>
     </ActionMenu.Trigger>
     <ActionMenu.Content align="end">
       <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onRefresh}>
