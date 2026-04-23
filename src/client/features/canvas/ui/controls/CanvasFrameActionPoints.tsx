@@ -1,5 +1,5 @@
 import { ActionMenu, Button } from '@navikt/ds-react'
-import { ArrowRightLeft, Copy, Edit2, Palette, RotateCw, Trash2 } from 'lucide-react'
+import { ArrowRightLeft, Check, Copy, Edit2, MoreVertical, RotateCw, Trash2 } from 'lucide-react'
 import type { MouseEvent } from 'react'
 import type { CanvasSectionLayoutMode } from '../../model/types.ts'
 import { ICON_ROTATION_STEP_DEG } from '../../utils/canvasUtils.ts'
@@ -53,6 +53,7 @@ type CanvasFrameActionPointsProps = {
   onOpenSectionOptions: () => void
   sectionMoveOptions?: Array<{ id: string; label: string }>
   stickyColorOptions?: Array<{ id: string; label: string; color: string }>
+  selectedStickyColorId?: string
   onSetStickyColor: (colorId: string) => void
   onMoveToSection: (sectionId: string) => void
   onRemoveFrame: () => void
@@ -278,6 +279,97 @@ const IllustrationActionPoints = ({ actionButtonClassName, onRotateIllustration 
   />
 )
 
+type StickyActionMenuProps = {
+  actionButtonClassName: string
+  sectionMoveOptions: Array<{ id: string; label: string }>
+  stickyColorOptions: Array<{ id: string; label: string; color: string }>
+  selectedStickyColorId?: string
+  onMoveToSection: (sectionId: string) => void
+  onSetStickyColor: (colorId: string) => void
+  onDuplicateSticky: () => void
+  onRemoveFrame: () => void
+}
+
+const StickyActionMenu = ({
+  actionButtonClassName,
+  sectionMoveOptions,
+  stickyColorOptions,
+  selectedStickyColorId,
+  onMoveToSection,
+  onSetStickyColor,
+  onDuplicateSticky,
+  onRemoveFrame,
+}: StickyActionMenuProps) => {
+  const hasGroupedOptions = sectionMoveOptions.length > 0 || stickyColorOptions.length > 0
+
+  return (
+    <ActionMenu>
+      <ActionMenu.Trigger>
+        <Button
+          size="xsmall"
+          variant="tertiary"
+          icon={<MoreVertical size={14} />}
+          onMouseDown={stopMouseDownPropagation}
+          title="Flere valg"
+          aria-label="Flere valg"
+          className={actionButtonClassName}
+        />
+      </ActionMenu.Trigger>
+      <ActionMenu.Content align="end">
+        {sectionMoveOptions.length > 0 && (
+          <ActionMenu.Sub>
+            <ActionMenu.SubTrigger onMouseDown={stopMouseDownPropagation}>Flytt til seksjon</ActionMenu.SubTrigger>
+            <ActionMenu.SubContent>
+              {sectionMoveOptions.map((option) => (
+                <ActionMenu.Item
+                  key={option.id}
+                  onMouseDown={stopMouseDownPropagation}
+                  onClick={() => onMoveToSection(option.id)}
+                >
+                  {option.label}
+                </ActionMenu.Item>
+              ))}
+            </ActionMenu.SubContent>
+          </ActionMenu.Sub>
+        )}
+        {stickyColorOptions.length > 0 && (
+          <ActionMenu.Sub>
+            <ActionMenu.SubTrigger onMouseDown={stopMouseDownPropagation}>Bytt farge</ActionMenu.SubTrigger>
+            <ActionMenu.SubContent>
+              {stickyColorOptions.map((option) => (
+                <ActionMenu.Item
+                  key={option.id}
+                  onMouseDown={stopMouseDownPropagation}
+                  onClick={() => onSetStickyColor(option.id)}
+                >
+                  <span className="inline-flex w-full items-center gap-2">
+                    <span
+                      aria-hidden="true"
+                      className="inline-block h-3.5 w-3.5 rounded-full border border-black/10"
+                      style={{ backgroundColor: option.color }}
+                    />
+                    {option.label}
+                    <span className="ml-auto" aria-hidden="true">
+                      {selectedStickyColorId === option.id ? <Check size={14} /> : null}
+                    </span>
+                  </span>
+                </ActionMenu.Item>
+              ))}
+            </ActionMenu.SubContent>
+          </ActionMenu.Sub>
+        )}
+        {hasGroupedOptions && <ActionMenu.Divider />}
+        <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onDuplicateSticky}>
+          Dupliser lapp
+        </ActionMenu.Item>
+        <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onRemoveFrame}>
+          Fjern kort
+        </ActionMenu.Item>
+      </ActionMenu.Content>
+    </ActionMenu>
+  )
+}
+
 const ImageOrDashboardEditActionPoint = ({
   frameKind,
   isInternalDashboard,
@@ -369,12 +461,13 @@ const CanvasFrameActionPoints = ({
   onOpenSectionOptions,
   sectionMoveOptions = [],
   stickyColorOptions = [],
+  selectedStickyColorId,
   onSetStickyColor,
   onMoveToSection,
   onRemoveFrame,
   onSelectSectionAddAction,
 }: CanvasFrameActionPointsProps) => {
-  const showRemoveButton = frameKind !== 'website' || Boolean(isInternalDashboard)
+  const showRemoveButton = (frameKind !== 'website' || Boolean(isInternalDashboard)) && frameKind !== 'sticky'
   const actionPointsPositionClassName =
     frameKind === 'heading' ||
     frameKind === 'text' ||
@@ -587,7 +680,7 @@ const CanvasFrameActionPoints = ({
           Tilpass
         </Button>
       )}
-      {(frameKind === 'sticky' || frameKind === 'text') && sectionMoveOptions.length > 0 && (
+      {frameKind === 'text' && sectionMoveOptions.length > 0 && (
         <ActionMenu>
           <ActionMenu.Trigger>
             <Button
@@ -613,48 +706,27 @@ const CanvasFrameActionPoints = ({
           </ActionMenu.Content>
         </ActionMenu>
       )}
-      {frameKind === 'sticky' && stickyColorOptions.length > 0 && (
-        <ActionMenu>
-          <ActionMenu.Trigger>
-            <Button
-              size="xsmall"
-              variant="tertiary"
-              icon={<Palette size={14} />}
-              onMouseDown={stopMouseDownPropagation}
-              title="Bytt farge"
-              aria-label="Bytt farge"
-              className={actionButtonClassName}
-            />
-          </ActionMenu.Trigger>
-          <ActionMenu.Content align="end">
-            {stickyColorOptions.map((option) => (
-              <ActionMenu.Item
-                key={option.id}
-                onMouseDown={stopMouseDownPropagation}
-                onClick={() => onSetStickyColor(option.id)}
-              >
-                <span className="inline-flex items-center gap-2">
-                  <span
-                    aria-hidden="true"
-                    className="inline-block h-3.5 w-3.5 rounded-full border border-black/10"
-                    style={{ backgroundColor: option.color }}
-                  />
-                  {option.label}
-                </span>
-              </ActionMenu.Item>
-            ))}
-          </ActionMenu.Content>
-        </ActionMenu>
+      {frameKind === 'sticky' && (
+        <StickyActionMenu
+          actionButtonClassName={actionButtonClassName}
+          sectionMoveOptions={sectionMoveOptions}
+          stickyColorOptions={stickyColorOptions}
+          selectedStickyColorId={selectedStickyColorId}
+          onMoveToSection={onMoveToSection}
+          onSetStickyColor={onSetStickyColor}
+          onDuplicateSticky={onDuplicateSticky}
+          onRemoveFrame={onRemoveFrame}
+        />
       )}
-      {(frameKind === 'sticky' || frameKind === 'text') && (
+      {frameKind === 'text' && (
         <Button
           size="xsmall"
           variant="tertiary"
           icon={<Copy size={14} />}
           onMouseDown={stopMouseDownPropagation}
-          onClick={frameKind === 'sticky' ? onDuplicateSticky : onDuplicateText}
-          title={frameKind === 'sticky' ? 'Dupliser lapp' : 'Dupliser tekst'}
-          aria-label={frameKind === 'sticky' ? 'Dupliser lapp' : 'Dupliser tekst'}
+          onClick={onDuplicateText}
+          title="Dupliser tekst"
+          aria-label="Dupliser tekst"
           className={actionButtonClassName}
         />
       )}

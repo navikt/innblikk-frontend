@@ -586,6 +586,7 @@ const CanvasFrameLayer = ({
               onOpenSectionOptions={() => handleOpenSectionOptionsModal(frame.id)}
               sectionMoveOptions={sectionMoveOptionsForFrame}
               stickyColorOptions={stickyColorOptions}
+              selectedStickyColorId={frame.kind === 'sticky' ? frame.stickyColor : undefined}
               onSetStickyColor={(colorId) => handleSetStickyColor(frame.id, colorId)}
               onMoveToSection={(sectionId) => handleMoveFrameToSection(frame.id, sectionId)}
               onSelectSectionAddAction={(action) => handleSelectSectionAddAction(frame.id, action)}
