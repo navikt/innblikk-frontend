@@ -4429,7 +4429,7 @@ const Canvas = () => {
   return (
     <>
       <section
-        className="relative h-[100dvh] min-h-[100dvh] bg-[var(--ax-bg-neutral-soft)]"
+        className={`relative h-[100dvh] min-h-[100dvh] bg-[var(--ax-bg-neutral-soft)]${dragState || resizeState || selectionBox ? ' select-none' : ''}`}
         style={canvasFrontpageBackgroundStyle}
       >
         <div className="sr-only" aria-live="polite" aria-atomic="true">
