@@ -133,7 +133,7 @@ const useCanvasPresence = ({ enabled, projectId, dashboardId, ws }: UseCanvasPre
     return [...byOwnerKey.values()].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
   }, [effectiveParticipants])
 
-  const activeParticipantCount = uniqueParticipants.length
+  const activeParticipantCount = Math.max(1, uniqueParticipants.length)
   const currentOwnerKey = ownerId?.trim() || clientId
   const activeOtherParticipantCount = useMemo(
     () =>
@@ -144,7 +144,8 @@ const useCanvasPresence = ({ enabled, projectId, dashboardId, ws }: UseCanvasPre
     [currentOwnerKey, uniqueParticipants],
   )
   const shouldEnableBackgroundSync = !effectivePresenceReady || activeOtherParticipantCount > 0
-  const participantLabels = uniqueParticipants.map((participant) => participant.ownerLabel)
+  const participantLabels =
+    uniqueParticipants.length > 0 ? uniqueParticipants.map((participant) => participant.ownerLabel) : [ownerLabel]
 
   return {
     participants: uniqueParticipants,

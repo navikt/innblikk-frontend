@@ -36,6 +36,10 @@ const CanvasTextFrame = ({
   onStartEditing,
 }: CanvasTextFrameProps) => {
   const hasTable = Array.isArray(tableHeaders) && tableHeaders.length > 0 && Array.isArray(tableRows)
+  const textValue = textContent || ''
+  const textPreview = textValue.trim() || 'Skriv tekst'
+  const textEditorLabelId = `canvas-text-editor-label-${id}`
+  const textEditorDescriptionId = `canvas-text-editor-description-${id}`
 
   if (hasTable) {
     const rows = tableRows ?? []
@@ -99,13 +103,21 @@ const CanvasTextFrame = ({
   if (isEditing) {
     return (
       <div className="h-full overflow-auto px-2 pb-2">
+        <span id={textEditorLabelId} className="sr-only">
+          Tekst
+        </span>
+        <span id={textEditorDescriptionId} className="sr-only">
+          Nåværende tekst: {textPreview}
+        </span>
         <textarea
-          value={textContent || ''}
+          value={textValue}
           onChange={(event) => onChange(id, event.target.value)}
           onBlur={() => onBlur(id)}
           onMouseDown={(event) => event.stopPropagation()}
           lang="nb-NO"
           placeholder="Skriv tekst"
+          aria-labelledby={textEditorLabelId}
+          aria-describedby={textEditorDescriptionId}
           className="m-0 block min-h-full w-full resize-none overflow-auto border-none bg-transparent p-0 text-[var(--ax-text-default)] align-top outline-none placeholder:text-[var(--ax-text-subtle)] [font-family:inherit]"
           style={{ fontSize: '18px', lineHeight: 1.45, fontWeight: 500 }}
           autoFocus
@@ -116,7 +128,7 @@ const CanvasTextFrame = ({
 
   const markdownClassName =
     'w-full text-left text-[var(--ax-text-default)] [&_a]:underline [&_a]:underline-offset-2 [&_h1]:mb-2 [&_h1]:mt-0 [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:mt-0 [&_h2]:font-semibold [&_h3]:mb-1 [&_h3]:mt-0 [&_h3]:font-semibold [&_ol]:my-0 [&_ol]:list-decimal [&_ol]:pl-[1.1em] [&_ol>li+li]:mt-2 [&_p]:m-0 [&_p+p]:mt-3 [&_strong]:font-semibold [&_ul]:my-0 [&_ul]:list-disc [&_ul]:pl-[1.1em] [&_ul>li+li]:mt-2'
-  const renderedMarkdown = markdownToHtml((textContent || '').trim() || 'Skriv tekst')
+  const renderedMarkdown = markdownToHtml(textPreview)
 
   return (
     <div className="relative h-full overflow-auto px-2 pb-2">
@@ -140,7 +152,7 @@ const CanvasTextFrame = ({
             event.preventDefault()
             onStartEditing(id)
           }}
-          aria-label="Rediger tekst"
+          aria-description="Trykk Enter for å redigere teksten"
           dangerouslySetInnerHTML={{ __html: renderedMarkdown }}
         />
       )}

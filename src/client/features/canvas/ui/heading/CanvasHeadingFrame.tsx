@@ -30,17 +30,28 @@ const CanvasHeadingFrame = ({
   onStartEditing,
 }: CanvasHeadingFrameProps) => {
   const headingContent = headingText || label || 'Skriv overskrift'
+  const headingValue = headingText || ''
+  const headingEditorLabelId = `canvas-heading-editor-label-${id}`
+  const headingEditorDescriptionId = `canvas-heading-editor-description-${id}`
 
   if (isEditing) {
     return (
       <div className="overflow-visible px-4 py-2">
+        <span id={headingEditorLabelId} className="sr-only">
+          Overskrift
+        </span>
+        <span id={headingEditorDescriptionId} className="sr-only">
+          Nåværende tekst: {headingContent}
+        </span>
         <textarea
-          value={headingText || ''}
+          value={headingValue}
           onChange={(event) => onChange(id, event.target.value)}
           onBlur={() => onBlur(id)}
           onMouseDown={(event) => event.stopPropagation()}
           lang="nb-NO"
           placeholder="Skriv overskrift"
+          aria-labelledby={headingEditorLabelId}
+          aria-describedby={headingEditorDescriptionId}
           className="block w-full resize-none overflow-hidden border-none bg-transparent p-0 text-[var(--ax-text-default)] outline-none placeholder:text-[var(--ax-text-subtle)] [font-family:inherit]"
           style={{
             fontSize: `${fontSizePx}px`,
@@ -76,7 +87,7 @@ const CanvasHeadingFrame = ({
               className="m-0 block w-full cursor-text whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)] [appearance:none]"
               onMouseDown={(event) => event.stopPropagation()}
               onClick={() => onStartEditing(id)}
-              aria-label="Rediger overskrift"
+              aria-description="Trykk Enter for å redigere overskriften"
               style={{
                 fontSize: `${fontSizePx}px`,
                 lineHeight: 1.05,
@@ -107,7 +118,7 @@ const CanvasHeadingFrame = ({
               className="m-0 block w-full cursor-text whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)] [appearance:none]"
               onMouseDown={(event) => event.stopPropagation()}
               onClick={() => onStartEditing(id)}
-              aria-label="Rediger overskrift"
+              aria-description="Trykk Enter for å redigere overskriften"
               style={{
                 fontSize: `${fontSizePx}px`,
                 lineHeight: 1.05,
@@ -138,7 +149,7 @@ const CanvasHeadingFrame = ({
               className="m-0 block w-full cursor-text whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)] [appearance:none]"
               onMouseDown={(event) => event.stopPropagation()}
               onClick={() => onStartEditing(id)}
-              aria-label="Rediger overskrift"
+              aria-description="Trykk Enter for å redigere overskriften"
               style={{
                 fontSize: `${fontSizePx}px`,
                 lineHeight: 1.05,
