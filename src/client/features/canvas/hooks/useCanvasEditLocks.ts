@@ -10,6 +10,7 @@ import {
 import type { CanvasWebSocketHandle } from './useCanvasWebSocket.ts'
 
 const LOCK_SYNC_INTERVAL_MS = 10_000
+const LOCK_RENEW_INTERVAL_MS = 10_000
 
 const createEditorId = (): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -18,12 +19,11 @@ const createEditorId = (): string => {
   return `editor-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 }
 
-const toActiveLocksByFrameGraphId = (
-  records: CanvasEditLockRecord[],
-): Record<number, { ownerId: string; ownerLabel: string; expiresAt: string }> => {
-  const now = Date.now()
-  const next: Record<number, { ownerId: string; ownerLabel: string; expiresAt: string }> = {}
+type ActiveLockMap = Record<number, { ownerId: string; ownerLabel: string; expiresAt: string }>
 
+const toActiveLocksByFrameGraphId = (records: CanvasEditLockRecord[]): ActiveLockMap => {
+  const now = Date.now()
+  const next: ActiveLockMap = {}
   records.forEach((record) => {
     if (!isCanvasEditLockActive(record.payload, now)) return
     next[record.payload.frameGraphId] = {
@@ -32,7 +32,6 @@ const toActiveLocksByFrameGraphId = (
       expiresAt: record.payload.expiresAt,
     }
   })
-
   return next
 }
 
@@ -55,26 +54,26 @@ const useCanvasEditLocks = ({
 }: UseCanvasEditLocksParams) => {
   const editorId = useMemo(() => createEditorId(), [])
   const editorLabel = 'En kollega'
-  const [activeLocksByFrameGraphId, setActiveLocksByFrameGraphId] = useState<
-    Record<number, { ownerId: string; ownerLabel: string; expiresAt: string }>
-  >({})
+  const [activeLocksByFrameGraphId, setActiveLocksByFrameGraphId] = useState<ActiveLockMap>({})
   const isPollingRef = useRef(false)
   const wsRef = useRef(ws)
   useEffect(() => {
     wsRef.current = ws
   })
 
+  const wsConnected = ws?.isConnected ?? false
+
   useEffect(() => {
     if (!ws) return
-    return ws.subscribe('canvas:locks', (payload) => {
-      const nextLocks = payload as Record<number, { ownerId: string; ownerLabel: string; expiresAt: string }>
+    return ws.subscribe('canvas:lock:state', (payload) => {
+      const nextLocks = payload as ActiveLockMap
       if (nextLocks && typeof nextLocks === 'object') {
         setActiveLocksByFrameGraphId(nextLocks)
       }
     })
   }, [ws])
 
-  const syncLocks = useCallback(async () => {
+  const syncLocksHttp = useCallback(async () => {
     if (!enabled || projectId === null || dashboardId === null) return
     if (isPollingRef.current) return
     if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
@@ -99,17 +98,56 @@ const useCanvasEditLocks = ({
 
   useEffect(() => {
     if (!enabled || projectId === null || dashboardId === null) return
-    void syncLocks()
+    if (wsConnected) return
+
+    void syncLocksHttp()
     const intervalId = window.setInterval(() => {
-      void syncLocks()
+      void syncLocksHttp()
     }, LOCK_SYNC_INTERVAL_MS)
     return () => window.clearInterval(intervalId)
-  }, [dashboardId, enabled, projectId, syncLocks])
+  }, [dashboardId, enabled, projectId, syncLocksHttp, wsConnected])
 
   const acquireLock = useCallback(
     async (frame: CanvasFrame): Promise<boolean> => {
       if (!enabled || projectId === null || dashboardId === null) return true
       if (!frame.graphId || !frame.categoryId) return true
+
+      if (wsRef.current?.isConnected) {
+        return new Promise((resolve) => {
+          const ws = wsRef.current!
+          let settled = false
+
+          const unsubAcquired = ws.subscribe('canvas:lock:acquired', (payload) => {
+            const p = payload as { frameGraphId: number } | null
+            if (p?.frameGraphId !== frame.graphId) return
+            if (settled) return
+            settled = true
+            unsubAcquired()
+            unsubDenied()
+            resolve(true)
+          })
+
+          const unsubDenied = ws.subscribe('canvas:lock:denied', (payload) => {
+            const p = payload as { frameGraphId: number } | null
+            if (p?.frameGraphId !== frame.graphId) return
+            if (settled) return
+            settled = true
+            unsubAcquired()
+            unsubDenied()
+            resolve(false)
+          })
+
+          ws.sendRaw({ type: 'lock:acquire', frameGraphId: frame.graphId, ownerId: editorId, ownerLabel: editorLabel })
+
+          window.setTimeout(() => {
+            if (settled) return
+            settled = true
+            unsubAcquired()
+            unsubDenied()
+            resolve(true)
+          }, 3000)
+        })
+      }
 
       const result = await acquireCanvasEditLock({
         projectId,
@@ -119,16 +157,21 @@ const useCanvasEditLocks = ({
         ownerId: editorId,
         ownerLabel: editorLabel,
       })
-      await syncLocks()
+      await syncLocksHttp()
       return result.ok
     },
-    [dashboardId, editorId, enabled, projectId, syncLocks],
+    [dashboardId, editorId, enabled, projectId, syncLocksHttp],
   )
 
   const releaseLock = useCallback(
     async (frame: CanvasFrame): Promise<void> => {
       if (!enabled || projectId === null || dashboardId === null) return
       if (!frame.graphId || !frame.categoryId) return
+
+      if (wsRef.current?.isConnected) {
+        wsRef.current.sendRaw({ type: 'lock:release', frameGraphId: frame.graphId, ownerId: editorId })
+        return
+      }
 
       await releaseCanvasEditLock({
         projectId,
@@ -137,9 +180,9 @@ const useCanvasEditLocks = ({
         frameGraphId: frame.graphId,
         ownerId: editorId,
       })
-      await syncLocks()
+      await syncLocksHttp()
     },
-    [dashboardId, editorId, enabled, projectId, syncLocks],
+    [dashboardId, editorId, enabled, projectId, syncLocksHttp],
   )
 
   useEffect(() => {
@@ -148,9 +191,16 @@ const useCanvasEditLocks = ({
     if (!frame?.graphId || !frame.categoryId) return
 
     let isActive = true
+
     const renew = async () => {
       if (!isActive) return
       if (!frame.categoryId || !frame.graphId) return
+
+      if (wsRef.current?.isConnected) {
+        wsRef.current.sendRaw({ type: 'lock:renew', frameGraphId: frame.graphId, ownerId: editorId })
+        return
+      }
+
       await acquireCanvasEditLock({
         projectId,
         dashboardId,
@@ -159,25 +209,31 @@ const useCanvasEditLocks = ({
         ownerId: editorId,
         ownerLabel: editorLabel,
       })
-      await syncLocks()
+      await syncLocksHttp()
     }
 
     void renew()
     const intervalId = window.setInterval(() => {
       void renew()
-    }, LOCK_SYNC_INTERVAL_MS)
+    }, LOCK_RENEW_INTERVAL_MS)
 
     return () => {
       isActive = false
       window.clearInterval(intervalId)
     }
-  }, [activeEditableFrame, dashboardId, editorId, enabled, projectId, syncLocks])
+  }, [activeEditableFrame, dashboardId, editorId, enabled, projectId, syncLocksHttp])
 
   useEffect(() => {
     return () => {
       if (!enabled || projectId === null || dashboardId === null) return
       const frame = activeEditableFrame
       if (!frame?.graphId || !frame.categoryId) return
+
+      if (wsRef.current?.isConnected) {
+        wsRef.current.sendRaw({ type: 'lock:release', frameGraphId: frame.graphId, ownerId: editorId })
+        return
+      }
+
       void releaseCanvasEditLock({
         projectId,
         dashboardId,

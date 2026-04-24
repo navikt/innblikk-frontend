@@ -10,6 +10,7 @@ const WS_PATH = '/api/canvas/ws'
 const VALKEY_URI = process.env.VALKEY_URI_CANVAS_WS || process.env.REDIS_URI_CANVAS_WS || null
 
 const PUBSUB_CHANNEL_PREFIX = 'canvas:room:'
+const LOCK_TTL_MS = 15000
 
 const roomChannel = (roomKey) => `${PUBSUB_CHANNEL_PREFIX}${roomKey}`
 
@@ -43,6 +44,38 @@ async function authenticateUpgradeRequest(req) {
   return resolveUserFromToken(req, oasis)
 }
 
+// In-memory lock state per room.
+// roomLocks: Map<roomKey, Map<frameGraphId, LockEntry>>
+// LockEntry: { ownerId, ownerLabel, expiresAt (ms timestamp) }
+const roomLocks = new Map()
+
+const getOrCreateRoomLocks = (roomKey) => {
+  if (!roomLocks.has(roomKey)) roomLocks.set(roomKey, new Map())
+  return roomLocks.get(roomKey)
+}
+
+const pruneExpiredLocks = (locksForRoom) => {
+  const now = Date.now()
+  for (const [frameGraphId, entry] of locksForRoom) {
+    if (entry.expiresAt <= now) locksForRoom.delete(frameGraphId)
+  }
+}
+
+const serializeLocksForRoom = (roomKey) => {
+  const locksForRoom = roomLocks.get(roomKey)
+  if (!locksForRoom) return {}
+  pruneExpiredLocks(locksForRoom)
+  const result = {}
+  for (const [frameGraphId, entry] of locksForRoom) {
+    result[frameGraphId] = {
+      ownerId: entry.ownerId,
+      ownerLabel: entry.ownerLabel,
+      expiresAt: new Date(entry.expiresAt).toISOString(),
+    }
+  }
+  return result
+}
+
 export function createCanvasWebSocketServer(server) {
   const rooms = new Map()
 
@@ -66,6 +99,26 @@ export function createCanvasWebSocketServer(server) {
 
   const wss = new WebSocketServer({ noServer: true })
 
+  // Broadcast a serialised message to all local clients in a room (excluding optional sender).
+  const broadcastToRoom = (roomKey, data, excludeWs = null) => {
+    const room = rooms.get(roomKey)
+    if (!room) return
+    const raw = JSON.stringify(data)
+    for (const client of room) {
+      if (client !== excludeWs && client.readyState === client.OPEN) {
+        client.send(raw)
+      }
+    }
+  }
+
+  // Publish a message to Valkey so other pods deliver to their local clients.
+  const publishToValkey = (roomKey, data) => {
+    if (!pub) return
+    pub.publish(roomChannel(roomKey), JSON.stringify(data)).catch((err) => {
+      console.warn(`[Canvas WS] Valkey publish failed for room ${roomKey}:`, err.message)
+    })
+  }
+
   // When Valkey delivers a message published by another pod, forward it to
   // all local WS clients in the relevant room.
   if (sub) {
@@ -74,7 +127,36 @@ export function createCanvasWebSocketServer(server) {
       const roomKey = channel.slice(PUBSUB_CHANNEL_PREFIX.length)
       const room = rooms.get(roomKey)
       if (!room || room.size === 0) return
-      // rawMessage is already serialised JSON — forward as-is
+
+      // For lock messages arriving from another pod we need to apply them to
+      // our in-memory lock state so this pod stays consistent.
+      let parsed = null
+      try {
+        parsed = JSON.parse(rawMessage)
+      } catch {
+        /* ignore malformed */
+      }
+      if (parsed?.event === 'canvas:lock:state') {
+        // Another pod is broadcasting full lock state — merge into our room locks.
+        // We trust the canonical state broadcast over per-entry mutations because
+        // it contains already-pruned, authoritative data from that pod's room.
+        const incoming = parsed?.payload
+        if (incoming && typeof incoming === 'object') {
+          const locksForRoom = getOrCreateRoomLocks(roomKey)
+          locksForRoom.clear()
+          for (const [frameGraphId, entry] of Object.entries(incoming)) {
+            const expiresAt = Date.parse(entry.expiresAt)
+            if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) continue
+            locksForRoom.set(Number(frameGraphId), {
+              ownerId: entry.ownerId,
+              ownerLabel: entry.ownerLabel,
+              expiresAt,
+            })
+          }
+        }
+      }
+
+      // rawMessage is already serialised JSON — forward as-is to local clients.
       for (const client of room) {
         if (client.readyState === client.OPEN) {
           client.send(rawMessage)
@@ -122,6 +204,7 @@ export function createCanvasWebSocketServer(server) {
         )
         if (remaining === 0) {
           rooms.delete(currentRoomKey)
+          roomLocks.delete(currentRoomKey)
           // Unsubscribe from the Valkey channel when this pod has no more clients
           // in the room — pod stops receiving messages it has nobody to deliver to.
           if (sub) {
@@ -181,6 +264,106 @@ export function createCanvasWebSocketServer(server) {
           })
         }
 
+        // Send current lock state to the newly joined client so they immediately
+        // know which frames are locked without waiting for the next broadcast.
+        const currentLocks = serializeLocksForRoom(nextRoomKey)
+        send({ type: 'event', event: 'canvas:lock:state', payload: currentLocks })
+
+        return
+      }
+
+      // ── Lock acquire ────────────────────────────────────────────────────────
+      if (msg.type === 'lock:acquire') {
+        const { frameGraphId, ownerId, ownerLabel } = msg
+        if (!Number.isFinite(Number(frameGraphId)) || !ownerId) {
+          send({ type: 'error', message: 'lock:acquire requires frameGraphId and ownerId' })
+          return
+        }
+        if (!currentRoomKey) {
+          send({ type: 'error', message: 'Must join a room before acquiring a lock' })
+          return
+        }
+
+        const roomKey = currentRoomKey
+        const locksForRoom = getOrCreateRoomLocks(roomKey)
+        pruneExpiredLocks(locksForRoom)
+
+        const fid = Number(frameGraphId)
+        const existing = locksForRoom.get(fid)
+        const now = Date.now()
+
+        if (existing && existing.ownerId !== ownerId && existing.expiresAt > now) {
+          // Lock held by someone else and not expired.
+          send({
+            type: 'event',
+            event: 'canvas:lock:denied',
+            payload: {
+              frameGraphId: fid,
+              ownerId: existing.ownerId,
+              ownerLabel: existing.ownerLabel,
+              expiresAt: new Date(existing.expiresAt).toISOString(),
+            },
+          })
+          return
+        }
+
+        const expiresAt = now + LOCK_TTL_MS
+        locksForRoom.set(fid, { ownerId, ownerLabel: ownerLabel || 'En kollega', expiresAt })
+
+        const lockState = serializeLocksForRoom(roomKey)
+        const stateEvent = { type: 'event', event: 'canvas:lock:state', payload: lockState }
+
+        // Confirm to requester and broadcast to all others in room.
+        send({ type: 'event', event: 'canvas:lock:acquired', payload: { frameGraphId: fid } })
+        broadcastToRoom(roomKey, stateEvent, ws)
+        publishToValkey(roomKey, stateEvent)
+        return
+      }
+
+      // ── Lock release ────────────────────────────────────────────────────────
+      if (msg.type === 'lock:release') {
+        const { frameGraphId, ownerId } = msg
+        if (!Number.isFinite(Number(frameGraphId)) || !ownerId) {
+          send({ type: 'error', message: 'lock:release requires frameGraphId and ownerId' })
+          return
+        }
+        if (!currentRoomKey) return
+
+        const roomKey = currentRoomKey
+        const locksForRoom = roomLocks.get(roomKey)
+        if (locksForRoom) {
+          const fid = Number(frameGraphId)
+          const existing = locksForRoom.get(fid)
+          // Only the owner may release their own lock.
+          if (existing && existing.ownerId === ownerId) {
+            locksForRoom.delete(fid)
+          }
+        }
+
+        const lockState = serializeLocksForRoom(roomKey)
+        const stateEvent = { type: 'event', event: 'canvas:lock:state', payload: lockState }
+        broadcastToRoom(roomKey, stateEvent, ws)
+        publishToValkey(roomKey, stateEvent)
+        // Also confirm to sender so they can update their own state immediately.
+        send(stateEvent)
+        return
+      }
+
+      // ── Lock renew (heartbeat — extend TTL without re-acquiring) ────────────
+      if (msg.type === 'lock:renew') {
+        const { frameGraphId, ownerId } = msg
+        if (!Number.isFinite(Number(frameGraphId)) || !ownerId) return
+        if (!currentRoomKey) return
+
+        const locksForRoom = roomLocks.get(currentRoomKey)
+        if (locksForRoom) {
+          const fid = Number(frameGraphId)
+          const existing = locksForRoom.get(fid)
+          if (existing && existing.ownerId === ownerId) {
+            existing.expiresAt = Date.now() + LOCK_TTL_MS
+          }
+        }
+        // No broadcast needed for renew — TTL extension is invisible to peers.
         return
       }
 
@@ -192,25 +375,14 @@ export function createCanvasWebSocketServer(server) {
         }
 
         const roomKey = `${projectId}:${dashboardId}`
-        const outgoing = JSON.stringify({ type: 'event', event, payload })
+        const outgoing = { type: 'event', event, payload }
 
         // 1. Deliver to local clients on this pod immediately (no Valkey round-trip needed)
-        const room = rooms.get(roomKey)
-        if (room) {
-          for (const client of room) {
-            if (client !== ws && client.readyState === client.OPEN) {
-              client.send(outgoing)
-            }
-          }
-        }
+        broadcastToRoom(roomKey, outgoing, ws)
 
         // 2. Publish to Valkey so other pods deliver to their local clients in this room.
         //    No-op when Valkey is unavailable (local dev / single-pod deployments).
-        if (pub) {
-          pub.publish(roomChannel(roomKey), outgoing).catch((err) => {
-            console.warn(`[Canvas WS] Valkey publish failed for room ${roomKey}:`, err.message)
-          })
-        }
+        publishToValkey(roomKey, outgoing)
 
         return
       }

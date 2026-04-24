@@ -9,6 +9,7 @@ type EventHandler = (payload: unknown) => void
 export type CanvasWebSocketHandle = {
   subscribe: (event: string, handler: EventHandler) => () => void
   broadcast: (event: string, payload: unknown) => void
+  sendRaw: (msg: Record<string, unknown>) => void
   isConnected: boolean
 }
 
@@ -234,7 +235,17 @@ const useCanvasWebSocket = ({ enabled, projectId, dashboardId }: UseCanvasWebSoc
     }
   }, [])
 
-  return useMemo(() => ({ subscribe, broadcast, isConnected }), [subscribe, broadcast, isConnected])
+  const sendRaw = useCallback((msg: Record<string, unknown>): void => {
+    const ws = wsRef.current
+    if (!ws || ws.readyState !== WebSocket.OPEN) return
+    try {
+      ws.send(JSON.stringify(msg))
+    } catch {
+      /* ignored */
+    }
+  }, [])
+
+  return useMemo(() => ({ subscribe, broadcast, sendRaw, isConnected }), [subscribe, broadcast, sendRaw, isConnected])
 }
 
 export default useCanvasWebSocket
