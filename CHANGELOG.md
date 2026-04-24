@@ -113,6 +113,7 @@ All notable changes to this project will be documented in this file.
 - **canvas:** Add BFF WebSocket server with room-based auth
 - **canvas:** Add useCanvasWebSocket hook with exponential backoff reconnect
 - **canvas:** Replace polling with WebSocket real-time sync
+- Add Valkey pub/sub for cross-pod canvas WebSocket sync
 
 ### 🧪 Testing
 
