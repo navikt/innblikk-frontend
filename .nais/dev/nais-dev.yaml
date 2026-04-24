@@ -47,6 +47,9 @@ spec:
             namespace: team-researchops
           - application: start-umami-backend
             namespace: team-researchops
+  valkey:
+    - instance: canvas-ws
+      access: readwrite
   azure:
     application:
       enabled: true

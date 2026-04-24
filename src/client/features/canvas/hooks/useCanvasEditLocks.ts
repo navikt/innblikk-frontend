@@ -9,7 +9,7 @@ import {
 } from '../api/canvasEditLockApi.ts'
 import type { CanvasWebSocketHandle } from './useCanvasWebSocket.ts'
 
-const LOCK_SYNC_INTERVAL_MS = 3000
+const LOCK_SYNC_INTERVAL_MS = 10_000
 
 const createEditorId = (): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
