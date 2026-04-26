@@ -8,6 +8,7 @@ import {
 import type { CanvasWebSocketHandle } from './useCanvasWebSocket.ts'
 
 const PRESENCE_TICK_MS = 10000
+const PRESENCE_STALE_MS = PRESENCE_TICK_MS * 3
 
 const createCanvasClientId = (): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -52,6 +53,26 @@ const useCanvasPresence = ({ enabled, projectId, dashboardId, ws }: UseCanvasPre
 
   const wsConnected = ws?.isConnected ?? false
 
+  const upsertParticipant = (
+    current: CanvasParticipant[],
+    incoming: Pick<CanvasParticipant, 'clientId' | 'ownerId' | 'ownerLabel'>,
+  ): CanvasParticipant[] => {
+    const now = Date.now()
+    const nextParticipant: CanvasParticipant = {
+      clientId: incoming.clientId,
+      ownerId: incoming.ownerId,
+      ownerLabel: incoming.ownerLabel,
+      updatedAt: new Date(now).toISOString(),
+      expiresAt: new Date(now + PRESENCE_STALE_MS).toISOString(),
+    }
+    const pruned = current.filter((participant) => Date.parse(participant.expiresAt) > now)
+    const existingIndex = pruned.findIndex((participant) => participant.clientId === incoming.clientId)
+    if (existingIndex === -1) return [...pruned, nextParticipant]
+    const next = [...pruned]
+    next[existingIndex] = nextParticipant
+    return next
+  }
+
   useEffect(() => {
     if (!enabled || projectId === null || dashboardId === null) return
 
@@ -75,6 +96,8 @@ const useCanvasPresence = ({ enabled, projectId, dashboardId, ws }: UseCanvasPre
               ownerLabel,
             },
           })
+          setParticipants((current) => current.filter((participant) => Date.parse(participant.expiresAt) > Date.now()))
+          setIsPresenceReady(true)
         } else {
           await sendCanvasPresenceHeartbeat({
             projectId,
@@ -118,6 +141,31 @@ const useCanvasPresence = ({ enabled, projectId, dashboardId, ws }: UseCanvasPre
     return unsubscribe
   }, [ws])
 
+  useEffect(() => {
+    if (!ws) return
+    const unsubscribe = ws.subscribe('canvas:presence:heartbeat', (payload) => {
+      if (!payload || typeof payload !== 'object') return
+      const heartbeat = payload as Partial<CanvasParticipant>
+      const clientId = typeof heartbeat.clientId === 'string' ? heartbeat.clientId.trim() : ''
+      if (!clientId) return
+      const nextOwnerId =
+        typeof heartbeat.ownerId === 'string' && heartbeat.ownerId.trim() ? heartbeat.ownerId.trim() : clientId
+      const nextOwnerLabel =
+        typeof heartbeat.ownerLabel === 'string' && heartbeat.ownerLabel.trim()
+          ? heartbeat.ownerLabel.trim()
+          : 'En kollega'
+      setParticipants((current) =>
+        upsertParticipant(current, {
+          clientId,
+          ownerId: nextOwnerId,
+          ownerLabel: nextOwnerLabel,
+        }),
+      )
+      setIsPresenceReady(true)
+    })
+    return unsubscribe
+  }, [ws])
+
   const effectiveParticipants = useMemo(() => (enabled ? participants : []), [enabled, participants])
   const effectivePresenceReady = enabled ? isPresenceReady : false
 
@@ -133,8 +181,12 @@ const useCanvasPresence = ({ enabled, projectId, dashboardId, ws }: UseCanvasPre
     return [...byOwnerKey.values()].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
   }, [effectiveParticipants])
 
-  const activeParticipantCount = Math.max(1, uniqueParticipants.length)
   const currentOwnerKey = ownerId?.trim() || clientId
+  const hasCurrentUserInParticipants = uniqueParticipants.some((participant) => {
+    const ownerKey = participant.ownerId?.trim() || participant.clientId
+    return ownerKey === currentOwnerKey
+  })
+  const activeParticipantCount = Math.max(1, uniqueParticipants.length + (hasCurrentUserInParticipants ? 0 : 1))
   const activeOtherParticipantCount = useMemo(
     () =>
       uniqueParticipants.filter((participant) => {
@@ -144,8 +196,11 @@ const useCanvasPresence = ({ enabled, projectId, dashboardId, ws }: UseCanvasPre
     [currentOwnerKey, uniqueParticipants],
   )
   const shouldEnableBackgroundSync = !effectivePresenceReady || activeOtherParticipantCount > 0
-  const participantLabels =
-    uniqueParticipants.length > 0 ? uniqueParticipants.map((participant) => participant.ownerLabel) : [ownerLabel]
+  const participantLabels = useMemo(() => {
+    const labels = uniqueParticipants.map((participant) => participant.ownerLabel)
+    if (hasCurrentUserInParticipants) return labels
+    return [ownerLabel, ...labels]
+  }, [hasCurrentUserInParticipants, ownerLabel, uniqueParticipants])
 
   return {
     participants: uniqueParticipants,
