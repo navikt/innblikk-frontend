@@ -8,6 +8,10 @@ All notable changes to this project will be documented in this file.
 
 - Microanimations, and remove layout shift
 
+### Fix
+
+- Sticky note marker tekst dark mode
+
 ### Canvas
 
 - Toggle text selection on content manipulation events
