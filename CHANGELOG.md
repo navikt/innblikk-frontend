@@ -16,6 +16,10 @@ All notable changes to this project will be documented in this file.
 
 - Toggle text selection on content manipulation events
 
+### Fiks
+
+- Teller når flere er i canvaset
+
 ### 🏗️ Build
 
 - Dependabot
