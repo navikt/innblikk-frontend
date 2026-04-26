@@ -3655,8 +3655,11 @@ const Canvas = () => {
       return
 
     let nextFrame = frame
+    let hasMeaningfulChange = false
     if (frame.kind === 'heading') {
       const normalizedHeading = (frame.headingText || '').trim()
+      hasMeaningfulChange =
+        normalizedHeading !== (frame.headingText || '') || (normalizedHeading || 'Overskrift') !== frame.label
       nextFrame = {
         ...frame,
         headingText: normalizedHeading,
@@ -3664,32 +3667,42 @@ const Canvas = () => {
       }
     } else if (frame.kind === 'section') {
       const normalizedLabel = frame.label.trim()
+      const fallbackLabel = normalizedLabel || getNextAutoSectionLabel(frames, frame.id)
+      hasMeaningfulChange = fallbackLabel !== frame.label
       nextFrame = {
         ...frame,
-        label: normalizedLabel || getNextAutoSectionLabel(frames, frame.id),
+        label: fallbackLabel,
       }
     } else if (frame.kind === 'text' || frame.kind === 'sticky') {
+      const normalizedTextContent = (frame.textContent || '').trim()
+      hasMeaningfulChange = normalizedTextContent !== (frame.textContent || '')
       nextFrame = {
         ...frame,
-        textContent: (frame.textContent || '').trim(),
+        textContent: normalizedTextContent,
       }
     } else {
+      const normalizedSqlQuery = ((nextValue ?? frame.sqlQuery) || '').trim()
+      hasMeaningfulChange = normalizedSqlQuery !== (frame.sqlQuery || '')
       nextFrame = {
         ...frame,
-        sqlQuery: ((nextValue ?? frame.sqlQuery) || '').trim(),
+        sqlQuery: normalizedSqlQuery,
       }
     }
 
-    setFrames((prev) => prev.map((item) => (item.id === id ? nextFrame : item)))
+    if (hasMeaningfulChange) {
+      setFrames((prev) => prev.map((item) => (item.id === id ? nextFrame : item)))
+      void persistFrame(nextFrame).catch((error) => {
+        setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre endringer i canvas')
+      })
+    }
+
     setActiveEditableFrameId((current) => (current === id ? null : current))
-    void persistFrame(nextFrame).catch((error) => {
-      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre endringer i canvas')
-    })
     void releaseEditLock(frame).catch(() => undefined)
   }
 
   const handleStartEditingFrame = (id: string) => {
     if (isInteractionLocked) return
+    if (activeEditableFrameId === id) return
     const frame = frames.find((item) => item.id === id)
     if (
       !frame ||

@@ -15,6 +15,8 @@ import {
   PLANNER_COLUMN_LABEL_PREFIX,
 } from '../utils/canvasUtils.ts'
 
+const DRAG_PERSIST_THRESHOLD_PX = 3
+
 type CanvasDragState = {
   ids: string[]
   pointerStartX: number
@@ -328,6 +330,35 @@ const useCanvasInteractions = ({
 
     const onPointerUp = () => {
       const movedFrames = framesRef.current.filter((frame) => dragState.ids.includes(frame.id))
+      const movedFrameIds = movedFrames
+        .filter((frame) => {
+          const start = dragState.frameStartPositions[frame.id]
+          if (!start) return false
+          return (
+            Math.abs(frame.x - start.x) >= DRAG_PERSIST_THRESHOLD_PX ||
+            Math.abs(frame.y - start.y) >= DRAG_PERSIST_THRESHOLD_PX
+          )
+        })
+        .map((frame) => frame.id)
+      const movedFrameIdSet = new Set(movedFrameIds)
+
+      if (movedFrameIds.length === 0) {
+        setFrames((prev) =>
+          prev.map((frame) => {
+            const start = dragState.frameStartPositions[frame.id]
+            if (!start) return frame
+            if (frame.x === start.x && frame.y === start.y) return frame
+            return {
+              ...frame,
+              x: start.x,
+              y: start.y,
+            }
+          }),
+        )
+        setDragState(null)
+        return
+      }
+
       const framesToPersistById = new Map(movedFrames.map((frame) => [frame.id, frame]))
       const originalMovedFramesById = new Map(
         movedFrames.map((frame) => [
@@ -413,6 +444,7 @@ const useCanvasInteractions = ({
       }
 
       movedFrames.forEach((movedFrame) => {
+        if (!movedFrameIdSet.has(movedFrame.id)) return
         const snapped = applyStickyColumnSnap(movedFrame)
         const normalizedForManualReorder: CanvasFrame =
           snapped.kind === 'sticky' && Number.isFinite(snapped.finalVoteRank)
@@ -428,6 +460,7 @@ const useCanvasInteractions = ({
 
       const affectedGridSectionIds = new Set<string>()
       movedFrames.forEach((movedFrame) => {
+        if (!movedFrameIdSet.has(movedFrame.id)) return
         const originalFrame = originalMovedFramesById.get(movedFrame.id) ?? movedFrame
         const previousSectionId = findContainingGridSectionId(originalFrame, framesRef.current)
         if (previousSectionId) affectedGridSectionIds.add(previousSectionId)
