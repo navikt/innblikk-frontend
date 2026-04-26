@@ -62,6 +62,7 @@ const getGcpProjectId = (): string => {
 
 interface QueryPreviewProps {
   sql: string
+  autoExecuteOnSqlChange?: boolean
   activeStep?: number
   openFormprogress?: boolean
   onOpenChange?: (open: boolean) => void
@@ -197,6 +198,7 @@ const timeoutPromise = (ms: number) => {
 
 const QueryPreview = ({
   sql,
+  autoExecuteOnSqlChange = false,
   activeStep = 1,
   openFormprogress = true,
   onOpenChange,
@@ -288,6 +290,8 @@ const QueryPreview = ({
   }, [])
 
   const [alwaysShowSql, setAlwaysShowSql] = useState(() => getFeatureFlag('grafbygger_always_show_sql'))
+  const executeQueryRef = useRef<() => Promise<void>>(async () => {})
+  const lastAutoExecutedSqlRef = useRef<string>('')
 
   useEffect(() => {
     const handleFlagsChange = (e: Event) => {
@@ -826,6 +830,8 @@ const QueryPreview = ({
       setLoading(false)
     }
   }
+
+  executeQueryRef.current = executeQuery
 
   const runQuery = async () => {
     setLoading(true)
@@ -1366,6 +1372,22 @@ const QueryPreview = ({
     setError(null)
     setEstimate(null)
     setCopied(false)
+  }, [sql])
+
+  useEffect(() => {
+    if (!autoExecuteOnSqlChange) return
+    if (!sql?.trim()) return
+    if (sql.includes('Please select a website')) return
+    if (/SELECT\s+(\s*FROM|\s*$)/i.test(sql)) return
+    if (lastAutoExecutedSqlRef.current === sql) return
+
+    lastAutoExecutedSqlRef.current = sql
+    void executeQueryRef.current()
+  }, [autoExecuteOnSqlChange, sql])
+
+  useEffect(() => {
+    if (sql?.trim()) return
+    lastAutoExecutedSqlRef.current = ''
   }, [sql])
 
   return (

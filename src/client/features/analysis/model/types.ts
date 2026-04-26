@@ -242,6 +242,7 @@ export type CookieMixNoticeProps = {
 export interface PeriodPickerProps {
   period: string
   onPeriodChange: (period: string) => void
+  hideLabel?: boolean
   startDate: Date | undefined
   onStartDateChange: (date: Date | undefined) => void
   endDate: Date | undefined

@@ -8,6 +8,7 @@ import { usePeriodPicker } from '../hooks/usePeriodPicker.ts'
 export const PeriodPicker = ({
   period,
   onPeriodChange,
+  hideLabel = false,
   startDate,
   onStartDateChange,
   endDate,
@@ -25,6 +26,7 @@ export const PeriodPicker = ({
       <div className={className ?? 'w-full sm:w-auto min-w-[200px]'}>
         <Select
           label="Periode"
+          hideLabel={hideLabel}
           size="small"
           value={period === 'custom' && startDate && endDate ? 'custom' : period}
           onChange={handlePeriodChange}

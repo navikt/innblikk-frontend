@@ -23,6 +23,7 @@ const Sporingskoder = lazy(() => import('./features/content').then((m) => ({ def
 // Chartbuilder Feature
 const Grafbygger = lazy(() => import('./features/chartbuilder').then((m) => ({ default: m.Grafbygger })))
 const Grafdeling = lazy(() => import('./features/chartbuilder').then((m) => ({ default: m.Grafdeling })))
+const ChartBuilderBeta = lazy(() => import('./features/chartbuilderdnd').then((m) => ({ default: m.ChartBuilderBeta })))
 
 // Backend Test Feature
 const Oversikt = lazy(() => import('./features/oversikt/index.ts').then((m) => ({ default: m.Oversikt })))
@@ -158,6 +159,15 @@ export const routes: AppRoute[] = [
 
   { path: '/taksonomi', component: <Taksonomi />, fullWidth: true },
   { path: '/grafbygger', component: <Grafbygger />, fullWidth: true },
+  {
+    path: '/grafbygger-beta',
+    component: (
+      <BetaGuard>
+        <ChartBuilderBeta />
+      </BetaGuard>
+    ),
+    fullWidth: true,
+  },
   { path: '/metabase', component: <MetabaseGuide />, fullWidth: true },
 
   { path: '/sql', component: <SqlEditor />, fullWidth: true },
