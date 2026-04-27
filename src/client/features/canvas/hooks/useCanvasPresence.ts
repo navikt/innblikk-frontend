@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { fetchCurrentUserProfile } from '../../user/api/profile.api.ts'
 import {
   fetchCanvasPresenceParticipants,
@@ -9,6 +9,7 @@ import type { CanvasWebSocketHandle } from './useCanvasWebSocket.ts'
 
 const PRESENCE_TICK_MS = 10000
 const PRESENCE_STALE_MS = PRESENCE_TICK_MS * 3
+const LOCALHOST_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1'])
 
 const createCanvasClientId = (): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -52,6 +53,8 @@ const useCanvasPresence = ({ enabled, projectId, dashboardId, ws }: UseCanvasPre
   }, [])
 
   const wsConnected = ws?.isConnected ?? false
+  const isLocalDebugMode =
+    typeof window !== 'undefined' && LOCALHOST_HOSTNAMES.has(window.location.hostname.toLowerCase())
 
   const upsertParticipant = (
     current: CanvasParticipant[],
@@ -169,31 +172,39 @@ const useCanvasPresence = ({ enabled, projectId, dashboardId, ws }: UseCanvasPre
   const effectiveParticipants = useMemo(() => (enabled ? participants : []), [enabled, participants])
   const effectivePresenceReady = enabled ? isPresenceReady : false
 
+  const getParticipantIdentityKey = useCallback(
+    (participant: CanvasParticipant): string => {
+      if (isLocalDebugMode) return participant.clientId
+      return participant.ownerId?.trim() || participant.clientId
+    },
+    [isLocalDebugMode],
+  )
+
   const uniqueParticipants = useMemo(() => {
-    const byOwnerKey = new Map<string, CanvasParticipant>()
+    const byIdentityKey = new Map<string, CanvasParticipant>()
     for (const participant of effectiveParticipants) {
-      const ownerKey = participant.ownerId?.trim() || participant.clientId
-      const existing = byOwnerKey.get(ownerKey)
+      const identityKey = getParticipantIdentityKey(participant)
+      const existing = byIdentityKey.get(identityKey)
       if (!existing || Date.parse(existing.updatedAt) < Date.parse(participant.updatedAt)) {
-        byOwnerKey.set(ownerKey, participant)
+        byIdentityKey.set(identityKey, participant)
       }
     }
-    return [...byOwnerKey.values()].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
-  }, [effectiveParticipants])
+    return [...byIdentityKey.values()].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+  }, [effectiveParticipants, getParticipantIdentityKey])
 
-  const currentOwnerKey = ownerId?.trim() || clientId
+  const currentIdentityKey = isLocalDebugMode ? clientId : ownerId?.trim() || clientId
   const hasCurrentUserInParticipants = uniqueParticipants.some((participant) => {
-    const ownerKey = participant.ownerId?.trim() || participant.clientId
-    return ownerKey === currentOwnerKey
+    const identityKey = getParticipantIdentityKey(participant)
+    return identityKey === currentIdentityKey
   })
   const activeParticipantCount = Math.max(1, uniqueParticipants.length + (hasCurrentUserInParticipants ? 0 : 1))
   const activeOtherParticipantCount = useMemo(
     () =>
       uniqueParticipants.filter((participant) => {
-        const ownerKey = participant.ownerId?.trim() || participant.clientId
-        return ownerKey !== currentOwnerKey
+        const identityKey = getParticipantIdentityKey(participant)
+        return identityKey !== currentIdentityKey
       }).length,
-    [currentOwnerKey, uniqueParticipants],
+    [currentIdentityKey, getParticipantIdentityKey, uniqueParticipants],
   )
   const shouldEnableBackgroundSync = !effectivePresenceReady || activeOtherParticipantCount > 0
   const participantLabels = useMemo(() => {
