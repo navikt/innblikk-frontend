@@ -74,6 +74,7 @@ export interface ChartConfig {
   website: Website | null
   filters: Filter[]
   segments?: SegmentDefinition[]
+  segmentRatioMode?: boolean
   metrics: Metric[]
   groupByFields: string[]
   orderBy: { column: string; direction: 'ASC' | 'DESC' } | null

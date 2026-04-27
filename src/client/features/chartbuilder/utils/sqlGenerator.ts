@@ -195,9 +195,25 @@ export const getMetricSQLByType = (
         if (metric?.showInMinutes) {
           return `ROUND(AVG(NULLIF(base_query.visit_duration, 0)) / 60, 2) as ${quotedAlias}`
         }
-        return `AVG(NULLIF(base_query.visit_duration, 0)) as ${quotedAlias}`
+        return `ROUND(AVG(NULLIF(base_query.visit_duration, 0)), 0) as ${quotedAlias}`
       }
       return column ? `AVG(${column}) as ${quotedAlias}` : `COUNT(*) as ${quotedAlias}`
+    case 'median':
+      if (column === 'visit_duration') {
+        if (metric?.showInMinutes) {
+          return `ROUND(APPROX_QUANTILES(NULLIF(base_query.visit_duration, 0), 100 IGNORE NULLS)[OFFSET(50)] / 60, 2) as ${quotedAlias}`
+        }
+        return `APPROX_QUANTILES(NULLIF(base_query.visit_duration, 0), 100 IGNORE NULLS)[OFFSET(50)] as ${quotedAlias}`
+      }
+      return column ? `PERCENTILE_CONT(${column}, 0.5) OVER() as ${quotedAlias}` : `COUNT(*) as ${quotedAlias}`
+    case 'mode':
+      if (column === 'visit_duration') {
+        if (metric?.showInMinutes) {
+          return `ROUND((SELECT visit_duration FROM duration_mode) / 60, 2) as ${quotedAlias}`
+        }
+        return `(SELECT visit_duration FROM duration_mode) as ${quotedAlias}`
+      }
+      return `COUNT(*) as ${quotedAlias}`
     case 'min':
       return column ? `MIN(${column}) as ${quotedAlias}` : `COUNT(*) as ${quotedAlias}`
     case 'max':
@@ -306,7 +322,9 @@ export const generateSQLCore = (config: ChartConfig, filters: Filter[], paramete
   )
   const segmentDefinitions = config.segments || []
   const segmentFilters = segmentDefinitions.flatMap((segment) => segment.filters || [])
+  const isRatioMode = Boolean(config.segmentRatioMode) && segmentDefinitions.length >= 2
   const hasSegmentBreakdown =
+    !isRatioMode &&
     segmentDefinitions.length > 0 &&
     (segmentDefinitions.length > 1 ||
       segmentDefinitions.some(
@@ -612,7 +630,20 @@ export const generateSQLCore = (config: ChartConfig, filters: Filter[], paramete
     }
   })
 
-  sql += ')\n'
+  const needsDurationMode = config.metrics.some((m) => m.function === 'mode' && m.column === 'visit_duration')
+
+  if (needsDurationMode) {
+    sql += '),\nduration_mode AS (\n'
+    sql += '  SELECT visit_duration\n'
+    sql += '  FROM base_query\n'
+    sql += '  WHERE visit_duration IS NOT NULL AND visit_duration != 0\n'
+    sql += '  GROUP BY visit_duration\n'
+    sql += '  ORDER BY COUNT(*) DESC, visit_duration ASC\n'
+    sql += '  LIMIT 1\n'
+    sql += ')\n'
+  } else {
+    sql += ')\n'
+  }
 
   if (hasSegmentBreakdown) {
     const segmentQueries = segmentDefinitions.map((segment) => {
@@ -653,6 +684,51 @@ export const generateSQLCore = (config: ChartConfig, filters: Filter[], paramete
     sql += ',\nsegmented_base AS (\n'
     sql += segmentQueries.join('\n  UNION ALL\n')
     sql += '\n)\n\n'
+  } else if (isRatioMode) {
+    const buildSegmentCte = (segment: (typeof segmentDefinitions)[0], cteName: string) => {
+      const sFilters = segment.filters || []
+      const conditions = sFilters
+        .map((filter) => buildSegmentFilterCondition(filter, 'b'))
+        .filter((c): c is string => Boolean(c))
+
+      if (segment.performed && segment.performed.events.length > 0) {
+        const { operator, events } = segment.performed
+        if (operator === 'IN') {
+          const eventList = events.map((e) => `'${escapeSqlLiteral(e)}'`).join(', ')
+          conditions.push(`b.event_name IN (${eventList})`)
+        } else {
+          const ev = events[0]
+          if (ev) {
+            if (operator === 'LIKE') conditions.push(`b.event_name LIKE '%${escapeSqlLiteral(ev)}%'`)
+            else if (operator === '!=') conditions.push(`b.event_name != '${escapeSqlLiteral(ev)}'`)
+            else if (operator === 'STARTS_WITH') conditions.push(`b.event_name LIKE '${escapeSqlLiteral(ev)}%'`)
+            else if (operator === 'ENDS_WITH') conditions.push(`b.event_name LIKE '%${escapeSqlLiteral(ev)}'`)
+            else conditions.push(`b.event_name = '${escapeSqlLiteral(ev)}'`)
+          }
+        }
+      }
+
+      const whereClause = conditions.length > 0 ? conditions.join('\n    AND ') : '1=1'
+      return `,\n${cteName} AS (\n  SELECT b.*\n  FROM base_query b\n  WHERE ${whereClause}\n)\n`
+    }
+
+    const seg1 = segmentDefinitions[0]
+    const seg2 = segmentDefinitions[1]
+    sql += buildSegmentCte(seg1, 'seg1')
+    sql += buildSegmentCte(seg2, 'seg2')
+
+    const metricAlias = config.metrics[0]?.alias || 'ratio'
+    const seg1Name = escapeSqlLiteral(seg1.name)
+    const seg2Name = escapeSqlLiteral(seg2.name)
+    sql += `\nSELECT\n`
+    sql += `  ROUND(\n`
+    sql += `    SAFE_DIVIDE(\n`
+    sql += `      (SELECT COUNT(*) FROM seg1),\n`
+    sql += `      (SELECT COUNT(*) FROM seg2)\n`
+    sql += `    ), 4) AS \`${metricAlias}\`,\n`
+    sql += `  '${seg1Name}' AS segment_1,\n`
+    sql += `  '${seg2Name}' AS segment_2\n`
+    return sql
   } else {
     sql += '\n'
   }
@@ -834,7 +910,7 @@ export const generateSQLCore = (config: ChartConfig, filters: Filter[], paramete
     sql += 'GROUP BY\n  base_query.segment_navn\n'
   }
 
-  if (config.orderBy && config.orderBy.column && config.orderBy.direction) {
+  if (!needsDurationMode && config.orderBy && config.orderBy.column && config.orderBy.direction) {
     const hasInteractiveFilters = filters.some((f) => f.interactive === true && f.metabaseParam === true)
     const metricWithAlias = config.metrics.find((m) => m.alias === config.orderBy?.column)
 
@@ -876,7 +952,7 @@ export const generateSQLCore = (config: ChartConfig, filters: Filter[], paramete
         sql += 'ORDER BY 1 DESC\n'
       }
     }
-  } else if (config.groupByFields.length > 0 || config.metrics.length > 0) {
+  } else if (!needsDurationMode && (config.groupByFields.length > 0 || config.metrics.length > 0)) {
     if (config.groupByFields.includes('created_at')) {
       sql += 'ORDER BY dato ASC\n'
     } else if (config.metrics.length > 0) {
@@ -887,6 +963,11 @@ export const generateSQLCore = (config: ChartConfig, filters: Filter[], paramete
     } else {
       sql += `ORDER BY 1 ${config.orderBy?.direction || 'DESC'}\n`
     }
+  }
+
+  if (needsDurationMode && config.groupByFields.length === 0) {
+    sql += 'LIMIT 1\n'
+    return sql
   }
 
   if (config.limit && config.limit > 0) {
