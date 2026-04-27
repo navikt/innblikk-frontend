@@ -1,4 +1,4 @@
-import { Button, Select, Tag, TextField, UNSAFE_Combobox } from '@navikt/ds-react'
+import { Button, Checkbox, Select, Tag, TextField, UNSAFE_Combobox } from '@navikt/ds-react'
 import { PencilIcon } from '@navikt/aksel-icons'
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'react'
 import type { Filter, Parameter, SegmentDefinition as ChartSegmentDefinition } from '../../../../shared/types/chart.ts'
@@ -22,6 +22,7 @@ interface SegmentByProps {
   onEnableCustomEvents?: (withParams?: boolean) => void
   isEventsLoading?: boolean
   onSegmentsChange?: (segments: ChartSegmentDefinition[]) => void
+  onRatioModeChange?: (enabled: boolean) => void
 }
 
 interface PerformedSelection {
@@ -44,6 +45,7 @@ const SegmentBy = forwardRef<SegmentByRef, SegmentByProps>(
       onEnableCustomEvents,
       isEventsLoading = false,
       onSegmentsChange,
+      onRatioModeChange,
     },
     ref,
   ) => {
@@ -61,6 +63,7 @@ const SegmentBy = forwardRef<SegmentByRef, SegmentByProps>(
     })
     const [editingSegmentId, setEditingSegmentId] = useState<number | null>(null)
     const [editingSegmentName, setEditingSegmentName] = useState<string>('')
+    const [ratioMode, setRatioMode] = useState<boolean>(false)
 
     const customEventsList = useMemo(() => {
       return availableEvents
@@ -85,6 +88,8 @@ const SegmentBy = forwardRef<SegmentByRef, SegmentByProps>(
       setPerformedSelections({ 1: { operator: 'IN', events: [] } })
       setEditingSegmentId(null)
       setEditingSegmentName('')
+      setRatioMode(false)
+      onRatioModeChange?.(false)
     }
 
     useImperativeHandle(ref, () => ({
@@ -443,6 +448,22 @@ const SegmentBy = forwardRef<SegmentByRef, SegmentByProps>(
             + Legg til segment
           </p>
         </button>
+
+        {segments.length >= 2 && (
+          <div className="filter-card-animate-in ml-6 pb-2">
+            <Checkbox
+              size="small"
+              checked={ratioMode}
+              onChange={(e) => {
+                const next = e.target.checked
+                setRatioMode(next)
+                onRatioModeChange?.(next)
+              }}
+            >
+              Vis som ratio (segment 1 ÷ segment 2)
+            </Checkbox>
+          </div>
+        )}
       </div>
     )
   },

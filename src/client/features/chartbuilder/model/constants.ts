@@ -40,9 +40,6 @@ export const METRICS: MetricOption[] = [
   { label: 'Sum av verdier', value: 'sum' },
   { label: 'Gjennomsnitt', value: 'average' },
   { label: 'Median', value: 'median' },
-  { label: 'Andel av resultatene (%)', value: 'percentage' },
-  { label: 'Andel av totalen (%)', value: 'andel' },
-  { label: 'Fluktrate (%)', value: 'bounce_rate' },
 ]
 
 export const SESSION_COLUMNS = [

@@ -87,6 +87,16 @@ const ChartsPage = () => {
     [setConfig],
   )
 
+  const handleRatioModeChange = useCallback(
+    (enabled: boolean) => {
+      setConfig((prev) => ({
+        ...prev,
+        segmentRatioMode: enabled,
+      }))
+    },
+    [setConfig],
+  )
+
   const handleResetGroupings = useCallback(() => {
     setConfig((prev) => ({ ...prev, groupByFields: [] }))
     setGroupingResetSignal((prev) => prev + 1)
@@ -269,6 +279,7 @@ const ChartsPage = () => {
                   }}
                   isEventsLoading={isEventsLoading}
                   onSegmentsChange={handleSegmentsChange}
+                  onRatioModeChange={handleRatioModeChange}
                 />
               </SidebarSection>
 
