@@ -10,7 +10,6 @@ import SegmentBy, { type SegmentByRef } from './grafbygger/SegmentBy.tsx'
 import GroupingOptions from './grafbygger/GroupingOptions.tsx'
 import DisplayOptions from './grafbygger/DisplayOptions.tsx'
 import AlertWithCloseButton from './grafbygger/AlertWithCloseButton.tsx'
-import ActiveMetricsPanel from './grafbygger/ActiveMetricsPanel.tsx'
 import SidebarSection from '../../../shared/ui/SidebarSection.tsx'
 import ActionFeedbackButton from '../../../shared/ui/ActionFeedbackButton.tsx'
 import type { SegmentDefinition } from '../../../shared/types/chart.ts'
@@ -65,7 +64,6 @@ const ChartsPage = () => {
     resetAll,
     addMetric,
     removeMetric,
-    updateMetric,
     addGroupByField,
     removeGroupByField,
     moveGroupField,
@@ -333,7 +331,6 @@ const ChartsPage = () => {
                   ) : undefined
                 }
               >
-                <ActiveMetricsPanel metrics={config.metrics} METRICS={METRICS} updateMetric={updateMetric} />
                 <DisplayOptions
                   ref={displayOptionsRef}
                   groupByFields={config.groupByFields}
