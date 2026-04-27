@@ -530,6 +530,7 @@ const Canvas = () => {
   const skipNextGridSectionPersistRef = useRef(false)
   const chartContentRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const isImportingStickyCsvRef = useRef(false)
+  const dirtyEditableFrameIdsRef = useRef<Set<string>>(new Set())
   const clipboardFramesRef = useRef<CanvasFrame[] | null>(null)
   const clipboardPasteCountRef = useRef(0)
   const previousTimerRunningRef = useRef(false)
@@ -676,8 +677,6 @@ const Canvas = () => {
       dashboardId,
       ws: canvasWebSocket,
     })
-  const shouldEnableEditLockSync = activeEditableFrameId !== null
-
   const {
     timerLabel,
     remainingSeconds,
@@ -1390,7 +1389,7 @@ const Canvas = () => {
     releaseLock: releaseEditLock,
     getFrameLockStatus,
   } = useCanvasEditLocks({
-    enabled: canvasSyncContextEnabled && shouldEnableEditLockSync,
+    enabled: canvasSyncContextEnabled,
     projectId,
     dashboardId,
     activeEditableFrame,
@@ -3589,6 +3588,7 @@ const Canvas = () => {
 
   const handleEditableFrameChange = (id: string, nextValue: string) => {
     if (isInteractionLocked) return
+    dirtyEditableFrameIdsRef.current.add(id)
     setFrames((prev) =>
       prev.map((frame) => {
         if (frame.id !== id) return frame
@@ -3655,41 +3655,43 @@ const Canvas = () => {
       return
 
     let nextFrame = frame
-    let hasMeaningfulChange = false
+    const wasDirty = dirtyEditableFrameIdsRef.current.has(id)
+    dirtyEditableFrameIdsRef.current.delete(id)
+    let shouldPersist = false
     if (frame.kind === 'heading') {
       const normalizedHeading = (frame.headingText || '').trim()
-      hasMeaningfulChange =
-        normalizedHeading !== (frame.headingText || '') || (normalizedHeading || 'Overskrift') !== frame.label
+      const normalizedLabel = normalizedHeading || 'Overskrift'
+      shouldPersist = wasDirty || normalizedHeading !== (frame.headingText || '') || normalizedLabel !== frame.label
       nextFrame = {
         ...frame,
         headingText: normalizedHeading,
-        label: normalizedHeading || 'Overskrift',
+        label: normalizedLabel,
       }
     } else if (frame.kind === 'section') {
       const normalizedLabel = frame.label.trim()
       const fallbackLabel = normalizedLabel || getNextAutoSectionLabel(frames, frame.id)
-      hasMeaningfulChange = fallbackLabel !== frame.label
+      shouldPersist = wasDirty || fallbackLabel !== frame.label
       nextFrame = {
         ...frame,
         label: fallbackLabel,
       }
     } else if (frame.kind === 'text' || frame.kind === 'sticky') {
       const normalizedTextContent = (frame.textContent || '').trim()
-      hasMeaningfulChange = normalizedTextContent !== (frame.textContent || '')
+      shouldPersist = wasDirty || normalizedTextContent !== (frame.textContent || '')
       nextFrame = {
         ...frame,
         textContent: normalizedTextContent,
       }
     } else {
       const normalizedSqlQuery = ((nextValue ?? frame.sqlQuery) || '').trim()
-      hasMeaningfulChange = normalizedSqlQuery !== (frame.sqlQuery || '')
+      shouldPersist = wasDirty || normalizedSqlQuery !== (frame.sqlQuery || '')
       nextFrame = {
         ...frame,
         sqlQuery: normalizedSqlQuery,
       }
     }
 
-    if (hasMeaningfulChange) {
+    if (shouldPersist) {
       setFrames((prev) => prev.map((item) => (item.id === id ? nextFrame : item)))
       void persistFrame(nextFrame).catch((error) => {
         setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre endringer i canvas')
@@ -3726,6 +3728,7 @@ const Canvas = () => {
         )
         return
       }
+      dirtyEditableFrameIdsRef.current.delete(id)
       setActiveEditableFrameId(id)
     })()
   }
