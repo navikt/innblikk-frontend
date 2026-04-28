@@ -530,6 +530,7 @@ export const parseCanvasConfig = (raw: string): CanvasConfigPayload | null => {
       iconColor: typeof parsed.iconColor === 'string' ? parsed.iconColor : undefined,
       figureType: isCanvasFigureType(parsed.figureType) ? parsed.figureType : undefined,
       figureColor: typeof parsed.figureColor === 'string' ? parsed.figureColor : undefined,
+      figureOrientation: Number.isFinite(parsed.figureOrientation) ? Number(parsed.figureOrientation) : undefined,
       drawingPath: typeof parsed.drawingPath === 'string' ? parsed.drawingPath : undefined,
       drawingStrokeStyles: typeof parsed.drawingStrokeStyles === 'string' ? parsed.drawingStrokeStyles : undefined,
       drawingStrokeWidth: Number.isFinite(parsed.drawingStrokeWidth) ? Number(parsed.drawingStrokeWidth) : undefined,

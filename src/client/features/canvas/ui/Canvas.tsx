@@ -1200,6 +1200,7 @@ const Canvas = () => {
         iconColor: frame.iconColor,
         figureType: frame.figureType,
         figureColor: frame.figureColor,
+        figureOrientation: frame.figureOrientation,
         drawingPath: frame.drawingPath,
         drawingStrokeStyles: frame.drawingStrokeStyles,
         drawingStrokeWidth: frame.drawingStrokeWidth,

@@ -77,6 +77,7 @@ export async function fetchCanvasStorageData(projectId: number, dashboardId: num
       iconColor: parsedConfig.iconColor,
       figureType: parsedConfig.figureType,
       figureColor: parsedConfig.figureColor,
+      figureOrientation: parsedConfig.figureOrientation,
       drawingPath: parsedConfig.drawingPath,
       drawingStrokeStyles: parsedConfig.drawingStrokeStyles,
       drawingStrokeWidth: parsedConfig.drawingStrokeWidth,
