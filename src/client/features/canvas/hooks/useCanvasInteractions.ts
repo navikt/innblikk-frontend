@@ -752,6 +752,26 @@ const useCanvasInteractions = ({
     return () => window.removeEventListener('mousedown', onWindowMouseDown)
   }, [selectedFrameIds, setSelectedFrameIds])
 
+  useEffect(() => {
+    if (selectedFrameIds.length === 0 && !selectionBox) return
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+
+      const target = event.target as HTMLElement | null
+      const isTypingTarget =
+        target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable || false
+      if (isTypingTarget) return
+
+      event.preventDefault()
+      setSelectionBox(null)
+      setSelectedFrameIds([])
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [selectedFrameIds.length, selectionBox, setSelectedFrameIds, setSelectionBox])
+
   return {
     getHeadingFrameFontSize,
     getHeadingFrameWidth,
