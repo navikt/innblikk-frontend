@@ -783,7 +783,7 @@ const CanvasShareView = () => {
               <Alert variant="info" size="small">
                 <span className="inline-flex items-center gap-2">
                   <EyeOff size={14} aria-hidden="true" />
-                  {hiddenCount} element{hiddenCount === 1 ? '' : 'er'} er skjult i artikkelvisning.
+                  {hiddenCount} overlappende element{hiddenCount === 1 ? '' : 'er'} er skjult i artikkelvisning.
                 </span>
               </Alert>
             )}
