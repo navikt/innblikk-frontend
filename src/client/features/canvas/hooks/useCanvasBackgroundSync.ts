@@ -36,6 +36,7 @@ const buildFrameSignature = (frame: CanvasFrame): string =>
     drawingStrokeStyles: frame.drawingStrokeStyles ?? null,
     drawingStrokeWidth: frame.drawingStrokeWidth ?? null,
     drawingColor: frame.drawingColor ?? null,
+    drawingRotationDeg: frame.drawingRotationDeg ?? null,
     drawingAltText: frame.drawingAltText ?? null,
     isIllustration: frame.isIllustration ?? null,
     imageRotationDeg: frame.imageRotationDeg ?? null,
