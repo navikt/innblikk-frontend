@@ -676,9 +676,16 @@ const CanvasFrameLayer = ({
                             ? 50
                             : frame.kind === 'icon'
                               ? 60
-                              : frame.kind === 'figure' || frame.kind === 'drawing'
-                                ? 60
-                                : undefined,
+                              : frame.kind === 'heading' || frame.kind === 'text' || frame.kind === 'link'
+                                ? 62
+                                : frame.kind === 'sticky'
+                                  ? 61
+                                  : frame.kind === 'figure' || frame.kind === 'drawing'
+                                    ? 60
+                                    : frame.kind === 'sql-editor' || frame.kind === 'code-block'
+                                      ? 40
+                                      : undefined,
+                isolation: 'isolate',
                 width: frame.kind === 'heading' ? `${frameWidth}px` : `${frame.width ?? defaults.width}px`,
                 height: frame.kind === 'heading' ? `${frameHeight}px` : `${frame.height ?? defaults.height}px`,
                 minWidth: frame.kind === 'heading' ? `${HEADING_TEXT_MIN_WIDTH}px` : `${defaults.minWidth}px`,
