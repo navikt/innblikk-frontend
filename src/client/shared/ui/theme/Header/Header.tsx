@@ -300,6 +300,9 @@ export default function Header({ theme }: HeaderProps) {
                 </Button>
                 <Dropdown.Menu className="w-auto">
                   <Dropdown.Menu.List>
+                    <Dropdown.Menu.List.Item as={Link} href="/trafikkanalyse" className="no-underline">
+                      <span className="whitespace-nowrap">Trafikkanalyse</span>
+                    </Dropdown.Menu.List.Item>
                     <Dropdown.Menu.List.Item as={Link} href="/grafbygger" className="no-underline">
                       <span className="whitespace-nowrap">Grafbygger</span>
                     </Dropdown.Menu.List.Item>
@@ -315,6 +318,11 @@ export default function Header({ theme }: HeaderProps) {
             <div className="flex items-center justify-between w-full">
               <div className="flex items-center w-full"></div>
               <div className="flex flex-grow">
+                <Button as={Link} variant="tertiary" href="/trafikkanalyse" className={linkButton}>
+                  <div className="flex items-center gap-2">
+                    <span className="whitespace-nowrap">Trafikkanalyse</span>
+                  </div>
+                </Button>
                 <Button as={Link} variant="tertiary" href="/grafbygger" className={linkButton}>
                   <div className="flex items-center gap-2">
                     <span className="whitespace-nowrap">Grafbygger</span>
