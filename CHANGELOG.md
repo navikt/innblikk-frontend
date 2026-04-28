@@ -20,6 +20,10 @@ All notable changes to this project will be documented in this file.
 
 - Teller når flere er i canvaset
 
+### Quickfix
+
+- Link to Trafikkanalyse in Header
+
 ### 🏗️ Build
 
 - Dependabot
