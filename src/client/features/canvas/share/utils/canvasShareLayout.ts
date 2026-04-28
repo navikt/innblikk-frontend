@@ -9,6 +9,7 @@ import {
   HEADING_TEXT_MIN_WIDTH,
   HEADING_TEXT_VERTICAL_PADDING,
 } from '../../utils/canvasUtils.ts'
+import { compareFramesForSectionOrder } from '../../model/layout/gridSectionLayout.ts'
 
 const parseNumberParam = (value: string | null): number | null => {
   if (value === null) return null
@@ -130,5 +131,44 @@ export const getCanvasShareFrameBounds = (
     top: frame.y,
     right: frame.x + width,
     bottom: frame.y + height,
+  }
+}
+
+const SHARE_OVERLAY_KINDS = new Set<CanvasFrame['kind']>(['drawing', 'figure', 'icon', 'heading', 'text'])
+
+const rectanglesIntersect = (
+  a: { left: number; top: number; right: number; bottom: number },
+  b: { left: number; top: number; right: number; bottom: number },
+): boolean => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top
+
+export const filterCanvasShareVisibleFrames = (
+  frames: CanvasFrame[],
+): { frames: CanvasFrame[]; manuallyHiddenCount: number; autoHiddenOverlayCount: number } => {
+  const manuallyVisibleFrames = frames.filter((frame) => !frame.hideInShare)
+  const manuallyHiddenCount = frames.length - manuallyVisibleFrames.length
+  const sortedFrames = [...manuallyVisibleFrames].sort(compareFramesForSectionOrder)
+  const anchorFrames = sortedFrames.filter((frame) => frame.kind !== 'section' && !SHARE_OVERLAY_KINDS.has(frame.kind))
+
+  const autoHiddenOverlayFrameIds = new Set<string>()
+
+  sortedFrames.forEach((frame) => {
+    if (!SHARE_OVERLAY_KINDS.has(frame.kind)) return
+    const frameBounds = getCanvasShareFrameBounds(frame)
+    const overlapsAnchor = anchorFrames.some((anchorFrame) => {
+      if (anchorFrame.id === frame.id) return false
+      const anchorBounds = getCanvasShareFrameBounds(anchorFrame)
+      return rectanglesIntersect(frameBounds, anchorBounds)
+    })
+    if (overlapsAnchor) {
+      autoHiddenOverlayFrameIds.add(frame.id)
+    }
+  })
+
+  const visibleFrames = sortedFrames.filter((frame) => !autoHiddenOverlayFrameIds.has(frame.id))
+
+  return {
+    frames: visibleFrames,
+    manuallyHiddenCount,
+    autoHiddenOverlayCount: autoHiddenOverlayFrameIds.size,
   }
 }

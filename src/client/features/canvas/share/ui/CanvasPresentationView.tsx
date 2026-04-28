@@ -25,7 +25,11 @@ import { buildCanvasHierarchy } from '../../utils/canvasHierarchy.ts'
 import type { CanvasFrame } from '../../model/types.ts'
 import { DEFAULT_CANVAS_ICON_COLOR } from '../../ui/icon/CanvasIconRegistry.ts'
 import { useCanvasShareData } from '../hooks/useCanvasShareData.ts'
-import { getCanvasShareFrameBounds, parseCanvasShareRouteContext } from '../utils/canvasShareLayout.ts'
+import {
+  filterCanvasShareVisibleFrames,
+  getCanvasShareFrameBounds,
+  parseCanvasShareRouteContext,
+} from '../utils/canvasShareLayout.ts'
 
 const WEBSITE_TOP_LIST_VISIBLE_STORAGE_KEY = 'canvas:websiteTopListVisible'
 
@@ -93,7 +97,7 @@ const CanvasPresentationView = () => {
     return data.frames.filter((frame) => (frame.categoryId ?? null) === activeCategoryId)
   }, [activeCategoryId, data])
 
-  const visibleFrames = useMemo(() => categoryFrames.filter((frame) => !frame.hideInShare), [categoryFrames])
+  const visibleFrames = useMemo(() => filterCanvasShareVisibleFrames(categoryFrames).frames, [categoryFrames])
 
   const hierarchy = useMemo(
     () =>
