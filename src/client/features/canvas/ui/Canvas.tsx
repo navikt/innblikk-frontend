@@ -59,6 +59,7 @@ import {
   fetchCategories,
   fetchDashboards,
   fetchGraphs,
+  fetchQueries,
   updateDashboard,
   updateQuery,
 } from '../../oversikt/api/oversiktApi.ts'
@@ -238,6 +239,14 @@ const STICKY_CARD_CHAR_WIDTH_FACTOR = 0.55
 const METABASE_CREATED_AT_FILTER_REGEX = /\[\[\s*AND\s*\{\{\s*created_at\s*\}\}\s*\]\]/i
 const METABASE_URL_STI_FILTER_REGEX =
   /\[\[\s*\{\{\s*url_sti\s*\}\}\s*--\s*\]\]\s*'\/'|\[\[\s*AND\s*\{\{\s*url_sti\s*\}\}\s*\]\]|\{\{\s*url_sti\s*\}\}/i
+
+const mapGraphTypeToCanvasChartType = (graphType?: string): CanvasChartOption['chartType'] | null => {
+  if (graphType === 'LINE') return 'line'
+  if (graphType === 'BAR') return 'bar'
+  if (graphType === 'PIE') return 'pie'
+  if (graphType === 'TABLE') return 'table'
+  return null
+}
 
 const estimateStickyFrameHeight = (text: string, width: number): number => {
   const normalizedText = text.trim()
@@ -465,9 +474,9 @@ const Canvas = () => {
   const [editFigureSelectedType, setEditFigureSelectedType] = useState<CanvasFigureType>('square')
   const [editFigureSelectedColor, setEditFigureSelectedColor] = useState(DEFAULT_CANVAS_ICON_COLOR)
   const [editFigureError, setEditFigureError] = useState<string | null>(null)
-  const [chartOptions, _setChartOptions] = useState<CanvasChartOption[]>([])
+  const [chartOptions, setChartOptions] = useState<CanvasChartOption[]>([])
   const [selectedChartOptionId, setSelectedChartOptionId] = useState('')
-  const [isLoadingChartOptions, _setIsLoadingChartOptions] = useState(false)
+  const [isLoadingChartOptions, setIsLoadingChartOptions] = useState(false)
   const [addChartError, setAddChartError] = useState<string | null>(null)
   const [isGrafbyggerEmbedded, setIsGrafbyggerEmbedded] = useState(false)
   const [isCanvasLocked, setIsCanvasLocked] = useState(true)
@@ -2481,8 +2490,68 @@ const Canvas = () => {
     setIsGrafbyggerEmbedded(true)
   }
 
+  const loadChartOptions = useCallback(async () => {
+    if (projectId === null || dashboardId === null) {
+      setChartOptions([])
+      setSelectedChartOptionId('')
+      setAddChartError('Canvas må være koblet til dashboard for å importere graf.')
+      return
+    }
+
+    setIsLoadingChartOptions(true)
+    setAddChartError(null)
+    try {
+      const categories = await fetchCategories(projectId, dashboardId)
+      const graphsByCategory = await Promise.all(
+        categories.map(async (category) => {
+          const graphs = await fetchGraphs(projectId, dashboardId, category.id)
+          return graphs.map((graph) => ({ categoryId: category.id, graph }))
+        }),
+      )
+      const graphEntries = graphsByCategory.flat()
+      const queryLists = await Promise.all(
+        graphEntries.map(({ categoryId, graph }) => fetchQueries(projectId, dashboardId, categoryId, graph.id)),
+      )
+
+      const nextOptions = graphEntries
+        .map((entry, index) => {
+          const chartType = mapGraphTypeToCanvasChartType(entry.graph.graphType)
+          if (!chartType) return null
+          const firstQuery = queryLists[index]?.[0]
+          const sql = firstQuery?.sqlText?.trim()
+          if (!sql) return null
+          return {
+            id: String(entry.graph.id),
+            title: entry.graph.name?.trim() || `Graf ${entry.graph.id}`,
+            chartType,
+            sql,
+          } satisfies CanvasChartOption
+        })
+        .filter((entry): entry is CanvasChartOption => Boolean(entry))
+        .sort((a, b) => a.title.localeCompare(b.title, 'nb', { sensitivity: 'base' }))
+
+      setChartOptions(nextOptions)
+      setSelectedChartOptionId(nextOptions[0]?.id ?? '')
+      if (nextOptions.length === 0) {
+        setAddChartError('Fant ingen importerbare grafer i dette dashboardet.')
+      }
+    } catch (error) {
+      setChartOptions([])
+      setSelectedChartOptionId('')
+      setAddChartError(error instanceof Error ? error.message : 'Kunne ikke laste grafer')
+    } finally {
+      setIsLoadingChartOptions(false)
+    }
+  }, [dashboardId, projectId])
+
   const handleOpenGrafbyggerFromAddMenu = () => {
     openGrafbyggerFromAddMenuDirect()
+  }
+
+  const handleOpenImportChartFromAddMenu = () => {
+    setIsGrafbyggerEmbedded(false)
+    setIsAddChartModalOpen(true)
+    void loadChartOptions()
   }
 
   const {
@@ -4484,6 +4553,7 @@ const Canvas = () => {
           onOpenAddDrawing={handleOpenAddDrawing}
           onOpenAddIllustration={handleOpenAddIllustrationModal}
           onOpenCreateChart={handleOpenGrafbyggerFromAddMenu}
+          onOpenImportChart={handleOpenImportChartFromAddMenu}
           isGrafbyggerEmbedded={isGrafbyggerEmbedded}
           onCloseGrafbygger={() => setIsGrafbyggerEmbedded(false)}
           onOpenCreateTab={handleOpenCreateTabModal}

@@ -4,6 +4,7 @@ import { Plus } from 'lucide-react'
 type CanvasAddActionMenuProps = {
   onAddWebsite: () => void
   onOpenGrafbygger: () => void
+  onImportChart: () => void
   onAddDashboard: () => void
   onAddSqlEditor: () => void
   onAddHeading: () => void
@@ -38,6 +39,7 @@ type MenuItemConfig = {
 const CanvasAddActionMenu = ({
   onAddWebsite,
   onOpenGrafbygger,
+  onImportChart,
   onAddDashboard,
   onAddSqlEditor,
   onAddHeading,
@@ -81,7 +83,8 @@ const CanvasAddActionMenu = ({
 
   const innblikkItems: MenuItemConfig[] = [
     { label: 'Nettside', onClick: onAddWebsite },
-    { label: 'Graf', onClick: onOpenGrafbygger },
+    { label: 'Ny graf', onClick: onOpenGrafbygger },
+    { label: 'Importer graf', onClick: onImportChart },
     { label: 'SQL-editor', onClick: onAddSqlEditor },
     { label: 'Dashboard', onClick: onAddDashboard },
   ]
