@@ -181,6 +181,11 @@ const getDefaultFrameSize = (
   const kind = typeof frameOrKind === 'string' ? frameOrKind : frameOrKind.kind
   const isInternalDashboard = typeof frameOrKind === 'string' ? false : Boolean(frameOrKind.isInternalDashboard)
   const isIllustration = typeof frameOrKind === 'string' ? false : isIllustrationImageFrame(frameOrKind)
+  const isTableTextFrame =
+    typeof frameOrKind !== 'string' &&
+    frameOrKind.kind === 'text' &&
+    Array.isArray(frameOrKind.tableHeaders) &&
+    frameOrKind.tableHeaders.length > 0
 
   if (kind === 'website' && isInternalDashboard) return { width: 760, height: 760, minWidth: 520, minHeight: 420 }
   if (kind === 'website') return { width: 420, height: 700, minWidth: 220, minHeight: 160 }
@@ -190,7 +195,10 @@ const getDefaultFrameSize = (
   if (kind === 'sql-editor') return { width: 420, height: 760, minWidth: 260, minHeight: 320 }
   if (kind === 'code-block') return { width: 420, height: 760, minWidth: 260, minHeight: 320 }
   if (kind === 'heading') return { width: 420, height: 72, minWidth: 260, minHeight: 48 }
-  if (kind === 'text') return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
+  if (kind === 'text') {
+    if (isTableTextFrame) return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
+    return { width: 280, height: 96, minWidth: 160, minHeight: 48 }
+  }
   if (kind === 'link') return { width: 380, height: 112, minWidth: 280, minHeight: 92 }
   if (kind === 'icon') return { width: 280, height: 240, minWidth: 72, minHeight: 72 }
   if (kind === 'figure') {
