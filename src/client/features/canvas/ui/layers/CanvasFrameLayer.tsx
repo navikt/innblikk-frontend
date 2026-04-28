@@ -495,15 +495,7 @@ const CanvasFrameLayer = ({
               ? document.querySelector<HTMLElement>(`[data-canvas-section-content-id="${currentSectionId}"]`)
               : null
           const interactingFrameIds = dragState?.ids ?? (resizeState?.id ? [resizeState.id] : [])
-          const isCurrentFrameInteracting = interactingFrameIds.includes(frame.id)
-          const isCurrentSectionInteracting = Boolean(
-            currentSectionId &&
-            interactingFrameIds.some((interactingFrameId) => {
-              if (interactingFrameId === currentSectionId) return true
-              return frameContainingSectionIdByFrameId[interactingFrameId] === currentSectionId
-            }),
-          )
-          const shouldRenderInsideSectionDuringInteraction = isCurrentFrameInteracting || isCurrentSectionInteracting
+          const shouldRenderInsideSectionDuringInteraction = interactingFrameIds.includes(frame.id)
           const renderInsideSection = Boolean(
             frame.kind !== 'section' &&
             parentSectionFrame &&
