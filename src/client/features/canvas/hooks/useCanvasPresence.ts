@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { fetchCurrentUserProfile } from '../../user/api/profile.api.ts'
 import {
   fetchCanvasPresenceParticipants,
   sendCanvasPresenceHeartbeat,
   type CanvasParticipant,
 } from '../api/canvasPresenceApi.ts'
+import { useCurrentUserProfile } from '../../user/hooks/useCurrentUserProfile.ts'
 import type { CanvasWebSocketHandle } from './useCanvasWebSocket.ts'
 
 const PRESENCE_TICK_MS = 10000
@@ -27,30 +27,11 @@ type UseCanvasPresenceParams = {
 
 const useCanvasPresence = ({ enabled, projectId, dashboardId, ws }: UseCanvasPresenceParams) => {
   const [clientId] = useState<string>(() => createCanvasClientId())
-  const [ownerId, setOwnerId] = useState<string>('')
-  const [ownerLabel, setOwnerLabel] = useState<string>('En kollega')
   const [participants, setParticipants] = useState<CanvasParticipant[]>([])
   const [isPresenceReady, setIsPresenceReady] = useState(false)
-
-  useEffect(() => {
-    let isActive = true
-    void (async () => {
-      try {
-        const me = await fetchCurrentUserProfile()
-        if (!isActive) return
-        setOwnerId(me?.navIdent?.trim() || '')
-        const label = me?.name?.trim() || me?.navIdent?.trim() || ''
-        setOwnerLabel(label || 'En kollega')
-      } catch {
-        if (!isActive) return
-        setOwnerId('')
-        setOwnerLabel('En kollega')
-      }
-    })()
-    return () => {
-      isActive = false
-    }
-  }, [])
+  const { profile } = useCurrentUserProfile()
+  const ownerId = profile?.navIdent?.trim() || ''
+  const ownerLabel = profile?.name?.trim() || profile?.navIdent?.trim() || 'En kollega'
 
   const wsConnected = ws?.isConnected ?? false
   const isLocalDebugMode =

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { fetchCurrentUserProfile } from '../../user/api/profile.api.ts'
 import {
   adjustCanvasDotVoting,
   clearCanvasDotVoting,
@@ -12,6 +11,7 @@ import {
   type CanvasDotVotingBallotPayload,
   type CanvasDotVotingSessionPayload,
 } from '../api/canvasDotVotingApi.ts'
+import { useCurrentUserProfile } from '../../user/hooks/useCurrentUserProfile.ts'
 import type { CanvasWebSocketHandle } from './useCanvasWebSocket.ts'
 
 const DOT_VOTING_ACTIVE_SYNC_INTERVAL_MS = 2000
@@ -50,6 +50,7 @@ const useCanvasDotVotingSync = ({
   const [isSavingVoting, setIsSavingVoting] = useState(false)
   const onSyncErrorRef = useRef<typeof onSyncError>(onSyncError)
   const wsRef = useRef(ws)
+  const { profile } = useCurrentUserProfile()
 
   useEffect(() => {
     onSyncErrorRef.current = onSyncError
@@ -80,23 +81,8 @@ const useCanvasDotVotingSync = ({
   }, [ws])
 
   useEffect(() => {
-    let isActive = true
-
-    void (async () => {
-      try {
-        const profile = await fetchCurrentUserProfile()
-        if (!isActive) return
-        setOwnerId(profile?.navIdent?.trim() || '')
-      } catch {
-        if (!isActive) return
-        setOwnerId('')
-      }
-    })()
-
-    return () => {
-      isActive = false
-    }
-  }, [])
+    setOwnerId(profile?.navIdent?.trim() || '')
+  }, [profile])
 
   const syncVoting = useCallback(async () => {
     if (!enabled || projectId === null || dashboardId === null) {
