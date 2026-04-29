@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { getRuntimeConfig } from '@/shared/lib/runtimeConfig'
+import { getRuntimeConfig } from '../../../shared/lib/runtimeConfig'
 
 const WS_PATH = '/api/canvas/ws'
 const PING_INTERVAL_MS = 25_000
