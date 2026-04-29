@@ -40,12 +40,12 @@ const buildWsUrl = (): string => {
   return `${protocol}//${host}${WS_PATH}`
 }
 
-const fetchWsToken = async (): Promise<string | null> => {
+const fetchWsTicket = async (): Promise<string | null> => {
   try {
-    const response = await fetch('/api/backend/canvas/ws-token')
+    const response = await fetch('/api/backend/canvas/ws-ticket')
     if (!response.ok) return null
-    const data = (await response.json()) as { token?: string }
-    return data.token ?? null
+    const data = (await response.json()) as { ticket?: string }
+    return data.ticket ?? null
   } catch {
     return null
   }
@@ -136,14 +136,14 @@ const useCanvasWebSocket = ({ enabled, projectId, dashboardId }: UseCanvasWebSoc
           return
         }
 
-        // Authenticate by fetching an OBO token and sending it as the first message
-        fetchWsToken()
-          .then((token) => {
+        // Authenticate by fetching a single-use WS ticket
+        fetchWsTicket()
+          .then((ticket) => {
             if (destroyedRef.current || ws.readyState !== WebSocket.OPEN) return
-            if (token) {
-              ws.send(JSON.stringify({ type: 'auth', token }))
+            if (ticket) {
+              ws.send(JSON.stringify({ type: 'auth', ticket }))
             } else {
-              console.warn('[canvas-ws] No auth token available, joining unauthenticated')
+              console.warn('[canvas-ws] No WS ticket available, joining unauthenticated')
             }
             // Join the room
             ws.send(
@@ -158,7 +158,7 @@ const useCanvasWebSocket = ({ enabled, projectId, dashboardId }: UseCanvasWebSoc
             startPing(ws)
           })
           .catch((err) => {
-            console.warn('[canvas-ws] Token fetch failed, joining unauthenticated:', err)
+            console.warn('[canvas-ws] Ticket fetch failed, joining unauthenticated:', err)
             // Auth failed — still try to join (will work in local dev without auth)
             try {
               ws.send(
