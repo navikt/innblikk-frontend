@@ -1,11 +1,12 @@
-import { ActionMenu, Alert, Button, Tabs, TextField } from '@navikt/ds-react'
-import { PersonGroupIcon, PersonIcon, ThemeIcon } from '@navikt/aksel-icons'
+import { ActionMenu, Alert, Button, Tabs, Tag, TextField } from '@navikt/ds-react'
+import { PersonGroupIcon, PersonIcon, TestFlaskIcon, ThemeIcon } from '@navikt/aksel-icons'
 import { House, FileText, MoreVertical, Presentation } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent, type RefObject, type TouchEvent } from 'react'
 import PeriodPicker from '../../../analysis/ui/PeriodPicker.tsx'
 import type { GraphCategoryDto } from '../../../oversikt/model/types.ts'
 import CanvasAddActionMenu from './CanvasAddActionMenu.tsx'
 import CanvasFacilitatorActionMenu from './CanvasFacilitatorActionMenu.tsx'
+import { getFeatureFlag } from '../../../../shared/lib/featureFlags.ts'
 
 type CanvasTopBarProps = {
   canvasToolbarRef: RefObject<HTMLDivElement | null>
@@ -149,6 +150,7 @@ const CanvasTopBar = ({
     return storedTheme === 'dark' ? 'dark' : 'light'
   })
   const normalizedCanvasTitle = canvasTitle.trim()
+  const isBeta = getFeatureFlag('beta_opt_in')
   const headingTitle =
     canvasInitMode === 'checking'
       ? 'Innblikk'
@@ -215,31 +217,38 @@ const CanvasTopBar = ({
     >
       <div className="pointer-events-auto rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2 shadow-sm">
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-          <a
-            href={canvasHomeHref}
-            aria-label={`${headingTitle}. Til dashboard-oversikt`}
-            className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-sm border-0 bg-transparent p-0 text-left text-[var(--ax-text-default)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-border-accent)]"
-          >
-            <span className="grid h-7 w-7 shrink-0 place-items-center">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path
-                  d="M16.5 10.5C16.5 13.8137 13.8137 16.5 10.5 16.5C7.18629 16.5 4.5 13.8137 4.5 10.5C4.5 7.18629 7.18629 4.5 10.5 4.5C13.8137 4.5 16.5 7.18629 16.5 10.5Z"
-                  stroke="currentColor"
-                  strokeWidth="1.9"
-                />
-                <path d="M15.2 15.2L20.5 20.5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
-                <path
-                  d="M7.9 12.5V10.2M10.5 12.5V8.5M13.1 12.5V9.3"
-                  stroke="currentColor"
-                  strokeWidth="1.9"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </span>
-            <h1 className="m-0 truncate text-[20px] font-semibold leading-none" title={headingTitle}>
-              {headingTitle}
-            </h1>
-          </a>
+          <div className="flex items-center gap-2">
+            <a
+              href={canvasHomeHref}
+              aria-label={`${headingTitle}. Til dashboard-oversikt`}
+              className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-sm border-0 bg-transparent p-0 text-left text-[var(--ax-text-default)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-border-accent)]"
+            >
+              <span className="grid h-7 w-7 shrink-0 place-items-center">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path
+                    d="M16.5 10.5C16.5 13.8137 13.8137 16.5 10.5 16.5C7.18629 16.5 4.5 13.8137 4.5 10.5C4.5 7.18629 7.18629 4.5 10.5 4.5C13.8137 4.5 16.5 7.18629 16.5 10.5Z"
+                    stroke="currentColor"
+                    strokeWidth="1.9"
+                  />
+                  <path d="M15.2 15.2L20.5 20.5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+                  <path
+                    d="M7.9 12.5V10.2M10.5 12.5V8.5M13.1 12.5V9.3"
+                    stroke="currentColor"
+                    strokeWidth="1.9"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </span>
+              <h1 className="m-0 truncate text-[20px] font-semibold leading-none" title={headingTitle}>
+                {headingTitle}
+              </h1>
+            </a>
+            {isBeta && (
+              <Tag data-color="meta-purple" variant="strong" size="small" icon={<TestFlaskIcon aria-hidden />}>
+                Beta
+              </Tag>
+            )}
+          </div>
           {!isCanvasFrontpage && (
             <div className="flex w-full flex-wrap items-end gap-2 sm:w-auto sm:justify-end">
               {showDateFilter && (
