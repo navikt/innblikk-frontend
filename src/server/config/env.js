@@ -21,6 +21,14 @@ export const SITEIMPROVE_BASE_URL = normalizeBaseUrl(
 )
 export const GCP_PROJECT_ID = process.env.GCP_PROJECT_ID || process.env.VITE_GCP_PROJECT_ID
 
+export const BACKEND_WS_HOST = (() => {
+  try {
+    return new URL(BACKEND_BASE_URL).host
+  } catch {
+    return undefined
+  }
+})()
+
 if (!BACKEND_BASE_URL) {
   throw new Error('Missing env var: BACKEND_BASE_URL')
 }

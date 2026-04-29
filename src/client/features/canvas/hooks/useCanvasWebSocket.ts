@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { getRuntimeConfig } from '@/shared/lib/runtimeConfig'
 
 const WS_PATH = '/api/canvas/ws'
 const PING_INTERVAL_MS = 25_000
@@ -6,10 +7,17 @@ const BACKOFF_STEPS_MS = [1_000, 2_000, 4_000, 8_000, 30_000]
 
 type EventHandler = (payload: unknown) => void
 
+export type WsSaveResult =
+  | { ok: true; payload: Record<string, unknown> }
+  | { ok: false; conflict: true; payload: Record<string, unknown> }
+  | { ok: false; conflict: false; error: string }
+
 export type CanvasWebSocketHandle = {
   subscribe: (event: string, handler: EventHandler) => () => void
   broadcast: (event: string, payload: unknown) => void
   sendRaw: (msg: Record<string, unknown>) => void
+  saveFrame: (msg: Record<string, unknown>) => Promise<WsSaveResult>
+  deleteFrame: (msg: Record<string, unknown>) => void
   isConnected: boolean
 }
 
@@ -20,13 +28,31 @@ type UseCanvasWebSocketParams = {
 }
 
 type IncomingMessage = {
+  type?: string
   event?: string
   payload?: unknown
 }
 
+const getBackendWsHost = (): string => {
+  const config = getRuntimeConfig()
+  return config.BACKEND_WS_HOST ?? window.location.host
+}
+
 const buildWsUrl = (): string => {
+  const host = getBackendWsHost()
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  return `${protocol}//${window.location.host}${WS_PATH}`
+  return `${protocol}//${host}${WS_PATH}`
+}
+
+const fetchWsToken = async (): Promise<string | null> => {
+  try {
+    const response = await fetch('/api/backend/canvas/ws-token')
+    if (!response.ok) return null
+    const data = (await response.json()) as { token?: string }
+    return data.token ?? null
+  } catch {
+    return null
+  }
 }
 
 const useCanvasWebSocket = ({ enabled, projectId, dashboardId }: UseCanvasWebSocketParams): CanvasWebSocketHandle => {
@@ -34,6 +60,7 @@ const useCanvasWebSocket = ({ enabled, projectId, dashboardId }: UseCanvasWebSoc
 
   const wsRef = useRef<WebSocket | null>(null)
   const handlersRef = useRef<Map<string, Set<EventHandler>>>(new Map())
+  const pendingRequestsRef = useRef<Map<string, { resolve: (result: WsSaveResult) => void; timer: number }>>(new Map())
   const reconnectTimerRef = useRef<number | null>(null)
   const pingTimerRef = useRef<number | null>(null)
   const backoffIndexRef = useRef(0)
@@ -112,20 +139,43 @@ const useCanvasWebSocket = ({ enabled, projectId, dashboardId }: UseCanvasWebSoc
           ws.close()
           return
         }
-        backoffIndexRef.current = 0
-        setIsConnected(true)
-        try {
-          ws.send(
-            JSON.stringify({
-              type: 'join',
-              projectId: projectIdRef.current,
-              dashboardId: dashboardIdRef.current,
-            }),
-          )
-        } catch {
-          /* ignored */
-        }
-        startPing(ws)
+
+        // Authenticate by fetching an OBO token and sending it as the first message
+        fetchWsToken()
+          .then((token) => {
+            if (destroyedRef.current || ws.readyState !== WebSocket.OPEN) return
+            if (token) {
+              ws.send(JSON.stringify({ type: 'auth', token }))
+            }
+            // Join the room
+            ws.send(
+              JSON.stringify({
+                type: 'join',
+                projectId: projectIdRef.current,
+                dashboardId: dashboardIdRef.current,
+              }),
+            )
+            backoffIndexRef.current = 0
+            setIsConnected(true)
+            startPing(ws)
+          })
+          .catch(() => {
+            // Auth failed — still try to join (will work in local dev without auth)
+            try {
+              ws.send(
+                JSON.stringify({
+                  type: 'join',
+                  projectId: projectIdRef.current,
+                  dashboardId: dashboardIdRef.current,
+                }),
+              )
+            } catch {
+              /* ignored */
+            }
+            backoffIndexRef.current = 0
+            setIsConnected(true)
+            startPing(ws)
+          })
       }
 
       ws.onmessage = (event: MessageEvent<unknown>) => {
@@ -136,7 +186,28 @@ const useCanvasWebSocket = ({ enabled, projectId, dashboardId }: UseCanvasWebSoc
         } catch {
           return
         }
+
+        // Handle auth:ok silently
+        if (parsed.type === 'auth:ok') return
+
+        // Handle requestId-correlated responses (save/conflict)
         const { event: eventName, payload } = parsed
+        if (typeof eventName === 'string' && payload && typeof payload === 'object') {
+          const p = payload as Record<string, unknown>
+          const requestId = p.requestId as string | undefined
+          if (requestId && pendingRequestsRef.current.has(requestId)) {
+            const pending = pendingRequestsRef.current.get(requestId)!
+            pendingRequestsRef.current.delete(requestId)
+            window.clearTimeout(pending.timer)
+            if (eventName === 'canvas:saved') {
+              pending.resolve({ ok: true, payload: p })
+            } else if (eventName === 'canvas:save:conflict') {
+              pending.resolve({ ok: false, conflict: true, payload: p })
+            }
+            // Don't return — let other subscribers also see the event
+          }
+        }
+
         if (typeof eventName !== 'string') return
         const handlers = handlersRef.current.get(eventName)
         if (!handlers) return
@@ -158,7 +229,6 @@ const useCanvasWebSocket = ({ enabled, projectId, dashboardId }: UseCanvasWebSoc
       }
 
       ws.onerror = () => {
-        // onclose fires after onerror — reconnect handled there
         clearPing()
         setIsConnected(false)
       }
@@ -245,7 +315,43 @@ const useCanvasWebSocket = ({ enabled, projectId, dashboardId }: UseCanvasWebSoc
     }
   }, [])
 
-  return useMemo(() => ({ subscribe, broadcast, sendRaw, isConnected }), [subscribe, broadcast, sendRaw, isConnected])
+  const saveFrame = useCallback((msg: Record<string, unknown>): Promise<WsSaveResult> => {
+    const ws = wsRef.current
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      return Promise.resolve({ ok: false, conflict: false, error: 'WebSocket not connected' })
+    }
+
+    const requestId = `save-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    return new Promise<WsSaveResult>((resolve) => {
+      const timer = window.setTimeout(() => {
+        pendingRequestsRef.current.delete(requestId)
+        resolve({ ok: false, conflict: false, error: 'Save timed out' })
+      }, 15_000)
+      pendingRequestsRef.current.set(requestId, { resolve, timer })
+      try {
+        ws.send(JSON.stringify({ ...msg, type: 'save', requestId }))
+      } catch {
+        pendingRequestsRef.current.delete(requestId)
+        window.clearTimeout(timer)
+        resolve({ ok: false, conflict: false, error: 'Failed to send save message' })
+      }
+    })
+  }, [])
+
+  const deleteFrame = useCallback((msg: Record<string, unknown>): void => {
+    const ws = wsRef.current
+    if (!ws || ws.readyState !== WebSocket.OPEN) return
+    try {
+      ws.send(JSON.stringify({ ...msg, type: 'delete' }))
+    } catch {
+      /* ignored */
+    }
+  }, [])
+
+  return useMemo(
+    () => ({ subscribe, broadcast, sendRaw, saveFrame, deleteFrame, isConnected }),
+    [subscribe, broadcast, sendRaw, saveFrame, deleteFrame, isConnected],
+  )
 }
 
 export default useCanvasWebSocket

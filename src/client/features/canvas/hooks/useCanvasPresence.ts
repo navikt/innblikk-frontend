@@ -1,9 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  fetchCanvasPresenceParticipants,
-  sendCanvasPresenceHeartbeat,
-  type CanvasParticipant,
-} from '../api/canvasPresenceApi.ts'
+import type { CanvasParticipant } from '../api/canvasPresenceApi.ts'
 import { useCurrentUserProfile } from '../../user/hooks/useCurrentUserProfile.ts'
 import type { CanvasWebSocketHandle } from './useCanvasWebSocket.ts'
 
@@ -62,15 +58,14 @@ const useCanvasPresence = ({ enabled, projectId, dashboardId, ws }: UseCanvasPre
 
     let isActive = true
     let tickId: number | null = null
-    const shouldUseHttpFallback = !ws
 
-    const runTick = async () => {
+    const runTick = () => {
       if (!isActive) return
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
 
       try {
-        if (wsConnected) {
-          ws!.sendRaw({
+        if (wsConnected && ws) {
+          ws.sendRaw({
             type: 'broadcast',
             projectId,
             dashboardId,
@@ -83,32 +78,16 @@ const useCanvasPresence = ({ enabled, projectId, dashboardId, ws }: UseCanvasPre
           })
           setParticipants((current) => current.filter((participant) => Date.parse(participant.expiresAt) > Date.now()))
           setIsPresenceReady(true)
-          return
-        }
-
-        if (!shouldUseHttpFallback) return
-        if (!wsConnected) {
-          await sendCanvasPresenceHeartbeat({
-            projectId,
-            dashboardId,
-            clientId,
-            ownerId: ownerId || clientId,
-            ownerLabel,
-          })
-          const nextParticipants = await fetchCanvasPresenceParticipants(projectId, dashboardId)
-          if (!isActive) return
-          setParticipants(nextParticipants)
-          setIsPresenceReady(true)
         }
       } catch {
         /* Presence errors should not block canvas usage. */
       }
     }
 
-    void runTick()
+    runTick()
 
     tickId = window.setInterval(() => {
-      void runTick()
+      runTick()
     }, PRESENCE_TICK_MS)
 
     return () => {

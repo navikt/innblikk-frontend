@@ -3,7 +3,6 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 
 import { createApp } from './src/server/app.js'
-import { createCanvasWebSocketServer } from './src/server/websocket/canvasWebSocketServer.js'
 import { registerFrontend } from './src/server/frontend/serveFrontend.js'
 import { createBigQueryClient } from './src/server/bigquery/client.js'
 import { createBigQueryRouter } from './src/server/routes/bigquery/index.js'
@@ -13,7 +12,13 @@ import { createUserRouter } from './src/server/routes/user/userRoutes.js'
 import { createClickmapPreviewRouter } from './src/server/routes/clickmap/clickmapPreviewRoutes.js'
 import { authenticateUser } from './src/server/middleware/authenticateUser.js'
 
-import { BIGQUERY_TIMEZONE, BACKEND_BASE_URL, SITEIMPROVE_BASE_URL, GCP_PROJECT_ID } from './src/server/config/env.js'
+import {
+  BIGQUERY_TIMEZONE,
+  BACKEND_BASE_URL,
+  BACKEND_WS_HOST,
+  SITEIMPROVE_BASE_URL,
+  GCP_PROJECT_ID,
+} from './src/server/config/env.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -44,13 +49,12 @@ app.use(createBigQueryRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE }))
 app.use('/api', createClickmapPreviewRouter())
 
 // Serve index.html with injected runtime config
-registerFrontend(app, { buildPath, GCP_PROJECT_ID })
+registerFrontend(app, { buildPath, GCP_PROJECT_ID, BACKEND_WS_HOST })
 
 const isProduction = process.env.NODE_ENV === 'production'
 const port = Number(process.env.PORT) || (isProduction ? 8080 : 8081)
 
 const httpServer = http.createServer(app)
-createCanvasWebSocketServer(httpServer)
 
 const server = httpServer
 httpServer.listen(port, () => {

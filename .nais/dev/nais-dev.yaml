@@ -5,9 +5,6 @@ metadata:
   namespace: team-researchops
   labels:
     team: team-researchops
-  annotations:
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
 spec:
   image: {{ image }}
   port: 8080
@@ -47,9 +44,6 @@ spec:
             namespace: team-researchops
           - application: start-umami-backend
             namespace: team-researchops
-  valkey:
-    - instance: canvas-ws
-      access: readwrite
   azure:
     application:
       enabled: true

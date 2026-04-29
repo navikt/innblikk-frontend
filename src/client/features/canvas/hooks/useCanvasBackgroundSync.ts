@@ -2,7 +2,8 @@ import { useEffect, useRef } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import type { GraphCategoryDto } from '../../oversikt/model/types.ts'
 import type { CanvasConnection, CanvasFrame } from '../model/types.ts'
-import { fetchCanvasStorageData } from '../api/canvasStorageApi.ts'
+import { fetchCanvasStorageData, parseCanvasStorageEntries } from '../api/canvasStorageApi.ts'
+import type { CanvasStorageResponseEntry } from '../api/canvasStorageApi.ts'
 import type { CanvasWebSocketHandle } from './useCanvasWebSocket.ts'
 
 const DEFAULT_SYNC_INTERVAL_MS = 4000
@@ -226,6 +227,52 @@ const useCanvasBackgroundSync = ({
   useEffect(() => {
     wsRef.current = ws
   })
+
+  // Subscribe to WS canvas:state (full state push on join — Del 3)
+  const lockedFrameIdsRef = useRef(lockedFrameIds)
+  useEffect(() => {
+    lockedFrameIdsRef.current = lockedFrameIds
+  }, [lockedFrameIds])
+
+  useEffect(() => {
+    if (!ws) return
+    const unsubscribe = ws.subscribe('canvas:state', (payload: unknown) => {
+      const data = payload as {
+        categories?: GraphCategoryDto[]
+        entries?: CanvasStorageResponseEntry[]
+      }
+      const categories = Array.isArray(data?.categories) ? data.categories : []
+      const entries = Array.isArray(data?.entries) ? data.entries : []
+      const { frames: incomingFrames, connections: incomingConnections } = parseCanvasStorageEntries(entries)
+
+      onBeforeApplyRemoteData?.()
+      setCanvasCategories(categories)
+      setActiveCanvasCategoryId((current) => {
+        if (current !== null && categories.some((c) => c.id === current)) return current
+        if (current === null && activeCanvasCategoryId !== null) {
+          if (categories.some((c) => c.id === activeCanvasCategoryId)) return activeCanvasCategoryId
+        }
+        if (initialCategoryId !== null && categories.some((c) => c.id === initialCategoryId)) {
+          return initialCategoryId
+        }
+        return categories[0]?.id ?? null
+      })
+      setFrames((current) => reconcileFrames(current, incomingFrames, lockedFrameIdsRef.current))
+      setConnections((current) => reconcileConnections(current, incomingConnections))
+    })
+    return unsubscribe
+  }, [
+    ws,
+    setFrames,
+    setConnections,
+    setCanvasCategories,
+    setActiveCanvasCategoryId,
+    activeCanvasCategoryId,
+    initialCategoryId,
+    onBeforeApplyRemoteData,
+  ])
+
+  // Subscribe to WS canvas:frame (single frame upsert)
   useEffect(() => {
     if (!ws) return
     const unsubscribe = ws.subscribe('canvas:frame', (payload) => {
@@ -235,6 +282,19 @@ const useCanvasBackgroundSync = ({
     })
     return unsubscribe
   }, [ws, setFrames])
+
+  // Subscribe to WS canvas:frame:deleted (frame removal)
+  useEffect(() => {
+    if (!ws) return
+    const unsubscribe = ws.subscribe('canvas:frame:deleted', (payload) => {
+      const data = payload as { graphId?: number }
+      const graphId = data?.graphId
+      if (typeof graphId !== 'number') return
+      setFrames((current) => current.filter((frame) => frame.graphId !== graphId))
+      setConnections((current) => current.filter((conn) => conn.fromGraphId !== graphId && conn.toGraphId !== graphId))
+    })
+    return unsubscribe
+  }, [ws, setFrames, setConnections])
 
   useEffect(() => {
     if (!enabled || projectId === null || dashboardId === null) return

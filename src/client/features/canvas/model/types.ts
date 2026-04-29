@@ -93,6 +93,7 @@ export type CanvasFrame = {
   categoryId?: number
   graphId?: number
   queryId?: number
+  version?: number
   refreshNonce: number
 }
 
