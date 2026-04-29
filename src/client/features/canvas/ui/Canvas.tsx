@@ -526,7 +526,7 @@ const Canvas = () => {
   >(null)
   const [timerA11yAnnouncement, setTimerA11yAnnouncement] = useState('')
   const [placementA11yAnnouncement, setPlacementA11yAnnouncement] = useState('')
-  const [, setIsLoadingCanvasItems] = useState(false)
+  const [isLoadingCanvasItems, setIsLoadingCanvasItems] = useState(false)
   const [isSavingCanvasItem, setIsSavingCanvasItem] = useState(false)
   const [isImportingStickyCsv, setIsImportingStickyCsv] = useState(false)
   const [importStickyProgressCurrent, setImportStickyProgressCurrent] = useState(0)
@@ -1388,7 +1388,7 @@ const Canvas = () => {
   }, [canPersistToDashboard, projectId, dashboardId, canvasInitMode, initialCategoryId, markRemoteCanvasFramesApplied])
 
   useCanvasBackgroundSync({
-    enabled: canvasSyncContextEnabled && shouldEnableBackgroundSync,
+    enabled: canvasSyncContextEnabled && shouldEnableBackgroundSync && !isLoadingCanvasItems,
     projectId,
     dashboardId,
     initialCategoryId,
@@ -1409,6 +1409,7 @@ const Canvas = () => {
     getFrameLockStatus,
   } = useCanvasEditLocks({
     enabled: canvasSyncContextEnabled,
+    hasPersistedFrames: frames.some((frame) => Boolean(frame.graphId && frame.categoryId)),
     projectId,
     dashboardId,
     activeEditableFrame,
