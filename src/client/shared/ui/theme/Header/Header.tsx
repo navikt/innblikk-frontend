@@ -32,6 +32,11 @@ export default function Header({ theme }: HeaderProps) {
     },
     { href: '/komigang', label: 'Oppsett guide' },
     { href: '/taksonomi', label: 'Taksonomi' },
+    {
+      href: 'https://reops-docs.ansatt.dev.nav.no/',
+      label: 'Teknisk dokumentasjon',
+      external: true,
+    },
   ]
 
   const developerLinks = [
