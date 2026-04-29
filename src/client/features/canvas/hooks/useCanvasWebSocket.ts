@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { getRuntimeConfig } from '../../../shared/lib/runtimeConfig'
 
 const WS_PATH = '/api/canvas/ws'
 const PING_INTERVAL_MS = 25_000
@@ -33,15 +32,9 @@ type IncomingMessage = {
   payload?: unknown
 }
 
-const getBackendWsHost = (): string => {
-  const config = getRuntimeConfig()
-  return config.BACKEND_WS_HOST ?? window.location.host
-}
-
 const buildWsUrl = (): string => {
-  const host = getBackendWsHost()
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  return `${protocol}//${host}${WS_PATH}`
+  return `${protocol}//${window.location.host}${WS_PATH}`
 }
 
 const fetchWsToken = async (): Promise<string | null> => {

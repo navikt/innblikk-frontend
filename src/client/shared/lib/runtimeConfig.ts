@@ -1,6 +1,5 @@
 export type RuntimeConfig = {
   GCP_PROJECT_ID?: string
-  BACKEND_WS_HOST?: string
 }
 
 declare global {
