@@ -6,10 +6,10 @@ import { fetchCanvasStorageData, parseCanvasStorageEntries } from '../api/canvas
 import type { CanvasStorageResponseEntry } from '../api/canvasStorageApi.ts'
 import type { CanvasWebSocketHandle } from './useCanvasWebSocket.ts'
 
-const DEFAULT_SYNC_INTERVAL_MS = 4000
-const WS_CONNECTED_SYNC_INTERVAL_MS = 30000
-const MAX_SYNC_INTERVAL_MS = 30000
-const HIDDEN_TAB_SYNC_INTERVAL_MS = 15000
+const DEFAULT_SYNC_INTERVAL_MS = 30000
+const WS_CONNECTED_SYNC_INTERVAL_MS = 60000
+const MAX_SYNC_INTERVAL_MS = 60000
+const HIDDEN_TAB_SYNC_INTERVAL_MS = 30000
 
 const buildFrameSignature = (frame: CanvasFrame): string =>
   JSON.stringify({
@@ -234,6 +234,21 @@ const useCanvasBackgroundSync = ({
     lockedFrameIdsRef.current = lockedFrameIds
   }, [lockedFrameIds])
 
+  const activeCanvasCategoryIdRef = useRef(activeCanvasCategoryId)
+  useEffect(() => {
+    activeCanvasCategoryIdRef.current = activeCanvasCategoryId
+  }, [activeCanvasCategoryId])
+
+  const initialCategoryIdRef = useRef(initialCategoryId)
+  useEffect(() => {
+    initialCategoryIdRef.current = initialCategoryId
+  }, [initialCategoryId])
+
+  const onBeforeApplyRemoteDataRef = useRef(onBeforeApplyRemoteData)
+  useEffect(() => {
+    onBeforeApplyRemoteDataRef.current = onBeforeApplyRemoteData
+  }, [onBeforeApplyRemoteData])
+
   useEffect(() => {
     if (!ws) return
     const unsubscribe = ws.subscribe('canvas:state', (payload: unknown) => {
@@ -245,15 +260,16 @@ const useCanvasBackgroundSync = ({
       const entries = Array.isArray(data?.entries) ? data.entries : []
       const { frames: incomingFrames, connections: incomingConnections } = parseCanvasStorageEntries(entries)
 
-      onBeforeApplyRemoteData?.()
+      onBeforeApplyRemoteDataRef.current?.()
       setCanvasCategories(categories)
       setActiveCanvasCategoryId((current) => {
         if (current !== null && categories.some((c) => c.id === current)) return current
-        if (current === null && activeCanvasCategoryId !== null) {
-          if (categories.some((c) => c.id === activeCanvasCategoryId)) return activeCanvasCategoryId
+        if (current === null && activeCanvasCategoryIdRef.current !== null) {
+          if (categories.some((c) => c.id === activeCanvasCategoryIdRef.current))
+            return activeCanvasCategoryIdRef.current
         }
-        if (initialCategoryId !== null && categories.some((c) => c.id === initialCategoryId)) {
-          return initialCategoryId
+        if (initialCategoryIdRef.current !== null && categories.some((c) => c.id === initialCategoryIdRef.current)) {
+          return initialCategoryIdRef.current
         }
         return categories[0]?.id ?? null
       })
@@ -261,16 +277,7 @@ const useCanvasBackgroundSync = ({
       setConnections((current) => reconcileConnections(current, incomingConnections))
     })
     return unsubscribe
-  }, [
-    ws,
-    setFrames,
-    setConnections,
-    setCanvasCategories,
-    setActiveCanvasCategoryId,
-    activeCanvasCategoryId,
-    initialCategoryId,
-    onBeforeApplyRemoteData,
-  ])
+  }, [ws, setFrames, setConnections, setCanvasCategories, setActiveCanvasCategoryId])
 
   // Subscribe to WS canvas:frame (single frame upsert)
   useEffect(() => {
@@ -296,6 +303,24 @@ const useCanvasBackgroundSync = ({
     return unsubscribe
   }, [ws, setFrames, setConnections])
 
+  const intervalMsRef = useRef(intervalMs)
+  useEffect(() => {
+    intervalMsRef.current = intervalMs
+  }, [intervalMs])
+
+  const setCanvasCategoriesRef = useRef(setCanvasCategories)
+  const setActiveCanvasCategoryIdRef = useRef(setActiveCanvasCategoryId)
+  const setFramesRef = useRef(setFrames)
+  const setConnectionsRef = useRef(setConnections)
+  const setSyncErrorRef = useRef(setSyncError)
+  useEffect(() => {
+    setCanvasCategoriesRef.current = setCanvasCategories
+    setActiveCanvasCategoryIdRef.current = setActiveCanvasCategoryId
+    setFramesRef.current = setFrames
+    setConnectionsRef.current = setConnections
+    setSyncErrorRef.current = setSyncError
+  })
+
   useEffect(() => {
     if (!enabled || projectId === null || dashboardId === null) return
 
@@ -315,7 +340,7 @@ const useCanvasBackgroundSync = ({
         () => {
           void runSync()
         },
-        Math.max(1000, delayMs),
+        Math.max(5000, delayMs),
       )
     }
 
@@ -339,29 +364,32 @@ const useCanvasBackgroundSync = ({
 
         if (!hasDataChanged) return
 
-        onBeforeApplyRemoteData?.()
-        setCanvasCategories(data.categories)
-        setActiveCanvasCategoryId((current) => {
+        onBeforeApplyRemoteDataRef.current?.()
+        setCanvasCategoriesRef.current(data.categories)
+        setActiveCanvasCategoryIdRef.current((current) => {
           if (current !== null && data.categories.some((category) => category.id === current)) return current
-          if (current === null && activeCanvasCategoryId !== null) {
-            if (data.categories.some((category) => category.id === activeCanvasCategoryId))
-              return activeCanvasCategoryId
+          if (current === null && activeCanvasCategoryIdRef.current !== null) {
+            if (data.categories.some((category) => category.id === activeCanvasCategoryIdRef.current))
+              return activeCanvasCategoryIdRef.current
           }
-          if (initialCategoryId !== null && data.categories.some((category) => category.id === initialCategoryId)) {
-            return initialCategoryId
+          if (
+            initialCategoryIdRef.current !== null &&
+            data.categories.some((category) => category.id === initialCategoryIdRef.current)
+          ) {
+            return initialCategoryIdRef.current
           }
           return data.categories[0]?.id ?? null
         })
-        setFrames((current) => reconcileFrames(current, data.frames, lockedFrameIds))
-        setConnections((current) => reconcileConnections(current, data.connections))
+        setFramesRef.current((current) => reconcileFrames(current, data.frames, lockedFrameIdsRef.current))
+        setConnectionsRef.current((current) => reconcileConnections(current, data.connections))
       } catch (error) {
         if (!isActive) return
         consecutiveErrorCount += 1
-        setSyncError(error instanceof Error ? error.message : 'Kunne ikke synkronisere canvas-data')
+        setSyncErrorRef.current(error instanceof Error ? error.message : 'Kunne ikke synkronisere canvas-data')
       } finally {
         isSyncInFlight = false
         const wsIsConnected = wsRef.current?.isConnected ?? false
-        const effectiveBaseInterval = wsIsConnected ? WS_CONNECTED_SYNC_INTERVAL_MS : intervalMs
+        const effectiveBaseInterval = wsIsConnected ? WS_CONNECTED_SYNC_INTERVAL_MS : intervalMsRef.current
         scheduleNextSync(
           getAdaptiveDelayMs({
             baseIntervalMs: effectiveBaseInterval,
@@ -380,21 +408,7 @@ const useCanvasBackgroundSync = ({
         window.clearTimeout(timeoutId)
       }
     }
-  }, [
-    activeCanvasCategoryId,
-    dashboardId,
-    enabled,
-    initialCategoryId,
-    intervalMs,
-    lockedFrameIds,
-    projectId,
-    setActiveCanvasCategoryId,
-    setCanvasCategories,
-    setConnections,
-    setFrames,
-    setSyncError,
-    onBeforeApplyRemoteData,
-  ])
+  }, [enabled, projectId, dashboardId])
 }
 
 export default useCanvasBackgroundSync

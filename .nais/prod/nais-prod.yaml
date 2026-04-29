@@ -53,6 +53,8 @@ spec:
       value: "team-researchops-prod-01d6"
     - name: BACKEND_BASE_URL
       value: "http://start-umami-backend.team-researchops.svc.cluster.local"
+    - name: BACKEND_WS_HOST
+      value: "innblikk-backend.ansatt.nav.no"
     - name: BACKEND_APP_NAME
       value: "start-umami-backend"
     - name: NAIS_CLUSTER_NAME

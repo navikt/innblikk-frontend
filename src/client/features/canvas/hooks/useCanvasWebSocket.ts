@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { getRuntimeConfig } from '../../../shared/lib/runtimeConfig'
 
 const WS_PATH = '/api/canvas/ws'
 const PING_INTERVAL_MS = 25_000
@@ -33,8 +34,10 @@ type IncomingMessage = {
 }
 
 const buildWsUrl = (): string => {
+  const config = getRuntimeConfig()
+  const host = config.BACKEND_WS_HOST ?? window.location.host
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  return `${protocol}//${window.location.host}${WS_PATH}`
+  return `${protocol}//${host}${WS_PATH}`
 }
 
 const fetchWsToken = async (): Promise<string | null> => {
@@ -139,6 +142,8 @@ const useCanvasWebSocket = ({ enabled, projectId, dashboardId }: UseCanvasWebSoc
             if (destroyedRef.current || ws.readyState !== WebSocket.OPEN) return
             if (token) {
               ws.send(JSON.stringify({ type: 'auth', token }))
+            } else {
+              console.warn('[canvas-ws] No auth token available, joining unauthenticated')
             }
             // Join the room
             ws.send(
@@ -152,7 +157,8 @@ const useCanvasWebSocket = ({ enabled, projectId, dashboardId }: UseCanvasWebSoc
             setIsConnected(true)
             startPing(ws)
           })
-          .catch(() => {
+          .catch((err) => {
+            console.warn('[canvas-ws] Token fetch failed, joining unauthenticated:', err)
             // Auth failed — still try to join (will work in local dev without auth)
             try {
               ws.send(
@@ -175,7 +181,16 @@ const useCanvasWebSocket = ({ enabled, projectId, dashboardId }: UseCanvasWebSoc
         if (destroyedRef.current) return
         let parsed: IncomingMessage
         try {
-          parsed = JSON.parse(typeof event.data === 'string' ? event.data : '') as IncomingMessage
+          let raw: string
+          if (typeof event.data === 'string') {
+            raw = event.data
+          } else if (event.data instanceof Blob) {
+            // Blob data can't be parsed synchronously — skip
+            return
+          } else {
+            return
+          }
+          parsed = JSON.parse(raw) as IncomingMessage
         } catch {
           return
         }
