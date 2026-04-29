@@ -36,15 +36,9 @@ importers:
       helmet:
         specifier: ^8.1.0
         version: 8.1.0
-      ioredis:
-        specifier: ^5.10.1
-        version: 5.10.1
       sql-formatter:
         specifier: ^15.7.0
         version: 15.7.0
-      ws:
-        specifier: ^8.20.0
-        version: 8.20.0
     devDependencies:
       '@codemirror/lang-sql':
         specifier: ^6.10.0
