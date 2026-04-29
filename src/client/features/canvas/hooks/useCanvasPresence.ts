@@ -81,6 +81,7 @@ const useCanvasPresence = ({ enabled, projectId, dashboardId, ws }: UseCanvasPre
 
     let isActive = true
     let tickId: number | null = null
+    const shouldUseHttpFallback = !ws
 
     const runTick = async () => {
       if (!isActive) return
@@ -101,7 +102,11 @@ const useCanvasPresence = ({ enabled, projectId, dashboardId, ws }: UseCanvasPre
           })
           setParticipants((current) => current.filter((participant) => Date.parse(participant.expiresAt) > Date.now()))
           setIsPresenceReady(true)
-        } else {
+          return
+        }
+
+        if (!shouldUseHttpFallback) return
+        if (!wsConnected) {
           await sendCanvasPresenceHeartbeat({
             projectId,
             dashboardId,
@@ -113,7 +118,6 @@ const useCanvasPresence = ({ enabled, projectId, dashboardId, ws }: UseCanvasPre
           if (!isActive) return
           setParticipants(nextParticipants)
           setIsPresenceReady(true)
-          ws?.broadcast('canvas:presence', nextParticipants)
         }
       } catch {
         /* Presence errors should not block canvas usage. */
