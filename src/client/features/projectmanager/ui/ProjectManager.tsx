@@ -265,7 +265,7 @@ const ProjectManager = () => {
           const description = (summary.project.description ?? '').toLowerCase()
           return name.includes(query) || description.includes(query)
         })
-    return [...filtered].sort((a, b) => a.project.name.localeCompare(b.project.name, 'nb', { sensitivity: 'base' }))
+    return [...filtered].sort((a, b) => a.project.name.localeCompare(b.project.name, 'en', { sensitivity: 'base' }))
   }, [projectSummaries, projectSearch])
 
   const regularDashboards = useMemo(
@@ -1202,7 +1202,10 @@ const ProjectManager = () => {
   }
 
   const projectOptions: ProjectDto[] = useMemo(
-    () => projectSummaries.map((summary) => summary.project),
+    () =>
+      [...projectSummaries.map((summary) => summary.project)].sort((a, b) =>
+        a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }),
+      ),
     [projectSummaries],
   )
 
