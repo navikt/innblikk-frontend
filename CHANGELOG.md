@@ -130,6 +130,12 @@ All notable changes to this project will be documented in this file.
 - **canvas:** Add useCanvasWebSocket hook with exponential backoff reconnect
 - **canvas:** Replace polling with WebSocket real-time sync
 - Add Valkey pub/sub for cross-pod canvas WebSocket sync
+- Move ws to backend
+- Move ws to backend
+- Move ws to backend
+- Move ws to backend
+- Move ws to backend
+- Move ws to backend
 
 ### 🧪 Testing
 
