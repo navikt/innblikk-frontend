@@ -526,7 +526,7 @@ const Canvas = () => {
   >(null)
   const [timerA11yAnnouncement, setTimerA11yAnnouncement] = useState('')
   const [placementA11yAnnouncement, setPlacementA11yAnnouncement] = useState('')
-  const [, setIsLoadingCanvasItems] = useState(false)
+  const [isLoadingCanvasItems, setIsLoadingCanvasItems] = useState(false)
   const [isSavingCanvasItem, setIsSavingCanvasItem] = useState(false)
   const [isImportingStickyCsv, setIsImportingStickyCsv] = useState(false)
   const [importStickyProgressCurrent, setImportStickyProgressCurrent] = useState(0)
@@ -1388,7 +1388,7 @@ const Canvas = () => {
   }, [canPersistToDashboard, projectId, dashboardId, canvasInitMode, initialCategoryId, markRemoteCanvasFramesApplied])
 
   useCanvasBackgroundSync({
-    enabled: canvasSyncContextEnabled && shouldEnableBackgroundSync,
+    enabled: canvasSyncContextEnabled && shouldEnableBackgroundSync && !isLoadingCanvasItems,
     projectId,
     dashboardId,
     initialCategoryId,
@@ -1409,6 +1409,7 @@ const Canvas = () => {
     getFrameLockStatus,
   } = useCanvasEditLocks({
     enabled: canvasSyncContextEnabled,
+    hasPersistedFrames: frames.some((frame) => Boolean(frame.graphId && frame.categoryId)),
     projectId,
     dashboardId,
     activeEditableFrame,
@@ -1704,6 +1705,7 @@ const Canvas = () => {
     dashboardId,
     ensureCanvasCategory,
     frames,
+    ws: canvasWebSocket,
     selectedWebsite,
     setSelectedWebsite,
     canvasConfiguredWebsiteId,
@@ -2706,6 +2708,15 @@ const Canvas = () => {
     }
   }, [connectionDragState, createConnectionBetweenFrames, getCanvasPointerPosition, getFrameBounds, visibleFrames])
 
+  const deleteGraphViaWsOrRest = useCallback(async (pId: number, dId: number, categoryId: number, graphId: number) => {
+    const ws = canvasWebSocketRef.current
+    if (ws.isConnected) {
+      ws.deleteFrame({ graphId, categoryId })
+      return
+    }
+    await deleteGraph(pId, dId, categoryId, graphId)
+  }, [])
+
   const handleRemovePage = useCallback(
     async (id: string) => {
       const frameToDelete = frames.find((frame) => frame.id === id)
@@ -2733,11 +2744,11 @@ const Canvas = () => {
       if (!frameToDelete.graphId || !frameToDelete.categoryId) return
 
       try {
-        await deleteGraph(projectId, dashboardId, frameToDelete.categoryId, frameToDelete.graphId)
+        await deleteGraphViaWsOrRest(projectId, dashboardId, frameToDelete.categoryId, frameToDelete.graphId)
         await Promise.all(
           linkedConnections.map((connection) => {
             if (!connection.graphId || !connection.categoryId) return Promise.resolve()
-            return deleteGraph(projectId, dashboardId, connection.categoryId, connection.graphId)
+            return deleteGraphViaWsOrRest(projectId, dashboardId, connection.categoryId, connection.graphId)
           }),
         )
       } catch (error) {
@@ -2753,6 +2764,7 @@ const Canvas = () => {
       canPersistToDashboard,
       projectId,
       dashboardId,
+      deleteGraphViaWsOrRest,
       setSyncError,
     ],
   )
@@ -2765,7 +2777,7 @@ const Canvas = () => {
     if (!connection.graphId || !connection.categoryId) return
 
     try {
-      await deleteGraph(projectId, dashboardId, connection.categoryId, connection.graphId)
+      await deleteGraphViaWsOrRest(projectId, dashboardId, connection.categoryId, connection.graphId)
     } catch (error) {
       setSyncError(error instanceof Error ? error.message : 'Kunne ikke slette kobling')
     }
@@ -2819,7 +2831,7 @@ const Canvas = () => {
       for (const frame of framesToDelete) {
         if (canPersistToDashboard && projectId !== null && dashboardId !== null && frame.graphId && frame.categoryId) {
           try {
-            await deleteGraph(projectId, dashboardId, frame.categoryId, frame.graphId)
+            await deleteGraphViaWsOrRest(projectId, dashboardId, frame.categoryId, frame.graphId)
           } catch {
             failedFramesById.set(frame.id, frame)
           }
@@ -2837,7 +2849,7 @@ const Canvas = () => {
           connection.categoryId
         ) {
           try {
-            await deleteGraph(projectId, dashboardId, connection.categoryId, connection.graphId)
+            await deleteGraphViaWsOrRest(projectId, dashboardId, connection.categoryId, connection.graphId)
           } catch {
             failedConnectionsById.set(connection.id, connection)
           }
@@ -2874,6 +2886,7 @@ const Canvas = () => {
       connectionDragState?.sourceFrameId,
       connections,
       dashboardId,
+      deleteGraphViaWsOrRest,
       frames,
       projectId,
       releaseEditLock,

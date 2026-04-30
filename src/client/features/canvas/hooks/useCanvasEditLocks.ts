@@ -37,6 +37,7 @@ const toActiveLocksByFrameGraphId = (records: CanvasEditLockRecord[]): ActiveLoc
 
 type UseCanvasEditLocksParams = {
   enabled: boolean
+  hasPersistedFrames: boolean
   projectId: number | null
   dashboardId: number | null
   activeEditableFrame: CanvasFrame | null
@@ -46,6 +47,7 @@ type UseCanvasEditLocksParams = {
 
 const useCanvasEditLocks = ({
   enabled,
+  hasPersistedFrames,
   projectId,
   dashboardId,
   activeEditableFrame,
@@ -74,7 +76,7 @@ const useCanvasEditLocks = ({
   }, [ws])
 
   const syncLocksHttp = useCallback(async () => {
-    if (!enabled || projectId === null || dashboardId === null) return
+    if (!enabled || !hasPersistedFrames || projectId === null || dashboardId === null) return
     if (isPollingRef.current) return
     if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
 
@@ -94,10 +96,10 @@ const useCanvasEditLocks = ({
     } finally {
       isPollingRef.current = false
     }
-  }, [activeEditableFrame?.graphId, dashboardId, editorId, enabled, onLostActiveLock, projectId])
+  }, [activeEditableFrame?.graphId, dashboardId, editorId, enabled, hasPersistedFrames, onLostActiveLock, projectId])
 
   useEffect(() => {
-    if (!enabled || projectId === null || dashboardId === null) return
+    if (!enabled || !hasPersistedFrames || projectId === null || dashboardId === null) return
     if (wsConnected) return
 
     void syncLocksHttp()
@@ -105,7 +107,7 @@ const useCanvasEditLocks = ({
       void syncLocksHttp()
     }, LOCK_SYNC_INTERVAL_MS)
     return () => window.clearInterval(intervalId)
-  }, [dashboardId, enabled, projectId, syncLocksHttp, wsConnected])
+  }, [dashboardId, enabled, hasPersistedFrames, projectId, syncLocksHttp, wsConnected])
 
   const acquireLock = useCallback(
     async (frame: CanvasFrame): Promise<boolean> => {

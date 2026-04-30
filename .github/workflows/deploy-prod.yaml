@@ -70,22 +70,6 @@ jobs:
             echo "image=${IMAGE}"
           } >> "$GITHUB_OUTPUT"
 
-      - name: 'Check for duplicate prod deployment'
-        env:
-          VERSION: ${{ steps.resolve-dev.outputs.version }}
-        run: |
-          MATCHING_TAG="$(git for-each-ref refs/tags/prod-* --format='%(refname:short)|%(subject)' | awk -F'|' -v msg="Production deployment of ${VERSION}" '$2==msg { print $1; exit }')"
-
-          if [ -n "$MATCHING_TAG" ]; then
-            echo "Version ${VERSION} was already deployed to prod (tag: ${MATCHING_TAG})."
-            echo "Stopping before deploy."
-            exit 1
-          fi
-
-          if [ -z "$MATCHING_TAG" ]; then
-            echo "No previous prod deployment tag found for version ${VERSION}."
-          fi
-
   deploy-prod:
     if: github.ref_name == 'main'
     needs:

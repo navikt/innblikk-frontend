@@ -5,9 +5,6 @@ metadata:
   namespace: team-researchops
   labels:
     team: team-researchops
-  annotations:
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
 spec:
   image: {{ image }}
   port: 8080
@@ -42,9 +39,6 @@ spec:
             namespace: team-researchops
           - application: start-umami-backend
             namespace: team-researchops
-  valkey:
-    - instance: canvas-ws
-      access: readwrite
   azure:
     application:
       enabled: true
@@ -59,6 +53,8 @@ spec:
       value: "team-researchops-prod-01d6"
     - name: BACKEND_BASE_URL
       value: "http://start-umami-backend.team-researchops.svc.cluster.local"
+    - name: BACKEND_WS_HOST
+      value: "innblikk-backend.ansatt.nav.no"
     - name: BACKEND_APP_NAME
       value: "start-umami-backend"
     - name: NAIS_CLUSTER_NAME

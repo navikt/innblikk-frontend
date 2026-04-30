@@ -1,10 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { fetchCurrentUserProfile } from '../../user/api/profile.api.ts'
-import {
-  fetchCanvasPresenceParticipants,
-  sendCanvasPresenceHeartbeat,
-  type CanvasParticipant,
-} from '../api/canvasPresenceApi.ts'
+import type { CanvasParticipant } from '../api/canvasPresenceApi.ts'
+import { useCurrentUserProfile } from '../../user/hooks/useCurrentUserProfile.ts'
 import type { CanvasWebSocketHandle } from './useCanvasWebSocket.ts'
 
 const PRESENCE_TICK_MS = 10000
@@ -27,30 +23,11 @@ type UseCanvasPresenceParams = {
 
 const useCanvasPresence = ({ enabled, projectId, dashboardId, ws }: UseCanvasPresenceParams) => {
   const [clientId] = useState<string>(() => createCanvasClientId())
-  const [ownerId, setOwnerId] = useState<string>('')
-  const [ownerLabel, setOwnerLabel] = useState<string>('En kollega')
   const [participants, setParticipants] = useState<CanvasParticipant[]>([])
   const [isPresenceReady, setIsPresenceReady] = useState(false)
-
-  useEffect(() => {
-    let isActive = true
-    void (async () => {
-      try {
-        const me = await fetchCurrentUserProfile()
-        if (!isActive) return
-        setOwnerId(me?.navIdent?.trim() || '')
-        const label = me?.name?.trim() || me?.navIdent?.trim() || ''
-        setOwnerLabel(label || 'En kollega')
-      } catch {
-        if (!isActive) return
-        setOwnerId('')
-        setOwnerLabel('En kollega')
-      }
-    })()
-    return () => {
-      isActive = false
-    }
-  }, [])
+  const { profile } = useCurrentUserProfile()
+  const ownerId = profile?.navIdent?.trim() || ''
+  const ownerLabel = profile?.name?.trim() || profile?.navIdent?.trim() || 'En kollega'
 
   const wsConnected = ws?.isConnected ?? false
   const isLocalDebugMode =
@@ -82,13 +59,13 @@ const useCanvasPresence = ({ enabled, projectId, dashboardId, ws }: UseCanvasPre
     let isActive = true
     let tickId: number | null = null
 
-    const runTick = async () => {
+    const runTick = () => {
       if (!isActive) return
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
 
       try {
-        if (wsConnected) {
-          ws!.sendRaw({
+        if (wsConnected && ws) {
+          ws.sendRaw({
             type: 'broadcast',
             projectId,
             dashboardId,
@@ -101,29 +78,16 @@ const useCanvasPresence = ({ enabled, projectId, dashboardId, ws }: UseCanvasPre
           })
           setParticipants((current) => current.filter((participant) => Date.parse(participant.expiresAt) > Date.now()))
           setIsPresenceReady(true)
-        } else {
-          await sendCanvasPresenceHeartbeat({
-            projectId,
-            dashboardId,
-            clientId,
-            ownerId: ownerId || clientId,
-            ownerLabel,
-          })
-          const nextParticipants = await fetchCanvasPresenceParticipants(projectId, dashboardId)
-          if (!isActive) return
-          setParticipants(nextParticipants)
-          setIsPresenceReady(true)
-          ws?.broadcast('canvas:presence', nextParticipants)
         }
       } catch {
         /* Presence errors should not block canvas usage. */
       }
     }
 
-    void runTick()
+    runTick()
 
     tickId = window.setInterval(() => {
-      void runTick()
+      runTick()
     }, PRESENCE_TICK_MS)
 
     return () => {

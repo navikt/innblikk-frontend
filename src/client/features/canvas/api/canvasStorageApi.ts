@@ -9,25 +9,18 @@ export type CanvasStorageData = {
   connections: CanvasConnection[]
 }
 
-type CanvasStorageResponseEntry = {
+export type CanvasStorageResponseEntry = {
   categoryId: number
   graph: GraphDto
   query: QueryDto
 }
 
-export async function fetchCanvasStorageData(projectId: number, dashboardId: number): Promise<CanvasStorageData> {
-  const response = await fetch(`/api/backend/canvas/storage?projectId=${projectId}&dashboardId=${dashboardId}`)
-  if (!response.ok) {
-    throw new Error(`Kunne ikke hente canvas-data (${response.status})`)
-  }
-  const payload = (await response.json()) as {
-    categories?: GraphCategoryDto[]
-    entries?: CanvasStorageResponseEntry[]
-  }
-  const categories = Array.isArray(payload.categories) ? payload.categories : []
-  const entries = Array.isArray(payload.entries) ? payload.entries : []
-  const framesFromStorage: CanvasFrame[] = []
-  const connectionsFromStorage: CanvasConnection[] = []
+export function parseCanvasStorageEntries(entries: CanvasStorageResponseEntry[]): {
+  frames: CanvasFrame[]
+  connections: CanvasConnection[]
+} {
+  const frames: CanvasFrame[] = []
+  const connections: CanvasConnection[] = []
 
   for (const entry of entries) {
     const categoryId = Number(entry?.categoryId)
@@ -39,7 +32,7 @@ export async function fetchCanvasStorageData(projectId: number, dashboardId: num
     if (!parsedConfig) continue
 
     if (parsedConfig.kind === 'connection') {
-      connectionsFromStorage.push({
+      connections.push({
         id: `stored-connection-${graph.id}`,
         fromFrameId: parsedConfig.fromFrameId,
         toFrameId: parsedConfig.toFrameId,
@@ -54,7 +47,7 @@ export async function fetchCanvasStorageData(projectId: number, dashboardId: num
 
     if (!isRenderableCanvasFrameKind(parsedConfig.kind)) continue
 
-    framesFromStorage.push({
+    frames.push({
       id: `stored-${graph.id}`,
       kind: parsedConfig.kind,
       websiteId: parsedConfig.websiteId,
@@ -103,13 +96,30 @@ export async function fetchCanvasStorageData(projectId: number, dashboardId: num
       categoryId,
       graphId: graph.id,
       queryId: configQuery.id,
+      version: configQuery.version,
       refreshNonce: 0,
     })
   }
 
+  return { frames, connections }
+}
+
+export async function fetchCanvasStorageData(projectId: number, dashboardId: number): Promise<CanvasStorageData> {
+  const response = await fetch(`/api/backend/canvas/storage?projectId=${projectId}&dashboardId=${dashboardId}`)
+  if (!response.ok) {
+    throw new Error(`Kunne ikke hente canvas-data (${response.status})`)
+  }
+  const payload = (await response.json()) as {
+    categories?: GraphCategoryDto[]
+    entries?: CanvasStorageResponseEntry[]
+  }
+  const categories = Array.isArray(payload.categories) ? payload.categories : []
+  const entries = Array.isArray(payload.entries) ? payload.entries : []
+  const { frames, connections } = parseCanvasStorageEntries(entries)
+
   return {
     categories,
-    frames: framesFromStorage,
-    connections: connectionsFromStorage,
+    frames,
+    connections,
   }
 }
