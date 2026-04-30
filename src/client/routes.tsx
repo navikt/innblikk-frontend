@@ -68,6 +68,9 @@ const Funnel = lazy(() => import('./features/funnel').then((m) => ({ default: m.
 const Retention = lazy(() => import('./features/retention').then((m) => ({ default: m.Retention })))
 const GoalCompletion = lazy(() => import('./features/goalcompletion').then((m) => ({ default: m.GoalCompletion })))
 
+// Stats Feature
+const Stats = lazy(() => import('./features/stats').then((m) => ({ default: m.Stats })))
+
 // SQL Feature
 const SqlEditor = lazy(() => import('./features/sql').then((m) => ({ default: m.SqlEditor })))
 
@@ -161,6 +164,7 @@ export const routes: AppRoute[] = [
   { path: '/metabase', component: <MetabaseGuide />, fullWidth: true },
 
   { path: '/sql', component: <SqlEditor />, fullWidth: true },
+  { path: '/stats', component: <Stats />, fullWidth: true },
   { path: '/innstillinger', component: <InnstillingerRedirect />, fullWidth: true },
   { path: '/grafdeling', component: <Grafdeling />, fullWidth: true },
   { path: '/dashboard', component: <DashboardRouteResolver />, fullWidth: true },
