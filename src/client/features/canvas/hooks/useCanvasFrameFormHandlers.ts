@@ -8,6 +8,7 @@ import {
   updateQuery,
 } from '../../oversikt/api/oversiktApi.ts'
 import type { VisualizationMode } from '../../clickmap/model/visualizationMode.ts'
+import type { CanvasWebSocketHandle } from './useCanvasWebSocket.ts'
 import type { Website } from '../../../shared/types/website.ts'
 import {
   DEFAULT_CANVAS_ICON_COLOR,
@@ -84,6 +85,7 @@ type UseCanvasFrameFormHandlersParams = {
   dashboardId: number | null
   ensureCanvasCategory: () => Promise<number | null>
   frames: CanvasFrame[]
+  ws?: CanvasWebSocketHandle
   selectedWebsite: Website | null
   setSelectedWebsite: Setter<Website | null>
   canvasConfiguredWebsiteId: string | null
@@ -343,6 +345,7 @@ const useCanvasFrameFormHandlers = ({
   dashboardId,
   ensureCanvasCategory,
   frames,
+  ws,
   selectedWebsite,
   setSelectedWebsite,
   canvasConfiguredWebsiteId,
@@ -627,6 +630,43 @@ const useCanvasFrameFormHandlers = ({
       }
       const serialized = serializeCanvasConfig(payload)
 
+      // Try WS-based save first
+      if (ws?.isConnected) {
+        const result = await ws.saveFrame({
+          projectId,
+          dashboardId,
+          categoryId,
+          graphId: frame.graphId ?? undefined,
+          queryId: frame.queryId ?? undefined,
+          graphName: buildCanvasStorageGraphName(frame),
+          name: CANVAS_QUERY_NAME,
+          sqlText: serialized,
+          version: frame.version,
+        })
+
+        if (result.ok) {
+          return {
+            ...frame,
+            categoryId,
+            graphId: (result.payload.graphId as number) ?? frame.graphId,
+            queryId: (result.payload.queryId as number) ?? frame.queryId,
+            version: (result.payload.version as number) ?? frame.version,
+          }
+        }
+
+        if (result.conflict) {
+          // On conflict, return the frame with updated version from server
+          return {
+            ...frame,
+            categoryId,
+            version: (result.payload.version as number) ?? frame.version,
+          }
+        }
+
+        // WS save failed — fall through to REST
+      }
+
+      // REST fallback
       if (!frame.graphId) {
         const createdGraph = await createGraph(projectId, dashboardId, categoryId, {
           name: buildCanvasStorageGraphName(frame),
@@ -664,7 +704,7 @@ const useCanvasFrameFormHandlers = ({
         queryId: createdQuery.id,
       }
     },
-    [dashboardId, ensureCanvasCategory, projectId],
+    [dashboardId, ensureCanvasCategory, projectId, ws],
   )
 
   const resolvePlacementInSection = useCallback(
