@@ -477,6 +477,32 @@ export function createBackendProxyRouter({ BACKEND_BASE_URL }) {
     }
   })
 
+  router.get('/stats', async (req, res) => {
+    try {
+      const targetUrl = new URL('stats', apiBaseUrl)
+      const response = await fetch(targetUrl, { headers: { accept: 'application/json' } })
+      const text = await response.text()
+      let payload = null
+      if (text) {
+        try {
+          payload = JSON.parse(text)
+        } catch {
+          payload = null
+        }
+      }
+      if (!response.ok) {
+        res.status(response.status).json({ error: 'Stats request failed' })
+        return
+      }
+      res.json(payload)
+    } catch (err) {
+      console.error('Stats proxy error:', err)
+      res
+        .status(500)
+        .json({ error: 'Stats proxy error', details: err instanceof Error ? err.message : 'Unknown error' })
+    }
+  })
+
   router.use('/', authenticateUser, async (req, res) => {
     try {
       const targetPath = req.url.startsWith('/') ? req.url.slice(1) : req.url

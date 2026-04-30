@@ -9,6 +9,7 @@ import { ErrorBoundary } from './shared/ui/ErrorBoundary.tsx'
 import { useHead } from '@unhead/react'
 import { AppBlock } from './shared/ui/theme/AppBlock/AppBlock.tsx'
 import { loadFeatureFlagsFromBackend } from './shared/lib/featureFlags.ts'
+import { touchUserSettings } from './shared/lib/heartbeat.ts'
 
 import './App.css'
 
@@ -103,6 +104,7 @@ function App() {
 
   useEffect(() => {
     loadFeatureFlagsFromBackend()
+    touchUserSettings()
   }, [])
 
   useEffect(() => {
