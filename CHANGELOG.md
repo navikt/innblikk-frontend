@@ -137,6 +137,7 @@ All notable changes to this project will be documented in this file.
 - Move ws to backend
 - Move ws to backend
 - Remove preflight checks
+- Update readme
 
 ### 🧪 Testing
 
