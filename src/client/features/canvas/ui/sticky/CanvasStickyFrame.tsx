@@ -45,6 +45,11 @@ const CanvasStickyFrame = ({
           onChange={(event) => onChange(id, event.target.value)}
           onBlur={() => onBlur(id)}
           onMouseDown={(event) => event.stopPropagation()}
+          onKeyDown={(event) => {
+            if (event.key !== 'Escape') return
+            event.preventDefault()
+            event.currentTarget.blur()
+          }}
           lang="nb-NO"
           placeholder="Skriv Post-it-lapp"
           aria-labelledby={stickyEditorLabelId}
@@ -75,14 +80,13 @@ const CanvasStickyFrame = ({
           tabIndex={0}
           className="m-0 block w-full cursor-text whitespace-pre-wrap break-words bg-transparent p-0 text-left text-base leading-7 [appearance:none] selection:bg-[#1d4ed8] selection:text-white"
           style={{ color: colorOption.text }}
-          onMouseDown={(event) => event.stopPropagation()}
-          onClick={() => onStartEditing(id)}
+          onDoubleClick={() => onStartEditing(id)}
           onKeyDown={(event) => {
             if (event.key !== 'Enter' && event.key !== ' ') return
             event.preventDefault()
             onStartEditing(id)
           }}
-          aria-description="Trykk Enter for å redigere lappen"
+          aria-description="Dobbeltklikk eller trykk Enter for å redigere lappen"
         >
           {stickyText}
         </div>

@@ -169,6 +169,27 @@ const useCanvasInteractions = ({
       if (isInteractionLocked) return
       if ('button' in event && event.button !== 0) return
 
+      const interactionTarget = event.target
+      if (interactionTarget instanceof Element) {
+        const interactiveAncestor = interactionTarget.closest(
+          [
+            'button',
+            'a',
+            'input',
+            'textarea',
+            'select',
+            'option',
+            'label',
+            'summary',
+            '[role="button"]',
+            '[role="menuitem"]',
+            '[contenteditable="true"]',
+            '[data-canvas-no-drag="true"]',
+          ].join(','),
+        )
+        if (interactiveAncestor) return
+      }
+
       const isAdditiveSelection = event.metaKey || event.ctrlKey
       if (isAdditiveSelection) {
         event.preventDefault()
