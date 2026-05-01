@@ -171,6 +171,14 @@ const useCanvasInteractions = ({
 
       const interactionTarget = event.target
       if (interactionTarget instanceof Element) {
+        if (frame.kind === 'section') {
+          const nearestFrameRoot = interactionTarget.closest<HTMLElement>('[data-canvas-frame-root="true"]')
+          if (nearestFrameRoot) {
+            const targetFrameId = nearestFrameRoot.dataset.canvasFrameId
+            if (targetFrameId && targetFrameId !== frame.id) return
+          }
+        }
+
         const interactiveAncestor = interactionTarget.closest(
           [
             'button',
