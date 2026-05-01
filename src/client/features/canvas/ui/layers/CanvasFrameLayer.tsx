@@ -614,10 +614,12 @@ const CanvasFrameLayer = ({
               data-canvas-section-id={frame.kind === 'section' ? frame.id : undefined}
               onMouseDown={(event) => {
                 if (isFrameInteractionLocked) return
+                event.stopPropagation()
                 handleDragStart(event, frame)
               }}
               onTouchStart={(event) => {
                 if (isFrameInteractionLocked) return
+                event.stopPropagation()
                 handleDragStart(event, frame)
               }}
               className={`focus:outline-none transition-opacity ${isDraggableFrame ? (isFrameBeingDragged ? 'cursor-grabbing' : 'cursor-grab active:cursor-grabbing') : ''} ${
