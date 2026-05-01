@@ -168,6 +168,7 @@ const useCanvasInteractions = ({
     (event: React.MouseEvent | React.TouchEvent, frame: CanvasFrame) => {
       if (isInteractionLocked) return
       if ('button' in event && event.button !== 0) return
+      if ('detail' in event && event.detail > 1) return
 
       const interactionTarget = event.target
       if (interactionTarget instanceof Element) {
@@ -215,7 +216,14 @@ const useCanvasInteractions = ({
       const pointer = getCanvasPointerPosition(clientX, clientY)
       if (!pointer) return
 
-      const selectedIds = selectedFrameIds.includes(frame.id) ? selectedFrameIds : [frame.id]
+      const selectedSectionIds = new Set(
+        selectedFrameIds.filter((id) =>
+          frames.some((candidate) => candidate.id === id && candidate.kind === 'section'),
+        ),
+      )
+      const shouldIsolateFrameSelection = frame.kind !== 'section' && selectedSectionIds.size > 0
+      const selectedIds =
+        selectedFrameIds.includes(frame.id) && !shouldIsolateFrameSelection ? selectedFrameIds : [frame.id]
       const sectionContainedIds =
         frame.kind === 'section'
           ? visibleFrames
