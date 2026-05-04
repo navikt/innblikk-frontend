@@ -4,6 +4,7 @@ import { KontaktSeksjon } from '../../../shared/ui/theme/Kontakt/KontaktSeksjon.
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { BetaBadge } from '../../../shared/ui/theme/Header/BetaBadge.tsx'
 import { getFeatureFlag } from '../../../shared/lib/featureFlags.ts'
+import { ResearchOpsFactCards } from './ResearchOpsFactCards.tsx'
 
 function Home() {
   const isBetaUser = getFeatureFlag('beta_opt_in')
@@ -39,6 +40,16 @@ function Home() {
               Forstå brukeradferd med Innblikk
             </Heading>
             <UrlSearchForm />
+          </div>
+          <div style={{ width: '100%', maxWidth: '860px', margin: '0 auto', paddingTop: 'var(--ax-space-8)' }}>
+            <Heading
+              size="small"
+              as="h2"
+              style={{ marginBottom: 'var(--ax-space-12)', color: 'var(--ax-text-subtle)' }}
+            >
+              ResearchOps i tall
+            </Heading>
+            <ResearchOpsFactCards />
           </div>
         </AppBlock>
       </section>
