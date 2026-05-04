@@ -24,7 +24,7 @@ COPY . .
 RUN pnpm run build
 
 # Production stage
-FROM cgr.dev/chainguard/wolfi-base@sha256:1c56f3ceb1c9929611a1cc7ab7a5fde1ec5df87add282029cd1596b8eae5af67 AS runtime
+FROM europe-north1-docker.pkg.dev/cgr-nav/pull-through/nav.no/node:25@sha256:6afbeeea90a543021260950f5aaee2de198d7b17ff89ecf5b80bd2532757ba86
 
 # Install only Node.js runtime (no npm/corepack needed)
 RUN apk update && apk add --no-cache nodejs-25
