@@ -590,7 +590,9 @@ const useCanvasInteractions = ({
       if (resizedFrame?.kind === 'section' && resizedFrame.sectionLayout === 'grid') {
         const { nextFrames, changedFrameIds } = reflowGridSections(framesRef.current, [resizedFrame.id])
         setFrames(nextFrames)
-        const framesToPersist = nextFrames.filter((frame) => changedFrameIds.has(frame.id) && Boolean(frame.graphId))
+        const frameIdsToPersist = new Set(changedFrameIds)
+        frameIdsToPersist.add(resizedFrame.id)
+        const framesToPersist = nextFrames.filter((frame) => frameIdsToPersist.has(frame.id) && Boolean(frame.graphId))
         void Promise.all(
           framesToPersist.map((frame) =>
             persistFrame(frame).catch((error) => {
