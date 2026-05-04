@@ -806,6 +806,29 @@ const useCanvasFrameFormHandlers = ({
     [frames, getDefaultFrameSize, persistFrame],
   )
 
+  const findContainingSectionId = useCallback(
+    (frame: CanvasFrame): string | null => {
+      const frameBounds = getFrameBoundsForLayout(frame, getDefaultFrameSize)
+      const centerX = (frameBounds.left + frameBounds.right) / 2
+      const centerY = (frameBounds.top + frameBounds.bottom) / 2
+
+      const containingSection = frames.find((candidate) => {
+        if (candidate.kind !== 'section') return false
+        if ((candidate.categoryId ?? null) !== (frame.categoryId ?? null)) return false
+        const sectionBounds = getFrameBoundsForLayout(candidate, getDefaultFrameSize)
+        return (
+          centerX >= sectionBounds.left &&
+          centerX <= sectionBounds.right &&
+          centerY >= sectionBounds.top &&
+          centerY <= sectionBounds.bottom
+        )
+      })
+
+      return containingSection?.id ?? null
+    },
+    [frames, getDefaultFrameSize],
+  )
+
   const loadDashboardOptions = useCallback(
     async (projectIdToLoad: number | null) => {
       if (projectIdToLoad === null) {
@@ -1944,6 +1967,7 @@ const useCanvasFrameFormHandlers = ({
     if (editTableFrameId) {
       const currentFrame = frames.find((frame) => frame.id === editTableFrameId)
       if (!currentFrame || currentFrame.kind !== 'text') return
+      const containingSectionId = findContainingSectionId(currentFrame)
 
       const updatedFrame: CanvasFrame = {
         ...currentFrame,
@@ -1960,7 +1984,15 @@ const useCanvasFrameFormHandlers = ({
           setIsSavingCanvasItem(true)
           setSyncError(null)
           const persistedFrame = await persistFrame(updatedFrame)
-          setFrames((prev) => prev.map((frame) => (frame.id === editTableFrameId ? persistedFrame : frame)))
+          const persistedSection = containingSectionId
+            ? await ensureSectionContainsFrame(containingSectionId, persistedFrame)
+            : null
+          setFrames((prev) => {
+            const withSection = persistedSection
+              ? prev.map((frame) => (frame.id === persistedSection.id ? persistedSection : frame))
+              : prev
+            return withSection.map((frame) => (frame.id === editTableFrameId ? persistedFrame : frame))
+          })
           setTableHeadersInput('')
           setTableRowsInput('')
           setAddTableError(null)
