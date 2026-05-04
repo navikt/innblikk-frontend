@@ -3082,10 +3082,15 @@ const Canvas = () => {
 
       event.preventDefault()
       const pasteOffset = 36 * (clipboardPasteCountRef.current + 1)
+      const copiedSections = copiedFrames.filter((frame) => frame.kind === 'section')
+      const sectionClearanceOffset =
+        copiedSections.length > 0
+          ? Math.max(...copiedSections.map((frame) => (frame.width ?? getDefaultFrameSize(frame).width) + 48))
+          : 0
       const duplicatedFrames = copiedFrames.map((frame) => ({
         ...frame,
         id: `${Date.now()}-${Math.random()}`,
-        x: Math.max(0, frame.x + pasteOffset),
+        x: Math.max(0, frame.x + pasteOffset + sectionClearanceOffset),
         y: Math.max(-CANVAS_TOP_BUFFER, frame.y + pasteOffset),
         graphId: undefined,
         queryId: undefined,
