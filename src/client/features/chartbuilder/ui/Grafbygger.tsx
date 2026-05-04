@@ -122,7 +122,11 @@ const ChartsPage = () => {
   }, [resetAll, setResolvedCohorts])
 
   const showResetEventFilters = isEventFilterDirty
-  const showResetMetrics = config.metrics.length > 0
+  const showResetMetrics = !(
+    config.metrics.length === 1 &&
+    config.metrics[0].function === 'count' &&
+    config.metrics[0].alias === 'antall'
+  )
   const showResetSegments = (config.cohortIds?.length ?? 0) > 0
   const showResetGroupings = config.groupByFields.length > 0
 
