@@ -101,18 +101,15 @@ const MetricSelector = forwardRef(({ metrics, removeMetric, addMetric, resetSign
     for (let i = count - 1; i >= 0; i--) {
       removeMetric(i)
     }
+    addMetric('count', { alias: 'antall' })
+    setAliasInput('antall')
+    setTidSub('median')
+    setTidUnit('seconds')
   }
 
   useImperativeHandle(ref, () => ({
     resetConfig,
   }))
-
-  useEffect(() => {
-    if (metrics.length === 0) {
-      addMetric('count', { alias: 'antall' })
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   useEffect(() => {
     if (activeMetric && !aliasInput) {

@@ -108,6 +108,16 @@ const GroupingOptions = ({
 
   const uniqueParameters = getUniqueParameters(filteredParameters)
 
+  const dateOption = useMemo(() => {
+    const eventBasicsGroup = Object.entries(COLUMN_GROUPS)
+      .map(([groupKey, group]) => ({
+        key: groupKey,
+        options: group.columns.map((col) => ({ value: col.value, label: col.label })),
+      }))
+      .find((group) => group.key === 'eventBasics')
+    return eventBasicsGroup?.options.find((option) => option.value === 'created_at')
+  }, [COLUMN_GROUPS])
+
   const groupedGroupingOptions = useMemo(() => {
     const baseGroups = Object.entries(COLUMN_GROUPS).map(([groupKey, group]) => ({
       key: groupKey,
@@ -128,7 +138,6 @@ const GroupingOptions = ({
 
     const eventBasicsGroup = baseGroups.find((group) => group.key === 'eventBasics')
     const baseGroupsWithoutEventBasics = baseGroups.filter((group) => group.key !== 'eventBasics')
-    const dateOption = eventBasicsGroup?.options.find((option) => option.value === 'created_at')
     const eventBasicsWithoutDate = eventBasicsGroup
       ? eventBasicsGroup.options.filter((option) => option.value !== 'created_at')
       : []
@@ -139,15 +148,6 @@ const GroupingOptions = ({
       options: { value: string; label: string }[]
       isEventDetailsEmpty: boolean
     }> = []
-
-    if (dateOption) {
-      reorderedGroups.push({
-        key: 'date',
-        label: 'Dato',
-        options: [dateOption],
-        isEventDetailsEmpty: false,
-      })
-    }
 
     if (daoOption) {
       reorderedGroups.push({
@@ -288,6 +288,33 @@ const GroupingOptions = ({
         )}
 
         <div className="space-y-4 mb-3">
+          {dateOption && (
+            <div className="mb-3">
+              <Checkbox
+                size="small"
+                checked={groupByFields.includes('created_at')}
+                onChange={() => handleToggleGroupField('created_at')}
+              >
+                Dato
+              </Checkbox>
+              {groupByFields.includes('created_at') && (
+                <div className="mt-2 ml-6">
+                  <Select
+                    label="Visning per"
+                    value={dateFormat || 'day'}
+                    onChange={(e) => setDateFormat(e.target.value)}
+                    size="small"
+                  >
+                    {DATE_FORMATS.map((format) => (
+                      <option key={format.value} value={format.value}>
+                        {format.label}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              )}
+            </div>
+          )}
           <div>
             <div>
               <Accordion
