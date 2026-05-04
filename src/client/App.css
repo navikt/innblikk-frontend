@@ -1,0 +1,180 @@
+/* =====================================================
+   APP-WIDE MAX WIDTH
+   The app fills the full available width with no cap.
+   ===================================================== */
+:root {
+  --app-max-width: none;
+  --inn-bg-white-soft: rgba(255, 255, 255, 0.6);
+}
+
+.dark,
+[data-theme='dark'] {
+  --inn-bg-white-soft: rgba(255, 255, 255, 0.08);
+}
+
+/* Override Page.Block's built-in max-width to allow full width */
+.app-block {
+  max-width: none !important;
+}
+
+/* Responsive modal styles */
+.sporings-modal {
+  max-width: 90vw !important;
+}
+
+@media (min-width: 768px) {
+  .sporings-modal {
+    max-width: 800px !important;
+    width: 800px !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .sporings-modal {
+    max-width: 900px !important;
+    width: 900px !important;
+  }
+}
+
+@media (min-width: 1280px) {
+  .sporings-modal {
+    max-width: 1000px !important;
+    width: 1000px !important;
+  }
+}
+
+/* Primary button for home page */
+.primary-button {
+  display: inline-block;
+  padding: 14px 32px;
+  background-color: var(--ax-bg-accent-strong);
+  color: var(--ax-text-contrast);
+  border-radius: 50px;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 16px;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.primary-button:hover {
+  background-color: var(--ax-bg-accent-strong-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+}
+
+.primary-button:focus {
+  outline: 3px solid var(--ax-border-accent);
+  outline-offset: 3px;
+}
+
+.primary-button:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.primary-button:focus-visible {
+  outline: 3px solid var(--ax-border-accent);
+  outline-offset: 3px;
+  box-shadow:
+    0 0 0 3px var(--ax-bg-default),
+    0 0 0 6px var(--ax-border-accent);
+}
+
+/* FluentUI Chart dark mode support */
+.dark [class*='axis'] text,
+.dark [class*='xAxis'] text,
+.dark [class*='yAxis'] text,
+.dark .ms-LineChart text,
+.dark .ms-Chart text {
+  fill: var(--ax-text-subtle) !important;
+}
+
+/* FluentUI Legend text */
+.dark [class*='legend'] text,
+.dark [class*='Legend'] span,
+.dark [class*='legend'] span,
+.dark [class*='Legend'] button,
+.dark [class*='legend'] button,
+.dark [class*='legendContainer'] span,
+.dark [class*='legendContainer'] button {
+  color: var(--ax-text-subtle) !important;
+}
+
+/* Traffic line chart callout readability (small, non-overlapping bump) */
+.traffic-linechart-callout .ms-Callout-main {
+  padding: 12px 14px !important;
+  border: 1px solid var(--ax-border-neutral-subtle) !important;
+}
+
+.traffic-linechart-callout [class*='calloutDateTimeContainer'],
+.traffic-linechart-callout [class*='calloutInfoContainer'] {
+  color: var(--ax-text-default) !important;
+}
+
+.traffic-linechart-callout [class*='calloutContentX'],
+.traffic-linechart-callout [class*='calloutlegendText'] {
+  color: var(--ax-text-default) !important;
+  font-size: 17px !important;
+  line-height: 1.35 !important;
+  font-weight: 500 !important;
+}
+
+.traffic-linechart-callout [class*='calloutContentY'] {
+  color: var(--ax-text-default) !important;
+  font-size: 18px !important;
+  line-height: 1.3 !important;
+  font-weight: 600 !important;
+}
+
+.dark .sidebar-toggle-btn {
+  border-color: var(--ax-border-neutral);
+}
+
+/* Home page bottom grid responsive */
+.bottom-grid {
+  grid-template-columns: repeat(3, 1fr) !important;
+}
+
+.bottom-grid > div:last-child {
+  grid-column: span 2;
+}
+
+/* When only one item (grafbygger) is shown, make it full width */
+.bottom-grid.single-item {
+  grid-template-columns: 1fr !important;
+}
+
+.bottom-grid.single-item > div:last-child {
+  grid-column: span 1;
+}
+
+.website-picker-combobox [role='listbox'],
+.website-picker-combobox [role='option'] {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* ID selector beats :root specificity for the light-mode override.
+   Scoped to :not(.dark) so dark mode's token is respected. */
+:root:not(.dark) #grafbygger-website-picker {
+  --ax-bg-input: var(--ax-bg-default);
+}
+
+@media (max-width: 768px) {
+  .bottom-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .bottom-grid > div:last-child {
+    grid-column: span 1;
+  }
+}
+
+/* Grafbygger: force non-action colors for event row heading/summary */
+.event-selector-title {
+  color: var(--ax-text-default) !important;
+}
+
+.event-selector-summary {
+  color: var(--ax-text-default) !important;
+}

@@ -1,0 +1,34 @@
+@import 'tailwindcss';
+@import '@navikt/ds-css';
+
+/* ─── Micro-animations ───────────────────────────────────────────────────────
+   animate-in: fade + slide up, used for filter cards in EventSelector and
+   similar "appear" moments across the app.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+@keyframes filter-card-in {
+  from {
+    opacity: 0;
+    translate: 0 -6px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+.filter-card-animate-in {
+  animation: filter-card-in 200ms ease-out both;
+}
+
+/* Funnel/journey box colors - dark navy in light mode, lighter in dark mode */
+:root {
+  --funnel-box-bg: rgb(19, 17, 54);
+  --journey-line-color: #0067c5;
+}
+
+.dark,
+[data-theme='dark'] {
+  --funnel-box-bg: var(--ax-bg-neutral-moderate, #4a4a5a);
+  --journey-line-color: #66b3ff;
+}

@@ -31,10 +31,18 @@ spec:
       memory: 128Mi
   ingresses:
     - https://startumami.ansatt.dev.nav.no
+    - https://innblikk.ansatt.dev.nav.no
+  redirects:
+    - from: https://startumami.ansatt.dev.nav.no
+      to: https://innblikk.ansatt.dev.nav.no
   accessPolicy:
     outbound:
+      external:
+        - host: www.nav.no
       rules:
           - application: reops-proxy
+            namespace: team-researchops
+          - application: start-umami-backend
             namespace: team-researchops
   azure:
     application:
@@ -47,7 +55,13 @@ spec:
   env:
     - name: SITEIMPROVE_BASE_URL
       value: "http://reops-proxy.team-researchops.svc.cluster.local/siteimprove"
-    - name: UMAMI_BASE_URL
-      value: "https://reops-event-proxy.ekstern.dev.nav.no"
     - name: GCP_PROJECT_ID
       value: "team-researchops-dev-4396"
+    - name: BACKEND_BASE_URL
+      value: "http://start-umami-backend.team-researchops.svc.cluster.local"
+    - name: BACKEND_WS_HOST
+      value: "innblikk-backend.ansatt.dev.nav.no"
+    - name: BACKEND_APP_NAME
+      value: "start-umami-backend"
+    - name: NAIS_CLUSTER_NAME
+      value: "dev-gcp"

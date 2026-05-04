@@ -1,0 +1,102 @@
+name: 'Deploy Prod (Manual)'
+run-name: 'Deploy Prod (Manual) @ ${{ github.ref_name }} — ${{ github.sha }}'
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: 'deploy-prod-manual'
+  cancel-in-progress: false
+
+jobs:
+  ensure-main:
+    name: 'Ensure main branch'
+    runs-on: 'ubuntu-latest'
+    steps:
+      - name: 'Fail if not main'
+        if: github.ref_name != 'main'
+        run: |
+          echo "This workflow can only run from the main branch."
+          echo "Triggered from: ${GITHUB_REF_NAME}"
+          exit 1
+      - name: 'Confirm main'
+        if: github.ref_name == 'main'
+        run: echo "Running from main"
+
+  preflight:
+    name: 'Preflight checks'
+    if: github.ref_name == 'main'
+    needs: ensure-main
+    runs-on: 'ubuntu-latest'
+    outputs:
+      image: ${{ steps.resolve-dev.outputs.image }}
+      version: ${{ steps.resolve-dev.outputs.version }}
+      source_tag: ${{ steps.resolve-dev.outputs.source_tag }}
+    steps:
+      - uses: 'actions/checkout@v6'
+        with:
+          fetch-depth: 0
+
+      - name: 'Resolve latest dev deployment metadata'
+        id: resolve-dev
+        run: |
+          git fetch --tags --force
+
+          DEV_TAG="$(git for-each-ref --sort=-creatordate refs/tags/dev-* --format='%(refname:short)' | head -n1)"
+          if [ -z "$DEV_TAG" ]; then
+            echo "No dev deployment tag found. Deploy to dev first so prod can reuse the built image."
+            exit 1
+          fi
+
+          DEV_SUBJECT="$(git for-each-ref "refs/tags/${DEV_TAG}" --format='%(subject)')"
+          DEV_BODY="$(git for-each-ref "refs/tags/${DEV_TAG}" --format='%(body)')"
+          VERSION="$(printf '%s\n' "$DEV_SUBJECT" | sed -n 's/^Development deployment of //p')"
+          IMAGE="$(printf '%s\n' "$DEV_BODY" | sed -n 's/^Image: //p' | head -n1)"
+
+          if [ -z "$VERSION" ] || [ -z "$IMAGE" ]; then
+            echo "Latest dev tag (${DEV_TAG}) is missing version/image metadata."
+            echo "Subject: $DEV_SUBJECT"
+            echo "Body: $DEV_BODY"
+            exit 1
+          fi
+
+          echo "Using dev deployment tag: ${DEV_TAG}"
+          echo "Resolved version: ${VERSION}"
+          echo "Resolved image: ${IMAGE}"
+
+          {
+            echo "source_tag=${DEV_TAG}"
+            echo "version=${VERSION}"
+            echo "image=${IMAGE}"
+          } >> "$GITHUB_OUTPUT"
+
+  deploy-prod:
+    if: github.ref_name == 'main'
+    needs:
+      - ensure-main
+      - preflight
+    runs-on: 'ubuntu-latest'
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: 'actions/checkout@v6'
+      - name: 'Deploy to Prod'
+        uses: 'nais/deploy/actions/deploy@v2'
+        env:
+          CLUSTER: 'prod-gcp'
+          RESOURCE: .nais/prod/nais-prod.yaml
+          VAR: image=${{ needs.preflight.outputs.image }},version=${{ needs.preflight.outputs.version }}
+      - name: 'Show promoted artifact'
+        run: |
+          echo "Promoted dev tag: ${{ needs.preflight.outputs.source_tag }}"
+          echo "Image: ${{ needs.preflight.outputs.image }}"
+          echo "Version: ${{ needs.preflight.outputs.version }}"
+      - name: 'Create deployment tag'
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          TAG_NAME="prod-$(date -u +'%Y.%m.%d-%H%M%S')"
+          git tag -a "$TAG_NAME" -m "Production deployment of ${{ needs.preflight.outputs.version }}"
+          git push origin "$TAG_NAME"

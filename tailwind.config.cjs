@@ -1,9 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
       colors: {
@@ -14,7 +11,7 @@ module.exports = {
         },
       },
       gridTemplateColumns: {
-        '20': 'repeat(20, minmax(0, 1fr))',
+        20: 'repeat(20, minmax(0, 1fr))',
       },
       gridColumn: {
         'span-13': 'span 13 / span 13',
@@ -25,9 +22,9 @@ module.exports = {
         'span-18': 'span 18 / span 18',
         'span-19': 'span 19 / span 19',
         'span-20': 'span 20 / span 20',
-      }
+      },
     },
   },
   plugins: [require('@tailwindcss/typography')],
-  presets: [require('@navikt/ds-tailwind')]
-};
+  presets: [require('@navikt/ds-tailwind')],
+}

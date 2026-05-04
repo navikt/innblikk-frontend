@@ -1,0 +1,50 @@
+.promoTag {
+  border-radius: var(--ax-radius-12);
+  width: fit-content;
+  display: block;
+  text-decoration: none;
+}
+.promoTag:focus-visible {
+  outline: 3px solid var(--ax-border-focus);
+  outline-offset: 3px;
+}
+.promoTagContent {
+  display: inline-flex;
+  align-items: center;
+  padding-block: var(--ax-space-2);
+  padding-right: var(--ax-space-8);
+  gap: var(--ax-space-6);
+  background-color: var(--ax-bg-brand-blue-moderateA);
+  border: 1px solid var(--ax-border-brand-blue-subtleA);
+  color: var(--ax-text-brand-blue);
+  border-radius: var(--ax-radius-12);
+  font-size: var(--ax-font-size-detail);
+  line-height: var(--ax-line-height-detail);
+  white-space: nowrap;
+}
+.promoTagContent:hover .promoTagText {
+  text-decoration: underline;
+}
+.promoTagLabel {
+  display: flex;
+  align-items: center;
+  padding: var(--ax-space-2) var(--ax-space-8);
+  border-radius: var(--ax-radius-12);
+  background-color: var(--ax-bg-brand-blue-strong);
+  margin-block: -3px;
+  margin-inline-start: -1px;
+  color: var(--ax-text-contrast);
+}
+.promoTagText {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ax-space-4);
+}
+.animatedArrow {
+  transition: transform 200ms;
+  transform: translateX(0);
+  flex-shrink: 0;
+}
+.promoTag:hover .animatedArrow {
+  transform: translateX(4px);
+}

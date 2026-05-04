@@ -1,10 +1,11 @@
-name: "Check for newer image versions"
+name: 'Check for newer image versions'
+run-name: 'Digestabot @ ${{ github.ref_name }} — ${{ github.sha }}'
 
 on:
   workflow_dispatch:
   schedule:
     # At the end of every day
-    - cron: "0 0 * * *"
+    - cron: '0 0 * * *'
 
 jobs:
   digestabot:
@@ -15,11 +16,11 @@ jobs:
       pull-requests: write
       id-token: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - run: |
           echo "DT=$(date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_ENV
           echo "B=$(date '+%Y%m%d-%H%M%S')" >> $GITHUB_ENV
-      - uses: navikt/digestabot@07cb8ac331b0b06bc0b30a7415587fb63b919608
+      - uses: navikt/digestabot@6c419f9c92ce6a841d25d44e1f91ae8d371ecdd3
         with:
           team: team-researchops
           token: ${{ secrets.GITHUB_TOKEN }}
