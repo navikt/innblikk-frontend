@@ -4,7 +4,6 @@ import { vi } from 'vitest'
 import MetricSelector from './grafbygger/MetricSelector.tsx'
 import type { Metric, MetricOption } from '../../../shared/types/chart.ts'
 
-// Use distinct labels that don't collide with accordion section names (Antall/Andel/Tid)
 const METRICS: MetricOption[] = [
   { label: 'Antall rader', value: 'count' },
   { label: 'Antall unike verdier', value: 'distinct' },
@@ -34,37 +33,35 @@ function renderMetricSelector(
 }
 
 describe('MetricSelector', () => {
-  it('renders accordion section headings', () => {
+  it('renders radio options for metric type', () => {
     renderMetricSelector()
-    // Accordion headers are buttons — target by role to avoid ambiguity
-    expect(screen.getByRole('button', { name: 'Antall' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Andel' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Tid' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Antall' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Unike besøkende' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Økter / besøk' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Gjennomsnittlig tid' })).toBeInTheDocument()
   })
 
-  it('expands Antall section on click and shows metric options', async () => {
+  it('shows kolonnenavn field when a metric is selected', () => {
+    const existingMetric: Metric = {
+      function: 'distinct',
+      column: 'session_id',
+      alias: 'Unike_besokende',
+    }
+    renderMetricSelector([existingMetric])
+
+    expect(screen.getByRole('textbox', { name: 'Kolonnenavn' })).toBeInTheDocument()
+  })
+
+  it('calls addMetric when a radio option is changed', async () => {
     const user = userEvent.setup()
-    renderMetricSelector()
+    const { addMetric } = renderMetricSelector([{ function: 'count', alias: 'antall' }])
 
-    await user.click(screen.getByRole('button', { name: 'Antall' }))
+    await user.click(screen.getByRole('radio', { name: 'Unike besøkende' }))
 
-    expect(screen.getByText('Antall unike besøkende')).toBeInTheDocument()
-    expect(screen.getByText('Antall sidevisninger')).toBeInTheDocument()
+    expect(addMetric).toHaveBeenCalled()
   })
 
-  it('calls addMetric when an unchecked metric is clicked', async () => {
-    const user = userEvent.setup()
-    const { addMetric } = renderMetricSelector()
-
-    await user.click(screen.getByRole('button', { name: 'Antall' }))
-
-    const checkbox = screen.getByRole('checkbox', { name: /Antall unike besøkende/i })
-    await user.click(checkbox)
-
-    expect(addMetric).toHaveBeenCalledOnce()
-  })
-
-  it('calls removeMetric when a checked metric is clicked', async () => {
+  it('calls removeMetric when switching away from active metric', async () => {
     const user = userEvent.setup()
     const existingMetric: Metric = {
       function: 'distinct',
@@ -73,17 +70,12 @@ describe('MetricSelector', () => {
     }
     const { removeMetric } = renderMetricSelector([existingMetric])
 
-    // Header shows "Antall (1)" when 1 metric active — click by partial name
-    await user.click(screen.getByRole('button', { name: /Antall/i }))
+    await user.click(screen.getByRole('radio', { name: 'Antall' }))
 
-    const checkbox = screen.getByRole('checkbox', { name: /Antall unike besøkende/i })
-    expect(checkbox).toBeChecked()
-    await user.click(checkbox)
-
-    expect(removeMetric).toHaveBeenCalledOnce()
+    expect(removeMetric).toHaveBeenCalled()
   })
 
-  it('shows selected count in accordion header when metrics are active', () => {
+  it('shows the active metric alias in kolonnenavn field', () => {
     const existingMetric: Metric = {
       function: 'distinct',
       column: 'session_id',
@@ -91,7 +83,8 @@ describe('MetricSelector', () => {
     }
     renderMetricSelector([existingMetric])
 
-    expect(screen.getByRole('button', { name: 'Antall (1)' })).toBeInTheDocument()
+    const input = screen.getByRole('textbox', { name: 'Kolonnenavn' })
+    expect(input).toHaveValue('Unike_besokende')
   })
 
   it('dispatches summarizeStepStatus event when metrics change', () => {
