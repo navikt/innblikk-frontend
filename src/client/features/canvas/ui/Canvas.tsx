@@ -3087,11 +3087,13 @@ const Canvas = () => {
         copiedSections.length > 0
           ? Math.max(...copiedSections.map((frame) => (frame.width ?? getDefaultFrameSize(frame).width) + 48))
           : 0
+      const targetCategoryId = activeCanvasCategoryId
       const duplicatedFrames = copiedFrames.map((frame) => ({
         ...frame,
         id: `${Date.now()}-${Math.random()}`,
         x: Math.max(0, frame.x + pasteOffset + sectionClearanceOffset),
         y: Math.max(-CANVAS_TOP_BUFFER, frame.y + pasteOffset),
+        categoryId: targetCategoryId ?? frame.categoryId,
         graphId: undefined,
         queryId: undefined,
         refreshNonce: 0,
@@ -3119,7 +3121,7 @@ const Canvas = () => {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [frames, handleRemovePage, persistFrame, selectedFrameIds])
+  }, [activeCanvasCategoryId, frames, handleRemovePage, persistFrame, selectedFrameIds])
 
   const resolveConnectionFrame = useCallback(
     (connection: CanvasConnection, role: 'from' | 'to'): CanvasFrame | null => {
