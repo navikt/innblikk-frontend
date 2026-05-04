@@ -751,7 +751,7 @@ const CanvasFrameActionPoints = ({
           frameKind === 'drawing' ||
           Boolean(isInternalDashboard) ||
           isIllustrationFrame
-        ? 'right-8 -top-6 flex items-center gap-1'
+        ? 'right-8 -top-4 flex items-center gap-1'
         : 'right-2 top-4 flex items-center gap-1'
   const actionPointsBackdropClassName =
     frameKind === 'sticky'
@@ -762,7 +762,9 @@ const CanvasFrameActionPoints = ({
 
   return (
     <div
-      className={`pointer-events-none absolute z-40 ${actionPointsPositionClassName} ${actionPointsBackdropClassName}`}
+      className={`pointer-events-auto absolute z-40 ${actionPointsPositionClassName} ${actionPointsBackdropClassName}`}
+      onMouseDown={stopMouseDownPropagation}
+      onTouchStart={(event) => event.stopPropagation()}
     >
       <ImageOrDashboardEditActionPoint
         frameKind={frameKind}
