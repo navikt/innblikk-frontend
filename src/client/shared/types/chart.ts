@@ -75,6 +75,7 @@ export interface ChartConfig {
   filters: Filter[]
   segments?: SegmentDefinition[]
   segmentRatioMode?: boolean
+  cohortIds?: string[]
   metrics: Metric[]
   groupByFields: string[]
   orderBy: { column: string; direction: 'ASC' | 'DESC' } | null

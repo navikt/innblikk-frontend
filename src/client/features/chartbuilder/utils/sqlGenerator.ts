@@ -1,9 +1,11 @@
-import type { ChartConfig, Filter, Metric, Parameter } from '../../../shared/types/chart.ts'
+import type { ChartConfig, Filter, Metric, Parameter, SegmentDefinition } from '../../../shared/types/chart.ts'
+import type { CohortDetailDto } from '../../../shared/types/cohort.ts'
 import { getGcpProjectId } from '../../../shared/lib/runtimeConfig.ts'
 import { DATE_FORMATS } from '../model/constants.ts'
 import { sanitizeColumnName, sanitizeFieldNameForBigQuery } from './sanitize.ts'
 import { getParameterAggregator } from './metricColumns.ts'
 import { isSessionColumn, getRequiredSessionColumns, getRequiredTables } from './sessionUtils.ts'
+import { resolveCohortToSegmentDefinition } from './cohortSqlResolver.ts'
 
 export const getDateFilterConditions = (filters: Filter[]): string => {
   const dateFilters = filters.filter(
@@ -306,7 +308,12 @@ export const getMetricSQL = (metric: Metric, index: number, filters: Filter[], w
   return getMetricSQLByType(metric.function, filters, websiteId, metric.column, defaultAlias, metric)
 }
 
-export const generateSQLCore = (config: ChartConfig, filters: Filter[], parameters: Parameter[]): string => {
+export const generateSQLCore = (
+  config: ChartConfig,
+  filters: Filter[],
+  parameters: Parameter[],
+  resolvedCohorts?: CohortDetailDto[],
+): string => {
   if (!config.website) return ''
 
   const hasInteractiveDateFilter = filters.some(
@@ -321,13 +328,17 @@ export const generateSQLCore = (config: ChartConfig, filters: Filter[], paramete
     (f) => f.interactive === true && f.metabaseParam === true && f.column === 'created_at',
   )
   const segmentDefinitions = config.segments || []
-  const segmentFilters = segmentDefinitions.flatMap((segment) => segment.filters || [])
-  const isRatioMode = Boolean(config.segmentRatioMode) && segmentDefinitions.length >= 2
+  const effectiveSegmentDefinitions: SegmentDefinition[] =
+    config.cohortIds && config.cohortIds.length > 0 && resolvedCohorts && resolvedCohorts.length > 0
+      ? resolvedCohorts.map((c, i) => resolveCohortToSegmentDefinition(c, i))
+      : segmentDefinitions
+  const segmentFilters = effectiveSegmentDefinitions.flatMap((segment) => segment.filters || [])
+  const isRatioMode = Boolean(config.segmentRatioMode) && effectiveSegmentDefinitions.length >= 2
   const hasSegmentBreakdown =
     !isRatioMode &&
-    segmentDefinitions.length > 0 &&
-    (segmentDefinitions.length > 1 ||
-      segmentDefinitions.some(
+    effectiveSegmentDefinitions.length > 0 &&
+    (effectiveSegmentDefinitions.length > 1 ||
+      effectiveSegmentDefinitions.some(
         (segment) => (segment.filters?.length || 0) > 0 || (segment.performed?.events?.length || 0) > 0,
       ))
 
@@ -646,7 +657,7 @@ export const generateSQLCore = (config: ChartConfig, filters: Filter[], paramete
   }
 
   if (hasSegmentBreakdown) {
-    const segmentQueries = segmentDefinitions.map((segment) => {
+    const segmentQueries = effectiveSegmentDefinitions.map((segment) => {
       const segmentFilters = segment.filters || []
       const segmentConditions = segmentFilters
         .map((filter) => buildSegmentFilterCondition(filter, 'b'))
@@ -685,7 +696,7 @@ export const generateSQLCore = (config: ChartConfig, filters: Filter[], paramete
     sql += segmentQueries.join('\n  UNION ALL\n')
     sql += '\n)\n\n'
   } else if (isRatioMode) {
-    const buildSegmentCte = (segment: (typeof segmentDefinitions)[0], cteName: string) => {
+    const buildSegmentCte = (segment: (typeof effectiveSegmentDefinitions)[0], cteName: string) => {
       const sFilters = segment.filters || []
       const conditions = sFilters
         .map((filter) => buildSegmentFilterCondition(filter, 'b'))
@@ -712,8 +723,8 @@ export const generateSQLCore = (config: ChartConfig, filters: Filter[], paramete
       return `,\n${cteName} AS (\n  SELECT b.*\n  FROM base_query b\n  WHERE ${whereClause}\n)\n`
     }
 
-    const seg1 = segmentDefinitions[0]
-    const seg2 = segmentDefinitions[1]
+    const seg1 = effectiveSegmentDefinitions[0]
+    const seg2 = effectiveSegmentDefinitions[1]
     sql += buildSegmentCte(seg1, 'seg1')
     sql += buildSegmentCte(seg2, 'seg2')
 

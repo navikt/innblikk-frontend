@@ -1372,14 +1372,9 @@ const QueryPreview = ({
     <>
       <div>
         {isBasicTemplate() ? (
-          <>
-            {/* <div className="space-y-4">
-            <Heading level="2" size="small">Klargjør spørsmålet ditt</Heading>
-            {isSQLMeaningful() && (
-              <SqlCodeDisplay sql={sql} showEditButton={true} />
-            )}
-          </div> */}
-          </>
+          <Alert variant="info" size="small">
+            Velg nettside og minst ett måltall for å generere en spørring.
+          </Alert>
         ) : (
           <div>
             {/* Results Section with Integrated Date Filter */}
