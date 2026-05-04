@@ -94,6 +94,31 @@ export const reflowGridSections = ({
 
   const byId = new Map(inputFrames.map((frame) => [frame.id, frame]))
   const changedFrameIds = new Set<string>()
+  const sortedGridSections = inputFrames
+    .filter((frame) => frame.kind === 'section' && frame.sectionLayout === 'grid')
+    .sort(compareFramesForSectionOrder)
+  const sectionFrameIdsBySectionId = new Map<string, string[]>()
+
+  inputFrames.forEach((frame) => {
+    if (frame.kind === 'section') return
+    const bounds = getFrameBoundsForLayout(frame, getDefaultFrameSize)
+    const centerX = (bounds.left + bounds.right) / 2
+    const centerY = (bounds.top + bounds.bottom) / 2
+    const containingSection = sortedGridSections.find((sectionFrame) => {
+      if ((sectionFrame.categoryId ?? null) !== (frame.categoryId ?? null)) return false
+      const sectionBounds = getFrameBoundsForLayout(sectionFrame, getDefaultFrameSize)
+      return (
+        centerX >= sectionBounds.left &&
+        centerX <= sectionBounds.right &&
+        centerY >= sectionBounds.top &&
+        centerY <= sectionBounds.bottom
+      )
+    })
+    if (!containingSection) return
+    const current = sectionFrameIdsBySectionId.get(containingSection.id) ?? []
+    current.push(frame.id)
+    sectionFrameIdsBySectionId.set(containingSection.id, current)
+  })
 
   uniqueSectionIds.forEach((sectionId) => {
     const sectionFrame = byId.get(sectionId)
@@ -104,21 +129,9 @@ export const reflowGridSections = ({
     const contentRight = sectionBounds.right - GRID_SECTION_LAYOUT_CONFIG.paddingX
     const contentTop = sectionBounds.top + GRID_SECTION_LAYOUT_CONFIG.paddingTop
 
-    const containedFrames = inputFrames
-      .map((frame) => byId.get(frame.id) ?? frame)
-      .filter((frame) => {
-        if (frame.id === sectionId || frame.kind === 'section') return false
-        if ((frame.categoryId ?? null) !== (sectionFrame.categoryId ?? null)) return false
-        const bounds = getFrameBoundsForLayout(frame, getDefaultFrameSize)
-        const centerX = (bounds.left + bounds.right) / 2
-        const centerY = (bounds.top + bounds.bottom) / 2
-        return (
-          centerX >= sectionBounds.left &&
-          centerX <= sectionBounds.right &&
-          centerY >= sectionBounds.top &&
-          centerY <= sectionBounds.bottom
-        )
-      })
+    const containedFrames = (sectionFrameIdsBySectionId.get(sectionId) ?? [])
+      .map((frameId) => byId.get(frameId))
+      .filter((frame): frame is CanvasFrame => Boolean(frame && frame.kind !== 'section'))
       .sort(compareFramesForGridLayout)
 
     const contentWidth = Math.max(1, contentRight - contentLeft)

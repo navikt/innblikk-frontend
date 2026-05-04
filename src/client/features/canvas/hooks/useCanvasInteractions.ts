@@ -229,14 +229,33 @@ const useCanvasInteractions = ({
           ? visibleFrames
               .filter((candidate) => {
                 if (candidate.id === frame.id || candidate.kind === 'section') return false
+                if ((candidate.categoryId ?? null) !== (frame.categoryId ?? null)) return false
                 const sectionBounds = getFrameBounds(frame)
                 const candidateBounds = getFrameBounds(candidate)
-                return (
-                  candidateBounds.left >= sectionBounds.left &&
-                  candidateBounds.right <= sectionBounds.right &&
-                  candidateBounds.top >= sectionBounds.top &&
-                  candidateBounds.bottom <= sectionBounds.bottom
-                )
+                const centerX = (candidateBounds.left + candidateBounds.right) / 2
+                const centerY = (candidateBounds.top + candidateBounds.bottom) / 2
+                const insideCurrentSection =
+                  centerX >= sectionBounds.left &&
+                  centerX <= sectionBounds.right &&
+                  centerY >= sectionBounds.top &&
+                  centerY <= sectionBounds.bottom
+                if (!insideCurrentSection) return false
+
+                const owningSection = visibleFrames
+                  .filter((sectionCandidate) => sectionCandidate.kind === 'section')
+                  .sort(compareFramesForSectionOrder)
+                  .find((sectionCandidate) => {
+                    if ((sectionCandidate.categoryId ?? null) !== (candidate.categoryId ?? null)) return false
+                    const owningBounds = getFrameBounds(sectionCandidate)
+                    return (
+                      centerX >= owningBounds.left &&
+                      centerX <= owningBounds.right &&
+                      centerY >= owningBounds.top &&
+                      centerY <= owningBounds.bottom
+                    )
+                  })
+
+                return owningSection?.id === frame.id
               })
               .map((candidate) => candidate.id)
           : []
@@ -255,6 +274,7 @@ const useCanvasInteractions = ({
       })
     },
     [
+      compareFramesForSectionOrder,
       frames,
       getCanvasPointerPosition,
       getFrameBounds,
