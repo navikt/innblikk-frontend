@@ -1,4 +1,4 @@
-import { Alert, Checkbox, Loader, Tag, UNSAFE_Combobox } from '@navikt/ds-react'
+import { Alert, Checkbox, Chips, Loader, UNSAFE_Combobox } from '@navikt/ds-react'
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
 import { fetchCohorts } from '../../api/cohortApi.ts'
 import type { CohortDto } from '../../../../shared/types/cohort.ts'
@@ -110,9 +110,9 @@ const CohortPicker = forwardRef<CohortPickerRef, CohortPickerProps>(
         {selectedCohorts.length > 0 ? (
           <div className="flex flex-wrap gap-1">
             {selectedCohorts.map((cohort) => (
-              <Tag key={cohort.id} variant="neutral" size="small" onDelete={() => removeSelectedId(cohort.id)}>
+              <Chips.Removable key={cohort.id} variant="neutral" onDelete={() => removeSelectedId(cohort.id)}>
                 {cohort.name}
-              </Tag>
+              </Chips.Removable>
             ))}
           </div>
         ) : (
