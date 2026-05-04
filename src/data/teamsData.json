@@ -6,27 +6,24 @@
   },
   {
     "teamName": "Idebanken Prod",
-    "teamDomain": "https://www.idebanken.org",
-    "teamSiteimproveSite": 21766831756,
-    "supportsMarketing": true
-  },
-  {
-    "teamName": "Idebanken Prod Beta",
-    "teamDomain": "https://idebanken.nav.no",
-    "teamSiteimproveSite": 43000776390,
-    "supportsMarketing": true
+    "teamDomain": "https://idebanken.no",
+    "teamSiteimproveSite": 43335591606,
+    "supportsMarketing": true,
+    "websiteID": "f882b9de-b91a-4940-8e3f-e076101eaf61"
   },
   {
     "teamName": "Idebanken Dev",
     "teamDomain": "https://idebanken.ekstern.dev.nav.no",
     "teamSiteimproveSite": 41890665972,
-    "supportsMarketing": true
+    "supportsMarketing": true,
+    "websiteID": "aa9d6480-2365-4552-8e16-5c7b5c9f777d"
   },
   {
     "teamName": "Nav",
     "teamDomain": "https://www.nav.no",
     "teamSiteimproveSite": 21766831756,
     "supportsMarketing": false,
+    "supportsClickmaps": true,
     "usesCookies": true,
     "cookiesEnabledFrom": "2026-02-01"
   },
@@ -34,13 +31,15 @@
     "teamName": "Mangfoldimai",
     "teamDomain": "https://mangfoldimai.no",
     "teamSiteimproveSite": 30141243932,
-    "supportsMarketing": true
+    "supportsMarketing": true,
+    "websiteID": "97ae1e1a-cb15-4611-9a76-787c989f83d6"
   },
   {
     "teamName": "Arbeidsplassen",
     "teamDomain": "https://arbeidsplassen.nav.no",
     "teamSiteimproveSite": 23679828077,
-    "supportsMarketing": true
+    "supportsMarketing": true,
+    "websiteID": "c2f0a46d-a5b4-4370-8b80-b9b9fcd39f96"
   },
   {
     "teamName": "Workinnorway",
@@ -52,19 +51,22 @@
     "teamName": "Kunnskapsbanken",
     "teamDomain": "https://kunnskapsbanken.net",
     "teamSiteimproveSite": 24837355879,
-    "supportsMarketing": true
+    "supportsMarketing": true,
+    "websiteID": "4e3f6f63-e4ae-44b8-9e15-2a887f9356d2"
   },
   {
     "teamName": "arbeidogvelferd",
     "teamDomain": "https://arbeidogvelferd.nav.no",
     "teamSiteimproveSite": 28929754463,
-    "supportsMarketing": true
+    "supportsMarketing": true,
+    "websiteID": "2523b8cc-01ba-4d8b-9b86-b9deeb56062b"
   },
   {
     "teamName": "detsombetyrnoe",
     "teamDomain": "https://detsombetyrnoe.no",
     "teamSiteimproveSite": 24075344668,
-    "supportsMarketing": true
+    "supportsMarketing": true,
+    "websiteID": "93a6bd08-bd82-438d-bca5-cea0832e6778"
   },
   {
     "teamName": "finnhjelpemiddel",
