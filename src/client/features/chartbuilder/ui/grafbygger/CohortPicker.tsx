@@ -51,6 +51,13 @@ const CohortPicker = forwardRef<CohortPickerRef, CohortPickerProps>(
       onCohortIdsChange(selectedIds)
     }, [selectedIds, onCohortIdsChange])
 
+    useEffect(() => {
+      if (selectedIds.length < 2 && ratioMode) {
+        setRatioMode(false)
+        onRatioModeChange(false)
+      }
+    }, [selectedIds.length, ratioMode, onRatioModeChange])
+
     const resetCohorts = () => {
       setSelectedIds([])
       setRatioMode(false)
