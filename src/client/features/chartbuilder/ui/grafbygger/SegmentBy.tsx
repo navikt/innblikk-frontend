@@ -1,7 +1,7 @@
 import { Button, Select, Tag, TextField, UNSAFE_Combobox } from '@navikt/ds-react'
 import { PencilIcon } from '@navikt/aksel-icons'
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'react'
-import type { Filter, Parameter, SegmentDefinition as ChartSegmentDefinition } from '../../../../shared/types/chart.ts'
+import type { Filter, Parameter, CohortDefinition } from '../../../../shared/types/chart.ts'
 import { OPERATORS } from '../../../../shared/lib/constants.ts'
 import EventFilter from './EventFilter.tsx'
 
@@ -21,7 +21,7 @@ interface SegmentByProps {
   onDateRangeInDaysChange: (days: number) => void
   onEnableCustomEvents?: (withParams?: boolean) => void
   isEventsLoading?: boolean
-  onSegmentsChange?: (segments: ChartSegmentDefinition[]) => void
+  onSegmentsChange?: (cohorts: CohortDefinition[]) => void
 }
 
 interface PerformedSelection {
@@ -216,7 +216,7 @@ const SegmentBy = forwardRef<SegmentByRef, SegmentByProps>(
     useEffect(() => {
       if (!onSegmentsChange) return
 
-      const payload: ChartSegmentDefinition[] = segments.map((segment) => {
+      const payload: CohortDefinition[] = segments.map((segment) => {
         const performedSelection = performedSelections[segment.id]
         const hasPerformedSelection = (performedSelection?.events?.length || 0) > 0
 

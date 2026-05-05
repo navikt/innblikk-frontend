@@ -65,10 +65,10 @@ export function useChartConfig() {
 
   // Create a function to calculate the current step based on selections
   const calculateCurrentStep = useCallback(() => {
-    const hasSegmentRules =
-      (config.segments || []).length > 1 ||
-      (config.segments || []).some(
-        (segment) => (segment.filters?.length || 0) > 0 || (segment.performed?.events?.length || 0) > 0,
+    const hasCohortRules =
+      (config.cohorts || []).length > 1 ||
+      (config.cohorts || []).some(
+        (cohort) => (cohort.filters?.length || 0) > 0 || (cohort.performed?.events?.length || 0) > 0,
       )
 
     if (!config.website) {
@@ -79,12 +79,12 @@ export function useChartConfig() {
       return 2
     }
 
-    if (filters.length === 0 && !hasSegmentRules) {
+    if (filters.length === 0 && !hasCohortRules) {
       return 3
     }
 
     return 4
-  }, [config.website, filters.length, hasUserSelectedMetrics, config.groupByFields.length, config.segments])
+  }, [config.website, filters.length, hasUserSelectedMetrics, config.groupByFields.length, config.cohorts])
 
   // Update the step whenever relevant data changes
   useEffect(() => {

@@ -11,16 +11,16 @@ export interface Filter {
   interactive?: boolean // Add this for interactive mode filters
 }
 
-export interface SegmentPerformed {
+export interface CohortPerformed {
   operator: 'IN' | '=' | '!=' | 'LIKE' | 'STARTS_WITH' | 'ENDS_WITH'
   events: string[]
 }
 
-export interface SegmentDefinition {
+export interface CohortDefinition {
   id: number
   name: string
   filters: Filter[]
-  performed?: SegmentPerformed | null
+  performed?: CohortPerformed | null
 }
 
 export interface Parameter {
@@ -73,7 +73,7 @@ export type { Website }
 export interface ChartConfig {
   website: Website | null
   filters: Filter[]
-  segments?: SegmentDefinition[]
+  cohorts?: CohortDefinition[]
   metrics: Metric[]
   groupByFields: string[]
   orderBy: { column: string; direction: 'ASC' | 'DESC' } | null

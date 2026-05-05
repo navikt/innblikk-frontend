@@ -13,7 +13,7 @@ import AlertWithCloseButton from './grafbygger/AlertWithCloseButton.tsx'
 import ActiveMetricsPanel from './grafbygger/ActiveMetricsPanel.tsx'
 import SidebarSection from '../../../shared/ui/SidebarSection.tsx'
 import ActionFeedbackButton from '../../../shared/ui/ActionFeedbackButton.tsx'
-import type { SegmentDefinition } from '../../../shared/types/chart.ts'
+import type { CohortDefinition } from '../../../shared/types/chart.ts'
 import { FILTER_COLUMNS } from '../../../shared/lib/constants.ts'
 import { DATE_FORMATS, METRICS } from '../model/constants.ts'
 import { sanitizeColumnName } from '../utils/sanitize.ts'
@@ -79,11 +79,11 @@ const ChartsPage = () => {
     handleEventsLoad,
   } = useChartConfig()
 
-  const handleSegmentsChange = useCallback(
-    (segments: SegmentDefinition[]) => {
+  const handleCohortsChange = useCallback(
+    (cohorts: CohortDefinition[]) => {
       setConfig((prev) => ({
         ...prev,
-        segments,
+        cohorts,
       }))
     },
     [setConfig],
@@ -105,26 +105,26 @@ const ChartsPage = () => {
     setMetricResetSignal((prev) => prev + 1)
   }, [resetAll])
 
-  const hasSegmentConfigToReset = useCallback((segments: SegmentDefinition[] | undefined): boolean => {
-    if (!segments || segments.length === 0) {
+  const hasCohortConfigToReset = useCallback((cohorts: CohortDefinition[] | undefined): boolean => {
+    if (!cohorts || cohorts.length === 0) {
       return false
     }
 
-    if (segments.length !== 1) {
+    if (cohorts.length !== 1) {
       return true
     }
 
-    const [segment] = segments
-    const hasFilters = (segment.filters?.length || 0) > 0
-    const hasPerformedSelection = (segment.performed?.events?.length || 0) > 0
-    const hasCustomName = (segment.name || '').trim() !== 'Alle brukere'
+    const [cohort] = cohorts
+    const hasFilters = (cohort.filters?.length || 0) > 0
+    const hasPerformedSelection = (cohort.performed?.events?.length || 0) > 0
+    const hasCustomName = (cohort.name || '').trim() !== 'Alle brukere'
 
     return hasFilters || hasPerformedSelection || hasCustomName
   }, [])
 
   const showResetEventFilters = isEventFilterDirty
   const showResetMetrics = config.metrics.length > 0
-  const showResetSegments = hasSegmentConfigToReset(config.segments)
+  const showResetSegments = hasCohortConfigToReset(config.cohorts)
   const showResetGroupings = config.groupByFields.length > 0
   const showResetDisplayOptions =
     Boolean(config.orderBy) ||
@@ -270,7 +270,7 @@ const ChartsPage = () => {
                     }
                   }}
                   isEventsLoading={isEventsLoading}
-                  onSegmentsChange={handleSegmentsChange}
+                  onSegmentsChange={handleCohortsChange}
                 />
               </SidebarSection>
 

@@ -23,4 +23,6 @@ export { isRecord, safeParseJson, isMetricArray, isWebsiteLike, isFilterLike, is
 export { getMetricColumns, getParameterAggregator } from './utils/metricColumns'
 export { isSessionColumn, getRequiredSessionColumns, getRequiredTables } from './utils/sessionUtils'
 export { generateSQLCore, getMetricSQL, getMetricSQLByType, getDateFilterConditions } from './utils/sqlGenerator'
+export { buildCohortClauses } from './utils/cohortSql'
+export type { CohortClauses } from './utils/cohortSql'
 export { applyUrlFiltersToSql, extractWebsiteId } from './utils/sqlFilters'
