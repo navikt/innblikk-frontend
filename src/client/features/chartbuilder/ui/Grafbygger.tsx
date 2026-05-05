@@ -15,6 +15,7 @@ import SidebarSection from '../../../shared/ui/SidebarSection.tsx'
 import ActionFeedbackButton from '../../../shared/ui/ActionFeedbackButton.tsx'
 import type { SegmentDefinition } from '../../../shared/types/chart.ts'
 import { FILTER_COLUMNS } from '../../../shared/lib/constants.ts'
+import { getFeatureFlag } from '../../../shared/lib/featureFlags.ts'
 import { DATE_FORMATS, METRICS } from '../model/constants.ts'
 import { sanitizeColumnName } from '../utils/sanitize.ts'
 import { useChartConfig } from '../hooks/useChartConfig.ts'
@@ -32,6 +33,7 @@ const ChartsPage = () => {
   const [metricResetSignal, setMetricResetSignal] = useState<number>(0)
   const [isEventFilterDirty, setIsEventFilterDirty] = useState<boolean>(false)
   const segmentByRef = useRef<SegmentByRef>(null)
+  const isBeta = getFeatureFlag('beta_opt_in')
 
   const {
     config,
@@ -239,40 +241,42 @@ const ChartsPage = () => {
                 />
               </SidebarSection>
 
-              <SidebarSection
-                title="Segmenter etter..."
-                action={
-                  showResetSegments ? (
-                    <ActionFeedbackButton
-                      label="Tilbakestill"
-                      activeLabel="Tilbakestilt!"
-                      variant="tertiary"
-                      size="xsmall"
-                      icon={<ArrowCirclepathReverseIcon aria-hidden />}
-                      onClick={() => segmentByRef.current?.resetSegments(false)}
-                    />
-                  ) : undefined
-                }
-              >
-                <SegmentBy
-                  ref={segmentByRef}
-                  parameters={parameters}
-                  availableEvents={availableEvents}
-                  dateRangeInDays={dateRangeInDays}
-                  onDateRangeInDaysChange={(days) => {
-                    setDateRangeInDays(days)
-                    setRequestLoadEvents(true)
-                  }}
-                  onEnableCustomEvents={(withParams = false) => {
-                    setRequestLoadEvents(true)
-                    if (withParams) {
-                      setRequestIncludeParams(true)
-                    }
-                  }}
-                  isEventsLoading={isEventsLoading}
-                  onSegmentsChange={handleSegmentsChange}
-                />
-              </SidebarSection>
+              {isBeta && (
+                <SidebarSection
+                  title="Segmenter etter..."
+                  action={
+                    showResetSegments ? (
+                      <ActionFeedbackButton
+                        label="Tilbakestill"
+                        activeLabel="Tilbakestilt!"
+                        variant="tertiary"
+                        size="xsmall"
+                        icon={<ArrowCirclepathReverseIcon aria-hidden />}
+                        onClick={() => segmentByRef.current?.resetSegments(false)}
+                      />
+                    ) : undefined
+                  }
+                >
+                  <SegmentBy
+                    ref={segmentByRef}
+                    parameters={parameters}
+                    availableEvents={availableEvents}
+                    dateRangeInDays={dateRangeInDays}
+                    onDateRangeInDaysChange={(days) => {
+                      setDateRangeInDays(days)
+                      setRequestLoadEvents(true)
+                    }}
+                    onEnableCustomEvents={(withParams = false) => {
+                      setRequestLoadEvents(true)
+                      if (withParams) {
+                        setRequestIncludeParams(true)
+                      }
+                    }}
+                    isEventsLoading={isEventsLoading}
+                    onSegmentsChange={handleSegmentsChange}
+                  />
+                </SidebarSection>
+              )}
 
               <SidebarSection
                 title="Gruppert etter..."
