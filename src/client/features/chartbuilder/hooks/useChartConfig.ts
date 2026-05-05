@@ -456,7 +456,7 @@ export function useChartConfig() {
         ]
 
     return generateSQLCore(debouncedConfig, sqlFilters, parameters, resolvedCohorts)
-  }, [debouncedConfig, filters, parameters])
+  }, [debouncedConfig, filters, parameters, resolvedCohorts])
 
   const setOrderBy = (column: string, direction: 'ASC' | 'DESC') => {
     const metricWithAlias = config.metrics.find((m) => m.alias === column)

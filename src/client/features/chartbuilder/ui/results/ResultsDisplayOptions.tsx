@@ -1,6 +1,6 @@
 import { Select, TextField } from '@navikt/ds-react'
 import { useState, useEffect } from 'react'
-import type { OrderBy } from '../../../../shared/types/chart.ts'
+import type { Metric, OrderBy } from '../../../../shared/types/chart.ts'
 import ToggleOption from '../../../../shared/ui/ToggleOption.tsx'
 
 interface ResultsDisplayOptionsProps {
@@ -11,6 +11,8 @@ interface ResultsDisplayOptionsProps {
   setLimit?: (limit: number | null) => void
   columnOrderMode?: 'default' | 'metrics_first'
   setColumnOrderMode?: (mode: 'default' | 'metrics_first') => void
+  groupByFields?: string[]
+  metrics?: Metric[]
 }
 
 const ResultsDisplayOptions = ({
@@ -21,6 +23,8 @@ const ResultsDisplayOptions = ({
   setLimit,
   columnOrderMode = 'default',
   setColumnOrderMode,
+  groupByFields = [],
+  metrics = [],
 }: ResultsDisplayOptionsProps) => {
   const hasAnyControl = setOrderBy || setLimit || setColumnOrderMode
   const [showCustomSort, setShowCustomSort] = useState<boolean>(false)
@@ -69,6 +73,27 @@ const ResultsDisplayOptions = ({
               className="flex-grow"
             >
               <option value="">Standard sortering</option>
+              {groupByFields.length > 0 && (
+                <optgroup label="Grupperinger">
+                  {groupByFields.map((field) => (
+                    <option key={field} value={field === 'created_at' ? 'dato' : field}>
+                      {field === 'created_at' ? 'Dato' : field}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {metrics.length > 0 && (
+                <optgroup label="Måltall">
+                  {metrics.map((metric, index) => {
+                    const col = metric.alias || `metrikk_${index + 1}`
+                    return (
+                      <option key={col} value={col}>
+                        {col}
+                      </option>
+                    )
+                  })}
+                </optgroup>
+              )}
             </Select>
 
             <Select

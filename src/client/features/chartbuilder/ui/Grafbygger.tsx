@@ -31,6 +31,7 @@ const ChartsPage = () => {
   const [isEventFilterDirty, setIsEventFilterDirty] = useState<boolean>(false)
   const [interactiveDateFilterEnabled, setInteractiveDateFilterEnabled] = useState<boolean>(true)
   const cohortPickerRef = useRef<CohortPickerRef>(null)
+  const cohortRequestIdRef = useRef(0)
 
   const {
     config,
@@ -88,6 +89,7 @@ const ChartsPage = () => {
 
   const handleCohortIdsChange = useCallback(
     async (ids: string[]) => {
+      const requestId = ++cohortRequestIdRef.current
       setConfig((prev) => ({ ...prev, cohortIds: ids }))
       if (ids.length === 0) {
         setResolvedCohorts([])
@@ -95,9 +97,13 @@ const ChartsPage = () => {
       }
       try {
         const details = await Promise.all(ids.map((id) => fetchCohortDetail(id)))
-        setResolvedCohorts(details)
+        if (requestId === cohortRequestIdRef.current) {
+          setResolvedCohorts(details)
+        }
       } catch {
-        setResolvedCohorts([])
+        if (requestId === cohortRequestIdRef.current) {
+          setResolvedCohorts([])
+        }
       }
     },
     [setConfig, setResolvedCohorts],
@@ -369,6 +375,8 @@ const ChartsPage = () => {
               setLimit={setLimit}
               columnOrderMode={config.columnOrderMode || 'default'}
               setColumnOrderMode={setColumnOrderMode}
+              groupByFields={config.groupByFields}
+              metrics={config.metrics}
             />
           </ExpansionCard.Content>
         </ExpansionCard>
