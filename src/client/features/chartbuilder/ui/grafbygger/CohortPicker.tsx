@@ -24,6 +24,7 @@ const CohortPicker = forwardRef<CohortPickerRef, CohortPickerProps>(
     useEffect(() => {
       setSelectedIds([])
       setRatioMode(false)
+      onRatioModeChange(false)
 
       if (!websiteId) {
         setCohorts([])
@@ -44,7 +45,7 @@ const CohortPicker = forwardRef<CohortPickerRef, CohortPickerProps>(
         .finally(() => {
           setIsLoading(false)
         })
-    }, [websiteId])
+    }, [websiteId, onRatioModeChange])
 
     useEffect(() => {
       onCohortIdsChange(selectedIds)

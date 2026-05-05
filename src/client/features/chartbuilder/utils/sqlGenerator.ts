@@ -97,6 +97,7 @@ export const getMetricSQLByType = (
   column?: string,
   alias: string = 'metric',
   metric?: Metric,
+  hasGroupBy: boolean = false,
 ): string => {
   const hasInteractiveFilters = filters.some((f) => f.interactive === true && f.metabaseParam === true)
 
@@ -207,9 +208,17 @@ export const getMetricSQLByType = (
         }
         return `APPROX_QUANTILES(NULLIF(base_query.visit_duration, 0), 100 IGNORE NULLS)[OFFSET(50)] as ${quotedAlias}`
       }
-      return column ? `PERCENTILE_CONT(${column}, 0.5) OVER() as ${quotedAlias}` : `COUNT(*) as ${quotedAlias}`
+      return column
+        ? `APPROX_QUANTILES(${column}, 100 IGNORE NULLS)[OFFSET(50)] as ${quotedAlias}`
+        : `COUNT(*) as ${quotedAlias}`
     case 'mode':
       if (column === 'visit_duration') {
+        if (hasGroupBy) {
+          if (metric?.showInMinutes) {
+            return `ROUND(APPROX_TOP_COUNT(NULLIF(base_query.visit_duration, 0), 1)[OFFSET(0)].value / 60, 2) as ${quotedAlias}`
+          }
+          return `APPROX_TOP_COUNT(NULLIF(base_query.visit_duration, 0), 1)[OFFSET(0)].value as ${quotedAlias}`
+        }
         if (metric?.showInMinutes) {
           return `ROUND((SELECT visit_duration FROM duration_mode) / 60, 2) as ${quotedAlias}`
         }
@@ -300,12 +309,18 @@ export const getMetricSQLByType = (
   }
 }
 
-export const getMetricSQL = (metric: Metric, index: number, filters: Filter[], websiteId: string): string => {
+export const getMetricSQL = (
+  metric: Metric,
+  index: number,
+  filters: Filter[],
+  websiteId: string,
+  hasGroupBy: boolean = false,
+): string => {
   if (metric.alias) {
-    return getMetricSQLByType(metric.function, filters, websiteId, metric.column, metric.alias, metric)
+    return getMetricSQLByType(metric.function, filters, websiteId, metric.column, metric.alias, metric, hasGroupBy)
   }
   const defaultAlias = `metrikk_${index + 1}`
-  return getMetricSQLByType(metric.function, filters, websiteId, metric.column, defaultAlias, metric)
+  return getMetricSQLByType(metric.function, filters, websiteId, metric.column, defaultAlias, metric, hasGroupBy)
 }
 
 export const generateSQLCore = (
@@ -642,8 +657,9 @@ export const generateSQLCore = (
   })
 
   const needsDurationMode = config.metrics.some((m) => m.function === 'mode' && m.column === 'visit_duration')
+  const hasGroupBy = config.groupByFields.length > 0 || hasSegmentBreakdown
 
-  if (needsDurationMode) {
+  if (needsDurationMode && !hasGroupBy) {
     sql += '),\nduration_mode AS (\n'
     sql += '  SELECT visit_duration\n'
     sql += '  FROM base_query\n'
@@ -728,14 +744,29 @@ export const generateSQLCore = (
     sql += buildSegmentCte(seg1, 'seg1')
     sql += buildSegmentCte(seg2, 'seg2')
 
-    const metricAlias = config.metrics[0]?.alias || 'ratio'
+    const activeMetric = config.metrics[0]
+    const metricAlias = activeMetric?.alias || 'ratio'
+
+    const getRatioAggregation = (segName: string): string => {
+      if (!activeMetric) return `COUNT(*)`
+      switch (activeMetric.function) {
+        case 'distinct': {
+          const col = activeMetric.column === 'session_id' ? 'session_id' : (activeMetric.column ?? 'session_id')
+          return `COUNT(DISTINCT ${segName}.${col})`
+        }
+        case 'count':
+        default:
+          return `COUNT(*)`
+      }
+    }
+
     const seg1Name = escapeSqlLiteral(seg1.name)
     const seg2Name = escapeSqlLiteral(seg2.name)
     sql += `\nSELECT\n`
     sql += `  ROUND(\n`
     sql += `    SAFE_DIVIDE(\n`
-    sql += `      (SELECT COUNT(*) FROM seg1),\n`
-    sql += `      (SELECT COUNT(*) FROM seg2)\n`
+    sql += `      (SELECT ${getRatioAggregation('seg1')} FROM seg1),\n`
+    sql += `      (SELECT ${getRatioAggregation('seg2')} FROM seg2)\n`
     sql += `    ), 4) AS \`${metricAlias}\`,\n`
     sql += `  '${seg1Name}' AS segment_1,\n`
     sql += `  '${seg2Name}' AS segment_2\n`
@@ -798,7 +829,7 @@ export const generateSQLCore = (
   })
 
   config.metrics.forEach((metric, index) => {
-    metricSelectClauses.push(getMetricSQL(metric, index, filters, config.website!.id))
+    metricSelectClauses.push(getMetricSQL(metric, index, filters, config.website!.id, hasGroupBy))
   })
 
   const orderedSelectClauses =
@@ -921,7 +952,7 @@ export const generateSQLCore = (
     sql += 'GROUP BY\n  base_query.segment_navn\n'
   }
 
-  if (!needsDurationMode && config.orderBy && config.orderBy.column && config.orderBy.direction) {
+  if (config.orderBy && config.orderBy.column && config.orderBy.direction) {
     const hasInteractiveFilters = filters.some((f) => f.interactive === true && f.metabaseParam === true)
     const metricWithAlias = config.metrics.find((m) => m.alias === config.orderBy?.column)
 
@@ -963,7 +994,7 @@ export const generateSQLCore = (
         sql += 'ORDER BY 1 DESC\n'
       }
     }
-  } else if (!needsDurationMode && (config.groupByFields.length > 0 || config.metrics.length > 0)) {
+  } else if (config.groupByFields.length > 0 || config.metrics.length > 0) {
     if (config.groupByFields.includes('created_at')) {
       sql += 'ORDER BY dato ASC\n'
     } else if (config.metrics.length > 0) {
@@ -976,7 +1007,7 @@ export const generateSQLCore = (
     }
   }
 
-  if (needsDurationMode && config.groupByFields.length === 0) {
+  if (needsDurationMode && !hasGroupBy) {
     sql += 'LIMIT 1\n'
     return sql
   }
