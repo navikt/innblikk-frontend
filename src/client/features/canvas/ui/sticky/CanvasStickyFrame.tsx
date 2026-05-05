@@ -45,11 +45,16 @@ const CanvasStickyFrame = ({
           onChange={(event) => onChange(id, event.target.value)}
           onBlur={() => onBlur(id)}
           onMouseDown={(event) => event.stopPropagation()}
+          onKeyDown={(event) => {
+            if (event.key !== 'Escape') return
+            event.preventDefault()
+            event.currentTarget.blur()
+          }}
           lang="nb-NO"
           placeholder="Skriv Post-it-lapp"
           aria-labelledby={stickyEditorLabelId}
           aria-describedby={stickyEditorDescriptionId}
-          className="h-full w-full resize-none overflow-auto border-none p-0 text-base leading-7 outline-none"
+          className="h-full w-full resize-none overflow-auto border-none p-0 text-base leading-7 outline-none selection:bg-[#1d4ed8] selection:text-white"
           style={{
             backgroundColor: colorOption.textareaBackground,
             color: colorOption.text,
@@ -64,7 +69,7 @@ const CanvasStickyFrame = ({
     <div className="relative h-full overflow-auto p-4 pt-10">
       {isInteractionLocked ? (
         <p
-          className="w-full whitespace-pre-wrap break-words bg-transparent p-0 text-left text-base leading-7"
+          className="w-full whitespace-pre-wrap break-words bg-transparent p-0 text-left text-base leading-7 selection:bg-[#1d4ed8] selection:text-white"
           style={{ color: colorOption.text }}
         >
           {textContent || 'Skriv Post-it-lapp'}
@@ -73,16 +78,15 @@ const CanvasStickyFrame = ({
         <div
           data-canvas-edit-trigger="true"
           tabIndex={0}
-          className="m-0 block w-full cursor-text whitespace-pre-wrap break-words bg-transparent p-0 text-left text-base leading-7 [appearance:none]"
+          className="m-0 block w-full cursor-text whitespace-pre-wrap break-words bg-transparent p-0 text-left text-base leading-7 [appearance:none] selection:bg-[#1d4ed8] selection:text-white"
           style={{ color: colorOption.text }}
-          onMouseDown={(event) => event.stopPropagation()}
-          onClick={() => onStartEditing(id)}
+          onDoubleClick={() => onStartEditing(id)}
           onKeyDown={(event) => {
             if (event.key !== 'Enter' && event.key !== ' ') return
             event.preventDefault()
             onStartEditing(id)
           }}
-          aria-description="Trykk Enter for å redigere lappen"
+          aria-description="Dobbeltklikk eller trykk Enter for å redigere lappen"
         >
           {stickyText}
         </div>

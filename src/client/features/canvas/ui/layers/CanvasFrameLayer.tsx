@@ -494,7 +494,8 @@ const CanvasFrameLayer = ({
             currentSectionId && typeof document !== 'undefined'
               ? document.querySelector<HTMLElement>(`[data-canvas-section-content-id="${currentSectionId}"]`)
               : null
-          const shouldRenderInsideSectionDuringInteraction = dragState !== null || resizeState !== null
+          const interactingFrameIds = dragState?.ids ?? (resizeState?.id ? [resizeState.id] : [])
+          const shouldRenderInsideSectionDuringInteraction = interactingFrameIds.includes(frame.id)
           const renderInsideSection = Boolean(
             frame.kind !== 'section' &&
             parentSectionFrame &&
@@ -505,25 +506,6 @@ const CanvasFrameLayer = ({
             frame.kind === 'sticky' || frame.kind === 'text'
               ? sectionMoveOptions.filter((option) => option.id !== currentSectionId)
               : sectionMoveOptions
-          const isInlineEditableFrame =
-            frame.kind === 'heading' ||
-            frame.kind === 'text' ||
-            frame.kind === 'sticky' ||
-            frame.kind === 'link' ||
-            frame.kind === 'sql-editor' ||
-            frame.kind === 'code-block'
-          const topDragStripClass = isInlineEditableFrame
-            ? 'pointer-events-auto absolute inset-x-2 top-0 h-3 cursor-move'
-            : 'pointer-events-auto absolute inset-x-3 top-1 h-5 cursor-move'
-          const bottomDragStripClass = isInlineEditableFrame
-            ? 'pointer-events-auto absolute inset-x-2 bottom-0 h-3 cursor-move'
-            : 'pointer-events-auto absolute inset-x-3 bottom-1 h-5 cursor-move'
-          const leftDragStripClass = isInlineEditableFrame
-            ? 'pointer-events-auto absolute inset-y-2 left-0 w-3 cursor-move'
-            : 'pointer-events-auto absolute inset-y-3 left-1 w-5 cursor-move'
-          const rightDragStripClass = isInlineEditableFrame
-            ? 'pointer-events-auto absolute inset-y-2 right-0 w-3 cursor-move'
-            : 'pointer-events-auto absolute inset-y-3 right-1 w-5 cursor-move'
           const stickyColorOption = frame.kind === 'sticky' ? getCanvasStickyColorOptionById(frame.stickyColor) : null
           const isInVotingScope =
             !isDotVotingActive ||
@@ -533,6 +515,22 @@ const CanvasFrameLayer = ({
           const isTargetVotingSection =
             isDotVotingActive && frame.kind === 'section' && frame.id === dotVotingTargetSectionId
           const shouldDimFrame = isDotVotingActive && !isInVotingScope
+          const isFrameBeingDragged = Boolean(dragState?.ids.includes(frame.id))
+          const isDraggableFrame =
+            !isFrameInteractionLocked &&
+            (frame.kind === 'sticky' ||
+              frame.kind === 'text' ||
+              frame.kind === 'link' ||
+              frame.kind === 'heading' ||
+              frame.kind === 'section' ||
+              frame.kind === 'icon' ||
+              frame.kind === 'figure' ||
+              frame.kind === 'drawing' ||
+              frame.kind === 'sql-editor' ||
+              frame.kind === 'code-block' ||
+              frame.kind === 'image' ||
+              frame.kind === 'website' ||
+              frame.kind === 'chart')
           const stickyTotalVotes = frame.kind === 'sticky' ? (dotVotingTotalVotesByFrameId[frame.id] ?? 0) : 0
           const stickyMyVotes = frame.kind === 'sticky' ? (dotVotingMyVotesByFrameId[frame.id] ?? 0) : 0
           const stickyFinalVoteCount =
@@ -614,7 +612,15 @@ const CanvasFrameLayer = ({
                   : undefined
               }
               data-canvas-section-id={frame.kind === 'section' ? frame.id : undefined}
-              className={`focus:outline-none transition-opacity ${
+              onMouseDown={(event) => {
+                if (isFrameInteractionLocked) return
+                handleDragStart(event, frame)
+              }}
+              onTouchStart={(event) => {
+                if (isFrameInteractionLocked) return
+                handleDragStart(event, frame)
+              }}
+              className={`focus:outline-none transition-opacity ${isDraggableFrame ? (isFrameBeingDragged ? 'cursor-grabbing' : 'cursor-grab active:cursor-grabbing') : ''} ${
                 frame.kind === 'website' || frame.kind === 'image'
                   ? `${frameGroupClass} absolute flex flex-col overflow-visible rounded-lg border ${
                       connectionDragState?.sourceFrameId === frame.id ||
@@ -657,7 +663,7 @@ const CanvasFrameLayer = ({
                     : 10
                   : resizeState?.id === frame.id
                     ? 90
-                    : dragState?.ids.includes(frame.id)
+                    : isFrameBeingDragged
                       ? 80
                       : isSelectedFrame
                         ? 72
@@ -667,9 +673,16 @@ const CanvasFrameLayer = ({
                             ? 50
                             : frame.kind === 'icon'
                               ? 60
-                              : frame.kind === 'figure' || frame.kind === 'drawing'
-                                ? 60
-                                : undefined,
+                              : frame.kind === 'heading' || frame.kind === 'text' || frame.kind === 'link'
+                                ? 62
+                                : frame.kind === 'sticky'
+                                  ? 61
+                                  : frame.kind === 'figure' || frame.kind === 'drawing'
+                                    ? 60
+                                    : frame.kind === 'sql-editor' || frame.kind === 'code-block'
+                                      ? 40
+                                      : undefined,
+                isolation: 'isolate',
                 width: frame.kind === 'heading' ? `${frameWidth}px` : `${frame.width ?? defaults.width}px`,
                 height: frame.kind === 'heading' ? `${frameHeight}px` : `${frame.height ?? defaults.height}px`,
                 minWidth: frame.kind === 'heading' ? `${HEADING_TEXT_MIN_WIDTH}px` : `${defaults.minWidth}px`,
@@ -759,30 +772,6 @@ const CanvasFrameLayer = ({
                   />
                 </div>
               )}
-              {frame.kind === 'chart' && !isFrameInteractionLocked && (
-                <div className="pointer-events-none absolute inset-0 z-20 overflow-visible" aria-hidden="true">
-                  <div
-                    className={topDragStripClass}
-                    onMouseDown={(event) => handleDragStart(event, frame)}
-                    onTouchStart={(event) => handleDragStart(event, frame)}
-                  />
-                  <div
-                    className={bottomDragStripClass}
-                    onMouseDown={(event) => handleDragStart(event, frame)}
-                    onTouchStart={(event) => handleDragStart(event, frame)}
-                  />
-                  <div
-                    className={leftDragStripClass}
-                    onMouseDown={(event) => handleDragStart(event, frame)}
-                    onTouchStart={(event) => handleDragStart(event, frame)}
-                  />
-                  <div
-                    className={rightDragStripClass}
-                    onMouseDown={(event) => handleDragStart(event, frame)}
-                    onTouchStart={(event) => handleDragStart(event, frame)}
-                  />
-                </div>
-              )}
               {!isFrameInteractionLocked &&
                 (frame.kind === 'sticky' ||
                   frame.kind === 'text' ||
@@ -795,31 +784,7 @@ const CanvasFrameLayer = ({
                   frame.kind === 'sql-editor' ||
                   frame.kind === 'code-block' ||
                   frame.kind === 'image' ||
-                  frame.kind === 'website') && (
-                  <>
-                    <div className="pointer-events-none absolute inset-0 z-20 overflow-visible" aria-hidden="true">
-                      {(frame.kind !== 'website' || frame.isInternalDashboard) && (
-                        <div className={topDragStripClass} onMouseDown={(event) => handleDragStart(event, frame)} />
-                      )}
-                      <div
-                        className={bottomDragStripClass}
-                        onMouseDown={(event) => handleDragStart(event, frame)}
-                        onTouchStart={(event) => handleDragStart(event, frame)}
-                      />
-                      <div
-                        className={leftDragStripClass}
-                        onMouseDown={(event) => handleDragStart(event, frame)}
-                        onTouchStart={(event) => handleDragStart(event, frame)}
-                      />
-                      <div
-                        className={rightDragStripClass}
-                        onMouseDown={(event) => handleDragStart(event, frame)}
-                        onTouchStart={(event) => handleDragStart(event, frame)}
-                      />
-                    </div>
-                    {frame.kind !== 'section' && frameActionPoints}
-                  </>
-                )}
+                  frame.kind === 'website') && <>{frame.kind !== 'section' && frameActionPoints}</>}
               {!isFrameInteractionLocked &&
                 (frame.kind === 'heading' ||
                   frame.kind === 'text' ||

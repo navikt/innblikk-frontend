@@ -114,6 +114,11 @@ const CanvasTextFrame = ({
           onChange={(event) => onChange(id, event.target.value)}
           onBlur={() => onBlur(id)}
           onMouseDown={(event) => event.stopPropagation()}
+          onKeyDown={(event) => {
+            if (event.key !== 'Escape') return
+            event.preventDefault()
+            event.currentTarget.blur()
+          }}
           lang="nb-NO"
           placeholder="Skriv tekst"
           aria-labelledby={textEditorLabelId}
@@ -140,19 +145,17 @@ const CanvasTextFrame = ({
         />
       ) : (
         <div
-          role="button"
           tabIndex={0}
           data-canvas-edit-trigger="true"
           className={`m-0 block h-full w-full cursor-text overflow-auto bg-transparent p-0 [appearance:none] ${markdownClassName}`}
           style={{ fontSize: '18px', lineHeight: 1.45, fontWeight: 500 }}
-          onMouseDown={(event) => event.stopPropagation()}
-          onClick={() => onStartEditing(id)}
+          onDoubleClick={() => onStartEditing(id)}
           onKeyDown={(event) => {
             if (event.key !== 'Enter' && event.key !== ' ') return
             event.preventDefault()
             onStartEditing(id)
           }}
-          aria-description="Trykk Enter for å redigere teksten"
+          aria-description="Dobbeltklikk eller trykk Enter for å redigere teksten"
           dangerouslySetInnerHTML={{ __html: renderedMarkdown }}
         />
       )}

@@ -59,6 +59,7 @@ import {
   fetchCategories,
   fetchDashboards,
   fetchGraphs,
+  fetchQueries,
   updateDashboard,
   updateQuery,
 } from '../../oversikt/api/oversiktApi.ts'
@@ -180,6 +181,11 @@ const getDefaultFrameSize = (
   const kind = typeof frameOrKind === 'string' ? frameOrKind : frameOrKind.kind
   const isInternalDashboard = typeof frameOrKind === 'string' ? false : Boolean(frameOrKind.isInternalDashboard)
   const isIllustration = typeof frameOrKind === 'string' ? false : isIllustrationImageFrame(frameOrKind)
+  const isTableTextFrame =
+    typeof frameOrKind !== 'string' &&
+    frameOrKind.kind === 'text' &&
+    Array.isArray(frameOrKind.tableHeaders) &&
+    frameOrKind.tableHeaders.length > 0
 
   if (kind === 'website' && isInternalDashboard) return { width: 760, height: 760, minWidth: 520, minHeight: 420 }
   if (kind === 'website') return { width: 420, height: 700, minWidth: 220, minHeight: 160 }
@@ -189,7 +195,10 @@ const getDefaultFrameSize = (
   if (kind === 'sql-editor') return { width: 420, height: 760, minWidth: 260, minHeight: 320 }
   if (kind === 'code-block') return { width: 420, height: 760, minWidth: 260, minHeight: 320 }
   if (kind === 'heading') return { width: 420, height: 72, minWidth: 260, minHeight: 48 }
-  if (kind === 'text') return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
+  if (kind === 'text') {
+    if (isTableTextFrame) return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
+    return { width: 280, height: 96, minWidth: 160, minHeight: 48 }
+  }
   if (kind === 'link') return { width: 380, height: 112, minWidth: 280, minHeight: 92 }
   if (kind === 'icon') return { width: 280, height: 240, minWidth: 72, minHeight: 72 }
   if (kind === 'figure') {
@@ -238,6 +247,14 @@ const STICKY_CARD_CHAR_WIDTH_FACTOR = 0.55
 const METABASE_CREATED_AT_FILTER_REGEX = /\[\[\s*AND\s*\{\{\s*created_at\s*\}\}\s*\]\]/i
 const METABASE_URL_STI_FILTER_REGEX =
   /\[\[\s*\{\{\s*url_sti\s*\}\}\s*--\s*\]\]\s*'\/'|\[\[\s*AND\s*\{\{\s*url_sti\s*\}\}\s*\]\]|\{\{\s*url_sti\s*\}\}/i
+
+const mapGraphTypeToCanvasChartType = (graphType?: string): CanvasChartOption['chartType'] | null => {
+  if (graphType === 'LINE') return 'line'
+  if (graphType === 'BAR') return 'bar'
+  if (graphType === 'PIE') return 'pie'
+  if (graphType === 'TABLE') return 'table'
+  return null
+}
 
 const estimateStickyFrameHeight = (text: string, width: number): number => {
   const normalizedText = text.trim()
@@ -465,9 +482,9 @@ const Canvas = () => {
   const [editFigureSelectedType, setEditFigureSelectedType] = useState<CanvasFigureType>('square')
   const [editFigureSelectedColor, setEditFigureSelectedColor] = useState(DEFAULT_CANVAS_ICON_COLOR)
   const [editFigureError, setEditFigureError] = useState<string | null>(null)
-  const [chartOptions, _setChartOptions] = useState<CanvasChartOption[]>([])
+  const [chartOptions, setChartOptions] = useState<CanvasChartOption[]>([])
   const [selectedChartOptionId, setSelectedChartOptionId] = useState('')
-  const [isLoadingChartOptions, _setIsLoadingChartOptions] = useState(false)
+  const [isLoadingChartOptions, setIsLoadingChartOptions] = useState(false)
   const [addChartError, setAddChartError] = useState<string | null>(null)
   const [isGrafbyggerEmbedded, setIsGrafbyggerEmbedded] = useState(false)
   const [isCanvasLocked, setIsCanvasLocked] = useState(true)
@@ -509,7 +526,7 @@ const Canvas = () => {
   >(null)
   const [timerA11yAnnouncement, setTimerA11yAnnouncement] = useState('')
   const [placementA11yAnnouncement, setPlacementA11yAnnouncement] = useState('')
-  const [, setIsLoadingCanvasItems] = useState(false)
+  const [isLoadingCanvasItems, setIsLoadingCanvasItems] = useState(false)
   const [isSavingCanvasItem, setIsSavingCanvasItem] = useState(false)
   const [isImportingStickyCsv, setIsImportingStickyCsv] = useState(false)
   const [importStickyProgressCurrent, setImportStickyProgressCurrent] = useState(0)
@@ -530,6 +547,7 @@ const Canvas = () => {
   const skipNextGridSectionPersistRef = useRef(false)
   const chartContentRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const isImportingStickyCsvRef = useRef(false)
+  const dirtyEditableFrameIdsRef = useRef<Set<string>>(new Set())
   const clipboardFramesRef = useRef<CanvasFrame[] | null>(null)
   const clipboardPasteCountRef = useRef(0)
   const previousTimerRunningRef = useRef(false)
@@ -676,8 +694,6 @@ const Canvas = () => {
       dashboardId,
       ws: canvasWebSocket,
     })
-  const shouldEnableEditLockSync = activeEditableFrameId !== null
-
   const {
     timerLabel,
     remainingSeconds,
@@ -1201,10 +1217,12 @@ const Canvas = () => {
         iconColor: frame.iconColor,
         figureType: frame.figureType,
         figureColor: frame.figureColor,
+        figureOrientation: frame.figureOrientation,
         drawingPath: frame.drawingPath,
         drawingStrokeStyles: frame.drawingStrokeStyles,
         drawingStrokeWidth: frame.drawingStrokeWidth,
         drawingColor: frame.drawingColor,
+        drawingRotationDeg: frame.drawingRotationDeg,
         drawingAltText: frame.drawingAltText,
         isIllustration: frame.isIllustration,
         imageRotationDeg: frame.imageRotationDeg,
@@ -1370,7 +1388,7 @@ const Canvas = () => {
   }, [canPersistToDashboard, projectId, dashboardId, canvasInitMode, initialCategoryId, markRemoteCanvasFramesApplied])
 
   useCanvasBackgroundSync({
-    enabled: canvasSyncContextEnabled && shouldEnableBackgroundSync,
+    enabled: canvasSyncContextEnabled && shouldEnableBackgroundSync && !isLoadingCanvasItems,
     projectId,
     dashboardId,
     initialCategoryId,
@@ -1390,7 +1408,8 @@ const Canvas = () => {
     releaseLock: releaseEditLock,
     getFrameLockStatus,
   } = useCanvasEditLocks({
-    enabled: canvasSyncContextEnabled && shouldEnableEditLockSync,
+    enabled: canvasSyncContextEnabled,
+    hasPersistedFrames: frames.some((frame) => Boolean(frame.graphId && frame.categoryId)),
     projectId,
     dashboardId,
     activeEditableFrame,
@@ -1686,6 +1705,7 @@ const Canvas = () => {
     dashboardId,
     ensureCanvasCategory,
     frames,
+    ws: canvasWebSocket,
     selectedWebsite,
     setSelectedWebsite,
     canvasConfiguredWebsiteId,
@@ -2480,8 +2500,68 @@ const Canvas = () => {
     setIsGrafbyggerEmbedded(true)
   }
 
+  const loadChartOptions = useCallback(async () => {
+    if (projectId === null || dashboardId === null) {
+      setChartOptions([])
+      setSelectedChartOptionId('')
+      setAddChartError('Canvas må være koblet til dashboard for å importere graf.')
+      return
+    }
+
+    setIsLoadingChartOptions(true)
+    setAddChartError(null)
+    try {
+      const categories = await fetchCategories(projectId, dashboardId)
+      const graphsByCategory = await Promise.all(
+        categories.map(async (category) => {
+          const graphs = await fetchGraphs(projectId, dashboardId, category.id)
+          return graphs.map((graph) => ({ categoryId: category.id, graph }))
+        }),
+      )
+      const graphEntries = graphsByCategory.flat()
+      const queryLists = await Promise.all(
+        graphEntries.map(({ categoryId, graph }) => fetchQueries(projectId, dashboardId, categoryId, graph.id)),
+      )
+
+      const nextOptions = graphEntries
+        .map((entry, index) => {
+          const chartType = mapGraphTypeToCanvasChartType(entry.graph.graphType)
+          if (!chartType) return null
+          const firstQuery = queryLists[index]?.[0]
+          const sql = firstQuery?.sqlText?.trim()
+          if (!sql) return null
+          return {
+            id: String(entry.graph.id),
+            title: entry.graph.name?.trim() || `Graf ${entry.graph.id}`,
+            chartType,
+            sql,
+          } satisfies CanvasChartOption
+        })
+        .filter((entry): entry is CanvasChartOption => Boolean(entry))
+        .sort((a, b) => a.title.localeCompare(b.title, 'nb', { sensitivity: 'base' }))
+
+      setChartOptions(nextOptions)
+      setSelectedChartOptionId(nextOptions[0]?.id ?? '')
+      if (nextOptions.length === 0) {
+        setAddChartError('Fant ingen importerbare grafer i dette dashboardet.')
+      }
+    } catch (error) {
+      setChartOptions([])
+      setSelectedChartOptionId('')
+      setAddChartError(error instanceof Error ? error.message : 'Kunne ikke laste grafer')
+    } finally {
+      setIsLoadingChartOptions(false)
+    }
+  }, [dashboardId, projectId])
+
   const handleOpenGrafbyggerFromAddMenu = () => {
     openGrafbyggerFromAddMenuDirect()
+  }
+
+  const handleOpenImportChartFromAddMenu = () => {
+    setIsGrafbyggerEmbedded(false)
+    setIsAddChartModalOpen(true)
+    void loadChartOptions()
   }
 
   const {
@@ -2628,6 +2708,15 @@ const Canvas = () => {
     }
   }, [connectionDragState, createConnectionBetweenFrames, getCanvasPointerPosition, getFrameBounds, visibleFrames])
 
+  const deleteGraphViaWsOrRest = useCallback(async (pId: number, dId: number, categoryId: number, graphId: number) => {
+    const ws = canvasWebSocketRef.current
+    if (ws.isConnected) {
+      ws.deleteFrame({ graphId, categoryId })
+      return
+    }
+    await deleteGraph(pId, dId, categoryId, graphId)
+  }, [])
+
   const handleRemovePage = useCallback(
     async (id: string) => {
       const frameToDelete = frames.find((frame) => frame.id === id)
@@ -2655,11 +2744,11 @@ const Canvas = () => {
       if (!frameToDelete.graphId || !frameToDelete.categoryId) return
 
       try {
-        await deleteGraph(projectId, dashboardId, frameToDelete.categoryId, frameToDelete.graphId)
+        await deleteGraphViaWsOrRest(projectId, dashboardId, frameToDelete.categoryId, frameToDelete.graphId)
         await Promise.all(
           linkedConnections.map((connection) => {
             if (!connection.graphId || !connection.categoryId) return Promise.resolve()
-            return deleteGraph(projectId, dashboardId, connection.categoryId, connection.graphId)
+            return deleteGraphViaWsOrRest(projectId, dashboardId, connection.categoryId, connection.graphId)
           }),
         )
       } catch (error) {
@@ -2675,6 +2764,7 @@ const Canvas = () => {
       canPersistToDashboard,
       projectId,
       dashboardId,
+      deleteGraphViaWsOrRest,
       setSyncError,
     ],
   )
@@ -2687,7 +2777,7 @@ const Canvas = () => {
     if (!connection.graphId || !connection.categoryId) return
 
     try {
-      await deleteGraph(projectId, dashboardId, connection.categoryId, connection.graphId)
+      await deleteGraphViaWsOrRest(projectId, dashboardId, connection.categoryId, connection.graphId)
     } catch (error) {
       setSyncError(error instanceof Error ? error.message : 'Kunne ikke slette kobling')
     }
@@ -2741,7 +2831,7 @@ const Canvas = () => {
       for (const frame of framesToDelete) {
         if (canPersistToDashboard && projectId !== null && dashboardId !== null && frame.graphId && frame.categoryId) {
           try {
-            await deleteGraph(projectId, dashboardId, frame.categoryId, frame.graphId)
+            await deleteGraphViaWsOrRest(projectId, dashboardId, frame.categoryId, frame.graphId)
           } catch {
             failedFramesById.set(frame.id, frame)
           }
@@ -2759,7 +2849,7 @@ const Canvas = () => {
           connection.categoryId
         ) {
           try {
-            await deleteGraph(projectId, dashboardId, connection.categoryId, connection.graphId)
+            await deleteGraphViaWsOrRest(projectId, dashboardId, connection.categoryId, connection.graphId)
           } catch {
             failedConnectionsById.set(connection.id, connection)
           }
@@ -2796,6 +2886,7 @@ const Canvas = () => {
       connectionDragState?.sourceFrameId,
       connections,
       dashboardId,
+      deleteGraphViaWsOrRest,
       frames,
       projectId,
       releaseEditLock,
@@ -2991,11 +3082,18 @@ const Canvas = () => {
 
       event.preventDefault()
       const pasteOffset = 36 * (clipboardPasteCountRef.current + 1)
+      const copiedSections = copiedFrames.filter((frame) => frame.kind === 'section')
+      const sectionClearanceOffset =
+        copiedSections.length > 0
+          ? Math.max(...copiedSections.map((frame) => (frame.width ?? getDefaultFrameSize(frame).width) + 48))
+          : 0
+      const targetCategoryId = activeCanvasCategoryId
       const duplicatedFrames = copiedFrames.map((frame) => ({
         ...frame,
         id: `${Date.now()}-${Math.random()}`,
-        x: Math.max(0, frame.x + pasteOffset),
+        x: Math.max(0, frame.x + pasteOffset + sectionClearanceOffset),
         y: Math.max(-CANVAS_TOP_BUFFER, frame.y + pasteOffset),
+        categoryId: targetCategoryId ?? frame.categoryId,
         graphId: undefined,
         queryId: undefined,
         refreshNonce: 0,
@@ -3023,7 +3121,7 @@ const Canvas = () => {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [frames, handleRemovePage, persistFrame, selectedFrameIds])
+  }, [activeCanvasCategoryId, frames, handleRemovePage, persistFrame, selectedFrameIds])
 
   const resolveConnectionFrame = useCallback(
     (connection: CanvasConnection, role: 'from' | 'to'): CanvasFrame | null => {
@@ -3589,6 +3687,7 @@ const Canvas = () => {
 
   const handleEditableFrameChange = (id: string, nextValue: string) => {
     if (isInteractionLocked) return
+    dirtyEditableFrameIdsRef.current.add(id)
     setFrames((prev) =>
       prev.map((frame) => {
         if (frame.id !== id) return frame
@@ -3655,41 +3754,56 @@ const Canvas = () => {
       return
 
     let nextFrame = frame
+    const wasDirty = dirtyEditableFrameIdsRef.current.has(id)
+    dirtyEditableFrameIdsRef.current.delete(id)
+    let shouldPersist = false
     if (frame.kind === 'heading') {
       const normalizedHeading = (frame.headingText || '').trim()
+      const normalizedLabel = normalizedHeading || 'Overskrift'
+      shouldPersist = wasDirty || normalizedHeading !== (frame.headingText || '') || normalizedLabel !== frame.label
       nextFrame = {
         ...frame,
         headingText: normalizedHeading,
-        label: normalizedHeading || 'Overskrift',
+        label: normalizedLabel,
       }
     } else if (frame.kind === 'section') {
       const normalizedLabel = frame.label.trim()
+      const fallbackLabel = normalizedLabel || getNextAutoSectionLabel(frames, frame.id)
+      shouldPersist = wasDirty || fallbackLabel !== frame.label
       nextFrame = {
         ...frame,
-        label: normalizedLabel || getNextAutoSectionLabel(frames, frame.id),
+        label: fallbackLabel,
       }
     } else if (frame.kind === 'text' || frame.kind === 'sticky') {
+      const normalizedTextContent = (frame.textContent || '').trim()
+      shouldPersist = wasDirty || normalizedTextContent !== (frame.textContent || '')
       nextFrame = {
         ...frame,
-        textContent: (frame.textContent || '').trim(),
+        textContent: normalizedTextContent,
       }
     } else {
+      const normalizedSqlQuery = ((nextValue ?? frame.sqlQuery) || '').trim()
+      shouldPersist = wasDirty || normalizedSqlQuery !== (frame.sqlQuery || '')
       nextFrame = {
         ...frame,
-        sqlQuery: ((nextValue ?? frame.sqlQuery) || '').trim(),
+        sqlQuery: normalizedSqlQuery,
       }
     }
 
-    setFrames((prev) => prev.map((item) => (item.id === id ? nextFrame : item)))
+    if (shouldPersist) {
+      setFrames((prev) => prev.map((item) => (item.id === id ? nextFrame : item)))
+      void persistFrame(nextFrame).catch((error) => {
+        setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre endringer i canvas')
+      })
+    }
+
     setActiveEditableFrameId((current) => (current === id ? null : current))
-    void persistFrame(nextFrame).catch((error) => {
-      setSyncError(error instanceof Error ? error.message : 'Kunne ikke lagre endringer i canvas')
-    })
     void releaseEditLock(frame).catch(() => undefined)
   }
 
   const handleStartEditingFrame = (id: string) => {
     if (isInteractionLocked) return
+    if (activeEditableFrameId === id) return
     const frame = frames.find((item) => item.id === id)
     if (
       !frame ||
@@ -3713,6 +3827,7 @@ const Canvas = () => {
         )
         return
       }
+      dirtyEditableFrameIdsRef.current.delete(id)
       setActiveEditableFrameId(id)
     })()
   }
@@ -4466,6 +4581,7 @@ const Canvas = () => {
           onOpenAddDrawing={handleOpenAddDrawing}
           onOpenAddIllustration={handleOpenAddIllustrationModal}
           onOpenCreateChart={handleOpenGrafbyggerFromAddMenu}
+          onOpenImportChart={handleOpenImportChartFromAddMenu}
           isGrafbyggerEmbedded={isGrafbyggerEmbedded}
           onCloseGrafbygger={() => setIsGrafbyggerEmbedded(false)}
           onOpenCreateTab={handleOpenCreateTabModal}

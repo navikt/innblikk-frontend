@@ -8,6 +8,7 @@ import {
   updateQuery,
 } from '../../oversikt/api/oversiktApi.ts'
 import type { VisualizationMode } from '../../clickmap/model/visualizationMode.ts'
+import type { CanvasWebSocketHandle } from './useCanvasWebSocket.ts'
 import type { Website } from '../../../shared/types/website.ts'
 import {
   DEFAULT_CANVAS_ICON_COLOR,
@@ -84,6 +85,7 @@ type UseCanvasFrameFormHandlersParams = {
   dashboardId: number | null
   ensureCanvasCategory: () => Promise<number | null>
   frames: CanvasFrame[]
+  ws?: CanvasWebSocketHandle
   selectedWebsite: Website | null
   setSelectedWebsite: Setter<Website | null>
   canvasConfiguredWebsiteId: string | null
@@ -343,6 +345,7 @@ const useCanvasFrameFormHandlers = ({
   dashboardId,
   ensureCanvasCategory,
   frames,
+  ws,
   selectedWebsite,
   setSelectedWebsite,
   canvasConfiguredWebsiteId,
@@ -548,6 +551,11 @@ const useCanvasFrameFormHandlers = ({
       const kind = typeof frameOrKind === 'string' ? frameOrKind : frameOrKind.kind
       const isInternalDashboard = typeof frameOrKind === 'string' ? false : Boolean(frameOrKind.isInternalDashboard)
       const isIllustration = typeof frameOrKind === 'string' ? false : isIllustrationImageFrame(frameOrKind)
+      const isTableTextFrame =
+        typeof frameOrKind !== 'string' &&
+        frameOrKind.kind === 'text' &&
+        Array.isArray(frameOrKind.tableHeaders) &&
+        frameOrKind.tableHeaders.length > 0
 
       if (kind === 'website' && isInternalDashboard) return { width: 760, height: 760, minWidth: 520, minHeight: 420 }
       if (kind === 'website') return { width: 420, height: 700, minWidth: 220, minHeight: 160 }
@@ -557,7 +565,10 @@ const useCanvasFrameFormHandlers = ({
       if (kind === 'sql-editor' || kind === 'code-block')
         return { width: 420, height: 760, minWidth: 260, minHeight: 320 }
       if (kind === 'heading') return { width: 420, height: 72, minWidth: 260, minHeight: 48 }
-      if (kind === 'text') return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
+      if (kind === 'text') {
+        if (isTableTextFrame) return { width: 360, height: 180, minWidth: 280, minHeight: 72 }
+        return { width: 280, height: 96, minWidth: 160, minHeight: 48 }
+      }
       if (kind === 'link') return { width: 380, height: 112, minWidth: 280, minHeight: 92 }
       if (kind === 'icon') return { width: 280, height: 240, minWidth: 72, minHeight: 72 }
       if (kind === 'figure') return { width: 240, height: 240, minWidth: 120, minHeight: 120 }
@@ -601,10 +612,12 @@ const useCanvasFrameFormHandlers = ({
         iconColor: frame.iconColor,
         figureType: frame.figureType,
         figureColor: frame.figureColor,
+        figureOrientation: frame.figureOrientation,
         drawingPath: frame.drawingPath,
         drawingStrokeStyles: frame.drawingStrokeStyles,
         drawingStrokeWidth: frame.drawingStrokeWidth,
         drawingColor: frame.drawingColor,
+        drawingRotationDeg: frame.drawingRotationDeg,
         drawingAltText: frame.drawingAltText,
         isIllustration: frame.isIllustration,
         imageRotationDeg: frame.imageRotationDeg,
@@ -617,6 +630,43 @@ const useCanvasFrameFormHandlers = ({
       }
       const serialized = serializeCanvasConfig(payload)
 
+      // Try WS-based save first
+      if (ws?.isConnected) {
+        const result = await ws.saveFrame({
+          projectId,
+          dashboardId,
+          categoryId,
+          graphId: frame.graphId ?? undefined,
+          queryId: frame.queryId ?? undefined,
+          graphName: buildCanvasStorageGraphName(frame),
+          name: CANVAS_QUERY_NAME,
+          sqlText: serialized,
+          version: frame.version,
+        })
+
+        if (result.ok) {
+          return {
+            ...frame,
+            categoryId,
+            graphId: (result.payload.graphId as number) ?? frame.graphId,
+            queryId: (result.payload.queryId as number) ?? frame.queryId,
+            version: (result.payload.version as number) ?? frame.version,
+          }
+        }
+
+        if (result.conflict) {
+          // On conflict, return the frame with updated version from server
+          return {
+            ...frame,
+            categoryId,
+            version: (result.payload.version as number) ?? frame.version,
+          }
+        }
+
+        // WS save failed — fall through to REST
+      }
+
+      // REST fallback
       if (!frame.graphId) {
         const createdGraph = await createGraph(projectId, dashboardId, categoryId, {
           name: buildCanvasStorageGraphName(frame),
@@ -654,7 +704,7 @@ const useCanvasFrameFormHandlers = ({
         queryId: createdQuery.id,
       }
     },
-    [dashboardId, ensureCanvasCategory, projectId],
+    [dashboardId, ensureCanvasCategory, projectId, ws],
   )
 
   const resolvePlacementInSection = useCallback(
@@ -754,6 +804,29 @@ const useCanvasFrameFormHandlers = ({
       return persistFrame(nextSection)
     },
     [frames, getDefaultFrameSize, persistFrame],
+  )
+
+  const findContainingSectionId = useCallback(
+    (frame: CanvasFrame): string | null => {
+      const frameBounds = getFrameBoundsForLayout(frame, getDefaultFrameSize)
+      const centerX = (frameBounds.left + frameBounds.right) / 2
+      const centerY = (frameBounds.top + frameBounds.bottom) / 2
+
+      const containingSection = frames.find((candidate) => {
+        if (candidate.kind !== 'section') return false
+        if ((candidate.categoryId ?? null) !== (frame.categoryId ?? null)) return false
+        const sectionBounds = getFrameBoundsForLayout(candidate, getDefaultFrameSize)
+        return (
+          centerX >= sectionBounds.left &&
+          centerX <= sectionBounds.right &&
+          centerY >= sectionBounds.top &&
+          centerY <= sectionBounds.bottom
+        )
+      })
+
+      return containingSection?.id ?? null
+    },
+    [frames, getDefaultFrameSize],
   )
 
   const loadDashboardOptions = useCallback(
@@ -1894,6 +1967,7 @@ const useCanvasFrameFormHandlers = ({
     if (editTableFrameId) {
       const currentFrame = frames.find((frame) => frame.id === editTableFrameId)
       if (!currentFrame || currentFrame.kind !== 'text') return
+      const containingSectionId = findContainingSectionId(currentFrame)
 
       const updatedFrame: CanvasFrame = {
         ...currentFrame,
@@ -1910,7 +1984,15 @@ const useCanvasFrameFormHandlers = ({
           setIsSavingCanvasItem(true)
           setSyncError(null)
           const persistedFrame = await persistFrame(updatedFrame)
-          setFrames((prev) => prev.map((frame) => (frame.id === editTableFrameId ? persistedFrame : frame)))
+          const persistedSection = containingSectionId
+            ? await ensureSectionContainsFrame(containingSectionId, persistedFrame)
+            : null
+          setFrames((prev) => {
+            const withSection = persistedSection
+              ? prev.map((frame) => (frame.id === persistedSection.id ? persistedSection : frame))
+              : prev
+            return withSection.map((frame) => (frame.id === editTableFrameId ? persistedFrame : frame))
+          })
           setTableHeadersInput('')
           setTableRowsInput('')
           setAddTableError(null)

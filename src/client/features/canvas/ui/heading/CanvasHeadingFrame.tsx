@@ -48,6 +48,11 @@ const CanvasHeadingFrame = ({
           onChange={(event) => onChange(id, event.target.value)}
           onBlur={() => onBlur(id)}
           onMouseDown={(event) => event.stopPropagation()}
+          onKeyDown={(event) => {
+            if (event.key !== 'Escape') return
+            event.preventDefault()
+            event.currentTarget.blur()
+          }}
           lang="nb-NO"
           placeholder="Skriv overskrift"
           aria-labelledby={headingEditorLabelId}
@@ -81,13 +86,17 @@ const CanvasHeadingFrame = ({
               {headingContent}
             </span>
           ) : (
-            <button
-              type="button"
+            <div
               data-canvas-edit-trigger="true"
+              tabIndex={0}
               className="m-0 block w-full cursor-text whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)] [appearance:none]"
-              onMouseDown={(event) => event.stopPropagation()}
-              onClick={() => onStartEditing(id)}
-              aria-description="Trykk Enter for å redigere overskriften"
+              onDoubleClick={() => onStartEditing(id)}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter' && event.key !== ' ') return
+                event.preventDefault()
+                onStartEditing(id)
+              }}
+              aria-description="Dobbeltklikk eller trykk Enter for å redigere overskriften"
               style={{
                 fontSize: `${fontSizePx}px`,
                 lineHeight: 1.05,
@@ -95,7 +104,7 @@ const CanvasHeadingFrame = ({
               }}
             >
               {headingContent}
-            </button>
+            </div>
           )}
         </h4>
       ) : headingLevel === 3 ? (
@@ -112,13 +121,17 @@ const CanvasHeadingFrame = ({
               {headingContent}
             </span>
           ) : (
-            <button
-              type="button"
+            <div
               data-canvas-edit-trigger="true"
+              tabIndex={0}
               className="m-0 block w-full cursor-text whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)] [appearance:none]"
-              onMouseDown={(event) => event.stopPropagation()}
-              onClick={() => onStartEditing(id)}
-              aria-description="Trykk Enter for å redigere overskriften"
+              onDoubleClick={() => onStartEditing(id)}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter' && event.key !== ' ') return
+                event.preventDefault()
+                onStartEditing(id)
+              }}
+              aria-description="Dobbeltklikk eller trykk Enter for å redigere overskriften"
               style={{
                 fontSize: `${fontSizePx}px`,
                 lineHeight: 1.05,
@@ -126,7 +139,7 @@ const CanvasHeadingFrame = ({
               }}
             >
               {headingContent}
-            </button>
+            </div>
           )}
         </h3>
       ) : (
@@ -143,13 +156,17 @@ const CanvasHeadingFrame = ({
               {headingContent}
             </span>
           ) : (
-            <button
-              type="button"
+            <div
               data-canvas-edit-trigger="true"
+              tabIndex={0}
               className="m-0 block w-full cursor-text whitespace-pre-wrap break-words bg-transparent p-0 text-left text-[var(--ax-text-default)] [appearance:none]"
-              onMouseDown={(event) => event.stopPropagation()}
-              onClick={() => onStartEditing(id)}
-              aria-description="Trykk Enter for å redigere overskriften"
+              onDoubleClick={() => onStartEditing(id)}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter' && event.key !== ' ') return
+                event.preventDefault()
+                onStartEditing(id)
+              }}
+              aria-description="Dobbeltklikk eller trykk Enter for å redigere overskriften"
               style={{
                 fontSize: `${fontSizePx}px`,
                 lineHeight: 1.05,
@@ -157,7 +174,7 @@ const CanvasHeadingFrame = ({
               }}
             >
               {headingContent}
-            </button>
+            </div>
           )}
         </h2>
       )}

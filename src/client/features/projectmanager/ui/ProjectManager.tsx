@@ -265,7 +265,7 @@ const ProjectManager = () => {
           const description = (summary.project.description ?? '').toLowerCase()
           return name.includes(query) || description.includes(query)
         })
-    return [...filtered].sort((a, b) => a.project.name.localeCompare(b.project.name, 'nb', { sensitivity: 'base' }))
+    return [...filtered].sort((a, b) => a.project.name.localeCompare(b.project.name, 'en', { sensitivity: 'base' }))
   }, [projectSummaries, projectSearch])
 
   const regularDashboards = useMemo(
@@ -1202,7 +1202,10 @@ const ProjectManager = () => {
   }
 
   const projectOptions: ProjectDto[] = useMemo(
-    () => projectSummaries.map((summary) => summary.project),
+    () =>
+      [...projectSummaries.map((summary) => summary.project)].sort((a, b) =>
+        a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }),
+      ),
     [projectSummaries],
   )
 
@@ -1341,28 +1344,27 @@ const ProjectManager = () => {
               )}
 
             {!isInitialLoading && (
-              <div className="flex flex-col gap-2">
+              <ul className="w-full divide-y divide-[var(--ax-border-neutral-subtle)]">
                 {filteredProjectSummaries.map((summary) => {
                   const isActive = summary.project.id === selectedProjectId
                   return (
-                    <button
-                      key={summary.project.id}
-                      type="button"
-                      onClick={() => setSelectedProjectId(summary.project.id)}
-                      className={`block w-full text-left px-3 py-2 rounded-md border transition ${
-                        isActive
-                          ? 'bg-[var(--ax-bg-accent-moderate)] border-[var(--ax-border-accent)]'
-                          : 'bg-[var(--ax-bg-default)] border-[var(--ax-border-neutral-subtle)] hover:bg-[var(--ax-bg-neutral-moderate)]'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-3">
+                    <li key={summary.project.id} className="w-full">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedProjectId(summary.project.id)}
+                        className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left outline-none transition-colors duration-150 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-[var(--ax-border-accent)] ${
+                          isActive
+                            ? 'bg-[var(--ax-bg-accent-moderate)]'
+                            : 'bg-transparent hover:bg-[var(--ax-bg-neutral-moderate)]'
+                        }`}
+                      >
                         <div className="font-medium text-sm truncate">{summary.project.name}</div>
                         {/* Chart counter removed for performance */}
-                      </div>
-                    </button>
+                      </button>
+                    </li>
                   )
                 })}
-              </div>
+              </ul>
             )}
 
             {!isInitialLoading && (

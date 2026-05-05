@@ -1,7 +1,7 @@
 export type VisualizationMode = 'clickmap' | 'heatmap' | 'scrollmap'
 
 export const CLICKMAP_VISUALIZATION_MODE_OPTIONS: Array<{ value: VisualizationMode; label: string }> = [
-  { value: 'clickmap', label: 'Klikkkart' },
+  { value: 'clickmap', label: 'Klikk-kart' },
   { value: 'heatmap', label: 'Varmekart' },
   { value: 'scrollmap', label: 'Scrollkart' },
 ]

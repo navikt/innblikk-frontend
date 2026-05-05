@@ -15,6 +15,8 @@ import {
   PLANNER_COLUMN_LABEL_PREFIX,
 } from '../utils/canvasUtils.ts'
 
+const DRAG_PERSIST_THRESHOLD_PX = 3
+
 type CanvasDragState = {
   ids: string[]
   pointerStartX: number
@@ -166,6 +168,36 @@ const useCanvasInteractions = ({
     (event: React.MouseEvent | React.TouchEvent, frame: CanvasFrame) => {
       if (isInteractionLocked) return
       if ('button' in event && event.button !== 0) return
+      if ('detail' in event && event.detail > 1) return
+
+      const interactionTarget = event.target
+      if (interactionTarget instanceof Element) {
+        if (frame.kind === 'section') {
+          const nearestFrameRoot = interactionTarget.closest<HTMLElement>('[data-canvas-frame-root="true"]')
+          if (nearestFrameRoot) {
+            const targetFrameId = nearestFrameRoot.dataset.canvasFrameId
+            if (targetFrameId && targetFrameId !== frame.id) return
+          }
+        }
+
+        const interactiveAncestor = interactionTarget.closest(
+          [
+            'button',
+            'a',
+            'input',
+            'textarea',
+            'select',
+            'option',
+            'label',
+            'summary',
+            '[role="button"]',
+            '[role="menuitem"]',
+            '[contenteditable="true"]',
+            '[data-canvas-no-drag="true"]',
+          ].join(','),
+        )
+        if (interactiveAncestor) return
+      }
 
       const isAdditiveSelection = event.metaKey || event.ctrlKey
       if (isAdditiveSelection) {
@@ -184,20 +216,46 @@ const useCanvasInteractions = ({
       const pointer = getCanvasPointerPosition(clientX, clientY)
       if (!pointer) return
 
-      const selectedIds = selectedFrameIds.includes(frame.id) ? selectedFrameIds : [frame.id]
+      const selectedSectionIds = new Set(
+        selectedFrameIds.filter((id) =>
+          frames.some((candidate) => candidate.id === id && candidate.kind === 'section'),
+        ),
+      )
+      const shouldIsolateFrameSelection = frame.kind !== 'section' && selectedSectionIds.size > 0
+      const selectedIds =
+        selectedFrameIds.includes(frame.id) && !shouldIsolateFrameSelection ? selectedFrameIds : [frame.id]
       const sectionContainedIds =
         frame.kind === 'section'
           ? visibleFrames
               .filter((candidate) => {
                 if (candidate.id === frame.id || candidate.kind === 'section') return false
+                if ((candidate.categoryId ?? null) !== (frame.categoryId ?? null)) return false
                 const sectionBounds = getFrameBounds(frame)
                 const candidateBounds = getFrameBounds(candidate)
-                return (
-                  candidateBounds.left >= sectionBounds.left &&
-                  candidateBounds.right <= sectionBounds.right &&
-                  candidateBounds.top >= sectionBounds.top &&
-                  candidateBounds.bottom <= sectionBounds.bottom
-                )
+                const centerX = (candidateBounds.left + candidateBounds.right) / 2
+                const centerY = (candidateBounds.top + candidateBounds.bottom) / 2
+                const insideCurrentSection =
+                  centerX >= sectionBounds.left &&
+                  centerX <= sectionBounds.right &&
+                  centerY >= sectionBounds.top &&
+                  centerY <= sectionBounds.bottom
+                if (!insideCurrentSection) return false
+
+                const owningSection = visibleFrames
+                  .filter((sectionCandidate) => sectionCandidate.kind === 'section')
+                  .sort(compareFramesForSectionOrder)
+                  .find((sectionCandidate) => {
+                    if ((sectionCandidate.categoryId ?? null) !== (candidate.categoryId ?? null)) return false
+                    const owningBounds = getFrameBounds(sectionCandidate)
+                    return (
+                      centerX >= owningBounds.left &&
+                      centerX <= owningBounds.right &&
+                      centerY >= owningBounds.top &&
+                      centerY <= owningBounds.bottom
+                    )
+                  })
+
+                return owningSection?.id === frame.id
               })
               .map((candidate) => candidate.id)
           : []
@@ -216,6 +274,7 @@ const useCanvasInteractions = ({
       })
     },
     [
+      compareFramesForSectionOrder,
       frames,
       getCanvasPointerPosition,
       getFrameBounds,
@@ -328,6 +387,35 @@ const useCanvasInteractions = ({
 
     const onPointerUp = () => {
       const movedFrames = framesRef.current.filter((frame) => dragState.ids.includes(frame.id))
+      const movedFrameIds = movedFrames
+        .filter((frame) => {
+          const start = dragState.frameStartPositions[frame.id]
+          if (!start) return false
+          return (
+            Math.abs(frame.x - start.x) >= DRAG_PERSIST_THRESHOLD_PX ||
+            Math.abs(frame.y - start.y) >= DRAG_PERSIST_THRESHOLD_PX
+          )
+        })
+        .map((frame) => frame.id)
+      const movedFrameIdSet = new Set(movedFrameIds)
+
+      if (movedFrameIds.length === 0) {
+        setFrames((prev) =>
+          prev.map((frame) => {
+            const start = dragState.frameStartPositions[frame.id]
+            if (!start) return frame
+            if (frame.x === start.x && frame.y === start.y) return frame
+            return {
+              ...frame,
+              x: start.x,
+              y: start.y,
+            }
+          }),
+        )
+        setDragState(null)
+        return
+      }
+
       const framesToPersistById = new Map(movedFrames.map((frame) => [frame.id, frame]))
       const originalMovedFramesById = new Map(
         movedFrames.map((frame) => [
@@ -413,6 +501,7 @@ const useCanvasInteractions = ({
       }
 
       movedFrames.forEach((movedFrame) => {
+        if (!movedFrameIdSet.has(movedFrame.id)) return
         const snapped = applyStickyColumnSnap(movedFrame)
         const normalizedForManualReorder: CanvasFrame =
           snapped.kind === 'sticky' && Number.isFinite(snapped.finalVoteRank)
@@ -428,6 +517,7 @@ const useCanvasInteractions = ({
 
       const affectedGridSectionIds = new Set<string>()
       movedFrames.forEach((movedFrame) => {
+        if (!movedFrameIdSet.has(movedFrame.id)) return
         const originalFrame = originalMovedFramesById.get(movedFrame.id) ?? movedFrame
         const previousSectionId = findContainingGridSectionId(originalFrame, framesRef.current)
         if (previousSectionId) affectedGridSectionIds.add(previousSectionId)
@@ -500,7 +590,9 @@ const useCanvasInteractions = ({
       if (resizedFrame?.kind === 'section' && resizedFrame.sectionLayout === 'grid') {
         const { nextFrames, changedFrameIds } = reflowGridSections(framesRef.current, [resizedFrame.id])
         setFrames(nextFrames)
-        const framesToPersist = nextFrames.filter((frame) => changedFrameIds.has(frame.id) && Boolean(frame.graphId))
+        const frameIdsToPersist = new Set(changedFrameIds)
+        frameIdsToPersist.add(resizedFrame.id)
+        const framesToPersist = nextFrames.filter((frame) => frameIdsToPersist.has(frame.id) && Boolean(frame.graphId))
         void Promise.all(
           framesToPersist.map((frame) =>
             persistFrame(frame).catch((error) => {
@@ -718,6 +810,26 @@ const useCanvasInteractions = ({
     window.addEventListener('mousedown', onWindowMouseDown)
     return () => window.removeEventListener('mousedown', onWindowMouseDown)
   }, [selectedFrameIds, setSelectedFrameIds])
+
+  useEffect(() => {
+    if (selectedFrameIds.length === 0 && !selectionBox) return
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+
+      const target = event.target as HTMLElement | null
+      const isTypingTarget =
+        target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable || false
+      if (isTypingTarget) return
+
+      event.preventDefault()
+      setSelectionBox(null)
+      setSelectedFrameIds([])
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [selectedFrameIds.length, selectionBox, setSelectedFrameIds, setSelectionBox])
 
   return {
     getHeadingFrameFontSize,

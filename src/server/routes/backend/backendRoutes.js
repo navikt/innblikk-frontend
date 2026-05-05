@@ -234,6 +234,47 @@ export function createBackendProxyRouter({ BACKEND_BASE_URL }) {
     return Number(created?.id)
   }
 
+  // Endpoint for the client to obtain a single-use WS ticket for direct backend WS connections.
+  // The BFF calls the backend with an OBO token (server-side), and the backend returns a
+  // short-lived ticket. The browser sends this ticket as the first WS message to authenticate.
+  router.get('/canvas/ws-ticket', authenticateUser, async (req, res) => {
+    try {
+      const token = await getOboToken(req)
+      if (!token) {
+        const serviceToken = await getServiceToken().catch(() => null)
+        if (!serviceToken) {
+          res.status(503).json({ error: 'Token exchange not available' })
+          return
+        }
+        // For local dev, call backend with service token
+        const response = await fetch(`${BACKEND_BASE_URL}/api/canvas/ws-ticket`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${serviceToken}` },
+        })
+        if (!response.ok) {
+          res.status(response.status).json({ error: 'Backend rejected ticket request' })
+          return
+        }
+        const data = await response.json()
+        res.json(data)
+        return
+      }
+      const response = await fetch(`${BACKEND_BASE_URL}/api/canvas/ws-ticket`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!response.ok) {
+        res.status(response.status).json({ error: 'Backend rejected ticket request' })
+        return
+      }
+      const data = await response.json()
+      res.json(data)
+    } catch (err) {
+      console.error('Failed to get WS ticket:', err)
+      res.status(500).json({ error: 'Failed to obtain WS ticket' })
+    }
+  })
+
   router.get('/canvas/storage', authenticateUser, async (req, res) => {
     try {
       const projectId = Number(req.query.projectId)
@@ -474,6 +515,32 @@ export function createBackendProxyRouter({ BACKEND_BASE_URL }) {
         error: 'Canvas presence heartbeat failed',
         details: err instanceof Error ? err.message : 'Unknown error',
       })
+    }
+  })
+
+  router.get('/stats', async (req, res) => {
+    try {
+      const targetUrl = new URL('stats', apiBaseUrl)
+      const response = await fetch(targetUrl, { headers: { accept: 'application/json' } })
+      const text = await response.text()
+      let payload = null
+      if (text) {
+        try {
+          payload = JSON.parse(text)
+        } catch {
+          payload = null
+        }
+      }
+      if (!response.ok) {
+        res.status(response.status).json({ error: 'Stats request failed' })
+        return
+      }
+      res.json(payload)
+    } catch (err) {
+      console.error('Stats proxy error:', err)
+      res
+        .status(500)
+        .json({ error: 'Stats proxy error', details: err instanceof Error ? err.message : 'Unknown error' })
     }
   })
 

@@ -30,6 +30,7 @@ import { DEFAULT_CANVAS_ICON_COLOR } from '../../ui/icon/CanvasIconRegistry.ts'
 import { useCanvasShareData } from '../hooks/useCanvasShareData.ts'
 import {
   buildCanvasShareUrl,
+  filterCanvasShareVisibleFrames,
   getCanvasShareFrameBounds,
   parseCanvasShareRouteContext,
 } from '../utils/canvasShareLayout.ts'
@@ -91,8 +92,13 @@ const CanvasShareView = () => {
     return data.frames.filter((frame) => (frame.categoryId ?? null) === activeCategoryId)
   }, [activeCategoryId, data])
 
-  const hiddenCount = useMemo(() => categoryFrames.filter((frame) => frame.hideInShare).length, [categoryFrames])
-  const visibleFrames = useMemo(() => categoryFrames.filter((frame) => !frame.hideInShare), [categoryFrames])
+  const { visibleFrames, hiddenCount } = useMemo(() => {
+    const result = filterCanvasShareVisibleFrames(categoryFrames)
+    return {
+      visibleFrames: result.frames,
+      hiddenCount: result.manuallyHiddenCount + result.autoHiddenOverlayCount,
+    }
+  }, [categoryFrames])
 
   const hierarchy = useMemo(
     () =>
@@ -777,7 +783,7 @@ const CanvasShareView = () => {
               <Alert variant="info" size="small">
                 <span className="inline-flex items-center gap-2">
                   <EyeOff size={14} aria-hidden="true" />
-                  {hiddenCount} element{hiddenCount === 1 ? '' : 'er'} er skjult i artikkelvisning.
+                  {hiddenCount} overlappende element{hiddenCount === 1 ? '' : 'er'} er skjult i artikkelvisning.
                 </span>
               </Alert>
             )}

@@ -54,6 +54,7 @@ export type QueryDto = {
   sqlText: string
   ordering?: number
   updatedAt?: string
+  version?: number
 }
 
 export type QueryOrderingEntry = {
