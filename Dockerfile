@@ -26,16 +26,12 @@ RUN pnpm run build
 # Production stage
 FROM europe-north1-docker.pkg.dev/cgr-nav/pull-through/nav.no/node:25@sha256:6afbeeea90a543021260950f5aaee2de198d7b17ff89ecf5b80bd2532757ba86
 
-# Install only Node.js runtime (no npm/corepack needed)
-RUN apk update && apk add --no-cache nodejs-25
-
 WORKDIR /app
 
 # Copy package files and .npmrc
 COPY --from=builder /app/package.json /app/pnpm-lock.yaml /app/.npmrc ./
 
-# Install pnpm for production dependencies
-RUN apk add --no-cache npm && npm install -g corepack && corepack enable
+RUN npm install -g corepack && corepack enable
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
@@ -44,9 +40,6 @@ ENV PATH="$PNPM_HOME:$PATH"
 RUN --mount=type=secret,id=NODE_AUTH_TOKEN \
     --mount=type=cache,id=pnpm,target=/pnpm/store \
     NODE_AUTH_TOKEN=$(cat /run/secrets/NODE_AUTH_TOKEN) pnpm install --prod --frozen-lockfile
-
-# Remove corepack/npm after installing dependencies
-RUN apk del npm
 
 # Copy built assets and runtime files from builder
 COPY --from=builder /app/dist ./dist
