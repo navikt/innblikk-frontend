@@ -1341,13 +1341,14 @@ const Canvas = () => {
   )
 
   useEffect(() => {
-    if (!canPersistToDashboard || projectId === null || dashboardId === null || canvasInitMode !== 'existing') {
+    if (!canPersistToDashboard || projectId === null || dashboardId === null || canvasInitMode === 'create') {
       setFrames((prev) => (prev.length > 0 ? [] : prev))
       setConnections((prev) => (prev.length > 0 ? [] : prev))
       setCanvasCategories([])
       setActiveCanvasCategoryId(null)
       return
     }
+    if (canvasInitMode !== 'existing') return
 
     let isActive = true
     const loadCanvasItems = async () => {
