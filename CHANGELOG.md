@@ -12,6 +12,10 @@ All notable changes to this project will be documented in this file.
 
 - Sticky note marker tekst dark mode
 
+### Bug
+
+- Enable CSV export of timestamps
+
 ### Canvas
 
 - Toggle text selection on content manipulation events
