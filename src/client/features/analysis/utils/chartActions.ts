@@ -62,6 +62,24 @@ export const buildEditorUrl = (
   return `/sql?${params.toString()}`
 }
 
+ 
+export const serializeCsvValue = (val: unknown): string => {
+  if (val === null || val === undefined) return ''
+  if (val instanceof Date) return isNaN(val.getTime()) ? '' : val.toISOString()
+  if (typeof val === 'object') {
+    const obj = val as Record<string, unknown>
+    if (Object.keys(obj).length === 1 && 'value' in obj) {
+      const inner = obj['value']
+      if (typeof inner === 'string' && !isNaN(Date.parse(inner))) {
+        return new Date(inner).toISOString()
+      }
+      return String(inner)
+    }
+    return JSON.stringify(val)
+  }
+  return String(val)
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const downloadChartCsv = (data: any[], title: string) => {
   if (!data || data.length === 0) return
@@ -78,7 +96,7 @@ export const downloadChartCsv = (data: any[], title: string) => {
           const value = row[header]
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           const translatedValue = translateValue(header, value)
-          const stringValue = translatedValue !== null && translatedValue !== undefined ? String(translatedValue) : ''
+          const stringValue = serializeCsvValue(translatedValue)
           if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
             return `"${stringValue.replace(/"/g, '""')}"`
           }

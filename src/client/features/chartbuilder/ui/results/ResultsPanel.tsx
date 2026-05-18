@@ -28,6 +28,7 @@ import {
 import type { ILineChartProps, IVerticalBarChartProps, IVerticalBarChartDataPoint } from '@fluentui/react-charting'
 import { LineChart, VerticalBarChart, AreaChart, PieChart, ResponsiveContainer } from '@fluentui/react-charting'
 import { translateValue } from '../../../../shared/lib/translations.ts'
+import { serializeCsvValue } from '../../../analysis/utils/chartActions.ts'
 import { openSqlEditorWithContext } from '../../../../shared/lib/openSqlEditor.ts'
 import { format, startOfWeek, startOfMonth, isValid } from 'date-fns'
 import { nb } from 'date-fns/locale'
@@ -463,7 +464,6 @@ const ResultsPanel = ({
     setSelectedUrl,
   ])
 
-  // Helper functions to generate content
   const getCSVContent = () => {
     if (!result || !result.data || result.data.length === 0) return ''
     const headers = Object.keys(result.data[0])
@@ -474,7 +474,7 @@ const ResultsPanel = ({
           .map((header) => {
             const value = row[header]
             const translatedValue = translateValue(header, value)
-            const stringValue = translatedValue !== null && translatedValue !== undefined ? String(translatedValue) : ''
+            const stringValue = serializeCsvValue(translatedValue)
             if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
               return `"${stringValue.replace(/"/g, '""')}"`
             }

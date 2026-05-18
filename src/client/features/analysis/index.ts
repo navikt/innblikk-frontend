@@ -51,7 +51,7 @@ export { parseQueryStats, parseDiagnosisResponse, parseDiagnosisHistoryResponse 
 export { PATTERNS } from './utils/privacyPatterns'
 export { getUrlPath } from './utils/url'
 export { getSiteimproveId, downloadCsv } from './utils/siteimprove'
-export { generateShareUrl, buildEditorUrl, downloadChartCsv } from './utils/chartActions'
+export { generateShareUrl, buildEditorUrl, downloadChartCsv, serializeCsvValue } from './utils/chartActions'
 export { getCookieMixNoticeContent, formatCookieDate } from './utils/cookieMix'
 export {
   isDevDomain,
