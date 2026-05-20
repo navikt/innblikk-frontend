@@ -6,13 +6,14 @@ RUN apk update && apk add --no-cache nodejs-25 npm && npm install -g corepack &&
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
+ENV CI=true
 
 FROM base AS builder
 
 WORKDIR /app
 
 # Copy package files and .npmrc
-COPY package.json pnpm-lock.yaml* .npmrc ./
+COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml .npmrc ./
 
 # Install dependencies with cache mount
 RUN --mount=type=secret,id=NODE_AUTH_TOKEN \
@@ -30,7 +31,7 @@ RUN apk update && apk add --no-cache nodejs-25
 
 WORKDIR /app
 
-COPY --from=builder /app/package.json /app/pnpm-lock.yaml /app/.npmrc ./
+COPY --from=builder /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml /app/.npmrc ./
 
 RUN apk add --no-cache npm && npm install -g corepack && corepack enable
 

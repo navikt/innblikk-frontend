@@ -4,3 +4,6 @@ minimumReleaseAgeExclude:
 overrides:
   glob: ^13.0.3
   node-domexception: ^2.0.2
+allowBuilds:
+  "@swc/core": true
+  esbuild: true
