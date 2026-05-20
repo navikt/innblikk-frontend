@@ -41,6 +41,7 @@ All notable changes to this project will be documented in this file.
 - Merge main into feature/user-settings-persistence, resolve conflicts in App.tsx
 - Export Window type augmentation as module to fix umami type errors
 - Rename #betaprogram fragment to #beta, fix hash scroll on profile page
+- **traffic:** Use backend bucketing for weekly/monthly granularity
 
 ### 👷 CI
 
