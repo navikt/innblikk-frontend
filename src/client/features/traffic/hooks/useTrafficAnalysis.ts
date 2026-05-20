@@ -290,7 +290,7 @@ export const useTrafficAnalysis = () => {
     setSubmittedGranularity(effectiveGranularity)
     setSubmittedPeriod(period)
 
-    const interval = effectiveGranularity === 'hour' ? 'hour' : 'day'
+    const interval = effectiveGranularity
 
     const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
     if (!dateRange) {

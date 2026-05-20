@@ -1,4 +1,4 @@
-import { format, startOfWeek, startOfMonth, isValid, differenceInCalendarDays, subDays } from 'date-fns'
+import { differenceInCalendarDays, subDays } from 'date-fns'
 import type { SeriesPoint, Granularity } from '../model/types'
 
 export const getMetricLabelCapitalized = (type: string): string => {
@@ -90,42 +90,11 @@ export const getPreviousDateRange = (startDate: Date, endDate: Date) => {
   }
 }
 
-export const aggregateSeriesData = (data: SeriesPoint[], granularity: Granularity, metricType: string) => {
-  if (granularity !== 'week' && granularity !== 'month') {
-    return data
-  }
-
-  const aggregated = new Map<string, { time: Date; value: number; count: number }>()
-
-  data.forEach((item) => {
-    const date = new Date(item.time)
-    if (!isValid(date)) return
-
-    let key = ''
-    let displayTime = date
-
-    if (granularity === 'week') {
-      displayTime = startOfWeek(date, { weekStartsOn: 1 })
-      key = format(displayTime, 'yyyy-MM-dd')
-    } else {
-      displayTime = startOfMonth(date)
-      key = format(displayTime, 'yyyy-MM')
-    }
-
-    if (!aggregated.has(key)) {
-      aggregated.set(key, { time: displayTime, value: 0, count: 0 })
-    }
-    const entry = aggregated.get(key)!
-    entry.value += Number(item.count) || 0
-    entry.count += 1
-  })
-
-  return Array.from(aggregated.values())
-    .sort((a, b) => a.time.getTime() - b.time.getTime())
-    .map((entry) => ({
-      time: entry.time.toISOString(),
-      count: metricType === 'proportion' ? entry.value / entry.count : entry.value,
-    }))
+export const aggregateSeriesData = (data: SeriesPoint[], _granularity: Granularity, _metricType: string) => {
+  // Backend now buckets natively per `interval` (day/week/month/hour) and dedupes
+  // unique visitors per bucket. Client-side aggregation summed daily uniques,
+  // which double-counted return visitors. Pass through as-is.
+  return data
 }
 
 export const getComparablePeriodValue = (data: SeriesPoint[], metricType: string, totalCount?: number) => {
