@@ -58,4 +58,6 @@ declare global {
   interface ImportMeta {
     readonly env: ImportMetaEnv
   }
+
+  const __GIT_SHA__: string
 }

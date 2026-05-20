@@ -22,6 +22,8 @@ RUN --mount=type=secret,id=NODE_AUTH_TOKEN \
 
 # Copy source code and build
 COPY . .
+ARG GIT_SHA=unknown
+ENV GIT_SHA=$GIT_SHA
 RUN pnpm run build
 
 # Production stage
