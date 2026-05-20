@@ -1,3 +1,6 @@
 minimumReleaseAge: 4320
 minimumReleaseAgeExclude:
   - "@navikt/analytics-types"
+overrides:
+  glob: ^13.0.3
+  node-domexception: ^2.0.2

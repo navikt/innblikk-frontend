@@ -80,12 +80,6 @@
     "vitest": "^4.1.4",
     "xlsx-js-style": "^1.2.0"
   },
-  "pnpm": {
-    "overrides": {
-      "glob": "^13.0.3",
-      "node-domexception": "^2.0.2"
-    }
-  },
   "lint-staged": {
     "*.{ts,tsx,js,json,css,md}": "prettier --write",
     "*.{ts,tsx,js}": "eslint --fix --report-unused-disable-directives"
