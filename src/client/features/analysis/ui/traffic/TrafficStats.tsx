@@ -4,11 +4,13 @@ import type { TrafficStatsProps } from '../../model/types.ts'
 import {
   computeTrafficStats,
   formatMetricValue,
+  getAvgExplainerTitle,
   getMetricExplainer,
   getTotalExplainer,
 } from '../../utils/trafficStats.ts'
 import { formatDateRange } from '../../utils/periodPicker.ts'
 import { MetricExplainerPopover } from './MetricExplainerPopover.tsx'
+import { AvgExplainerPopover } from './AvgExplainerPopover.tsx'
 
 const TrafficStats: React.FC<TrafficStatsProps> = ({
   data,
@@ -35,6 +37,7 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({
 
   const totalExplainer = getTotalExplainer(metricType)
   const metricExplainer = getMetricExplainer(metricType)
+  const avgExplainerTitle = getAvgExplainerTitle(metricType, granularity)
   const periodLabel = submittedDateRange
     ? formatDateRange(submittedDateRange.startDate, submittedDateRange.endDate)
     : ''
@@ -64,7 +67,12 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({
 
       {/* Box 2 — Snitt per <unit> / Median andel */}
       <div className="bg-[var(--ax-bg-default)] p-4 rounded-lg border border-[var(--ax-border-neutral-subtle)]">
-        <div className="text-sm text-[var(--ax-text-default)] font-medium mb-1">{box2Label}</div>
+        <div className="flex items-start justify-between gap-2 mb-1">
+          <div className="text-sm text-[var(--ax-text-default)] font-medium">{box2Label}</div>
+          <HelpText title={avgExplainerTitle} placement="top">
+            <AvgExplainerPopover metricType={metricType} granularity={granularity} />
+          </HelpText>
+        </div>
         <div className="text-2xl font-bold text-[var(--ax-text-default)] flex items-baseline flex-wrap gap-2">
           {formatMetricValue(box2Value, metricType)}
           {box2Suffix && <span className="text-sm font-normal text-[var(--ax-text-neutral-subtle)]">{box2Suffix}</span>}

@@ -1,43 +1,14 @@
 import React from 'react'
-import { BodyShort, Detail, Link } from '@navikt/ds-react'
+import { BodyShort, Link } from '@navikt/ds-react'
 import { METRIC_DOCS_URL } from '../../utils/trafficStats.ts'
 import type { MetricExplainer, TotalExplainer } from '../../utils/trafficStats.ts'
+import { Code, SectionLabel } from './popoverPrimitives.tsx'
 
 interface Props {
   metricExplainer: MetricExplainer
   totalExplainer: TotalExplainer
   metricType: string
 }
-
-/** Inline monospace chip for technical terms */
-const Code: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <code
-    style={{
-      fontFamily: 'monospace',
-      fontSize: '0.8em',
-      background: 'var(--ax-bg-neutral-moderate)',
-      borderRadius: '3px',
-      padding: '1px 4px',
-    }}
-  >
-    {children}
-  </code>
-)
-
-/** Muted uppercase label above a block */
-const SectionLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <Detail
-    as="p"
-    style={{
-      textTransform: 'uppercase',
-      letterSpacing: '0.05em',
-      color: 'var(--ax-text-neutral-subtle)',
-      marginBottom: '2px',
-    }}
-  >
-    {children}
-  </Detail>
-)
 
 const VisitorsBody: React.FC = () => (
   <>
@@ -50,13 +21,13 @@ const VisitorsBody: React.FC = () => (
     <BodyShort size="small">
       Personen identifiseres via en hash av <Code>IP-adresse</Code> + <Code>User-Agent</Code>, saltet per måned — ID-en
       nullstilles ved månedsskiftet. IP-adressen lagres aldri: den brukes kun til å lage hashen og til geo-oppslag
-      (land/by), og forkastes deretter. Ingen canvas, skrifttyper eller plugins leses — dette er ikke fingerprinting.
+      (land/by), og forkastes deretter. Ingen canvas, skrifttyper eller plugins leses. Dette medbringer liten risiko for
+      at noen kan identifiseres senere.
     </BodyShort>
 
     <SectionLabel>Med samtykkebanner</SectionLabel>
     <BodyShort size="small">
-      En stabil <Code>cookie</Code> brukes i stedet, slik at samme person gjenkjennes på tvers av måneder og nettlesere
-      som deler cookie-jar.
+      En stabil <Code>cookie</Code> brukes i stedet, slik at samme person gjenkjennes på tvers av måneder.
     </BodyShort>
   </>
 )
