@@ -118,7 +118,7 @@ export const MetricExplainerPopover: React.FC<Props> = ({ metricExplainer, total
     </div>
 
     <BodyShort size="small">
-      <Link href={`${METRIC_DOCS_URL}${metricExplainer.docsAnchor}`} target="_blank" rel="noreferrer">
+      <Link href={`${METRIC_DOCS_URL}${metricExplainer.docsAnchor}`} target="_blank">
         {metricExplainer.docsLinkText}
       </Link>
     </BodyShort>

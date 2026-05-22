@@ -1,6 +1,6 @@
 import type { SeriesPoint, Granularity } from '../model/types.ts'
 
-const DOCS_URL = 'https://reops-docs.ansatt.dev.nav.no/interndokumentasjon/trafikkanalyse-malinger'
+const DOCS_URL = 'https://reops-docs.ansatt.dev.nav.no/interndokumentasjon/trafikkanalyse-malinger/'
 
 export const METRIC_DOCS_URL = DOCS_URL
 
