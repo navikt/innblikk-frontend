@@ -134,6 +134,12 @@ export const getMetricLabel = (type: string): string => {
   }
 }
 
+export const getAvgExplainerTitle = (metricType: string, granularity: Granularity): string => {
+  const unit = getTimeUnitLabel(granularity)
+  if (metricType === 'proportion') return 'Hvordan beregnes median andel?'
+  return `Hvordan beregnes snitt per ${unit}?`
+}
+
 export const getTimeUnitLabel = (granularity: Granularity): string => {
   switch (granularity) {
     case 'hour':
