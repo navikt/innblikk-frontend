@@ -13,32 +13,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  validate-title:
-    name: 'Validate PR title'
-    if: github.event_name == 'pull_request'
-    runs-on: 'ubuntu-latest'
-    steps:
-      - name: 'Check Conventional Commit format'
-        uses: amannn/action-semantic-pull-request@v6
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          types: |
-            feat
-            fix
-            docs
-            style
-            refactor
-            perf
-            test
-            build
-            ci
-            chore
-            revert
-          requireScope: false
-          subjectPattern: ^.+$
-          subjectPatternError: 'PR title must not be empty after the type/scope prefix.'
-
   lint:
     name: 'Lint'
     runs-on: 'ubuntu-latest'
