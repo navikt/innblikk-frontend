@@ -432,6 +432,7 @@ export interface TrafficStatsProps {
   metricType: string
   totalOverride?: number
   granularity?: Granularity
+  submittedDateRange?: { startDate: Date; endDate: Date } | null
 }
 
 // ===== UmamiTrafficView types =====

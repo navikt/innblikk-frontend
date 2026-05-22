@@ -95,6 +95,7 @@ const OversiktTabContent = ({
           metricType={submittedMetricType}
           totalOverride={totalOverride}
           granularity={submittedGranularity}
+          submittedDateRange={submittedDateRange}
         />
       )}
       {submittedComparePreviousPeriod && comparisonSummary && comparisonRangeLabel && (
