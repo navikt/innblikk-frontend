@@ -20,8 +20,18 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({
   const stats = computeTrafficStats(data, metricType, totalOverride, granularity)
   if (!stats) return null
 
-  const { box1Label, box1Value, box2Label, box2Value, box2Suffix, box3Label, box3Value, box3Subtext, valueSuffix } =
-    stats
+  const {
+    box1Label,
+    box1Value,
+    box2Label,
+    box2Value,
+    box2Suffix,
+    box3Label,
+    box3Value,
+    box3Subtext,
+    box3Timestamp,
+    valueSuffix,
+  } = stats
 
   const totalExplainer = getTotalExplainer(metricType)
   const metricExplainer = getMetricExplainer(metricType)
@@ -73,6 +83,7 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({
             </span>
           )}
         </div>
+        {box3Timestamp && <div className="text-sm text-[var(--ax-text-subtle)] mt-1">{box3Timestamp}</div>}
       </div>
     </div>
   )

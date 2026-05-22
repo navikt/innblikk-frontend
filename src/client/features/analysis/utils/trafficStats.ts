@@ -168,6 +168,7 @@ export interface TrafficStatsBoxes {
   box3Label: string
   box3Value: number
   box3Subtext: string
+  box3Timestamp: string
   valueSuffix: string
 }
 
@@ -204,6 +205,7 @@ export const computeTrafficStats = (
       box3Label: 'Høyeste andel',
       box3Value: max,
       box3Subtext: maxLabelText,
+      box3Timestamp: '',
       valueSuffix,
     }
   }
@@ -218,9 +220,10 @@ export const computeTrafficStats = (
     box2Label: `Snitt per ${timeUnitLabel}`,
     box2Value: avg,
     box2Suffix: `${valueSuffix} (median: ${formatMetricValue(median, metricType)})`,
-    box3Label: `${box3Label} ${maxLabelText}`,
+    box3Label,
     box3Value: max,
     box3Subtext: '',
+    box3Timestamp: maxLabelText,
     valueSuffix,
   }
 }
