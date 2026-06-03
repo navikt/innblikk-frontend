@@ -18,6 +18,8 @@ const gitSha = resolveGitSha()
 
 // https://vite.dev/config/
 export default defineConfig({
+  // Redirect env file loading to a neutral dir during tests to avoid EPERM on .env
+  ...(process.env.VITEST ? { envDir: '/tmp' } : {}),
   plugins: [react()],
   define: {
     __GIT_SHA__: JSON.stringify(gitSha),
@@ -39,7 +41,8 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
-    include: ['src/**/*.test.{ts,tsx}'],
+    include: ['src/**/*.test.{ts,tsx,js}'],
     css: false,
+    env: {},
   },
 })
