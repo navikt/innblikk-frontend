@@ -43,6 +43,7 @@ All notable changes to this project will be documented in this file.
 - Rename #betaprogram fragment to #beta, fix hash scroll on profile page
 - **traffic:** Use backend bucketing for weekly/monthly granularity
 - Changed from view.event_id event_id
+- Extract buildStepQueryParams to fix null crash on event steps in funnel-timing
 
 ### 👷 CI
 
@@ -148,5 +149,6 @@ All notable changes to this project will be documented in this file.
 ### 🧪 Testing
 
 - Update featureFlags tests after removing analytics_id
+- Include .js files and fix .env EPERM in vitest config
 
 
