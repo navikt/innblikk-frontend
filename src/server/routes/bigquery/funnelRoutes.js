@@ -32,6 +32,41 @@ const buildUrlStepDisplay = (step) => {
   return query ? `${path}?${query}` : path
 }
 
+/**
+ * Builds the BigQuery params object for a list of funnel steps.
+ * Pure function — no side effects, safe to unit-test.
+ */
+export const buildStepQueryParams = (steps) => {
+  const params = {}
+  steps.forEach((step, index) => {
+    const resolvedUrl = step.type === 'url' ? resolveUrlStep(step) : null
+    const displayValue =
+      step.type === 'url'
+        ? buildUrlStepDisplay(step)
+        : step.value.includes('*')
+          ? step.value.replace(/\*/g, '%')
+          : step.value
+    params[`stepValue${index}`] = displayValue.includes('*') ? displayValue.replace(/\*/g, '%') : displayValue
+
+    if (step.type === 'url') {
+      params[`stepPath${index}`] = resolvedUrl.value.includes('*')
+        ? resolvedUrl.value.replace(/\*/g, '%')
+        : resolvedUrl.value
+      params[`stepQuery${index}`] = resolvedUrl.query.includes('*')
+        ? resolvedUrl.query.replace(/\*/g, '%')
+        : resolvedUrl.query
+    }
+
+    if (step.type === 'event' && step.params && Array.isArray(step.params)) {
+      step.params.forEach((p, pIdx) => {
+        params[`step${index}_pKey${pIdx}`] = p.key
+        params[`step${index}_pVal${pIdx}`] = p.operator === 'contains' ? `%${p.value}%` : p.value
+      })
+    }
+  })
+  return params
+}
+
 const buildUrlStepSqlClause = (step, index, alias = 'e') => {
   const { value: path, query } = resolveUrlStep(step)
   const pathParam = `stepPath${index}`
@@ -224,38 +259,7 @@ export function createFunnelRoutes({ bigquery, GCP_PROJECT_ID }) {
       `
 
       // Create params object
-      const params = { websiteId, startDate, endDate }
-
-      steps.forEach((step, index) => {
-        const resolvedUrl = step.type === 'url' ? resolveUrlStep(step) : null
-        const displayValue =
-          step.type === 'url'
-            ? buildUrlStepDisplay(step)
-            : step.value.includes('*')
-              ? step.value.replace(/\*/g, '%')
-              : step.value
-        params[`stepValue${index}`] = displayValue.includes('*') ? displayValue.replace(/\*/g, '%') : displayValue
-
-        if (step.type === 'url') {
-          params[`stepPath${index}`] = resolvedUrl.value.includes('*')
-            ? resolvedUrl.value.replace(/\*/g, '%')
-            : resolvedUrl.value
-          if (resolvedUrl.query) {
-            params[`stepQuery${index}`] = resolvedUrl.query.includes('*')
-              ? resolvedUrl.query.replace(/\*/g, '%')
-              : resolvedUrl.query
-          } else {
-            params[`stepQuery${index}`] = ''
-          }
-        }
-
-        if (step.type === 'event' && step.params && Array.isArray(step.params)) {
-          step.params.forEach((p, pIdx) => {
-            params[`step${index}_pKey${pIdx}`] = p.key
-            params[`step${index}_pVal${pIdx}`] = p.operator === 'contains' ? `%${p.value}%` : p.value
-          })
-        }
-      })
+      const params = { websiteId, startDate, endDate, ...buildStepQueryParams(steps) }
 
       const queryStats = await getDryRunStats(
         bigquery,
@@ -495,26 +499,7 @@ export function createFunnelRoutes({ bigquery, GCP_PROJECT_ID }) {
       `
 
       // Create params object
-      const params = { websiteId, startDate, endDate }
-
-      steps.forEach((step, index) => {
-        const resolvedUrl = step.type === 'url' ? resolveUrlStep(step) : null
-        const displayValue = buildUrlStepDisplay(step)
-        params[`stepValue${index}`] = displayValue.includes('*') ? displayValue.replace(/\*/g, '%') : displayValue
-        params[`stepPath${index}`] = resolvedUrl.value.includes('*')
-          ? resolvedUrl.value.replace(/\*/g, '%')
-          : resolvedUrl.value
-        params[`stepQuery${index}`] = resolvedUrl.query.includes('*')
-          ? resolvedUrl.query.replace(/\*/g, '%')
-          : resolvedUrl.query
-
-        if (step.type === 'event' && step.params && Array.isArray(step.params)) {
-          step.params.forEach((p, pIdx) => {
-            params[`step${index}_pKey${pIdx}`] = p.key
-            params[`step${index}_pVal${pIdx}`] = p.operator === 'contains' ? `%${p.value}%` : p.value
-          })
-        }
-      })
+      const params = { websiteId, startDate, endDate, ...buildStepQueryParams(steps) }
 
       const queryStats = await getDryRunStats(
         bigquery,
