@@ -42,6 +42,7 @@ All notable changes to this project will be documented in this file.
 - Export Window type augmentation as module to fix umami type errors
 - Rename #betaprogram fragment to #beta, fix hash scroll on profile page
 - **traffic:** Use backend bucketing for weekly/monthly granularity
+- Changed from view.event_id event_id
 
 ### 👷 CI
 
