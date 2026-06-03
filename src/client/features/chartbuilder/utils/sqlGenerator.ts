@@ -732,7 +732,7 @@ export const generateSQLCore = (config: ChartConfig, filters: Filter[], paramete
 
     if (needsEventData) {
       sql += `LEFT JOIN \`${projectId}.umami_views.event_data\` AS ed_view\n`
-      sql += '  ON base_query.event_id = ed_view.website_event_id\n'
+      sql += '  ON base_query.event_id = ed_view.event_id\n'
       sql += '  AND base_query.website_id = ed_view.website_id\n'
       sql += '  AND base_query.created_at = ed_view.created_at\n'
 

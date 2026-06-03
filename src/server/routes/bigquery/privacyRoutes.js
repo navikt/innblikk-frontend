@@ -150,7 +150,7 @@ export function createPrivacyRoutes({ bigquery, GCP_PROJECT_ID }) {
               ARRAY_AGG(DISTINCT e.url_path IGNORE NULLS LIMIT 5) as related_paths
               FROM \`${GCP_PROJECT_ID}.umami.public_website_event\` e
               JOIN \`${GCP_PROJECT_ID}.umami_views.event_data\` d
-                  ON e.event_id = d.website_event_id
+                   ON e.event_id = d.event_id
                   AND e.website_id = d.website_id
                   AND e.created_at = d.created_at
               CROSS JOIN UNNEST(d.event_parameters) AS p
@@ -175,7 +175,7 @@ export function createPrivacyRoutes({ bigquery, GCP_PROJECT_ID }) {
               ARRAY_AGG(DISTINCT e.url_path IGNORE NULLS LIMIT 5) as related_paths
               FROM \`${GCP_PROJECT_ID}.umami.public_website_event\` e
               JOIN \`${GCP_PROJECT_ID}.umami_views.event_data\` d
-                  ON e.event_id = d.website_event_id
+                   ON e.event_id = d.event_id
                   AND e.website_id = d.website_id
                   AND e.created_at = d.created_at
               CROSS JOIN UNNEST(d.event_parameters) AS p

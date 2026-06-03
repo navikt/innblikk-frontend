@@ -215,7 +215,7 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
                       ) AS component
                   FROM \`${GCP_PROJECT_ID}.umami.public_website_event\` e
                   LEFT JOIN \`${GCP_PROJECT_ID}.umami_views.event_data\` d
-                      ON e.event_id = d.website_event_id
+                     ON e.event_id = d.event_id
                       AND e.website_id = d.website_id
                       AND e.created_at = d.created_at
                   LEFT JOIN UNNEST(d.event_parameters) AS p
@@ -385,7 +385,7 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
                   END AS type
               FROM \`${GCP_PROJECT_ID}.umami.public_website_event\` e
               JOIN \`${GCP_PROJECT_ID}.umami_views.event_data\` d
-                  ON e.event_id = d.website_event_id
+                 ON e.event_id = d.event_id
                   AND e.website_id = d.website_id
                   AND e.created_at = d.created_at
                   AND d.website_id = @websiteId
@@ -769,7 +769,7 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
                   COUNT(*) as count
               FROM \`${GCP_PROJECT_ID}.umami.public_website_event\` e
               JOIN \`${GCP_PROJECT_ID}.umami_views.event_data\` d
-                  ON e.event_id = d.website_event_id
+                 ON e.event_id = d.event_id
                   AND e.website_id = d.website_id
                   AND e.created_at = d.created_at
               CROSS JOIN UNNEST(d.event_parameters) AS p
@@ -899,7 +899,7 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
                   ARRAY_AGG(STRUCT(p.data_key, p.string_value) ORDER BY p.data_key) as parameters
               FROM \`${GCP_PROJECT_ID}.umami.public_website_event\` e
               JOIN \`${GCP_PROJECT_ID}.umami_views.event_data\` d
-                  ON e.event_id = d.website_event_id
+                 ON e.event_id = d.event_id
                   AND e.website_id = d.website_id
                   AND e.created_at = d.created_at
               LEFT JOIN UNNEST(d.event_parameters) AS p
@@ -1064,7 +1064,7 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
                       ) as props_str
                   FROM \`${GCP_PROJECT_ID}.umami.public_website_event\` e
                   LEFT JOIN \`${GCP_PROJECT_ID}.umami_views.event_data\` d
-                      ON e.event_id = d.website_event_id
+                     ON e.event_id = d.event_id
                       AND e.website_id = d.website_id
                       AND e.created_at = d.created_at
                   LEFT JOIN UNNEST(d.event_parameters) AS p

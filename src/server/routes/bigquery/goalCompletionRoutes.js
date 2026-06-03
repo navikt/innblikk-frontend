@@ -116,7 +116,7 @@ const buildEventParamFilters = (step, prefix, alias = 'b', projectId) => {
       SELECT 1
       FROM \`${projectId}.umami_views.event_data\` d_${prefix}_${index}
       CROSS JOIN UNNEST(d_${prefix}_${index}.event_parameters) p_${prefix}_${index}
-      WHERE d_${prefix}_${index}.website_event_id = ${alias}.event_id
+      WHERE d_${prefix}_${index}.event_id = ${alias}.event_id
         AND d_${prefix}_${index}.website_id = ${alias}.website_id
         AND d_${prefix}_${index}.created_at = ${alias}.created_at
         AND p_${prefix}_${index}.data_key = @${keyParam}
