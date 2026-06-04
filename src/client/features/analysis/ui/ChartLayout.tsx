@@ -81,7 +81,7 @@ const SidebarNavigationContent: React.FC<SidebarNavigationContentProps> = ({
                 >
                   <span className="flex items-center gap-1.5">
                     {page.label}
-                    {'beta' in page && page.beta && (
+                    {'beta' in page && page.beta === true && (
                       <Tooltip content="Beta-funksjon" placement="right">
                         <span style={{ display: 'inline-flex' }}>
                           <TestFlaskIcon
