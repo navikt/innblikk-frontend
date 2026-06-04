@@ -202,7 +202,7 @@ const Wcag = () => {
   return (
     <ChartLayout
       title="Universell utforming"
-      description="Oversikt over WCAG-funn fra Siteimprove."
+      description="Oversikt over universell utforming fra Siteimprove."
       currentPage="wcag"
       websiteId={selectedWebsite?.id}
       websiteDomain={selectedWebsite?.domain}
@@ -222,7 +222,7 @@ const Wcag = () => {
               className="w-full"
               size="small"
             >
-              Vis WCAG-funn
+              Kjør UU-sjekk
             </Button>
           </div>
         </>
@@ -244,7 +244,7 @@ const Wcag = () => {
         <>
           {!urlPath && (
             <Alert variant="info" className="mb-4">
-              Legg til en URL-sti i filteret over for å se universell utforming-funn for en side.
+              Legg til en URL-sti i filteret over for å se UU-resultater for en side.
             </Alert>
           )}
 
