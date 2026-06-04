@@ -23,6 +23,8 @@ export default function Header({ theme }: HeaderProps) {
   const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
   const isDevEnvironment = isLocalhost || hostname.includes('.dev.nav.no')
   const isBeta = getFeatureFlag('beta_opt_in')
+  const buildSha = __GIT_SHA__
+  const buildShortSha = buildSha && buildSha !== 'unknown' ? buildSha.slice(0, 7) : null
 
   const guideLinks = [
     {
@@ -250,6 +252,28 @@ export default function Header({ theme }: HeaderProps) {
             </span>
           </ActionMenu.Item>
         </ActionMenu.Group>
+        {buildShortSha && (
+          <>
+            <ActionMenu.Divider />
+            <ActionMenu.Item
+              as="a"
+              href={`https://github.com/navikt/innblikk-frontend/commit/${buildSha}`}
+              onSelect={() => {
+                const properties: ActionMenuValgValgtProperties = {
+                  valgTekst: `Bygg: ${buildShortSha}`,
+                  gruppeLabel: 'Bygg',
+                  seksjon: 'header',
+                }
+                window.umami?.track(Events.ACTIONMENU_VALG_VALGT, properties)
+              }}
+            >
+              <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                Bygg: {buildShortSha}
+                <ExternalLinkIcon aria-hidden fontSize="0.9rem" />
+              </span>
+            </ActionMenu.Item>
+          </>
+        )}
       </ActionMenu.Content>
     </ActionMenu>
   )

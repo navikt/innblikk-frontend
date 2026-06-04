@@ -52,25 +52,7 @@ function LogoBlock() {
       </div>
       <p className="mt-3 leading-normal !text-white">&copy; {new Date().getFullYear()} Nav</p>
       <p className="leading-normal !text-white">Arbeids- og velferdsetaten</p>
-      <BuildVersion />
     </div>
-  )
-}
-
-function BuildVersion() {
-  const sha = __GIT_SHA__
-  if (!sha || sha === 'unknown') return null
-  const short = sha.slice(0, 7)
-  return (
-    <p className="mt-3 text-sm leading-normal !text-white opacity-70">
-      Bygg:{' '}
-      <Link
-        className="!text-white hover:!text-white focus:shadow-focus focus:!text-white underline hover:no-underline"
-        href={`https://github.com/navikt/innblikk-frontend/commit/${sha}`}
-      >
-        {short}
-      </Link>
-    </p>
   )
 }
 
