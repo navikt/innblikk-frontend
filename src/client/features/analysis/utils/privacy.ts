@@ -129,6 +129,7 @@ export const getRedactionKeys = (examples?: string[]): string[] => {
     while ((match = REDACTION_BRACKET_PATTERN.exec(example)) !== null) {
       const bracketContent = (match[1] || '').trim()
       if (!bracketContent) continue
+      if (bracketContent.includes('"')) continue
       const key = bracketContent.includes(':') ? bracketContent.split(':').slice(1).join(':').trim() : bracketContent
       if (key) keys.add(key)
     }
