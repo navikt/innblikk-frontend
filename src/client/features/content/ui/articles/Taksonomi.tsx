@@ -415,7 +415,7 @@ function handleSkjemaSendt() {
           </div>
         </div>
       </AppBlock>
-      <KontaktSeksjon showMarginBottom={true} narrowContent />
+      <KontaktSeksjon narrowContent />
     </>
   )
 }

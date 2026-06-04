@@ -131,7 +131,7 @@ const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
           </div>
         </div>
       </AppBlock>
-      {showKontaktSection && <KontaktSeksjon showMarginBottom={true} />}
+      {showKontaktSection && <KontaktSeksjon />}
     </>
   )
 }

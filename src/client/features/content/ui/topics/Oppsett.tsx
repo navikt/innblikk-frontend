@@ -274,7 +274,7 @@ function Oppsett() {
           .
         </BodyShort>
       </AppBlock>
-      <KontaktSeksjon showMarginBottom={true} />
+      <KontaktSeksjon />
     </>
   )
 }

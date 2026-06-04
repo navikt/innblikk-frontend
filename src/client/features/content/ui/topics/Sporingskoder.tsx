@@ -32,7 +32,7 @@ function Sporingskoder() {
         </BodyShort>
       </AppBlock>
 
-      <KontaktSeksjon showMarginBottom={true} />
+      <KontaktSeksjon />
     </>
   )
 }

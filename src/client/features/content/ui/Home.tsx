@@ -11,6 +11,7 @@ function Home() {
     <div
       style={{
         width: '100%',
+        height: '100%',
         minHeight: '90vh',
         display: 'flex',
         flexDirection: 'column',
@@ -43,7 +44,7 @@ function Home() {
         </AppBlock>
       </section>
 
-      <KontaktSeksjon showMarginBottom={true} />
+      <KontaktSeksjon />
     </div>
   )
 }

@@ -182,7 +182,7 @@ function Personvern() {
           </div>
         </div>
       </AppBlock>
-      <KontaktSeksjon showMarginBottom={true} narrowContent />
+      <KontaktSeksjon narrowContent />
     </>
   )
 }

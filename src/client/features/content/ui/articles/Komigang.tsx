@@ -227,7 +227,7 @@ function Komigang() {
           </List>
         </div>
       </AppBlock>
-      <KontaktSeksjon showMarginBottom={true} narrowContent />
+      <KontaktSeksjon narrowContent />
     </>
   )
 }

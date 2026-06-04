@@ -63,7 +63,7 @@ const ProjectManagerLayout: React.FC<ProjectManagerLayoutProps> = ({
           </div>
         </div>
       </AppBlock>
-      <KontaktSeksjon showMarginBottom={true} />
+      <KontaktSeksjon />
     </>
   )
 }

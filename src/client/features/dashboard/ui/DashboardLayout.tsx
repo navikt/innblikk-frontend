@@ -39,7 +39,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
         <div className="min-h-[400px] w-full">{children}</div>
       </AppBlock>
-      {showKontaktSection && <KontaktSeksjon showMarginBottom={true} />}
+      {showKontaktSection && <KontaktSeksjon />}
     </>
   )
 }

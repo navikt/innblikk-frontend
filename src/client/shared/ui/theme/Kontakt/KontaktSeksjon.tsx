@@ -2,17 +2,17 @@ import { Heading, Link } from '@navikt/ds-react'
 import { AppBlock } from '../AppBlock/AppBlock.tsx'
 
 interface KontaktSeksjonProps {
-  showMarginBottom?: boolean
   narrowContent?: boolean
 }
 
-export const KontaktSeksjon = ({ showMarginBottom = false, narrowContent = false }: KontaktSeksjonProps) => {
-  const contentWrapper = narrowContent ? (
-    <div className="max-w-[800px] mx-auto">
+export const KontaktSeksjon = ({ narrowContent = false }: KontaktSeksjonProps) => {
+  const contentWrapperMaxWidth = narrowContent ? '800px' : '1400px'
+  const contentWrapperMargin = narrowContent ? '0 auto' : '0'
+
+  const contentWrapper = (
+    <div style={{ width: '100%', maxWidth: contentWrapperMaxWidth, margin: contentWrapperMargin }}>
       <KontaktContent />
     </div>
-  ) : (
-    <KontaktContent />
   )
 
   return (
@@ -23,7 +23,6 @@ export const KontaktSeksjon = ({ showMarginBottom = false, narrowContent = false
         paddingTop: '60px',
         paddingBottom: '60px',
         marginTop: '60px',
-        marginBottom: showMarginBottom ? '-60px' : '0',
       }}
     >
       <AppBlock>{contentWrapper}</AppBlock>

@@ -17,6 +17,23 @@
   max-width: none !important;
 }
 
+/* Prevent Page content area from flex-growing past content height,
+   which would create a visible gap between content and footer. */
+.aksel-page__content--grow {
+  flex-grow: 0 !important;
+}
+
+/* Remove built-in bottom padding so footer sits directly under content. */
+.aksel-page__content--padding {
+  padding-block-end: 0 !important;
+}
+
+/* Cap footer content width on ultra-wide screens */
+.footer-block {
+  max-width: 1600px !important;
+  margin-inline: 0 !important;
+}
+
 /* Responsive modal styles */
 .sporings-modal {
   max-width: 90vw !important;

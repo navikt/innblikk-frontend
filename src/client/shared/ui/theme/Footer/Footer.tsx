@@ -9,9 +9,9 @@ const Footer = () => {
       <footer
         id="aksel-footer"
         data-theme="dark"
-        className="flex pt-3 z-10 items-center w-full m-auto justify-between toc-ignore text-text-on-inverted !bg-[#003453] relative flex justify-center"
+        className="flex pt-3 z-10 items-center w-full m-auto justify-start toc-ignore text-text-on-inverted !bg-[#003453] relative"
       >
-        <AppBlock className="relative z-10 grid w-full gap-12 pb-16 pt-12 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 xl:gap-6">
+        <AppBlock className="footer-block relative z-10 grid w-full gap-12 pb-16 pt-12 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 xl:gap-6">
           <LogoBlock />
           <SideLenker />
           <Snarveier />
