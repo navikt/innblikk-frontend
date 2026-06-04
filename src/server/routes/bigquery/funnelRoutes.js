@@ -174,7 +174,7 @@ export function createFunnelRoutes({ bigquery, GCP_PROJECT_ID }) {
                 SELECT 1
                 FROM \`${GCP_PROJECT_ID}.umami_views.event_data\` d_${index}_${pIdx}
                 CROSS JOIN UNNEST(d_${index}_${pIdx}.event_parameters) p_${index}_${pIdx}
-                WHERE d_${index}_${pIdx}.event_id = e.event_id
+                WHERE d_${index}_${pIdx}.website_event_id = e.event_id
                   AND d_${index}_${pIdx}.website_id = e.website_id
                   AND d_${index}_${pIdx}.created_at = e.created_at
                   AND p_${index}_${pIdx}.data_key = @${pKeyName}
@@ -401,7 +401,7 @@ export function createFunnelRoutes({ bigquery, GCP_PROJECT_ID }) {
                 SELECT 1
                 FROM \`${GCP_PROJECT_ID}.umami_views.event_data\` d_${index}_${pIdx}
                 CROSS JOIN UNNEST(d_${index}_${pIdx}.event_parameters) p_${index}_${pIdx}
-                WHERE d_${index}_${pIdx}.event_id = e.event_id
+                WHERE d_${index}_${pIdx}.website_event_id = e.event_id
                   AND d_${index}_${pIdx}.website_id = e.website_id
                   AND d_${index}_${pIdx}.created_at = e.created_at
                   AND p_${index}_${pIdx}.data_key = @${pKeyName}
