@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 ### Fix
 
 - Sticky note marker tekst dark mode
+- Tok bort placeholder
 
 ### Bug
 
