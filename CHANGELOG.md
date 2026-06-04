@@ -146,6 +146,7 @@ All notable changes to this project will be documented in this file.
 - Remove preflight checks
 - Update readme
 - Måloppnåelse ut av beta
+- La til UU betamodul
 
 ### 🧪 Testing
 
