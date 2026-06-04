@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Alert, Button, Modal, TextField } from '@navikt/ds-react'
 import type { DashboardDto } from '../../model/types.ts'
 
@@ -19,12 +19,10 @@ const EditDashboardDialog = ({
   onClose,
   onSave,
 }: EditDashboardDialogProps) => {
+  const isCanvasDashboard = (dashboard?.description || '').toLowerCase().split(/\s+/).includes('[canvas]')
   const [name, setName] = useState(dashboard?.name ?? '')
+  const [description, setDescription] = useState(dashboard?.description ?? '')
   const [localError, setLocalError] = useState<string | null>(null)
-
-  useEffect(() => {
-    setName(dashboard?.name ?? '')
-  }, [dashboard])
 
   const handleSave = async () => {
     if (!dashboard) return
@@ -33,7 +31,10 @@ const EditDashboardDialog = ({
       return
     }
     setLocalError(null)
-    await onSave({ name: name.trim(), description: dashboard.description })
+    await onSave({
+      name: name.trim(),
+      description: isCanvasDashboard ? dashboard.description : description.trim() || undefined,
+    })
   }
 
   return (
@@ -48,6 +49,14 @@ const EditDashboardDialog = ({
             onChange={(event) => setName(event.target.value)}
             size="small"
           />
+          {!isCanvasDashboard && (
+            <TextField
+              label="Beskrivelse (valgfri)"
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              size="small"
+            />
+          )}
         </div>
       </Modal.Body>
       <Modal.Footer>
