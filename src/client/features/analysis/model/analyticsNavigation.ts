@@ -71,7 +71,6 @@ export const analyticsPages = [
     href: '/maloppnaelse',
     label: 'Måloppnåelse',
     description: 'Se hvor mange som fullfører fra start-URL til mål-URL',
-    beta: true,
   },
   {
     id: 'clickmap',

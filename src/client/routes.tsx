@@ -1,14 +1,6 @@
 import { lazy } from 'react'
 import type { ReactElement } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
-import { getFeatureFlag } from './shared/lib/featureFlags.ts'
-
-const BetaGuard = ({ children }: { children: ReactElement }) => {
-  if (!getFeatureFlag('beta_opt_in')) {
-    return <Navigate to="/profil#beta" replace />
-  }
-  return children
-}
 
 // Content Feature
 const Home = lazy(() => import('./features/content').then((m) => ({ default: m.Home })))
@@ -176,11 +168,7 @@ export const routes: AppRoute[] = [
   { path: '/brukerlojalitet', component: <Retention />, fullWidth: true },
   {
     path: '/maloppnaelse',
-    component: (
-      <BetaGuard>
-        <GoalCompletion />
-      </BetaGuard>
-    ),
+    component: <GoalCompletion />,
     fullWidth: true,
   },
   { path: '/brukersammensetning', component: <UserComposition />, fullWidth: true },
