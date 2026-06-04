@@ -65,7 +65,7 @@ function BuildVersion() {
     <p className="mt-3 text-sm leading-normal !text-white opacity-70">
       Bygg:{' '}
       <Link
-        className="!text-white hover:!text-white focus:shadow-focus focus:!text-black underline hover:no-underline"
+        className="!text-white hover:!text-white focus:shadow-focus focus:!text-white underline hover:no-underline"
         href={`https://github.com/navikt/innblikk-frontend/commit/${sha}`}
       >
         {short}
