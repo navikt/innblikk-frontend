@@ -20,14 +20,24 @@ import type { WcagIssue } from '../model/types.ts'
 import { downloadCsv } from '../utils/siteimprove.ts'
 import { useWcag } from '../hooks/useWcag.ts'
 
-const toConformanceLabel = (value?: string) => {
-  if (!value) return '-'
-  return `WCAG ${value.toUpperCase()}`
+const toConformanceLabel = (value: unknown) => {
+  if (value === null || value === undefined || value === '') return '-'
+
+  if (typeof value === 'string' || typeof value === 'number') {
+    return `WCAG ${String(value).toUpperCase()}`
+  }
+
+  return '-'
 }
 
-const toDifficultyLabel = (value?: string) => {
-  if (!value) return '-'
-  return value.replace('difficulty', 'Nivå ')
+const toDifficultyLabel = (value: unknown) => {
+  if (value === null || value === undefined || value === '') return '-'
+
+  if (typeof value === 'string' || typeof value === 'number') {
+    return String(value).replace('difficulty', 'Nivå ')
+  }
+
+  return '-'
 }
 
 const Wcag = () => {
@@ -84,13 +94,12 @@ const Wcag = () => {
   ) => {
     const q = search.toLowerCase()
     const filteredItems = items.filter((item) => {
-      const rule = String(item.rule_id ?? '')
       const level = toConformanceLabel(item.conformance)
       const difficulty = toDifficultyLabel(item.difficulty)
       const titleText = item.help?.title ?? ''
       const description = item.help?.description ?? ''
 
-      return [rule, level, difficulty, titleText, description].some((value) => value.toLowerCase().includes(q))
+      return [level, difficulty, titleText, description].some((value) => value.toLowerCase().includes(q))
     })
 
     if (filteredItems.length === 0) {
@@ -136,9 +145,8 @@ const Wcag = () => {
                     onClick={() => {
                       downloadCsv(
                         `${filename}_${selectedWebsite?.name || 'data'}_${new Date().toISOString().slice(0, 10)}.csv`,
-                        ['Regel-ID', 'Niva', 'Vanskelighet', 'Forekomster', 'Tittel', 'Beskrivelse'],
+                        ['Niva', 'Vanskelighet', 'Forekomster', 'Funn', 'Beskrivelse'],
                         filteredItems.map((item) => [
-                          String(item.rule_id ?? ''),
                           toConformanceLabel(item.conformance),
                           toDifficultyLabel(item.difficulty),
                           String(item.occurrences ?? 0),
@@ -173,18 +181,16 @@ const Wcag = () => {
           <Table size="small" zebraStripes>
             <Table.Header>
               <Table.Row>
-                <Table.HeaderCell>Regel-ID</Table.HeaderCell>
                 <Table.HeaderCell>Nivå</Table.HeaderCell>
                 <Table.HeaderCell>Vanskelighet</Table.HeaderCell>
                 <Table.HeaderCell>Forekomster</Table.HeaderCell>
-                <Table.HeaderCell>Tittel</Table.HeaderCell>
+                <Table.HeaderCell>Funn</Table.HeaderCell>
                 <Table.HeaderCell>Beskrivelse</Table.HeaderCell>
               </Table.Row>
             </Table.Header>
             <Table.Body>
               {filteredItems.map((item, idx) => (
                 <Table.Row key={`${item.rule_id || 'rule'}-${idx}`}>
-                  <Table.DataCell>{item.rule_id ?? '-'}</Table.DataCell>
                   <Table.DataCell>{toConformanceLabel(item.conformance)}</Table.DataCell>
                   <Table.DataCell>{toDifficultyLabel(item.difficulty)}</Table.DataCell>
                   <Table.DataCell>{item.occurrences ?? 0}</Table.DataCell>
@@ -268,7 +274,7 @@ const Wcag = () => {
               <Tabs value={activeTab} onChange={setActiveTab}>
                 <Tabs.List>
                   <Tabs.Tab value="confirmed" label="Bekreftet" />
-                  <Tabs.Tab value="potential" label="Potensiell" />
+                  <Tabs.Tab value="potential" label="Potensielle" />
                   <Tabs.Tab value="passed" label="Bestått" />
                 </Tabs.List>
 
