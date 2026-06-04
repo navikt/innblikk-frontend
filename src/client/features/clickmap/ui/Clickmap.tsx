@@ -704,13 +704,7 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
       filters={
         <>
           <div className="w-full sm:w-[260px]">
-            <TextField
-              size="small"
-              label="URL"
-              value={urlInput}
-              onChange={(e) => setUrlInput(e.target.value)}
-              placeholder="/aap"
-            />
+            <TextField size="small" label="URL" value={urlInput} onChange={(e) => setUrlInput(e.target.value)} />
           </div>
 
           <PeriodPicker
