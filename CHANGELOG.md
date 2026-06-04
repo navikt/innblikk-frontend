@@ -46,6 +46,7 @@ All notable changes to this project will be documented in this file.
 - Changed from view.event_id event_id
 - Extract buildStepQueryParams to fix null crash on event steps in funnel-timing
 - Ts bug
+- Mulig å enddre beskrivelse dashboards
 
 ### 👷 CI
 
