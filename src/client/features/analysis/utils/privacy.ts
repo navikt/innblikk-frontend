@@ -116,3 +116,44 @@ export const getTableColumnGroups = (
   })
   return groups
 }
+
+const REDACTION_BRACKET_PATTERN = /\[([^\]]+)\]/g
+
+export const getRedactionKeys = (examples?: string[]): string[] => {
+  if (!examples || examples.length === 0) return []
+
+  const keys = new Set<string>()
+
+  examples.forEach((example) => {
+    let match: RegExpExecArray | null
+    while ((match = REDACTION_BRACKET_PATTERN.exec(example)) !== null) {
+      const bracketContent = (match[1] || '').trim()
+      if (!bracketContent) continue
+      const key = bracketContent.includes(':') ? bracketContent.split(':').slice(1).join(':').trim() : bracketContent
+      if (key) keys.add(key)
+    }
+    REDACTION_BRACKET_PATTERN.lastIndex = 0
+  })
+
+  return Array.from(keys)
+}
+
+export const summarizeRedactedByKey = (rows: PrivacyRow[]): Array<{ key: string; count: number }> => {
+  const totals = new Map<string, number>()
+
+  rows.forEach((row) => {
+    const keys = getRedactionKeys(row.examples)
+    if (keys.length === 0) {
+      totals.set('redacted', (totals.get('redacted') || 0) + row.count)
+      return
+    }
+
+    keys.forEach((key) => {
+      totals.set(key, (totals.get(key) || 0) + row.count)
+    })
+  })
+
+  return Array.from(totals.entries())
+    .map(([key, count]) => ({ key, count }))
+    .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key, 'nb', { sensitivity: 'base' }))
+}

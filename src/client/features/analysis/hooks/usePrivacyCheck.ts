@@ -4,7 +4,7 @@ import { parseISO } from 'date-fns'
 import type { Website } from '../../../shared/types/chart.ts'
 import type { PrivacyRow, QueryStats } from '../model/types.ts'
 import { fetchPrivacyCheck } from '../api/privacy.ts'
-import { calculatePrivacyDateRange, filterFalsePositives } from '../utils/privacy.ts'
+import { calculatePrivacyDateRange, filterFalsePositives, summarizeRedactedByKey } from '../utils/privacy.ts'
 
 const ROWS_PER_PAGE = 20
 
@@ -40,12 +40,17 @@ export const usePrivacyCheck = () => {
 
   const hasRedactions = useMemo(() => (data ? data.some((row) => row.match_type === 'Redacted') : false), [data])
 
-  // Auto-switch to redacted tab if it's the only one available
-  useEffect(() => {
-    if (data && matchTypes.length === 0 && hasRedactions && activeTab === 'summary') {
-      setActiveTab('redacted')
+  const resolvedActiveTab = useMemo(() => {
+    const availableTabs: string[] = []
+    if (matchTypes.length > 0) {
+      availableTabs.push('summary', 'details')
     }
-  }, [data, matchTypes.length, hasRedactions, activeTab])
+    if (hasRedactions) {
+      availableTabs.push('redacted-summary', 'redacted')
+    }
+    if (availableTabs.length === 0) return 'summary'
+    return availableTabs.includes(activeTab) ? activeTab : availableTabs[0]
+  }, [activeTab, hasRedactions, matchTypes.length])
 
   const fetchData = useCallback(
     async (force: boolean = false) => {
@@ -164,6 +169,7 @@ export const usePrivacyCheck = () => {
     [redactedData, redactedPage],
   )
   const redactedTotalPages = Math.ceil(redactedData.length / ROWS_PER_PAGE)
+  const redactedSummary = useMemo(() => summarizeRedactedByKey(redactedData), [redactedData])
 
   return {
     // Website & period
@@ -187,7 +193,7 @@ export const usePrivacyCheck = () => {
     setShowDryRunWarning,
 
     // Tabs & filters
-    activeTab,
+    activeTab: resolvedActiveTab,
     setActiveTab,
     matchTypes,
     hasRedactions,
@@ -206,6 +212,7 @@ export const usePrivacyCheck = () => {
     redactedPage,
     setRedactedPage,
     redactedTotalPages,
+    redactedSummary,
 
     // Actions
     fetchData,

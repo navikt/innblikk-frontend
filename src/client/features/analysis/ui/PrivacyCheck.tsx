@@ -199,6 +199,7 @@ const PrivacyCheck = () => {
     redactedPage,
     setRedactedPage,
     redactedTotalPages,
+    redactedSummary,
     fetchData,
     handleExplore,
   } = usePrivacyCheck()
@@ -278,8 +279,39 @@ const PrivacyCheck = () => {
               <Tabs.List>
                 {matchTypes.length > 0 && <Tabs.Tab value="summary" label="Oppsummering" />}
                 {matchTypes.length > 0 && <Tabs.Tab value="details" label="Detaljer" />}
+                {hasRedactions && <Tabs.Tab value="redacted-summary" label="PII-oppsummering" />}
                 {hasRedactions && <Tabs.Tab value="redacted" label="PII-filtrering" />}
               </Tabs.List>
+
+              <Tabs.Panel value="redacted-summary" className="mt-4">
+                <Alert variant="info" className="mb-4">
+                  Oppsummering av hvilke redigeringsnøkler som er brukt i klammer (f.eks. [redacted: uuid]).
+                </Alert>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <Table.Header>
+                      <Table.Row>
+                        <Table.HeaderCell>Nøkkel</Table.HeaderCell>
+                        <Table.HeaderCell>Totalt antall</Table.HeaderCell>
+                      </Table.Row>
+                    </Table.Header>
+                    <Table.Body>
+                      {redactedSummary.map((item) => (
+                        <Table.Row key={item.key}>
+                          <Table.DataCell className="font-mono">{item.key}</Table.DataCell>
+                          <Table.DataCell>{item.count.toLocaleString('no-NO')}</Table.DataCell>
+                        </Table.Row>
+                      ))}
+                      <Table.Row className="font-bold">
+                        <Table.DataCell>Totalt</Table.DataCell>
+                        <Table.DataCell>
+                          {redactedSummary.reduce((sum, item) => sum + item.count, 0).toLocaleString('no-NO')}
+                        </Table.DataCell>
+                      </Table.Row>
+                    </Table.Body>
+                  </Table>
+                </div>
+              </Tabs.Panel>
 
               <Tabs.Panel value="summary" className="mt-4">
                 <Table>
