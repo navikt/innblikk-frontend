@@ -156,6 +156,23 @@ export interface SiteimproveSpellingResponse {
   items?: SpellingIssue[]
 }
 
+export interface WcagIssueHelp {
+  description?: string
+  title?: string
+}
+
+export interface WcagIssue {
+  conformance?: string
+  difficulty?: string
+  help?: WcagIssueHelp
+  occurrences?: number
+  rule_id?: number
+}
+
+export interface SiteimproveWcagResponse {
+  items?: WcagIssue[]
+}
+
 export type SpellingsTeamDataEntry = {
   teamDomain?: string
   teamSiteimproveSite?: string | number

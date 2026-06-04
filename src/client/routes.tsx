@@ -1,6 +1,7 @@
 import { lazy } from 'react'
 import type { ReactElement } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
+import { getFeatureFlag } from './shared/lib/featureFlags.ts'
 
 // Content Feature
 const Home = lazy(() => import('./features/content').then((m) => ({ default: m.Home })))
@@ -25,6 +26,7 @@ const ProjectManager = lazy(() =>
 // Analysis Feature
 const UserComposition = lazy(() => import('./features/analysis').then((m) => ({ default: m.UserComposition })))
 const Spellings = lazy(() => import('./features/analysis').then((m) => ({ default: m.Spellings })))
+const Wcag = lazy(() => import('./features/analysis').then((m) => ({ default: m.Wcag })))
 const BrokenLinks = lazy(() => import('./features/analysis').then((m) => ({ default: m.BrokenLinks })))
 const PrivacyCheck = lazy(() => import('./features/analysis').then((m) => ({ default: m.PrivacyCheck })))
 const Diagnosis = lazy(() => import('./features/analysis').then((m) => ({ default: m.Diagnosis })))
@@ -113,6 +115,14 @@ const LegacyVisualizationRouteRedirect = ({ to }: { to: string }) => {
   return <Navigate to={`${to}${location.search}`} replace />
 }
 
+const WcagRoute = () => {
+  if (!getFeatureFlag('beta_opt_in')) {
+    return <Navigate to="/profil#beta" replace />
+  }
+
+  return <Wcag />
+}
+
 export type AppRoute = {
   path: string
   component: ReactElement
@@ -140,6 +150,7 @@ export const fullWidthPathPrefixes = [
   '/profil',
   '/kvalitet/odelagte-lenker',
   '/kvalitet/stavekontroll',
+  '/kvalitet/wcag',
   '/sql',
 ]
 
@@ -200,6 +211,7 @@ export const routes: AppRoute[] = [
   { path: '/oversikt', component: <LegacyOversiktRedirect />, fullWidth: true },
   { path: '/kvalitet/odelagte-lenker', component: <BrokenLinks />, fullWidth: true },
   { path: '/kvalitet/stavekontroll', component: <Spellings />, fullWidth: true },
+  { path: '/kvalitet/wcag', component: <WcagRoute />, fullWidth: true },
 ]
 
 export const isFullWidthPath = (pathname: string) =>

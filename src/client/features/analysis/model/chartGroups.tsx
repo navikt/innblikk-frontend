@@ -26,7 +26,7 @@ export const chartGroups: ChartGroup[] = [
   {
     title: 'Innholdskvalitet',
     icon: <FileSearch size={18} />,
-    ids: ['odelagte-lenker', 'stavekontroll'],
+    ids: ['odelagte-lenker', 'stavekontroll', 'wcag'],
   },
 ]
 
@@ -50,6 +50,6 @@ export const chartGroupsOriginal: ChartGroupSimple[] = [
   },
   {
     title: 'Innholdskvalitet',
-    ids: ['odelagte-lenker', 'stavekontroll'],
+    ids: ['odelagte-lenker', 'stavekontroll', 'wcag'],
   },
 ]

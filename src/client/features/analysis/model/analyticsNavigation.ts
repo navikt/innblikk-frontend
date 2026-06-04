@@ -17,6 +17,7 @@ export type AnalyticsPage =
   | 'grafdeling'
   | 'odelagte-lenker'
   | 'stavekontroll'
+  | 'wcag'
 export const analyticsPages = [
   {
     id: 'grafbygger',
@@ -119,5 +120,12 @@ export const analyticsPages = [
     href: '/kvalitet/stavekontroll',
     label: 'Stavekontroll',
     description: 'Se stavefeil fra Siteimprove',
+  },
+  {
+    id: 'wcag',
+    href: '/kvalitet/wcag',
+    label: 'Universell utforming',
+    description: 'Se funn for universell utforming fra Siteimprove',
+    beta: true,
   },
 ]
