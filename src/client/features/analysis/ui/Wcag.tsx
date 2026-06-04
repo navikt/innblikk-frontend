@@ -30,16 +30,6 @@ const toConformanceLabel = (value: unknown) => {
   return '-'
 }
 
-const toDifficultyLabel = (value: unknown) => {
-  if (value === null || value === undefined || value === '') return '-'
-
-  if (typeof value === 'string' || typeof value === 'number') {
-    return String(value).replace('difficulty', 'Nivå ')
-  }
-
-  return '-'
-}
-
 const Wcag = () => {
   const {
     selectedWebsite,
@@ -95,11 +85,10 @@ const Wcag = () => {
     const q = search.toLowerCase()
     const filteredItems = items.filter((item) => {
       const level = toConformanceLabel(item.conformance)
-      const difficulty = toDifficultyLabel(item.difficulty)
       const titleText = item.help?.title ?? ''
       const description = item.help?.description ?? ''
 
-      return [level, difficulty, titleText, description].some((value) => value.toLowerCase().includes(q))
+      return [level, titleText, description].some((value) => value.toLowerCase().includes(q))
     })
 
     if (filteredItems.length === 0) {
@@ -145,10 +134,9 @@ const Wcag = () => {
                     onClick={() => {
                       downloadCsv(
                         `${filename}_${selectedWebsite?.name || 'data'}_${new Date().toISOString().slice(0, 10)}.csv`,
-                        ['Niva', 'Vanskelighet', 'Forekomster', 'Funn', 'Beskrivelse'],
+                        ['Niva', 'Forekomster', 'Funn', 'Beskrivelse'],
                         filteredItems.map((item) => [
                           toConformanceLabel(item.conformance),
-                          toDifficultyLabel(item.difficulty),
                           String(item.occurrences ?? 0),
                           `"${item.help?.title || ''}"`,
                           `"${item.help?.description || ''}"`,
@@ -182,7 +170,6 @@ const Wcag = () => {
             <Table.Header>
               <Table.Row>
                 <Table.HeaderCell>Nivå</Table.HeaderCell>
-                <Table.HeaderCell>Vanskelighet</Table.HeaderCell>
                 <Table.HeaderCell>Forekomster</Table.HeaderCell>
                 <Table.HeaderCell>Funn</Table.HeaderCell>
                 <Table.HeaderCell>Beskrivelse</Table.HeaderCell>
@@ -192,7 +179,6 @@ const Wcag = () => {
               {filteredItems.map((item, idx) => (
                 <Table.Row key={`${item.rule_id || 'rule'}-${idx}`}>
                   <Table.DataCell>{toConformanceLabel(item.conformance)}</Table.DataCell>
-                  <Table.DataCell>{toDifficultyLabel(item.difficulty)}</Table.DataCell>
                   <Table.DataCell>{item.occurrences ?? 0}</Table.DataCell>
                   <Table.DataCell>{item.help?.title || '-'}</Table.DataCell>
                   <Table.DataCell>{item.help?.description || '-'}</Table.DataCell>
