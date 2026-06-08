@@ -194,6 +194,14 @@ const TrafficAnalysis = () => {
         </>
       }
     >
+      {metricType === 'proportion' && urlPaths.length === 0 && (
+        <Alert variant="info" className="mb-4">
+          <strong>Andel krever en URL-sti.</strong> Velg en URL-sti i filteret over – «Andel» viser hvor stor del av
+          besøkende totalt som var innom akkurat den siden. Uten en URL-sti blir teller og nevner like, og resultatet
+          ville alltid blitt 100 %.
+        </Alert>
+      )}
+
       {error && (
         <Alert variant="error" className="mb-4">
           {error}

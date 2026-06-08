@@ -252,7 +252,10 @@ export const useTrafficAnalysis = () => {
     if (!selectedWebsite) return
 
     if (metricType === 'proportion' && urlPaths.length === 0) {
-      setError('Du må oppgi en URL-sti for å se andel.')
+      setError(
+        'For å se «Andel» må du velge en URL-sti i filteret. ' +
+          'Andelen viser hvor stor del av besøkende totalt som var innom denne ene siden.',
+      )
       return
     }
 

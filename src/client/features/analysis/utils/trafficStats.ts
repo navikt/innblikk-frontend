@@ -1,5 +1,121 @@
 import type { SeriesPoint, Granularity } from '../model/types.ts'
 
+const DOCS_URL = 'https://reops-docs.ansatt.dev.nav.no/interndokumentasjon/trafikkanalyse-malinger/'
+
+export const METRIC_DOCS_URL = DOCS_URL
+
+export interface MetricExplainer {
+  /** Korte ord til HelpText-tittel, brukt som aria-label */
+  title: string
+  /** Hovedforklaring i HelpText-popoveren */
+  body: string
+  /** Lenke-tekst og anker i dokumentasjonen */
+  docsAnchor: string
+  docsLinkText: string
+}
+
+const VISITORS_EXPLAINER: MetricExplainer = {
+  title: 'Hva er unike besøkende?',
+  body:
+    'Antall ulike personer som besøkte siden i den valgte perioden. Hver person telles én gang, ' +
+    'uavhengig av hvor mange ganger de kom tilbake. ' +
+    'På nettsteder uten samtykkebanner identifiseres en person via en hash av IP-adresse og nettlesertype (User-Agent), ' +
+    'saltet per måned – ID-en nullstilles ved månedsskiftet. IP-adressen lagres aldri: ' +
+    'den brukes kun til å lage hashen og til geo-oppslag (land/by), og forkastes deretter. ' +
+    'Ingen canvas, skrifttyper eller plugins leses – dette er ikke fingerprinting. ' +
+    'På nettsteder med samtykkebanner brukes en stabil cookie som lar oss kjenne igjen samme person over flere måneder.',
+  docsAnchor: '#unike-besøkende',
+  docsLinkText: 'Les mer om hvordan unike besøkende telles',
+}
+
+const VISITS_EXPLAINER: MetricExplainer = {
+  title: 'Hva er en økt / et besøk?',
+  body:
+    'En økt er én sammenhengende periode med aktivitet fra samme nettleser. ' +
+    'Hvis personen er inaktiv i mer enn 30 minutter, regnes neste hendelse som starten på en ny økt. ' +
+    'Samme person kan ha flere økter i samme periode.',
+  docsAnchor: '#økter--besøk',
+  docsLinkText: 'Les mer om økter og besøk',
+}
+
+const PAGEVIEWS_EXPLAINER: MetricExplainer = {
+  title: 'Hva er sidevisninger?',
+  body:
+    'Antall ganger sider ble lastet. Hver sideoppdatering teller som en ny sidevisning. ' +
+    'Hvis samme person ser samme side flere ganger, telles det like mange ganger.',
+  docsAnchor: '#sidevisninger',
+  docsLinkText: 'Les mer om sidevisninger',
+}
+
+const PROPORTION_EXPLAINER: MetricExplainer = {
+  title: 'Hva er andel?',
+  body:
+    'For hver tidsenhet (dag/uke/måned/time): antall unike besøkende til den valgte URL-stien, delt på antall unike besøkende totalt. ' +
+    'Beregnes på hver tidsenhet separat – derfor må du oppgi en URL-sti. ' +
+    'Merk: «Gjennomsnittlig andel» i kortet er snittet av brøkene per tidsenhet, ikke andelen for hele perioden samlet.',
+  docsAnchor: '#andel',
+  docsLinkText: 'Les mer om andel-beregningen',
+}
+
+export const getMetricExplainer = (metricType: string): MetricExplainer => {
+  switch (metricType) {
+    case 'visits':
+      return VISITS_EXPLAINER
+    case 'pageviews':
+      return PAGEVIEWS_EXPLAINER
+    case 'proportion':
+      return PROPORTION_EXPLAINER
+    case 'visitors':
+    default:
+      return VISITORS_EXPLAINER
+  }
+}
+
+export interface TotalExplainer {
+  /** Tittel på HelpText-popoveren over Totalt-kortet */
+  title: string
+  /** Forklaring av hva «Totalt» faktisk er for valgt visning */
+  body: string
+}
+
+export const getTotalExplainer = (metricType: string): TotalExplainer => {
+  switch (metricType) {
+    case 'visitors':
+      return {
+        title: 'Hva betyr «Totalt» her?',
+        body:
+          'Antall unike besøkende over hele den valgte perioden, telt én gang per person. ' +
+          'Dette er ikke summen av dagstallene i grafen – samme person kan dukke opp på flere dager, ' +
+          'men telles likevel kun én gang i totalen.',
+      }
+    case 'visits':
+      return {
+        title: 'Hva betyr «Totalt» her?',
+        body:
+          'Antall økter over hele den valgte perioden. Beregnes som ett samlet antall over hele tidsvinduet, ' +
+          'ikke som summen av dagstallene.',
+      }
+    case 'pageviews':
+      return {
+        title: 'Hva betyr «Totalt» her?',
+        body: 'Sum av alle sidevisninger i perioden. Sidevisninger er additive, så summen er korrekt.',
+      }
+    case 'proportion':
+      return {
+        title: 'Hva betyr «Gjennomsnittlig andel»?',
+        body:
+          'Snittet av andelene per tidsenhet (dag/uke/måned/time). ' +
+          'Merk at dette ikke nødvendigvis er det samme som andelen for hele perioden samlet – ' +
+          'de er bare like hvis trafikken fordeler seg jevnt over tid.',
+      }
+    default:
+      return {
+        title: 'Hva betyr «Totalt» her?',
+        body: 'Samlet verdi for hele den valgte perioden.',
+      }
+  }
+}
+
 export const formatMetricValue = (val: number, metricType: string): string => {
   if (metricType === 'proportion') {
     return `${(val * 100).toFixed(1)}%`
@@ -16,6 +132,12 @@ export const getMetricLabel = (type: string): string => {
     default:
       return 'unike besøkende'
   }
+}
+
+export const getAvgExplainerTitle = (metricType: string, granularity: Granularity): string => {
+  const unit = getTimeUnitLabel(granularity)
+  if (metricType === 'proportion') return 'Hvordan beregnes median andel?'
+  return `Hvordan beregnes snitt per ${unit}?`
 }
 
 export const getTimeUnitLabel = (granularity: Granularity): string => {
@@ -52,6 +174,7 @@ export interface TrafficStatsBoxes {
   box3Label: string
   box3Value: number
   box3Subtext: string
+  box3Timestamp: string
   valueSuffix: string
 }
 
@@ -88,6 +211,7 @@ export const computeTrafficStats = (
       box3Label: 'Høyeste andel',
       box3Value: max,
       box3Subtext: maxLabelText,
+      box3Timestamp: '',
       valueSuffix,
     }
   }
@@ -102,9 +226,10 @@ export const computeTrafficStats = (
     box2Label: `Snitt per ${timeUnitLabel}`,
     box2Value: avg,
     box2Suffix: `${valueSuffix} (median: ${formatMetricValue(median, metricType)})`,
-    box3Label: `${box3Label} ${maxLabelText}`,
+    box3Label,
     box3Value: max,
     box3Subtext: '',
+    box3Timestamp: maxLabelText,
     valueSuffix,
   }
 }
