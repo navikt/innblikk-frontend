@@ -172,10 +172,10 @@ export function createClickmapPreviewRouter() {
       style.textContent = \`
         .umami-clickmap-hit {
           position: relative !important;
-          border-radius: 3px;
+          border-radius: 3px !important;
           background-color: rgba(220, 38, 38, var(--umami-clickmap-alpha, 0.18)) !important;
           outline: 2px solid rgba(185, 28, 28, var(--umami-clickmap-alpha, 0.24)) !important;
-          outline-offset: 1px;
+          outline-offset: 1px !important;
         }
         .umami-heatmap-hit {
           position: relative !important;
@@ -183,17 +183,17 @@ export function createClickmapPreviewRouter() {
           box-shadow: none !important;
           overflow: visible !important;
           background: transparent !important;
-          isolation: isolate;
+          isolation: isolate !important;
         }
         .umami-heatmap-hit::before {
-          content: '';
-          position: absolute;
-          left: 50%;
-          top: 50%;
-          width: var(--umami-heat-size, 170px);
-          height: var(--umami-heat-size, 170px);
-          transform: translate(-50%, -50%);
-          border-radius: 999px;
+          content: '' !important;
+          position: absolute !important;
+          left: 50% !important;
+          top: 50% !important;
+          width: var(--umami-heat-size, 170px) !important;
+          height: var(--umami-heat-size, 170px) !important;
+          transform: translate(-50%, -50%) !important;
+          border-radius: 999px !important;
           background: radial-gradient(
             circle,
             rgba(127, 29, 29, var(--umami-heat-opacity, 0.95)) 0%,
@@ -203,61 +203,72 @@ export function createClickmapPreviewRouter() {
             rgba(163, 230, 53, calc(var(--umami-heat-opacity, 0.95) * 0.58)) 66%,
             rgba(56, 189, 248, calc(var(--umami-heat-opacity, 0.95) * 0.44)) 82%,
             rgba(37, 99, 235, 0) 100%
-          );
-          filter: saturate(1.28) contrast(1.14) blur(var(--umami-heat-blur, 13px));
-          opacity: var(--umami-heat-opacity, 0.93);
-          mix-blend-mode: normal;
-          z-index: 2147483646;
-          pointer-events: auto;
+          ) !important;
+          filter: saturate(1.28) contrast(1.14) blur(var(--umami-heat-blur, 13px)) !important;
+          opacity: var(--umami-heat-opacity, 0.93) !important;
+          mix-blend-mode: normal !important;
+          z-index: 2147483646 !important;
+          pointer-events: auto !important;
+          right: auto !important;
+          bottom: auto !important;
+          inset: auto !important;
+          box-shadow: none !important;
+          margin: 0 !important;
         }
         .umami-clickmap-hit::after {
-          content: attr(data-clickmap-count);
-          position: absolute;
-          top: 6px;
-          right: 6px;
-          min-width: 24px;
-          height: 24px;
-          padding: 0 7px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 12px;
-          line-height: 1;
-          font-weight: 700;
-          color: #fff;
-          background: #7f1d1d;
-          border: 2px solid rgba(255, 255, 255, 0.95);
-          border-radius: 999px;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-          z-index: 2147483647;
-          pointer-events: none;
-          font-family: Arial, sans-serif;
+          content: attr(data-clickmap-count) !important;
+          position: absolute !important;
+          top: 6px !important;
+          right: 6px !important;
+          left: auto !important;
+          bottom: auto !important;
+          inset: 6px 6px auto auto !important;
+          width: auto !important;
+          height: 24px !important;
+          min-width: 24px !important;
+          padding: 0 7px !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          font-size: 12px !important;
+          line-weight: 1 !important;
+          font-weight: 700 !important;
+          color: #fff !important;
+          background: #7f1d1d !important;
+          border: 2px solid rgba(255, 255, 255, 0.95) !important;
+          border-radius: 999px !important;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35) !important;
+          z-index: 2147483647 !important;
+          pointer-events: none !important;
+          font-family: Arial, sans-serif !important;
+          transform: none !important;
+          margin: 0 !important;
         }
         .umami-clickmap-tooltip {
-          position: fixed;
-          left: 0;
-          top: 0;
-          z-index: 2147483647;
-          max-width: min(92vw, 460px);
-          padding: 14px 16px;
-          border-radius: 12px;
-          border: 2px solid rgba(255, 255, 255, 0.65);
-          background: rgba(15, 23, 42, 0.94);
-          color: #ffffff;
-          font-family: Arial, sans-serif;
-          font-size: clamp(18px, 1.4vw, 24px);
-          line-height: 1.25;
-          font-weight: 700;
-          white-space: pre-line;
-          box-shadow: 0 10px 24px rgba(0, 0, 0, 0.38);
-          pointer-events: none;
-          opacity: 0;
-          transform: translateY(4px);
-          transition: opacity 80ms linear, transform 80ms linear;
+          position: fixed !important;
+          left: 0 !important;
+          top: 0 !important;
+          z-index: 2147483647 !important;
+          max-width: min(92vw, 460px) !important;
+          padding: 14px 16px !important;
+          border-radius: 12px !important;
+          border: 2px solid rgba(255, 255, 255, 0.65) !important;
+          background: rgba(15, 23, 42, 0.94) !important;
+          color: #ffffff !important;
+          font-family: Arial, sans-serif !important;
+          font-size: clamp(18px, 1.4vw, 24px) !important;
+          line-height: 1.25 !important;
+          font-weight: 700 !important;
+          white-space: pre-line !important;
+          box-shadow: 0 10px 24px rgba(0, 0, 0, 0.38) !important;
+          pointer-events: none !important;
+          opacity: 0 !important;
+          transform: translateY(4px) !important;
+          transition: opacity 80ms linear, transform 80ms linear !important;
         }
         .umami-clickmap-tooltip[data-visible='true'] {
-          opacity: 1;
-          transform: translateY(0);
+          opacity: 1 !important;
+          transform: translateY(0) !important;
         }
         .umami-clickmap-hit-active {
           outline-width: 3px !important;
@@ -269,63 +280,63 @@ export function createClickmapPreviewRouter() {
           box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.82), 0 0 0 7px rgba(220, 38, 38, 0.5) !important;
         }
         .umami-scrollmap-overlay {
-          position: absolute;
-          left: 0;
-          right: 0;
-          pointer-events: auto;
-          z-index: 2147483645;
+          position: absolute !important;
+          left: 0 !important;
+          right: 0 !important;
+          pointer-events: auto !important;
+          z-index: 2147483645 !important;
         }
         .umami-scrollmap-band {
-          position: absolute;
-          left: 0;
-          right: 0;
-          border-top: 1px solid rgba(255, 255, 255, 0.72);
-          border-bottom: 1px solid rgba(15, 23, 42, 0.22);
-          box-sizing: border-box;
-          pointer-events: none;
+          position: absolute !important;
+          left: 0 !important;
+          right: 0 !important;
+          border-top: 1px solid rgba(255, 255, 255, 0.72) !important;
+          border-bottom: 1px solid rgba(15, 23, 42, 0.22) !important;
+          box-sizing: border-box !important;
+          pointer-events: none !important;
         }
         .umami-scrollmap-band-label {
-          position: absolute;
-          left: 10px;
-          top: 6px;
-          padding: 4px 10px;
-          border-radius: 999px;
-          background: rgba(15, 23, 42, 0.78);
-          color: #fff;
-          font-family: Arial, sans-serif;
-          font-size: 14px;
-          line-height: 1.15;
-          font-weight: 700;
-          letter-spacing: 0.01em;
-          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
-          pointer-events: auto;
-          cursor: help;
+          position: absolute !important;
+          left: 10px !important;
+          top: 6px !important;
+          padding: 4px 10px !important;
+          border-radius: 999px !important;
+          background: rgba(15, 23, 42, 0.78) !important;
+          color: #fff !important;
+          font-family: Arial, sans-serif !important;
+          font-size: 14px !important;
+          line-height: 1.15 !important;
+          font-weight: 700 !important;
+          letter-spacing: 0.01em !important;
+          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28) !important;
+          pointer-events: auto !important;
+          cursor: help !important;
         }
         .umami-scrollmap-median-line {
-          position: absolute;
-          left: 0;
-          right: 0;
-          height: 0;
-          border-top: 4px solid rgba(5, 150, 105, 0.96);
-          z-index: 2147483646;
+          position: absolute !important;
+          left: 0 !important;
+          right: 0 !important;
+          height: 0 !important;
+          border-top: 4px solid rgba(5, 150, 105, 0.96) !important;
+          z-index: 2147483646 !important;
         }
         .umami-scrollmap-median-label {
-          position: absolute;
-          left: 10px;
-          top: 10px;
-          padding: 4px 10px;
-          border-radius: 999px;
-          background: rgba(5, 150, 105, 0.97);
-          color: #fff;
-          font-family: Arial, sans-serif;
-          font-size: 13px;
-          line-height: 1.15;
-          font-weight: 700;
-          letter-spacing: 0.01em;
-          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
-          pointer-events: auto;
-          cursor: help;
-          white-space: nowrap;
+          position: absolute !important;
+          left: 10px !important;
+          top: 10px !important;
+          padding: 4px 10px !important;
+          border-radius: 999px !important;
+          background: rgba(5, 150, 105, 0.97) !important;
+          color: #fff !important;
+          font-family: Arial, sans-serif !important;
+          font-size: 13px !important;
+          line-height: 1.15 !important;
+          font-weight: 700 !important;
+          letter-spacing: 0.01em !important;
+          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28) !important;
+          pointer-events: auto !important;
+          cursor: help !important;
+          white-space: nowrap !important;
         }
       \`
       document.head.appendChild(style)

@@ -325,26 +325,32 @@ const ensureJourneyOverlayStyles = (doc: Document) => {
       background-color: rgba(220, 38, 38, 0.12) !important;
     }
     .${JOURNEY_STEP_HIT_CLASS}[${JOURNEY_STEP_NUMBER_ATTR}]::before {
-      content: attr(${JOURNEY_STEP_NUMBER_ATTR});
-      position: absolute;
-      top: -${JOURNEY_STEP_BADGE_OFFSET}px;
-      left: -${JOURNEY_STEP_BADGE_OFFSET}px;
-      min-width: ${JOURNEY_STEP_BADGE_SIZE}px;
-      height: ${JOURNEY_STEP_BADGE_SIZE}px;
-      padding: 0 6px;
-      border-radius: 9999px;
-      border: 2px solid #fff;
-      background: rgba(185, 28, 28, 0.98);
-      color: #fff;
-      font-size: 16px;
-      font-weight: 700;
-      line-height: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 1px 4px rgba(15, 23, 42, 0.25);
-      z-index: 2147483646;
-      pointer-events: none;
+      content: attr(${JOURNEY_STEP_NUMBER_ATTR}) !important;
+      position: absolute !important;
+      top: -${JOURNEY_STEP_BADGE_OFFSET}px !important;
+      left: -${JOURNEY_STEP_BADGE_OFFSET}px !important;
+      right: auto !important;
+      bottom: auto !important;
+      inset: -${JOURNEY_STEP_BADGE_OFFSET}px auto auto -${JOURNEY_STEP_BADGE_OFFSET}px !important;
+      width: ${JOURNEY_STEP_BADGE_SIZE}px !important;
+      height: ${JOURNEY_STEP_BADGE_SIZE}px !important;
+      min-width: ${JOURNEY_STEP_BADGE_SIZE}px !important;
+      padding: 0 6px !important;
+      border-radius: 9999px !important;
+      border: 2px solid #fff !important;
+      background: rgba(185, 28, 28, 0.98) !important;
+      color: #fff !important;
+      font-size: 16px !important;
+      font-weight: 700 !important;
+      line-height: 1 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      box-shadow: 0 1px 4px rgba(15, 23, 42, 0.25) !important;
+      z-index: 2147483646 !important;
+      pointer-events: none !important;
+      transform: none !important;
+      margin: 0 !important;
     }
     .${JOURNEY_STEP_START_CLASS} {
       outline-width: 3px !important;
