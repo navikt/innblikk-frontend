@@ -22,6 +22,8 @@ import { useGoalCompletion } from '../hooks/useGoalCompletion'
 import GoalCompletionStatsCards from './GoalCompletionStatsCards.tsx'
 import type { GoalStep, GoalStepParam } from '../model/types'
 import { getGoalStepUrlDisplay, splitGoalStepUrlInput } from '../utils/goalStepUtils'
+import { getGoalCompletionSqlTemplate } from '../utils/goalCompletionDashboardSql.ts'
+import SqlViewer from '../../chartbuilder/ui/results/SqlViewer.tsx'
 
 const createEmptyParam = (): GoalStepParam => ({ key: '', operator: 'equals', value: '' })
 
@@ -493,6 +495,8 @@ const GoalCompletion = () => {
           <BodyShort>Ingen brukere startet på valgt startsteg i perioden.</BodyShort>
         </div>
       )}
+
+      {hasValidSteps && <SqlViewer sql={getGoalCompletionSqlTemplate(startStep, goalStep)} seksjon="goalcompletion" />}
     </ChartLayout>
   )
 }
