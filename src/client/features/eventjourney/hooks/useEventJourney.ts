@@ -20,6 +20,11 @@ type CachedJourneyResult = {
 
 const eventJourneyCache = new Map<string, CachedJourneyResult>()
 
+const normalizeGeneratedSql = (sql: string): string =>
+  sql
+    .replace(/umami\.public_website_event/gi, 'umami_views.event')
+    .replace(/umami\.public_session/gi, 'umami_views.session')
+
 export const useEventJourney = () => {
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
   const [searchParams] = useSearchParams()
@@ -105,7 +110,7 @@ export const useEventJourney = () => {
       setData(cachedResult.data)
       setJourneyStats(cachedResult.journeyStats)
       setQueryStats(cachedResult.queryStats)
-      setGeneratedSql(cachedResult.generatedSql)
+      setGeneratedSql(cachedResult.generatedSql ? normalizeGeneratedSql(cachedResult.generatedSql) : null)
       setLastAppliedFilterKey(appliedFilterKey)
       syncSearchParams()
       return
@@ -131,7 +136,7 @@ export const useEventJourney = () => {
       const nextData = result.journeys || []
       const nextJourneyStats = result.journeyStats || null
       const nextQueryStats = result.queryStats || null
-      const nextGeneratedSql = result.generatedSql || null
+      const nextGeneratedSql = result.generatedSql ? normalizeGeneratedSql(result.generatedSql) : null
       setData(nextData)
       setJourneyStats(nextJourneyStats)
       setQueryStats(nextQueryStats)

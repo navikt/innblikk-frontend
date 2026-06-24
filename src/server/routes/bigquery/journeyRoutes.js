@@ -31,12 +31,12 @@ export function createJourneyRoutes({ bigquery, GCP_PROJECT_ID }) {
                   session_id,
                   ${normalizeUrlSql('url_path')} as url_path,
                   created_at,
-                  MIN(CASE 
-                      WHEN (${normalizeUrlSql('url_path')}) = @startUrl 
-                      THEN created_at 
-                  END) 
+              MIN(CASE 
+                  WHEN (${normalizeUrlSql('url_path')}) = @startUrl 
+                  THEN created_at 
+              END) 
                       OVER (PARTITION BY session_id) AS start_time
-              FROM \`${GCP_PROJECT_ID}.umami.public_website_event\`
+              FROM \`${GCP_PROJECT_ID}.umami_views.event\`
               WHERE website_id = @websiteId
                   AND created_at BETWEEN @startDate AND @endDate
                   AND event_type = 1 -- Pageview

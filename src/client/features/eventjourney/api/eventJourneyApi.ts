@@ -27,5 +27,11 @@ export const fetchEventJourneys = async (params: FetchEventJourneysParams): Prom
     throw new Error('Failed to fetch event journeys')
   }
 
-  return (await response.json()) as EventJourneyResponse
+  const result = (await response.json()) as EventJourneyResponse
+  const normalizeGeneratedSql = (sql: string): string =>
+    sql
+      .replace(/umami\.public_website_event/gi, 'umami_views.event')
+      .replace(/umami\.public_session/gi, 'umami_views.session')
+
+  return result.generatedSql ? { ...result, generatedSql: normalizeGeneratedSql(result.generatedSql) } : result
 }
