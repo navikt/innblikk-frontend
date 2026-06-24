@@ -32,8 +32,8 @@ export function createRetentionRoutes({ bigquery, GCP_PROJECT_ID }) {
       const urlMatchCondition =
         pathOperator === 'starts-with' ? 'LOWER(url_path_clean) LIKE @urlPathPattern' : 'url_path_clean = @urlPath'
       const fromClause = useDistinctId
-        ? `\`${GCP_PROJECT_ID}.umami.public_website_event\` e LEFT JOIN \`${GCP_PROJECT_ID}.umami_views.session\` s ON e.session_id = s.session_id`
-        : `\`${GCP_PROJECT_ID}.umami.public_website_event\``
+        ? `\`${GCP_PROJECT_ID}.umami_views.event\` e LEFT JOIN \`${GCP_PROJECT_ID}.umami_views.session\` s ON e.session_id = s.session_id`
+        : `\`${GCP_PROJECT_ID}.umami_views.event\``
       const userIdExpression = useSwitch
         ? `IF(${col}created_at >= @countBySwitchAt, s.distinct_id, ${col}session_id)`
         : useDistinctId

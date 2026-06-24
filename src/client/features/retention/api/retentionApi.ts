@@ -79,12 +79,17 @@ export async function fetchRetentionData(params: FetchRetentionParams): Promise<
       }
     }
 
+    const normalizeGeneratedSql = (sql: string): string =>
+      sql
+        .replace(/umami\.public_website_event/gi, 'umami_views.event')
+        .replace(/umami\.public_session/gi, 'umami_views.session')
+
     return {
       data: result.data ?? [],
       queryStats: result.queryStats ?? null,
       sameDayReturningUsers: result.sameDayReturningUsers ?? null,
       nonReturningUsers: result.nonReturningUsers ?? null,
-      generatedSql: result.generatedSql ?? null,
+      generatedSql: result.generatedSql ? normalizeGeneratedSql(result.generatedSql) : null,
       error: null,
     }
   } catch (err) {
