@@ -18,7 +18,9 @@ COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml .npmrc ./
 # Install dependencies with cache mount
 RUN --mount=type=secret,id=NODE_AUTH_TOKEN \
     --mount=type=cache,id=pnpm,target=/pnpm/store \
-    NODE_AUTH_TOKEN=$(cat /run/secrets/NODE_AUTH_TOKEN) pnpm install --frozen-lockfile
+    printf '//npm.pkg.github.com/:_authToken=%s\n@navikt:registry=https://npm.pkg.github.com\n' "$(cat /run/secrets/NODE_AUTH_TOKEN)" > $HOME/.npmrc \
+    && pnpm install --frozen-lockfile \
+    && rm -f $HOME/.npmrc
 
 # Copy source code and build
 COPY . .
@@ -42,7 +44,9 @@ ENV PATH="$PNPM_HOME:$PATH"
 
 RUN --mount=type=secret,id=NODE_AUTH_TOKEN \
     --mount=type=cache,id=pnpm,target=/pnpm/store \
-    NODE_AUTH_TOKEN=$(cat /run/secrets/NODE_AUTH_TOKEN) pnpm install --prod --frozen-lockfile
+    printf '//npm.pkg.github.com/:_authToken=%s\n@navikt:registry=https://npm.pkg.github.com\n' "$(cat /run/secrets/NODE_AUTH_TOKEN)" > $HOME/.npmrc \
+    && pnpm install --prod --frozen-lockfile \
+    && rm -f $HOME/.npmrc
 
 RUN apk del npm
 
