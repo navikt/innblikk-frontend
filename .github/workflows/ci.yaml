@@ -7,6 +7,10 @@ on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
 
+permissions:
+  contents: read
+  packages: read
+
 # Cancel in-progress runs for the same branch/PR so stale runs don't waste minutes.
 concurrency:
   group: ci-${{ github.ref }}
@@ -29,6 +33,17 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+          registry-url: https://npm.pkg.github.com
+          scope: '@navikt'
+
+      - name: 'Configure GitHub Packages auth'
+        run: |
+          cat <<EOF >> ~/.npmrc
+          @navikt:registry=https://npm.pkg.github.com
+          //npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
+          EOF
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 'Install dependencies'
         run: pnpm install --frozen-lockfile
@@ -54,6 +69,17 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+          registry-url: https://npm.pkg.github.com
+          scope: '@navikt'
+
+      - name: 'Configure GitHub Packages auth'
+        run: |
+          cat <<EOF >> ~/.npmrc
+          @navikt:registry=https://npm.pkg.github.com
+          //npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
+          EOF
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 'Install dependencies'
         run: pnpm install --frozen-lockfile
@@ -79,6 +105,17 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+          registry-url: https://npm.pkg.github.com
+          scope: '@navikt'
+
+      - name: 'Configure GitHub Packages auth'
+        run: |
+          cat <<EOF >> ~/.npmrc
+          @navikt:registry=https://npm.pkg.github.com
+          //npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
+          EOF
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 'Install dependencies'
         run: pnpm install --frozen-lockfile
