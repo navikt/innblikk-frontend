@@ -8,6 +8,11 @@ import { getStoredPeriod, savePeriodPreference } from '../../../shared/lib/utils
 import { fetchFunnelData, fetchTimingData as fetchTimingDataApi, fetchWebsiteEvents } from '../api/funnelApi'
 import { parseStepsFromParams } from '../utils/stepUtils'
 
+const normalizeGeneratedSql = (sql: string): string =>
+  sql
+    .replace(/umami\.public_website_event/gi, 'umami_views.event')
+    .replace(/umami\.public_session/gi, 'umami_views.session')
+
 export interface FunnelState {
   // Website
   selectedWebsite: Website | null
@@ -174,7 +179,7 @@ export function useFunnel(): FunnelState {
     } else {
       setFunnelData(result.data)
       setFunnelQueryStats(result.queryStats)
-      setFunnelSql(result.sql)
+      setFunnelSql(result.sql ? normalizeGeneratedSql(result.sql) : null)
 
       if (result.shareParams) {
         window.history.replaceState({}, '', `${window.location.pathname}?${result.shareParams.toString()}`)
@@ -241,7 +246,7 @@ export function useFunnel(): FunnelState {
     } else {
       setTimingData(result.data)
       setTimingQueryStats(result.queryStats)
-      setTimingSql(result.sql)
+      setTimingSql(result.sql ? normalizeGeneratedSql(result.sql) : null)
       setShowTiming(true)
     }
 

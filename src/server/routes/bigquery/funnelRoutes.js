@@ -136,7 +136,7 @@ export function createFunnelRoutes({ bigquery, GCP_PROJECT_ID }) {
                       ELSE NULL
                   END as step_value,
                   created_at
-              FROM \`${GCP_PROJECT_ID}.umami.public_website_event\`
+              FROM \`${GCP_PROJECT_ID}.umami_views.event\`
               WHERE website_id = @websiteId
                 AND created_at BETWEEN @startDate AND @endDate
                 AND event_type IN (${eventTypesList})
@@ -363,7 +363,7 @@ export function createFunnelRoutes({ bigquery, GCP_PROJECT_ID }) {
                       ELSE NULL
                   END as step_value,
                   created_at
-              FROM \`${GCP_PROJECT_ID}.umami.public_website_event\`
+              FROM \`${GCP_PROJECT_ID}.umami_views.event\`
               WHERE website_id = @websiteId
                 AND created_at BETWEEN @startDate AND @endDate
                 AND event_type IN (${eventTypesList})

@@ -10,6 +10,11 @@ import type {
 import { getDateRangeFromPeriod } from '../../../shared/lib/utils'
 import { getStepUrlDisplay, splitUrlStepInput } from '../utils/stepUtils'
 
+const normalizeGeneratedSql = (sql: string): string =>
+  sql
+    .replace(/umami\.public_website_event/gi, 'umami_views.event')
+    .replace(/umami\.public_session/gi, 'umami_views.session')
+
 export interface FetchFunnelParams {
   websiteId: string
   steps: FunnelStep[]
@@ -93,7 +98,7 @@ export async function fetchFunnelData(params: FetchFunnelParams): Promise<FetchF
 
     return {
       data: mergedData,
-      sql: data.sql ?? null,
+      sql: data.sql ? normalizeGeneratedSql(data.sql) : null,
       queryStats: data.queryStats ?? null,
       shareParams: newParams,
       error: null,
@@ -187,7 +192,7 @@ export async function fetchTimingData(params: FetchTimingParams): Promise<FetchT
 
     return {
       data: data.data,
-      sql: data.sql ?? null,
+      sql: data.sql ? normalizeGeneratedSql(data.sql) : null,
       queryStats: data.queryStats ?? null,
       error: null,
     }
