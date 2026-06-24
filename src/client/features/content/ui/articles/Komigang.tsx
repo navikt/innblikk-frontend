@@ -213,7 +213,6 @@ function Komigang() {
           <List as="ul">
             <List.Item>
               <strong>Slack:</strong> Bli med i kanalen{' '}
-              <Link href={'https://nav-it.slack.com/archives/C070BPKR830'}>#produktanalyse</Link> and{' '}
               <Link href={'https://nav-it.slack.com/archives/C02UGFS2J4B'}>#researchops</Link> for å få hjelp og dele
               erfaringer.
             </List.Item>
