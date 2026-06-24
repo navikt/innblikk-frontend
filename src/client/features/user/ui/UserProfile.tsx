@@ -70,7 +70,7 @@ export default function UserProfile() {
 
   return (
     <>
-      <PageHeader title="Profil" description="profilvalg" />
+      <PageHeader title="Profil" />
 
       <AppBlock className="pb-16 px-4">
         <VStack gap="space-64" className="max-w-[800px] mx-auto pt-12">
