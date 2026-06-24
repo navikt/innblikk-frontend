@@ -7,7 +7,7 @@ function Komigang() {
   return (
     <>
       <PageHeader
-        title="Kom i gang: Mål brukeradferd med Umami"
+        title="Kom i gang: Mål brukeradferd med Innblikk"
         description="En guide for å komme i gang med måling av brukeratferd i Nav."
         variant="article"
       />
@@ -16,7 +16,7 @@ function Komigang() {
         <div className="max-w-[800px] mx-auto">
           <div className="pt-16 pb-8">
             <Heading spacing={true} as="h2" size="medium">
-              Start med å teste Umami i dev-miljø
+              Start med å teste Innblikk i dev-miljø
             </Heading>
           </div>
 
@@ -26,8 +26,8 @@ function Komigang() {
                 Bruker du dekoratøren?
               </Heading>
               <BodyShort spacing>
-                Da kan det være dere allerede sporer data. Dekoratøren initialiserer Umami-script automatisk til "Nav.no
-                - prod" og "Nav.no - dev".
+                Da kan det være dere allerede sporer data. Dekoratøren initialiserer Innblikk-script automatisk til
+                "Nav.no - prod" og "Nav.no - dev".
               </BodyShort>
               <List as="ul" size="small">
                 <List.Item>
@@ -36,7 +36,7 @@ function Komigang() {
                 <List.Item>
                   <strong>Hva spores:</strong> Dekoratøren sporer grunnleggende sidenavigasjon og metadata.{' '}
                   <Link href="https://navno.sharepoint.com/sites/intranett-utvikling/SitePages/Rutine-for-bruk-av-Umami.aspx#hva-sporer-umami">
-                    Se hva Umami sporer
+                    Se hva Innblikk sporer
                   </Link>
                   .
                 </List.Item>
@@ -74,25 +74,25 @@ function Komigang() {
 
           <div className="pt-16 pb-8">
             <Heading spacing={true} as="h2" size="medium">
-              Få klarsignal for Umami i produksjon
+              Få klarsignal for Innblikk i produksjon
             </Heading>
           </div>
 
           <BodyShort spacing>
-            Før du tar Umami i bruk i produksjon må du sørge for at personvernet ivaretas. Personopplysninger skal ikke
-            spores tilsiktet i Umami.
+            Før du tar Innblikk i bruk i produksjon må du sørge for at personvernet ivaretas. Personopplysninger skal
+            ikke spores tilsiktet i Innblikk.
           </BodyShort>
 
           <List as="ul">
             <List.Item>
               <strong>Etterlevelse:</strong>{' '}
               <Link href={'https://etterlevelse.ansatt.nav.no/dokumentasjon/e3757864-9720-4569-9e8e-50841950fcd6'}>
-                Fyll ut gjenbrukbar Umami etterlevelsesdokument
+                Fyll ut gjenbrukbar Innblikk etterlevelsesdokument
               </Link>
-              . Du må også opplyse om bruk av Umami via personvernsidene på nettsiden/appen.
+              . Du må også opplyse om bruk av Innblikk via personvernsidene på nettsiden/appen.
             </List.Item>
             <List.Item>
-              <strong>Personvern:</strong> Umami-proxyen vasker automatisk vekk personopplysninger som fødselsnummer,
+              <strong>Personvern:</strong> Innblikk-proxyen vasker automatisk vekk personopplysninger som fødselsnummer,
               e-post, telefonnummer m.m.{' '}
               <Link href="https://navno.sharepoint.com/sites/intranett-utvikling/SitePages/Rutine-for-bruk-av-Umami.aspx#hva-vasker-vi-vekk-fra-umami">
                 Se hva som vaskes vekk
@@ -106,7 +106,7 @@ function Komigang() {
             <Link
               href={'https://navno.sharepoint.com/sites/intranett-utvikling/SitePages/Rutine-for-bruk-av-Umami.aspx'}
             >
-              se retningslinjene for bruk av Umami.
+              se retningslinjene for bruk av Innblikk.
             </Link>
           </BodyShort>
 
@@ -158,14 +158,14 @@ function Komigang() {
             </Heading>
           </div>
           <Heading size="xsmall" level="3" spacing>
-            Her finner du Umami-data
+            Her finner du Innblikk-data
           </Heading>
           <List as="ul">
             <List.Item>
               <strong>
-                <Link href={'./'}>Umami Dashboard:</Link>
+                <Link href={'./'}>Innblikk Dashboard:</Link>
               </strong>{' '}
-              Grunnleggende analyser og dashboard med data fra Umami.
+              Grunnleggende analyser og dashboard med data fra Innblikk.
             </List.Item>
             <List.Item>
               <strong>
@@ -179,7 +179,7 @@ function Komigang() {
 
           <div className="pt-4">
             <Heading size="xsmall" level="3" spacing>
-              Lykkes med Umami i Metabase
+              Lykkes med Innblikk i Metabase
             </Heading>
           </div>
           <List as="ul">
@@ -222,7 +222,7 @@ function Komigang() {
               <Link href={'https://outlook.office365.com/owa/calendar/TeamResearchOps@nav.no/bookings/'}>
                 Book en prat 1:1 eller workshop
               </Link>{' '}
-              for å lære mer om Umami og produktanalyse.
+              for å lære mer om Innblikk og produktanalyse.
             </List.Item>
           </List>
         </div>

@@ -25,7 +25,7 @@ const Footer = () => {
 function LogoBlock() {
   return (
     <div>
-      <div className="text-2xl whitespace-nowrap flex items-center !text-white" aria-label="Start Umami" role="img">
+      <div className="text-2xl whitespace-nowrap flex items-center !text-white" aria-label="Start Innblikk" role="img">
         <svg
           width="34"
           height="34"
@@ -64,10 +64,10 @@ function Snarveier() {
       </Heading>
       <BodyShort as="ul" className="mt-3 grid gap-3">
         <FooterLink href="https://etterlevelse.ansatt.nav.no/dokumentasjon/e3757864-9720-4569-9e8e-50841950fcd6">
-          Umami i Etterlevelse
+          Innblikk i Etterlevelse
         </FooterLink>
         <FooterLink href="https://navno.sharepoint.com/sites/intranett-utvikling/SitePages/Rutine-for-bruk-av-Umami.aspx">
-          Rutine for bruk av Umami
+          Rutine for bruk av Innblikk
         </FooterLink>
       </BodyShort>
     </div>

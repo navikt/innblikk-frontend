@@ -44,9 +44,9 @@ function Personvern() {
                   Formålet med audit loggingen
                 </Heading>
                 <p className="mb-4 leading-normal">
-                  Når du bruker målingsverktøyet Umami så sender Innblikk din Nav-ident sammen med alle spørringer som
-                  kjøres. Dette gjør at vi kan logge hvem som har kjørt hvilke spørringer, og er en del av vår
-                  sikkerhetsrutine for å beskytte data innsamlet med målingsverktøyet Umami.
+                  Når du bruker målingsverktøyet Innblikk så sender Innblikk din Nav-ident sammen med alle spørringer
+                  som kjøres. Dette gjør at vi kan logge hvem som har kjørt hvilke spørringer, og er en del av vår
+                  sikkerhetsrutine for å beskytte data innsamlet med målingsverktøyet Innblikk.
                 </p>
                 <p className="mb-4 leading-normal">
                   Loggene brukes kun til statistikk, avvik og sikkerhetsformål. Eksempelvis i forbindelse med avvik for
@@ -103,12 +103,12 @@ function Personvern() {
 
                 <section className="pt-8">
                   <Heading level="3" size="small" spacing>
-                    Umami
+                    Innblikk
                   </Heading>
                   <p className="mb-4 leading-normal">
-                    Umami brukes til statistikk og analyse av hvordan innblikk.ansatt.nav.no brukes. Unami bruker ikke
-                    informasjonskapsler, men henter inn opplysninger om nettleseren din for å lage en unik ID. Denne
-                    ID-en brukes for å skille deg fra andre brukere. For å hindre identifisering, bruker vi en
+                    Innblikk brukes til statistikk og analyse av hvordan innblikk.ansatt.nav.no brukes. Unami bruker
+                    ikke informasjonskapsler, men henter inn opplysninger om nettleseren din for å lage en unik ID.
+                    Denne ID-en brukes for å skille deg fra andre brukere. For å hindre identifisering, bruker vi en
                     egenutviklet proxy som vasker bort deler av IP-adressen din før dataene sendes til verktøyet.
                   </p>
                 </section>

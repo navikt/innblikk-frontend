@@ -8,7 +8,7 @@ const TaksonomiPage = () => {
     <>
       <PageHeader
         title="Navs taksonomi for produktanalyse"
-        description="En guide til hvordan du navngir hendelser i Umami for å sikre gode analyser."
+        description="En guide til hvordan du navngir hendelser i Innblikk for å sikre gode analyser."
         variant="article"
       />
 
@@ -88,7 +88,7 @@ const TaksonomiPage = () => {
                   Slik navngir du hendelser
                 </Heading>
                 <BodyLong spacing>
-                  Når du sporer hendelser i Umami, bruk naturlig språk som beskriver hva brukeren gjør. Tenk på
+                  Når du sporer hendelser i Innblikk, bruk naturlig språk som beskriver hva brukeren gjør. Tenk på
                   hendelsesnavnet som en kort setning.
                 </BodyLong>
 
@@ -359,13 +359,13 @@ analytics(Events.NAVIGERE, properties);`}
                 </BodyLong>
               </section>
 
-              {/* Implementation in Umami */}
+              {/* Implementation in Innblikk */}
               <section id="implementering" className="pt-20">
                 <Heading level="2" size="medium" spacing className="mb-8">
                   Implementer i koden
                 </Heading>
                 <BodyLong spacing>
-                  For å implementere Umami trenger du en sporingskode. Denne finner du via{' '}
+                  For å implementere Innblikk trenger du en sporingskode. Denne finner du via{' '}
                   <Link href="/public">Innblikk forsiden</Link>. Her er et eksempel på hvordan du kan spore hendelser i
                   tråd med taksonomien:
                 </BodyLong>
@@ -397,7 +397,7 @@ function handleSkjemaSendt() {
                 <Heading level="2" size="medium" spacing className="mb-8">
                   Test og verifiser
                 </Heading>
-                <BodyLong spacing>Sjekk alltid at hendelsene blir registrert riktig i Umami.</BodyLong>
+                <BodyLong spacing>Sjekk alltid at hendelsene blir registrert riktig i Innblikk.</BodyLong>
 
                 <List as="ol">
                   <List.Item>

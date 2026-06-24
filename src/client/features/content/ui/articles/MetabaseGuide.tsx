@@ -8,7 +8,7 @@ const MetabaseGuide = () => {
     <>
       <PageHeader
         title="Slik lager du dashboards i Metabase"
-        description="En steg-for-steg guide for å lage dashboard med Umami-data i Metabase."
+        description="En steg-for-steg guide for å lage dashboard med Innblikk-data i Metabase."
         variant="article"
       />
 
@@ -21,7 +21,7 @@ const MetabaseGuide = () => {
             </Heading>
             <List as="ol" size="small" className="mt-2 text-[var(--ax-text-default)] space-y-2">
               <List.Item>Opprett nytt dashboard i Metabase</List.Item>
-              <List.Item>Lag grafer med Umami Grafbyggeren</List.Item>
+              <List.Item>Lag grafer med Grafbyggeren</List.Item>
               <List.Item>Legg til grafer i Matabase-dashboardet</List.Item>
             </List>
           </Box>
@@ -84,12 +84,12 @@ const MetabaseGuide = () => {
                   <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[var(--ax-bg-accent-strong)] text-[var(--ax-text-contrast)] text-base font-semibold">
                     2
                   </span>
-                  Lag grafer med Umami Grafbyggeren
+                  Lag grafer med Grafbyggeren
                 </Heading>
 
                 <div className="pt-4 ml-8">
                   <Heading level="3" size="xsmall" spacing>
-                    Start i Umami Grafbyggeren
+                    Start i Grafbyggeren
                   </Heading>
                 </div>
                 <ol className="mt-2 space-y-2 text-[var(--ax-text-default)] list-none ml-8">
@@ -100,7 +100,7 @@ const MetabaseGuide = () => {
                     <span>
                       Gå til{' '}
                       <a href="/grafbygger" target="_new" className="text-[var(--ax-text-accent)] underline">
-                        Umami Grafbygger
+                        Grafbygger
                       </a>
                       .
                     </span>

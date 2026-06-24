@@ -46,7 +46,7 @@ function Oppsett() {
         title="Teknisk oppsett"
         description={
           <>
-            Her finner du utviklerverktøy, veiledning og <Link href="#sporingskoder">sporingskoder</Link> for Umami.
+            Her finner du utviklerverktøy, veiledning og <Link href="#sporingskoder">sporingskoder</Link> for Innblikk.
           </>
         }
       />
@@ -118,11 +118,11 @@ function Oppsett() {
           }}
         >
           {[
-            { href: '/komigang', label: 'Oppsett guide', description: 'Sett opp Umami for din nettside' },
+            { href: '/komigang', label: 'Oppsett guide', description: 'Sett opp Innblikk for din nettside' },
             {
               href: 'https://navno.sharepoint.com/sites/intranett-utvikling/SitePages/Rutine-for-bruk-av-Umami.aspx',
               label: 'Retningslinjer',
-              description: 'Rutine for bruk av Umami',
+              description: 'Rutine for bruk av Innblikk',
             },
             { href: '/taksonomi', label: 'Taksonomi', description: 'Navngi hendelser og egenskaper' },
           ].map((article) => (
