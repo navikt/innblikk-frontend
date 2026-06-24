@@ -27,25 +27,23 @@ export default function Header({ theme }: HeaderProps) {
   const buildShortSha = buildSha && buildSha !== 'unknown' ? buildSha.slice(0, 7) : null
 
   const guideLinks = [
+    { href: '/komigang', label: 'Kom i gang' },
     {
       href: 'https://navno.sharepoint.com/sites/intranett-utvikling/SitePages/Rutine-for-bruk-av-Umami.aspx',
       label: 'Retningslinjer',
       external: true,
     },
-    { href: '/komigang', label: 'Oppsett guide' },
-    { href: '/taksonomi', label: 'Taksonomi' },
     {
       href: 'https://reops-docs.ansatt.dev.nav.no/',
-      label: 'Teknisk dokumentasjon',
+      label: 'Dokumentasjon',
       external: true,
     },
   ]
 
   const developerLinks = [
-    { href: '/personvernssjekk', label: 'Personvernsjekk' },
-    { href: '/diagnose', label: 'Diagnoseverktøy' },
-    { href: '/sql', label: 'SQL-editor' },
     { href: '/sporingskoder', label: 'Sporingskoder' },
+    { href: '/sql', label: 'SQL-spørringer' },
+    { href: '/personvernssjekk', label: 'Personvernsjekk' },
   ]
 
   const environmentLinks: MenuLink[] = (() => {
@@ -172,26 +170,6 @@ export default function Header({ theme }: HeaderProps) {
             </ActionMenu.Item>
           ))}
         </ActionMenu.Group>
-        <ActionMenu.Divider />
-        <ActionMenu.Group label="Utviklerverktøy">
-          {developerLinks.map((item) => (
-            <ActionMenu.Item
-              key={item.href}
-              as="a"
-              href={item.href}
-              onSelect={() => {
-                const properties: ActionMenuValgValgtProperties = {
-                  valgTekst: item.label,
-                  gruppeLabel: 'Utviklerverktøy',
-                  seksjon: 'header',
-                }
-                window.umami?.track(Events.ACTIONMENU_VALG_VALGT, properties)
-              }}
-            >
-              {item.label}
-            </ActionMenu.Item>
-          ))}
-        </ActionMenu.Group>
         {environmentLinks.length > 0 && (
           <>
             <ActionMenu.Divider />
@@ -216,6 +194,26 @@ export default function Header({ theme }: HeaderProps) {
             </ActionMenu.Group>
           </>
         )}
+        <ActionMenu.Divider />
+        <ActionMenu.Group label="Verktøy">
+          {developerLinks.map((item) => (
+            <ActionMenu.Item
+              key={item.href}
+              as="a"
+              href={item.href}
+              onSelect={() => {
+                const properties: ActionMenuValgValgtProperties = {
+                  valgTekst: item.label,
+                  gruppeLabel: 'Utviklerverktøy',
+                  seksjon: 'header',
+                }
+                window.umami?.track(Events.ACTIONMENU_VALG_VALGT, properties)
+              }}
+            >
+              {item.label}
+            </ActionMenu.Item>
+          ))}
+        </ActionMenu.Group>
         <ActionMenu.Divider />
         <ActionMenu.Group label="Preferanser">
           <ActionMenu.Item
