@@ -4,6 +4,16 @@ minimumReleaseAgeExclude:
 overrides:
   glob: ^13.0.3
   node-domexception: ^2.0.2
+  path-to-regexp: ^8.4.0
+  minimatch@3: ^3.1.2
+  minimatch@9: ^9.0.5
+  minimatch@10: ^10.2.3
+  brace-expansion@1: ^1.1.12
+  brace-expansion@2: ^2.0.2
+  brace-expansion@5: ^5.0.7
+  qs: ^6.15.2
+  body-parser: ^2.3.0
+  "@tootallnate/once": ^2.0.1
 allowBuilds:
   "@swc/core": true
   esbuild: true
