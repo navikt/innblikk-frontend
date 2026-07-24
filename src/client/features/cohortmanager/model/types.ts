@@ -11,23 +11,6 @@ export type ComparisonOperator =
   | 'STARTS_WITH'
   | 'ENDS_WITH'
 
-export interface CohortEntryConditionDto {
-  ordering: number
-  conditionType: ComparisonOperator
-  field: string
-  value: string
-}
-
-export interface CohortEntryDto {
-  id?: number
-  negated: boolean
-  inCohort: boolean
-  operator?: LogicalOperator
-  referencedCohortId?: number
-  ordering: number
-  conditions: CohortEntryConditionDto[]
-}
-
 export interface CohortDto {
   id: number
   websiteId: string
@@ -36,7 +19,8 @@ export interface CohortDto {
 }
 
 export interface CohortDetailDto extends CohortDto {
-  entries: CohortEntryDto[]
+  /** Root of the criteria tree, or null if no criteria have been saved yet. */
+  root: CohortNode | null
 }
 
 export interface CreateCohortRequest {
@@ -51,15 +35,38 @@ export interface UpdateCohortRequest {
   description?: string
 }
 
-export interface CreateCohortEntryRequest {
+// ─── Recursive criteria tree ──────────────────────────────────────────────────
+
+export type SequenceRelation = 'FOLLOWED_BY' | 'NOT_FOLLOWED_BY'
+export type SequenceTimeUnit = 'MINUTE' | 'HOUR' | 'DAY' | 'WEEK' | 'MONTH' | 'YEAR'
+
+export interface CohortGroupNode {
+  nodeType: 'GROUP'
+  combinator: LogicalOperator
   negated: boolean
-  inCohort: boolean
-  operator?: LogicalOperator
-  referencedCohortId?: number
-  conditions: Array<{
-    ordering: number
-    conditionType: ComparisonOperator
-    field: string
-    value: string
-  }>
+  children: CohortNode[]
 }
+
+export interface CohortConditionNode {
+  nodeType: 'CONDITION'
+  field: string
+  conditionType: ComparisonOperator
+  value: string
+}
+
+export interface CohortRefNode {
+  nodeType: 'COHORT_REF'
+  referencedCohortId: number
+  negated: boolean
+}
+
+export interface CohortSequenceNode {
+  nodeType: 'SEQUENCE'
+  anchor: CohortGroupNode
+  target: CohortGroupNode
+  relation: SequenceRelation
+  windowValue: number
+  windowUnit: SequenceTimeUnit
+}
+
+export type CohortNode = CohortGroupNode | CohortConditionNode | CohortRefNode | CohortSequenceNode

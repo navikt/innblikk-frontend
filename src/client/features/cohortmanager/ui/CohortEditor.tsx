@@ -1,24 +1,13 @@
 import { useState, useEffect } from 'react'
-import {
-  QueryBuilder,
-  type RuleGroupType,
-  type RuleType,
-  type Field,
-  type Operator,
-  type Path,
-} from 'react-querybuilder'
+import { QueryBuilder, type RuleGroupType, type Field, type Operator } from 'react-querybuilder'
 import { QueryBuilderDateTime } from '@react-querybuilder/datetime'
-import '@react-querybuilder/datetime/query-builder-datetime.css'
+import '@react-querybuilder/datetime/dist/datetime.css'
+import '@react-querybuilder/datetime/dist/datetime-layout.css'
 import 'react-querybuilder/dist/query-builder-layout.css'
 import { Button, Dialog, VStack, BodyShort, Box, Tag } from '@navikt/ds-react'
-import type {
-  CohortDetailDto,
-  CohortEntryDto,
-  CohortEntryConditionDto,
-  CreateCohortEntryRequest,
-  ComparisonOperator,
-} from '../model/types.ts'
-import { createEntry, deleteEntry } from '../api/cohortManagerApi.ts'
+import type { CohortDetailDto, CohortGroupNode, CohortNode } from '../model/types.ts'
+import { nodeToRuleGroup, ruleToNode } from '../utils/cohortTreeMapper.ts'
+import { replaceCriteria } from '../api/cohortManagerApi.ts'
 import './cohortEditor.css'
 
 // ─── Fields ──────────────────────────────────────────────────────────────────
@@ -49,6 +38,7 @@ const OPERATORS: Operator[] = [
   { name: 'IN_SET', label: 'er i liste' },
   { name: 'NOT_IN_SET', label: 'er ikke i liste' },
   { name: 'in_cohort', label: 'tilhører' },
+  { name: 'not_in_cohort', label: 'tilhører ikke' },
 ]
 
 const DATETIME_OPERATORS: Operator[] = [
@@ -56,81 +46,17 @@ const DATETIME_OPERATORS: Operator[] = [
   { name: 'LESS_THAN_OR_EQUAL', label: 'er før eller lik' },
 ]
 
+const EMPTY_ROOT: CohortGroupNode = { nodeType: 'GROUP', combinator: 'AND', negated: false, children: [] }
+
 // ─── RQB ↔ Backend mapping ────────────────────────────────────────────────────
+// Delegates to cohortTreeMapper.ts (nodeToRule/ruleToNode), which is unit-tested
+// against arbitrary nesting, negated cohort refs, OR-of-cohort-refs, and
+// sequence nodes — see cohortTreeMapper.test.ts.
 
-/**
- * Each CohortEntryDto becomes one RQB sub-group.
- * - condition=IN_COHORT  → single rule with field='__cohort__', operator='in_cohort', value=referencedCohortId
- * - condition=PERFORMED  → group.not = false, rules = conditions
- * - condition=NOT_PERFORMED → group.not = true, rules = conditions
- */
-function entryToGroup(entry: CohortEntryDto): RuleGroupType {
-  if (entry.inCohort) {
-    return {
-      combinator: 'and',
-      not: false,
-      rules: [
-        {
-          field: '__cohort__',
-          operator: 'in_cohort',
-          value: String(entry.referencedCohortId ?? ''),
-        },
-      ],
-    }
-  }
-  return {
-    combinator: (entry.operator ?? 'AND').toLowerCase(),
-    not: entry.negated,
-    rules: entry.conditions.map((c) => ({
-      field: c.field,
-      operator: c.conditionType,
-      value: c.value,
-    })),
-  }
-}
-
-/** Top-level query = all entries ANDed together */
+/** Top-level query = the cohort's criteria tree, or an empty AND group if none saved yet. */
 export function cohortToQuery(cohort: CohortDetailDto): RuleGroupType {
-  return {
-    combinator: 'and',
-    rules: cohort.entries
-      .slice()
-      .sort((a, b) => a.ordering - b.ordering)
-      .map(entryToGroup),
-  }
-}
-
-/** Convert a single sub-group back to a CreateCohortEntryRequest */
-function groupToEntryRequest(group: RuleGroupType): CreateCohortEntryRequest {
-  const firstRule = group.rules[0]
-  if (
-    group.rules.length === 1 &&
-    !('combinator' in (firstRule as object)) &&
-    (firstRule as RuleType).field === '__cohort__'
-  ) {
-    return {
-      negated: false,
-      inCohort: true,
-      referencedCohortId: Number((firstRule as RuleType).value) || undefined,
-      conditions: [],
-    }
-  }
-
-  const conditions: CohortEntryConditionDto[] = group.rules
-    .filter((r): r is RuleType => !('combinator' in r))
-    .map((r, i) => ({
-      ordering: i,
-      conditionType: r.operator as ComparisonOperator,
-      field: r.field,
-      value: String(r.value),
-    }))
-
-  return {
-    negated: group.not ?? false,
-    inCohort: false,
-    operator: group.combinator.toUpperCase() as 'AND' | 'OR',
-    conditions,
-  }
+  // Root is always a GROUP by construction (enforced server-side by CohortTreeValidator).
+  return nodeToRuleGroup((cohort.root as CohortGroupNode | null) ?? EMPTY_ROOT)
 }
 
 // ─── Human-readable summary ───────────────────────────────────────────────────
@@ -160,33 +86,36 @@ const OP_LABELS: Record<string, string> = {
   LESS_THAN_OR_EQUAL: '<=',
   IN_SET: 'i',
   NOT_IN_SET: 'ikke i',
-  in_cohort: 'tilhører',
 }
 
-function ruleToHuman(rule: RuleType, cohortNames: Record<string, string>): string {
-  const field = FIELD_LABELS[rule.field] ?? rule.field
-  const op = OP_LABELS[rule.operator] ?? rule.operator
-  const val = rule.field === '__cohort__' ? (cohortNames[rule.value] ?? `kohort #${rule.value}`) : `«${rule.value}»`
-  return `${field} ${op} ${val}`
+function nodeToHuman(node: CohortNode, cohortNames: Record<string, string>): string {
+  switch (node.nodeType) {
+    case 'GROUP': {
+      if (node.children.length === 0) return '(ingen kriterier)'
+      const inner = node.children.map((c) => nodeToHuman(c, cohortNames)).join(` ${node.combinator} `)
+      const wrapped = node.children.length > 1 ? `(${inner})` : inner
+      return node.negated ? `IKKE ${wrapped}` : wrapped
+    }
+    case 'CONDITION': {
+      const field = FIELD_LABELS[node.field] ?? node.field
+      const op = OP_LABELS[node.conditionType] ?? node.conditionType
+      return `${field} ${op} «${node.value}»`
+    }
+    case 'COHORT_REF': {
+      const name = cohortNames[String(node.referencedCohortId)] ?? `kohort #${node.referencedCohortId}`
+      return `${node.negated ? 'IKKE ' : ''}tilhører ${name}`
+    }
+    case 'SEQUENCE': {
+      const anchorText = nodeToHuman(node.anchor, cohortNames)
+      const targetText = nodeToHuman(node.target, cohortNames)
+      const relationText = node.relation === 'NOT_FOLLOWED_BY' ? 'IKKE etterfulgt av' : 'etterfulgt av'
+      return `${anchorText} ${relationText} ${targetText} innen ${node.windowValue} ${node.windowUnit}`
+    }
+  }
 }
 
 export function queryToHuman(query: RuleGroupType, cohortNames: Record<string, string> = {}): string {
-  if (query.rules.length === 0) return '(ingen kriterier)'
-
-  const parts = query.rules.map((r) => {
-    if ('combinator' in r) {
-      const group = r
-      const inner = group.rules
-        .filter((x): x is RuleType => !('combinator' in x))
-        .map((x) => ruleToHuman(x, cohortNames))
-        .join(` ${(group.combinator ?? 'and').toUpperCase()} `)
-      const prefix = group.not ? 'IKKE (' : '('
-      return `${prefix}${inner})`
-    }
-    return ruleToHuman(r, cohortNames)
-  })
-
-  return parts.join(` ${query.combinator.toUpperCase()} `)
+  return nodeToHuman(ruleToNode(query), cohortNames)
 }
 
 // ─── CohortEditor ─────────────────────────────────────────────────────────────
@@ -218,27 +147,8 @@ export function CohortEditor({ cohort, allCohorts, onClose, onChanged }: CohortE
     setSaving(true)
     setError(null)
     try {
-      // Each sub-group at the root level = one backend entry.
-      // If the user added rules directly at root (no sub-groups), treat the
-      // whole root as one entry — this avoids adding a nesting level on each save.
-      const subGroups = query.rules.filter((r): r is RuleGroupType => 'combinator' in r)
-      const rootRules = query.rules.filter((r): r is RuleType => !('combinator' in r))
-
-      const desiredGroups: RuleGroupType[] =
-        subGroups.length > 0
-          ? subGroups
-          : rootRules.length > 0
-            ? [{ combinator: query.combinator, not: query.not ?? false, rules: rootRules }]
-            : []
-
-      // Delete all existing entries, then re-create in order
-      for (const entry of cohort.entries) {
-        if (entry.id) await deleteEntry(cohort.id, entry.id)
-      }
-      for (const group of desiredGroups) {
-        await createEntry(cohort.id, groupToEntryRequest(group))
-      }
-
+      const root = ruleToNode(query) as CohortGroupNode
+      await replaceCriteria(cohort.id, root)
       onChanged()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Feil ved lagring')
@@ -276,8 +186,6 @@ export function CohortEditor({ cohort, allCohorts, onClose, onChanged }: CohortE
                   showNotToggle
                   showCombinatorsBetweenRules={false}
                   addRuleToNewGroups
-                  // Block plain rules at root — only groups (entries) belong at root level
-                  onAddRule={(rule: RuleType, parentPath: Path) => (parentPath.length > 0 ? rule : false)}
                   controlClassnames={{
                     queryBuilder: 'cohort-qb queryBuilder-branches',
                     ruleGroup: 'cohort-qb-group',
@@ -310,7 +218,10 @@ export function CohortEditor({ cohort, allCohorts, onClose, onChanged }: CohortE
                   }}
                   getOperators={(field) => {
                     if (field === '__cohort__') {
-                      return [{ name: 'in_cohort', label: 'tilhører' }]
+                      return [
+                        { name: 'in_cohort', label: 'tilhører' },
+                        { name: 'not_in_cohort', label: 'tilhører ikke' },
+                      ]
                     }
                     if (field === 'created_at') return DATETIME_OPERATORS
                     return OPERATORS
@@ -361,10 +272,10 @@ interface CohortSummaryTagProps {
 }
 
 export function CohortSummaryTag({ cohort }: CohortSummaryTagProps) {
-  const query = cohortToQuery(cohort)
-  const entryCount = query.rules.filter((r) => 'combinator' in r).length
+  // Root is always a GROUP by construction (enforced server-side by CohortTreeValidator).
+  const criteriaCount = (cohort.root as CohortGroupNode | null)?.children.length ?? 0
 
-  if (entryCount === 0) {
+  if (criteriaCount === 0) {
     return (
       <Tag variant="neutral" size="small">
         Ingen kriterier
@@ -374,7 +285,7 @@ export function CohortSummaryTag({ cohort }: CohortSummaryTagProps) {
 
   return (
     <Tag variant="info" size="small">
-      {entryCount} gruppe{entryCount !== 1 ? 'r' : ''}
+      {criteriaCount} kriterie{criteriaCount !== 1 ? 'r' : ''}
     </Tag>
   )
 }

@@ -9,6 +9,14 @@ export interface Filter {
   dateRangeType?: string // For tracking which date range type is selected
   metabaseParam?: boolean // Add this line
   interactive?: boolean // Add this for interactive mode filters
+  /**
+   * A pre-built, already-parenthesized SQL boolean expression to inject
+   * verbatim, bypassing column/operator/value formatting entirely. Used to
+   * express real nested AND/OR/NOT (e.g. from a cohort's criteria tree),
+   * which a flat column=value Filter can't represent. When set, all other
+   * fields on this Filter are ignored.
+   */
+  rawExpression?: string
 }
 
 export interface SegmentPerformed {

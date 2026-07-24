@@ -33,13 +33,16 @@ importers:
         version: 4.1.1
       '@react-querybuilder/datetime':
         specifier: 8.19.0
-        version: 8.19.0(date-fns@4.1.0)(react-querybuilder@8.19.0(@types/react@19.2.13)(react@19.2.4)(redux@5.0.1))(react@19.2.4)
+        version: 8.19.0(date-fns@4.1.0)(dayjs@1.11.21)(react-querybuilder@8.19.0(@types/react@19.2.13)(react@19.2.4)(redux@5.0.1))(react@19.2.4)
       '@toon-format/toon':
         specifier: ^2.1.0
         version: 2.1.0
       date-fns:
         specifier: ^4.1.0
         version: 4.1.0
+      dayjs:
+        specifier: ^1.11.21
+        version: 1.11.21
       dotenv:
         specifier: ^17.2.4
         version: 17.2.4
@@ -1830,6 +1833,9 @@ packages:
 
   date-fns@4.1.0:
     resolution: {integrity: sha512-Ukq0owbQXxa/U3EGtsdVBkR1w7KOQ5gIBqdH2hkvknzZPYvBxb/aa6E8L7tmjFtkwZBu3UXBbjIgPo/Ez4xaNg==}
+
+  dayjs@1.11.21:
+    resolution: {integrity: sha512-98IT+HOahAisibz/yjKbzuOBwYcjJ7BCLPzARyHiyEBmRz4fatF+KPJszEHXsGYjUG234aH/cOjW1wwTbKUZlA==}
 
   debug@4.4.3:
     resolution: {integrity: sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA==}
@@ -4091,12 +4097,13 @@ snapshots:
       immer: 11.1.8
       numeric-quantity: 3.2.2
 
-  '@react-querybuilder/datetime@8.19.0(date-fns@4.1.0)(react-querybuilder@8.19.0(@types/react@19.2.13)(react@19.2.4)(redux@5.0.1))(react@19.2.4)':
+  '@react-querybuilder/datetime@8.19.0(date-fns@4.1.0)(dayjs@1.11.21)(react-querybuilder@8.19.0(@types/react@19.2.13)(react@19.2.4)(redux@5.0.1))(react@19.2.4)':
     dependencies:
       react: 19.2.4
       react-querybuilder: 8.19.0(@types/react@19.2.13)(react@19.2.4)(redux@5.0.1)
     optionalDependencies:
       date-fns: 4.1.0
+      dayjs: 1.11.21
 
   '@reduxjs/toolkit@2.12.0(react-redux@9.3.0(@types/react@19.2.13)(react@19.2.4)(redux@5.0.1))(react@19.2.4)':
     dependencies:
@@ -4972,6 +4979,8 @@ snapshots:
   date-fns-jalali@4.1.0-0: {}
 
   date-fns@4.1.0: {}
+
+  dayjs@1.11.21: {}
 
   debug@4.4.3:
     dependencies:

@@ -16,7 +16,7 @@ import { FILTER_COLUMNS } from '../../../shared/lib/constants.ts'
 import { DATE_FORMATS, METRICS } from '../model/constants.ts'
 import { sanitizeColumnName } from '../utils/sanitize.ts'
 import { useChartConfig } from '../hooks/useChartConfig.ts'
-import { fetchCohortDetail } from '../api/cohortApi.ts'
+import { fetchCohortsDeep } from '../api/cohortApi.ts'
 
 const ChartsPage = () => {
   const isFocusedMode = (() => {
@@ -60,6 +60,7 @@ const ChartsPage = () => {
     setRequestLoadEvents,
     setIsEventsLoading,
     setResolvedCohorts,
+    setCohortLookup,
 
     resetAll,
     addMetric,
@@ -93,20 +94,27 @@ const ChartsPage = () => {
       setConfig((prev) => ({ ...prev, cohortIds: ids }))
       if (ids.length === 0) {
         setResolvedCohorts([])
+        setCohortLookup(new Map())
         return
       }
       try {
-        const details = await Promise.all(ids.map((id) => fetchCohortDetail(id)))
+        // Fetches the selected cohorts plus every cohort they (transitively)
+        // reference via COHORT_REF nodes, so the resolver can inline referenced
+        // cohorts' criteria instead of falling back to "matches everyone".
+        const lookup = await fetchCohortsDeep(ids)
         if (requestId === cohortRequestIdRef.current) {
-          setResolvedCohorts(details)
+          const selected = ids.map((id) => lookup.get(id)).filter((c) => c !== undefined)
+          setResolvedCohorts(selected)
+          setCohortLookup(lookup)
         }
       } catch {
         if (requestId === cohortRequestIdRef.current) {
           setResolvedCohorts([])
+          setCohortLookup(new Map())
         }
       }
     },
-    [setConfig, setResolvedCohorts],
+    [setConfig, setResolvedCohorts, setCohortLookup],
   )
 
   const handleResetGroupings = useCallback(() => {

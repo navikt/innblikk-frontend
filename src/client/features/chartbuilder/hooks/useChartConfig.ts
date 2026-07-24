@@ -63,6 +63,7 @@ export function useChartConfig() {
   })
 
   const [resolvedCohorts, setResolvedCohorts] = useState<CohortDetailDto[]>([])
+  const [cohortLookup, setCohortLookup] = useState<Map<string, CohortDetailDto>>(new Map())
 
   const debouncedConfig = useDebounce(config, 500)
 
@@ -455,8 +456,8 @@ export function useChartConfig() {
           },
         ]
 
-    return generateSQLCore(debouncedConfig, sqlFilters, parameters, resolvedCohorts)
-  }, [debouncedConfig, filters, parameters, resolvedCohorts])
+    return generateSQLCore(debouncedConfig, sqlFilters, parameters, resolvedCohorts, cohortLookup)
+  }, [debouncedConfig, filters, parameters, resolvedCohorts, cohortLookup])
 
   const setOrderBy = (column: string, direction: 'ASC' | 'DESC') => {
     const metricWithAlias = config.metrics.find((m) => m.alias === column)
@@ -578,6 +579,7 @@ export function useChartConfig() {
     hasAppliedUrlParams,
     titleFromUrl,
     resolvedCohorts,
+    cohortLookup,
 
     // Refs
     chartFiltersRef,
@@ -591,6 +593,7 @@ export function useChartConfig() {
     setRequestLoadEvents,
     setIsEventsLoading,
     setResolvedCohorts,
+    setCohortLookup,
 
     // Actions
     resetAll,

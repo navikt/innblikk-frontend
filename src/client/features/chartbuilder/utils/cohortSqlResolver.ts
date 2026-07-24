@@ -1,194 +1,79 @@
-import type { CohortDetailDto, CohortEntryDto, CohortConditionType } from '../../../shared/types/cohort.ts'
-import type { Filter, SegmentDefinition, SegmentPerformed } from '../../../shared/types/chart.ts'
-
-export function conditionTypeToOperator(type: CohortConditionType): string {
-  switch (type) {
-    case 'EQUALS':
-      return '='
-    case 'NOT_EQUALS':
-      return '!='
-    case 'CONTAINS':
-      return 'LIKE'
-    case 'IN_SET':
-      return 'IN'
-    case 'NOT_IN_SET':
-      return 'NOT IN'
-    case 'STARTS_WITH':
-      return 'STARTS_WITH'
-    case 'ENDS_WITH':
-      return 'ENDS_WITH'
-    case 'GREATER_THAN_OR_EQUAL':
-      return '>='
-    case 'LESS_THAN_OR_EQUAL':
-      return '<='
-    default:
-      return '='
-  }
-}
-
-// ─── Datetime value handling ──────────────────────────────────────────────────
-
-interface RelativeDateTimeValue {
-  mode: 'relative'
-  anchor: string
-  offset: number
-  unit: 'minute' | 'hour' | 'day' | 'week' | 'month' | 'year'
-}
-
-function isRelativeDateTimeValue(value: unknown): value is RelativeDateTimeValue {
-  return typeof value === 'object' && value !== null && (value as RelativeDateTimeValue).mode === 'relative'
-}
-
-const BQ_DATE_UNIT: Record<RelativeDateTimeValue['unit'], string> = {
-  minute: 'MINUTE',
-  hour: 'HOUR',
-  day: 'DAY',
-  week: 'WEEK',
-  month: 'MONTH',
-  year: 'YEAR',
-}
-
-const BQ_ANCHOR: Record<string, string> = {
-  now: 'CURRENT_TIMESTAMP()',
-  startOfDay: 'TIMESTAMP_TRUNC(CURRENT_TIMESTAMP(), DAY)',
-  endOfDay: 'TIMESTAMP_ADD(TIMESTAMP_TRUNC(CURRENT_TIMESTAMP(), DAY), INTERVAL 1 DAY)',
-  startOfWeek: 'TIMESTAMP_TRUNC(CURRENT_TIMESTAMP(), WEEK)',
-  endOfWeek: 'TIMESTAMP_ADD(TIMESTAMP_TRUNC(CURRENT_TIMESTAMP(), WEEK), INTERVAL 1 WEEK)',
-  startOfMonth: 'TIMESTAMP_TRUNC(CURRENT_TIMESTAMP(), MONTH)',
-  endOfMonth: 'TIMESTAMP_ADD(TIMESTAMP_TRUNC(CURRENT_TIMESTAMP(), MONTH), INTERVAL 1 MONTH)',
-  startOfYear: 'TIMESTAMP_TRUNC(CURRENT_TIMESTAMP(), YEAR)',
-  endOfYear: 'TIMESTAMP_ADD(TIMESTAMP_TRUNC(CURRENT_TIMESTAMP(), YEAR), INTERVAL 1 YEAR)',
-}
+import type { CohortDetailDto, CohortGroupNode } from '../../../shared/types/cohort.ts'
+import type { SegmentDefinition } from '../../../shared/types/chart.ts'
+import { resolveNodeToSql } from '../../cohortmanager/utils/cohortSqlResolver.ts'
+import type { ResolveContext } from '../../cohortmanager/utils/cohortSqlResolver.ts'
+import { SESSION_COLUMNS } from '../model/constants.ts'
 
 /**
- * Converts a stored created_at value to a BigQuery SQL expression.
- *
- * Absolute ISO string → TIMESTAMP('2024-01-01T00:00:00')
- * RelativeDateTimeValue JSON → TIMESTAMP_SUB/ADD(anchor, INTERVAL N unit)
- *
- * The resulting expression is injected verbatim into SQL by buildSegmentFilterCondition
- * via the isTimestampFunction check (value contains 'TIMESTAMP').
+ * Adapts the canonical, tested per-visitor EXISTS-based resolver
+ * (cohortmanager/utils/cohortSqlResolver.ts) for use in Grafbygger's segment
+ * mechanism. There is only one cohort-tree-to-SQL implementation — this file
+ * just wires it up with Grafbygger-specific context (the `b` row alias used
+ * throughout sqlGenerator.ts, this codebase's `session_id` visitor-identity
+ * column, session-table field resolution, and website scoping) and packages
+ * the result as a SegmentDefinition.
  */
-export function dateValueToBigQuery(rawValue: string): string {
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(rawValue)
-  } catch {
-    parsed = rawValue
-  }
 
-  if (isRelativeDateTimeValue(parsed)) {
-    const anchor = BQ_ANCHOR[parsed.anchor] ?? 'CURRENT_TIMESTAMP()'
-    const unit = BQ_DATE_UNIT[parsed.unit] ?? 'DAY'
-    if (parsed.offset === 0) return anchor
-    const fn = parsed.offset < 0 ? 'TIMESTAMP_SUB' : 'TIMESTAMP_ADD'
-    return `${fn}(${anchor}, INTERVAL ${Math.abs(parsed.offset)} ${unit})`
-  }
-
-  // Absolute ISO string — wrap in TIMESTAMP() so BQ parses it correctly
-  const isoString = typeof parsed === 'string' ? parsed : rawValue
-  return `TIMESTAMP('${isoString.replace(/'/g, "''")}')`
+export interface CohortResolutionContext {
+  /** Fully-qualified BigQuery events table reference (same table base_query is built from). */
+  eventsTable: string
+  /**
+   * Fully-qualified BigQuery session table reference. SESSION_COLUMNS
+   * (browser/os/device/screen/language/country/subdivision1/city) live here,
+   * not on eventsTable — the resolver LEFT JOINs this table into any
+   * correlated subquery that references one of them.
+   */
+  sessionTable: string
+  websiteId: string
+  /** All cohorts potentially referenced (selected + transitively COHORT_REF'd), keyed by id string. */
+  cohortLookup: Map<string, CohortDetailDto>
 }
 
-// ─── Entry → Filters ──────────────────────────────────────────────────────────
+const EMPTY_ROOT: CohortGroupNode = { nodeType: 'GROUP', combinator: 'AND', negated: false, children: [] }
 
-/**
- * Maps a single cohort entry to a list of SQL Filter objects.
- *
- * Each entry holds N conditions — ALL applied as AND at the event-row level.
- *
- * created_at conditions produce raw BigQuery TIMESTAMP expressions that are
- * injected verbatim by buildSegmentFilterCondition (via isTimestampFunction check).
- *
- * event_name conditions are hoisted to SegmentDefinition.performed (IN / NOT IN).
- * All other field conditions become SegmentDefinition.filters (row-level WHERE).
- */
-export function cohortEntryToFilters(entry: CohortEntryDto): Filter[] {
-  if (entry.inCohort) {
-    // TODO(v2): fetch and expand referenced cohort inline
-    return []
+function escapeSqlLiteral(value: string): string {
+  return value.replace(/'/g, "''")
+}
+
+export function resolveCohortToSegmentDefinition(
+  cohort: CohortDetailDto,
+  index: number,
+  ctx: CohortResolutionContext,
+): SegmentDefinition {
+  if (!cohort.root) {
+    return { id: index + 1, name: cohort.name, filters: [], performed: null }
   }
 
-  const negated = entry.negated
-
-  return entry.conditions.map((c) => {
-    const isSet = c.conditionType === 'IN_SET' || c.conditionType === 'NOT_IN_SET'
-    let operator = conditionTypeToOperator(c.conditionType)
-
-    // Flip operator when entry is negated (NOT_PERFORMED)
-    if (negated) {
-      operator = negateOperator(operator)
-    }
-
-    // created_at: value → BigQuery TIMESTAMP expression (raw SQL injection)
-    if (c.field === 'created_at') {
-      return {
-        column: c.field,
-        operator,
-        value: dateValueToBigQuery(c.value),
+  const resolveCtx: ResolveContext = {
+    outerAlias: 'b',
+    eventsTable: ctx.eventsTable,
+    // This codebase's Umami event/session tables use session_id as the identity
+    // column shared across a visitor's rows (see sqlGenerator.ts's session join).
+    visitorIdColumn: 'session_id',
+    extraConditionFn: (alias) => `${alias}.website_id = '${escapeSqlLiteral(ctx.websiteId)}'`,
+    resolveFieldTable: (field) =>
+      (SESSION_COLUMNS as readonly string[]).includes(field)
+        ? { table: ctx.sessionTable, joinColumn: 'session_id' }
+        : undefined,
+    resolveCohortRef: (referencedCohortId) => {
+      const referenced = ctx.cohortLookup.get(String(referencedCohortId))
+      if (!referenced?.root) {
+        console.warn(
+          `[cohortSqlResolver] referenced cohort ${referencedCohortId} was not found or has no criteria yet ` +
+            '— treating the reference as "matches everyone" rather than breaking the whole query.',
+        )
+        return EMPTY_ROOT
       }
-    }
-
-    if (isSet) {
-      return {
-        column: c.field,
-        operator,
-        multipleValues: [c.value],
-      }
-    }
-    return {
-      column: c.field,
-      operator,
-      value: c.value,
-    }
-  })
-}
-
-function negateOperator(op: string): string {
-  switch (op) {
-    case '=':
-      return '!='
-    case '!=':
-      return '='
-    case 'LIKE':
-      return 'NOT LIKE'
-    case 'NOT LIKE':
-      return 'LIKE'
-    case 'IN':
-      return 'NOT IN'
-    case 'NOT IN':
-      return 'IN'
-    case '>=':
-      return '<'
-    case '<=':
-      return '>'
-    default:
-      return op
+      return referenced.root as CohortGroupNode
+    },
   }
-}
 
-export function resolveCohortToSegmentDefinition(cohort: CohortDetailDto, index: number): SegmentDefinition {
-  const allFilters = cohort.entries.flatMap(cohortEntryToFilters)
-
-  // event_name filters → hoisted to performed field
-  const eventFilters = allFilters.filter((f) => f.column === 'event_name')
-  const nonEventFilters = allFilters.filter((f) => f.column !== 'event_name')
-
-  // Build performed from positive event_name IN conditions
-  const positiveEventValues = eventFilters
-    .filter((f) => f.operator === 'IN' || f.operator === '=')
-    .flatMap((f) => f.multipleValues ?? (f.value ? [f.value] : []))
-
-  const performed: SegmentPerformed | null =
-    positiveEventValues.length > 0 ? { operator: 'IN', events: positiveEventValues } : null
-
-  // Negative event conditions stay as regular filters
-  const negativeEventFilters = eventFilters.filter((f) => f.operator === 'NOT IN' || f.operator === '!=')
+  const expression = resolveNodeToSql(cohort.root, resolveCtx)
 
   return {
     id: index + 1,
     name: cohort.name,
-    filters: [...nonEventFilters, ...negativeEventFilters],
-    performed,
+    filters: [{ column: '__cohort_expression__', rawExpression: expression }],
+    performed: null,
   }
 }

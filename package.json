@@ -25,6 +25,7 @@
     "@react-querybuilder/datetime": "8.19.0",
     "@toon-format/toon": "^2.1.0",
     "date-fns": "^4.1.0",
+    "dayjs": "^1.11.21",
     "dotenv": "^17.2.4",
     "express": "^5.2.1",
     "helmet": "^8.1.0",

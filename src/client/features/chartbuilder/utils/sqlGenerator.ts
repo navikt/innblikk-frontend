@@ -39,6 +39,14 @@ const needsQuotedValue = (column: string, value: string): boolean => {
 }
 
 const buildSegmentFilterCondition = (filter: Filter, tableAlias: string): string | null => {
+  if (filter.rawExpression) {
+    // Pre-built nested boolean expression (e.g. from a cohort's criteria tree) —
+    // inject verbatim, bypassing column/operator/value formatting entirely.
+    // The alias substitution happens at build time (see cohortSqlResolver.ts),
+    // so tableAlias isn't used here.
+    return filter.rawExpression
+  }
+
   if (filter.column.startsWith('param_')) return null
   if (!filter.operator) return null
 
@@ -328,6 +336,7 @@ export const generateSQLCore = (
   filters: Filter[],
   parameters: Parameter[],
   resolvedCohorts?: CohortDetailDto[],
+  cohortLookup?: Map<string, CohortDetailDto>,
 ): string => {
   if (!config.website) return ''
 
@@ -338,6 +347,7 @@ export const generateSQLCore = (
   const projectId = getGcpProjectId()
   const fullWebsiteTable = `\`${projectId}.umami_views.event\``
   const fullSessionTable = `\`${projectId}.umami_views.session\``
+  const websiteId = config.website.id
 
   const hasInteractiveFieldFilter = filters.some(
     (f) => f.interactive === true && f.metabaseParam === true && f.column === 'created_at',
@@ -345,7 +355,14 @@ export const generateSQLCore = (
   const segmentDefinitions = config.segments || []
   const effectiveSegmentDefinitions: SegmentDefinition[] =
     config.cohortIds && config.cohortIds.length > 0 && resolvedCohorts && resolvedCohorts.length > 0
-      ? resolvedCohorts.map((c, i) => resolveCohortToSegmentDefinition(c, i))
+      ? resolvedCohorts.map((c, i) =>
+          resolveCohortToSegmentDefinition(c, i, {
+            eventsTable: fullWebsiteTable,
+            sessionTable: fullSessionTable,
+            websiteId,
+            cohortLookup: cohortLookup ?? new Map(resolvedCohorts.map((rc) => [String(rc.id), rc])),
+          }),
+        )
       : segmentDefinitions
   const segmentFilters = effectiveSegmentDefinitions.flatMap((segment) => segment.filters || [])
   const isRatioMode = Boolean(config.segmentRatioMode) && effectiveSegmentDefinitions.length >= 2
