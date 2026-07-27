@@ -15,6 +15,10 @@ import type {
  * Encoding of non-native node kinds (RQB only has RuleGroupType/RuleType):
  * - COHORT_REF -> RuleType{ field: '__cohort__', operator: 'in_cohort' | 'not_in_cohort', value: <id> }
  * - SEQUENCE   -> RuleType{ field: '__sequence__', operator: 'sequence', value: <JSON blob> }
+ * - custom event parameter CONDITION -> RuleType{ field: '__param__', operator: <comparison>, value: <JSON blob {paramKey, value}> }
+ *   (a fixed sentinel field rather than encoding paramKey into the field name itself, so a
+ *   single custom valueEditor can render both the "which param" and "what value" inputs
+ *   together — see CohortEditor.tsx's ParamValueEditor.)
  */
 export function nodeToRule(node: CohortNode): RuleGroupType | RuleType {
   switch (node.nodeType) {
@@ -26,8 +30,15 @@ export function nodeToRule(node: CohortNode): RuleGroupType | RuleType {
       }
 
     case 'CONDITION':
+      if (node.paramKey != null) {
+        return {
+          field: '__param__',
+          operator: node.conditionType,
+          value: JSON.stringify({ paramKey: node.paramKey, value: node.value } satisfies ParamValueBlob),
+        }
+      }
       return {
-        field: node.field,
+        field: node.field ?? '',
         operator: node.conditionType,
         value: node.value,
       }
@@ -67,6 +78,13 @@ interface SequenceValueBlob {
   windowUnit: SequenceTimeUnit
 }
 
+export type { SequenceValueBlob }
+
+export interface ParamValueBlob {
+  paramKey: string
+  value: string
+}
+
 /**
  * Converts an RQB RuleGroupType/RuleType (as produced by the QueryBuilder UI) back to
  * a CohortNode tree, inverse of nodeToRule.
@@ -90,7 +108,18 @@ export function ruleToNode(rule: RuleGroupType | RuleType): CohortNode {
   }
 
   if (rule.field === '__sequence__') {
-    const blob = JSON.parse(rule.value as string) as SequenceValueBlob
+    // A freshly-added rule has `value: ''` (RQB's default) until the
+    // SequenceEditor's onChange fires for the first time — JSON.parse('')
+    // throws synchronously, and this runs on every render via the live
+    // preview (queryToHuman), so it must never throw here.
+    let blob: SequenceValueBlob
+    try {
+      blob = JSON.parse(rule.value as string) as SequenceValueBlob
+      if (!blob.anchor || !blob.target) throw new Error('incomplete sequence blob')
+    } catch {
+      const emptyStep: RuleGroupType = { combinator: 'and', rules: [] }
+      blob = { anchor: emptyStep, target: emptyStep, relation: 'FOLLOWED_BY', windowValue: 1, windowUnit: 'DAY' }
+    }
     return {
       nodeType: 'SEQUENCE',
       anchor: ruleToNode(blob.anchor) as CohortGroupNode,
@@ -98,6 +127,25 @@ export function ruleToNode(rule: RuleGroupType | RuleType): CohortNode {
       relation: blob.relation,
       windowValue: blob.windowValue,
       windowUnit: blob.windowUnit,
+    }
+  }
+
+  if (rule.field === '__param__') {
+    // Same rationale as __sequence__ above — guard against the default '' value.
+    let blob: ParamValueBlob
+    try {
+      blob = JSON.parse(rule.value as string) as ParamValueBlob
+      if (typeof blob.paramKey !== 'string' || typeof blob.value !== 'string') {
+        throw new Error('incomplete param blob')
+      }
+    } catch {
+      blob = { paramKey: '', value: '' }
+    }
+    return {
+      nodeType: 'CONDITION',
+      paramKey: blob.paramKey,
+      conditionType: rule.operator as ComparisonOperator,
+      value: blob.value,
     }
   }
 

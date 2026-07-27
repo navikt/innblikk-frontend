@@ -8,6 +8,7 @@ import EventFilter from './grafbygger/EventFilter.tsx'
 import ChartLayout from '../../analysis/ui/ChartLayoutOriginal.tsx'
 import MetricSelector from './grafbygger/MetricSelector.tsx'
 import CohortPicker, { type CohortPickerRef } from './grafbygger/CohortPicker.tsx'
+import DateRangeSelector from './grafbygger/DateRangeSelector.tsx'
 import GroupingOptions from './grafbygger/GroupingOptions.tsx'
 import AlertWithCloseButton from './grafbygger/AlertWithCloseButton.tsx'
 import SidebarSection from '../../../shared/ui/SidebarSection.tsx'
@@ -30,6 +31,8 @@ const ChartsPage = () => {
   const [metricResetSignal, setMetricResetSignal] = useState<number>(0)
   const [isEventFilterDirty, setIsEventFilterDirty] = useState<boolean>(false)
   const [interactiveDateFilterEnabled, setInteractiveDateFilterEnabled] = useState<boolean>(true)
+  const [selectedDateRange, setSelectedDateRange] = useState<string>('all')
+  const [customPeriodInputs, setCustomPeriodInputs] = useState<Record<number, { amount: string; unit: string }>>({})
   const cohortPickerRef = useRef<CohortPickerRef>(null)
   const cohortRequestIdRef = useRef(0)
 
@@ -40,6 +43,7 @@ const ChartsPage = () => {
     availableEvents,
     dateRangeReady,
     dateRangeInDays,
+    maxDaysAvailable,
     forceReload,
     resetIncludeParams,
     requestIncludeParams,
@@ -225,10 +229,34 @@ const ChartsPage = () => {
                   <Checkbox
                     size="small"
                     checked={!interactiveDateFilterEnabled}
-                    onChange={(e) => setInteractiveDateFilterEnabled(!e.target.checked)}
+                    onChange={(e) => {
+                      const overrideEnabled = e.target.checked
+                      setInteractiveDateFilterEnabled(!overrideEnabled)
+                      if (!overrideEnabled) {
+                        // Back to automatic default (last 7 days) — clear any
+                        // custom range so useChartConfig's fallback kicks back in.
+                        setFilters(filters.filter((f) => f.column !== 'created_at'))
+                        setSelectedDateRange('all')
+                      }
+                    }}
                   >
                     Overstyr tidsperiode
                   </Checkbox>
+                  {!interactiveDateFilterEnabled && (
+                    <div className="mt-2">
+                      <DateRangeSelector
+                        filters={filters}
+                        setFilters={setFilters}
+                        maxDaysAvailable={maxDaysAvailable}
+                        selectedDateRange={selectedDateRange}
+                        setSelectedDateRange={setSelectedDateRange}
+                        customPeriodInputs={customPeriodInputs}
+                        setCustomPeriodInputs={setCustomPeriodInputs}
+                        interactiveMode={false}
+                        bare
+                      />
+                    </div>
+                  )}
                 </div>
               </SidebarSection>
 

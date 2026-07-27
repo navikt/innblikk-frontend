@@ -5,6 +5,7 @@ import { createRef } from 'react'
 import CohortPicker from './CohortPicker.tsx'
 import type { CohortPickerRef } from './CohortPicker.tsx'
 import { fetchCohorts } from '../../api/cohortApi.ts'
+import type { CohortDto } from '../../../../shared/types/cohort.ts'
 
 vi.mock('../../api/cohortApi.ts', () => ({
   fetchCohorts: vi.fn(),
@@ -33,12 +34,13 @@ function renderCohortPicker(overrides: Partial<React.ComponentProps<typeof Cohor
 
 describe('CohortPicker', () => {
   describe('initial render', () => {
-    it('shows "Ingen kohorter valgt" when no cohorts selected', async () => {
+    it('shows the cohort combobox with no chips selected when no cohorts are chosen', async () => {
       mockFetchCohorts.mockResolvedValue([])
       renderCohortPicker()
       await waitFor(() => {
-        expect(screen.getByText(/ingen kohorter valgt/i)).toBeInTheDocument()
+        expect(screen.getByRole('combobox', { name: /velg kohorter/i })).toBeInTheDocument()
       })
+      expect(screen.queryByRole('button', { name: /fjern/i })).not.toBeInTheDocument()
     })
 
     it('shows Loader while fetching', () => {
@@ -70,6 +72,35 @@ describe('CohortPicker', () => {
       await waitFor(() => {
         expect(screen.getByRole('option', { name: /kohort a/i })).toBeInTheDocument()
         expect(screen.getByRole('option', { name: /kohort b/i })).toBeInTheDocument()
+      })
+    })
+
+    it('shows the cohort name (not its id) as the chip label, even when the backend id arrives as a raw JSON number', async () => {
+      // The actual backend serializes `id` as a JSON number (Kotlin Long), not
+      // a string — CohortDto's `id: string` type is a lie the runtime payload
+      // doesn't honor. Simulate that here instead of mocking with an
+      // already-string id like the other tests do. Selection is keyed by
+      // cohort *name* (unique per website, enforced by the backend), not id —
+      // Aksel's UNSAFE_Combobox chip shows the option's raw `value` directly,
+      // there's no separate label-for-chip concept, so `value` must be the name.
+      mockFetchCohorts.mockResolvedValue([{ id: 42, websiteId: 'site-1', name: 'Kohort A' } as unknown as CohortDto])
+      const { onCohortIdsChange } = renderCohortPicker()
+      const user = userEvent.setup()
+      await waitFor(() => {
+        expect(screen.queryByTitle(/laster kohorter/i)).not.toBeInTheDocument()
+      })
+      const combobox = screen.getByRole('combobox', { name: /velg kohorter/i })
+      await user.click(combobox)
+      const option = await screen.findByRole('option', { name: /kohort a/i })
+      await user.click(option)
+
+      const chip = await screen.findByRole('button', { name: /kohort a/i })
+      expect(chip).toBeInTheDocument()
+      expect(chip.textContent).toBe('Kohort A')
+
+      // The real (coerced-to-string) id still reaches the parent for API calls.
+      await waitFor(() => {
+        expect(onCohortIdsChange).toHaveBeenCalledWith(['42'])
       })
     })
   })

@@ -47,9 +47,17 @@ export interface CohortGroupNode {
   children: CohortNode[]
 }
 
+/**
+ * A single field predicate — a leaf. Exactly one of `field`/`paramKey` is set:
+ * `field` for a real event/session column, `paramKey` for a custom event
+ * parameter (key/value pairs on the event, e.g. a form field's `tekst`/
+ * `valg`/`data`) — see cohortSqlResolver.ts for how these resolve to UNNEST
+ * joins differently from plain columns.
+ */
 export interface CohortConditionNode {
   nodeType: 'CONDITION'
-  field: string
+  field?: string
+  paramKey?: string
   conditionType: ComparisonOperator
   value: string
 }

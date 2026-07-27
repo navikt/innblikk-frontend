@@ -1,4 +1,4 @@
-import { Alert, Checkbox, Chips, Link, Loader, UNSAFE_Combobox } from '@navikt/ds-react'
+import { Alert, BodyShort, Checkbox, Link, Loader, UNSAFE_Combobox } from '@navikt/ds-react'
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
 import { fetchCohorts } from '../../api/cohortApi.ts'
 import type { CohortDto } from '../../../../shared/types/cohort.ts'
@@ -18,20 +18,32 @@ const CohortPicker = forwardRef<CohortPickerRef, CohortPickerProps>(
     const [cohorts, setCohorts] = useState<CohortDto[]>([])
     const [isLoading, setIsLoading] = useState<boolean>(false)
     const [error, setError] = useState<string | null>(null)
-    const [selectedIds, setSelectedIds] = useState<string[]>([])
+    // Tracks selection by cohort *name*, not id — Aksel's UNSAFE_Combobox
+    // renders each selected chip's visible text from the option's raw `value`
+    // (there's no separate label-for-chip vs value-for-identity concept), so
+    // whatever we put in `value` is literally what the user sees on the chip.
+    // Names are guaranteed unique per website by the backend
+    // (`uq_cohorts_name_website`), so they're a safe identity to select on.
+    const [selectedNames, setSelectedNames] = useState<string[]>([])
     const [ratioMode, setRatioMode] = useState<boolean>(false)
 
     const loadCohorts = (id: string) => {
       setIsLoading(true)
       setError(null)
       fetchCohorts(id)
-        .then((data) => setCohorts(data))
+        // Backend's id is a Kotlin Long — serialized as a raw JSON number, not
+        // a string, despite CohortDto's TS type claiming `id: string`. Coerce
+        // here so every downstream comparison (options/selectedOptions here,
+        // cohorts.find below) actually deals with strings, not a silent
+        // number/string mismatch (that mismatch is what left the combobox's
+        // own internal chip unable to match a selected value to its label).
+        .then((data) => setCohorts(data.map((cohort) => ({ ...cohort, id: String(cohort.id) }))))
         .catch(() => setError('Kunne ikke laste kohorter. Prøv igjen senere.'))
         .finally(() => setIsLoading(false))
     }
 
     useEffect(() => {
-      setSelectedIds([])
+      setSelectedNames([])
       setRatioMode(false)
       onRatioModeChange(false)
 
@@ -52,19 +64,26 @@ const CohortPicker = forwardRef<CohortPickerRef, CohortPickerProps>(
       return () => window.removeEventListener('focus', handleFocus)
     }, [websiteId])
 
-    useEffect(() => {
-      onCohortIdsChange(selectedIds)
-    }, [selectedIds, onCohortIdsChange])
+    const selectedCohorts = selectedNames
+      .map((name) => cohorts.find((c) => c.name === name))
+      .filter((c): c is CohortDto => c !== undefined)
+
+    const selectedIds = selectedCohorts.map((c) => c.id)
 
     useEffect(() => {
-      if (selectedIds.length < 2 && ratioMode) {
+      onCohortIdsChange(selectedIds)
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedIds.join(','), onCohortIdsChange])
+
+    useEffect(() => {
+      if (selectedNames.length < 2 && ratioMode) {
         setRatioMode(false)
         onRatioModeChange(false)
       }
-    }, [selectedIds.length, ratioMode, onRatioModeChange])
+    }, [selectedNames.length, ratioMode, onRatioModeChange])
 
     const resetCohorts = () => {
-      setSelectedIds([])
+      setSelectedNames([])
       setRatioMode(false)
       onRatioModeChange(false)
     }
@@ -73,15 +92,7 @@ const CohortPicker = forwardRef<CohortPickerRef, CohortPickerProps>(
       resetCohorts,
     }))
 
-    const removeSelectedId = (id: string) => {
-      setSelectedIds((prev) => prev.filter((sid) => sid !== id))
-    }
-
-    const comboboxDisabled = ratioMode && selectedIds.length >= 2
-
-    const selectedCohorts = selectedIds
-      .map((id) => cohorts.find((c) => c.id === id))
-      .filter((c): c is CohortDto => c !== undefined)
+    const comboboxDisabled = ratioMode && selectedNames.length >= 2
 
     if (isLoading) {
       return <Loader size="small" title="Laster kohorter" />
@@ -103,16 +114,16 @@ const CohortPicker = forwardRef<CohortPickerRef, CohortPickerProps>(
           label="Velg kohorter"
           options={cohorts.map((cohort) => ({
             label: cohort.name,
-            value: cohort.id,
+            value: cohort.name,
           }))}
-          selectedOptions={selectedIds}
+          selectedOptions={selectedNames}
           onToggleSelected={(option: string, isSelected: boolean) => {
             if (!option) return
-            setSelectedIds((prev) => {
+            setSelectedNames((prev) => {
               if (isSelected) {
                 return [...new Set([...prev, option])]
               }
-              return prev.filter((id) => id !== option)
+              return prev.filter((name) => name !== option)
             })
           }}
           isMultiSelect
@@ -120,29 +131,13 @@ const CohortPicker = forwardRef<CohortPickerRef, CohortPickerProps>(
           disabled={comboboxDisabled}
         />
 
-        {selectedCohorts.length > 0 ? (
-          <div className="flex flex-wrap gap-1">
-            {selectedCohorts.map((cohort) => (
-              <Chips.Removable key={cohort.id} variant="neutral" onDelete={() => removeSelectedId(cohort.id)}>
-                {cohort.name}
-              </Chips.Removable>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm" style={{ color: 'var(--ax-text-subtle)' }}>
-            Ingen kohorter valgt
-          </p>
-        )}
+        <BodyShort size="small">
+          <Link href={`/kohorter${websiteId ? `?websiteId=${encodeURIComponent(websiteId)}` : ''}`} target="_blank">
+            Administrer kohorter
+          </Link>
+        </BodyShort>
 
-        <Link
-          href={`/kohorter${websiteId ? `?websiteId=${encodeURIComponent(websiteId)}` : ''}`}
-          target="_blank"
-          style={{ fontSize: '0.8125rem' }}
-        >
-          Administrer kohorter
-        </Link>
-
-        {selectedIds.length >= 2 && (
+        {selectedNames.length >= 2 && (
           <div className="filter-card-animate-in">
             <Checkbox
               size="small"

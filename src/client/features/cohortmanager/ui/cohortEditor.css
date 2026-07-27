@@ -7,10 +7,6 @@
   --rqb-border-color: var(--ax-border-neutral-subtle);
   --rqb-border-style: solid;
   --rqb-border-radius: 4px;
-  /* Branch lines — indent matches our group padding (0.75rem) */
-  --rqb-branch-indent: 0.75rem;
-  --rqb-branch-color: var(--ax-border-neutral-subtle);
-  --rqb-branch-width: 1px;
 }
 
 /* Rule group container */
@@ -30,98 +26,67 @@
   gap: 0.5rem;
 }
 
-/* All selects and inputs inside RQB */
-.cohort-qb select,
-.cohort-qb input[type='text'] {
-  font-family: inherit;
-  font-size: 0.875rem;
-  padding: 0.3rem 0.5rem;
-  border: 1px solid var(--ax-border-neutral);
-  border-radius: 4px;
-  background: var(--ax-bg-default);
-  color: var(--ax-text-default);
-  outline: none;
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06);
-  min-width: 6rem;
-}
-
-.cohort-qb select:hover,
-.cohort-qb input[type='text']:hover {
-  border-color: var(--ax-border-neutral-strong, #6f6f6f);
-}
-
-.cohort-qb select:focus,
-.cohort-qb input[type='text']:focus {
-  border-color: var(--ax-border-action);
-  box-shadow: 0 0 0 2px var(--ax-border-focus);
-}
-
-/* Add rule / add group buttons */
-.cohort-qb .ruleGroup-addRule,
-.cohort-qb .ruleGroup-addGroup {
-  font-size: 0.8125rem;
-  padding: 0.25rem 0.75rem;
-  border: 1px solid var(--ax-border-neutral);
-  border-radius: 4px;
-  background: var(--ax-bg-default);
-  color: var(--ax-text-action);
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.cohort-qb .ruleGroup-addRule:hover,
-.cohort-qb .ruleGroup-addGroup:hover {
-  background: var(--ax-bg-neutral-moderate);
-}
-
-/* Remove buttons */
-.cohort-qb .rule-remove,
-.cohort-qb .ruleGroup-remove {
-  font-size: 0.75rem;
-  padding: 0.2rem 0.5rem;
-  border: 1px solid var(--ax-border-danger);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--ax-text-danger);
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.cohort-qb .rule-remove:hover,
-.cohort-qb .ruleGroup-remove:hover {
-  background: var(--ax-bg-danger-soft);
-}
+/*
+ * Fields/operators/combinators/values/notToggle/add-remove buttons are all
+ * Aksel components (see CohortEditor.tsx's Aksel*/
+controlElements wiring) —
+ * they theme themselves, no CSS needed here beyond the group/row containers
+ * above and the layout-only rules below.
+ */
 
 /* Hide + Filter button at root level — only groups belong at root */
 .cohort-qb > .ruleGroup > .ruleGroup-header > .ruleGroup-addRule {
   display: none;
 }
 
-/* Combinator select */
-.cohort-qb .ruleGroup-combinators {
-  font-weight: 600;
-  font-size: 0.75rem;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+/*
+ * Layout cleanup: only the AND/OR combinator belongs on the left of a group
+ * header. Push IKKE (negation), +Filter, +Gruppe, and the remove ("x")
+ * button to the right — cohort-qb-not is the first of that cluster in DOM
+ * order, so margin-left: auto on it pushes itself and every sibling after it
+ * (add-rule, add-group, remove) to the far right of the flex row.
+ */
+.cohort-qb .ruleGroup-header .cohort-qb-not {
+  margin-left: auto;
 }
 
-/* IKKE (not-toggle) — space between checkbox and label */
-.cohort-qb .cohort-qb-not label {
-  gap: 0.5rem;
+/*
+ * An individual rule row has no combinator to keep on the left — just push
+ * its remove ("x") button to the far right, away from the field/operator/value inputs.
+ */
+.cohort-qb .rule .cohort-qb-remove {
+  margin-left: auto;
 }
-.cohort-qb .cohort-qb-not input[type='checkbox'] {
-  margin-right: 0.375rem;
+
+/*
+ * SequenceEditor/StepConditionsEditor (CohortEditor.tsx) reuse RQB's own
+ * `rule`/`ruleGroup`/`ruleGroup-header`/`ruleGroup-body` classnames on their
+ * outer containers for matching borders/background/spacing, so this whole
+ * nested editor looks like just another group in the builder — but the
+ * actual form controls are Aksel components (Select/TextField/Button), not
+ * raw HTML matched by the `.cohort-qb select`/`input[type='text']` rules
+ * above, since Aksel already themes those correctly on its own.
+ */
+.cohort-sequence-editor {
+  gap: 0.75rem;
 }
-caused by border + border-radius on rule rows */ .cohort-qb.queryBuilder-branches .ruleGroup-body > .rule::before,
-.cohort-qb.queryBuilder-branches .ruleGroup-body > .ruleGroup::before {
-  top: calc(-1 * var(--rqb-spacing) - 2px) !important;
-  height: calc(50% + var(--rqb-spacing) + 2px) !important;
+
+.cohort-sequence-editor > div > .aksel-body-short {
+  margin-bottom: 0.25rem;
 }
-.cohort-qb.queryBuilder-branches .ruleGroup-body > .rule::after,
-.cohort-qb.queryBuilder-branches .ruleGroup-body > .ruleGroup::after {
-  top: calc(50% - 2px) !important;
-  height: calc(50% + var(--rqb-spacing) + 2px) !important;
+
+/* Only the OG/ELLER combinator belongs on the left of a step's header row — push "+ Filter" to the right. */
+.cohort-step-add {
+  margin-left: auto;
+}
+
+/* Push each row's remove ("✕") button to the right, away from the field/operator/value controls. */
+.cohort-step-remove {
+  margin-left: auto;
+}
+
+/* Keep the combinator/relation selects compact instead of stretching to fill the row (Aksel's Select defaults to 100% width). */
+.cohort-step-combinator,
+.cohort-sequence-relation {
+  max-width: 12rem;
 }

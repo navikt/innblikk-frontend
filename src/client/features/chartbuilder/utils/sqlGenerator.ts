@@ -405,6 +405,9 @@ export const generateSQLCore = (
   const needsUrlFullpath =
     allFilters.some((f) => f.column === 'url_fullpath') || config.groupByFields.includes('url_fullpath')
 
+  const needsReferrerFullpath =
+    allFilters.some((f) => f.column === 'referrer_fullpath') || config.groupByFields.includes('referrer_fullpath')
+
   const needsVisitDuration =
     config.metrics.some((m) => m.column === 'visit_duration') || config.groupByFields.includes('visit_duration')
 
@@ -547,6 +550,11 @@ export const generateSQLCore = (
         sql += `    CONCAT(IFNULL(${fullWebsiteTable}.url_path, ''), IFNULL(${fullWebsiteTable}.url_query, '')) as url_fullpath`
       }
 
+      if (needsReferrerFullpath) {
+        sql += needsSessionJoin || needsUrlFullpath ? ',\n' : '\n'
+        sql += `    CONCAT(IFNULL(${fullWebsiteTable}.referrer_path, ''), IFNULL(${fullWebsiteTable}.referrer_query, '')) as referrer_fullpath`
+      }
+
       sql += `  FROM ${fullWebsiteTable}\n`
 
       if (needsSessionJoin) {
@@ -564,6 +572,11 @@ export const generateSQLCore = (
       if (needsUrlFullpath) {
         sql += needsSessionJoin ? ',\n' : '\n'
         sql += "    CONCAT(IFNULL(e.url_path, ''), IFNULL(e.url_query, '')) as url_fullpath"
+      }
+
+      if (needsReferrerFullpath) {
+        sql += needsSessionJoin || needsUrlFullpath ? ',\n' : '\n'
+        sql += "    CONCAT(IFNULL(e.referrer_path, ''), IFNULL(e.referrer_query, '')) as referrer_fullpath"
       }
 
       sql += `  FROM ${fullWebsiteTable} e\n`

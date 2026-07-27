@@ -73,7 +73,7 @@ const SqlViewer = ({
       </div>
       <div className="border rounded-md overflow-hidden bg-[#1e1e1e]">
         <Editor
-          height="400px"
+          height="480px"
           defaultLanguage="sql"
           value={formattedSql}
           theme="vs-dark"

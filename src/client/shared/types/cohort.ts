@@ -23,9 +23,11 @@ export interface CohortGroupNode {
   children: CohortNode[]
 }
 
+/** Exactly one of field/paramKey is set — see cohortmanager/utils/cohortSqlResolver.ts. */
 export interface CohortConditionNode {
   nodeType: 'CONDITION'
-  field: string
+  field?: string
+  paramKey?: string
   conditionType: CohortConditionType
   value: string
 }

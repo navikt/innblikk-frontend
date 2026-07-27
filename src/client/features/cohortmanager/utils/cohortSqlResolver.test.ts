@@ -12,6 +12,12 @@ const condition = (
   conditionType: CohortConditionNode['conditionType'] = 'EQUALS',
 ): CohortConditionNode => ({ nodeType: 'CONDITION', field, conditionType, value })
 
+const paramCondition = (
+  paramKey: string,
+  value: string,
+  conditionType: CohortConditionNode['conditionType'] = 'EQUALS',
+): CohortConditionNode => ({ nodeType: 'CONDITION', paramKey, conditionType, value })
+
 const group = (overrides: Partial<Omit<CohortGroupNode, 'nodeType'>> = {}): CohortGroupNode => ({
   nodeType: 'GROUP',
   combinator: 'AND',
@@ -393,9 +399,120 @@ describe('conditions on a field that lives on a joined table (e.g. session-level
 
     expect((sql.match(/LEFT JOIN/g) ?? []).length).toBe(1)
   })
+
+  it('appends extraJoinConditionFn onto the JOIN...ON clause (e.g. a website_id predicate to help push filtering into an aggregated view, or a partition filter on a raw table)', () => {
+    const root = group({ children: [condition('browser', 'Chrome')] })
+
+    const sql = pretty(
+      resolveNodeToSql(
+        root,
+        ctxWithSessionJoin({
+          resolveFieldTable: () => ({
+            table: 'session',
+            joinColumn: 'session_id',
+            extraJoinConditionFn: (joinAlias) => `${joinAlias}.website_id = 'abc-123'`,
+          }),
+        }),
+      ),
+    )
+
+    expect(sql).toContain("AND ej0.website_id = 'abc-123'")
+  })
 })
 
-// ─── Query 6: sequence — did X, then did NOT do Y within 1 day of X ─────────
+// ─── Queries 4/5/6: custom event parameters (key/value pairs on the event, not plain columns) ──
+
+describe('conditions on a custom event parameter (paramKey, not field)', () => {
+  const ctxWithParamsJoin = (overrides: Partial<ResolveContext> = {}) =>
+    defaultCtx({
+      resolveEventParamsJoin: () => ({
+        table: 'event_data_view',
+        joinOn: [
+          { rowColumn: 'event_id', viewColumn: 'website_event_id' },
+          { rowColumn: 'website_id', viewColumn: 'website_id' },
+        ],
+      }),
+      ...overrides,
+    })
+
+  it('LEFT JOINs the event-params view then UNNESTs once for a single paramKey', () => {
+    const root = group({ children: [condition('event_name', 'info'), paramCondition('tekst', 'Vedtak alderspensjon')] })
+
+    const sql = pretty(resolveNodeToSql(root, ctxWithParamsJoin()))
+
+    expect(sql).toMatchInlineSnapshot(`
+      "EXISTS (
+        SELECT
+          1
+        FROM
+          events e
+          LEFT JOIN event_data_view eed ON e.event_id = eed.website_event_id
+          AND e.website_id = eed.website_id
+          LEFT JOIN UNNEST (eed.event_parameters) ep0 ON ep0.data_key = 'tekst'
+        WHERE
+          e.visitor_id = b.visitor_id
+          AND e.event_name = 'info'
+          AND ep0.string_value = 'Vedtak alderspensjon'
+      )"
+    `)
+  })
+
+  it('uses two separate UNNEST aliases for two different paramKeys in the same AND group (query 4/5 shape)', () => {
+    const root = group({ children: [paramCondition('text', 'Født før 1963'), paramCondition('data', 'Ja')] })
+
+    const sql = pretty(resolveNodeToSql(root, ctxWithParamsJoin()))
+
+    expect((sql.match(/UNNEST/g) ?? []).length).toBe(2)
+    expect(sql).toContain("ON ep0.data_key = 'text'")
+    expect(sql).toContain("ON ep1.data_key = 'data'")
+    expect(sql).toContain("ep0.string_value = 'Født før 1963'")
+    expect(sql).toContain("ep1.string_value = 'Ja'")
+  })
+
+  it('joins the event-params view only once even with multiple paramKey conditions in one subquery', () => {
+    const root = group({ children: [paramCondition('text', 'X'), paramCondition('data', 'Y')] })
+
+    const sql = pretty(resolveNodeToSql(root, ctxWithParamsJoin()))
+
+    expect((sql.match(/event_data_view/g) ?? []).length).toBe(1)
+  })
+
+  it('reuses the same UNNEST alias when the same paramKey is referenced twice', () => {
+    const root = group({
+      children: [
+        paramCondition('tekst', 'A', 'GREATER_THAN_OR_EQUAL'),
+        paramCondition('tekst', 'B', 'LESS_THAN_OR_EQUAL'),
+      ],
+    })
+
+    const sql = pretty(resolveNodeToSql(root, ctxWithParamsJoin()))
+
+    expect((sql.match(/UNNEST/g) ?? []).length).toBe(1)
+  })
+
+  it('applies to sequence anchor/target subqueries too (query 6 shape)', () => {
+    const sequenceNode: CohortSequenceNode = {
+      nodeType: 'SEQUENCE',
+      anchor: group({ children: [condition('event_name', 'info'), paramCondition('tekst', 'Vedtak alderspensjon')] }),
+      target: group({ children: [condition('event_name', 'info'), paramCondition('tekst', 'Fremtidig vedtak')] }),
+      relation: 'NOT_FOLLOWED_BY',
+      windowValue: 1,
+      windowUnit: 'DAY',
+    }
+    const root = group({ children: [sequenceNode] })
+
+    const sql = pretty(resolveNodeToSql(root, ctxWithParamsJoin()))
+
+    expect((sql.match(/UNNEST/g) ?? []).length).toBe(2)
+    expect(sql).toContain('NOT EXISTS')
+  })
+
+  it('throws a descriptive error if a paramKey condition is used without resolveEventParamsJoin configured', () => {
+    const root = group({ children: [paramCondition('tekst', 'X')] })
+
+    expect(() => resolveNodeToSql(root, defaultCtx())).toThrow(/paramKey "tekst"/)
+  })
+})
 
 describe('sequence: anchor followed (or not) by target within a time window', () => {
   const sequence = (relation: CohortSequenceNode['relation']): CohortSequenceNode => ({
@@ -474,6 +591,28 @@ describe('sequence: anchor followed (or not) by target within a time window', ()
 // (trivial outputs — plain assertions read fine without a snapshot here)
 
 describe('general mechanics', () => {
+  it('a condition with a missing value resolves to FALSE instead of throwing (malformed/incomplete cohort data must not crash the caller)', () => {
+    const malformed = {
+      nodeType: 'CONDITION',
+      field: 'url_path',
+      conditionType: 'EQUALS',
+    } as unknown as CohortConditionNode
+    const root = group({ children: [malformed] })
+
+    const sql = resolveNodeToSql(root, defaultCtx())
+
+    expect(sql).toContain('FALSE')
+  })
+
+  it('a condition with neither field nor paramKey resolves to FALSE instead of throwing', () => {
+    const malformed = { nodeType: 'CONDITION', conditionType: 'EQUALS', value: 'x' } as unknown as CohortConditionNode
+    const root = group({ children: [malformed] })
+
+    const sql = resolveNodeToSql(root, defaultCtx())
+
+    expect(sql).toContain('FALSE')
+  })
+
   it('an empty root group (no criteria yet) resolves to a tautology, not an error', () => {
     const root = group({ children: [] })
 

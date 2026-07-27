@@ -85,6 +85,29 @@ export interface JoinedTable {
   table: string
   /** Column shared between eventsTable and this table, used to correlate them (e.g. 'session_id'). */
   joinColumn: string
+  /**
+   * Extra condition(s) ANDed onto the JOIN...ON clause itself (not the
+   * subquery's WHERE), given the joined table's alias. Required for
+   * partition-filter-enforced tables (BigQuery rejects querying them without
+   * a filter on the partition column) that aren't already scoped by
+   * eventsTable's own correlation — e.g. a raw session table partitioned on
+   * `created_at` with no natural single-column tie to the event's timestamp.
+   */
+  extraJoinConditionFn?: (joinAlias: string) => string
+}
+
+/**
+ * Identifies the view holding an event's custom parameters as a repeated
+ * key/value record (BigQuery `UNNEST`-able), and how to correlate it to an
+ * eventsTable row. Distinct from [JoinedTable] because the correlation is
+ * composite (multiple column pairs), not a single shared column name — see
+ * chartbuilder's sqlGenerator.ts `ed_view` join for the non-cohort analog.
+ */
+export interface EventParamsJoin {
+  /** Fully-qualified BigQuery view reference holding `event_parameters` (a repeated data_key/string_value record). */
+  table: string
+  /** Column pairs correlating an eventsTable row to this view's row, ANDed together. */
+  joinOn: Array<{ rowColumn: string; viewColumn: string }>
 }
 
 export interface ResolveContext {
@@ -111,6 +134,16 @@ export interface ResolveContext {
    * conditions) and references the field via the joined alias instead.
    */
   resolveFieldTable?: (field: string) => JoinedTable | undefined
+  /**
+   * Resolves the event-parameters view + its composite join-on for a
+   * correlated subquery, used whenever a CONDITION has `paramKey` set instead
+   * of `field`. Required if any cohort condition uses `paramKey`; each
+   * distinct paramKey referenced within one subquery gets its own
+   * `UNNEST(...)` alias (mirrors sqlGenerator.ts's per-param-key UNNEST
+   * pattern), since a single unnested row can't match two different
+   * `data_key`s simultaneously.
+   */
+  resolveEventParamsJoin?: () => EventParamsJoin
 }
 
 export function resolveNodeToSql(node: CohortNode, ctx: ResolveContext): string {
@@ -167,9 +200,15 @@ function combineExpressions(expressions: string[], combinator: CohortGroupNode['
 }
 
 /**
- * Resolves each condition's SQL fragment, LEFT JOINing whatever external
- * table(s) ctx.resolveFieldTable says a field lives on (once per distinct
- * table needed within this one subquery, not once per condition).
+ * Resolves each condition's SQL fragment.
+ * - `field` conditions: LEFT JOINs whatever external table
+ *   ctx.resolveFieldTable says the field lives on (once per distinct table
+ *   needed within this one subquery, not once per condition).
+ * - `paramKey` conditions: LEFT JOINs the event-params view once per subquery
+ *   (via ctx.resolveEventParamsJoin), then LEFT JOIN UNNEST(...)'s it once
+ *   per distinct paramKey referenced — two different paramKeys on the same
+ *   event need two separate UNNEST aliases, since a single unnested row can't
+ *   have two different data_keys at once.
  */
 function resolveConditionFragments(
   conditions: CohortConditionNode[],
@@ -178,19 +217,49 @@ function resolveConditionFragments(
 ): { fragments: string[]; joinClauses: string[] } {
   const joinClauses: string[] = []
   const joinAliasByTable = new Map<string, string>()
+  const paramAliasByKey = new Map<string, string>()
   let joinCounter = 0
+  let eventParamsViewAlias: string | undefined
 
   const fragments = conditions.map((condition) => {
-    const joined = ctx.resolveFieldTable?.(condition.field)
+    if (condition.paramKey != null) {
+      const eventParamsJoin = ctx.resolveEventParamsJoin?.()
+      if (!eventParamsJoin) {
+        throw new Error(
+          `cohort condition references paramKey "${condition.paramKey}" but ResolveContext has no resolveEventParamsJoin configured`,
+        )
+      }
+
+      if (!eventParamsViewAlias) {
+        eventParamsViewAlias = `${rowAlias}ed`
+        const on = eventParamsJoin.joinOn
+          .map((pair) => `${rowAlias}.${pair.rowColumn} = ${eventParamsViewAlias}.${pair.viewColumn}`)
+          .join(' AND ')
+        joinClauses.push(`LEFT JOIN ${eventParamsJoin.table} ${eventParamsViewAlias} ON ${on}`)
+      }
+
+      let paramAlias = paramAliasByKey.get(condition.paramKey)
+      if (!paramAlias) {
+        paramAlias = `${rowAlias}p${paramAliasByKey.size}`
+        paramAliasByKey.set(condition.paramKey, paramAlias)
+        joinClauses.push(
+          `LEFT JOIN UNNEST(${eventParamsViewAlias}.event_parameters) ${paramAlias} ` +
+            `ON ${paramAlias}.data_key = '${escapeSqlLiteral(condition.paramKey)}'`,
+        )
+      }
+      return conditionToSqlFragment(condition, paramAlias)
+    }
+
+    const joined = ctx.resolveFieldTable?.(condition.field as string)
     if (!joined) return conditionToSqlFragment(condition, rowAlias)
 
     let joinAlias = joinAliasByTable.get(joined.table)
     if (!joinAlias) {
       joinAlias = `${rowAlias}j${joinCounter++}`
       joinAliasByTable.set(joined.table, joinAlias)
-      joinClauses.push(
-        `LEFT JOIN ${joined.table} ${joinAlias} ON ${rowAlias}.${joined.joinColumn} = ${joinAlias}.${joined.joinColumn}`,
-      )
+      const extra = joined.extraJoinConditionFn?.(joinAlias)
+      const on = `${rowAlias}.${joined.joinColumn} = ${joinAlias}.${joined.joinColumn}` + (extra ? ` AND ${extra}` : '')
+      joinClauses.push(`LEFT JOIN ${joined.table} ${joinAlias} ON ${on}`)
     }
     return conditionToSqlFragment(condition, joinAlias)
   })
@@ -289,9 +358,35 @@ function conditionOperatorToSql(conditionType: CohortConditionNode['conditionTyp
  * `created_at` values are converted via dateValueToBigQuery (relative-date
  * JSON or absolute ISO string, both -> a raw BigQuery TIMESTAMP expression,
  * injected verbatim); all other fields are quoted string literals.
+ *
+ * When `condition.paramKey` is set, `alias` is the per-paramKey UNNEST alias
+ * (see resolveConditionFragments) and the value always lives in that row's
+ * `string_value` column (BigQuery's event-parameters record shape) — the key
+ * match itself is already baked into that alias's JOIN...ON, not repeated here.
  */
 function conditionToSqlFragment(condition: CohortConditionNode, alias: string): string {
+  if (typeof condition.value !== 'string') {
+    console.warn(
+      `[cohortSqlResolver] condition (field=${condition.field}, paramKey=${condition.paramKey}) has no value ` +
+        '— treating as "never matches" instead of throwing (this indicates malformed/incomplete cohort data).',
+    )
+    return 'FALSE'
+  }
+
   const operator = conditionOperatorToSql(condition.conditionType)
+
+  if (condition.paramKey != null) {
+    return `${alias}.string_value ${operator} '${escapeSqlLiteral(condition.value)}'`
+  }
+
+  if (condition.field == null) {
+    console.warn(
+      '[cohortSqlResolver] condition has neither field nor paramKey set — treating as "never matches" ' +
+        'instead of throwing (this indicates malformed/incomplete cohort data).',
+    )
+    return 'FALSE'
+  }
+
   const column = `${alias}.${condition.field}`
 
   if (condition.field === 'created_at') {

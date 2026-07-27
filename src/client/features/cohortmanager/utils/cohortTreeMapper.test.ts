@@ -10,6 +10,13 @@ const condition = (field = 'event_name', value = 'besok'): CohortConditionNode =
   value,
 })
 
+const paramCondition = (paramKey = 'tekst', value = 'X'): CohortConditionNode => ({
+  nodeType: 'CONDITION',
+  paramKey,
+  conditionType: 'EQUALS',
+  value,
+})
+
 const group = (overrides: Partial<Omit<CohortGroupNode, 'nodeType'>> = {}): CohortGroupNode => ({
   nodeType: 'GROUP',
   combinator: 'AND',
@@ -87,6 +94,35 @@ describe('nodeToRule / ruleToNode round-trip', () => {
     const rule = nodeToRule(node)
     expect(ruleToNode(rule)).toEqual(node)
   })
+
+  it('round-trips a custom event parameter condition (paramKey, not field)', () => {
+    const node = group({ children: [paramCondition('tekst', 'Vedtak alderspensjon')] })
+
+    const rule = nodeToRule(node)
+    expect(ruleToNode(rule)).toEqual(node)
+  })
+
+  it('round-trips two different paramKey conditions AND-ed in one group (query 4/5 shape)', () => {
+    const node = group({ children: [paramCondition('text', 'Født før 1963'), paramCondition('data', 'Ja')] })
+
+    const rule = nodeToRule(node)
+    expect(ruleToNode(rule)).toEqual(node)
+  })
+
+  it('round-trips a sequence whose anchor/target use paramKey conditions (query 6 shape)', () => {
+    const sequence: CohortSequenceNode = {
+      nodeType: 'SEQUENCE',
+      anchor: group({ children: [condition('event_name', 'info'), paramCondition('tekst', 'Vedtak alderspensjon')] }),
+      target: group({ children: [condition('event_name', 'info'), paramCondition('tekst', 'Fremtidig vedtak')] }),
+      relation: 'NOT_FOLLOWED_BY',
+      windowValue: 1,
+      windowUnit: 'DAY',
+    }
+    const node = group({ children: [sequence] })
+
+    const rule = nodeToRule(node)
+    expect(ruleToNode(rule)).toEqual(node)
+  })
 })
 
 describe('nodeToRule exact encoding (pins the RQB shape, not just round-trip self-consistency)', () => {
@@ -147,5 +183,39 @@ describe('nodeToRule exact encoding (pins the RQB shape, not just round-trip sel
     expect(parsed.relation).toBe('NOT_FOLLOWED_BY')
     expect(parsed.windowValue).toBe(1)
     expect(parsed.windowUnit).toBe('DAY')
+  })
+
+  it('encodes a paramKey condition as field=__param__ with a JSON blob carrying {paramKey, value}', () => {
+    const node = group({ children: [paramCondition('tekst', 'Vedtak alderspensjon')] })
+
+    const rule = nodeToRule(node) as RuleGroupType
+    const ruleForCondition = rule.rules[0] as RuleType
+
+    expect(ruleForCondition.field).toBe('__param__')
+    expect(ruleForCondition.operator).toBe('EQUALS')
+    const parsed = JSON.parse(ruleForCondition.value as string)
+    expect(parsed).toEqual({ paramKey: 'tekst', value: 'Vedtak alderspensjon' })
+  })
+})
+
+describe('ruleToNode robustness against RQB default values (regression: crashed the whole page)', () => {
+  it('does not throw for a freshly-added __sequence__ rule whose value is still the RQB default empty string', () => {
+    const rule: RuleType = { field: '__sequence__', operator: 'sequence', value: '' }
+    expect(() => ruleToNode(rule)).not.toThrow()
+  })
+
+  it('does not throw for a freshly-added __param__ rule whose value is still the RQB default empty string', () => {
+    const rule: RuleType = { field: '__param__', operator: 'EQUALS', value: '' }
+    expect(() => ruleToNode(rule)).not.toThrow()
+  })
+
+  it('does not throw for a __sequence__ rule with malformed (non-JSON) value', () => {
+    const rule: RuleType = { field: '__sequence__', operator: 'sequence', value: 'not json' }
+    expect(() => ruleToNode(rule)).not.toThrow()
+  })
+
+  it('does not throw for a __param__ rule with malformed (non-JSON) value', () => {
+    const rule: RuleType = { field: '__param__', operator: 'EQUALS', value: 'not json' }
+    expect(() => ruleToNode(rule)).not.toThrow()
   })
 })
