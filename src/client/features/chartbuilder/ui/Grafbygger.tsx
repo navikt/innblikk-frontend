@@ -14,7 +14,7 @@ import AlertWithCloseButton from './grafbygger/AlertWithCloseButton.tsx'
 import SidebarSection from '../../../shared/ui/SidebarSection.tsx'
 import ActionFeedbackButton from '../../../shared/ui/ActionFeedbackButton.tsx'
 import { FILTER_COLUMNS } from '../../../shared/lib/constants.ts'
-import { DATE_FORMATS, METRICS } from '../model/constants.ts'
+import { DATE_FORMATS, METRICS, COHORTS_ENABLED } from '../model/constants.ts'
 import { sanitizeColumnName } from '../utils/sanitize.ts'
 import { useChartConfig } from '../hooks/useChartConfig.ts'
 import { fetchCohortsDeep } from '../api/cohortApi.ts'
@@ -295,28 +295,30 @@ const ChartsPage = () => {
                 </div>
               </SidebarSection>
 
-              <SidebarSection
-                title="Kohorter"
-                action={
-                  showResetSegments ? (
-                    <ActionFeedbackButton
-                      label="Tilbakestill"
-                      activeLabel="Tilbakestilt!"
-                      variant="tertiary"
-                      size="xsmall"
-                      icon={<ArrowCirclepathReverseIcon aria-hidden />}
-                      onClick={() => cohortPickerRef.current?.resetCohorts()}
-                    />
-                  ) : undefined
-                }
-              >
-                <CohortPicker
-                  ref={cohortPickerRef}
-                  websiteId={config.website?.id}
-                  onCohortIdsChange={handleCohortIdsChange}
-                  onRatioModeChange={handleRatioModeChange}
-                />
-              </SidebarSection>
+              {COHORTS_ENABLED && (
+                <SidebarSection
+                  title="Kohorter"
+                  action={
+                    showResetSegments ? (
+                      <ActionFeedbackButton
+                        label="Tilbakestill"
+                        activeLabel="Tilbakestilt!"
+                        variant="tertiary"
+                        size="xsmall"
+                        icon={<ArrowCirclepathReverseIcon aria-hidden />}
+                        onClick={() => cohortPickerRef.current?.resetCohorts()}
+                      />
+                    ) : undefined
+                  }
+                >
+                  <CohortPicker
+                    ref={cohortPickerRef}
+                    websiteId={config.website?.id}
+                    onCohortIdsChange={handleCohortIdsChange}
+                    onRatioModeChange={handleRatioModeChange}
+                  />
+                </SidebarSection>
+              )}
 
               <SidebarSection
                 title="Gruppert etter..."

@@ -42,6 +42,13 @@ export const METRICS: MetricOption[] = [
   { label: 'Median', value: 'median' },
 ]
 
+/**
+ * Toggles the cohort builder UI in Grafbygger. Off by default while the
+ * cohorts feature is still merging in — flip to `true` in the "enable
+ * cohorts" PR once ready to ship.
+ */
+export const COHORTS_ENABLED = false
+
 export const SESSION_COLUMNS = [
   'browser',
   'os',

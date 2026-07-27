@@ -214,7 +214,7 @@ function AkselActionButton(props: ActionProps) {
       size="small"
       className={props.className}
       disabled={props.disabled}
-      onClick={(e) => props.handleOnClick(e as unknown as MouseEvent)}
+      onClick={(e) => props.handleOnClick(e)}
     >
       {props.label}
     </Button>
@@ -414,12 +414,22 @@ function StepConditionsEditor({ query, onChange }: StepConditionsEditorProps) {
 
             {rule.field === '__param__' ? (
               <ParamInlineEditor value={rule.value as string} onChange={(v) => updateRule(index, { value: v })} />
+            ) : rule.field === 'created_at' ? (
+              // Aksel's TextField has no `datetime-local` type — same fallback
+              // reasoning as AkselDefaultValueEditor above.
+              <input
+                type="datetime-local"
+                aria-label="Verdi"
+                className="navds-text-field__input navds-body-short navds-body-short--medium"
+                value={rule.value as string}
+                onChange={(e) => updateRule(index, { value: e.target.value })}
+              />
             ) : (
               <TextField
                 label="Verdi"
                 hideLabel
                 size="small"
-                type={rule.field === 'created_at' ? 'datetime-local' : 'text'}
+                type="text"
                 value={rule.value as string}
                 onChange={(e) => updateRule(index, { value: e.target.value })}
               />
