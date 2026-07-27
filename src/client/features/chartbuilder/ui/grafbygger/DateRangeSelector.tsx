@@ -1,4 +1,4 @@
-import { Heading, DatePicker, Tabs, Button, Alert } from '@navikt/ds-react'
+import { Heading, DatePicker, Tabs, Button, Alert, TextField, Select } from '@navikt/ds-react'
 import { format, startOfMonth, subMonths, startOfYear, subDays } from 'date-fns'
 import type { Filter } from '../../../../shared/types/chart.ts'
 import { useState, useEffect, forwardRef, useImperativeHandle, useMemo } from 'react'
@@ -523,40 +523,38 @@ const DateRangeSelector = forwardRef(
                   "Ofte brukte"'s own presets, so removed. */}
               <Tabs.Panel value="dynamic" className="pt-6">
                 <div className="flex items-end gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-[var(--ax-text-subtle)] mb-1">Antall</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={numberOfUnits}
-                      onChange={(e) => {
-                        setNumberOfUnits(e.target.value)
-                        if (!interactiveMode) {
-                          applyRelativePeriod(e.target.value, selectedUnit)
-                        }
-                      }}
-                      className="w-20 px-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium text-[var(--ax-text-subtle)] mb-1">Periode</label>
-                    <select
-                      value={selectedUnit}
-                      onChange={(e) => {
-                        setSelectedUnit(e.target.value)
-                        if (!interactiveMode) {
-                          applyRelativePeriod(numberOfUnits, e.target.value)
-                        }
-                      }}
-                      className="w-full px-3 py-1.5 text-sm border rounded-md bg-[var(--ax-bg-default)] focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      {TIME_UNITS.map((unit) => (
-                        <option key={unit.value} value={unit.value}>
-                          {unit.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <TextField
+                    label="Antall"
+                    type="number"
+                    min={1}
+                    size="small"
+                    className="w-20"
+                    value={numberOfUnits}
+                    onChange={(e) => {
+                      setNumberOfUnits(e.target.value)
+                      if (!interactiveMode) {
+                        applyRelativePeriod(e.target.value, selectedUnit)
+                      }
+                    }}
+                  />
+                  <Select
+                    label="Periode"
+                    size="small"
+                    className="flex-1"
+                    value={selectedUnit}
+                    onChange={(e) => {
+                      setSelectedUnit(e.target.value)
+                      if (!interactiveMode) {
+                        applyRelativePeriod(numberOfUnits, e.target.value)
+                      }
+                    }}
+                  >
+                    {TIME_UNITS.map((unit) => (
+                      <option key={unit.value} value={unit.value}>
+                        {unit.label}
+                      </option>
+                    ))}
+                  </Select>
                 </div>
               </Tabs.Panel>
 
