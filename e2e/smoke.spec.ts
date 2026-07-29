@@ -20,10 +20,11 @@ const MOCK_WEBSITES = [
 ]
 
 test.describe('App smoke tests', () => {
-  test('home page loads', async ({ page }) => {
+  test('home page loads and shows the page heading', async ({ page }) => {
     await page.goto('/')
-    // Something in the nav/layout should be visible
-    await expect(page.locator('body')).not.toBeEmpty()
+    await expect(page.getByRole('heading', { name: /forstå brukeradferd med innblikk/i })).toBeVisible({
+      timeout: 10_000,
+    })
   })
 
   test('/grafbygger loads and shows the page heading', async ({ page }) => {
@@ -45,4 +46,22 @@ test.describe('App smoke tests', () => {
     await combobox.click()
     await expect(page.getByRole('option', { name: /test site/i })).toBeVisible({ timeout: 10_000 })
   })
+
+  const routesWithHeadings: Array<{ path: string; heading: RegExp }> = [
+    { path: '/trafikkanalyse', heading: /trafikkoversikt/i },
+    { path: '/klikkoversikt', heading: /klikkoversikt/i },
+    { path: '/brukerreiser', heading: /navigasjonsflyt/i },
+    { path: '/trakt', heading: /^trakt$/i },
+    { path: '/maloppnaelse', heading: /måloppnåelse/i },
+  ]
+
+  for (const { path, heading } of routesWithHeadings) {
+    test(`${path} loads and shows the page heading`, async ({ page }) => {
+      await page.route('**/api/bigquery/websites', (route) =>
+        route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: MOCK_WEBSITES }) }),
+      )
+      await page.goto(path)
+      await expect(page.getByRole('heading', { name: heading })).toBeVisible({ timeout: 10_000 })
+    })
+  }
 })
