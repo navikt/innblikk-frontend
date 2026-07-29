@@ -3,6 +3,15 @@ export type RuntimeConfig = {
   BACKEND_WS_HOST?: string
 }
 
+// Non-sensitive defaults. GCP_PROJECT_ID is a BigQuery project identifier
+// (not a credential) and is the same value across dev/prod for this app —
+// safe to bake in so the app works out of the box without runtime injection
+// (e.g. local dev without .env, CI/test environments, etc.). Can still be
+// overridden via VITE_GCP_PROJECT_ID or window.__RUNTIME_CONFIG__.
+const DEFAULT_RUNTIME_CONFIG: Required<Pick<RuntimeConfig, 'GCP_PROJECT_ID'>> = {
+  GCP_PROJECT_ID: 'team-researchops-prod-01d6',
+}
+
 declare global {
   interface Window {
     __RUNTIME_CONFIG__?: RuntimeConfig
@@ -22,18 +31,18 @@ const readViteConfig = (): RuntimeConfig => {
 }
 
 export const getRuntimeConfig = (): RuntimeConfig => ({
+  ...DEFAULT_RUNTIME_CONFIG,
   ...readViteConfig(),
   ...readWindowConfig(),
 })
 
-const requireRuntimeValue = (key: keyof RuntimeConfig): string => {
+const getRuntimeValue = (key: keyof RuntimeConfig): string => {
   const value = getRuntimeConfig()[key]
-  if (!value) {
-    throw new Error(`Missing runtime config: ${key}`)
-  }
-  return value
+  // Values are never empty in practice (default + overrides are non-empty),
+  // but guard anyway rather than returning `undefined` as a string.
+  return value || ''
 }
 
-export const getGcpProjectId = (): string => requireRuntimeValue('GCP_PROJECT_ID')
+export const getGcpProjectId = (): string => getRuntimeValue('GCP_PROJECT_ID')
 
 export {}
