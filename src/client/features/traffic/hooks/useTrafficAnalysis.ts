@@ -1,10 +1,10 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
-import { nb } from 'date-fns/locale'
 import type { ILineChartDataPoint } from '@fluentui/react-charting'
 import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
 import { useCookieSupport, useCookieStartDate } from '../../../shared/hooks/useSiteimproveSupport.ts'
+import { formatSeriesAxisLabel, formatSeriesCalloutLabel } from '../../../shared/lib/seriesDateFormat.ts'
 import type { Website } from '../../../shared/types/chart.ts'
 import {
   normalizeUrlToPath,
@@ -636,30 +636,8 @@ export const useTrafficAnalysis = () => {
   const chartData = useMemo(() => {
     if (!processedSeriesData.length) return null
 
-    const formatXAxisLabel = (date: Date) => {
-      if (submittedGranularity === 'week') {
-        return `Uke ${format(date, 'w', { locale: nb })}`
-      }
-      if (submittedGranularity === 'month') {
-        return format(date, 'MMM yyyy', { locale: nb })
-      }
-      if (submittedGranularity === 'hour') {
-        return format(date, 'HH:mm')
-      }
-      return date.toLocaleDateString('nb-NO')
-    }
-    const formatCalloutDateLabel = (date: Date) => {
-      if (submittedGranularity === 'hour') {
-        return format(date, "EEE d. MMM yyyy 'kl.' HH:mm", { locale: nb })
-      }
-      if (submittedGranularity === 'week') {
-        return `Uke ${format(date, 'w', { locale: nb })} (${format(date, 'd. MMM yyyy', { locale: nb })})`
-      }
-      if (submittedGranularity === 'month') {
-        return format(date, 'MMMM yyyy', { locale: nb })
-      }
-      return format(date, 'EEE d. MMM yyyy', { locale: nb })
-    }
+    const formatXAxisLabel = (date: Date) => formatSeriesAxisLabel(date, submittedGranularity)
+    const formatCalloutDateLabel = (date: Date) => formatSeriesCalloutLabel(date, submittedGranularity)
     const toChartValue = (rawValue: number) =>
       submittedMetricType === 'proportion' ? Math.min(rawValue * 100, 100) : rawValue
 

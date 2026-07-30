@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Switch } from '@navikt/ds-react'
 import { LineChart, ResponsiveContainer } from '@fluentui/react-charting'
+import { formatSeriesAxisLabel } from '../../../shared/lib/seriesDateFormat.ts'
 import type { SeriesPoint, QueryStats } from '../model/types.ts'
 import { prepareLineChartData } from '../utils/chartHelpers.ts'
 import EventSeriesTrendTable from './EventSeriesTrendTable.tsx'
@@ -35,6 +36,7 @@ const EventSeriesChart = ({ seriesData, selectedEvent, queryStats }: EventSeries
                 legendsOverflowText={'Overflow Items'}
                 yAxisTickFormat={(d: number | string) => Number(d).toLocaleString('nb-NO')}
                 yAxisTickCount={10}
+                customDateTimeFormatter={(date: Date) => formatSeriesAxisLabel(date, 'day')}
                 allowMultipleShapesForPoints={false}
                 enablePerfOptimization={true}
                 margins={{ left: 50, right: 40, top: 20, bottom: 35 }}

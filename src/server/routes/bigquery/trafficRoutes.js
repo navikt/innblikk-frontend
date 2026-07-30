@@ -1,6 +1,6 @@
 import express from 'express'
 import { addAuditLogging, getAnalysisTypeOverride } from '../../bigquery/audit.js'
-import { MAX_BYTES_BILLED, normalizeUrlSql } from './helpers.js'
+import { MAX_BYTES_BILLED, normalizeUrlSql, buildTimeSeriesBucketSql } from './helpers.js'
 
 export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE }) {
   const router = express.Router()
@@ -89,59 +89,11 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
         }
       }
 
-      // Build timezone-safe bucket expressions.
-      // DATE buckets are robust for day/week/month across DST transitions.
-      let bucketSeriesSql = `
-                  SELECT bucket_time AS time
-                  FROM UNNEST(
-                      GENERATE_DATE_ARRAY(
-                          DATE(TIMESTAMP(@startDate), '${BIGQUERY_TIMEZONE}'),
-                          DATE(TIMESTAMP(@endDate), '${BIGQUERY_TIMEZONE}'),
-                          INTERVAL 1 DAY
-                      )
-                  ) AS bucket_time
-              `
-      let eventBucketExpression = `DATE(${col}created_at, '${BIGQUERY_TIMEZONE}')`
-      let outputBucketAsTimestamp = `TIMESTAMP(buckets.time, '${BIGQUERY_TIMEZONE}')`
-
-      if (interval === 'hour') {
-        bucketSeriesSql = `
-                  SELECT bucket_time AS time
-                  FROM UNNEST(
-                      GENERATE_TIMESTAMP_ARRAY(
-                          TIMESTAMP_TRUNC(TIMESTAMP(@startDate), HOUR, '${BIGQUERY_TIMEZONE}'),
-                          TIMESTAMP_TRUNC(TIMESTAMP(@endDate), HOUR, '${BIGQUERY_TIMEZONE}'),
-                          INTERVAL 1 HOUR
-                      )
-                  ) AS bucket_time
-              `
-        eventBucketExpression = `TIMESTAMP_TRUNC(${col}created_at, HOUR, '${BIGQUERY_TIMEZONE}')`
-        outputBucketAsTimestamp = `buckets.time`
-      } else if (interval === 'week') {
-        bucketSeriesSql = `
-                  SELECT bucket_time AS time
-                  FROM UNNEST(
-                      GENERATE_DATE_ARRAY(
-                          DATE_TRUNC(DATE(TIMESTAMP(@startDate), '${BIGQUERY_TIMEZONE}'), WEEK(MONDAY)),
-                          DATE_TRUNC(DATE(TIMESTAMP(@endDate), '${BIGQUERY_TIMEZONE}'), WEEK(MONDAY)),
-                          INTERVAL 1 WEEK
-                      )
-                  ) AS bucket_time
-              `
-        eventBucketExpression = `DATE_TRUNC(DATE(${col}created_at, '${BIGQUERY_TIMEZONE}'), WEEK(MONDAY))`
-      } else if (interval === 'month') {
-        bucketSeriesSql = `
-                  SELECT bucket_time AS time
-                  FROM UNNEST(
-                      GENERATE_DATE_ARRAY(
-                          DATE_TRUNC(DATE(TIMESTAMP(@startDate), '${BIGQUERY_TIMEZONE}'), MONTH),
-                          DATE_TRUNC(DATE(TIMESTAMP(@endDate), '${BIGQUERY_TIMEZONE}'), MONTH),
-                          INTERVAL 1 MONTH
-                      )
-                  ) AS bucket_time
-              `
-        eventBucketExpression = `DATE_TRUNC(DATE(${col}created_at, '${BIGQUERY_TIMEZONE}'), MONTH)`
-      }
+      const { bucketSeriesSql, eventBucketExpression, outputBucketAsTimestamp } = buildTimeSeriesBucketSql(
+        interval,
+        BIGQUERY_TIMEZONE,
+        `${col}created_at`,
+      )
       let query
 
       if (metricType === 'proportion') {

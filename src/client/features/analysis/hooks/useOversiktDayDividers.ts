@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { differenceInCalendarDays, format } from 'date-fns'
 import { nb } from 'date-fns/locale'
 import type { ILineChartProps } from '@fluentui/react-charting'
+import { formatSeriesAxisLabel } from '../../../shared/lib/seriesDateFormat.ts'
 import type { Granularity } from '../model/types.ts'
 
 export const useOversiktDayDividers = (
@@ -96,26 +97,15 @@ export const useOversiktDayDividers = (
 
   const formatXAxisDateLabel = useCallback(
     (date: Date) => {
-      if (submittedGranularity === 'hour') {
-        if (isMultiDayHourly) {
-          const hourMinute = format(date, 'HH:mm')
-          if (hourMinute === '00:00') {
-            return format(date, 'd. MMM', { locale: nb })
-          }
-          return format(date, 'd. MMM HH:mm', { locale: nb })
+      if (submittedGranularity === 'hour' && isMultiDayHourly) {
+        const hourMinute = format(date, 'HH:mm')
+        if (hourMinute === '00:00') {
+          return format(date, 'd. MMM', { locale: nb })
         }
-        return format(date, 'HH:mm')
+        return format(date, 'd. MMM HH:mm', { locale: nb })
       }
 
-      if (submittedGranularity === 'week') {
-        return `Uke ${format(date, 'w', { locale: nb })}`
-      }
-
-      if (submittedGranularity === 'month') {
-        return format(date, 'MMM yyyy', { locale: nb })
-      }
-
-      return format(date, 'd. MMM', { locale: nb })
+      return formatSeriesAxisLabel(date, submittedGranularity)
     },
     [submittedGranularity, isMultiDayHourly],
   )

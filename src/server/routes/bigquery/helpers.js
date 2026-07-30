@@ -83,6 +83,78 @@ export function normalizeUrlQuerySql(column = 'url_query') {
     COALESCE(REGEXP_REPLACE(REGEXP_REPLACE(${column}, r'^[?]', ''), r'#.*$', ''), '')`
 }
 
+/**
+ * Builds timezone-safe bucket expressions for time-series queries
+ * (event-series, traffic-series). Shared by eventRoutes.js and trafficRoutes.js
+ * so the bucketing logic — and any fix to it — lives in exactly one place.
+ *
+ * DATE buckets are robust for day/week/month across DST transitions.
+ *
+ * Day/week/month buckets only ever have day precision, so they must stay as
+ * BigQuery DATE and never be cast to TIMESTAMP. Casting DATE -> TIMESTAMP(tz)
+ * fabricates a time-of-day that never existed upstream, and shifts the date
+ * across the UTC boundary (e.g. Oslo midnight -> previous day 22:00/23:00 UTC).
+ *
+ * @param {string} interval — 'day' (default) | 'hour' | 'week' | 'month'
+ * @param {string} timezone — IANA timezone, e.g. 'Europe/Oslo'
+ * @param {string} [column='created_at'] — fully qualified column name, e.g. 'w.created_at'
+ */
+export function buildTimeSeriesBucketSql(interval, timezone, column = 'created_at') {
+  let bucketSeriesSql = `
+              SELECT bucket_time AS time
+              FROM UNNEST(
+                  GENERATE_DATE_ARRAY(
+                      DATE(TIMESTAMP(@startDate), '${timezone}'),
+                      DATE(TIMESTAMP(@endDate), '${timezone}'),
+                      INTERVAL 1 DAY
+                  )
+              ) AS bucket_time
+          `
+  let eventBucketExpression = `DATE(${column}, '${timezone}')`
+  let outputBucketAsTimestamp = `buckets.time`
+
+  if (interval === 'hour') {
+    bucketSeriesSql = `
+              SELECT bucket_time AS time
+              FROM UNNEST(
+                  GENERATE_TIMESTAMP_ARRAY(
+                      TIMESTAMP_TRUNC(TIMESTAMP(@startDate), HOUR, '${timezone}'),
+                      TIMESTAMP_TRUNC(TIMESTAMP(@endDate), HOUR, '${timezone}'),
+                      INTERVAL 1 HOUR
+                  )
+              ) AS bucket_time
+          `
+    eventBucketExpression = `TIMESTAMP_TRUNC(${column}, HOUR, '${timezone}')`
+    outputBucketAsTimestamp = `buckets.time`
+  } else if (interval === 'week') {
+    bucketSeriesSql = `
+              SELECT bucket_time AS time
+              FROM UNNEST(
+                  GENERATE_DATE_ARRAY(
+                      DATE_TRUNC(DATE(TIMESTAMP(@startDate), '${timezone}'), WEEK(MONDAY)),
+                      DATE_TRUNC(DATE(TIMESTAMP(@endDate), '${timezone}'), WEEK(MONDAY)),
+                      INTERVAL 1 WEEK
+                  )
+              ) AS bucket_time
+          `
+    eventBucketExpression = `DATE_TRUNC(DATE(${column}, '${timezone}'), WEEK(MONDAY))`
+  } else if (interval === 'month') {
+    bucketSeriesSql = `
+              SELECT bucket_time AS time
+              FROM UNNEST(
+                  GENERATE_DATE_ARRAY(
+                      DATE_TRUNC(DATE(TIMESTAMP(@startDate), '${timezone}'), MONTH),
+                      DATE_TRUNC(DATE(TIMESTAMP(@endDate), '${timezone}'), MONTH),
+                      INTERVAL 1 MONTH
+                  )
+              ) AS bucket_time
+          `
+    eventBucketExpression = `DATE_TRUNC(DATE(${column}, '${timezone}'), MONTH)`
+  }
+
+  return { bucketSeriesSql, eventBucketExpression, outputBucketAsTimestamp }
+}
+
 export function prepareGeneratedSql(sql, params) {
   // Sort by descending key length so longer names are replaced before shorter
   // prefixes (e.g. @urlPathSlash before @urlPath).
