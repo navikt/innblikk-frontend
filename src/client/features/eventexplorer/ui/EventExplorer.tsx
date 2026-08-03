@@ -75,6 +75,10 @@ const EventExplorer = () => {
       websiteDomain={selectedWebsite?.domain}
       websiteName={selectedWebsite?.name}
       sidebarContent={<WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} />}
+      onFiltersSubmit={() => {
+        if (!selectedWebsite || loadingEvents || !hasUnappliedFilterChanges) return
+        void fetchEventsData()
+      }}
       filters={
         <>
           <UrlPathFilter

@@ -50,6 +50,10 @@ const Diagnosis = () => {
       title="Diagnoseverktøy"
       description="Oversikt over aktivitet på alle nettsteder og apper."
       currentPage="diagnose"
+      onFiltersSubmit={() => {
+        if (loading) return
+        void fetchData()
+      }}
       filters={
         <>
           <WebsitePicker

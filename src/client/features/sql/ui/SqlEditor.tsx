@@ -75,6 +75,10 @@ export default function SqlEditor() {
       description="Kjør SQL-spørringer mot Umami datasettet i BigQuery."
       currentPage="sql"
       wideSidebar={true}
+      onFiltersSubmit={() => {
+        if (loading) return
+        void executeQuery()
+      }}
       filters={
         <>
           <SqlFilterPanel

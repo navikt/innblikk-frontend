@@ -146,6 +146,10 @@ const EventJourney = () => {
       sidebarContent={
         <WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} variant="minimal" />
       }
+      onFiltersSubmit={() => {
+        if (!selectedWebsite || loading || !urlPath || !hasUnappliedFilterChanges) return
+        void fetchData()
+      }}
       filters={
         <>
           <TextField

@@ -144,6 +144,10 @@ const UserJourney = () => {
       websiteDomain={selectedWebsite?.domain}
       websiteName={selectedWebsite?.name}
       sidebarContent={<WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} />}
+      onFiltersSubmit={() => {
+        if (!selectedWebsite || loading || !hasUnappliedFilterChanges) return
+        handleSearch()
+      }}
       filters={
         <>
           <div className="w-full sm:w-[300px]">

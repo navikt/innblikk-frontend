@@ -341,6 +341,10 @@ const UserProfiles = () => {
       sidebarContent={
         <WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} variant="minimal" />
       }
+      onFiltersSubmit={() => {
+        if (!selectedWebsite) return
+        handleSearchClick()
+      }}
       filters={
         <>
           <div className="w-full sm:w-auto min-w-[200px]">

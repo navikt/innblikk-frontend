@@ -73,6 +73,10 @@ const MarketingAnalysis = () => {
       websiteDomain={selectedWebsite?.domain}
       websiteName={selectedWebsite?.name}
       sidebarContent={<WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} />}
+      onFiltersSubmit={() => {
+        if (!selectedWebsite || loading || !hasUnappliedFilterChanges) return
+        void fetchData()
+      }}
       filters={
         <>
           <UrlPathFilter

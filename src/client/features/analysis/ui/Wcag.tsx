@@ -202,6 +202,10 @@ const Wcag = () => {
       sidebarContent={
         <WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} variant="minimal" />
       }
+      onFiltersSubmit={() => {
+        if (!selectedWebsite || loading) return
+        void fetchWcagData()
+      }}
       filters={
         <>
           <TextField size="small" label="URL" value={urlPath} onChange={(e) => setUrlPath(e.target.value)} />

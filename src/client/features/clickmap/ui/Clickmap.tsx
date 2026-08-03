@@ -701,6 +701,13 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
       websiteDomain={selectedWebsite?.domain}
       websiteName={selectedWebsite?.name}
       sidebarContent={<WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} />}
+      onFiltersSubmit={() => {
+        if (!selectedWebsite || loading || !urlInput.trim() || (!hasUnappliedFilterChanges && !hasPendingUrlChange))
+          return
+        const nextPath = urlInput.trim()
+        setUrlPath(nextPath)
+        void fetchData(nextPath)
+      }}
       filters={
         <>
           <div className="w-full sm:w-[260px]">

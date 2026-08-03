@@ -211,6 +211,10 @@ const PrivacyCheck = () => {
       title="Personvernssjekk"
       description="Søk etter potensielle personopplysninger."
       currentPage="personvern"
+      onFiltersSubmit={() => {
+        if (loading) return
+        void fetchData(false)
+      }}
       filters={
         <>
           <WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} variant="minimal" />

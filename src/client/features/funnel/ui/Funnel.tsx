@@ -128,6 +128,10 @@ const Funnel = () => {
       sidebarContent={
         <WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} variant="minimal" />
       }
+      onFiltersSubmit={() => {
+        if (!selectedWebsite || loading || steps.filter((s) => s.value.trim() !== '').length < 2) return
+        void fetchData()
+      }}
       filters={
         <>
           <PeriodPicker

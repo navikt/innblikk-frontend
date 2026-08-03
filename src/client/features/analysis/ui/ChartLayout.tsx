@@ -13,6 +13,7 @@ interface ChartLayoutProps {
   title: string
   description?: string
   filters?: React.ReactNode
+  onFiltersSubmit?: () => void
   children: React.ReactNode
   currentPage?: AnalyticsPage
   wideSidebar?: boolean // Deprecated but kept for compatibility
@@ -110,6 +111,7 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
   title,
   description,
   filters,
+  onFiltersSubmit,
   children,
   currentPage,
   hideSidebar = false,
@@ -149,7 +151,20 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
               )}
 
               {/* Right Column Header (Filters) */}
-              <div className="w-full md:flex-1 p-4 flex flex-wrap items-end gap-4 border-b md:border-b-0 border-[var(--ax-border-neutral-subtle)] md:border-none">
+              <div
+                className="w-full md:flex-1 p-4 flex flex-wrap items-end gap-4 border-b md:border-b-0 border-[var(--ax-border-neutral-subtle)] md:border-none"
+                onKeyDown={
+                  onFiltersSubmit
+                    ? (e) => {
+                        if (e.key !== 'Enter') return
+                        const target = e.target as HTMLElement
+                        if (target.tagName === 'TEXTAREA') return
+                        e.preventDefault()
+                        onFiltersSubmit()
+                      }
+                    : undefined
+                }
+              >
                 {!hideSidebar && filters}
               </div>
             </div>

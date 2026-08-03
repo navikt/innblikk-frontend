@@ -277,6 +277,10 @@ const UserComposition = () => {
       sidebarContent={
         <WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} variant="minimal" />
       }
+      onFiltersSubmit={() => {
+        if (!selectedWebsite || loading || !hasUnappliedFilterChanges) return
+        void fetchData()
+      }}
       filters={
         <>
           <UrlPathFilter

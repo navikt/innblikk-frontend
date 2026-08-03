@@ -168,6 +168,10 @@ const Spellings = () => {
       sidebarContent={
         <WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} variant="minimal" />
       }
+      onFiltersSubmit={() => {
+        if (!selectedWebsite || loading) return
+        void fetchSpellingData()
+      }}
       filters={
         <>
           <TextField size="small" label="URL" value={urlPath} onChange={(e) => setUrlPath(e.target.value)} />

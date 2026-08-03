@@ -146,6 +146,10 @@ const TrafficAnalysis = () => {
       websiteDomain={selectedWebsite?.domain}
       websiteName={selectedWebsite?.name}
       sidebarContent={<WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} />}
+      onFiltersSubmit={() => {
+        if (!selectedWebsite || loading || !hasUnappliedFilterChanges) return
+        void fetchSeriesData()
+      }}
       filters={
         <>
           <UrlPathFilter
