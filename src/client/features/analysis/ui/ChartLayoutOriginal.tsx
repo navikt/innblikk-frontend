@@ -12,6 +12,7 @@ interface ChartLayoutProps {
   title: string
   description: string
   filters?: React.ReactNode
+  onFiltersSubmit?: () => void
   children: React.ReactNode
   currentPage?: AnalyticsPage
   wideSidebar?: boolean
@@ -26,6 +27,7 @@ const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
   title,
   description,
   filters,
+  onFiltersSubmit,
   children,
   currentPage,
   wideSidebar = false,
@@ -64,6 +66,17 @@ const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
               <>
                 <div
                   className={`w-full ${sidebarWidth} p-6 border-b border-[var(--ax-border-neutral-subtle)] md:border-b-0 md:border-r md:border-[var(--ax-border-neutral-subtle)]`}
+                  onKeyDown={
+                    onFiltersSubmit
+                      ? (e) => {
+                          if (e.key !== 'Enter') return
+                          const target = e.target as HTMLElement
+                          if (target.tagName === 'TEXTAREA') return
+                          e.preventDefault()
+                          onFiltersSubmit()
+                        }
+                      : undefined
+                  }
                 >
                   <VStack gap={sidebarFilterGap}>
                     {!hideAnalysisSelector && (
