@@ -48,6 +48,7 @@ All notable changes to this project will be documented in this file.
 - Ts bug
 - Mulig å enddre beskrivelse dashboards
 - Align event/traffic series charts to correct time bucket and format
+- **chartlayout:** Support Enter-to-submit in ChartLayoutOriginal
 
 ### 👷 CI
 
