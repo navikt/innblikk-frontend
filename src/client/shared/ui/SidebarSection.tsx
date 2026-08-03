@@ -25,7 +25,7 @@ export function SidebarSection({ title, action, children, className }: SidebarSe
 
   return (
     <Bleed asChild marginInline="space-24" reflectivePadding>
-      <Box className="bg-(--ax-bg-sunken)">
+      <Box className="sidebar-section bg-(--ax-bg-sunken)">
         <div className={sectionContentClassName}>
           {(title || action) && (
             <div className="flex min-h-8 items-center justify-between mb-3">

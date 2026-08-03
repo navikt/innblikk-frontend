@@ -195,3 +195,15 @@
 .event-selector-summary {
   color: var(--ax-text-default) !important;
 }
+
+/* Sidebar sections (Grafbygger, SQL editor, etc.) are plain static boxes with
+   no z-index of their own, so a section's floating Combobox dropdown
+   (position: fixed, huge inline z-index) still visually loses to a sibling
+   section's content (e.g. an Accordion header) painted later in the DOM —
+   in practice each section behaves as its own paint boundary regardless of
+   the popup's z-index. Promote the section that currently owns focus (i.e.
+   has an open combobox) above its static siblings so its dropdown wins. */
+.sidebar-section:focus-within {
+  position: relative;
+  z-index: 1;
+}
