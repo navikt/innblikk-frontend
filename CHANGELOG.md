@@ -49,6 +49,8 @@ All notable changes to this project will be documented in this file.
 - Mulig å enddre beskrivelse dashboards
 - Align event/traffic series charts to correct time bucket and format
 - **chartlayout:** Support Enter-to-submit in ChartLayoutOriginal
+- Fix reset state bug
+- Correct RQB action MouseEvent type and datetime-local TextField type mismatch
 
 ### 👷 CI
 
@@ -93,12 +95,14 @@ All notable changes to this project will be documented in this file.
 - Shared components
 - MAX_BYTES_BILLED 500 GB
 - **deps:** Add ws@8.20.0 dependency
+- Update tests to match new impl
 
 ### 🔧 Refactor
 
 - Improve security, error handling, and code structure (#120)
 - Replace AnnouncementBanner with BetaBadge on home page
 - Remove analytics_id from user settings, drop umami.identify()
+- **grafbygger:** Flatten Dato, slim DisplayOptions, fix metric default
 
 ### 🚀 Features
 
@@ -152,6 +156,8 @@ All notable changes to this project will be documented in this file.
 - Update readme
 - Måloppnåelse ut av beta
 - La til UU betamodul
+- **grafbygger:** Add gjennomsnittlig tid metric, ratio toggle, and fix mode SQL
+- **grafbygger:** Replace segment builder with saved cohort picker
 
 ### 🧪 Testing
 
