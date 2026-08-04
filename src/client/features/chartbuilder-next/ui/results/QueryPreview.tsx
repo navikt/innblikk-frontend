@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { getFeatureFlag, type FeatureFlags } from '../../../../shared/lib/featureFlags.ts'
-import { getGcpProjectId } from '../../../../shared/lib/runtimeConfig.ts'
 import { Heading, Link, Button, Alert, Modal, TextField, Select, UNSAFE_Combobox } from '@navikt/ds-react'
 import { Copy, ExternalLink } from 'lucide-react'
 import { ArrowCirclepathReverseIcon } from '@navikt/aksel-icons'
@@ -45,6 +44,21 @@ type QueryResult = {
 }
 
 type EstimateResponse = QueryStats & { error?: string }
+
+declare global {
+  interface Window {
+    __GCP_PROJECT_ID__?: string
+  }
+}
+
+// Get GCP_PROJECT_ID from runtime-injected global variable (server injects window.__GCP_PROJECT_ID__)
+const getGcpProjectId = (): string => {
+  if (typeof window !== 'undefined' && window.__GCP_PROJECT_ID__) {
+    return window.__GCP_PROJECT_ID__
+  }
+  // Fallback for development/SSR contexts
+  throw new Error('Missing runtime config: GCP_PROJECT_ID')
+}
 
 interface QueryPreviewProps {
   sql: string
@@ -1358,14 +1372,9 @@ const QueryPreview = ({
     <>
       <div>
         {isBasicTemplate() ? (
-          <>
-            {/* <div className="space-y-4">
-            <Heading level="2" size="small">Klargjør spørsmålet ditt</Heading>
-            {isSQLMeaningful() && (
-              <SqlCodeDisplay sql={sql} showEditButton={true} />
-            )}
-          </div> */}
-          </>
+          <Alert variant="info" size="small">
+            Velg nettside og minst ett måltall for å generere en spørring.
+          </Alert>
         ) : (
           <div>
             {/* Results Section with Integrated Date Filter */}

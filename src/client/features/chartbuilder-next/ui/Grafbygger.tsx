@@ -1,23 +1,23 @@
 import { useCallback, useRef, useState } from 'react'
-import { Bleed, Box, Loader } from '@navikt/ds-react'
+import { Bleed, Box, Checkbox, ExpansionCard, Loader } from '@navikt/ds-react'
 import { ArrowCirclepathReverseIcon } from '@navikt/aksel-icons'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import QueryPreview from './results/QueryPreview.tsx'
+import ResultsDisplayOptions from './results/ResultsDisplayOptions.tsx'
 import EventFilter from './grafbygger/EventFilter.tsx'
 import ChartLayout from '../../analysis/ui/ChartLayoutOriginal.tsx'
 import MetricSelector from './grafbygger/MetricSelector.tsx'
-import SegmentBy, { type SegmentByRef } from './grafbygger/SegmentBy.tsx'
+import CohortPicker, { type CohortPickerRef } from './grafbygger/CohortPicker.tsx'
+import DateRangeSelector from './grafbygger/DateRangeSelector.tsx'
 import GroupingOptions from './grafbygger/GroupingOptions.tsx'
-import DisplayOptions from './grafbygger/DisplayOptions.tsx'
 import AlertWithCloseButton from './grafbygger/AlertWithCloseButton.tsx'
-import ActiveMetricsPanel from './grafbygger/ActiveMetricsPanel.tsx'
 import SidebarSection from '../../../shared/ui/SidebarSection.tsx'
 import ActionFeedbackButton from '../../../shared/ui/ActionFeedbackButton.tsx'
-import type { SegmentDefinition } from '../../../shared/types/chart.ts'
 import { FILTER_COLUMNS } from '../../../shared/lib/constants.ts'
-import { DATE_FORMATS, METRICS } from '../model/constants.ts'
+import { DATE_FORMATS, METRICS, COHORTS_ENABLED } from '../model/constants.ts'
 import { sanitizeColumnName } from '../utils/sanitize.ts'
 import { useChartConfig } from '../hooks/useChartConfig.ts'
+import { fetchCohortsDeep } from '../api/cohortApi.ts'
 
 const ChartsPage = () => {
   const isFocusedMode = (() => {
@@ -26,12 +26,15 @@ const ChartsPage = () => {
     const value = params.get('focused')
     return value === '1' || value === 'true'
   })()
-  const [interactiveDateFilterEnabled, setInteractiveDateFilterEnabled] = useState<boolean>(true)
   const [isWebsitePickerInitializing, setIsWebsitePickerInitializing] = useState<boolean>(true)
   const [groupingResetSignal, setGroupingResetSignal] = useState<number>(0)
   const [metricResetSignal, setMetricResetSignal] = useState<number>(0)
   const [isEventFilterDirty, setIsEventFilterDirty] = useState<boolean>(false)
-  const segmentByRef = useRef<SegmentByRef>(null)
+  const [interactiveDateFilterEnabled, setInteractiveDateFilterEnabled] = useState<boolean>(true)
+  const [selectedDateRange, setSelectedDateRange] = useState<string>('all')
+  const [customPeriodInputs, setCustomPeriodInputs] = useState<Record<number, { amount: string; unit: string }>>({})
+  const cohortPickerRef = useRef<CohortPickerRef>(null)
+  const cohortRequestIdRef = useRef(0)
 
   const {
     config,
@@ -39,8 +42,8 @@ const ChartsPage = () => {
     parameters,
     availableEvents,
     dateRangeReady,
-    maxDaysAvailable,
     dateRangeInDays,
+    maxDaysAvailable,
     forceReload,
     resetIncludeParams,
     requestIncludeParams,
@@ -54,18 +57,18 @@ const ChartsPage = () => {
 
     chartFiltersRef,
     summarizeRef,
-    displayOptionsRef,
 
     setFilters,
     setDateRangeInDays,
     setRequestIncludeParams,
     setRequestLoadEvents,
     setIsEventsLoading,
+    setResolvedCohorts,
+    setCohortLookup,
 
     resetAll,
     addMetric,
     removeMetric,
-    updateMetric,
     addGroupByField,
     removeGroupByField,
     moveGroupField,
@@ -79,14 +82,43 @@ const ChartsPage = () => {
     handleEventsLoad,
   } = useChartConfig()
 
-  const handleSegmentsChange = useCallback(
-    (segments: SegmentDefinition[]) => {
+  const handleRatioModeChange = useCallback(
+    (enabled: boolean) => {
       setConfig((prev) => ({
         ...prev,
-        segments,
+        segmentRatioMode: enabled,
       }))
     },
     [setConfig],
+  )
+
+  const handleCohortIdsChange = useCallback(
+    async (ids: string[]) => {
+      const requestId = ++cohortRequestIdRef.current
+      setConfig((prev) => ({ ...prev, cohortIds: ids }))
+      if (ids.length === 0) {
+        setResolvedCohorts([])
+        setCohortLookup(new Map())
+        return
+      }
+      try {
+        // Fetches the selected cohorts plus every cohort they (transitively)
+        // reference via COHORT_REF nodes, so the resolver can inline referenced
+        // cohorts' criteria instead of falling back to "matches everyone".
+        const lookup = await fetchCohortsDeep(ids)
+        if (requestId === cohortRequestIdRef.current) {
+          const selected = ids.map((id) => lookup.get(id)).filter((c) => c !== undefined)
+          setResolvedCohorts(selected)
+          setCohortLookup(lookup)
+        }
+      } catch {
+        if (requestId === cohortRequestIdRef.current) {
+          setResolvedCohorts([])
+          setCohortLookup(new Map())
+        }
+      }
+    },
+    [setConfig, setResolvedCohorts, setCohortLookup],
   )
 
   const handleResetGroupings = useCallback(() => {
@@ -103,36 +135,18 @@ const ChartsPage = () => {
     resetAll()
     setGroupingResetSignal((prev) => prev + 1)
     setMetricResetSignal((prev) => prev + 1)
-  }, [resetAll])
-
-  const hasSegmentConfigToReset = useCallback((segments: SegmentDefinition[] | undefined): boolean => {
-    if (!segments || segments.length === 0) {
-      return false
-    }
-
-    if (segments.length !== 1) {
-      return true
-    }
-
-    const [segment] = segments
-    const hasFilters = (segment.filters?.length || 0) > 0
-    const hasPerformedSelection = (segment.performed?.events?.length || 0) > 0
-    const hasCustomName = (segment.name || '').trim() !== 'Alle brukere'
-
-    return hasFilters || hasPerformedSelection || hasCustomName
-  }, [])
+    cohortPickerRef.current?.resetCohorts()
+    setResolvedCohorts([])
+  }, [resetAll, setResolvedCohorts])
 
   const showResetEventFilters = isEventFilterDirty
-  const showResetMetrics = config.metrics.length > 0
-  const showResetSegments = hasSegmentConfigToReset(config.segments)
+  const showResetMetrics = !(
+    config.metrics.length === 1 &&
+    config.metrics[0].function === 'count' &&
+    config.metrics[0].alias === 'antall'
+  )
+  const showResetSegments = (config.cohortIds?.length ?? 0) > 0
   const showResetGroupings = config.groupByFields.length > 0
-  const showResetDisplayOptions =
-    Boolean(config.orderBy) ||
-    (config.columnOrderMode || 'default') !== 'default' ||
-    config.paramAggregation !== 'unique' ||
-    (config.limit ?? 1000) !== 1000 ||
-    config.dateFormat !== 'day' ||
-    !interactiveDateFilterEnabled
 
   // Keep sidebar sections visible during background event/detail fetches.
   // Only gate on initial website/date readiness.
@@ -211,6 +225,39 @@ const ChartsPage = () => {
                   }}
                   isEventsLoading={isEventsLoading}
                 />
+                <div className="mt-2">
+                  <Checkbox
+                    size="small"
+                    checked={!interactiveDateFilterEnabled}
+                    onChange={(e) => {
+                      const overrideEnabled = e.target.checked
+                      setInteractiveDateFilterEnabled(!overrideEnabled)
+                      if (!overrideEnabled) {
+                        // Back to automatic default (last 7 days) — clear any
+                        // custom range so useChartConfig's fallback kicks back in.
+                        setFilters(filters.filter((f) => f.column !== 'created_at'))
+                        setSelectedDateRange('all')
+                      }
+                    }}
+                  >
+                    Overstyr tidsperiode
+                  </Checkbox>
+                  {!interactiveDateFilterEnabled && (
+                    <div className="mt-2">
+                      <DateRangeSelector
+                        filters={filters}
+                        setFilters={setFilters}
+                        maxDaysAvailable={maxDaysAvailable}
+                        selectedDateRange={selectedDateRange}
+                        setSelectedDateRange={setSelectedDateRange}
+                        customPeriodInputs={customPeriodInputs}
+                        setCustomPeriodInputs={setCustomPeriodInputs}
+                        interactiveMode={false}
+                        bare
+                      />
+                    </div>
+                  )}
+                </div>
               </SidebarSection>
 
               <SidebarSection
@@ -237,42 +284,41 @@ const ChartsPage = () => {
                   filters={filters}
                   resetSignal={metricResetSignal}
                 />
+                <div className="mt-2">
+                  <Checkbox
+                    size="small"
+                    checked={config.paramAggregation === 'representative'}
+                    onChange={(e) => setParamAggregation(e.target.checked ? 'representative' : 'unique')}
+                  >
+                    Vis representativ parameterverdi
+                  </Checkbox>
+                </div>
               </SidebarSection>
 
-              <SidebarSection
-                title="Segmenter etter..."
-                action={
-                  showResetSegments ? (
-                    <ActionFeedbackButton
-                      label="Tilbakestill"
-                      activeLabel="Tilbakestilt!"
-                      variant="tertiary"
-                      size="xsmall"
-                      icon={<ArrowCirclepathReverseIcon aria-hidden />}
-                      onClick={() => segmentByRef.current?.resetSegments(false)}
-                    />
-                  ) : undefined
-                }
-              >
-                <SegmentBy
-                  ref={segmentByRef}
-                  parameters={parameters}
-                  availableEvents={availableEvents}
-                  dateRangeInDays={dateRangeInDays}
-                  onDateRangeInDaysChange={(days) => {
-                    setDateRangeInDays(days)
-                    setRequestLoadEvents(true)
-                  }}
-                  onEnableCustomEvents={(withParams = false) => {
-                    setRequestLoadEvents(true)
-                    if (withParams) {
-                      setRequestIncludeParams(true)
-                    }
-                  }}
-                  isEventsLoading={isEventsLoading}
-                  onSegmentsChange={handleSegmentsChange}
-                />
-              </SidebarSection>
+              {COHORTS_ENABLED && (
+                <SidebarSection
+                  title="Kohorter"
+                  action={
+                    showResetSegments ? (
+                      <ActionFeedbackButton
+                        label="Tilbakestill"
+                        activeLabel="Tilbakestilt!"
+                        variant="tertiary"
+                        size="xsmall"
+                        icon={<ArrowCirclepathReverseIcon aria-hidden />}
+                        onClick={() => cohortPickerRef.current?.resetCohorts()}
+                      />
+                    ) : undefined
+                  }
+                >
+                  <CohortPicker
+                    ref={cohortPickerRef}
+                    websiteId={config.website?.id}
+                    onCohortIdsChange={handleCohortIdsChange}
+                    onRatioModeChange={handleRatioModeChange}
+                  />
+                </SidebarSection>
+              )}
 
               <SidebarSection
                 title="Gruppert etter..."
@@ -317,50 +363,6 @@ const ChartsPage = () => {
                   resetSignal={groupingResetSignal}
                 />
               </SidebarSection>
-
-              <SidebarSection
-                title="Visningsalternativer"
-                action={
-                  showResetDisplayOptions ? (
-                    <ActionFeedbackButton
-                      label="Tilbakestill"
-                      activeLabel="Tilbakestilt!"
-                      variant="tertiary"
-                      size="xsmall"
-                      icon={<ArrowCirclepathReverseIcon aria-hidden />}
-                      onClick={() => displayOptionsRef.current?.resetOptions(false)}
-                    />
-                  ) : undefined
-                }
-              >
-                <ActiveMetricsPanel metrics={config.metrics} METRICS={METRICS} updateMetric={updateMetric} />
-                <DisplayOptions
-                  ref={displayOptionsRef}
-                  groupByFields={config.groupByFields}
-                  orderBy={config.orderBy}
-                  columnOrderMode={config.columnOrderMode || 'default'}
-                  paramAggregation={config.paramAggregation}
-                  limit={config.limit}
-                  COLUMN_GROUPS={FILTER_COLUMNS}
-                  setOrderBy={setOrderBy}
-                  clearOrderBy={clearOrderBy}
-                  setDateFormat={(format) =>
-                    setConfig((prev) => ({
-                      ...prev,
-                      dateFormat: format,
-                    }))
-                  }
-                  setParamAggregation={setParamAggregation}
-                  setLimit={setLimit}
-                  setColumnOrderMode={setColumnOrderMode}
-                  metrics={config.metrics}
-                  filters={filters}
-                  setFilters={setFilters}
-                  maxDaysAvailable={maxDaysAvailable}
-                  interactiveMode={interactiveDateFilterEnabled}
-                  setInteractiveMode={setInteractiveDateFilterEnabled}
-                />
-              </SidebarSection>
             </>
           )}
         </>
@@ -396,6 +398,26 @@ const ChartsPage = () => {
           websiteId={config.website?.id}
           showDownloadReadMore={false}
         />
+        <ExpansionCard aria-label="Tilleggsvalg" size="small" className="mt-4">
+          <ExpansionCard.Header>
+            <ExpansionCard.Title as="h3" size="small">
+              Tilleggsvalg
+            </ExpansionCard.Title>
+          </ExpansionCard.Header>
+          <ExpansionCard.Content>
+            <ResultsDisplayOptions
+              orderBy={config.orderBy}
+              setOrderBy={setOrderBy}
+              clearOrderBy={clearOrderBy}
+              limit={config.limit}
+              setLimit={setLimit}
+              columnOrderMode={config.columnOrderMode || 'default'}
+              setColumnOrderMode={setColumnOrderMode}
+              groupByFields={config.groupByFields}
+              metrics={config.metrics}
+            />
+          </ExpansionCard.Content>
+        </ExpansionCard>
       </div>
     </ChartLayout>
   )

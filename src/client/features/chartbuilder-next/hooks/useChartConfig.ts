@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import type { ChartConfig, Filter, Metric, Parameter, Website } from '../../../shared/types/chart.ts'
+import type { CohortDetailDto } from '../../../shared/types/cohort.ts'
 import { useDebounce } from './useDebounce.ts'
 import { safeParseJson, isRecord, isMetricArray, isWebsiteLike, isFilterArray } from '../utils/typeGuards.ts'
 import { generateSQLCore } from '../utils/sqlGenerator.ts'
@@ -60,6 +61,9 @@ export function useChartConfig() {
     show: false,
     message: '',
   })
+
+  const [resolvedCohorts, setResolvedCohorts] = useState<CohortDetailDto[]>([])
+  const [cohortLookup, setCohortLookup] = useState<Map<string, CohortDetailDto>>(new Map())
 
   const debouncedConfig = useDebounce(config, 500)
 
@@ -452,8 +456,8 @@ export function useChartConfig() {
           },
         ]
 
-    return generateSQLCore(debouncedConfig, sqlFilters, parameters)
-  }, [debouncedConfig, filters, parameters])
+    return generateSQLCore(debouncedConfig, sqlFilters, parameters, resolvedCohorts, cohortLookup)
+  }, [debouncedConfig, filters, parameters, resolvedCohorts, cohortLookup])
 
   const setOrderBy = (column: string, direction: 'ASC' | 'DESC') => {
     const metricWithAlias = config.metrics.find((m) => m.alias === column)
@@ -495,7 +499,7 @@ export function useChartConfig() {
         setConfig((prev) => ({
           ...prev,
           website,
-          metrics: [],
+          metrics: [{ function: 'count', alias: 'antall' }] as Metric[],
           segments: [],
           groupByFields: [],
           orderBy: null,
@@ -574,6 +578,8 @@ export function useChartConfig() {
     generatedSQL,
     hasAppliedUrlParams,
     titleFromUrl,
+    resolvedCohorts,
+    cohortLookup,
 
     // Refs
     chartFiltersRef,
@@ -586,6 +592,8 @@ export function useChartConfig() {
     setRequestIncludeParams,
     setRequestLoadEvents,
     setIsEventsLoading,
+    setResolvedCohorts,
+    setCohortLookup,
 
     // Actions
     resetAll,

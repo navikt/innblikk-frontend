@@ -40,10 +40,14 @@ export const METRICS: MetricOption[] = [
   { label: 'Sum av verdier', value: 'sum' },
   { label: 'Gjennomsnitt', value: 'average' },
   { label: 'Median', value: 'median' },
-  { label: 'Andel av resultatene (%)', value: 'percentage' },
-  { label: 'Andel av totalen (%)', value: 'andel' },
-  { label: 'Fluktrate (%)', value: 'bounce_rate' },
 ]
+
+/**
+ * Toggles the cohort builder UI in Grafbygger. Enabled here because this is
+ * the chartbuilder-next feature, only mounted on the unadvertised
+ * /grafbygger_next route used for live testing before full rollout.
+ */
+export const COHORTS_ENABLED = true
 
 export const SESSION_COLUMNS = [
   'browser',

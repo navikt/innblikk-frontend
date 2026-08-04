@@ -1,4 +1,4 @@
-import { Heading, DatePicker, Tabs, Button, Alert, Chips } from '@navikt/ds-react'
+import { Heading, DatePicker, Tabs, Button, Alert, TextField, Select } from '@navikt/ds-react'
 import { format, startOfMonth, subMonths, startOfYear, subDays } from 'date-fns'
 import type { Filter } from '../../../../shared/types/chart.ts'
 import { useState, useEffect, forwardRef, useImperativeHandle, useMemo } from 'react'
@@ -134,46 +134,6 @@ const TIME_UNITS = [
   { value: 'year', label: 'År' },
 ]
 
-// Add current period options
-const CURRENT_PERIODS = [
-  {
-    id: 'current_hour',
-    label: 'Time',
-    fromSQL: 'DATE_TRUNC(CURRENT_TIMESTAMP(), HOUR)',
-    toSQL: 'CURRENT_TIMESTAMP()',
-  },
-  {
-    id: 'current_day',
-    label: 'Dag',
-    fromSQL: 'DATE_TRUNC(CURRENT_TIMESTAMP(), DAY)',
-    toSQL: 'CURRENT_TIMESTAMP()',
-  },
-  {
-    id: 'current_week',
-    label: 'Uke',
-    fromSQL: 'DATE_TRUNC(CURRENT_TIMESTAMP(), WEEK(MONDAY))',
-    toSQL: 'CURRENT_TIMESTAMP()',
-  },
-  {
-    id: 'current_month',
-    label: 'Måned',
-    fromSQL: 'DATE_TRUNC(CURRENT_TIMESTAMP(), MONTH)',
-    toSQL: 'CURRENT_TIMESTAMP()',
-  },
-  {
-    id: 'current_quarter',
-    label: 'Kvartalet',
-    fromSQL: 'DATE_TRUNC(CURRENT_TIMESTAMP(), QUARTER)',
-    toSQL: 'CURRENT_TIMESTAMP()',
-  },
-  {
-    id: 'current_year',
-    label: 'År',
-    fromSQL: 'DATE_TRUNC(CURRENT_TIMESTAMP(), YEAR)',
-    toSQL: 'CURRENT_TIMESTAMP()',
-  },
-]
-
 interface DateRangePickerProps {
   filters: Filter[]
   setFilters: (filters: Filter[]) => void
@@ -213,13 +173,9 @@ const DateRangeSelector = forwardRef(
     const [selectedRange, setSelectedRange] = useState<DateRange | undefined>(undefined)
     // Add state for date mode (fixed vs dynamic)
     const [dateMode, setDateMode] = useState<'frequent' | 'dynamic' | 'fixed'>('frequent')
-    const [relativeMode, setRelativeMode] = useState<'current' | 'previous'>('previous')
     const [selectedUnit, setSelectedUnit] = useState('day')
     // Change default value to 30 instead of 1
     const [numberOfUnits, setNumberOfUnits] = useState('30')
-
-    // Add state for filter applied alert
-    const [showFilterApplied, setShowFilterApplied] = useState<boolean>(false)
 
     const fromDate = useMemo(() => {
       if (!maxDaysAvailable) return undefined
@@ -425,7 +381,6 @@ const DateRangeSelector = forwardRef(
       setSelectedDateRange('all')
       setDateMode('frequent') // Reset to default tab
       setFilters(filters.filter((f) => f.column !== 'created_at'))
-      setRelativeMode('previous') // Reset relative mode
       setSelectedUnit('day') // Reset unit selection
       setNumberOfUnits('1') // Reset number of units
     }
@@ -474,7 +429,6 @@ const DateRangeSelector = forwardRef(
         setSelectedDateRange('all')
         setDateMode('frequent')
         setFilters(filters.filter((f) => f.column !== 'created_at'))
-        setRelativeMode('previous')
         setSelectedUnit('day')
         setNumberOfUnits('1')
       },
@@ -482,27 +436,33 @@ const DateRangeSelector = forwardRef(
 
     const handleTabChange = (value: string) => {
       setDateMode(value as 'frequent' | 'dynamic' | 'fixed')
+      // The Relative tab's filter is implicitly "active" the moment it's
+      // selected — apply the current Antall/Periode values right away
+      // instead of requiring an explicit "Bruk" click.
+      if (value === 'dynamic' && !interactiveMode) {
+        applyRelativePeriod(numberOfUnits, selectedUnit)
+      }
     }
 
-    // Add function to handle relative filter removal
-    const removeRelativeFilter = () => {
-      // Remove date filters
+    /** Applies the "last N units" relative filter — called on every Antall/Periode change, no explicit "Bruk" needed. */
+    const applyRelativePeriod = (amount: string, unit: string) => {
+      const sql = generatePreviousPeriodSQL(amount, unit)
       const filtersWithoutDate = filters.filter((f) => f.column !== 'created_at')
-      setFilters(filtersWithoutDate)
-
-      // Reset UI state
-      setSelectedDateRange('all')
-
-      // Keep the current inputs but don't apply them
-      // We're just removing the active filter
-    }
-
-    // Add function to show the success alert temporarily
-    const showSuccessAlert = () => {
-      setShowFilterApplied(true)
-      setTimeout(() => {
-        setShowFilterApplied(false)
-      }, 7000) // Hide after 7 seconds
+      setFilters([
+        ...filtersWithoutDate,
+        {
+          column: 'created_at',
+          operator: '>=',
+          value: sql.fromSQL,
+          dateRangeType: 'dynamic',
+        },
+        {
+          column: 'created_at',
+          operator: '<=',
+          value: sql.toSQL,
+          dateRangeType: 'dynamic',
+        },
+      ])
     }
 
     return (
@@ -530,7 +490,7 @@ const DateRangeSelector = forwardRef(
 
               {/* Frequent dates panel */}
               <Tabs.Panel value="frequent" className="pt-6">
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-3">
                   {DYNAMIC_DATE_RANGES.map((period) => (
                     <Button
                       key={period.id}
@@ -557,160 +517,45 @@ const DateRangeSelector = forwardRef(
                 </div>
               </Tabs.Panel>
 
-              {/* Dynamic dates panel - Chips for navigation, Buttons for actions */}
+              {/* Dynamic dates panel — "last N units", auto-applied on any change (no
+                  "Bruk"/"Fjern" needed, this tab being selected IS the active filter).
+                  The "current period" variant lived here too, but was redundant with
+                  "Ofte brukte"'s own presets, so removed. */}
               <Tabs.Panel value="dynamic" className="pt-6">
-                <div className="mb-2">
-                  <Chips className="mb-6">
-                    <Chips.Toggle
-                      selected={relativeMode === 'previous'}
-                      onClick={() => setRelativeMode('previous')}
-                      checkmark={false}
-                    >
-                      Forrige...
-                    </Chips.Toggle>
-                    <Chips.Toggle
-                      selected={relativeMode === 'current'}
-                      onClick={() => setRelativeMode('current')}
-                      checkmark={false}
-                    >
-                      Inneværendee...
-                    </Chips.Toggle>
-                  </Chips>
-
-                  {relativeMode === 'current' && (
-                    <div className="flex flex-wrap gap-2">
-                      {CURRENT_PERIODS.map((period) => (
-                        <Button
-                          key={period.id}
-                          variant={selectedDateRange === period.id ? 'primary' : 'secondary'}
-                          size="small"
-                          onClick={() => {
-                            if (!interactiveMode) {
-                              // Create a synthetic ID to apply this date range
-                              setSelectedDateRange(period.id)
-
-                              // Apply the date filters directly and consistently
-                              const filtersWithoutDate = filters.filter((f) => f.column !== 'created_at')
-                              setFilters([
-                                ...filtersWithoutDate,
-                                {
-                                  column: 'created_at',
-                                  operator: '>=',
-                                  value: period.fromSQL,
-                                  dateRangeType: 'dynamic',
-                                },
-                                {
-                                  column: 'created_at',
-                                  operator: '<=',
-                                  value: period.toSQL,
-                                  dateRangeType: 'dynamic',
-                                },
-                              ])
-                            }
-                          }}
-                          disabled={interactiveMode}
-                        >
-                          {period.label}
-                        </Button>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Keep the existing previous period interface unchanged */}
-                  {relativeMode === 'previous' && (
-                    <div className="flex items-end gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-[var(--ax-text-subtle)] mb-1">Antall</label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={numberOfUnits}
-                          onChange={(e) => setNumberOfUnits(e.target.value)}
-                          className="w-20 px-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <label className="block text-sm font-medium text-[var(--ax-text-subtle)] mb-1">Periode</label>
-                        <select
-                          value={selectedUnit}
-                          onChange={(e) => {
-                            setSelectedUnit(e.target.value)
-                            const sql = generatePreviousPeriodSQL(numberOfUnits, e.target.value)
-                            const filtersWithoutDate = filters.filter((f) => f.column !== 'created_at')
-                            setFilters([
-                              ...filtersWithoutDate,
-                              {
-                                column: 'created_at',
-                                operator: '>=',
-                                value: sql.fromSQL,
-                                dateRangeType: 'dynamic',
-                              },
-                              {
-                                column: 'created_at',
-                                operator: '<=',
-                                value: sql.toSQL,
-                                dateRangeType: 'dynamic',
-                              },
-                            ])
-                          }}
-                          className="w-full px-3 py-1.5 text-sm border rounded-md bg-[var(--ax-bg-default)] focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          {TIME_UNITS.map((unit) => (
-                            <option key={unit.value} value={unit.value}>
-                              {unit.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="flex gap-2 mt-2">
-                        <Button
-                          variant="primary"
-                          size="small"
-                          onClick={() => {
-                            const sql = generatePreviousPeriodSQL(numberOfUnits, selectedUnit)
-                            const filtersWithoutDate = filters.filter((f) => f.column !== 'created_at')
-                            setFilters([
-                              ...filtersWithoutDate,
-                              {
-                                column: 'created_at',
-                                operator: '>=',
-                                value: sql.fromSQL,
-                                dateRangeType: 'dynamic',
-                              },
-                              {
-                                column: 'created_at',
-                                operator: '<=',
-                                value: sql.toSQL,
-                                dateRangeType: 'dynamic',
-                              },
-                            ])
-
-                            // Show success alert when filter is applied
-                            showSuccessAlert()
-                          }}
-                        >
-                          Bruk
-                        </Button>
-                        <Button
-                          variant="tertiary"
-                          size="small"
-                          onClick={() => {
-                            // Change to clear filters like the "Fjern datoer" button
-                            removeRelativeFilter()
-                          }}
-                        >
-                          Fjern
-                        </Button>
-                      </div>
-                    </div>
-                  )}
+                <div className="flex items-end gap-6">
+                  <TextField
+                    label="Antall"
+                    type="number"
+                    min={1}
+                    size="small"
+                    className="w-20"
+                    value={numberOfUnits}
+                    onChange={(e) => {
+                      setNumberOfUnits(e.target.value)
+                      if (!interactiveMode) {
+                        applyRelativePeriod(e.target.value, selectedUnit)
+                      }
+                    }}
+                  />
+                  <Select
+                    label="Periode"
+                    size="small"
+                    className="flex-1"
+                    value={selectedUnit}
+                    onChange={(e) => {
+                      setSelectedUnit(e.target.value)
+                      if (!interactiveMode) {
+                        applyRelativePeriod(numberOfUnits, e.target.value)
+                      }
+                    }}
+                  >
+                    {TIME_UNITS.map((unit) => (
+                      <option key={unit.value} value={unit.value}>
+                        {unit.label}
+                      </option>
+                    ))}
+                  </Select>
                 </div>
-                {/* Show success alert when filter is applied */}
-                {showFilterApplied && (
-                  <Alert variant="success" size="small" className="mt-4 mb-4">
-                    Datovalget er lagt til som et filter
-                  </Alert>
-                )}
               </Tabs.Panel>
 
               {/* Fixed dates panel with DatePicker */}

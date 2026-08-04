@@ -1,9 +1,11 @@
-import type { ChartConfig, Filter, Metric, Parameter } from '../../../shared/types/chart.ts'
+import type { ChartConfig, Filter, Metric, Parameter, SegmentDefinition } from '../../../shared/types/chart.ts'
+import type { CohortDetailDto } from '../../../shared/types/cohort.ts'
 import { getGcpProjectId } from '../../../shared/lib/runtimeConfig.ts'
 import { DATE_FORMATS } from '../model/constants.ts'
 import { sanitizeColumnName, sanitizeFieldNameForBigQuery } from './sanitize.ts'
 import { getParameterAggregator } from './metricColumns.ts'
 import { isSessionColumn, getRequiredSessionColumns, getRequiredTables } from './sessionUtils.ts'
+import { resolveCohortToSegmentDefinition } from './cohortSqlResolver.ts'
 
 export const getDateFilterConditions = (filters: Filter[]): string => {
   const dateFilters = filters.filter(
@@ -37,6 +39,14 @@ const needsQuotedValue = (column: string, value: string): boolean => {
 }
 
 const buildSegmentFilterCondition = (filter: Filter, tableAlias: string): string | null => {
+  if (filter.rawExpression) {
+    // Pre-built nested boolean expression (e.g. from a cohort's criteria tree) —
+    // inject verbatim, bypassing column/operator/value formatting entirely.
+    // The alias substitution happens at build time (see cohortSqlResolver.ts),
+    // so tableAlias isn't used here.
+    return filter.rawExpression
+  }
+
   if (filter.column.startsWith('param_')) return null
   if (!filter.operator) return null
 
@@ -95,6 +105,7 @@ export const getMetricSQLByType = (
   column?: string,
   alias: string = 'metric',
   metric?: Metric,
+  hasGroupBy: boolean = false,
 ): string => {
   const hasInteractiveFilters = filters.some((f) => f.interactive === true && f.metabaseParam === true)
 
@@ -195,9 +206,33 @@ export const getMetricSQLByType = (
         if (metric?.showInMinutes) {
           return `ROUND(AVG(NULLIF(base_query.visit_duration, 0)) / 60, 2) as ${quotedAlias}`
         }
-        return `AVG(NULLIF(base_query.visit_duration, 0)) as ${quotedAlias}`
+        return `ROUND(AVG(NULLIF(base_query.visit_duration, 0)), 0) as ${quotedAlias}`
       }
       return column ? `AVG(${column}) as ${quotedAlias}` : `COUNT(*) as ${quotedAlias}`
+    case 'median':
+      if (column === 'visit_duration') {
+        if (metric?.showInMinutes) {
+          return `ROUND(APPROX_QUANTILES(NULLIF(base_query.visit_duration, 0), 100 IGNORE NULLS)[OFFSET(50)] / 60, 2) as ${quotedAlias}`
+        }
+        return `APPROX_QUANTILES(NULLIF(base_query.visit_duration, 0), 100 IGNORE NULLS)[OFFSET(50)] as ${quotedAlias}`
+      }
+      return column
+        ? `APPROX_QUANTILES(${column}, 100 IGNORE NULLS)[OFFSET(50)] as ${quotedAlias}`
+        : `COUNT(*) as ${quotedAlias}`
+    case 'mode':
+      if (column === 'visit_duration') {
+        if (hasGroupBy) {
+          if (metric?.showInMinutes) {
+            return `ROUND(APPROX_TOP_COUNT(NULLIF(base_query.visit_duration, 0), 1)[OFFSET(0)].value / 60, 2) as ${quotedAlias}`
+          }
+          return `APPROX_TOP_COUNT(NULLIF(base_query.visit_duration, 0), 1)[OFFSET(0)].value as ${quotedAlias}`
+        }
+        if (metric?.showInMinutes) {
+          return `ROUND((SELECT visit_duration FROM duration_mode) / 60, 2) as ${quotedAlias}`
+        }
+        return `(SELECT visit_duration FROM duration_mode) as ${quotedAlias}`
+      }
+      return `COUNT(*) as ${quotedAlias}`
     case 'min':
       return column ? `MIN(${column}) as ${quotedAlias}` : `COUNT(*) as ${quotedAlias}`
     case 'max':
@@ -282,15 +317,27 @@ export const getMetricSQLByType = (
   }
 }
 
-export const getMetricSQL = (metric: Metric, index: number, filters: Filter[], websiteId: string): string => {
+export const getMetricSQL = (
+  metric: Metric,
+  index: number,
+  filters: Filter[],
+  websiteId: string,
+  hasGroupBy: boolean = false,
+): string => {
   if (metric.alias) {
-    return getMetricSQLByType(metric.function, filters, websiteId, metric.column, metric.alias, metric)
+    return getMetricSQLByType(metric.function, filters, websiteId, metric.column, metric.alias, metric, hasGroupBy)
   }
   const defaultAlias = `metrikk_${index + 1}`
-  return getMetricSQLByType(metric.function, filters, websiteId, metric.column, defaultAlias, metric)
+  return getMetricSQLByType(metric.function, filters, websiteId, metric.column, defaultAlias, metric, hasGroupBy)
 }
 
-export const generateSQLCore = (config: ChartConfig, filters: Filter[], parameters: Parameter[]): string => {
+export const generateSQLCore = (
+  config: ChartConfig,
+  filters: Filter[],
+  parameters: Parameter[],
+  resolvedCohorts?: CohortDetailDto[],
+  cohortLookup?: Map<string, CohortDetailDto>,
+): string => {
   if (!config.website) return ''
 
   const hasInteractiveDateFilter = filters.some(
@@ -300,16 +347,30 @@ export const generateSQLCore = (config: ChartConfig, filters: Filter[], paramete
   const projectId = getGcpProjectId()
   const fullWebsiteTable = `\`${projectId}.umami_views.event\``
   const fullSessionTable = `\`${projectId}.umami_views.session\``
+  const websiteId = config.website.id
 
   const hasInteractiveFieldFilter = filters.some(
     (f) => f.interactive === true && f.metabaseParam === true && f.column === 'created_at',
   )
   const segmentDefinitions = config.segments || []
-  const segmentFilters = segmentDefinitions.flatMap((segment) => segment.filters || [])
+  const effectiveSegmentDefinitions: SegmentDefinition[] =
+    config.cohortIds && config.cohortIds.length > 0 && resolvedCohorts && resolvedCohorts.length > 0
+      ? resolvedCohorts.map((c, i) =>
+          resolveCohortToSegmentDefinition(c, i, {
+            eventsTable: fullWebsiteTable,
+            sessionTable: fullSessionTable,
+            websiteId,
+            cohortLookup: cohortLookup ?? new Map(resolvedCohorts.map((rc) => [String(rc.id), rc])),
+          }),
+        )
+      : segmentDefinitions
+  const segmentFilters = effectiveSegmentDefinitions.flatMap((segment) => segment.filters || [])
+  const isRatioMode = Boolean(config.segmentRatioMode) && effectiveSegmentDefinitions.length >= 2
   const hasSegmentBreakdown =
-    segmentDefinitions.length > 0 &&
-    (segmentDefinitions.length > 1 ||
-      segmentDefinitions.some(
+    !isRatioMode &&
+    effectiveSegmentDefinitions.length > 0 &&
+    (effectiveSegmentDefinitions.length > 1 ||
+      effectiveSegmentDefinitions.some(
         (segment) => (segment.filters?.length || 0) > 0 || (segment.performed?.events?.length || 0) > 0,
       ))
 
@@ -343,6 +404,9 @@ export const generateSQLCore = (config: ChartConfig, filters: Filter[], paramete
 
   const needsUrlFullpath =
     allFilters.some((f) => f.column === 'url_fullpath') || config.groupByFields.includes('url_fullpath')
+
+  const needsReferrerFullpath =
+    allFilters.some((f) => f.column === 'referrer_fullpath') || config.groupByFields.includes('referrer_fullpath')
 
   const needsVisitDuration =
     config.metrics.some((m) => m.column === 'visit_duration') || config.groupByFields.includes('visit_duration')
@@ -486,6 +550,11 @@ export const generateSQLCore = (config: ChartConfig, filters: Filter[], paramete
         sql += `    CONCAT(IFNULL(${fullWebsiteTable}.url_path, ''), IFNULL(${fullWebsiteTable}.url_query, '')) as url_fullpath`
       }
 
+      if (needsReferrerFullpath) {
+        sql += needsSessionJoin || needsUrlFullpath ? ',\n' : '\n'
+        sql += `    CONCAT(IFNULL(${fullWebsiteTable}.referrer_path, ''), IFNULL(${fullWebsiteTable}.referrer_query, '')) as referrer_fullpath`
+      }
+
       sql += `  FROM ${fullWebsiteTable}\n`
 
       if (needsSessionJoin) {
@@ -503,6 +572,11 @@ export const generateSQLCore = (config: ChartConfig, filters: Filter[], paramete
       if (needsUrlFullpath) {
         sql += needsSessionJoin ? ',\n' : '\n'
         sql += "    CONCAT(IFNULL(e.url_path, ''), IFNULL(e.url_query, '')) as url_fullpath"
+      }
+
+      if (needsReferrerFullpath) {
+        sql += needsSessionJoin || needsUrlFullpath ? ',\n' : '\n'
+        sql += "    CONCAT(IFNULL(e.referrer_path, ''), IFNULL(e.referrer_query, '')) as referrer_fullpath"
       }
 
       sql += `  FROM ${fullWebsiteTable} e\n`
@@ -612,10 +686,24 @@ export const generateSQLCore = (config: ChartConfig, filters: Filter[], paramete
     }
   })
 
-  sql += ')\n'
+  const needsDurationMode = config.metrics.some((m) => m.function === 'mode' && m.column === 'visit_duration')
+  const hasGroupBy = config.groupByFields.length > 0 || hasSegmentBreakdown
+
+  if (needsDurationMode && !hasGroupBy) {
+    sql += '),\nduration_mode AS (\n'
+    sql += '  SELECT visit_duration\n'
+    sql += '  FROM base_query\n'
+    sql += '  WHERE visit_duration IS NOT NULL AND visit_duration != 0\n'
+    sql += '  GROUP BY visit_duration\n'
+    sql += '  ORDER BY COUNT(*) DESC, visit_duration ASC\n'
+    sql += '  LIMIT 1\n'
+    sql += ')\n'
+  } else {
+    sql += ')\n'
+  }
 
   if (hasSegmentBreakdown) {
-    const segmentQueries = segmentDefinitions.map((segment) => {
+    const segmentQueries = effectiveSegmentDefinitions.map((segment) => {
       const segmentFilters = segment.filters || []
       const segmentConditions = segmentFilters
         .map((filter) => buildSegmentFilterCondition(filter, 'b'))
@@ -653,6 +741,66 @@ export const generateSQLCore = (config: ChartConfig, filters: Filter[], paramete
     sql += ',\nsegmented_base AS (\n'
     sql += segmentQueries.join('\n  UNION ALL\n')
     sql += '\n)\n\n'
+  } else if (isRatioMode) {
+    const buildSegmentCte = (segment: (typeof effectiveSegmentDefinitions)[0], cteName: string) => {
+      const sFilters = segment.filters || []
+      const conditions = sFilters
+        .map((filter) => buildSegmentFilterCondition(filter, 'b'))
+        .filter((c): c is string => Boolean(c))
+
+      if (segment.performed && segment.performed.events.length > 0) {
+        const { operator, events } = segment.performed
+        if (operator === 'IN') {
+          const eventList = events.map((e) => `'${escapeSqlLiteral(e)}'`).join(', ')
+          conditions.push(`b.event_name IN (${eventList})`)
+        } else {
+          const ev = events[0]
+          if (ev) {
+            if (operator === 'LIKE') conditions.push(`b.event_name LIKE '%${escapeSqlLiteral(ev)}%'`)
+            else if (operator === '!=') conditions.push(`b.event_name != '${escapeSqlLiteral(ev)}'`)
+            else if (operator === 'STARTS_WITH') conditions.push(`b.event_name LIKE '${escapeSqlLiteral(ev)}%'`)
+            else if (operator === 'ENDS_WITH') conditions.push(`b.event_name LIKE '%${escapeSqlLiteral(ev)}'`)
+            else conditions.push(`b.event_name = '${escapeSqlLiteral(ev)}'`)
+          }
+        }
+      }
+
+      const whereClause = conditions.length > 0 ? conditions.join('\n    AND ') : '1=1'
+      return `,\n${cteName} AS (\n  SELECT b.*\n  FROM base_query b\n  WHERE ${whereClause}\n)\n`
+    }
+
+    const seg1 = effectiveSegmentDefinitions[0]
+    const seg2 = effectiveSegmentDefinitions[1]
+    sql += buildSegmentCte(seg1, 'seg1')
+    sql += buildSegmentCte(seg2, 'seg2')
+
+    const activeMetric = config.metrics[0]
+    const metricAlias = activeMetric?.alias || 'ratio'
+
+    const getRatioAggregation = (segName: string): string => {
+      if (!activeMetric) return `COUNT(*)`
+      switch (activeMetric.function) {
+        case 'distinct': {
+          const col = activeMetric.column === 'session_id' ? 'session_id' : (activeMetric.column ?? 'session_id')
+          return `COUNT(DISTINCT ${segName}.${col})`
+        }
+        case 'count':
+        default:
+          return `COUNT(*)`
+      }
+    }
+
+    const seg1Name = escapeSqlLiteral(seg1.name)
+    const seg2Name = escapeSqlLiteral(seg2.name)
+    sql += `\nSELECT\n`
+    sql += `  ROUND(\n`
+    sql += `    SAFE_DIVIDE(\n`
+    sql += `      (SELECT ${getRatioAggregation('seg1')} FROM seg1),\n`
+    sql += `      (SELECT ${getRatioAggregation('seg2')} FROM seg2)\n`
+    sql += `    ), 4) AS \`${metricAlias}\`,\n`
+    sql += `  '${seg1Name}' AS segment_1,\n`
+    sql += `  '${seg2Name}' AS segment_2\n`
+    return sql
   } else {
     sql += '\n'
   }
@@ -711,7 +859,7 @@ export const generateSQLCore = (config: ChartConfig, filters: Filter[], paramete
   })
 
   config.metrics.forEach((metric, index) => {
-    metricSelectClauses.push(getMetricSQL(metric, index, filters, config.website!.id))
+    metricSelectClauses.push(getMetricSQL(metric, index, filters, config.website!.id, hasGroupBy))
   })
 
   const orderedSelectClauses =
@@ -887,6 +1035,11 @@ export const generateSQLCore = (config: ChartConfig, filters: Filter[], paramete
     } else {
       sql += `ORDER BY 1 ${config.orderBy?.direction || 'DESC'}\n`
     }
+  }
+
+  if (needsDurationMode && !hasGroupBy) {
+    sql += 'LIMIT 1\n'
+    return sql
   }
 
   if (config.limit && config.limit > 0) {

@@ -1,29 +1,23 @@
 import { Select, TextField } from '@navikt/ds-react'
 import { useState, useEffect, forwardRef, useImperativeHandle } from 'react'
-import type { ColumnGroup, OrderBy, Metric, Filter } from '../../../../shared/types/chart.ts'
-import DateRangeSelector from './DateRangeSelector.tsx'
+import type { ColumnGroup, OrderBy, Metric } from '../../../../shared/types/chart.ts'
 import ToggleOption from '../../../../shared/ui/ToggleOption.tsx'
 
 interface DisplayOptionsProps {
   groupByFields: string[]
   orderBy: OrderBy | null
   columnOrderMode: 'default' | 'metrics_first'
-  paramAggregation: 'representative' | 'unique'
   limit: number | null
   COLUMN_GROUPS: Record<string, ColumnGroup>
   setOrderBy: (column: string, direction: 'ASC' | 'DESC') => void
   clearOrderBy: () => void
-  setDateFormat: (format: string) => void
-  setParamAggregation: (strategy: 'representative' | 'unique') => void
   setLimit: (limit: number | null) => void
   setColumnOrderMode: (mode: 'default' | 'metrics_first') => void
   metrics: Metric[]
-  filters: Filter[]
-  setFilters: (filters: Filter[]) => void
-  maxDaysAvailable: number
+}
 
-  interactiveMode: boolean
-  setInteractiveMode: (mode: boolean) => void
+export interface DisplayOptionsRef {
+  resetOptions: (silent?: boolean) => void
 }
 
 const DisplayOptions = forwardRef(
@@ -36,32 +30,21 @@ const DisplayOptions = forwardRef(
       COLUMN_GROUPS,
       setOrderBy,
       clearOrderBy,
-      setDateFormat,
-      setParamAggregation,
       setLimit,
       setColumnOrderMode,
       metrics,
-      filters,
-      setFilters,
-      maxDaysAvailable,
-      interactiveMode,
-      setInteractiveMode,
     }: DisplayOptionsProps,
     ref,
   ) => {
     const [showCustomSort, setShowCustomSort] = useState<boolean>(false)
     const [showCustomLimit, setShowCustomLimit] = useState<boolean>(false)
     const [limitInput, setLimitInput] = useState<string>('')
-    const [customPeriodInputs, setCustomPeriodInputs] = useState<Record<number, { amount: string; unit: string }>>({})
-    const [selectedDateRange, setSelectedDateRange] = useState<string>('last7days')
 
     const resetOptions = (silent = false) => {
       void silent
       clearOrderBy()
-      setDateFormat('day')
       setLimit(1000)
       setColumnOrderMode('default')
-      setParamAggregation('unique')
       setShowCustomSort(false)
       setShowCustomLimit(false)
       setLimitInput('1000')
@@ -82,29 +65,6 @@ const DisplayOptions = forwardRef(
     return (
       <>
         <div className="flex flex-col gap-4 pb-2">
-          <ToggleOption
-            label="Overstyr tidsperiode"
-            description={
-              interactiveMode
-                ? 'Tidsperiode velges via filter i dasboardet (standard)'
-                : 'Bruk valgt tidsperiode fra grafbyggeren som standard'
-            }
-            checked={!interactiveMode}
-            onChange={(checked) => setInteractiveMode(!checked)}
-          >
-            <DateRangeSelector
-              filters={filters}
-              setFilters={setFilters}
-              maxDaysAvailable={maxDaysAvailable}
-              selectedDateRange={selectedDateRange}
-              setSelectedDateRange={setSelectedDateRange}
-              customPeriodInputs={customPeriodInputs}
-              setCustomPeriodInputs={setCustomPeriodInputs}
-              interactiveMode={interactiveMode}
-              bare
-            />
-          </ToggleOption>
-
           <ToggleOption
             label="Tilpass sortering"
             description={
