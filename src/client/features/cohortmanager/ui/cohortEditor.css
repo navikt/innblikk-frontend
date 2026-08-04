@@ -1,0 +1,92 @@
+/* Theme react-querybuilder to match Aksel design tokens */
+.cohort-qb-wrapper {
+  --rqb-spacing: 0.5rem;
+  --rqb-border-width: 1px;
+  --rqb-base-color: var(--ax-border-action);
+  --rqb-background-color: var(--ax-bg-neutral-soft);
+  --rqb-border-color: var(--ax-border-neutral-subtle);
+  --rqb-border-style: solid;
+  --rqb-border-radius: 4px;
+}
+
+/* Rule group container */
+.cohort-qb .ruleGroup {
+  background: var(--ax-bg-neutral-soft);
+  border-color: var(--ax-border-neutral-subtle);
+  border-radius: 4px;
+  padding: 0.75rem;
+}
+
+/* Individual rule row */
+.cohort-qb .rule {
+  background: var(--ax-bg-neutral-soft);
+  border: 1px solid var(--ax-border-neutral-subtle);
+  border-radius: 4px;
+  padding: 0.4rem 0.6rem;
+  gap: 0.5rem;
+}
+
+/*
+ * Fields/operators/combinators/values/notToggle/add-remove buttons are all
+ * Aksel components (see CohortEditor.tsx's Aksel*/
+controlElements wiring) —
+ * they theme themselves, no CSS needed here beyond the group/row containers
+ * above and the layout-only rules below.
+ */
+
+/* Hide + Filter button at root level — only groups belong at root */
+.cohort-qb > .ruleGroup > .ruleGroup-header > .ruleGroup-addRule {
+  display: none;
+}
+
+/*
+ * Layout cleanup: only the AND/OR combinator belongs on the left of a group
+ * header. Push IKKE (negation), +Filter, +Gruppe, and the remove ("x")
+ * button to the right — cohort-qb-not is the first of that cluster in DOM
+ * order, so margin-left: auto on it pushes itself and every sibling after it
+ * (add-rule, add-group, remove) to the far right of the flex row.
+ */
+.cohort-qb .ruleGroup-header .cohort-qb-not {
+  margin-left: auto;
+}
+
+/*
+ * An individual rule row has no combinator to keep on the left — just push
+ * its remove ("x") button to the far right, away from the field/operator/value inputs.
+ */
+.cohort-qb .rule .cohort-qb-remove {
+  margin-left: auto;
+}
+
+/*
+ * SequenceEditor/StepConditionsEditor (CohortEditor.tsx) reuse RQB's own
+ * `rule`/`ruleGroup`/`ruleGroup-header`/`ruleGroup-body` classnames on their
+ * outer containers for matching borders/background/spacing, so this whole
+ * nested editor looks like just another group in the builder — but the
+ * actual form controls are Aksel components (Select/TextField/Button), not
+ * raw HTML matched by the `.cohort-qb select`/`input[type='text']` rules
+ * above, since Aksel already themes those correctly on its own.
+ */
+.cohort-sequence-editor {
+  gap: 0.75rem;
+}
+
+.cohort-sequence-editor > div > .aksel-body-short {
+  margin-bottom: 0.25rem;
+}
+
+/* Only the OG/ELLER combinator belongs on the left of a step's header row — push "+ Filter" to the right. */
+.cohort-step-add {
+  margin-left: auto;
+}
+
+/* Push each row's remove ("✕") button to the right, away from the field/operator/value controls. */
+.cohort-step-remove {
+  margin-left: auto;
+}
+
+/* Keep the combinator/relation selects compact instead of stretching to fill the row (Aksel's Select defaults to 100% width). */
+.cohort-step-combinator,
+.cohort-sequence-relation {
+  max-width: 12rem;
+}

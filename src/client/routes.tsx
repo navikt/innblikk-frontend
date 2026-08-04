@@ -17,6 +17,14 @@ const Sporingskoder = lazy(() => import('./features/content').then((m) => ({ def
 const Grafbygger = lazy(() => import('./features/chartbuilder').then((m) => ({ default: m.Grafbygger })))
 const Grafdeling = lazy(() => import('./features/chartbuilder').then((m) => ({ default: m.Grafdeling })))
 
+// Chartbuilder Next Feature (unadvertised, simplified grafbygger + cohorts, for live testing)
+const GrafbyggerNext = lazy(() => import('./features/chartbuilder-next').then((m) => ({ default: m.Grafbygger })))
+
+// Cohort Manager Feature
+const CohortManager = lazy(() =>
+  import('./features/cohortmanager/index.ts').then((m) => ({ default: m.CohortManager })),
+)
+
 // Backend Test Feature
 const Oversikt = lazy(() => import('./features/oversikt/index.ts').then((m) => ({ default: m.Oversikt })))
 const ProjectManager = lazy(() =>
@@ -164,6 +172,8 @@ export const routes: AppRoute[] = [
 
   { path: '/taksonomi', component: <Taksonomi />, fullWidth: true },
   { path: '/grafbygger', component: <Grafbygger />, fullWidth: true },
+  { path: '/grafbygger_next', component: <GrafbyggerNext />, fullWidth: true },
+  { path: '/kohorter', component: <CohortManager />, fullWidth: true },
   { path: '/metabase', component: <MetabaseGuide />, fullWidth: true },
 
   { path: '/sql', component: <SqlEditor />, fullWidth: true },

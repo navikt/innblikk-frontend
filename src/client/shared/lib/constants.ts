@@ -22,7 +22,7 @@ export const FILTER_COLUMNS = {
       { label: 'Henvisningssti', value: 'referrer_path' },
       { label: 'Henvisningsspørring', value: 'referrer_query' },
       { label: 'Henvisning sti og spørring', value: 'referrer_fullpath' },
-      { label: 'Henvisning fullstendig URL', value: 'referrer_fullurl' },
+      /* { label: 'Henvisning fullstendig URL', value: 'referrer_fullurl' },*/
     ],
   },
   visitorDetails: {
