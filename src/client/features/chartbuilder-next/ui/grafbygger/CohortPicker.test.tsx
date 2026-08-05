@@ -38,7 +38,7 @@ describe('CohortPicker', () => {
       mockFetchCohorts.mockResolvedValue([])
       renderCohortPicker()
       await waitFor(() => {
-        expect(screen.getByRole('combobox', { name: /velg kohorter/i })).toBeInTheDocument()
+        expect(screen.getByRole('combobox', { name: /velg brukergrupper/i })).toBeInTheDocument()
       })
       expect(screen.queryByRole('button', { name: /fjern/i })).not.toBeInTheDocument()
     })
@@ -46,14 +46,14 @@ describe('CohortPicker', () => {
     it('shows Loader while fetching', () => {
       mockFetchCohorts.mockReturnValue(new Promise(() => {}))
       renderCohortPicker()
-      expect(screen.getByTitle(/laster kohorter/i)).toBeInTheDocument()
+      expect(screen.getByTitle(/laster brukergrupper/i)).toBeInTheDocument()
     })
 
     it('shows Alert on fetch error', async () => {
       mockFetchCohorts.mockRejectedValue(new Error('network error'))
       renderCohortPicker()
       await waitFor(() => {
-        expect(screen.getByText(/kunne ikke laste kohorter/i)).toBeInTheDocument()
+        expect(screen.getByText(/kunne ikke laste brukergrupper/i)).toBeInTheDocument()
       })
     })
 
@@ -65,9 +65,9 @@ describe('CohortPicker', () => {
       renderCohortPicker()
       const user = userEvent.setup()
       await waitFor(() => {
-        expect(screen.queryByTitle(/laster kohorter/i)).not.toBeInTheDocument()
+        expect(screen.queryByTitle(/laster brukergrupper/i)).not.toBeInTheDocument()
       })
-      const combobox = screen.getByRole('combobox', { name: /velg kohorter/i })
+      const combobox = screen.getByRole('combobox', { name: /velg brukergrupper/i })
       await user.click(combobox)
       await waitFor(() => {
         expect(screen.getByRole('option', { name: /kohort a/i })).toBeInTheDocument()
@@ -87,9 +87,9 @@ describe('CohortPicker', () => {
       const { onCohortIdsChange } = renderCohortPicker()
       const user = userEvent.setup()
       await waitFor(() => {
-        expect(screen.queryByTitle(/laster kohorter/i)).not.toBeInTheDocument()
+        expect(screen.queryByTitle(/laster brukergrupper/i)).not.toBeInTheDocument()
       })
-      const combobox = screen.getByRole('combobox', { name: /velg kohorter/i })
+      const combobox = screen.getByRole('combobox', { name: /velg brukergrupper/i })
       await user.click(combobox)
       const option = await screen.findByRole('option', { name: /kohort a/i })
       await user.click(option)
@@ -111,9 +111,9 @@ describe('CohortPicker', () => {
       const { onCohortIdsChange } = renderCohortPicker()
       const user = userEvent.setup()
       await waitFor(() => {
-        expect(screen.queryByTitle(/laster kohorter/i)).not.toBeInTheDocument()
+        expect(screen.queryByTitle(/laster brukergrupper/i)).not.toBeInTheDocument()
       })
-      const combobox = screen.getByRole('combobox', { name: /velg kohorter/i })
+      const combobox = screen.getByRole('combobox', { name: /velg brukergrupper/i })
       await user.click(combobox)
       await user.click(screen.getByRole('option', { name: /kohort a/i }))
       await waitFor(() => {
@@ -129,9 +129,9 @@ describe('CohortPicker', () => {
       renderCohortPicker()
       const user = userEvent.setup()
       await waitFor(() => {
-        expect(screen.queryByTitle(/laster kohorter/i)).not.toBeInTheDocument()
+        expect(screen.queryByTitle(/laster brukergrupper/i)).not.toBeInTheDocument()
       })
-      const combobox = screen.getByRole('combobox', { name: /velg kohorter/i })
+      const combobox = screen.getByRole('combobox', { name: /velg brukergrupper/i })
       await user.click(combobox)
       await user.click(screen.getByRole('option', { name: /kohort a/i }))
       await user.click(combobox)
@@ -149,9 +149,9 @@ describe('CohortPicker', () => {
       renderCohortPicker()
       const user = userEvent.setup()
       await waitFor(() => {
-        expect(screen.queryByTitle(/laster kohorter/i)).not.toBeInTheDocument()
+        expect(screen.queryByTitle(/laster brukergrupper/i)).not.toBeInTheDocument()
       })
-      const combobox = screen.getByRole('combobox', { name: /velg kohorter/i })
+      const combobox = screen.getByRole('combobox', { name: /velg brukergrupper/i })
       await user.click(combobox)
       await user.click(screen.getByRole('option', { name: /kohort a/i }))
       await user.click(combobox)
@@ -169,9 +169,9 @@ describe('CohortPicker', () => {
       const { onCohortIdsChange, ref } = renderCohortPicker()
       const user = userEvent.setup()
       await waitFor(() => {
-        expect(screen.queryByTitle(/laster kohorter/i)).not.toBeInTheDocument()
+        expect(screen.queryByTitle(/laster brukergrupper/i)).not.toBeInTheDocument()
       })
-      const combobox = screen.getByRole('combobox', { name: /velg kohorter/i })
+      const combobox = screen.getByRole('combobox', { name: /velg brukergrupper/i })
       await user.click(combobox)
       await user.click(screen.getByRole('option', { name: /kohort a/i }))
       await waitFor(() => {
