@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import {
   QueryBuilder,
-  ValueEditor,
   toOptions,
   type RuleGroupType,
   type RuleType,
@@ -14,9 +13,6 @@ import {
   type NotToggleProps,
   type ActionProps,
 } from 'react-querybuilder'
-import { QueryBuilderDateTime } from '@react-querybuilder/datetime'
-import '@react-querybuilder/datetime/dist/datetime.css'
-import '@react-querybuilder/datetime/dist/datetime-layout.css'
 import 'react-querybuilder/dist/query-builder-layout.css'
 import { Button, Dialog, VStack, HStack, BodyShort, Box, Tag, Select, TextField, Checkbox } from '@navikt/ds-react'
 import type {
@@ -28,6 +24,8 @@ import type {
 } from '../model/types.ts'
 import { nodeToRuleGroup, ruleToNode, type ParamValueBlob, type SequenceValueBlob } from '../utils/cohortTreeMapper.ts'
 import { replaceCriteria } from '../api/cohortManagerApi.ts'
+import { isRelativeDateTimeValue } from '../utils/cohortSqlResolver.ts'
+import { CohortDateTimeEditor, CohortDateTimeValueEditor } from './CohortDateTimeEditor.tsx'
 import './cohortEditor.css'
 
 // ─── Fields ──────────────────────────────────────────────────────────────────
@@ -42,7 +40,7 @@ const FIELDS: Field[] = [
   { name: 'event_name', label: 'Hendelsesnavn' },
   { name: 'event_data_key', label: 'Hendelsesdata — nøkkel' },
   { name: 'event_data_value', label: 'Hendelsesdata — verdi' },
-  { name: 'created_at', label: 'Tidspunkt', inputType: 'datetime-local', datatype: 'datetime' },
+  { name: 'created_at', label: 'Tidspunkt' },
   { name: '__param__', label: 'Egendefinert hendelsesparameter' },
   { name: '__cohort__', label: 'Er i brukergruppe' },
   { name: '__sequence__', label: 'Sekvens (gjorde X, så (ikke) Y)' },
@@ -77,10 +75,15 @@ const OPERATORS: Operator[] = [
   { name: 'not_in_cohort', label: 'tilhører ikke' },
 ]
 
-const DATETIME_OPERATORS: Operator[] = [
-  { name: 'GREATER_THAN_OR_EQUAL', label: 'er etter eller lik' },
-  { name: 'LESS_THAN_OR_EQUAL', label: 'er før eller lik' },
-]
+/**
+ * "Tidspunkt" (created_at) has exactly one operator, BETWEEN — a period is
+ * inherently one relation, not two independent >=/<= bounds. This single
+ * entry is never rendered as a dropdown (see AkselOperatorSelector and
+ * StepConditionsEditor below, both of which hide the operator select for
+ * this field entirely); it only exists so getFieldOperators(field)[0]
+ * auto-selects BETWEEN the moment "Tidspunkt" is picked as the field.
+ */
+const DATETIME_OPERATORS: Operator[] = [{ name: 'BETWEEN', label: 'er mellom' }]
 
 const SEQUENCE_OPERATORS: Operator[] = [{ name: 'sequence', label: 'sekvens' }]
 
@@ -157,7 +160,13 @@ function AkselFieldSelector(props: FieldSelectorProps) {
   )
 }
 
+/**
+ * "Tidspunkt" (created_at) has exactly one possible operator (BETWEEN — see
+ * DATETIME_OPERATORS), so there's nothing meaningful to choose: hide the
+ * dropdown entirely rather than show a disabled/single-option select.
+ */
 function AkselOperatorSelector(props: OperatorSelectorProps) {
+  if (props.field === 'created_at') return null
   return (
     <Select
       label={props.title ?? 'Operator'}
@@ -223,14 +232,9 @@ function AkselActionButton(props: ActionProps) {
 
 /**
  * Default value editor for plain conditions (everything except __param__/
- * __sequence__, which get their own components below). Falls back to RQB's
- * own `<ValueEditor>` only for `datatype: 'datetime'` fields (created_at) —
- * that's where `@react-querybuilder/datetime`'s date/time picker behavior
- * lives, and reimplementing it isn't worth it just to swap in an Aksel input.
+ * __sequence__/created_at, which get their own components).
  */
 function AkselDefaultValueEditor(props: ValueEditorProps) {
-  if (props.fieldData?.datatype === 'datetime') return <ValueEditor {...props} />
-
   if (props.type === 'select') {
     return (
       <Select
@@ -398,32 +402,26 @@ function StepConditionsEditor({ query, onChange }: StepConditionsEditorProps) {
               ))}
             </Select>
 
-            <Select
-              label="Operator"
-              hideLabel
-              size="small"
-              value={rule.operator}
-              onChange={(e) => updateRule(index, { operator: e.target.value })}
-            >
-              {getFieldOperators(rule.field).map((op) => (
-                <option key={op.name} value={op.name}>
-                  {op.label}
-                </option>
-              ))}
-            </Select>
+            {rule.field !== 'created_at' && (
+              <Select
+                label="Operator"
+                hideLabel
+                size="small"
+                value={rule.operator}
+                onChange={(e) => updateRule(index, { operator: e.target.value })}
+              >
+                {getFieldOperators(rule.field).map((op) => (
+                  <option key={op.name} value={op.name}>
+                    {op.label}
+                  </option>
+                ))}
+              </Select>
+            )}
 
             {rule.field === '__param__' ? (
               <ParamInlineEditor value={rule.value as string} onChange={(v) => updateRule(index, { value: v })} />
             ) : rule.field === 'created_at' ? (
-              // Aksel's TextField has no `datetime-local` type — same fallback
-              // reasoning as AkselDefaultValueEditor above.
-              <input
-                type="datetime-local"
-                aria-label="Verdi"
-                className="navds-text-field__input navds-body-short navds-body-short--medium"
-                value={rule.value as string}
-                onChange={(e) => updateRule(index, { value: e.target.value })}
-              />
+              <CohortDateTimeEditor value={rule.value as string} onChange={(v) => updateRule(index, { value: v })} />
             ) : (
               <TextField
                 label="Verdi"
@@ -560,10 +558,11 @@ function SequenceEditor(props: ValueEditorProps) {
   )
 }
 
-/** Top-level dispatcher passed to `controlElements.valueEditor` — routes __param__/__sequence__ fields to their custom editors, everything else to RQB's default. */
+/** Top-level dispatcher passed to `controlElements.valueEditor` — routes __param__/__sequence__/created_at fields to their custom editors, everything else to RQB's default. */
 function CohortValueEditor(props: ValueEditorProps) {
   if (props.field === '__param__') return <ParamValueEditor {...props} />
   if (props.field === '__sequence__') return <SequenceEditor {...props} />
+  if (props.field === 'created_at') return <CohortDateTimeValueEditor {...props} />
   return <AkselDefaultValueEditor {...props} />
 }
 
@@ -607,6 +606,66 @@ const OP_LABELS: Record<string, string> = {
   NOT_IN_SET: 'ikke i',
 }
 
+const RELATIVE_UNIT_LABELS: Record<string, string> = {
+  minute: 'minutt',
+  hour: 'time',
+  day: 'dag',
+  week: 'uke',
+  month: 'måned',
+  year: 'år',
+}
+
+const RELATIVE_ANCHOR_LABELS: Record<string, string> = {
+  now: 'nå',
+  startOfDay: 'start av dagen',
+  endOfDay: 'slutt av dagen',
+  startOfWeek: 'start av uken',
+  endOfWeek: 'slutt av uken',
+  startOfMonth: 'start av måneden',
+  endOfMonth: 'slutt av måneden',
+  startOfYear: 'start av året',
+  endOfYear: 'slutt av året',
+}
+
+/** Human-readable rendering of a single `created_at` bound — a JSON RelativeDateTimeValue, or a plain ISO date string. */
+function formatDateTimeBound(rawValue: string): string {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(rawValue)
+  } catch {
+    parsed = rawValue
+  }
+
+  if (isRelativeDateTimeValue(parsed)) {
+    const anchorLabel = RELATIVE_ANCHOR_LABELS[parsed.anchor] ?? parsed.anchor
+    if (parsed.offset === 0) return anchorLabel
+    const unitLabel = RELATIVE_UNIT_LABELS[parsed.unit] ?? parsed.unit
+    const amount = Math.abs(parsed.offset)
+    const direction = parsed.offset < 0 ? 'før' : 'etter'
+    return `${amount} ${unitLabel}${amount === 1 ? '' : 'er'} ${direction} ${anchorLabel}`
+  }
+
+  if (typeof parsed === 'string') {
+    const date = new Date(parsed)
+    if (!Number.isNaN(date.getTime())) return date.toLocaleDateString('nb-NO')
+  }
+
+  return rawValue
+}
+
+/** Human-readable rendering of a "Tidspunkt" (created_at) BETWEEN condition's `{from, to}` value — see CohortDateTimeEditor.tsx. */
+function formatDateTimeValue(rawValue: string): string {
+  try {
+    const parsed = JSON.parse(rawValue) as { from?: unknown; to?: unknown }
+    if (typeof parsed.from === 'string' && typeof parsed.to === 'string') {
+      return `fra ${formatDateTimeBound(parsed.from)} til ${formatDateTimeBound(parsed.to)}`
+    }
+  } catch {
+    // fall through
+  }
+  return rawValue
+}
+
 function nodeToHuman(node: CohortNode, cohortNames: Record<string, string>): string {
   switch (node.nodeType) {
     case 'GROUP': {
@@ -617,6 +676,9 @@ function nodeToHuman(node: CohortNode, cohortNames: Record<string, string>): str
       return node.negated ? `IKKE ${wrapped}` : wrapped
     }
     case 'CONDITION': {
+      if (node.field === 'created_at') {
+        return `tidspunkt ${formatDateTimeValue(node.value)}`
+      }
       const field = node.paramKey != null ? node.paramKey : (FIELD_LABELS[node.field ?? ''] ?? node.field)
       const op = OP_LABELS[node.conditionType] ?? node.conditionType
       return `${field} ${op} «${node.value}»`
@@ -697,40 +759,38 @@ export function CohortEditor({ cohort, allCohorts, onClose, onChanged }: CohortE
             </BodyShort>
 
             <div className="cohort-qb-wrapper">
-              <QueryBuilderDateTime>
-                <QueryBuilder
-                  fields={FIELDS}
-                  operators={OPERATORS}
-                  combinators={COMBINATORS}
-                  query={query}
-                  onQueryChange={setQuery}
-                  showNotToggle
-                  showCombinatorsBetweenRules={false}
-                  addRuleToNewGroups
-                  controlClassnames={CONTROL_CLASSNAMES}
-                  translations={TRANSLATIONS}
-                  controlElements={{
-                    valueEditor: CohortValueEditor,
-                    fieldSelector: AkselFieldSelector,
-                    operatorSelector: AkselOperatorSelector,
-                    combinatorSelector: AkselCombinatorSelector,
-                    notToggle: AkselNotToggle,
-                    addRuleAction: AkselActionButton,
-                    addGroupAction: AkselActionButton,
-                    removeRuleAction: AkselActionButton,
-                    removeGroupAction: AkselActionButton,
-                  }}
-                  getValueEditorType={(field) => {
-                    if (field === '__cohort__') return 'select'
-                    return 'text'
-                  }}
-                  getValues={(field) => {
-                    if (field === '__cohort__') return cohortOptions
-                    return []
-                  }}
-                  getOperators={getFieldOperators}
-                />
-              </QueryBuilderDateTime>
+              <QueryBuilder
+                fields={FIELDS}
+                operators={OPERATORS}
+                combinators={COMBINATORS}
+                query={query}
+                onQueryChange={setQuery}
+                showNotToggle
+                showCombinatorsBetweenRules={false}
+                addRuleToNewGroups
+                controlClassnames={CONTROL_CLASSNAMES}
+                translations={TRANSLATIONS}
+                controlElements={{
+                  valueEditor: CohortValueEditor,
+                  fieldSelector: AkselFieldSelector,
+                  operatorSelector: AkselOperatorSelector,
+                  combinatorSelector: AkselCombinatorSelector,
+                  notToggle: AkselNotToggle,
+                  addRuleAction: AkselActionButton,
+                  addGroupAction: AkselActionButton,
+                  removeRuleAction: AkselActionButton,
+                  removeGroupAction: AkselActionButton,
+                }}
+                getValueEditorType={(field) => {
+                  if (field === '__cohort__') return 'select'
+                  return 'text'
+                }}
+                getValues={(field) => {
+                  if (field === '__cohort__') return cohortOptions
+                  return []
+                }}
+                getOperators={getFieldOperators}
+              />
             </div>
 
             {/* Live human-readable preview */}

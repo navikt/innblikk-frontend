@@ -81,6 +81,68 @@ describe('dateValueToBigQuery', () => {
   })
 })
 
+describe('created_at BETWEEN condition', () => {
+  it('resolves a single BETWEEN condition into two ANDed bounds on one column', () => {
+    const root = group({
+      children: [
+        condition('created_at', JSON.stringify({ from: '2024-01-01T00:00:00', to: '2024-01-31T23:59:59' }), 'BETWEEN'),
+      ],
+    })
+
+    const sql = pretty(resolveNodeToSql(root, defaultCtx()))
+
+    expect(sql).toMatchInlineSnapshot(`
+      "EXISTS (
+        SELECT
+          1
+        FROM
+          events e
+        WHERE
+          e.visitor_id = b.visitor_id
+          AND (
+            e.created_at >= TIMESTAMP('2024-01-01T00:00:00')
+            AND e.created_at <= TIMESTAMP('2024-01-31T23:59:59')
+          )
+      )"
+    `)
+  })
+
+  it('resolves a relative BETWEEN condition (both bounds recomputed at evaluation time)', () => {
+    const from = JSON.stringify({ mode: 'relative', anchor: 'now', offset: -30, unit: 'day' })
+    const to = JSON.stringify({ mode: 'relative', anchor: 'now', offset: 0, unit: 'day' })
+    const root = group({
+      children: [condition('created_at', JSON.stringify({ from, to }), 'BETWEEN')],
+    })
+
+    const sql = pretty(resolveNodeToSql(root, defaultCtx()))
+
+    expect(sql).toMatchInlineSnapshot(`
+      "EXISTS (
+        SELECT
+          1
+        FROM
+          events e
+        WHERE
+          e.visitor_id = b.visitor_id
+          AND (
+            e.created_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
+            AND e.created_at <= CURRENT_TIMESTAMP()
+          )
+      )"
+    `)
+  })
+
+  it('treats a malformed {from, to} value as "never matches" instead of throwing', () => {
+    const root = group({
+      children: [condition('created_at', 'not-json', 'BETWEEN')],
+    })
+
+    const sql = resolveNodeToSql(root, defaultCtx())
+
+    expect(sql).toContain('FALSE')
+  })
+})
+
 // ─── Query 5 (baseline): single event, multiple AND'd field + date-range conditions ──
 // "did perform radiogroup valgt, where valg=Ja AND tekst=Utenlandsopphold, during <range>"
 

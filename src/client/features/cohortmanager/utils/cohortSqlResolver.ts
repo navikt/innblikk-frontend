@@ -2,14 +2,14 @@ import type { CohortConditionNode, CohortGroupNode, CohortNode } from '../model/
 
 // ─── Datetime value handling ──────────────────────────────────────────────────
 
-interface RelativeDateTimeValue {
+export interface RelativeDateTimeValue {
   mode: 'relative'
   anchor: string
   offset: number
   unit: 'minute' | 'hour' | 'day' | 'week' | 'month' | 'year'
 }
 
-function isRelativeDateTimeValue(value: unknown): value is RelativeDateTimeValue {
+export function isRelativeDateTimeValue(value: unknown): value is RelativeDateTimeValue {
   return typeof value === 'object' && value !== null && (value as RelativeDateTimeValue).mode === 'relative'
 }
 
@@ -21,6 +21,19 @@ const BQ_DATE_UNIT: Record<RelativeDateTimeValue['unit'], string> = {
   month: 'MONTH',
   year: 'YEAR',
 }
+
+/** Anchor keys usable in a RelativeDateTimeValue — shared with the UI's "Ofte brukt"/"Relativ" tidspunkt editor (CohortDateTimeEditor.tsx). */
+export const RELATIVE_DATE_ANCHORS = [
+  'now',
+  'startOfDay',
+  'endOfDay',
+  'startOfWeek',
+  'endOfWeek',
+  'startOfMonth',
+  'endOfMonth',
+  'startOfYear',
+  'endOfYear',
+] as const
 
 const BQ_ANCHOR: Record<string, string> = {
   now: 'CURRENT_TIMESTAMP()',
@@ -60,6 +73,26 @@ export function dateValueToBigQuery(rawValue: string): string {
   // Absolute ISO string — wrap in TIMESTAMP() so BQ parses it correctly
   const isoString = typeof parsed === 'string' ? parsed : rawValue
   return `TIMESTAMP('${isoString.replace(/'/g, "''")}')`
+}
+
+/**
+ * A `created_at` BETWEEN condition's value shape — `from`/`to` are each
+ * independently a raw value in the same format `dateValueToBigQuery` already
+ * accepts (a JSON RelativeDateTimeValue string, or a plain ISO string).
+ * Produced by CohortDateTimeEditor.tsx's Ofte brukt/Relativ/Bestemt periode tabs.
+ */
+export interface CohortDateRangeValue {
+  from: string
+  to: string
+}
+
+function isCohortDateRangeValue(value: unknown): value is CohortDateRangeValue {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as CohortDateRangeValue).from === 'string' &&
+    typeof (value as CohortDateRangeValue).to === 'string'
+  )
 }
 
 /**
@@ -350,6 +383,11 @@ function conditionOperatorToSql(conditionType: CohortConditionNode['conditionTyp
       return 'IN'
     case 'NOT_IN_SET':
       return 'NOT IN'
+    case 'BETWEEN':
+      // Never actually used as an infix operator — conditionToSqlFragment
+      // intercepts BETWEEN before calling this, since it needs two operands
+      // (col >= from AND col <= to), not a single `column op value` shape.
+      return 'BETWEEN'
   }
 }
 
@@ -388,6 +426,23 @@ function conditionToSqlFragment(condition: CohortConditionNode, alias: string): 
   }
 
   const column = `${alias}.${condition.field}`
+
+  if (condition.field === 'created_at' && condition.conditionType === 'BETWEEN') {
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(condition.value)
+    } catch {
+      parsed = null
+    }
+    if (!isCohortDateRangeValue(parsed)) {
+      console.warn(
+        '[cohortSqlResolver] BETWEEN condition on created_at has a malformed {from, to} value ' +
+          `("${condition.value}") — treating as "never matches".`,
+      )
+      return 'FALSE'
+    }
+    return `(${column} >= ${dateValueToBigQuery(parsed.from)} AND ${column} <= ${dateValueToBigQuery(parsed.to)})`
+  }
 
   if (condition.field === 'created_at') {
     return `${column} ${operator} ${dateValueToBigQuery(condition.value)}`

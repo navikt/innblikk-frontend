@@ -10,6 +10,8 @@ export type ComparisonOperator =
   | 'NOT_IN_SET'
   | 'STARTS_WITH'
   | 'ENDS_WITH'
+  /** Only valid on the `created_at` field — value is a JSON `{from, to}` pair. See CohortDateTimeEditor.tsx. */
+  | 'BETWEEN'
 
 export interface CohortDto {
   id: number

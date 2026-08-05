@@ -137,6 +137,14 @@ const CohortPicker = forwardRef<CohortPickerRef, CohortPickerProps>(
           </Link>
         </BodyShort>
 
+        {selectedNames.length > 0 && (
+          <Alert variant="info" size="small" className="mt-2">
+            En brukergruppes eget «Tidspunkt»-kriterium (hvis satt) bestemmer bare <strong>hvem</strong> som
+            kvalifiserer som medlem — det begrenser ikke hvilken periode grafen viser data for. Bruk «Overstyr
+            tidsperiode» under visningsvalg for å styre det.
+          </Alert>
+        )}
+
         {selectedNames.length >= 2 && (
           <div className="filter-card-animate-in">
             <Checkbox
