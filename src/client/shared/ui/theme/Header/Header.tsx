@@ -44,7 +44,7 @@ export default function Header({ theme }: HeaderProps) {
     { href: '/sporingskoder', label: 'Sporingskoder' },
     { href: '/sql', label: 'SQL-spørringer' },
     { href: '/personvernssjekk', label: 'Personvernsjekk' },
-    { href: '/kohorter', label: 'Kohorter' },
+    { href: '/kohorter', label: 'Brukergrupper' },
   ]
 
   const environmentLinks: MenuLink[] = (() => {

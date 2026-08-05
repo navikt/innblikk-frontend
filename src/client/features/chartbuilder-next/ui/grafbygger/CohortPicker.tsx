@@ -38,7 +38,7 @@ const CohortPicker = forwardRef<CohortPickerRef, CohortPickerProps>(
         // number/string mismatch (that mismatch is what left the combobox's
         // own internal chip unable to match a selected value to its label).
         .then((data) => setCohorts(data.map((cohort) => ({ ...cohort, id: String(cohort.id) }))))
-        .catch(() => setError('Kunne ikke laste kohorter. Prøv igjen senere.'))
+        .catch(() => setError('Kunne ikke laste brukergrupper. Prøv igjen senere.'))
         .finally(() => setIsLoading(false))
     }
 
@@ -95,7 +95,7 @@ const CohortPicker = forwardRef<CohortPickerRef, CohortPickerProps>(
     const comboboxDisabled = ratioMode && selectedNames.length >= 2
 
     if (isLoading) {
-      return <Loader size="small" title="Laster kohorter" />
+      return <Loader size="small" title="Laster brukergrupper" />
     }
 
     if (error) {
@@ -111,7 +111,7 @@ const CohortPicker = forwardRef<CohortPickerRef, CohortPickerProps>(
     return (
       <div className="space-y-2">
         <UNSAFE_Combobox
-          label="Velg kohorter"
+          label="Velg brukergrupper"
           options={cohorts.map((cohort) => ({
             label: cohort.name,
             value: cohort.name,
@@ -133,7 +133,7 @@ const CohortPicker = forwardRef<CohortPickerRef, CohortPickerProps>(
 
         <BodyShort size="small">
           <Link href={`/kohorter${websiteId ? `?websiteId=${encodeURIComponent(websiteId)}` : ''}`} target="_blank">
-            Administrer kohorter
+            Administrer brukergrupper
           </Link>
         </BodyShort>
 

@@ -66,7 +66,7 @@ export default function CohortManager() {
       const details = await Promise.all(list.map((c) => getCohort(c.id)))
       setAllDetails(details)
     } catch (err: unknown) {
-      setCohortsError(err instanceof Error ? err.message : 'Kunne ikke laste kohorter')
+      setCohortsError(err instanceof Error ? err.message : 'Kunne ikke laste brukergrupper')
     } finally {
       setCohortsLoading(false)
     }
@@ -169,7 +169,7 @@ export default function CohortManager() {
 
   return (
     <>
-      <PageHeader title="Kohorter" description="Definer brukergrupper basert på hendelser og egenskaper." />
+      <PageHeader title="Brukergrupper" description="Definer brukergrupper basert på hendelser og egenskaper." />
 
       <AppBlock className="pb-16">
         <VStack gap="space-16">
@@ -200,7 +200,7 @@ export default function CohortManager() {
             <VStack gap="space-12">
               <HStack justify="space-between" align="center">
                 <Heading size="small" level="2">
-                  Kohorter
+                  Brukergrupper
                 </Heading>
                 <Button
                   size="small"
@@ -213,16 +213,16 @@ export default function CohortManager() {
                     setCreateOpen(true)
                   }}
                 >
-                  Ny kohort
+                  Ny brukergruppe
                 </Button>
               </HStack>
 
-              {cohortsLoading && <Loader size="medium" title="Laster kohorter…" />}
+              {cohortsLoading && <Loader size="medium" title="Laster brukergrupper…" />}
               {cohortsError && <Alert variant="error">{cohortsError}</Alert>}
 
               {!cohortsLoading && !cohortsError && cohorts.length === 0 && (
                 <Alert variant="info" inline>
-                  Ingen kohorter for dette nettstedet. Opprett en for å komme i gang.
+                  Ingen brukergrupper for dette nettstedet. Opprett en for å komme i gang.
                 </Alert>
               )}
 
@@ -320,7 +320,7 @@ export default function CohortManager() {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <Dialog.Popup width="medium">
           <Dialog.Header>
-            <Dialog.Title>Ny kohort</Dialog.Title>
+            <Dialog.Title>Ny brukergruppe</Dialog.Title>
           </Dialog.Header>
           <Dialog.Body>
             <form
@@ -367,7 +367,7 @@ export default function CohortManager() {
       >
         <Dialog.Popup width="medium">
           <Dialog.Header>
-            <Dialog.Title>Rediger kohort</Dialog.Title>
+            <Dialog.Title>Rediger brukergruppe</Dialog.Title>
           </Dialog.Header>
           <Dialog.Body>
             <form
@@ -418,8 +418,8 @@ export default function CohortManager() {
           </Dialog.Header>
           <Dialog.Body>
             <BodyShort>
-              Kohorten arkiveres og vil ikke lenger vises i lister. Andre kohorter som refererer til denne vil miste
-              referansen sin.
+              Brukergruppen arkiveres og vil ikke lenger vises i lister. Andre brukergrupper som refererer til denne vil
+              miste referansen sin.
             </BodyShort>
           </Dialog.Body>
           <Dialog.Footer>

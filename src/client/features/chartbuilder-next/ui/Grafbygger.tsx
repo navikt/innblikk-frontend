@@ -297,7 +297,7 @@ const ChartsPage = () => {
 
               {COHORTS_ENABLED && (
                 <SidebarSection
-                  title="Kohorter"
+                  title="Brukergrupper"
                   action={
                     showResetSegments ? (
                       <ActionFeedbackButton

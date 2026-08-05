@@ -44,7 +44,7 @@ const FIELDS: Field[] = [
   { name: 'event_data_value', label: 'Hendelsesdata — verdi' },
   { name: 'created_at', label: 'Tidspunkt', inputType: 'datetime-local', datatype: 'datetime' },
   { name: '__param__', label: 'Egendefinert hendelsesparameter' },
-  { name: '__cohort__', label: 'Er i kohort' },
+  { name: '__cohort__', label: 'Er i brukergruppe' },
   { name: '__sequence__', label: 'Sekvens (gjorde X, så (ikke) Y)' },
 ]
 
@@ -591,7 +591,7 @@ const FIELD_LABELS: Record<string, string> = {
   event_data_key: 'datanøkkel',
   event_data_value: 'dataverdi',
   created_at: 'tidspunkt',
-  __cohort__: 'kohort',
+  __cohort__: 'brukergruppe',
 }
 
 const OP_LABELS: Record<string, string> = {
@@ -622,7 +622,7 @@ function nodeToHuman(node: CohortNode, cohortNames: Record<string, string>): str
       return `${field} ${op} «${node.value}»`
     }
     case 'COHORT_REF': {
-      const name = cohortNames[String(node.referencedCohortId)] ?? `kohort #${node.referencedCohortId}`
+      const name = cohortNames[String(node.referencedCohortId)] ?? `brukergruppe #${node.referencedCohortId}`
       return `${node.negated ? 'IKKE ' : ''}tilhører ${name}`
     }
     case 'SEQUENCE': {
@@ -692,7 +692,7 @@ export function CohortEditor({ cohort, allCohorts, onClose, onChanged }: CohortE
         <Dialog.Body>
           <VStack gap="space-16">
             <BodyShort size="small" style={{ color: 'var(--ax-text-subtle)' }}>
-              En bruker tilhører denne kohorten hvis de oppfyller kriteriene nedenfor. Bruk <strong>IKKE</strong>
+              En bruker tilhører denne brukergruppen hvis de oppfyller kriteriene nedenfor. Bruk <strong>IKKE</strong>
               -bryteren på en gruppe for å invertere den.
             </BodyShort>
 
