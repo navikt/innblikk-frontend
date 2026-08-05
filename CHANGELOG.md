@@ -96,6 +96,7 @@ All notable changes to this project will be documented in this file.
 - MAX_BYTES_BILLED 500 GB
 - **deps:** Add ws@8.20.0 dependency
 - Update tests to match new impl
+- User facing = "brukergrupper", not "cohorts"
 
 ### 🔧 Refactor
 
