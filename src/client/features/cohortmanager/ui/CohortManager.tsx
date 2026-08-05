@@ -1,12 +1,21 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Button, Dialog, Heading, Loader, Alert, Table, TextField, VStack, HStack, BodyShort } from '@navikt/ds-react'
-import { PlusIcon, TrashIcon, PencilIcon, FunnelIcon } from '@navikt/aksel-icons'
+import { PlusIcon, TrashIcon, PencilIcon, FunnelIcon, ArchiveIcon, ArrowUndoIcon } from '@navikt/aksel-icons'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { fetchWebsites } from '../../../shared/api/websiteApi.ts'
 import type { Website } from '../../../shared/types/website.ts'
-import { listCohorts, getCohort, createCohort, updateCohort, deleteCohort } from '../api/cohortManagerApi.ts'
+import {
+  listCohorts,
+  getCohort,
+  createCohort,
+  updateCohort,
+  deleteCohort,
+  listTrashedCohorts,
+  restoreCohort,
+  permanentlyDeleteCohort,
+} from '../api/cohortManagerApi.ts'
 import type { CohortDto, CohortDetailDto } from '../model/types.ts'
 import { CohortEditor, CohortSummaryTag, queryToHuman, cohortToQuery } from './CohortEditor.tsx'
 import { UNSAFE_Combobox } from '@navikt/ds-react'
@@ -41,6 +50,15 @@ export default function CohortManager() {
   // Delete dialog
   const [deleteTarget, setDeleteTarget] = useState<CohortDto | null>(null)
   const [deleting, setDeleting] = useState(false)
+
+  // Trash / archive
+  const [trashOpen, setTrashOpen] = useState(false)
+  const [trashCohorts, setTrashCohorts] = useState<CohortDto[]>([])
+  const [trashLoading, setTrashLoading] = useState(false)
+  const [trashError, setTrashError] = useState<string | null>(null)
+  const [restoringId, setRestoringId] = useState<number | null>(null)
+  const [permDeleteTarget, setPermDeleteTarget] = useState<CohortDto | null>(null)
+  const [permDeleting, setPermDeleting] = useState(false)
 
   // Criteria editor
   const [editorTarget, setEditorTarget] = useState<CohortDetailDto | null>(null)
@@ -145,6 +163,50 @@ export default function CohortManager() {
     }
   }
 
+  const loadTrash = useCallback(async (websiteId: string) => {
+    setTrashLoading(true)
+    setTrashError(null)
+    try {
+      setTrashCohorts(await listTrashedCohorts(websiteId))
+    } catch (err: unknown) {
+      setTrashError(err instanceof Error ? err.message : 'Kunne ikke laste papirkurv')
+    } finally {
+      setTrashLoading(false)
+    }
+  }, [])
+
+  const openTrash = () => {
+    setTrashOpen(true)
+    if (selectedWebsiteId) void loadTrash(selectedWebsiteId)
+  }
+
+  const handleRestore = async (cohort: CohortDto) => {
+    if (!selectedWebsiteId) return
+    setRestoringId(cohort.id)
+    try {
+      await restoreCohort(cohort.id)
+      await Promise.all([loadTrash(selectedWebsiteId), loadCohorts(selectedWebsiteId)])
+    } catch {
+      // ignore
+    } finally {
+      setRestoringId(null)
+    }
+  }
+
+  const handlePermanentDelete = async () => {
+    if (!permDeleteTarget || !selectedWebsiteId) return
+    setPermDeleting(true)
+    try {
+      await permanentlyDeleteCohort(permDeleteTarget.id)
+      setPermDeleteTarget(null)
+      await loadTrash(selectedWebsiteId)
+    } catch {
+      // ignore
+    } finally {
+      setPermDeleting(false)
+    }
+  }
+
   const openEditor = async (cohort: CohortDto) => {
     setEditorLoading(true)
     try {
@@ -202,19 +264,24 @@ export default function CohortManager() {
                 <Heading size="small" level="2">
                   Brukergrupper
                 </Heading>
-                <Button
-                  size="small"
-                  variant="secondary"
-                  icon={<PlusIcon aria-hidden />}
-                  onClick={() => {
-                    setNewName('')
-                    setNewDescription('')
-                    setCreateError(null)
-                    setCreateOpen(true)
-                  }}
-                >
-                  Ny brukergruppe
-                </Button>
+                <HStack gap="space-8">
+                  <Button size="small" variant="tertiary" icon={<ArchiveIcon aria-hidden />} onClick={openTrash}>
+                    Papirkurv
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="secondary"
+                    icon={<PlusIcon aria-hidden />}
+                    onClick={() => {
+                      setNewName('')
+                      setNewDescription('')
+                      setCreateError(null)
+                      setCreateOpen(true)
+                    }}
+                  >
+                    Ny brukergruppe
+                  </Button>
+                </HStack>
               </HStack>
 
               {cohortsLoading && <Loader size="medium" title="Laster brukergrupper…" />}
@@ -425,6 +492,121 @@ export default function CohortManager() {
           <Dialog.Footer>
             <Button data-color="danger" onClick={() => void handleDelete()} loading={deleting}>
               Slett
+            </Button>
+            <Dialog.CloseTrigger>
+              <Button type="button" variant="secondary">
+                Avbryt
+              </Button>
+            </Dialog.CloseTrigger>
+          </Dialog.Footer>
+        </Dialog.Popup>
+      </Dialog>
+
+      {/* Trash / archive dialog */}
+      <Dialog
+        open={trashOpen}
+        onOpenChange={(o) => {
+          setTrashOpen(o)
+        }}
+      >
+        <Dialog.Popup width="medium">
+          <Dialog.Header>
+            <Dialog.Title>Papirkurv</Dialog.Title>
+          </Dialog.Header>
+          <Dialog.Body>
+            <VStack gap="space-12">
+              <BodyShort size="small" style={{ color: 'var(--ax-text-subtle)' }}>
+                Slettede brukergrupper havner her. Gjenopprett dem, eller slett dem permanent.
+              </BodyShort>
+
+              {trashLoading && <Loader size="medium" title="Laster papirkurv…" />}
+              {trashError && <Alert variant="error">{trashError}</Alert>}
+
+              {!trashLoading && !trashError && trashCohorts.length === 0 && (
+                <Alert variant="info" inline>
+                  Papirkurven er tom.
+                </Alert>
+              )}
+
+              {!trashLoading && trashCohorts.length > 0 && (
+                <Table size="small">
+                  <Table.Header>
+                    <Table.Row>
+                      <Table.HeaderCell>Navn</Table.HeaderCell>
+                      <Table.HeaderCell />
+                    </Table.Row>
+                  </Table.Header>
+                  <Table.Body>
+                    {trashCohorts.map((cohort) => (
+                      <Table.Row key={cohort.id}>
+                        <Table.DataCell>
+                          <BodyShort size="small" weight="semibold">
+                            {cohort.name}
+                          </BodyShort>
+                          {cohort.description && (
+                            <BodyShort size="small" style={{ color: 'var(--ax-text-subtle)' }}>
+                              {cohort.description}
+                            </BodyShort>
+                          )}
+                        </Table.DataCell>
+                        <Table.DataCell>
+                          <HStack gap="space-4" justify="end">
+                            <Button
+                              size="xsmall"
+                              variant="secondary"
+                              icon={<ArrowUndoIcon aria-hidden />}
+                              loading={restoringId === cohort.id}
+                              onClick={() => void handleRestore(cohort)}
+                            >
+                              Gjenopprett
+                            </Button>
+                            <Button
+                              size="xsmall"
+                              variant="secondary"
+                              data-color="danger"
+                              icon={<TrashIcon aria-hidden />}
+                              onClick={() => setPermDeleteTarget(cohort)}
+                            >
+                              Slett permanent
+                            </Button>
+                          </HStack>
+                        </Table.DataCell>
+                      </Table.Row>
+                    ))}
+                  </Table.Body>
+                </Table>
+              )}
+            </VStack>
+          </Dialog.Body>
+          <Dialog.Footer>
+            <Dialog.CloseTrigger>
+              <Button type="button" variant="secondary">
+                Lukk
+              </Button>
+            </Dialog.CloseTrigger>
+          </Dialog.Footer>
+        </Dialog.Popup>
+      </Dialog>
+
+      {/* Permanent delete confirm dialog */}
+      <Dialog
+        open={!!permDeleteTarget}
+        onOpenChange={(o) => {
+          if (!o) setPermDeleteTarget(null)
+        }}
+      >
+        <Dialog.Popup width="small" role="alertdialog">
+          <Dialog.Header withClosebutton={false}>
+            <Dialog.Title>Slett «{permDeleteTarget?.name}» permanent?</Dialog.Title>
+          </Dialog.Header>
+          <Dialog.Body>
+            <BodyShort>
+              Dette kan ikke angres. Brukergruppen og alle dens kriterier slettes for godt fra databasen.
+            </BodyShort>
+          </Dialog.Body>
+          <Dialog.Footer>
+            <Button data-color="danger" onClick={() => void handlePermanentDelete()} loading={permDeleting}>
+              Slett permanent
             </Button>
             <Dialog.CloseTrigger>
               <Button type="button" variant="secondary">

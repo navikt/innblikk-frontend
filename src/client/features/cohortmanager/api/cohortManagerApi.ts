@@ -37,6 +37,19 @@ export async function deleteCohort(id: number): Promise<void> {
   await fetch(`${BASE}/${id}`, { method: 'DELETE' })
 }
 
+export async function restoreCohort(id: number): Promise<CohortDto> {
+  return requestJson<CohortDto>(`${BASE}/${id}/restore`, { method: 'POST' })
+}
+
+export async function permanentlyDeleteCohort(id: number): Promise<void> {
+  await fetch(`${BASE}/${id}/permanent`, { method: 'DELETE' })
+}
+
+/** Lists soft-deleted cohorts (the "trash"/archive) for a website. */
+export async function listTrashedCohorts(websiteId: string): Promise<CohortDto[]> {
+  return requestJson<CohortDto[]>(`${BASE}/trash?websiteId=${encodeURIComponent(websiteId)}`)
+}
+
 /** Replaces a cohort's entire criteria tree in one call. See CohortCriteriaController on the backend. */
 export async function replaceCriteria(cohortId: number, root: CohortNode): Promise<CohortNode> {
   return requestJson<CohortNode>(`${BASE}/${cohortId}/criteria`, {
