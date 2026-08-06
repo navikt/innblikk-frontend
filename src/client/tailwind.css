@@ -8,21 +8,29 @@
 
 @keyframes filter-card-in {
   from {
-    opacity: 0;
     margin-top: -6px;
   }
   to {
-    opacity: 1;
     margin-top: 0;
   }
 }
 
-/* NOTE: intentionally animates margin-top, not translate/transform.
-   translate/transform create a new containing block for descendant
-   position:fixed elements (e.g. floating-ui's Combobox dropdown portal),
-   trapping its z-index inside this element's stacking context instead of
-   the document root — causing it to render under later sibling sections
-   (e.g. Accordion in /grafbygger's sidebar) regardless of z-index value. */
+/* NOTE: intentionally animates margin-top, not translate/transform/opacity.
+   transform creates a new containing block for descendant position:fixed
+   elements (e.g. floating-ui's Combobox dropdown portal), trapping its
+   z-index inside this element's stacking context instead of the document
+   root — causing it to render under later sibling sections (e.g. Accordion
+   in /grafbygger's sidebar) regardless of z-index value.
+
+   opacity has the same stacking-context side effect: animating it makes the
+   browser generate an implicit stacking context for the element for as long
+   as the animation is declared (animation-fill-mode: both keeps it active
+   even after the animation ends). That silently promotes an otherwise plain,
+   non-positioned <div> into the same paint layer as positioned siblings —
+   e.g. an Aksel Switch's focus-outline pseudo-element — and, because paint
+   order within that layer follows DOM order, a filter card that comes AFTER
+   a focused Switch in the markup can end up rendering on top of its focus
+   ring, even with neither element declaring an explicit z-index. */
 .filter-card-animate-in {
   animation: filter-card-in 200ms ease-out both;
 }

@@ -55,3 +55,18 @@ rg "variant" /Users/juliannymark/Repos/aksel/@navikt/core/react/src/button/Butto
 See `src/client/shared/ui/SidebarSection.tsx` (`sidebar-section` class) and `src/client/App.css` for the working example.
 
 **When to reapply:** any time you add a new `UNSAFE_Combobox` (or other non-portaled floating/popover component) as a direct or near-direct child of a flex/grid layout where sibling items can render on top of it. Diagnose fast with `document.elementFromPoint` scanning down the popup's bounding rect (see chat history / git blame on `SidebarSection.tsx` for the exact devtools snippet used) rather than re-deriving stacking-context theory from scratch — `getComputedStyle` alone will not show the culprit.
+
+### Animating `opacity` (like `transform`) silently creates a stacking context, breaking paint order with later siblings
+
+**Symptom:** a plain `<div>` revealed below a focused Aksel `Switch`/`Checkbox` visually overlaps or covers the control's focus-outline pseudo-element (`.aksel-switch__content::after`), even though neither element has an explicit `z-index`.
+
+**Root cause:**
+
+- `src/client/tailwind.css`'s `.filter-card-animate-in` utility (used for filter/option cards across the app) animated `opacity` in its keyframes with `animation-fill-mode: both`.
+- Per spec, animating `opacity` (same as `transform`/`filter`/`backdrop-filter`) makes the browser generate an implicit stacking context for the element for as long as the animation is declared — not just while it's actively running.
+- That promotes an otherwise plain, non-positioned box from the "painted early" bucket into the same "positioned/stacking-context" paint bucket as Aksel's internally `position:relative` Switch content. Within that bucket, paint order follows DOM order — so a card that comes _after_ the focused Switch in the markup ends up painting _on top of_ its focus ring.
+- Adding an explicit `z-index` directly to the outline selector "fixes" it only because any explicit z-index (even `1`) moves that pseudo-element into the "positive z-index" bucket, which always paints after `auto`/`0` stacking contexts — it's not about the number being big enough, just about having one at all.
+
+**Fix applied:** removed `opacity` from `filter-card-in`'s keyframes, keeping only the `margin-top` slide (see the note already in `tailwind.css` about avoiding `transform` for the same class of reason — this extends it to `opacity`).
+
+**When to reapply:** before adding any entrance/exit animation utility, check whether its keyframes touch `opacity`, `transform`, `filter`, `backdrop-filter`, or `perspective`. If so, and the animated element sits next to (or before) a focusable control with a pseudo-element focus ring, expect this exact overlap bug. Prefer animating layout properties (`margin`, `max-height`) instead, or explicitly `z-index` the focus ring itself if the animation can't be avoided.

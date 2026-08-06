@@ -41,13 +41,17 @@ describe('MetricSelector', () => {
     expect(screen.getByRole('radio', { name: 'Gjennomsnittlig tid' })).toBeInTheDocument()
   })
 
-  it('shows kolonnenavn field when a metric is selected', () => {
+  it('shows kolonnenavn field when the "Endre kolonnenavn" toggle is turned on', async () => {
+    const user = userEvent.setup()
     const existingMetric: Metric = {
       function: 'distinct',
       column: 'session_id',
       alias: 'Unike_besokende',
     }
     renderMetricSelector([existingMetric])
+
+    expect(screen.queryByRole('textbox', { name: 'Kolonnenavn' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('checkbox', { name: /Endre kolonnenavn/ }))
 
     expect(screen.getByRole('textbox', { name: 'Kolonnenavn' })).toBeInTheDocument()
   })
@@ -75,7 +79,8 @@ describe('MetricSelector', () => {
     expect(removeMetric).toHaveBeenCalled()
   })
 
-  it('shows the active metric alias in kolonnenavn field', () => {
+  it('shows the active metric alias in kolonnenavn field', async () => {
+    const user = userEvent.setup()
     const existingMetric: Metric = {
       function: 'distinct',
       column: 'session_id',
@@ -83,6 +88,7 @@ describe('MetricSelector', () => {
     }
     renderMetricSelector([existingMetric])
 
+    await user.click(screen.getByRole('checkbox', { name: /Endre kolonnenavn/ }))
     const input = screen.getByRole('textbox', { name: 'Kolonnenavn' })
     expect(input).toHaveValue('Unike_besokende')
   })

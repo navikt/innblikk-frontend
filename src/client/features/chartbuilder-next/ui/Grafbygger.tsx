@@ -13,6 +13,7 @@ import GroupingOptions from './grafbygger/GroupingOptions.tsx'
 import AlertWithCloseButton from './grafbygger/AlertWithCloseButton.tsx'
 import SidebarSection from '../../../shared/ui/SidebarSection.tsx'
 import ActionFeedbackButton from '../../../shared/ui/ActionFeedbackButton.tsx'
+import ToggleOption from '../../../shared/ui/ToggleOption.tsx'
 import { FILTER_COLUMNS } from '../../../shared/lib/constants.ts'
 import { DATE_FORMATS, METRICS, COHORTS_ENABLED } from '../model/constants.ts'
 import { sanitizeColumnName } from '../utils/sanitize.ts'
@@ -33,6 +34,7 @@ const ChartsPage = () => {
   const [interactiveDateFilterEnabled, setInteractiveDateFilterEnabled] = useState<boolean>(true)
   const [selectedDateRange, setSelectedDateRange] = useState<string>('all')
   const [customPeriodInputs, setCustomPeriodInputs] = useState<Record<number, { amount: string; unit: string }>>({})
+  const [kolonnenavnContainer, setKolonnenavnContainer] = useState<HTMLDivElement | null>(null)
   const cohortPickerRef = useRef<CohortPickerRef>(null)
   const cohortRequestIdRef = useRef(0)
 
@@ -226,11 +228,17 @@ const ChartsPage = () => {
                   isEventsLoading={isEventsLoading}
                 />
                 <div className="mt-2">
-                  <Checkbox
-                    size="small"
+                  <ToggleOption
+                    label="Overstyr tidsperiode"
+                    description={
+                      interactiveDateFilterEnabled
+                        ? 'Bruker de siste 7 dagene som standard'
+                        : 'Velg en annen periode enn standarden (siste 7 dager)'
+                    }
                     checked={!interactiveDateFilterEnabled}
-                    onChange={(e) => {
-                      const overrideEnabled = e.target.checked
+                    panelClassName="filter-card-animate-in rounded-md border border-(--ax-border-neutral-subtle) bg-(--ax-bg-default) px-3 py-3"
+                    panelWrapperClassName="mt-2"
+                    onChange={(overrideEnabled) => {
                       setInteractiveDateFilterEnabled(!overrideEnabled)
                       if (!overrideEnabled) {
                         // Back to automatic default (last 7 days) — clear any
@@ -240,23 +248,18 @@ const ChartsPage = () => {
                       }
                     }}
                   >
-                    Overstyr tidsperiode
-                  </Checkbox>
-                  {!interactiveDateFilterEnabled && (
-                    <div className="mt-2">
-                      <DateRangeSelector
-                        filters={filters}
-                        setFilters={setFilters}
-                        maxDaysAvailable={maxDaysAvailable}
-                        selectedDateRange={selectedDateRange}
-                        setSelectedDateRange={setSelectedDateRange}
-                        customPeriodInputs={customPeriodInputs}
-                        setCustomPeriodInputs={setCustomPeriodInputs}
-                        interactiveMode={false}
-                        bare
-                      />
-                    </div>
-                  )}
+                    <DateRangeSelector
+                      filters={filters}
+                      setFilters={setFilters}
+                      maxDaysAvailable={maxDaysAvailable}
+                      selectedDateRange={selectedDateRange}
+                      setSelectedDateRange={setSelectedDateRange}
+                      customPeriodInputs={customPeriodInputs}
+                      setCustomPeriodInputs={setCustomPeriodInputs}
+                      interactiveMode={false}
+                      bare
+                    />
+                  </ToggleOption>
                 </div>
               </SidebarSection>
 
@@ -283,16 +286,8 @@ const ChartsPage = () => {
                   addMetric={addMetric}
                   filters={filters}
                   resetSignal={metricResetSignal}
+                  kolonnenavnContainer={kolonnenavnContainer}
                 />
-                <div className="mt-2">
-                  <Checkbox
-                    size="small"
-                    checked={config.paramAggregation === 'representative'}
-                    onChange={(e) => setParamAggregation(e.target.checked ? 'representative' : 'unique')}
-                  >
-                    Vis representativ parameterverdi
-                  </Checkbox>
-                </div>
               </SidebarSection>
 
               {COHORTS_ENABLED && (
@@ -405,6 +400,7 @@ const ChartsPage = () => {
             </ExpansionCard.Title>
           </ExpansionCard.Header>
           <ExpansionCard.Content>
+            <div ref={setKolonnenavnContainer} />
             <ResultsDisplayOptions
               orderBy={config.orderBy}
               setOrderBy={setOrderBy}
@@ -416,6 +412,16 @@ const ChartsPage = () => {
               groupByFields={config.groupByFields}
               metrics={config.metrics}
             />
+            <div className="mt-4">
+              <Checkbox
+                size="small"
+                checked={config.paramAggregation === 'representative'}
+                description="Kun relevant hvis du grupperer på en tekstparameter. Normalt viser vi den eksakte verdien for hver rad. Med dette valget viser vi i stedet én tilfeldig verdi per gruppe – raskere spørring, men verdien kan avvike fra enkeltrader i gruppen."
+                onChange={(e) => setParamAggregation(e.target.checked ? 'representative' : 'unique')}
+              >
+                Vis representativ parameterverdi
+              </Checkbox>
+            </div>
           </ExpansionCard.Content>
         </ExpansionCard>
       </div>

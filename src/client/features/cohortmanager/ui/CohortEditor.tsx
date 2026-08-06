@@ -755,7 +755,7 @@ export function CohortEditor({ cohort, allCohorts, onClose, onChanged }: CohortE
           <VStack gap="space-16">
             <BodyShort size="small" style={{ color: 'var(--ax-text-subtle)' }}>
               En bruker tilhører denne brukergruppen hvis de oppfyller kriteriene nedenfor. Bruk <strong>IKKE</strong>
-              -bryteren på en gruppe for å invertere den.
+              -bryteren for å ekskludere en gruppe i stedet.
             </BodyShort>
 
             <div className="cohort-qb-wrapper">
