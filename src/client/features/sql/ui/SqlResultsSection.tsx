@@ -65,6 +65,11 @@ interface SqlResultsSectionProps {
   lastProcessedSql: string
   websiteId: string | undefined
   copiedMetabase: boolean
+  hideMetabaseTransfer?: boolean
+  showSqlCode?: boolean
+  showJson?: boolean
+  showExecuteButton?: boolean
+  dashboardButtonSize?: 'small' | 'medium'
   onExecuteQuery: () => Promise<void>
   onCopyMetabase: () => void
   prepareLineChartData: (includeAverage?: boolean) => ILineChartProps | null
@@ -82,6 +87,11 @@ export default function SqlResultsSection({
   lastProcessedSql,
   websiteId,
   copiedMetabase,
+  hideMetabaseTransfer = false,
+  showSqlCode = true,
+  showJson = true,
+  showExecuteButton = true,
+  dashboardButtonSize = 'small',
   onExecuteQuery,
   onCopyMetabase,
   prepareLineChartData,
@@ -364,8 +374,9 @@ export default function SqlResultsSection({
         prepareBarChartData={prepareBarChartData}
         preparePieChartData={preparePieChartData}
         sql={lastProcessedSql || query}
-        showSqlCode={true}
+        showSqlCode={showSqlCode}
         showEditButton={true}
+        showExecuteButton={showExecuteButton}
         showSqlMetabaseActions={false}
         showCost={true}
         websiteId={websiteId}
@@ -377,7 +388,7 @@ export default function SqlResultsSection({
       />
 
       {/* JSON Output - below results */}
-      {result && (
+      {result && showJson && (
         <ReadMore header="JSON" size="small" className="mt-6">
           <pre
             className="bg-[var(--ax-bg-neutral-soft)] border border-gray-300 rounded p-3 text-xs font-mono whitespace-pre-wrap"
@@ -391,12 +402,14 @@ export default function SqlResultsSection({
       {/* Metabase section */}
       <div className="space-y-3 mt-6 mb-4">
         <div className="flex flex-wrap gap-2">
-          <Button size="small" variant="primary" onClick={openSaveModal}>
+          <Button size={dashboardButtonSize} variant="primary" onClick={openSaveModal}>
             Legg til i dashboard
           </Button>
-          <Button size="small" variant="secondary" onClick={() => setShowMetabaseInstructions((prev) => !prev)}>
-            Overfør til Metabase
-          </Button>
+          {!hideMetabaseTransfer && (
+            <Button size="small" variant="secondary" onClick={() => setShowMetabaseInstructions((prev) => !prev)}>
+              Overfør til Metabase
+            </Button>
+          )}
         </div>
 
         {showMetabaseInstructions && (

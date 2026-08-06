@@ -55,6 +55,7 @@ interface ResultsPanelProps {
   showSqlCode?: boolean
   alwaysShowSql?: boolean
   showEditButton?: boolean
+  showExecuteButton?: boolean
   showSqlMetabaseActions?: boolean
   hiddenTabs?: string[]
   containerStyle?: 'green' | 'white' | 'none'
@@ -84,6 +85,7 @@ const ResultsPanel = ({
   showSqlCode = false,
   alwaysShowSql = false,
   showEditButton = false,
+  showExecuteButton = true,
   showSqlMetabaseActions = true,
   prepareLineChartData,
   prepareBarChartData,
@@ -635,15 +637,17 @@ const ResultsPanel = ({
         {/* Only show button if no results yet */}
         {!result && !error && (
           <div className="space-y-2">
-            <Button
-              onClick={executeQuery}
-              loading={loading}
-              icon={<PlayIcon size={18} />}
-              variant="primary"
-              size="medium"
-            >
-              Vis resultater
-            </Button>
+            {showExecuteButton && (
+              <Button
+                onClick={executeQuery}
+                loading={loading}
+                icon={<PlayIcon size={18} />}
+                variant="primary"
+                size="medium"
+              >
+                Vis resultater
+              </Button>
+            )}
             {loading && showLoadingMessage && (
               <Alert variant="info" className="text-sm mt-2">
                 <p className="font-medium">Spørring kjører...</p>

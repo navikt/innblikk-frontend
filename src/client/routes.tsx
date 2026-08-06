@@ -76,6 +76,9 @@ const Stats = lazy(() => import('./features/stats').then((m) => ({ default: m.St
 // SQL Feature
 const SqlEditor = lazy(() => import('./features/sql').then((m) => ({ default: m.SqlEditor })))
 
+// Copilot Feature (unadvertised, for designers – ask in natural language, paste SQL from Microsoft Copilot)
+const CopilotAnalyse = lazy(() => import('./features/copilot').then((m) => ({ default: m.CopilotAnalyse })))
+
 const InnstillingerRedirect = () => <Navigate to="/profil" replace />
 
 const DashboardRouteResolver = () => {
@@ -160,6 +163,7 @@ export const fullWidthPathPrefixes = [
   '/kvalitet/stavekontroll',
   '/kvalitet/wcag',
   '/sql',
+  '/copilot',
 ]
 
 export const routes: AppRoute[] = [
@@ -176,6 +180,7 @@ export const routes: AppRoute[] = [
   { path: '/kohorter', component: <CohortManager />, fullWidth: true },
   { path: '/metabase', component: <MetabaseGuide />, fullWidth: true },
 
+  { path: '/copilot', component: <CopilotAnalyse />, fullWidth: true },
   { path: '/sql', component: <SqlEditor />, fullWidth: true },
   { path: '/stats', component: <Stats />, fullWidth: true },
   { path: '/innstillinger', component: <InnstillingerRedirect />, fullWidth: true },

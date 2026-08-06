@@ -14,6 +14,15 @@ const toNumber = (value: JsonValue | undefined): number => {
   return parseFloat(toSafeString(value)) || 0
 }
 
+// BigQuery returns DATE/TIMESTAMP columns wrapped as { value: "..." }; unwrap them.
+const unwrapValue = (value: JsonValue | undefined): JsonValue | undefined => {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const obj = value as { [key: string]: JsonValue }
+    if (Object.keys(obj).length === 1 && 'value' in obj) return obj.value
+  }
+  return value
+}
+
 // Using colorblind-friendly palette with good contrast
 const CHART_COLORS = [
   '#0067C5', // Blue (NAV blue)
@@ -51,7 +60,7 @@ export const prepareLineChartData = (data: Row[], includeAverage: boolean = fals
         seriesMap.set(seriesValue, [])
       }
 
-      const xValue = row[xKey]
+      const xValue = unwrapValue(row[xKey])
       const rawY = row[yKey]
       const yValue = toNumber(rawY)
 
@@ -144,7 +153,7 @@ export const prepareLineChartData = (data: Row[], includeAverage: boolean = fals
   const yKey = keys[1]
 
   const chartPoints = data.map((row, index: number) => {
-    const xValue = row[xKey]
+    const xValue = unwrapValue(row[xKey])
     const rawY = row[yKey]
     const yValue = toNumber(rawY)
 
@@ -227,7 +236,7 @@ export const prepareBarChartData = (data: Row[]) => {
     const value = toNumber(raw)
     const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0'
 
-    const rawLabel = row[labelKey]
+    const rawLabel = unwrapValue(row[labelKey])
     const translatedLabel = translateValue(labelKey, rawLabel ?? '') as string
     const label = String(translatedLabel || 'Ukjent')
 
@@ -286,7 +295,7 @@ export const preparePieChartData = (data: Row[]) => {
   const pieChartData = data.map((row) => {
     const raw = row[valueKey]
     const value = toNumber(raw)
-    const rawLabel = row[labelKey]
+    const rawLabel = unwrapValue(row[labelKey])
     const translatedLabel = translateValue(labelKey, rawLabel ?? '') as string
     const label = String(translatedLabel || 'Ukjent')
 
