@@ -56,6 +56,7 @@ interface ResultsPanelProps {
   alwaysShowSql?: boolean
   showEditButton?: boolean
   showExecuteButton?: boolean
+  showError?: boolean
   showSqlMetabaseActions?: boolean
   hiddenTabs?: string[]
   containerStyle?: 'green' | 'white' | 'none'
@@ -86,6 +87,7 @@ const ResultsPanel = ({
   alwaysShowSql = false,
   showEditButton = false,
   showExecuteButton = true,
+  showError = true,
   showSqlMetabaseActions = true,
   prepareLineChartData,
   prepareBarChartData,
@@ -658,7 +660,7 @@ const ResultsPanel = ({
         )}
 
         {/* Error Display */}
-        {error && (
+        {showError && error && (
           <>
             <Alert variant="error" className="mt-3">
               <div className="text-sm flex flex-col md:flex-row md:items-center md:justify-between gap-2">

@@ -2,7 +2,7 @@ import { Heading } from '@navikt/ds-react'
 import { useEffect, useRef } from 'react'
 import ChartLayout from '../../analysis/ui/ChartLayoutOriginal.tsx'
 import SqlResultsSection from '../../sql/ui/SqlResultsSection'
-import QueryErrorDisplay from '../../sql/ui/QueryErrorDisplay'
+import CopilotErrorHelp from './CopilotErrorHelp'
 import { useCopilotChart } from '../hooks/useCopilotChart'
 import QuestionStep from './QuestionStep'
 import SqlStep from './SqlStep'
@@ -95,7 +95,7 @@ export default function CopilotAnalyse() {
               </Heading>
             </div>
 
-            {error && <QueryErrorDisplay error={error} lastProcessedSql={sql} onAddDateFilter={() => {}} />}
+            {error && <CopilotErrorHelp error={error} sql={sql} />}
 
             <SqlResultsSection
               result={result}
@@ -113,6 +113,7 @@ export default function CopilotAnalyse() {
               showSqlCode={false}
               showJson={false}
               showExecuteButton={false}
+              showError={false}
               dashboardButtonSize="medium"
               prepareLineChartData={prepareLineChartData}
               prepareBarChartData={prepareBarChartData}

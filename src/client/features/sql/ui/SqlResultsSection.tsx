@@ -69,6 +69,7 @@ interface SqlResultsSectionProps {
   showSqlCode?: boolean
   showJson?: boolean
   showExecuteButton?: boolean
+  showError?: boolean
   dashboardButtonSize?: 'small' | 'medium'
   onExecuteQuery: () => Promise<void>
   onCopyMetabase: () => void
@@ -91,6 +92,7 @@ export default function SqlResultsSection({
   showSqlCode = true,
   showJson = true,
   showExecuteButton = true,
+  showError = true,
   dashboardButtonSize = 'small',
   onExecuteQuery,
   onCopyMetabase,
@@ -377,6 +379,7 @@ export default function SqlResultsSection({
         showSqlCode={showSqlCode}
         showEditButton={true}
         showExecuteButton={showExecuteButton}
+        showError={showError}
         showSqlMetabaseActions={false}
         showCost={true}
         websiteId={websiteId}

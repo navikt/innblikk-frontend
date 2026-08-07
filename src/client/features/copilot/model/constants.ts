@@ -6,6 +6,9 @@ export const MICROSOFT_COPILOT_URL =
 export const COPILOT_SKILL_URL =
   'https://navno-my.sharepoint.com/:t:/g/personal/eilif_johansen_nav_no/IQD6BTXYWoYzQJXTO7FzDof5AQjy0OkfhTyjFBsbzhW3T50?e=mF67lY'
 
+// Slack-kanal for hjelp fra Team ResearchOps når designeren står fast
+export const RESEARCHOPS_SLACK_URL = 'https://nav-it.slack.com/archives/C02UGFS2J4B'
+
 // Terskler for å varsle om at en spørring er dyr å kjøre
 export const EXPENSIVE_COST_USD = 1
 export const EXPENSIVE_GB = 100

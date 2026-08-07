@@ -163,6 +163,7 @@ export const fullWidthPathPrefixes = [
   '/kvalitet/stavekontroll',
   '/kvalitet/wcag',
   '/sql',
+  '/grafbygger-copilot',
   '/copilot',
 ]
 
@@ -180,7 +181,8 @@ export const routes: AppRoute[] = [
   { path: '/kohorter', component: <CohortManager />, fullWidth: true },
   { path: '/metabase', component: <MetabaseGuide />, fullWidth: true },
 
-  { path: '/copilot', component: <CopilotAnalyse />, fullWidth: true },
+  { path: '/grafbygger-copilot', component: <CopilotAnalyse />, fullWidth: true },
+  { path: '/copilot', component: <Navigate to="/grafbygger-copilot" replace />, fullWidth: true },
   { path: '/sql', component: <SqlEditor />, fullWidth: true },
   { path: '/stats', component: <Stats />, fullWidth: true },
   { path: '/innstillinger', component: <InnstillingerRedirect />, fullWidth: true },
