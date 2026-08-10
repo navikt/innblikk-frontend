@@ -9,6 +9,23 @@ const WEBSITE_LIST_TTL_MS = 5 * 60 * 1000
 let cachedWebsites = null
 let cachedAt = 0
 
+// Gemini API never returns a dollar cost — only token counts. Cost below is an
+// ESTIMATE computed from Google's published per-model rate card (AI Studio rates;
+// Vertex AI list prices aren't broken out separately and run ~10-20% higher in
+// practice). Update this if GEMINI_MODEL changes or Google revises pricing:
+// https://ai.google.dev/gemini-api/docs/pricing
+const GEMINI_PRICING_USD_PER_MILLION_TOKENS = {
+  'gemini-2.5-flash-lite': { input: 0.1, output: 0.4 },
+}
+
+function estimateCostUsd(model, usageMetadata) {
+  const rate = GEMINI_PRICING_USD_PER_MILLION_TOKENS[model]
+  if (!rate || !usageMetadata) return null
+  const { promptTokenCount = 0, candidatesTokenCount = 0 } = usageMetadata
+  const cost = (promptTokenCount / 1e6) * rate.input + (candidatesTokenCount / 1e6) * rate.output
+  return Number(cost.toFixed(6))
+}
+
 async function getCachedWebsitesList(bigquery, GCP_PROJECT_ID, navIdent) {
   const isStale = !cachedWebsites || Date.now() - cachedAt > WEBSITE_LIST_TTL_MS
   if (isStale) {
@@ -43,6 +60,17 @@ export function createCopilotRouter({ bigquery, genai, GCP_PROJECT_ID, GEMINI_MO
         contents: question,
         config: { systemInstruction },
       })
+
+      const usage = response.usageMetadata
+      if (usage) {
+        console.log('[Copilot Chat] Token usage:', {
+          model: GEMINI_MODEL,
+          promptTokens: usage.promptTokenCount,
+          responseTokens: usage.candidatesTokenCount,
+          totalTokens: usage.totalTokenCount,
+          estimatedCostUsd: estimateCostUsd(GEMINI_MODEL, usage),
+        })
+      }
 
       const text = response.text ?? ''
       const { sql, reply } = parseModelReply(text)
