@@ -1,3 +1,8 @@
+// Stable, single Team Catalog instance — Nav only has one real one (teamkatalog.nav.no).
+// The "dev" swagger/API is teamkatalog-team's own test environment, not a mirror of our data —
+// always use prod here, no env var needed.
+const TEAMKATALOG_BASE_URL = 'https://teamkatalog-api.intern.nav.no'
+
 // Team membership rarely changes — cache each nav-ident's team list for a while
 // instead of hitting Team Catalog on every request.
 const TEAM_MEMBERSHIP_CACHE_TTL_MS = 10 * 60 * 1000
@@ -10,7 +15,7 @@ const cache = new Map() // navIdent -> { teams, cachedAt }
  *
  * @returns {Promise<Array<{ id: string, name: string }>>}
  */
-export async function getTeamMembership(navIdent, baseUrl) {
+export async function getTeamMembership(navIdent) {
   const cached = cache.get(navIdent)
   if (cached && Date.now() - cached.cachedAt < TEAM_MEMBERSHIP_CACHE_TTL_MS) {
     return cached.teams
@@ -19,7 +24,7 @@ export async function getTeamMembership(navIdent, baseUrl) {
   // Note: NOT `/team-catalog/member/membership/...` — that `/team-catalog` segment only
   // exists on teamkatalog.nav.no's own frontend BFF proxy path, not the real backend API
   // (confirmed via the Swagger UI's "Try it out", which curls the backend directly).
-  const url = `${baseUrl}/member/membership/${encodeURIComponent(navIdent)}`
+  const url = `${TEAMKATALOG_BASE_URL}/member/membership/${encodeURIComponent(navIdent)}`
   const response = await fetch(url)
 
   if (!response.ok) {

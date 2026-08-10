@@ -9,26 +9,24 @@ import { REOPS_TEAM_KATALOG_ID } from '../config/reopsTeam.js'
  * anyone with a valid session/token can call the API directly (curl, etc.), bypassing any
  * client-side route guard entirely. Must run after `authenticateUser` so `req.user` is set.
  */
-export function requireReopsTeamMember(TEAMKATALOG_BASE_URL) {
-  return async (req, res, next) => {
-    try {
-      const navIdent = req.user?.navIdent
-      if (!navIdent) {
-        return res.status(401).json({ error: 'Not authenticated' })
-      }
-
-      const teams = await getTeamMembership(navIdent, TEAMKATALOG_BASE_URL)
-      const isReopsTeamMember = teams.some((team) => team.id === REOPS_TEAM_KATALOG_ID)
-
-      if (!isReopsTeamMember) {
-        return res.status(403).json({ error: 'Denne funksjonen er kun tilgjengelig for Team ResearchOps' })
-      }
-
-      next()
-    } catch (error) {
-      // Fail closed: if Team Catalog is unreachable, don't let the request through.
-      console.error('[requireReopsTeamMember] Error:', error.message)
-      res.status(503).json({ error: 'Kunne ikke verifisere teammedlemskap. Prøv igjen senere.' })
+export async function requireReopsTeamMember(req, res, next) {
+  try {
+    const navIdent = req.user?.navIdent
+    if (!navIdent) {
+      return res.status(401).json({ error: 'Not authenticated' })
     }
+
+    const teams = await getTeamMembership(navIdent)
+    const isReopsTeamMember = teams.some((team) => team.id === REOPS_TEAM_KATALOG_ID)
+
+    if (!isReopsTeamMember) {
+      return res.status(403).json({ error: 'Denne funksjonen er kun tilgjengelig for Team ResearchOps' })
+    }
+
+    next()
+  } catch (error) {
+    // Fail closed: if Team Catalog is unreachable, don't let the request through.
+    console.error('[requireReopsTeamMember] Error:', error.message)
+    res.status(503).json({ error: 'Kunne ikke verifisere teammedlemskap. Prøv igjen senere.' })
   }
 }

@@ -60,5 +60,3 @@ spec:
       value: "start-umami-backend"
     - name: NAIS_CLUSTER_NAME
       value: "prod-gcp"
-    - name: TEAMKATALOG_BASE_URL
-      value: "https://teamkatalog-api.intern.nav.no"

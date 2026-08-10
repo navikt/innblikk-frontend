@@ -3,7 +3,7 @@ import { authenticateUser } from '../../middleware/authenticateUser.js'
 import { getTeamMembership } from '../../teamkatalog/teamkatalogApi.js'
 import { REOPS_TEAM_KATALOG_ID } from '../../config/reopsTeam.js'
 
-export function createUserRouter({ BACKEND_BASE_URL, TEAMKATALOG_BASE_URL }) {
+export function createUserRouter({ BACKEND_BASE_URL }) {
   const router = express.Router()
 
   router.get('/me', async (req, res) => {
@@ -113,7 +113,7 @@ export function createUserRouter({ BACKEND_BASE_URL, TEAMKATALOG_BASE_URL }) {
         return res.json({ isReopsTeamMember: false })
       }
 
-      const teams = await getTeamMembership(navIdent, TEAMKATALOG_BASE_URL)
+      const teams = await getTeamMembership(navIdent)
       const isReopsTeamMember = teams.some((team) => team.id === REOPS_TEAM_KATALOG_ID)
 
       res.json({ isReopsTeamMember })

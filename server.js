@@ -23,7 +23,6 @@ import {
   GCP_PROJECT_ID,
   GEMINI_LOCATION,
   GEMINI_MODEL,
-  TEAMKATALOG_BASE_URL,
 } from './src/server/config/env.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -46,14 +45,14 @@ app.use('/api/bigquery', authenticateUser)
 // not just the client-side route guard on /copilot (which is UX only and never sufficient on
 // its own — anyone with a valid session could otherwise call this API directly).
 // (router paths already include /api/copilot, mounted at root like the BigQuery router below)
-app.use('/api/copilot', authenticateUser, requireReopsTeamMember(TEAMKATALOG_BASE_URL))
+app.use('/api/copilot', authenticateUser, requireReopsTeamMember)
 app.use(createCopilotRouter({ bigquery, genai, GCP_PROJECT_ID, GEMINI_MODEL }))
 
 // Siteimprove proxy
 app.use('/api/siteimprove', createSiteimproveProxyRouter({ SITEIMPROVE_BASE_URL }))
 
 // User routes
-app.use('/api/user', createUserRouter({ BACKEND_BASE_URL, TEAMKATALOG_BASE_URL }))
+app.use('/api/user', createUserRouter({ BACKEND_BASE_URL }))
 
 // Backend proxy (Project/Dashboard/Graph/Query APIs)
 app.use('/api/backend', createBackendProxyRouter({ BACKEND_BASE_URL }))

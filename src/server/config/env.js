@@ -28,11 +28,6 @@ export const BACKEND_WS_HOST = process.env.BACKEND_WS_HOST || undefined
 export const GEMINI_LOCATION = process.env.GEMINI_LOCATION || 'europe-west4'
 export const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite'
 
-// Team Catalog (teamkatalog.nav.no) — used to check ReOps team membership for /reops-internal.
-// Team/member data is open within Nav without auth (see https://navikt.github.io/team-catalog),
-// so no token/scope is needed here, just network reachability (only resolves from inside Nav).
-export const TEAMKATALOG_BASE_URL = process.env.TEAMKATALOG_BASE_URL || 'https://teamkatalog-api.intern.nav.no'
-
 if (!BACKEND_BASE_URL) {
   throw new Error('Missing env var: BACKEND_BASE_URL')
 }

@@ -39,7 +39,7 @@ spec:
     outbound:
       external:
         - host: www.nav.no
-        - host: teamkatalog-api.intern.dev.nav.no
+        - host: teamkatalog-api.intern.nav.no
       rules:
           - application: reops-proxy
             namespace: team-researchops
@@ -66,5 +66,3 @@ spec:
       value: "start-umami-backend"
     - name: NAIS_CLUSTER_NAME
       value: "dev-gcp"
-    - name: TEAMKATALOG_BASE_URL
-      value: "https://teamkatalog-api.intern.dev.nav.no"
