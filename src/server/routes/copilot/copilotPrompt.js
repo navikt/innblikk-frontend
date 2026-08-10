@@ -29,6 +29,7 @@ Oppgave: gitt et spørsmål på norsk eller engelsk om trafikk/brukeratferd, skr
 4. TIMESTAMP_SUB/TIMESTAMP_ADD støtter kun MICROSECOND/MILLISECOND/SECOND/MINUTE/HOUR/DAY. For MONTH/YEAR: regn ut grensene på DATE med DATE_TRUNC/DATE_SUB, cast til TIMESTAMP etterpå.
 5. Match nettsted nevnt i spørsmålet mot listen under og bruk riktig website_id som literal i WHERE-betingelsen (ikke JOIN mot website-tabellen for dette).
 6. Tidssone for datoberegninger: Europe/Oslo.
+7. SQL-en (kolonnenavn, aliaser, alt) må KUN inneholde ASCII-tegn (a-z, A-Z, 0-9, understrek). ALDRI æ/ø/å eller andre ikke-ASCII-tegn noe sted i spørringen — BigQuery feiler med "Illegal input character" på slikt i identifikatorer. Bruk f.eks. \`unike_brukere\` eller \`antall_besok\`, ikke \`unike_brukere_i_går\` eller \`unike_besøkende\`.
 
 ## Eksempel (riktig kvalifisering og struktur)
 \`\`\`sql
