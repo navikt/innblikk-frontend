@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import '../../../../tailwind.css'
 import { AppBlock } from '../AppBlock/AppBlock.tsx'
 import { getFeatureFlag } from '../../../lib/featureFlags.ts'
+import { useIsReopsTeamMember } from '../../../hooks/useIsReopsTeamMember.ts'
 
 interface HeaderProps {
   theme: 'light' | 'dark'
@@ -23,6 +24,7 @@ export default function Header({ theme }: HeaderProps) {
   const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
   const isDevEnvironment = isLocalhost || hostname.includes('.dev.nav.no')
   const isBeta = getFeatureFlag('beta_opt_in')
+  const { isReopsTeamMember } = useIsReopsTeamMember()
   const buildSha = __GIT_SHA__
   const buildShortSha = buildSha && buildSha !== 'unknown' ? buildSha.slice(0, 7) : null
 
@@ -45,6 +47,7 @@ export default function Header({ theme }: HeaderProps) {
     { href: '/sql', label: 'SQL-spørringer' },
     { href: '/personvernssjekk', label: 'Personvernsjekk' },
     { href: '/kohorter', label: 'Brukergrupper' },
+    ...(isReopsTeamMember ? [{ href: '/reops-internal', label: 'ReOps-internt' }] : []),
   ]
 
   const environmentLinks: MenuLink[] = (() => {

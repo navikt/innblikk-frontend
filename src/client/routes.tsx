@@ -1,7 +1,9 @@
 import { lazy } from 'react'
 import type { ReactElement } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
+import { Loader } from '@navikt/ds-react'
 import { getFeatureFlag } from './shared/lib/featureFlags.ts'
+import { useIsReopsTeamMember } from './shared/hooks/useIsReopsTeamMember.ts'
 
 // Content Feature
 const Home = lazy(() => import('./features/content').then((m) => ({ default: m.Home })))
@@ -79,6 +81,9 @@ const SqlEditor = lazy(() => import('./features/sql').then((m) => ({ default: m.
 // Copilot Feature (unadvertised, for designers – ask in natural language, paste SQL from Microsoft Copilot)
 const CopilotAnalyse = lazy(() => import('./features/copilot').then((m) => ({ default: m.CopilotAnalyse })))
 
+// ReOps-internal Feature (unadvertised, nav-ident gated overview of hidden features)
+const ReopsInternal = lazy(() => import('./features/reops-internal').then((m) => ({ default: m.ReopsInternal })))
+
 const InnstillingerRedirect = () => <Navigate to="/profil" replace />
 
 const DashboardRouteResolver = () => {
@@ -134,6 +139,20 @@ const WcagRoute = () => {
   return <Wcag />
 }
 
+const ReopsInternalRoute = () => {
+  const { isReopsTeamMember, loading } = useIsReopsTeamMember()
+
+  if (loading) {
+    return <Loader size="xlarge" title="Laster inn..." />
+  }
+
+  if (!isReopsTeamMember) {
+    return <Navigate to="/" replace />
+  }
+
+  return <ReopsInternal />
+}
+
 export type AppRoute = {
   path: string
   component: ReactElement
@@ -165,6 +184,7 @@ export const fullWidthPathPrefixes = [
   '/sql',
   '/grafbygger-copilot',
   '/copilot',
+  '/reops-internal',
 ]
 
 export const routes: AppRoute[] = [
@@ -183,6 +203,7 @@ export const routes: AppRoute[] = [
 
   { path: '/grafbygger-copilot', component: <CopilotAnalyse />, fullWidth: true },
   { path: '/copilot', component: <Navigate to="/grafbygger-copilot" replace />, fullWidth: true },
+  { path: '/reops-internal', component: <ReopsInternalRoute />, fullWidth: true },
   { path: '/sql', component: <SqlEditor />, fullWidth: true },
   { path: '/stats', component: <Stats />, fullWidth: true },
   { path: '/innstillinger', component: <InnstillingerRedirect />, fullWidth: true },
