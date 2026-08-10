@@ -1,6 +1,9 @@
 import express from 'express'
+import { authenticateUser } from '../../middleware/authenticateUser.js'
+import { getTeamMembership } from '../../teamkatalog/teamkatalogApi.js'
+import { REOPS_TEAM_KATALOG_ID } from '../../config/reopsTeam.js'
 
-export function createUserRouter({ BACKEND_BASE_URL }) {
+export function createUserRouter({ BACKEND_BASE_URL, TEAMKATALOG_BASE_URL }) {
   const router = express.Router()
 
   router.get('/me', async (req, res) => {
@@ -97,6 +100,26 @@ export function createUserRouter({ BACKEND_BASE_URL }) {
         error: 'Authentication failed',
         details: error.message,
       })
+    }
+  })
+
+  // Whether the logged-in user is on Team ResearchOps (Team Catalog), used to reveal
+  // internal-only tooling (see /reops-internal). Fails closed (false) on any error so a
+  // Team Catalog outage just hides the feature instead of breaking the app.
+  router.get('/reops-team-membership', authenticateUser, async (req, res) => {
+    try {
+      const navIdent = req.user?.navIdent
+      if (!navIdent) {
+        return res.json({ isReopsTeamMember: false })
+      }
+
+      const teams = await getTeamMembership(navIdent, TEAMKATALOG_BASE_URL)
+      const isReopsTeamMember = teams.some((team) => team.id === REOPS_TEAM_KATALOG_ID)
+
+      res.json({ isReopsTeamMember })
+    } catch (error) {
+      console.error('[Team membership] Error:', error.message)
+      res.json({ isReopsTeamMember: false })
     }
   })
 

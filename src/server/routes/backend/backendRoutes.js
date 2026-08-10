@@ -5,6 +5,7 @@ import { loadOasis } from '../../middleware/authUtils.js'
 export function createBackendProxyRouter({ BACKEND_BASE_URL }) {
   const router = express.Router()
   const apiBaseUrl = new URL('/api/', BACKEND_BASE_URL)
+  console.log(`[Backend Proxy] Proxying /api/backend/* -> ${apiBaseUrl} (BACKEND_BASE_URL=${BACKEND_BASE_URL})`)
   const CANVAS_DASHBOARD_TOKEN = '[canvas]'
   const CANVAS_QUERY_NAME = 'canvas-config'
   const CANVAS_PRESENCE_DASHBOARD_TOKEN = '[canvas-presence]'
@@ -519,8 +520,8 @@ export function createBackendProxyRouter({ BACKEND_BASE_URL }) {
   })
 
   router.get('/stats', async (req, res) => {
+    const targetUrl = new URL('stats', apiBaseUrl)
     try {
-      const targetUrl = new URL('stats', apiBaseUrl)
       const response = await fetch(targetUrl, { headers: { accept: 'application/json' } })
       const text = await response.text()
       let payload = null
@@ -537,7 +538,8 @@ export function createBackendProxyRouter({ BACKEND_BASE_URL }) {
       }
       res.json(payload)
     } catch (err) {
-      console.error('Stats proxy error:', err)
+      const reason = err?.cause?.code || err?.code || (err instanceof Error ? err.message : 'Unknown error')
+      console.error(`[Backend Proxy] GET ${targetUrl} failed: ${reason}`)
       res
         .status(500)
         .json({ error: 'Stats proxy error', details: err instanceof Error ? err.message : 'Unknown error' })
@@ -545,9 +547,11 @@ export function createBackendProxyRouter({ BACKEND_BASE_URL }) {
   })
 
   router.use('/', authenticateUser, async (req, res) => {
+    const targetPath = req.url.startsWith('/') ? req.url.slice(1) : req.url
+    const targetUrl = new URL(targetPath, apiBaseUrl)
+
     try {
-      const targetPath = req.url.startsWith('/') ? req.url.slice(1) : req.url
-      const targetUrl = new URL(targetPath, apiBaseUrl)
+      console.log(`[Backend Proxy] ${req.method} ${targetUrl}`)
       const resolvedAuthorization = await resolveAuthorizationHeader(req)
 
       const forwardHeaders = {
@@ -585,7 +589,12 @@ export function createBackendProxyRouter({ BACKEND_BASE_URL }) {
       })
       res.send(data)
     } catch (err) {
-      console.error('Backend proxy error:', err)
+      // Log a single readable line (method + full target URL + concise reason) instead of
+      // dumping the full error/stack — ECONNREFUSED etc. otherwise repeats with zero context
+      // about which endpoint or backend host is unreachable, which is what actually matters
+      // for debugging a "backend not running locally" situation vs. a real bug.
+      const reason = err?.cause?.code || err?.code || (err instanceof Error ? err.message : 'Unknown error')
+      console.error(`[Backend Proxy] ${req.method} ${targetUrl} failed: ${reason}`)
       res.status(500).json({
         error: 'Backend proxy error',
         details: err instanceof Error ? err.message : 'Unknown error',

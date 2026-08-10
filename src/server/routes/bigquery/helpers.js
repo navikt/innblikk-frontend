@@ -27,6 +27,51 @@ export function getNavIdent(req) {
 }
 
 /**
+ * Fetches the list of registered websites (id, name, domain, ...) from BigQuery.
+ * Shared by `websiteRoutes.js` (`GET /api/bigquery/websites`) and the copilot chat
+ * route, which needs the domain → website_id mapping to resolve questions like
+ * "how many visitors did nav.no have yesterday" to the right `website_id`.
+ */
+export async function getWebsitesList(bigquery, GCP_PROJECT_ID, navIdent, addAuditLogging) {
+  const query = `
+    SELECT
+        website_id as id,
+        ANY_VALUE(name) as name,
+        ANY_VALUE(domain) as domain,
+        ANY_VALUE(share_id) as shareId,
+        ANY_VALUE(team_id) as teamId,
+        ANY_VALUE(created_at) as createdAt
+    FROM \`${GCP_PROJECT_ID}.umami.public_website\`
+    WHERE deleted_at IS NULL
+      AND name IS NOT NULL
+    GROUP BY website_id
+    ORDER BY name
+  `
+
+  const [job] = await bigquery.createQueryJob(
+    addAuditLogging(
+      {
+        query,
+        location: 'europe-north1',
+        maximumBytesBilled: MAX_BYTES_BILLED,
+      },
+      navIdent,
+      'Nettsidevelger',
+    ),
+  )
+
+  const [rows] = await job.getQueryResults()
+
+  return rows.map((row) => {
+    let createdAt = row.createdAt
+    if (createdAt && typeof createdAt === 'object' && createdAt.value) {
+      createdAt = createdAt.value
+    }
+    return { ...row, createdAt }
+  })
+}
+
+/**
  * Runs a BigQuery dry-run to estimate query cost.
  * Returns a queryStats object, or null if the dry run fails.
  */

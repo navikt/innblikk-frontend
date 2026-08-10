@@ -81,6 +81,9 @@ const SqlEditor = lazy(() => import('./features/sql').then((m) => ({ default: m.
 // Copilot Feature (unadvertised, for designers – ask in natural language, paste SQL from Microsoft Copilot)
 const CopilotAnalyse = lazy(() => import('./features/copilot').then((m) => ({ default: m.CopilotAnalyse })))
 
+// Assistant Feature (unadvertised, generic/extensible LLM chat scaffolding — experimental)
+const Copilot = lazy(() => import('./features/assistant').then((m) => ({ default: m.Copilot })))
+
 // ReOps-internal Feature (unadvertised, nav-ident gated overview of hidden features)
 const ReopsInternal = lazy(() => import('./features/reops-internal').then((m) => ({ default: m.ReopsInternal })))
 
@@ -153,6 +156,20 @@ const ReopsInternalRoute = () => {
   return <ReopsInternal />
 }
 
+const CopilotRoute = () => {
+  const { isReopsTeamMember, loading } = useIsReopsTeamMember()
+
+  if (loading) {
+    return <Loader size="xlarge" title="Laster inn..." />
+  }
+
+  if (!isReopsTeamMember) {
+    return <Navigate to="/" replace />
+  }
+
+  return <Copilot />
+}
+
 export type AppRoute = {
   path: string
   component: ReactElement
@@ -202,7 +219,7 @@ export const routes: AppRoute[] = [
   { path: '/metabase', component: <MetabaseGuide />, fullWidth: true },
 
   { path: '/grafbygger-copilot', component: <CopilotAnalyse />, fullWidth: true },
-  { path: '/copilot', component: <Navigate to="/grafbygger-copilot" replace />, fullWidth: true },
+  { path: '/copilot', component: <CopilotRoute />, fullWidth: true },
   { path: '/reops-internal', component: <ReopsInternalRoute />, fullWidth: true },
   { path: '/sql', component: <SqlEditor />, fullWidth: true },
   { path: '/stats', component: <Stats />, fullWidth: true },

@@ -57,6 +57,7 @@ const NotFound = () => (
 const AppShell = ({ theme }: { theme: 'light' | 'dark' }) => {
   const location = useLocation()
   const isCanvasPage = location.pathname.startsWith('/canvas')
+  const isCopilotPage = location.pathname === '/copilot'
   const focusedParam = new URLSearchParams(location.search).get('focused')
   const isFocusedParam = focusedParam === 'true' || focusedParam === '1'
   const isFocusedDashboardPage = location.pathname.startsWith('/dashboard') && isFocusedParam
@@ -71,7 +72,7 @@ const AppShell = ({ theme }: { theme: 'light' | 'dark' }) => {
     </Routes>
   )
 
-  if (isCanvasPage || isFocusedDashboardPage || isFocusedGrafbyggerPage) {
+  if (isCanvasPage || isCopilotPage || isFocusedDashboardPage || isFocusedGrafbyggerPage) {
     return (
       <ErrorBoundary>
         <Suspense fallback={<PageLoader />}>{appRoutes}</Suspense>
