@@ -9,10 +9,17 @@ import { buildSystemPrompt, parseModelReply, linkifyBareDomains } from './copilo
 import { logger } from '../../logger.js'
 
 // Website list rarely changes — cache it for a few minutes instead of hitting
-// BigQuery on every chat message.
+// BigQuery on every chat message. Keyed per navIdent (not a single global cache): every
+// BigQuery job elsewhere in this app gets the caller's nav_ident attached via addAuditLogging
+// (job label + SQL comment) — that's the actual audit trail. A single global cache would mean
+// only whichever user's request happens to trigger the refresh gets a labeled job; every other
+// user hitting Copilot within the TTL would be served cached data with zero BigQuery job run
+// for them at all, making their usage invisible in BigQuery's query history. Per-navIdent
+// keying costs a little duplicate work (same list fetched once per active user instead of once
+// globally) but guarantees every distinct user gets at least one real, audit-labeled job per
+// TTL window — matching how every other route in this app already behaves.
 const WEBSITE_LIST_TTL_MS = 5 * 60 * 1000
-let cachedWebsites = null
-let cachedAt = 0
+const websiteListCache = new Map()
 
 // Copilot auto-executes whatever SQL Gemini generates — no human reviews it first (unlike
 // /grafbygger-copilot, where a person pastes/edits the SQL before running). Keep the sanity
@@ -140,12 +147,21 @@ function estimateCostUsd(model, usageMetadata) {
 }
 
 async function getCachedWebsitesList(bigquery, GCP_PROJECT_ID, navIdent) {
-  const isStale = !cachedWebsites || Date.now() - cachedAt > WEBSITE_LIST_TTL_MS
-  if (isStale) {
-    cachedWebsites = await getWebsitesList(bigquery, GCP_PROJECT_ID, navIdent, addAuditLogging)
-    cachedAt = Date.now()
+  const now = Date.now()
+
+  // Evict stale entries on every call — otherwise this Map grows one entry per distinct
+  // navIdent forever, unlike the old single global cache (mirrors the same sweep-on-access
+  // pattern already used for `conversations` below).
+  for (const [id, entry] of websiteListCache) {
+    if (now - entry.cachedAt > WEBSITE_LIST_TTL_MS) websiteListCache.delete(id)
   }
-  return cachedWebsites
+
+  const cached = websiteListCache.get(navIdent)
+  if (cached) return cached.websites
+
+  const websites = await getWebsitesList(bigquery, GCP_PROJECT_ID, navIdent, addAuditLogging)
+  websiteListCache.set(navIdent, { websites, cachedAt: now })
+  return websites
 }
 
 function getOrCreateChat({ conversationId, systemInstruction, genai, GEMINI_MODEL }) {
@@ -358,7 +374,7 @@ export function createCopilotRouter({ bigquery, genai, GCP_PROJECT_ID, GEMINI_MO
 
         // No function call — this is meant to be the final answer.
         const text = response.text ?? ''
-        const { sql, reply: parsedReply } = parseModelReply(text)
+        const { sql, reply: parsedReply, chartSuggestion } = parseModelReply(text)
         const reply = linkifyBareDomains(parsedReply)
         lastSql = sql
         lastReply = reply
@@ -436,6 +452,7 @@ export function createCopilotRouter({ bigquery, genai, GCP_PROJECT_ID, GEMINI_MO
           toolCalls: toolCallLog,
           usage: buildUsagePayload(),
           systemPrompt: systemInstruction,
+          chartSuggestion,
         })
       }
 

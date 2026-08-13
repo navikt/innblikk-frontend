@@ -16,10 +16,17 @@ const cache = new Map() // navIdent -> { teams, cachedAt }
  * @returns {Promise<Array<{ id: string, name: string }>>}
  */
 export async function getTeamMembership(navIdent) {
-  const cached = cache.get(navIdent)
-  if (cached && Date.now() - cached.cachedAt < TEAM_MEMBERSHIP_CACHE_TTL_MS) {
-    return cached.teams
+  const now = Date.now()
+
+  // Evict stale entries on every call — otherwise this Map grows one entry per distinct
+  // navIdent forever in a long-running server process, since entries are only ever checked
+  // against the TTL on read, never actively removed.
+  for (const [id, entry] of cache) {
+    if (now - entry.cachedAt >= TEAM_MEMBERSHIP_CACHE_TTL_MS) cache.delete(id)
   }
+
+  const cached = cache.get(navIdent)
+  if (cached) return cached.teams
 
   // Note: NOT `/team-catalog/member/membership/...` — that `/team-catalog` segment only
   // exists on teamkatalog.nav.no's own frontend BFF proxy path, not the real backend API

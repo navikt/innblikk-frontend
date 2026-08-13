@@ -85,33 +85,79 @@ Du er en dataanalytiker som forklarer tall til noen uten bakgrunn i analytics �
 2. Hvis spørsmålet var vagt eller kunne tolkes på flere måter (f.eks. "trafikk" — sidevisninger eller besøkende? "siste uke" — 7 siste dager eller forrige kalenderuke? — ELLER du selv valgte et nettsted via \`resolve_website\` uten et \`exactMatch\`, f.eks. antok produksjonsvarianten fremfor en dev-variant): si eksplisitt hvilken tolkning/antakelse du har lagt til grunn, så brukeren kan korrigere hvis det var feil. Ikke gjett stille.
 3. Et forbehold KUN hvis det er reelt relevant for akkurat dette tallet/denne grafen — f.eks. boter ikke filtrert bort, kort tidsrom gjør tallet lite representativt, eller tidssone-avvik ("i går" = Europe/Oslo, ikke UTC). Dropp denne setningen hvis det ikke er noe ekte å nevne — ikke finn på forbehold for å virke grundig.
 Mål: brukeren skal forstå hva tallet/grafen faktisk viser og hvor den kan lure dem, uten å måtte spørre oppfølgingsspørsmål — men uten overflødig prat.
+
+## Visualiseringsforslag (kun relevant når resultatet har mer enn én rad/kolonne, ikke ett enkelt tall)
+Resultatet vises til brukeren i et grensesnitt med faner: tabell, linje, område, stolpe, kake. Standard er tabell, men du vet best hvilken visning som faktisk passer dataformen du selv skrev SQL for — foreslå riktig fane automatisk i stedet for å tvinge brukeren til å bytte manuelt hver gang.
+Skriv, som ALLERSTE linje inni SQL-kodeblokken (før selve spørringen, som en vanlig SQL-kommentar), nøyaktig én av:
+\`\`\`
+-- graf: linje
+-- graf: omrade
+-- graf: stolpe
+-- graf: kake
+-- graf: tabell
+\`\`\`
+Velg basert på hva dataene faktisk viser:
+- \`linje\`: en tidsserie (én rad per dag/uke/måned osv.) — spesielt "per dag"/"over tid"/"trend"/"utvikling"-spørsmål med én eller noen få numeriske serier.
+- \`omrade\`: som linje, men når det gir mer mening å se akkumulert/fylt volum enn en ren trendlinje (f.eks. andeler av en helhet over tid).
+- \`stolpe\`: sammenligning på tvers av et lite antall diskrete kategorier (f.eks. topp 10 sider, trafikk per nettsted) — IKKE en tidsserie.
+- \`kake\`: andeler av en helhet der kategorienes RELATIVE størrelse er hele poenget (f.eks. trafikkkilder i prosent) — bruk sjelden, kun når "andel av totalen" faktisk er det brukeren spurte om.
+- \`tabell\`: alt annet — rådata, mange kolonner, eller usikker på hva som passer best. Trygt standardvalg.
+Denne kommentarlinjen fjernes automatisk før spørringen kjøres og vises ikke til brukeren — den er KUN et signal til grensesnittet, ikke en del av SQL-en du forklarer i teksten din.
 `
+}
+
+// Norwegian chart-type name (as instructed in the system prompt's "Visualiseringsforslag"
+// section) -> the tab value ResultsPanel/SqlResultsSection actually understands.
+const CHART_SUGGESTION_MAP = {
+  tabell: 'table',
+  linje: 'linechart',
+  omrade: 'areachart',
+  stolpe: 'barchart',
+  kake: 'piechart',
+}
+
+// Matches the model's `-- graf: <type>` marker as the first meaningful line of the SQL —
+// see buildSystemPrompt's "Visualiseringsforslag" section. Extracted here (not left for
+// validateQuery to just tolerate as a comment) because it must never reach the user-visible or
+// executed SQL at all — it's a signal to the UI, not part of the query being explained.
+const CHART_SUGGESTION_PATTERN = /^\s*--\s*graf\s*:\s*(\p{L}+)\s*\n?/iu
+
+function extractChartSuggestion(sql) {
+  const match = sql.match(CHART_SUGGESTION_PATTERN)
+  if (!match) return { sql, chartSuggestion: null }
+
+  const rawType = match[1].toLowerCase()
+  const chartSuggestion = CHART_SUGGESTION_MAP[rawType] ?? null
+  return { sql: sql.slice(match[0].length).trim(), chartSuggestion }
 }
 
 /**
  * Splits a Gemini reply into the short human-readable explanation (everything outside the
  * fenced code block) and the SQL itself (from inside the fence, or the first SELECT/WITH
- * statement if the model didn't fence it despite instructions).
+ * statement if the model didn't fence it despite instructions). Also extracts and strips the
+ * model's `-- graf: <type>` chart-type suggestion, if present (see extractChartSuggestion).
  *
  * Only used for the model's FINAL, no-function-call turn — tool-call turns are handled
  * separately in copilotRoutes.js and never go through this parser.
  */
 export function parseModelReply(text) {
-  if (!text) return { sql: '', reply: '' }
+  if (!text) return { sql: '', reply: '', chartSuggestion: null }
 
   const fenceMatch = text.match(/```(?:sql)?\s*([\s\S]*?)```/i)
   if (fenceMatch) {
-    const sql = fenceMatch[1].trim()
+    const { sql, chartSuggestion } = extractChartSuggestion(fenceMatch[1].trim())
     const reply = (text.slice(0, fenceMatch.index) + text.slice(fenceMatch.index + fenceMatch[0].length)).trim()
-    return { sql, reply }
+    return { sql, reply, chartSuggestion }
   }
 
   const lines = text.split('\n')
   const startIndex = lines.findIndex((line) => /^\s*(WITH|SELECT)\b/i.test(line))
   if (startIndex >= 0) {
+    const { sql, chartSuggestion } = extractChartSuggestion(lines.slice(startIndex).join('\n').trim())
     return {
-      sql: lines.slice(startIndex).join('\n').trim(),
+      sql,
       reply: lines.slice(0, startIndex).join('\n').trim(),
+      chartSuggestion,
     }
   }
 
@@ -120,7 +166,7 @@ export function parseModelReply(text) {
   // of using the ask_user tool as instructed). Treating it as SQL here would hand something
   // like "Hvilket nettsted..." to the SQL validator and fail with a confusing
   // "Only SELECT queries are allowed. Got: HVILKET" — so this is always the reply, never SQL.
-  return { sql: '', reply: text.trim() }
+  return { sql: '', reply: text.trim(), chartSuggestion: null }
 }
 
 // Matches a bare domain-looking string that is the ENTIRE content of a pair of parentheses,

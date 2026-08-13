@@ -1,5 +1,9 @@
 import type { QueryStats } from '../../sql/model/types'
 
+// Matches the chart-type tab values ResultsPanel/SqlResultsSection actually understand
+// (see CHART_SUGGESTION_MAP in copilotPrompt.js, server-side).
+export type CopilotChartSuggestion = 'table' | 'linechart' | 'areachart' | 'barchart' | 'piechart'
+
 export type CopilotToolCall = {
   step: number
   name: string
@@ -27,6 +31,7 @@ export type CopilotChatResponse = {
   toolCalls?: CopilotToolCall[]
   usage?: CopilotUsage
   systemPrompt?: string
+  chartSuggestion?: CopilotChartSuggestion | null
 }
 
 // Thrown instead of a plain Error so the caller can still show the last SQL Copilot attempted

@@ -1,6 +1,12 @@
 import { useCallback, useState } from 'react'
 import { executeQueryApi } from '../../sql/api/sqlApi'
-import { askCopilot, CopilotChatError, type CopilotToolCall, type CopilotUsage } from '../api/copilotChatApi'
+import {
+  askCopilot,
+  CopilotChatError,
+  type CopilotToolCall,
+  type CopilotUsage,
+  type CopilotChartSuggestion,
+} from '../api/copilotChatApi'
 import type { QueryResult, QueryStats } from '../../sql/model/types'
 
 export type AssistantStatus = 'thinking' | 'running' | 'confirm' | 'clarify' | 'done' | 'error'
@@ -18,6 +24,7 @@ export type AssistantTurn = {
   costSuggestion: string | null
   toolCalls: CopilotToolCall[]
   usage: CopilotUsage | null
+  chartSuggestion: CopilotChartSuggestion | null
 }
 
 // Copilot auto-executes Gemini's SQL without a human reviewing it first — keep the sanity
@@ -38,6 +45,7 @@ const newTurn = (question: string): AssistantTurn => ({
   costSuggestion: null,
   toolCalls: [],
   usage: null,
+  chartSuggestion: null,
 })
 
 /**
@@ -81,6 +89,7 @@ export const useAssistantChat = () => {
         costSuggestion: response.costSuggestion ?? null,
         toolCalls: response.toolCalls ?? [],
         usage: response.usage ?? null,
+        chartSuggestion: response.chartSuggestion ?? null,
       })
 
       // Gemini asked a clarifying question instead of writing SQL (e.g. ambiguous domain) —

@@ -552,7 +552,10 @@ export function createBackendProxyRouter({ BACKEND_BASE_URL }) {
     const targetUrl = new URL(targetPath, apiBaseUrl)
 
     try {
-      logger.info({ method: req.method, targetUrl: targetUrl.toString() }, '[Backend Proxy] request')
+      // Debug level, not info — this fires on every single proxied request (method + full URL,
+      // including query string, which can carry sensitive values). At the default 'info' level
+      // (prod default, see logger.js) this is silent; set LOG_LEVEL=debug locally to see it.
+      logger.debug({ method: req.method, targetUrl: targetUrl.toString() }, '[Backend Proxy] request')
       const resolvedAuthorization = await resolveAuthorizationHeader(req)
 
       const forwardHeaders = {

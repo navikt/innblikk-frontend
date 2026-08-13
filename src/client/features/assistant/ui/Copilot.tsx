@@ -212,55 +212,69 @@ function TurnBubbles({ turn, onConfirmRun }: { turn: AssistantTurn; onConfirmRun
             </Chat.Bubble>
           )}
 
-          {turn.status === 'done' && (
+          {turn.status === 'done' && singleValue && (
             <Chat.Bubble>
-              {singleValue ? (
-                <VStack gap="space-12">
-                  <div>
-                    <div className="text-4xl font-bold text-[var(--ax-text-default)]">
-                      {typeof singleValue.value === 'number'
-                        ? singleValue.value.toLocaleString('nb-NO')
-                        : singleValue.value}
-                    </div>
-                    <div className="text-sm text-[var(--ax-text-subtle)] mt-1">{singleValue.label}</div>
+              <VStack gap="space-12">
+                <div>
+                  <div className="text-4xl font-bold text-[var(--ax-text-default)]">
+                    {typeof singleValue.value === 'number'
+                      ? singleValue.value.toLocaleString('nb-NO')
+                      : singleValue.value}
                   </div>
-                  {showTechnicalDetails && queryCost && (
-                    <BodyShort size="small" textColor="subtle" className="font-mono">
-                      {queryCost.gb} GB · ~${queryCost.usd}
-                    </BodyShort>
-                  )}
-                  {sqlReadMore(turn.sql)}
-                </VStack>
-              ) : (
-                <SqlResultsSection
-                  result={turn.result}
-                  loading={false}
-                  estimating={false}
-                  error={null}
-                  queryStats={turn.result?.queryStats ?? turn.estimate}
-                  query={turn.sql}
-                  lastProcessedSql={turn.sql}
-                  websiteId={websiteId}
-                  copiedMetabase={false}
-                  onExecuteQuery={async () => {}}
-                  onCopyMetabase={() => {}}
-                  hideMetabaseTransfer
-                  showSqlCode
-                  showJson={false}
-                  showExecuteButton={false}
-                  showError={false}
-                  showCost={showTechnicalDetails}
-                  dashboardButtonSize="medium"
-                  prepareLineChartData={(includeAverage = false) =>
-                    turn.result?.data ? prepareLineChartData(turn.result.data, includeAverage) : null
-                  }
-                  prepareBarChartData={() => (turn.result?.data ? prepareBarChartData(turn.result.data) : null)}
-                  preparePieChartData={() => (turn.result?.data ? preparePieChartData(turn.result.data) : null)}
-                />
-              )}
+                  <div className="text-sm text-[var(--ax-text-subtle)] mt-1">{singleValue.label}</div>
+                </div>
+                {showTechnicalDetails && queryCost && (
+                  <BodyShort size="small" textColor="subtle" className="font-mono">
+                    {queryCost.gb} GB · ~${queryCost.usd}
+                  </BodyShort>
+                )}
+                {sqlReadMore(turn.sql)}
+              </VStack>
             </Chat.Bubble>
           )}
         </Chat>
+      )}
+
+      {/* Deliberately NOT a `Chat.Bubble` — Aksel's `.aksel-chat` caps at max-width: 40.75rem and
+          `.aksel-chat__bubble` is `width: fit-content`, both fighting a wide chart/table that
+          wants to use the full thread width. Rendering it as a plain full-width block below the
+          bubble group (same treatment as TechnicalDetails) sidesteps that entirely instead of
+          fighting Aksel's own chat-bubble CSS with overrides.
+          `min-w-0` + `overflow-x-auto` matter here: flex items default to `min-width: auto`,
+          which means a wide table/chart's intrinsic content width can silently stretch every
+          flex ancestor (this block, the turns list, the thread container) past their `max-w`
+          cap instead of respecting it — visible as the whole chat area "pushing outwards"
+          whenever a wide result appeared. Capping this block's own width and scrolling
+          internally keeps every ancestor's width stable regardless of result width. */}
+      {turn.status === 'done' && !singleValue && (
+        <div className="w-full min-w-0 max-w-full overflow-x-auto">
+          <SqlResultsSection
+            result={turn.result}
+            loading={false}
+            estimating={false}
+            error={null}
+            queryStats={turn.result?.queryStats ?? turn.estimate}
+            query={turn.sql}
+            lastProcessedSql={turn.sql}
+            websiteId={websiteId}
+            copiedMetabase={false}
+            onExecuteQuery={async () => {}}
+            onCopyMetabase={() => {}}
+            hideMetabaseTransfer
+            showSqlCode
+            showJson={false}
+            showExecuteButton={false}
+            showError={false}
+            showCost={showTechnicalDetails}
+            initialTab={turn.chartSuggestion ?? undefined}
+            dashboardButtonSize="medium"
+            prepareLineChartData={(includeAverage = false) =>
+              turn.result?.data ? prepareLineChartData(turn.result.data, includeAverage) : null
+            }
+            prepareBarChartData={() => (turn.result?.data ? prepareBarChartData(turn.result.data) : null)}
+            preparePieChartData={() => (turn.result?.data ? preparePieChartData(turn.result.data) : null)}
+          />
+        </div>
       )}
 
       {showTechnicalDetails && <TechnicalDetails turn={turn} />}
@@ -317,9 +331,12 @@ export default function Copilot() {
 
   return (
     <Box background="default" className="flex h-screen w-full flex-col overflow-hidden">
-      {/* Message thread */}
+      {/* Message thread — same max-w as the composer below, deliberately. Charts/tables render
+          full-width relative to THIS container (see the "Deliberately NOT a `Chat.Bubble`"
+          comment in TurnBubbles), not wider than it — a chat thread and its input field having
+          different widths looks broken. */}
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto flex h-full w-full max-w-[48rem] flex-col px-4 py-8">
+        <div className="mx-auto flex h-full w-full min-w-0 max-w-[48rem] flex-col px-4 py-8">
           {showTechnicalDetails && systemPrompt && (
             <ReadMore header="Vis systemprompt" size="small" className="mb-4 self-start">
               <pre
@@ -340,7 +357,7 @@ export default function Copilot() {
               </BodyLong>
             </div>
           ) : (
-            <div className="flex flex-col gap-6">
+            <div className="flex min-w-0 flex-col gap-6">
               {turns.map((turn) => (
                 <TurnBubbles key={turn.id} turn={turn} onConfirmRun={confirmRun} />
               ))}
@@ -398,7 +415,7 @@ export default function Copilot() {
 
             {!hasStarted && (
               <BodyLong size="small" textColor="subtle">
-                F.eks. «Hvor mange besøkte nav.no i går?» eller «vis meg trafikk siste 4 uker»
+                F.eks. «Hvor mange besøkte nav.no i går?» eller «vis daglig trafikk de siste 7 dager for aksel»
               </BodyLong>
             )}
 
