@@ -1,3 +1,5 @@
+import { logger } from '../logger.js'
+
 export const getMockUser = () => {
   if (!process.env.MOCK_NAV_IDENT) return null
 
@@ -15,7 +17,7 @@ export const formatAzureName = (name = '') => {
     try {
       normalized = Buffer.from(normalized, 'latin1').toString('utf-8')
     } catch {
-      console.warn('[Auth] Failed to fix encoding for name:', normalized)
+      logger.warn({ name: normalized }, '[Auth] Failed to fix encoding for name')
     }
   }
 

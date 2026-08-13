@@ -1,6 +1,7 @@
 import express from 'express'
 import { addAuditLogging } from '../../bigquery/audit.js'
 import { requireBigQuery, getNavIdent, getDryRunStats, MAX_BYTES_BILLED, prepareGeneratedSql } from './helpers.js'
+import { logger } from '../../logger.js'
 
 export function createPrivacyRoutes({ bigquery, GCP_PROJECT_ID }) {
   const router = express.Router()
@@ -68,7 +69,7 @@ export function createPrivacyRoutes({ bigquery, GCP_PROJECT_ID }) {
           )
           siteRows.forEach((r) => websiteMap.set(r.website_id, r.name))
         } catch (e) {
-          console.error('Error fetching websites for global search:', e)
+          logger.error({ error: e.message ?? e }, 'Error fetching websites for global search')
         }
       }
 
@@ -270,7 +271,7 @@ export function createPrivacyRoutes({ bigquery, GCP_PROJECT_ID }) {
 
       res.json({ data: processedRows, generatedSql: prepareGeneratedSql(finalQuery, params), queryStats })
     } catch (error) {
-      console.error('Privacy check error:', error)
+      logger.error({ error: error.message ?? error }, 'Privacy check error')
       res.status(500).json({ error: error.message })
     }
   })

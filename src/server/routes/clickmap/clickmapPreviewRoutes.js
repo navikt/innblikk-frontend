@@ -1,4 +1,5 @@
 import express from 'express'
+import { logger } from '../../logger.js'
 
 export function createClickmapPreviewRouter() {
   const router = express.Router()
@@ -1173,7 +1174,7 @@ export function createClickmapPreviewRouter() {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       const statusCode = 500
-      console.error('Failed to fetch clickmap preview HTML:', error)
+      logger.error({ error: error.message ?? error }, 'Failed to fetch clickmap preview HTML')
       res.status(statusCode).json({ error: 'Failed to fetch clickmap preview HTML', message: errorMessage })
     }
   })

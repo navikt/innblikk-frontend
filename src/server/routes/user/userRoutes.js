@@ -2,6 +2,7 @@ import express from 'express'
 import { authenticateUser } from '../../middleware/authenticateUser.js'
 import { getTeamMembership } from '../../teamkatalog/teamkatalogApi.js'
 import { REOPS_TEAM_KATALOG_ID } from '../../config/reopsTeam.js'
+import { logger } from '../../logger.js'
 
 export function createUserRouter({ BACKEND_BASE_URL }) {
   const router = express.Router()
@@ -77,7 +78,7 @@ export function createUserRouter({ BACKEND_BASE_URL }) {
           name = Buffer.from(name, 'latin1').toString('utf-8')
         } catch {
           // Keep original if fixing fails
-          console.warn('[Auth] Failed to fix encoding for name:', name)
+          logger.warn({ name }, '[Auth] Failed to fix encoding for name')
         }
       }
 
@@ -95,7 +96,7 @@ export function createUserRouter({ BACKEND_BASE_URL }) {
         message: `Vellykket autentisert som ${parsed.NAVident}`,
       })
     } catch (error) {
-      console.error('Authentication error:', error)
+      logger.error({ error: error.message ?? error }, 'Authentication error')
       res.status(500).json({
         error: 'Authentication failed',
         details: error.message,
@@ -118,7 +119,7 @@ export function createUserRouter({ BACKEND_BASE_URL }) {
 
       res.json({ isReopsTeamMember })
     } catch (error) {
-      console.error('[Team membership] Error:', error.message)
+      logger.error({ error: error.message }, '[Team membership] Error')
       res.json({ isReopsTeamMember: false })
     }
   })
@@ -127,7 +128,7 @@ export function createUserRouter({ BACKEND_BASE_URL }) {
     try {
       const backendUrl = new URL('/api/projects', BACKEND_BASE_URL).toString()
 
-      console.log('[Test] Fetching projects from:', backendUrl)
+      logger.info({ backendUrl }, '[Test] Fetching projects from')
 
       const response = await fetch(backendUrl)
 
@@ -137,7 +138,7 @@ export function createUserRouter({ BACKEND_BASE_URL }) {
 
       const data = await response.json()
 
-      console.log('[Test] Successfully fetched projects from backend')
+      logger.info('[Test] Successfully fetched projects from backend')
 
       res.json({
         success: true,
@@ -146,7 +147,7 @@ export function createUserRouter({ BACKEND_BASE_URL }) {
         backendUrl: backendUrl,
       })
     } catch (error) {
-      console.error('[Test] Failed to fetch projects:', error)
+      logger.error({ error: error.message ?? error }, '[Test] Failed to fetch projects')
       res.status(500).json({
         success: false,
         error: 'Failed to fetch projects from backend',

@@ -1,5 +1,6 @@
 import express from 'express'
 import { addAuditLogging } from '../../bigquery/audit.js'
+import { logger } from '../../logger.js'
 import {
   requireBigQuery,
   getNavIdent,
@@ -85,7 +86,7 @@ export function createUserProfileRoutes({ bigquery, GCP_PROJECT_ID }) {
         params.searchQuery = `%${searchQuery}%`
       }
 
-      console.log('[User Profiles] Request:', { websiteId, urlPath, searchQuery })
+      logger.info({ websiteId, urlPath, searchQuery }, '[User Profiles] Request')
 
       let urlFilterCTE = ''
       let urlFilterJoin = ''
@@ -119,7 +120,7 @@ export function createUserProfileRoutes({ bigquery, GCP_PROJECT_ID }) {
         `
         urlFilterJoin = `INNER JOIN matching_sessions ms ON session.session_id = ms.session_id`
 
-        console.log('[User Profiles] URL filter active:', { urlPath, pathOperator })
+        logger.info({ urlPath, pathOperator }, '[User Profiles] URL filter active')
       }
 
       const query = `
@@ -225,7 +226,7 @@ export function createUserProfileRoutes({ bigquery, GCP_PROJECT_ID }) {
 
       res.json({ users, total, generatedSql: prepareGeneratedSql(query, params), queryStats })
     } catch (error) {
-      console.error('BigQuery users error:', error)
+      logger.error({ error: error.message ?? error }, 'BigQuery users error')
       res.status(500).json({ error: error.message })
     }
   })
@@ -292,7 +293,7 @@ export function createUserProfileRoutes({ bigquery, GCP_PROJECT_ID }) {
 
       res.json({ activity, queryStats })
     } catch (error) {
-      console.error('BigQuery user activity error:', error)
+      logger.error({ error: error.message ?? error }, 'BigQuery user activity error')
       res.status(500).json({ error: error.message })
     }
   })

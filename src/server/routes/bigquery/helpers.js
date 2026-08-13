@@ -1,4 +1,5 @@
 import { format as formatSql } from 'sql-formatter'
+import { logger } from '../../logger.js'
 
 /**
  * Maximum bytes a single query is allowed to scan (500 GB).
@@ -101,7 +102,7 @@ export async function getDryRunStats(
       estimatedCostUSD,
     }
   } catch (err) {
-    console.log(`[${analysisType || 'DryRun'}] Dry run failed:`, err.message)
+    logger.info({ error: err.message, label: analysisType || 'DryRun' }, 'Dry run failed')
     return null
   }
 }

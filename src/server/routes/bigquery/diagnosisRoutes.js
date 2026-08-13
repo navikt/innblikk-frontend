@@ -1,6 +1,7 @@
 import express from 'express'
 import { addAuditLogging } from '../../bigquery/audit.js'
 import { MAX_BYTES_BILLED } from './helpers.js'
+import { logger } from '../../logger.js'
 
 export function createDiagnosisRouter({ bigquery, GCP_PROJECT_ID }) {
   const router = express.Router()
@@ -92,12 +93,12 @@ export function createDiagnosisRouter({ bigquery, GCP_PROJECT_ID }) {
           estimatedCostUSD: estimatedCostUSD,
         }
       } catch (dryRunError) {
-        console.log('[Diagnosis] Dry run failed:', dryRunError.message)
+        logger.info({ dryRunError: dryRunError.message }, '[Diagnosis] Dry run failed')
       }
 
       res.json({ data, queryStats })
     } catch (error) {
-      console.error('BigQuery diagnosis error:', error)
+      logger.error({ error: error.message ?? error }, 'BigQuery diagnosis error')
       res.status(500).json({
         error: error.message || 'Failed to fetch diagnosis data',
       })
@@ -223,9 +224,9 @@ export function createDiagnosisRouter({ bigquery, GCP_PROJECT_ID }) {
           totalBytesProcessedGB: gbProcessed,
         }
 
-        console.log('[diagnosis-history] Dry run stats - Processing', gbProcessed, 'GB')
+        logger.info({ gbProcessed }, '[diagnosis-history] Dry run stats - Processing GB')
       } catch (dryRunError) {
-        console.log('[diagnosis-history] Dry run failed:', dryRunError.message)
+        logger.info({ dryRunError: dryRunError.message }, '[diagnosis-history] Dry run failed')
       }
 
       res.json({
@@ -234,7 +235,7 @@ export function createDiagnosisRouter({ bigquery, GCP_PROJECT_ID }) {
         queryStats,
       })
     } catch (error) {
-      console.error('BigQuery error:', error)
+      logger.error({ error: error.message ?? error }, 'BigQuery error')
       res.status(500).json({ error: error.message })
     }
   })

@@ -1,5 +1,6 @@
 import express from 'express'
 import { addAuditLogging, substituteQueryParameters } from '../../bigquery/audit.js'
+import { logger } from '../../logger.js'
 import {
   requireBigQuery,
   getNavIdent,
@@ -273,8 +274,13 @@ export function createFunnelRoutes({ bigquery, GCP_PROJECT_ID }) {
       )
 
       if (queryStats) {
-        console.log(
-          `[Funnel] Dry run - Processing ${queryStats.totalBytesProcessedGB} GB, estimated cost: $${queryStats.estimatedCostUSD} (Types: ${eventTypesList})`,
+        logger.info(
+          {
+            gbProcessed: queryStats.totalBytesProcessedGB,
+            estimatedCostUSD: queryStats.estimatedCostUSD,
+            eventTypesList,
+          },
+          '[Funnel] Dry run - Processing',
         )
       }
 
@@ -307,7 +313,7 @@ export function createFunnelRoutes({ bigquery, GCP_PROJECT_ID }) {
 
       res.json({ data, queryStats, sql: substituteQueryParameters(query, params) })
     } catch (error) {
-      console.error('BigQuery funnel error:', error)
+      logger.error({ error: error.message ?? error }, 'BigQuery funnel error')
       res.status(500).json({
         error: error.message || 'Failed to fetch funnel data',
       })
@@ -513,8 +519,13 @@ export function createFunnelRoutes({ bigquery, GCP_PROJECT_ID }) {
       )
 
       if (queryStats) {
-        console.log(
-          `[Funnel Timing] Dry run - Processing ${queryStats.totalBytesProcessedGB} GB, estimated cost: $${queryStats.estimatedCostUSD} (Types: ${eventTypesList})`,
+        logger.info(
+          {
+            gbProcessed: queryStats.totalBytesProcessedGB,
+            estimatedCostUSD: queryStats.estimatedCostUSD,
+            eventTypesList,
+          },
+          '[Funnel Timing] Dry run - Processing',
         )
       }
 
@@ -548,7 +559,7 @@ export function createFunnelRoutes({ bigquery, GCP_PROJECT_ID }) {
 
       res.json({ data: timingData, sql: substituteQueryParameters(query, params), queryStats })
     } catch (error) {
-      console.error('BigQuery funnel timing error:', error)
+      logger.error({ error: error.message ?? error }, 'BigQuery funnel timing error')
       res.status(500).json({
         error: error.message || 'Failed to fetch funnel timing data',
       })

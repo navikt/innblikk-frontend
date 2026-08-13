@@ -1,6 +1,13 @@
 @import 'tailwindcss';
 @import '@navikt/ds-css';
 
+/* Tailwind v4 is CSS-first — a legacy JS config (plugins, presets, theme extensions) is only
+   picked up if explicitly loaded here. Without this, tailwind.config.cjs (which registers
+   @tailwindcss/typography, the @navikt/ds-tailwind preset, and custom theme colors/grid columns)
+   is silently ignored, and classes like `prose` compile to nothing — this was the actual cause
+   of unstyled Markdown lists in Copilot chat bubbles (and every other `prose` usage in the app). */
+@config '../../tailwind.config.cjs';
+
 /* ─── Micro-animations ───────────────────────────────────────────────────────
    animate-in: fade + slide up, used for filter cards in EventSelector and
    similar "appear" moments across the app.

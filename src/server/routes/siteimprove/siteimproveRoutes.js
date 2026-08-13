@@ -1,4 +1,5 @@
 import express from 'express'
+import { logger } from '../../logger.js'
 import { authenticateUser } from '../../middleware/authenticateUser.js'
 
 export function createSiteimproveProxyRouter({ SITEIMPROVE_BASE_URL }) {
@@ -27,7 +28,7 @@ export function createSiteimproveProxyRouter({ SITEIMPROVE_BASE_URL }) {
 
       res.send(data)
     } catch (err) {
-      console.error('Siteimprove proxy error:', err)
+      logger.error({ error: err.message ?? err }, 'Siteimprove proxy error')
       res.status(500).send('Proxy error')
     }
   })

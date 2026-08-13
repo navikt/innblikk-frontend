@@ -1,90 +1,171 @@
 import { useCallback, useState } from 'react'
-import { extractWebsiteId } from '../../sql/utils/sqlProcessing'
-import { prepareLineChartData, prepareBarChartData, preparePieChartData } from '../../sql/utils/chartHelpers'
-import { estimateQueryCost, executeQueryApi } from '../../sql/api/sqlApi'
-import { askCopilot } from '../api/copilotChatApi'
+import { executeQueryApi } from '../../sql/api/sqlApi'
+import { askCopilot, CopilotChatError } from '../api/copilotChatApi'
 import type { QueryResult, QueryStats } from '../../sql/model/types'
 
-export type AssistantStatus = 'idle' | 'thinking' | 'running' | 'done' | 'error'
+export type AssistantStatus = 'thinking' | 'running' | 'confirm' | 'clarify' | 'done' | 'error'
+
+export type AssistantTurn = {
+  id: string
+  question: string
+  status: AssistantStatus
+  error: string | null
+  sql: string
+  reply: string
+  result: QueryResult | null
+  estimate: QueryStats | null
+  attempts: number
+  costSuggestion: string | null
+}
+
+// Copilot auto-executes Gemini's SQL without a human reviewing it first — keep the sanity
+// threshold tight (mirrors the server-side check in copilotRoutes.js) and require explicit
+// confirmation above it instead of silently running an expensive query.
+const COPILOT_MAX_COST_USD = 0.5
+
+const newTurn = (question: string): AssistantTurn => ({
+  id: crypto.randomUUID(),
+  question,
+  status: 'thinking',
+  error: null,
+  sql: '',
+  reply: '',
+  result: null,
+  estimate: null,
+  attempts: 1,
+  costSuggestion: null,
+})
 
 /**
- * Drives the /copilot chat: a question goes to Gemini (which returns a BigQuery SQL
- * query using the schema + website list injected server-side), the query runs
- * automatically, and the result is rendered — no intermediate "review the SQL" step.
+ * Drives the /copilot chat: each question is a turn in a running conversation with Gemini
+ * (the server keeps the actual chat session + history, keyed by `conversationId`, so follow-up
+ * questions like "hva med forrige uke da?" have full context) — the query runs automatically
+ * unless it's ambiguous (Gemini asks a clarifying question instead of SQL) or too expensive
+ * (the user must explicitly confirm).
  */
 export const useAssistantChat = () => {
   const [question, setQuestion] = useState('')
-  const [askedQuestion, setAskedQuestion] = useState('')
-  const [status, setStatus] = useState<AssistantStatus>('idle')
-  const [error, setError] = useState<string | null>(null)
+  const [turns, setTurns] = useState<AssistantTurn[]>([])
+  const [conversationId, setConversationId] = useState<string | null>(null)
 
-  const [sql, setSql] = useState('')
-  const [reply, setReply] = useState('')
-  const [result, setResult] = useState<QueryResult | null>(null)
-  const [estimate, setEstimate] = useState<QueryStats | null>(null)
+  const updateTurn = useCallback((id: string, patch: Partial<AssistantTurn>) => {
+    setTurns((prev) => prev.map((turn) => (turn.id === id ? { ...turn, ...patch } : turn)))
+  }, [])
 
-  const websiteId = extractWebsiteId(sql)
+  const isBusy = turns.some((turn) => turn.status === 'thinking' || turn.status === 'running')
 
   const ask = useCallback(async () => {
     const trimmed = question.trim()
-    if (!trimmed || status === 'thinking' || status === 'running') return
+    if (!trimmed || isBusy) return
 
-    setAskedQuestion(trimmed)
-    setStatus('thinking')
-    setError(null)
-    setSql('')
-    setReply('')
-    setResult(null)
-    setEstimate(null)
+    const turn = newTurn(trimmed)
+    setTurns((prev) => [...prev, turn])
 
     try {
-      const { sql: generatedSql, reply: generatedReply } = await askCopilot(trimmed)
-      setSql(generatedSql)
-      setReply(generatedReply)
-      setStatus('running')
+      const response = await askCopilot(trimmed, conversationId)
+      if (response.conversationId) setConversationId(response.conversationId)
 
-      void estimateQueryCost(generatedSql)
-        .then(setEstimate)
-        .catch(() => setEstimate(null))
+      updateTurn(turn.id, {
+        sql: response.sql,
+        reply: response.reply,
+        estimate: response.queryStats ?? null,
+        attempts: response.attempts ?? 1,
+        costSuggestion: response.costSuggestion ?? null,
+      })
 
-      const data = await executeQueryApi(generatedSql)
-      setResult(data)
-      setStatus('done')
+      // Gemini asked a clarifying question instead of writing SQL (e.g. ambiguous domain) —
+      // nothing to run. The user's next message continues the same conversation.
+      if (response.needsClarification || !response.sql) {
+        updateTurn(turn.id, { status: 'clarify' })
+        return
+      }
+
+      // Server already validated + dry-ran the SQL. Above the sanity threshold, stop and let
+      // the user confirm before we actually execute it — never auto-run an expensive query.
+      const costUSD =
+        response.queryStats?.estimatedCostUSD !== undefined ? Number(response.queryStats.estimatedCostUSD) : null
+      if (response.isExpensive || (costUSD !== null && costUSD > COPILOT_MAX_COST_USD)) {
+        updateTurn(turn.id, { status: 'confirm' })
+        return
+      }
+
+      updateTurn(turn.id, { status: 'running' })
+      const data = await executeQueryApi(response.sql)
+      updateTurn(turn.id, { result: data, status: 'done' })
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Noe gikk galt'
-      setError(message)
-      setStatus('error')
+      // On a hard failure (e.g. exhausted all retry steps with still-invalid SQL), the server
+      // still sends back the last SQL/explanation Copilot attempted — surface it so the user
+      // can see what was tried and test/fix it themselves, instead of just an error with no
+      // context (see CopilotChatError: a plain Error would silently drop this data).
+      if (err instanceof CopilotChatError) {
+        updateTurn(turn.id, {
+          error: message,
+          status: 'error',
+          sql: err.sql,
+          reply: err.reply,
+          attempts: err.attempts ?? turn.attempts,
+        })
+      } else {
+        updateTurn(turn.id, { error: message, status: 'error' })
+      }
     }
-  }, [question, status])
+  }, [question, isBusy, conversationId, updateTurn])
 
-  const reset = useCallback(() => {
+  // Runs a turn's pending query after the user explicitly confirms an expensive one.
+  const confirmRun = useCallback(
+    async (turnId: string) => {
+      const turn = turns.find((t) => t.id === turnId)
+      if (!turn || turn.status !== 'confirm' || !turn.sql) return
+
+      updateTurn(turnId, { status: 'running', error: null })
+
+      try {
+        const data = await executeQueryApi(turn.sql)
+        updateTurn(turnId, { result: data, status: 'done' })
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Noe gikk galt'
+        updateTurn(turnId, { error: message, status: 'error' })
+      }
+    },
+    [turns, updateTurn],
+  )
+
+  // Re-runs a turn's query (e.g. after it failed) without asking Gemini anything new.
+  const retryTurn = useCallback(
+    async (turnId: string) => {
+      const turn = turns.find((t) => t.id === turnId)
+      if (!turn || !turn.sql) return
+
+      updateTurn(turnId, { status: 'running', error: null })
+
+      try {
+        const data = await executeQueryApi(turn.sql)
+        updateTurn(turnId, { result: data, status: 'done' })
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Noe gikk galt'
+        updateTurn(turnId, { error: message, status: 'error' })
+      }
+    },
+    [turns, updateTurn],
+  )
+
+  // Starts a brand new conversation — drops both the visible history and the server-side
+  // Gemini chat session/context.
+  const startNewConversation = useCallback(() => {
+    setTurns([])
+    setConversationId(null)
     setQuestion('')
-    setAskedQuestion('')
-    setStatus('idle')
-    setError(null)
-    setSql('')
-    setReply('')
-    setResult(null)
-    setEstimate(null)
   }, [])
 
   return {
     question,
     setQuestion,
-    askedQuestion,
-    status,
-    error,
-    sql,
-    reply,
-    result,
-    estimate,
-    websiteId,
+    turns,
+    isBusy,
     ask,
-    reset,
-
-    prepareLineChartData: (includeAverage = false) =>
-      result?.data ? prepareLineChartData(result.data, includeAverage) : null,
-    prepareBarChartData: () => (result?.data ? prepareBarChartData(result.data) : null),
-    preparePieChartData: () => (result?.data ? preparePieChartData(result.data) : null),
+    confirmRun,
+    retryTurn,
+    startNewConversation,
   }
 }

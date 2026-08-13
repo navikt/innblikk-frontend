@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai'
+import { logger } from '../logger.js'
 
 /**
  * Creates a Gemini Enterprise Agent Platform (formerly "Vertex AI") client.
@@ -16,21 +17,20 @@ export function createGenAIClient({ projectId, location }) {
     if (process.env['bigquery-credentials']) {
       try {
         config.googleAuthOptions = { credentials: JSON.parse(process.env['bigquery-credentials']) }
-        console.log('✓ Gemini client using credentials from bigquery-credentials secret (NAIS)')
+        logger.info('Gemini client using credentials from bigquery-credentials secret (NAIS)')
       } catch (e) {
-        console.error('✗ Failed to parse bigquery-credentials for Gemini client:', e.message)
+        logger.error({ error: e.message }, 'Failed to parse bigquery-credentials for Gemini client')
       }
     } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-      console.log('✓ Gemini client using service account from GOOGLE_APPLICATION_CREDENTIALS')
+      logger.info('Gemini client using service account from GOOGLE_APPLICATION_CREDENTIALS')
       config.googleAuthOptions = { keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS }
     }
 
     const client = new GoogleGenAI(config)
-    console.log(`✓ Gemini client initialized (project=${projectId}, location=${location})`)
+    logger.info({ projectId, location }, 'Gemini client initialized')
     return client
   } catch (error) {
-    console.error('✗ FAILED TO INITIALIZE GEMINI CLIENT')
-    console.error('Error:', error.message)
+    logger.error({ error: error.message }, 'FAILED TO INITIALIZE GEMINI CLIENT')
     return null
   }
 }

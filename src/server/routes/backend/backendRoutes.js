@@ -1,11 +1,12 @@
 import express from 'express'
 import { authenticateUser } from '../../middleware/authenticateUser.js'
 import { loadOasis } from '../../middleware/authUtils.js'
+import { logger } from '../../logger.js'
 
 export function createBackendProxyRouter({ BACKEND_BASE_URL }) {
   const router = express.Router()
   const apiBaseUrl = new URL('/api/', BACKEND_BASE_URL)
-  console.log(`[Backend Proxy] Proxying /api/backend/* -> ${apiBaseUrl} (BACKEND_BASE_URL=${BACKEND_BASE_URL})`)
+  logger.info({ apiBaseUrl: apiBaseUrl.toString(), BACKEND_BASE_URL }, '[Backend Proxy] Proxying /api/backend/*')
   const CANVAS_DASHBOARD_TOKEN = '[canvas]'
   const CANVAS_QUERY_NAME = 'canvas-config'
   const CANVAS_PRESENCE_DASHBOARD_TOKEN = '[canvas-presence]'
@@ -123,7 +124,7 @@ export function createBackendProxyRouter({ BACKEND_BASE_URL }) {
       try {
         serviceToken = await getServiceToken()
       } catch (tokenErr) {
-        console.warn('Failed to fetch service token, falling back if possible:', tokenErr)
+        logger.warn({ error: tokenErr.message ?? tokenErr }, 'Failed to fetch service token, falling back if possible')
       }
     }
     const staticAuthorization =
@@ -271,7 +272,7 @@ export function createBackendProxyRouter({ BACKEND_BASE_URL }) {
       const data = await response.json()
       res.json(data)
     } catch (err) {
-      console.error('Failed to get WS ticket:', err)
+      logger.error({ error: err.message ?? err }, 'Failed to get WS ticket')
       res.status(500).json({ error: 'Failed to obtain WS ticket' })
     }
   })
@@ -328,7 +329,7 @@ export function createBackendProxyRouter({ BACKEND_BASE_URL }) {
         entries,
       })
     } catch (err) {
-      console.error('Canvas storage endpoint error:', err)
+      logger.error({ error: err.message ?? err }, 'Canvas storage endpoint error')
       res.status(500).json({
         error: 'Canvas storage request failed',
         details: err instanceof Error ? err.message : 'Unknown error',
@@ -400,7 +401,7 @@ export function createBackendProxyRouter({ BACKEND_BASE_URL }) {
 
       res.json({ participants })
     } catch (err) {
-      console.error('Canvas presence endpoint error:', err)
+      logger.error({ error: err.message ?? err }, 'Canvas presence endpoint error')
       res.status(500).json({
         error: 'Canvas presence request failed',
         details: err instanceof Error ? err.message : 'Unknown error',
@@ -511,7 +512,7 @@ export function createBackendProxyRouter({ BACKEND_BASE_URL }) {
 
       res.json({ ok: true, participant: payload })
     } catch (err) {
-      console.error('Canvas presence heartbeat error:', err)
+      logger.error({ error: err.message ?? err }, 'Canvas presence heartbeat error')
       res.status(500).json({
         error: 'Canvas presence heartbeat failed',
         details: err instanceof Error ? err.message : 'Unknown error',
@@ -539,7 +540,7 @@ export function createBackendProxyRouter({ BACKEND_BASE_URL }) {
       res.json(payload)
     } catch (err) {
       const reason = err?.cause?.code || err?.code || (err instanceof Error ? err.message : 'Unknown error')
-      console.error(`[Backend Proxy] GET ${targetUrl} failed: ${reason}`)
+      logger.error({ targetUrl: targetUrl.toString(), reason }, '[Backend Proxy] GET failed')
       res
         .status(500)
         .json({ error: 'Stats proxy error', details: err instanceof Error ? err.message : 'Unknown error' })
@@ -551,7 +552,7 @@ export function createBackendProxyRouter({ BACKEND_BASE_URL }) {
     const targetUrl = new URL(targetPath, apiBaseUrl)
 
     try {
-      console.log(`[Backend Proxy] ${req.method} ${targetUrl}`)
+      logger.info({ method: req.method, targetUrl: targetUrl.toString() }, '[Backend Proxy] request')
       const resolvedAuthorization = await resolveAuthorizationHeader(req)
 
       const forwardHeaders = {
@@ -594,7 +595,7 @@ export function createBackendProxyRouter({ BACKEND_BASE_URL }) {
       // about which endpoint or backend host is unreachable, which is what actually matters
       // for debugging a "backend not running locally" situation vs. a real bug.
       const reason = err?.cause?.code || err?.code || (err instanceof Error ? err.message : 'Unknown error')
-      console.error(`[Backend Proxy] ${req.method} ${targetUrl} failed: ${reason}`)
+      logger.error({ method: req.method, targetUrl: targetUrl.toString(), reason }, '[Backend Proxy] request failed')
       res.status(500).json({
         error: 'Backend proxy error',
         details: err instanceof Error ? err.message : 'Unknown error',

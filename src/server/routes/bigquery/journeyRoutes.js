@@ -1,5 +1,6 @@
 import express from 'express'
 import { addAuditLogging } from '../../bigquery/audit.js'
+import { logger } from '../../logger.js'
 import {
   requireBigQuery,
   getNavIdent,
@@ -166,7 +167,7 @@ export function createJourneyRoutes({ bigquery, GCP_PROJECT_ID }) {
 
       res.json({ nodes, links, generatedSql: prepareGeneratedSql(query, params), queryStats })
     } catch (error) {
-      console.error('BigQuery journeys error:', error)
+      logger.error({ error: error.message ?? error }, 'BigQuery journeys error')
       res.status(500).json({
         error: error.message || 'Failed to fetch user journeys',
       })

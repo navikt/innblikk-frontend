@@ -1,5 +1,6 @@
 import { getTeamMembership } from '../teamkatalog/teamkatalogApi.js'
 import { REOPS_TEAM_KATALOG_ID } from '../config/reopsTeam.js'
+import { logger } from '../logger.js'
 
 /**
  * Blocks access unless the authenticated user is on Team ResearchOps (per Team Catalog).
@@ -26,7 +27,7 @@ export async function requireReopsTeamMember(req, res, next) {
     next()
   } catch (error) {
     // Fail closed: if Team Catalog is unreachable, don't let the request through.
-    console.error('[requireReopsTeamMember] Error:', error.message)
+    logger.error({ error: error.message }, '[requireReopsTeamMember] Error')
     res.status(503).json({ error: 'Kunne ikke verifisere teammedlemskap. Prøv igjen senere.' })
   }
 }

@@ -1,4 +1,5 @@
 import { getMockUser, loadOasis, resolveUserFromToken } from './authUtils.js'
+import { logger } from '../logger.js'
 
 let lastLoggedMockNavIdent = null
 
@@ -8,7 +9,7 @@ async function authenticateUser(req, res, next) {
     const mockUser = getMockUser()
     if (mockUser) {
       if (mockUser.navIdent !== lastLoggedMockNavIdent) {
-        console.log('[Auth] Using MOCK_NAV_IDENT (override):', mockUser.navIdent)
+        logger.info({ navIdent: mockUser.navIdent }, '[Auth] Using MOCK_NAV_IDENT (override)')
         lastLoggedMockNavIdent = mockUser.navIdent
       }
       req.user = mockUser
@@ -18,7 +19,7 @@ async function authenticateUser(req, res, next) {
     // Try to import @navikt/oasis
     const { oasis } = await loadOasis()
     if (!oasis) {
-      console.log('[Auth] @navikt/oasis not available and no MOCK_NAV_IDENT set')
+      logger.info('[Auth] @navikt/oasis not available and no MOCK_NAV_IDENT set')
       req.user = { navIdent: 'LOCAL_DEV' } // Fallback for local development
       return next()
     }
@@ -38,10 +39,10 @@ async function authenticateUser(req, res, next) {
     }
 
     req.user = result.user
-    console.log(`[Auth] User authenticated: ${result.user.navIdent}`)
+    logger.info({ navIdent: result.user.navIdent }, '[Auth] User authenticated')
     next()
   } catch (error) {
-    console.error('[Auth] Authentication error:', error)
+    logger.error({ error }, '[Auth] Authentication error')
     return res.status(500).json({
       error: 'Autentisering feilet',
       details: error.message,

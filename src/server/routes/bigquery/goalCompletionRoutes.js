@@ -1,5 +1,6 @@
 import express from 'express'
 import { addAuditLogging } from '../../bigquery/audit.js'
+import { logger } from '../../logger.js'
 import {
   requireBigQuery,
   getNavIdent,
@@ -378,7 +379,7 @@ export function createGoalCompletionRoutes({ bigquery, GCP_PROJECT_ID }) {
         queryStats,
       })
     } catch (error) {
-      console.error('BigQuery goal completion error:', error)
+      logger.error({ error: error.message ?? error }, 'BigQuery goal completion error')
       res.status(500).json({
         error: error.message || 'Failed to fetch goal completion data',
       })

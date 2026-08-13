@@ -29,8 +29,12 @@
     "dayjs": "^1.11.21",
     "dotenv": "^17.2.4",
     "express": "^5.2.1",
+    "fuse.js": "^7.5.0",
     "helmet": "^8.1.0",
+    "pino": "^10.3.1",
+    "react-markdown": "^10.1.0",
     "react-querybuilder": "8.19.0",
+    "remark-gfm": "^4.0.1",
     "sql-formatter": "^15.7.0"
   },
   "devDependencies": {
