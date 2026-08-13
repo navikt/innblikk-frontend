@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { executeQueryApi } from '../../sql/api/sqlApi'
-import { askCopilot, CopilotChatError } from '../api/copilotChatApi'
+import { askCopilot, CopilotChatError, type CopilotToolCall, type CopilotUsage } from '../api/copilotChatApi'
 import type { QueryResult, QueryStats } from '../../sql/model/types'
 
 export type AssistantStatus = 'thinking' | 'running' | 'confirm' | 'clarify' | 'done' | 'error'
@@ -16,6 +16,8 @@ export type AssistantTurn = {
   estimate: QueryStats | null
   attempts: number
   costSuggestion: string | null
+  toolCalls: CopilotToolCall[]
+  usage: CopilotUsage | null
 }
 
 // Copilot auto-executes Gemini's SQL without a human reviewing it first — keep the sanity
@@ -34,6 +36,8 @@ const newTurn = (question: string): AssistantTurn => ({
   estimate: null,
   attempts: 1,
   costSuggestion: null,
+  toolCalls: [],
+  usage: null,
 })
 
 /**
@@ -47,6 +51,9 @@ export const useAssistantChat = () => {
   const [question, setQuestion] = useState('')
   const [turns, setTurns] = useState<AssistantTurn[]>([])
   const [conversationId, setConversationId] = useState<string | null>(null)
+  // The system prompt is fixed per conversation (bar the timestamp baked in at request time) —
+  // grabbed once from whichever response returns it first, not stored per-turn.
+  const [systemPrompt, setSystemPrompt] = useState<string | null>(null)
 
   const updateTurn = useCallback((id: string, patch: Partial<AssistantTurn>) => {
     setTurns((prev) => prev.map((turn) => (turn.id === id ? { ...turn, ...patch } : turn)))
@@ -64,6 +71,7 @@ export const useAssistantChat = () => {
     try {
       const response = await askCopilot(trimmed, conversationId)
       if (response.conversationId) setConversationId(response.conversationId)
+      if (response.systemPrompt) setSystemPrompt(response.systemPrompt)
 
       updateTurn(turn.id, {
         sql: response.sql,
@@ -71,6 +79,8 @@ export const useAssistantChat = () => {
         estimate: response.queryStats ?? null,
         attempts: response.attempts ?? 1,
         costSuggestion: response.costSuggestion ?? null,
+        toolCalls: response.toolCalls ?? [],
+        usage: response.usage ?? null,
       })
 
       // Gemini asked a clarifying question instead of writing SQL (e.g. ambiguous domain) —
@@ -99,12 +109,15 @@ export const useAssistantChat = () => {
       // can see what was tried and test/fix it themselves, instead of just an error with no
       // context (see CopilotChatError: a plain Error would silently drop this data).
       if (err instanceof CopilotChatError) {
+        if (err.systemPrompt) setSystemPrompt(err.systemPrompt)
         updateTurn(turn.id, {
           error: message,
           status: 'error',
           sql: err.sql,
           reply: err.reply,
           attempts: err.attempts ?? turn.attempts,
+          toolCalls: err.toolCalls ?? [],
+          usage: err.usage ?? null,
         })
       } else {
         updateTurn(turn.id, { error: message, status: 'error' })
@@ -156,6 +169,7 @@ export const useAssistantChat = () => {
     setTurns([])
     setConversationId(null)
     setQuestion('')
+    setSystemPrompt(null)
   }, [])
 
   return {
@@ -167,5 +181,6 @@ export const useAssistantChat = () => {
     confirmRun,
     retryTurn,
     startNewConversation,
+    systemPrompt,
   }
 }

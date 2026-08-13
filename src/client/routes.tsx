@@ -159,11 +159,20 @@ const ReopsInternalRoute = () => {
 const CopilotRoute = () => {
   const { isReopsTeamMember, loading } = useIsReopsTeamMember()
 
+  // Copilot is gated behind two conditions: Team ResearchOps membership (the actual security
+  // boundary, enforced server-side too — see requireReopsTeamMember.js) AND the user's own
+  // beta opt-in checkbox on /profil. The beta check is intentionally client-only: it's a
+  // self-service rollout preference, not a security boundary — narrowing which already-
+  // authorized team members see an experimental feature first, not protecting anything from
+  // the team itself. When the team gate is eventually lifted, the beta flag becomes Copilot's
+  // sole gate — revisit whether that still needs server-side enforcement at that point.
+  const isBetaOptedIn = getFeatureFlag('beta_opt_in')
+
   if (loading) {
     return <Loader size="xlarge" title="Laster inn..." />
   }
 
-  if (!isReopsTeamMember) {
+  if (!isReopsTeamMember || !isBetaOptedIn) {
     return <Navigate to="/" replace />
   }
 

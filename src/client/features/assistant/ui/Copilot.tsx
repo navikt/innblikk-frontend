@@ -1,5 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
-import { Box, Button, BodyLong, Chat, Heading, Link, LocalAlert, ReadMore, Textarea, VStack } from '@navikt/ds-react'
+import {
+  Box,
+  Button,
+  BodyLong,
+  BodyShort,
+  Chat,
+  Heading,
+  HStack,
+  Link,
+  LocalAlert,
+  ReadMore,
+  Textarea,
+  VStack,
+} from '@navikt/ds-react'
 import { PaperplaneIcon } from '@navikt/aksel-icons'
 import type { KeyboardEvent } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
@@ -7,6 +20,7 @@ import remarkGfm from 'remark-gfm'
 import SqlResultsSection from '../../sql/ui/SqlResultsSection'
 import { extractWebsiteId } from '../../sql/utils/sqlProcessing'
 import { prepareLineChartData, prepareBarChartData, preparePieChartData } from '../../sql/utils/chartHelpers'
+import { getFeatureFlag, type FeatureFlags } from '../../../shared/lib/featureFlags'
 import { useAssistantChat, type AssistantTurn } from '../hooks/useAssistantChat'
 
 // Renders links from Copilot's markdown replies (e.g. a website's domain from resolve_website)
@@ -46,6 +60,63 @@ const sqlReadMore = (sql: string) =>
     </ReadMore>
   )
 
+// Reactive to /profil's "Vis tekniske detaljer" checkbox without a page reload — same
+// `featureFlagsChange` event pattern used elsewhere (see UserProfile.tsx, Header.tsx).
+const useShowTechnicalDetails = (): boolean => {
+  const [value, setValue] = useState(() => getFeatureFlag('copilot_show_technical_details'))
+
+  useEffect(() => {
+    const handleChange = (e: Event) => {
+      setValue((e as CustomEvent<FeatureFlags>).detail.copilot_show_technical_details)
+    }
+    window.addEventListener('featureFlagsChange', handleChange)
+    return () => window.removeEventListener('featureFlagsChange', handleChange)
+  }, [])
+
+  return value
+}
+
+// Per-message token/cost estimate + a chronological list of every tool Gemini called this turn
+// (resolve_website, dry_run_query, ...) — only ever rendered when the user has opted into
+// "Vis tekniske detaljer" on /profil (Team ResearchOps-only setting, see UserProfile.tsx).
+// Purely diagnostic/debugging info, not meant for the default experience. Deliberately NOT a
+// `Chat.Bubble` — this isn't a message from Copilot, it's metadata about one, so it renders as
+// a plain, slightly muted block instead of pretending to be part of the conversation.
+const TechnicalDetails = ({ turn }: { turn: AssistantTurn }) => {
+  if (!turn.usage && turn.toolCalls.length === 0) return null
+
+  return (
+    <div className="max-w-[85%]">
+      <VStack gap="space-8">
+        {turn.usage && (
+          <BodyShort size="small" textColor="subtle" className="font-mono">
+            {turn.usage.promptTokens.toLocaleString('nb-NO')} inn · {turn.usage.responseTokens.toLocaleString('nb-NO')}{' '}
+            ut
+            {turn.usage.estimatedCostUsd !== null && ` · ~$${turn.usage.estimatedCostUsd.toFixed(4)}`}
+          </BodyShort>
+        )}
+        {turn.toolCalls.length > 0 && (
+          <ReadMore header={`Verktøybruk (${turn.toolCalls.length})`} size="small">
+            <VStack gap="space-8">
+              {turn.toolCalls.map((call, index) => (
+                <div key={index} className="text-xs font-mono">
+                  <div>
+                    <span className="font-semibold">{call.name}</span>
+                    {call.args && <span className="text-[var(--ax-text-subtle)]"> {JSON.stringify(call.args)}</span>}
+                  </div>
+                  {call.result && (
+                    <div className="text-[var(--ax-text-subtle)] pl-4">→ {JSON.stringify(call.result)}</div>
+                  )}
+                </div>
+              ))}
+            </VStack>
+          </ReadMore>
+        )}
+      </VStack>
+    </div>
+  )
+}
+
 // If the result is a single row with a single column, it's a KPI-style number
 // ("hvor mange besøkte X i går") — show it as a big stat instead of a chart.
 const getSingleValue = (turn: AssistantTurn) => {
@@ -64,6 +135,19 @@ function TurnBubbles({ turn, onConfirmRun }: { turn: AssistantTurn; onConfirmRun
   const costUSD = Number(turn.estimate?.estimatedCostUSD ?? 0)
   const websiteId = extractWebsiteId(turn.sql)
   const singleValue = getSingleValue(turn)
+  const showTechnicalDetails = useShowTechnicalDetails()
+
+  // Actual execution stats once the query has run, falling back to the dry-run estimate if the
+  // real query result somehow didn't come back with its own stats (shouldn't normally happen).
+  // Only used for the KPI ("single value") display path — SqlResultsSection handles this itself
+  // via its own `showCost` prop for the chart path.
+  const queryCostStats = turn.result?.queryStats ?? turn.estimate
+  const queryCost = queryCostStats
+    ? {
+        gb: Number(queryCostStats.totalBytesProcessedGB ?? 0).toFixed(2),
+        usd: Number(queryCostStats.estimatedCostUSD ?? 0).toFixed(4),
+      }
+    : null
 
   return (
     <>
@@ -71,15 +155,29 @@ function TurnBubbles({ turn, onConfirmRun }: { turn: AssistantTurn; onConfirmRun
         <Chat.Bubble>{turn.question}</Chat.Bubble>
       </Chat>
 
-      {(turn.status === 'thinking' || turn.status === 'running') && (
+      {/* A single `<Chat>` group for the whole assistant turn — deliberately NOT two separate
+          conditional `<Chat>` blocks (one for thinking/running, one for reply/confirm/error/done).
+          `turn.reply` gets set in the same update that happens right before status flips away
+          from "running", so both used to be true simultaneously for a frame: a "thinking/running"
+          bubble stacked ABOVE the reply bubble. The moment status left thinking/running, that top
+          bubble unmounted and the reply bubble (previously second) jumped up to first position —
+          looked exactly like two bubbles swapping places. Fix: one persistent "primary" bubble
+          that morphs its content in place (thinking placeholder -> reply text, same DOM node,
+          never removed) followed by a secondary bubble for running/confirm/error/done — nothing
+          ever needs to shift position since bubbles only ever get replaced in-place or appended
+          after, never removed from above another bubble. */}
+      {(turn.status === 'thinking' ||
+        turn.status === 'running' ||
+        turn.reply ||
+        turn.status === 'confirm' ||
+        turn.status === 'error' ||
+        turn.status === 'done') && (
         <Chat name="Copilot" size="small" data-color="brand-blue">
-          <Chat.Bubble>{turn.status === 'thinking' ? 'Copilot tenker...' : 'Kjører spørringen...'}</Chat.Bubble>
-        </Chat>
-      )}
+          <Chat.Bubble>
+            {turn.reply ? <CopilotReply text={turn.reply} /> : turn.status === 'thinking' ? 'Copilot tenker...' : ''}
+          </Chat.Bubble>
 
-      {(turn.reply || turn.status === 'confirm' || turn.status === 'error' || turn.status === 'done') && (
-        <Chat name="Copilot" size="small" data-color="brand-blue">
-          {turn.reply && <Chat.Bubble>{<CopilotReply text={turn.reply} />}</Chat.Bubble>}
+          {turn.status === 'running' && <Chat.Bubble>Kjører spørringen...</Chat.Bubble>}
 
           {turn.status === 'confirm' && (
             <Chat.Bubble>
@@ -126,6 +224,11 @@ function TurnBubbles({ turn, onConfirmRun }: { turn: AssistantTurn; onConfirmRun
                     </div>
                     <div className="text-sm text-[var(--ax-text-subtle)] mt-1">{singleValue.label}</div>
                   </div>
+                  {showTechnicalDetails && queryCost && (
+                    <BodyShort size="small" textColor="subtle" className="font-mono">
+                      {queryCost.gb} GB · ~${queryCost.usd}
+                    </BodyShort>
+                  )}
                   {sqlReadMore(turn.sql)}
                 </VStack>
               ) : (
@@ -146,6 +249,7 @@ function TurnBubbles({ turn, onConfirmRun }: { turn: AssistantTurn; onConfirmRun
                   showJson={false}
                   showExecuteButton={false}
                   showError={false}
+                  showCost={showTechnicalDetails}
                   dashboardButtonSize="medium"
                   prepareLineChartData={(includeAverage = false) =>
                     turn.result?.data ? prepareLineChartData(turn.result.data, includeAverage) : null
@@ -158,16 +262,34 @@ function TurnBubbles({ turn, onConfirmRun }: { turn: AssistantTurn; onConfirmRun
           )}
         </Chat>
       )}
+
+      {showTechnicalDetails && <TechnicalDetails turn={turn} />}
     </>
   )
 }
 
 export default function Copilot() {
-  const { question, setQuestion, turns, isBusy, ask, confirmRun, startNewConversation } = useAssistantChat()
+  const { question, setQuestion, turns, isBusy, ask, confirmRun, startNewConversation, systemPrompt } =
+    useAssistantChat()
 
   const bottomRef = useRef<HTMLDivElement>(null)
   const hasStarted = turns.length > 0
   const [validationError, setValidationError] = useState<string | undefined>(undefined)
+  const showTechnicalDetails = useShowTechnicalDetails()
+
+  // Sum of every turn's usage so far — the per-bubble figures (see TechnicalDetails) are
+  // per-question, this is "what has this whole conversation cost so far".
+  const conversationTotals = turns.reduce(
+    (acc, turn) => {
+      if (!turn.usage) return acc
+      return {
+        promptTokens: acc.promptTokens + turn.usage.promptTokens,
+        responseTokens: acc.responseTokens + turn.usage.responseTokens,
+        estimatedCostUsd: acc.estimatedCostUsd + (turn.usage.estimatedCostUsd ?? 0),
+      }
+    },
+    { promptTokens: 0, responseTokens: 0, estimatedCostUsd: 0 },
+  )
 
   useEffect(() => {
     if (hasStarted) {
@@ -198,6 +320,16 @@ export default function Copilot() {
       {/* Message thread */}
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto flex h-full w-full max-w-[48rem] flex-col px-4 py-8">
+          {showTechnicalDetails && systemPrompt && (
+            <ReadMore header="Vis systemprompt" size="small" className="mb-4 self-start">
+              <pre
+                className="bg-[var(--ax-bg-neutral-soft)] border border-[var(--ax-border-neutral-subtle)] rounded p-3 text-xs font-mono whitespace-pre-wrap"
+                style={{ margin: 0 }}
+              >
+                {systemPrompt}
+              </pre>
+            </ReadMore>
+          )}
           {!hasStarted ? (
             <div className="flex flex-1 flex-col items-center justify-end gap-2 text-center">
               <Heading level="1" size="xlarge">
@@ -271,9 +403,19 @@ export default function Copilot() {
             )}
 
             {hasStarted && (
-              <Button variant="tertiary" size="small" onClick={startNewConversation} className="self-start">
-                Ny samtale
-              </Button>
+              <HStack gap="space-8" align="center">
+                <Button variant="tertiary" size="small" onClick={startNewConversation} className="self-start">
+                  Ny samtale
+                </Button>
+                {showTechnicalDetails &&
+                  (conversationTotals.promptTokens > 0 || conversationTotals.responseTokens > 0) && (
+                    <BodyShort size="small" textColor="subtle" className="font-mono">
+                      Totalt: {conversationTotals.promptTokens.toLocaleString('nb-NO')} inn ·{' '}
+                      {conversationTotals.responseTokens.toLocaleString('nb-NO')} ut · ~$
+                      {conversationTotals.estimatedCostUsd.toFixed(4)}
+                    </BodyShort>
+                  )}
+              </HStack>
             )}
           </VStack>
         </div>

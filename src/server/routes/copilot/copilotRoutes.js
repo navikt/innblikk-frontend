@@ -276,10 +276,33 @@ export function createCopilotRouter({ bigquery, genai, GCP_PROJECT_ID, GEMINI_MO
       let lastText = ''
       let lastFailureReason = ''
 
+      // Accumulated across every step of the agent loop (not just the final step) — a turn
+      // typically involves several tool-call round trips before a final answer, and the UI's
+      // "show technical details" toggle (see UserProfile.tsx) wants the true total cost/usage
+      // of the whole turn, plus a chronological list of every tool Gemini actually called.
+      const toolCallLog = []
+      const aggregatedUsage = { promptTokens: 0, responseTokens: 0, totalTokens: 0 }
+
+      const recordUsage = (usage) => {
+        if (!usage) return
+        aggregatedUsage.promptTokens += usage.promptTokenCount ?? 0
+        aggregatedUsage.responseTokens += usage.candidatesTokenCount ?? 0
+        aggregatedUsage.totalTokens += usage.totalTokenCount ?? 0
+      }
+
+      const buildUsagePayload = () => ({
+        ...aggregatedUsage,
+        estimatedCostUsd: estimateCostUsd(GEMINI_MODEL, {
+          promptTokenCount: aggregatedUsage.promptTokens,
+          candidatesTokenCount: aggregatedUsage.responseTokens,
+        }),
+      })
+
       for (let step = 1; step <= MAX_STEPS; step++) {
         const response = await chat.sendMessage({ message })
 
         const usage = response.usageMetadata
+        recordUsage(usage)
         if (usage) {
           logger.debug(
             {
@@ -308,6 +331,9 @@ export function createCopilotRouter({ bigquery, genai, GCP_PROJECT_ID, GEMINI_MO
               attempts: step,
               needsClarification: true,
               conversationId,
+              toolCalls: toolCallLog,
+              usage: buildUsagePayload(),
+              systemPrompt: systemInstruction,
             })
           }
 
@@ -322,6 +348,7 @@ export function createCopilotRouter({ bigquery, genai, GCP_PROJECT_ID, GEMINI_MO
             } else {
               result = { error: `Unknown tool: ${call.name}` }
             }
+            toolCallLog.push({ step, name: call.name, args: call.args ?? null, result })
             responseParts.push(createPartFromFunctionResponse(call.id, call.name, result))
           }
 
@@ -350,6 +377,9 @@ export function createCopilotRouter({ bigquery, genai, GCP_PROJECT_ID, GEMINI_MO
             attempts: step,
             needsClarification: true,
             conversationId,
+            toolCalls: toolCallLog,
+            usage: buildUsagePayload(),
+            systemPrompt: systemInstruction,
           })
         }
 
@@ -403,6 +433,9 @@ export function createCopilotRouter({ bigquery, genai, GCP_PROJECT_ID, GEMINI_MO
           costSuggestion,
           attempts: step,
           conversationId,
+          toolCalls: toolCallLog,
+          usage: buildUsagePayload(),
+          systemPrompt: systemInstruction,
         })
       }
 
@@ -414,6 +447,9 @@ export function createCopilotRouter({ bigquery, genai, GCP_PROJECT_ID, GEMINI_MO
         raw: lastText,
         attempts: MAX_STEPS,
         conversationId,
+        toolCalls: toolCallLog,
+        usage: buildUsagePayload(),
+        systemPrompt: systemInstruction,
       })
     } catch (error) {
       // @google/genai throws ApiError with `.status` (HTTP-ish code) and `.name` for Google API

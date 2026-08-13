@@ -1,5 +1,19 @@
 import type { QueryStats } from '../../sql/model/types'
 
+export type CopilotToolCall = {
+  step: number
+  name: string
+  args: Record<string, unknown> | null
+  result?: Record<string, unknown> | null
+}
+
+export type CopilotUsage = {
+  promptTokens: number
+  responseTokens: number
+  totalTokens: number
+  estimatedCostUsd: number | null
+}
+
 export type CopilotChatResponse = {
   sql: string
   reply: string
@@ -10,6 +24,9 @@ export type CopilotChatResponse = {
   attempts?: number
   needsClarification?: boolean
   conversationId?: string
+  toolCalls?: CopilotToolCall[]
+  usage?: CopilotUsage
+  systemPrompt?: string
 }
 
 // Thrown instead of a plain Error so the caller can still show the last SQL Copilot attempted
@@ -20,13 +37,36 @@ export class CopilotChatError extends Error {
   sql: string
   reply: string
   attempts?: number
+  toolCalls?: CopilotToolCall[]
+  usage?: CopilotUsage
+  systemPrompt?: string
 
-  constructor(message: string, { sql, reply, attempts }: { sql: string; reply: string; attempts?: number }) {
+  constructor(
+    message: string,
+    {
+      sql,
+      reply,
+      attempts,
+      toolCalls,
+      usage,
+      systemPrompt,
+    }: {
+      sql: string
+      reply: string
+      attempts?: number
+      toolCalls?: CopilotToolCall[]
+      usage?: CopilotUsage
+      systemPrompt?: string
+    },
+  ) {
     super(message)
     this.name = 'CopilotChatError'
     this.sql = sql
     this.reply = reply
     this.attempts = attempts
+    this.toolCalls = toolCalls
+    this.usage = usage
+    this.systemPrompt = systemPrompt
   }
 }
 
@@ -57,6 +97,9 @@ export async function askCopilot(question: string, conversationId?: string | nul
       sql: data.sql ?? '',
       reply: data.reply ?? '',
       attempts: data.attempts,
+      toolCalls: data.toolCalls,
+      usage: data.usage,
+      systemPrompt: data.systemPrompt,
     })
   }
 
