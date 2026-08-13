@@ -103,10 +103,10 @@ export default function Header({ theme }: HeaderProps) {
   }, [])
 
   const linkButton =
-    '!no-underline !bg-transparent hover:!underline hover:!bg-transparent !font-normal ' +
+    'no-underline bg-transparent hover:underline hover:bg-transparent font-normal ' +
     (theme === 'dark'
-      ? '!text-[var(--ax-text-default)] visited:!text-[var(--ax-text-default)] hover:!text-[var(--ax-text-default)]'
-      : '!text-white visited:!text-white hover:!text-white active:!text-white focus:!text-black focus:!bg-blue-100')
+      ? 'text-[var(--ax-text-default)] visited:text-[var(--ax-text-default)] hover:text-[var(--ax-text-default)]'
+      : 'text-ax-text-neutral-contrast visited:text-ax-text-neutral-contrast hover:text-ax-text-neutral-contrast active:text-ax-text-neutral-contrast focus:text-ax-text-neutral focus:bg-ax-bg-accent-soft')
 
   const environmentBadgeLabel = isLocalhost ? 'Localhost' : 'Dev'
 
@@ -147,7 +147,7 @@ export default function Header({ theme }: HeaderProps) {
             variant="tertiary-neutral"
             icon={<CogIcon aria-hidden />}
             aria-label="Teknisk meny"
-            className="!text-white hover:!bg-blue-100 hover:!text-black active:!bg-blue-100 active:!text-black focus:!bg-blue-100 focus:!text-black"
+            className="text-ax-text-neutral-contrast hover:bg-ax-bg-accent-soft hover:text-ax-text-neutral active:bg-ax-bg-accent-soft active:text-ax-text-neutral focus:bg-ax-bg-accent-soft focus:text-ax-text-neutral"
           />
         </ActionMenu.Trigger>
       </Tooltip>
@@ -289,7 +289,7 @@ export default function Header({ theme }: HeaderProps) {
       <AppBlock>
         <header className="flex py-1 z-10 items-center justify-between">
           <div className="flex items-center gap-2">
-            <Button as={Link} variant="tertiary" className={`${linkButton} !px-0`} href="/">
+            <Button as={Link} variant="tertiary" className={`${linkButton} px-0`} href="/">
               <div className="flex items-start gap-1.5 py-1">
                 <span aria-hidden="true" className="grid place-items-center mt-0.5 shrink-0">
                   <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">

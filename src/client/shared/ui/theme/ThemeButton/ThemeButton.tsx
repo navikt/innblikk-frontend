@@ -46,7 +46,7 @@ function ThemeButton() {
         icon={<ThemeIcon aria-hidden />}
         onClick={() => setTheme(resolvedTheme === 'light' ? 'dark' : 'light')}
         style={{ color: 'white' }}
-        className="focus:!bg-blue-100 focus:!text-black"
+        className="focus:bg-[#dbeafe] focus:text-[black]"
       />
     </Tooltip>
   )
