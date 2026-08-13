@@ -1,21 +1,23 @@
 'use client'
-import { BodyShort, Heading, Link } from '@navikt/ds-react'
+import { BodyShort, Heading, HGrid, Link } from '@navikt/ds-react'
 import '../../../../tailwind.css'
 import { AppBlock } from '../AppBlock/AppBlock.tsx'
 
 const Footer = () => {
   return (
-    <div className="!bg-[#003453] w-full pb-10">
+    <div className="bg-[#003453] w-full pb-10">
       <footer
         id="aksel-footer"
         data-theme="dark"
-        className="flex pt-3 z-10 items-center w-full m-auto justify-start toc-ignore text-text-on-inverted !bg-[#003453] relative"
+        className="flex pt-3 z-10 items-center w-full m-auto justify-start toc-ignore text-[white] bg-[#003453] relative"
       >
-        <AppBlock className="footer-block relative z-10 grid w-full gap-12 pb-16 pt-12 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 xl:gap-6">
-          <LogoBlock />
-          <SideLenker />
-          <Snarveier />
-          <Kontakt />
+        <AppBlock className="footer-block relative z-10 w-full pb-16 pt-12">
+          <HGrid columns={{ xs: 1, lg: 2, xl: 4 }} gap={{ xs: 'space-32', xl: 'space-24' }}>
+            <LogoBlock />
+            <SideLenker />
+            <Snarveier />
+            <Kontakt />
+          </HGrid>
         </AppBlock>
       </footer>
     </div>
@@ -25,7 +27,7 @@ const Footer = () => {
 function LogoBlock() {
   return (
     <div>
-      <div className="text-2xl whitespace-nowrap flex items-center !text-white" aria-label="Start Innblikk" role="img">
+      <div className="text-2xl whitespace-nowrap flex items-center text-[white]" aria-label="Start Innblikk" role="img">
         <svg
           width="34"
           height="34"
@@ -50,8 +52,8 @@ function LogoBlock() {
         </svg>
         <span>Innblikk</span>
       </div>
-      <p className="mt-3 leading-normal !text-white">&copy; {new Date().getFullYear()} Nav</p>
-      <p className="leading-normal !text-white">Arbeids- og velferdsetaten</p>
+      <p className="mt-3 leading-normal text-[white]">&copy; {new Date().getFullYear()} Nav</p>
+      <p className="leading-normal text-[white]">Arbeids- og velferdsetaten</p>
     </div>
   )
 }
@@ -59,7 +61,7 @@ function LogoBlock() {
 function Snarveier() {
   return (
     <div>
-      <Heading level="2" size="xsmall" className="!text-white" spacing>
+      <Heading level="2" size="xsmall" className="text-[white]" spacing>
         Juridisk
       </Heading>
       <BodyShort as="ul" className="mt-3 grid gap-3">
@@ -77,7 +79,7 @@ function Snarveier() {
 function SideLenker() {
   return (
     <div>
-      <Heading level="2" size="xsmall" className="!text-white" spacing>
+      <Heading level="2" size="xsmall" className="text-[white]" spacing>
         Erklæringer
       </Heading>
       <BodyShort as="ul" className="mt-3 grid gap-3">
@@ -91,7 +93,7 @@ function SideLenker() {
 function Kontakt() {
   return (
     <div>
-      <Heading level="2" size="xsmall" className="!text-white" spacing>
+      <Heading level="2" size="xsmall" className="text-[white]" spacing>
         Finn oss
       </Heading>
       <BodyShort as="ul" className="mt-3 grid gap-3">
@@ -142,7 +144,7 @@ function Kontakt() {
         </FooterLink>
         <li className="flex gap-3">
           <Link
-            className="!text-white hover:!text-white focus:shadow-focus focus:!text-black flex w-fit items-center gap-1 underline hover:no-underline focus:bg-blue-100 focus:shadow-blue-100"
+            className="text-[white] hover:text-[white] focus:shadow-focus focus:text-[black] flex w-fit items-center gap-1 underline hover:no-underline focus:bg-[#dbeafe] focus:shadow-blue-100"
             href="https://github.com/navikt/umami-start"
           >
             <svg
@@ -165,7 +167,7 @@ function Kontakt() {
             Frontend
           </Link>
           <Link
-            className="!text-white hover:!text-white focus:shadow-focus focus:!text-black flex w-fit items-center gap-1 underline hover:no-underline focus:bg-blue-100 focus:shadow-blue-100"
+            className="text-[white] hover:text-[white] focus:shadow-focus focus:text-[black] flex w-fit items-center gap-1 underline hover:no-underline focus:bg-[#dbeafe] focus:shadow-blue-100"
             href="https://github.com/navikt/start-umami-backend"
           >
             Backend
@@ -182,7 +184,7 @@ function FooterLink({ children, href }) {
   return (
     <li>
       <Link
-        className="!text-white hover:!text-white focus:shadow-focus focus:!text-black flex w-fit items-center gap-1 underline hover:no-underline focus:bg-blue-100 focus:shadow-blue-100"
+        className="text-[white] hover:text-[white] focus:shadow-focus focus:text-[black] flex w-fit items-center gap-1 underline hover:no-underline focus:bg-[#dbeafe] focus:shadow-blue-100"
         href={href}
       >
         {children}

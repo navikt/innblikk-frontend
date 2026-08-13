@@ -431,7 +431,7 @@ const GroupingOptions = ({
                             value={dateFormat || 'day'}
                             onChange={(e) => setDateFormat(e.target.value)}
                             size="small"
-                            className="!w-auto min-w-[120px]"
+                            className="w-auto min-w-[120px]"
                           >
                             {DATE_FORMATS.map((format) => (
                               <option key={format.value} value={format.value}>

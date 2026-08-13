@@ -1,6 +1,7 @@
 import express from 'express'
 import { addAuditLogging } from '../../bigquery/audit.js'
 import { requireBigQuery, getNavIdent, getDryRunStats, MAX_BYTES_BILLED, prepareGeneratedSql } from './helpers.js'
+import { logger } from '../../logger.js'
 
 export function createRetentionRoutes({ bigquery, GCP_PROJECT_ID }) {
   const router = express.Router()
@@ -183,8 +184,9 @@ export function createRetentionRoutes({ bigquery, GCP_PROJECT_ID }) {
       )
 
       if (queryStats) {
-        console.log(
-          `[Retention] Dry run - Processing ${queryStats.totalBytesProcessedGB} GB, estimated cost: $${queryStats.estimatedCostUSD}`,
+        logger.info(
+          { gbProcessed: queryStats.totalBytesProcessedGB, estimatedCostUSD: queryStats.estimatedCostUSD },
+          '[Retention] Dry run - Processing',
         )
       }
 
@@ -229,7 +231,7 @@ export function createRetentionRoutes({ bigquery, GCP_PROJECT_ID }) {
         nonReturningUsers,
       })
     } catch (error) {
-      console.error('BigQuery retention error:', error)
+      logger.error({ error: error.message ?? error }, 'BigQuery retention error')
       res.status(500).json({
         error: error.message || 'Failed to fetch retention data',
       })

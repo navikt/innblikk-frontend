@@ -18,6 +18,7 @@ import { PersonIcon } from '@navikt/aksel-icons'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { getFeatureFlags, setFeatureFlag, type FeatureFlags } from '../../../shared/lib/featureFlags.ts'
+import { useIsReopsTeamMember } from '../../../shared/hooks/useIsReopsTeamMember.ts'
 import type { UserInfo } from '../model'
 
 export default function UserProfile() {
@@ -25,6 +26,7 @@ export default function UserProfile() {
   const [loading, setLoading] = useState(true)
   const [userError, setUserError] = useState<string | null>(null)
   const [flags, setFlags] = useState<FeatureFlags>(getFeatureFlags)
+  const { isReopsTeamMember } = useIsReopsTeamMember()
   const { hash } = useLocation()
 
   useEffect(() => {
@@ -190,6 +192,28 @@ export default function UserProfile() {
                   </BodyShort>
                 </Checkbox>
               </VStack>
+
+              {/* Team ResearchOps-only: irrelevant noise for everyone else since Copilot itself
+                  is gated behind the same team membership (see routes.tsx CopilotRoute). */}
+              {isReopsTeamMember && (
+                <VStack gap="space-4">
+                  <Box asChild>
+                    <Heading level="3" size="small">
+                      Copilot
+                    </Heading>
+                  </Box>
+                  <Checkbox
+                    checked={flags.copilot_show_technical_details}
+                    onChange={(e) => toggle('copilot_show_technical_details', e.target.checked)}
+                  >
+                    Vis tekniske detaljer
+                    <BodyShort as="span" size="small" textColor="subtle" className="block font-normal mt-0.5">
+                      Viser antall tokens, estimert kostnad og hvilke verktøy Copilot brukte for hver melding i
+                      samtalen.
+                    </BodyShort>
+                  </Checkbox>
+                </VStack>
+              )}
             </VStack>
           </section>
         </VStack>

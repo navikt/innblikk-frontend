@@ -26,6 +26,13 @@ export const hiddenFeatures: HiddenFeature[] = [
       'Spør om en graf med egne ord, kopier prompten til Microsoft Copilot, lim inn SQL-en den svarer med. For designere/ikke-SQL-brukere.',
   },
   {
+    id: 'copilot',
+    href: '/copilot',
+    label: 'Copilot (generisk chat)',
+    description:
+      'Eksperimentell scaffolding for en ny, mer generell/utvidbar LLM-chat mot Innblikk. Ingen ekte backend enda.',
+  },
+  {
     id: 'grafbygger_next',
     href: '/grafbygger_next',
     label: 'Grafbygger (next)',

@@ -10,7 +10,10 @@ import { createBackendProxyRouter } from './src/server/routes/backend/backendRou
 import { createSiteimproveProxyRouter } from './src/server/routes/siteimprove/siteimproveRoutes.js'
 import { createUserRouter } from './src/server/routes/user/userRoutes.js'
 import { createClickmapPreviewRouter } from './src/server/routes/clickmap/clickmapPreviewRoutes.js'
+import { createCopilotRouter } from './src/server/routes/copilot/copilotRoutes.js'
+import { createGenAIClient } from './src/server/genai/client.js'
 import { authenticateUser } from './src/server/middleware/authenticateUser.js'
+import { requireReopsTeamMember } from './src/server/middleware/requireReopsTeamMember.js'
 
 import {
   BIGQUERY_TIMEZONE,
@@ -18,6 +21,8 @@ import {
   BACKEND_WS_HOST,
   SITEIMPROVE_BASE_URL,
   GCP_PROJECT_ID,
+  GEMINI_LOCATION,
+  GEMINI_MODEL,
 } from './src/server/config/env.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -30,8 +35,18 @@ const app = createApp({ buildPath })
 // Initialize BigQuery client
 const bigquery = createBigQueryClient({ projectId: GCP_PROJECT_ID, dirname: __dirname })
 
+// Initialize Gemini client (experimental /copilot chat)
+const genai = createGenAIClient({ projectId: GCP_PROJECT_ID, location: GEMINI_LOCATION })
+
 // Apply authentication middleware to all /api/bigquery routes (except /api/user/me which has its own handling)
 app.use('/api/bigquery', authenticateUser)
+
+// Copilot chat (experimental, Team ResearchOps only) — this is the actual security boundary,
+// not just the client-side route guard on /copilot (which is UX only and never sufficient on
+// its own — anyone with a valid session could otherwise call this API directly).
+// (router paths already include /api/copilot, mounted at root like the BigQuery router below)
+app.use('/api/copilot', authenticateUser, requireReopsTeamMember)
+app.use(createCopilotRouter({ bigquery, genai, GCP_PROJECT_ID, GEMINI_MODEL }))
 
 // Siteimprove proxy
 app.use('/api/siteimprove', createSiteimproveProxyRouter({ SITEIMPROVE_BASE_URL }))

@@ -206,7 +206,7 @@ const CombinedEntrancesTable = ({
             <div className="min-w-max">
               <Table
                 size="small"
-                className="table-auto min-w-full [&_th:first-child]:!pl-2 [&_th:first-child]:!pr-2 [&_td:first-child]:!pl-2 [&_td:first-child]:!pr-2"
+                className="table-auto min-w-full [&_th:first-child]:pl-2 [&_th:first-child]:pr-2 [&_td:first-child]:pl-2 [&_td:first-child]:pr-2"
               >
                 <colgroup>
                   <col style={{ width: '6.75rem' }} />

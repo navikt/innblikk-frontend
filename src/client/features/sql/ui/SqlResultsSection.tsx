@@ -70,7 +70,9 @@ interface SqlResultsSectionProps {
   showJson?: boolean
   showExecuteButton?: boolean
   showError?: boolean
+  showCost?: boolean
   dashboardButtonSize?: 'small' | 'medium'
+  initialTab?: 'table' | 'linechart' | 'areachart' | 'barchart' | 'piechart'
   onExecuteQuery: () => Promise<void>
   onCopyMetabase: () => void
   prepareLineChartData: (includeAverage?: boolean) => ILineChartProps | null
@@ -93,7 +95,9 @@ export default function SqlResultsSection({
   showJson = true,
   showExecuteButton = true,
   showError = true,
+  showCost = true,
   dashboardButtonSize = 'small',
+  initialTab,
   onExecuteQuery,
   onCopyMetabase,
   prepareLineChartData,
@@ -381,7 +385,8 @@ export default function SqlResultsSection({
         showExecuteButton={showExecuteButton}
         showError={showError}
         showSqlMetabaseActions={false}
-        showCost={true}
+        showCost={showCost}
+        initialTab={initialTab}
         websiteId={websiteId}
         compactTableActions={true}
         compactTableTitle="Resultater"

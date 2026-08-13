@@ -71,6 +71,10 @@ interface ResultsPanelProps {
   period?: string
   onAddToDashboard?: () => void
   onGraphTypeSuggestionChange?: (graphType: 'LINE' | 'BAR' | 'PIE' | 'TABLE') => void
+  // Overrides which tab is active on first render (URL's own `?tab=` param still wins if
+  // present — this only applies when there's no URL param to read, e.g. embedded results like
+  // Copilot's chat that don't want to touch the browser URL per message).
+  initialTab?: 'table' | 'linechart' | 'areachart' | 'barchart' | 'piechart'
 }
 
 const ResultsPanel = ({
@@ -104,13 +108,19 @@ const ResultsPanel = ({
   period,
   onAddToDashboard,
   onGraphTypeSuggestionChange,
+  initialTab,
 }: ResultsPanelProps) => {
-  // Read initial tab from URL parameter
+  // Read initial tab from URL parameter, falling back to the `initialTab` prop (e.g. Copilot's
+  // per-message chart suggestion — see chartSuggestion in useAssistantChat.ts) if there's no URL
+  // param, then finally to 'table'. The URL param always wins when present since it reflects an
+  // explicit user choice (e.g. from sharing a link with a specific tab already selected).
   const [activeTab, setActiveTab] = useState<string>(() => {
     const urlParams = new URLSearchParams(window.location.search)
     const tabParam = urlParams.get('tab')
     const validTabs = ['table', 'linechart', 'areachart', 'barchart', 'piechart']
-    return tabParam && validTabs.includes(tabParam) ? tabParam : 'table'
+    if (tabParam && validTabs.includes(tabParam)) return tabParam
+    if (initialTab && validTabs.includes(initialTab)) return initialTab
+    return 'table'
   })
 
   const [searchQuery, setSearchQuery] = useState<string>('')

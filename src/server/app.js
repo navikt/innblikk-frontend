@@ -1,5 +1,6 @@
 import express from 'express'
 import helmet from 'helmet'
+import { logger } from './logger.js'
 
 export function createApp({ buildPath }) {
   const app = express()
@@ -14,11 +15,11 @@ export function createApp({ buildPath }) {
   app.use(express.json())
 
   process.on('uncaughtException', (err) => {
-    console.error('Uncaught Exception:', err)
+    logger.fatal({ err }, 'Uncaught Exception')
   })
 
   process.on('unhandledRejection', (reason, promise) => {
-    console.error('Unhandled Rejection at:', promise, 'reason:', reason)
+    logger.fatal({ reason, promise }, 'Unhandled Rejection')
   })
 
   // Set server timeout to 2 minutes for BigQuery queries

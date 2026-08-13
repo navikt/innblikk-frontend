@@ -1,5 +1,6 @@
 import express from 'express'
 import { addAuditLogging } from '../../bigquery/audit.js'
+import { logger } from '../../logger.js'
 import {
   requireBigQuery,
   getNavIdent,
@@ -104,8 +105,9 @@ export function createCompositionRoutes({ bigquery, GCP_PROJECT_ID }) {
       )
 
       if (queryStats) {
-        console.log(
-          `[Composition] Dry run - Processing ${queryStats.totalBytesProcessedGB} GB, estimated cost: $${queryStats.estimatedCostUSD}`,
+        logger.info(
+          { gbProcessed: queryStats.totalBytesProcessedGB, estimatedCostUSD: queryStats.estimatedCostUSD },
+          '[Composition] Dry run - Processing',
         )
       }
 
@@ -131,10 +133,10 @@ export function createCompositionRoutes({ bigquery, GCP_PROJECT_ID }) {
         meta: { usedDistinctId: useDistinctId },
       })
     } catch (error) {
-      console.error('BigQuery composition error:', error)
-      if (error.code) console.error('Error Code:', error.code)
-      if (error.errors) console.error('Error Details:', JSON.stringify(error.errors, null, 2))
-      if (error.response) console.error('Error Response:', JSON.stringify(error.response, null, 2))
+      logger.error({ error: error.message ?? error }, 'BigQuery composition error')
+      if (error.code) logger.error({ code: error.code }, 'Error Code')
+      if (error.errors) logger.error({ errors: error.errors }, 'Error Details')
+      if (error.response) logger.error({ response: error.response }, 'Error Response')
 
       res.status(500).json({
         error: error.message || 'Failed to fetch composition data',

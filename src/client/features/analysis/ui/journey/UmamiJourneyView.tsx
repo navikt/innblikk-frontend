@@ -220,10 +220,10 @@ const UmamiJourneyView: React.FC<UmamiJourneyFullViewProps> = ({
 
         {/* Floating Funnel Builder Action Bar */}
         {funnelSteps.length > 0 && (
-          <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-gray-900 border border-gray-700 text-white px-8 py-5 rounded-full shadow-2xl z-50 flex items-center gap-8 animate-in fade-in slide-in-from-bottom-4">
+          <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-[#111827] border border-[#374151] text-[white] px-8 py-5 rounded-full shadow-2xl z-50 flex items-center gap-8 animate-in fade-in slide-in-from-bottom-4">
             <div className="flex flex-col">
               <span className="font-bold text-xl">{funnelSteps.length} steg valgt</span>
-              <span className="text-sm text-gray-300">
+              <span className="text-sm text-[#d1d5db]">
                 {funnelSteps.length < 2
                   ? 'Du må velge minst to steg for å lage en trakt'
                   : 'Bygg en traktanalyse fra disse stegene'}
@@ -235,7 +235,7 @@ const UmamiJourneyView: React.FC<UmamiJourneyFullViewProps> = ({
                 variant="tertiary"
                 size="medium"
                 onClick={clearFunnelSteps}
-                className="!text-white hover:!text-white hover:!bg-white/10"
+                className="text-[white] hover:text-[white] hover:bg-[rgba(255,255,255,0.1)]"
               >
                 Tøm valgte
               </Button>

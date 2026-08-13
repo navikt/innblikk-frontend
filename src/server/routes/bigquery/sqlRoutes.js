@@ -1,6 +1,7 @@
 import express from 'express'
 import { addAuditLogging } from '../../bigquery/audit.js'
 import { requireBigQuery, getNavIdent, getDryRunStats, MAX_BYTES_BILLED } from './helpers.js'
+import { logger } from '../../logger.js'
 
 // SQL statements that are forbidden in user-submitted queries.
 // Matched against the normalised (comment-free, uppercased) query text.
@@ -22,6 +23,11 @@ const FORBIDDEN_PATTERNS = [
   /\bLOAD\b/,
 ]
 
+// Exported so consumers (e.g. the Copilot system prompt) can list the exact same forbidden
+// keywords the validator below enforces, instead of hand-maintaining a second copy of this
+// list that can silently drift out of sync.
+export const FORBIDDEN_KEYWORDS = FORBIDDEN_PATTERNS.map((pattern) => pattern.source.replace(/\\b/g, ''))
+
 /**
  * Validates that a SQL query is read-only.
  *
@@ -31,7 +37,7 @@ const FORBIDDEN_PATTERNS = [
  *
  * @returns {{ valid: boolean, error?: string }}
  */
-function validateQuery(rawQuery) {
+export function validateQuery(rawQuery) {
   // Strip single-line comments (-- …) and multi-line comments (/* … */)
   const stripped = rawQuery
     .replace(/--[^\n]*/g, '')
@@ -120,9 +126,9 @@ export function createSqlRouter({ bigquery }) {
         queryStats,
       })
     } catch (error) {
-      console.error('[BigQuery API] Error:', error.message)
+      logger.error({ error: error.message }, '[BigQuery API] Error')
       if (error.errors) {
-        console.error('[BigQuery API] Details:', JSON.stringify(error.errors, null, 2))
+        logger.error({ details: error.errors }, '[BigQuery API] Details')
       }
 
       res.status(500).json({
@@ -181,7 +187,7 @@ export function createSqlRouter({ bigquery }) {
         maximumBytesBilled: MAX_BYTES_BILLED,
       })
     } catch (error) {
-      console.error('[BigQuery Estimate] Error:', error.message)
+      logger.error({ error: error.message }, '[BigQuery Estimate] Error')
       res.status(500).json({
         error: error.message || 'Failed to estimate query',
       })

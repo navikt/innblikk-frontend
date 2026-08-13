@@ -274,17 +274,17 @@ const EventJourney = () => {
           )}
 
           {selectedFunnelSteps.length > 0 && (
-            <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-gray-900 border border-gray-700 text-white px-6 py-4 rounded-full shadow-2xl z-50 flex items-center gap-6">
+            <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-[#111827] border border-[#374151] text-[white] px-6 py-4 rounded-full shadow-2xl z-50 flex items-center gap-6">
               <div className="flex flex-col">
                 <span className="font-bold text-lg">{selectedFunnelSteps.length} hendelser valgt</span>
-                <span className="text-sm text-gray-300">URL-stien blir automatisk første steg i trakten</span>
+                <span className="text-sm text-[#d1d5db]">URL-stien blir automatisk første steg i trakten</span>
               </div>
               <div className="flex items-center gap-3">
                 <Button
                   variant="tertiary"
                   size="small"
                   onClick={clearFunnelSteps}
-                  className="!text-white hover:!text-white hover:!bg-white/10"
+                  className="text-[white] hover:text-[white] hover:bg-[rgba(255,255,255,0.1)]"
                 >
                   Tøm valgte
                 </Button>

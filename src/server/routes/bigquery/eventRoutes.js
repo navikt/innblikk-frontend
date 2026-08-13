@@ -1,6 +1,7 @@
 import express from 'express'
 import { addAuditLogging } from '../../bigquery/audit.js'
 import { MAX_BYTES_BILLED, prepareGeneratedSql, buildTimeSeriesBucketSql } from './helpers.js'
+import { logger } from '../../logger.js'
 
 export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE }) {
   const router = express.Router()
@@ -108,12 +109,12 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
           estimatedCostUSD: estimatedCostUSD,
         }
       } catch (dryRunError) {
-        console.log('[Events] Dry run failed:', dryRunError.message)
+        logger.info({ dryRunError: dryRunError.message }, '[Events] Dry run failed')
       }
 
       res.json({ events, generatedSql: prepareGeneratedSql(query, params), queryStats })
     } catch (error) {
-      console.error('BigQuery events error:', error)
+      logger.error({ error: error.message ?? error }, 'BigQuery events error')
       res.status(500).json({
         error: error.message || 'Failed to fetch events',
       })
@@ -294,12 +295,12 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
           estimatedCostUSD: estimatedCostUSD,
         }
       } catch (dryRunError) {
-        console.log('[Clickmap] Dry run failed:', dryRunError.message)
+        logger.info({ dryRunError: dryRunError.message }, '[Clickmap] Dry run failed')
       }
 
       res.json({ data, queryStats })
     } catch (error) {
-      console.error(`BigQuery ${errorLabel} error:`, error)
+      logger.error({ error: error.message ?? error, errorLabel }, 'BigQuery error')
       res.status(500).json({
         error: error.message || `Failed to fetch ${errorLabel} data`,
       })
@@ -335,9 +336,7 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
       const endDate = endAt ? new Date(parseInt(endAt)).toISOString() : new Date().toISOString()
       const withParams = includeParams === 'true'
 
-      console.log(
-        `[Event Properties] Query: ${withParams ? 'EXPENSIVE (with params)' : 'CHEAP (events only)'} - includeParams=${includeParams} eventName=${eventName} urlPath=${urlPath}`,
-      )
+      logger.info({ includeParams, eventName, urlPath, expensive: withParams }, '[Event Properties] Query')
 
       const params = {
         websiteId: websiteId,
@@ -441,9 +440,9 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
         const dryRunMetadata = dryRunJob.metadata
         estimatedBytes = dryRunMetadata.statistics?.totalBytesProcessed || '0'
         const estimatedGb = (Number(estimatedBytes) / 1024 ** 3).toFixed(2)
-        console.log(`[Event Properties] Estimated bytes: ${estimatedGb} GB`)
+        logger.info({ estimatedGb }, '[Event Properties] Estimated bytes')
       } catch (dryRunError) {
-        console.warn('[Event Properties] Dry run failed:', dryRunError.message)
+        logger.warn({ dryRunError: dryRunError.message }, '[Event Properties] Dry run failed')
       }
 
       // Actual query execution
@@ -491,7 +490,7 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
         includeParams: withParams,
       })
     } catch (error) {
-      console.error('BigQuery event properties error:', error)
+      logger.error({ error: error.message ?? error }, 'BigQuery event properties error')
       res.status(500).json({
         error: error.message || 'Failed to fetch event properties',
       })
@@ -601,7 +600,7 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
         data,
       })
     } catch (error) {
-      console.error('BigQuery event series error:', error)
+      logger.error({ error: error.message ?? error }, 'BigQuery event series error')
       res.status(500).json({
         error: error.message || 'Failed to fetch event series',
       })
@@ -661,7 +660,7 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
         })
       }
     } catch (error) {
-      console.error('BigQuery daterange error:', error)
+      logger.error({ error: error.message ?? error }, 'BigQuery daterange error')
       res.status(500).json({
         error: error.message || 'Failed to fetch date range',
       })
@@ -782,7 +781,7 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
           estimatedCostUSD: estimatedCostUSD,
         }
       } catch (dryRunError) {
-        console.log('[Event Parameter Values] Dry run failed:', dryRunError.message)
+        logger.info({ dryRunError: dryRunError.message }, '[Event Parameter Values] Dry run failed')
       }
 
       res.json({
@@ -790,7 +789,7 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
         queryStats,
       })
     } catch (error) {
-      console.error('BigQuery event parameter values error:', error)
+      logger.error({ error: error.message ?? error }, 'BigQuery event parameter values error')
       res.status(500).json({
         error: error.message || 'Failed to fetch event parameter values',
       })
@@ -863,8 +862,7 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
               LIMIT @limit
           `
 
-      console.log('[Latest Events] Query params:', params)
-      console.log('[Latest Events] URL filter:', urlFilter)
+      logger.info({ params, urlFilter }, '[Latest Events] Query params')
 
       const [job] = await bigquery.createQueryJob(
         addAuditLogging(
@@ -881,9 +879,9 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
 
       const [rows] = await job.getQueryResults()
 
-      console.log(`[Latest Events] Found ${rows.length} events`)
+      logger.info({ count: rows.length }, '[Latest Events] Found events')
       if (rows.length > 0) {
-        console.log('[Latest Events] First row sample:', JSON.stringify(rows[0], null, 2))
+        logger.info({ firstRow: rows[0] }, '[Latest Events] First row sample')
       }
 
       const events = rows.map((row) => {
@@ -931,13 +929,13 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
           estimatedCostUSD: estimatedCostUSD,
         }
       } catch (dryRunError) {
-        console.log('[Latest Events] Dry run failed:', dryRunError.message)
+        logger.info({ dryRunError: dryRunError.message }, '[Latest Events] Dry run failed')
       }
 
-      console.log(`[Latest Events] Returning ${events.length} events`)
+      logger.info({ count: events.length }, '[Latest Events] Returning events')
       res.json({ events, queryStats })
     } catch (error) {
-      console.error('BigQuery latest events error:', error)
+      logger.error({ error: error.message ?? error }, 'BigQuery latest events error')
       res.status(500).json({
         error: error.message || 'Failed to fetch latest events',
       })
@@ -1156,7 +1154,7 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
           estimatedCostUSD: estimatedCostUSD,
         }
       } catch (dryRunError) {
-        console.log('[Event Journeys] Dry run failed:', dryRunError.message)
+        logger.info({ dryRunError: dryRunError.message }, '[Event Journeys] Dry run failed')
       }
 
       const [journeyJob] = await bigquery.createQueryJob(
@@ -1200,9 +1198,9 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
         queryStats,
       })
     } catch (error) {
-      console.error('[Event Journeys] ERROR:', error.message)
+      logger.error({ error: error.message }, '[Event Journeys] ERROR')
       if (error.errors) {
-        console.error('[Event Journeys] BigQuery errors:', JSON.stringify(error.errors, null, 2))
+        logger.error({ errors: error.errors }, '[Event Journeys] BigQuery errors')
       }
       res.status(500).json({
         error: error.message || 'Failed to fetch event journeys',

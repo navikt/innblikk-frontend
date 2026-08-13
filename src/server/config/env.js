@@ -22,6 +22,39 @@ export const SITEIMPROVE_BASE_URL = normalizeBaseUrl(
 export const GCP_PROJECT_ID = process.env.GCP_PROJECT_ID || process.env.VITE_GCP_PROJECT_ID
 export const BACKEND_WS_HOST = process.env.BACKEND_WS_HOST || undefined
 
+// Gemini Enterprise Agent Platform (formerly "Vertex AI") — used by the experimental /copilot chat.
+// Swap the model later via env var.
+//
+// Location: europe-west4 (Netherlands) — deliberate choice, confirmed intentional Aug 2026.
+// BigQuery data (the actual analytics/traffic data) stays in europe-north1 (Finland) per every
+// BigQuery call in this app (see e.g. helpers.js) — only the Gemini model calls (SQL generation
+// reasoning, not the underlying analytics data itself) route through Netherlands instead.
+// Accepted tradeoff, not an oversight: Copilot doesn't send PII through Gemini (website
+// names/domains/aggregate SQL only), and both regions are EU.
+//
+// Only the Gemini 2.5 family is actually usable via the public Vertex AI API for this project
+// (team-researchops-prod-01d6) as of Aug 2026, confirmed via direct REST calls to
+// europe-west4-aiplatform.googleapis.com and europe-north1-aiplatform.googleapis.com:
+//   - gemini-2.5-flash-lite: works
+//   - gemini-2.5-flash: works
+//   - gemini-2.0-flash-lite, gemini-3.1-flash-lite, gemini-3-flash-preview, gemini-3.5-flash,
+//     gemini-3.6-flash, gemini-3.5-flash-lite: all 404 ("Publisher model ... not found or your
+//     project does not have access to it")
+// This is NOT the vertexai.allowedModels org policy (effective policy = Allow All, confirmed via
+// Console) and NOT a region issue (identical 404 both regions, and the gcp.restrictEndpointUsage
+// org policy blocks the global/eu multi-region endpoints anyway, so only regional endpoints are
+// usable at all). Being able to "test" a model in the Model Garden Studio playground does NOT
+// mean it's available here either — Studio calls Google's internal console backend
+// (cloudconsole-pa.clients6.google.com / AiplatformEntityService), a separate code path from the
+// public API with its own access rules, decoupled from what's actually granted to this project.
+// Bottom line: 3.x-gen models need a Google-side entitlement grant (support ticket/account team),
+// not something fixable via Console org policy or API enablement. Using gemini-2.5-flash as the
+// default: same access tier as flash-lite but noticeably better reasoning/tool-calling for the
+// agent loop, still cheap in absolute terms ($0.30/$2.50 per 1M input/output tokens vs
+// $0.10/$0.40 for flash-lite).
+export const GEMINI_LOCATION = process.env.GEMINI_LOCATION || 'europe-west4'
+export const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
+
 if (!BACKEND_BASE_URL) {
   throw new Error('Missing env var: BACKEND_BASE_URL')
 }

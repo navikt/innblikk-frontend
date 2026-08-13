@@ -1,4 +1,5 @@
 import { readFile } from 'fs/promises'
+import { logger } from '../logger.js'
 
 export function registerFrontend(app, { buildPath, GCP_PROJECT_ID, BACKEND_WS_HOST }) {
   // Serve index.html with injected runtime config
@@ -36,7 +37,7 @@ export function registerFrontend(app, { buildPath, GCP_PROJECT_ID, BACKEND_WS_HO
       const html = await cachedHtmlPromise
       res.send(html)
     } catch (err) {
-      console.error('Failed to serve index.html:', err)
+      logger.error({ err }, 'Failed to serve index.html')
       res.status(500).send('Failed to load frontend')
     }
   })

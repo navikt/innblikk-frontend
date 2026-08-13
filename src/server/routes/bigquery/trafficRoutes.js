@@ -1,6 +1,7 @@
 import express from 'express'
 import { addAuditLogging, getAnalysisTypeOverride } from '../../bigquery/audit.js'
 import { MAX_BYTES_BILLED, normalizeUrlSql, buildTimeSeriesBucketSql } from './helpers.js'
+import { logger } from '../../logger.js'
 
 export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE }) {
   const router = express.Router()
@@ -22,9 +23,7 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
         countBy,
         countBySwitchAt,
       } = req.query
-      console.log(
-        `[Traffic Series] Request: metricType=${metricType}, urlPath=${urlPath}, pathOperator=${pathOperator}, countBy=${countBy}`,
-      )
+      logger.info({ metricType, urlPath, pathOperator, countBy }, '[Traffic Series] Request')
 
       const countBySwitchAtMs = countBySwitchAt ? parseInt(countBySwitchAt) : NaN
       const hasCountBySwitchAt = Number.isFinite(countBySwitchAtMs)
@@ -158,7 +157,7 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
             ? `APPROX_COUNT_DISTINCT(${userIdExpression})`
             : `APPROX_COUNT_DISTINCT(session_id)` // visitors (unike besøkende)
         }
-        console.log(`[Traffic Series] Count Expression: ${countExpression}, useDistinctId: ${useDistinctId}`)
+        logger.info({ countExpression, useDistinctId }, '[Traffic Series] Count Expression')
 
         query = `
                   WITH buckets AS (
@@ -276,7 +275,7 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
           estimatedCostUSD: estimatedCostUSD,
         }
       } catch (dryRunError) {
-        console.log('[Traffic Series] Dry run failed:', dryRunError.message)
+        logger.info({ dryRunError: dryRunError.message }, '[Traffic Series] Dry run failed')
       }
 
       res.json({
@@ -286,7 +285,7 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
         meta: { usedDistinctId: useDistinctId },
       })
     } catch (error) {
-      console.error('BigQuery traffic series error:', error)
+      logger.error({ error: error.message ?? error }, 'BigQuery traffic series error')
       res.status(500).json({
         error: error.message || 'Failed to fetch traffic series',
       })
@@ -500,12 +499,12 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
           estimatedCostUSD: estimatedCostUSD,
         }
       } catch (dryRunError) {
-        console.log('[Traffic Flow] Dry run failed:', dryRunError.message)
+        logger.info({ dryRunError: dryRunError.message }, '[Traffic Flow] Dry run failed')
       }
 
       res.json({ data, queryStats })
     } catch (error) {
-      console.error('BigQuery traffic flow error:', error)
+      logger.error({ error: error.message ?? error }, 'BigQuery traffic flow error')
       res.status(500).json({
         error: error.message || 'Failed to fetch traffic flow',
       })
@@ -518,7 +517,7 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
       const { websiteId } = req.params
       const navIdent = req.user?.navIdent || 'UNKNOWN'
       const { startAt, endAt, urlPath, pathOperator, limit = '1000', countBy, countBySwitchAt } = req.query
-      console.log('[Page Metrics] Request:', { websiteId, urlPath, countBy })
+      logger.info({ websiteId, urlPath, countBy }, '[Page Metrics] Request')
 
       const countBySwitchAtMs = countBySwitchAt ? parseInt(countBySwitchAt) : NaN
       const hasCountBySwitchAt = Number.isFinite(countBySwitchAtMs)
@@ -631,7 +630,7 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
         meta: { usedDistinctId: useDistinctId },
       })
     } catch (error) {
-      console.error('BigQuery page metrics error:', error)
+      logger.error({ error: error.message ?? error }, 'BigQuery page metrics error')
       res.status(500).json({ error: error.message || 'Failed to fetch page metrics' })
     }
   })
@@ -651,9 +650,7 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
         countBy,
         countBySwitchAt,
       } = req.query
-      console.log(
-        `[Traffic Breakdown] Request: metricType=${metricType}, pathOperator=${pathOperator}, countBy=${countBy}`,
-      )
+      logger.info({ metricType, pathOperator, countBy }, '[Traffic Breakdown] Request')
 
       const countBySwitchAtMs = countBySwitchAt ? parseInt(countBySwitchAt) : NaN
       const hasCountBySwitchAt = Number.isFinite(countBySwitchAtMs)
@@ -724,9 +721,7 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
       } else {
         sourceAndExitCountExpression = 'APPROX_COUNT_DISTINCT(user_id)' // visitors (unike besøkende)
       }
-      console.log(
-        `[Traffic Breakdown] Count Expression: ${sourceAndExitCountExpression}, useDistinctId: ${useDistinctId}`,
-      )
+      logger.info({ sourceAndExitCountExpression, useDistinctId }, '[Traffic Breakdown] Count Expression')
 
       const totalFilteredUsersCTE =
         metricType === 'proportion'
@@ -825,7 +820,7 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
         meta: { usedDistinctId: useDistinctId },
       })
     } catch (error) {
-      console.error('BigQuery traffic breakdown error:', error)
+      logger.error({ error: error.message ?? error }, 'BigQuery traffic breakdown error')
       res.status(500).json({ error: error.message || 'Failed to fetch traffic breakdown' })
     }
   })
@@ -849,7 +844,7 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
         countBySwitchAt,
       } = req.query
 
-      console.log(`[Marketing Stats] Request: metricType=${metricType}, countBy=${countBy}`)
+      logger.info({ metricType, countBy }, '[Marketing Stats] Request')
 
       const countBySwitchAtMs = countBySwitchAt ? parseInt(countBySwitchAt) : NaN
       const hasCountBySwitchAt = Number.isFinite(countBySwitchAtMs)
@@ -969,7 +964,7 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
           `
 
       // Execute single query
-      console.log(`[Marketing] Fetching stats for website ${websiteId} (Single Query Optimization)`)
+      logger.info({ websiteId }, '[Marketing] Fetching stats for website (Single Query Optimization)')
 
       const [job] = await bigquery.createQueryJob(
         addAuditLogging(
@@ -985,7 +980,7 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
       )
 
       const [rows] = await job.getQueryResults()
-      console.log(`[Marketing] Query returned ${rows.length} rows total`)
+      logger.info({ count: rows.length }, '[Marketing] Query returned rows total')
 
       // Get dry run stats for the single query
       let queryStats = null
@@ -1009,9 +1004,9 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
           totalBytesProcessedGB: (bytesProcessed / 1024 ** 3).toFixed(2),
           estimatedCostUSD: ((bytesProcessed / 1024 ** 4) * 6.25).toFixed(3),
         }
-        console.log(`[Marketing] Dry run - Processing ${queryStats.totalBytesProcessedGB} GB`)
+        logger.info({ gbProcessed: queryStats.totalBytesProcessedGB }, '[Marketing] Dry run - Processing')
       } catch (e) {
-        console.log(`[Marketing] Dry run failed: `, e.message)
+        logger.info({ error: e.message }, '[Marketing] Dry run failed')
       }
 
       // Aggregate results by dimension label
@@ -1047,7 +1042,7 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
         meta: { usedDistinctId: useDistinctId },
       })
     } catch (error) {
-      console.error('BigQuery marketing stats error:', error)
+      logger.error({ error: error.message ?? error }, 'BigQuery marketing stats error')
       res.status(500).json({
         error: error.message || 'Failed to fetch marketing stats',
       })
