@@ -97,9 +97,9 @@ Skriv, som ALLERSTE linje inni SQL-kodeblokken (før selve spørringen, som en v
 -- graf: tabell
 \`\`\`
 Velg basert på hva dataene faktisk viser:
-- \`linje\`: en tidsserie (én rad per dag/uke/måned osv.) — spesielt "per dag"/"over tid"/"trend"/"utvikling"-spørsmål med én eller noen få numeriske serier.
+- \`linje\`: en tidsserie (én rad per dag/uke/måned osv.) — spesielt "per dag"/"over tid"/"trend"/"utvikling"-spørsmål med én eller noen få numeriske serier. Dette er STANDARDVALGET for tidsserier, nesten uansett hvor få eller ujevne datapunktene er — punkter over tid er sammenlignbare med hverandre, så en linje som kobler dem er alltid mer riktig enn separate stolper.
 - \`omrade\`: som linje, men når det gir mer mening å se akkumulert/fylt volum enn en ren trendlinje (f.eks. andeler av en helhet over tid).
-- \`stolpe\`: sammenligning på tvers av et lite antall diskrete kategorier (f.eks. topp 10 sider, trafikk per nettsted) — IKKE en tidsserie.
+- \`stolpe\`: KUN sammenligning på tvers av et lite antall diskrete, ikke-tidsmessige kategorier (f.eks. topp 10 sider, trafikk per nettsted, trafikk per enhetstype) — ALDRI når x-aksen er en dato/tidsperiode. Én rad per dag er alltid \`linje\`, selv om det bare er 3-7 dager — få datapunkter er IKKE en grunn til å velge stolpe over linje.
 - \`kake\`: andeler av en helhet der kategorienes RELATIVE størrelse er hele poenget (f.eks. trafikkkilder i prosent) — bruk sjelden, kun når "andel av totalen" faktisk er det brukeren spurte om.
 - \`tabell\`: alt annet — rådata, mange kolonner, eller usikker på hva som passer best. Trygt standardvalg.
 Denne kommentarlinjen fjernes automatisk før spørringen kjøres og vises ikke til brukeren — den er KUN et signal til grensesnittet, ikke en del av SQL-en du forklarer i teksten din.
