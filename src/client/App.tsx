@@ -17,9 +17,9 @@ import './App.css'
 const ScrollToTopWrapper = () => {
   const location = useLocation()
 
-  // Don't show on /grafbygger or /copilot — a floating overlay clashes with their sticky
-  // sidebar/composer UI.
-  if (location.pathname === '/grafbygger' || location.pathname === '/copilot') {
+  // Don't show on /grafbygger — a floating overlay clashes with its sticky sidebar UI.
+  // (/copilot doesn't render this wrapper at all — see AppShell's dedicated branch.)
+  if (location.pathname === '/grafbygger') {
     return null
   }
 
@@ -30,14 +30,6 @@ const ScrollToTopWrapper = () => {
 const PageLayout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation()
   const isFullWidthPage = isFullWidthPath(location.pathname)
-  const isCopilotPage = location.pathname === '/copilot'
-
-  // Copilot is a full-height chat UI (sticky composer at the bottom) — its content area
-  // needs to grow to fill the viewport below the header, unlike other full-width pages
-  // (e.g. /grafbygger) which just flow with their natural content height.
-  if (isCopilotPage) {
-    return <main className="flex h-full w-full flex-col">{children}</main>
-  }
 
   if (isFullWidthPage) {
     return <main style={{ width: '100%' }}>{children}</main>
@@ -89,9 +81,31 @@ const AppShell = ({ theme }: { theme: 'light' | 'dark' }) => {
     )
   }
 
+  if (isCopilotPage) {
+    // Full-height chat UI: wants the navbar but not Aksel's `<Page>`/`<Footer>` — deliberately
+    // NOT routed through `<Page>` here. `<Page>` nests Header and page content inside one
+    // shared, non-flex div (see Page.js — `children` all land in a single
+    // `.aksel-page__content--grow` wrapper), so giving our content a height/flex-grow value
+    // meant to "fill the remaining space below the header" actually computed against that
+    // whole wrapper's height (header included), overflowing past the real viewport by the
+    // header's own height — the composer looked "stuck to the top" instead of centered.
+    // Building the flex column ourselves (Header + content as direct, sibling flex items)
+    // sidesteps that entirely instead of fighting Aksel's internal layout via CSS overrides.
+    return (
+      <div className="flex h-dvh w-full flex-col">
+        <Header theme={theme} />
+        <div className="flex min-h-0 w-full flex-1 flex-col">
+          <ErrorBoundary>
+            <Suspense fallback={<PageLoader />}>{appRoutes}</Suspense>
+          </ErrorBoundary>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <>
-      <Page className={isCopilotPage ? 'copilot-page-shell' : undefined}>
+      <Page>
         <Header theme={theme} />
         <PageLayout>
           <ErrorBoundary>

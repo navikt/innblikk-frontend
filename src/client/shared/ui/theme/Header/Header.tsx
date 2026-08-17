@@ -102,10 +102,20 @@ export default function Header({ theme }: HeaderProps) {
     }
   }, [])
 
+  // `--ax-text-default` (and `--ax-text-subtle`) are CONTEXTUAL semantic aliases — Aksel
+  // re-declares them per ambient `data-color` scope (accent/success/warning/...), so a plain
+  // `variant="tertiary"` Button (no explicit `data-color`) resolves them against the app's
+  // default ambient scope (`data-color="accent"`, see Provider/Theme setup), giving
+  // accent-BLUE text instead of neutral gray — even though the token name says "default".
+  // `variant="tertiary-neutral"` on the cog button below only looks right because it sets
+  // `data-color="neutral"` on itself internally (Button.js), escaping that ambient scope.
+  // Using the RAW scale token `--ax-neutral-1000` instead sidesteps this entirely: it's not
+  // re-scoped by ambient `data-color`, so it reliably gives the same light-gray-on-dark-bg
+  // regardless of what color context surrounds it.
   const linkButton =
     'no-underline bg-transparent hover:underline hover:bg-transparent font-normal ' +
     (theme === 'dark'
-      ? 'text-[var(--ax-text-default)] visited:text-[var(--ax-text-default)] hover:text-[var(--ax-text-default)]'
+      ? 'text-[var(--ax-neutral-1000)] visited:text-[var(--ax-neutral-1000)] hover:text-[var(--ax-neutral-1000)]'
       : 'text-ax-text-neutral-contrast visited:text-ax-text-neutral-contrast hover:text-ax-text-neutral-contrast active:text-ax-text-neutral-contrast focus:text-ax-text-neutral focus:bg-ax-bg-accent-soft')
 
   // Header bg is a dark surface in both themes (dark: --ax-bg-default is near-black,
@@ -114,7 +124,7 @@ export default function Header({ theme }: HeaderProps) {
   // for light surfaces, causing a black-on-black cog icon.
   const cogButton =
     theme === 'dark'
-      ? 'text-[var(--ax-text-default)] hover:bg-ax-bg-accent-soft hover:text-[var(--ax-text-default)] active:bg-ax-bg-accent-soft active:text-[var(--ax-text-default)] focus:bg-ax-bg-accent-soft focus:text-[var(--ax-text-default)]'
+      ? 'text-[var(--ax-neutral-1000)] hover:bg-ax-bg-accent-soft hover:text-[var(--ax-neutral-1000)] active:bg-ax-bg-accent-soft active:text-[var(--ax-neutral-1000)] focus:bg-ax-bg-accent-soft focus:text-[var(--ax-neutral-1000)]'
       : 'text-ax-text-neutral-contrast hover:bg-ax-bg-accent-soft hover:text-ax-text-neutral active:bg-ax-bg-accent-soft active:text-ax-text-neutral focus:bg-ax-bg-accent-soft focus:text-ax-text-neutral'
 
   const environmentBadgeLabel = isLocalhost ? 'Localhost' : 'Dev'

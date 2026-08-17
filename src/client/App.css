@@ -28,14 +28,6 @@
   padding-block-end: 0 !important;
 }
 
-/* Copilot is a full-height chat UI — its content area (unlike other pages) needs to grow
-   to fill the viewport below the header so the composer can dock to the bottom. Higher
-   specificity than the `.aksel-page__content--grow` rule above wins regardless of source
-   order. */
-.copilot-page-shell .aksel-page__content--grow {
-  flex-grow: 1 !important;
-}
-
 /* Cap footer content width on ultra-wide screens */
 .footer-block {
   max-width: 1600px !important;
