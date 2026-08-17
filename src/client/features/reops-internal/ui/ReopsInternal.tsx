@@ -21,10 +21,10 @@ export default function ReopsInternal() {
                     {feature.label}
                   </Heading>
                 </Link>
-                <BodyShort size="small" style={{ color: 'var(--a-text-subtle)' }}>
+                <BodyShort size="small" style={{ color: 'var(--ax-text-subtle)' }}>
                   {feature.description}
                 </BodyShort>
-                <BodyShort size="small" style={{ color: 'var(--a-text-subtle)' }}>
+                <BodyShort size="small" style={{ color: 'var(--ax-text-subtle)' }}>
                   <code>{feature.href}</code>
                 </BodyShort>
               </VStack>
@@ -36,7 +36,7 @@ export default function ReopsInternal() {
           <Heading level="2" size="medium">
             Utgåtte lenker (behold, ikke slett)
           </Heading>
-          <BodyShort size="small" style={{ color: 'var(--a-text-subtle)' }}>
+          <BodyShort size="small" style={{ color: 'var(--ax-text-subtle)' }}>
             Gamle URL-er som fortsatt fungerer som redirect for eksisterende bokmerker/delte lenker. Ingen egen UI —
             bare `Navigate` til gjeldende rute.
           </BodyShort>
@@ -49,7 +49,7 @@ export default function ReopsInternal() {
                   </Link>{' '}
                   → <code>{link.redirectsTo}</code>
                 </BodyShort>
-                <BodyShort size="small" style={{ color: 'var(--a-text-subtle)' }}>
+                <BodyShort size="small" style={{ color: 'var(--ax-text-subtle)' }}>
                   {link.description}
                 </BodyShort>
               </VStack>

@@ -14,6 +14,7 @@ import {
   ActionMenu,
   TextField,
   Tooltip,
+  Link,
 } from '@navikt/ds-react'
 import {
   PlayIcon,
@@ -1410,6 +1411,13 @@ const ResultsPanel = ({
         {result && result.data && result.data.length === 0 && (
           <Alert variant="info" className="mt-3">
             Spørringen returnerte ingen resultater.
+            {websiteId && (
+              <>
+                {' '}
+                <Link href={`/grafbygger?websiteId=${encodeURIComponent(websiteId)}`}>Åpne i Grafbygger</Link> for å
+                justere filtre og datoperiode.
+              </>
+            )}
           </Alert>
         )}
 

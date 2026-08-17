@@ -134,7 +134,7 @@ export function TeamWebsites() {
             {visibleData.map((group) => {
               const rowCount = (group.prod ? 1 : 0) + (group.dev ? 1 : 0)
               const isLastRowProd = group.prod && !group.dev
-              const groupSeparatorStyle = { borderBottom: '2px solid var(--a-border-divider)' }
+              const groupSeparatorStyle = { borderBottom: '2px solid var(--ax-border-default)' }
 
               return (
                 <React.Fragment key={group.baseName}>

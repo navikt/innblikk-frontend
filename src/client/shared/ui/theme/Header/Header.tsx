@@ -108,6 +108,15 @@ export default function Header({ theme }: HeaderProps) {
       ? 'text-[var(--ax-text-default)] visited:text-[var(--ax-text-default)] hover:text-[var(--ax-text-default)]'
       : 'text-ax-text-neutral-contrast visited:text-ax-text-neutral-contrast hover:text-ax-text-neutral-contrast active:text-ax-text-neutral-contrast focus:text-ax-text-neutral focus:bg-ax-bg-accent-soft')
 
+  // Header bg is a dark surface in both themes (dark: --ax-bg-default is near-black,
+  // light: hardcoded dark purple), so icon color must NOT use neutral-contrast in dark
+  // theme — that token flips to black (--ax-neutral-000 inverts per theme) and is meant
+  // for light surfaces, causing a black-on-black cog icon.
+  const cogButton =
+    theme === 'dark'
+      ? 'text-[var(--ax-text-default)] hover:bg-ax-bg-accent-soft hover:text-[var(--ax-text-default)] active:bg-ax-bg-accent-soft active:text-[var(--ax-text-default)] focus:bg-ax-bg-accent-soft focus:text-[var(--ax-text-default)]'
+      : 'text-ax-text-neutral-contrast hover:bg-ax-bg-accent-soft hover:text-ax-text-neutral active:bg-ax-bg-accent-soft active:text-ax-text-neutral focus:bg-ax-bg-accent-soft focus:text-ax-text-neutral'
+
   const environmentBadgeLabel = isLocalhost ? 'Localhost' : 'Dev'
 
   const toggleTheme = () => {
@@ -147,7 +156,7 @@ export default function Header({ theme }: HeaderProps) {
             variant="tertiary-neutral"
             icon={<CogIcon aria-hidden />}
             aria-label="Teknisk meny"
-            className="text-ax-text-neutral-contrast hover:bg-ax-bg-accent-soft hover:text-ax-text-neutral active:bg-ax-bg-accent-soft active:text-ax-text-neutral focus:bg-ax-bg-accent-soft focus:text-ax-text-neutral"
+            className={cogButton}
           />
         </ActionMenu.Trigger>
       </Tooltip>

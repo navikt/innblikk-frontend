@@ -43,14 +43,14 @@ export default function Stats() {
                   <BodyShort
                     size="small"
                     weight="semibold"
-                    style={{ textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--a-text-subtle)' }}
+                    style={{ textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--ax-text-subtle)' }}
                   >
                     Totalt antall brukere
                   </BodyShort>
                   <Heading size="xlarge" level="2">
                     {stats.totalUsers}
                   </Heading>
-                  <BodyShort size="small" style={{ color: 'var(--a-text-subtle)' }}>
+                  <BodyShort size="small" style={{ color: 'var(--ax-text-subtle)' }}>
                     Unike brukere som har logget inn
                   </BodyShort>
                 </VStack>
@@ -61,14 +61,14 @@ export default function Stats() {
                   <BodyShort
                     size="small"
                     weight="semibold"
-                    style={{ textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--a-text-subtle)' }}
+                    style={{ textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--ax-text-subtle)' }}
                   >
                     Aktive siste {stats.activeUserWindowDays} dager
                   </BodyShort>
                   <Heading size="xlarge" level="2">
                     {stats.activeUsers}
                   </Heading>
-                  <BodyShort size="small" style={{ color: 'var(--a-text-subtle)' }}>
+                  <BodyShort size="small" style={{ color: 'var(--ax-text-subtle)' }}>
                     Filtrerer bort inaktive brukere
                   </BodyShort>
                 </VStack>
@@ -91,7 +91,7 @@ export default function Stats() {
                         <Heading size="small" level="3">
                           {SETTING_LABELS[key] ?? key}
                         </Heading>
-                        <BodyShort size="small" style={{ color: 'var(--a-text-subtle)' }}>
+                        <BodyShort size="small" style={{ color: 'var(--ax-text-subtle)' }}>
                           {count} av {stats.activeUsers} ({pct}%)
                         </BodyShort>
                       </HStack>

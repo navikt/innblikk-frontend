@@ -13,7 +13,7 @@ import {
   Textarea,
   VStack,
 } from '@navikt/ds-react'
-import { PaperplaneIcon } from '@navikt/aksel-icons'
+import { PaperplaneIcon, PersonIcon, RobotSmileIcon } from '@navikt/aksel-icons'
 import type { KeyboardEvent } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -151,7 +151,7 @@ function TurnBubbles({ turn, onConfirmRun }: { turn: AssistantTurn; onConfirmRun
 
   return (
     <>
-      <Chat name="Deg" position="right" size="small" data-color="brand-beige">
+      <Chat name="Deg" position="right" size="small" data-color="brand-beige" avatar={<PersonIcon />}>
         <Chat.Bubble>{turn.question}</Chat.Bubble>
       </Chat>
 
@@ -172,7 +172,7 @@ function TurnBubbles({ turn, onConfirmRun }: { turn: AssistantTurn; onConfirmRun
         turn.status === 'confirm' ||
         turn.status === 'error' ||
         turn.status === 'done') && (
-        <Chat name="Copilot" size="small" data-color="brand-blue">
+        <Chat name="Copilot" size="small" data-color="brand-blue" avatar={<RobotSmileIcon />}>
           <Chat.Bubble>
             {turn.reply ? <CopilotReply text={turn.reply} /> : turn.status === 'thinking' ? 'Copilot tenker...' : ''}
           </Chat.Bubble>
@@ -330,7 +330,7 @@ export default function Copilot() {
   }
 
   return (
-    <Box background="default" className="flex h-screen w-full flex-col overflow-hidden">
+    <Box background="default" className="flex h-full w-full flex-col overflow-hidden">
       {/* Message thread — same max-w as the composer below, deliberately. Charts/tables render
           full-width relative to THIS container (see the "Deliberately NOT a `Chat.Bubble`"
           comment in TurnBubbles), not wider than it — a chat thread and its input field having

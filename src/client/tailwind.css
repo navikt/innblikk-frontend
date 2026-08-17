@@ -16,6 +16,32 @@
    of unstyled Markdown lists in Copilot chat bubbles (and every other `prose` usage in the app). */
 @config '../../tailwind.config.cjs';
 
+/* Tailwind Typography's `prose` class ships its own hardcoded gray color palette
+   (--tw-prose-body etc., defaulting to gray-700) that is completely independent of Aksel's
+   theme tokens — it doesn't know about `.dark`/`data-color`, so Copilot's markdown replies
+   rendered as plain gray text regardless of the surrounding Chat.Bubble's actual (theme-aware)
+   color, giving awful contrast in dark mode (gray-on-near-black). Overriding every `--tw-prose-*`
+   var to `currentColor`/Aksel tokens makes prose content inherit the bubble's real text color
+   instead of fighting it. */
+.prose {
+  --tw-prose-body: currentColor;
+  --tw-prose-headings: currentColor;
+  --tw-prose-lead: currentColor;
+  --tw-prose-links: currentColor;
+  --tw-prose-bold: currentColor;
+  --tw-prose-counters: currentColor;
+  --tw-prose-bullets: currentColor;
+  --tw-prose-hr: var(--ax-border-neutral-subtle);
+  --tw-prose-quotes: currentColor;
+  --tw-prose-quote-borders: var(--ax-border-neutral-subtle);
+  --tw-prose-captions: currentColor;
+  --tw-prose-code: currentColor;
+  --tw-prose-pre-code: currentColor;
+  --tw-prose-pre-bg: var(--ax-bg-neutral-soft);
+  --tw-prose-th-borders: var(--ax-border-neutral-subtle);
+  --tw-prose-td-borders: var(--ax-border-neutral-subtle);
+}
+
 /* ─── Micro-animations ───────────────────────────────────────────────────────
    animate-in: fade + slide up, used for filter cards in EventSelector and
    similar "appear" moments across the app.
