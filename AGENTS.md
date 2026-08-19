@@ -70,3 +70,16 @@ See `src/client/shared/ui/SidebarSection.tsx` (`sidebar-section` class) and `src
 **Fix applied:** removed `opacity` from `filter-card-in`'s keyframes, keeping only the `margin-top` slide (see the note already in `tailwind.css` about avoiding `transform` for the same class of reason — this extends it to `opacity`).
 
 **When to reapply:** before adding any entrance/exit animation utility, check whether its keyframes touch `opacity`, `transform`, `filter`, `backdrop-filter`, or `perspective`. If so, and the animated element sits next to (or before) a focusable control with a pseudo-element focus ring, expect this exact overlap bug. Prefer animating layout properties (`margin`, `max-height`) instead, or explicitly `z-index` the focus ring itself if the animation can't be avoided.
+
+<!-- cplt:sandbox begin -->
+<!-- Managed by cplt. Do not edit by hand between these markers — re-generated on every sandboxed launch. See below the block for how to add your own notes. -->
+
+## Sandbox
+
+Agents working in this repo are encouraged to run sandboxed (e.g. with [cplt](https://github.com/navikt/cplt) or an equivalent OS-level sandbox) rather than with full filesystem/network access.
+
+**Self-check:** if `$__CPLT_WRAPPED` (or an equivalent sandbox marker) is NOT set, you are running unsandboxed — tell the user and proceed conservatively: no credential reads, no remote-mutating git without explicit approval.
+
+**If you are sandboxed:** `EPERM` / `Operation not permitted` is a deliberate policy deny, not a transient error — don't retry or search for a workaround. Report it to the user with the exact command and path; they can adjust the sandbox config (e.g. `cplt trust`, `allow.read`/`allow.write`).
+
+<!-- cplt:sandbox end -->
