@@ -271,7 +271,9 @@ export function createFixtureBigQueryClient({ proxyBaseUrl, staticToken } = {}) 
     })
     if (!response.ok) {
       const body = await response.json().catch(() => ({}))
-      throw new Error(`BigQuery proxy failed (${response.status}): ${body.error || response.statusText}`)
+      throw new Error(
+        `BigQuery proxy failed (${response.status}): ${body.details || body.error || response.statusText}`,
+      )
     }
     return response.json()
   }

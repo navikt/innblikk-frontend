@@ -54,6 +54,9 @@ BigQuery-spørringer via reops-proxy sin bevoktede passthrough (ekte dev-data �
 trafikk, alt) med fixture-syntese kun som fallback hvis proxyen er nede. Uten token: rene
 fixture-data som før. Se `src/server/bigquery/fixtureClient.js`.
 
+> Passthroughen svarer kun for dev-prosjektet. Sett ikke `GCP_PROJECT_ID` til prod lokalt —
+> da avvises spørringene og du får fixture-data i stedet.
+
 Du er trygg: alt kjører mot dev-miljøet (se "Dev"/"Localhost"-merket øverst i appen), ingen
 handlinger her påvirker ekte brukere eller produksjonsdata, og verken BigQuery- eller
 Gemini-widgetene kjører noen gang ekte spørringer/kall uten GCP-legitimasjon.

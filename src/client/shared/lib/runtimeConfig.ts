@@ -4,10 +4,12 @@ export type RuntimeConfig = {
 }
 
 // Non-sensitive defaults. GCP_PROJECT_ID is a BigQuery project identifier
-// (not a credential) and is the same value across dev/prod for this app —
-// safe to bake in so the app works out of the box without runtime injection
-// (e.g. local dev without .env, CI/test environments, etc.). Can still be
-// overridden via VITE_GCP_PROJECT_ID or window.__RUNTIME_CONFIG__.
+// (not a credential). The default is the PROD project — it's the baked-in
+// fallback for the deployed app if runtime injection ever goes missing
+// (prod querying prod is always safe; prod querying dev would be a bug).
+// Can be overridden via VITE_GCP_PROJECT_ID or window.__RUNTIME_CONFIG__ —
+// the server always injects its own GCP_PROJECT_ID (dev locally, see env.js),
+// so this default effectively never fires outside tests.
 const DEFAULT_RUNTIME_CONFIG: Required<Pick<RuntimeConfig, 'GCP_PROJECT_ID'>> = {
   GCP_PROJECT_ID: 'team-researchops-prod-01d6',
 }
