@@ -13,14 +13,14 @@ import { createCompositionRoutes } from './compositionRoutes.js'
 import { createPrivacyRoutes } from './privacyRoutes.js'
 import { createUserProfileRoutes } from './userProfileRoutes.js'
 
-export function createBigQueryRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE, BIGQUERY_PROXY_BASE_URL }) {
+export function createBigQueryRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE }) {
   const router = express.Router()
 
   router.use(createDiagnosisRouter({ bigquery, GCP_PROJECT_ID }))
   router.use(createSqlRouter({ bigquery }))
   router.use(createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE }))
   router.use(createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE }))
-  router.use(createWebsiteRoutes({ bigquery, GCP_PROJECT_ID, BIGQUERY_PROXY_BASE_URL }))
+  router.use(createWebsiteRoutes({ bigquery, GCP_PROJECT_ID }))
   router.use(createJourneyRoutes({ bigquery, GCP_PROJECT_ID }))
   router.use(createFunnelRoutes({ bigquery, GCP_PROJECT_ID }))
   router.use(createRetentionRoutes({ bigquery, GCP_PROJECT_ID }))

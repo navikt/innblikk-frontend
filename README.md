@@ -49,10 +49,10 @@ selv når spørringene/appen endres — ingen håndskrevet mock-data å vedlikeh
 eksperimentelt Team ResearchOps-only-verktøy, men team-medlemsjekken hoppes automatisk over i
 fixture-modus — du trenger ikke stå i Team-katalogen for å se hvordan funksjonen ser ut.
 
-**Unntak fra fixture-data: nettsidelisten.** En sporingskode må peke på en ekte registrert
-nettside, så dette ene oppslaget (`/api/bigquery/websites`) hentes via reops-proxy sin
-bevoktede BigQuery-passthrough i stedet (samme `BACKEND_TOKEN`, se
-`src/server/routes/bigquery/websiteRoutes.js`). Alt annet forblir fixture.
+**Unntak fra fixture-data:** er `BACKEND_TOKEN` satt, proxyer fixture-klienten alle
+BigQuery-spørringer via reops-proxy sin bevoktede passthrough (ekte dev-data — nettsideliste,
+trafikk, alt) med fixture-syntese kun som fallback hvis proxyen er nede. Uten token: rene
+fixture-data som før. Se `src/server/bigquery/fixtureClient.js`.
 
 Du er trygg: alt kjører mot dev-miljøet (se "Dev"/"Localhost"-merket øverst i appen), ingen
 handlinger her påvirker ekte brukere eller produksjonsdata, og verken BigQuery- eller
@@ -112,15 +112,15 @@ pnpm run dev
 
 ## Miljøvariabler
 
-| Variabel                         | Påkrevd | Beskrivelse                                                                                                                                                 |
-| -------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GCP_PROJECT_ID`                 | Nei     | GCP-prosjekt-ID for BigQuery-spørringer (standard: dev-prosjektet lokalt)                                                                                   |
-| `SITEIMPROVE_BASE_URL`           | Prod    | Base URL for Siteimprove-proxyen (ikke satt lokalt → proxyen feiler grasiøst)                                                                               |
-| `BACKEND_BASE_URL`               | Nei     | Overstyrer backend-URL (standard: dev-miljøet, ansatt-nett-tilgjengelig)                                                                                    |
-| `MOCK_NAV_IDENT`                 | Lokalt  | Mocker innlogget bruker — bruk din egen Z-bruker, ikke en placeholder                                                                                       |
-| `GOOGLE_APPLICATION_CREDENTIALS` | Nei     | Sti til GCP-nøkkelfil. Uten denne brukes BigQuery-fixture-data lokalt                                                                                       |
-| `BACKEND_TOKEN`                  | Bane A  | Delt dev-only bearer-token mot ekte dev-backend (`/api/backend/*`) og reops-proxy sitt nettsideoppslag. Hentes fra teamet via sikker kanal, aldri commitet. |
-| `BIGQUERY_PROXY_BASE_URL`        | Nei     | Hvor nettsideliste-oppslaget sendes i fixture-modus (standard: `https://reops-proxy.ekstern.dev.nav.no`)                                                    |
+| Variabel                         | Påkrevd | Beskrivelse                                                                                                                                                     |
+| -------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GCP_PROJECT_ID`                 | Nei     | GCP-prosjekt-ID for BigQuery-spørringer (standard: dev-prosjektet lokalt)                                                                                       |
+| `SITEIMPROVE_BASE_URL`           | Prod    | Base URL for Siteimprove-proxyen (ikke satt lokalt → proxyen feiler grasiøst)                                                                                   |
+| `BACKEND_BASE_URL`               | Nei     | Overstyrer backend-URL (standard: dev-miljøet, ansatt-nett-tilgjengelig)                                                                                        |
+| `MOCK_NAV_IDENT`                 | Lokalt  | Mocker innlogget bruker — bruk din egen Z-bruker, ikke en placeholder                                                                                           |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Nei     | Sti til GCP-nøkkelfil. Uten denne brukes BigQuery-fixture-data lokalt                                                                                           |
+| `BACKEND_TOKEN`                  | Bane A  | Delt dev-only bearer-token mot ekte dev-backend (`/api/backend/*`) og reops-proxy sin BigQuery-passthrough. Hentes fra teamet via sikker kanal, aldri commitet. |
+| `BIGQUERY_PROXY_BASE_URL`        | Nei     | Hvor BigQuery-spørringer sendes i fixture-modus (standard: `https://reops-proxy.ekstern.dev.nav.no`)                                                            |
 
 ---
 

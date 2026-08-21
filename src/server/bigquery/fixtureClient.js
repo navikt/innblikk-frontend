@@ -247,24 +247,93 @@ function buildFakeJob(query, dryRun) {
   }
 }
 
-export function createFixtureBigQueryClient() {
+export function createFixtureBigQueryClient({ proxyBaseUrl, staticToken } = {}) {
+  // With proxyBaseUrl + staticToken configured (path A: BACKEND_TOKEN set locally, default
+  // BIGQUERY_PROXY_BASE_URL), the "fixture" client is upgraded to a passthrough: every query
+  // is forwarded to reops-proxy's guarded /bigquery/query endpoint and answered with REAL dev
+  // BigQuery data. Synthesis below remains as the fallback when unconfigured or unreachable.
+  const useProxy = Boolean(proxyBaseUrl && staticToken)
   logger.warn(
-    '[BigQuery] No GCP credentials found locally — using FIXTURE data (deterministic, synthetic, no real BigQuery access). ' +
-      'Set GOOGLE_APPLICATION_CREDENTIALS to query real dev BigQuery instead.',
+    useProxy
+      ? `[BigQuery] No GCP credentials locally — proxying queries to ${proxyBaseUrl} (real dev data, token-guarded). ` +
+          'Fixture synthesis only as fallback if the proxy is unreachable.'
+      : '[BigQuery] No GCP credentials found locally — using FIXTURE data (deterministic, synthetic, no real BigQuery access). ' +
+          'Set GOOGLE_APPLICATION_CREDENTIALS to query real dev BigQuery instead.',
   )
+
+  const authHeader = staticToken?.toLowerCase().startsWith('bearer ') ? staticToken : `Bearer ${staticToken}`
+
+  async function proxyQuery({ query, params, dryRun }) {
+    const response = await fetch(new URL('/bigquery/query', proxyBaseUrl), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: authHeader },
+      body: JSON.stringify({ query, params, dryRun: dryRun === true }),
+    })
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}))
+      throw new Error(`BigQuery proxy failed (${response.status}): ${body.error || response.statusText}`)
+    }
+    return response.json()
+  }
 
   return {
     __isFixtureClient: true,
 
     async createQueryJob(config) {
       assertReadOnly(config.query)
-      const job = buildFakeJob(config.query, config.dryRun === true)
-      return [job]
+      if (useProxy) {
+        try {
+          const result = await proxyQuery({ query: config.query, params: config.params, dryRun: config.dryRun })
+          if (config.dryRun === true) {
+            const bytes = String(result.totalBytesProcessed ?? 0)
+            return [
+              {
+                metadata: {
+                  statistics: {
+                    totalBytesProcessed: bytes,
+                    query: { totalBytesBilled: bytes, cacheHit: false },
+                  },
+                },
+                async getQueryResults() {
+                  return [[]]
+                },
+              },
+            ]
+          }
+          const rows = result.data
+          return [buildRowsJob(config.query, rows)]
+        } catch (err) {
+          logger.warn({ error: err.message ?? err }, '[BigQuery] Proxy failed, falling back to fixture synthesis')
+        }
+      }
+      return [buildFakeJob(config.query, config.dryRun === true)]
     },
 
     async query(config) {
       assertReadOnly(config.query)
+      if (useProxy) {
+        try {
+          const result = await proxyQuery({ query: config.query, params: config.params })
+          return [result.data]
+        } catch (err) {
+          logger.warn({ error: err.message ?? err }, '[BigQuery] Proxy failed, falling back to fixture synthesis')
+        }
+      }
       return [synthesizeRows(config.query, config.params)]
+    },
+  }
+}
+
+function buildRowsJob(query, rows) {
+  return {
+    metadata: {
+      statistics: {
+        totalBytesProcessed: String(fakeBytesProcessed(query)),
+        query: { totalBytesBilled: String(fakeBytesProcessed(query)), cacheHit: false },
+      },
+    },
+    async getQueryResults() {
+      return [rows]
     },
   }
 }

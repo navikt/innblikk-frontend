@@ -35,7 +35,11 @@ const buildPath = path.resolve(__dirname, 'dist')
 const app = createApp({ buildPath })
 
 // Initialize BigQuery client
-const bigquery = createBigQueryClient({ projectId: GCP_PROJECT_ID, dirname: __dirname })
+const bigquery = createBigQueryClient({
+  projectId: GCP_PROJECT_ID,
+  dirname: __dirname,
+  proxyBaseUrl: BIGQUERY_PROXY_BASE_URL,
+})
 
 // Initialize Gemini client (experimental /copilot chat)
 const genai = createGenAIClient({ projectId: GCP_PROJECT_ID, location: GEMINI_LOCATION, dirname: __dirname })
@@ -75,7 +79,7 @@ app.use('/api/user', createUserRouter({ BACKEND_BASE_URL }))
 app.use('/api/backend', createBackendProxyRouter({ BACKEND_BASE_URL }))
 
 // BigQuery routes (router paths already include /api/bigquery)
-app.use(createBigQueryRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE, BIGQUERY_PROXY_BASE_URL }))
+app.use(createBigQueryRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE }))
 
 // Clickmap preview
 app.use('/api', createClickmapPreviewRouter())

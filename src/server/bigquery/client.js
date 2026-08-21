@@ -4,11 +4,11 @@ import { logger } from '../logger.js'
 import { createFixtureBigQueryClient } from './fixtureClient.js'
 import { hasNoLocalGcpCredentials } from '../gcpCredentials.js'
 
-export function createBigQueryClient({ projectId, dirname }) {
+export function createBigQueryClient({ projectId, dirname, proxyBaseUrl }) {
   const isProduction = process.env.NODE_ENV === 'production'
 
   if (!isProduction && hasNoLocalGcpCredentials(dirname)) {
-    return createFixtureBigQueryClient()
+    return createFixtureBigQueryClient({ proxyBaseUrl, staticToken: process.env.BACKEND_TOKEN })
   }
 
   let bigquery
