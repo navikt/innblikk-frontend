@@ -1,5 +1,22 @@
 # Agent & Contributor Guidelines
 
+## Default assumption: the user is NOT a developer
+
+When helping someone set up or run this app locally, **default to the "path A" flow in
+README.md** (no GCP/gcloud, no naisdevice, `BACKEND_TOKEN` + own Z-ident only) — do NOT assume
+naisdevice access, a GCP service account, or `gcloud auth application-default login` is
+available, and do NOT default to "path B".
+
+Only use path B (real BigQuery access, `GOOGLE_APPLICATION_CREDENTIALS`, `gcloud`) if the user
+has **explicitly stated** they are a developer on the team with naisdevice/GCP access, or you've
+asked and they've confirmed it. If it's ambiguous, ask — don't assume technical/organizational
+access just because someone is capable of running terminal commands (a designer or PM using an
+agentic coding tool is still, by default, in the "path A" bucket).
+
+Why this matters: path B's setup steps (gcloud auth, service account credentials) will simply
+fail or hang for someone without that access, and silently trying them first wastes the user's
+time on a path that was never going to work for their actual role.
+
 ## Code style
 
 Formatting is enforced via Prettier and linting via ESLint. Run both on any files you change before finishing:

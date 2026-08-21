@@ -1,8 +1,16 @@
 import path from 'path'
 import { BigQuery } from '@google-cloud/bigquery'
 import { logger } from '../logger.js'
+import { createFixtureBigQueryClient } from './fixtureClient.js'
+import { hasNoLocalGcpCredentials } from '../gcpCredentials.js'
 
 export function createBigQueryClient({ projectId, dirname }) {
+  const isProduction = process.env.NODE_ENV === 'production'
+
+  if (!isProduction && hasNoLocalGcpCredentials(dirname)) {
+    return createFixtureBigQueryClient()
+  }
+
   let bigquery
   try {
     const bqConfig = {

@@ -1,5 +1,7 @@
 import { GoogleGenAI } from '@google/genai'
 import { logger } from '../logger.js'
+import { createFixtureGenAIClient } from './fixtureClient.js'
+import { hasNoLocalGcpCredentials } from '../gcpCredentials.js'
 
 /**
  * Creates a Gemini Enterprise Agent Platform (formerly "Vertex AI") client.
@@ -9,8 +11,17 @@ import { logger } from '../logger.js'
  * 1. `bigquery-credentials` secret (NAIS)
  * 2. `GOOGLE_APPLICATION_CREDENTIALS` key file path (local dev)
  * 3. Fall back to Application Default Credentials resolved by google-auth-library
+ *
+ * When none of those are present locally (and NODE_ENV isn't production), returns a fixture
+ * client instead (see `genai/fixtureClient.js`) — same rationale as the BigQuery fixture:
+ * lets a contributor without GCP access exercise the whole Copilot feature, including tool
+ * calls and cost estimation, without ever making a real (and here, doomed to fail) Gemini call.
  */
-export function createGenAIClient({ projectId, location }) {
+export function createGenAIClient({ projectId, location, dirname }) {
+  if (process.env.NODE_ENV !== 'production' && hasNoLocalGcpCredentials(dirname)) {
+    return createFixtureGenAIClient({ projectId })
+  }
+
   try {
     const config = { enterprise: true, project: projectId, location }
 
