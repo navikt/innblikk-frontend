@@ -49,6 +49,11 @@ selv når spørringene/appen endres — ingen håndskrevet mock-data å vedlikeh
 eksperimentelt Team ResearchOps-only-verktøy, men team-medlemsjekken hoppes automatisk over i
 fixture-modus — du trenger ikke stå i Team-katalogen for å se hvordan funksjonen ser ut.
 
+**Unntak fra fixture-data: nettsidelisten.** En sporingskode må peke på en ekte registrert
+nettside, så dette ene oppslaget (`/api/bigquery/websites`) hentes via reops-proxy sin
+bevoktede BigQuery-passthrough i stedet (samme `BACKEND_TOKEN`, se
+`src/server/routes/bigquery/websiteRoutes.js`). Alt annet forblir fixture.
+
 Du er trygg: alt kjører mot dev-miljøet (se "Dev"/"Localhost"-merket øverst i appen), ingen
 handlinger her påvirker ekte brukere eller produksjonsdata, og verken BigQuery- eller
 Gemini-widgetene kjører noen gang ekte spørringer/kall uten GCP-legitimasjon.
@@ -56,7 +61,8 @@ Gemini-widgetene kjører noen gang ekte spørringer/kall uten GCP-legitimasjon.
 > `BACKEND_TOKEN` er validert av [innblikk-backend](https://github.com/navikt/innblikk-backend)'s
 > `LocalDevTokenAuthFilter` (dev-only, never active in prod — see that file for the full
 > threat-model writeup) as an alternative to the normal Azure AD OBO flow, scoped to a narrow
-> allowlist of endpoints (not the full API).
+> allowlist of endpoints (not the full API). Samme token valideres også av reops-proxy (dev) for
+> det read-only nettsideliste-oppslaget beskrevet over.
 
 ### B) Full lokal utvikling (inkludert ekte BigQuery-analyse)
 
@@ -106,38 +112,28 @@ pnpm run dev
 
 ## Miljøvariabler
 
-| Variabel                         | Påkrevd | Beskrivelse                                                                                                                                                                                                                  |
-| -------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GCP_PROJECT_ID`                 | Nei     | GCP-prosjekt-ID for BigQuery-spørringer (standard: dev-prosjektet lokalt)                                                                                                                                                    |
-| `SITEIMPROVE_BASE_URL`           | Prod    | Base URL for Siteimprove-proxyen (ikke satt lokalt → proxyen feiler grasiøst)                                                                                                                                                |
-| `BACKEND_BASE_URL`               | Nei     | Overstyrer backend-URL (standard: dev-miljøet, ansatt-nett-tilgjengelig)                                                                                                                                                     |
-| `MOCK_NAV_IDENT`                 | Lokalt  | Mocker innlogget bruker — bruk din egen Z-bruker, ikke en placeholder                                                                                                                                                        |
-| `GOOGLE_APPLICATION_CREDENTIALS` | Nei     | Sti til GCP-nøkkelfil. Uten denne brukes BigQuery-fixture-data lokalt                                                                                                                                                        |
-| `BACKEND_TOKEN`                  | Bane A  | Delt dev-only bearer-token for `/api/backend/*` mot ekte dev-backend. Hentes fra teamet via sikker kanal, aldri commitet. Kun nødvendig når `BACKEND_BASE_URL` peker mot dev-miljøet uten Azure AD-innlogging (dvs. bane A). |
+| Variabel                         | Påkrevd | Beskrivelse                                                                                                                                                 |
+| -------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GCP_PROJECT_ID`                 | Nei     | GCP-prosjekt-ID for BigQuery-spørringer (standard: dev-prosjektet lokalt)                                                                                   |
+| `SITEIMPROVE_BASE_URL`           | Prod    | Base URL for Siteimprove-proxyen (ikke satt lokalt → proxyen feiler grasiøst)                                                                               |
+| `BACKEND_BASE_URL`               | Nei     | Overstyrer backend-URL (standard: dev-miljøet, ansatt-nett-tilgjengelig)                                                                                    |
+| `MOCK_NAV_IDENT`                 | Lokalt  | Mocker innlogget bruker — bruk din egen Z-bruker, ikke en placeholder                                                                                       |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Nei     | Sti til GCP-nøkkelfil. Uten denne brukes BigQuery-fixture-data lokalt                                                                                       |
+| `BACKEND_TOKEN`                  | Bane A  | Delt dev-only bearer-token mot ekte dev-backend (`/api/backend/*`) og reops-proxy sitt nettsideoppslag. Hentes fra teamet via sikker kanal, aldri commitet. |
+| `BIGQUERY_PROXY_BASE_URL`        | Nei     | Hvor nettsideliste-oppslaget sendes i fixture-modus (standard: `https://reops-proxy.ansatt.dev.nav.no`)                                                     |
 
 ---
 
 ## Opprette/rotere `BACKEND_TOKEN` (for team-researchops)
 
-`BACKEND_TOKEN` valideres backend-side av `LocalDevTokenAuthFilter` i
-[innblikk-backend](https://github.com/navikt/innblikk-backend), lest fra en secret i
-`team-researchops`-namespacet i `dev-gcp`-clusteret.
+`BACKEND_TOKEN` valideres av `LocalDevTokenAuthFilter` i
+[innblikk-backend](https://github.com/navikt/innblikk-backend) og av reops-proxy (dev).
+Begge leser secret `innblikk-dev-local-token` i `team-researchops` (dev-gcp).
 
-Opprett/oppdater via [Nais-konsollet](https://console.nav.cloud.nais.io/):
-
-1. **Secrets** → **Create New Secret**
-2. **Environment**: `dev-gcp`
-3. **Name**: `umami-backend-dev-local-token`
-4. Legg til én key/value:
-   - **Key**: `DEV_LOCAL_AUTH_TOKEN`
-   - **Value**: en tilfeldig verdi, f.eks. generert lokalt med `openssl rand -hex 32`
-     (krever ingen cluster-tilgang, kun `openssl` lokalt) — lim inn resultatet som verdi.
-
-Oppdaterer du en eksisterende secret (rotasjon): samme navn/miljø, bare bytt ut verdien på
-`DEV_LOCAL_AUTH_TOKEN`-nøkkelen.
-
-Etter opprettelse/rotasjon: redeploy `start-umami-backend` (dev) slik at poden plukker opp den
-nye verdien via `envFrom` (se `.nais/dev/nais-dev.yaml` i innblikk-backend).
+Opprett/rotér via [Nais-konsollet](https://console.nav.cloud.nais.io/): secret
+`innblikk-dev-local-token` i `dev-gcp` med key `DEV_LOCAL_AUTH_TOKEN`, verdi f.eks.
+`openssl rand -hex 32`. Redeploy `start-umami-backend` og `reops-proxy` etterpå.
+Del aldri tokenet i Slack/e-post/git.
 
 Del den nye verdien via en sikker kanal (passordvelv e.l.) — aldri Slack/e-post/git. Roter ved
 mistanke om lekkasje eller når noen som har hatt tokenet slutter/bytter rolle.

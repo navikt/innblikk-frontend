@@ -119,20 +119,27 @@ export function createBackendProxyRouter({ BACKEND_BASE_URL }) {
 
   const resolveAuthorizationHeader = async (req) => {
     const oboToken = await getOboToken(req)
+
+    // Static dev token (BACKEND_TOKEN, path A local dev) takes priority over the
+    // service-token attempt: when it's configured, the service-token endpoint
+    // (http://localhost:8080/issueissue/token — local Spring backend flow) is by
+    // definition not in play, so attempting it first would just cost every proxied
+    // request a failed network round-trip plus a noisy warning log for nothing.
+    const staticAuthorization =
+      staticBackendToken && !req.headers.authorization && !oboToken
+        ? staticBackendToken.toLowerCase().startsWith('bearer ')
+          ? staticBackendToken
+          : `Bearer ${staticBackendToken}`
+        : null
+
     let serviceToken = null
-    if (!req.headers.authorization && !oboToken) {
+    if (!req.headers.authorization && !oboToken && !staticAuthorization) {
       try {
         serviceToken = await getServiceToken()
       } catch (tokenErr) {
         logger.warn({ error: tokenErr.message ?? tokenErr }, 'Failed to fetch service token, falling back if possible')
       }
     }
-    const staticAuthorization =
-      staticBackendToken && !req.headers.authorization && !oboToken && !serviceToken
-        ? staticBackendToken.toLowerCase().startsWith('bearer ')
-          ? staticBackendToken
-          : `Bearer ${staticBackendToken}`
-        : null
 
     const authorization =
       (oboToken ? `Bearer ${oboToken}` : undefined) ||

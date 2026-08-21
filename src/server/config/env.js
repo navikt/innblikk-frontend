@@ -23,11 +23,11 @@ export const BACKEND_BASE_URL = normalizeBaseUrl(
 // Same rationale as BACKEND_BASE_URL/GCP_PROJECT_ID above for GCP_PROJECT_ID: default to the
 // real dev value locally so a contributor can `pnpm run server` with zero config.
 //
-// SITEIMPROVE_BASE_URL has no such default: the dev value is a cluster-internal DNS name
-// (reops-proxy.team-researchops.svc.cluster.local, only resolvable inside the Nais cluster),
-// there is no known ansatt/intern-reachable equivalent to fall back to. Left unset locally —
-// the siteimprove proxy route degrades gracefully per-request instead (see
-// siteimproveRoutes.js), same as any other unreachable upstream.
+// SITEIMPROVE_BASE_URL has no such default: the value points at reops-proxy's Siteimprove
+// sub-routes, and hitting its ansatt ingress (reops-proxy.ansatt.dev.nav.no/siteimprove) from
+// a path-A laptop would need the shared dev token — which that proxy doesn't require for
+// Siteimprove today. Left unset locally — the siteimprove proxy route degrades gracefully
+// per-request instead (see siteimproveRoutes.js), same as any other unreachable upstream.
 const isProduction = process.env.NODE_ENV === 'production'
 const defaultDevGcpProjectId = isProduction ? undefined : 'team-researchops-dev-4396'
 
@@ -36,6 +36,18 @@ export const SITEIMPROVE_BASE_URL = normalizeBaseUrl(
 )
 export const GCP_PROJECT_ID = process.env.GCP_PROJECT_ID || process.env.VITE_GCP_PROJECT_ID || defaultDevGcpProjectId
 export const BACKEND_WS_HOST = process.env.BACKEND_WS_HOST || undefined
+
+// Where a path-A local server (BigQuery fixture mode, no GCP creds) sends the few
+// read-only reference-data lookups that must return REAL dev data (currently just the
+// registered website list — see websiteRoutes.js). reops-proxy is a dedicated guarded
+// passthrough app: no Azure sidecar, gated only by the shared dev-only static token
+// (BACKEND_TOKEN locally — same secret as innblikk-backend's DEV_LOCAL_AUTH_TOKEN).
+// Only ever used when the fixture client is active, so prod/deployed instances never
+// take this path.
+const defaultBigQueryProxyBaseUrl = isProduction ? undefined : 'https://reops-proxy.ansatt.dev.nav.no'
+export const BIGQUERY_PROXY_BASE_URL = normalizeBaseUrl(
+  process.env.BIGQUERY_PROXY_BASE_URL || defaultBigQueryProxyBaseUrl,
+)
 
 // Gemini Enterprise Agent Platform (formerly "Vertex AI") — used by the experimental /copilot chat.
 // Swap the model later via env var.

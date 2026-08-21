@@ -24,6 +24,7 @@ import {
   GCP_PROJECT_ID,
   GEMINI_LOCATION,
   GEMINI_MODEL,
+  BIGQUERY_PROXY_BASE_URL,
 } from './src/server/config/env.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -74,7 +75,7 @@ app.use('/api/user', createUserRouter({ BACKEND_BASE_URL }))
 app.use('/api/backend', createBackendProxyRouter({ BACKEND_BASE_URL }))
 
 // BigQuery routes (router paths already include /api/bigquery)
-app.use(createBigQueryRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE }))
+app.use(createBigQueryRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE, BIGQUERY_PROXY_BASE_URL }))
 
 // Clickmap preview
 app.use('/api', createClickmapPreviewRouter())
