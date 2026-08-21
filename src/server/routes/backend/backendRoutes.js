@@ -616,6 +616,10 @@ export function createBackendProxyRouter({ BACKEND_BASE_URL }) {
         'upgrade',
         // Avoid conflicts when Express re-calculates payload length on res.send(data)
         'content-length',
+        // fetch() already decompressed the body for us — forwarding the upstream
+        // content-encoding (e.g. gzip) makes the browser try to gunzip plain text
+        // (ERR_CONTENT_DECODING_FAILED).
+        'content-encoding',
       ])
       response.headers.forEach((value, key) => {
         if (!hopByHopHeaders.has(key.toLowerCase())) {
