@@ -120,7 +120,7 @@ pnpm run dev
 | `MOCK_NAV_IDENT`                 | Lokalt  | Mocker innlogget bruker — bruk din egen Z-bruker, ikke en placeholder                                                                                       |
 | `GOOGLE_APPLICATION_CREDENTIALS` | Nei     | Sti til GCP-nøkkelfil. Uten denne brukes BigQuery-fixture-data lokalt                                                                                       |
 | `BACKEND_TOKEN`                  | Bane A  | Delt dev-only bearer-token mot ekte dev-backend (`/api/backend/*`) og reops-proxy sitt nettsideoppslag. Hentes fra teamet via sikker kanal, aldri commitet. |
-| `BIGQUERY_PROXY_BASE_URL`        | Nei     | Hvor nettsideliste-oppslaget sendes i fixture-modus (standard: `https://reops-proxy.ansatt.dev.nav.no`)                                                     |
+| `BIGQUERY_PROXY_BASE_URL`        | Nei     | Hvor nettsideliste-oppslaget sendes i fixture-modus (standard: `https://reops-proxy.dev.nav.no`)                                                            |
 
 ---
 
