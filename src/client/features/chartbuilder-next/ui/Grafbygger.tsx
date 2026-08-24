@@ -227,40 +227,6 @@ const ChartsPage = () => {
                   }}
                   isEventsLoading={isEventsLoading}
                 />
-                <div className="mt-2">
-                  <ToggleOption
-                    label="Overstyr tidsperiode"
-                    description={
-                      interactiveDateFilterEnabled
-                        ? 'Bruker de siste 7 dagene som standard'
-                        : 'Velg en annen periode enn standarden (siste 7 dager)'
-                    }
-                    checked={!interactiveDateFilterEnabled}
-                    panelClassName="filter-card-animate-in rounded-md border border-(--ax-border-neutral-subtle) bg-(--ax-bg-default) px-3 py-3"
-                    panelWrapperClassName="mt-2"
-                    onChange={(overrideEnabled) => {
-                      setInteractiveDateFilterEnabled(!overrideEnabled)
-                      if (!overrideEnabled) {
-                        // Back to automatic default (last 7 days) — clear any
-                        // custom range so useChartConfig's fallback kicks back in.
-                        setFilters(filters.filter((f) => f.column !== 'created_at'))
-                        setSelectedDateRange('all')
-                      }
-                    }}
-                  >
-                    <DateRangeSelector
-                      filters={filters}
-                      setFilters={setFilters}
-                      maxDaysAvailable={maxDaysAvailable}
-                      selectedDateRange={selectedDateRange}
-                      setSelectedDateRange={setSelectedDateRange}
-                      customPeriodInputs={customPeriodInputs}
-                      setCustomPeriodInputs={setCustomPeriodInputs}
-                      interactiveMode={false}
-                      bare
-                    />
-                  </ToggleOption>
-                </div>
               </SidebarSection>
 
               <SidebarSection
@@ -401,6 +367,40 @@ const ChartsPage = () => {
           </ExpansionCard.Header>
           <ExpansionCard.Content>
             <div ref={setKolonnenavnContainer} />
+            <div className="mb-4">
+              <ToggleOption
+                label="Overstyr tidsperiode"
+                description={
+                  interactiveDateFilterEnabled
+                    ? 'Bruker de siste 7 dagene som standard'
+                    : 'Velg en annen periode enn standarden (siste 7 dager)'
+                }
+                checked={!interactiveDateFilterEnabled}
+                panelClassName="filter-card-animate-in rounded-md border border-(--ax-border-neutral-subtle) bg-(--ax-bg-default) px-3 py-3"
+                panelWrapperClassName="mt-2"
+                onChange={(overrideEnabled) => {
+                  setInteractiveDateFilterEnabled(!overrideEnabled)
+                  if (!overrideEnabled) {
+                    // Back to automatic default (last 7 days) — clear any
+                    // custom range so useChartConfig's fallback kicks back in.
+                    setFilters(filters.filter((f) => f.column !== 'created_at'))
+                    setSelectedDateRange('all')
+                  }
+                }}
+              >
+                <DateRangeSelector
+                  filters={filters}
+                  setFilters={setFilters}
+                  maxDaysAvailable={maxDaysAvailable}
+                  selectedDateRange={selectedDateRange}
+                  setSelectedDateRange={setSelectedDateRange}
+                  customPeriodInputs={customPeriodInputs}
+                  setCustomPeriodInputs={setCustomPeriodInputs}
+                  interactiveMode={false}
+                  bare
+                />
+              </ToggleOption>
+            </div>
             <ResultsDisplayOptions
               orderBy={config.orderBy}
               setOrderBy={setOrderBy}

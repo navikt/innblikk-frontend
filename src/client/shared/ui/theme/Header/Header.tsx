@@ -55,7 +55,7 @@ export default function Header({ theme }: HeaderProps) {
     { href: '/sporingskoder', label: 'Sporingskoder' },
     { href: '/sql', label: 'SQL-spørringer' },
     { href: '/personvernssjekk', label: 'Personvernsjekk' },
-    { href: '/kohorter', label: 'Brukergrupper' },
+    { href: '/brukergrupper', label: 'Brukergrupper' },
     ...(isReopsTeamMember ? [{ href: '/reops-internal', label: 'ReOps-internt' }] : []),
   ]
 

@@ -7,10 +7,16 @@ import type { CohortPickerRef } from './CohortPicker.tsx'
 import { fetchCohorts } from '../../api/cohortApi.ts'
 import type { CohortDto } from '../../../../shared/types/cohort.ts'
 
-vi.mock('../../api/cohortApi.ts', () => ({
-  fetchCohorts: vi.fn(),
-  fetchCohortDetail: vi.fn(),
-}))
+vi.mock('../../api/cohortApi.ts', async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    fetchCohorts: vi.fn(),
+    fetchCohortDetail: vi.fn(),
+    // Selected cohorts have no criteria trees in these tests — never time-based.
+    fetchCohortsDeep: vi.fn().mockResolvedValue(new Map()),
+  }
+})
 
 const mockFetchCohorts = vi.mocked(fetchCohorts)
 

@@ -24,6 +24,27 @@ function collectReferencedCohortIds(node: CohortNode | null): number[] {
 }
 
 /**
+ * True when the cohort's criteria tree references event time — either an
+ * explicit «Tidspunkt» (created_at BETWEEN) condition, or a SEQUENCE node
+ * (which is inherently time-windowed even without a Tidspunkt step).
+ * Used to show the "Tidspunkt only decides membership, not the chart's
+ * period" hint only for cohorts it actually applies to.
+ */
+export function cohortUsesTimeCriterion(node: CohortNode | null): boolean {
+  if (!node) return false
+  switch (node.nodeType) {
+    case 'GROUP':
+      return node.children.some(cohortUsesTimeCriterion)
+    case 'CONDITION':
+      return node.field === 'created_at'
+    case 'SEQUENCE':
+      return true
+    case 'COHORT_REF':
+      return false
+  }
+}
+
+/**
  * Fetches the given cohorts plus every cohort they (transitively) reference
  * via COHORT_REF nodes, so the SQL resolver can inline referenced cohorts'
  * criteria instead of falling back to "matches everyone" for unknown refs.

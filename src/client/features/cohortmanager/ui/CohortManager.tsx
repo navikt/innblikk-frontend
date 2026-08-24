@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Button, Dialog, Heading, Loader, Alert, Table, TextField, VStack, HStack, BodyShort } from '@navikt/ds-react'
-import { PlusIcon, TrashIcon, PencilIcon, FunnelIcon, ArchiveIcon, ArrowUndoIcon } from '@navikt/aksel-icons'
+import { Button, Dialog, Heading, Loader, Alert, Table, VStack, HStack, BodyShort } from '@navikt/ds-react'
+import { PlusIcon, TrashIcon, PencilIcon, ArchiveIcon, ArrowUndoIcon } from '@navikt/aksel-icons'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { fetchWebsites } from '../../../shared/api/websiteApi.ts'
@@ -9,8 +9,6 @@ import type { Website } from '../../../shared/types/website.ts'
 import {
   listCohorts,
   getCohort,
-  createCohort,
-  updateCohort,
   deleteCohort,
   listTrashedCohorts,
   restoreCohort,
@@ -33,19 +31,9 @@ export default function CohortManager() {
   const [cohortsLoading, setCohortsLoading] = useState(false)
   const [cohortsError, setCohortsError] = useState<string | null>(null)
 
-  // Create dialog
-  const [createOpen, setCreateOpen] = useState(false)
-  const [newName, setNewName] = useState('')
-  const [newDescription, setNewDescription] = useState('')
-  const [createError, setCreateError] = useState<string | null>(null)
-  const [creating, setCreating] = useState(false)
-
-  // Edit dialog
-  const [editTarget, setEditTarget] = useState<CohortDto | null>(null)
-  const [editName, setEditName] = useState('')
-  const [editDescription, setEditDescription] = useState('')
-  const [editError, setEditError] = useState<string | null>(null)
-  const [editSaving, setEditSaving] = useState(false)
+  // Unified create/edit dialog — null = closed, 'new' = create, otherwise the cohort being edited
+  const [editorTarget, setEditorTarget] = useState<CohortDetailDto | 'new' | null>(null)
+  const [editorLoading, setEditorLoading] = useState(false)
 
   // Delete dialog
   const [deleteTarget, setDeleteTarget] = useState<CohortDto | null>(null)
@@ -59,10 +47,6 @@ export default function CohortManager() {
   const [restoringId, setRestoringId] = useState<number | null>(null)
   const [permDeleteTarget, setPermDeleteTarget] = useState<CohortDto | null>(null)
   const [permDeleting, setPermDeleting] = useState(false)
-
-  // Criteria editor
-  const [editorTarget, setEditorTarget] = useState<CohortDetailDto | null>(null)
-  const [editorLoading, setEditorLoading] = useState(false)
 
   useEffect(() => {
     fetchWebsites()
@@ -93,61 +77,6 @@ export default function CohortManager() {
   useEffect(() => {
     if (selectedWebsiteId) void loadCohorts(selectedWebsiteId)
   }, [selectedWebsiteId, loadCohorts])
-
-  const handleCreate = async () => {
-    if (!selectedWebsiteId) return
-    if (!newName.trim()) {
-      setCreateError('Navn er påkrevd')
-      return
-    }
-    setCreateError(null)
-    setCreating(true)
-    try {
-      await createCohort({
-        websiteId: selectedWebsiteId,
-        name: newName.trim(),
-        description: newDescription.trim() || undefined,
-      })
-      setCreateOpen(false)
-      setNewName('')
-      setNewDescription('')
-      await loadCohorts(selectedWebsiteId)
-    } catch (err: unknown) {
-      setCreateError(err instanceof Error ? err.message : 'Feil ved opprettelse')
-    } finally {
-      setCreating(false)
-    }
-  }
-
-  const openEdit = (cohort: CohortDto) => {
-    setEditTarget(cohort)
-    setEditName(cohort.name)
-    setEditDescription(cohort.description ?? '')
-    setEditError(null)
-  }
-
-  const handleEditSave = async () => {
-    if (!editTarget || !selectedWebsiteId) return
-    if (!editName.trim()) {
-      setEditError('Navn er påkrevd')
-      return
-    }
-    setEditError(null)
-    setEditSaving(true)
-    try {
-      await updateCohort(editTarget.id, {
-        name: editName.trim(),
-        websiteId: editTarget.websiteId,
-        description: editDescription.trim() || undefined,
-      })
-      setEditTarget(null)
-      await loadCohorts(selectedWebsiteId)
-    } catch (err: unknown) {
-      setEditError(err instanceof Error ? err.message : 'Feil ved lagring')
-    } finally {
-      setEditSaving(false)
-    }
-  }
 
   const handleDelete = async () => {
     if (!deleteTarget || !selectedWebsiteId) return
@@ -220,10 +149,16 @@ export default function CohortManager() {
   }
 
   const handleEditorChanged = async () => {
-    if (!selectedWebsiteId || !editorTarget) return
-    const detail = await getCohort(editorTarget.id)
-    setEditorTarget(detail)
+    if (!selectedWebsiteId) return
+    const editingId = editorTarget !== 'new' ? editorTarget?.id : undefined
+    setEditorTarget(null)
     await loadCohorts(selectedWebsiteId)
+    // Reopen on the refreshed detail if we were editing (keeps the dialog open
+    // for further tweaks after save); creating closes the dialog outright.
+    if (editingId != null) {
+      const detail = await getCohort(editingId)
+      setEditorTarget(detail)
+    }
   }
 
   const selectedWebsite = websites.find((w) => w.id === selectedWebsiteId)
@@ -272,12 +207,7 @@ export default function CohortManager() {
                     size="small"
                     variant="secondary"
                     icon={<PlusIcon aria-hidden />}
-                    onClick={() => {
-                      setNewName('')
-                      setNewDescription('')
-                      setCreateError(null)
-                      setCreateOpen(true)
-                    }}
+                    onClick={() => setEditorTarget('new')}
                   >
                     Ny brukergruppe
                   </Button>
@@ -347,17 +277,9 @@ export default function CohortManager() {
                               <Button
                                 size="xsmall"
                                 variant="secondary"
-                                icon={<FunnelIcon aria-hidden />}
+                                icon={<PencilIcon aria-hidden />}
                                 loading={editorLoading}
                                 onClick={() => void openEditor(cohort)}
-                              >
-                                Kriterier
-                              </Button>
-                              <Button
-                                size="xsmall"
-                                variant="secondary"
-                                icon={<PencilIcon aria-hidden />}
-                                onClick={() => openEdit(cohort)}
                               >
                                 Rediger
                               </Button>
@@ -382,95 +304,6 @@ export default function CohortManager() {
           )}
         </VStack>
       </AppBlock>
-
-      {/* Create dialog */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <Dialog.Popup width="medium">
-          <Dialog.Header>
-            <Dialog.Title>Ny brukergruppe</Dialog.Title>
-          </Dialog.Header>
-          <Dialog.Body>
-            <form
-              id="create-cohort-form"
-              onSubmit={(e) => {
-                e.preventDefault()
-                void handleCreate()
-              }}
-            >
-              <VStack gap="space-12">
-                <TextField label="Navn" value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus />
-                <TextField
-                  label="Beskrivelse (valgfri)"
-                  value={newDescription}
-                  onChange={(e) => setNewDescription(e.target.value)}
-                />
-                {createError && (
-                  <BodyShort size="small" style={{ color: 'var(--ax-text-danger)' }}>
-                    {createError}
-                  </BodyShort>
-                )}
-              </VStack>
-            </form>
-          </Dialog.Body>
-          <Dialog.Footer>
-            <Button form="create-cohort-form" type="submit" loading={creating}>
-              Opprett
-            </Button>
-            <Dialog.CloseTrigger>
-              <Button type="button" variant="secondary">
-                Avbryt
-              </Button>
-            </Dialog.CloseTrigger>
-          </Dialog.Footer>
-        </Dialog.Popup>
-      </Dialog>
-
-      {/* Edit dialog */}
-      <Dialog
-        open={!!editTarget}
-        onOpenChange={(o) => {
-          if (!o) setEditTarget(null)
-        }}
-      >
-        <Dialog.Popup width="medium">
-          <Dialog.Header>
-            <Dialog.Title>Rediger brukergruppe</Dialog.Title>
-          </Dialog.Header>
-          <Dialog.Body>
-            <form
-              id="edit-cohort-form"
-              onSubmit={(e) => {
-                e.preventDefault()
-                void handleEditSave()
-              }}
-            >
-              <VStack gap="space-12">
-                <TextField label="Navn" value={editName} onChange={(e) => setEditName(e.target.value)} autoFocus />
-                <TextField
-                  label="Beskrivelse (valgfri)"
-                  value={editDescription}
-                  onChange={(e) => setEditDescription(e.target.value)}
-                />
-                {editError && (
-                  <BodyShort size="small" style={{ color: 'var(--ax-text-danger)' }}>
-                    {editError}
-                  </BodyShort>
-                )}
-              </VStack>
-            </form>
-          </Dialog.Body>
-          <Dialog.Footer>
-            <Button form="edit-cohort-form" type="submit" loading={editSaving}>
-              Lagre
-            </Button>
-            <Dialog.CloseTrigger>
-              <Button type="button" variant="secondary">
-                Avbryt
-              </Button>
-            </Dialog.CloseTrigger>
-          </Dialog.Footer>
-        </Dialog.Popup>
-      </Dialog>
 
       {/* Delete confirm dialog */}
       <Dialog
@@ -617,10 +450,11 @@ export default function CohortManager() {
         </Dialog.Popup>
       </Dialog>
 
-      {/* Criteria editor */}
+      {/* Unified create/edit dialog — name/description on top, criteria below */}
       {editorTarget && (
         <CohortEditor
-          cohort={editorTarget}
+          cohort={editorTarget === 'new' ? null : editorTarget}
+          websiteId={editorTarget === 'new' ? (selectedWebsiteId ?? undefined) : undefined}
           allCohorts={allDetails}
           onClose={() => setEditorTarget(null)}
           onChanged={() => void handleEditorChanged()}

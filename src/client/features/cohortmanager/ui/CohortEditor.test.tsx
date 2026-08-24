@@ -8,6 +8,8 @@ import type { CohortDetailDto, CohortNode } from '../model/types.ts'
 
 vi.mock('../api/cohortManagerApi.ts', () => ({
   replaceCriteria: vi.fn().mockResolvedValue({ nodeType: 'GROUP', combinator: 'AND', negated: false, children: [] }),
+  updateCohort: vi.fn().mockResolvedValue({}),
+  createCohort: vi.fn().mockResolvedValue({ id: 2, websiteId: 'site-1', name: 'New', root: null }),
 }))
 
 const mockReplaceCriteria = vi.mocked(replaceCriteria)
@@ -69,7 +71,7 @@ describe('CohortEditor — building and saving a SEQUENCE node end-to-end', () =
     await user.type(verdiInputs[1], 'Chrome')
 
     // Save.
-    await user.click(screen.getByRole('button', { name: 'Lagre kriterier' }))
+    await user.click(screen.getByRole('button', { name: 'Lagre' }))
 
     expect(mockReplaceCriteria).toHaveBeenCalledTimes(1)
     const [, savedRoot] = mockReplaceCriteria.mock.calls[0]

@@ -23,7 +23,7 @@ import type {
   SequenceTimeUnit,
 } from '../model/types.ts'
 import { nodeToRuleGroup, ruleToNode, type ParamValueBlob, type SequenceValueBlob } from '../utils/cohortTreeMapper.ts'
-import { replaceCriteria } from '../api/cohortManagerApi.ts'
+import { createCohort, replaceCriteria, updateCohort } from '../api/cohortManagerApi.ts'
 import { isRelativeDateTimeValue } from '../utils/cohortSqlResolver.ts'
 import { CohortDateTimeEditor, CohortDateTimeValueEditor } from './CohortDateTimeEditor.tsx'
 import './cohortEditor.css'
@@ -703,34 +703,78 @@ export function queryToHuman(query: RuleGroupType, cohortNames: Record<string, s
 // ─── CohortEditor ─────────────────────────────────────────────────────────────
 
 interface CohortEditorProps {
-  cohort: CohortDetailDto
+  /** Existing cohort when editing, null when creating a new one. */
+  cohort: CohortDetailDto | null
+  /** Website the new cohort belongs to — required when `cohort` is null. */
+  websiteId?: string
   allCohorts: CohortDetailDto[]
   onClose: () => void
   onChanged: () => void
 }
 
-export function CohortEditor({ cohort, allCohorts, onClose, onChanged }: CohortEditorProps) {
-  const [query, setQuery] = useState<RuleGroupType>(() => cohortToQuery(cohort))
+/**
+ * One dialog for both creating and editing a brukergruppe: name + description
+ * at the top, criteria tree right under it. For a new cohort the criteria are
+ * saved via replaceCriteria right after the create call (creating is what
+ * assigns the id the criteria endpoint needs) — a failed criteria save then
+ * deletes the just-created shell so no name-less ghost cohort is left behind.
+ */
+export function CohortEditor({ cohort, websiteId, allCohorts, onClose, onChanged }: CohortEditorProps) {
+  const isNew = cohort === null
+  const [name, setName] = useState(cohort?.name ?? '')
+  const [description, setDescription] = useState(cohort?.description ?? '')
+  const [query, setQuery] = useState<RuleGroupType>(() =>
+    cohort ? cohortToQuery(cohort) : nodeToRuleGroup(EMPTY_ROOT),
+  )
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (!cohort) return
+    setName(cohort.name)
+    setDescription(cohort.description ?? '')
     setQuery(cohortToQuery(cohort))
   }, [cohort])
 
   // Map cohort IDs → names for the __cohort__ value editor
   const cohortOptions = allCohorts
-    .filter((c) => c.id !== cohort.id)
+    .filter((c) => c.id !== cohort?.id)
     .map((c) => ({ value: String(c.id), label: c.name }))
 
   const cohortNames = Object.fromEntries(allCohorts.map((c) => [String(c.id), c.name]))
 
   const handleSave = async () => {
+    if (!name.trim()) {
+      setError('Navn er påkrevd')
+      return
+    }
     setSaving(true)
     setError(null)
     try {
       const root = ruleToNode(query) as CohortGroupNode
-      await replaceCriteria(cohort.id, root)
+      if (isNew) {
+        if (!websiteId) throw new Error('Mangler websiteId for ny brukergruppe')
+        const created = await createCohort({
+          websiteId,
+          name: name.trim(),
+          description: description.trim() || undefined,
+        })
+        try {
+          await replaceCriteria(created.id, root)
+        } catch (criteriaErr: unknown) {
+          // Roll back the shell so a failed criteria save doesn't leave a
+          // half-created cohort occupying the (unique per website) name.
+          await fetch(`/api/backend/cohort/${created.id}`, { method: 'DELETE' })
+          throw criteriaErr
+        }
+      } else {
+        await updateCohort(cohort.id, {
+          name: name.trim(),
+          websiteId: cohort.websiteId,
+          description: description.trim() || undefined,
+        })
+        await replaceCriteria(cohort.id, root)
+      }
       onChanged()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Feil ved lagring')
@@ -748,49 +792,65 @@ export function CohortEditor({ cohort, allCohorts, onClose, onChanged }: CohortE
     >
       <Dialog.Popup width="min(90vw, 1400px)">
         <Dialog.Header>
-          <Dialog.Title>Kriterier: {cohort.name}</Dialog.Title>
-          {cohort.description && <Dialog.Description>{cohort.description}</Dialog.Description>}
+          <Dialog.Title>{isNew ? 'Ny brukergruppe' : `Rediger «${cohort.name}»`}</Dialog.Title>
         </Dialog.Header>
         <Dialog.Body>
           <VStack gap="space-16">
-            <BodyShort size="small" style={{ color: 'var(--ax-text-subtle)' }}>
-              En bruker tilhører denne brukergruppen hvis de oppfyller kriteriene nedenfor. Bruk <strong>IKKE</strong>
-              -bryteren for å ekskludere en gruppe i stedet.
-            </BodyShort>
+            <div style={{ maxWidth: 480 }}>
+              <VStack gap="space-12">
+                <TextField label="Navn" size="small" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+                <TextField
+                  label="Beskrivelse (valgfri)"
+                  size="small"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+              </VStack>
+            </div>
 
-            <div className="cohort-qb-wrapper">
-              <QueryBuilder
-                fields={FIELDS}
-                operators={OPERATORS}
-                combinators={COMBINATORS}
-                query={query}
-                onQueryChange={setQuery}
-                showNotToggle
-                showCombinatorsBetweenRules={false}
-                addRuleToNewGroups
-                controlClassnames={CONTROL_CLASSNAMES}
-                translations={TRANSLATIONS}
-                controlElements={{
-                  valueEditor: CohortValueEditor,
-                  fieldSelector: AkselFieldSelector,
-                  operatorSelector: AkselOperatorSelector,
-                  combinatorSelector: AkselCombinatorSelector,
-                  notToggle: AkselNotToggle,
-                  addRuleAction: AkselActionButton,
-                  addGroupAction: AkselActionButton,
-                  removeRuleAction: AkselActionButton,
-                  removeGroupAction: AkselActionButton,
-                }}
-                getValueEditorType={(field) => {
-                  if (field === '__cohort__') return 'select'
-                  return 'text'
-                }}
-                getValues={(field) => {
-                  if (field === '__cohort__') return cohortOptions
-                  return []
-                }}
-                getOperators={getFieldOperators}
-              />
+            <div>
+              <BodyShort size="small" weight="semibold" spacing>
+                Kriterier
+              </BodyShort>
+              <BodyShort size="small" style={{ color: 'var(--ax-text-subtle)' }} spacing>
+                En bruker tilhører denne brukergruppen hvis de oppfyller kriteriene nedenfor. Bruk <strong>IKKE</strong>
+                -bryteren for å ekskludere en gruppe i stedet.
+              </BodyShort>
+
+              <div className="cohort-qb-wrapper">
+                <QueryBuilder
+                  fields={FIELDS}
+                  operators={OPERATORS}
+                  combinators={COMBINATORS}
+                  query={query}
+                  onQueryChange={setQuery}
+                  showNotToggle
+                  showCombinatorsBetweenRules={false}
+                  addRuleToNewGroups
+                  controlClassnames={CONTROL_CLASSNAMES}
+                  translations={TRANSLATIONS}
+                  controlElements={{
+                    valueEditor: CohortValueEditor,
+                    fieldSelector: AkselFieldSelector,
+                    operatorSelector: AkselOperatorSelector,
+                    combinatorSelector: AkselCombinatorSelector,
+                    notToggle: AkselNotToggle,
+                    addRuleAction: AkselActionButton,
+                    addGroupAction: AkselActionButton,
+                    removeRuleAction: AkselActionButton,
+                    removeGroupAction: AkselActionButton,
+                  }}
+                  getValueEditorType={(field) => {
+                    if (field === '__cohort__') return 'select'
+                    return 'text'
+                  }}
+                  getValues={(field) => {
+                    if (field === '__cohort__') return cohortOptions
+                    return []
+                  }}
+                  getOperators={getFieldOperators}
+                />
+              </div>
             </div>
 
             {/* Live human-readable preview */}
@@ -814,7 +874,7 @@ export function CohortEditor({ cohort, allCohorts, onClose, onChanged }: CohortE
         </Dialog.Body>
         <Dialog.Footer>
           <Button onClick={() => void handleSave()} loading={saving}>
-            Lagre kriterier
+            {isNew ? 'Opprett brukergruppe' : 'Lagre'}
           </Button>
           <Dialog.CloseTrigger>
             <Button type="button" variant="secondary">

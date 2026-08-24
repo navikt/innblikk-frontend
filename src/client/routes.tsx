@@ -224,7 +224,9 @@ export const routes: AppRoute[] = [
   { path: '/taksonomi', component: <Taksonomi />, fullWidth: true },
   { path: '/grafbygger', component: <Grafbygger />, fullWidth: true },
   { path: '/grafbygger_next', component: <GrafbyggerNext />, fullWidth: true },
-  { path: '/kohorter', component: <CohortManager />, fullWidth: true },
+  { path: '/brukergrupper', component: <CohortManager />, fullWidth: true },
+  // Legacy alias — user-facing name changed from "kohorter" to "brukergrupper"; backend still calls them cohorts.
+  { path: '/kohorter', component: <LegacyVisualizationRouteRedirect to="/brukergrupper" />, fullWidth: true },
   { path: '/metabase', component: <MetabaseGuide />, fullWidth: true },
 
   { path: '/grafbygger-copilot', component: <CopilotAnalyse />, fullWidth: true },

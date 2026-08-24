@@ -1,6 +1,6 @@
 import { Alert, BodyShort, Checkbox, Link, Loader, UNSAFE_Combobox } from '@navikt/ds-react'
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
-import { fetchCohorts } from '../../api/cohortApi.ts'
+import { fetchCohorts, fetchCohortsDeep, cohortUsesTimeCriterion } from '../../api/cohortApi.ts'
 import type { CohortDto } from '../../../../shared/types/cohort.ts'
 
 export interface CohortPickerRef {
@@ -56,7 +56,7 @@ const CohortPicker = forwardRef<CohortPickerRef, CohortPickerProps>(
       loadCohorts(websiteId)
     }, [websiteId, onRatioModeChange])
 
-    // Refetch when tab regains focus (user may have added cohorts in the /kohorter tab)
+    // Refetch when tab regains focus (user may have added cohorts in the /brukergrupper tab)
     useEffect(() => {
       if (!websiteId) return
       const handleFocus = () => loadCohorts(websiteId)
@@ -70,10 +70,34 @@ const CohortPicker = forwardRef<CohortPickerRef, CohortPickerProps>(
 
     const selectedIds = selectedCohorts.map((c) => c.id)
 
+    // True only when a selected cohort's criteria actually reference event time
+    // («Tidspunkt» condition or a SEQUENCE) — the hint below is noise otherwise.
+    const [anySelectedUsesTime, setAnySelectedUsesTime] = useState(false)
+
     useEffect(() => {
       onCohortIdsChange(selectedIds)
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedIds.join(','), onCohortIdsChange])
+
+    useEffect(() => {
+      let cancelled = false
+      if (selectedIds.length === 0) {
+        setAnySelectedUsesTime(false)
+        return
+      }
+      fetchCohortsDeep(selectedIds)
+        .then((lookup) => {
+          if (cancelled) return
+          setAnySelectedUsesTime(selectedIds.some((id) => cohortUsesTimeCriterion(lookup.get(id)?.root ?? null)))
+        })
+        .catch(() => {
+          if (!cancelled) setAnySelectedUsesTime(false)
+        })
+      return () => {
+        cancelled = true
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedIds.join(',')])
 
     useEffect(() => {
       if (selectedNames.length < 2 && ratioMode) {
@@ -132,16 +156,19 @@ const CohortPicker = forwardRef<CohortPickerRef, CohortPickerProps>(
         />
 
         <BodyShort size="small">
-          <Link href={`/kohorter${websiteId ? `?websiteId=${encodeURIComponent(websiteId)}` : ''}`} target="_blank">
+          <Link
+            href={`/brukergrupper${websiteId ? `?websiteId=${encodeURIComponent(websiteId)}` : ''}`}
+            target="_blank"
+          >
             Administrer brukergrupper
           </Link>
         </BodyShort>
 
-        {selectedNames.length > 0 && (
+        {anySelectedUsesTime && (
           <Alert variant="info" size="small" className="mt-2">
-            En brukergruppes eget «Tidspunkt»-kriterium (hvis satt) bestemmer bare <strong>hvem</strong> som
-            kvalifiserer som medlem — det begrenser ikke hvilken periode grafen viser data for. Bruk «Overstyr
-            tidsperiode» under visningsvalg for å styre det.
+            En brukergruppes eget «Tidspunkt»-kriterium bestemmer bare <strong>hvem</strong> som kvalifiserer som medlem
+            — det begrenser ikke hvilken periode grafen viser data for. Bruk «Overstyr tidsperiode» under visningsvalg
+            for å styre det.
           </Alert>
         )}
 
