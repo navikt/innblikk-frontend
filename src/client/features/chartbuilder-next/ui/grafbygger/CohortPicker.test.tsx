@@ -8,7 +8,7 @@ import { fetchCohorts } from '../../api/cohortApi.ts'
 import type { CohortDto } from '../../../../shared/types/cohort.ts'
 
 vi.mock('../../api/cohortApi.ts', async (importOriginal) => {
-  const actual = await importOriginal()
+  const actual: Record<string, unknown> = await importOriginal()
   return {
     ...actual,
     fetchCohorts: vi.fn(),
