@@ -337,9 +337,17 @@ export default function Header({ theme }: HeaderProps) {
               </Tag>
             )}
             {isDevEnvironment && (
-              <Tag data-color="info" variant="outline" size="small">
-                {environmentBadgeLabel}
-              </Tag>
+              <Tooltip
+                content={
+                  isLocalhost
+                    ? 'Kjører lokalt mot dev-miljøet. Ingen av handlingene dine påvirker ekte brukere eller produksjonsdata.'
+                    : 'Dev-miljø. Ingen av handlingene dine påvirker ekte brukere eller produksjonsdata.'
+                }
+              >
+                <Tag data-color="info" variant="outline" size="small">
+                  {environmentBadgeLabel}
+                </Tag>
+              </Tooltip>
             )}
           </div>
           {isMobile ? (

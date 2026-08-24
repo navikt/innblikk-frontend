@@ -119,37 +119,65 @@ export function createBackendProxyRouter({ BACKEND_BASE_URL }) {
 
   const resolveAuthorizationHeader = async (req) => {
     const oboToken = await getOboToken(req)
+
+    // Static dev token (BACKEND_TOKEN, path A local dev) takes priority over the
+    // service-token attempt: when it's configured, the service-token endpoint
+    // (http://localhost:8080/issueissue/token — local Spring backend flow) is by
+    // definition not in play, so attempting it first would just cost every proxied
+    // request a failed network round-trip plus a noisy warning log for nothing.
+    const staticAuthorization =
+      staticBackendToken && !req.headers.authorization && !oboToken
+        ? staticBackendToken.toLowerCase().startsWith('bearer ')
+          ? staticBackendToken
+          : `Bearer ${staticBackendToken}`
+        : null
+
     let serviceToken = null
-    if (!req.headers.authorization && !oboToken) {
+    if (!req.headers.authorization && !oboToken && !staticAuthorization) {
       try {
         serviceToken = await getServiceToken()
       } catch (tokenErr) {
         logger.warn({ error: tokenErr.message ?? tokenErr }, 'Failed to fetch service token, falling back if possible')
       }
     }
-    const staticAuthorization =
-      staticBackendToken && !req.headers.authorization && !oboToken && !serviceToken
-        ? staticBackendToken.toLowerCase().startsWith('bearer ')
-          ? staticBackendToken
-          : `Bearer ${staticBackendToken}`
-        : null
 
-    return (
+    const authorization =
       (oboToken ? `Bearer ${oboToken}` : undefined) ||
       req.headers.authorization ||
       (serviceToken ? `Bearer ${serviceToken}` : undefined) ||
       staticAuthorization
-    )
+
+    // Only true when the static dev-only token (BACKEND_TOKEN) is actually what's being sent —
+    // never on the OBO/incoming-token/service-token paths. Used to decide whether to also send
+    // X-Dev-Nav-Ident (see below): that header is meaningless (and unused) by the backend on any
+    // other auth path, so we don't send it there.
+    const usedStaticToken = Boolean(staticAuthorization && authorization === staticAuthorization)
+
+    return { authorization, usedStaticToken }
   }
+
+  // MOCK_NAV_IDENT forwarded as a purely cosmetic log-correlation label — see
+  // LocalDevTokenAuthFilter.kt on the backend for why it can no longer be used for anything
+  // beyond that (it used to double as an authorization/attribution value; that was a real
+  // cross-tenant bypass, fixed backend-side by always using a fixed shared identity instead).
+  const devNavIdentLabel = process.env.MOCK_NAV_IDENT || null
+
+  const buildForwardHeaders = (baseHeaders, usedStaticToken) => ({
+    ...baseHeaders,
+    ...(usedStaticToken && devNavIdentLabel ? { 'x-dev-nav-ident': devNavIdentLabel } : {}),
+  })
 
   const backendFetchJson = async ({ req, targetPath, method = 'GET', body }) => {
     const targetUrl = new URL(targetPath, apiBaseUrl)
-    const authorization = await resolveAuthorizationHeader(req)
-    const forwardHeaders = {
-      accept: 'application/json',
-      authorization,
-      'content-type': body ? 'application/json' : undefined,
-    }
+    const { authorization, usedStaticToken } = await resolveAuthorizationHeader(req)
+    const forwardHeaders = buildForwardHeaders(
+      {
+        accept: 'application/json',
+        authorization,
+        'content-type': body ? 'application/json' : undefined,
+      },
+      usedStaticToken,
+    )
 
     const response = await fetch(targetUrl, {
       method,
@@ -556,13 +584,16 @@ export function createBackendProxyRouter({ BACKEND_BASE_URL }) {
       // including query string, which can carry sensitive values). At the default 'info' level
       // (prod default, see logger.js) this is silent; set LOG_LEVEL=debug locally to see it.
       logger.debug({ method: req.method, targetUrl: targetUrl.toString() }, '[Backend Proxy] request')
-      const resolvedAuthorization = await resolveAuthorizationHeader(req)
+      const { authorization: resolvedAuthorization, usedStaticToken } = await resolveAuthorizationHeader(req)
 
-      const forwardHeaders = {
-        accept: req.headers.accept,
-        authorization: resolvedAuthorization,
-        'content-type': req.headers['content-type'],
-      }
+      const forwardHeaders = buildForwardHeaders(
+        {
+          accept: req.headers.accept,
+          authorization: resolvedAuthorization,
+          'content-type': req.headers['content-type'],
+        },
+        usedStaticToken,
+      )
 
       const hasBody = req.method !== 'GET' && req.method !== 'HEAD'
       const response = await fetch(targetUrl, {
@@ -585,6 +616,10 @@ export function createBackendProxyRouter({ BACKEND_BASE_URL }) {
         'upgrade',
         // Avoid conflicts when Express re-calculates payload length on res.send(data)
         'content-length',
+        // fetch() already decompressed the body for us — forwarding the upstream
+        // content-encoding (e.g. gzip) makes the browser try to gunzip plain text
+        // (ERR_CONTENT_DECODING_FAILED).
+        'content-encoding',
       ])
       response.headers.forEach((value, key) => {
         if (!hopByHopHeaders.has(key.toLowerCase())) {

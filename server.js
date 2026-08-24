@@ -14,6 +14,7 @@ import { createCopilotRouter } from './src/server/routes/copilot/copilotRoutes.j
 import { createGenAIClient } from './src/server/genai/client.js'
 import { authenticateUser } from './src/server/middleware/authenticateUser.js'
 import { requireReopsTeamMember } from './src/server/middleware/requireReopsTeamMember.js'
+import { logger } from './src/server/logger.js'
 
 import {
   BIGQUERY_TIMEZONE,
@@ -23,6 +24,7 @@ import {
   GCP_PROJECT_ID,
   GEMINI_LOCATION,
   GEMINI_MODEL,
+  BIGQUERY_PROXY_BASE_URL,
 } from './src/server/config/env.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -33,10 +35,14 @@ const buildPath = path.resolve(__dirname, 'dist')
 const app = createApp({ buildPath })
 
 // Initialize BigQuery client
-const bigquery = createBigQueryClient({ projectId: GCP_PROJECT_ID, dirname: __dirname })
+const bigquery = createBigQueryClient({
+  projectId: GCP_PROJECT_ID,
+  dirname: __dirname,
+  proxyBaseUrl: BIGQUERY_PROXY_BASE_URL,
+})
 
 // Initialize Gemini client (experimental /copilot chat)
-const genai = createGenAIClient({ projectId: GCP_PROJECT_ID, location: GEMINI_LOCATION })
+const genai = createGenAIClient({ projectId: GCP_PROJECT_ID, location: GEMINI_LOCATION, dirname: __dirname })
 
 // Apply authentication middleware to all /api/bigquery routes (except /api/user/me which has its own handling)
 app.use('/api/bigquery', authenticateUser)
@@ -44,8 +50,23 @@ app.use('/api/bigquery', authenticateUser)
 // Copilot chat (experimental, Team ResearchOps only) — this is the actual security boundary,
 // not just the client-side route guard on /copilot (which is UX only and never sufficient on
 // its own — anyone with a valid session could otherwise call this API directly).
+//
+// EXCEPTION: when running against fixture data (no local GCP credentials, see
+// genai/fixtureClient.js) the team-membership check is skipped entirely. There's nothing to
+// protect — no real Gemini call, no real BigQuery access — and requiring real Team Catalog
+// membership here would also block contributors testing this experimental feature locally
+// exactly when they're not on the team's own network path to reach Team Catalog anyway.
+const isGenaiFixtureMode = Boolean(genai?.__isFixtureClient)
+if (isGenaiFixtureMode) {
+  logger.warn(
+    '[Copilot] Running against fixture Gemini data — skipping Team ResearchOps membership check ' +
+      '(nothing real to protect: no GCP credentials, no real Gemini/BigQuery access).',
+  )
+  app.use('/api/copilot', authenticateUser)
+} else {
+  app.use('/api/copilot', authenticateUser, requireReopsTeamMember)
+}
 // (router paths already include /api/copilot, mounted at root like the BigQuery router below)
-app.use('/api/copilot', authenticateUser, requireReopsTeamMember)
 app.use(createCopilotRouter({ bigquery, genai, GCP_PROJECT_ID, GEMINI_MODEL }))
 
 // Siteimprove proxy

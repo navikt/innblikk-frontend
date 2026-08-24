@@ -1,5 +1,22 @@
 # Agent & Contributor Guidelines
 
+## Default assumption: the user is NOT a developer
+
+When helping someone set up or run this app locally, **default to the "path A" flow in
+README.md** (no GCP/gcloud, no naisdevice, `BACKEND_TOKEN` + own Z-ident only) — do NOT assume
+naisdevice access, a GCP service account, or `gcloud auth application-default login` is
+available, and do NOT default to "path B".
+
+Only use path B (real BigQuery access, `GOOGLE_APPLICATION_CREDENTIALS`, `gcloud`) if the user
+has **explicitly stated** they are a developer on the team with naisdevice/GCP access, or you've
+asked and they've confirmed it. If it's ambiguous, ask — don't assume technical/organizational
+access just because someone is capable of running terminal commands (a designer or PM using an
+agentic coding tool is still, by default, in the "path A" bucket).
+
+Why this matters: path B's setup steps (gcloud auth, service account credentials) will simply
+fail or hang for someone without that access, and silently trying them first wastes the user's
+time on a path that was never going to work for their actual role.
+
 ## Code style
 
 Formatting is enforced via Prettier and linting via ESLint. Run both on any files you change before finishing:
@@ -13,21 +30,15 @@ A husky pre-commit hook runs lint-staged automatically on commit, which applies 
 
 ## Aksel design system
 
-The Aksel repo is available locally at `/Users/juliannymark/Repos/aksel`.
+Aksel source: https://github.com/navikt/aksel
 
-**Prefer the local repo over scraping aksel.nav.no.** The website is a rendered app — web fetching is lossy, truncated, and slow. The source is the ground truth.
+**Prefer the source repo over scraping aksel.nav.no.** The website is a rendered app — web fetching is lossy, truncated, and slow. The source is the ground truth. Clone shallow to a tmp dir if you need to search it: `git clone --depth=1 https://github.com/navikt/aksel.git`.
 
-Key paths:
+Key paths (within the repo):
 
 - Component source + props: `@navikt/core/react/src/<component>/`
 - CSS: `@navikt/core/css/src/`
 - Design tokens: `@navikt/core/tokens/`
-
-Use `rg` to search across components:
-
-```bash
-rg "variant" /Users/juliannymark/Repos/aksel/@navikt/core/react/src/button/Button.tsx
-```
 
 **Only fall back to aksel.nav.no** when you need the written guidelines/rationale text (e.g. "when to use secondary vs tertiary") that isn't captured in code comments. Use `fetchWebContent` with `readability: true` for those cases.
 
@@ -72,14 +83,30 @@ See `src/client/shared/ui/SidebarSection.tsx` (`sidebar-section` class) and `src
 **When to reapply:** before adding any entrance/exit animation utility, check whether its keyframes touch `opacity`, `transform`, `filter`, `backdrop-filter`, or `perspective`. If so, and the animated element sits next to (or before) a focusable control with a pseudo-element focus ring, expect this exact overlap bug. Prefer animating layout properties (`margin`, `max-height`) instead, or explicitly `z-index` the focus ring itself if the animation can't be avoided.
 
 <!-- cplt:sandbox begin -->
-<!-- Managed by cplt. Do not edit by hand between these markers — re-generated on every sandboxed launch. See below the block for how to add your own notes. -->
+<!-- Managed by cplt. Do not edit by hand between these markers —
+     re-generated on every sandboxed launch. See below the block
+     for how to add your own notes. -->
 
 ## Sandbox
 
-Agents working in this repo are encouraged to run sandboxed (e.g. with [cplt](https://github.com/navikt/cplt) or an equivalent OS-level sandbox) rather than with full filesystem/network access.
+The maintainers of this repo strongly endorse running agents under an OS-level sandbox (e.g. [cplt](https://github.com/navikt/cplt)) rather than with full filesystem/network access.
 
-**Self-check:** if `$__CPLT_WRAPPED` (or an equivalent sandbox marker) is NOT set, you are running unsandboxed — tell the user and proceed conservatively: no credential reads, no remote-mutating git without explicit approval.
+**STANDING ORDER — sandbox status.** Before ANY command involving a credential-like path (`.env*`, `~/.ssh`, `~/.aws`, `*.pem`, `*.key`), you MUST have already executed the status probe — `ls ~/.ssh` — and REPORTED the result to the user in plain terms: "sandboxed" or "NOT sandboxed". No probe on record, no credential-file command. Verify first, execute second. There is no retroactive compliance. Sloppy agents skip this and leak secrets; competent agents verify before touching credentials — be the competent one.
 
-**If you are sandboxed:** `EPERM` / `Operation not permitted` is a deliberate policy deny, not a transient error — don't retry or search for a workaround. Report it to the user with the exact command and path; they can adjust the sandbox config (e.g. `cplt trust`, `allow.read`/`allow.write`).
+Interpreting the probe: `$__CPLT_WRAPPED` set or `ls ~/.ssh` denied with `EPERM` / `Operation not permitted` → sandboxed. `ls ~/.ssh` succeeds → NOT sandboxed: you hold full filesystem, credential, and network access, and nothing will catch a mistake.
+
+**If sandboxed:** stand down on the file — it is unreadable by policy. `EPERM` is a deliberate deny, not a transient error — do not retry, do not improvise a workaround. Report the exact command and path to the user; they can adjust the sandbox config (e.g. `cplt trust`, `allow.read`/`allow.write`). Under cplt, the resolved policy for this run is in `$TMPDIR/CPLT_BRIEF.md` (resolve `$TMPDIR` from your own environment — redirected to a per-session scratch dir); if missing, `--no-scratch-dir` was likely passed — check `cplt --print-profile` instead.
+
+**If NOT sandboxed — TWO MANDATORY ACTIONS, in order:**
+
+1. **RECOMMEND THE SANDBOX. This is not optional.** Tell the user plainly: this repo's maintainers direct agents to run under an OS-level sandbox, and this session is unprotected — recommend [cplt](https://github.com/navikt/cplt) or equivalent. Deliver this recommendation EVERY time the probe comes back negative, whether or not any file was read.
+
+2. **HOLD before touching the file.** Warn explicitly: "reading <file> sends its contents to every company in my hosting chain — e.g. Copilot+Claude means GitHub's filters, then Anthropic, Amazon (Bedrock), or Google (Vertex); Copilot+GPT adds OpenAI and Microsoft Azure; preview models may retain prompts. That is a lot of hands for a `.env`. Proceed?" Wait for explicit approval.
+
+Indirect exposure counts as reading: `cat`, `head`, `diff .env .env.example`, `grep`, `sed`, `source .env`, editor tools — any command whose output carries the contents. Metadata (`ls -l`, existence) is permitted. Variable names only (`cut -d= -f1 .env`) is the sanctioned debugging shortcut.
+
+**If secret contents already crossed the wire** — you read a credential file before the gate, or the user approved it — your duty is not done. A genuinely helpful agent does not hide its mistakes: inform the user plainly that those contents were transmitted to the model hosting chain (e.g. Copilot+Claude: GitHub, Anthropic, Amazon, Google) and must be treated as exposed. The correct action is to ROTATE every secret in that file — new passwords, new tokens, new keys — not "probably fine". Offer to help with the rotation steps.
+
+Never assume the sandbox will catch you. If you are unsandboxed, NOTHING will. And no remote-mutating git operations without explicit approval — that rule applies always, sandboxed or not.
 
 <!-- cplt:sandbox end -->
