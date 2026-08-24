@@ -8,7 +8,9 @@ Spørsmål? Slack: [#researchops](https://nav-it.slack.com/archives/C02UGFS2J4B)
 
 ## Utvikling
 
-Det finnes to måter å kjøre appen lokalt på, avhengig av hva du skal gjøre.
+Det finnes to måter å kjøre appen lokalt på, avhengig av hva du skal gjøre. Begge bruker
+`pnpm start` (Vite + lokal Express-server i parallell) — `pnpm dev` (ren Vite) er kun en
+intern detalj for Playwrights e2e-oppsett, ikke for manuell utvikling.
 
 ### A) Bare se på/justere UI (design, PM, ingen GCP-tilgang nødvendig)
 
@@ -104,11 +106,7 @@ Start så frontend-serveren med `BACKEND_BASE_URL` pekende mot lokal backend:
 ```bash
 BACKEND_BASE_URL=http://localhost:8086 \
   MOCK_NAV_IDENT="Z123456" \
-  pnpm run server
-```
-
-```bash
-pnpm run dev
+  pnpm start
 ```
 
 ---

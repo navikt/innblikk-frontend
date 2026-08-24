@@ -7,9 +7,8 @@ export type RuntimeConfig = {
 // (not a credential). The default is the PROD project — it's the baked-in
 // fallback for the deployed app if runtime injection ever goes missing
 // (prod querying prod is always safe; prod querying dev would be a bug).
-// Can be overridden via VITE_GCP_PROJECT_ID or window.__RUNTIME_CONFIG__ —
-// the server always injects its own GCP_PROJECT_ID (dev locally, see env.js),
-// so this default effectively never fires outside tests.
+// The server always injects its own GCP_PROJECT_ID via window.__RUNTIME_CONFIG__
+// (dev locally, see env.js), so this default effectively never fires outside tests.
 const DEFAULT_RUNTIME_CONFIG: Required<Pick<RuntimeConfig, 'GCP_PROJECT_ID'>> = {
   GCP_PROJECT_ID: 'team-researchops-prod-01d6',
 }
@@ -25,16 +24,8 @@ const readWindowConfig = (): RuntimeConfig => {
   return window.__RUNTIME_CONFIG__ ?? {}
 }
 
-const readViteConfig = (): RuntimeConfig => {
-  if (typeof import.meta === 'undefined' || !import.meta.env) return {}
-  return {
-    GCP_PROJECT_ID: import.meta.env.VITE_GCP_PROJECT_ID,
-  }
-}
-
 export const getRuntimeConfig = (): RuntimeConfig => ({
   ...DEFAULT_RUNTIME_CONFIG,
-  ...readViteConfig(),
   ...readWindowConfig(),
 })
 

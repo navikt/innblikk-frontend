@@ -24,18 +24,6 @@
       })()
     </script>
     <div id="root"></div>
-    <script type="module">
-      const { VITE_GCP_PROJECT_ID } = import.meta.env
-      if (!window.__RUNTIME_CONFIG__) {
-        window.__RUNTIME_CONFIG__ = {
-          GCP_PROJECT_ID: VITE_GCP_PROJECT_ID,
-        }
-      }
-      // Legacy globals for main UI code paths
-      if (!window.__GCP_PROJECT_ID__ && VITE_GCP_PROJECT_ID) {
-        window.__GCP_PROJECT_ID__ = VITE_GCP_PROJECT_ID
-      }
-    </script>
     <script type="module" src="/src/client/main.tsx"></script>
   </body>
 </html>

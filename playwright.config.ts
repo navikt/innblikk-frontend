@@ -17,7 +17,9 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  // Start dev server before running E2E tests
+  // Start dev server before running E2E tests.
+  // `pnpm run dev` (pure Vite) is intentional here: smoke tests mock /api calls, so the
+  // Express BFF isn't needed. For manual development always use `pnpm start` instead.
   webServer: {
     command: 'pnpm run dev',
     url: 'http://localhost:5173',
