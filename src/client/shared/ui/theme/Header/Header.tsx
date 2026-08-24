@@ -1,10 +1,19 @@
-import { CogIcon, ExternalLinkIcon, MenuHamburgerIcon, PersonIcon, TestFlaskIcon, ThemeIcon } from '@navikt/aksel-icons'
+import {
+  CogIcon,
+  ExternalLinkIcon,
+  LineGraphDotIcon,
+  MenuHamburgerIcon,
+  PersonIcon,
+  TestFlaskIcon,
+  ThemeIcon,
+} from '@navikt/aksel-icons'
 import { Events, type ActionMenuApnetProperties, type ActionMenuValgValgtProperties } from '@navikt/analytics-types'
 import { ActionMenu, Button, Dropdown, Link, Tag, Tooltip } from '@navikt/ds-react'
 import { useEffect, useState } from 'react'
 import '../../../../tailwind.css'
 import { AppBlock } from '../AppBlock/AppBlock.tsx'
 import { getFeatureFlag } from '../../../lib/featureFlags.ts'
+import { getDataMode } from '../../../lib/runtimeConfig.ts'
 import { useIsReopsTeamMember } from '../../../hooks/useIsReopsTeamMember.ts'
 
 interface HeaderProps {
@@ -128,6 +137,23 @@ export default function Header({ theme }: HeaderProps) {
       : 'text-ax-text-neutral-contrast hover:bg-ax-bg-accent-soft hover:text-ax-text-neutral active:bg-ax-bg-accent-soft active:text-ax-text-neutral focus:bg-ax-bg-accent-soft focus:text-ax-text-neutral'
 
   const environmentBadgeLabel = isLocalhost ? 'Localhost' : 'Dev'
+
+  // Where the analytics data actually comes from (server injects into window.__RUNTIME_CONFIG__).
+  // Only surfaced when NOT the normal real-BigQuery path — "real" needs no badge.
+  const dataMode = getDataMode()
+  const dataModeBadge =
+    dataMode === 'generated'
+      ? {
+          label: 'Generert',
+          icon: <LineGraphDotIcon />,
+          tooltip: 'Analysedata er syntetisk generert lokalt (ingen GCP-tilgang). Tallene er ikke ekte.',
+        }
+      : dataMode === 'proxy'
+        ? {
+            label: 'Dev-data via proxy',
+            tooltip: 'Ekte dev-data hentet via reops-proxy (lokal kjøring uten GCP-tilgang).',
+          }
+        : null
 
   const toggleTheme = () => {
     const newTheme = theme === 'light' ? 'dark' : 'light'
@@ -340,12 +366,19 @@ export default function Header({ theme }: HeaderProps) {
               <Tooltip
                 content={
                   isLocalhost
-                    ? 'Kjører lokalt mot dev-miljøet. Ingen av handlingene dine påvirker ekte brukere eller produksjonsdata.'
+                    ? 'Kjører lokalt. Ingen av handlingene dine påvirker ekte brukere eller produksjonsdata.'
                     : 'Dev-miljø. Ingen av handlingene dine påvirker ekte brukere eller produksjonsdata.'
                 }
               >
                 <Tag data-color="info" variant="outline" size="small">
                   {environmentBadgeLabel}
+                </Tag>
+              </Tooltip>
+            )}
+            {dataModeBadge && (
+              <Tooltip content={dataModeBadge.tooltip}>
+                <Tag data-color="warning" variant="outline" size="small" icon={dataModeBadge.icon}>
+                  {dataModeBadge.label}
                 </Tag>
               </Tooltip>
             )}

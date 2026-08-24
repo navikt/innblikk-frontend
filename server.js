@@ -51,15 +51,15 @@ app.use('/api/bigquery', authenticateUser)
 // not just the client-side route guard on /copilot (which is UX only and never sufficient on
 // its own — anyone with a valid session could otherwise call this API directly).
 //
-// EXCEPTION: when running against fixture data (no local GCP credentials, see
-// genai/fixtureClient.js) the team-membership check is skipped entirely. There's nothing to
+// EXCEPTION: when running against generated data (no local GCP credentials, see
+// genai/generatedDataClient.js) the team-membership check is skipped entirely. There's nothing to
 // protect — no real Gemini call, no real BigQuery access — and requiring real Team Catalog
 // membership here would also block contributors testing this experimental feature locally
 // exactly when they're not on the team's own network path to reach Team Catalog anyway.
-const isGenaiFixtureMode = Boolean(genai?.__isFixtureClient)
-if (isGenaiFixtureMode) {
+const isGenaiGeneratedMode = Boolean(genai?.__isGeneratedDataClient)
+if (isGenaiGeneratedMode) {
   logger.warn(
-    '[Copilot] Running against fixture Gemini data — skipping Team ResearchOps membership check ' +
+    '[Copilot] Running against generated Gemini data — skipping Team ResearchOps membership check ' +
       '(nothing real to protect: no GCP credentials, no real Gemini/BigQuery access).',
   )
   app.use('/api/copilot', authenticateUser)
@@ -84,8 +84,13 @@ app.use(createBigQueryRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE }))
 // Clickmap preview
 app.use('/api', createClickmapPreviewRouter())
 
+// Data mode for the header badge: 'generated' (local synthesis, no GCP creds), 'proxy'
+// (real dev data via reops-proxy passthrough), or 'real' (direct BigQuery w/ credentials).
+// GenAI mirrors the same rule, but BigQuery is the visible one — charts are what users see.
+const dataMode = bigquery?.__dataMode ?? 'real'
+
 // Serve index.html with injected runtime config
-registerFrontend(app, { buildPath, GCP_PROJECT_ID, BACKEND_WS_HOST })
+registerFrontend(app, { buildPath, GCP_PROJECT_ID, BACKEND_WS_HOST, DATA_MODE: dataMode })
 
 const isProduction = process.env.NODE_ENV === 'production'
 const port = Number(process.env.PORT) || (isProduction ? 8080 : 8081)

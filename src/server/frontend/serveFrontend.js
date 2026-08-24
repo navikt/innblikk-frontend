@@ -1,7 +1,7 @@
 import { readFile } from 'fs/promises'
 import { logger } from '../logger.js'
 
-export function registerFrontend(app, { buildPath, GCP_PROJECT_ID, BACKEND_WS_HOST }) {
+export function registerFrontend(app, { buildPath, GCP_PROJECT_ID, BACKEND_WS_HOST, DATA_MODE }) {
   // Serve index.html with injected runtime config
   let cachedHtmlPromise
 
@@ -12,6 +12,7 @@ export function registerFrontend(app, { buildPath, GCP_PROJECT_ID, BACKEND_WS_HO
     const runtimeConfig = {
       GCP_PROJECT_ID,
       BACKEND_WS_HOST,
+      DATA_MODE,
     }
 
     // Prevent </script> injection by escaping < in JSON string.

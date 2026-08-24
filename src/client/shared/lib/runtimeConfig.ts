@@ -1,6 +1,9 @@
+export type DataMode = 'real' | 'proxy' | 'generated'
+
 export type RuntimeConfig = {
   GCP_PROJECT_ID?: string
   BACKEND_WS_HOST?: string
+  DATA_MODE?: DataMode
 }
 
 // Non-sensitive defaults. GCP_PROJECT_ID is a BigQuery project identifier
@@ -37,5 +40,9 @@ const getRuntimeValue = (key: keyof RuntimeConfig): string => {
 }
 
 export const getGcpProjectId = (): string => getRuntimeValue('GCP_PROJECT_ID')
+
+// 'real' default: deployed/prod instances always run with credentials, and runtimeConfig
+// injection is the only source of DATA_MODE — no injection means old/prod serving path.
+export const getDataMode = (): DataMode => getRuntimeConfig().DATA_MODE ?? 'real'
 
 export {}

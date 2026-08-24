@@ -1,7 +1,7 @@
 import { logger } from '../logger.js'
 
 /**
- * Fixture BigQuery client — used ONLY when no real GCP credentials are available
+ * Generated-data BigQuery client — used ONLY when no real GCP credentials are available
  * (i.e. local dev without GOOGLE_APPLICATION_CREDENTIALS / bigquery-credentials secret).
  *
  * Purpose: let a contributor without GCP access (e.g. a designer) run the app fully
@@ -13,7 +13,7 @@ import { logger } from '../logger.js'
  * Strategy: instead of mocking each of the ~40 BigQuery-backed endpoints individually,
  * this client inspects the *shape* of the incoming SQL (its SELECT column aliases) and
  * synthesizes deterministic, plausibly-typed rows for whatever columns are actually
- * requested. This means it keeps working as routes/queries change, with zero fixture
+ * requested. This means it keeps working as routes/queries change, with zero generated-data
  * maintenance.
  *
  * Security posture: every query that reaches this client is treated as UNTRUSTED input
@@ -21,12 +21,12 @@ import { logger } from '../logger.js'
  * from our own hand-written route SQL). It is therefore:
  *   1. Never sent to real BigQuery — this client never touches the network.
  *   2. Still validated as a read-only SELECT/WITH statement (same rule as the real
- *      /api/bigquery route — see sqlRoutes.js validateQuery), so the fixture path can't
+ *      /api/bigquery route — see sqlRoutes.js validateQuery), so the generated-data path can't
  *      be used to smuggle a destructive statement through into some other client that
  *      might one day resolve to a real BigQuery instance.
  *   3. Given a deterministic, capped, clearly-fake cost estimate — so a poorly-prompted
  *      local Copilot query never gets false confidence that it's cheap AND never
- *      actually runs against (and bills) real BigQuery. `isFixtureData: true` is
+ *      actually runs against (and bills) real BigQuery. `isGeneratedData: true` is
  *      attached to every response so a badly-behaving caller can distinguish it from a
  *      real result if needed.
  */
@@ -53,7 +53,7 @@ const FORBIDDEN_PATTERNS = [
  * Same read-only guard as sqlRoutes.validateQuery — duplicated deliberately (not
  * imported) so this file has no dependency on route code and can't accidentally miss
  * a future change to the "real" validator without being obviously out of sync (the
- * duplication itself is a smell we accept in exchange for keeping this fixture module
+ * duplication itself is a smell we accept in exchange for keeping this generated-data client module
  * fully self-contained and impossible to entangle with production request handling).
  */
 function assertReadOnly(rawQuery) {
@@ -63,25 +63,25 @@ function assertReadOnly(rawQuery) {
     .trim()
 
   if (!stripped) {
-    throw fixtureError('Query is empty after removing comments')
+    throw generatedDataError('Query is empty after removing comments')
   }
 
   const upper = stripped.toUpperCase()
   const firstKeyword = upper.match(/^\s*(\w+)/)?.[1]
   if (firstKeyword !== 'SELECT' && firstKeyword !== 'WITH') {
-    throw fixtureError(`Only SELECT queries are allowed. Got: ${firstKeyword || '(unknown)'}`)
+    throw generatedDataError(`Only SELECT queries are allowed. Got: ${firstKeyword || '(unknown)'}`)
   }
 
   for (const pattern of FORBIDDEN_PATTERNS) {
     if (pattern.test(upper)) {
-      throw fixtureError(`Forbidden SQL keyword detected: ${upper.match(pattern)?.[0]}`)
+      throw generatedDataError(`Forbidden SQL keyword detected: ${upper.match(pattern)?.[0]}`)
     }
   }
 }
 
-function fixtureError(message) {
+function generatedDataError(message) {
   const err = new Error(message)
-  err.code = 'FIXTURE_VALIDATION_ERROR'
+  err.code = 'GENERATED_DATA_VALIDATION_ERROR'
   return err
 }
 
@@ -95,7 +95,7 @@ function hashString(str) {
   return hash >>> 0
 }
 
-/** Deterministic PRNG (mulberry32) seeded from a hash — same query always yields the same fixture. */
+/** Deterministic PRNG (mulberry32) seeded from a hash — same query always yields the same generated rows. */
 function seededRandom(seed) {
   let t = seed
   return function () {
@@ -112,6 +112,22 @@ const SAMPLE_DEVICES = ['desktop', 'mobile', 'tablet']
 const SAMPLE_BROWSERS = ['Chrome', 'Safari', 'Firefox', 'Edge']
 const SAMPLE_COUNTRIES = ['NO', 'SE', 'DK', 'DE']
 const SAMPLE_NAMES = ['Nav.no', 'Dagpenger', 'Foreldrepenger', 'Min side arbeidsgiver']
+
+// Plausible-but-obviously-fake websites — used when the query shape is the
+// registered-websites list (`FROM ...public_website`, aliased id/name/domain/...). Coherent
+// per row: the same fake site contributes its own name + domain + ids, so the website picker
+// and every website-scoped dropdown look structured like the real thing.
+// Animal names on .nav.no subdomains: realistic *shape*, zero chance of colliding with a
+// real NAV product name — a screenshot with "gaupe.nav.no" can never spark "wait, is that
+// a real site?" questions.
+const GENERATED_WEBSITES = [
+  { name: 'Gaupe', domain: 'gaupe.nav.no' },
+  { name: 'Elg', domain: 'elg.nav.no' },
+  { name: 'Hubro', domain: 'hubro.nav.no' },
+  { name: 'Rev', domain: 'rev.nav.no' },
+  { name: 'Lomvi', domain: 'lomvi.nav.no' },
+  { name: 'Fjellrev', domain: 'fjellrev.nav.no' },
+]
 
 /**
  * Extracts top-level SELECT column aliases from a SQL string, best-effort.
@@ -164,7 +180,7 @@ function typedFakeValue(alias, rowIndex, rand, dateRange) {
     return { value: new Date(ts).toISOString() }
   }
   if (/(id)$/.test(name) && !/(valid|paid|void)$/.test(name)) {
-    return `fixture-${name}-${(rowIndex + 1).toString().padStart(2, '0')}`
+    return `generated-${name}-${(rowIndex + 1).toString().padStart(2, '0')}`
   }
   if (/(rate|percent|ratio|ctr|conversion|share)/.test(name)) {
     return Math.round(rand() * 10000) / 100 // 0-100.00
@@ -172,8 +188,11 @@ function typedFakeValue(alias, rowIndex, rand, dateRange) {
   if (/(count|total|sum|visits|visitors|sessions|events|pageviews|hits|users|views)/.test(name)) {
     return Math.floor(rand() * 5000) + 10
   }
-  if (/(url|path|referrer|domain|page)/.test(name)) {
+  if (/(url|path|referrer|page)/.test(name)) {
     return SAMPLE_URLS[Math.floor(rand() * SAMPLE_URLS.length)]
+  }
+  if (/(domain|host|site)/.test(name)) {
+    return GENERATED_WEBSITES[Math.floor(rand() * GENERATED_WEBSITES.length)].domain
   }
   if (/(name|label|title|channel|source|medium)/.test(name)) {
     return SAMPLE_LABELS[Math.floor(rand() * SAMPLE_LABELS.length)]
@@ -210,6 +229,26 @@ function synthesizeRows(query, params) {
   const seed = hashString(query)
   const rand = seededRandom(seed)
   const dateRange = resolveDateRange(params)
+
+  // Registered-websites shape: give each row one coherent fake site (id/name/domain/teamId
+  // all belong to the same animal), instead of typing each alias independently — which is
+  // what produced gems like name="Annonse", domain="/dagpenger" in the website picker.
+  if (/\bpublic_website\b/i.test(query) && aliases.includes('domain') && aliases.includes('name')) {
+    return GENERATED_WEBSITES.map((site, i) => {
+      const row = {}
+      for (const alias of aliases) {
+        const a = alias.toLowerCase()
+        if (a === 'name') row[alias] = site.name
+        else if (a === 'domain') row[alias] = site.domain
+        else if (a === 'id' || a === 'websiteid') row[alias] = `generated-site-${site.domain}`
+        else if (/(teamid)/.test(a)) row[alias] = `generated-team-${site.domain}`
+        else if (/(shareid)/.test(a)) row[alias] = `generated-share-${site.domain}`
+        else row[alias] = typedFakeValue(alias, i, rand, dateRange)
+      }
+      return row
+    })
+  }
+
   const rowCount = /GROUP BY|generate_date_array|generate_timestamp_array/i.test(query) ? 14 : 8
 
   return Array.from({ length: rowCount }, (_, rowIndex) => {
@@ -230,7 +269,7 @@ function fakeBytesProcessed(query) {
 
 function buildFakeJob(query, dryRun) {
   const totalBytesProcessed = fakeBytesProcessed(query)
-  return {
+  const job = {
     metadata: {
       statistics: {
         totalBytesProcessed: String(totalBytesProcessed),
@@ -244,20 +283,26 @@ function buildFakeJob(query, dryRun) {
       if (dryRun) return [[]]
       return [synthesizeRows(query, undefined)]
     },
+    // Mirrors @google-cloud/bigquery's Job.getMetadata() ([metadata] tuple) — some routes
+    // (e.g. event-properties) read bytes-processed this way instead of via job.metadata.
+    async getMetadata() {
+      return [job.metadata]
+    },
   }
+  return job
 }
 
-export function createFixtureBigQueryClient({ proxyBaseUrl, staticToken } = {}) {
+export function createGeneratedBigQueryClient({ proxyBaseUrl, staticToken } = {}) {
   // With proxyBaseUrl + staticToken configured (path A: BACKEND_TOKEN set locally, default
-  // BIGQUERY_PROXY_BASE_URL), the "fixture" client is upgraded to a passthrough: every query
+  // BIGQUERY_PROXY_BASE_URL), the generated-data client is upgraded to a passthrough: every query
   // is forwarded to reops-proxy's guarded /bigquery/query endpoint and answered with REAL dev
   // BigQuery data. Synthesis below remains as the fallback when unconfigured or unreachable.
   const useProxy = Boolean(proxyBaseUrl && staticToken)
   logger.warn(
     useProxy
       ? `[BigQuery] No GCP credentials locally — proxying queries to ${proxyBaseUrl} (real dev data, token-guarded). ` +
-          'Fixture synthesis only as fallback if the proxy is unreachable.'
-      : '[BigQuery] No GCP credentials found locally — using FIXTURE data (deterministic, synthetic, no real BigQuery access). ' +
+          'Generated-data synthesis only as fallback if the proxy is unreachable.'
+      : '[BigQuery] No GCP credentials found locally — using GENERATED data (deterministic, synthetic, no real BigQuery access). ' +
           'Set GOOGLE_APPLICATION_CREDENTIALS to query real dev BigQuery instead.',
   )
 
@@ -279,7 +324,12 @@ export function createFixtureBigQueryClient({ proxyBaseUrl, staticToken } = {}) 
   }
 
   return {
-    __isFixtureClient: true,
+    __isGeneratedDataClient: true,
+    // 'proxy' = real dev data via reops-proxy passthrough (BACKEND_TOKEN set),
+    // 'generated' = local synthesis (this module's raison d'être).
+    // Surfaced to the browser via window.__RUNTIME_CONFIG__.DATA_MODE so the UI can label
+    // what the user is looking at (see serveFrontend.js + Header.tsx).
+    __dataMode: useProxy ? 'proxy' : 'generated',
 
     async createQueryJob(config) {
       assertReadOnly(config.query)
@@ -288,24 +338,29 @@ export function createFixtureBigQueryClient({ proxyBaseUrl, staticToken } = {}) 
           const result = await proxyQuery({ query: config.query, params: config.params, dryRun: config.dryRun })
           if (config.dryRun === true) {
             const bytes = String(result.totalBytesProcessed ?? 0)
-            return [
-              {
-                metadata: {
-                  statistics: {
-                    totalBytesProcessed: bytes,
-                    query: { totalBytesBilled: bytes, cacheHit: false },
-                  },
-                },
-                async getQueryResults() {
-                  return [[]]
+            const dryRunJob = {
+              metadata: {
+                statistics: {
+                  totalBytesProcessed: bytes,
+                  query: { totalBytesBilled: bytes, cacheHit: false },
                 },
               },
-            ]
+              async getQueryResults() {
+                return [[]]
+              },
+              async getMetadata() {
+                return [dryRunJob.metadata]
+              },
+            }
+            return [dryRunJob]
           }
           const rows = result.data
           return [buildRowsJob(config.query, rows)]
         } catch (err) {
-          logger.warn({ error: err.message ?? err }, '[BigQuery] Proxy failed, falling back to fixture synthesis')
+          logger.warn(
+            { error: err.message ?? err },
+            '[BigQuery] Proxy failed, falling back to generated-data synthesis',
+          )
         }
       }
       return [buildFakeJob(config.query, config.dryRun === true)]
@@ -318,7 +373,10 @@ export function createFixtureBigQueryClient({ proxyBaseUrl, staticToken } = {}) 
           const result = await proxyQuery({ query: config.query, params: config.params })
           return [result.data]
         } catch (err) {
-          logger.warn({ error: err.message ?? err }, '[BigQuery] Proxy failed, falling back to fixture synthesis')
+          logger.warn(
+            { error: err.message ?? err },
+            '[BigQuery] Proxy failed, falling back to generated-data synthesis',
+          )
         }
       }
       return [synthesizeRows(config.query, config.params)]
@@ -327,7 +385,7 @@ export function createFixtureBigQueryClient({ proxyBaseUrl, staticToken } = {}) 
 }
 
 function buildRowsJob(query, rows) {
-  return {
+  const job = {
     metadata: {
       statistics: {
         totalBytesProcessed: String(fakeBytesProcessed(query)),
@@ -337,5 +395,11 @@ function buildRowsJob(query, rows) {
     async getQueryResults() {
       return [rows]
     },
+    // Mirrors @google-cloud/bigquery's Job.getMetadata() ([metadata] tuple) — some routes
+    // (e.g. event-properties) read bytes-processed this way instead of via job.metadata.
+    async getMetadata() {
+      return [job.metadata]
+    },
   }
+  return job
 }

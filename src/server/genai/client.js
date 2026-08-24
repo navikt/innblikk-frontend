@@ -1,6 +1,6 @@
 import { GoogleGenAI } from '@google/genai'
 import { logger } from '../logger.js'
-import { createFixtureGenAIClient } from './fixtureClient.js'
+import { createGeneratedGenAIClient } from './generatedDataClient.js'
 import { hasNoLocalGcpCredentials } from '../gcpCredentials.js'
 
 /**
@@ -12,14 +12,14 @@ import { hasNoLocalGcpCredentials } from '../gcpCredentials.js'
  * 2. `GOOGLE_APPLICATION_CREDENTIALS` key file path (local dev)
  * 3. Fall back to Application Default Credentials resolved by google-auth-library
  *
- * When none of those are present locally (and NODE_ENV isn't production), returns a fixture
- * client instead (see `genai/fixtureClient.js`) — same rationale as the BigQuery fixture:
+ * When none of those are present locally (and NODE_ENV isn't production), returns a generated-data
+ * client instead (see `genai/generatedDataClient.js`) — same rationale as the BigQuery generated-data client:
  * lets a contributor without GCP access exercise the whole Copilot feature, including tool
  * calls and cost estimation, without ever making a real (and here, doomed to fail) Gemini call.
  */
 export function createGenAIClient({ projectId, location, dirname }) {
   if (process.env.NODE_ENV !== 'production' && hasNoLocalGcpCredentials(dirname)) {
-    return createFixtureGenAIClient({ projectId })
+    return createGeneratedGenAIClient({ projectId })
   }
 
   try {

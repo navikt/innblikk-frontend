@@ -44,20 +44,21 @@ visningsnavn og revisjonslogging av BigQuery-spørringer.
 `BACKEND_TOKEN` er det eneste manuelle steget her; `BACKEND_BASE_URL` og `GCP_PROJECT_ID` peker
 automatisk mot dev-miljøet. Prosjekt-/dashboard-/canvas-data hentes ekte fra dev-backend. De
 BigQuery-baserte analysewidgetene (trafikk, funnel, retensjon osv.) og `/copilot`-chatten (som
-bruker Gemini) vises med syntetiske fixture-data i stedet — se `src/server/bigquery/fixtureClient.js`
-og `src/server/genai/fixtureClient.js` — siden begge krever GCP-legitimasjon du ikke trenger for
-dette formålet. Fixture-dataene genereres deterministisk, så de holder seg noenlunde riktig formet
+bruker Gemini) vises med genererte testdata i stedet — se `src/server/bigquery/generatedDataClient.js`
+og `src/server/genai/generatedDataClient.js` — siden begge krever GCP-legitimasjon du ikke trenger for
+dette formålet. Dataene genereres deterministisk, så de holder seg noenlunde riktig formet
 selv når spørringene/appen endres — ingen håndskrevet mock-data å vedlikeholde. `/copilot` er et
 eksperimentelt Team ResearchOps-only-verktøy, men team-medlemsjekken hoppes automatisk over i
-fixture-modus — du trenger ikke stå i Team-katalogen for å se hvordan funksjonen ser ut.
+generert modus — du trenger ikke stå i Team-katalogen for å se hvordan funksjonen ser ut.
+En «Genererte data»-etikett i headeren viser når du ser på syntetiske data.
 
-**Unntak fra fixture-data:** er `BACKEND_TOKEN` satt, proxyer fixture-klienten alle
+**Unntak fra genererte data:** er `BACKEND_TOKEN` satt, proxyer den genererte klienten alle
 BigQuery-spørringer via reops-proxy sin bevoktede passthrough (ekte dev-data — nettsideliste,
-trafikk, alt) med fixture-syntese kun som fallback hvis proxyen er nede. Uten token: rene
-fixture-data som før. Se `src/server/bigquery/fixtureClient.js`.
+trafikk, alt) med syntese kun som fallback hvis proxyen er nede. Uten token: rene
+genererte data som før. Se `src/server/bigquery/generatedDataClient.js`.
 
 > Passthroughen svarer kun for dev-prosjektet. Sett ikke `GCP_PROJECT_ID` til prod lokalt —
-> da avvises spørringene og du får fixture-data i stedet.
+> da avvises spørringene og du får genererte data i stedet.
 
 Du er trygg: alt kjører mot dev-miljøet (se "Dev"/"Localhost"-merket øverst i appen), ingen
 handlinger her påvirker ekte brukere eller produksjonsdata, og verken BigQuery- eller
@@ -119,9 +120,9 @@ BACKEND_BASE_URL=http://localhost:8086 \
 | `SITEIMPROVE_BASE_URL`           | Prod    | Base URL for Siteimprove-proxyen (ikke satt lokalt → proxyen feiler grasiøst)                                                                                   |
 | `BACKEND_BASE_URL`               | Nei     | Overstyrer backend-URL (standard: dev-miljøet, ansatt-nett-tilgjengelig)                                                                                        |
 | `MOCK_NAV_IDENT`                 | Lokalt  | Mocker innlogget bruker — bruk din egen Z-bruker, ikke en placeholder                                                                                           |
-| `GOOGLE_APPLICATION_CREDENTIALS` | Nei     | Sti til GCP-nøkkelfil. Uten denne brukes BigQuery-fixture-data lokalt                                                                                           |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Nei     | Sti til GCP-nøkkelfil. Uten denne brukes genererte BigQuery-data lokalt                                                                                         |
 | `BACKEND_TOKEN`                  | Bane A  | Delt dev-only bearer-token mot ekte dev-backend (`/api/backend/*`) og reops-proxy sin BigQuery-passthrough. Hentes fra teamet via sikker kanal, aldri commitet. |
-| `BIGQUERY_PROXY_BASE_URL`        | Nei     | Hvor BigQuery-spørringer sendes i fixture-modus (standard: `https://reops-proxy.ekstern.dev.nav.no`)                                                            |
+| `BIGQUERY_PROXY_BASE_URL`        | Nei     | Hvor BigQuery-spørringer sendes i generert modus (standard: `https://reops-proxy.ekstern.dev.nav.no`)                                                           |
 
 ---
 

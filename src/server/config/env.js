@@ -33,14 +33,14 @@ export const SITEIMPROVE_BASE_URL = normalizeBaseUrl(process.env.SITEIMPROVE_BAS
 export const GCP_PROJECT_ID = process.env.GCP_PROJECT_ID || defaultDevGcpProjectId
 export const BACKEND_WS_HOST = process.env.BACKEND_WS_HOST || undefined
 
-// Where a path-A local server (BigQuery fixture mode, no GCP creds) sends the few
+// Where a path-A local server (BigQuery generated-data mode, no GCP creds) sends the few
 // read-only reference-data lookups that must return REAL dev data (currently just the
 // registered website list — see websiteRoutes.js). reops-proxy is a dedicated guarded
 // passthrough app, gated only by the shared dev-only static token (BACKEND_TOKEN locally —
 // same secret as innblikk-backend's DEV_LOCAL_AUTH_TOKEN). Must use the `ekstern.dev.nav.no`
 // ingress: `ansatt.dev.nav.no` is SSO-gated platform-wide (302 to login for any request
 // without a browser SSO session), so server-to-server calls can never pass it. Only used
-// when the fixture client is active, so prod/deployed instances never take this path.
+// when the generated-data client is active, so prod/deployed instances never take this path.
 const defaultBigQueryProxyBaseUrl = isProduction ? undefined : 'https://reops-proxy.ekstern.dev.nav.no'
 export const BIGQUERY_PROXY_BASE_URL = normalizeBaseUrl(
   process.env.BIGQUERY_PROXY_BASE_URL || defaultBigQueryProxyBaseUrl,

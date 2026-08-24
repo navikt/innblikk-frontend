@@ -1,6 +1,8 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react-swc'
 import { execSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 const resolveGitSha = (): string => {
   const fromEnv = process.env.GIT_SHA || process.env.GITHUB_SHA
@@ -16,11 +18,42 @@ const resolveGitSha = (): string => {
 
 const gitSha = resolveGitSha()
 
+// DATA_MODE for the header badge, mirroring server.js' decision. In dev, vite serves
+// index.html (express only serves dist/), so without this the __RUNTIME_CONFIG__ injection
+// never happens locally and the badge would silently never render during development.
+// Same rule as bigquery/client.js: no local GCP credentials → generated-data client, which
+// becomes a real-data passthrough when BACKEND_TOKEN is set (proxy mode).
+const resolveDataMode = (): string => {
+  const hasCreds =
+    Boolean(process.env['bigquery-credentials']) ||
+    Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS) ||
+    Boolean(process.env.UMAMI_BIGQUERY) ||
+    existsSync(resolve(process.cwd(), 'service-account-key.json'))
+  if (hasCreds) return 'real'
+  return process.env.BACKEND_TOKEN ? 'proxy' : 'generated'
+}
+
+const dataMode = resolveDataMode()
+
+// Injects the same window.__RUNTIME_CONFIG__ script serveFrontend.js adds to the built app,
+// so the header's data-source badge works in `pnpm start` (vite dev) too, not just when
+// serving dist/.
+const runtimeConfigPlugin = () => ({
+  name: 'inject-runtime-config',
+  transformIndexHtml: () => [
+    {
+      tag: 'script',
+      children: `window.__RUNTIME_CONFIG__ = ${JSON.stringify({ DATA_MODE: dataMode })};`,
+      injectTo: 'head' as const,
+    },
+  ],
+})
+
 // https://vite.dev/config/
 export default defineConfig({
   // Redirect env file loading to a neutral dir during tests to avoid EPERM on .env
   ...(process.env.VITEST ? { envDir: '/tmp' } : {}),
-  plugins: [react()],
+  plugins: [react(), runtimeConfigPlugin()],
   define: {
     __GIT_SHA__: JSON.stringify(gitSha),
   },

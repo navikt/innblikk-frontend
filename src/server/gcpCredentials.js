@@ -5,7 +5,7 @@ import path from 'path'
  * True when none of the supported local GCP credential sources are present.
  * Shared by `bigquery/client.js` and `genai/client.js` so "do we have real GCP access
  * locally" is a single source of truth, not two copies that can drift — both clients fall
- * back to fixture data under the same condition (see their respective fixtureClient.js).
+ * back to generated data under the same condition (see their respective generatedDataClient.js).
  */
 export function hasNoLocalGcpCredentials(dirname) {
   if (process.env['bigquery-credentials']) return false

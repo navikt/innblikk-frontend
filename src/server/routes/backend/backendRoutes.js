@@ -121,12 +121,12 @@ export function createBackendProxyRouter({ BACKEND_BASE_URL }) {
     const oboToken = await getOboToken(req)
 
     // Static dev token (BACKEND_TOKEN, path A local dev) takes priority over the
-    // service-token attempt: when it's configured, the service-token endpoint
-    // (http://localhost:8080/issueissue/token — local Spring backend flow) is by
-    // definition not in play, so attempting it first would just cost every proxied
-    // request a failed network round-trip plus a noisy warning log for nothing.
+    // service-token attempt — but ONLY when proxying to the deployed dev backend. That
+    // token is validated by LocalDevTokenAuthFilter, which exists only in the deployed
+    // dev environment; a local Spring backend (isLocalBackend) would just 401 it, so
+    // there it must fall through to the mock-oauth2 service token instead.
     const staticAuthorization =
-      staticBackendToken && !req.headers.authorization && !oboToken
+      staticBackendToken && !isLocalBackend && !req.headers.authorization && !oboToken
         ? staticBackendToken.toLowerCase().startsWith('bearer ')
           ? staticBackendToken
           : `Bearer ${staticBackendToken}`

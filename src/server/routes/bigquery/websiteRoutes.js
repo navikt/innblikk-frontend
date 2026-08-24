@@ -3,10 +3,10 @@ import { addAuditLogging } from '../../bigquery/audit.js'
 import { logger } from '../../logger.js'
 import { requireBigQuery, getNavIdent, getWebsitesList } from './helpers.js'
 
-// No fixture special-casing here: when the fixture BigQuery client is active it already
-// proxies real queries to reops-proxy (see bigquery/fixtureClient.js), so this route returns
+// No generated-data special-casing here: when the generated-data BigQuery client is active it already
+// proxies real queries to reops-proxy (see bigquery/generatedDataClient.js), so this route returns
 // real registered websites under path A too — which Sporingskoder and every website picker
-// depend on (a fixture-id tracking snippet could never be installed anywhere).
+// depend on (a generated-id tracking snippet could never be installed anywhere).
 export function createWebsiteRoutes({ bigquery, GCP_PROJECT_ID }) {
   const router = express.Router()
 
