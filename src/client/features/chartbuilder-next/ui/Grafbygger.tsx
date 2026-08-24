@@ -166,7 +166,7 @@ const ChartsPage = () => {
       filters={
         <>
           {/* ── Nettside ───────────────────────────────────────── */}
-          <Bleed asChild marginBlock="space-24" marginInline="space-24" reflectivePadding>
+          <Bleed asChild marginBlock="space-24 space-0" marginInline="space-24" reflectivePadding>
             <Box background="accent-strong" className="pb-2">
               <WebsitePicker
                 id="grafbygger-website-picker"
