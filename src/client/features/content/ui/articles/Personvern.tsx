@@ -168,8 +168,8 @@ function Personvern() {
                 <p className="leading-normal">
                   Hvis du opplever problemer eller har forslag til forbedringer hører vi veldig gjerne fra deg! Feil og
                   mangler kan rapporteres til{' '}
-                  <a className="underline" href="mailto:eilif.johansen@nav.no">
-                    eilif.johansen@nav.no
+                  <a className="underline" href="mailto:researchops@nav.no">
+                    researchops@nav.no
                   </a>
                   , eller{' '}
                   <a className="underline" href="https://nav-it.slack.com/archives/C02UGFS2J4B">
