@@ -8,6 +8,7 @@ import {
   WEBSITES_CACHE_KEY,
   SELECTED_WEBSITE_CACHE_KEY,
 } from '../storage/websiteCache.ts'
+import { normalizeDomain } from '../../../shared/lib/domain'
 
 export type { Website }
 
@@ -32,6 +33,13 @@ interface WebsitePickerProps {
 }
 
 const API_TIMEOUT_MS = 120000 // timeout
+
+// A website counts as a "dev site" if its domain or name points at a dev host, or its
+// name ends in " - dev". Pure helper, hoisted so the restore effects can use it too.
+const isDevWebsite = (website: Website) =>
+  website.domain.includes('.dev.nav.no') ||
+  website.name.includes('.dev.nav.no') ||
+  /\s-\sdev$/i.test(website.name.trim())
 
 const timeoutPromise = (ms: number) => {
   return new Promise((_, reject) => {
@@ -147,11 +155,22 @@ const WebsitePicker = ({
     if (websitesLoaded.current && !initialUrlChecked.current && websites.length > 0) {
       const urlParams = new URLSearchParams(window.location.search)
       const websiteIdFromUrl = urlParams.get('websiteId')
+      const domainFromUrl = urlParams.get('domain')
 
       if (websiteIdFromUrl) {
         const website = websites.find((w) => w.id === websiteIdFromUrl)
         if (website && !selectedWebsite) {
+          if (isDevWebsite(website)) setShowDevSites(true) // reveal the option so the selection is visible
           handleWebsiteChange(website) // Use handleWebsiteChange to ensure caching
+        }
+      } else if (domainFromUrl) {
+        // No websiteId, but we have a domain — try to match by domain.
+        // This handles links like /trafikkanalyse?domain=www.nav.no&urlPath=/helse
+        const normalizedInput = normalizeDomain(domainFromUrl)
+        const website = websites.find((w) => normalizeDomain(w.domain) === normalizedInput)
+        if (website && !selectedWebsite) {
+          if (isDevWebsite(website)) setShowDevSites(true) // reveal the option so the selection is visible
+          handleWebsiteChange(website)
         }
       }
 
@@ -386,9 +405,10 @@ const WebsitePicker = ({
 
     const urlParams = new URLSearchParams(window.location.search)
     const websiteIdFromUrl = urlParams.get('websiteId')
+    const domainFromUrl = urlParams.get('domain')
 
-    // Priority 1: URL parameter (need to load websites to find it)
-    if (websiteIdFromUrl) {
+    // Priority 1: URL parameters (websiteId or domain — need to load websites to find them)
+    if (websiteIdFromUrl || domainFromUrl) {
       // Websites will load automatically via the effect above
       initialUrlChecked.current = true
       return
@@ -412,10 +432,20 @@ const WebsitePicker = ({
 
     const urlParams = new URLSearchParams(window.location.search)
     const websiteIdFromUrl = urlParams.get('websiteId')
+    const domainFromUrl = urlParams.get('domain')
 
     if (websiteIdFromUrl) {
       const website = websites.find((w) => w.id === websiteIdFromUrl)
       if (website) {
+        if (isDevWebsite(website)) setShowDevSites(true) // reveal the option so the selection is visible
+        handleWebsiteChange(website)
+      }
+    } else if (domainFromUrl) {
+      // No websiteId, but we have a domain — try to match by domain
+      const normalizedInput = normalizeDomain(domainFromUrl)
+      const website = websites.find((w) => normalizeDomain(w.domain) === normalizedInput)
+      if (website && (!selectedWebsite || selectedWebsite.id !== website.id)) {
+        if (isDevWebsite(website)) setShowDevSites(true) // reveal the option so the selection is visible
         handleWebsiteChange(website)
       }
     }
@@ -523,10 +553,6 @@ const WebsitePicker = ({
   })
 
   const isProdHost = !window.location.hostname.includes('.dev.nav.no')
-  const isDevWebsite = (website: Website) =>
-    website.domain.includes('.dev.nav.no') ||
-    website.name.includes('.dev.nav.no') ||
-    /\s-\sdev$/i.test(website.name.trim())
   const devToggleOptionValue = '__toggle_dev_sites__'
   const toggleDevSitesLabel = showDevSites ? 'Skjul dev sider' : 'Vis dev sider'
   const getDisplayName = (website: Website) => {

@@ -1,19 +1,10 @@
 import { useState } from 'react'
 import type { Website } from '../types/website'
 import { fetchWebsites as fetchWebsitesApi } from '../api/websiteApi'
+import { normalizeDomain } from '../lib/domain'
 
 export const useWebsiteMatching = () => {
   const [websites, setWebsites] = useState<Website[] | null>(null)
-
-  const normalizeDomain = (domain: string) => {
-    const cleaned = domain
-      .trim()
-      .toLowerCase()
-      .replace(/^https?:\/\//, '')
-      .replace(/\.$/, '')
-      .replace(/^www\./, '')
-    return cleaned === 'nav.no' ? 'www.nav.no' : cleaned
-  }
 
   // Helper to filter and process raw website data consistently
   const processWebsitesData = (websitesData: Website[]): Website[] => {

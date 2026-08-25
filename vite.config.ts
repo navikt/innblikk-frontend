@@ -3,6 +3,14 @@ import react from '@vitejs/plugin-react-swc'
 import { execSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
+import dotenv from 'dotenv'
+
+// The express server loads .env via config/env.js, but this config file decides the
+// header's data-source badge (DATA_MODE) and reads process.env directly — without loading
+// .env first, a credential set only in .env (e.g. GOOGLE_APPLICATION_CREDENTIALS) is
+// invisible here and the badge wrongly shows "Generert" on the vite dev server (:5173).
+// dotenv does not override already-set process.env vars, so real env still wins.
+dotenv.config()
 
 const resolveGitSha = (): string => {
   const fromEnv = process.env.GIT_SHA || process.env.GITHUB_SHA
