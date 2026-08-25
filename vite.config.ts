@@ -43,15 +43,22 @@ const resolveDataMode = (): string => {
 
 const dataMode = resolveDataMode()
 
+// GCP_PROJECT_ID for the vite dev server, mirroring config/env.js's dev default so the
+// injected __RUNTIME_CONFIG__ matches what the express server (port 8081) injects when
+// serving dist/. The WebsitePicker's default-site logic reads this to decide dev vs prod —
+// without it, vite only injected DATA_MODE and getGcpProjectId() silently fell back to the
+// prod default, so on localhost the dev default website ID never matched anything.
+const gcpProjectId = process.env.GCP_PROJECT_ID || 'team-researchops-dev-4396'
+
 // Injects the same window.__RUNTIME_CONFIG__ script serveFrontend.js adds to the built app,
-// so the header's data-source badge works in `pnpm start` (vite dev) too, not just when
-// serving dist/.
+// so the header's data-source badge and any GCP_PROJECT_ID-dependent client logic work in
+// `pnpm start` (vite dev) too, not just when serving dist/.
 const runtimeConfigPlugin = () => ({
   name: 'inject-runtime-config',
   transformIndexHtml: () => [
     {
       tag: 'script',
-      children: `window.__RUNTIME_CONFIG__ = ${JSON.stringify({ DATA_MODE: dataMode })};`,
+      children: `window.__RUNTIME_CONFIG__ = ${JSON.stringify({ DATA_MODE: dataMode, GCP_PROJECT_ID: gcpProjectId })};`,
       injectTo: 'head' as const,
     },
   ],

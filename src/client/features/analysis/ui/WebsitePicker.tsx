@@ -8,7 +8,8 @@ import {
   WEBSITES_CACHE_KEY,
   SELECTED_WEBSITE_CACHE_KEY,
 } from '../storage/websiteCache.ts'
-import { normalizeDomain } from '../../../shared/lib/domain'
+import { normalizeDomain, DEFAULT_WEBSITE_ID } from '../../../shared/lib/domain'
+import { getGcpProjectId } from '../../../shared/lib/runtimeConfig'
 
 export type { Website }
 
@@ -447,6 +448,16 @@ const WebsitePicker = ({
       if (website && (!selectedWebsite || selectedWebsite.id !== website.id)) {
         if (isDevWebsite(website)) setShowDevSites(true) // reveal the option so the selection is visible
         handleWebsiteChange(website)
+      }
+    } else if (!selectedWebsite) {
+      // No URL param and nothing restored from localStorage — fall back to the default
+      // "front page" site for the environment we're actually querying, matched by stable
+      // website ID. (Priority: URL param > last-selected localStorage > this default.)
+      const defaultWebsiteId = getGcpProjectId().includes('-dev-') ? DEFAULT_WEBSITE_ID.dev : DEFAULT_WEBSITE_ID.prod
+      const defaultWebsite = websites.find((w) => w.id === defaultWebsiteId)
+      if (defaultWebsite) {
+        if (isDevWebsite(defaultWebsite)) setShowDevSites(true) // reveal the option so the selection is visible
+        handleWebsiteChange(defaultWebsite)
       }
     }
   }, [websites, handleWebsiteChange, disableAutoRestore])
