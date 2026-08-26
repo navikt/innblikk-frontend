@@ -2,9 +2,8 @@ import { Loader, Page, Theme } from '@navikt/ds-react'
 import { Suspense, useEffect, useLayoutEffect, useState } from 'react'
 import { BrowserRouter as Router, Route, Routes, useLocation, Link } from 'react-router-dom'
 import routes, { isFullWidthPath } from './routes.tsx'
-import Footer from './shared/ui/theme/Footer/Footer.tsx'
 import ScrollToTop from './shared/ui/theme/ScrollToTop/ScrollToTop.tsx'
-import Header from './shared/ui/theme/Header/Header.tsx'
+import Sidebar from './shared/ui/theme/Sidebar/Sidebar.tsx'
 import { ErrorBoundary } from './shared/ui/ErrorBoundary.tsx'
 import { useHead } from '@unhead/react'
 import { AppBlock } from './shared/ui/theme/AppBlock/AppBlock.tsx'
@@ -82,19 +81,17 @@ const AppShell = ({ theme }: { theme: 'light' | 'dark' }) => {
   }
 
   if (isCopilotPage) {
-    // Full-height chat UI: wants the navbar but not Aksel's `<Page>`/`<Footer>` — deliberately
-    // NOT routed through `<Page>` here. `<Page>` nests Header and page content inside one
-    // shared, non-flex div (see Page.js — `children` all land in a single
-    // `.aksel-page__content--grow` wrapper), so giving our content a height/flex-grow value
-    // meant to "fill the remaining space below the header" actually computed against that
-    // whole wrapper's height (header included), overflowing past the real viewport by the
-    // header's own height — the composer looked "stuck to the top" instead of centered.
-    // Building the flex column ourselves (Header + content as direct, sibling flex items)
-    // sidesteps that entirely instead of fighting Aksel's internal layout via CSS overrides.
+    // Full-height chat UI: wants the sidebar but not Aksel's `<Page>`/`<Footer>` — deliberately
+    // NOT routed through `<Page>` here. `<Page>` nests its children inside one shared, non-flex
+    // div (see Page.js — `children` all land in a single `.aksel-page__content--grow` wrapper),
+    // so giving our content a height/flex-grow value meant to "fill the remaining space" actually
+    // computed against that whole wrapper's height, overflowing past the real viewport — the
+    // composer looked "stuck to the top" instead of centered. Building the flex layout ourselves
+    // (Sidebar + content as direct, sibling flex items) sidesteps that entirely.
     return (
-      <div className="flex h-dvh w-full flex-col">
-        <Header theme={theme} />
-        <div className="flex min-h-0 w-full flex-1 flex-col">
+      <div className="flex h-dvh w-full flex-col md:flex-row">
+        <Sidebar theme={theme} />
+        <div className="flex h-dvh min-h-0 w-full flex-1 flex-col">
           <ErrorBoundary>
             <Suspense fallback={<PageLoader />}>{appRoutes}</Suspense>
           </ErrorBoundary>
@@ -104,18 +101,19 @@ const AppShell = ({ theme }: { theme: 'light' | 'dark' }) => {
   }
 
   return (
-    <>
-      <Page>
-        <Header theme={theme} />
-        <PageLayout>
-          <ErrorBoundary>
-            <Suspense fallback={<PageLoader />}>{appRoutes}</Suspense>
-          </ErrorBoundary>
-          <ScrollToTopWrapper />
-        </PageLayout>
-      </Page>
-      <Footer />
-    </>
+    <div className="flex min-h-dvh w-full flex-col md:flex-row">
+      <Sidebar theme={theme} />
+      <div className="flex min-h-0 w-full flex-1 flex-col">
+        <Page>
+          <PageLayout>
+            <ErrorBoundary>
+              <Suspense fallback={<PageLoader />}>{appRoutes}</Suspense>
+            </ErrorBoundary>
+            <ScrollToTopWrapper />
+          </PageLayout>
+        </Page>
+      </div>
+    </div>
   )
 }
 

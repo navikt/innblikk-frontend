@@ -18,20 +18,16 @@
 }
 
 /* Prevent Page content area from flex-growing past content height,
-   which would create a visible gap between content and footer. */
+   avoiding a visible gap below the content (no footer follows it anymore —
+   Footer.tsx was removed, its links now live in the Sidebar's "Ressurser"
+   group). */
 .aksel-page__content--grow {
   flex-grow: 0 !important;
 }
 
-/* Remove built-in bottom padding so footer sits directly under content. */
+/* Remove built-in bottom padding now that content is the last thing on the page. */
 .aksel-page__content--padding {
   padding-block-end: 0 !important;
-}
-
-/* Cap footer content width on ultra-wide screens */
-.footer-block {
-  max-width: 1600px !important;
-  margin-inline: 0 !important;
 }
 
 /* Responsive modal styles */
@@ -206,4 +202,29 @@
 .sidebar-section:focus-within {
   position: relative;
   z-index: 1;
+}
+
+/* =====================================================
+   LEFT APP SIDEBAR (main navigation)
+   Desktop: fixed-width column, sticky so it stays visible
+   while page content scrolls. Mobile: Sidebar renders its
+   own collapsed hamburger bar instead (see Sidebar.tsx),
+   so no fixed width is applied below the md breakpoint.
+   ===================================================== */
+.app-sidebar {
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+  border-right: 1px solid var(--ax-border-neutral-subtle);
+  background: var(--ax-bg-default);
+  overflow-y: auto;
+}
+
+.app-sidebar-mobile-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  max-height: calc(100dvh - 3rem);
+  overflow-y: auto;
 }

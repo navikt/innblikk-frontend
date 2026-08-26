@@ -115,7 +115,7 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
   children,
   currentPage,
   hideSidebar = false,
-  hideAnalysisSelector = false,
+  hideAnalysisSelector = true,
   sidebarContent,
   websiteId,
   websiteDomain,
@@ -141,11 +141,13 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
           {/* Unified Top Bar */}
           {(sidebarContent || (!hideSidebar && filters)) && (
             <div className="border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-subtle)] flex flex-col md:flex-row md:min-h-[80px]">
-              {/* Left Column Header (Sidebar Content) */}
-              {!hideAnalysisSelector && (
-                <div
-                  className={`w-full md:w-[250px] flex-shrink-0 border-b md:border-b-0 p-4 flex flex-col justify-end transition-all duration-300 ${isSidebarOpen ? 'md:flex' : 'md:hidden'}`}
-                >
+              {/* Left Column Header (Sidebar Content) — the website picker. Kept
+                  independent of `hideAnalysisSelector`: that flag only controls
+                  the in-page analysis-type nav column (COL 1 below), which now
+                  defaults to hidden everywhere since that navigation lives in
+                  the global left Sidebar (see shared/ui/theme/Sidebar/Sidebar.tsx). */}
+              {sidebarContent && (
+                <div className="w-full md:w-[250px] flex-shrink-0 border-b md:border-b-0 p-4 flex flex-col justify-end">
                   {sidebarContent}
                 </div>
               )}
