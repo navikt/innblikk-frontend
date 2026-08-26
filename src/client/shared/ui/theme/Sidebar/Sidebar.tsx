@@ -246,7 +246,15 @@ function SidebarLink({ entry, collapsed }: { entry: NavLink; collapsed: boolean 
   )
 }
 
-function SidebarGroup({ entry, collapsed }: { entry: NavGroup; collapsed: boolean }) {
+function SidebarGroup({
+  entry,
+  collapsed,
+  onExpandSidebar,
+}: {
+  entry: NavGroup
+  collapsed: boolean
+  onExpandSidebar: () => void
+}) {
   const { pathname } = useLocation()
   const isActiveGroup = entry.items.some((item) => isPathActive(pathname, item.to))
   const [isOpen, setIsOpen] = useState(isActiveGroup)
@@ -260,7 +268,17 @@ function SidebarGroup({ entry, collapsed }: { entry: NavGroup; collapsed: boolea
   const toggleButton = (
     <button
       type="button"
-      onClick={() => !collapsed && setIsOpen((open) => !open)}
+      onClick={() => {
+        // While collapsed (icon-only rail), clicking a group did nothing before —
+        // now it expands the whole sidebar and opens this group, instead of being
+        // a dead click (the tooltip label alone isn't an affordance for action).
+        if (collapsed) {
+          onExpandSidebar()
+          setIsOpen(true)
+          return
+        }
+        setIsOpen((open) => !open)
+      }}
       aria-expanded={isOpen}
       aria-label={isOpen ? `Skjul undermeny for ${entry.label}` : `Vis undermeny for ${entry.label}`}
       className={`flex w-full items-center gap-3 rounded-lg border-none px-3 py-2 text-left font-[inherit] text-[15px] transition-colors ${
@@ -312,13 +330,21 @@ function SidebarGroup({ entry, collapsed }: { entry: NavGroup; collapsed: boolea
   )
 }
 
-const NavList = ({ collapsed, items }: { collapsed: boolean; items: NavEntry[] }) => (
+const NavList = ({
+  collapsed,
+  items,
+  onExpandSidebar,
+}: {
+  collapsed: boolean
+  items: NavEntry[]
+  onExpandSidebar: () => void
+}) => (
   <nav aria-label="Hovedmeny" className="flex flex-1 flex-col gap-0.5 px-2 py-3">
     {items.map((entry) =>
       entry.kind === 'link' ? (
         <SidebarLink key={entry.id} entry={entry} collapsed={collapsed} />
       ) : (
-        <SidebarGroup key={entry.id} entry={entry} collapsed={collapsed} />
+        <SidebarGroup key={entry.id} entry={entry} collapsed={collapsed} onExpandSidebar={onExpandSidebar} />
       ),
     )}
   </nav>
@@ -518,7 +544,7 @@ export default function Sidebar({ theme }: SidebarProps) {
             className="app-sidebar-mobile-panel border-t shadow-lg"
             style={{ background: 'var(--ax-bg-default)', borderColor: 'var(--ax-border-neutral-subtle)' }}
           >
-            <NavList collapsed={false} items={navItems} />
+            <NavList collapsed={false} items={navItems} onExpandSidebar={() => {}} />
             {bottomSection(false)}
           </div>
         )}
@@ -578,7 +604,7 @@ export default function Sidebar({ theme }: SidebarProps) {
         )}
       </RouterLink>
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-        <NavList collapsed={isCollapsed} items={navItems} />
+        <NavList collapsed={isCollapsed} items={navItems} onExpandSidebar={() => setIsCollapsed(false)} />
       </div>
       {bottomSection(isCollapsed)}
     </aside>
