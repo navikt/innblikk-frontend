@@ -444,7 +444,12 @@ const WebsitePicker = ({
     } else if (domainFromUrl) {
       // No websiteId, but we have a domain — try to match by domain
       const normalizedInput = normalizeDomain(domainFromUrl)
-      const website = websites.find((w) => normalizeDomain(w.domain) === normalizedInput)
+      const matches = websites.filter((w) => normalizeDomain(w.domain) === normalizedInput)
+      // Several website_ids can share one domain (e.g. www.nav.no has both the front page and
+      // "Nav.no - minside"). When ambiguous, prefer the canonical front-page ID for the current
+      // environment rather than whichever row the API happens to return first.
+      const preferredId = getGcpProjectId().includes('-dev-') ? DEFAULT_WEBSITE_ID.dev : DEFAULT_WEBSITE_ID.prod
+      const website = matches.find((w) => w.id === preferredId) ?? matches[0]
       if (website && (!selectedWebsite || selectedWebsite.id !== website.id)) {
         if (isDevWebsite(website)) setShowDevSites(true) // reveal the option so the selection is visible
         handleWebsiteChange(website)

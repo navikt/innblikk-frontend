@@ -166,6 +166,50 @@ describe('WebsitePicker domain restore', () => {
     })
   })
 
+  it('prefers the canonical front-page ID when several websites share the ?domain= domain', async () => {
+    // Two rows share domain www.nav.no; the non-canonical "minside" row is returned FIRST
+    // by the API. The restore must still pick the canonical front-page ID, not the first row.
+    window.__RUNTIME_CONFIG__ = { GCP_PROJECT_ID: 'team-researchops-prod-01d6' }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        url.includes('/api/bigquery/websites')
+          ? Promise.resolve({
+              ok: true,
+              json: () =>
+                Promise.resolve({
+                  data: [
+                    {
+                      id: '28461d11-25ed-4e27-bfc6-6994e6dffb63',
+                      name: 'Nav.no - minside',
+                      domain: 'www.nav.no',
+                      teamId: 't1',
+                      createdAt: '2023-01-01T00:00:00Z',
+                    },
+                    {
+                      id: PROD_DEFAULT_ID,
+                      name: 'Nav.no - prod',
+                      domain: 'www.nav.no',
+                      teamId: 't1',
+                      createdAt: '2023-01-01T00:00:00Z',
+                    },
+                  ],
+                }),
+            })
+          : Promise.resolve({ ok: true, json: () => Promise.resolve({}) }),
+      ),
+    )
+    window.history.replaceState({}, '', '/trafikkanalyse?domain=www.nav.no&urlPath=%2Fpensjon')
+    const { getByTestId } = render(
+      <MemoryRouter initialEntries={['/trafikkanalyse?domain=www.nav.no&urlPath=%2Fpensjon']}>
+        <Harness />
+      </MemoryRouter>,
+    )
+    await waitFor(() => {
+      expect(getByTestId('selected-id').textContent).toBe(PROD_DEFAULT_ID)
+    })
+  })
+
   it('matches the default by stable website ID even if the domain changes', async () => {
     // The default site keeps its ID but its domain got renamed — ID match must still find it.
     vi.stubGlobal(
