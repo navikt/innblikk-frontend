@@ -28,9 +28,14 @@ export const TrackingCodeModal = forwardRef<HTMLDialogElement, TrackingCodeModal
     >
       <Modal.Body>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
-          {selectedItem.createdAt && formatDate(selectedItem.createdAt) && (
+          {selectedItem.createdAt && (
             <BodyShort size="medium">
               <strong>Opprettet:</strong> {formatDate(selectedItem.createdAt)}
+            </BodyShort>
+          )}
+          {selectedItem.updatedAt && (
+            <BodyShort size="medium">
+              <strong>Sist endret:</strong> {formatDate(selectedItem.updatedAt)}
             </BodyShort>
           )}
           {selectedItem.domain && (

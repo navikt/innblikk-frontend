@@ -58,7 +58,13 @@ export function TeamWebsites() {
     if (!data || !pendingSporingskode) return null
     const website = data.find((w) => w.id === pendingSporingskode)
     if (!website) return null
-    return { name: website.name, id: website.id, domain: website.domain, createdAt: website.createdAt }
+    return {
+      name: website.name,
+      id: website.id,
+      domain: website.domain,
+      createdAt: website.createdAt,
+      updatedAt: website.updatedAt,
+    }
   }, [data, pendingSporingskode])
 
   // Open modal when we can resolve the requested website from URL params
@@ -68,8 +74,8 @@ export function TeamWebsites() {
     }
   }, [pendingSelectedItem])
 
-  const handleButtonClick = (name: string, id: string, domain?: string, createdAt?: string) => {
-    setSelectedItem({ name, id, domain, createdAt })
+  const handleButtonClick = (name: string, id: string, domain?: string, createdAt?: string, updatedAt?: string) => {
+    setSelectedItem({ name, id, domain, createdAt, updatedAt })
     openModal(id)
     modalRef.current?.showModal()
   }
@@ -119,11 +125,14 @@ export function TeamWebsites() {
               <Table.HeaderCell scope="col" style={{ width: '10%' }}>
                 Miljø
               </Table.HeaderCell>
-              <Table.HeaderCell scope="col" style={{ width: '35%' }}>
+              <Table.HeaderCell scope="col" style={{ width: '30%' }}>
                 Hoveddomene
               </Table.HeaderCell>
-              <Table.HeaderCell scope="col" style={{ width: '15%' }}>
+              <Table.HeaderCell scope="col" style={{ width: '12%' }}>
                 Opprettet
+              </Table.HeaderCell>
+              <Table.HeaderCell scope="col" style={{ width: '12%' }}>
+                Sist endret
               </Table.HeaderCell>
               <Table.HeaderCell scope="col" style={{ width: '20%' }}>
                 Sporingskode
@@ -150,6 +159,7 @@ export function TeamWebsites() {
                       </Table.DataCell>
                       <Table.DataCell>{group.prod.domain}</Table.DataCell>
                       <Table.DataCell>{formatDate(group.prod.createdAt)}</Table.DataCell>
+                      <Table.DataCell>{formatDate(group.prod.updatedAt)}</Table.DataCell>
                       <Table.DataCell>
                         <Button
                           variant="primary"
@@ -160,6 +170,7 @@ export function TeamWebsites() {
                               group.prod!.id,
                               group.prod!.domain,
                               group.prod!.createdAt,
+                              group.prod!.updatedAt,
                             )
                           }
                         >
@@ -182,12 +193,19 @@ export function TeamWebsites() {
                       </Table.DataCell>
                       <Table.DataCell>{group.dev.domain}</Table.DataCell>
                       <Table.DataCell>{formatDate(group.dev.createdAt)}</Table.DataCell>
+                      <Table.DataCell>{formatDate(group.dev.updatedAt)}</Table.DataCell>
                       <Table.DataCell>
                         <Button
                           variant="secondary"
                           size="small"
                           onClick={() =>
-                            handleButtonClick(group.dev!.name, group.dev!.id, group.dev!.domain, group.dev!.createdAt)
+                            handleButtonClick(
+                              group.dev!.name,
+                              group.dev!.id,
+                              group.dev!.domain,
+                              group.dev!.createdAt,
+                              group.dev!.updatedAt,
+                            )
                           }
                         >
                           Sporingskode dev

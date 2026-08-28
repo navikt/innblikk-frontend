@@ -41,7 +41,8 @@ export async function getWebsitesList(bigquery, GCP_PROJECT_ID, navIdent, addAud
         ANY_VALUE(domain) as domain,
         ANY_VALUE(share_id) as shareId,
         ANY_VALUE(team_id) as teamId,
-        ANY_VALUE(created_at) as createdAt
+        ANY_VALUE(created_at) as createdAt,
+        ANY_VALUE(updated_at) as updatedAt
     FROM \`${GCP_PROJECT_ID}.umami.public_website\`
     WHERE deleted_at IS NULL
       AND name IS NOT NULL
@@ -64,11 +65,8 @@ export async function getWebsitesList(bigquery, GCP_PROJECT_ID, navIdent, addAud
   const [rows] = await job.getQueryResults()
 
   return rows.map((row) => {
-    let createdAt = row.createdAt
-    if (createdAt && typeof createdAt === 'object' && createdAt.value) {
-      createdAt = createdAt.value
-    }
-    return { ...row, createdAt }
+    const unwrap = (v) => (v && typeof v === 'object' && v.value ? v.value : v)
+    return { ...row, createdAt: unwrap(row.createdAt), updatedAt: unwrap(row.updatedAt) }
   })
 }
 

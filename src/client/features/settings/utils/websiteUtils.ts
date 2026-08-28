@@ -30,6 +30,7 @@ export function groupWebsites(websites: Website[]): GroupedWebsite[] {
         baseName,
         domain: website.domain,
         createdAt: website.createdAt,
+        updatedAt: website.updatedAt,
       })
     }
 
@@ -37,15 +38,17 @@ export function groupWebsites(websites: Website[]): GroupedWebsite[] {
 
     if (isProd(website)) {
       group.prod = website
-      // Prefer prod domain and date
+      // Prefer prod domain and dates
       group.domain = website.domain
       group.createdAt = website.createdAt
+      group.updatedAt = website.updatedAt
     } else {
       group.dev = website
-      // Only use dev domain/date if no prod
+      // Only use dev domain/dates if no prod
       if (!group.prod) {
         group.domain = website.domain
         group.createdAt = website.createdAt
+        group.updatedAt = website.updatedAt
       }
     }
   })
