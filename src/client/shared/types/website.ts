@@ -7,5 +7,5 @@ export interface Website {
   domain: string
   teamId: string
   createdAt: string
-  updatedAt: string
+  updatedAt?: string
 }
