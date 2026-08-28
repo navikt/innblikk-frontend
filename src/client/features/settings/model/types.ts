@@ -10,7 +10,7 @@ export interface GroupedWebsite {
   dev?: Website
   domain: string
   createdAt: string
-  updatedAt: string
+  updatedAt?: string
 }
 
 export type FilterType = 'all' | 'prod-only' | 'dev-only' | 'both'
