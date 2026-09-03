@@ -81,8 +81,7 @@ const TOOLS = [
           'ask_user, listing just the tied exactMatch candidates (not the full fuzzy list), if none of ' +
           'them is clearly the better name match. ' +
           "If there's no exactMatch at all, don't reflexively fall back to ask_user just because a " +
-          'domain is shared — be willing to pick the most plausible candidate yourself (e.g. default ' +
-          "to the production site over a '- dev'/'- test' variant unless the user said otherwise, or a " +
+          'domain is shared — be willing to pick the most plausible candidate yourself (e.g. a ' +
           'name that clearly reads as what the user meant) and proceed. Your final answer is always ' +
           'required to state which website you assumed, so a reasonable guess that gets disclosed and ' +
           'can be corrected is preferable to stopping to ask. Only use ask_user (listing EVERY relevant ' +
@@ -162,8 +161,18 @@ async function getCachedWebsitesList(bigquery, GCP_PROJECT_ID, navIdent) {
   if (cached) return cached.websites
 
   const websites = await getWebsitesList(bigquery, GCP_PROJECT_ID, navIdent, addAuditLogging)
-  websiteListCache.set(navIdent, { websites, cachedAt: now })
-  return websites
+  // Filter out legacy dev entries before the list ever reaches the agent (or the cache, so
+  // resolve_website, the preselected-website lookup and the toolCallLog all see the same
+  // filtered view). In the production Umami database a lot of old websites were manually
+  // registered with a " - dev" suffix in the name — they still exist as rows and are planned
+  // for removal, but until then they'd just confuse the agent with duplicate-looking
+  // prod/dev website_id pairs for the same site. In the dev environment nothing carries the
+  // suffix (dev-ness is implied by the environment itself), so the filter is a harmless no-op
+  // there and the same code path works for both. Trailing whitespace tolerated; the same
+  // `/\s-\sdev$/i` convention as the client's WebsitePicker uses.
+  const filtered = websites.filter((w) => !/\s-\sdev$/i.test((w.name ?? '').trim()))
+  websiteListCache.set(navIdent, { websites: filtered, cachedAt: now })
+  return filtered
 }
 
 function getOrCreateChat({ conversationId, systemInstruction, genai, GEMINI_MODEL }) {
