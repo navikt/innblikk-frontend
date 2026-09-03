@@ -228,9 +228,45 @@ function TurnBubbles({ turn, onConfirmRun }: { turn: AssistantTurn; onConfirmRun
                     {queryCost.gb} GB · ~${queryCost.usd}
                   </BodyShort>
                 )}
-                {sqlReadMore(turn.sql)}
               </VStack>
             </Chat.Bubble>
+          )}
+
+          {/* KPI (single-value) extras — deliberately INSIDE the Chat group, not a separate
+              block below it: they inherit the chat's avatar-column indent, which visually
+              attaches "Vis SQL-kode" + "Legg til i dashboard" to Copilot's answer as its
+              footer row instead of a detached full-width section floating under the thread.
+              sqlOnly mode strips ResultsPanel's own outer margins/container styling so the
+              row sits tight under the bubble. */}
+          {turn.status === 'done' && singleValue && (
+            <div className="min-w-0 self-stretch">
+              <SqlResultsSection
+                result={turn.result}
+                loading={false}
+                estimating={false}
+                error={null}
+                queryStats={turn.result?.queryStats ?? turn.estimate}
+                query={turn.sql}
+                lastProcessedSql={turn.sql}
+                websiteId={websiteId}
+                copiedMetabase={false}
+                onExecuteQuery={async () => {}}
+                onCopyMetabase={() => {}}
+                hideMetabaseTransfer
+                sqlOnly
+                showSqlCode
+                showJson={false}
+                showExecuteButton={false}
+                showError={false}
+                showCost={showTechnicalDetails}
+                dashboardButtonSize="medium"
+                prepareLineChartData={(includeAverage = false) =>
+                  turn.result?.data ? prepareLineChartData(turn.result.data, includeAverage) : null
+                }
+                prepareBarChartData={() => (turn.result?.data ? prepareBarChartData(turn.result.data) : null)}
+                preparePieChartData={() => (turn.result?.data ? preparePieChartData(turn.result.data) : null)}
+              />
+            </div>
           )}
         </Chat>
       )}

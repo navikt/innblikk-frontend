@@ -61,9 +61,11 @@ const TOOLS = [
         name: 'resolve_website',
         description:
           'Fuzzy-search website_id(s) matching a domain or website name fragment the user mentioned ' +
-          '(typo-tolerant — a slightly misspelled domain/name will still match). Always call this ' +
-          'before writing SQL that filters by website_id — several websites can share the same ' +
-          'domain, so a website_id must never be guessed from memory. Results are ranked best-match ' +
+          '(typo-tolerant — a slightly misspelled domain/name will still match). Only needed when ' +
+          'the user asks about a website OTHER than the preselected one already given in the system ' +
+          'prompt — if no other website is mentioned, use the preselected website_id directly. ' +
+          'Several websites can share the same domain, so a website_id must never be guessed from ' +
+          'memory. Results are ranked best-match ' +
           'first with a relevance score. IMPORTANT: every website domain in this system ends in ' +
           '\'.nav.no\', so fuzzy-matching e.g. "nav.no" alone will surface many unrelated subdomains ' +
           "with similar-looking scores — a small score gap between results does NOT mean they're " +
@@ -264,7 +266,7 @@ export function createCopilotRouter({ bigquery, genai, GCP_PROJECT_ID, GEMINI_MO
 
   router.post('/api/copilot/chat', async (req, res) => {
     try {
-      const { question, conversationId: incomingConversationId } = req.body
+      const { question, conversationId: incomingConversationId, websiteId } = req.body
 
       if (!question || !question.trim()) {
         return res.status(400).json({ error: 'question is required' })
@@ -277,7 +279,17 @@ export function createCopilotRouter({ bigquery, genai, GCP_PROJECT_ID, GEMINI_MO
 
       const navIdent = getNavIdent(req)
       const websites = await getCachedWebsitesList(bigquery, GCP_PROJECT_ID, navIdent)
-      const systemInstruction = buildSystemPrompt({ projectId: GCP_PROJECT_ID, maxCostUsd: COPILOT_MAX_COST_USD })
+      // The client's currently selected website (sent with every message — see useAssistantChat).
+      // Resolved to name+domain here (the client only knows the ID reliably) so the system prompt
+      // can tell the agent which site the user most likely means, instead of it having to
+      // resolve_website from nothing. May be null if the ID is unknown/stale — the prompt
+      // handles that by behaving exactly as before.
+      const preselectedWebsite = websiteId ? (websites.find((w) => w.id === websiteId) ?? null) : null
+      const systemInstruction = buildSystemPrompt({
+        projectId: GCP_PROJECT_ID,
+        maxCostUsd: COPILOT_MAX_COST_USD,
+        preselectedWebsite,
+      })
 
       const { chat, id: conversationId } = getOrCreateChat({
         conversationId: incomingConversationId,

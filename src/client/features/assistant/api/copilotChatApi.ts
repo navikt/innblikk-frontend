@@ -75,11 +75,15 @@ export class CopilotChatError extends Error {
   }
 }
 
-export async function askCopilot(question: string, conversationId?: string | null): Promise<CopilotChatResponse> {
+export async function askCopilot(
+  question: string,
+  conversationId?: string | null,
+  websiteId?: string | null,
+): Promise<CopilotChatResponse> {
   const response = await fetch('/api/copilot/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ question, conversationId }),
+    body: JSON.stringify({ question, conversationId, websiteId }),
   })
 
   const contentType = response.headers.get('content-type') ?? ''

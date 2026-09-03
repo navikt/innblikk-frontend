@@ -61,6 +61,10 @@ interface ResultsPanelProps {
   showCost?: boolean
   showDownloadReadMore?: boolean
   hideTabList?: boolean
+  // Skip the results display (tabs/table/charts) entirely and show only the SQL viewer +
+  // actions — used by Copilot's single-value (KPI) replies, where the number itself is
+  // rendered outside this component and the full tab UI would be noise.
+  sqlOnly?: boolean
   compactTableActions?: boolean
   hideTableFooter?: boolean
   compactTableTitle?: string
@@ -93,6 +97,7 @@ const ResultsPanel = ({
   showCost = false,
   showDownloadReadMore = true,
   hideTabList = false,
+  sqlOnly = false,
   compactTableActions = false,
   hideTableFooter = false,
   compactTableTitle,
@@ -675,7 +680,7 @@ const ResultsPanel = ({
         )}
 
         {/* Results Display */}
-        {result && result.data && result.data.length > 0 && (
+        {!sqlOnly && result && result.data && result.data.length > 0 && (
           <div className="mt-2 space-y-3">
             {/* Tabbed Display */}
             <Tabs value={activeTab} onChange={handleTabChange}>
@@ -1391,7 +1396,7 @@ const ResultsPanel = ({
           </div>
         )}
 
-        {result && result.data && result.data.length === 0 && (
+        {!sqlOnly && result && result.data && result.data.length === 0 && (
           <Alert variant="info" className="mt-3">
             Spørringen returnerte ingen resultater.
           </Alert>

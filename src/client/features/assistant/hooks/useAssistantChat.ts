@@ -1,5 +1,9 @@
 import { useCallback, useState } from 'react'
 import { executeQueryApi } from '../../sql/api/sqlApi'
+import { getFromLocalStorage, SELECTED_WEBSITE_CACHE_KEY } from '../../../shared/lib/localStorage'
+import { DEFAULT_WEBSITE_ID } from '../../../shared/lib/domain'
+import { getGcpProjectId } from '../../../shared/lib/runtimeConfig'
+import type { Website } from '../../../shared/types/website'
 import {
   askCopilot,
   CopilotChatError,
@@ -31,6 +35,21 @@ export type AssistantTurn = {
 // threshold tight (mirrors the server-side check in copilotRoutes.js) and require explicit
 // confirmation above it instead of silently running an expensive query.
 const COPILOT_MAX_COST_USD = 0.5
+
+// The website the user "currently works with" — mirrors the resolution order WebsitePicker
+// uses on /trafikkanalyse & co (explicit ?websiteId= URL param → last selection persisted in
+// localStorage → the environment's default front page). Sent along with every chat message so
+// the agent can weight this website instead of having to resolve one from scratch.
+const getPreselectedWebsiteId = (): string => {
+  const urlParams = new URLSearchParams(window.location.search)
+  const websiteIdFromUrl = urlParams.get('websiteId')
+  if (websiteIdFromUrl) return websiteIdFromUrl
+
+  const cachedWebsite = getFromLocalStorage<Website>(SELECTED_WEBSITE_CACHE_KEY)
+  if (cachedWebsite?.id) return cachedWebsite.id
+
+  return getGcpProjectId().includes('-dev-') ? DEFAULT_WEBSITE_ID.dev : DEFAULT_WEBSITE_ID.prod
+}
 
 const newTurn = (question: string): AssistantTurn => ({
   id: crypto.randomUUID(),
@@ -77,7 +96,7 @@ export const useAssistantChat = () => {
     setTurns((prev) => [...prev, turn])
 
     try {
-      const response = await askCopilot(trimmed, conversationId)
+      const response = await askCopilot(trimmed, conversationId, getPreselectedWebsiteId())
       if (response.conversationId) setConversationId(response.conversationId)
       if (response.systemPrompt) setSystemPrompt(response.systemPrompt)
 

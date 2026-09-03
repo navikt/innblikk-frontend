@@ -73,6 +73,11 @@ interface SqlResultsSectionProps {
   showCost?: boolean
   dashboardButtonSize?: 'small' | 'medium'
   initialTab?: 'table' | 'linechart' | 'areachart' | 'barchart' | 'piechart'
+  // Single-value (KPI) results render outside this component (a big-number display, e.g.
+  // Copilot's chat bubble) — set this to skip the results tabs entirely and show only the
+  // "Vis SQL-kode" viewer (same syntax highlighting / copy / edit-in-/sql buttons as the
+  // chart path) plus the "Legg til i dashboard" action + save modals.
+  sqlOnly?: boolean
   onExecuteQuery: () => Promise<void>
   onCopyMetabase: () => void
   prepareLineChartData: (includeAverage?: boolean) => ILineChartProps | null
@@ -98,6 +103,7 @@ export default function SqlResultsSection({
   showCost = true,
   dashboardButtonSize = 'small',
   initialTab,
+  sqlOnly = false,
   onExecuteQuery,
   onCopyMetabase,
   prepareLineChartData,
@@ -393,10 +399,11 @@ export default function SqlResultsSection({
         hideTableFooter={true}
         showDownloadReadMore={false}
         onAddToDashboard={openSaveModal}
+        sqlOnly={sqlOnly}
       />
 
       {/* JSON Output - below results */}
-      {result && showJson && (
+      {!sqlOnly && result && showJson && (
         <ReadMore header="JSON" size="small" className="mt-6">
           <pre
             className="bg-[var(--ax-bg-neutral-soft)] border border-gray-300 rounded p-3 text-xs font-mono whitespace-pre-wrap"
@@ -408,7 +415,9 @@ export default function SqlResultsSection({
       )}
 
       {/* Metabase section */}
-      <div className="space-y-3 mt-6 mb-4">
+      {/* sqlOnly (Copilot KPI replies) renders embedded directly under a chat bubble — tight
+          margins so the actions read as part of the answer, not a separate section. */}
+      <div className={sqlOnly ? 'space-y-3 mt-2' : 'space-y-3 mt-6 mb-4'}>
         <div className="flex flex-wrap gap-2">
           <Button size={dashboardButtonSize} variant="primary" onClick={openSaveModal}>
             Legg til i dashboard

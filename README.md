@@ -123,6 +123,7 @@ BACKEND_BASE_URL=http://localhost:8086 \
 | `GOOGLE_APPLICATION_CREDENTIALS` | Nei     | Sti til GCP-nøkkelfil. Uten denne brukes genererte BigQuery-data lokalt                                                                                         |
 | `BACKEND_TOKEN`                  | Bane A  | Delt dev-only bearer-token mot ekte dev-backend (`/api/backend/*`) og reops-proxy sin BigQuery-passthrough. Hentes fra teamet via sikker kanal, aldri commitet. |
 | `BIGQUERY_PROXY_BASE_URL`        | Nei     | Hvor BigQuery-spørringer sendes i generert modus (standard: `https://reops-proxy.ekstern.dev.nav.no`)                                                           |
+| `LOG_LEVEL`                      | Nei     | Pino-loggnivå (`trace`/`debug`/`info`/`warn`/`error`, standard `info`). Sett `debug` lokalt for bl.a. teamkatalog-oppslag ved feilsøking av tilgang             |
 
 ---
 

@@ -117,9 +117,19 @@ export function createUserRouter({ BACKEND_BASE_URL }) {
       const teams = await getTeamMembership(navIdent)
       const isReopsTeamMember = teams.some((team) => team.id === REOPS_TEAM_KATALOG_ID)
 
+      if (!isReopsTeamMember) {
+        logger.debug(
+          { navIdent, teamIds: teams.map((t) => t.id), expected: REOPS_TEAM_KATALOG_ID },
+          '[Team membership] not a member of Team ResearchOps',
+        )
+      }
+
       res.json({ isReopsTeamMember })
     } catch (error) {
-      logger.error({ error: error.message }, '[Team membership] Error')
+      logger.error(
+        { navIdent: req.user?.navIdent, error: error.message },
+        '[Team membership] Error — failing closed (isReopsTeamMember: false)',
+      )
       res.json({ isReopsTeamMember: false })
     }
   })

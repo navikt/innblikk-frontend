@@ -21,13 +21,21 @@ export async function requireReopsTeamMember(req, res, next) {
     const isReopsTeamMember = teams.some((team) => team.id === REOPS_TEAM_KATALOG_ID)
 
     if (!isReopsTeamMember) {
+      logger.debug(
+        { navIdent, teamIds: teams.map((t) => t.id), expected: REOPS_TEAM_KATALOG_ID },
+        '[requireReopsTeamMember] not a member of Team ResearchOps',
+      )
       return res.status(403).json({ error: 'Denne funksjonen er kun tilgjengelig for Team ResearchOps' })
     }
 
     next()
   } catch (error) {
-    // Fail closed: if Team Catalog is unreachable, don't let the request through.
-    logger.error({ error: error.message }, '[requireReopsTeamMember] Error')
+    // Fail closed: if Team Catalog is unreachable (e.g. local dev without naisdevice),
+    // don't let the request through.
+    logger.error(
+      { navIdent: req.user?.navIdent, error: error.message },
+      '[requireReopsTeamMember] Error — failing closed (503)',
+    )
     res.status(503).json({ error: 'Kunne ikke verifisere teammedlemskap. Prøv igjen senere.' })
   }
 }
