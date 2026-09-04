@@ -75,6 +75,10 @@ export function buildColumnValuesQuery({ projectId, column, q, eventName }) {
     from.push(
       `JOIN \`${projectId}.umami.public_session\` s ON e.session_id = s.session_id AND e.website_id = s.website_id`,
     )
+    // public_session has REQUIRE_PARTITION_FILTER — without an s.created_at
+    // predicate BigQuery rejects the whole query (prod 500 on browser/os/
+    // device/country suggestions). Same pattern as compositionRoutes.
+    wheres.push('s.created_at BETWEEN @startDate AND @endDate')
   } else if (spec.source === 'param_key' || spec.source === 'param_value') {
     from.push(
       `JOIN \`${projectId}.umami_views.event_data\` d` +

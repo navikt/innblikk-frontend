@@ -26,6 +26,26 @@ export const getDateFilterConditions = (filters: Filter[]): string => {
   return conditions
 }
 
+/**
+ * Session-table partition predicate. umami_views.session is a view over
+ * public_session, which has REQUIRE_PARTITION_FILTER — BigQuery rejects any
+ * query referencing it without a predicate on its own `created_at` (the
+ * event-side filter doesn't cover the joined table).
+ * Interactive (Metabase `{{created_at}}`) mode can't alias-qualify the
+ * placeholder, so it can't drive the session side — fall back to a wide
+ * bounded window there.
+ */
+const getSessionDateFilterConditions = (
+  filters: Filter[],
+  sessionPrefix: string,
+  hasInteractiveDateFilter: boolean,
+): string => {
+  if (hasInteractiveDateFilter) {
+    return ` AND ${sessionPrefix}created_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 400 DAY)`
+  }
+  return getDateFilterConditions(filters).replace(/(?<![.\w])created_at/g, `${sessionPrefix}created_at`)
+}
+
 const escapeSqlLiteral = (value: string): string => value.replace(/'/g, "''")
 
 const needsQuotedValue = (column: string, value: string): boolean => {
@@ -589,6 +609,17 @@ export const generateSQLCore = (
   }
 
   sql += `  WHERE ${tablePrefix}website_id = '${config.website.id}'\n`
+
+  // Partition filter for the joined session table — without it BigQuery
+  // rejects the whole query (REQUIRE_PARTITION_FILTER on public_session).
+  if (requiredTables.session) {
+    sql += getSessionDateFilterConditions(
+      filters,
+      sessionRef === 's' ? 's.' : `${fullSessionTable}.`,
+      hasInteractiveDateFilter,
+    )
+    sql += '\n'
+  }
 
   // Process filters with consistent table references
   filters.forEach((filter) => {

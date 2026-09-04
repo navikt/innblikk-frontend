@@ -150,6 +150,15 @@ export interface ResolveContext {
   eventsTable: string
   /** Column name identifying a visitor, shared between the outer query and eventsTable. */
   visitorIdColumn: string
+  /**
+   * Partition-filter fallback for eventsTable, appended to each correlated
+   * subquery's WHERE when the criteria inside it carry no created_at
+   * predicate of their own. eventsTable is partition-filter-enforced
+   * (BigQuery rejects queries without a created_at filter per referenced
+   * table) — a time-less cohort ("fired event X at some point") would
+   * otherwise produce a rejected EXISTS. Return undefined to opt out.
+   */
+  eventsPartitionFallbackFn?: (rowAlias: string) => string | undefined
   /** Looks up another cohort's root node by id, for COHORT_REF inlining. */
   resolveCohortRef: CohortLookup
   /**
@@ -315,7 +324,15 @@ function buildConditionsExists(
   const correlation = `${rowAlias}.${ctx.visitorIdColumn} = ${outerAlias}.${outerVisitorCol}`
   const extra = ctx.extraConditionFn?.(rowAlias)
   const { fragments, joinClauses } = resolveConditionFragments(conditions, ctx, rowAlias)
-  const where = [correlation, ...(extra ? [extra] : []), ...fragments].join('\n    AND ')
+  // Time-less criteria still need a partition predicate on eventsTable.
+  const partitionFallback =
+    !conditions.some((c) => c.field === 'created_at') && ctx.eventsPartitionFallbackFn?.(rowAlias)
+  const where = [
+    correlation,
+    ...(extra ? [extra] : []),
+    ...fragments,
+    ...(partitionFallback ? [partitionFallback] : []),
+  ].join('\n    AND ')
   return `EXISTS (\n  SELECT 1 FROM ${ctx.eventsTable} ${rowAlias}${formatJoinClauses(joinClauses)}\n  WHERE ${where}\n)`
 }
 
@@ -534,10 +551,16 @@ function resolveSequence(
   const targetSubquery = `${targetKeyword} (\n    SELECT 1 FROM ${ctx.eventsTable} ${targetAlias}${formatJoinClauses(targetJoins)}\n    WHERE ${targetWhere}\n  )`
 
   const anchorExtra = ctx.extraConditionFn?.(anchorAlias)
+  // Anchor rows must also be partition-bounded — the target's window
+  // comparison predicates targetAlias.created_at, not the anchor's own table.
+  const anchorPartitionFallback =
+    !getDirectConditions(node.anchor).some((c) => c.field === 'created_at') &&
+    ctx.eventsPartitionFallbackFn?.(anchorAlias)
   const anchorWhere = [
     `${anchorAlias}.${ctx.visitorIdColumn} = ${outerAlias}.${outerVisitorCol}`,
     ...(anchorExtra ? [anchorExtra] : []),
     ...anchorFragments,
+    ...(anchorPartitionFallback ? [anchorPartitionFallback] : []),
     targetSubquery,
   ].join('\n    AND ')
 

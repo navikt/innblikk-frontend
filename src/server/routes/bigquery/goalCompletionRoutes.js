@@ -194,7 +194,9 @@ export function createGoalCompletionRoutes({ bigquery, GCP_PROJECT_ID }) {
       const useDistinctId = countBy === 'distinct_id'
       const useSwitch = useDistinctId && hasCountBySwitchAt
       const fromClause = `\`${GCP_PROJECT_ID}.umami.public_website_event\` e ${
-        useDistinctId ? `LEFT JOIN \`${GCP_PROJECT_ID}.umami_views.session\` s ON e.session_id = s.session_id` : ''
+        useDistinctId
+          ? `LEFT JOIN \`${GCP_PROJECT_ID}.umami_views.session\` s ON e.session_id = s.session_id AND s.created_at BETWEEN @startDate AND @endDate`
+          : ''
       }`
       const userIdExpression = useSwitch
         ? `IF(e.created_at >= @countBySwitchAt, s.distinct_id, e.session_id)`

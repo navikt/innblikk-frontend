@@ -31,7 +31,7 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
       const useSwitch = useDistinctId && hasCountBySwitchAt
       const col = useDistinctId ? 'e.' : ''
       const fromClause = useDistinctId
-        ? `\`${GCP_PROJECT_ID}.umami_views.event\` e LEFT JOIN \`${GCP_PROJECT_ID}.umami_views.session\` s ON e.session_id = s.session_id`
+        ? `\`${GCP_PROJECT_ID}.umami_views.event\` e LEFT JOIN \`${GCP_PROJECT_ID}.umami_views.session\` s ON e.session_id = s.session_id AND s.created_at BETWEEN @startDate AND @endDate`
         : `\`${GCP_PROJECT_ID}.umami_views.event\``
       const sessionIdAsString = `CAST(${col}session_id AS STRING)`
       const distinctIdWithFallback = `COALESCE(NULLIF(s.distinct_id, ''), ${sessionIdAsString})`
@@ -525,7 +525,7 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
       const useSwitch = useDistinctId && hasCountBySwitchAt
       const col = useDistinctId ? 'e.' : ''
       const fromClause = useDistinctId
-        ? `\`${GCP_PROJECT_ID}.umami_views.event\` e LEFT JOIN \`${GCP_PROJECT_ID}.umami_views.session\` s ON e.session_id = s.session_id`
+        ? `\`${GCP_PROJECT_ID}.umami_views.event\` e LEFT JOIN \`${GCP_PROJECT_ID}.umami_views.session\` s ON e.session_id = s.session_id AND s.created_at BETWEEN @startDate AND @endDate`
         : `\`${GCP_PROJECT_ID}.umami_views.event\``
       const sessionIdAsString = `CAST(${col}session_id AS STRING)`
       const distinctIdWithFallback = `COALESCE(NULLIF(s.distinct_id, ''), ${sessionIdAsString})`
@@ -658,7 +658,7 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
       const useSwitch = useDistinctId && hasCountBySwitchAt
       const col = useDistinctId ? 'e.' : ''
       const fromClause = useDistinctId
-        ? `\`${GCP_PROJECT_ID}.umami_views.event\` e LEFT JOIN \`${GCP_PROJECT_ID}.umami_views.session\` s ON e.session_id = s.session_id`
+        ? `\`${GCP_PROJECT_ID}.umami_views.event\` e LEFT JOIN \`${GCP_PROJECT_ID}.umami_views.session\` s ON e.session_id = s.session_id AND s.created_at BETWEEN @startDate AND @endDate`
         : `\`${GCP_PROJECT_ID}.umami_views.event\``
       const sessionIdAsString = `CAST(${col}session_id AS STRING)`
       const distinctIdWithFallback = `COALESCE(NULLIF(s.distinct_id, ''), ${sessionIdAsString})`
@@ -854,7 +854,7 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
       const useSwitch = useDistinctId && hasCountBySwitchAt
       const col = useDistinctId ? 'e.' : ''
       const fromClause = useDistinctId
-        ? `\`${GCP_PROJECT_ID}.umami.public_website_event\` e LEFT JOIN \`${GCP_PROJECT_ID}.umami_views.session\` s ON e.session_id = s.session_id`
+        ? `\`${GCP_PROJECT_ID}.umami.public_website_event\` e LEFT JOIN \`${GCP_PROJECT_ID}.umami_views.session\` s ON e.session_id = s.session_id AND s.created_at BETWEEN @startDate AND @endDate`
         : `\`${GCP_PROJECT_ID}.umami.public_website_event\``
       const sessionIdAsString = `CAST(${col}session_id AS STRING)`
       const distinctIdWithFallback = `COALESCE(NULLIF(s.distinct_id, ''), ${sessionIdAsString})`

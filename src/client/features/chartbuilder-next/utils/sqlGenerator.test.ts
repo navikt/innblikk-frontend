@@ -112,3 +112,33 @@ describe('zero-padding of time-grouped queries', () => {
     expect(sql).toContain('COALESCE(`antall`, 0)')
   })
 })
+
+describe('session-table partition filter (REQUIRE_PARTITION_FILTER on public_session)', () => {
+  it('predicates s.created_at with the same window as e.created_at when a session column is grouped', () => {
+    const sql = generateSQLCore({ ...baseConfig, groupByFields: ['browser'] }, dayFilters, [])
+    expect(sql).toContain('LEFT JOIN')
+    expect(sql).toContain('umami_views.session` s')
+    expect(sql).toContain("AND s.created_at >= TIMESTAMP('2026-08-28 00:00:00')")
+    expect(sql).toContain('AND s.created_at <= CURRENT_TIMESTAMP()')
+  })
+
+  it('predicates s.created_at when a session column appears only in filters', () => {
+    const osFilter: Filter[] = [...dayFilters, { column: 'os', operator: '=', value: "'Windows'" }]
+    const sql = generateSQLCore(baseConfig, osFilter, [])
+    expect(sql).toContain("AND s.created_at >= TIMESTAMP('2026-08-28 00:00:00')")
+  })
+
+  it('falls back to a bounded window for session when the date filter is an interactive Metabase param', () => {
+    const interactive: Filter[] = [
+      { column: 'created_at', operator: '>=', value: '{{created_at}}', interactive: true, metabaseParam: true },
+    ]
+    const sql = generateSQLCore({ ...baseConfig, groupByFields: ['browser'] }, interactive, [])
+    // Interactive mode qualifies with the full table name, not the `s` alias.
+    expect(sql).toContain('umami_views.session`.created_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 400 DAY)')
+  })
+
+  it('adds NO session predicate when no session table is joined', () => {
+    const sql = generateSQLCore(baseConfig, dayFilters, [])
+    expect(sql).not.toContain('s.created_at')
+  })
+})

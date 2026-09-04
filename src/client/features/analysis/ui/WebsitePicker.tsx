@@ -79,6 +79,10 @@ const WebsitePicker = ({
   const prevExternalDateRange = useRef<number>(externalDateRange || 14)
   const prevShouldReload = useRef<boolean>(shouldReload)
   const initialUrlChecked = useRef<boolean>(false)
+  // One-shot per mount: the default-site fallback (and URL/LS restore below)
+  // is initial-load behavior, not a standing reaction to "no selection" —
+  // otherwise clearing the field instantly re-fills it.
+  const initialSelectionResolved = useRef<boolean>(false)
 
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
@@ -429,7 +433,14 @@ const WebsitePicker = ({
     // Skip if auto-restore is disabled
     if (disableAutoRestore) return
 
+    // Initial load only — later re-runs of this effect (e.g. handleWebsiteChange
+    // identity change after the user cleared the field) must not re-apply
+    // URL params or re-fill the default site.
+    if (initialSelectionResolved.current) return
+
     if (!websitesLoaded.current || websites.length === 0) return
+
+    initialSelectionResolved.current = true
 
     const urlParams = new URLSearchParams(window.location.search)
     const websiteIdFromUrl = urlParams.get('websiteId')

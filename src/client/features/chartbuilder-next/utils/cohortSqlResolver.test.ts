@@ -79,6 +79,53 @@ describe('resolveCohortToSegmentDefinition', () => {
     expect(sql).toContain('session_id = b.session_id')
   })
 
+  it('adds a bounded created_at fallback when the cohort has no time criteria (partition-enforced tables)', () => {
+    const result = resolveCohortToSegmentDefinition(
+      cohort(
+        group({ children: [{ nodeType: 'CONDITION', field: 'event_name', conditionType: 'EQUALS', value: 'klikk' }] }),
+      ),
+      0,
+      defaultCtx(),
+    )
+    const expr = result.filters[0].rawExpression ?? ''
+    expect(expr).toContain('.created_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 400 DAY)')
+  })
+
+  it('does NOT add the fallback when the cohort already filters on created_at', () => {
+    const result = resolveCohortToSegmentDefinition(
+      cohort(
+        group({
+          children: [
+            {
+              nodeType: 'CONDITION',
+              field: 'created_at',
+              conditionType: 'BETWEEN',
+              value: JSON.stringify({ from: { type: 'relative', amount: 7, unit: 'DAY' }, to: { type: 'now' } }),
+            },
+          ],
+        }),
+      ),
+      0,
+      defaultCtx(),
+    )
+    const expr = result.filters[0].rawExpression ?? ''
+    expect(expr).not.toContain('INTERVAL 400 DAY')
+  })
+
+  it('bounds the session join on created_at (public_session is partition-enforced)', () => {
+    const result = resolveCohortToSegmentDefinition(
+      cohort(group({ children: [{ nodeType: 'CONDITION', field: 'os', conditionType: 'EQUALS', value: 'iOS' }] })),
+      0,
+      defaultCtx(),
+    )
+    const expr = result.filters[0].rawExpression ?? ''
+    // Session table is joined (aliased) with a partition bound on its created_at.
+    expect(expr).toContain('LEFT JOIN session')
+    expect(expr).toMatch(
+      /JOIN session \w+ ON [^\n]*\.created_at >= TIMESTAMP_SUB\(CURRENT_TIMESTAMP\(\), INTERVAL 400 DAY\)/,
+    )
+  })
+
   it("scopes generated subqueries to the cohort's website via extraConditionFn", () => {
     const result = resolveCohortToSegmentDefinition(
       cohort(group({ children: [{ nodeType: 'CONDITION', field: 'os', conditionType: 'EQUALS', value: 'iOS' }] })),

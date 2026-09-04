@@ -23,6 +23,13 @@ describe('buildColumnValuesQuery', () => {
     }
   })
 
+  it('filters s.created_at on session joins (public_session has REQUIRE_PARTITION_FILTER)', () => {
+    for (const column of ['browser', 'os', 'device', 'country']) {
+      const { query } = buildColumnValuesQuery({ projectId: PROJECT, column })
+      expect(query).toContain('s.created_at BETWEEN @startDate AND @endDate')
+    }
+  })
+
   it('unnests event_parameters for event_data_key', () => {
     const { query } = buildColumnValuesQuery({ projectId: PROJECT, column: 'event_data_key' })
     expect(query).toContain('JOIN `test-project.umami_views.event_data` d')

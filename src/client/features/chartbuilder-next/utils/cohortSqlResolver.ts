@@ -52,6 +52,11 @@ export function resolveCohortToSegmentDefinition(
     // column shared across a visitor's rows (see sqlGenerator.ts's session join).
     visitorIdColumn: 'session_id',
     extraConditionFn: (alias) => `${alias}.website_id = '${escapeSqlLiteral(ctx.websiteId)}'`,
+    // umami_views.event is partition-filter-enforced — a cohort with no
+    // Tidspunkt/SEQUENCE criteria would otherwise emit an unbounded EXISTS
+    // and BigQuery would reject the whole chart query. 400 days covers the
+    // full retention window of the underlying dataset.
+    eventsPartitionFallbackFn: (alias) => `${alias}.created_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 400 DAY)`,
     resolveFieldTable: (field) =>
       (SESSION_COLUMNS as readonly string[]).includes(field)
         ? {
@@ -66,8 +71,11 @@ export function resolveCohortToSegmentDefinition(
             // check). website_id is a plain pass-through GROUP BY key in the
             // view (not aggregated), so an equality filter on it here lets
             // BigQuery push the restriction down before the join+aggregation
-            // instead of after.
-            extraJoinConditionFn: (joinAlias) => `${joinAlias}.website_id = '${escapeSqlLiteral(ctx.websiteId)}'`,
+            // instead of after. The created_at bound is required for the
+            // same reason — public_session enforces partition filters.
+            extraJoinConditionFn: (joinAlias) =>
+              `${joinAlias}.website_id = '${escapeSqlLiteral(ctx.websiteId)}'` +
+              ` AND ${joinAlias}.created_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 400 DAY)`,
           }
         : undefined,
     // Custom event parameters (e.g. a form field's `tekst`/`valg`/`data`) live in
