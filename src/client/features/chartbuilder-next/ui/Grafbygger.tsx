@@ -21,11 +21,13 @@ import { fetchCohortsDeep } from '../api/cohortApi.ts'
 import type { CohortDetailDto } from '../../../shared/types/cohort.ts'
 import { usePersistentState } from '../hooks/usePersistentState.ts'
 
-/** Dashboard preload links carry these params and always win over persisted state. */
+/** Dashboard preload links carry these params and always win over persisted state.
+ * A lone `?websiteId=` is not a preload — WebsitePicker echoes that param on
+ * every selection, so treating it as one would disable persistence on refresh. */
 const hasPreloadParams = () => {
   if (typeof window === 'undefined') return false
   const p = new URLSearchParams(window.location.search)
-  return Boolean(p.get('websiteId') || p.get('config') || p.get('filters') || p.get('urlPath'))
+  return Boolean(p.get('config') || p.get('filters') || p.get('urlPath'))
 }
 
 /**
@@ -349,6 +351,8 @@ const ChartsPage = () => {
                   <CohortPicker
                     ref={cohortPickerRef}
                     websiteId={config.website?.id}
+                    initialCohortIds={config.cohortIds}
+                    initialRatioMode={config.segmentRatioMode}
                     onCohortIdsChange={handleCohortIdsChange}
                     onRatioModeChange={handleRatioModeChange}
                   />

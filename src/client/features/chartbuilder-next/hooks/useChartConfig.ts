@@ -41,8 +41,10 @@ export function useChartConfig() {
   const filtersFromUrl = searchParams.get('filters')
 
   // A dashboard preload link (URL params) always wins over persisted state —
-  // storage is neither read nor written for those loads.
-  const hasPreloadParams = () => Boolean(websiteIdFromUrl || configFromUrl || filtersFromUrl || urlPathFromUrl)
+  // storage is neither read nor written for those loads. A lone `?websiteId=`
+  // is NOT a preload: WebsitePicker writes that param on every selection, so
+  // treating it as one would disable persistence after any visit.
+  const hasPreloadParams = () => Boolean(configFromUrl || filtersFromUrl || urlPathFromUrl)
 
   // Track if we've applied URL params (to avoid re-applying)
   const [hasAppliedUrlParams, setHasAppliedUrlParams] = useState(false)
@@ -523,6 +525,8 @@ export function useChartConfig() {
       }))
       if (website && website.id !== config.website?.id) {
         setRequestLoadEvents(true)
+        // Website-bound state is invalid on the new site: filters reference
+        // event names/params, cohort ids point at the old site's cohorts.
         setFilters([])
         setAvailableEvents([])
         setParameters([])
@@ -530,12 +534,12 @@ export function useChartConfig() {
         setConfig((prev) => ({
           ...prev,
           website,
-          metrics: [{ function: 'count', alias: 'antall' }] as Metric[],
           segments: [],
-          groupByFields: [],
-          orderBy: null,
-          columnOrderMode: 'default',
+          cohortIds: [],
+          segmentRatioMode: false,
         }))
+        // Metrics, groupByFields, orderBy, dateFormat etc. are kept — users
+        // comparing the same view across websites shouldn't rebuild it.
       }
     },
     [config.website?.id],

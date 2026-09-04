@@ -169,6 +169,38 @@ describe('CohortPicker', () => {
     })
   })
 
+  describe('hydration from persisted cohort ids', () => {
+    it('restores chips from initialCohortIds once the cohort list loads (refresh case)', async () => {
+      mockFetchCohorts.mockResolvedValue([
+        { id: 'c1', websiteId: 'site-1', name: 'Kohort A' },
+        { id: 'c2', websiteId: 'site-1', name: 'Kohort B' },
+      ])
+      const { onCohortIdsChange } = renderCohortPicker({ initialCohortIds: ['c2'] })
+
+      // Chip for the restored cohort appears without any user interaction.
+      const chip = await screen.findByRole('button', { name: /kohort b/i })
+      expect(chip).toBeInTheDocument()
+
+      // The restored selection is emitted upstream (never an empty wipe).
+      await waitFor(() => {
+        expect(onCohortIdsChange).toHaveBeenCalledWith(['c2'])
+      })
+      expect(onCohortIdsChange).not.toHaveBeenCalledWith([])
+    })
+
+    it('does not restore ids that no longer exist for this website', async () => {
+      mockFetchCohorts.mockResolvedValue([{ id: 'c1', websiteId: 'site-1', name: 'Kohort A' }])
+      const { onCohortIdsChange } = renderCohortPicker({ initialCohortIds: ['gone'] })
+
+      await waitFor(() => {
+        expect(screen.queryByTitle(/laster brukergrupper/i)).not.toBeInTheDocument()
+      })
+      // No chip for the stale id, and the stale id never reaches the parent.
+      expect(screen.queryByRole('button', { name: /kohort/i })).not.toBeInTheDocument()
+      expect(onCohortIdsChange).not.toHaveBeenCalledWith(['gone'])
+    })
+  })
+
   describe('resetCohorts via ref', () => {
     it('clears selected cohorts after resetCohorts is called', async () => {
       mockFetchCohorts.mockResolvedValue([{ id: 'c1', websiteId: 'site-1', name: 'Kohort A' }])
