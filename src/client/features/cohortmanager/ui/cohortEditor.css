@@ -25,6 +25,18 @@
   padding: 0.4rem 0.6rem;
   gap: 0.5rem;
   flex-wrap: wrap;
+  /*
+   * RQB's own layout CSS (query-builder-layout.css) sets align-items:
+   * center here. That's fine when every column is the same height, but
+   * AkselFieldSelector conditionally renders an extra hint line under the
+   * Field select (e.g. "Noen hendelser har ekstra informasjon…" for
+   * __detail__) — making the Field column taller than Operator/Remove, and
+   * "center" then visibly drops those shorter siblings below the Field
+   * select's actual input instead of level with it. Top-align instead: rows
+   * where every column IS the same height look identical either way, and
+   * this is the one that fixes the tall-Field case.
+   */
+  align-items: flex-start;
 }
 
 /*
@@ -42,6 +54,27 @@
 
 .cohort-datetime-editor > .navds-alert {
   margin-bottom: 1rem;
+}
+
+/*
+ * The «Detalj om hendelsen» value editor (DetailInlineEditor) is two growing
+ * comboboxes + a hint line + up to two checkboxes — much bigger than a plain
+ * input, same class of problem as `.cohort-datetime-editor`/
+ * `.cohort-sequence-editor` above. Left to just grow within the row
+ * (`.cohort-value-editor`'s `flex: 1 1 12rem`), it only looks fine by
+ * accident at wide viewports: as soon as the row has to wrap (narrower
+ * window, or simply Field+Operator+this all together not fitting), flexbox
+ * wraps items strictly in DOM order — Field, [this block], Operator,
+ * Remove — landing Operator and Remove scattered on their own line *below*
+ * this block instead of staying together with Field above it. Same fix:
+ * full width, own line, guaranteed regardless of viewport.
+ */
+.cohort-detail-editor {
+  flex-basis: 100%;
+  order: 10;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--ax-border-neutral-subtle);
 }
 
 /*
@@ -84,9 +117,21 @@ controlElements wiring) —
  * actual form controls are Aksel components (Select/TextField/Button), not
  * raw HTML matched by the `.cohort-qb select`/`input[type='text']` rules
  * above, since Aksel already themes those correctly on its own.
+ *
+ * Same problem as `.cohort-datetime-editor` above: this is a wide, multi-row
+ * widget (Gjorde/Relasjon/Etterfulgt av/Innen), much bigger than a plain
+ * input — left inline in the row it got squeezed into a narrow column next
+ * to Field/Operator (which then stretched to that column's full height
+ * instead of sitting on their own compact line), wasting most of the row's
+ * width. Same fix: full width, own line below field/operator/remove-button.
  */
 .cohort-sequence-editor {
   gap: 0.75rem;
+  flex-basis: 100%;
+  order: 10;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--ax-border-neutral-subtle);
 }
 
 .cohort-sequence-editor > div > .aksel-body-short {
@@ -112,4 +157,37 @@ controlElements wiring) —
 .cohort-step-combinator,
 .cohort-sequence-relation {
   max-width: 12rem;
+}
+
+/*
+ * The suggestion-backed value combobox (SuggestingValueEditor) sizes its
+ * dropdown to the input's width (Aksel's own CSS: `.aksel-combobox__list`
+ * width = anchor width). Real column values are user data — often long
+ * unbroken strings (domains, URL paths) with no spaces, so there's no fixed
+ * width that reliably fits everything. Instead of guessing a width, let the
+ * value column claim all the row's leftover space (field/operator stay
+ * compact at their natural size) so the input — and therefore the dropdown
+ * — is always as wide as the row allows before falling back to wrapping.
+ *
+ * Wrapping is still needed for the (rarer) case of a value longer than even
+ * a full-width row: normal `white-space: normal` cannot break unbroken
+ * strings, so long options would otherwise silently overflow the popup,
+ * forcing an unwanted horizontal scrollbar (browsers coerce `overflow-x` to
+ * `auto` once `overflow-y: auto` is set and the other axis is left
+ * `visible`) that also clipped the selection/focus highlight background at
+ * the pre-scroll width.
+ */
+.cohort-value-editor {
+  flex: 1 1 12rem;
+  min-width: 12rem;
+}
+
+.cohort-suggesting-value .aksel-combobox__list-item {
+  min-width: 0;
+}
+
+.cohort-suggesting-value .aksel-combobox__list-item p {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  min-width: 0;
 }

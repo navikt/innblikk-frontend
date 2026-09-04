@@ -36,6 +36,8 @@ interface SuggestingValueEditorProps {
   column: SuggestibleColumn
   /** Scope for event_data_value — the chosen event-data key. */
   suggestionKey?: string
+  /** Scope event_data_key/event_data_value suggestions to one event name (see DetailInlineEditor). */
+  eventName?: string
   value: string
   onChange: (value: string) => void
   /** IN_SET/NOT_IN_SET store a JSON string-array as the value. */
@@ -43,6 +45,9 @@ interface SuggestingValueEditorProps {
   label: string
   disabled?: boolean
   placeholder?: string
+  className?: string
+  /** Hide the visible label (still read by screen readers) — set when the field/operator siblings in the same row also hide theirs, so position alone conveys meaning. */
+  hideLabel?: boolean
 }
 
 /**
@@ -55,18 +60,31 @@ export function SuggestingValueEditor({
   websiteId,
   column,
   suggestionKey,
+  eventName,
   value,
   onChange,
   multi = false,
   label,
   disabled = false,
   placeholder,
+  className,
+  hideLabel = false,
 }: SuggestingValueEditorProps) {
-  const { values, scannedDays, failed, load } = useColumnValueSuggestions(websiteId, column, suggestionKey)
+  const { values, scannedDays, failed, load } = useColumnValueSuggestions(websiteId, column, suggestionKey, eventName)
 
   // Fetch fires on mount-with-field-picked (the parent mounts this editor
-  // when the user picks the field), not on combobox focus.
-  useEffect(load, [load])
+  // when the user picks the field), not on combobox focus. Skip entirely
+  // while disabled: a disabled editor (e.g. «Verdi» before a «Detalj» key is
+  // chosen) has nothing meaningful to fetch — event_data_value even 400s
+  // server-side without a key — so firing anyway just produced a confusing
+  // "Kunne ikke hente forslag" note on a field the user can't interact with
+  // yet. Re-fires once the editor becomes enabled (key picked): `load` is
+  // re-memoized per (websiteId, column, key) in the hook, so this effect
+  // reruns then too.
+  useEffect(() => {
+    if (disabled) return
+    load()
+  }, [disabled, load])
 
   const options = useMemo(() => toSuggestionOptions(column, values), [column, values])
 
@@ -98,12 +116,13 @@ export function SuggestingValueEditor({
     if (typed && typed !== value) onChange(typed)
   }
 
-  const showScannedDaysNote = scannedDays !== null && scannedDays < 30
+  const showScannedDaysNote = !disabled && scannedDays !== null && scannedDays < 30
 
   return (
-    <div className="cohort-suggesting-value">
+    <div className={`cohort-suggesting-value${className ? ` ${className}` : ''}`}>
       <UNSAFE_Combobox
         label={label}
+        hideLabel={hideLabel}
         size="small"
         options={options}
         selectedOptions={selected}
@@ -119,7 +138,7 @@ export function SuggestingValueEditor({
           Forslag fra siste {scannedDays} dager
         </BodyShort>
       )}
-      {failed && (
+      {failed && !disabled && (
         <BodyShort size="small" style={{ color: 'var(--ax-text-subtle)' }}>
           Kunne ikke hente forslag — du kan fortsatt skrive verdien manuelt
         </BodyShort>

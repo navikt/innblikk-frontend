@@ -27,9 +27,11 @@ export async function fetchColumnValues(
   websiteId: string,
   column: SuggestibleColumn,
   key?: string,
+  eventName?: string,
 ): Promise<ColumnValuesResponse> {
   const params = new URLSearchParams({ column })
   if (key) params.set('key', key)
+  if (eventName) params.set('eventName', eventName)
   return requestJson<ColumnValuesResponse>(
     `/api/bigquery/websites/${encodeURIComponent(websiteId)}/column-values?${params}`,
   )

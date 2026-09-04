@@ -90,6 +90,14 @@ export interface ParamValueBlob {
   value: string
   /** «Sjekk bare at detaljen finnes» — maps to conditionType EXISTS (key-only, value ignored). */
   existsOnly?: boolean
+  /**
+   * «Uavhengig av hendelsesnavn» — by default, Detalj/Verdi suggestions are
+   * scoped to a sibling «Hendelsesnavn» (event_name) condition in the same
+   * rule group (if any), since without that scope a website with many custom
+   * events returns every key/value ever set on ANY of them. Set true to opt
+   * out and see the unscoped list again.
+   */
+  ignoreEventName?: boolean
 }
 
 /**

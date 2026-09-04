@@ -14,7 +14,7 @@ export interface ColumnValueSuggestionsResult {
 
 /**
  * Lazy suggestion loader for one cohort-condition value combobox, session-cached
- * per (websiteId, column, key). Two renders of the same (websiteId|column|key)
+ * per (websiteId, column, key, eventName). Two renders of the same cache key
  * share one entry, so the top-level QueryBuilder and StepConditionsEditor
  * (sequence steps) never refetch what the other already fetched.
  *
@@ -28,8 +28,9 @@ export function createColumnValuesSuggestionsSource() {
     websiteId: string | undefined,
     column: SuggestibleColumn,
     key?: string,
+    eventName?: string,
   ): ColumnValueSuggestionsResult {
-    const cacheKey = `${websiteId ?? ''}|${column}|${key ?? ''}`
+    const cacheKey = `${websiteId ?? ''}|${column}|${key ?? ''}|${eventName ?? ''}`
     const [entry, setEntry] = useState(() => cache.get(cacheKey) ?? null)
     const [failed, setFailed] = useState(false)
     const [loading, setLoading] = useState(false)
@@ -41,7 +42,7 @@ export function createColumnValuesSuggestionsSource() {
       }
       setLoading(true)
       setFailed(false)
-      fetchColumnValues(websiteId, column, key)
+      fetchColumnValues(websiteId, column, key, eventName)
         .then((res) => {
           const next = { values: res.values, scannedDays: res.scannedDays }
           cache.set(cacheKey, next)
@@ -49,7 +50,7 @@ export function createColumnValuesSuggestionsSource() {
         })
         .catch(() => setFailed(true))
         .finally(() => setLoading(false))
-    }, [websiteId, column, key, cacheKey])
+    }, [websiteId, column, key, eventName, cacheKey])
 
     return { values: entry?.values ?? [], scannedDays: entry?.scannedDays ?? null, failed, loading, load }
   }

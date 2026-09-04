@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import {
   QueryBuilder,
   toOptions,
+  useQueryBuilderQuery,
   type RuleGroupType,
   type RuleType,
   type Field,
@@ -257,7 +258,7 @@ function AkselDefaultValueEditor(props: ValueEditorProps, websiteId?: string) {
         label={props.title ?? 'Verdi'}
         hideLabel
         size="small"
-        className={props.className}
+        className={`cohort-value-editor${props.className ? ` ${props.className}` : ''}`}
         value={(props.value as string) ?? ''}
         disabled={props.disabled}
         onChange={(e) => props.handleOnChange(e.target.value)}
@@ -279,6 +280,8 @@ function AkselDefaultValueEditor(props: ValueEditorProps, websiteId?: string) {
       websiteId={websiteId}
       column={props.field as SuggestibleColumn}
       label={props.title ?? 'Verdi'}
+      className={`cohort-value-editor${props.className ? ` ${props.className}` : ''}`}
+      hideLabel
       multi={props.operator === 'IN_SET' || props.operator === 'NOT_IN_SET'}
       value={(props.value as string) ?? ''}
       disabled={props.disabled}
@@ -289,6 +292,28 @@ function AkselDefaultValueEditor(props: ValueEditorProps, websiteId?: string) {
 
 // ─── Custom value editors (field-dispatched, fall back to RQB's default) ─────
 // See https://react-querybuilder.js.org/docs/tips/custom-with-fallback
+
+/**
+ * Finds a sibling `event_name` (Hendelsesnavn) rule's value within the same
+ * rule group as the rule at `path` — used to scope Detalj/Verdi suggestions
+ * (see DetailInlineEditor's `eventNameHint`). `path`'s last index is this
+ * rule's own position; walking every index before that down from the root
+ * lands on its immediate parent group.
+ */
+function findSiblingEventNameValue(query: RuleGroupType, path: number[]): string | undefined {
+  let group: RuleGroupType = query
+  for (let i = 0; i < path.length - 1; i++) {
+    const next = group.rules[path[i]]
+    if (next && typeof next === 'object' && 'rules' in next) group = next
+    else return undefined
+  }
+  const selfIndex = path[path.length - 1]
+  const sibling = group.rules.find(
+    (r, i): r is RuleType => i !== selfIndex && typeof r === 'object' && 'field' in r && r.field === 'event_name',
+  )
+  const val = sibling?.value
+  return typeof val === 'string' && val ? val : undefined
+}
 
 /**
  * «Detalj» key combobox + conditional «Verdi» combobox + «Sjekk bare at
@@ -304,11 +329,16 @@ function DetailInlineEditor({
   onChange,
   websiteId,
   operator,
+  className,
+  eventNameHint,
 }: {
   value: string
   onChange: (value: string) => void
   websiteId: string | undefined
   operator?: string
+  className?: string
+  /** Sibling «Hendelsesnavn» value in the same rule group, if any — narrows Detalj/Verdi suggestions unless the user opts out. */
+  eventNameHint?: string
 }) {
   let blob: ParamValueBlob
   try {
@@ -320,14 +350,18 @@ function DetailInlineEditor({
   const update = (next: Partial<ParamValueBlob>) => onChange(JSON.stringify({ ...blob, ...next }))
   const isSetOperator = operator === 'IN_SET' || operator === 'NOT_IN_SET'
   const hasKey = blob.paramKey.length > 0
+  const narrowByEvent = eventNameHint !== undefined && blob.ignoreEventName !== true
+  const eventNameFilter = narrowByEvent ? eventNameHint : undefined
 
   return (
-    <VStack gap="space-8" className="cohort-detail-editor">
-      <HStack gap="space-8" align="end">
+    <VStack gap="space-8" className={`cohort-detail-editor${className ? ` ${className}` : ''}`}>
+      <HStack gap="space-8" align="start" className="cohort-detail-editor-row">
         <SuggestingValueEditor
           websiteId={websiteId}
           column="event_data_key"
+          eventName={eventNameFilter}
           label="Detalj"
+          className="cohort-value-editor"
           value={blob.paramKey}
           onChange={(paramKey) => update({ paramKey, value: '' })}
           placeholder="f.eks. skjemaId"
@@ -336,7 +370,9 @@ function DetailInlineEditor({
           websiteId={websiteId}
           column="event_data_value"
           suggestionKey={hasKey ? blob.paramKey : undefined}
+          eventName={eventNameFilter}
           label="Verdi"
+          className="cohort-value-editor"
           multi={isSetOperator}
           value={blob.value}
           onChange={(v) => update({ value: v })}
@@ -344,6 +380,18 @@ function DetailInlineEditor({
           placeholder={!hasKey ? 'Velg en detalj først' : undefined}
         />
       </HStack>
+      {eventNameHint !== undefined && (
+        <Checkbox
+          size="small"
+          checked={blob.ignoreEventName === true}
+          onChange={(e) => update({ ignoreEventName: e.target.checked })}
+        >
+          Uavhengig av hendelsesnavn{' '}
+          <BodyShort as="span" size="small" style={{ color: 'var(--ax-text-subtle)' }}>
+            (ellers vises bare detaljer sett sammen med «{eventNameHint}»)
+          </BodyShort>
+        </Checkbox>
+      )}
       <Checkbox
         size="small"
         checked={blob.existsOnly === true}
@@ -357,12 +405,16 @@ function DetailInlineEditor({
 
 /** Thin RQB `valueEditor` adapter over DetailInlineEditor — see that component for the actual UI. */
 function DetailValueEditor(props: ValueEditorProps, websiteId: string | undefined) {
+  const query = useQueryBuilderQuery()
+  const eventNameHint = findSiblingEventNameValue(query as RuleGroupType, props.path)
   return (
     <DetailInlineEditor
       value={(props.value as string) || ''}
       onChange={(v) => props.handleOnChange(v)}
       websiteId={websiteId}
       operator={props.operator}
+      className={props.className}
+      eventNameHint={eventNameHint}
     />
   )
 }
@@ -475,6 +527,12 @@ function StepConditionsEditor({ query, onChange, websiteId }: StepConditionsEdit
                 onChange={(v) => updateRule(index, { value: v })}
                 websiteId={websiteId}
                 operator={rule.operator}
+                eventNameHint={
+                  rules.find((r, i): r is RuleType => {
+                    if (i === index || r.field !== 'event_name') return false
+                    return typeof r.value === 'string' && r.value.length > 0
+                  })?.value as string | undefined
+                }
               />
             ) : rule.field === 'created_at' ? (
               <CohortDateTimeEditor value={rule.value as string} onChange={(v) => updateRule(index, { value: v })} />
@@ -483,6 +541,8 @@ function StepConditionsEditor({ query, onChange, websiteId }: StepConditionsEdit
                 websiteId={websiteId}
                 column={rule.field as SuggestibleColumn}
                 label="Verdi"
+                hideLabel
+                className="cohort-value-editor"
                 multi={rule.operator === 'IN_SET' || rule.operator === 'NOT_IN_SET'}
                 value={rule.value as string}
                 onChange={(v) => updateRule(index, { value: v })}

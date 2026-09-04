@@ -58,8 +58,13 @@ export const ALLOWED_COLUMNS = Object.keys(COLUMN_SPECS)
  * Builds the suggestion query for a validated column over `days` days.
  * `q` (only honored for url_path) adds a contains-filter so typing narrows
  * the scan server-side instead of shipping 500 irrelevant paths.
+ * `eventName` (only honored for event_data_key/event_data_value) scopes
+ * event-parameter suggestions to one event — without it, a website that
+ * fires many distinct custom events returns every key/value ever set on
+ * ANY of them, and the handful relevant to the event the user actually
+ * cares about drown in that firehose.
  */
-export function buildColumnValuesQuery({ projectId, column, q }) {
+export function buildColumnValuesQuery({ projectId, column, q, eventName }) {
   const spec = COLUMN_SPECS[column]
   if (!spec) throw new Error(`Unsupported column: ${column}`)
 
@@ -77,6 +82,7 @@ export function buildColumnValuesQuery({ projectId, column, q }) {
       'CROSS JOIN UNNEST(d.event_parameters) AS p',
     )
     if (spec.source === 'param_value') wheres.push('p.data_key = @key')
+    if (eventName) wheres.push('e.event_name = @eventName')
   }
 
   let valueFilter = `${spec.valueExpr} IS NOT NULL`
@@ -102,7 +108,7 @@ export function createColumnValuesRouter({ bigquery, GCP_PROJECT_ID }) {
   router.get('/api/bigquery/websites/:websiteId/column-values', async (req, res) => {
     try {
       const { websiteId } = req.params
-      const { column, key, q } = req.query
+      const { column, key, q, eventName } = req.query
 
       if (!COLUMN_SPECS[column]) {
         return res.status(400).json({ error: `Unsupported column. Allowed: ${ALLOWED_COLUMNS.join(', ')}` })
@@ -118,10 +124,16 @@ export function createColumnValuesRouter({ bigquery, GCP_PROJECT_ID }) {
         const endDate = new Date().toISOString()
         const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
 
-        const { query } = buildColumnValuesQuery({ projectId: GCP_PROJECT_ID, column, q })
+        const { query } = buildColumnValuesQuery({ projectId: GCP_PROJECT_ID, column, q, eventName })
         const params = { websiteId, startDate, endDate }
         if (COLUMN_SPECS[column].source === 'param_value') params.key = key
         if (column === 'url_path' && q) params.q = `%${String(q).toLowerCase()}%`
+        if (
+          (COLUMN_SPECS[column].source === 'param_key' || COLUMN_SPECS[column].source === 'param_value') &&
+          eventName
+        ) {
+          params.eventName = eventName
+        }
 
         const stats = await getDryRunStats(
           bigquery,
