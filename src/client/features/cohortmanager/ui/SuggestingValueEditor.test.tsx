@@ -48,7 +48,7 @@ describe('SuggestingValueEditor', () => {
     vi.mocked(fetchColumnValues).mockResolvedValue({ values: ['Chrome'], scannedDays: 30 })
     render(<SuggestingValueEditor websiteId="w1" column="browser" value="" onChange={() => {}} label="Verdi" />)
     await waitFor(() => expect(fetchColumnValues).toHaveBeenCalledTimes(1))
-    expect(fetchColumnValues).toHaveBeenCalledWith('w1', 'browser', undefined)
+    expect(fetchColumnValues).toHaveBeenCalledWith('w1', 'browser', undefined, undefined)
   })
 
   it('shows «Forslag fra siste N dager» only when the server narrowed the window', async () => {
