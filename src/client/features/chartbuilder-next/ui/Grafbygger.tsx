@@ -1,5 +1,5 @@
-import { useCallback, useRef, useState } from 'react'
-import { Bleed, Box, Checkbox, ExpansionCard, Heading, Loader } from '@navikt/ds-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Bleed, BodyShort, Box, Checkbox, ExpansionCard, Heading, Loader } from '@navikt/ds-react'
 import { ArrowCirclepathReverseIcon } from '@navikt/aksel-icons'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import QueryPreview from './results/QueryPreview.tsx'
@@ -18,6 +18,7 @@ import { DATE_FORMATS, METRICS, COHORTS_ENABLED } from '../model/constants.ts'
 import { sanitizeColumnName } from '../utils/sanitize.ts'
 import { useChartConfig } from '../hooks/useChartConfig.ts'
 import { fetchCohortsDeep } from '../api/cohortApi.ts'
+import type { CohortDetailDto } from '../../../shared/types/cohort.ts'
 import { usePersistentState } from '../hooks/usePersistentState.ts'
 
 /** Dashboard preload links carry these params and always win over persisted state. */
@@ -26,6 +27,20 @@ const hasPreloadParams = () => {
   const p = new URLSearchParams(window.location.search)
   return Boolean(p.get('websiteId') || p.get('config') || p.get('filters') || p.get('urlPath'))
 }
+
+/**
+ * Stable fingerprint of a deep-fetched cohort lookup (ids + criteria trees),
+ * used to detect cross-tab edits without re-rendering on identical data.
+ * keySort stringification makes it order-independent.
+ */
+const fingerprintCohortLookup = (lookup: Map<string, CohortDetailDto>): string =>
+  JSON.stringify(
+    [...lookup.entries()].map(([id, c]) => [id, c.root] as const).sort(([a], [b]) => a.localeCompare(b)),
+    (_key, value: unknown) =>
+      value && typeof value === 'object' && !Array.isArray(value)
+        ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)))
+        : value,
+  )
 
 const ChartsPage = () => {
   const isFocusedMode = (() => {
@@ -49,6 +64,9 @@ const ChartsPage = () => {
   const [kolonnenavnContainer, setKolonnenavnContainer] = useState<HTMLDivElement | null>(null)
   const cohortPickerRef = useRef<CohortPickerRef>(null)
   const cohortRequestIdRef = useRef(0)
+  /** Fingerprint of the cohort criteria tree behind the current generated SQL — for cross-tab staleness detection. */
+  const cohortFingerprintRef = useRef<string>('')
+  const [cohortsUpdatedElsewhere, setCohortsUpdatedElsewhere] = useState(false)
 
   const {
     config,
@@ -122,6 +140,7 @@ const ChartsPage = () => {
         const lookup = await fetchCohortsDeep(ids)
         if (requestId === cohortRequestIdRef.current) {
           const selected = ids.map((id) => lookup.get(id)).filter((c) => c !== undefined)
+          cohortFingerprintRef.current = fingerprintCohortLookup(lookup)
           setResolvedCohorts(selected)
           setCohortLookup(lookup)
         }
@@ -134,6 +153,44 @@ const ChartsPage = () => {
     },
     [setConfig, setResolvedCohorts, setCohortLookup],
   )
+
+  /**
+   * Cross-tab staleness: a cohort edited in another tab (e.g. /brukergrupper)
+   * must flow into this grafbygger's generated SQL without a manual refresh.
+   * On window focus, re-resolve the selected cohorts; if the criteria tree
+   * changed, swap in the fresh lookup (generatedSQL re-derives via useMemo)
+   * and flag the inline note in the Brukergrupper section.
+   */
+  useEffect(() => {
+    const handleFocus = async () => {
+      const ids = config.cohortIds ?? []
+      if (ids.length === 0) return
+      try {
+        const lookup = await fetchCohortsDeep(ids)
+        const fingerprint = fingerprintCohortLookup(lookup)
+        // First successful resolve seeds the baseline without a note — this
+        // covers cohortIds restored from persisted config (the fingerprint ref
+        // starts empty because handleCohortIdsChange never ran this session).
+        if (cohortFingerprintRef.current === '') {
+          cohortFingerprintRef.current = fingerprint
+          const selected = ids.map((id) => lookup.get(id)).filter((c) => c !== undefined)
+          setResolvedCohorts(selected)
+          setCohortLookup(lookup)
+          return
+        }
+        if (fingerprint === cohortFingerprintRef.current) return
+        cohortFingerprintRef.current = fingerprint
+        const selected = ids.map((id) => lookup.get(id)).filter((c) => c !== undefined)
+        setResolvedCohorts(selected)
+        setCohortLookup(lookup)
+        setCohortsUpdatedElsewhere(true)
+      } catch {
+        // Silent by design — a failed re-check keeps the current SQL.
+      }
+    }
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [config.cohortIds, setResolvedCohorts, setCohortLookup])
 
   const handleResetGroupings = useCallback(() => {
     setConfig((prev) => ({ ...prev, groupByFields: [] }))
@@ -295,6 +352,11 @@ const ChartsPage = () => {
                     onCohortIdsChange={handleCohortIdsChange}
                     onRatioModeChange={handleRatioModeChange}
                   />
+                  {cohortsUpdatedElsewhere && (
+                    <BodyShort size="small" style={{ color: 'var(--ax-text-subtle)' }}>
+                      Oppdatert — en brukergruppe ble endret i en annen fane
+                    </BodyShort>
+                  )}
                 </SidebarSection>
               )}
 

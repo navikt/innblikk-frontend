@@ -574,6 +574,61 @@ describe('conditions on a custom event parameter (paramKey, not field)', () => {
 
     expect(() => resolveNodeToSql(root, defaultCtx())).toThrow(/paramKey "tekst"/)
   })
+
+  it('resolves EXISTS as a key-only check (the UNNEST join row existing IS the condition — value ignored)', () => {
+    const root = group({ children: [paramCondition('skjemaId', '', 'EXISTS')] })
+
+    const sql = pretty(resolveNodeToSql(root, ctxWithParamsJoin()))
+
+    expect(sql).toContain("ON ep0.data_key = 'skjemaId'")
+    expect(sql).toContain('ep0.data_key IS NOT NULL')
+    expect(sql).not.toContain('string_value')
+  })
+
+  it('resolves IN_SET on a paramKey from a JSON string array (multi-select combobox encoding)', () => {
+    const root = group({
+      children: [paramCondition('tekst', JSON.stringify(['Vedtak alderspensjon', 'Fremtidig vedtak']), 'IN_SET')],
+    })
+
+    const sql = pretty(resolveNodeToSql(root, ctxWithParamsJoin()))
+
+    expect(sql).toContain("ep0.string_value IN ('Vedtak alderspensjon', 'Fremtidig vedtak')")
+  })
+})
+
+describe('IN_SET / NOT_IN_SET list values', () => {
+  it('expands a JSON string array into a SQL IN list', () => {
+    const root = group({ children: [condition('country', JSON.stringify(['NO', 'SE']), 'IN_SET')] })
+
+    const sql = resolveNodeToSql(root, defaultCtx())
+
+    expect(sql).toContain("e.country IN ('NO', 'SE')")
+  })
+
+  it('escapes single quotes inside list items', () => {
+    const root = group({ children: [condition('event_name', JSON.stringify(["o'clock"]), 'IN_SET')] })
+
+    const sql = resolveNodeToSql(root, defaultCtx())
+
+    expect(sql).toContain("e.event_name IN ('o''clock')")
+  })
+
+  it('treats a bare (non-JSON) value as a single-element list — hand-edited/legacy data degrades, not breaks', () => {
+    const root = group({ children: [condition('browser', 'Chrome', 'NOT_IN_SET')] })
+
+    const sql = resolveNodeToSql(root, defaultCtx())
+
+    expect(sql).toContain("e.browser NOT IN ('Chrome')")
+  })
+
+  it('resolves an empty list to FALSE (NOT IN of nothing would wrongly match everyone)', () => {
+    const root = group({ children: [condition('browser', '[]', 'NOT_IN_SET')] })
+
+    const sql = resolveNodeToSql(root, defaultCtx())
+
+    expect(sql).toContain('FALSE')
+    expect(sql).not.toContain('NOT IN')
+  })
 })
 
 describe('sequence: anchor followed (or not) by target within a time window', () => {

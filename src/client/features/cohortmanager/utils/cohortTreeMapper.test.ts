@@ -185,16 +185,31 @@ describe('nodeToRule exact encoding (pins the RQB shape, not just round-trip sel
     expect(parsed.windowUnit).toBe('DAY')
   })
 
-  it('encodes a paramKey condition as field=__param__ with a JSON blob carrying {paramKey, value}', () => {
+  it('encodes a paramKey condition as field=__detail__ with a JSON blob carrying {paramKey, value, existsOnly}', () => {
     const node = group({ children: [paramCondition('tekst', 'Vedtak alderspensjon')] })
 
     const rule = nodeToRule(node) as RuleGroupType
     const ruleForCondition = rule.rules[0] as RuleType
 
-    expect(ruleForCondition.field).toBe('__param__')
+    expect(ruleForCondition.field).toBe('__detail__')
     expect(ruleForCondition.operator).toBe('EQUALS')
     const parsed = JSON.parse(ruleForCondition.value as string)
-    expect(parsed).toEqual({ paramKey: 'tekst', value: 'Vedtak alderspensjon' })
+    expect(parsed).toEqual({ paramKey: 'tekst', value: 'Vedtak alderspensjon', existsOnly: false })
+  })
+
+  it('encodes an EXISTS condition as a plain operator + existsOnly flag (RQB has no EXISTS in its operator list)', () => {
+    const node = group({
+      children: [{ nodeType: 'CONDITION', paramKey: 'skjemaId', conditionType: 'EXISTS', value: '' }],
+    })
+
+    const rule = nodeToRule(node) as RuleGroupType
+    const ruleForCondition = rule.rules[0] as RuleType
+
+    expect(ruleForCondition.field).toBe('__detail__')
+    expect(ruleForCondition.operator).toBe('EQUALS')
+    const parsed = JSON.parse(ruleForCondition.value as string)
+    expect(parsed).toEqual({ paramKey: 'skjemaId', value: '', existsOnly: true })
+    expect(ruleToNode(rule)).toEqual(node)
   })
 })
 
@@ -204,8 +219,8 @@ describe('ruleToNode robustness against RQB default values (regression: crashed 
     expect(() => ruleToNode(rule)).not.toThrow()
   })
 
-  it('does not throw for a freshly-added __param__ rule whose value is still the RQB default empty string', () => {
-    const rule: RuleType = { field: '__param__', operator: 'EQUALS', value: '' }
+  it('does not throw for a freshly-added __detail__ rule whose value is still the RQB default empty string', () => {
+    const rule: RuleType = { field: '__detail__', operator: 'EQUALS', value: '' }
     expect(() => ruleToNode(rule)).not.toThrow()
   })
 
@@ -214,8 +229,8 @@ describe('ruleToNode robustness against RQB default values (regression: crashed 
     expect(() => ruleToNode(rule)).not.toThrow()
   })
 
-  it('does not throw for a __param__ rule with malformed (non-JSON) value', () => {
-    const rule: RuleType = { field: '__param__', operator: 'EQUALS', value: 'not json' }
+  it('does not throw for a __detail__ rule with malformed (non-JSON) value', () => {
+    const rule: RuleType = { field: '__detail__', operator: 'EQUALS', value: 'not json' }
     expect(() => ruleToNode(rule)).not.toThrow()
   })
 })

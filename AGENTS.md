@@ -82,6 +82,22 @@ See `src/client/shared/ui/SidebarSection.tsx` (`sidebar-section` class) and `src
 
 **When to reapply:** before adding any entrance/exit animation utility, check whether its keyframes touch `opacity`, `transform`, `filter`, `backdrop-filter`, or `perspective`. If so, and the animated element sits next to (or before) a focusable control with a pseudo-element focus ring, expect this exact overlap bug. Prefer animating layout properties (`margin`, `max-height`) instead, or explicitly `z-index` the focus ring itself if the animation can't be avoided.
 
+### Aksel `DatePicker` popover clipped by `overflow-y-auto` ancestors
+
+**Symptom:** the calendar popup from Aksel `DatePicker` renders cut off / partially hidden when the picker sits inside a scrolling container (e.g. Grafbygger's sticky `overflow-y-auto` preview column), regardless of z-index.
+
+**Root cause:** distinct from the Combobox stacking gotcha above — this is not about paint order vs. sibling stacking contexts, but about the popup's positioning strategy. Aksel's `DatePicker` popover defaults to the Floating UI default (`strategy: "absolute"`), which positions it relative to its offset parent inside the scrolling box — so the container's `overflow-y-auto` clips it.
+
+**Fix pattern (applied to `DateRangeSelector`):** pass `strategy="fixed"` to the `DatePicker` so the popup positions against the viewport and escapes the clipping ancestor:
+
+```tsx
+<DatePicker ... strategy="fixed">
+```
+
+See `src/client/features/chartbuilder-next/ui/grafbygger/DateRangeSelector.tsx`.
+
+**When to reapply:** any Aksel `DatePicker` (or other Floating-UI-based Aksel popup that accepts a `strategy` prop) placed inside an `overflow: auto|scroll|hidden` ancestor where its popup appears clipped. If the component has no `strategy` prop and no portal, fall back to the `:focus-within` promotion pattern from the Combobox gotcha.
+
 <!-- cplt:sandbox begin -->
 <!-- Managed by cplt. Do not edit by hand between these markers —
      re-generated on every sandboxed launch. See below the block

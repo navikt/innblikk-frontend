@@ -1046,5 +1046,105 @@ export const generateSQLCore = (
     sql += `LIMIT ${config.limit}\n`
   }
 
-  return sql
+  return zeroPadTimeSeries(sql, config, filters)
+}
+
+/**
+ * Zero-padding for time-grouped queries: when the chart groups by Tidspunkt
+ * (`created_at` in groupByFields) with day/week/month granularity, a plain
+ * GROUP BY silently drops buckets that have no rows — the chart then shows a
+ * gap in the line instead of dipping to 0, which reads as "no data collected"
+ * rather than "nothing happened".
+ *
+ * Fix: wrap the finished aggregation, RIGHT JOIN it onto a calendar series
+ * generated with GENERATE_DATE_ARRAY bounded by the query's own created_at
+ * filter values (MIN/MAX over the data would keep leading/trailing zero-days
+ * hidden, so the bounds must come from the filter, not the data), and
+ * COALESCE every metric to 0.
+ *
+ * Skipped (deliberately) for:
+ * - 'year' granularity — a year bucket without a single event is vanishingly
+ *   rare in practice.
+ * - 'week' granularity — the '%Y-%U' label can't be round-tripped to a DATE,
+ *   so the calendar join has nothing to equate.
+ * - interactive (Metabase {{created_at}}) filters — bounds live in the
+ *   dashboard, not in the SQL text, so there's nothing to generate the
+ *   calendar from.
+ * - the segment-ratio early return and the duration-mode `LIMIT 1` path,
+ *   neither of which is a time series at all.
+ */
+function zeroPadTimeSeries(sql: string, config: ChartConfig, filters: Filter[]): string {
+  if (!config.groupByFields.includes('created_at')) return sql
+  if (config.dateFormat === 'year') return sql
+
+  // Week buckets are labelled '%Y-%U' — a format BigQuery cannot round-trip
+  // back to a DATE, so a calendar join has nothing to equate. Day/month are
+  // the granularities where zero-gaps actually occur and parse cleanly.
+  if (config.dateFormat !== 'day' && config.dateFormat !== 'month') return sql
+
+  const dateBounds = findCreatedAtBounds(filters)
+  if (!dateBounds) return sql
+
+  // `LIMIT` already got appended to the inner query above; keep it as-is
+  // (inner LIMIT only thins the aggregated rows — the calendar join below
+  // re-supplies any bucket the LIMIT dropped, which is exactly what we want
+  // for day-scale charts where the row count is tiny anyway).
+  const metricCols = config.metrics.map((m, i) => sanitizeFieldNameForBigQuery(m.alias || `metrikk_${i + 1}`))
+
+  // Both join keys as DATE — the inner `dato` is a FORMAT_TIMESTAMP string,
+  // which USING() refuses to equate with the calendar's DATE.
+  const innerDatoExpr =
+    config.dateFormat === 'month'
+      ? "DATE(CONCAT(SPLIT(dato, '-')[OFFSET(0)], '-', SPLIT(dato, '-')[OFFSET(1)], '-01'))"
+      : 'DATE(dato)'
+
+  const calendar = `GENERATE_DATE_ARRAY(${toDateExpr(dateBounds.lower, config)}, ${toDateExpr(dateBounds.upper, config)})`
+
+  // The padded rows come from the calendar side of the LEFT JOIN, where the
+  // inner query's `dato` is NULL (rendered «(ukjent)» in the results table) —
+  // the bucket date must carry the label. It must also be a STRING: a raw
+  // DATE column deserializes to an object client-side (rendered «[object
+  // Object]» on chart axes), while the inner query's dato is a
+  // FORMAT_TIMESTAMP string — match that shape exactly.
+  const datoFormat = config.dateFormat === 'month' ? '%Y-%m' : '%Y-%m-%d'
+  let padded = `SELECT\n  FORMAT_DATE('${datoFormat}', bucket_date) AS dato,\n`
+  padded += '  ' + metricCols.map((c) => `COALESCE(\`${c}\`, 0) AS \`${c}\``).join(',\n  ') + '\n'
+  padded += `FROM UNNEST(${calendar}) AS bucket_date\n`
+  padded += 'LEFT JOIN (\n'
+  padded += sql.replace(/\n$/, '')
+  padded += `\n) ON bucket_date = ${innerDatoExpr}\n`
+  padded += 'ORDER BY bucket_date ASC\n'
+  if (config.limit && config.limit > 0) {
+    padded += `LIMIT ${config.limit}\n`
+  }
+  return padded
+}
+
+/**
+ * Extracts `[lower, upper]` timestamp expressions from the created_at
+ * filters. `<=` bounds that are open-ended "now" (`CURRENT_TIMESTAMP()`)
+ * don't pin the calendar to a wall clock — pad through today anyway, since a
+ * chart of "siste 7 dager" should show today-with-zero rather than silently
+ * ending yesterday.
+ */
+function findCreatedAtBounds(filters: Filter[]): { lower: string; upper: string } | null {
+  let lower: string | null = null
+  let upper: string | null = null
+  for (const f of filters) {
+    const column = f.column === 'custom_column' ? f.customColumn : f.column
+    if (column !== 'created_at' || !f.value) continue
+    if (f.interactive && f.metabaseParam) return null // bounds live in Metabase
+    if (f.operator === '>=') lower = f.value
+    if (f.operator === '<=') upper = f.value
+  }
+  if (!lower) return null
+  return { lower, upper: upper ?? 'CURRENT_TIMESTAMP()' }
+}
+
+/** Truncates a timestamp expression to the configured bucket granularity as a DATE. */
+function toDateExpr(tsExpr: string, config: ChartConfig): string {
+  const base = `DATE(${tsExpr})`
+  if (config.dateFormat === 'week') return `DATE_TRUNC(${base}, WEEK(MONDAY))`
+  if (config.dateFormat === 'month') return `DATE_TRUNC(${base}, MONTH)`
+  return base
 }

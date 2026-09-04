@@ -12,6 +12,7 @@ import { createGoalCompletionRoutes } from './goalCompletionRoutes.js'
 import { createCompositionRoutes } from './compositionRoutes.js'
 import { createPrivacyRoutes } from './privacyRoutes.js'
 import { createUserProfileRoutes } from './userProfileRoutes.js'
+import { createColumnValuesRouter } from './columnValuesRoutes.js'
 
 export function createBigQueryRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE }) {
   const router = express.Router()
@@ -28,6 +29,7 @@ export function createBigQueryRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZO
   router.use(createCompositionRoutes({ bigquery, GCP_PROJECT_ID }))
   router.use(createPrivacyRoutes({ bigquery, GCP_PROJECT_ID }))
   router.use(createUserProfileRoutes({ bigquery, GCP_PROJECT_ID }))
+  router.use(createColumnValuesRouter({ bigquery, GCP_PROJECT_ID }))
 
   return router
 }

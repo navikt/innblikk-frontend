@@ -12,6 +12,12 @@ export type ComparisonOperator =
   | 'ENDS_WITH'
   /** Only valid on the `created_at` field — value is a JSON `{from, to}` pair. See CohortDateTimeEditor.tsx. */
   | 'BETWEEN'
+  /**
+   * Key-only existence check for the «Sjekk bare at detaljen finnes» toggle:
+   * a paramKey condition whose value is irrelevant — matches when the event
+   * has ANY entry with that data_key (the UNNEST join row existing at all).
+   */
+  | 'EXISTS'
 
 export interface CohortDto {
   id: number
@@ -51,10 +57,15 @@ export interface CohortGroupNode {
 
 /**
  * A single field predicate — a leaf. Exactly one of `field`/`paramKey` is set:
- * `field` for a real event/session column, `paramKey` for a custom event
- * parameter (key/value pairs on the event, e.g. a form field's `tekst`/
- * `valg`/`data`) — see cohortSqlResolver.ts for how these resolve to UNNEST
- * joins differently from plain columns.
+ * `field` for a real event/session column, `paramKey` for an event-data detail
+ * (key/value entries on the event, e.g. which button was clicked) — see
+ * cohortSqlResolver.ts for how these resolve to UNNEST joins differently from
+ * plain columns.
+ *
+ * `value` encoding by conditionType:
+ * - plain comparisons: the literal string
+ * - IN_SET/NOT_IN_SET: JSON string array ('["a","b"]'), from the multi-select combobox
+ * - EXISTS: ignored (empty string) — key-only detail check
  */
 export interface CohortConditionNode {
   nodeType: 'CONDITION'

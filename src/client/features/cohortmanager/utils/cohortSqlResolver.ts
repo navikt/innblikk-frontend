@@ -388,6 +388,10 @@ function conditionOperatorToSql(conditionType: CohortConditionNode['conditionTyp
       // intercepts BETWEEN before calling this, since it needs two operands
       // (col >= from AND col <= to), not a single `column op value` shape.
       return 'BETWEEN'
+    case 'EXISTS':
+      // Likewise intercepted before this is ever called (EXISTS is key-only —
+      // there is no `column op value` to emit).
+      return 'EXISTS'
   }
 }
 
@@ -401,8 +405,32 @@ function conditionOperatorToSql(conditionType: CohortConditionNode['conditionTyp
  * (see resolveConditionFragments) and the value always lives in that row's
  * `string_value` column (BigQuery's event-parameters record shape) — the key
  * match itself is already baked into that alias's JOIN...ON, not repeated here.
+ * IN_SET/NOT_IN_SET values are JSON string arrays (see parseSetValue); EXISTS
+ * ignores the value entirely.
  */
+/**
+ * Parses an IN_SET/NOT_IN_SET value: a JSON string array produced by the
+ * multi-select combobox. A bare string (hand-edited/legacy data) degrades to
+ * a single-element list rather than breaking the query.
+ */
+function parseSetValue(value: string): string[] {
+  try {
+    const parsed: unknown = JSON.parse(value)
+    if (Array.isArray(parsed)) return parsed.map(String).filter((v) => v.length > 0)
+  } catch {
+    // fall through — treat as a single literal
+  }
+  return value.length > 0 ? [value] : []
+}
+
 function conditionToSqlFragment(condition: CohortConditionNode, alias: string): string {
+  // EXISTS is key-only by definition: the per-paramKey UNNEST alias only has
+  // a row when the event carries that data_key, so the join matching at all
+  // IS the condition ("Sjekk bare at detaljen finnes").
+  if (condition.conditionType === 'EXISTS') {
+    return condition.paramKey != null ? `${alias}.data_key IS NOT NULL` : 'FALSE'
+  }
+
   if (typeof condition.value !== 'string') {
     console.warn(
       `[cohortSqlResolver] condition (field=${condition.field}, paramKey=${condition.paramKey}) has no value ` +
@@ -413,8 +441,19 @@ function conditionToSqlFragment(condition: CohortConditionNode, alias: string): 
 
   const operator = conditionOperatorToSql(condition.conditionType)
 
+  const valueExpression = (column: string): string => {
+    if (condition.conditionType === 'IN_SET' || condition.conditionType === 'NOT_IN_SET') {
+      const items = parseSetValue(condition.value)
+      if (items.length === 0) return 'FALSE'
+      // IN on a non-nullable column can't match anything anyway, and NOT IN
+      // of the empty set would match EVERYTHING — both wrong. Empty = FALSE.
+      return `${column} ${operator} (${items.map((v) => `'${escapeSqlLiteral(v)}'`).join(', ')})`
+    }
+    return `${column} ${operator} '${escapeSqlLiteral(condition.value)}'`
+  }
+
   if (condition.paramKey != null) {
-    return `${alias}.string_value ${operator} '${escapeSqlLiteral(condition.value)}'`
+    return valueExpression(`${alias}.string_value`)
   }
 
   if (condition.field == null) {
@@ -448,7 +487,7 @@ function conditionToSqlFragment(condition: CohortConditionNode, alias: string): 
     return `${column} ${operator} ${dateValueToBigQuery(condition.value)}`
   }
 
-  return `${column} ${operator} '${escapeSqlLiteral(condition.value)}'`
+  return valueExpression(column)
 }
 
 function getDirectConditions(group: CohortGroupNode): CohortConditionNode[] {

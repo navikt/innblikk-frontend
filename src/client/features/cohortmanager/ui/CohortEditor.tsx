@@ -15,6 +15,8 @@ import {
 } from 'react-querybuilder'
 import 'react-querybuilder/dist/query-builder-layout.css'
 import { Button, Dialog, VStack, HStack, BodyShort, Box, Tag, Select, TextField, Checkbox } from '@navikt/ds-react'
+import { SuggestingValueEditor } from './SuggestingValueEditor.tsx'
+import type { SuggestibleColumn } from '../api/columnValuesApi.ts'
 import type {
   CohortDetailDto,
   CohortGroupNode,
@@ -38,10 +40,8 @@ const FIELDS: Field[] = [
   { name: 'device', label: 'Enhettype' },
   { name: 'country', label: 'Land' },
   { name: 'event_name', label: 'Hendelsesnavn' },
-  { name: 'event_data_key', label: 'Hendelsesdata — nøkkel' },
-  { name: 'event_data_value', label: 'Hendelsesdata — verdi' },
+  { name: '__detail__', label: 'Detalj om hendelsen' },
   { name: 'created_at', label: 'Tidspunkt' },
-  { name: '__param__', label: 'Egendefinert hendelsesparameter' },
   { name: '__cohort__', label: 'Er i brukergruppe' },
   { name: '__sequence__', label: 'Sekvens (gjorde X, så (ikke) Y)' },
 ]
@@ -87,7 +87,11 @@ const DATETIME_OPERATORS: Operator[] = [{ name: 'BETWEEN', label: 'er mellom' }]
 
 const SEQUENCE_OPERATORS: Operator[] = [{ name: 'sequence', label: 'sekvens' }]
 
-/** Shared by the top-level QueryBuilder and StepConditionsEditor's per-row operator dropdowns. */
+/**
+ * «Detalj om hendelsen» compares a detail's string value — equality and the
+ * set operators make sense; the fuzzy string operators (inneholder/starter
+ * med/…) stay available as free-text hints per the locked decisions.
+ */
 function getFieldOperators(field: string): Operator[] {
   if (field === '__cohort__') {
     return [
@@ -145,18 +149,25 @@ const WINDOW_UNITS: { value: SequenceTimeUnit; label: string }[] = [
 // look like Aksel underneath.
 
 function AkselFieldSelector(props: FieldSelectorProps) {
+  const isDetail = props.value === '__detail__'
   return (
-    <Select
-      label={props.title ?? 'Felt'}
-      hideLabel
-      size="small"
-      className={props.className}
-      value={props.value}
-      disabled={props.disabled}
-      onChange={(e) => props.handleOnChange(e.target.value)}
-    >
-      {toOptions(props.options)}
-    </Select>
+    <VStack gap="space-4" className={props.className}>
+      <Select
+        label={props.title ?? 'Felt'}
+        hideLabel
+        size="small"
+        value={props.value}
+        disabled={props.disabled}
+        onChange={(e) => props.handleOnChange(e.target.value)}
+      >
+        {toOptions(props.options)}
+      </Select>
+      {isDetail && (
+        <BodyShort size="small" style={{ color: 'var(--ax-text-subtle)' }}>
+          Noen hendelser har ekstra informasjon, f.eks. hvilken knapp som ble trykket.
+        </BodyShort>
+      )}
+    </VStack>
   )
 }
 
@@ -231,10 +242,15 @@ function AkselActionButton(props: ActionProps) {
 }
 
 /**
- * Default value editor for plain conditions (everything except __param__/
- * __sequence__/created_at, which get their own components).
+ * Default value editor for plain conditions (everything except __detail__/
+ * __sequence__/created_at, which get their own components). __cohort__ keeps
+ * its RQB-provided select (values come from getValues); every real column
+ * gets a suggestion-backed combobox — IN_SET/NOT_IN_SET as multi-select,
+ * everything else single-select with allowNewValues (free text stays the
+ * escape hatch; suggestions are also shown for f.eks. «inneholder» as
+ * harmless hints).
  */
-function AkselDefaultValueEditor(props: ValueEditorProps) {
+function AkselDefaultValueEditor(props: ValueEditorProps, websiteId?: string) {
   if (props.type === 'select') {
     return (
       <Select
@@ -259,14 +275,14 @@ function AkselDefaultValueEditor(props: ValueEditorProps) {
   }
 
   return (
-    <TextField
+    <SuggestingValueEditor
+      websiteId={websiteId}
+      column={props.field as SuggestibleColumn}
       label={props.title ?? 'Verdi'}
-      hideLabel
-      size="small"
-      className={props.className}
+      multi={props.operator === 'IN_SET' || props.operator === 'NOT_IN_SET'}
       value={(props.value as string) ?? ''}
       disabled={props.disabled}
-      onChange={(e) => props.handleOnChange(e.target.value)}
+      onChange={(v) => props.handleOnChange(v)}
     />
   )
 }
@@ -275,11 +291,25 @@ function AkselDefaultValueEditor(props: ValueEditorProps) {
 // See https://react-querybuilder.js.org/docs/tips/custom-with-fallback
 
 /**
- * "Nøkkel" + "Verdi" inputs for a custom event parameter condition — shared
- * by both ParamValueEditor (RQB's valueEditor slot) and StepConditionsEditor.
- * Uses Aksel's <TextField> like every other input control in this editor.
+ * «Detalj» key combobox + conditional «Verdi» combobox + «Sjekk bare at
+ * detaljen finnes» toggle — shared by DetailValueEditor (RQB's valueEditor
+ * slot) and StepConditionsEditor (sequence steps). The «Verdi» combobox is
+ * key-scoped (column=event_data_value&key=X) and stays disabled with
+ * «Velg en detalj først» until a key is chosen (conditional cascade —
+ * accepted UX tradeoff). No legacy support: old event_data_key /
+ * event_data_value / __param__ cohort data can break gracefully.
  */
-function ParamInlineEditor({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+function DetailInlineEditor({
+  value,
+  onChange,
+  websiteId,
+  operator,
+}: {
+  value: string
+  onChange: (value: string) => void
+  websiteId: string | undefined
+  operator?: string
+}) {
   let blob: ParamValueBlob
   try {
     blob = JSON.parse(value || '{}') as ParamValueBlob
@@ -288,38 +318,59 @@ function ParamInlineEditor({ value, onChange }: { value: string; onChange: (valu
   }
 
   const update = (next: Partial<ParamValueBlob>) => onChange(JSON.stringify({ ...blob, ...next }))
+  const isSetOperator = operator === 'IN_SET' || operator === 'NOT_IN_SET'
+  const hasKey = blob.paramKey.length > 0
 
   return (
-    <HStack gap="space-8" className="cohort-param-editor">
-      <TextField
-        label="Parameternavn"
-        hideLabel
+    <VStack gap="space-8" className="cohort-detail-editor">
+      <HStack gap="space-8" align="end">
+        <SuggestingValueEditor
+          websiteId={websiteId}
+          column="event_data_key"
+          label="Detalj"
+          value={blob.paramKey}
+          onChange={(paramKey) => update({ paramKey, value: '' })}
+          placeholder="f.eks. skjemaId"
+        />
+        <SuggestingValueEditor
+          websiteId={websiteId}
+          column="event_data_value"
+          suggestionKey={hasKey ? blob.paramKey : undefined}
+          label="Verdi"
+          multi={isSetOperator}
+          value={blob.value}
+          onChange={(v) => update({ value: v })}
+          disabled={!hasKey || blob.existsOnly === true}
+          placeholder={!hasKey ? 'Velg en detalj først' : undefined}
+        />
+      </HStack>
+      <Checkbox
         size="small"
-        placeholder="Parameternavn (f.eks. tekst)"
-        value={blob.paramKey}
-        onChange={(e) => update({ paramKey: e.target.value })}
-      />
-      <TextField
-        label="Verdi"
-        hideLabel
-        size="small"
-        placeholder="Verdi"
-        value={blob.value}
-        onChange={(e) => update({ value: e.target.value })}
-      />
-    </HStack>
+        checked={blob.existsOnly === true}
+        onChange={(e) => update({ existsOnly: e.target.checked, value: e.target.checked ? '' : blob.value })}
+      >
+        Sjekk bare at detaljen finnes
+      </Checkbox>
+    </VStack>
   )
 }
 
-/** Thin RQB `valueEditor` adapter over ParamInlineEditor — see that component for the actual UI. */
-function ParamValueEditor(props: ValueEditorProps) {
-  if (props.field !== '__param__') return <AkselDefaultValueEditor {...props} />
-  return <ParamInlineEditor value={(props.value as string) || ''} onChange={(v) => props.handleOnChange(v)} />
+/** Thin RQB `valueEditor` adapter over DetailInlineEditor — see that component for the actual UI. */
+function DetailValueEditor(props: ValueEditorProps, websiteId: string | undefined) {
+  return (
+    <DetailInlineEditor
+      value={(props.value as string) || ''}
+      onChange={(v) => props.handleOnChange(v)}
+      websiteId={websiteId}
+      operator={props.operator}
+    />
+  )
 }
 
 interface StepConditionsEditorProps {
   query: RuleGroupType
   onChange: (next: RuleGroupType) => void
+  websiteId?: string
 }
 
 /**
@@ -335,7 +386,7 @@ interface StepConditionsEditorProps {
  * form controls (selects/inputs/buttons) are Aksel components, same as the
  * rest of the app, not raw HTML elements matched by a shared CSS selector.
  */
-function StepConditionsEditor({ query, onChange }: StepConditionsEditorProps) {
+function StepConditionsEditor({ query, onChange, websiteId }: StepConditionsEditorProps) {
   const rules = query.rules as RuleType[]
 
   const updateRule = (index: number, next: Partial<RuleType>) => {
@@ -391,7 +442,7 @@ function StepConditionsEditor({ query, onChange }: StepConditionsEditorProps) {
                   field,
                   operator: getFieldOperators(field)[0]?.name ?? 'EQUALS',
                   value:
-                    field === '__param__' ? JSON.stringify({ paramKey: '', value: '' } satisfies ParamValueBlob) : '',
+                    field === '__detail__' ? JSON.stringify({ paramKey: '', value: '' } satisfies ParamValueBlob) : '',
                 })
               }}
             >
@@ -418,18 +469,23 @@ function StepConditionsEditor({ query, onChange }: StepConditionsEditorProps) {
               </Select>
             )}
 
-            {rule.field === '__param__' ? (
-              <ParamInlineEditor value={rule.value as string} onChange={(v) => updateRule(index, { value: v })} />
+            {rule.field === '__detail__' ? (
+              <DetailInlineEditor
+                value={rule.value as string}
+                onChange={(v) => updateRule(index, { value: v })}
+                websiteId={websiteId}
+                operator={rule.operator}
+              />
             ) : rule.field === 'created_at' ? (
               <CohortDateTimeEditor value={rule.value as string} onChange={(v) => updateRule(index, { value: v })} />
             ) : (
-              <TextField
+              <SuggestingValueEditor
+                websiteId={websiteId}
+                column={rule.field as SuggestibleColumn}
                 label="Verdi"
-                hideLabel
-                size="small"
-                type="text"
+                multi={rule.operator === 'IN_SET' || rule.operator === 'NOT_IN_SET'}
                 value={rule.value as string}
-                onChange={(e) => updateRule(index, { value: e.target.value })}
+                onChange={(v) => updateRule(index, { value: v })}
               />
             )}
 
@@ -460,10 +516,10 @@ function StepConditionsEditor({ query, onChange }: StepConditionsEditorProps) {
  * the outer builder, not a visually distinct "custom" section bolted on.
  *
  * Only ever invoked by CohortValueEditor when field === '__sequence__' — no
- * internal field guard here (unlike ParamValueEditor), since that would be a
+ * internal field guard here (unlike DetailValueEditor), since that would be a
  * conditional hook call ahead of the useState below (React hooks rule).
  */
-function SequenceEditor(props: ValueEditorProps) {
+function SequenceEditor(props: ValueEditorProps, websiteId?: string) {
   // Local state, initialized ONCE from props.value (lazy initializer), not
   // re-derived from props.value on every render. This is the crux of the fix
   // for "Maximum update depth exceeded": a nested QueryBuilder normalizes
@@ -509,7 +565,7 @@ function SequenceEditor(props: ValueEditorProps) {
         <BodyShort size="small" weight="semibold">
           Gjorde:
         </BodyShort>
-        <StepConditionsEditor query={blob.anchor} onChange={(q) => update({ anchor: q })} />
+        <StepConditionsEditor query={blob.anchor} onChange={(q) => update({ anchor: q })} websiteId={websiteId} />
       </div>
 
       <Select
@@ -528,7 +584,7 @@ function SequenceEditor(props: ValueEditorProps) {
         <BodyShort size="small" weight="semibold">
           {blob.relation === 'NOT_FOLLOWED_BY' ? 'Uten (innen fristen):' : 'Etterfulgt av:'}
         </BodyShort>
-        <StepConditionsEditor query={blob.target} onChange={(q) => update({ target: q })} />
+        <StepConditionsEditor query={blob.target} onChange={(q) => update({ target: q })} websiteId={websiteId} />
       </div>
 
       <HStack gap="space-8" align="end" className="cohort-sequence-window">
@@ -558,12 +614,14 @@ function SequenceEditor(props: ValueEditorProps) {
   )
 }
 
-/** Top-level dispatcher passed to `controlElements.valueEditor` — routes __param__/__sequence__/created_at fields to their custom editors, everything else to RQB's default. */
-function CohortValueEditor(props: ValueEditorProps) {
-  if (props.field === '__param__') return <ParamValueEditor {...props} />
-  if (props.field === '__sequence__') return <SequenceEditor {...props} />
-  if (props.field === 'created_at') return <CohortDateTimeValueEditor {...props} />
-  return <AkselDefaultValueEditor {...props} />
+/** Top-level dispatcher passed to `controlElements.valueEditor` — routes __detail__/__sequence__/created_at fields to their custom editors, everything else to the suggestion-backed default. */
+function makeCohortValueEditor(websiteId?: string) {
+  return function CohortValueEditor(props: ValueEditorProps) {
+    if (props.field === '__detail__') return DetailValueEditor(props, websiteId)
+    if (props.field === '__sequence__') return SequenceEditor(props, websiteId)
+    if (props.field === 'created_at') return <CohortDateTimeValueEditor {...props} />
+    return AkselDefaultValueEditor(props, websiteId)
+  }
 }
 
 // ─── RQB ↔ Backend mapping ────────────────────────────────────────────────────
@@ -587,8 +645,6 @@ const FIELD_LABELS: Record<string, string> = {
   device: 'enhet',
   country: 'land',
   event_name: 'hendelse',
-  event_data_key: 'datanøkkel',
-  event_data_value: 'dataverdi',
   created_at: 'tidspunkt',
   __cohort__: 'brukergruppe',
 }
@@ -604,6 +660,18 @@ const OP_LABELS: Record<string, string> = {
   LESS_THAN_OR_EQUAL: '<=',
   IN_SET: 'i',
   NOT_IN_SET: 'ikke i',
+  EXISTS: 'har detaljen',
+}
+
+/** Human-readable rendering of an IN_SET/NOT_IN_SET JSON string-array value. */
+function formatSetValue(rawValue: string): string {
+  try {
+    const parsed: unknown = JSON.parse(rawValue)
+    if (Array.isArray(parsed)) return parsed.map((v) => `«${String(v)}»`).join(', ')
+  } catch {
+    // fall through
+  }
+  return `«${rawValue}»`
 }
 
 const RELATIVE_UNIT_LABELS: Record<string, string> = {
@@ -679,9 +747,22 @@ function nodeToHuman(node: CohortNode, cohortNames: Record<string, string>): str
       if (node.field === 'created_at') {
         return `tidspunkt ${formatDateTimeValue(node.value)}`
       }
-      const field = node.paramKey != null ? node.paramKey : (FIELD_LABELS[node.field ?? ''] ?? node.field)
+      if (node.paramKey != null) {
+        if (node.conditionType === 'EXISTS') return `har detaljen «${node.paramKey}»`
+        const op = OP_LABELS[node.conditionType] ?? node.conditionType
+        const valueText =
+          node.conditionType === 'IN_SET' || node.conditionType === 'NOT_IN_SET'
+            ? formatSetValue(node.value)
+            : `«${node.value}»`
+        return `${node.paramKey} ${op} ${valueText}`
+      }
+      const field = FIELD_LABELS[node.field ?? ''] ?? node.field
       const op = OP_LABELS[node.conditionType] ?? node.conditionType
-      return `${field} ${op} «${node.value}»`
+      const valueText =
+        node.conditionType === 'IN_SET' || node.conditionType === 'NOT_IN_SET'
+          ? formatSetValue(node.value)
+          : `«${node.value}»`
+      return `${field} ${op} ${valueText}`
     }
     case 'COHORT_REF': {
       const name = cohortNames[String(node.referencedCohortId)] ?? `brukergruppe #${node.referencedCohortId}`
@@ -728,6 +809,7 @@ export function CohortEditor({ cohort, websiteId, allCohorts, onClose, onChanged
   )
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [nameError, setNameError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!cohort) return
@@ -744,10 +826,13 @@ export function CohortEditor({ cohort, websiteId, allCohorts, onClose, onChanged
   const cohortNames = Object.fromEntries(allCohorts.map((c) => [String(c.id), c.name]))
 
   const handleSave = async () => {
+    // Field-level validation error lives on the input itself (Aksel `error`
+    // prop) — not in the catch-all at the bottom, which is for save failures.
     if (!name.trim()) {
-      setError('Navn er påkrevd')
+      setNameError('Navn er påkrevd')
       return
     }
+    setNameError(null)
     setSaving(true)
     setError(null)
     try {
@@ -798,7 +883,17 @@ export function CohortEditor({ cohort, websiteId, allCohorts, onClose, onChanged
           <VStack gap="space-16">
             <div style={{ maxWidth: 480 }}>
               <VStack gap="space-12">
-                <TextField label="Navn" size="small" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+                <TextField
+                  label="Navn"
+                  size="small"
+                  value={name}
+                  error={nameError ?? undefined}
+                  onChange={(e) => {
+                    setName(e.target.value)
+                    if (nameError && e.target.value.trim()) setNameError(null)
+                  }}
+                  autoFocus
+                />
                 <TextField
                   label="Beskrivelse (valgfri)"
                   size="small"
@@ -830,7 +925,7 @@ export function CohortEditor({ cohort, websiteId, allCohorts, onClose, onChanged
                   controlClassnames={CONTROL_CLASSNAMES}
                   translations={TRANSLATIONS}
                   controlElements={{
-                    valueEditor: CohortValueEditor,
+                    valueEditor: makeCohortValueEditor(cohort?.websiteId ?? websiteId),
                     fieldSelector: AkselFieldSelector,
                     operatorSelector: AkselOperatorSelector,
                     combinatorSelector: AkselCombinatorSelector,
@@ -847,6 +942,13 @@ export function CohortEditor({ cohort, websiteId, allCohorts, onClose, onChanged
                   getValues={(field) => {
                     if (field === '__cohort__') return cohortOptions
                     return []
+                  }}
+                  getDefaultValue={(rule) => {
+                    if (rule.field === '__detail__') {
+                      return JSON.stringify({ paramKey: '', value: '', existsOnly: false } satisfies ParamValueBlob)
+                    }
+                    if (rule.operator === 'IN_SET' || rule.operator === 'NOT_IN_SET') return '[]'
+                    return ''
                   }}
                   getOperators={getFieldOperators}
                 />

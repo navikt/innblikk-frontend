@@ -15,10 +15,11 @@ import type {
  * Encoding of non-native node kinds (RQB only has RuleGroupType/RuleType):
  * - COHORT_REF -> RuleType{ field: '__cohort__', operator: 'in_cohort' | 'not_in_cohort', value: <id> }
  * - SEQUENCE   -> RuleType{ field: '__sequence__', operator: 'sequence', value: <JSON blob> }
- * - custom event parameter CONDITION -> RuleType{ field: '__param__', operator: <comparison>, value: <JSON blob {paramKey, value}> }
+ * - event-detail CONDITION (paramKey) -> RuleType{ field: '__detail__', operator: <comparison>, value: <JSON blob {paramKey, value, existsOnly}> }
  *   (a fixed sentinel field rather than encoding paramKey into the field name itself, so a
- *   single custom valueEditor can render both the "which param" and "what value" inputs
- *   together — see CohortEditor.tsx's ParamValueEditor.)
+ *   single custom valueEditor can render the «Detalj» key combobox, the conditional
+ *   «Verdi» combobox, and the «Sjekk bare at detaljen finnes» toggle together —
+ *   see CohortEditor.tsx's DetailInlineEditor.)
  */
 export function nodeToRule(node: CohortNode): RuleGroupType | RuleType {
   switch (node.nodeType) {
@@ -32,9 +33,13 @@ export function nodeToRule(node: CohortNode): RuleGroupType | RuleType {
     case 'CONDITION':
       if (node.paramKey != null) {
         return {
-          field: '__param__',
-          operator: node.conditionType,
-          value: JSON.stringify({ paramKey: node.paramKey, value: node.value } satisfies ParamValueBlob),
+          field: '__detail__',
+          operator: node.conditionType === 'EXISTS' ? 'EQUALS' : node.conditionType,
+          value: JSON.stringify({
+            paramKey: node.paramKey,
+            value: node.value,
+            existsOnly: node.conditionType === 'EXISTS',
+          } satisfies ParamValueBlob),
         }
       }
       return {
@@ -83,6 +88,8 @@ export type { SequenceValueBlob }
 export interface ParamValueBlob {
   paramKey: string
   value: string
+  /** «Sjekk bare at detaljen finnes» — maps to conditionType EXISTS (key-only, value ignored). */
+  existsOnly?: boolean
 }
 
 /**
@@ -130,13 +137,13 @@ export function ruleToNode(rule: RuleGroupType | RuleType): CohortNode {
     }
   }
 
-  if (rule.field === '__param__') {
+  if (rule.field === '__detail__') {
     // Same rationale as __sequence__ above — guard against the default '' value.
     let blob: ParamValueBlob
     try {
       blob = JSON.parse(rule.value as string) as ParamValueBlob
       if (typeof blob.paramKey !== 'string' || typeof blob.value !== 'string') {
-        throw new Error('incomplete param blob')
+        throw new Error('incomplete detail blob')
       }
     } catch {
       blob = { paramKey: '', value: '' }
@@ -144,7 +151,7 @@ export function ruleToNode(rule: RuleGroupType | RuleType): CohortNode {
     return {
       nodeType: 'CONDITION',
       paramKey: blob.paramKey,
-      conditionType: rule.operator as ComparisonOperator,
+      conditionType: blob.existsOnly ? 'EXISTS' : (rule.operator as ComparisonOperator),
       value: blob.value,
     }
   }

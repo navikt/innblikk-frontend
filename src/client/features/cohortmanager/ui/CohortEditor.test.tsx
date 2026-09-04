@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import { StrictMode } from 'react'
@@ -10,6 +10,11 @@ vi.mock('../api/cohortManagerApi.ts', () => ({
   replaceCriteria: vi.fn().mockResolvedValue({ nodeType: 'GROUP', combinator: 'AND', negated: false, children: [] }),
   updateCohort: vi.fn().mockResolvedValue({}),
   createCohort: vi.fn().mockResolvedValue({ id: 2, websiteId: 'site-1', name: 'New', root: null }),
+}))
+
+// Suggestion fetches are irrelevant to these tests — keep the comboboxes offline.
+vi.mock('../api/columnValuesApi.ts', () => ({
+  fetchColumnValues: vi.fn().mockResolvedValue({ values: [], scannedDays: 30 }),
 }))
 
 const mockReplaceCriteria = vi.mocked(replaceCriteria)
@@ -31,6 +36,14 @@ function renderEditor(cohort: CohortDetailDto = emptyCohort) {
   )
   return { onClose, onChanged }
 }
+
+/**
+ * The RQB field <select> for the top-level rule row. Located via the Aksel
+ * field-selector wrapper (the «Felt» label is hidden with hideLabel, so it's
+ * not an accessible label for getByLabelText).
+ */
+const topLevelFieldSelect = () =>
+  within(document.querySelector('.cohort-qb-field') as HTMLElement).getByRole('combobox')
 
 describe('CohortEditor — building and saving a SEQUENCE node end-to-end', () => {
   it('includes the anchor/target conditions typed into the sequence editor in the saved payload (regression: query.rules ended up empty)', async () => {
@@ -64,11 +77,17 @@ describe('CohortEditor — building and saving a SEQUENCE node end-to-end', () =
     await user.selectOptions(feltSelects[0], 'URL-sti')
     await user.selectOptions(feltSelects[1], 'Nettleser')
 
-    // Fill in the two condition values.
+    // Fill in the two condition values (comboboxes now — typed text commits on blur).
     const verdiInputs = screen.getAllByLabelText('Verdi')
     expect(verdiInputs.length).toBe(2)
-    await user.type(verdiInputs[0], '/')
-    await user.type(verdiInputs[1], 'Chrome')
+    await user.click(verdiInputs[0])
+    await user.keyboard('/')
+    await user.tab()
+    await waitFor(() => expect(screen.getByText('/')).toBeInTheDocument())
+    await user.click(screen.getAllByLabelText('Verdi')[1])
+    await user.keyboard('Chrome')
+    await user.tab()
+    await waitFor(() => expect(screen.getByText('Chrome')).toBeInTheDocument())
 
     // Save.
     await user.click(screen.getByRole('button', { name: 'Lagre' }))
@@ -119,7 +138,71 @@ describe('CohortEditor — loading an EXISTING cohort that already has a SEQUENC
 
     renderEditor(cohortWithSequence)
 
-    const verdiInputs = screen.getAllByLabelText('Verdi')
-    expect(verdiInputs.map((i) => (i as HTMLInputElement).value)).toEqual(['/', 'Chrome'])
+    // Selected values render as combobox chips (single-select: the chip label IS
+    // the value), not as text in the search input — the input itself stays empty.
+    expect(screen.getByText('/')).toBeInTheDocument()
+    expect(screen.getByText('Chrome')).toBeInTheDocument()
+  })
+})
+
+describe('CohortEditor — «Detalj om hendelsen» (event-detail condition)', () => {
+  it('saves a detail condition as a paramKey node, with the exists-toggle mapping to EXISTS', async () => {
+    const user = userEvent.setup()
+    renderEditor()
+
+    await user.click(screen.getByRole('button', { name: '+ Filter' }))
+    await user.selectOptions(topLevelFieldSelect(), '__detail__')
+
+    // «Verdi» is disabled until a detail key is chosen.
+    const detaljInput = screen.getByLabelText('Detalj')
+    expect(screen.getByLabelText('Verdi')).toBeDisabled()
+
+    await user.click(detaljInput)
+    await user.keyboard('skjemaId')
+    await user.tab()
+    await waitFor(() => expect(screen.getByLabelText('Verdi')).toBeEnabled())
+
+    await user.click(screen.getByLabelText('Verdi'))
+    await user.keyboard('1234')
+    await user.tab()
+
+    await user.click(screen.getByRole('button', { name: 'Lagre' }))
+
+    const [, savedRoot] = mockReplaceCriteria.mock.calls[mockReplaceCriteria.mock.calls.length - 1]
+    const saved = savedRoot as Extract<CohortNode, { nodeType: 'GROUP' }>
+    expect(saved.children[0]).toMatchObject({
+      nodeType: 'CONDITION',
+      paramKey: 'skjemaId',
+      conditionType: 'EQUALS',
+      value: '1234',
+    })
+  })
+
+  it('«Sjekk bare at detaljen finnes» saves conditionType EXISTS with empty value', async () => {
+    const user = userEvent.setup()
+    renderEditor()
+
+    await user.click(screen.getByRole('button', { name: '+ Filter' }))
+    await user.selectOptions(topLevelFieldSelect(), '__detail__')
+
+    await user.click(screen.getByLabelText('Detalj'))
+    await user.keyboard('skjemaId')
+    await user.tab()
+    await waitFor(() => expect(screen.getByLabelText('Verdi')).toBeEnabled())
+    await user.click(screen.getByLabelText('Sjekk bare at detaljen finnes'))
+
+    // «Verdi» becomes disabled again in exists-mode.
+    expect(screen.getByLabelText('Verdi')).toBeDisabled()
+
+    await user.click(screen.getByRole('button', { name: 'Lagre' }))
+
+    const [, savedRoot] = mockReplaceCriteria.mock.calls[mockReplaceCriteria.mock.calls.length - 1]
+    const saved = savedRoot as Extract<CohortNode, { nodeType: 'GROUP' }>
+    expect(saved.children[0]).toMatchObject({
+      nodeType: 'CONDITION',
+      paramKey: 'skjemaId',
+      conditionType: 'EXISTS',
+      value: '',
+    })
   })
 })
