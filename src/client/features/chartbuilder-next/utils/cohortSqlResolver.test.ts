@@ -99,8 +99,8 @@ describe('resolveCohortToSegmentDefinition', () => {
             {
               nodeType: 'CONDITION',
               field: 'created_at',
-              conditionType: 'BETWEEN',
-              value: JSON.stringify({ from: { type: 'relative', amount: 7, unit: 'DAY' }, to: { type: 'now' } }),
+              conditionType: 'GREATER_THAN_OR_EQUAL',
+              value: '2026-08-01T00:00:00',
             },
           ],
         }),
@@ -109,6 +109,7 @@ describe('resolveCohortToSegmentDefinition', () => {
       defaultCtx(),
     )
     const expr = result.filters[0].rawExpression ?? ''
+    expect(expr).toContain('.created_at')
     expect(expr).not.toContain('INTERVAL 400 DAY')
   })
 
