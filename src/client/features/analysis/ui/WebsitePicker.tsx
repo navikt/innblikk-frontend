@@ -658,6 +658,7 @@ const WebsitePicker = ({
           }}
           value={comboboxInputValue}
           onChange={(value) => setComboboxInputValue(value)}
+          placeholder="Søk etter nettside…"
           clearButton
           isMultiSelect={false}
         />

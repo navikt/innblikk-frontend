@@ -3,8 +3,28 @@ import { useSearchParams } from 'react-router-dom'
 import type { ChartConfig, Filter, Metric, Parameter, Website } from '../../../shared/types/chart.ts'
 import type { CohortDetailDto } from '../../../shared/types/cohort.ts'
 import { useDebounce } from './useDebounce.ts'
+import { usePersistentState } from './usePersistentState.ts'
 import { safeParseJson, isRecord, isMetricArray, isWebsiteLike, isFilterArray } from '../utils/typeGuards.ts'
 import { generateSQLCore } from '../utils/sqlGenerator.ts'
+
+const STORAGE_KEYS = {
+  config: 'grafbygger:config',
+  filters: 'grafbygger:filters',
+  dateRangeInDays: 'grafbygger:dateRangeInDays',
+} as const
+
+const DEFAULT_CONFIG: ChartConfig = {
+  website: null,
+  filters: [],
+  segments: [],
+  metrics: [],
+  groupByFields: [],
+  orderBy: null,
+  columnOrderMode: 'default',
+  dateFormat: 'day',
+  paramAggregation: 'unique',
+  limit: 1000,
+}
 
 export function useChartConfig() {
   const [searchParams] = useSearchParams()
@@ -20,31 +40,36 @@ export function useChartConfig() {
   const configFromUrl = searchParams.get('config')
   const filtersFromUrl = searchParams.get('filters')
 
+  // A dashboard preload link (URL params) always wins over persisted state —
+  // storage is neither read nor written for those loads.
+  const hasPreloadParams = () => Boolean(websiteIdFromUrl || configFromUrl || filtersFromUrl || urlPathFromUrl)
+
   // Track if we've applied URL params (to avoid re-applying)
   const [hasAppliedUrlParams, setHasAppliedUrlParams] = useState(false)
   // Store pending filters to apply after events are loaded
   const [pendingFiltersFromUrl, setPendingFiltersFromUrl] = useState<Filter[] | null>(null)
 
-  const [config, setConfig] = useState<ChartConfig>({
-    website: null,
-    filters: [],
-    segments: [],
-    metrics: [],
-    groupByFields: [],
-    orderBy: null,
-    columnOrderMode: 'default',
-    dateFormat: 'day',
-    paramAggregation: 'unique',
-    limit: 1000,
-  })
+  const [config, setConfig, clearPersistedConfig] = usePersistentState<ChartConfig>(
+    STORAGE_KEYS.config,
+    DEFAULT_CONFIG,
+    hasPreloadParams,
+  )
 
-  const [filters, setFilters] = useState<Filter[]>([])
+  const [filters, setFilters, clearPersistedFilters] = usePersistentState<Filter[]>(
+    STORAGE_KEYS.filters,
+    [],
+    hasPreloadParams,
+  )
   const [parameters, setParameters] = useState<Parameter[]>([])
   const [availableEvents, setAvailableEvents] = useState<string[]>([])
   const [dateRangeReady, setDateRangeReady] = useState<boolean>(false)
   const [maxDaysAvailable, setMaxDaysAvailable] = useState<number>(0)
 
-  const [dateRangeInDays, setDateRangeInDays] = useState<number>(7)
+  const [dateRangeInDays, setDateRangeInDays, clearPersistedDateRangeInDays] = usePersistentState<number>(
+    STORAGE_KEYS.dateRangeInDays,
+    7,
+    hasPreloadParams,
+  )
 
   const [forceReload] = useState<boolean>(false)
   const [resetIncludeParams, setResetIncludeParams] = useState<boolean>(false)
@@ -265,6 +290,12 @@ export function useChartConfig() {
   const displayOptionsRef = useRef<{ resetOptions: (silent?: boolean) => void }>(null)
 
   const resetAll = () => {
+    // The only place persisted state is wiped — sticky-by-default is the whole
+    // point (refresh mid-work loses nothing), so this stays explicitly user-invoked.
+    clearPersistedConfig()
+    clearPersistedFilters()
+    clearPersistedDateRangeInDays()
+
     setAvailableEvents([])
     setParameters([])
     setDateRangeReady(false)

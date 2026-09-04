@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import { Bleed, Box, Checkbox, ExpansionCard, Loader } from '@navikt/ds-react'
+import { Bleed, Box, Checkbox, ExpansionCard, Heading, Loader } from '@navikt/ds-react'
 import { ArrowCirclepathReverseIcon } from '@navikt/aksel-icons'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import QueryPreview from './results/QueryPreview.tsx'
@@ -13,12 +13,19 @@ import GroupingOptions from './grafbygger/GroupingOptions.tsx'
 import AlertWithCloseButton from './grafbygger/AlertWithCloseButton.tsx'
 import SidebarSection from '../../../shared/ui/SidebarSection.tsx'
 import ActionFeedbackButton from '../../../shared/ui/ActionFeedbackButton.tsx'
-import ToggleOption from '../../../shared/ui/ToggleOption.tsx'
 import { FILTER_COLUMNS } from '../../../shared/lib/constants.ts'
 import { DATE_FORMATS, METRICS, COHORTS_ENABLED } from '../model/constants.ts'
 import { sanitizeColumnName } from '../utils/sanitize.ts'
 import { useChartConfig } from '../hooks/useChartConfig.ts'
 import { fetchCohortsDeep } from '../api/cohortApi.ts'
+import { usePersistentState } from '../hooks/usePersistentState.ts'
+
+/** Dashboard preload links carry these params and always win over persisted state. */
+const hasPreloadParams = () => {
+  if (typeof window === 'undefined') return false
+  const p = new URLSearchParams(window.location.search)
+  return Boolean(p.get('websiteId') || p.get('config') || p.get('filters') || p.get('urlPath'))
+}
 
 const ChartsPage = () => {
   const isFocusedMode = (() => {
@@ -31,9 +38,14 @@ const ChartsPage = () => {
   const [groupingResetSignal, setGroupingResetSignal] = useState<number>(0)
   const [metricResetSignal, setMetricResetSignal] = useState<number>(0)
   const [isEventFilterDirty, setIsEventFilterDirty] = useState<boolean>(false)
-  const [interactiveDateFilterEnabled, setInteractiveDateFilterEnabled] = useState<boolean>(true)
-  const [selectedDateRange, setSelectedDateRange] = useState<string>('all')
-  const [customPeriodInputs, setCustomPeriodInputs] = useState<Record<number, { amount: string; unit: string }>>({})
+  const [selectedDateRange, setSelectedDateRange, clearPersistedSelectedDateRange] = usePersistentState<string>(
+    'grafbygger:selectedDateRange',
+    'all',
+    hasPreloadParams,
+  )
+  const [customPeriodInputs, setCustomPeriodInputs, clearPersistedCustomPeriodInputs] = usePersistentState<
+    Record<number, { amount: string; unit: string }>
+  >('grafbygger:customPeriodInputs', {}, hasPreloadParams)
   const [kolonnenavnContainer, setKolonnenavnContainer] = useState<HTMLDivElement | null>(null)
   const cohortPickerRef = useRef<CohortPickerRef>(null)
   const cohortRequestIdRef = useRef(0)
@@ -135,11 +147,16 @@ const ChartsPage = () => {
 
   const handleResetAllWithSignals = useCallback(() => {
     resetAll()
+    clearPersistedSelectedDateRange()
+    clearPersistedCustomPeriodInputs()
+    setSelectedDateRange('all')
+    setCustomPeriodInputs({})
     setGroupingResetSignal((prev) => prev + 1)
     setMetricResetSignal((prev) => prev + 1)
     cohortPickerRef.current?.resetCohorts()
     setResolvedCohorts([])
-  }, [resetAll, setResolvedCohorts])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resetAll, setResolvedCohorts, clearPersistedSelectedDateRange, clearPersistedCustomPeriodInputs])
 
   const showResetEventFilters = isEventFilterDirty
   const showResetMetrics = !(
@@ -359,6 +376,30 @@ const ChartsPage = () => {
           websiteId={config.website?.id}
           showDownloadReadMore={false}
         />
+        <Box
+          className="mt-4"
+          padding="space-16"
+          background="default"
+          borderRadius="8"
+          borderWidth="1"
+          borderColor="neutral-subtle"
+        >
+          <Heading level="3" size="xsmall" spacing>
+            Tidsperiode
+          </Heading>
+          <DateRangeSelector
+            filters={filters}
+            setFilters={setFilters}
+            maxDaysAvailable={maxDaysAvailable}
+            selectedDateRange={selectedDateRange}
+            setSelectedDateRange={setSelectedDateRange}
+            customPeriodInputs={customPeriodInputs}
+            setCustomPeriodInputs={setCustomPeriodInputs}
+            interactiveMode={false}
+            bare
+            initialPreset="last7days"
+          />
+        </Box>
         <ExpansionCard aria-label="Tilleggsvalg" size="small" className="mt-4">
           <ExpansionCard.Header>
             <ExpansionCard.Title as="h3" size="small">
@@ -367,40 +408,6 @@ const ChartsPage = () => {
           </ExpansionCard.Header>
           <ExpansionCard.Content>
             <div ref={setKolonnenavnContainer} />
-            <div className="mb-4">
-              <ToggleOption
-                label="Overstyr tidsperiode"
-                description={
-                  interactiveDateFilterEnabled
-                    ? 'Bruker de siste 7 dagene som standard'
-                    : 'Velg en annen periode enn standarden (siste 7 dager)'
-                }
-                checked={!interactiveDateFilterEnabled}
-                panelClassName="filter-card-animate-in rounded-md border border-(--ax-border-neutral-subtle) bg-(--ax-bg-default) px-3 py-3"
-                panelWrapperClassName="mt-2"
-                onChange={(overrideEnabled) => {
-                  setInteractiveDateFilterEnabled(!overrideEnabled)
-                  if (!overrideEnabled) {
-                    // Back to automatic default (last 7 days) — clear any
-                    // custom range so useChartConfig's fallback kicks back in.
-                    setFilters(filters.filter((f) => f.column !== 'created_at'))
-                    setSelectedDateRange('all')
-                  }
-                }}
-              >
-                <DateRangeSelector
-                  filters={filters}
-                  setFilters={setFilters}
-                  maxDaysAvailable={maxDaysAvailable}
-                  selectedDateRange={selectedDateRange}
-                  setSelectedDateRange={setSelectedDateRange}
-                  customPeriodInputs={customPeriodInputs}
-                  setCustomPeriodInputs={setCustomPeriodInputs}
-                  interactiveMode={false}
-                  bare
-                />
-              </ToggleOption>
-            </div>
             <ResultsDisplayOptions
               orderBy={config.orderBy}
               setOrderBy={setOrderBy}

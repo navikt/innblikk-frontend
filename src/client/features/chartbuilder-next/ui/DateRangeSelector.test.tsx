@@ -65,4 +65,26 @@ describe('DateRangeSelector', () => {
 
     expect(setSelectedDateRange).toHaveBeenCalled()
   })
+
+  it('applies initialPreset on mount when no date filter exists', () => {
+    const { setFilters, setSelectedDateRange } = renderDateRangeSelector({
+      selectedDateRange: 'all',
+      initialPreset: 'last7days',
+    })
+
+    expect(setSelectedDateRange).toHaveBeenCalledWith('last7days')
+    expect(setFilters).toHaveBeenCalled()
+  })
+
+  it('skips initialPreset when a created_at filter already exists (restored session)', () => {
+    const { setSelectedDateRange } = renderDateRangeSelector({
+      selectedDateRange: 'all',
+      initialPreset: 'last7days',
+      filters: [{ column: 'created_at', operator: '>=', value: 'X', dateRangeType: 'dynamic' }],
+    })
+
+    expect(setSelectedDateRange).not.toHaveBeenCalledWith('last7days')
+    // The mount-time interactiveMode sync may call setFilters once (harmless
+    // identity-ish update); it just must never re-apply the preset.
+  })
 })

@@ -37,15 +37,19 @@ describe('EventFilter', () => {
       const setFilters = vi.fn()
       renderEventFilter({ setFilters })
 
-      // The init effect defers via setTimeout — wait for it to fire
+      // The init effect defers via setTimeout and now uses a functional update —
+      // resolve it against an empty previous state to assert the result.
       await waitFor(() => {
-        expect(setFilters).toHaveBeenCalledWith(
-          expect.arrayContaining([
-            expect.objectContaining({ column: 'event_type', value: '1' }),
-            expect.objectContaining({ column: 'url_path', value: '{{url_sti}}', interactive: true }),
-          ]),
-        )
+        expect(setFilters).toHaveBeenCalled()
       })
+      const updater = setFilters.mock.calls[0][0] as unknown
+      const next = typeof updater === 'function' ? (updater as (prev: unknown[]) => unknown[])([]) : updater
+      expect(next).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ column: 'event_type', value: '1' }),
+          expect.objectContaining({ column: 'url_path', value: '{{url_sti}}', interactive: true }),
+        ]),
+      )
     })
 
     it('shows the "Legg til Egne hendelser" add button', () => {

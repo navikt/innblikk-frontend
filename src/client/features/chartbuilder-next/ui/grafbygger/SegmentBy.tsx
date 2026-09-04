@@ -333,7 +333,12 @@ const SegmentBy = forwardRef<SegmentByRef, SegmentByProps>(
                     mode="filter-only"
                     filters={segmentFilters[segment.id] || []}
                     parameters={parameters}
-                    setFilters={(nextFilters) => setFiltersForSegment(segment.id, nextFilters)}
+                    setFilters={(next) =>
+                      setFiltersForSegment(
+                        segment.id,
+                        typeof next === 'function' ? next(segmentFilters[segment.id] || []) : next,
+                      )
+                    }
                     availableEvents={availableEvents}
                     onEnableCustomEvents={onEnableCustomEvents}
                     dateRangeInDays={dateRangeInDays}

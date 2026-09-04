@@ -1,6 +1,17 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { getFeatureFlag, type FeatureFlags } from '../../../../shared/lib/featureFlags.ts'
-import { Heading, Link, Button, Alert, Modal, TextField, Select, UNSAFE_Combobox } from '@navikt/ds-react'
+import {
+  Heading,
+  Link,
+  Button,
+  Alert,
+  Modal,
+  TextField,
+  Select,
+  UNSAFE_Combobox,
+  Dialog,
+  BodyShort,
+} from '@navikt/ds-react'
 import { Copy, ExternalLink } from 'lucide-react'
 import { ArrowCirclepathReverseIcon } from '@navikt/aksel-icons'
 import type { ILineChartProps, IVerticalBarChartProps } from '@fluentui/react-charting'
@@ -212,6 +223,7 @@ const QueryPreview = ({
   const initialDateRange = getDateRangeFromPreset(DEFAULT_DATE_PRESET)
   const [copied, setCopied] = useState(false)
   const [showAlert, setShowAlert] = useState(false)
+  const [resetArmed, setResetArmed] = useState(false)
   const [wasManuallyOpened, setWasManuallyOpened] = useState(false)
   const [estimate, setEstimate] = useState<EstimateResponse | null>(null)
   const [estimating, setEstimating] = useState(false)
@@ -1385,38 +1397,72 @@ const QueryPreview = ({
                   <Button
                     variant="tertiary"
                     size="xsmall"
-                    onClick={() => {
-                      onResetAll()
-                      // Reset local filter states
-                      const resetDateRange = getDateRangeFromPreset(DEFAULT_DATE_PRESET)
-                      setDatePreset(DEFAULT_DATE_PRESET)
-                      setDateRange({ from: resetDateRange.from, to: resetDateRange.to })
-                      setUrlPath('/')
-                      setUrlComboInputValue('')
-                      setEventName('')
-                      setExecutedParams({
-                        dateRange: { from: resetDateRange.from, to: resetDateRange.to },
-                        urlPath: '/',
-                        eventName: '',
-                      })
-                      setResult(null) // Clear results
-
-                      setShowAlert(true)
-
-                      // Move this call AFTER onResetAll to ensure it happens last
-                      setTimeout(() => {
-                        ensureFormProgressOpen()
-                      }, 0)
-
-                      // Auto-hide the alert after 4 seconds
-                      setTimeout(() => setShowAlert(false), 4000)
-                    }}
+                    onClick={() => setResetArmed(true)}
                     icon={<ArrowCirclepathReverseIcon aria-hidden />}
                   >
                     Tilbakestill alle valg
                   </Button>
                 </div>
               )}
+
+              {/* Confirm dialog — a timed two-step button would fail WCAG 2.2.3
+                  (no timing) and rush the user; an Aksel Dialog has no timeout. */}
+              <Dialog
+                open={resetArmed}
+                onOpenChange={(open) => setResetArmed(open)}
+                aria-label="Bekreft tilbakestilling"
+              >
+                <Dialog.Popup width="small">
+                  <Dialog.Header>
+                    <Dialog.Title>Tilbakestill alle valg?</Dialog.Title>
+                  </Dialog.Header>
+                  <Dialog.Body>
+                    <BodyShort>
+                      Alle valg i grafbyggeren fjernes, inkludert lagrede valg fra tidligere økter. Dette kan ikke
+                      angres.
+                    </BodyShort>
+                  </Dialog.Body>
+                  <Dialog.Footer>
+                    <Button
+                      variant="danger"
+                      onClick={() => {
+                        setResetArmed(false)
+                        onResetAll?.()
+                        // Reset local filter states
+                        const resetDateRange = getDateRangeFromPreset(DEFAULT_DATE_PRESET)
+                        setDatePreset(DEFAULT_DATE_PRESET)
+                        setDateRange({ from: resetDateRange.from, to: resetDateRange.to })
+                        setUrlPath('/')
+                        setUrlComboInputValue('')
+                        setEventName('')
+                        setExecutedParams({
+                          dateRange: { from: resetDateRange.from, to: resetDateRange.to },
+                          urlPath: '/',
+                          eventName: '',
+                        })
+                        setResult(null) // Clear results
+
+                        setShowAlert(true)
+
+                        // Move this call AFTER onResetAll to ensure it happens last
+                        setTimeout(() => {
+                          ensureFormProgressOpen()
+                        }, 0)
+
+                        // Auto-hide the alert after 4 seconds
+                        setTimeout(() => setShowAlert(false), 4000)
+                      }}
+                    >
+                      Ja, tilbakestill alt
+                    </Button>
+                    <Dialog.CloseTrigger>
+                      <Button type="button" variant="secondary">
+                        Avbryt
+                      </Button>
+                    </Dialog.CloseTrigger>
+                  </Dialog.Footer>
+                </Dialog.Popup>
+              </Dialog>
 
               {/* Success Alert for Reset */}
               {showAlert && (

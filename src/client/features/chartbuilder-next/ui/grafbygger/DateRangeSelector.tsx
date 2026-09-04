@@ -1,7 +1,7 @@
 import { Heading, DatePicker, Tabs, Button, Alert, TextField, Select } from '@navikt/ds-react'
 import { format, startOfMonth, subMonths, startOfYear, subDays } from 'date-fns'
 import type { Filter } from '../../../../shared/types/chart.ts'
-import { useState, useEffect, forwardRef, useImperativeHandle, useMemo } from 'react'
+import { useState, useEffect, forwardRef, useImperativeHandle, useMemo, useRef } from 'react'
 
 // Date range suggestions for quick date filtering
 const DATE_RANGE_SUGGESTIONS = [
@@ -148,6 +148,12 @@ interface DateRangePickerProps {
    * content can be rendered inside an external container (e.g. ToggleOption panel).
    */
   bare?: boolean
+  /**
+   * Preset applied once on mount when no date filter exists yet (e.g. a fresh
+   * page load). Restored sessions already carry created_at filters, so nothing
+   * is applied then. 'none' disables.
+   */
+  initialPreset?: string
 }
 
 interface DateRange {
@@ -166,6 +172,7 @@ const DateRangeSelector = forwardRef(
       setSelectedDateRange,
       interactiveMode,
       bare = false,
+      initialPreset = 'none',
     }: DateRangePickerProps,
     ref,
   ) => {
@@ -363,6 +370,13 @@ const DateRangeSelector = forwardRef(
         setSelectedDateRange('')
         setSelectedRange(undefined)
       } else {
+        const hasInteractiveFilter = filters.some((f) => f.column === 'created_at' && f.interactive === true)
+        // Only do work if an interactive filter is actually present — otherwise
+        // this runs on every mount (interactiveMode starts false) and the
+        // setTimeout'd applyDateRange('all') below would wipe the initialPreset
+        // a tick after it was applied.
+        if (!hasInteractiveFilter) return
+
         // Remove interactive date filter
         const filtersWithoutInteractive = filters.filter((f) => !(f.column === 'created_at' && f.interactive === true))
         setFilters(filtersWithoutInteractive)
@@ -401,6 +415,29 @@ const DateRangeSelector = forwardRef(
       syncInteractiveModeFilters(interactiveMode)
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [interactiveMode])
+
+    // Apply the initial preset once on mount if no date filter exists yet (fresh
+    // load — restored sessions already have created_at filters from storage).
+    // Applies filters directly rather than via applyDateRange: that function
+    // toggles OFF when rangeId === selectedDateRange, which would wrongly
+    // deselect a preset that was restored from localStorage but whose filters
+    // went missing.
+    const hasAppliedInitialPreset = useRef(false)
+    useEffect(() => {
+      if (hasAppliedInitialPreset.current) return
+      hasAppliedInitialPreset.current = true
+      if (initialPreset === 'none' || interactiveMode) return
+      if (filters.some((f) => f.column === 'created_at')) return
+      const preset = DYNAMIC_DATE_RANGES.find((dr) => dr.id === initialPreset)
+      if (!preset) return
+      setSelectedDateRange(preset.id)
+      setFilters([
+        ...filters.filter((f) => f.column !== 'created_at'),
+        { column: 'created_at', operator: '>=', value: preset.fromSQL, dateRangeType: 'dynamic' },
+        { column: 'created_at', operator: '<=', value: preset.toSQL, dateRangeType: 'dynamic' },
+      ])
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
 
     // Get message about available data range
     const getStartDateDisplay = (): string => {
@@ -563,6 +600,12 @@ const DateRangeSelector = forwardRef(
                 <DatePicker
                   mode="range"
                   selected={selectedRange}
+                  // The popover renders in-place (not portaled) — inside
+                  // grafbygger's sticky `overflow-y-auto` results column an
+                  // `absolute` popover gets cropped by the container's scroll
+                  // bounds. `fixed` makes floating-ui use viewport coordinates
+                  // instead, escaping the clip.
+                  strategy="fixed"
                   onSelect={(range) => {
                     if (range) {
                       setSelectedRange(range)

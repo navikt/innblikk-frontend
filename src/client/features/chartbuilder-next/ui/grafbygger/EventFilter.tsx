@@ -13,7 +13,7 @@ const EVENT_TYPES = [
 interface ChartFiltersProps {
   filters: Filter[]
   parameters: Parameter[]
-  setFilters: (filters: Filter[]) => void
+  setFilters: React.Dispatch<React.SetStateAction<Filter[]>>
   onDirtyStateChange?: (isDirty: boolean) => void
   availableEvents?: string[]
   onEnableCustomEvents?: (withParams?: boolean) => void
@@ -308,12 +308,17 @@ const EventFilter = forwardRef(
       if (!hasUrlPathFilter && hasPageviewsEnabled) {
         didInitPageviewsRef.current = true
         const timer = setTimeout(() => {
-          const nextFilters = [...filters]
-          if (!hasEventTypeFilter) {
-            nextFilters.push({ column: 'event_type', operator: '=', value: '1' })
-          }
-          nextFilters.push(DEFAULT_URL_STI_FILTER)
-          setFilters(nextFilters)
+          // Functional update: DateRangeSelector's initialPreset effect may have
+          // added created_at filters in the same commit window — a stale-closure
+          // snapshot here would silently drop them.
+          setFilters((prev) => {
+            const nextFilters = [...prev]
+            if (!hasEventTypeFilter) {
+              nextFilters.push({ column: 'event_type', operator: '=', value: '1' })
+            }
+            nextFilters.push(DEFAULT_URL_STI_FILTER)
+            return nextFilters
+          })
         }, 0)
         return () => clearTimeout(timer)
       }
