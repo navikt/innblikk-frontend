@@ -401,9 +401,12 @@ function DetailInlineEditor({
 
   return (
     <VStack gap="space-8" className={`cohort-detail-editor${className ? ` ${className}` : ''}`}>
-      {/* align=end so the operator select (hideLabel, no label line above it) lines
-          up with the Detalj/Verdi inputs, which sit lower because of their labels. */}
-      <HStack gap="space-8" align="end" className="cohort-detail-editor-row">
+      {/* align=start + a blank label line on the operator select (see
+          DetailValueEditor) so all three *inputs* top-align regardless of any
+          note lines a combobox may render below itself («Forslag fra siste X
+          dager» etc.) — align=end would instead level the blocks' bottoms,
+          dropping the operator input whenever such a note is present. */}
+      <HStack gap="space-8" align="start" className="cohort-detail-editor-row">
         <SuggestingValueEditor
           websiteId={websiteId}
           column="event_data_key"
@@ -464,8 +467,11 @@ function DetailValueEditor(props: ValueEditorProps, websiteId: string | undefine
   // left-to-right: Detalj → er lik → Verdi. Updates go through schema.dispatchQuery.
   const operatorSelect = (
     <Select
-      label="Operator"
-      hideLabel
+      // Invisible but layout-occupying label («\u00A0») so this select's input
+      // top-aligns with the labeled Detalj/Verdi inputs next to it — an
+      // aria-label alone would leave it one label-line higher.
+      label={'\u00A0'}
+      aria-label="Operator"
       size="small"
       className="cohort-detail-operator"
       value={props.operator}
