@@ -19,7 +19,8 @@ const Sporingskoder = lazy(() => import('./features/content').then((m) => ({ def
 const Grafbygger = lazy(() => import('./features/chartbuilder').then((m) => ({ default: m.Grafbygger })))
 const Grafdeling = lazy(() => import('./features/chartbuilder').then((m) => ({ default: m.Grafdeling })))
 
-// Chartbuilder Next Feature (unadvertised, simplified grafbygger + cohorts, for live testing)
+// Chartbuilder Next Feature (simplified grafbygger + cohorts — served on /grafbygger for beta
+// users via GrafbyggerRoute below, and on /grafbygger_next for everyone during rollout)
 const GrafbyggerNext = lazy(() => import('./features/chartbuilder-next').then((m) => ({ default: m.Grafbygger })))
 
 // Cohort Manager Feature
@@ -134,6 +135,17 @@ const LegacyVisualizationRouteRedirect = ({ to }: { to: string }) => {
   return <Navigate to={`${to}${location.search}`} replace />
 }
 
+const GrafbyggerRoute = () => {
+  // Beta-opted-in users get the rewritten grafbygger (chartbuilder-next) on the main route.
+  // Client-only check by design: rollout preference, not a security boundary (same rationale
+  // as the beta check on CopilotRoute below). /grafbygger_next stays as the explicit route.
+  if (getFeatureFlag('beta_opt_in')) {
+    return <GrafbyggerNext />
+  }
+
+  return <Grafbygger />
+}
+
 const WcagRoute = () => {
   if (!getFeatureFlag('beta_opt_in')) {
     return <Navigate to="/profil#beta" replace />
@@ -222,7 +234,7 @@ export const routes: AppRoute[] = [
   { path: '/tilgjengelighet', component: <Tilgjengelighet />, fullWidth: true },
 
   { path: '/taksonomi', component: <Taksonomi />, fullWidth: true },
-  { path: '/grafbygger', component: <Grafbygger />, fullWidth: true },
+  { path: '/grafbygger', component: <GrafbyggerRoute />, fullWidth: true },
   { path: '/grafbygger_next', component: <GrafbyggerNext />, fullWidth: true },
   { path: '/brukergrupper', component: <CohortManager />, fullWidth: true },
   // Legacy alias — user-facing name changed from "kohorter" to "brukergrupper"; backend still calls them cohorts.
