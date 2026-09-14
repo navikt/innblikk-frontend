@@ -179,6 +179,10 @@ function AkselFieldSelector(props: FieldSelectorProps) {
  */
 function AkselOperatorSelector(props: OperatorSelectorProps) {
   if (props.field === 'created_at') return null
+  // «Detalj om hendelsen» renders its own operator select between the Detalj
+  // and Verdi inputs (see DetailInlineEditor) so the row reads left-to-right;
+  // suppress RQB's default placement (before the value editor) to avoid a dupe.
+  if (props.field === '__detail__') return null
   return (
     <Select
       label={props.title ?? 'Operator'}
@@ -316,6 +320,40 @@ function findSiblingEventNameValue(query: RuleGroupType, path: number[]): string
 }
 
 /**
+ * Returns a new query with the rule at `path` patched with `updates`
+ * (immutably, walking down to the rule's parent group). Used by
+ * DetailValueEditor to change a rule's operator, since the valueEditor slot
+ * only gets a *value* setter (handleOnChange) — operator changes must go
+ * through schema.dispatchQuery with an updated root query. Returns undefined
+ * if the path doesn't resolve to a rule.
+ */
+function updateRuleAtPath(query: RuleGroupType, path: number[], updates: Partial<RuleType>): RuleGroupType | undefined {
+  const selfIndex = path[path.length - 1]
+  if (selfIndex === undefined) return undefined
+
+  // Recurse down to the parent group of the target rule, cloning on the way.
+  const recurse = (group: RuleGroupType, depth: number): RuleGroupType | undefined => {
+    if (depth === path.length - 1) {
+      const rule = group.rules[selfIndex]
+      if (!rule || typeof rule !== 'object' || !('field' in rule)) return undefined
+      const newRules = group.rules.slice()
+      newRules[selfIndex] = { ...rule, ...updates }
+      return { ...group, rules: newRules }
+    }
+    const childIndex = path[depth]
+    const child = group.rules[childIndex]
+    if (!child || typeof child !== 'object' || !('rules' in child)) return undefined
+    const newChild = recurse(child, depth + 1)
+    if (!newChild) return undefined
+    const newRules = group.rules.slice()
+    newRules[childIndex] = newChild
+    return { ...group, rules: newRules }
+  }
+
+  return recurse(query, 0)
+}
+
+/**
  * «Detalj» key combobox + conditional «Verdi» combobox + «Sjekk bare at
  * detaljen finnes» toggle — shared by DetailValueEditor (RQB's valueEditor
  * slot) and StepConditionsEditor (sequence steps). The «Verdi» combobox is
@@ -331,6 +369,7 @@ function DetailInlineEditor({
   operator,
   className,
   eventNameHint,
+  operatorSelector,
 }: {
   value: string
   onChange: (value: string) => void
@@ -339,6 +378,13 @@ function DetailInlineEditor({
   className?: string
   /** Sibling «Hendelsesnavn» value in the same rule group, if any — narrows Detalj/Verdi suggestions unless the user opts out. */
   eventNameHint?: string
+  /**
+   * Optional render slot for the operator («er lik») select. When provided it's
+   * placed between the Detalj and Verdi inputs so the row reads left-to-right
+   * (Detalj → operator → Verdi). The caller is responsible for suppressing its
+   * own default operator rendering to avoid showing it twice.
+   */
+  operatorSelector?: React.ReactNode
 }) {
   let blob: ParamValueBlob
   try {
@@ -355,7 +401,9 @@ function DetailInlineEditor({
 
   return (
     <VStack gap="space-8" className={`cohort-detail-editor${className ? ` ${className}` : ''}`}>
-      <HStack gap="space-8" align="start" className="cohort-detail-editor-row">
+      {/* align=end so the operator select (hideLabel, no label line above it) lines
+          up with the Detalj/Verdi inputs, which sit lower because of their labels. */}
+      <HStack gap="space-8" align="end" className="cohort-detail-editor-row">
         <SuggestingValueEditor
           websiteId={websiteId}
           column="event_data_key"
@@ -366,6 +414,7 @@ function DetailInlineEditor({
           onChange={(paramKey) => update({ paramKey, value: '' })}
           placeholder="f.eks. skjemaId"
         />
+        {operatorSelector}
         <SuggestingValueEditor
           websiteId={websiteId}
           column="event_data_value"
@@ -407,6 +456,29 @@ function DetailInlineEditor({
 function DetailValueEditor(props: ValueEditorProps, websiteId: string | undefined) {
   const query = useQueryBuilderQuery()
   const eventNameHint = findSiblingEventNameValue(query as RuleGroupType, props.path)
+
+  // RQB renders the operator select *before* the value editor, which reads as
+  // "Detalj om hendelsen | er lik | [Detalj][Verdi]" — wrong order. We render
+  // our own operator select between the Detalj and Verdi inputs (and
+  // AkselOperatorSelector suppresses RQB's for this field) so it reads
+  // left-to-right: Detalj → er lik → Verdi. Updates go through schema.dispatchQuery.
+  const operatorSelect = (
+    <Select
+      label="Operator"
+      hideLabel
+      size="small"
+      className="cohort-detail-operator"
+      value={props.operator}
+      onChange={(e) => {
+        const nextOperator = e.target.value
+        const updated = updateRuleAtPath(query as RuleGroupType, props.path, { operator: nextOperator })
+        if (updated) props.schema.dispatchQuery(updated)
+      }}
+    >
+      {toOptions(getFieldOperators('__detail__'))}
+    </Select>
+  )
+
   return (
     <DetailInlineEditor
       value={(props.value as string) || ''}
@@ -415,6 +487,7 @@ function DetailValueEditor(props: ValueEditorProps, websiteId: string | undefine
       operator={props.operator}
       className={props.className}
       eventNameHint={eventNameHint}
+      operatorSelector={operatorSelect}
     />
   )
 }
@@ -505,7 +578,7 @@ function StepConditionsEditor({ query, onChange, websiteId }: StepConditionsEdit
               ))}
             </Select>
 
-            {rule.field !== 'created_at' && (
+            {rule.field !== 'created_at' && rule.field !== '__detail__' && (
               <Select
                 label="Operator"
                 hideLabel
@@ -527,6 +600,22 @@ function StepConditionsEditor({ query, onChange, websiteId }: StepConditionsEdit
                 onChange={(v) => updateRule(index, { value: v })}
                 websiteId={websiteId}
                 operator={rule.operator}
+                operatorSelector={
+                  <Select
+                    label="Operator"
+                    hideLabel
+                    size="small"
+                    className="cohort-detail-operator"
+                    value={rule.operator}
+                    onChange={(e) => updateRule(index, { operator: e.target.value })}
+                  >
+                    {getFieldOperators(rule.field).map((op) => (
+                      <option key={op.name} value={op.name}>
+                        {op.label}
+                      </option>
+                    ))}
+                  </Select>
+                }
                 eventNameHint={
                   rules.find((r, i): r is RuleType => {
                     if (i === index || r.field !== 'event_name') return false

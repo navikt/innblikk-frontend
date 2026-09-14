@@ -73,8 +73,13 @@
   flex-basis: 100%;
   order: 10;
   margin-top: 0.75rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--ax-border-neutral-subtle);
+}
+
+/* The «er lik» operator select rendered between the Detalj and Verdi inputs —
+ * compact, doesn't stretch to fill (Aksel Select defaults to 100% width). */
+.cohort-detail-operator {
+  flex: 0 0 auto;
+  min-width: 9rem;
 }
 
 /*

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { BodyShort, UNSAFE_Combobox } from '@navikt/ds-react'
 import { columnValuesSuggestions } from '../hooks/useColumnValueSuggestions.ts'
 import type { SuggestibleColumn } from '../api/columnValuesApi.ts'
@@ -103,7 +103,14 @@ export function SuggestingValueEditor({
     }
   }, [multi, value])
 
+  // Set synchronously when a toggle fires so the deferred blur-commit below
+  // can tell "input blurred because user picked an option" apart from "input
+  // blurred because user tabbed away" — Aksel does not preventDefault option
+  // mousedown, so the blur genuinely fires before pointerup/toggle.
+  const justToggledRef = useRef(false)
+
   const handleToggle = (option: string, isSelected: boolean) => {
+    justToggledRef.current = true
     if (multi) {
       const next = isSelected ? [...selected, option] : selected.filter((v) => v !== option)
       onChange(JSON.stringify(next))
@@ -115,10 +122,21 @@ export function SuggestingValueEditor({
   // Free-text commit: allowNewValues only toggles typed text into a real
   // value when the dropdown is open; on blur it may be closed, so commit the
   // leftover typed value ourselves (single-select only — multi keeps chips).
+  // Deferred one macrotask: on a mouse-pick the input blurs (mousedown) BEFORE
+  // pointerup fires onToggleSelected, so a synchronous commit would clobber
+  // the pick with the stale typed text. Deferring lets the toggle land first
+  // and set justToggledRef, so we bail. On a real blur (tab away) no toggle
+  // comes, and the typed text commits.
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     if (multi) return
     const typed = e.target.value.trim()
-    if (typed && typed !== value) onChange(typed)
+    setTimeout(() => {
+      if (justToggledRef.current) {
+        justToggledRef.current = false
+        return
+      }
+      if (typed && typed !== value) onChange(typed)
+    }, 0)
   }
 
   const showScannedDaysNote = !disabled && scannedDays !== null && scannedDays < 30

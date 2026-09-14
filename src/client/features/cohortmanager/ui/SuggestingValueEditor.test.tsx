@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { SuggestingValueEditor, countryFlagEmoji, toSuggestionOptions } from './SuggestingValueEditor.tsx'
 import { columnValuesSuggestions } from '../hooks/useColumnValueSuggestions.ts'
@@ -75,5 +75,47 @@ describe('SuggestingValueEditor', () => {
     render(<SuggestingValueEditor websiteId={undefined} column="browser" value="" onChange={() => {}} label="Verdi" />)
     await new Promise((r) => setTimeout(r, 20))
     expect(fetchColumnValues).not.toHaveBeenCalled()
+  })
+
+  // Blur-commit is deferred with setTimeout(0) so a mouse-click on a dropdown
+  // option — real ordering: mousedown (input blurs) → pointerup (Aksel fires
+  // onToggleSelected) → click → macrotasks — sets the justToggled flag before
+  // our deferred commit runs, letting it bail instead of clobbering the pick
+  // with the leftover typed text.
+  describe('free-text blur commit vs. mouse-pick race', () => {
+    const flushMacrotask = () => new Promise<void>((resolve) => setTimeout(resolve, 0))
+
+    it('commits leftover free text on a real blur (tab away)', async () => {
+      vi.mocked(fetchColumnValues).mockResolvedValue({ values: ['Chrome'], scannedDays: 30 })
+      const onChange = vi.fn()
+      render(<SuggestingValueEditor websiteId="w1" column="browser" value="" onChange={onChange} label="Verdi" />)
+      const input = await screen.findByRole('combobox')
+
+      fireEvent.change(input, { target: { value: 'Chro' } })
+      fireEvent.blur(input, { target: { value: 'Chro' } })
+      await flushMacrotask()
+
+      expect(onChange).toHaveBeenCalledWith('Chro')
+    })
+
+    it('does NOT commit leftover text when the blur was a mouse-pick (toggle fired first)', async () => {
+      vi.mocked(fetchColumnValues).mockResolvedValue({ values: ['Chrome'], scannedDays: 30 })
+      const onChange = vi.fn()
+      render(<SuggestingValueEditor websiteId="w1" column="browser" value="" onChange={onChange} label="Verdi" />)
+      const input = await screen.findByRole('combobox')
+      await screen.findByText('Chrome')
+
+      // Real mouse ordering: blur (mousedown) first, then the option's
+      // pointerup fires onToggleSelected (Aksel selects on pointerup, not
+      // click), THEN our setTimeout(0) commit runs.
+      fireEvent.change(input, { target: { value: 'Chro' } })
+      fireEvent.blur(input, { target: { value: 'Chro' } })
+      fireEvent.pointerUp(screen.getByRole('option', { name: /Chrome/ }))
+      await flushMacrotask()
+
+      // The only onChange should be the pick itself, not the leftover 'Chro'.
+      expect(onChange).toHaveBeenCalledWith('Chrome')
+      expect(onChange).not.toHaveBeenCalledWith('Chro')
+    })
   })
 })

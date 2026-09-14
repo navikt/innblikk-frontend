@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Button, Dialog, Heading, Loader, Alert, Table, VStack, HStack, BodyShort } from '@navikt/ds-react'
 import { PlusIcon, TrashIcon, PencilIcon, ArchiveIcon, ArrowUndoIcon } from '@navikt/aksel-icons'
@@ -25,6 +25,10 @@ export default function CohortManager() {
   const [websites, setWebsites] = useState<Website[]>([])
   const [websitesLoading, setWebsitesLoading] = useState(true)
   const [selectedWebsiteId, setSelectedWebsiteId] = useState<string | null>(preselectedWebsiteId)
+  // Controlled filter text for the website combobox — without it the field is a
+  // static label you can't type/backspace into to narrow the list (the traffic
+  // WebsitePicker wires value+onChange+clearButton for exactly this reason).
+  const [websiteFilter, setWebsiteFilter] = useState('')
 
   const [cohorts, setCohorts] = useState<CohortDto[]>([])
   const [allDetails, setAllDetails] = useState<CohortDetailDto[]>([])
@@ -162,7 +166,55 @@ export default function CohortManager() {
   }
 
   const selectedWebsite = websites.find((w) => w.id === selectedWebsiteId)
+  const selectedWebsiteLabel = selectedWebsite ? `${selectedWebsite.name} — ${selectedWebsite.domain}` : ''
   const cohortNames = Object.fromEntries(allDetails.map((c) => [String(c.id), c.name]))
+
+  const websiteOptions = useMemo(
+    () => websites.map((w) => ({ label: `${w.name} — ${w.domain}`, value: w.id })),
+    [websites],
+  )
+
+  // Custom filtering with name-before-domain scoring. Aksel's default search is a
+  // plain substring match over the whole "name — domain" label + highlight of the
+  // first hit, so typing "nav" lights up the *domain* suffix of a dozen sites and
+  // buries the project actually named "Nav.no - prod". We rank: name-prefix match
+  // first, then name-substring, then domain — and only sort (the combobox still
+  // substring-highlights the label it ends up showing).
+  const filteredWebsiteOptions = useMemo(() => {
+    const q = websiteFilter.trim().toLowerCase()
+    if (!q) return websiteOptions
+    const score = (opt: { label: string }): number => {
+      const dashIdx = opt.label.indexOf(' — ')
+      const name = (dashIdx === -1 ? opt.label : opt.label.slice(0, dashIdx)).toLowerCase()
+      const domain = dashIdx === -1 ? '' : opt.label.slice(dashIdx + 3).toLowerCase()
+      if (name.startsWith(q)) return 0
+      if (name.includes(q)) return 1
+      if (domain.includes(q)) return 2
+      if (opt.label.toLowerCase().includes(q)) return 3
+      return -1
+    }
+    return websiteOptions
+      .map((opt) => ({ opt, s: score(opt) }))
+      .filter((x) => x.s >= 0)
+      .sort((a, b) => a.s - b.s || a.opt.label.localeCompare(b.opt.label, 'nb'))
+      .map((x) => x.opt)
+  }, [websiteOptions, websiteFilter])
+
+  // Aksel's single-select combobox renders the selected option as plain input
+  // text (not a removable chip), so its built-in backspace-to-clear (gated on an
+  // empty value + multi-select chips) never fires here — and a passed onKeyDown
+  // would be dropped (ComboboxProps omits it and the input hardcodes its own
+  // handler). So we listen on the wrapper's capture phase instead: backspace
+  // while the input still holds exactly the selected label clears both the
+  // selection and the filter text, so the user can wipe-then-type.
+  const handleWebsiteKeyDownCapture = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Backspace' || !selectedWebsiteId) return
+    const inputValue = (e.target as HTMLInputElement).value
+    if (inputValue === selectedWebsiteLabel || inputValue === websiteFilter) {
+      setSelectedWebsiteId(null)
+      setWebsiteFilter('')
+    }
+  }
 
   return (
     <>
@@ -171,21 +223,28 @@ export default function CohortManager() {
       <AppBlock className="pb-16">
         <VStack gap="space-16">
           {/* Website picker */}
-          <div style={{ maxWidth: 400 }}>
+          <div style={{ maxWidth: 400 }} onKeyDownCapture={handleWebsiteKeyDownCapture}>
             {websitesLoading ? (
               <Loader size="small" title="Laster nettsteder…" />
             ) : (
               <UNSAFE_Combobox
                 label="Nettsted"
-                options={websites.map((w) => ({ label: `${w.name} — ${w.domain}`, value: w.id }))}
+                options={websiteOptions}
+                filteredOptions={filteredWebsiteOptions}
                 selectedOptions={
                   selectedWebsite
                     ? [{ label: `${selectedWebsite.name} — ${selectedWebsite.domain}`, value: selectedWebsite.id }]
                     : []
                 }
                 onToggleSelected={(value, isSelected) => {
-                  if (isSelected) setSelectedWebsiteId(value)
+                  // Selecting sets the site; deselecting the current one (or the
+                  // clear button) clears it, so backspace/clear/re-click all agree.
+                  setSelectedWebsiteId(isSelected ? value : null)
                 }}
+                value={websiteFilter}
+                onChange={(v) => setWebsiteFilter(v)}
+                placeholder="Søk etter nettsted…"
+                clearButton
                 isMultiSelect={false}
                 size="small"
               />
