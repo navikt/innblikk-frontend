@@ -44,8 +44,7 @@ export const METRICS: MetricOption[] = [
 
 /**
  * Toggles the cohort builder UI in Grafbygger. Enabled here because this is
- * the chartbuilder-next feature, only mounted on the unadvertised
- * /grafbygger_next route used for live testing before full rollout.
+ * the chartbuilder-next feature, the grafbygger served on /grafbygger.
  */
 export const COHORTS_ENABLED = true
 

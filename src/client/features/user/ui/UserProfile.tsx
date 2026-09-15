@@ -18,6 +18,8 @@ import { PersonIcon } from '@navikt/aksel-icons'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { getFeatureFlags, setFeatureFlag, type FeatureFlags } from '../../../shared/lib/featureFlags.ts'
+import { betaFeatures } from '../../../shared/lib/betaFeatures.ts'
+import { BetaFeatureNotice, BetaFeedbackLine } from '../../../shared/ui/BetaFeatureNotice.tsx'
 import { useIsReopsTeamMember } from '../../../shared/hooks/useIsReopsTeamMember.ts'
 import type { UserInfo } from '../model'
 
@@ -124,43 +126,39 @@ export default function UserProfile() {
             )}
           </section>
 
-          <Bleed asChild reflectivePadding marginBlock={'space-32'} marginInline={'space-32'}>
-            <Box background={'brand-beige-soft'} borderColor="brand-beige" borderWidth="1" borderRadius={'12'}>
-              <section id="beta">
-                <VStack gap="space-16">
-                  <div>
-                    <Box asChild marginBlock={'space-0 space-6'}>
-                      <Heading level="2" size="medium" className="text-[var(--ax-text-brand-beige)]">
-                        Beta ❤️
-                      </Heading>
-                    </Box>
-                    <BodyLong textColor="subtle">
-                      Prøv nye funksjoner, og hjelp oss å videreutvikle Innblikk – som faktisk funker for deg!
-                    </BodyLong>
-                    <BodyLong textColor="subtle" className="mt-2">
-                      Gi oss tilbakemeldinger i{' '}
-                      <Link href="https://nav-it.slack.com/archives/C02UGFS2J4B" target="_blank">
-                        #researchops
-                      </Link>
-                      , svar på{' '}
-                      <Link href="https://surveys.hotjar.com" target="_blank">
-                        brukerundersøkelsene
-                      </Link>{' '}
-                      når de dukker opp, eller{' '}
-                      <Link href="https://github.com/navikt/innblikk-frontend/issues/new" target="_blank">
-                        opprett et issue på GitHub
-                      </Link>{' '}
-                      om noe skurrer.
-                    </BodyLong>
-                  </div>
+          <section id="beta" style={{ marginBlock: 'var(--ax-space-32)' }}>
+            <VStack gap="space-16">
+              <div>
+                <Box asChild marginBlock={'space-0 space-6'}>
+                  <Heading level="2" size="medium">
+                    Funksjoner i beta
+                  </Heading>
+                </Box>
+                <BodyLong textColor="subtle">
+                  Disse funksjonene er under utvikling. De er skrudd på for alle, og tilbakemeldinger hjelper oss å
+                  gjøre dem bedre.
+                </BodyLong>
+              </div>
 
-                  <Checkbox checked={flags.beta_opt_in} onChange={(e) => toggle('beta_opt_in', e.target.checked)}>
-                    Meld meg på
-                  </Checkbox>
+              {betaFeatures.length === 0 ? (
+                <BodyShort textColor="subtle">Ingen funksjoner i beta akkurat nå.</BodyShort>
+              ) : (
+                <VStack gap="space-8">
+                  {betaFeatures.map((feature) => (
+                    <BetaFeatureNotice
+                      key={feature.id}
+                      id={feature.id}
+                      title={`${feature.title} er i beta`}
+                      variant="static"
+                    >
+                      {feature.description} <Link href={feature.href}>Åpne {feature.title.toLowerCase()}</Link>
+                      <BetaFeedbackLine />
+                    </BetaFeatureNotice>
+                  ))}
                 </VStack>
-              </section>
-            </Box>
-          </Bleed>
+              )}
+            </VStack>
+          </section>
 
           <section>
             <VStack gap="space-24">

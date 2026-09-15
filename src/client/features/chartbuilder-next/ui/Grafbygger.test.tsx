@@ -117,7 +117,7 @@ describe('Grafbygger page', () => {
 
   it('renders the page title', async () => {
     renderGrafbygger()
-    expect(screen.getByRole('heading', { name: /grafbyggeren/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: /grafbyggeren/i })).toBeInTheDocument()
     // Wait for WebsitePicker async fetch to settle
     await screen.findByRole('combobox', { name: /nettside/i })
   })

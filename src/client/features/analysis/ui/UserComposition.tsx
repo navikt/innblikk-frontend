@@ -9,7 +9,7 @@ import ChartLayout from './ChartLayout.tsx'
 import WebsitePicker from './WebsitePicker.tsx'
 import PeriodPicker from './PeriodPicker.tsx'
 import UrlPathFilter from './UrlPathFilter.tsx'
-import { ResultsPanel, SqlViewer } from '../../chartbuilder'
+import { ResultsPanel, SqlViewer } from '../../chartbuilder-next'
 import type { Website } from '../../../shared/types/chart.ts'
 import {
   normalizeUrlToPath,

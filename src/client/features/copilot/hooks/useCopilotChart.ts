@@ -4,7 +4,7 @@ import * as sqlFormatter from 'sql-formatter'
 import type { QueryResult, QueryStats } from '../../sql/model/types'
 import { sanitizePlaceholders, extractWebsiteId } from '../../sql/utils/sqlProcessing'
 import { prepareLineChartData, prepareBarChartData, preparePieChartData } from '../../sql/utils/chartHelpers'
-import { useDebounce } from '../../chartbuilder/hooks/useDebounce'
+import { useDebounce } from '../../chartbuilder-next/hooks/useDebounce'
 import { estimateQueryCost, executeQueryApi } from '../api/copilotApi'
 import { COPILOT_SKILL_URL, MICROSOFT_COPILOT_URL, EXPENSIVE_COST_USD, EXPENSIVE_GB } from '../model/constants'
 

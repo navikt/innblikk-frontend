@@ -33,13 +33,6 @@ export const hiddenFeatures: HiddenFeature[] = [
       'Eksperimentell scaffolding for en ny, mer generell/utvidbar LLM-chat mot Innblikk. Ingen ekte backend enda.',
   },
   {
-    id: 'grafbygger_next',
-    href: '/grafbygger_next',
-    label: 'Grafbygger (next)',
-    description:
-      'Forenklet omskriving av grafbyggeren med kohorter-velger, brukes til live-testing før full utrulling.',
-  },
-  {
     id: 'stats',
     href: '/stats',
     label: 'Statistikk',
@@ -90,5 +83,11 @@ export const legacyLinks: LegacyLink[] = [
     href: '/datastruktur',
     redirectsTo: '/utforsk-hendelser',
     description: 'Gammelt navn på Egendefinerte hendelser/event explorer-siden (samme komponent, ingen redirect).',
+  },
+  {
+    id: 'grafbygger_next',
+    href: '/grafbygger_next',
+    redirectsTo: '/grafbygger',
+    description: 'Test-rute brukt før den omskrevne grafbyggeren ble standard på /grafbygger.',
   },
 ]

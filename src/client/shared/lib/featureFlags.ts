@@ -27,13 +27,11 @@ function trackFlagChange<K extends keyof FeatureFlags>(key: K, value: FeatureFla
 
 export type FeatureFlags = {
   grafbygger_always_show_sql: boolean
-  beta_opt_in: boolean
   copilot_show_technical_details: boolean
 }
 
 const DEFAULT_FLAGS: FeatureFlags = {
   grafbygger_always_show_sql: false,
-  beta_opt_in: false,
   copilot_show_technical_details: false,
 }
 
@@ -42,7 +40,13 @@ export const getFeatureFlags = (): FeatureFlags => {
     const stored = localStorage.getItem(FEATURE_FLAGS_KEY)
     if (!stored) return { ...DEFAULT_FLAGS }
     const parsed = JSON.parse(stored) as Partial<FeatureFlags>
-    return { ...DEFAULT_FLAGS, ...parsed }
+    // Prune keys not in DEFAULT_FLAGS (retired flags like beta_opt_in) so they
+    // don't keep round-tripping to the backend via syncSettingsToBackend.
+    const pruned: Partial<FeatureFlags> = {}
+    for (const key of Object.keys(DEFAULT_FLAGS) as (keyof FeatureFlags)[]) {
+      if (parsed[key] !== undefined) pruned[key] = parsed[key]
+    }
+    return { ...DEFAULT_FLAGS, ...pruned }
   } catch {
     return { ...DEFAULT_FLAGS }
   }

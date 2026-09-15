@@ -6,7 +6,7 @@ import PeriodPicker from './PeriodPicker.tsx'
 import { PATTERNS } from '../utils/privacyPatterns.ts'
 import { getEmailStats, getTableColumnGroups } from '../utils/privacy.ts'
 import { usePrivacyCheck } from '../hooks/usePrivacyCheck.ts'
-import { SqlViewer } from '../../chartbuilder'
+import { SqlViewer } from '../../chartbuilder-next'
 
 const HighlightedText = ({ text, type }: { text: string; type: string }) => {
   const sourcePattern = PATTERNS[type]

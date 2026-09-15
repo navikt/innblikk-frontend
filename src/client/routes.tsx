@@ -2,7 +2,6 @@ import { lazy } from 'react'
 import type { ReactElement } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { Loader } from '@navikt/ds-react'
-import { getFeatureFlag } from './shared/lib/featureFlags.ts'
 import { useIsReopsTeamMember } from './shared/hooks/useIsReopsTeamMember.ts'
 
 // Content Feature
@@ -15,13 +14,9 @@ const Taksonomi = lazy(() => import('./features/content').then((m) => ({ default
 const Oppsett = lazy(() => import('./features/content').then((m) => ({ default: m.Oppsett })))
 const Sporingskoder = lazy(() => import('./features/content').then((m) => ({ default: m.Sporingskoder })))
 
-// Chartbuilder Feature
-const Grafbygger = lazy(() => import('./features/chartbuilder').then((m) => ({ default: m.Grafbygger })))
-const Grafdeling = lazy(() => import('./features/chartbuilder').then((m) => ({ default: m.Grafdeling })))
-
-// Chartbuilder Next Feature (simplified grafbygger + cohorts — served on /grafbygger for beta
-// users via GrafbyggerRoute below, and on /grafbygger_next for everyone during rollout)
-const GrafbyggerNext = lazy(() => import('./features/chartbuilder-next').then((m) => ({ default: m.Grafbygger })))
+// Chartbuilder Feature (the rewritten grafbygger, with cohorts — currently in beta)
+const Grafbygger = lazy(() => import('./features/chartbuilder-next').then((m) => ({ default: m.Grafbygger })))
+const Grafdeling = lazy(() => import('./features/chartbuilder-next').then((m) => ({ default: m.Grafdeling })))
 
 // Cohort Manager Feature
 const CohortManager = lazy(() =>
@@ -135,25 +130,6 @@ const LegacyVisualizationRouteRedirect = ({ to }: { to: string }) => {
   return <Navigate to={`${to}${location.search}`} replace />
 }
 
-const GrafbyggerRoute = () => {
-  // Beta-opted-in users get the rewritten grafbygger (chartbuilder-next) on the main route.
-  // Client-only check by design: rollout preference, not a security boundary (same rationale
-  // as the beta check on CopilotRoute below). /grafbygger_next stays as the explicit route.
-  if (getFeatureFlag('beta_opt_in')) {
-    return <GrafbyggerNext />
-  }
-
-  return <Grafbygger />
-}
-
-const WcagRoute = () => {
-  if (!getFeatureFlag('beta_opt_in')) {
-    return <Navigate to="/profil#beta" replace />
-  }
-
-  return <Wcag />
-}
-
 const ReopsInternalRoute = () => {
   const { isReopsTeamMember, loading } = useIsReopsTeamMember()
 
@@ -171,20 +147,13 @@ const ReopsInternalRoute = () => {
 const CopilotRoute = () => {
   const { isReopsTeamMember, loading } = useIsReopsTeamMember()
 
-  // Copilot is gated behind two conditions: Team ResearchOps membership (the actual security
-  // boundary, enforced server-side too — see requireReopsTeamMember.js) AND the user's own
-  // beta opt-in checkbox on /profil. The beta check is intentionally client-only: it's a
-  // self-service rollout preference, not a security boundary — narrowing which already-
-  // authorized team members see an experimental feature first, not protecting anything from
-  // the team itself. When the team gate is eventually lifted, the beta flag becomes Copilot's
-  // sole gate — revisit whether that still needs server-side enforcement at that point.
-  const isBetaOptedIn = getFeatureFlag('beta_opt_in')
-
+  // Copilot is gated on Team ResearchOps membership, the actual security
+  // boundary (enforced server-side too, see requireReopsTeamMember.js).
   if (loading) {
     return <Loader size="xlarge" title="Laster inn..." />
   }
 
-  if (!isReopsTeamMember || !isBetaOptedIn) {
+  if (!isReopsTeamMember) {
     return <Navigate to="/" replace />
   }
 
@@ -234,8 +203,9 @@ export const routes: AppRoute[] = [
   { path: '/tilgjengelighet', component: <Tilgjengelighet />, fullWidth: true },
 
   { path: '/taksonomi', component: <Taksonomi />, fullWidth: true },
-  { path: '/grafbygger', component: <GrafbyggerRoute />, fullWidth: true },
-  { path: '/grafbygger_next', component: <GrafbyggerNext />, fullWidth: true },
+  { path: '/grafbygger', component: <Grafbygger />, fullWidth: true },
+  // Legacy alias from the pre-rollout live-testing route.
+  { path: '/grafbygger_next', component: <LegacyVisualizationRouteRedirect to="/grafbygger" />, fullWidth: true },
   { path: '/brukergrupper', component: <CohortManager />, fullWidth: true },
   // Legacy alias — user-facing name changed from "kohorter" to "brukergrupper"; backend still calls them cohorts.
   { path: '/kohorter', component: <LegacyVisualizationRouteRedirect to="/brukergrupper" />, fullWidth: true },
@@ -289,7 +259,7 @@ export const routes: AppRoute[] = [
   { path: '/oversikt', component: <LegacyOversiktRedirect />, fullWidth: true },
   { path: '/kvalitet/odelagte-lenker', component: <BrokenLinks />, fullWidth: true },
   { path: '/kvalitet/stavekontroll', component: <Spellings />, fullWidth: true },
-  { path: '/kvalitet/wcag', component: <WcagRoute />, fullWidth: true },
+  { path: '/kvalitet/wcag', component: <Wcag />, fullWidth: true },
 ]
 
 export const isFullWidthPath = (pathname: string) =>

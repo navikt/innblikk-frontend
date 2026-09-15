@@ -1,4 +1,4 @@
-import { ResultsPanel } from '../../chartbuilder'
+import { ResultsPanel } from '../../chartbuilder-next'
 import { Alert, Button, Heading, Link, Modal, ReadMore, Select, TextField, UNSAFE_Combobox } from '@navikt/ds-react'
 import { Copy, ExternalLink } from 'lucide-react'
 import { useState } from 'react'
@@ -15,7 +15,7 @@ import {
   type DashboardDto,
   type GraphCategoryDto,
   type ProjectDto,
-} from '../../chartbuilder/api/chartStorageApi.ts'
+} from '../../chartbuilder-next/api/chartStorageApi.ts'
 
 const getHostPrefix = () => (typeof window === 'undefined' ? 'server' : window.location.hostname.replace(/\./g, '_'))
 const LAST_PROJECT_ID_KEY = `grafbygger_last_project_id_${getHostPrefix()}`

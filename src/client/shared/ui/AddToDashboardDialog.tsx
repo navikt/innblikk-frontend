@@ -7,7 +7,7 @@ import {
   fetchDashboards,
   fetchCategories,
   saveChartToBackend,
-} from '../../features/chartbuilder/api/chartStorageApi.ts'
+} from '../../features/chartbuilder-next/api/chartStorageApi.ts'
 import { fetchWebsites } from '../api/websiteApi.ts'
 
 const getHostPrefix = (): string => {

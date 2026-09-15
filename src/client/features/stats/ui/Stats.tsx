@@ -6,7 +6,6 @@ import { fetchStats } from '../api/statsApi'
 import type { UserStatsResponse } from '../model/types'
 
 const SETTING_LABELS: Record<string, string> = {
-  beta_opt_in: 'Beta-tilgang',
   grafbygger_always_show_sql: 'Grafbygger: vis alltid SQL',
 }
 

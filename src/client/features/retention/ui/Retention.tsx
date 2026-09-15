@@ -14,7 +14,7 @@ import TableSectionHeader from '../../../shared/ui/TableSectionHeader.tsx'
 import RetentionStatsCards from './RetentionStatsCards.tsx'
 import { useRetention } from '../hooks/useRetention'
 import { getRetentionSqlTemplate } from '../utils/retentionDashboardSql.ts'
-import { SqlViewer } from '../../chartbuilder'
+import { SqlViewer } from '../../chartbuilder-next'
 
 const Retention = () => {
   const {

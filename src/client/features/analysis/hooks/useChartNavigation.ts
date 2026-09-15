@@ -6,9 +6,7 @@ import {
   hasSiteimproveSupport,
 } from '../../../shared/hooks/useSiteimproveSupport.ts'
 import { chartGroups } from '../model/chartGroups.tsx'
-import { analyticsPages } from '../model/analyticsNavigation.ts'
 import { SHARED_PARAMS } from '../model/types.ts'
-import { getFeatureFlag } from '../../../shared/lib/featureFlags.ts'
 
 export const useChartNavigation = (
   websiteDomain?: string,
@@ -33,9 +31,6 @@ export const useChartNavigation = (
   const showClickmapSection = useMemo(() => hasClickmapSupport(domain, resolvedWebsiteId), [domain, resolvedWebsiteId])
 
   const filteredChartGroups = useMemo(() => {
-    const isBeta = getFeatureFlag('beta_opt_in')
-    const betaIds = new Set(analyticsPages.filter((p) => 'beta' in p && p.beta).map((p) => p.id))
-
     const groupsWithoutSiteimprove = showSiteimproveSection
       ? chartGroups
       : chartGroups.filter((group) => group.title !== 'Innholdskvalitet')
@@ -44,10 +39,7 @@ export const useChartNavigation = (
       .map((group) => ({
         ...group,
         ids: group.ids.filter(
-          (id) =>
-            (id !== 'markedsanalyse' || showMarketingSection) &&
-            (id !== 'clickmap' || showClickmapSection) &&
-            (!betaIds.has(id) || isBeta),
+          (id) => (id !== 'markedsanalyse' || showMarketingSection) && (id !== 'clickmap' || showClickmapSection),
         ),
       }))
       .filter((group) => group.ids.length > 0)

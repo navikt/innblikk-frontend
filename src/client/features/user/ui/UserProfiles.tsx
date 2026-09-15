@@ -49,7 +49,7 @@ import { TextField } from '@navikt/ds-react'
 import { useCookieSupport, useCookieStartDate } from '../../../shared/hooks/useSiteimproveSupport.ts'
 import type { UserProfile, ActivityItem, QueryStats, UsersApiResponse, ActivityApiResponse } from '../model'
 import { getUserProfilesSqlTemplate } from '../utils/userProfilesDashboardSql.ts'
-import { SqlViewer } from '../../chartbuilder'
+import { SqlViewer } from '../../chartbuilder-next'
 
 const ROWS_PER_PAGE = 50
 const DEFAULT_MAX_USERS = 1000

@@ -4,7 +4,7 @@ Decisions and context from feedback session 2026-09-04. Not scheduled work; capt
 
 ## 1. Edit dashboard graph in grafbygger (LLM SQL → form backfill)
 
-**Goal:** "Rediger" a dashboard graph should open `/grafbygger_next` with the form pre-filled from the graph's stored SQL.
+**Goal:** "Rediger" a dashboard graph should open `/grafbygger` with the form pre-filled from the graph's stored SQL.
 
 **Decided:**
 

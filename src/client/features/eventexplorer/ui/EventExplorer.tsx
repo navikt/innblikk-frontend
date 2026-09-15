@@ -10,7 +10,7 @@ import { useEventExplorer } from '../hooks/useEventExplorer.ts'
 import { copyToClipboard } from '../utils/clipboard.ts'
 import EventList from './EventList.tsx'
 import EventDetailView from './EventDetailView.tsx'
-import { SqlViewer } from '../../chartbuilder'
+import { SqlViewer } from '../../chartbuilder-next'
 
 const EventExplorer = () => {
   const {

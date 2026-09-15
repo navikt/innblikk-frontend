@@ -14,6 +14,7 @@ import {
   ActionMenu,
   TextField,
   Tooltip,
+  Link,
 } from '@navikt/ds-react'
 import {
   PlayIcon,
@@ -56,6 +57,8 @@ interface ResultsPanelProps {
   alwaysShowSql?: boolean
   showEditButton?: boolean
   showSqlMetabaseActions?: boolean
+  showExecuteButton?: boolean
+  showError?: boolean
   hiddenTabs?: string[]
   containerStyle?: 'green' | 'white' | 'none'
   showCost?: boolean
@@ -73,6 +76,10 @@ interface ResultsPanelProps {
   period?: string
   onAddToDashboard?: () => void
   onGraphTypeSuggestionChange?: (graphType: 'LINE' | 'BAR' | 'PIE' | 'TABLE') => void
+  // Overrides which tab is active on first render (URL's own `?tab=` param still wins if
+  // present — this only applies when there's no URL param to read, e.g. embedded results like
+  // Copilot's chat that don't want to touch the browser URL per message).
+  initialTab?: 'table' | 'linechart' | 'areachart' | 'barchart' | 'piechart'
 }
 
 const ResultsPanel = ({
@@ -89,6 +96,8 @@ const ResultsPanel = ({
   alwaysShowSql = false,
   showEditButton = false,
   showSqlMetabaseActions = true,
+  showExecuteButton = true,
+  showError = true,
   prepareLineChartData,
   prepareBarChartData,
   preparePieChartData,
@@ -105,13 +114,19 @@ const ResultsPanel = ({
   period,
   onAddToDashboard,
   onGraphTypeSuggestionChange,
+  initialTab,
 }: ResultsPanelProps) => {
-  // Read initial tab from URL parameter
+  // Read initial tab from URL parameter, falling back to the `initialTab` prop (e.g. Copilot's
+  // per-message chart suggestion — see chartSuggestion in useAssistantChat.ts) if there's no URL
+  // param, then finally to 'table'. The URL param always wins when present since it reflects an
+  // explicit user choice (e.g. from sharing a link with a specific tab already selected).
   const [activeTab, setActiveTab] = useState<string>(() => {
     const urlParams = new URLSearchParams(window.location.search)
     const tabParam = urlParams.get('tab')
     const validTabs = ['table', 'linechart', 'areachart', 'barchart', 'piechart']
-    return tabParam && validTabs.includes(tabParam) ? tabParam : 'table'
+    if (tabParam && validTabs.includes(tabParam)) return tabParam
+    if (initialTab && validTabs.includes(initialTab)) return initialTab
+    return 'table'
   })
 
   const [searchQuery, setSearchQuery] = useState<string>('')
@@ -635,20 +650,24 @@ const ResultsPanel = ({
   const containerClass = getContainerClass()
 
   return (
-    <div className="space-y-2 mb-6">
-      <div className={containerClass}>
+    // sqlOnly = embedded under Copilot's KPI chat bubble — no bottom margin, no container
+    // styling, the parent chat flow owns the spacing.
+    <div className={sqlOnly ? 'space-y-2' : 'space-y-2 mb-6'}>
+      <div className={sqlOnly ? '' : containerClass}>
         {/* Only show button if no results yet */}
         {!result && !error && (
           <div className="space-y-2">
-            <Button
-              onClick={executeQuery}
-              loading={loading}
-              icon={<PlayIcon size={18} />}
-              variant="primary"
-              size="medium"
-            >
-              Vis resultater
-            </Button>
+            {showExecuteButton && (
+              <Button
+                onClick={executeQuery}
+                loading={loading}
+                icon={<PlayIcon size={18} />}
+                variant="primary"
+                size="medium"
+              >
+                Vis resultater
+              </Button>
+            )}
             {loading && showLoadingMessage && (
               <Alert variant="info" className="text-sm mt-2">
                 <p className="font-medium">Spørring kjører...</p>
@@ -659,7 +678,7 @@ const ResultsPanel = ({
         )}
 
         {/* Error Display */}
-        {error && (
+        {showError && error && (
           <>
             <Alert variant="error" className="mt-3">
               <div className="text-sm flex flex-col md:flex-row md:items-center md:justify-between gap-2">
@@ -1399,6 +1418,13 @@ const ResultsPanel = ({
         {!sqlOnly && result && result.data && result.data.length === 0 && (
           <Alert variant="info" className="mt-3">
             Spørringen returnerte ingen resultater.
+            {websiteId && (
+              <>
+                {' '}
+                <Link href={`/grafbygger?websiteId=${encodeURIComponent(websiteId)}`}>Åpne i Grafbygger</Link> for å
+                justere filtre og datoperiode.
+              </>
+            )}
           </Alert>
         )}
 

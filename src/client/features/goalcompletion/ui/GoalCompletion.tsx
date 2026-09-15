@@ -23,7 +23,7 @@ import GoalCompletionStatsCards from './GoalCompletionStatsCards.tsx'
 import type { GoalStep, GoalStepParam } from '../model/types'
 import { getGoalStepUrlDisplay, splitGoalStepUrlInput } from '../utils/goalStepUtils'
 import { getGoalCompletionSqlTemplate } from '../utils/goalCompletionDashboardSql.ts'
-import SqlViewer from '../../chartbuilder/ui/results/SqlViewer.tsx'
+import SqlViewer from '../../chartbuilder-next/ui/results/SqlViewer.tsx'
 
 const createEmptyParam = (): GoalStepParam => ({ key: '', operator: 'equals', value: '' })
 

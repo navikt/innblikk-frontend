@@ -13,7 +13,7 @@ import type { Website } from '../../../shared/types/chart.ts'
 import { normalizeUrlToPath } from '../../../shared/lib/utils.ts'
 import type { JourneyLink } from '../model'
 import { useUrlState, useJourneyData } from '../hooks'
-import { SqlViewer } from '../../chartbuilder'
+import { SqlViewer } from '../../chartbuilder-next'
 import { buildAppliedFilterKey, downloadJourneyCSV, downloadJourneyExcel, copyShareLink } from '../utils'
 
 const UserJourney = () => {

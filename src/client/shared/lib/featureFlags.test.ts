@@ -18,28 +18,38 @@ describe('featureFlags', () => {
   describe('getFeatureFlags', () => {
     it('returns defaults when localStorage is empty', () => {
       const flags = getFeatureFlags()
-      expect(flags.beta_opt_in).toBe(false)
+      expect(flags.copilot_show_technical_details).toBe(false)
       expect(flags.grafbygger_always_show_sql).toBe(false)
     })
 
     it('returns stored values merged with defaults', () => {
-      localStorage.setItem('innblikk_feature_flags', JSON.stringify({ beta_opt_in: true }))
+      localStorage.setItem('innblikk_feature_flags', JSON.stringify({ copilot_show_technical_details: true }))
       const flags = getFeatureFlags()
-      expect(flags.beta_opt_in).toBe(true)
+      expect(flags.copilot_show_technical_details).toBe(true)
       expect(flags.grafbygger_always_show_sql).toBe(false)
     })
 
     it('returns defaults when localStorage contains invalid JSON', () => {
       localStorage.setItem('innblikk_feature_flags', 'not-valid-json')
       const flags = getFeatureFlags()
-      expect(flags.beta_opt_in).toBe(false)
+      expect(flags.copilot_show_technical_details).toBe(false)
       expect(flags.grafbygger_always_show_sql).toBe(false)
+    })
+
+    it('prunes retired flag keys so they do not re-sync to the backend', () => {
+      localStorage.setItem(
+        'innblikk_feature_flags',
+        JSON.stringify({ beta_opt_in: true, grafbygger_always_show_sql: true }),
+      )
+      const flags = getFeatureFlags()
+      expect(flags.grafbygger_always_show_sql).toBe(true)
+      expect('beta_opt_in' in flags).toBe(false)
     })
   })
 
   describe('getFeatureFlag', () => {
     it('returns default value for an unset flag', () => {
-      expect(getFeatureFlag('beta_opt_in')).toBe(false)
+      expect(getFeatureFlag('copilot_show_technical_details')).toBe(false)
     })
 
     it('returns stored value for a set flag', () => {
@@ -50,21 +60,21 @@ describe('featureFlags', () => {
 
   describe('setFeatureFlag', () => {
     it('persists the updated flag to localStorage', () => {
-      setFeatureFlag('beta_opt_in', true)
+      setFeatureFlag('copilot_show_technical_details', true)
       const stored = JSON.parse(localStorage.getItem('innblikk_feature_flags')!)
-      expect(stored.beta_opt_in).toBe(true)
+      expect(stored.copilot_show_technical_details).toBe(true)
     })
 
     it('preserves existing flags when updating one', () => {
       localStorage.setItem('innblikk_feature_flags', JSON.stringify({ grafbygger_always_show_sql: true }))
-      setFeatureFlag('beta_opt_in', true)
+      setFeatureFlag('copilot_show_technical_details', true)
       const stored = JSON.parse(localStorage.getItem('innblikk_feature_flags')!)
       expect(stored.grafbygger_always_show_sql).toBe(true)
-      expect(stored.beta_opt_in).toBe(true)
+      expect(stored.copilot_show_technical_details).toBe(true)
     })
 
     it('calls fetch with the correct endpoint and method', () => {
-      setFeatureFlag('beta_opt_in', true)
+      setFeatureFlag('copilot_show_technical_details', true)
       expect(vi.mocked(fetch)).toHaveBeenCalledWith(
         '/api/backend/user-settings',
         expect.objectContaining({ method: 'PUT' }),
@@ -72,10 +82,10 @@ describe('featureFlags', () => {
     })
 
     it('sends all flags in the request body', () => {
-      setFeatureFlag('beta_opt_in', true)
+      setFeatureFlag('copilot_show_technical_details', true)
       const [, options] = vi.mocked(fetch).mock.calls[0]
       const body = JSON.parse((options as RequestInit).body as string)
-      expect(body.settings.beta_opt_in).toBe('true')
+      expect(body.settings.copilot_show_technical_details).toBe('true')
       expect(body.settings.grafbygger_always_show_sql).toBe('false')
     })
 
@@ -92,17 +102,17 @@ describe('featureFlags', () => {
     it('calls umami.track with avkrysningsboks endret event', () => {
       const trackMock = vi.fn()
       vi.stubGlobal('umami', { track: trackMock })
-      setFeatureFlag('beta_opt_in', true)
+      setFeatureFlag('copilot_show_technical_details', true)
       expect(trackMock).toHaveBeenCalledWith('avkrysningsboks endret', {
         checked: true,
-        komponentId: 'beta_opt_in',
+        komponentId: 'copilot_show_technical_details',
         seksjon: 'innstillinger',
       })
     })
 
     it('does not throw when umami is not loaded', () => {
       vi.stubGlobal('umami', undefined)
-      expect(() => setFeatureFlag('beta_opt_in', true)).not.toThrow()
+      expect(() => setFeatureFlag('copilot_show_technical_details', true)).not.toThrow()
     })
 
     it('does not throw when fetch fails', () => {
@@ -110,7 +120,7 @@ describe('featureFlags', () => {
         'fetch',
         vi.fn(() => Promise.reject(new Error('network error'))),
       )
-      expect(() => setFeatureFlag('beta_opt_in', true)).not.toThrow()
+      expect(() => setFeatureFlag('copilot_show_technical_details', true)).not.toThrow()
     })
   })
 
@@ -121,7 +131,10 @@ describe('featureFlags', () => {
         vi.fn(() =>
           Promise.resolve({
             ok: true,
-            json: () => Promise.resolve({ settings: { beta_opt_in: 'true', grafbygger_always_show_sql: 'true' } }),
+            json: () =>
+              Promise.resolve({
+                settings: { copilot_show_technical_details: 'true', grafbygger_always_show_sql: 'true' },
+              }),
           }),
         ),
       )
@@ -132,22 +145,22 @@ describe('featureFlags', () => {
       await new Promise((r) => setTimeout(r, 0))
 
       const stored = JSON.parse(localStorage.getItem('innblikk_feature_flags')!)
-      expect(stored.beta_opt_in).toBe(true)
+      expect(stored.copilot_show_technical_details).toBe(true)
       expect(stored.grafbygger_always_show_sql).toBe(true)
       expect(listener).toHaveBeenCalledOnce()
       const detail = (listener.mock.calls[0][0] as CustomEvent).detail
-      expect(detail.beta_opt_in).toBe(true)
+      expect(detail.copilot_show_technical_details).toBe(true)
       window.removeEventListener('featureFlagsChange', listener)
     })
 
     it('backend false overrides existing localStorage true', async () => {
-      localStorage.setItem('innblikk_feature_flags', JSON.stringify({ beta_opt_in: true }))
+      localStorage.setItem('innblikk_feature_flags', JSON.stringify({ copilot_show_technical_details: true }))
       vi.stubGlobal(
         'fetch',
         vi.fn(() =>
           Promise.resolve({
             ok: true,
-            json: () => Promise.resolve({ settings: { beta_opt_in: 'false' } }),
+            json: () => Promise.resolve({ settings: { copilot_show_technical_details: 'false' } }),
           }),
         ),
       )
@@ -156,11 +169,11 @@ describe('featureFlags', () => {
       await new Promise((r) => setTimeout(r, 0))
 
       const stored = JSON.parse(localStorage.getItem('innblikk_feature_flags')!)
-      expect(stored.beta_opt_in).toBe(false)
+      expect(stored.copilot_show_technical_details).toBe(false)
     })
 
     it('does nothing when backend returns non-ok response', async () => {
-      localStorage.setItem('innblikk_feature_flags', JSON.stringify({ beta_opt_in: true }))
+      localStorage.setItem('innblikk_feature_flags', JSON.stringify({ copilot_show_technical_details: true }))
       vi.stubGlobal(
         'fetch',
         vi.fn(() => Promise.resolve({ ok: false })),
@@ -170,7 +183,7 @@ describe('featureFlags', () => {
       await new Promise((r) => setTimeout(r, 0))
 
       const stored = JSON.parse(localStorage.getItem('innblikk_feature_flags')!)
-      expect(stored.beta_opt_in).toBe(true)
+      expect(stored.copilot_show_technical_details).toBe(true)
     })
 
     it('does not throw when fetch fails', async () => {
@@ -189,7 +202,7 @@ describe('featureFlags', () => {
         vi.fn(() =>
           Promise.resolve({
             ok: true,
-            json: () => Promise.resolve({ settings: { unknown_key: 'true', beta_opt_in: 'true' } }),
+            json: () => Promise.resolve({ settings: { unknown_key: 'true', copilot_show_technical_details: 'true' } }),
           }),
         ),
       )
@@ -199,7 +212,7 @@ describe('featureFlags', () => {
 
       const stored = JSON.parse(localStorage.getItem('innblikk_feature_flags')!)
       expect(stored.unknown_key).toBeUndefined()
-      expect(stored.beta_opt_in).toBe(true)
+      expect(stored.copilot_show_technical_details).toBe(true)
     })
   })
 })

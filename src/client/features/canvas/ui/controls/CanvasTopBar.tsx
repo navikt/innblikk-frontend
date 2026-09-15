@@ -6,7 +6,6 @@ import PeriodPicker from '../../../analysis/ui/PeriodPicker.tsx'
 import type { GraphCategoryDto } from '../../../oversikt/model/types.ts'
 import CanvasAddActionMenu from './CanvasAddActionMenu.tsx'
 import CanvasFacilitatorActionMenu from './CanvasFacilitatorActionMenu.tsx'
-import { getFeatureFlag } from '../../../../shared/lib/featureFlags.ts'
 
 type CanvasTopBarProps = {
   canvasToolbarRef: RefObject<HTMLDivElement | null>
@@ -150,7 +149,6 @@ const CanvasTopBar = ({
     return storedTheme === 'dark' ? 'dark' : 'light'
   })
   const normalizedCanvasTitle = canvasTitle.trim()
-  const isBeta = getFeatureFlag('beta_opt_in')
   const headingTitle =
     canvasInitMode === 'checking'
       ? 'Innblikk'
@@ -243,11 +241,9 @@ const CanvasTopBar = ({
                 {headingTitle}
               </h1>
             </a>
-            {isBeta && (
-              <Tag data-color="meta-purple" variant="strong" size="small" icon={<TestFlaskIcon aria-hidden />}>
-                Beta
-              </Tag>
-            )}
+            <Tag data-color="meta-purple" variant="strong" size="small" icon={<TestFlaskIcon aria-hidden />}>
+              Beta
+            </Tag>
           </div>
           {!isCanvasFrontpage && (
             <div className="flex w-full flex-wrap items-end gap-2 sm:w-auto sm:justify-end">

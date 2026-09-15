@@ -15,6 +15,7 @@ import {
 import { MoreVertical, Search } from 'lucide-react'
 
 import ChartLayout from './ChartLayout.tsx'
+import { BetaFeatureNotice, BetaFeedbackLine } from '../../../shared/ui/BetaFeatureNotice.tsx'
 import WebsitePicker from './WebsitePicker.tsx'
 import type { WcagIssue } from '../model/types.ts'
 import { downloadCsv } from '../utils/siteimprove.ts'
@@ -224,6 +225,12 @@ const Wcag = () => {
         </>
       }
     >
+      {/* Dismissable beta notice — registry id in shared/lib/betaFeatures.ts */}
+      <BetaFeatureNotice id="wcag-sjekk" title="WCAG-sjekk er i beta" className="mb-4">
+        UU-sjekken er under utvikling, og dekning og treffsikkerhet kan variere.
+        <BetaFeedbackLine />
+      </BetaFeatureNotice>
+
       {!loading && error && (
         <Alert variant="info" className="mb-4">
           {error}

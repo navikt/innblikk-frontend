@@ -15,7 +15,7 @@ import { copyToClipboard } from '../utils/clipboard.ts'
 import JourneyStatsGrid from './journey/JourneyStatsGrid.tsx'
 import JourneyVisualView from './journey/JourneyVisualView.tsx'
 import JourneyTableView from './journey/JourneyTableView.tsx'
-import { SqlViewer } from '../../chartbuilder'
+import { SqlViewer } from '../../chartbuilder-next'
 
 type SelectedFunnelStep = {
   id: string

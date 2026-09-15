@@ -21,7 +21,7 @@ import FunnelChart from '../../analysis/ui/funnel/FunnelChart.tsx'
 import HorizontalFunnelChart from '../../analysis/ui/funnel/HorizontalFunnelChart.tsx'
 import FunnelStats from '../../analysis/ui/funnel/FunnelStats.tsx'
 import FunnelCanvasView from './FunnelCanvasView.tsx'
-import { SqlViewer } from '../../chartbuilder'
+import { SqlViewer } from '../../chartbuilder-next'
 import AnalysisActionModal from '../../analysis/ui/AnalysisActionModal.tsx'
 import { useFunnel } from '../hooks/useFunnel'
 import {

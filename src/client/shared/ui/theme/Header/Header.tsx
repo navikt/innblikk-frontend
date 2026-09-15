@@ -4,7 +4,6 @@ import {
   LineGraphDotIcon,
   MenuHamburgerIcon,
   PersonIcon,
-  TestFlaskIcon,
   ThemeIcon,
 } from '@navikt/aksel-icons'
 import { Events, type ActionMenuApnetProperties, type ActionMenuValgValgtProperties } from '@navikt/analytics-types'
@@ -12,7 +11,6 @@ import { ActionMenu, Button, Dropdown, Link, Tag, Tooltip } from '@navikt/ds-rea
 import { useEffect, useState } from 'react'
 import '../../../../tailwind.css'
 import { AppBlock } from '../AppBlock/AppBlock.tsx'
-import { getFeatureFlag } from '../../../lib/featureFlags.ts'
 import { getDataMode } from '../../../lib/runtimeConfig.ts'
 import { useIsReopsTeamMember } from '../../../hooks/useIsReopsTeamMember.ts'
 
@@ -32,7 +30,6 @@ export default function Header({ theme }: HeaderProps) {
   const currentPath = `${pathname}${search}${hash}`
   const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
   const isDevEnvironment = isLocalhost || hostname.includes('.dev.nav.no')
-  const isBeta = getFeatureFlag('beta_opt_in')
   const { isReopsTeamMember } = useIsReopsTeamMember()
   const buildSha = __GIT_SHA__
   const buildShortSha = buildSha && buildSha !== 'unknown' ? buildSha.slice(0, 7) : null
@@ -357,11 +354,6 @@ export default function Header({ theme }: HeaderProps) {
                 </div>
               </div>
             </Button>
-            {isBeta && (
-              <Tag data-color="meta-purple" variant="strong" size="small" icon={<TestFlaskIcon aria-hidden />}>
-                Beta
-              </Tag>
-            )}
             {isDevEnvironment && (
               <Tooltip
                 content={

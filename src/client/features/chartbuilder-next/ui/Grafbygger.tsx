@@ -11,7 +11,7 @@ import CohortPicker, { type CohortPickerRef } from './grafbygger/CohortPicker.ts
 import DateRangeSelector from './grafbygger/DateRangeSelector.tsx'
 import GroupingOptions from './grafbygger/GroupingOptions.tsx'
 import AlertWithCloseButton from './grafbygger/AlertWithCloseButton.tsx'
-import BetaGrafbyggerNotice from './BetaGrafbyggerNotice.tsx'
+import { BetaFeatureNotice, BetaFeedbackLine } from '../../../shared/ui/BetaFeatureNotice.tsx'
 import SidebarSection from '../../../shared/ui/SidebarSection.tsx'
 import ActionFeedbackButton from '../../../shared/ui/ActionFeedbackButton.tsx'
 import { FILTER_COLUMNS } from '../../../shared/lib/constants.ts'
@@ -413,8 +413,12 @@ const ChartsPage = () => {
         </>
       }
     >
-      {/* One-time notice for beta users auto-routed here from /grafbygger */}
-      <BetaGrafbyggerNotice />
+      {/* Dismissable beta notice — registry id in shared/lib/betaFeatures.ts */}
+      <BetaFeatureNotice id="grafbygger-rewrite" title="Grafbyggeren er i beta" className="mb-4">
+        Grafbyggeren har fått store endringer, med blant annet støtte for brukergrupper. Noe kan oppføre seg rart mens
+        vi finpusser.
+        <BetaFeedbackLine />
+      </BetaFeatureNotice>
 
       {/* Alert Display */}
       {alertInfo.show && (
