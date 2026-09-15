@@ -882,7 +882,7 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
                 )}
 
                 <div className="pt-2">
-                  <ReadMore header="Hvordan beregnes dette?">
+                  <ReadMore header="Hvordan beregnes dette?" defaultOpen={false}>
                     <div className="max-w-prose space-y-3 text-base leading-7 text-[var(--ax-text-subtle)]">
                       <p>
                         Et klikk på et interaktivt element tolkes som at brukeren minst har nådd den høyden på siden.
@@ -912,7 +912,7 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
 
       {isHeatmap && (
         <section className="mb-4">
-          <ExpansionCard aria-label="Hvordan varmekartet fungerer" defaultOpen size="small">
+          <ExpansionCard aria-label="Hvordan varmekartet fungerer" size="small">
             <ExpansionCard.Header>
               <ExpansionCard.Title as="h3" size="small">
                 Hvordan varmekartet fungerer
