@@ -34,19 +34,22 @@ export function getNavIdent(req) {
  * "how many visitors did nav.no have yesterday" to the right `website_id`.
  */
 export async function getWebsitesList(bigquery, GCP_PROJECT_ID, navIdent, addAuditLogging) {
+  // public_website is append-only: each create/update in reops-clean-to-enriched appends
+  // a new row per website_id, so dedupe to the latest updated_at per website_id. Plain
+  // GROUP BY + ANY_VALUE(domain) was non-deterministic and could return a stale domain.
   const query = `
     SELECT
         website_id as id,
-        ANY_VALUE(name) as name,
-        ANY_VALUE(domain) as domain,
-        ANY_VALUE(share_id) as shareId,
-        ANY_VALUE(team_id) as teamId,
-        ANY_VALUE(created_at) as createdAt,
-        ANY_VALUE(updated_at) as updatedAt
+        name,
+        domain,
+        share_id as shareId,
+        team_id as teamId,
+        created_at as createdAt,
+        updated_at as updatedAt
     FROM \`${GCP_PROJECT_ID}.umami.public_website\`
     WHERE deleted_at IS NULL
       AND name IS NOT NULL
-    GROUP BY website_id
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY website_id ORDER BY updated_at DESC) = 1
     ORDER BY name
   `
 
