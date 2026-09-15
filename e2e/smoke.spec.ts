@@ -32,7 +32,7 @@ test.describe('App smoke tests', () => {
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: MOCK_WEBSITES }) }),
     )
     await page.goto('/grafbygger')
-    await expect(page.getByRole('heading', { name: /grafbyggeren/i })).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('heading', { level: 1, name: /grafbyggeren/i })).toBeVisible({ timeout: 10_000 })
   })
 
   test('/grafbygger renders the website picker with options', async ({ page }) => {
