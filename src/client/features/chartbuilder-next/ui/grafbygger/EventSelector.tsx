@@ -118,6 +118,7 @@ const SelectableValuesCombobox = ({
 
 interface PageviewsEditorProps {
   pageViewsMode: 'all' | 'specific' | 'interactive'
+  urlPathInteractive: boolean
   setPageViewsMode: (mode: 'all' | 'specific' | 'interactive') => void
   urlPathOperator: string
   setUrlPathOperator: (op: string) => void
@@ -151,6 +152,7 @@ const normalizeUrlPath = (input: string): string => {
 
 const PageviewsEditor = ({
   pageViewsMode,
+  urlPathInteractive,
   setPageViewsMode,
   urlPathOperator,
   setUrlPathOperator,
@@ -224,7 +226,7 @@ const PageviewsEditor = ({
             <CheckboxGroup
               legend="Filtervalg"
               hideLegend
-              value={pageViewsMode === 'interactive' ? ['interactive'] : []}
+              value={urlPathInteractive ? ['interactive'] : []}
               onChange={(val) => handleInteractiveToggle(val.includes('interactive'))}
               size="small"
             >
@@ -952,6 +954,10 @@ const EventSelector = ({
           const editor = isPageviews ? (
             <PageviewsEditor
               pageViewsMode={pageViewsMode}
+              urlPathInteractive={filters.some(
+                (filter) =>
+                  filter.column === 'url_path' && filter.interactive === true && filter.metabaseParam === true,
+              )}
               setPageViewsMode={setPageViewsMode}
               urlPathOperator={urlPathOperator}
               setUrlPathOperator={setUrlPathOperator}

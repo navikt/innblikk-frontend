@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Bleed, BodyShort, Box, Checkbox, ExpansionCard, Heading, Loader } from '@navikt/ds-react'
+import { Accordion, Bleed, BodyShort, Box, Checkbox, Loader } from '@navikt/ds-react'
 import { ArrowCirclepathReverseIcon } from '@navikt/aksel-icons'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import QueryPreview from './results/QueryPreview.tsx'
@@ -8,8 +8,8 @@ import EventFilter from './grafbygger/EventFilter.tsx'
 import ChartLayout from '../../analysis/ui/ChartLayoutOriginal.tsx'
 import MetricSelector from './grafbygger/MetricSelector.tsx'
 import CohortPicker, { type CohortPickerRef } from './grafbygger/CohortPicker.tsx'
-import DateRangeSelector from './grafbygger/DateRangeSelector.tsx'
 import GroupingOptions from './grafbygger/GroupingOptions.tsx'
+import PeriodOverrideOption from './grafbygger/PeriodFilter.tsx'
 import AlertWithCloseButton from './grafbygger/AlertWithCloseButton.tsx'
 import { BetaFeatureNotice, BetaFeedbackLine } from '../../../shared/ui/BetaFeatureNotice.tsx'
 import SidebarSection from '../../../shared/ui/SidebarSection.tsx'
@@ -20,17 +20,6 @@ import { sanitizeColumnName } from '../utils/sanitize.ts'
 import { useChartConfig } from '../hooks/useChartConfig.ts'
 import { fetchCohortsDeep } from '../api/cohortApi.ts'
 import type { CohortDetailDto } from '../../../shared/types/cohort.ts'
-import { usePersistentState } from '../hooks/usePersistentState.ts'
-
-/** Dashboard preload links carry these params and always win over persisted state.
- * A lone `?websiteId=` is not a preload — WebsitePicker echoes that param on
- * every selection, so treating it as one would disable persistence on refresh. */
-const hasPreloadParams = () => {
-  if (typeof window === 'undefined') return false
-  const p = new URLSearchParams(window.location.search)
-  return Boolean(p.get('config') || p.get('filters') || p.get('urlPath'))
-}
-
 /**
  * Stable fingerprint of a deep-fetched cohort lookup (ids + criteria trees),
  * used to detect cross-tab edits without re-rendering on identical data.
@@ -56,14 +45,6 @@ const ChartsPage = () => {
   const [groupingResetSignal, setGroupingResetSignal] = useState<number>(0)
   const [metricResetSignal, setMetricResetSignal] = useState<number>(0)
   const [isEventFilterDirty, setIsEventFilterDirty] = useState<boolean>(false)
-  const [selectedDateRange, setSelectedDateRange, clearPersistedSelectedDateRange] = usePersistentState<string>(
-    'grafbygger:selectedDateRange',
-    'all',
-    hasPreloadParams,
-  )
-  const [customPeriodInputs, setCustomPeriodInputs, clearPersistedCustomPeriodInputs] = usePersistentState<
-    Record<number, { amount: string; unit: string }>
-  >('grafbygger:customPeriodInputs', {}, hasPreloadParams)
   const [kolonnenavnContainer, setKolonnenavnContainer] = useState<HTMLDivElement | null>(null)
   const cohortPickerRef = useRef<CohortPickerRef>(null)
   const cohortRequestIdRef = useRef(0)
@@ -207,16 +188,11 @@ const ChartsPage = () => {
 
   const handleResetAllWithSignals = useCallback(() => {
     resetAll()
-    clearPersistedSelectedDateRange()
-    clearPersistedCustomPeriodInputs()
-    setSelectedDateRange('all')
-    setCustomPeriodInputs({})
     setGroupingResetSignal((prev) => prev + 1)
     setMetricResetSignal((prev) => prev + 1)
     cohortPickerRef.current?.resetCohorts()
     setResolvedCohorts([])
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resetAll, setResolvedCohorts, clearPersistedSelectedDateRange, clearPersistedCustomPeriodInputs])
+  }, [resetAll, setResolvedCohorts])
 
   const showResetEventFilters = isEventFilterDirty
   const showResetMetrics = !(
@@ -240,6 +216,12 @@ const ChartsPage = () => {
       sidebarFilterGap="space-16"
       showPageHeader={!isFocusedMode}
       showKontaktSection={!isFocusedMode}
+      headerNotice={
+        <BetaFeatureNotice id="grafbygger-rewrite" title="Grafbyggeren er i beta">
+          Grafbyggeren har fått store endringer, med blant annet støtte for brukergrupper.
+          <BetaFeedbackLine />
+        </BetaFeatureNotice>
+      }
       filters={
         <>
           {/* ── Nettside ───────────────────────────────────────── */}
@@ -413,13 +395,6 @@ const ChartsPage = () => {
         </>
       }
     >
-      {/* Dismissable beta notice — registry id in shared/lib/betaFeatures.ts */}
-      <BetaFeatureNotice id="grafbygger-rewrite" title="Grafbyggeren er i beta" className="mb-4">
-        Grafbyggeren har fått store endringer, med blant annet støtte for brukergrupper. Noe kan oppføre seg rart mens
-        vi finpusser.
-        <BetaFeedbackLine />
-      </BetaFeatureNotice>
-
       {/* Alert Display */}
       {alertInfo.show && (
         <div className="mb-4">
@@ -449,62 +424,45 @@ const ChartsPage = () => {
           isEventsLoading={isEventsLoading}
           websiteId={config.website?.id}
           showDownloadReadMore={false}
+          additionalOptions={
+            <Accordion size="small" indent={false} className="mb-4">
+              <Accordion.Item>
+                <Accordion.Header className="before:hidden after:hidden">Tilleggsvalg</Accordion.Header>
+                <Accordion.Content>
+                  <div ref={setKolonnenavnContainer} />
+                  <div className="mb-4">
+                    <PeriodOverrideOption
+                      filters={filters}
+                      setFilters={setFilters}
+                      maxDaysAvailable={maxDaysAvailable}
+                    />
+                  </div>
+                  <ResultsDisplayOptions
+                    orderBy={config.orderBy}
+                    setOrderBy={setOrderBy}
+                    clearOrderBy={clearOrderBy}
+                    limit={config.limit}
+                    setLimit={setLimit}
+                    columnOrderMode={config.columnOrderMode || 'default'}
+                    setColumnOrderMode={setColumnOrderMode}
+                    groupByFields={config.groupByFields}
+                    metrics={config.metrics}
+                  />
+                  <div className="mt-4">
+                    <Checkbox
+                      size="small"
+                      checked={config.paramAggregation === 'representative'}
+                      description="Kun relevant hvis du grupperer på en tekstparameter. Normalt viser vi den eksakte verdien for hver rad. Med dette valget viser vi i stedet én tilfeldig verdi per gruppe – raskere spørring, men verdien kan avvike fra enkeltrader i gruppen."
+                      onChange={(e) => setParamAggregation(e.target.checked ? 'representative' : 'unique')}
+                    >
+                      Vis representativ parameterverdi
+                    </Checkbox>
+                  </div>
+                </Accordion.Content>
+              </Accordion.Item>
+            </Accordion>
+          }
         />
-        <Box
-          className="mt-4"
-          padding="space-16"
-          background="default"
-          borderRadius="8"
-          borderWidth="1"
-          borderColor="neutral-subtle"
-        >
-          <Heading level="3" size="xsmall" spacing>
-            Tidsperiode
-          </Heading>
-          <DateRangeSelector
-            filters={filters}
-            setFilters={setFilters}
-            maxDaysAvailable={maxDaysAvailable}
-            selectedDateRange={selectedDateRange}
-            setSelectedDateRange={setSelectedDateRange}
-            customPeriodInputs={customPeriodInputs}
-            setCustomPeriodInputs={setCustomPeriodInputs}
-            interactiveMode={false}
-            bare
-            initialPreset="last7days"
-          />
-        </Box>
-        <ExpansionCard aria-label="Tilleggsvalg" size="small" className="mt-4">
-          <ExpansionCard.Header>
-            <ExpansionCard.Title as="h3" size="small">
-              Tilleggsvalg
-            </ExpansionCard.Title>
-          </ExpansionCard.Header>
-          <ExpansionCard.Content>
-            <div ref={setKolonnenavnContainer} />
-            <ResultsDisplayOptions
-              orderBy={config.orderBy}
-              setOrderBy={setOrderBy}
-              clearOrderBy={clearOrderBy}
-              limit={config.limit}
-              setLimit={setLimit}
-              columnOrderMode={config.columnOrderMode || 'default'}
-              setColumnOrderMode={setColumnOrderMode}
-              groupByFields={config.groupByFields}
-              metrics={config.metrics}
-            />
-            <div className="mt-4">
-              <Checkbox
-                size="small"
-                checked={config.paramAggregation === 'representative'}
-                description="Kun relevant hvis du grupperer på en tekstparameter. Normalt viser vi den eksakte verdien for hver rad. Med dette valget viser vi i stedet én tilfeldig verdi per gruppe – raskere spørring, men verdien kan avvike fra enkeltrader i gruppen."
-                onChange={(e) => setParamAggregation(e.target.checked ? 'representative' : 'unique')}
-              >
-                Vis representativ parameterverdi
-              </Checkbox>
-            </div>
-          </ExpansionCard.Content>
-        </ExpansionCard>
       </div>
     </ChartLayout>
   )

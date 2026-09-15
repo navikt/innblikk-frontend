@@ -298,13 +298,8 @@ export function useChartConfig() {
     clearPersistedFilters()
     clearPersistedDateRangeInDays()
 
-    setAvailableEvents([])
-    setParameters([])
-    setDateRangeReady(false)
-
     setConfig((prev) => ({
       ...prev,
-      website: null,
       metrics: [],
       segments: [],
       groupByFields: [],

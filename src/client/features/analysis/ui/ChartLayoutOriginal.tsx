@@ -21,6 +21,8 @@ interface ChartLayoutProps {
   sidebarFilterGap?: VStackProps['gap']
   showPageHeader?: boolean
   showKontaktSection?: boolean
+  beta?: boolean
+  headerNotice?: React.ReactNode
 }
 
 const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
@@ -36,6 +38,8 @@ const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
   sidebarFilterGap = 'space-32',
   showPageHeader = true,
   showKontaktSection = true,
+  beta = false,
+  headerNotice,
 }) => {
   const { isSidebarOpen, setIsSidebarOpen, handleChartChange } = useChartLayoutOriginal(hideSidebar)
   const isFocusedEmbedLayout = !showPageHeader && !showKontaktSection
@@ -47,7 +51,7 @@ const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
 
   return (
     <>
-      {showPageHeader && <PageHeader title={title} description={description} />}
+      {showPageHeader && <PageHeader title={title} description={description} beta={beta} notice={headerNotice} />}
 
       <AppBlock className={isFocusedEmbedLayout ? 'pb-0' : 'pb-16'} gutters={!isFocusedEmbedLayout}>
         <div

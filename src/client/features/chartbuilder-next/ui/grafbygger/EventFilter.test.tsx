@@ -1,5 +1,6 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { createRef } from 'react'
 import { vi } from 'vitest'
 import EventFilter from './EventFilter.tsx'
 
@@ -56,9 +57,56 @@ describe('EventFilter', () => {
       renderEventFilter()
       expect(screen.getByRole('button', { name: /egne hendelser/i })).toBeInTheDocument()
     })
+
+    it('does not show the dashboard date parameter as a generic data-source card', () => {
+      renderEventFilter({
+        filters: [
+          {
+            column: 'created_at',
+            operator: 'SPECIAL',
+            value: '{{created_at}}',
+            interactive: true,
+            metabaseParam: true,
+          },
+        ],
+      })
+
+      expect(screen.queryByText('Mottaker velger selv')).not.toBeInTheDocument()
+      expect(screen.queryByRole('combobox', { name: 'Kolonne' })).not.toBeInTheDocument()
+    })
   })
 
   describe('pageviews card', () => {
+    it('restores the dashboard date filter when all filters are reset', async () => {
+      const ref = createRef<{ resetFilters: (silent?: boolean) => void }>()
+      const setFilters = vi.fn()
+      render(<EventFilter ref={ref} filters={[]} parameters={[]} setFilters={setFilters} />)
+      await waitFor(() => expect(ref.current).not.toBeNull())
+      setFilters.mockClear()
+
+      act(() => ref.current?.resetFilters(true))
+
+      await waitFor(() =>
+        expect(setFilters).toHaveBeenLastCalledWith(
+          expect.arrayContaining([
+            expect.objectContaining({
+              column: 'created_at',
+              value: '{{created_at}}',
+              interactive: true,
+            }),
+          ]),
+        ),
+      )
+    })
+
+    it('only checks the dashboard override when its URL filter exists', () => {
+      renderEventFilter({
+        filters: [{ column: 'event_type', operator: '=', value: '1' }],
+      })
+
+      expect(screen.getByRole('checkbox', { name: 'Side kan overstyres av filter i dashboard' })).not.toBeChecked()
+    })
+
     it('removes the Sidevisninger card when "Fjern" is clicked', async () => {
       const user = userEvent.setup()
       renderEventFilter()

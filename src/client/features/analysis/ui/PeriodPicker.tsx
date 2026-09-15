@@ -78,6 +78,7 @@ export const PeriodPicker = ({
                   aria-label="Fra dato"
                   size="small"
                   value={startDate ? format(startDate, 'dd.MM.yyyy') : ''}
+                  readOnly
                 />
                 <DatePicker.Input
                   id="custom-end-date"
@@ -85,6 +86,7 @@ export const PeriodPicker = ({
                   aria-label="Til dato"
                   size="small"
                   value={endDate ? format(endDate, 'dd.MM.yyyy') : ''}
+                  readOnly
                 />
               </div>
             </DatePicker>

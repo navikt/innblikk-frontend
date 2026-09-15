@@ -624,6 +624,7 @@ const DateRangeSelector = forwardRef(
                         id="date-from"
                         value={formatDate(selectedRange?.from)}
                         size="small"
+                        readOnly
                       />
                     </div>
                     <div>
@@ -632,6 +633,7 @@ const DateRangeSelector = forwardRef(
                         id="date-to"
                         value={formatDate(selectedRange?.to)}
                         size="small"
+                        readOnly
                       />
                     </div>
                     {selectedRange?.from && (

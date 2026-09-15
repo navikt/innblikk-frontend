@@ -15,7 +15,12 @@ vi.mock('./grafbygger/AlertWithCloseButton.tsx', () => ({
 }))
 
 vi.mock('./results/QueryPreview.tsx', () => ({
-  default: () => <div data-testid="query-preview">QueryPreview</div>,
+  default: ({ onResetAll }: { onResetAll?: () => void }) => (
+    <div data-testid="query-preview">
+      QueryPreview
+      <button onClick={onResetAll}>Tilbakestill alle valg</button>
+    </div>
+  ),
 }))
 
 vi.mock('../../analysis/ui/ChartLayoutOriginal.tsx', () => ({
@@ -92,6 +97,7 @@ describe('Grafbygger page', () => {
   beforeEach(() => {
     // Clear localStorage so cached websites/selection from a previous test don't interfere
     localStorage.clear()
+    window.history.replaceState({}, '', '/grafbygger')
 
     vi.stubGlobal(
       'fetch',
@@ -150,6 +156,19 @@ describe('Grafbygger page', () => {
 
     // Sidebar sections should now be visible
     expect(await screen.findByText(/datakilder/i)).toBeInTheDocument()
+  })
+
+  it('keeps the selected website when all other choices are reset', async () => {
+    const user = userEvent.setup()
+    renderGrafbygger()
+    const websitePicker = await screen.findByRole('combobox', { name: /nettside/i })
+    await user.click(websitePicker)
+    await user.click(await screen.findByRole('option', { name: /nav\.no - prod/i }))
+    expect(await screen.findByText('Datakilder')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Tilbakestill alle valg' }))
+
+    expect(await screen.findByText('Datakilder')).toBeInTheDocument()
   })
 
   describe('cross-tab cohort staleness', () => {

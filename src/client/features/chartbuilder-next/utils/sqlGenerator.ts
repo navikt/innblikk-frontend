@@ -642,7 +642,13 @@ export const generateSQLCore = (
         if (filter.column === 'created_at') {
           sql += `  [[AND {{created_at}} ]]\n`
         } else {
-          const tablePrefix2 = isSessionColumn(filter.column) && needsSessionJoin ? 's.' : 'e.'
+          const tablePrefix2 = hasInteractiveFieldFilter
+            ? isSessionColumn(filter.column) && needsSessionJoin
+              ? `${fullSessionTable}.`
+              : `${fullWebsiteTable}.`
+            : isSessionColumn(filter.column) && needsSessionJoin
+              ? 's.'
+              : 'e.'
           const paramName = filter.value.replace(/[{}]/g, '').trim()
           sql += `  AND ${tablePrefix2}${filter.column} = {{${paramName}}}\n`
         }

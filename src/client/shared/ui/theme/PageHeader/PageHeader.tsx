@@ -10,9 +10,18 @@ interface PageHeaderProps {
   actions?: React.ReactNode
   variant?: 'regular' | 'article'
   beta?: boolean
+  notice?: React.ReactNode
 }
 
-export const PageHeader = ({ title, subtitle, description, actions, variant = 'regular', beta }: PageHeaderProps) => {
+export const PageHeader = ({
+  title,
+  subtitle,
+  description,
+  actions,
+  variant = 'regular',
+  beta,
+  notice,
+}: PageHeaderProps) => {
   const isArticle = variant === 'article'
   const padding = isArticle ? '64px' : '32px'
 
@@ -49,29 +58,27 @@ export const PageHeader = ({ title, subtitle, description, actions, variant = 'r
                 {subtitle}
               </Heading>
             )}
+            {description && (
+              <div className="text-[var(--ax-text-neutral-subtle)]">
+                {typeof description === 'string' ? (
+                  isArticle ? (
+                    <BodyLong size="large">{description}</BodyLong>
+                  ) : (
+                    <BodyShort size="medium">{description}</BodyShort>
+                  )
+                ) : (
+                  <BodyLong size={isArticle ? 'large' : 'medium'} as="div">
+                    {description}
+                  </BodyLong>
+                )}
+              </div>
+            )}
           </div>
 
-          {description && (
-            <div
-              className={`text-[var(--ax-text-neutral-subtle)] md:col-start-1 md:row-start-2 ${actions ? 'md:col-span-1' : 'md:col-span-2'}`}
-            >
-              {typeof description === 'string' ? (
-                isArticle ? (
-                  <BodyLong size="large">{description}</BodyLong>
-                ) : (
-                  <BodyShort size="medium">{description}</BodyShort>
-                )
-              ) : (
-                <BodyLong size={isArticle ? 'large' : 'medium'} as="div">
-                  {description}
-                </BodyLong>
-              )}
-            </div>
-          )}
-
-          {actions && (
-            <div className="flex justify-end gap-2 md:col-start-2 md:row-start-1 md:row-span-2 md:self-center">
+          {(actions || notice) && (
+            <div className="flex flex-col items-end gap-2 md:col-start-2 md:row-start-1 md:self-start">
               {actions}
+              {notice && <div className="max-w-[560px]">{notice}</div>}
             </div>
           )}
         </div>

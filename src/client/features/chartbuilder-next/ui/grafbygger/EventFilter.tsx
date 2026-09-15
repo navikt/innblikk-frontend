@@ -48,6 +48,14 @@ const DEFAULT_URL_STI_FILTER: Filter = {
   metabaseParam: true,
 }
 
+const DEFAULT_DATE_FILTER: Filter = {
+  column: 'created_at',
+  operator: 'SPECIAL',
+  value: '{{created_at}}',
+  interactive: true,
+  metabaseParam: true,
+}
+
 // ──────────────────────────────────────────────────────────────────────────────
 
 const EventFilter = forwardRef(
@@ -113,7 +121,10 @@ const EventFilter = forwardRef(
     }
 
     const isDateRangeFilter = (filter: Filter): boolean => {
-      return filter.column === 'created_at' && ['>=', '<='].includes(filter.operator || '')
+      // The period control beside the preview owns every date filter, including
+      // the interactive dashboard parameter. Showing it here as a generic
+      // "Dato / Mottaker velger selv / Kolonne" card is duplicate UI.
+      return filter.column === 'created_at'
     }
 
     // ── Pageviews toggle ─────────────────────────────────────────────────────
@@ -306,8 +317,8 @@ const EventFilter = forwardRef(
         filters.some((f) => f.column === 'event_type' && (f.value === '1' || f.multipleValues?.includes('1')))
 
       if (!hasUrlPathFilter && hasPageviewsEnabled) {
-        didInitPageviewsRef.current = true
         const timer = setTimeout(() => {
+          didInitPageviewsRef.current = true
           // Functional update: DateRangeSelector's initialPreset effect may have
           // added created_at filters in the same commit window — a stale-closure
           // snapshot here would silently drop them.
@@ -316,7 +327,9 @@ const EventFilter = forwardRef(
             if (!hasEventTypeFilter) {
               nextFilters.push({ column: 'event_type', operator: '=', value: '1' })
             }
-            nextFilters.push(DEFAULT_URL_STI_FILTER)
+            if (!nextFilters.some((filter) => filter.column === 'url_path')) {
+              nextFilters.push(DEFAULT_URL_STI_FILTER)
+            }
             return nextFilters
           })
         }, 0)
@@ -376,7 +389,7 @@ const EventFilter = forwardRef(
       setCustomEventsMode('none')
 
       setTimeout(() => {
-        setFilters([{ column: 'event_type', operator: '=', value: '1' }, DEFAULT_URL_STI_FILTER])
+        setFilters([{ column: 'event_type', operator: '=', value: '1' }, DEFAULT_URL_STI_FILTER, DEFAULT_DATE_FILTER])
       }, 0)
 
       if (!silent) {

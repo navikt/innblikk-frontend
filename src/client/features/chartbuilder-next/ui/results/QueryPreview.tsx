@@ -1,5 +1,8 @@
+import PeriodPicker from '../../../analysis/ui/PeriodPicker.tsx'
+import type { Filter } from '../../../../shared/types/chart.ts'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { getFeatureFlag, type FeatureFlags } from '../../../../shared/lib/featureFlags.ts'
+import { getGcpProjectId } from '../../../../shared/lib/runtimeConfig.ts'
 import {
   Heading,
   Link,
@@ -56,27 +59,12 @@ type QueryResult = {
 
 type EstimateResponse = QueryStats & { error?: string }
 
-declare global {
-  interface Window {
-    __GCP_PROJECT_ID__?: string
-  }
-}
-
-// Get GCP_PROJECT_ID from runtime-injected global variable (server injects window.__GCP_PROJECT_ID__)
-const getGcpProjectId = (): string => {
-  if (typeof window !== 'undefined' && window.__GCP_PROJECT_ID__) {
-    return window.__GCP_PROJECT_ID__
-  }
-  // Fallback for development/SSR contexts
-  throw new Error('Missing runtime config: GCP_PROJECT_ID')
-}
-
 interface QueryPreviewProps {
   sql: string
   activeStep?: number
   openFormprogress?: boolean
   onOpenChange?: (open: boolean) => void
-  filters?: Array<{ column: string; interactive?: boolean; metabaseParam?: boolean }>
+  filters?: Filter[]
   metrics?: Array<{ column?: string }>
   groupByFields?: string[]
   onResetAll?: () => void
@@ -84,6 +72,7 @@ interface QueryPreviewProps {
   isEventsLoading?: boolean
   websiteId?: string
   showDownloadReadMore?: boolean
+  additionalOptions?: React.ReactNode
 }
 
 type DatePreset =
@@ -95,6 +84,7 @@ type DatePreset =
   | 'last_28_days'
   | 'current_month'
   | 'last_month'
+  | 'custom'
 
 const DEFAULT_DATE_PRESET: DatePreset = 'last_7_days'
 
@@ -219,6 +209,7 @@ const QueryPreview = ({
   isEventsLoading = false,
   websiteId,
   showDownloadReadMore = true,
+  additionalOptions,
 }: QueryPreviewProps) => {
   const initialDateRange = getDateRangeFromPreset(DEFAULT_DATE_PRESET)
   const [copied, setCopied] = useState(false)
@@ -240,6 +231,14 @@ const QueryPreview = ({
   const [hasMetabaseDateFilter, setHasMetabaseDateFilter] = useState(false)
   const [hasUrlPathFilter, setHasUrlPathFilter] = useState(false)
   const [hasEventNameFilter, setHasEventNameFilter] = useState(false)
+
+  // Derive this directly from the shared filters as well as the generated SQL.
+  // This keeps the field visible in the same render that enables the dashboard
+  // override, without waiting for SQL generation and its detection effect.
+  const hasInteractiveUrlPathFilter = filters.some(
+    (filter) =>
+      filter.column.toLowerCase() === 'url_path' && filter.interactive === true && filter.metabaseParam === true,
+  )
 
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to?: Date | undefined }>({
     from: initialDateRange.from,
@@ -384,18 +383,12 @@ const QueryPreview = ({
         (f) => columns.includes((f.column || '').toLowerCase()) && f.interactive === true && f.metabaseParam === true,
       )
 
-    const interactiveDateFilter = interactiveFilter(['created_at'])
     const interactiveEventFilter = interactiveFilter(['event_name', 'event'])
 
     let processedSql = sql
 
     // Date Filter Substitution
-    if (
-      hasMetabaseDateFilter &&
-      dateRange.from &&
-      dateRange.to &&
-      !(preserveMetabasePlaceholders && interactiveDateFilter)
-    ) {
+    if (hasMetabaseDateFilter && dateRange.from && dateRange.to && !preserveMetabasePlaceholders) {
       const projectId = getGcpProjectId()
       const fromSql = `TIMESTAMP('${format(dateRange.from, 'yyyy-MM-dd')}')`
       const toSql = `TIMESTAMP('${format(dateRange.to, 'yyyy-MM-dd')}T23:59:59')`
@@ -1380,31 +1373,138 @@ const QueryPreview = ({
     setCopied(false)
   }, [sql])
 
+  const previewPeriodPicker = (
+    <PeriodPicker
+      period={datePreset}
+      startDate={dateRange.from}
+      endDate={dateRange.to}
+      onPeriodChange={(value) => {
+        setDatePreset(value as DatePreset)
+        if (value !== 'custom') setDateRange(getDateRangeFromPreset(value as DatePreset))
+      }}
+      onStartDateChange={(from) => setDateRange((previous) => ({ ...previous, from }))}
+      onEndDateChange={(to) => setDateRange((previous) => ({ ...previous, to }))}
+    />
+  )
+
   return (
     <>
       <div>
+        {/* Keep the reset action in the panel's top-right corner, above filters. */}
+        {onResetAll && activeStep > 1 && !isBasicTemplate() && (
+          <div className="flex justify-end mb-2">
+            <Button
+              variant="tertiary"
+              size="xsmall"
+              onClick={() => setResetArmed(true)}
+              icon={<ArrowCirclepathReverseIcon aria-hidden />}
+            >
+              Tilbakestill alle valg
+            </Button>
+          </div>
+        )}
+
+        {/* Success Alert for Reset */}
+        {showAlert && (
+          <div className="mb-3">
+            <AlertWithCloseButton variant="success">Alle innstillinger ble tilbakestilt</AlertWithCloseButton>
+          </div>
+        )}
+
+        {/* Metabase Parameters Filter */}
+        {(hasMetabaseDateFilter ||
+          hasInteractiveDateFilter ||
+          hasUrlPathFilter ||
+          hasInteractiveUrlPathFilter ||
+          hasEventNameFilter) && (
+          <div className="pt-2 mb-3">
+            <div className="flex flex-wrap gap-4 items-start">
+              {/* URL Path Filter */}
+              {(hasUrlPathFilter || hasInteractiveUrlPathFilter) && (
+                <div className="w-64 focus-within:relative focus-within:z-10">
+                  <UNSAFE_Combobox
+                    label="URL-sti"
+                    size="small"
+                    options={urlPathOptions}
+                    selectedOptions={urlPath ? [formatPathLabel(urlPath)] : []}
+                    onToggleSelected={(option: string, isSelected: boolean) => {
+                      if (option) {
+                        isSelectingUrlPathRef.current = true
+                        setUrlPath(isSelected ? parseFormattedPath(option) : '')
+                        setUrlComboInputValue('')
+                        setTimeout(() => {
+                          isSelectingUrlPathRef.current = false
+                        }, 100)
+                      }
+                    }}
+                    value={urlComboInputValue}
+                    onChange={(value) => setUrlComboInputValue(value || '')}
+                    onBlur={() => {
+                      // Delay so selection handlers can finish before auto-saving typed value.
+                      setTimeout(() => {
+                        const trimmed = urlComboInputValue.trim()
+                        if (!trimmed || isSelectingUrlPathRef.current) return
+                        let parsed = parseFormattedPath(trimmed)
+                        if (!parsed.startsWith('/')) {
+                          parsed = `/${parsed}`
+                        }
+                        setUrlPath(parsed || '')
+                        setUrlComboInputValue('')
+                      }, 150)
+                    }}
+                    isMultiSelect={true}
+                    allowNewValues
+                    clearButton
+                  />
+                </div>
+              )}
+
+              {hasMetabaseDateFilter || hasInteractiveDateFilter ? previewPeriodPicker : null}
+
+              {/* Event Name Filter */}
+              {hasEventNameFilter && (
+                <div className="w-64 focus-within:relative focus-within:z-10">
+                  {isEventsLoading && (
+                    <div className="text-xs text-[var(--ax-text-subtle)] mb-1">Laster hendelser...</div>
+                  )}
+                  <div className={isEventsLoading ? 'opacity-50 pointer-events-none' : ''}>
+                    <UNSAFE_Combobox
+                      label="Hendelsesnavn"
+                      options={availableEvents.map((e) => ({ label: e, value: e }))}
+                      selectedOptions={eventName ? [eventName] : []}
+                      onToggleSelected={(option: string, isSelected: boolean) => {
+                        setEventName(isSelected ? option : '')
+                      }}
+                      isMultiSelect={false}
+                      size="small"
+                      disabled={isEventsLoading}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Update Button - inline with filters */}
+              {hasChanges() && (result || error) && (
+                <Button variant="primary" size="small" onClick={() => executeQuery()} loading={loading}>
+                  Oppdater
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {additionalOptions}
+
         {isBasicTemplate() ? (
           <Alert variant="info" size="small">
-            Velg nettside og minst ett måltall for å generere en spørring.
+            {websiteId
+              ? 'Velg minst ett måltall for å generere en spørring.'
+              : 'Velg nettside og minst ett måltall for å generere en spørring.'}
           </Alert>
         ) : (
           <div>
             {/* Results Section with Integrated Date Filter */}
             <div className="pb-4">
-              {/* Header with Reset Button */}
-              {onResetAll && activeStep > 1 && (
-                <div className="flex justify-end mb-2">
-                  <Button
-                    variant="tertiary"
-                    size="xsmall"
-                    onClick={() => setResetArmed(true)}
-                    icon={<ArrowCirclepathReverseIcon aria-hidden />}
-                  >
-                    Tilbakestill alle valg
-                  </Button>
-                </div>
-              )}
-
               {/* Confirm dialog — a timed two-step button would fail WCAG 2.2.3
                   (no timing) and rush the user; an Aksel Dialog has no timeout. */}
               <Dialog
@@ -1418,8 +1518,8 @@ const QueryPreview = ({
                   </Dialog.Header>
                   <Dialog.Body>
                     <BodyShort>
-                      Alle valg i grafbyggeren fjernes, inkludert lagrede valg fra tidligere økter. Dette kan ikke
-                      angres.
+                      Alle valg bortsett fra valgt nettside fjernes, inkludert lagrede valg fra tidligere økter. Dette
+                      kan ikke angres.
                     </BodyShort>
                   </Dialog.Body>
                   <Dialog.Footer>
@@ -1463,115 +1563,6 @@ const QueryPreview = ({
                   </Dialog.Footer>
                 </Dialog.Popup>
               </Dialog>
-
-              {/* Success Alert for Reset */}
-              {showAlert && (
-                <div className="mb-3">
-                  <AlertWithCloseButton variant="success">Alle innstillinger ble tilbakestilt</AlertWithCloseButton>
-                </div>
-              )}
-
-              {/* Metabase Parameters Filter */}
-              {(hasMetabaseDateFilter || hasUrlPathFilter || hasEventNameFilter) && (
-                <div className="pt-2 mb-3">
-                  <div className="flex flex-wrap gap-4 items-end">
-                    {/* Date Filter */}
-                    {hasMetabaseDateFilter && (
-                      <div className="w-full sm:w-auto min-w-[180px]">
-                        <Select
-                          label="Datoperiode"
-                          size="small"
-                          value={datePreset}
-                          onChange={(e) => {
-                            const preset = e.target.value as DatePreset
-                            const nextRange = getDateRangeFromPreset(preset)
-                            setDatePreset(preset)
-                            setDateRange({ from: nextRange.from, to: nextRange.to })
-                          }}
-                        >
-                          <option value="today">I dag</option>
-                          <option value="yesterday">I går</option>
-                          <option value="this_week">Denne uken</option>
-                          <option value="last_7_days">Siste 7 dager</option>
-                          <option value="last_week">Forrige uke</option>
-                          <option value="last_28_days">Siste 28 dager</option>
-                          <option value="current_month">Denne måneden</option>
-                          <option value="last_month">Forrige måned</option>
-                        </Select>
-                      </div>
-                    )}
-
-                    {/* URL Path Filter */}
-                    {hasUrlPathFilter && (
-                      <div className="w-64">
-                        <UNSAFE_Combobox
-                          label="URL-sti"
-                          size="small"
-                          options={urlPathOptions}
-                          selectedOptions={urlPath ? [formatPathLabel(urlPath)] : []}
-                          onToggleSelected={(option: string, isSelected: boolean) => {
-                            if (option) {
-                              isSelectingUrlPathRef.current = true
-                              setUrlPath(isSelected ? parseFormattedPath(option) : '')
-                              setUrlComboInputValue('')
-                              setTimeout(() => {
-                                isSelectingUrlPathRef.current = false
-                              }, 100)
-                            }
-                          }}
-                          value={urlComboInputValue}
-                          onChange={(value) => setUrlComboInputValue(value || '')}
-                          onBlur={() => {
-                            // Delay so selection handlers can finish before auto-saving typed value.
-                            setTimeout(() => {
-                              const trimmed = urlComboInputValue.trim()
-                              if (!trimmed || isSelectingUrlPathRef.current) return
-                              let parsed = parseFormattedPath(trimmed)
-                              if (!parsed.startsWith('/')) {
-                                parsed = `/${parsed}`
-                              }
-                              setUrlPath(parsed || '')
-                              setUrlComboInputValue('')
-                            }, 150)
-                          }}
-                          isMultiSelect={true}
-                          allowNewValues
-                          clearButton
-                        />
-                      </div>
-                    )}
-
-                    {/* Event Name Filter */}
-                    {hasEventNameFilter && (
-                      <div className="w-64">
-                        {isEventsLoading && (
-                          <div className="text-xs text-[var(--ax-text-subtle)] mb-1">Laster hendelser...</div>
-                        )}
-                        <div className={isEventsLoading ? 'opacity-50 pointer-events-none' : ''}>
-                          <UNSAFE_Combobox
-                            label="Hendelsesnavn"
-                            options={availableEvents.map((e) => ({ label: e, value: e }))}
-                            selectedOptions={eventName ? [eventName] : []}
-                            onToggleSelected={(option: string, isSelected: boolean) => {
-                              setEventName(isSelected ? option : '')
-                            }}
-                            isMultiSelect={false}
-                            size="small"
-                            disabled={isEventsLoading}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Update Button - inline with filters */}
-                    {hasChanges() && (result || error) && (
-                      <Button variant="primary" size="small" onClick={() => executeQuery()} loading={loading}>
-                        Oppdater
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              )}
 
               <ResultsPanel
                 result={result}

@@ -18,6 +18,9 @@ const Sporingskoder = lazy(() => import('./features/content').then((m) => ({ def
 const Grafbygger = lazy(() => import('./features/chartbuilder-next').then((m) => ({ default: m.Grafbygger })))
 const Grafdeling = lazy(() => import('./features/chartbuilder-next').then((m) => ({ default: m.Grafdeling })))
 
+// Old Chartbuilder Feature (the previous grafbygger, kept available under /grafbygger-old)
+const GrafbyggerOld = lazy(() => import('./features/chartbuilder-old').then((m) => ({ default: m.Grafbygger })))
+
 // Cohort Manager Feature
 const CohortManager = lazy(() =>
   import('./features/cohortmanager/index.ts').then((m) => ({ default: m.CohortManager })),
@@ -183,6 +186,7 @@ export const fullWidthPathPrefixes = [
   '/personvernssjekk',
   '/diagnose',
   '/grafdeling',
+  '/grafbygger-old',
   '/dashboard/',
   '/profil',
   '/kvalitet/odelagte-lenker',
@@ -204,6 +208,7 @@ export const routes: AppRoute[] = [
 
   { path: '/taksonomi', component: <Taksonomi />, fullWidth: true },
   { path: '/grafbygger', component: <Grafbygger />, fullWidth: true },
+  { path: '/grafbygger-old', component: <GrafbyggerOld />, fullWidth: true },
   // Legacy alias from the pre-rollout live-testing route.
   { path: '/grafbygger_next', component: <LegacyVisualizationRouteRedirect to="/grafbygger" />, fullWidth: true },
   { path: '/brukergrupper', component: <CohortManager />, fullWidth: true },
