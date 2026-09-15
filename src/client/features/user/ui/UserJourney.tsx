@@ -258,7 +258,7 @@ const UserJourney = () => {
             }`}
           >
             {!isFullscreen && (
-              <ReadMore header="Slik leser du flyten" defaultOpen={true} size="large" className="mt-0 mb-6">
+              <ReadMore header="Slik leser du flyten" defaultOpen={false} size="large" className="mt-0 mb-6">
                 <ul className="list-disc pl-5 space-y-1">
                   <li>Klikk på et steg for å utheve trafikken via den siden</li>
                   <li>Bruk + for å legge til steget i en traktanalyse</li>
