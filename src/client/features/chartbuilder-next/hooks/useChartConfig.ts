@@ -8,10 +8,22 @@ import { safeParseJson, isRecord, isMetricArray, isWebsiteLike, isFilterArray } 
 import { generateSQLCore } from '../utils/sqlGenerator.ts'
 
 const STORAGE_KEYS = {
-  config: 'grafbygger:config',
-  filters: 'grafbygger:filters',
-  dateRangeInDays: 'grafbygger:dateRangeInDays',
+  config: 'grafbygger:config:v2',
+  filters: 'grafbygger:filters:v2',
+  dateRangeInDays: 'grafbygger:dateRangeInDays:v2',
 } as const
+
+// One-time cleanup of pre-v2 persisted state. The old keys could hold a hardcoded
+// created_at filter that forces "Overstyr tidsperiode" on and hides the new date
+// fields, so returning users must start on the current defaults.
+const LEGACY_STORAGE_KEYS = ['grafbygger:config', 'grafbygger:filters', 'grafbygger:dateRangeInDays']
+if (typeof window !== 'undefined') {
+  try {
+    LEGACY_STORAGE_KEYS.forEach((key) => window.localStorage.removeItem(key))
+  } catch {
+    // best-effort cleanup, never block startup
+  }
+}
 
 const DEFAULT_CONFIG: ChartConfig = {
   website: null,

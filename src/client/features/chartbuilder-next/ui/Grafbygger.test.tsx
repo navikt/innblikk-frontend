@@ -56,7 +56,7 @@ vi.mock('./grafbygger/CohortPicker.tsx', async () => {
     onRatioModeChange: (enabled: boolean) => void
   }) => {
     const ids =
-      (JSON.parse(localStorage.getItem('grafbygger:config') ?? '{}') as { cohortIds?: string[] }).cohortIds ?? []
+      (JSON.parse(localStorage.getItem('grafbygger:config:v2') ?? '{}') as { cohortIds?: string[] }).cohortIds ?? []
     React.useEffect(() => {
       if (ids.length > 0) onCohortIdsChange(ids)
       // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -175,7 +175,7 @@ describe('Grafbygger page', () => {
     const renderWithSelectedCohort = async () => {
       // Persisted grafbygger config selects website + one cohort, bypassing UI clicks.
       localStorage.setItem(
-        'grafbygger:config',
+        'grafbygger:config:v2',
         JSON.stringify({
           website: FAKE_WEBSITES[0],
           metrics: [{ function: 'count', alias: 'antall' }],
