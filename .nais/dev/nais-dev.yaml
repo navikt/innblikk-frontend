@@ -34,7 +34,8 @@ spec:
   accessPolicy:
     outbound:
       external:
-        - host: "*.nav.no"
+        - host: www.nav.no
+        - host: reops-demo-appen.ekstern.dev.nav.no
         - host: teamkatalog-api.intern.nav.no
       rules:
           - application: reops-proxy
