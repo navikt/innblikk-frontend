@@ -1,7 +1,7 @@
 apiVersion: nais.io/v1alpha1
 kind: Application
 metadata:
-  name: umami-start
+  name: innblikk-frontend
   namespace: team-researchops
   labels:
     team: team-researchops
@@ -30,11 +30,7 @@ spec:
       cpu: 50m
       memory: 128Mi
   ingresses:
-    - https://startumami.ansatt.dev.nav.no
     - https://innblikk.ansatt.dev.nav.no
-  redirects:
-    - from: https://startumami.ansatt.dev.nav.no
-      to: https://innblikk.ansatt.dev.nav.no
   accessPolicy:
     outbound:
       external:
@@ -45,11 +41,13 @@ spec:
             namespace: team-researchops
           - application: start-umami-backend
             namespace: team-researchops
+          - application: innblikk-backend
+            namespace: team-researchops
   azure:
     application:
       enabled: true
       allowAllUsers: true
-      tenant: nav.no # bytte til trygdeetaten.no ?
+      tenant: nav.no
     sidecar:
       autoLogin: true
       enabled: true

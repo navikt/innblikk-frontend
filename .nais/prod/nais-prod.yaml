@@ -1,7 +1,7 @@
 apiVersion: nais.io/v1alpha1
 kind: Application
 metadata:
-  name: umami-start
+  name: innblikk-frontend
   namespace: team-researchops
   labels:
     team: team-researchops
@@ -25,11 +25,7 @@ spec:
     max: 2
     cpuThresholdPercentage: 80
   ingresses:
-    - https://startumami.ansatt.nav.no
     - https://innblikk.ansatt.nav.no
-  redirects:
-    - from: https://startumami.ansatt.nav.no
-      to: https://innblikk.ansatt.nav.no
   accessPolicy:
     outbound:
       external:
@@ -39,6 +35,8 @@ spec:
           - application: reops-proxy
             namespace: team-researchops
           - application: start-umami-backend
+            namespace: team-researchops
+          - application: innblikk-backend
             namespace: team-researchops
   azure:
     application:
