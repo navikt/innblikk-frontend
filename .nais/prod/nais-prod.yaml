@@ -36,7 +36,7 @@ spec:
             namespace: team-researchops
           - application: start-umami-backend
             namespace: team-researchops
-          - application: innblikk-backend
+          - application: reops-innblikk-backend
             namespace: team-researchops
   azure:
     application:
