@@ -51,8 +51,22 @@ export function SnippetBlock({ text, language, wrapLongLines = true }: SnippetBl
                 }
             `}</style>
       <Box className="relative min-w-0 overflow-hidden border border-border-subtle rounded-medium">
+        {/*
+          CopyButton on dark prism-tomorrow bg: Aksel tertiary renders transparent bg +
+          --ax-text-default (dark) text → invisible on dark. Override on the button itself
+          (not a wrapper, which would square off the pill-shaped hover) so it reads as a
+          solid light chip: bg + border + hover tint all on the same rounded element.
+          Hover uses solid --ax-bg-neutral-moderate-hover, NOT the *-hoverA alpha variant —
+          hoverA is translucent and would let the dark prism bg show through (looks black).
+        */}
         <div className="absolute top-2 right-2 z-10">
-          <CopyButton copyText={text} text="Kopier" activeText="Kopiert!" size="small" />
+          <CopyButton
+            copyText={text}
+            text="Kopier"
+            activeText="Kopiert!"
+            size="small"
+            className="!bg-[var(--ax-bg-default)] !border !border-solid !border-[var(--ax-border-default)] hover:!bg-[var(--ax-bg-neutral-moderate-hover)]"
+          />
         </div>
         <pre className={`language-${prismLang}`}>
           <code ref={codeRef} className={`language-${prismLang}`}>

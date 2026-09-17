@@ -1,6 +1,5 @@
 import { useRef } from 'react'
-import { Select, Modal, DatePicker, Button } from '@navikt/ds-react'
-import { format } from 'date-fns'
+import { Select, Modal, DatePicker, Button, useRangeDatepicker } from '@navikt/ds-react'
 import type { PeriodPickerProps } from '../model/types.ts'
 import { formatDateRange } from '../utils/periodPicker.ts'
 import { usePeriodPicker } from '../hooks/usePeriodPicker.ts'
@@ -19,6 +18,19 @@ export const PeriodPicker = ({
 }: PeriodPickerProps) => {
   const dateModalRef = useRef<HTMLDialogElement>(null)
   const { isDateModalOpen, handlePeriodChange, closeDateModal } = usePeriodPicker(onPeriodChange)
+
+  // useRangeDatepicker wires the inputs + popover + typing. Do NOT pass readOnly /
+  // a manual `value` to DatePicker.Input — readOnly disables the calendar toggle
+  // button entirely (inputs become "locked") and manual value fights hook state.
+  const { datepickerProps, fromInputProps, toInputProps } = useRangeDatepicker({
+    defaultSelected: startDate && endDate ? { from: startDate, to: endDate } : undefined,
+    onRangeChange: (range) => {
+      if (range) {
+        onStartDateChange(range.from)
+        onEndDateChange(range.to)
+      }
+    },
+  })
 
   return (
     <>
@@ -61,32 +73,22 @@ export const PeriodPicker = ({
       >
         <Modal.Body>
           <div className="flex flex-col gap-4">
-            <DatePicker
-              mode="range"
-              selected={{ from: startDate, to: endDate }}
-              onSelect={(range) => {
-                if (range) {
-                  onStartDateChange(range.from)
-                  onEndDateChange(range.to)
-                }
-              }}
-            >
+            {/* strategy="fixed": popover escapes overflow clipping (AGENTS.md DatePicker gotcha) */}
+            <DatePicker {...datepickerProps} strategy="fixed">
               <div className="flex flex-col gap-2">
                 <DatePicker.Input
                   id="custom-start-date"
                   label="Fra dato"
                   aria-label="Fra dato"
                   size="small"
-                  value={startDate ? format(startDate, 'dd.MM.yyyy') : ''}
-                  readOnly
+                  {...fromInputProps}
                 />
                 <DatePicker.Input
                   id="custom-end-date"
                   label="Til dato"
                   aria-label="Til dato"
                   size="small"
-                  value={endDate ? format(endDate, 'dd.MM.yyyy') : ''}
-                  readOnly
+                  {...toInputProps}
                 />
               </div>
             </DatePicker>
