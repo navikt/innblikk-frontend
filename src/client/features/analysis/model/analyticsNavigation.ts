@@ -95,7 +95,7 @@ export const analyticsPages = [
     id: 'sql',
     href: '/sql',
     label: 'SQL-spørringer',
-    description: 'Kjør SQL-spørringer mot Umami datasettet',
+    description: 'Kjør SQL-spørringer mot Innblikk datasettet',
   },
   {
     id: 'diagnose',

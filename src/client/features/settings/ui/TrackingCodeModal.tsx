@@ -60,13 +60,13 @@ export const TrackingCodeModal = forwardRef<HTMLDialogElement, TrackingCodeModal
 
         <Accordion>
           <Accordion.Item>
-            <Accordion.Header>Umami-sporingskode (standard)</Accordion.Header>
+            <Accordion.Header>Sporingskode (standard)</Accordion.Header>
             <Accordion.Content>
               <SnippetBlock text={getStandardSnippet(selectedItem.id)} language="html" />
             </Accordion.Content>
           </Accordion.Item>
           <Accordion.Item>
-            <Accordion.Header>Umami-sporingskode for Next.js-apper</Accordion.Header>
+            <Accordion.Header>Sporingskode for Next.js-apper</Accordion.Header>
             <Accordion.Content>
               <div style={{ marginBottom: '15px' }}>
                 <SnippetBlock text={getNextJsSnippet(selectedItem.id)} language="jsx" />
@@ -81,7 +81,7 @@ export const TrackingCodeModal = forwardRef<HTMLDialogElement, TrackingCodeModal
             </Accordion.Content>
           </Accordion.Item>
           <Accordion.Item>
-            <Accordion.Header>Umami-sporingskode for React med Vite.js</Accordion.Header>
+            <Accordion.Header>Sporingskode for React med Vite.js</Accordion.Header>
             <Accordion.Content>
               <p style={{ marginBottom: '10px' }}>
                 <strong>Steg 1:</strong> Installer <code>@unhead/react</code> og sett opp UnheadProvider i
@@ -102,7 +102,7 @@ export const TrackingCodeModal = forwardRef<HTMLDialogElement, TrackingCodeModal
             </Accordion.Content>
           </Accordion.Item>
           <Accordion.Item>
-            <Accordion.Header>Umami-sporingskode for Astro.js-apper</Accordion.Header>
+            <Accordion.Header>Sporingskode for Astro.js-apper</Accordion.Header>
             <Accordion.Content>
               <div style={{ marginBottom: '15px' }}>
                 <SnippetBlock text={getAstroSnippet(selectedItem.id)} language="html" />
@@ -113,7 +113,7 @@ export const TrackingCodeModal = forwardRef<HTMLDialogElement, TrackingCodeModal
             </Accordion.Content>
           </Accordion.Item>
           <Accordion.Item>
-            <Accordion.Header>Umami-sporingskode for Google Tag Manager (GTM)</Accordion.Header>
+            <Accordion.Header>Sporingskode for Google Tag Manager (GTM)</Accordion.Header>
             <Accordion.Content>
               <SnippetBlock text={getGTMSnippet(selectedItem.id)} language="javascript" />
             </Accordion.Content>
@@ -133,7 +133,7 @@ export const TrackingCodeModal = forwardRef<HTMLDialogElement, TrackingCodeModal
             .
           </List.Item>
           <List.Item>
-            Umami sporer besøk (sidevisninger) ut av boksen. Ønsker du ikke dette? Da kan du legge til{' '}
+            Innblikk sporer besøk (sidevisninger) ut av boksen. Ønsker du ikke dette? Da kan du legge til{' '}
             <Link target="_blank" href={`https://reops-docs.ansatt.dev.nav.no/innsamling/sporingsskript.html`}>
               attributtet data-auto-track="false"
             </Link>

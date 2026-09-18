@@ -120,7 +120,7 @@ export function TeamWebsites() {
           <Table.Header>
             <Table.Row>
               <Table.HeaderCell scope="col" style={{ width: '20%' }}>
-                Umami-prosjekt
+                Prosjekt
               </Table.HeaderCell>
               <Table.HeaderCell scope="col" style={{ width: '10%' }}>
                 Miljø

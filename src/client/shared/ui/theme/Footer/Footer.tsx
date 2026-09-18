@@ -145,7 +145,7 @@ function Kontakt() {
         <li className="flex gap-3">
           <Link
             className="text-[white] hover:text-[white] focus:shadow-focus focus:text-[black] flex w-fit items-center gap-1 underline hover:no-underline focus:bg-[#dbeafe] focus:shadow-blue-100"
-            href="https://github.com/navikt/umami-start"
+            href="https://github.com/navikt/innblikk-frontend"
           >
             <svg
               className="align-top"
@@ -168,7 +168,7 @@ function Kontakt() {
           </Link>
           <Link
             className="text-[white] hover:text-[white] focus:shadow-focus focus:text-[black] flex w-fit items-center gap-1 underline hover:no-underline focus:bg-[#dbeafe] focus:shadow-blue-100"
-            href="https://github.com/navikt/start-umami-backend"
+            href="https://github.com/navikt/innblikk-backend"
           >
             Backend
           </Link>

@@ -139,7 +139,6 @@ function UrlSearchForm({ children }: UrlSearchFormProps) {
       let urlObj = new URL(inputUrl)
 
       // Normalize nav.no to www.nav.no for matching consistency,
-      // copying logic from Umami.jsx
       if (urlObj.hostname === 'nav.no') {
         inputUrl = inputUrl.replace('://nav.no', '://www.nav.no')
         urlObj = new URL(inputUrl)
@@ -196,8 +195,8 @@ function UrlSearchForm({ children }: UrlSearchFormProps) {
           />
           {alertVisible && (
             <Alert style={{ marginTop: '20px' }} variant="warning">
-              Denne siden har ikke fått støtte for Umami enda. Fortvil ikke — kontakt Team ResearchOps for å få lagt den
-              til :)
+              Denne siden har ikke fått støtte for Innblikk enda. Fortvil ikke — kontakt Team ResearchOps for å få lagt
+              den til :)
             </Alert>
           )}
         </div>

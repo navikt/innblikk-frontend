@@ -147,9 +147,9 @@ const Retention = () => {
                 Viser data for forrige måned
               </Heading>
               <BodyShort spacing>
-                Med Umami får brukere ny anonym ID ved starten av hver måned. For å måle lojalitet korrekt må vi derfor
-                holde oss innenfor én kalendermåned. Vi viser deg tallene for <strong>forrige måned</strong> som sikrer
-                best datakvalitet.
+                Med Innblikk får brukere ny anonym ID ved starten av hver måned. For å måle lojalitet korrekt må vi
+                derfor holde oss innenfor én kalendermåned. Vi viser deg tallene for <strong>forrige måned</strong> som
+                sikrer best datakvalitet.
               </BodyShort>
             </Alert>
           )}
@@ -160,8 +160,8 @@ const Retention = () => {
                 Ufullstendige data for inneværende måned
               </Heading>
               <BodyShort spacing>
-                Med Umami får brukere ny anonym ID ved starten av hver måned. Det gjør at tall for inneværende måned kan
-                være ufullstendige. For mest pålitelige tall anbefales det å se på en fullført måned.
+                Med Innblikk får brukere ny anonym ID ved starten av hver måned. Det gjør at tall for inneværende måned
+                kan være ufullstendige. For mest pålitelige tall anbefales det å se på en fullført måned.
               </BodyShort>
               <Button size="small" variant="secondary" onClick={() => setPeriod('last_month')} className="mt-2">
                 Bytt til forrige måned
