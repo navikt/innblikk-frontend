@@ -40,8 +40,6 @@ spec:
       rules:
           - application: reops-proxy
             namespace: team-researchops
-          - application: start-umami-backend
-            namespace: team-researchops
           - application: reops-innblikk-backend
             namespace: team-researchops
   azure:
@@ -58,10 +56,10 @@ spec:
     - name: GCP_PROJECT_ID
       value: "team-researchops-dev-4396"
     - name: BACKEND_BASE_URL
-      value: "http://start-umami-backend.team-researchops.svc.cluster.local"
+      value: "http://reops-innblikk-backend.team-researchops.svc.cluster.local"
     - name: BACKEND_WS_HOST
       value: "innblikk-backend.ansatt.dev.nav.no"
     - name: BACKEND_APP_NAME
-      value: "start-umami-backend"
+      value: "reops-innblikk-backend"
     - name: NAIS_CLUSTER_NAME
       value: "dev-gcp"
