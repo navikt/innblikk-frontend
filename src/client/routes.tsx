@@ -64,6 +64,7 @@ const EventJourney = lazy(() => import('./features/eventjourney').then((m) => ({
 // Traffic Feature
 const TrafficAnalysis = lazy(() => import('./features/traffic').then((m) => ({ default: m.TrafficAnalysis })))
 const MarketingAnalysis = lazy(() => import('./features/traffic').then((m) => ({ default: m.MarketingAnalysis })))
+const DataTableAnalysis = lazy(() => import('./features/datatables').then((m) => ({ default: m.DataTableAnalysis })))
 
 // Funnel Feature
 const Funnel = lazy(() => import('./features/funnel').then((m) => ({ default: m.Funnel })))
@@ -172,6 +173,7 @@ export type AppRoute = {
 
 export const fullWidthPathPrefixes = [
   '/trafikkanalyse',
+  '/datatabell',
   '/markedsanalyse',
   '/utforsk-hendelser',
   '/klikkoversikt',
@@ -259,6 +261,7 @@ export const routes: AppRoute[] = [
   },
   { path: '/datastruktur', component: <EventExplorer />, fullWidth: true },
   { path: '/trafikkanalyse', component: <TrafficAnalysis />, fullWidth: true },
+  { path: '/datatabell', component: <DataTableAnalysis />, fullWidth: true },
   { path: '/markedsanalyse', component: <MarketingAnalysis />, fullWidth: true },
   { path: '/personvernssjekk', component: <PrivacyCheck />, fullWidth: true },
   { path: '/diagnose', component: <Diagnosis />, fullWidth: true },

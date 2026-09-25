@@ -54,12 +54,19 @@ export const fetchPageMetrics = async (
   websiteId: string,
   startDate: Date,
   endDate: Date,
-  normalizedPath: string,
+  normalizedPath: string | string[],
   pathOperator: string,
   metricType: string,
   countByParams: CountByParams,
+  options: { unlimited?: boolean } = {},
 ): Promise<PageMetricsResponse> => {
-  const metricsUrl = `/api/bigquery/websites/${websiteId}/page-metrics?startAt=${startDate.getTime()}&endAt=${endDate.getTime()}&limit=1000${normalizedPath ? `&urlPath=${encodeURIComponent(normalizedPath)}` : ''}&pathOperator=${pathOperator}&metricType=${metricType}${countByParams.countByParams}${countByParams.countBySwitchAtParam}`
+  const pathParams = Array.isArray(normalizedPath)
+    ? normalizedPath.map((path) => `&urlPaths=${encodeURIComponent(path)}`).join('')
+    : normalizedPath
+      ? `&urlPath=${encodeURIComponent(normalizedPath)}`
+      : ''
+  const limitParam = options.unlimited ? '&unlimited=true' : '&limit=1000'
+  const metricsUrl = `/api/bigquery/websites/${websiteId}/page-metrics?startAt=${startDate.getTime()}&endAt=${endDate.getTime()}${limitParam}${pathParams}&pathOperator=${pathOperator}&metricType=${metricType}${countByParams.countByParams}${countByParams.countBySwitchAtParam}`
 
   const response = await fetch(metricsUrl)
   if (!response.ok) throw new Error('Kunne ikke hente sidemetrikker')

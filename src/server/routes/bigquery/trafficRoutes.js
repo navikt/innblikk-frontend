@@ -511,12 +511,23 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
     }
   })
 
-  // Get page metrics (accurate visitors/pageviews/proportion per page)
+  // Get page metrics (visitors, visits, pageviews, and proportion per page)
   router.get('/api/bigquery/websites/:websiteId/page-metrics', async (req, res) => {
     try {
       const { websiteId } = req.params
       const navIdent = req.user?.navIdent || 'UNKNOWN'
-      const { startAt, endAt, urlPath, pathOperator, limit = '1000', countBy, countBySwitchAt } = req.query
+      const {
+        startAt,
+        endAt,
+        urlPath,
+        urlPaths,
+        pathOperator,
+        limit = '1000',
+        unlimited,
+        countBy,
+        countBySwitchAt,
+      } = req.query
+      const isUnlimited = unlimited === 'true'
       logger.info({ websiteId, urlPath, countBy }, '[Page Metrics] Request')
 
       const countBySwitchAtMs = countBySwitchAt ? parseInt(countBySwitchAt) : NaN
@@ -548,29 +559,32 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
         websiteId,
         startDate,
         endDate,
-        limit: parseInt(limit),
       }
+      if (!isUnlimited) params.limit = parseInt(limit)
       if (useSwitch) {
         params.countBySwitchAt = new Date(countBySwitchAtMs).toISOString()
       }
 
-      let urlFilter = ''
-
-      if (urlPath) {
+      const selectedPaths = (
+        Array.isArray(urlPaths) ? urlPaths : urlPaths ? [urlPaths] : urlPath ? [urlPath] : []
+      ).filter((path) => typeof path === 'string' && path.length > 0)
+      const urlPathFilters = selectedPaths.map((path, index) => {
         if (pathOperator === 'starts-with') {
-          urlFilter = `AND LOWER(${col}url_path) LIKE @urlPathPattern`
-          params.urlPathPattern = urlPath.toLowerCase() + '%'
-        } else {
-          urlFilter = `AND (
-                      ${col}url_path = @urlPath 
-                      OR ${col}url_path = @urlPathSlash 
-                      OR ${col}url_path LIKE @urlPathQuery
-                  )`
-          params.urlPath = urlPath
-          params.urlPathSlash = urlPath.endsWith('/') ? urlPath : urlPath + '/'
-          params.urlPathQuery = urlPath + '?%'
+          params[`urlPathPattern${index}`] = path.toLowerCase() + '%'
+          return `LOWER(${col}url_path) LIKE @urlPathPattern${index}`
         }
-      }
+
+        params[`urlPath${index}`] = path
+        params[`urlPathSlash${index}`] = path.endsWith('/') ? path : path + '/'
+        params[`urlPathQuery${index}`] = path + '?%'
+        return `(
+          ${col}url_path = @urlPath${index}
+          OR ${col}url_path = @urlPathSlash${index}
+          OR ${col}url_path LIKE @urlPathQuery${index}
+        )`
+      })
+      const urlFilter = urlPathFilters.length ? `AND (${urlPathFilters.join(' OR ')})` : ''
+      const limitClause = isUnlimited ? '' : 'LIMIT @limit'
 
       const query = `
               WITH total_stats AS (
@@ -584,6 +598,7 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
                   SELECT
                       ${normalizeUrlSql(`${col}url_path`)} as url_path,
                       APPROX_COUNT_DISTINCT(${userIdExpression}) as visitors,
+                      APPROX_COUNT_DISTINCT(${col}visit_id) as visits,
                       COUNT(*) as pageviews
                   FROM ${fromClause}
                   WHERE ${col}website_id = @websiteId
@@ -595,12 +610,13 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
               SELECT
                   p.url_path,
                   p.visitors,
+                  p.visits,
                   p.pageviews,
                   SAFE_DIVIDE(p.visitors, t.total_visitors) as proportion
               FROM page_stats p
               CROSS JOIN total_stats t
               ORDER BY p.visitors DESC
-              LIMIT @limit
+              ${limitClause}
           `
 
       const [job] = await bigquery.createQueryJob(
@@ -621,6 +637,7 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
       const data = rows.map((row) => ({
         urlPath: row.url_path,
         visitors: Number(row.visitors),
+        visits: Number(row.visits),
         pageviews: Number(row.pageviews),
         proportion: Number(row.proportion || 0),
       }))

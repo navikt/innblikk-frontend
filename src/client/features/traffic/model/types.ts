@@ -8,6 +8,7 @@ export type SeriesPoint = {
 export type PageMetricRow = {
   urlPath: string
   pageviews: number
+  visits: number
   proportion: number
   visitors: number
 }
