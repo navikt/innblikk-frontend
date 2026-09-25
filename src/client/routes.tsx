@@ -13,6 +13,7 @@ const Tilgjengelighet = lazy(() => import('./features/content').then((m) => ({ d
 const Taksonomi = lazy(() => import('./features/content').then((m) => ({ default: m.Taksonomi })))
 const Oppsett = lazy(() => import('./features/content').then((m) => ({ default: m.Oppsett })))
 const Sporingskoder = lazy(() => import('./features/content').then((m) => ({ default: m.Sporingskoder })))
+const Sidegrupper = lazy(() => import('./features/sidegroups').then((m) => ({ default: m.Sidegroups })))
 
 // Chartbuilder Feature (the rewritten grafbygger, with cohorts — currently in beta)
 const Grafbygger = lazy(() => import('./features/chartbuilder-next').then((m) => ({ default: m.Grafbygger })))
@@ -203,6 +204,7 @@ export const routes: AppRoute[] = [
   { path: '/komigang', component: <Komigang />, fullWidth: true },
   { path: '/oppsett', component: <Oppsett />, fullWidth: true },
   { path: '/sporingskoder', component: <Sporingskoder />, fullWidth: true },
+  { path: '/sidegrupper', component: <Sidegrupper />, fullWidth: true },
   { path: '/personvern', component: <Personvern />, fullWidth: true },
   { path: '/tilgjengelighet', component: <Tilgjengelighet />, fullWidth: true },
 

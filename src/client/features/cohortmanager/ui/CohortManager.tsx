@@ -218,7 +218,7 @@ export default function CohortManager() {
 
   return (
     <>
-      <PageHeader title="Brukergrupper" description="Definer brukergrupper basert på hendelser og egenskaper." />
+      <PageHeader title="Brukergrupper" description="Definer brukergrupper basert på hendelser og egenskaper." beta />
 
       <AppBlock className="pb-16">
         <VStack gap="space-16">
@@ -277,9 +277,19 @@ export default function CohortManager() {
               {cohortsError && <Alert variant="error">{cohortsError}</Alert>}
 
               {!cohortsLoading && !cohortsError && cohorts.length === 0 && (
-                <Alert variant="info" inline>
-                  Ingen brukergrupper for dette nettstedet. Opprett en for å komme i gang.
-                </Alert>
+                <div className="flex flex-col items-start gap-3">
+                  <Alert variant="info" inline>
+                    Ingen brukergrupper for dette nettstedet.
+                  </Alert>
+                  <Button
+                    size="small"
+                    variant="secondary"
+                    icon={<PlusIcon aria-hidden />}
+                    onClick={() => setEditorTarget('new')}
+                  >
+                    Ny brukergruppe
+                  </Button>
+                </div>
               )}
 
               {!cohortsLoading && cohorts.length > 0 && (

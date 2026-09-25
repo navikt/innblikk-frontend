@@ -50,6 +50,7 @@ export default function Header({ theme }: HeaderProps) {
 
   const developerLinks = [
     { href: '/sporingskoder', label: 'Sporingskoder' },
+    { href: '/sidegrupper', label: 'Sidegrupper' },
     { href: '/sql', label: 'SQL-spørringer' },
     { href: '/personvernssjekk', label: 'Personvernsjekk' },
     { href: '/brukergrupper', label: 'Brukergrupper' },
