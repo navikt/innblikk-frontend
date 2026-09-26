@@ -40,10 +40,11 @@ describe('fetchPageMetrics', () => {
       'equals',
       'visitors',
       { countByParams: '', countBySwitchAtParam: '' },
-      { unlimited: true },
+      { unlimited: true, eventNames: ['site search', 'signup'] },
     )
 
     expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining('unlimited=true'))
+    expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining('eventName=site%20search&eventName=signup'))
     expect(fetchSpy).toHaveBeenCalledWith(expect.stringMatching(/^(?!.*limit=1000)/))
   })
 })

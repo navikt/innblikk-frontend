@@ -11,6 +11,7 @@ export type PageMetricRow = {
   visits: number
   proportion: number
   visitors: number
+  customEvents?: { eventName: string; visitors: number; eventCount: number }[]
 }
 
 export type BreakdownEntry = {

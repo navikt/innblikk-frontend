@@ -524,10 +524,18 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
         pathOperator,
         limit = '1000',
         unlimited,
+        eventName,
         countBy,
         countBySwitchAt,
       } = req.query
       const isUnlimited = unlimited === 'true'
+      const eventNames = [
+        ...new Set(
+          (Array.isArray(eventName) ? eventName : eventName ? [eventName] : []).filter(
+            (name) => typeof name === 'string' && name.trim(),
+          ),
+        ),
+      ]
       logger.info({ websiteId, urlPath, countBy }, '[Page Metrics] Request')
 
       const countBySwitchAtMs = countBySwitchAt ? parseInt(countBySwitchAt) : NaN
@@ -561,6 +569,10 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
         endDate,
       }
       if (!isUnlimited) params.limit = parseInt(limit)
+      const eventNameFilters = eventNames.map((name, index) => {
+        params[`eventName${index}`] = name
+        return `TO_HEX(CAST(${col}event_name AS BYTES)) = TO_HEX(CAST(@eventName${index} AS BYTES))`
+      })
       if (useSwitch) {
         params.countBySwitchAt = new Date(countBySwitchAtMs).toISOString()
       }
@@ -585,6 +597,31 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
       })
       const urlFilter = urlPathFilters.length ? `AND (${urlPathFilters.join(' OR ')})` : ''
       const limitClause = isUnlimited ? '' : 'LIMIT @limit'
+      const eventStatsCte = eventNames.length
+        ? `,
+              event_stats AS (
+                  SELECT
+                      ${normalizeUrlSql(`${col}url_path`)} as url_path,
+                      TO_HEX(CAST(${col}event_name AS BYTES)) as event_name_key,
+                      ANY_VALUE(${col}event_name) as event_name,
+                      APPROX_COUNT_DISTINCT(${userIdExpression}) as visitors,
+                      COUNT(*) as event_count
+                  FROM ${fromClause}
+                  WHERE ${col}website_id = @websiteId
+                  AND ${col}created_at BETWEEN @startDate AND @endDate
+                  AND ${col}event_type = 2
+                  AND (${eventNameFilters.join(' OR ')})
+                  ${urlFilter}
+                  GROUP BY 1, 2
+              )`
+        : ''
+      const customEventsSelect = eventNames.length
+        ? `ARRAY(
+                  SELECT AS STRUCT event_name, visitors, event_count
+                  FROM event_stats
+                  WHERE event_stats.url_path = p.url_path
+              ) as custom_events`
+        : 'NULL as custom_events'
 
       const query = `
               WITH total_stats AS (
@@ -607,12 +644,14 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
                   ${urlFilter}
                   GROUP BY 1
               )
+                  ${eventStatsCte}
               SELECT
                   p.url_path,
                   p.visitors,
                   p.visits,
                   p.pageviews,
-                  SAFE_DIVIDE(p.visitors, t.total_visitors) as proportion
+                    SAFE_DIVIDE(p.visitors, t.total_visitors) as proportion,
+                    ${customEventsSelect}
               FROM page_stats p
               CROSS JOIN total_stats t
               ORDER BY p.visitors DESC
@@ -640,6 +679,11 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
         visits: Number(row.visits),
         pageviews: Number(row.pageviews),
         proportion: Number(row.proportion || 0),
+        customEvents: (row.custom_events ?? []).map((event) => ({
+          eventName: event.event_name,
+          visitors: Number(event.visitors),
+          eventCount: Number(event.event_count),
+        })),
       }))
 
       res.json({

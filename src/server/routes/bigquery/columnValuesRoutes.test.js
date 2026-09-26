@@ -23,6 +23,13 @@ describe('buildColumnValuesQuery', () => {
     }
   })
 
+  it('keeps event-name suggestions case-sensitive', () => {
+    const { query } = buildColumnValuesQuery({ projectId: PROJECT, column: 'event_name' })
+
+    expect(query).toContain('SELECT ANY_VALUE(e.event_name) AS value')
+    expect(query).toContain('GROUP BY TO_HEX(CAST(e.event_name AS BYTES))')
+  })
+
   it('filters s.created_at on session joins (public_session has REQUIRE_PARTITION_FILTER)', () => {
     for (const column of ['browser', 'os', 'device', 'country']) {
       const { query } = buildColumnValuesQuery({ projectId: PROJECT, column })

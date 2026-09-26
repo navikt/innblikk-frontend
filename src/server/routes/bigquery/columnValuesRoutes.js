@@ -93,13 +93,15 @@ export function buildColumnValuesQuery({ projectId, column, q, eventName }) {
   if (column === 'url_path' && q) valueFilter += ' AND LOWER(e.url_path) LIKE @q'
 
   const limit = LIMIT_BY_COLUMN[column] ?? LIMIT_DEFAULT
+  const valueProjection = column === 'event_name' ? `ANY_VALUE(${spec.valueExpr})` : spec.valueExpr
+  const groupBy = column === 'event_name' ? `TO_HEX(CAST(${spec.valueExpr} AS BYTES))` : 'value'
 
   const query = `
-      SELECT ${spec.valueExpr} AS value, COUNT(*) AS count
+      SELECT ${valueProjection} AS value, COUNT(*) AS count
       FROM ${from.join('\n      ')}
       WHERE ${wheres.join('\n          AND ')}
         AND ${valueFilter}
-      GROUP BY value
+        GROUP BY ${groupBy}
       ORDER BY count DESC
       LIMIT ${limit}
   `

@@ -58,7 +58,7 @@ export const fetchPageMetrics = async (
   pathOperator: string,
   metricType: string,
   countByParams: CountByParams,
-  options: { unlimited?: boolean } = {},
+  options: { unlimited?: boolean; eventNames?: string[] } = {},
 ): Promise<PageMetricsResponse> => {
   const pathParams = Array.isArray(normalizedPath)
     ? normalizedPath.map((path) => `&urlPaths=${encodeURIComponent(path)}`).join('')
@@ -66,7 +66,8 @@ export const fetchPageMetrics = async (
       ? `&urlPath=${encodeURIComponent(normalizedPath)}`
       : ''
   const limitParam = options.unlimited ? '&unlimited=true' : '&limit=1000'
-  const metricsUrl = `/api/bigquery/websites/${websiteId}/page-metrics?startAt=${startDate.getTime()}&endAt=${endDate.getTime()}${limitParam}${pathParams}&pathOperator=${pathOperator}&metricType=${metricType}${countByParams.countByParams}${countByParams.countBySwitchAtParam}`
+  const eventParams = options.eventNames?.map((name) => `&eventName=${encodeURIComponent(name)}`).join('') ?? ''
+  const metricsUrl = `/api/bigquery/websites/${websiteId}/page-metrics?startAt=${startDate.getTime()}&endAt=${endDate.getTime()}${limitParam}${pathParams}${eventParams}&pathOperator=${pathOperator}&metricType=${metricType}${countByParams.countByParams}${countByParams.countBySwitchAtParam}`
 
   const response = await fetch(metricsUrl)
   if (!response.ok) throw new Error('Kunne ikke hente sidemetrikker')
