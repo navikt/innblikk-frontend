@@ -88,12 +88,11 @@ const isEventMetric = (value: string): value is EventMetric =>
 const getEventMetricTypesFromSearchParams = (searchParams: URLSearchParams): Record<string, EventMetric> => {
   const eventNames = searchParams.getAll('eventName')
   const eventMetrics = searchParams.getAll('eventMetric')
-  return Object.fromEntries(
-    eventNames.map((eventName, index) => [
-      eventName,
-      isEventMetric(eventMetrics[index] ?? '') ? eventMetrics[index] : 'visitors',
-    ]),
-  )
+  return eventNames.reduce<Record<string, EventMetric>>((result, eventName, index) => {
+    const metric = eventMetrics[index] ?? ''
+    result[eventName] = isEventMetric(metric) ? metric : 'visitors'
+    return result
+  }, {})
 }
 
 const numberFormat = new Intl.NumberFormat('nb-NO')
@@ -241,6 +240,8 @@ const DataTableAnalysis = () => {
       (searchParams.get('period') !== 'custom' || (searchParams.has('from') && searchParams.has('to'))),
   )
   const hasAutoLoadedFromUrl = useRef(false)
+  const previousAutoFetchKey = useRef<string | null>(null)
+  const [websitePickerReady, setWebsitePickerReady] = useState(false)
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
   const [urlPaths, setUrlPaths] = useState(() => searchParams.getAll('urlPath'))
   const [pathOperator, setPathOperator] = useState(() => searchParams.get('pathOperator') || 'equals')
@@ -269,6 +270,9 @@ const DataTableAnalysis = () => {
   const [error, setError] = useState<string | null>(null)
   const usesCookies = useCookieSupport(selectedWebsite?.domain, selectedWebsite?.id)
   const cookieStartDate = useCookieStartDate(selectedWebsite?.domain, selectedWebsite?.id)
+  const handleWebsitePickerInitialLoadingChange = useCallback((isLoading: boolean) => {
+    setWebsitePickerReady(!isLoading)
+  }, [])
 
   useEffect(() => {
     if (!showEventPicker || !selectedWebsite?.id) return
@@ -389,10 +393,50 @@ const DataTableAnalysis = () => {
   ])
 
   useEffect(() => {
-    if (!shouldAutoLoadFromUrl.current || hasAutoLoadedFromUrl.current || !selectedWebsite) return
-    hasAutoLoadedFromUrl.current = true
-    void fetchTable()
-  }, [fetchTable, selectedWebsite])
+    if (!websitePickerReady) return
+
+    const filterKey = JSON.stringify({
+      websiteId: selectedWebsite?.id ?? null,
+      urlPaths,
+      pathOperator,
+      period,
+      customStartDate: customStartDate?.toISOString() ?? null,
+      customEndDate: customEndDate?.toISOString() ?? null,
+      selectedMetrics,
+      selectedEventNames,
+      eventMetricTypes,
+    })
+
+    if (previousAutoFetchKey.current === null) {
+      previousAutoFetchKey.current = filterKey
+      if (shouldAutoLoadFromUrl.current && selectedWebsite && !hasAutoLoadedFromUrl.current) {
+        hasAutoLoadedFromUrl.current = true
+        void fetchTable()
+      }
+      return
+    }
+
+    if (previousAutoFetchKey.current === filterKey) return
+    previousAutoFetchKey.current = filterKey
+
+    if (!selectedWebsite || (!selectedMetrics.length && !selectedEventNames.length)) return
+    if (period === 'custom' && (!customStartDate || !customEndDate)) return
+
+    const timeoutId = window.setTimeout(() => void fetchTable(), 350)
+    return () => window.clearTimeout(timeoutId)
+  }, [
+    websitePickerReady,
+    selectedWebsite,
+    urlPaths,
+    pathOperator,
+    period,
+    customStartDate,
+    customEndDate,
+    selectedMetrics,
+    selectedEventNames,
+    eventMetricTypes,
+    fetchTable,
+  ])
 
   const formatMetric = (row: PageMetricRow, metric: TableMetric) => {
     const value = row[metric]
@@ -490,15 +534,13 @@ const DataTableAnalysis = () => {
     <>
       <PageHeader title="Datatabell" description="Sammenlign trafikk for URL-er med metrikker du velger." beta />
       <AppBlock className="pb-16">
-        <form
-          className="border-b border-[var(--ax-border-neutral-subtle)] pb-6"
-          onSubmit={(event) => {
-            event.preventDefault()
-            void fetchTable()
-          }}
-        >
+        <div className="border-b border-[var(--ax-border-neutral-subtle)] pb-6">
           <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-[minmax(220px,1fr)_minmax(260px,1.3fr)_minmax(200px,0.8fr)]">
-            <WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} />
+            <WebsitePicker
+              selectedWebsite={selectedWebsite}
+              onWebsiteChange={setSelectedWebsite}
+              onInitialLoadingChange={handleWebsitePickerInitialLoadingChange}
+            />
             <UrlPathFilter
               urlPaths={urlPaths}
               onUrlPathsChange={setUrlPaths}
@@ -531,9 +573,9 @@ const DataTableAnalysis = () => {
                 ))}
               </div>
             </CheckboxGroup>
-            {selectedEventNames.length > 0 && (
-              <fieldset className="mt-4">
-                <legend className="mb-2 text-sm font-semibold">Hendelser</legend>
+            <fieldset className="mt-4">
+              <legend className="mb-2 text-base font-semibold">Tillegg</legend>
+              {selectedEventNames.length > 0 && (
                 <div className="flex flex-col gap-3">
                   {selectedEventNames.map((eventName) => (
                     <div key={eventName} className="flex flex-wrap items-end gap-3">
@@ -573,106 +615,96 @@ const DataTableAnalysis = () => {
                     </div>
                   ))}
                 </div>
-              </fieldset>
-            )}
-            <div className="mt-4">
-              <Button
-                type="button"
-                size="small"
-                variant="tertiary"
-                icon={<Plus aria-hidden />}
-                disabled={!selectedWebsite}
-                onClick={() => {
-                  setShowEventPicker((current) => !current)
-                  setEventNameDraft('')
-                  setEventSearchText('')
-                  setEventMetricDraft('visitors')
-                }}
-              >
-                {showEventPicker ? 'Skjul hendelsesvalg' : 'Legg til hendelse'}
-              </Button>
-            </div>
-            {showEventPicker && selectedWebsite && (
-              <div className="mt-3 flex flex-col items-start gap-3 sm:flex-row sm:items-end">
-                <div className="w-full min-w-0 sm:w-[min(32rem,45vw)]">
-                  <UNSAFE_Combobox
-                    label="Hendelse"
-                    size="small"
-                    placeholder="Søk etter hendelse"
-                    options={[...eventSuggestions]
-                      .sort((left, right) => eventNameCollator.compare(left, right))
-                      .map((eventName) => ({ label: eventName, value: eventName }))}
-                    selectedOptions={eventNameDraft ? [eventNameDraft] : []}
-                    value={eventSearchText}
-                    onChange={(value) => {
-                      setEventSearchText(value)
-                      if (value.trim() && value.trim() !== eventNameDraft) setEventNameDraft('')
-                    }}
-                    onToggleSelected={(eventName, selected) => {
-                      setEventNameDraft(selected ? eventName : '')
-                      setEventSearchText(selected ? eventName : '')
-                    }}
-                    isLoading={eventSuggestionsLoading}
-                  />
-                  {eventSuggestionsDays !== null && eventSuggestionsDays < 30 && (
-                    <BodyShort size="small" className="mt-1 text-[var(--ax-text-subtle)]">
-                      Forslag fra siste {eventSuggestionsDays} dager
-                    </BodyShort>
-                  )}
-                  {eventSuggestionsFailed && (
-                    <BodyShort size="small" className="mt-1 text-[var(--ax-text-subtle)]">
-                      Kunne ikke hente hendelser. Prøv igjen senere.
-                    </BodyShort>
-                  )}
-                </div>
-                <Select
-                  label="Måltall"
-                  hideLabel
-                  size="small"
-                  className="w-full sm:w-56"
-                  value={eventMetricDraft}
-                  onChange={(event) => setEventMetricDraft(event.target.value as EventMetric)}
-                >
-                  {eventMetricOptions.map((metric) => (
-                    <option key={metric.value} value={metric.value}>
-                      {metric.label}
-                    </option>
-                  ))}
-                </Select>
+              )}
+              <div className="mt-2 flex flex-wrap items-center gap-2">
                 <Button
                   type="button"
                   size="small"
-                  className="w-fit"
-                  disabled={!eventNameToAdd || selectedEventNames.includes(eventNameToAdd)}
+                  variant="tertiary"
+                  icon={<Plus aria-hidden />}
+                  disabled={!selectedWebsite}
                   onClick={() => {
-                    const eventName = eventNameToAdd
-                    if (!eventName) return
-                    setSelectedEventNames((current) =>
-                      current.includes(eventName) ? current : [...current, eventName],
-                    )
-                    setEventMetricTypes((current) => ({ ...current, [eventName]: eventMetricDraft }))
+                    setShowEventPicker((current) => !current)
                     setEventNameDraft('')
                     setEventSearchText('')
                     setEventMetricDraft('visitors')
-                    setShowEventPicker(false)
                   }}
                 >
-                  Legg til metrikk
+                  {showEventPicker ? 'Skjul hendelsesvalg' : 'Legg til hendelse'}
                 </Button>
               </div>
-            )}
-            <div className="mt-4 flex justify-start">
-              <Button
-                type="submit"
-                size="small"
-                loading={loading}
-                disabled={!selectedWebsite || (!selectedMetrics.length && !selectedEventNames.length)}
-              >
-                Vis tabell
-              </Button>
-            </div>
+              {showEventPicker && selectedWebsite && (
+                <div className="mt-3 flex flex-col items-start gap-3 sm:flex-row sm:items-end">
+                  <div className="w-full min-w-0 sm:w-[min(32rem,45vw)]">
+                    <UNSAFE_Combobox
+                      label="Hendelse"
+                      size="small"
+                      placeholder="Søk etter hendelse"
+                      options={[...eventSuggestions]
+                        .sort((left, right) => eventNameCollator.compare(left, right))
+                        .map((eventName) => ({ label: eventName, value: eventName }))}
+                      selectedOptions={eventNameDraft ? [eventNameDraft] : []}
+                      value={eventSearchText}
+                      onChange={(value) => {
+                        setEventSearchText(value)
+                        if (value.trim() && value.trim() !== eventNameDraft) setEventNameDraft('')
+                      }}
+                      onToggleSelected={(eventName, selected) => {
+                        setEventNameDraft(selected ? eventName : '')
+                        setEventSearchText(selected ? eventName : '')
+                      }}
+                      isLoading={eventSuggestionsLoading}
+                    />
+                    {eventSuggestionsDays !== null && eventSuggestionsDays < 30 && (
+                      <BodyShort size="small" className="mt-1 text-[var(--ax-text-subtle)]">
+                        Forslag fra siste {eventSuggestionsDays} dager
+                      </BodyShort>
+                    )}
+                    {eventSuggestionsFailed && (
+                      <BodyShort size="small" className="mt-1 text-[var(--ax-text-subtle)]">
+                        Kunne ikke hente hendelser. Prøv igjen senere.
+                      </BodyShort>
+                    )}
+                  </div>
+                  <Select
+                    label="Måltall"
+                    hideLabel
+                    size="small"
+                    className="w-full sm:w-56"
+                    value={eventMetricDraft}
+                    onChange={(event) => setEventMetricDraft(event.target.value as EventMetric)}
+                  >
+                    {eventMetricOptions.map((metric) => (
+                      <option key={metric.value} value={metric.value}>
+                        {metric.label}
+                      </option>
+                    ))}
+                  </Select>
+                  <Button
+                    type="button"
+                    size="small"
+                    className="w-fit"
+                    disabled={!eventNameToAdd || selectedEventNames.includes(eventNameToAdd)}
+                    onClick={() => {
+                      const eventName = eventNameToAdd
+                      if (!eventName) return
+                      setSelectedEventNames((current) =>
+                        current.includes(eventName) ? current : [...current, eventName],
+                      )
+                      setEventMetricTypes((current) => ({ ...current, [eventName]: eventMetricDraft }))
+                      setEventNameDraft('')
+                      setEventSearchText('')
+                      setEventMetricDraft('visitors')
+                      setShowEventPicker(false)
+                    }}
+                  >
+                    Legg til metrikk
+                  </Button>
+                </div>
+              )}
+            </fieldset>
           </div>
-        </form>
+        </div>
 
         {error && (
           <Alert variant="error" className="mt-6">
