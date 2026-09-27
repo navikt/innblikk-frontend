@@ -670,7 +670,7 @@ const ColumnDialog = ({ open, columns, websiteId, onApply, onClose }: ColumnDial
             variant="tertiary"
             size="small"
             onClick={() => {
-              setDraft(columns)
+              setDraft([])
               setValidatedFilterValues(new Set())
             }}
           >
