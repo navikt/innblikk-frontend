@@ -63,6 +63,8 @@ type AddToDashboardDialogProps = {
   sqlText: string
   graphType?: 'TABLE' | 'LINE' | 'BAR' | 'PIE'
   sourceWebsiteId?: string
+  showWebsiteSelector?: boolean
+  nameLabel?: string
 }
 
 const AddToDashboardDialog = ({
@@ -72,6 +74,8 @@ const AddToDashboardDialog = ({
   sqlText,
   graphType = 'TABLE',
   sourceWebsiteId,
+  showWebsiteSelector = true,
+  nameLabel = 'Grafnavn',
 }: AddToDashboardDialogProps) => {
   const [projects, setProjects] = useState<ProjectDto[]>([])
   const [dashboards, setDashboards] = useState<DashboardDto[]>([])
@@ -319,7 +323,7 @@ const AddToDashboardDialog = ({
       <Modal open={open} onClose={onClose} header={{ heading: 'Legg til i dashboard' }} width="small">
         <Modal.Body>
           <div className="flex flex-col gap-4">
-            <p className="text-sm text-[var(--ax-text-subtle)]">{graphName}</p>
+            {graphName && <p className="text-sm text-[var(--ax-text-subtle)]">{graphName}</p>}
             {error && <Alert variant="error">{error}</Alert>}
 
             <Select
@@ -386,31 +390,33 @@ const AddToDashboardDialog = ({
             )}
 
             <TextField
-              label="Grafnavn"
+              label={nameLabel}
               value={chartName}
               onChange={(event) => setChartName(event.target.value)}
               size="small"
               disabled={saving}
             />
 
-            <Select
-              label="Vis resultatet for nettsiden..."
-              value={websiteId}
-              onChange={(event) => {
-                const nextWebsiteId = event.target.value
-                setWebsiteId(nextWebsiteId)
-                saveStoredWebsiteId(nextWebsiteId)
-              }}
-              size="small"
-              disabled={loadingWebsites || saving}
-            >
-              <option value="">Bruk dashboard-filter</option>
-              {websites.map((website) => (
-                <option key={website.id} value={website.id}>
-                  {website.name}
-                </option>
-              ))}
-            </Select>
+            {showWebsiteSelector && (
+              <Select
+                label="Vis resultatet for nettsiden..."
+                value={websiteId}
+                onChange={(event) => {
+                  const nextWebsiteId = event.target.value
+                  setWebsiteId(nextWebsiteId)
+                  saveStoredWebsiteId(nextWebsiteId)
+                }}
+                size="small"
+                disabled={loadingWebsites || saving}
+              >
+                <option value="">Bruk dashboard-filter</option>
+                {websites.map((website) => (
+                  <option key={website.id} value={website.id}>
+                    {website.name}
+                  </option>
+                ))}
+              </Select>
+            )}
           </div>
         </Modal.Body>
         <Modal.Footer>

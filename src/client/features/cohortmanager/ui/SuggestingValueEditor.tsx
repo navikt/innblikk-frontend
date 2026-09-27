@@ -46,6 +46,7 @@ interface SuggestingValueEditorProps {
   disabled?: boolean
   placeholder?: string
   className?: string
+  error?: string
   /** Hide the visible label (still read by screen readers) — set when the field/operator siblings in the same row also hide theirs, so position alone conveys meaning. */
   hideLabel?: boolean
 }
@@ -68,6 +69,7 @@ export function SuggestingValueEditor({
   disabled = false,
   placeholder,
   className,
+  error,
   hideLabel = false,
 }: SuggestingValueEditorProps) {
   const { values, scannedDays, failed, loading, load } = useColumnValueSuggestions(
@@ -156,6 +158,7 @@ export function SuggestingValueEditor({
         isLoading={loading}
         disabled={disabled}
         placeholder={placeholder}
+        error={error}
       />
       {showScannedDaysNote && (
         <BodyShort size="small" style={{ color: 'var(--ax-text-subtle)' }}>
