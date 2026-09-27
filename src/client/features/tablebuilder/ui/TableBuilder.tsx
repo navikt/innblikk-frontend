@@ -886,7 +886,7 @@ const TableBuilder = () => {
                           : `${numberFormatter.format(resultRows.length)} rader`}
                     </BodyShort>
                     {!loading && hasReachedRowLimit && (
-                      <Button variant="tertiary" size="xsmall" onClick={() => void runTable(true)}>
+                      <Button variant="secondary" size="xsmall" onClick={() => void runTable(true)}>
                         Hent alle rader
                       </Button>
                     )}
