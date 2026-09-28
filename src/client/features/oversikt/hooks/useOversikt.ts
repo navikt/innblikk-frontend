@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { format, isValid, parseISO } from 'date-fns'
 import { normalizeUrlToPath } from '../../../shared/lib/utils.ts'
+import { parseFormattedPath } from '../../analysis/utils/urlPathFilter.ts'
 import type { Website } from '../../dashboard/model/types.ts'
 import type {
   ProjectDto,
@@ -399,7 +400,8 @@ export const useOversikt = () => {
     [dashboards, selectedProjectId],
   )
 
-  const handleUrlToggleSelected = useCallback((option: string, isSelected: boolean) => {
+  const handleUrlToggleSelected = useCallback((formattedOption: string, isSelected: boolean) => {
+    const option = parseFormattedPath(formattedOption)
     isSelectingRef.current = true
     setComboInputValue('')
 

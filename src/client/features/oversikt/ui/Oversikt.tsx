@@ -54,6 +54,7 @@ import dashboardConfigData from '../../../../data/dashboardConfig.json'
 import navkontorData from '../../../../data/navkontor.json'
 import hjelpemiddelsentralerData from '../../../../data/hjelpemiddelsentraler.json'
 import { supportsMetricTypeSelection } from '../../dashboard/utils/queryUtils.ts'
+import { formatPathLabel } from '../../analysis/utils/urlPathFilter.ts'
 
 const parseChartWidth = (width?: string): number | undefined => {
   const parsed = Number(width)
@@ -1646,8 +1647,8 @@ const Oversikt = () => {
                   size="small"
                   isMultiSelect
                   allowNewValues
-                  options={tempUrlPaths.map((path) => ({ label: path, value: path }))}
-                  selectedOptions={tempUrlPaths}
+                  options={tempUrlPaths.map((path) => ({ label: formatPathLabel(path), value: formatPathLabel(path) }))}
+                  selectedOptions={tempUrlPaths.map(formatPathLabel)}
                   onToggleSelected={handleUrlToggleSelected}
                   value={comboInputValue}
                   onChange={handleComboChange}
@@ -1686,10 +1687,10 @@ const Oversikt = () => {
                   setTempMetricType(e.target.value as 'visitors' | 'pageviews' | 'proportion' | 'visits')
                 }
               >
-                {allowedMetricTypes.includes('visitors') && <option value="visitors">Antall besøkende</option>}
-                {allowedMetricTypes.includes('visits') && <option value="visits">Antall økter</option>}
-                {allowedMetricTypes.includes('pageviews') && <option value="pageviews">Antall sidevisninger</option>}
-                {allowedMetricTypes.includes('proportion') && <option value="proportion">Andel besøkende</option>}
+                {allowedMetricTypes.includes('visitors') && <option value="visitors">Unike besøkende</option>}
+                {allowedMetricTypes.includes('visits') && <option value="visits">Økter / besøk</option>}
+                {allowedMetricTypes.includes('pageviews') && <option value="pageviews">Sidevisninger</option>}
+                {allowedMetricTypes.includes('proportion') && <option value="proportion">Andel (av besøkende)</option>}
               </Select>
             </div>
           )}
