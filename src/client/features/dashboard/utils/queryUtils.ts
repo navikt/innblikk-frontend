@@ -10,6 +10,8 @@ interface FilterState {
   customEndDate?: Date
 }
 
+export const supportsMetricTypeSelection = (sql: string): boolean => /\bUnike_besokende\b/i.test(sql)
+
 export const processDashboardSql = (sql: string, websiteId: string, filters: FilterState): string => {
   // 0. Define timezone (default to Europe/Oslo)
   const timezone = 'Europe/Oslo'
@@ -146,12 +148,13 @@ export const processDashboardSql = (sql: string, websiteId: string, filters: Fil
   const toSql = `TIMESTAMP('${format(endDate, 'yyyy-MM-dd')}T23:59:59', '${timezone}')`
 
   const projectId = getGcpProjectId()
-  // For newer queries using umami_views, we should use that table name.
-  // However, since this utility replaces a placeholder in existing SQL, we need to check which table calls for it or use a safer regex.
-  // The current implementation hardcodes the table name which is risky if the base query uses a different table.
-  // Let's try to infer it or use the new default if not sure.
-  // But to satisfy the immediate request of updating table names:
-  const dateReplacement = `AND \`${projectId}.umami_views.event\`.created_at BETWEEN ${fromSql} AND ${toSql}`
+  const eventTableAlias = processedSql.match(
+    /FROM\s+`[^`]+\.umami_views\.event`\s+(?:AS\s+)?([A-Za-z_][A-Za-z0-9_]*)/i,
+  )?.[1]
+  const eventDateColumn = eventTableAlias
+    ? `${eventTableAlias}.created_at`
+    : `\`${projectId}.umami_views.event\`.created_at`
+  const dateReplacement = `AND ${eventDateColumn} BETWEEN ${fromSql} AND ${toSql}`
   processedSql = processedSql.replace(/\[\[\s*AND\s*\{\{created_at\}\}\s*\]\]/gi, dateReplacement)
 
   // 4. Handle metric type substitutions

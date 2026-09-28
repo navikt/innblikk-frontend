@@ -53,6 +53,7 @@ import { applyWebsiteIdOnly, extractWebsiteId, replaceHardcodedWebsiteId } from 
 import dashboardConfigData from '../../../../data/dashboardConfig.json'
 import navkontorData from '../../../../data/navkontor.json'
 import hjelpemiddelsentralerData from '../../../../data/hjelpemiddelsentraler.json'
+import { supportsMetricTypeSelection } from '../../dashboard/utils/queryUtils.ts'
 
 const parseChartWidth = (width?: string): number | undefined => {
   const parsed = Number(width)
@@ -398,7 +399,11 @@ const Oversikt = () => {
     if (normalized.length === 0) return defaults
     return Array.from(new Set(normalized))
   }, [dashboardPathFilterConfig])
-  const showMetricTypeFilter = allowedMetricTypes.length > 1
+  const hasMetricTypeCompatibleChart = useMemo(
+    () => charts.some((chart) => supportsMetricTypeSelection(getChartWithSelectedVariant(chart).sql ?? '')),
+    [charts, getChartWithSelectedVariant],
+  )
+  const showMetricTypeFilter = allowedMetricTypes.length > 1 && hasMetricTypeCompatibleChart
   const chartLinksEnabled = dashboardPathFilterConfig?.dashboardChartLinks !== false
   const requiresPreselectedPathSelection = usePreselectedPathFilter
   const selectedPreselectedPath = useMemo(() => {

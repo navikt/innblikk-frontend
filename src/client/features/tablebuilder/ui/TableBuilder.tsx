@@ -34,6 +34,7 @@ import UrlPathFilter from '../../analysis/ui/UrlPathFilter.tsx'
 import { SuggestingValueEditor } from '../../cohortmanager/ui/SuggestingValueEditor.tsx'
 import { downloadCsvFile } from '../../traffic/utils/trafficUtils.ts'
 import type { JsonValue, Row } from '../../sql/model/types.ts'
+import { getUniqueColumnAliases, quoteBigQueryIdentifier } from '../utils/columnAliases.ts'
 
 type ColumnKind = 'dimension' | 'metric'
 type ColumnView = 'rows' | 'events' | 'visitors' | 'share'
@@ -284,27 +285,7 @@ const getColumnLabel = (column: SelectedColumn) => {
   return `${metric}: ${column.filterValue?.trim() || column.label}`
 }
 
-const sanitizeColumnAlias = (value: string, fallback: string) => {
-  const normalized = value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLocaleLowerCase('nb')
-    .replace(/[^a-z0-9_]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-
-  return normalized || fallback
-}
-
-const getColumnAliases = (columns: SelectedColumn[]) => {
-  const counts = new Map<string, number>()
-
-  return columns.map((column, index) => {
-    const base = sanitizeColumnAlias(column.customLabel || column.label || column.id, `col_${index}`)
-    const occurrence = counts.get(base) ?? 0
-    counts.set(base, occurrence + 1)
-    return occurrence === 0 ? base : `${base}_${occurrence}`
-  })
-}
+const getColumnAliases = (columns: SelectedColumn[]) => getUniqueColumnAliases(columns.map(getColumnLabel))
 
 const buildSql = (
   websiteId: string,
@@ -314,6 +295,7 @@ const buildSql = (
   urlPaths: string[],
   pathOperator: string,
   fetchAllRows = false,
+  useDashboardFilters = false,
 ) => {
   const projectId = getGcpProjectId()
   const dimensions = columns.filter((column) => column.kind === 'dimension')
@@ -331,14 +313,20 @@ const buildSql = (
   }
   const needsSession = sessionFields.size > 0
   const columnAliases = getColumnAliases(columns)
-  const selectColumns = columns.map((column, index) => `${getColumnExpression(column)} AS ${columnAliases[index]}`)
+  const selectColumns = columns.map(
+    (column, index) => `${getColumnExpression(column)} AS ${quoteBigQueryIdentifier(columnAliases[index])}`,
+  )
   const urlConditions = urlPaths.map((path) => {
     const escapedPath = escapeSqlString(path)
     if (pathOperator === 'starts-with') return `LOWER(e.url_path) LIKE '${escapeSqlString(path.toLowerCase())}%'`
     const escapedSlashPath = escapeSqlString(path.endsWith('/') ? path : `${path}/`)
     return `(e.url_path = '${escapedPath}' OR e.url_path = '${escapedSlashPath}' OR e.url_path LIKE '${escapedPath}?%')`
   })
-  const urlFilter = urlConditions.length > 0 ? `\n  AND (${urlConditions.join(' OR ')})` : ''
+  const urlFilter = useDashboardFilters
+    ? `\n    AND e.url_path = [[ {{url_sti}} --]] '/'`
+    : urlConditions.length > 0
+      ? `\n  AND (${urlConditions.join(' OR ')})`
+      : ''
   const dimensionFilters = dimensions.flatMap((column) => {
     const value = column.filterValue?.trim()
     if (!value || !column.filterOperator || column.filterOperator === 'all') return []
@@ -355,24 +343,29 @@ const buildSql = (
       ? `\nGROUP BY ${dimensions.map((dimension) => columns.indexOf(dimension) + 1).join(', ')}`
       : ''
   const firstMetricIndex = columns.findIndex((column) => column.kind === 'metric')
-  const orderBy = hasMetrics ? `\nORDER BY ${columnAliases[firstMetricIndex]} DESC` : ''
+  const orderBy = hasMetrics ? `\nORDER BY ${quoteBigQueryIdentifier(columnAliases[firstMetricIndex])} DESC` : ''
   const sessionColumns = [...sessionFields].map((field) => `,\n    s.${field} AS session_${field}`).join('')
   const detailQuery = `SELECT${hasMetrics ? '' : ' DISTINCT'}
   ${selectColumns.join(',\n  ')}
 FROM source e${groupBy}`
   const sessionJoin = needsSession
     ? `LEFT JOIN \`${projectId}.umami_views.session\` s
-    ON e.session_id = s.session_id
-    AND s.created_at BETWEEN TIMESTAMP('${startDate.toISOString()}') AND TIMESTAMP('${endDate.toISOString()}')`
+    ON e.session_id = s.session_id${
+      useDashboardFilters
+        ? ''
+        : `\n    AND s.created_at BETWEEN TIMESTAMP('${startDate.toISOString()}') AND TIMESTAMP('${endDate.toISOString()}')`
+    }`
     : ''
+  const dateFilter = useDashboardFilters
+    ? `\n    [[AND {{created_at}} ]]`
+    : `\n    AND e.created_at BETWEEN TIMESTAMP('${startDate.toISOString()}') AND TIMESTAMP('${endDate.toISOString()}')`
 
   return `WITH source AS (
   SELECT
     e.*${sessionColumns}
   FROM \`${projectId}.umami_views.event\` e
   ${sessionJoin}
-  WHERE e.website_id = '${escapeSqlString(websiteId)}'
-    AND e.created_at BETWEEN TIMESTAMP('${startDate.toISOString()}') AND TIMESTAMP('${endDate.toISOString()}')${urlFilter}${columnFilter}
+  WHERE e.website_id = '${escapeSqlString(websiteId)}'${dateFilter}${urlFilter}${columnFilter}
 )
 ${detailQuery}${orderBy}${fetchAllRows ? '' : `\nLIMIT ${defaultRowLimit}`}`
 }
@@ -745,6 +738,20 @@ const TableBuilder = () => {
   const [showAddToDashboardDialog, setShowAddToDashboardDialog] = useState(false)
   const [showMetabaseDialog, setShowMetabaseDialog] = useState(false)
   const columnAliases = useMemo(() => getColumnAliases(columns), [columns])
+  const dashboardRange = getDateRangeFromPeriod(period, startDate, endDate)
+  const dashboardSql =
+    selectedWebsite && dashboardRange && columns.length > 0
+      ? buildSql(
+          selectedWebsite.id,
+          dashboardRange.startDate,
+          dashboardRange.endDate,
+          columns,
+          urlPaths,
+          pathOperator,
+          hasFetchedAllRows,
+          true,
+        )
+      : ''
 
   const setPeriod = (value: string) => {
     setPeriodState(value)
@@ -1078,8 +1085,9 @@ const TableBuilder = () => {
         onClose={() => setShowAddToDashboardDialog(false)}
         graphName=""
         nameLabel="Navn"
-        sqlText={lastSql}
+        sqlText={dashboardSql}
         graphType="TABLE"
+        sourceWebsiteId={selectedWebsite?.id}
         showWebsiteSelector={false}
       />
       <TransferToMetabaseDialog
