@@ -157,6 +157,22 @@ const COLUMN_GROUPS: Array<{ title: string; columns: ColumnDefinition[] }> = [
         needsSession: true,
       },
       {
+        id: 'screen',
+        label: 'Skjermstørrelse',
+        description: 'Skjermoppløsningen som ble registrert',
+        kind: 'dimension',
+        expression: 'e.session_screen',
+        needsSession: true,
+      },
+      {
+        id: 'language',
+        label: 'Språk',
+        description: 'Språket som var valgt i nettleseren',
+        kind: 'dimension',
+        expression: 'e.session_language',
+        needsSession: true,
+      },
+      {
         id: 'country',
         label: 'Land',
         description: 'Land registrert for besøket',
@@ -226,7 +242,16 @@ const dimensionOperatorOptions: Array<{ value: DimensionOperator; label: string 
   { value: 'contains', label: 'inneholder' },
   { value: 'not-contains', label: 'inneholder ikke' },
 ]
-const suggestibleDimensions = ['referrer_domain', 'browser', 'os', 'device', 'country', 'event_name'] as const
+const suggestibleDimensions = [
+  'referrer_domain',
+  'browser',
+  'os',
+  'device',
+  'screen',
+  'language',
+  'country',
+  'event_name',
+] as const
 const supportsMetricViews = (column: SelectedColumn) =>
   column.id === 'selected_event' || (suggestibleDimensions.some((id) => id === column.id) && column.id !== 'event_name')
 
@@ -259,6 +284,28 @@ const getColumnLabel = (column: SelectedColumn) => {
   return `${metric}: ${column.filterValue?.trim() || column.label}`
 }
 
+const sanitizeColumnAlias = (value: string, fallback: string) => {
+  const normalized = value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('nb')
+    .replace(/[^a-z0-9_]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+
+  return normalized || fallback
+}
+
+const getColumnAliases = (columns: SelectedColumn[]) => {
+  const counts = new Map<string, number>()
+
+  return columns.map((column, index) => {
+    const base = sanitizeColumnAlias(column.customLabel || column.label || column.id, `col_${index}`)
+    const occurrence = counts.get(base) ?? 0
+    counts.set(base, occurrence + 1)
+    return occurrence === 0 ? base : `${base}_${occurrence}`
+  })
+}
+
 const buildSql = (
   websiteId: string,
   startDate: Date,
@@ -273,14 +320,18 @@ const buildSql = (
   const hasMetrics = columns.some((column) => column.kind === 'metric')
   const sessionFields = new Set(
     columns
-      .filter((column) => column.needsSession && ['browser', 'os', 'device', 'country'].includes(column.id))
+      .filter(
+        (column) =>
+          column.needsSession && ['browser', 'os', 'device', 'screen', 'language', 'country'].includes(column.id),
+      )
       .map((column) => column.id),
   )
   if (columns.some((column) => column.id === 'visitors' || column.view === 'visitors')) {
     sessionFields.add('distinct_id')
   }
   const needsSession = sessionFields.size > 0
-  const selectColumns = columns.map((column, index) => `${getColumnExpression(column)} AS col_${index}`)
+  const columnAliases = getColumnAliases(columns)
+  const selectColumns = columns.map((column, index) => `${getColumnExpression(column)} AS ${columnAliases[index]}`)
   const urlConditions = urlPaths.map((path) => {
     const escapedPath = escapeSqlString(path)
     if (pathOperator === 'starts-with') return `LOWER(e.url_path) LIKE '${escapeSqlString(path.toLowerCase())}%'`
@@ -304,26 +355,11 @@ const buildSql = (
       ? `\nGROUP BY ${dimensions.map((dimension) => columns.indexOf(dimension) + 1).join(', ')}`
       : ''
   const firstMetricIndex = columns.findIndex((column) => column.kind === 'metric')
-  const orderBy = hasMetrics ? `\nORDER BY __is_total DESC, col_${firstMetricIndex} DESC` : ''
+  const orderBy = hasMetrics ? `\nORDER BY ${columnAliases[firstMetricIndex]} DESC` : ''
   const sessionColumns = [...sessionFields].map((field) => `,\n    s.${field} AS session_${field}`).join('')
   const detailQuery = `SELECT${hasMetrics ? '' : ' DISTINCT'}
-  ${selectColumns.join(',\n  ')},
-  FALSE AS __is_total
+  ${selectColumns.join(',\n  ')}
 FROM source e${groupBy}`
-  const includeSummary = hasMetrics && dimensions.length > 0
-  const summaryColumns = columns.map((column, index) =>
-    column.kind === 'dimension'
-      ? `CAST(NULL AS STRING) AS col_${index}`
-      : `${getColumnExpression(column)} AS col_${index}`,
-  )
-  const summaryQuery = includeSummary
-    ? `
-UNION ALL
-SELECT
-  ${summaryColumns.join(',\n  ')},
-  TRUE AS __is_total
-FROM source e`
-    : ''
   const sessionJoin = needsSession
     ? `LEFT JOIN \`${projectId}.umami_views.session\` s
     ON e.session_id = s.session_id
@@ -338,7 +374,7 @@ FROM source e`
   WHERE e.website_id = '${escapeSqlString(websiteId)}'
     AND e.created_at BETWEEN TIMESTAMP('${startDate.toISOString()}') AND TIMESTAMP('${endDate.toISOString()}')${urlFilter}${columnFilter}
 )
-${detailQuery}${summaryQuery}${orderBy}${fetchAllRows ? '' : `\nLIMIT ${includeSummary ? defaultRowLimit + 1 : defaultRowLimit}`}`
+${detailQuery}${orderBy}${fetchAllRows ? '' : `\nLIMIT ${defaultRowLimit}`}`
 }
 
 const formatCell = (value: JsonValue | undefined, column: SelectedColumn) => {
@@ -348,8 +384,6 @@ const formatCell = (value: JsonValue | undefined, column: SelectedColumn) => {
   if (typeof value === 'object') return JSON.stringify(value)
   return String(value)
 }
-
-const isSummaryRow = (row: Row) => row.__is_total === true || row.__is_total === 1 || row.__is_total === 'true'
 
 const escapeCsvField = (value: string) => `"${value.replace(/"/g, '""')}"`
 
@@ -710,6 +744,7 @@ const TableBuilder = () => {
   const [lastSql, setLastSql] = useState('')
   const [showAddToDashboardDialog, setShowAddToDashboardDialog] = useState(false)
   const [showMetabaseDialog, setShowMetabaseDialog] = useState(false)
+  const columnAliases = useMemo(() => getColumnAliases(columns), [columns])
 
   const setPeriod = (value: string) => {
     setPeriodState(value)
@@ -769,14 +804,13 @@ const TableBuilder = () => {
     return () => window.clearTimeout(timeoutId)
   }, [selectedWebsite, columns, period, startDate, endDate, urlPaths, pathOperator, runTable])
 
-  const summaryRow = rows.find(isSummaryRow)
-  const resultRows = rows.filter((row) => !isSummaryRow(row))
+  const resultRows = rows
   const hasReachedRowLimit = !hasFetchedAllRows && resultRows.length >= defaultRowLimit
   const normalizedSearch = searchText.trim().toLocaleLowerCase('nb')
   const filteredRows = normalizedSearch
     ? resultRows.filter((row) =>
         columns.some((column, index) =>
-          formatCell(row[`col_${index}`], column).toLocaleLowerCase('nb').includes(normalizedSearch),
+          formatCell(row[columnAliases[index]], column).toLocaleLowerCase('nb').includes(normalizedSearch),
         ),
       )
     : resultRows
@@ -784,8 +818,8 @@ const TableBuilder = () => {
   const sortedRows = [...filteredRows].sort((left, right) => {
     if (sortColumnIndex < 0) return 0
     const selectedColumn = columns[sortColumnIndex]
-    const leftValue = left[`col_${sortColumnIndex}`]
-    const rightValue = right[`col_${sortColumnIndex}`]
+    const leftValue = left[columnAliases[sortColumnIndex]]
+    const rightValue = right[columnAliases[sortColumnIndex]]
     const comparison =
       typeof leftValue === 'number' && typeof rightValue === 'number'
         ? leftValue - rightValue
@@ -794,8 +828,6 @@ const TableBuilder = () => {
   })
   const pageCount = Math.ceil(sortedRows.length / rowsPerPage)
   const visibleRows = sortedRows.slice((page - 1) * rowsPerPage, page * rowsPerPage)
-  const firstDimensionIndex = columns.findIndex((column) => column.kind === 'dimension')
-
   const handleSort = (column: SelectedColumn) => {
     setPage(1)
     if (sortColumn === column.instanceId) {
@@ -814,20 +846,9 @@ const TableBuilder = () => {
   const handleDownloadCsv = () => {
     const header = columns.map((column) => escapeCsvField(getColumnLabel(column))).join(',')
     const dataRows = sortedRows.map((row) =>
-      columns.map((column, index) => escapeCsvField(formatCell(row[`col_${index}`], column))).join(','),
+      columns.map((column, index) => escapeCsvField(formatCell(row[columnAliases[index]], column))).join(','),
     )
-    const summary = summaryRow
-      ? columns
-          .map((column, index) => {
-            if (column.kind === 'metric') return escapeCsvField(formatCell(summaryRow[`col_${index}`], column))
-            return escapeCsvField(index === firstDimensionIndex ? 'Totalt' : '')
-          })
-          .join(',')
-      : null
-    downloadCsvFile(
-      [header, ...(summary ? [summary] : []), ...dataRows].join('\n'),
-      `tabellbygger_${new Date().toISOString().slice(0, 10)}.csv`,
-    )
+    downloadCsvFile([header, ...dataRows].join('\n'), `tabellbygger_${new Date().toISOString().slice(0, 10)}.csv`)
   }
 
   return (
@@ -1005,22 +1026,6 @@ const TableBuilder = () => {
                       ))
                     ) : (
                       <>
-                        {summaryRow && (
-                          <Table.Row className="bg-[var(--ax-bg-neutral-soft)] font-semibold">
-                            {columns.map((column, columnIndex) => (
-                              <Table.DataCell
-                                key={column.instanceId}
-                                className={column.kind === 'metric' ? 'text-right' : undefined}
-                              >
-                                {column.kind === 'metric'
-                                  ? formatCell(summaryRow[`col_${columnIndex}`], column)
-                                  : columnIndex === firstDimensionIndex
-                                    ? 'Totalt'
-                                    : '–'}
-                              </Table.DataCell>
-                            ))}
-                          </Table.Row>
-                        )}
                         {visibleRows.map((row, rowIndex) => (
                           <Table.Row key={rowIndex}>
                             {columns.map((column, columnIndex) => (
@@ -1028,7 +1033,7 @@ const TableBuilder = () => {
                                 key={column.instanceId}
                                 className={column.kind === 'metric' ? 'text-right' : undefined}
                               >
-                                {formatCell(row[`col_${columnIndex}`], column)}
+                                {formatCell(row[columnAliases[columnIndex]], column)}
                               </Table.DataCell>
                             ))}
                           </Table.Row>

@@ -41,6 +41,8 @@ const COLUMN_SPECS = {
   browser: { source: 'session', valueExpr: 's.browser' },
   os: { source: 'session', valueExpr: 's.os' },
   device: { source: 'session', valueExpr: 's.device' },
+  screen: { source: 'session', valueExpr: 's.screen' },
+  language: { source: 'session', valueExpr: 's.language' },
   country: { source: 'session', valueExpr: 's.country' },
   event_data_key: { source: 'param_key', valueExpr: 'p.data_key' },
   // event_data rows: data_type 1=number, 2=string, 3=boolean, 4=date — mirror

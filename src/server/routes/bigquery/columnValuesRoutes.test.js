@@ -14,8 +14,8 @@ describe('buildColumnValuesQuery', () => {
     expect(query).not.toContain('JOIN')
   })
 
-  it('joins public_session for session-level columns (browser/os/device/country)', () => {
-    for (const column of ['browser', 'os', 'device', 'country']) {
+  it('joins public_session for session-level columns', () => {
+    for (const column of ['browser', 'os', 'device', 'screen', 'language', 'country']) {
       const { query } = buildColumnValuesQuery({ projectId: PROJECT, column })
       expect(query).toContain('JOIN `test-project.umami.public_session` s')
       expect(query).toContain(`SELECT s.${column} AS value`)
@@ -31,7 +31,7 @@ describe('buildColumnValuesQuery', () => {
   })
 
   it('filters s.created_at on session joins (public_session has REQUIRE_PARTITION_FILTER)', () => {
-    for (const column of ['browser', 'os', 'device', 'country']) {
+    for (const column of ['browser', 'os', 'device', 'screen', 'language', 'country']) {
       const { query } = buildColumnValuesQuery({ projectId: PROJECT, column })
       expect(query).toContain('s.created_at BETWEEN @startDate AND @endDate')
     }
@@ -71,8 +71,10 @@ describe('buildColumnValuesQuery', () => {
         'event_data_key',
         'event_data_value',
         'event_name',
+        'language',
         'os',
         'referrer_domain',
+        'screen',
         'url_path',
       ].sort(),
     )

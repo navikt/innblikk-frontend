@@ -12,6 +12,8 @@ export type SuggestibleColumn =
   | 'browser'
   | 'os'
   | 'device'
+  | 'screen'
+  | 'language'
   | 'country'
   | 'event_name'
   | 'event_data_key'

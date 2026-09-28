@@ -13,6 +13,7 @@ const { useColumnValueSuggestions } = columnValuesSuggestions
  * can look alike at combobox size).
  */
 const regionNames = new Intl.DisplayNames('nb-NO', { type: 'region' })
+const languageNames = new Intl.DisplayNames('nb-NO', { type: 'language' })
 
 export function countryFlagEmoji(code: string): string {
   if (!/^[A-Za-z]{2}$/.test(code)) return ''
@@ -26,6 +27,15 @@ export function toSuggestionOptions(column: string, values: string[]): { label: 
       const flag = countryFlagEmoji(value)
       const name = regionNames.of(value.toUpperCase()) ?? value
       return { label: `${flag ? `${flag} ` : ''}${name} (${value.toUpperCase()})`, value }
+    }
+    if (column === 'language') {
+      let name: string | undefined
+      try {
+        name = languageNames.of(value)
+      } catch {
+        name = undefined
+      }
+      return { label: name && name !== value ? `${name} (${value})` : value, value }
     }
     return { label: value, value }
   })

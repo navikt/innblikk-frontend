@@ -30,6 +30,13 @@ describe('toSuggestionOptions', () => {
     expect(opt.label).toContain('Norge')
   })
 
+  it('renders language values as localized names while preserving the raw code', () => {
+    const [opt] = toSuggestionOptions('language', ['nb-NO'])
+    expect(opt.value).toBe('nb-NO')
+    expect(opt.label).toMatch(/\(nb-NO\)$/)
+    expect(opt.label).not.toBe('nb-NO')
+  })
+
   it('passes other columns through as-is', () => {
     expect(toSuggestionOptions('browser', ['Chrome'])).toEqual([{ label: 'Chrome', value: 'Chrome' }])
   })
