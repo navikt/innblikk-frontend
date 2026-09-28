@@ -14,7 +14,7 @@ import {
   Table,
   TextField,
 } from '@navikt/ds-react'
-import { ArrowDown, ArrowUp, ArrowUpDown, Check, Columns3, Download, Plus, Search, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, Columns3, Download, Plus, Search, Trash2 } from 'lucide-react'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import AddToDashboardDialog from '../../../shared/ui/AddToDashboardDialog.tsx'
@@ -258,7 +258,14 @@ const supportsMetricViews = (column: SelectedColumn) =>
 
 const escapeSqlString = (value: string) => value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
 
-const getColumnExpression = (column: SelectedColumn) => {
+const isGroupedShare = (column: SelectedColumn, columns: SelectedColumn[]) =>
+  column.view === 'share' &&
+  columns.some((item) => item.instanceId !== column.instanceId && item.id === column.id && item.view === 'rows')
+
+const getColumnExpression = (column: SelectedColumn, columns: SelectedColumn[]) => {
+  if (isGroupedShare(column, columns)) {
+    return 'SAFE_DIVIDE(APPROX_COUNT_DISTINCT(e.visit_id), SUM(APPROX_COUNT_DISTINCT(e.visit_id)) OVER ())'
+  }
   if (column.view && column.view !== 'rows') {
     const value = escapeSqlString(column.filterValue?.trim() ?? '')
     const expression = column.expression
@@ -314,7 +321,7 @@ const buildSql = (
   const needsSession = sessionFields.size > 0
   const columnAliases = getColumnAliases(columns)
   const selectColumns = columns.map(
-    (column, index) => `${getColumnExpression(column)} AS ${quoteBigQueryIdentifier(columnAliases[index])}`,
+    (column, index) => `${getColumnExpression(column, columns)} AS ${quoteBigQueryIdentifier(columnAliases[index])}`,
   )
   const urlConditions = urlPaths.map((path) => {
     const escapedPath = escapeSqlString(path)
@@ -396,6 +403,7 @@ const ColumnDialog = ({ open, columns, websiteId, onApply, onClose }: ColumnDial
   const columnsMissingFilterValue = draft.filter(
     (column) =>
       (column.kind === 'dimension' || (column.view && column.view !== 'rows')) &&
+      !isGroupedShare(column, draft) &&
       column.filterOperator &&
       column.filterOperator !== 'all' &&
       !column.filterValue?.trim(),
@@ -412,22 +420,17 @@ const ColumnDialog = ({ open, columns, websiteId, onApply, onClose }: ColumnDial
     })).filter((group) => group.columns.length > 0)
   }, [search])
 
-  const toggleColumn = (definition: ColumnDefinition, selected: boolean) => {
-    setDraft((current) =>
-      selected
-        ? [
-            ...current,
-            {
-              ...definition,
-              instanceId: `${definition.id}-${crypto.randomUUID()}`,
-              customLabel: '',
-              view:
-                definition.id === 'selected_event' ? 'events' : definition.kind === 'dimension' ? 'rows' : undefined,
-              filterOperator: definition.id === 'selected_event' ? 'equals' : undefined,
-            },
-          ]
-        : current.filter((column) => column.id !== definition.id),
-    )
+  const addColumn = (definition: ColumnDefinition) => {
+    setDraft((current) => [
+      ...current,
+      {
+        ...definition,
+        instanceId: `${definition.id}-${crypto.randomUUID()}`,
+        customLabel: '',
+        view: definition.id === 'selected_event' ? 'events' : definition.kind === 'dimension' ? 'rows' : undefined,
+        filterOperator: definition.id === 'selected_event' ? 'equals' : undefined,
+      },
+    ])
   }
 
   const handleApply = () => {
@@ -471,26 +474,25 @@ const ColumnDialog = ({ open, columns, websiteId, onApply, onClose }: ColumnDial
                     </Heading>
                     <div className="grid gap-2 sm:grid-cols-2">
                       {group.columns.map((column) => {
-                        const selected = draft.some((item) => item.id === column.id)
+                        const selectedCount = draft.filter((item) => item.id === column.id).length
                         return (
                           <button
                             type="button"
                             key={column.id}
-                            aria-pressed={selected}
-                            onClick={() => toggleColumn(column, !selected)}
-                            className={`flex w-full cursor-pointer gap-3 rounded-md border p-3 text-left ${
-                              selected
-                                ? 'border-[var(--ax-border-accent)] bg-[var(--ax-bg-accent-soft)]'
-                                : 'border-[var(--ax-border-neutral-subtle)]'
-                            }`}
+                            aria-label={`Legg til ${column.label}`}
+                            onClick={() => addColumn(column)}
+                            className="flex w-full cursor-pointer gap-3 rounded-md border border-[var(--ax-border-neutral-subtle)] p-3 text-left"
                           >
-                            {selected ? (
-                              <Check className="mt-0.5 shrink-0" aria-hidden />
-                            ) : (
-                              <Plus className="mt-0.5 shrink-0" aria-hidden />
-                            )}
+                            <Plus className="mt-0.5 shrink-0" aria-hidden />
                             <span>
-                              <span className="block text-sm font-semibold">{column.label}</span>
+                              <span className="block text-sm font-semibold">
+                                {column.label}
+                                {selectedCount > 0 && (
+                                  <span className="ml-2 font-normal text-[var(--ax-text-subtle)]">
+                                    {selectedCount} lagt til
+                                  </span>
+                                )}
+                              </span>
                               <span className="block text-xs text-[var(--ax-text-subtle)]">{column.description}</span>
                             </span>
                           </button>
@@ -571,6 +573,7 @@ const ColumnDialog = ({ open, columns, websiteId, onApply, onClose }: ColumnDial
                           </Select>
                         )}
                         {(column.kind === 'dimension' || (column.view && column.view !== 'rows')) &&
+                          !isGroupedShare(column, draft) &&
                           column.id !== 'url_path' &&
                           column.id !== 'event_name' && (
                             <div className="grid gap-2 sm:grid-cols-2">
