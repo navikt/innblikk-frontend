@@ -102,9 +102,30 @@ export const processDashboardSql = (sql: string, websiteId: string, filters: Fil
   const toSql = `TIMESTAMP('${format(endDate, 'yyyy-MM-dd')}T23:59:59', '${timezone}')`
 
   const projectId = getGcpProjectId()
-  const eventTableAlias = processedSql.match(
+  const SQL_KEYWORDS = new Set([
+    'WHERE',
+    'GROUP',
+    'ORDER',
+    'LIMIT',
+    'HAVING',
+    'JOIN',
+    'LEFT',
+    'RIGHT',
+    'INNER',
+    'OUTER',
+    'FULL',
+    'CROSS',
+    'ON',
+    'AND',
+    'OR',
+    'UNION',
+    'WINDOW',
+    'QUALIFY',
+  ])
+  const aliasCandidate = processedSql.match(
     /FROM\s+`[^`]+\.umami_views\.event`\s+(?:AS\s+)?([A-Za-z_][A-Za-z0-9_]*)/i,
   )?.[1]
+  const eventTableAlias = aliasCandidate && !SQL_KEYWORDS.has(aliasCandidate.toUpperCase()) ? aliasCandidate : undefined
   const eventDateColumn = eventTableAlias
     ? `${eventTableAlias}.created_at`
     : `\`${projectId}.umami_views.event\`.created_at`
