@@ -37,7 +37,7 @@ import type { JsonValue, Row } from '../../sql/model/types.ts'
 import { getUniqueColumnAliases, quoteBigQueryIdentifier } from '../utils/columnAliases.ts'
 
 type ColumnKind = 'dimension' | 'metric'
-type ColumnView = 'rows' | 'events' | 'visitors' | 'share'
+type ColumnView = 'rows' | 'events' | 'visitors' | 'share' | 'visitor-share'
 type DimensionOperator = 'all' | 'equals' | 'not-equals' | 'contains' | 'not-contains'
 
 type ColumnDefinition = {
@@ -101,7 +101,7 @@ const COLUMN_GROUPS: Array<{ title: string; columns: ColumnDefinition[] }> = [
     columns: [
       {
         id: 'visitors',
-        label: 'Unike besøkende',
+        label: 'Antall unike besøkende',
         description: 'Unike personer i hver rad',
         kind: 'metric',
         expression: "APPROX_COUNT_DISTINCT(COALESCE(NULLIF(e.session_distinct_id, ''), CAST(e.session_id AS STRING)))",
@@ -109,7 +109,7 @@ const COLUMN_GROUPS: Array<{ title: string; columns: ColumnDefinition[] }> = [
       },
       {
         id: 'visits',
-        label: 'Totalt antall besøk',
+        label: 'Totalt antall besøk (økter)',
         description: 'Unike besøk i hver rad',
         kind: 'metric',
         expression: 'APPROX_COUNT_DISTINCT(e.visit_id)',
@@ -226,11 +226,12 @@ const columnViewOptions = (column: SelectedColumn): Array<{ value: ColumnView; l
   }
   const eventOption = {
     value: 'events' as const,
-    label: column.id === 'selected_event' ? 'Totalt antall hendelser' : 'Totalt antall besøk',
+    label: column.id === 'selected_event' ? 'Totalt antall hendelser' : 'Totalt antall besøk (økter)',
   }
   const remainingOptions: Array<{ value: ColumnView; label: string }> = [
-    { value: 'visitors', label: 'Unike besøkende' },
-    { value: 'share', label: 'Andel av besøkene' },
+    { value: 'visitors', label: 'Antall unike besøkende' },
+    { value: 'visitor-share', label: 'Andel av unike besøkende' },
+    { value: 'share', label: 'Andel av besøk (økter)' },
   ]
   if (column.id === 'selected_event') return [eventOption, ...remainingOptions]
   return [rowOption, eventOption, ...remainingOptions]
@@ -255,15 +256,19 @@ const suggestibleDimensions = [
 const supportsMetricViews = (column: SelectedColumn) =>
   column.id === 'selected_event' || (suggestibleDimensions.some((id) => id === column.id) && column.id !== 'event_name')
 
+const isShareView = (column: SelectedColumn) => column.view === 'share' || column.view === 'visitor-share'
+
 const escapeSqlString = (value: string) => value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
 
 const isGroupedShare = (column: SelectedColumn, columns: SelectedColumn[]) =>
-  column.view === 'share' &&
+  isShareView(column) &&
   columns.some((item) => item.instanceId !== column.instanceId && item.id === column.id && item.view === 'rows')
 
 const getColumnExpression = (column: SelectedColumn, columns: SelectedColumn[]) => {
   if (isGroupedShare(column, columns)) {
-    return 'SAFE_DIVIDE(APPROX_COUNT_DISTINCT(e.visit_id), SUM(APPROX_COUNT_DISTINCT(e.visit_id)) OVER ())'
+    const visitorId = "COALESCE(NULLIF(e.session_distinct_id, ''), CAST(e.session_id AS STRING))"
+    const entityId = column.view === 'visitor-share' ? visitorId : 'e.visit_id'
+    return `SAFE_DIVIDE(APPROX_COUNT_DISTINCT(${entityId}), SUM(APPROX_COUNT_DISTINCT(${entityId})) OVER ())`
   }
   if (column.view && column.view !== 'rows') {
     const value = escapeSqlString(column.filterValue?.trim() ?? '')
@@ -277,8 +282,12 @@ const getColumnExpression = (column: SelectedColumn, columns: SelectedColumn[]) 
     const condition = column.id === 'selected_event' ? `e.event_type = 2 AND ${match}` : match
     const visitorId = "COALESCE(NULLIF(e.session_distinct_id, ''), CAST(e.session_id AS STRING))"
     const visits = `APPROX_COUNT_DISTINCT(IF(${condition}, e.visit_id, NULL))`
+    const visitors = `APPROX_COUNT_DISTINCT(IF(${condition}, ${visitorId}, NULL))`
     if (column.view === 'events') return column.id === 'selected_event' ? `COUNTIF(${condition})` : visits
     if (column.view === 'share') return `SAFE_DIVIDE(${visits}, APPROX_COUNT_DISTINCT(e.visit_id))`
+    if (column.view === 'visitor-share') {
+      return `SAFE_DIVIDE(${visitors}, APPROX_COUNT_DISTINCT(${visitorId}))`
+    }
     return `APPROX_COUNT_DISTINCT(IF(${condition}, ${visitorId}, NULL))`
   }
   return column.expression
@@ -313,7 +322,9 @@ const buildSql = (
       )
       .map((column) => column.id),
   )
-  if (columns.some((column) => column.id === 'visitors' || column.view === 'visitors')) {
+  if (
+    columns.some((column) => column.id === 'visitors' || column.view === 'visitors' || column.view === 'visitor-share')
+  ) {
     sessionFields.add('distinct_id')
   }
   const needsSession = sessionFields.size > 0
@@ -377,7 +388,7 @@ ${detailQuery}${orderBy}`
 
 const formatCell = (value: JsonValue | undefined, column: SelectedColumn) => {
   if (value == null || value === '') return '–'
-  if (typeof value === 'number' && column.view === 'share') return percentFormatter.format(value)
+  if (typeof value === 'number' && isShareView(column)) return percentFormatter.format(value)
   if (typeof value === 'number') return numberFormatter.format(value)
   if (typeof value === 'object') return JSON.stringify(value)
   return String(value)
@@ -425,7 +436,8 @@ const ColumnDialog = ({ open, columns, websiteId, onApply, onClose }: ColumnDial
         ...definition,
         instanceId: `${definition.id}-${crypto.randomUUID()}`,
         customLabel: '',
-        view: definition.id === 'selected_event' ? 'events' : definition.kind === 'dimension' ? 'rows' : undefined,
+        view:
+          definition.id === 'selected_event' ? 'visitor-share' : definition.kind === 'dimension' ? 'rows' : undefined,
         filterOperator: definition.id === 'selected_event' ? 'equals' : undefined,
       },
     ])
