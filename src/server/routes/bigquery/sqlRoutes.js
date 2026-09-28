@@ -1,7 +1,24 @@
 import express from 'express'
 import { addAuditLogging } from '../../bigquery/audit.js'
-import { requireBigQuery, getNavIdent, getDryRunStats, MAX_BYTES_BILLED } from './helpers.js'
+import { requireBigQuery, getNavIdent, MAX_BYTES_BILLED } from './helpers.js'
 import { logger } from '../../logger.js'
+
+const BIGQUERY_PRICE_PER_TIB_USD = 6.25
+
+export function getCompletedQueryStats(metadata) {
+  const totalBytesProcessed = Number(metadata?.statistics?.totalBytesProcessed || 0)
+  const cacheHit = metadata?.statistics?.query?.cacheHit === true
+  const totalBytesBilled = cacheHit ? 0 : Number(metadata?.statistics?.query?.totalBytesBilled || totalBytesProcessed)
+  const estimatedCost = (totalBytesBilled / 1024 ** 4) * BIGQUERY_PRICE_PER_TIB_USD
+
+  return {
+    totalBytesProcessed,
+    totalBytesBilled,
+    totalBytesProcessedGB: (totalBytesProcessed / 1024 ** 3).toFixed(2),
+    estimatedCostUSD: estimatedCost.toFixed(3),
+    cacheHit,
+  }
+}
 
 // SQL statements that are forbidden in user-submitted queries.
 // Matched against the normalised (comment-free, uppercased) query text.
@@ -108,15 +125,19 @@ export function createSqlRouter({ bigquery }) {
       )
 
       const [rows] = await job.getQueryResults()
+      const [metadata] = await job.getMetadata()
+      const queryStats = getCompletedQueryStats(metadata)
+      const processedGB = (queryStats.totalBytesProcessed / 1024 ** 3).toFixed(1)
+      const estimatedCost = Number(queryStats.estimatedCostUSD).toFixed(2)
 
-      const queryStats = await getDryRunStats(
-        bigquery,
+      logger.info(
         {
-          query,
-          navIdent,
           analysisType: analysisType || 'Sqlverktoy',
+          totalBytesProcessed: queryStats.totalBytesProcessed,
+          totalBytesBilled: queryStats.totalBytesBilled,
+          cacheHit: queryStats.cacheHit,
         },
-        addAuditLogging,
+        `Data prosessert: ${processedGB} GB • Kostnad: $${estimatedCost}`,
       )
 
       res.json({

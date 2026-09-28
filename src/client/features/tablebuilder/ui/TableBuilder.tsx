@@ -217,7 +217,6 @@ const percentFormatter = new Intl.NumberFormat('nb-NO', {
   minimumFractionDigits: 1,
   maximumFractionDigits: 2,
 })
-const defaultRowLimit = 1000
 const rowsPerPage = 25
 const skeletonBodyRowCount = 6
 const columnViewOptions = (column: SelectedColumn): Array<{ value: ColumnView; label: string }> => {
@@ -301,7 +300,6 @@ const buildSql = (
   columns: SelectedColumn[],
   urlPaths: string[],
   pathOperator: string,
-  fetchAllRows = false,
   useDashboardFilters = false,
 ) => {
   const projectId = getGcpProjectId()
@@ -374,7 +372,7 @@ FROM source e${groupBy}`
   ${sessionJoin}
   WHERE e.website_id = '${escapeSqlString(websiteId)}'${dateFilter}${urlFilter}${columnFilter}
 )
-${detailQuery}${orderBy}${fetchAllRows ? '' : `\nLIMIT ${defaultRowLimit}`}`
+${detailQuery}${orderBy}`
 }
 
 const formatCell = (value: JsonValue | undefined, column: SelectedColumn) => {
@@ -735,7 +733,6 @@ const TableBuilder = () => {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
   const [loading, setLoading] = useState(false)
   const [hasRun, setHasRun] = useState(false)
-  const [hasFetchedAllRows, setHasFetchedAllRows] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [lastSql, setLastSql] = useState('')
   const [showAddToDashboardDialog, setShowAddToDashboardDialog] = useState(false)
@@ -751,7 +748,6 @@ const TableBuilder = () => {
           columns,
           urlPaths,
           pathOperator,
-          hasFetchedAllRows,
           true,
         )
       : ''
@@ -761,51 +757,46 @@ const TableBuilder = () => {
     savePeriodPreference(value)
   }
 
-  const runTable = useCallback(
-    async (fetchAllRows = false) => {
-      if (!selectedWebsite || columns.length === 0) return
-      const range = getDateRangeFromPeriod(period, startDate, endDate)
-      if (!range) {
-        setError('Velg en gyldig periode.')
-        return
-      }
+  const runTable = useCallback(async () => {
+    if (!selectedWebsite || columns.length === 0) return
+    const range = getDateRangeFromPeriod(period, startDate, endDate)
+    if (!range) {
+      setError('Velg en gyldig periode.')
+      return
+    }
 
-      setLoading(true)
-      setError(null)
-      setHasRun(true)
-      setPage(1)
-      try {
-        const sql = buildSql(
-          selectedWebsite.id,
-          range.startDate,
-          range.endDate,
-          columns,
-          urlPaths.map(normalizeUrlToPath).filter(Boolean),
-          pathOperator,
-          fetchAllRows,
-        )
-        setLastSql(sql)
-        const response = await fetch('/api/bigquery', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: sql,
-            analysisType: 'Tabellbygger',
-          }),
-        })
-        const result = (await response.json()) as { data?: Row[]; error?: string }
-        if (!response.ok) throw new Error(result.error || 'Kunne ikke lage tabellen')
-        setRows(result.data ?? [])
-        setHasFetchedAllRows(fetchAllRows)
-      } catch (caughtError: unknown) {
-        setRows([])
-        setError(caughtError instanceof Error ? caughtError.message : 'Kunne ikke lage tabellen')
-      } finally {
-        setLoading(false)
-      }
-    },
-    [selectedWebsite, columns, period, startDate, endDate, urlPaths, pathOperator],
-  )
+    setLoading(true)
+    setError(null)
+    setHasRun(true)
+    setPage(1)
+    try {
+      const sql = buildSql(
+        selectedWebsite.id,
+        range.startDate,
+        range.endDate,
+        columns,
+        urlPaths.map(normalizeUrlToPath).filter(Boolean),
+        pathOperator,
+      )
+      setLastSql(sql)
+      const response = await fetch('/api/bigquery', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: sql,
+          analysisType: 'Tabellbygger',
+        }),
+      })
+      const result = (await response.json()) as { data?: Row[]; error?: string }
+      if (!response.ok) throw new Error(result.error || 'Kunne ikke lage tabellen')
+      setRows(result.data ?? [])
+    } catch (caughtError: unknown) {
+      setRows([])
+      setError(caughtError instanceof Error ? caughtError.message : 'Kunne ikke lage tabellen')
+    } finally {
+      setLoading(false)
+    }
+  }, [selectedWebsite, columns, period, startDate, endDate, urlPaths, pathOperator])
 
   useEffect(() => {
     if (!selectedWebsite || columns.length === 0) return
@@ -815,7 +806,6 @@ const TableBuilder = () => {
   }, [selectedWebsite, columns, period, startDate, endDate, urlPaths, pathOperator, runTable])
 
   const resultRows = rows
-  const hasReachedRowLimit = !hasFetchedAllRows && resultRows.length >= defaultRowLimit
   const normalizedSearch = searchText.trim().toLocaleLowerCase('nb')
   const filteredRows = normalizedSearch
     ? resultRows.filter((row) =>
@@ -910,17 +900,8 @@ const TableBuilder = () => {
                   <div className="flex flex-wrap items-center gap-2">
                     <BodyShort size="small" className="flex items-center gap-2 text-[var(--ax-text-subtle)]">
                       {loading && <Loader size="xsmall" title="Henter data" />}
-                      {loading
-                        ? 'Henter data …'
-                        : hasReachedRowLimit
-                          ? `Viser de første ${numberFormatter.format(defaultRowLimit)} radene`
-                          : `${numberFormatter.format(resultRows.length)} rader`}
+                      {loading ? 'Henter data …' : `${numberFormatter.format(resultRows.length)} rader`}
                     </BodyShort>
-                    {!loading && hasReachedRowLimit && (
-                      <Button variant="secondary" size="xsmall" onClick={() => void runTable(true)}>
-                        Hent alle rader
-                      </Button>
-                    )}
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -1076,7 +1057,6 @@ const TableBuilder = () => {
           onApply={(nextColumns) => {
             setColumns(nextColumns)
             setRows([])
-            setHasFetchedAllRows(false)
             setPage(1)
             setHasRun(false)
             setDialogOpen(false)
