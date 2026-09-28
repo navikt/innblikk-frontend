@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { processDashboardSql, supportsMetricTypeSelection } from './queryUtils.ts'
 
 const filters = {
@@ -9,6 +9,8 @@ const filters = {
 }
 
 describe('processDashboardSql', () => {
+  afterEach(() => vi.useRealTimers())
+
   it('applies dashboard URL and period filters to aliased event queries', () => {
     const sql = `
       SELECT e.url_path
@@ -25,6 +27,18 @@ describe('processDashboardSql', () => {
     expect(result).toContain("AND e.url_path = '/aktuelt'")
     expect(result).not.toContain('{{created_at}}')
     expect(result).not.toContain('{{url_sti}}')
+  })
+
+  it('uses seven completed days and excludes today', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 8, 28, 12, 0, 0))
+    const sql = `SELECT * FROM \`project.umami_views.event\` e WHERE 1 = 1 [[AND {{created_at}} ]]`
+
+    const result = processDashboardSql(sql, 'website-1', filters)
+
+    expect(result).toContain("TIMESTAMP('2026-09-21', 'Europe/Oslo')")
+    expect(result).toContain("TIMESTAMP('2026-09-27T23:59:59', 'Europe/Oslo')")
+    expect(result).not.toContain('2026-09-28')
   })
 })
 

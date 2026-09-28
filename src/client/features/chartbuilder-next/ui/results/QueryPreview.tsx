@@ -18,7 +18,8 @@ import {
 import { Copy, ExternalLink } from 'lucide-react'
 import { ArrowCirclepathReverseIcon } from '@navikt/aksel-icons'
 import type { ILineChartProps, IVerticalBarChartProps } from '@fluentui/react-charting'
-import { subDays, format, isEqual, startOfWeek, startOfMonth } from 'date-fns'
+import { format, isEqual } from 'date-fns'
+import { getDateRangeFromPeriod } from '../../../../shared/lib/utils.ts'
 import AlertWithCloseButton from '../grafbygger/AlertWithCloseButton.tsx'
 import ResultsPanel from './ResultsPanel.tsx'
 import { translateValue } from '../../../../shared/lib/translations.ts'
@@ -89,34 +90,8 @@ type DatePreset =
 const DEFAULT_DATE_PRESET: DatePreset = 'last_7_days'
 
 const getDateRangeFromPreset = (preset: DatePreset): { from: Date; to: Date } => {
-  const now = new Date()
-
-  switch (preset) {
-    case 'today':
-      return { from: now, to: now }
-    case 'yesterday': {
-      const yesterday = subDays(now, 1)
-      return { from: yesterday, to: yesterday }
-    }
-    case 'this_week':
-      return { from: startOfWeek(now, { weekStartsOn: 1 }), to: now }
-    case 'last_week': {
-      const startThisWeek = startOfWeek(now, { weekStartsOn: 1 })
-      return { from: subDays(startThisWeek, 7), to: subDays(startThisWeek, 1) }
-    }
-    case 'last_28_days':
-      return { from: subDays(now, 28), to: now }
-    case 'current_month':
-      return { from: startOfMonth(now), to: now }
-    case 'last_month':
-      return {
-        from: new Date(now.getFullYear(), now.getMonth() - 1, 1),
-        to: new Date(now.getFullYear(), now.getMonth(), 0),
-      }
-    case 'last_7_days':
-    default:
-      return { from: subDays(now, 7), to: now }
-  }
+  const range = getDateRangeFromPeriod(preset) ?? getDateRangeFromPeriod(DEFAULT_DATE_PRESET)!
+  return { from: range.startDate, to: range.endDate }
 }
 
 const API_TIMEOUT_MS = 60000 // timeout

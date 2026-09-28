@@ -866,7 +866,7 @@ export const generateSQLCore = (
     if (field === 'created_at') {
       const format =
         DATE_FORMATS.find((f: { value: string; format: string }) => f.value === config.dateFormat)?.format || '%Y-%m-%d'
-      groupingSelectClauses.push(`FORMAT_TIMESTAMP('${format}', base_query.created_at) AS dato`)
+      groupingSelectClauses.push(`FORMAT_TIMESTAMP('${format}', base_query.created_at, 'Europe/Oslo') AS dato`)
     } else if (field.startsWith('param_')) {
       const paramBase = field.replace('param_', '')
       const matchingParams = parameters.filter((p) => {

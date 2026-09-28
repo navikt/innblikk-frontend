@@ -1,10 +1,10 @@
 import { Alert, BodyLong, Loader, TextField, Button } from '@navikt/ds-react'
-import { subDays } from 'date-fns'
 import ChartLayout from '../../analysis/ui/ChartLayoutOriginal.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
 import ResultsPanel from './results/ResultsPanel.tsx'
 import { useGrafdeling } from '../hooks/useGrafdeling.ts'
+import { getDateRangeFromPeriod } from '../../../shared/lib/utils.ts'
 
 export default function Grafdeling() {
   const {
@@ -118,17 +118,8 @@ export default function Grafdeling() {
           onPeriodChange={(p) => {
             setPeriod(p)
             if (p !== 'custom') {
-              const now = new Date()
-              if (p === 'current_month') {
-                setDateRange({ from: new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1)), to: now })
-              } else if (p === 'last_month') {
-                setDateRange({
-                  from: new Date(now.getFullYear(), now.getMonth() - 1, 1),
-                  to: new Date(now.getFullYear(), now.getMonth(), 0),
-                })
-              } else {
-                setDateRange({ from: subDays(now, 30), to: now })
-              }
+              const range = getDateRangeFromPeriod(p)
+              if (range) setDateRange({ from: range.startDate, to: range.endDate })
             }
           }}
           onStartDateChange={(date) => setDateRange((prev) => ({ ...prev, from: date }))}

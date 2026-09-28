@@ -1,4 +1,5 @@
-import { endOfMonth, endOfWeek, format, startOfMonth, startOfWeek, subDays, subMonths, subWeeks } from 'date-fns'
+import { format } from 'date-fns'
+import { getDateRangeFromPeriod } from '../../../shared/lib/utils.ts'
 import { getGcpProjectId } from '../../../shared/lib/runtimeConfig'
 
 interface FilterState {
@@ -92,57 +93,10 @@ export const processDashboardSql = (sql: string, websiteId: string, filters: Fil
   }
 
   // 3. Substitute Date / Created At
-  const now = new Date()
-  let startDate: Date
-  let endDate = now
-
-  if (filters.dateRange === 'custom' && filters.customStartDate && filters.customEndDate) {
-    startDate = filters.customStartDate
-    endDate = filters.customEndDate
-  } else {
-    switch (filters.dateRange) {
-      case 'today':
-        startDate = now
-        endDate = now
-        break
-      case 'yesterday':
-        startDate = subDays(now, 1)
-        endDate = subDays(now, 1)
-        break
-      case 'this_week':
-        startDate = startOfWeek(now, { weekStartsOn: 1 })
-        endDate = now
-        break
-      case 'last_7_days':
-        startDate = subDays(now, 6)
-        endDate = now
-        break
-      case 'last_week': {
-        const lastWeekDate = subWeeks(now, 1)
-        startDate = startOfWeek(lastWeekDate, { weekStartsOn: 1 })
-        endDate = endOfWeek(lastWeekDate, { weekStartsOn: 1 })
-        break
-      }
-      case 'last_28_days':
-        startDate = subDays(now, 27)
-        endDate = now
-        break
-      case 'current_month':
-        startDate = startOfMonth(now)
-        endDate = now
-        break
-      case 'last_month': {
-        const lastMonthDate = subMonths(now, 1)
-        startDate = startOfMonth(lastMonthDate)
-        endDate = endOfMonth(lastMonthDate)
-        break
-      }
-      default:
-        startDate = subDays(now, 30)
-        endDate = now
-        break
-    }
-  }
+  const range =
+    getDateRangeFromPeriod(filters.dateRange, filters.customStartDate, filters.customEndDate) ??
+    getDateRangeFromPeriod('last_28_days')!
+  const { startDate, endDate } = range
 
   const fromSql = `TIMESTAMP('${format(startDate, 'yyyy-MM-dd')}', '${timezone}')`
   const toSql = `TIMESTAMP('${format(endDate, 'yyyy-MM-dd')}T23:59:59', '${timezone}')`
