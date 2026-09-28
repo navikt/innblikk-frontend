@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react'
 import type { ILineChartProps } from '@fluentui/react-charting'
 import type { QueryStats } from '../../../shared/types/queryStats'
+import type { Sidegroup } from '../../sidegroups/model/types.ts'
 
 // ===== BrokenLinks types =====
 
@@ -285,6 +286,11 @@ export interface UrlPathFilterProps {
   showSuggestions?: boolean
   isMultiSelect?: boolean
   className?: string
+  /** Website id used to look up sidegrupper. Only relevant when `onSidegroupChange` is set. */
+  selectedWebsiteId?: string
+  /** Currently selected sidegruppe, if any. Enables the "Sidegruppe" picker when provided together with `onSidegroupChange`. */
+  sidegroup?: Sidegroup | null
+  onSidegroupChange?: (sidegroup: Sidegroup | null) => void
 }
 
 export interface PendingSwitchData {

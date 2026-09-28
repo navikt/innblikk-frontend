@@ -1,4 +1,6 @@
 import type { SeriesResponse, BreakdownResponse, PageMetricsResponse, ExternalReferrerResponse } from '../model/types'
+import type { Sidegroup } from '../../sidegroups/model/types.ts'
+import { buildSidegroupQueryParams } from '../../../shared/lib/sidegroupQueryParams.ts'
 
 type CountByParams = {
   countByParams: string
@@ -14,9 +16,12 @@ export const buildSeriesUrl = (
   interval: string,
   normalizedPath: string,
   countByQueryParams: CountByParams,
+  sidegroup?: Sidegroup | null,
 ): string => {
   let url = `/api/bigquery/websites/${websiteId}/traffic-series?startAt=${rangeStartDate.getTime()}&endAt=${rangeEndDate.getTime()}&pathOperator=${pathOperator}&metricType=${metricType}&interval=${interval}${countByQueryParams.countByParams}${countByQueryParams.countBySwitchAtParam}`
-  if (normalizedPath) {
+  if (sidegroup) {
+    url += buildSidegroupQueryParams(sidegroup)
+  } else if (normalizedPath) {
     url += `&urlPath=${encodeURIComponent(normalizedPath)}`
   }
   return url
@@ -42,8 +47,14 @@ export const fetchTrafficBreakdown = async (
   pathOperator: string,
   metricType: string,
   countByParams: CountByParams,
+  sidegroup?: Sidegroup | null,
 ): Promise<BreakdownResponse> => {
-  const breakdownUrl = `/api/bigquery/websites/${websiteId}/traffic-breakdown?startAt=${startDate.getTime()}&endAt=${endDate.getTime()}&limit=1000${normalizedPath ? `&urlPath=${encodeURIComponent(normalizedPath)}` : ''}&pathOperator=${pathOperator}&metricType=${metricType}${countByParams.countByParams}${countByParams.countBySwitchAtParam}`
+  const pathParams = sidegroup
+    ? buildSidegroupQueryParams(sidegroup)
+    : normalizedPath
+      ? `&urlPath=${encodeURIComponent(normalizedPath)}`
+      : ''
+  const breakdownUrl = `/api/bigquery/websites/${websiteId}/traffic-breakdown?startAt=${startDate.getTime()}&endAt=${endDate.getTime()}&limit=1000${pathParams}&pathOperator=${pathOperator}&metricType=${metricType}${countByParams.countByParams}${countByParams.countBySwitchAtParam}`
 
   const response = await fetch(breakdownUrl)
   if (!response.ok) throw new Error('Kunne ikke hente trafikkdetaljer')
@@ -58,13 +69,15 @@ export const fetchPageMetrics = async (
   pathOperator: string,
   metricType: string,
   countByParams: CountByParams,
-  options: { unlimited?: boolean; eventNames?: string[] } = {},
+  options: { unlimited?: boolean; eventNames?: string[]; sidegroup?: Sidegroup | null } = {},
 ): Promise<PageMetricsResponse> => {
-  const pathParams = Array.isArray(normalizedPath)
-    ? normalizedPath.map((path) => `&urlPaths=${encodeURIComponent(path)}`).join('')
-    : normalizedPath
-      ? `&urlPath=${encodeURIComponent(normalizedPath)}`
-      : ''
+  const pathParams = options.sidegroup
+    ? buildSidegroupQueryParams(options.sidegroup)
+    : Array.isArray(normalizedPath)
+      ? normalizedPath.map((path) => `&urlPaths=${encodeURIComponent(path)}`).join('')
+      : normalizedPath
+        ? `&urlPath=${encodeURIComponent(normalizedPath)}`
+        : ''
   const limitParam = options.unlimited ? '&unlimited=true' : '&limit=1000'
   const eventParams = options.eventNames?.map((name) => `&eventName=${encodeURIComponent(name)}`).join('') ?? ''
   const metricsUrl = `/api/bigquery/websites/${websiteId}/page-metrics?startAt=${startDate.getTime()}&endAt=${endDate.getTime()}${limitParam}${pathParams}${eventParams}&pathOperator=${pathOperator}&metricType=${metricType}${countByParams.countByParams}${countByParams.countBySwitchAtParam}`
@@ -82,8 +95,14 @@ export const fetchExternalReferrers = async (
   pathOperator: string,
   metricType: string,
   countByParams: CountByParams,
+  sidegroup?: Sidegroup | null,
 ): Promise<ExternalReferrerResponse> => {
-  const url = `/api/bigquery/websites/${websiteId}/marketing-stats?startAt=${startDate.getTime()}&endAt=${endDate.getTime()}&limit=100${normalizedPath ? `&urlPath=${encodeURIComponent(normalizedPath)}` : ''}&pathOperator=${pathOperator}&metricType=${metricType}${countByParams.countByParams}${countByParams.countBySwitchAtParam}`
+  const pathParams = sidegroup
+    ? buildSidegroupQueryParams(sidegroup)
+    : normalizedPath
+      ? `&urlPath=${encodeURIComponent(normalizedPath)}`
+      : ''
+  const url = `/api/bigquery/websites/${websiteId}/marketing-stats?startAt=${startDate.getTime()}&endAt=${endDate.getTime()}&limit=100${pathParams}&pathOperator=${pathOperator}&metricType=${metricType}${countByParams.countByParams}${countByParams.countBySwitchAtParam}`
 
   const response = await fetch(url)
   if (!response.ok) throw new Error('Kunne ikke hente eksterne trafikkilder')

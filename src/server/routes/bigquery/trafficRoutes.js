@@ -1,6 +1,12 @@
 import express from 'express'
 import { addAuditLogging, getAnalysisTypeOverride } from '../../bigquery/audit.js'
-import { MAX_BYTES_BILLED, normalizeUrlSql, buildTimeSeriesBucketSql } from './helpers.js'
+import {
+  MAX_BYTES_BILLED,
+  normalizeUrlSql,
+  buildTimeSeriesBucketSql,
+  parseSidegroupFilterFromRequest,
+  buildSidegroupClause,
+} from './helpers.js'
 import { logger } from '../../logger.js'
 
 export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE }) {
@@ -64,7 +70,12 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
       let urlFilter = ''
       let urlFilterCondition = 'FALSE' // Default for proportion if no path (shouldn't happen if validated)
 
-      if (urlPath) {
+      const sidegroupFilter = parseSidegroupFilterFromRequest(req.query)
+      if (sidegroupFilter) {
+        const condition = buildSidegroupClause(sidegroupFilter, `${col}url_path`, params)
+        urlFilter = `AND ${condition}`
+        urlFilterCondition = condition
+      } else if (urlPath) {
         if (pathOperator === 'starts-with') {
           const condition = `LOWER(${col}url_path) LIKE @urlPathPattern`
           urlFilter = `AND ${condition}`
@@ -595,7 +606,12 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
           OR ${col}url_path LIKE @urlPathQuery${index}
         )`
       })
-      const urlFilter = urlPathFilters.length ? `AND (${urlPathFilters.join(' OR ')})` : ''
+      const sidegroupFilter = parseSidegroupFilterFromRequest(req.query)
+      const urlFilter = sidegroupFilter
+        ? `AND ${buildSidegroupClause(sidegroupFilter, `${col}url_path`, params)}`
+        : urlPathFilters.length
+          ? `AND (${urlPathFilters.join(' OR ')})`
+          : ''
       const limitClause = isUnlimited ? '' : 'LIMIT @limit'
       const eventStatsCte = eventNames.length
         ? `,
@@ -751,7 +767,10 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
       let condition = 'url_path = @urlPath'
       params.urlPath = urlPath || '/' // Default to root if missing, though typically required
 
-      if (urlPath) {
+      const sidegroupFilter = parseSidegroupFilterFromRequest(req.query)
+      if (sidegroupFilter) {
+        condition = buildSidegroupClause(sidegroupFilter, 'url_path', params)
+      } else if (urlPath) {
         if (pathOperator === 'starts-with') {
           condition = 'LOWER(url_path) LIKE @urlPathPattern'
           params.urlPathPattern = urlPath.toLowerCase() + '%'
@@ -947,7 +966,10 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
       }
 
       let urlFilter = ''
-      if (urlPath) {
+      const sidegroupFilter = parseSidegroupFilterFromRequest(req.query)
+      if (sidegroupFilter) {
+        urlFilter = `AND ${buildSidegroupClause(sidegroupFilter, 'url_path', params)}`
+      } else if (urlPath) {
         if (pathOperator === 'starts-with') {
           urlFilter = `AND LOWER(url_path) LIKE @urlPathPattern`
           params.urlPathPattern = urlPath.toLowerCase() + '%'

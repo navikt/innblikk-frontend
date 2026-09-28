@@ -152,6 +152,9 @@ const Oversikt = () => {
     setTempPathOperator,
     tempUrlPaths,
     setTempUrlPaths,
+    tempSidegroup,
+    setTempSidegroup,
+    sidegroups,
     tempDateRange,
     setTempDateRange,
     tempCustomStartDate,
@@ -1605,15 +1608,41 @@ const Oversikt = () => {
                 {!hidePathOperatorChoice && (
                   <select
                     className="text-sm bg-[var(--ax-bg-default)] border border-[var(--ax-border-neutral-subtle)] rounded text-[var(--ax-text-accent)] font-medium cursor-pointer focus:outline-none py-1 px-2"
-                    value={tempPathOperator}
-                    onChange={(e) => setTempPathOperator(e.target.value)}
+                    value={tempSidegroup ? 'sidegroup' : tempPathOperator}
+                    onChange={(e) => {
+                      const nextOperator = e.target.value
+                      if (nextOperator !== 'sidegroup') setTempSidegroup(null)
+                      setTempPathOperator(nextOperator)
+                    }}
                   >
                     <option value="equals">er lik</option>
                     <option value="starts-with">starter med</option>
+                    {!usePreselectedPathFilter && sidegroups.length > 0 && (
+                      <option value="sidegroup">tilhører sidegruppe</option>
+                    )}
                   </select>
                 )}
               </div>
-              {usePreselectedPathFilter ? (
+              {tempSidegroup || (tempPathOperator === 'sidegroup' && sidegroups.length > 0) ? (
+                <Select
+                  label="Sidegruppe"
+                  hideLabel
+                  size="small"
+                  value={tempSidegroup ? String(tempSidegroup.id) : ''}
+                  onChange={(e) => {
+                    const match = sidegroups.find((group) => String(group.id) === e.target.value) ?? null
+                    setTempSidegroup(match)
+                    setTempUrlPaths([])
+                  }}
+                >
+                  <option value="">Velg sidegruppe</option>
+                  {sidegroups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </Select>
+              ) : usePreselectedPathFilter ? (
                 <Select
                   label="URL-stier"
                   hideLabel

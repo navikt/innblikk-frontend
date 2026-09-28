@@ -131,6 +131,53 @@ export function normalizeUrlQuerySql(column = 'url_query') {
 }
 
 /**
+ * Reads a sidegruppe's match rules off `req.query`/`req.body` (repeated
+ * `sidegroup<Field>` params, e.g. `sidegroupInclude`, `sidegroupExact`).
+ * Returns null if none are present.
+ */
+export function parseSidegroupFilterFromRequest(source) {
+  const toArray = (v) => (v === undefined ? [] : Array.isArray(v) ? v : [v])
+  const include = toArray(source.sidegroupInclude)
+  const exclude = toArray(source.sidegroupExclude)
+  const exact = toArray(source.sidegroupExact)
+  const startWith = toArray(source.sidegroupStartWith)
+  const endWith = toArray(source.sidegroupEndWith)
+  if (!include.length && !exclude.length && !exact.length && !startWith.length && !endWith.length) return null
+  return { include, exclude, exact, startWith, endWith }
+}
+
+/**
+ * Builds a parameterized boolean SQL expression matching `columnExpr` against a
+ * sidegruppe's include/exact/startWith/endWith rules (OR-ed together), minus its
+ * exclude rules. Mutates `params` with the query parameters it introduces.
+ */
+export function buildSidegroupClause(sidegroupFilter, columnExpr, params, paramPrefix = 'sg') {
+  const positiveClauses = []
+  const addLikeClause = (key, pattern) => {
+    params[key] = pattern
+    positiveClauses.push(`LOWER(${columnExpr}) LIKE LOWER(@${key})`)
+  }
+
+  sidegroupFilter.include.forEach((pattern, i) => addLikeClause(`${paramPrefix}Include${i}`, `%${pattern}%`))
+  sidegroupFilter.startWith.forEach((pattern, i) => addLikeClause(`${paramPrefix}StartWith${i}`, `${pattern}%`))
+  sidegroupFilter.endWith.forEach((pattern, i) => addLikeClause(`${paramPrefix}EndWith${i}`, `%${pattern}`))
+  sidegroupFilter.exact.forEach((pattern, i) => {
+    const key = `${paramPrefix}Exact${i}`
+    params[key] = pattern
+    positiveClauses.push(`LOWER(${columnExpr}) = LOWER(@${key})`)
+  })
+
+  const excludeClauses = sidegroupFilter.exclude.map((pattern, i) => {
+    const key = `${paramPrefix}Exclude${i}`
+    params[key] = `%${pattern}%`
+    return `LOWER(${columnExpr}) NOT LIKE LOWER(@${key})`
+  })
+
+  const positive = positiveClauses.length > 0 ? `(${positiveClauses.join(' OR ')})` : 'TRUE'
+  return `(${[positive, ...excludeClauses].join(' AND ')})`
+}
+
+/**
  * Builds timezone-safe bucket expressions for time-series queries
  * (event-series, traffic-series). Shared by eventRoutes.js and trafficRoutes.js
  * so the bucketing logic — and any fix to it — lives in exactly one place.
