@@ -109,7 +109,7 @@ const COLUMN_GROUPS: Array<{ title: string; columns: ColumnDefinition[] }> = [
       },
       {
         id: 'visits',
-        label: 'Totalt antall besøk (økter)',
+        label: 'Totalt antall besøk',
         description: 'Unike besøk i hver rad',
         kind: 'metric',
         expression: 'APPROX_COUNT_DISTINCT(e.visit_id)',
@@ -226,12 +226,12 @@ const columnViewOptions = (column: SelectedColumn): Array<{ value: ColumnView; l
   }
   const eventOption = {
     value: 'events' as const,
-    label: column.id === 'selected_event' ? 'Totalt antall hendelser' : 'Totalt antall besøk (økter)',
+    label: column.id === 'selected_event' ? 'Totalt antall hendelser' : 'Totalt antall besøk',
   }
   const remainingOptions: Array<{ value: ColumnView; label: string }> = [
     { value: 'visitors', label: 'Antall unike besøkende' },
     { value: 'visitor-share', label: 'Andel av unike besøkende' },
-    { value: 'share', label: 'Andel av besøk (økter)' },
+    { value: 'share', label: 'Andel av besøk' },
   ]
   if (column.id === 'selected_event') return [eventOption, ...remainingOptions]
   return [rowOption, eventOption, ...remainingOptions]
