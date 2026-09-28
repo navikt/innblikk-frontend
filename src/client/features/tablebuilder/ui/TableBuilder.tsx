@@ -718,7 +718,7 @@ const ColumnDialog = ({ open, columns, websiteId, onApply, onClose }: ColumnDial
 
 const TableBuilder = () => {
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
-  const [period, setPeriodState] = useState(() => getStoredPeriod('last_28_days'))
+  const [period, setPeriodState] = useState(() => getStoredPeriod())
   const [startDate, setStartDate] = useState<Date>()
   const [endDate, setEndDate] = useState<Date>()
   const [urlPaths, setUrlPaths] = useState<string[]>([])
