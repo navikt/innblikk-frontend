@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { subDays } from 'date-fns'
 import { translateValue } from '../../../shared/lib/translations.ts'
+import { getDateRangeFromPeriod } from '../../../shared/lib/utils.ts'
 import type { Website } from '../../../shared/types/chart.ts'
 import { applyUrlFiltersToSql, extractWebsiteId } from '../utils/sqlFilters.ts'
 
@@ -24,11 +24,8 @@ export function useGrafdeling() {
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
   const [websiteIdState, setWebsiteIdState] = useState<string>('')
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>(() => {
-    const now = new Date()
-    return {
-      from: new Date(now.getFullYear(), now.getMonth(), 1),
-      to: now,
-    }
+    const range = getDateRangeFromPeriod('current_month')!
+    return { from: range.startDate, to: range.endDate }
   })
   const [period, setPeriod] = useState<string>('current_month')
   const [urlPath, setUrlPath] = useState('/')
@@ -308,20 +305,16 @@ export function useGrafdeling() {
     const customStartFromUrl = urlParams.get('customStartDate')
     const customEndFromUrl = urlParams.get('customEndDate')
 
-    const now = new Date()
-
-    if (dateRangeFromUrl === 'custom' && customStartFromUrl && customEndFromUrl) {
-      setPeriod('custom')
-      setDateRange({ from: new Date(customStartFromUrl), to: new Date(customEndFromUrl) })
-    } else if (dateRangeFromUrl === 'current_month') {
-      setPeriod('current_month')
-      setDateRange({ from: new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1)), to: now })
-    } else if (dateRangeFromUrl === 'last_month') {
-      setPeriod('last_month')
-      setDateRange({
-        from: new Date(now.getFullYear(), now.getMonth() - 1, 1),
-        to: new Date(now.getFullYear(), now.getMonth(), 0),
-      })
+    if (dateRangeFromUrl) {
+      const range = getDateRangeFromPeriod(
+        dateRangeFromUrl,
+        customStartFromUrl ? new Date(customStartFromUrl) : undefined,
+        customEndFromUrl ? new Date(customEndFromUrl) : undefined,
+      )
+      if (range) {
+        setPeriod(dateRangeFromUrl)
+        setDateRange({ from: range.startDate, to: range.endDate })
+      }
     }
 
     if (sqlParam) {
@@ -371,8 +364,9 @@ export function useGrafdeling() {
           /(AND\s+)?[\w\-`.]*created_at\s+BETWEEN\s+TIMESTAMP\('([^']+)'[^)]*\)\s+AND\s+TIMESTAMP\('([^']+)'[^)]*\)/gi
         modifiedSql = modifiedSql.replace(fullDateRegex, ' [[AND {{created_at}} ]]')
       } else if (!dateRangeFromUrl) {
-        setPeriod('last_30_days')
-        setDateRange({ from: subDays(now, 30), to: now })
+        const range = getDateRangeFromPeriod('last_28_days')!
+        setPeriod('last_28_days')
+        setDateRange({ from: range.startDate, to: range.endDate })
       }
 
       // 3. Hardcoded URL Path

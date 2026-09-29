@@ -10,7 +10,8 @@
  */
 
 import type { SavedChart } from '../types/savedChart'
-import { format, subDays } from 'date-fns'
+import { format } from 'date-fns'
+import { getDateRangeFromPeriod } from './utils.ts'
 import { getGcpProjectId } from './runtimeConfig.ts'
 import { isRecord } from './typeGuards'
 
@@ -47,6 +48,19 @@ interface BatchedFetchResult {
   chartResults: Map<string, JsonObject[]>
   totalBytesProcessed: number
   chartBytes: Map<string, number>
+}
+
+const getFilterDateRange = (filters: Filters) => {
+  const period =
+    filters.dateRange === 'this-month'
+      ? 'current_month'
+      : filters.dateRange === 'last-month'
+        ? 'last_month'
+        : filters.dateRange
+  return (
+    getDateRangeFromPeriod(period, filters.customStartDate, filters.customEndDate) ??
+    getDateRangeFromPeriod('last_28_days')!
+  )
 }
 
 // Session fields that can be batched together
@@ -120,21 +134,7 @@ function buildCombinedSessionQuery(websiteId: string, filters: Filters, fields: 
   const fieldsSelect = fields.map((f) => `${sessionTable}.${f}`).join(',\n    ')
 
   // Calculate dates
-  const now = new Date()
-  let startDate: Date
-  let endDate = now
-
-  if (filters.dateRange === 'custom' && filters.customStartDate && filters.customEndDate) {
-    startDate = filters.customStartDate
-    endDate = filters.customEndDate
-  } else if (filters.dateRange === 'this-month' || filters.dateRange === 'current_month') {
-    startDate = new Date(now.getFullYear(), now.getMonth(), 1)
-  } else if (filters.dateRange === 'last-month' || filters.dateRange === 'last_month') {
-    startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-    endDate = new Date(now.getFullYear(), now.getMonth(), 0)
-  } else {
-    startDate = subDays(now, 30)
-  }
+  const { startDate, endDate } = getFilterDateRange(filters)
 
   const timezone = 'Europe/Oslo'
   const fromSql = `TIMESTAMP('${format(startDate, 'yyyy-MM-dd')}', '${timezone}')`
@@ -371,21 +371,7 @@ export async function fetchDashboardDataBatched(
       // For proportion mode, fetch total site visitors (without URL filter)
       let totalSiteVisitors: number | undefined
       if (filters.metricType === 'proportion') {
-        const now = new Date()
-        let startDate: Date
-        let endDate = now
-
-        if (filters.dateRange === 'custom' && filters.customStartDate && filters.customEndDate) {
-          startDate = filters.customStartDate
-          endDate = filters.customEndDate
-        } else if (filters.dateRange === 'this-month' || filters.dateRange === 'current_month') {
-          startDate = new Date(now.getFullYear(), now.getMonth(), 1)
-        } else if (filters.dateRange === 'last-month' || filters.dateRange === 'last_month') {
-          startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-          endDate = new Date(now.getFullYear(), now.getMonth(), 0)
-        } else {
-          startDate = subDays(now, 30)
-        }
+        const { startDate, endDate } = getFilterDateRange(filters)
 
         const timezone = 'Europe/Oslo'
         const fromSql = `TIMESTAMP('${format(startDate, 'yyyy-MM-dd')}', '${timezone}')`

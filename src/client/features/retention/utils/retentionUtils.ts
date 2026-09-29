@@ -16,41 +16,8 @@ export function getRetentionDateRange(
     return getDateRangeFromPeriod(period, customStartDate, customEndDate)
   }
 
-  const now = new Date()
-  let startDate: Date
-  let endDate: Date
-
-  if (period === 'current_month') {
-    startDate = new Date(now.getFullYear(), now.getMonth(), 1)
-    endDate = now
-  } else if (period === 'last_month') {
-    startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-    endDate = new Date(now.getFullYear(), now.getMonth(), 0)
-  } else if (period === 'custom') {
-    if (!customStartDate || !customEndDate) {
-      return null
-    }
-    startDate = new Date(customStartDate)
-    startDate.setHours(0, 0, 0, 0)
-
-    const isToday =
-      customEndDate.getDate() === now.getDate() &&
-      customEndDate.getMonth() === now.getMonth() &&
-      customEndDate.getFullYear() === now.getFullYear()
-
-    if (isToday) {
-      endDate = now
-    } else {
-      endDate = new Date(customEndDate)
-      endDate.setHours(23, 59, 59, 999)
-    }
-  } else {
-    // Default fallback for unsupported periods – use last month
-    startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-    endDate = new Date(now.getFullYear(), now.getMonth(), 0)
-  }
-
-  return { startDate, endDate }
+  const supportedPeriod = ['current_month', 'last_month', 'custom'].includes(period) ? period : 'last_month'
+  return getDateRangeFromPeriod(supportedPeriod, customStartDate, customEndDate)
 }
 
 /**

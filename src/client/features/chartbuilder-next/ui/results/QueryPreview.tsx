@@ -18,7 +18,8 @@ import {
 import { Copy, ExternalLink } from 'lucide-react'
 import { ArrowCirclepathReverseIcon } from '@navikt/aksel-icons'
 import type { ILineChartProps, IVerticalBarChartProps } from '@fluentui/react-charting'
-import { subDays, format, isEqual, startOfWeek, startOfMonth } from 'date-fns'
+import { format, isEqual } from 'date-fns'
+import { getDateRangeFromPeriod } from '../../../../shared/lib/utils.ts'
 import AlertWithCloseButton from '../grafbygger/AlertWithCloseButton.tsx'
 import ResultsPanel from './ResultsPanel.tsx'
 import { translateValue } from '../../../../shared/lib/translations.ts'
@@ -89,34 +90,8 @@ type DatePreset =
 const DEFAULT_DATE_PRESET: DatePreset = 'last_7_days'
 
 const getDateRangeFromPreset = (preset: DatePreset): { from: Date; to: Date } => {
-  const now = new Date()
-
-  switch (preset) {
-    case 'today':
-      return { from: now, to: now }
-    case 'yesterday': {
-      const yesterday = subDays(now, 1)
-      return { from: yesterday, to: yesterday }
-    }
-    case 'this_week':
-      return { from: startOfWeek(now, { weekStartsOn: 1 }), to: now }
-    case 'last_week': {
-      const startThisWeek = startOfWeek(now, { weekStartsOn: 1 })
-      return { from: subDays(startThisWeek, 7), to: subDays(startThisWeek, 1) }
-    }
-    case 'last_28_days':
-      return { from: subDays(now, 28), to: now }
-    case 'current_month':
-      return { from: startOfMonth(now), to: now }
-    case 'last_month':
-      return {
-        from: new Date(now.getFullYear(), now.getMonth() - 1, 1),
-        to: new Date(now.getFullYear(), now.getMonth(), 0),
-      }
-    case 'last_7_days':
-    default:
-      return { from: subDays(now, 7), to: now }
-  }
+  const range = getDateRangeFromPeriod(preset) ?? getDateRangeFromPeriod(DEFAULT_DATE_PRESET)!
+  return { from: range.startDate, to: range.endDate }
 }
 
 const API_TIMEOUT_MS = 60000 // timeout
@@ -227,8 +202,7 @@ const QueryPreview = ({
   const [queryStats, setQueryStats] = useState<QueryStats | null>(null)
   const [showLoadingMessage, setShowLoadingMessage] = useState(false)
 
-  // Metabase Date Filter State
-  const [hasMetabaseDateFilter, setHasMetabaseDateFilter] = useState(false)
+  // Metabase filter state
   const [hasUrlPathFilter, setHasUrlPathFilter] = useState(false)
   const [hasEventNameFilter, setHasEventNameFilter] = useState(false)
 
@@ -337,10 +311,9 @@ const QueryPreview = ({
     return dateChanged || urlPathChanged || eventNameChanged
   }
 
-  // Detect Metabase date filter pattern
+  // Detect Metabase filter patterns
   useEffect(() => {
     if (!sql) {
-      setHasMetabaseDateFilter(false)
       const hasUrlPathInteractiveFilter = filters.some(
         (f) =>
           (f.column || '').toLowerCase() === 'url_path' &&
@@ -352,9 +325,6 @@ const QueryPreview = ({
       setHasEventNameFilter(false)
       return
     }
-    // Pattern: [[AND {{created_at}} ]] or variations with spaces
-    const datePattern = /\[\[\s*AND\s*\{\{created_at\}\}\s*\]\]/i
-    setHasMetabaseDateFilter(datePattern.test(sql))
 
     // URL path can be either optional Metabase block or direct placeholder.
     const urlPathOptionalPattern = /\[\[\s*\{\{\s*url_sti\s*\}\}\s*--\s*\]\]\s*'\/'/i
@@ -387,13 +357,57 @@ const QueryPreview = ({
 
     let processedSql = sql
 
-    // Date Filter Substitution
-    if (hasMetabaseDateFilter && dateRange.from && dateRange.to && !preserveMetabasePlaceholders) {
+    // Date Filter Substitution — the results-pane Periode picker is the single
+    // period control. It applies to every shape of date filtering:
+    //  - interactive placeholder ([[AND {{created_at}} ]]): replaced with the
+    //    picker's concrete BETWEEN for local runs; when preserving for
+    //    Metabase/dashboard, the dates are kept as the optional block's default
+    //    (`AND x BETWEEN ... [[AND {{created_at}} ]]`) so the chart has a
+    //    sensible range until a dashboard filter overrides it.
+    //  - concrete created_at bounds baked into the SQL (e.g. from a restored
+    //    session): rewritten to the picker's dates.
+    if (dateRange.from && dateRange.to) {
       const projectId = getGcpProjectId()
-      const fromSql = `TIMESTAMP('${format(dateRange.from, 'yyyy-MM-dd')}')`
-      const toSql = `TIMESTAMP('${format(dateRange.to, 'yyyy-MM-dd')}T23:59:59')`
-      const replacement = `AND \`${projectId}.umami_views.event\`.created_at BETWEEN ${fromSql} AND ${toSql}`
-      processedSql = processedSql.replace(/\[\[\s*AND\s*\{\{created_at\}\}\s*\]\]/gi, replacement)
+      // Oslo-anchored literals: the chart groups in Europe/Oslo, and a bare
+      // TIMESTAMP('...') is UTC — the first hours of "today" (Oslo) would
+      // otherwise slip under a yesterday-dated upper bound.
+      const osloTz = 'Europe/Oslo'
+      const fromSql = `TIMESTAMP('${format(dateRange.from, 'yyyy-MM-dd')}', '${osloTz}')`
+      const toSql = `TIMESTAMP('${format(dateRange.to, 'yyyy-MM-dd')}T23:59:59', '${osloTz}')`
+      const concreteClause = `\`${projectId}.umami_views.event\`.created_at BETWEEN ${fromSql} AND ${toSql}`
+      const placeholderPattern = /\[\[\s*AND\s*\{\{created_at\}\}\s*\]\]/gi
+
+      if (preserveMetabasePlaceholders) {
+        processedSql = processedSql.replace(placeholderPattern, `AND ${concreteClause} [[AND {{created_at}} ]]`)
+      } else {
+        processedSql = processedSql.replace(placeholderPattern, `AND ${concreteClause}`)
+        // Concrete bounds follow the picker too — but ONLY the exact values
+        // present in the filters array (the chart's own date filter). Pattern-
+        // matching arbitrary `created_at >=` lines would also hit the session
+        // table's partition filter (s.created_at >= ... 400 DAY) and the
+        // event_data join bounds, which must stay untouched. Legacy/foreign
+        // concrete SQL without a matching filter entry is left as-is.
+        const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        const createdAtRef = '([\\w`.]*created_at)'
+        const lowerValue = filters.find(
+          (f) => f.column === 'created_at' && f.operator === '>=' && f.interactive !== true && f.value,
+        )?.value
+        const upperValue = filters.find(
+          (f) => f.column === 'created_at' && f.operator === '<=' && f.interactive !== true && f.value,
+        )?.value
+        if (lowerValue) {
+          processedSql = processedSql.replace(
+            new RegExp(createdAtRef + '\\s*>=\\s*' + escapeRegExp(lowerValue), 'g'),
+            concreteClause,
+          )
+        }
+        if (upperValue) {
+          processedSql = processedSql.replace(
+            new RegExp('\\s*AND\\s+[\\w`.]*created_at\\s*<=\\s*' + escapeRegExp(upperValue) + '(?![^\\s)])', 'g'),
+            '',
+          )
+        }
+      }
     }
 
     // URL Path Substitution
@@ -1411,87 +1425,83 @@ const QueryPreview = ({
           </div>
         )}
 
-        {/* Metabase Parameters Filter */}
-        {(hasMetabaseDateFilter ||
-          hasInteractiveDateFilter ||
-          hasUrlPathFilter ||
-          hasInteractiveUrlPathFilter ||
-          hasEventNameFilter) && (
-          <div className="pt-2 mb-3">
-            <div className="flex flex-wrap gap-4 items-start">
-              {/* URL Path Filter */}
-              {(hasUrlPathFilter || hasInteractiveUrlPathFilter) && (
-                <div className="w-64 focus-within:relative focus-within:z-10">
-                  <UNSAFE_Combobox
-                    label="URL-sti"
-                    size="small"
-                    options={urlPathOptions}
-                    selectedOptions={urlPath ? [formatPathLabel(urlPath)] : []}
-                    onToggleSelected={(option: string, isSelected: boolean) => {
-                      if (option) {
-                        isSelectingUrlPathRef.current = true
-                        setUrlPath(isSelected ? parseFormattedPath(option) : '')
-                        setUrlComboInputValue('')
-                        setTimeout(() => {
-                          isSelectingUrlPathRef.current = false
-                        }, 100)
-                      }
-                    }}
-                    value={urlComboInputValue}
-                    onChange={(value) => setUrlComboInputValue(value || '')}
-                    onBlur={() => {
-                      // Delay so selection handlers can finish before auto-saving typed value.
+        {/* Result filters — the Periode picker is the single period control and
+            is always shown; it substitutes the {{created_at}} placeholder or
+            rewrites the chart's concrete date bounds alike (see getProcessedSql). */}
+        <div className="pt-2 mb-3">
+          <div className="flex flex-wrap gap-4 items-start">
+            {/* URL Path Filter */}
+            {(hasUrlPathFilter || hasInteractiveUrlPathFilter) && (
+              <div className="w-64 focus-within:relative focus-within:z-10">
+                <UNSAFE_Combobox
+                  label="URL-sti"
+                  size="small"
+                  options={urlPathOptions}
+                  selectedOptions={urlPath ? [formatPathLabel(urlPath)] : []}
+                  onToggleSelected={(option: string, isSelected: boolean) => {
+                    if (option) {
+                      isSelectingUrlPathRef.current = true
+                      setUrlPath(isSelected ? parseFormattedPath(option) : '')
+                      setUrlComboInputValue('')
                       setTimeout(() => {
-                        const trimmed = urlComboInputValue.trim()
-                        if (!trimmed || isSelectingUrlPathRef.current) return
-                        let parsed = parseFormattedPath(trimmed)
-                        if (!parsed.startsWith('/')) {
-                          parsed = `/${parsed}`
-                        }
-                        setUrlPath(parsed || '')
-                        setUrlComboInputValue('')
-                      }, 150)
+                        isSelectingUrlPathRef.current = false
+                      }, 100)
+                    }
+                  }}
+                  value={urlComboInputValue}
+                  onChange={(value) => setUrlComboInputValue(value || '')}
+                  onBlur={() => {
+                    // Delay so selection handlers can finish before auto-saving typed value.
+                    setTimeout(() => {
+                      const trimmed = urlComboInputValue.trim()
+                      if (!trimmed || isSelectingUrlPathRef.current) return
+                      let parsed = parseFormattedPath(trimmed)
+                      if (!parsed.startsWith('/')) {
+                        parsed = `/${parsed}`
+                      }
+                      setUrlPath(parsed || '')
+                      setUrlComboInputValue('')
+                    }, 150)
+                  }}
+                  isMultiSelect={true}
+                  allowNewValues
+                  clearButton
+                />
+              </div>
+            )}
+
+            {previewPeriodPicker}
+
+            {/* Event Name Filter */}
+            {hasEventNameFilter && (
+              <div className="w-64 focus-within:relative focus-within:z-10">
+                {isEventsLoading && (
+                  <div className="text-xs text-[var(--ax-text-subtle)] mb-1">Laster hendelser...</div>
+                )}
+                <div className={isEventsLoading ? 'opacity-50 pointer-events-none' : ''}>
+                  <UNSAFE_Combobox
+                    label="Hendelsesnavn"
+                    options={availableEvents.map((e) => ({ label: e, value: e }))}
+                    selectedOptions={eventName ? [eventName] : []}
+                    onToggleSelected={(option: string, isSelected) => {
+                      setEventName(isSelected ? option : '')
                     }}
-                    isMultiSelect={true}
-                    allowNewValues
-                    clearButton
+                    isMultiSelect={false}
+                    size="small"
+                    disabled={isEventsLoading}
                   />
                 </div>
-              )}
+              </div>
+            )}
 
-              {hasMetabaseDateFilter || hasInteractiveDateFilter ? previewPeriodPicker : null}
-
-              {/* Event Name Filter */}
-              {hasEventNameFilter && (
-                <div className="w-64 focus-within:relative focus-within:z-10">
-                  {isEventsLoading && (
-                    <div className="text-xs text-[var(--ax-text-subtle)] mb-1">Laster hendelser...</div>
-                  )}
-                  <div className={isEventsLoading ? 'opacity-50 pointer-events-none' : ''}>
-                    <UNSAFE_Combobox
-                      label="Hendelsesnavn"
-                      options={availableEvents.map((e) => ({ label: e, value: e }))}
-                      selectedOptions={eventName ? [eventName] : []}
-                      onToggleSelected={(option: string, isSelected: boolean) => {
-                        setEventName(isSelected ? option : '')
-                      }}
-                      isMultiSelect={false}
-                      size="small"
-                      disabled={isEventsLoading}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Update Button - inline with filters */}
-              {hasChanges() && (result || error) && (
-                <Button variant="primary" size="small" onClick={() => executeQuery()} loading={loading}>
-                  Oppdater
-                </Button>
-              )}
-            </div>
+            {/* Update Button - inline with filters */}
+            {hasChanges() && (result || error) && (
+              <Button variant="primary" size="small" onClick={() => executeQuery()} loading={loading}>
+                Oppdater
+              </Button>
+            )}
           </div>
-        )}
+        </div>
 
         {additionalOptions}
 

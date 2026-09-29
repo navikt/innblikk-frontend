@@ -155,6 +155,7 @@ export const getDateRangeFromPeriod = (
   customEndDate?: Date,
 ): { startDate: Date; endDate: Date } | null => {
   const now = new Date()
+  const endOfYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59, 999)
   let startDate: Date
   let endDate: Date
 
@@ -174,13 +175,13 @@ export const getDateRangeFromPeriod = (
       const dayOfWeek = now.getDay()
       const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1 // Adjust for Monday start
       startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diff, 0, 0, 0, 0)
-      endDate = now
+      endDate = endOfYesterday
       break
     }
 
     case 'last_7_days':
-      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0, 0)
-      endDate = now
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7, 0, 0, 0, 0)
+      endDate = endOfYesterday
       break
 
     case 'last_week': {
@@ -194,13 +195,13 @@ export const getDateRangeFromPeriod = (
     }
 
     case 'last_28_days':
-      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 27, 0, 0, 0, 0)
-      endDate = now
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 28, 0, 0, 0, 0)
+      endDate = endOfYesterday
       break
 
     case 'current_month':
       startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0)
-      endDate = now
+      endDate = endOfYesterday
       break
 
     case 'last_month':
@@ -232,7 +233,7 @@ export const getDateRangeFromPeriod = (
     default:
       // Default to current month if period is not recognized
       startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0)
-      endDate = now
+      endDate = endOfYesterday
   }
 
   return { startDate, endDate }

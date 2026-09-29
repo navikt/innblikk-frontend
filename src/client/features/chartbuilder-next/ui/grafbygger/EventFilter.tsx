@@ -319,9 +319,9 @@ const EventFilter = forwardRef(
       if (!hasUrlPathFilter && hasPageviewsEnabled) {
         const timer = setTimeout(() => {
           didInitPageviewsRef.current = true
-          // Functional update: DateRangeSelector's initialPreset effect may have
-          // added created_at filters in the same commit window — a stale-closure
-          // snapshot here would silently drop them.
+          // Functional update: another filter-init effect (e.g. PeriodFilter's
+          // default {{created_at}}) may have added filters in the same commit
+          // window — a stale-closure snapshot here would silently drop them.
           setFilters((prev) => {
             const nextFilters = [...prev]
             if (!hasEventTypeFilter) {
