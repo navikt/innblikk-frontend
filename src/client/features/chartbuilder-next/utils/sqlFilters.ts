@@ -89,8 +89,11 @@ export const applyUrlFiltersToSql = (sql: string, params: SqlFilterParams): stri
     const now = new Date()
     const from = params.dateRange.from || subDays(now, 30)
     const to = params.dateRange.to || now
-    const fromSql = `TIMESTAMP('${format(from, 'yyyy-MM-dd')}')`
-    const toSql = `TIMESTAMP('${format(to, 'yyyy-MM-dd')}T23:59:59')`
+    // Oslo-anchored: charts group in Europe/Oslo; bare TIMESTAMP('...') is UTC
+    // and would leak the first hours of "today" (Oslo) under a yesterday bound.
+    const osloTz = 'Europe/Oslo'
+    const fromSql = `TIMESTAMP('${format(from, 'yyyy-MM-dd')}', '${osloTz}')`
+    const toSql = `TIMESTAMP('${format(to, 'yyyy-MM-dd')}T23:59:59', '${osloTz}')`
 
     const projectId = getGcpProjectId()
     let tablePrefix = `\`${projectId}.umami_views.event\``

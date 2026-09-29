@@ -3,8 +3,8 @@ import CodeMirror from '@uiw/react-codemirror'
 import { sql } from '@codemirror/lang-sql'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { endOfWeek, startOfWeek, subDays, subWeeks } from 'date-fns'
 import * as sqlFormatter from 'sql-formatter'
+import { getDateRangeFromPeriod } from '../../../../shared/lib/utils.ts'
 import { ResultsPanel } from '../../../chartbuilder-next'
 import PeriodPicker from '../../../analysis/ui/PeriodPicker.tsx'
 import { estimateQueryCost, executeQueryApi } from '../../../sql/api/sqlApi.ts'
@@ -69,11 +69,8 @@ const CanvasSqlEditorFrame = ({
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [saving, setSaving] = useState(false)
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>(() => {
-    const now = new Date()
-    return {
-      from: subDays(now, 6),
-      to: now,
-    }
+    const range = getDateRangeFromPeriod('last_7_days')!
+    return { from: range.startDate, to: range.endDate }
   })
   const [period, setPeriod] = useState<string>('last_7_days')
   const [urlPath, setUrlPath] = useState('/')
@@ -91,39 +88,9 @@ const CanvasSqlEditorFrame = ({
 
   const handlePeriodChange = useCallback((newPeriod: string) => {
     setPeriod(newPeriod)
-    const now = new Date()
-    let newFrom: Date | undefined
-    let newTo: Date | undefined
-
-    if (newPeriod === 'today') {
-      newFrom = now
-      newTo = now
-    } else if (newPeriod === 'yesterday') {
-      newFrom = subDays(now, 1)
-      newTo = subDays(now, 1)
-    } else if (newPeriod === 'this_week') {
-      newFrom = startOfWeek(now, { weekStartsOn: 1 })
-      newTo = now
-    } else if (newPeriod === 'last_7_days') {
-      newFrom = subDays(now, 6)
-      newTo = now
-    } else if (newPeriod === 'last_week') {
-      const lastWeekDate = subWeeks(now, 1)
-      newFrom = startOfWeek(lastWeekDate, { weekStartsOn: 1 })
-      newTo = endOfWeek(lastWeekDate, { weekStartsOn: 1 })
-    } else if (newPeriod === 'last_28_days') {
-      newFrom = subDays(now, 27)
-      newTo = now
-    } else if (newPeriod === 'current_month') {
-      newFrom = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1))
-      newTo = now
-    } else if (newPeriod === 'last_month') {
-      newFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-      newTo = new Date(now.getFullYear(), now.getMonth(), 0)
-    }
-
-    if (newFrom && newTo) {
-      setDateRange({ from: newFrom, to: newTo })
+    const range = getDateRangeFromPeriod(newPeriod)
+    if (range) {
+      setDateRange({ from: range.startDate, to: range.endDate })
     }
   }, [])
 

@@ -8,7 +8,7 @@ function Harness({ initialFilters }: { initialFilters: Filter[] }) {
   const [filters, setFilters] = useState(initialFilters)
   return (
     <>
-      <PeriodOverrideOption filters={filters} setFilters={setFilters} maxDaysAvailable={365} />
+      <PeriodOverrideOption filters={filters} setFilters={setFilters} />
       <output data-testid="filters">{JSON.stringify(filters)}</output>
     </>
   )
@@ -25,52 +25,32 @@ describe('PeriodOverrideOption', () => {
     metabaseParam: true,
   }
 
-  it('uses the dashboard period by default and enables a last-seven-days override', async () => {
+  it('keeps dashboard override enabled by default and adds the placeholder when no date filter exists', () => {
+    render(<Harness initialFilters={[]} />)
+
+    const toggle = screen.getByRole('checkbox', { name: /^La dashboardet overstyre tidsperioden/ })
+    expect(toggle).toBeChecked()
+    expect(filters()).toEqual(expect.arrayContaining([expect.objectContaining({ value: '{{created_at}}' })]))
+  })
+
+  it('disabling the override removes the placeholder so the picker dates are baked in', async () => {
     const user = userEvent.setup()
     render(<Harness initialFilters={[dashboardPeriod]} />)
 
-    const override = screen.getByRole('checkbox', { name: /^Overstyr tidsperiode/ })
-    expect(override).not.toBeChecked()
-    expect(screen.queryByRole('combobox', { name: 'Periode' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('checkbox', { name: /^La dashboardet overstyre tidsperioden/ }))
 
-    await user.click(override)
-
-    expect(screen.getByRole('tab', { name: 'Ofte brukte' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Siste 7 dager' })).toHaveAttribute('data-variant', 'primary')
-    expect(filters()).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          column: 'created_at',
-          operator: '>=',
-          value: 'TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)',
-        }),
-      ]),
-    )
+    expect(filters().filter((filter) => filter.column === 'created_at')).toEqual([])
   })
 
-  it('restores dashboard control when the override is disabled', async () => {
+  it('re-enabling the override restores the placeholder', async () => {
     const user = userEvent.setup()
-    render(
-      <Harness
-        initialFilters={[
-          {
-            column: 'created_at',
-            operator: '>=',
-            value: 'TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 28 DAY)',
-            dateRangeType: 'dynamic',
-          },
-          {
-            column: 'created_at',
-            operator: '<=',
-            value: 'CURRENT_TIMESTAMP()',
-            dateRangeType: 'dynamic',
-          },
-        ]}
-      />,
-    )
+    render(<Harness initialFilters={[]} />)
 
-    await user.click(screen.getByRole('checkbox', { name: /^Overstyr tidsperiode/ }))
+    const toggle = screen.getByRole('checkbox', { name: /^La dashboardet overstyre tidsperioden/ })
+    await user.click(toggle)
+    expect(filters().filter((filter) => filter.column === 'created_at')).toEqual([])
 
+    await user.click(toggle)
     expect(filters().filter((filter) => filter.column === 'created_at')).toEqual([
       expect.objectContaining({ value: '{{created_at}}', interactive: true, metabaseParam: true }),
     ])

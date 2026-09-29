@@ -1,7 +1,6 @@
-import { useEffect, useState, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react'
 import type { Filter } from '../../../../shared/types/chart.ts'
 import ToggleOption from '../../../../shared/ui/ToggleOption.tsx'
-import DateRangeSelector from './DateRangeSelector.tsx'
 
 const dashboardPeriodFilter: Filter = {
   column: 'created_at',
@@ -11,68 +10,55 @@ const dashboardPeriodFilter: Filter = {
   metabaseParam: true,
 }
 
-const defaultOverrideFilters: Filter[] = [
-  {
-    column: 'created_at',
-    operator: '>=',
-    value: 'TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)',
-    dateRangeType: 'dynamic',
-  },
-  {
-    column: 'created_at',
-    operator: '<=',
-    value: 'CURRENT_TIMESTAMP()',
-    dateRangeType: 'dynamic',
-  },
-]
-
+/**
+ * Dashboard period override. ON (default): the chart keeps the {{created_at}}
+ * placeholder and a dashboard date filter can override the period; the
+ * results-pane "Periode" select provides the default range. OFF: the
+ * placeholder is removed so the picker's dates are baked into the SQL —
+ * dashboard date filters then have nothing to act on.
+ *
+ * The picker itself (results pane, next to URL-sti) is the single period
+ * control either way; this toggle only governs whether dashboards may
+ * override it.
+ */
 export default function PeriodOverrideOption({
   filters,
   setFilters,
-  maxDaysAvailable,
 }: {
   filters: Filter[]
   setFilters: Dispatch<SetStateAction<Filter[]>>
-  maxDaysAvailable: number
+  maxDaysAvailable?: number
 }) {
-  const dateFilters = filters.filter((filter) => filter.column === 'created_at')
-  const useSelectedPeriod = dateFilters.some((filter) => !filter.interactive)
-  const [selectedDateRange, setSelectedDateRange] = useState('last7days')
-  const [customPeriodInputs, setCustomPeriodInputs] = useState<Record<number, { amount: string; unit: string }>>({})
+  const dashboardOverrideEnabled = filters.some((f) => f.column === 'created_at' && f.interactive === true)
 
+  // Seed the {{created_at}} placeholder when no date filter exists — but only
+  // when the user hasn't explicitly turned the override off (that also leaves
+  // zero created_at filters, and must not be undone by this effect).
+  const userDisabledRef = useRef(false)
   useEffect(() => {
-    if (dateFilters.length) return
+    if (userDisabledRef.current) return
+    if (filters.some((f) => f.column === 'created_at')) return
     setFilters((previous) =>
       previous.some((filter) => filter.column === 'created_at') ? previous : [...previous, dashboardPeriodFilter],
     )
-  }, [dateFilters.length, setFilters])
+  }, [filters, setFilters])
 
   return (
     <ToggleOption
-      label="Overstyr tidsperiode"
+      label="La dashboardet overstyre tidsperioden"
       description={
-        useSelectedPeriod
-          ? 'Bruker valgt tidsperiode fra grafbyggeren som standard'
-          : 'Tidsperioden velges via filter i dashboardet (standard)'
+        dashboardOverrideEnabled
+          ? 'Tidsperioden kan overstyres av et filter i dashboardet (standard)'
+          : 'Valgt tidsperiode låses i grafen — dashboard-filter har ingen effekt'
       }
-      checked={useSelectedPeriod}
+      checked={dashboardOverrideEnabled}
       onChange={(checked) => {
-        setSelectedDateRange('last7days')
-        const next = checked ? defaultOverrideFilters : [dashboardPeriodFilter]
-        setFilters((previous) => [...previous.filter((filter) => filter.column !== 'created_at'), ...next])
+        userDisabledRef.current = !checked
+        setFilters((previous) => {
+          const withoutDate = previous.filter((filter) => filter.column !== 'created_at')
+          return checked ? [...withoutDate, dashboardPeriodFilter] : withoutDate
+        })
       }}
-    >
-      <DateRangeSelector
-        filters={filters}
-        setFilters={(next) => setFilters(next)}
-        maxDaysAvailable={maxDaysAvailable}
-        selectedDateRange={selectedDateRange}
-        setSelectedDateRange={setSelectedDateRange}
-        customPeriodInputs={customPeriodInputs}
-        setCustomPeriodInputs={setCustomPeriodInputs}
-        interactiveMode={false}
-        bare
-      />
-    </ToggleOption>
+    />
   )
 }
