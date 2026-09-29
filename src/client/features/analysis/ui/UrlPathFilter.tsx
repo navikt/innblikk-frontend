@@ -57,7 +57,7 @@ export const UrlPathFilter = ({
     handleBlur,
   } = useUrlPathFilter(urlPaths, onUrlPathsChange, selectedWebsiteDomain, isMultiSelect)
 
-  const canPickSidegroup = Boolean(onSidegroupChange) && sidegroups.length > 0
+  const canPickSidegroup = Boolean(onSidegroupChange && selectedWebsiteId)
   const isSidegroupMode = canPickSidegroup && pathOperator === 'sidegroup'
 
   const handleOperatorChange = (nextOperator: string) => {
@@ -98,7 +98,7 @@ export const UrlPathFilter = ({
               onUrlPathsChange([])
             }}
           >
-            <option value="">Velg sidegruppe</option>
+            <option value="">{sidegroups.length > 0 ? 'Velg sidegruppe' : 'Ingen sidegrupper lagt til'}</option>
             {sidegroups.map((group) => (
               <option key={group.id} value={group.id}>
                 {group.name}

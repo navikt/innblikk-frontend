@@ -1602,7 +1602,7 @@ const Oversikt = () => {
 
           {visibleFilterCapabilities.url && (
             <div
-              className={`relative w-full md:w-[20rem] ${!usePreselectedPathFilter && sidegroups.length > 0 ? 'sidegroup-management-slot' : ''}`}
+              className={`relative w-full md:w-[20rem] ${!usePreselectedPathFilter ? 'sidegroup-management-slot' : ''}`}
             >
               <div className="flex items-center gap-2 mb-1">
                 <Label size="small" htmlFor="oversikt-url-filter">
@@ -1620,13 +1620,11 @@ const Oversikt = () => {
                   >
                     <option value="equals">er lik</option>
                     <option value="starts-with">starter med</option>
-                    {!usePreselectedPathFilter && sidegroups.length > 0 && (
-                      <option value="sidegroup">tilhører sidegruppe</option>
-                    )}
+                    {!usePreselectedPathFilter && <option value="sidegroup">tilhører sidegruppe</option>}
                   </select>
                 )}
               </div>
-              {tempSidegroup || (tempPathOperator === 'sidegroup' && sidegroups.length > 0) ? (
+              {tempSidegroup || (tempPathOperator === 'sidegroup' && !usePreselectedPathFilter) ? (
                 <>
                   <Select
                     label="Sidegruppe"
@@ -1639,7 +1637,7 @@ const Oversikt = () => {
                       setTempUrlPaths([])
                     }}
                   >
-                    <option value="">Velg sidegruppe</option>
+                    <option value="">{sidegroups.length > 0 ? 'Velg sidegruppe' : 'Ingen sidegrupper lagt til'}</option>
                     {sidegroups.map((group) => (
                       <option key={group.id} value={group.id}>
                         {group.name}
