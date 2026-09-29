@@ -1171,10 +1171,16 @@ function zeroPadTimeSeries(sql: string, config: ChartConfig, filters: Filter[]):
 
 /**
  * Extracts `[lower, upper]` timestamp expressions from the created_at
- * filters. `<=` bounds that are open-ended "now" (`CURRENT_TIMESTAMP()`)
- * don't pin the calendar to a wall clock — pad through today anyway, since a
- * chart of "siste 7 dager" should show today-with-zero rather than silently
- * ending yesterday.
+ * filters. An open-ended "now" upper (`CURRENT_TIMESTAMP()` — or no upper at
+ * all) is capped at yesterday for the calendar: "siste N dager"-style charts
+ * shouldn't grow a still-collecting today bucket (matches
+ * getDateRangeFromPeriod / shared/lib/bigqueryDateRanges semantics). An
+ * explicit "I dag" selection is the exception — its lower bound is
+ * start-of-today, so detect that and keep today.
+ *
+ * Bounds are Oslo-anchored by the producers (shared/lib/bigqueryDateRanges);
+ * the calendar must read their DATE in the same zone — `DATE(ts, 'Europe/Oslo')`,
+ * not UTC — or a 23:59:59+02 bound would round to the wrong calendar day.
  */
 function findCreatedAtBounds(filters: Filter[]): { lower: string; upper: string } | null {
   let lower: string | null = null
@@ -1187,12 +1193,24 @@ function findCreatedAtBounds(filters: Filter[]): { lower: string; upper: string 
     if (f.operator === '<=') upper = f.value
   }
   if (!lower) return null
-  return { lower, upper: upper ?? 'CURRENT_TIMESTAMP()' }
+
+  // "I dag" preset: lower bound is start-of-today (either the legacy UTC
+  // DATE_TRUNC form or the current Oslo-anchored form).
+  const lowerIsStartOfToday =
+    /DATE_TRUNC\(CURRENT_TIMESTAMP\(\),\s*DAY\)/i.test(lower) ||
+    /TIMESTAMP\(DATE\(CURRENT_TIMESTAMP\(\),\s*'Europe\/Oslo'\)\)/i.test(lower)
+  const upperIsOpenNow = !upper || /^\s*CURRENT_TIMESTAMP\(\)\s*$/i.test(upper)
+  const resolvedUpper =
+    upperIsOpenNow && !lowerIsStartOfToday
+      ? `DATE_SUB(DATE(CURRENT_TIMESTAMP(), 'Europe/Oslo'), INTERVAL 1 DAY)`
+      : upper!
+
+  return { lower, upper: resolvedUpper }
 }
 
-/** Truncates a timestamp expression to the configured bucket granularity as a DATE. */
+/** Truncates a timestamp expression to the configured bucket granularity as a DATE, in Oslo time. */
 function toDateExpr(tsExpr: string, config: ChartConfig): string {
-  const base = `DATE(${tsExpr})`
+  const base = `DATE(${tsExpr}, 'Europe/Oslo')`
   if (config.dateFormat === 'week') return `DATE_TRUNC(${base}, WEEK(MONDAY))`
   if (config.dateFormat === 'month') return `DATE_TRUNC(${base}, MONTH)`
   return base

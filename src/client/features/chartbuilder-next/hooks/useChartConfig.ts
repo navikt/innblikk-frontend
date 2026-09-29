@@ -6,6 +6,7 @@ import { useDebounce } from './useDebounce.ts'
 import { usePersistentState } from './usePersistentState.ts'
 import { safeParseJson, isRecord, isMetricArray, isWebsiteLike, isFilterArray } from '../utils/typeGuards.ts'
 import { generateSQLCore } from '../utils/sqlGenerator.ts'
+import { bqLastNDaysSQL, BQ_END_OF_YESTERDAY_SQL } from '../../../shared/lib/bigqueryDateRanges.ts'
 
 const STORAGE_KEYS = {
   config: 'grafbygger:config:v2',
@@ -246,16 +247,23 @@ export function useChartConfig() {
     }
 
     if (dateRangeFromUrl) {
+      // Rolling/current presets end at end-of-yesterday — the current day is
+      // still collecting, so including it reads as a partial dip (see
+      // shared/lib/bigqueryDateRanges). Only 'last_month' is fully closed.
+      // All bounds Oslo-anchored (UTC-based CURRENT_DATE/TRUNC would leak the
+      // first hours of the following Oslo day).
+      const osloNow = `CURRENT_TIMESTAMP()`
+      const tz = `'Europe/Oslo'`
       let fromSQL = ''
-      let toSQL = 'CURRENT_TIMESTAMP()'
+      let toSQL = BQ_END_OF_YESTERDAY_SQL
 
       if (dateRangeFromUrl === 'current_month') {
-        fromSQL = 'TIMESTAMP_TRUNC(CURRENT_TIMESTAMP(), MONTH)'
+        fromSQL = `TIMESTAMP(DATE_TRUNC(DATE(${osloNow}, ${tz}), MONTH))`
       } else if (dateRangeFromUrl === 'last_month') {
-        fromSQL = 'TIMESTAMP_TRUNC(TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 MONTH), MONTH)'
-        toSQL = 'TIMESTAMP_SUB(TIMESTAMP_TRUNC(CURRENT_TIMESTAMP(), MONTH), INTERVAL 1 SECOND)'
+        fromSQL = `TIMESTAMP(DATE_TRUNC(DATE_SUB(DATE(${osloNow}, ${tz}), INTERVAL 1 MONTH), MONTH))`
+        toSQL = `TIMESTAMP_SUB(TIMESTAMP(DATE_TRUNC(DATE(${osloNow}, ${tz}), MONTH)), INTERVAL 1 SECOND)`
       } else {
-        fromSQL = 'TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)'
+        fromSQL = bqLastNDaysSQL(30).fromSQL
       }
 
       filtersToApply.push(
@@ -476,8 +484,10 @@ export function useChartConfig() {
     }
 
     // EventFilter adds the default "last 7 days" filter after mount, but SQL can be
-    // generated before that effect runs. Apply the same default at generation time.
+    // generated before that effect runs. Apply the same default at generation time
+    // (bounds shared via shared/lib/bigqueryDateRanges).
     const hasDateFilter = filters.some((f) => f.column === 'created_at')
+    const defaultRange = bqLastNDaysSQL(7)
     const sqlFilters = hasDateFilter
       ? filters
       : [
@@ -485,13 +495,13 @@ export function useChartConfig() {
           {
             column: 'created_at',
             operator: '>=',
-            value: 'TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)',
+            value: defaultRange.fromSQL,
             dateRangeType: 'dynamic',
           },
           {
             column: 'created_at',
             operator: '<=',
-            value: 'CURRENT_TIMESTAMP()',
+            value: defaultRange.toSQL,
             dateRangeType: 'dynamic',
           },
         ]

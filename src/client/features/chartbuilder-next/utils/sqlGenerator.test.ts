@@ -35,8 +35,11 @@ describe('zero-padding of time-grouped queries', () => {
     const sql = generateSQLCore({ ...baseConfig, groupByFields: ['created_at'] }, dayFilters, [])
 
     expect(sql).toContain('FROM UNNEST(GENERATE_DATE_ARRAY(')
-    expect(sql).toContain("DATE(TIMESTAMP('2026-08-28 00:00:00'))")
-    expect(sql).toContain('DATE(CURRENT_TIMESTAMP())')
+    expect(sql).toContain("DATE(TIMESTAMP('2026-08-28 00:00:00'), 'Europe/Oslo')")
+    // An open-ended `<= CURRENT_TIMESTAMP()` upper is a rolling "last N days"
+    // chart — the calendar caps at yesterday (Oslo) so no still-collecting
+    // today bucket appears (mirrors getDateRangeFromPeriod).
+    expect(sql).toContain(`DATE(DATE_SUB(DATE(CURRENT_TIMESTAMP(), 'Europe/Oslo'), INTERVAL 1 DAY), 'Europe/Oslo')`)
     expect(sql).toContain('COALESCE(`antall`, 0) AS `antall`')
     // The label comes from the calendar side as a STRING — a raw DATE column
     // deserializes to an object client-side («[object Object]» on chart axes),
@@ -52,9 +55,21 @@ describe('zero-padding of time-grouped queries', () => {
     expect(sql).not.toContain('GENERATE_DATE_ARRAY')
   })
 
+  it('keeps today in the calendar when the lower bound is start-of-today (the "I dag" preset)', () => {
+    const todayFilters: Filter[] = [
+      { column: 'created_at', operator: '>=', value: "TIMESTAMP(DATE(CURRENT_TIMESTAMP(), 'Europe/Oslo'))" },
+      { column: 'created_at', operator: '<=', value: 'CURRENT_TIMESTAMP()' },
+    ]
+    const sql = generateSQLCore({ ...baseConfig, groupByFields: ['created_at'] }, todayFilters, [])
+    expect(sql).toContain(`DATE(CURRENT_TIMESTAMP(), 'Europe/Oslo')))`) // calendar upper = today
+    expect(sql).not.toContain('INTERVAL 1 DAY')
+  })
+
   it('pads month-grouped queries, comparing calendar DATE to a parsed first-of-month', () => {
     const sql = generateSQLCore({ ...baseConfig, groupByFields: ['created_at'], dateFormat: 'month' }, dayFilters, [])
-    expect(sql).toContain("GENERATE_DATE_ARRAY(DATE_TRUNC(DATE(TIMESTAMP('2026-08-28 00:00:00')), MONTH)")
+    expect(sql).toContain(
+      "GENERATE_DATE_ARRAY(DATE_TRUNC(DATE(TIMESTAMP('2026-08-28 00:00:00'), 'Europe/Oslo'), MONTH)",
+    )
     expect(sql).toContain(
       "ON bucket_date = DATE(CONCAT(SPLIT(dato, '-')[OFFSET(0)], '-', SPLIT(dato, '-')[OFFSET(1)], '-01'))",
     )
