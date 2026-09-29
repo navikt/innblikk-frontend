@@ -15,7 +15,7 @@ import {
   UNSAFE_Combobox,
   VStack,
 } from '@navikt/ds-react'
-import { ChevronDownIcon, ChevronUpIcon, PencilIcon, PlusIcon, TrashIcon } from '@navikt/aksel-icons'
+import { PencilIcon, PlusIcon, TrashIcon } from '@navikt/aksel-icons'
 import { fetchWebsites } from '../../../shared/api/websiteApi.ts'
 import type { Website } from '../../../shared/types/website.ts'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
@@ -375,7 +375,6 @@ export default function Sidegroups() {
                                 type="button"
                                 size="xsmall"
                                 variant="secondary"
-                                icon={isExpanded ? <ChevronUpIcon aria-hidden /> : <ChevronDownIcon aria-hidden />}
                                 aria-expanded={isExpanded}
                                 aria-controls={`sidegroup-conditions-${sidegroup.id}`}
                                 onClick={() => {
