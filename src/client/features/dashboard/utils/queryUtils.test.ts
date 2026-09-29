@@ -40,6 +40,36 @@ describe('processDashboardSql', () => {
     expect(result).toContain("TIMESTAMP('2026-09-27T23:59:59', 'Europe/Oslo')")
     expect(result).not.toContain('2026-09-28')
   })
+
+  it.each([
+    ['visits', 'Antall økter'],
+    ['pageviews', 'Sidevisninger'],
+    ['proportion', 'Andel'],
+  ] as const)('rewrites lowercase metric alias references when switching to %s', (metricType, expectedAlias) => {
+    const sql = `
+      SELECT
+        dato,
+        COALESCE(\`unike_besokende\`, 0) AS \`unike_besokende\`
+      FROM (
+      WITH metrics AS (
+        SELECT COUNT(DISTINCT session_id) AS unike_besokende
+        FROM \`project.umami_views.event\`
+        WHERE website_id = '{{website_id}}'
+      )
+      SELECT unike_besokende
+      FROM metrics
+      ORDER BY unike_besokende DESC
+      )
+    `
+
+    const result = processDashboardSql(sql, 'website-1', { ...filters, metricType })
+    const quotedAlias = `\`${expectedAlias}\``
+
+    expect(result).not.toMatch(/\bunike_besokende\b/i)
+    expect(result).not.toContain('``')
+    expect(result).toContain(`COALESCE(${quotedAlias}, 0) AS ${quotedAlias}`)
+    if (metricType === 'proportion') expect(result).not.toContain('CONCAT(')
+  })
 })
 
 describe('supportsMetricTypeSelection', () => {
