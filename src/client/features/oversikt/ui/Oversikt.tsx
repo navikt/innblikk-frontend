@@ -1652,7 +1652,7 @@ const Oversikt = () => {
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    Administrer grupper <ExternalLink size={14} aria-hidden="true" />
+                    Administrer sidegrupper <ExternalLink size={14} aria-hidden="true" />
                   </Link>
                 </>
               ) : usePreselectedPathFilter ? (
