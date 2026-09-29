@@ -3,6 +3,9 @@ import { useParams, useSearchParams } from 'react-router-dom'
 import { format, isValid, parseISO } from 'date-fns'
 import { normalizeUrlToPath } from '../../../shared/lib/utils.ts'
 import { parseFormattedPath } from '../../analysis/utils/urlPathFilter.ts'
+import { extractWebsiteId } from '../../sql/utils/sqlProcessing.ts'
+import { useSidegroupsForWebsite } from '../../sidegroups/hooks/useSidegroupsForWebsite.ts'
+import type { Sidegroup } from '../../sidegroups/model/types.ts'
 import type { Website } from '../../dashboard/model/types.ts'
 import type {
   ProjectDto,
@@ -165,6 +168,7 @@ export const useOversikt = () => {
 
   const [tempPathOperator, setTempPathOperator] = useState(initialPathOperator)
   const [tempUrlPaths, setTempUrlPaths] = useState<string[]>(initialResolvedUrlPaths)
+  const [tempSidegroup, setTempSidegroup] = useState<Sidegroup | null>(null)
   const [tempDateRange, setTempDateRange] = useState(initialDateRange)
   const [tempCustomStartDate, setTempCustomStartDate] = useState<Date | undefined>(initialCustomStartDate)
   const [tempCustomEndDate, setTempCustomEndDate] = useState<Date | undefined>(initialCustomEndDate)
@@ -178,6 +182,9 @@ export const useOversikt = () => {
   const [selectedDashboardId, setSelectedDashboardId] = useState<number | null>(initialDashboardId)
   const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null)
 
+  const initialSidegroupIdRef = useRef(searchParams.get('sidegroupId'))
+  const hasHydratedSidegroupRef = useRef(false)
+
   const [activeFilters, setActiveFilters] = useState<FilterState>({
     pathOperator: initialPathOperator,
     urlFilters: initialResolvedUrlPaths,
@@ -185,6 +192,7 @@ export const useOversikt = () => {
     metricType: initialMetricType,
     customStartDate: initialDateRange === 'custom' ? initialCustomStartDate : undefined,
     customEndDate: initialDateRange === 'custom' ? initialCustomEndDate : undefined,
+    sidegroup: null,
   })
 
   const [loadingProjects, setLoadingProjects] = useState(false)
@@ -250,6 +258,28 @@ export const useOversikt = () => {
       })
   }, [graphs])
 
+  // Fixed-website dashboards embed the website_id directly in the chart SQL
+  // instead of using the {{website_id}} placeholder, so the website picker
+  // (and `selectedWebsite`) never gets populated for them.
+  const dashboardWebsiteId = useMemo(() => {
+    if (selectedWebsite?.id) return selectedWebsite.id
+    const chartWithWebsiteId = charts.find((chart) => chart.sql && extractWebsiteId(chart.sql))
+    return chartWithWebsiteId?.sql ? extractWebsiteId(chartWithWebsiteId.sql) : undefined
+  }, [selectedWebsite, charts])
+
+  const { sidegroups } = useSidegroupsForWebsite(dashboardWebsiteId)
+
+  useEffect(() => {
+    const sidegroupId = initialSidegroupIdRef.current
+    if (!sidegroupId || hasHydratedSidegroupRef.current || sidegroups.length === 0) return
+    const match = sidegroups.find((group) => String(group.id) === sidegroupId)
+    if (!match) return
+    hasHydratedSidegroupRef.current = true
+    setTempSidegroup(match)
+    setTempUrlPaths([])
+    setActiveFilters((prev) => ({ ...prev, sidegroup: match, urlFilters: [] }))
+  }, [sidegroups])
+
   const filterCapabilities = useMemo(() => {
     return charts.reduce(
       (acc, chart) => {
@@ -271,6 +301,7 @@ export const useOversikt = () => {
     (tempDateRange === 'custom' && tempCustomEndDate?.getTime() !== activeFilters.customEndDate?.getTime()) ||
     !arraysEqual(tempUrlPaths, activeFilters.urlFilters) ||
     tempPathOperator !== activeFilters.pathOperator ||
+    String(tempSidegroup?.id ?? '') !== String(activeFilters.sidegroup?.id ?? '') ||
     tempMetricType !== activeFilters.metricType ||
     (selectedWebsite?.id ?? null) !== (activeWebsite?.id ?? null)
 
@@ -290,6 +321,8 @@ export const useOversikt = () => {
       })
       if (resolvedPathOperator !== 'equals') nextParams.set('pathOperator', resolvedPathOperator)
       else nextParams.delete('pathOperator')
+      if (tempSidegroup) nextParams.set('sidegroupId', tempSidegroup.id)
+      else nextParams.delete('sidegroupId')
       if (tempDateRange && tempDateRange !== 'last_7_days') nextParams.set('periode', tempDateRange)
       else nextParams.delete('periode')
       if (shouldUseCustomDates) {
@@ -306,11 +339,12 @@ export const useOversikt = () => {
 
       setActiveFilters({
         pathOperator: resolvedPathOperator,
-        urlFilters: resolvedUrlPaths,
+        urlFilters: tempSidegroup ? [] : resolvedUrlPaths,
         dateRange: tempDateRange,
         metricType: tempMetricType,
         customStartDate: shouldUseCustomDates ? tempCustomStartDate : undefined,
         customEndDate: shouldUseCustomDates ? tempCustomEndDate : undefined,
+        sidegroup: tempSidegroup,
       })
       setActiveWebsite(selectedWebsite)
     },
@@ -319,6 +353,7 @@ export const useOversikt = () => {
       setSearchParams,
       tempPathOperator,
       tempUrlPaths,
+      tempSidegroup,
       tempDateRange,
       tempCustomStartDate,
       tempCustomEndDate,
@@ -793,6 +828,9 @@ export const useOversikt = () => {
     setTempPathOperator,
     tempUrlPaths,
     setTempUrlPaths,
+    tempSidegroup,
+    setTempSidegroup,
+    sidegroups,
     tempDateRange,
     setTempDateRange,
     tempCustomStartDate,

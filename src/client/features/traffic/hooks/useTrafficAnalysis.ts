@@ -26,6 +26,7 @@ import type {
   Granularity,
   DateRange,
 } from '../model/types'
+import type { Sidegroup } from '../../sidegroups/model/types.ts'
 import {
   isCompareEnabled,
   getPreviousDateRange,
@@ -59,6 +60,7 @@ export const useTrafficAnalysis = () => {
   const initialPaths = pathsFromUrl.length > 0 ? pathsFromUrl.map((p) => normalizeUrlToPath(p)).filter(Boolean) : []
   const [urlPaths, setUrlPaths] = useState<string[]>(initialPaths)
   const [pathOperator, setPathOperator] = useState<string>(() => searchParams.get('pathOperator') || 'equals')
+  const [sidegroup, setSidegroup] = useState<Sidegroup | null>(null)
   const [period, setPeriodState] = useState<string>(() => getStoredPeriod(searchParams.get('period')))
 
   const setPeriod = (newPeriod: string) => {
@@ -96,6 +98,7 @@ export const useTrafficAnalysis = () => {
   const [submittedPathOperator, setSubmittedPathOperator] = useState<string>(
     () => searchParams.get('pathOperator') || 'equals',
   )
+  const [submittedSidegroup, setSubmittedSidegroup] = useState<Sidegroup | null>(null)
 
   const setMetricType = (newMetricType: string) => {
     setMetricTypeState(newMetricType)
@@ -125,6 +128,7 @@ export const useTrafficAnalysis = () => {
         websiteId: selectedWebsite?.id ?? null,
         urlPaths,
         pathOperator,
+        sidegroupId: sidegroup?.id ?? null,
         period,
         customStartDate: customStartDate?.toISOString() ?? null,
         customEndDate: customEndDate?.toISOString() ?? null,
@@ -136,6 +140,7 @@ export const useTrafficAnalysis = () => {
       selectedWebsite?.id,
       urlPaths,
       pathOperator,
+      sidegroup,
       period,
       customStartDate,
       customEndDate,
@@ -251,7 +256,7 @@ export const useTrafficAnalysis = () => {
   const fetchSeriesData = useCallback(async () => {
     if (!selectedWebsite) return
 
-    if (metricType === 'proportion' && urlPaths.length === 0) {
+    if (metricType === 'proportion' && urlPaths.length === 0 && !sidegroup) {
       setError(
         'For å se «Andel» må du velge en URL-sti i filteret. ' +
           'Andelen viser hvor stor del av besøkende totalt som var innom denne ene siden.',
@@ -279,6 +284,7 @@ export const useTrafficAnalysis = () => {
     setSubmittedMetricType(metricType)
     setSubmittedUrlPaths(urlPaths)
     setSubmittedPathOperator(pathOperator)
+    setSubmittedSidegroup(sidegroup)
     setSubmittedCustomStartDate(customStartDate)
     setSubmittedCustomEndDate(customEndDate)
     setSubmittedComparePreviousPeriod(comparePreviousPeriod)
@@ -320,6 +326,7 @@ export const useTrafficAnalysis = () => {
         interval,
         normalizedPath,
         { countByParams, countBySwitchAtParam },
+        sidegroup,
       )
 
       const seriesResult = await fetchTrafficSeries(seriesUrl)
@@ -346,6 +353,7 @@ export const useTrafficAnalysis = () => {
           interval,
           normalizedPath,
           previousCountByParams,
+          sidegroup,
         )
         const previousSeriesResult = await fetchPreviousTrafficSeries(previousSeriesUrl)
         setPreviousSeriesData(previousSeriesResult.data || [])
@@ -393,6 +401,7 @@ export const useTrafficAnalysis = () => {
     metricType,
     urlPaths,
     pathOperator,
+    sidegroup,
     customStartDate,
     customEndDate,
     comparePreviousPeriod,
@@ -436,7 +445,7 @@ export const useTrafficAnalysis = () => {
     async (
       startDate: Date,
       endDate: Date,
-      options?: { urlPaths?: string[]; pathOperator?: string; metricType?: string },
+      options?: { urlPaths?: string[]; pathOperator?: string; metricType?: string; sidegroup?: Sidegroup | null },
     ) => {
       if (!selectedWebsite) return
 
@@ -445,6 +454,7 @@ export const useTrafficAnalysis = () => {
         const activeUrlPaths = options?.urlPaths ?? submittedUrlPaths
         const activePathOperator = options?.pathOperator ?? submittedPathOperator
         const activeMetricType = options?.metricType ?? submittedMetricType
+        const activeSidegroup = options?.sidegroup ?? submittedSidegroup
         const urlPath = activeUrlPaths.length > 0 ? activeUrlPaths[0] : ''
         const normalizedPath = urlPath !== '/' && urlPath.endsWith('/') ? urlPath.slice(0, -1) : urlPath
         const countByParams = getCountByQueryParams(startDate, endDate)
@@ -457,6 +467,7 @@ export const useTrafficAnalysis = () => {
           activePathOperator,
           activeMetricType,
           countByParams,
+          activeSidegroup,
         )
 
         if (result.sources || result.exits) {
@@ -472,14 +483,21 @@ export const useTrafficAnalysis = () => {
         setIsLoadingBreakdown(false)
       }
     },
-    [selectedWebsite, submittedUrlPaths, submittedPathOperator, submittedMetricType, getCountByQueryParams],
+    [
+      selectedWebsite,
+      submittedUrlPaths,
+      submittedPathOperator,
+      submittedMetricType,
+      submittedSidegroup,
+      getCountByQueryParams,
+    ],
   )
 
   const fetchPageMetricsHandler = useCallback(
     async (
       startDate: Date,
       endDate: Date,
-      options?: { urlPaths?: string[]; pathOperator?: string; metricType?: string },
+      options?: { urlPaths?: string[]; pathOperator?: string; metricType?: string; sidegroup?: Sidegroup | null },
     ) => {
       if (!selectedWebsite) return
 
@@ -488,6 +506,7 @@ export const useTrafficAnalysis = () => {
         const activeUrlPaths = options?.urlPaths ?? submittedUrlPaths
         const activePathOperator = options?.pathOperator ?? submittedPathOperator
         const activeMetricType = options?.metricType ?? submittedMetricType
+        const activeSidegroup = options?.sidegroup ?? submittedSidegroup
         const urlPath = activeUrlPaths.length > 0 ? activeUrlPaths[0] : ''
         const normalizedPath = urlPath !== '/' && urlPath.endsWith('/') ? urlPath.slice(0, -1) : urlPath
         const countByParams = getCountByQueryParams(startDate, endDate)
@@ -500,6 +519,7 @@ export const useTrafficAnalysis = () => {
           activePathOperator,
           activeMetricType,
           countByParams,
+          { sidegroup: activeSidegroup },
         )
 
         if (result.data) {
@@ -519,6 +539,7 @@ export const useTrafficAnalysis = () => {
             activePathOperator,
             activeMetricType,
             previousCountByParams,
+            { sidegroup: activeSidegroup },
           )
           setPreviousPageMetrics(previousResult.data || [])
         } else {
@@ -536,6 +557,7 @@ export const useTrafficAnalysis = () => {
       submittedUrlPaths,
       submittedPathOperator,
       submittedMetricType,
+      submittedSidegroup,
       submittedComparePreviousPeriod,
       submittedPreviousDateRange,
       getCountByQueryParams,
@@ -546,7 +568,7 @@ export const useTrafficAnalysis = () => {
     async (
       startDate: Date,
       endDate: Date,
-      options?: { urlPaths?: string[]; pathOperator?: string; metricType?: string },
+      options?: { urlPaths?: string[]; pathOperator?: string; metricType?: string; sidegroup?: Sidegroup | null },
     ) => {
       if (!selectedWebsite) return
 
@@ -555,6 +577,7 @@ export const useTrafficAnalysis = () => {
         const activeUrlPaths = options?.urlPaths ?? submittedUrlPaths
         const activePathOperator = options?.pathOperator ?? submittedPathOperator
         const activeMetricType = options?.metricType ?? submittedMetricType
+        const activeSidegroup = options?.sidegroup ?? submittedSidegroup
         const urlPath = activeUrlPaths.length > 0 ? activeUrlPaths[0] : ''
         const normalizedPath = urlPath !== '/' && urlPath.endsWith('/') ? urlPath.slice(0, -1) : urlPath
         const countByParams = getCountByQueryParams(startDate, endDate)
@@ -567,6 +590,7 @@ export const useTrafficAnalysis = () => {
           activePathOperator,
           activeMetricType,
           countByParams,
+          activeSidegroup,
         )
 
         if (result.data && result.data.referrer) {
@@ -579,7 +603,14 @@ export const useTrafficAnalysis = () => {
         setIsLoadingExternalReferrers(false)
       }
     },
-    [selectedWebsite, submittedUrlPaths, submittedPathOperator, submittedMetricType, getCountByQueryParams],
+    [
+      selectedWebsite,
+      submittedUrlPaths,
+      submittedPathOperator,
+      submittedMetricType,
+      submittedSidegroup,
+      getCountByQueryParams,
+    ],
   )
 
   // Load all dependent traffic tables for the current selection.
@@ -594,6 +625,7 @@ export const useTrafficAnalysis = () => {
       urlPaths: submittedUrlPaths,
       pathOperator: submittedPathOperator,
       metricType: submittedMetricType,
+      sidegroup: submittedSidegroup,
     }
 
     if (!hasFetchedPageMetrics) {
@@ -614,6 +646,7 @@ export const useTrafficAnalysis = () => {
     submittedMetricType,
     submittedUrlPaths,
     submittedPathOperator,
+    submittedSidegroup,
     hasFetchedPageMetrics,
     hasFetchedExternalReferrers,
     hasFetchedBreakdown,
@@ -995,6 +1028,8 @@ export const useTrafficAnalysis = () => {
     setUrlPaths,
     pathOperator,
     setPathOperator,
+    sidegroup,
+    setSidegroup,
     period,
     setPeriod,
     customStartDate,

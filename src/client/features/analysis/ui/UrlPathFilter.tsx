@@ -1,8 +1,11 @@
 import { useRef } from 'react'
-import { Label, UNSAFE_Combobox, Modal, Textarea, Button } from '@navikt/ds-react'
+import { Link } from 'react-router-dom'
+import { ExternalLink } from 'lucide-react'
+import { Label, Select, UNSAFE_Combobox, Modal, Textarea, Button } from '@navikt/ds-react'
 import type { UrlPathFilterProps } from '../model/types.ts'
 import { formatPathLabel } from '../utils/urlPathFilter.ts'
 import { useUrlPathFilter } from '../hooks/useUrlPathFilter.ts'
+import { useSidegroupsForWebsite } from '../../sidegroups/hooks/useSidegroupsForWebsite.ts'
 
 export const UrlPathFilter = ({
   urlPaths,
@@ -17,9 +20,13 @@ export const UrlPathFilter = ({
   showSuggestions = false,
   isMultiSelect = true,
   className = '',
+  selectedWebsiteId,
+  sidegroup = null,
+  onSidegroupChange,
 }: UrlPathFilterProps) => {
   const urlModalRef = useRef<HTMLDialogElement>(null)
   const switchModalRef = useRef<HTMLDialogElement>(null)
+  const { sidegroups } = useSidegroupsForWebsite(onSidegroupChange ? selectedWebsiteId : undefined)
 
   const {
     uniqueUrlPaths,
@@ -50,8 +57,16 @@ export const UrlPathFilter = ({
     handleBlur,
   } = useUrlPathFilter(urlPaths, onUrlPathsChange, selectedWebsiteDomain, isMultiSelect)
 
+  const canPickSidegroup = Boolean(onSidegroupChange && selectedWebsiteId)
+  const isSidegroupMode = canPickSidegroup && pathOperator === 'sidegroup'
+
+  const handleOperatorChange = (nextOperator: string) => {
+    onPathOperatorChange(nextOperator)
+    if (nextOperator !== 'sidegroup') onSidegroupChange?.(null)
+  }
+
   return (
-    <div className={className}>
+    <div className={`relative ${canPickSidegroup ? 'sidegroup-management-slot' : ''} ${className}`}>
       {showOperator && (
         <div className="flex items-center gap-2 mb-1">
           {!hideLabel && (
@@ -62,32 +77,69 @@ export const UrlPathFilter = ({
           <select
             className="text-sm bg-[var(--ax-bg-default)] border border-[var(--ax-border-neutral-subtle)] rounded text-[var(--ax-text-accent)] font-medium cursor-pointer focus:outline-none py-1 px-2"
             value={pathOperator}
-            onChange={(e) => onPathOperatorChange(e.target.value)}
+            onChange={(e) => handleOperatorChange(e.target.value)}
           >
             <option value="equals">er lik</option>
             <option value="starts-with">starter med</option>
+            {canPickSidegroup && <option value="sidegroup">tilhører sidegruppe</option>}
           </select>
         </div>
       )}
-      <div onPaste={handlePaste} onBlur={handleBlur}>
-        <UNSAFE_Combobox
-          id="url-filter"
-          label={label}
-          hideLabel={showOperator || hideLabel}
-          size={size}
-          isMultiSelect={isMultiSelect}
-          allowNewValues
-          toggleListButton={showSuggestions}
-          options={
-            showSuggestions ? uniqueUrlPaths.map((p) => ({ label: formatPathLabel(p), value: formatPathLabel(p) })) : []
-          }
-          filteredOptions={showSuggestions ? undefined : []}
-          selectedOptions={uniqueUrlPaths.map(formatPathLabel)}
-          onToggleSelected={handleToggleSelected}
-          value={comboInputValue}
-          onChange={(val) => setComboInputValue(val)}
-        />
-      </div>
+      {isSidegroupMode ? (
+        <>
+          <Select
+            label="Sidegruppe"
+            hideLabel
+            size={size}
+            value={sidegroup ? String(sidegroup.id) : ''}
+            onChange={(e) => {
+              const nextSidegroup = sidegroups.find((group) => String(group.id) === e.target.value) ?? null
+              onSidegroupChange?.(nextSidegroup)
+              onUrlPathsChange([])
+            }}
+          >
+            <option value="">{sidegroups.length > 0 ? 'Velg sidegruppe' : 'Ingen sidegrupper lagt til'}</option>
+            {sidegroups.map((group) => (
+              <option key={group.id} value={group.id}>
+                {group.name}
+              </option>
+            ))}
+          </Select>
+          <Link
+            to={selectedWebsiteId ? `/sidegrupper?websiteId=${encodeURIComponent(selectedWebsiteId)}` : '/sidegrupper'}
+            className="sidegroup-management-link absolute right-0 top-full mt-1 inline-flex items-center gap-1 whitespace-nowrap text-sm text-[var(--ax-text-accent)] underline"
+            target="_blank"
+            rel="noopener noreferrer"
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') event.stopPropagation()
+            }}
+          >
+            Administrer sidegrupper <ExternalLink size={14} aria-hidden="true" />
+          </Link>
+        </>
+      ) : (
+        <div onPaste={handlePaste} onBlur={handleBlur}>
+          <UNSAFE_Combobox
+            id="url-filter"
+            label={label}
+            hideLabel={showOperator || hideLabel}
+            size={size}
+            isMultiSelect={isMultiSelect}
+            allowNewValues
+            toggleListButton={showSuggestions}
+            options={
+              showSuggestions
+                ? uniqueUrlPaths.map((p) => ({ label: formatPathLabel(p), value: formatPathLabel(p) }))
+                : []
+            }
+            filteredOptions={showSuggestions ? undefined : []}
+            selectedOptions={uniqueUrlPaths.map(formatPathLabel)}
+            onToggleSelected={handleToggleSelected}
+            value={comboInputValue}
+            onChange={(val) => setComboInputValue(val)}
+          />
+        </div>
+      )}
 
       {/* Bulk URL paste modal */}
       <Modal

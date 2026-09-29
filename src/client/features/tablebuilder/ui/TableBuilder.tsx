@@ -35,6 +35,8 @@ import { SuggestingValueEditor } from '../../cohortmanager/ui/SuggestingValueEdi
 import { downloadCsvFile } from '../../traffic/utils/trafficUtils.ts'
 import type { JsonValue, Row } from '../../sql/model/types.ts'
 import { getUniqueColumnAliases, quoteBigQueryIdentifier } from '../utils/columnAliases.ts'
+import type { Sidegroup } from '../../sidegroups/model/types.ts'
+import { buildSidegroupSqlCondition } from '../../../shared/lib/sidegroupSql.ts'
 
 type ColumnKind = 'dimension' | 'metric'
 type ColumnView = 'rows' | 'events' | 'visitors' | 'share' | 'visitor-share'
@@ -309,6 +311,7 @@ const buildSql = (
   columns: SelectedColumn[],
   urlPaths: string[],
   pathOperator: string,
+  sidegroup: Sidegroup | null,
   useDashboardFilters = false,
 ) => {
   const projectId = getGcpProjectId()
@@ -338,11 +341,13 @@ const buildSql = (
     const escapedSlashPath = escapeSqlString(path.endsWith('/') ? path : `${path}/`)
     return `(e.url_path = '${escapedPath}' OR e.url_path = '${escapedSlashPath}' OR e.url_path LIKE '${escapedPath}?%')`
   })
-  const urlFilter = useDashboardFilters
-    ? `\n    AND e.url_path = [[ {{url_sti}} --]] '/'`
-    : urlConditions.length > 0
-      ? `\n  AND (${urlConditions.join(' OR ')})`
-      : ''
+  const urlFilter = sidegroup
+    ? `\n  AND ${buildSidegroupSqlCondition(sidegroup, 'e.url_path')}`
+    : useDashboardFilters
+      ? `\n    AND e.url_path = [[ {{url_sti}} --]] '/'`
+      : urlConditions.length > 0
+        ? `\n  AND (${urlConditions.join(' OR ')})`
+        : ''
   const dimensionFilters = dimensions.flatMap((column) => {
     const value = column.filterValue?.trim()
     if (!value || !column.filterOperator || column.filterOperator === 'all') return []
@@ -735,6 +740,7 @@ const TableBuilder = () => {
   const [endDate, setEndDate] = useState<Date>()
   const [urlPaths, setUrlPaths] = useState<string[]>([])
   const [pathOperator, setPathOperator] = useState('equals')
+  const [sidegroup, setSidegroup] = useState<Sidegroup | null>(null)
   const [columns, setColumns] = useState<SelectedColumn[]>([])
   const [dialogOpen, setDialogOpen] = useState(false)
   const [rows, setRows] = useState<Row[]>([])
@@ -760,6 +766,7 @@ const TableBuilder = () => {
           columns,
           urlPaths,
           pathOperator,
+          sidegroup,
           true,
         )
       : ''
@@ -789,6 +796,7 @@ const TableBuilder = () => {
         columns,
         urlPaths.map(normalizeUrlToPath).filter(Boolean),
         pathOperator,
+        sidegroup,
       )
       setLastSql(sql)
       const response = await fetch('/api/bigquery', {
@@ -808,14 +816,14 @@ const TableBuilder = () => {
     } finally {
       setLoading(false)
     }
-  }, [selectedWebsite, columns, period, startDate, endDate, urlPaths, pathOperator])
+  }, [selectedWebsite, columns, period, startDate, endDate, urlPaths, pathOperator, sidegroup])
 
   useEffect(() => {
     if (!selectedWebsite || columns.length === 0) return
     if (period === 'custom' && (!startDate || !endDate)) return
     const timeoutId = window.setTimeout(() => void runTable(), 350)
     return () => window.clearTimeout(timeoutId)
-  }, [selectedWebsite, columns, period, startDate, endDate, urlPaths, pathOperator, runTable])
+  }, [selectedWebsite, columns, period, startDate, endDate, urlPaths, pathOperator, sidegroup, runTable])
 
   const resultRows = rows
   const normalizedSearch = searchText.trim().toLocaleLowerCase('nb')
@@ -876,6 +884,9 @@ const TableBuilder = () => {
               pathOperator={pathOperator}
               onPathOperatorChange={setPathOperator}
               selectedWebsiteDomain={selectedWebsite?.domain}
+              selectedWebsiteId={selectedWebsite?.id}
+              sidegroup={sidegroup}
+              onSidegroupChange={setSidegroup}
               className="w-full"
             />
             <PeriodPicker

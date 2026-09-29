@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { DragEvent, KeyboardEvent } from 'react'
-import { GripVertical } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { ExternalLink, GripVertical } from 'lucide-react'
 import {
   ActionMenu,
   Alert,
@@ -152,6 +153,9 @@ const Oversikt = () => {
     setTempPathOperator,
     tempUrlPaths,
     setTempUrlPaths,
+    tempSidegroup,
+    setTempSidegroup,
+    sidegroups,
     tempDateRange,
     setTempDateRange,
     tempCustomStartDate,
@@ -1597,7 +1601,9 @@ const Oversikt = () => {
           )}
 
           {visibleFilterCapabilities.url && (
-            <div className="w-full md:w-[20rem]">
+            <div
+              className={`relative w-full md:w-[20rem] ${!usePreselectedPathFilter ? 'sidegroup-management-slot' : ''}`}
+            >
               <div className="flex items-center gap-2 mb-1">
                 <Label size="small" htmlFor="oversikt-url-filter">
                   {preselectedPathFilterLabel}
@@ -1605,15 +1611,51 @@ const Oversikt = () => {
                 {!hidePathOperatorChoice && (
                   <select
                     className="text-sm bg-[var(--ax-bg-default)] border border-[var(--ax-border-neutral-subtle)] rounded text-[var(--ax-text-accent)] font-medium cursor-pointer focus:outline-none py-1 px-2"
-                    value={tempPathOperator}
-                    onChange={(e) => setTempPathOperator(e.target.value)}
+                    value={tempSidegroup ? 'sidegroup' : tempPathOperator}
+                    onChange={(e) => {
+                      const nextOperator = e.target.value
+                      if (nextOperator !== 'sidegroup') setTempSidegroup(null)
+                      setTempPathOperator(nextOperator)
+                    }}
                   >
                     <option value="equals">er lik</option>
                     <option value="starts-with">starter med</option>
+                    {!usePreselectedPathFilter && <option value="sidegroup">tilhører sidegruppe</option>}
                   </select>
                 )}
               </div>
-              {usePreselectedPathFilter ? (
+              {tempSidegroup || (tempPathOperator === 'sidegroup' && !usePreselectedPathFilter) ? (
+                <>
+                  <Select
+                    label="Sidegruppe"
+                    hideLabel
+                    size="small"
+                    value={tempSidegroup ? String(tempSidegroup.id) : ''}
+                    onChange={(e) => {
+                      const match = sidegroups.find((group) => String(group.id) === e.target.value) ?? null
+                      setTempSidegroup(match)
+                      setTempUrlPaths([])
+                    }}
+                  >
+                    <option value="">{sidegroups.length > 0 ? 'Velg sidegruppe' : 'Ingen sidegrupper lagt til'}</option>
+                    {sidegroups.map((group) => (
+                      <option key={group.id} value={group.id}>
+                        {group.name}
+                      </option>
+                    ))}
+                  </Select>
+                  <Link
+                    to={
+                      activeWebsiteId ? `/sidegrupper?websiteId=${encodeURIComponent(activeWebsiteId)}` : '/sidegrupper'
+                    }
+                    className="sidegroup-management-link absolute right-0 top-full mt-1 inline-flex items-center gap-1 whitespace-nowrap text-sm text-[var(--ax-text-accent)] underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Administrer sidegrupper <ExternalLink size={14} aria-hidden="true" />
+                  </Link>
+                </>
+              ) : usePreselectedPathFilter ? (
                 <Select
                   label="URL-stier"
                   hideLabel
