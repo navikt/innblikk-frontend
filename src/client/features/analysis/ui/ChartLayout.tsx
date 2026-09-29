@@ -140,11 +140,11 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
         <div className="rounded-lg shadow-sm border border-[var(--ax-border-neutral-subtle)] mb-8 bg-[var(--ax-bg-default)] overflow-hidden">
           {/* Unified Top Bar */}
           {(sidebarContent || (!hideSidebar && filters)) && (
-            <div className="border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-subtle)] flex flex-col md:flex-row md:min-h-[80px]">
+            <div className="group border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-subtle)] flex flex-col md:flex-row md:min-h-[80px]">
               {/* Left Column Header (Sidebar Content) */}
               {!hideAnalysisSelector && (
                 <div
-                  className={`w-full md:w-[250px] flex-shrink-0 border-b md:border-b-0 p-4 flex flex-col justify-end transition-all duration-300 ${isSidebarOpen ? 'md:flex' : 'md:hidden'}`}
+                  className={`w-full md:w-[250px] flex-shrink-0 border-b md:border-b-0 p-4 flex flex-col justify-end transition-all duration-300 md:group-has-[.sidegroup-management-slot]:pb-10 ${isSidebarOpen ? 'md:flex' : 'md:hidden'}`}
                 >
                   {sidebarContent}
                 </div>
@@ -152,7 +152,7 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
 
               {/* Right Column Header (Filters) */}
               <div
-                className="w-full md:flex-1 p-4 flex flex-wrap items-end gap-4 border-b md:border-b-0 border-[var(--ax-border-neutral-subtle)] md:border-none"
+                className="w-full md:flex-1 p-4 flex flex-wrap items-end gap-4 border-b md:border-b-0 border-[var(--ax-border-neutral-subtle)] md:border-none has-[.sidegroup-management-slot]:pb-10"
                 onKeyDown={
                   onFiltersSubmit
                     ? (e) => {

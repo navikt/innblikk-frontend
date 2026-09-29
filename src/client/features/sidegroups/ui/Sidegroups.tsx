@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Alert,
   BodyShort,
@@ -68,6 +69,8 @@ const toRequest = (form: SidegroupForm, conditions: MatchCondition[]): Sidegroup
 }
 
 export default function Sidegroups() {
+  const [searchParams] = useSearchParams()
+  const requestedWebsiteId = searchParams.get('websiteId')
   const [sidegroups, setSidegroups] = useState<Sidegroup[]>([])
   const [expandedSidegroups, setExpandedSidegroups] = useState<Set<string>>(() => new Set())
   const [websites, setWebsites] = useState<Website[]>([])
@@ -108,11 +111,11 @@ export default function Sidegroups() {
     fetchWebsites()
       .then((data) => {
         setWebsites(data)
-        setSelectedWebsiteId(data[0]?.id ?? null)
+        setSelectedWebsiteId(data.find((website) => website.id === requestedWebsiteId)?.id ?? data[0]?.id ?? null)
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Kunne ikke laste nettsteder'))
       .finally(() => setWebsitesLoading(false))
-  }, [])
+  }, [requestedWebsiteId])
 
   const openEditor = (sidegroup?: Sidegroup) => {
     setEditorTarget(sidegroup ?? null)

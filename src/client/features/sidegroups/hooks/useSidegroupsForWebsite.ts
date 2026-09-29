@@ -25,9 +25,12 @@ export const useSidegroupsForWebsite = (websiteId?: string) => {
   useEffect(() => {
     if (!websiteId) return
     let cancelled = false
-    void loadSidegroups(websiteId, () => cancelled)
+    const refresh = () => void loadSidegroups(websiteId, () => cancelled)
+    refresh()
+    window.addEventListener('focus', refresh)
     return () => {
       cancelled = true
+      window.removeEventListener('focus', refresh)
     }
   }, [websiteId, loadSidegroups])
 

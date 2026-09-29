@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { DragEvent, KeyboardEvent } from 'react'
-import { GripVertical } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { ExternalLink, GripVertical } from 'lucide-react'
 import {
   ActionMenu,
   Alert,
@@ -1600,7 +1601,9 @@ const Oversikt = () => {
           )}
 
           {visibleFilterCapabilities.url && (
-            <div className="w-full md:w-[20rem]">
+            <div
+              className={`relative w-full md:w-[20rem] ${!usePreselectedPathFilter && sidegroups.length > 0 ? 'sidegroup-management-slot' : ''}`}
+            >
               <div className="flex items-center gap-2 mb-1">
                 <Label size="small" htmlFor="oversikt-url-filter">
                   {preselectedPathFilterLabel}
@@ -1624,24 +1627,36 @@ const Oversikt = () => {
                 )}
               </div>
               {tempSidegroup || (tempPathOperator === 'sidegroup' && sidegroups.length > 0) ? (
-                <Select
-                  label="Sidegruppe"
-                  hideLabel
-                  size="small"
-                  value={tempSidegroup ? String(tempSidegroup.id) : ''}
-                  onChange={(e) => {
-                    const match = sidegroups.find((group) => String(group.id) === e.target.value) ?? null
-                    setTempSidegroup(match)
-                    setTempUrlPaths([])
-                  }}
-                >
-                  <option value="">Velg sidegruppe</option>
-                  {sidegroups.map((group) => (
-                    <option key={group.id} value={group.id}>
-                      {group.name}
-                    </option>
-                  ))}
-                </Select>
+                <>
+                  <Select
+                    label="Sidegruppe"
+                    hideLabel
+                    size="small"
+                    value={tempSidegroup ? String(tempSidegroup.id) : ''}
+                    onChange={(e) => {
+                      const match = sidegroups.find((group) => String(group.id) === e.target.value) ?? null
+                      setTempSidegroup(match)
+                      setTempUrlPaths([])
+                    }}
+                  >
+                    <option value="">Velg sidegruppe</option>
+                    {sidegroups.map((group) => (
+                      <option key={group.id} value={group.id}>
+                        {group.name}
+                      </option>
+                    ))}
+                  </Select>
+                  <Link
+                    to={
+                      activeWebsiteId ? `/sidegrupper?websiteId=${encodeURIComponent(activeWebsiteId)}` : '/sidegrupper'
+                    }
+                    className="sidegroup-management-link absolute right-0 top-full mt-1 inline-flex items-center gap-1 whitespace-nowrap text-sm text-[var(--ax-text-accent)] underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Administrer grupper <ExternalLink size={14} aria-hidden="true" />
+                  </Link>
+                </>
               ) : usePreselectedPathFilter ? (
                 <Select
                   label="URL-stier"

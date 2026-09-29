@@ -1,4 +1,6 @@
 import { useRef } from 'react'
+import { Link } from 'react-router-dom'
+import { ExternalLink } from 'lucide-react'
 import { Label, Select, UNSAFE_Combobox, Modal, Textarea, Button } from '@navikt/ds-react'
 import type { UrlPathFilterProps } from '../model/types.ts'
 import { formatPathLabel } from '../utils/urlPathFilter.ts'
@@ -64,7 +66,7 @@ export const UrlPathFilter = ({
   }
 
   return (
-    <div className={className}>
+    <div className={`relative ${canPickSidegroup ? 'sidegroup-management-slot' : ''} ${className}`}>
       {showOperator && (
         <div className="flex items-center gap-2 mb-1">
           {!hideLabel && (
@@ -84,24 +86,37 @@ export const UrlPathFilter = ({
         </div>
       )}
       {isSidegroupMode ? (
-        <Select
-          label="Sidegruppe"
-          hideLabel
-          size={size}
-          value={sidegroup ? String(sidegroup.id) : ''}
-          onChange={(e) => {
-            const nextSidegroup = sidegroups.find((group) => String(group.id) === e.target.value) ?? null
-            onSidegroupChange?.(nextSidegroup)
-            onUrlPathsChange([])
-          }}
-        >
-          <option value="">Velg sidegruppe</option>
-          {sidegroups.map((group) => (
-            <option key={group.id} value={group.id}>
-              {group.name}
-            </option>
-          ))}
-        </Select>
+        <>
+          <Select
+            label="Sidegruppe"
+            hideLabel
+            size={size}
+            value={sidegroup ? String(sidegroup.id) : ''}
+            onChange={(e) => {
+              const nextSidegroup = sidegroups.find((group) => String(group.id) === e.target.value) ?? null
+              onSidegroupChange?.(nextSidegroup)
+              onUrlPathsChange([])
+            }}
+          >
+            <option value="">Velg sidegruppe</option>
+            {sidegroups.map((group) => (
+              <option key={group.id} value={group.id}>
+                {group.name}
+              </option>
+            ))}
+          </Select>
+          <Link
+            to={selectedWebsiteId ? `/sidegrupper?websiteId=${encodeURIComponent(selectedWebsiteId)}` : '/sidegrupper'}
+            className="sidegroup-management-link absolute right-0 top-full mt-1 inline-flex items-center gap-1 whitespace-nowrap text-sm text-[var(--ax-text-accent)] underline"
+            target="_blank"
+            rel="noopener noreferrer"
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') event.stopPropagation()
+            }}
+          >
+            Administrer grupper <ExternalLink size={14} aria-hidden="true" />
+          </Link>
+        </>
       ) : (
         <div onPaste={handlePaste} onBlur={handleBlur}>
           <UNSAFE_Combobox
