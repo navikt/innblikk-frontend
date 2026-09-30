@@ -13,6 +13,13 @@ interface FilterState {
 
 export const supportsMetricTypeSelection = (sql: string): boolean => /\bUnike_besokende\b/i.test(sql)
 
+const replaceMetricAlias = (sql: string, targetAlias: string): string => {
+  const quotedTargetAlias = `\`${targetAlias}\``
+  return sql
+    .replace(/`Unike_besokende`/gi, quotedTargetAlias)
+    .replace(/\bUnike_besokende\b/gi, targetAlias.includes(' ') ? quotedTargetAlias : targetAlias)
+}
+
 export const processDashboardSql = (sql: string, websiteId: string, filters: FilterState): string => {
   // 0. Define timezone (default to Europe/Oslo)
   const timezone = 'Europe/Oslo'
@@ -138,23 +145,23 @@ export const processDashboardSql = (sql: string, websiteId: string, filters: Fil
       /COUNT\s*\(\s*DISTINCT\s+(?:[a-zA-Z_.]+\.)?session_id\s*\)\s+as\s+Unike_besokende/gi,
       'COUNT(*) as Sidevisninger',
     )
-    processedSql = processedSql.replace(/\bUnike_besokende\b/g, 'Sidevisninger')
+    processedSql = replaceMetricAlias(processedSql, 'Sidevisninger')
   } else if (filters.metricType === 'proportion') {
     const totalSiteVisitorsSubquery = `(SELECT COUNT(DISTINCT session_id) FROM \`${projectId}.umami_views.event\` WHERE website_id = '${websiteId}' AND event_type = 1 AND created_at BETWEEN ${fromSql} AND ${toSql})`
     processedSql = processedSql.replace(
       /COUNT\s*\(\s*DISTINCT\s+(?:([a-zA-Z_.]+)\.)?session_id\s*\)\s+as\s+Unike_besokende/gi,
       (_match, tablePrefix) => {
         const sessionRef = tablePrefix ? `${tablePrefix}.session_id` : 'session_id'
-        return `CONCAT(REGEXP_REPLACE(REGEXP_REPLACE(FORMAT('%.6f', COALESCE(SAFE_DIVIDE(COUNT(DISTINCT ${sessionRef}) * 100.0, ${totalSiteVisitorsSubquery}), 0)), r'(\\.\\d*?[1-9])0+$', '\\\\1'), r'\\.0+$', ''), '%') as Andel`
+        return `ROUND(COALESCE(SAFE_DIVIDE(COUNT(DISTINCT ${sessionRef}) * 100.0, ${totalSiteVisitorsSubquery}), 0), 6) as Andel`
       },
     )
-    processedSql = processedSql.replace(/\bUnike_besokende\b/g, 'Andel')
+    processedSql = replaceMetricAlias(processedSql, 'Andel')
   } else if (filters.metricType === 'visits') {
     processedSql = processedSql.replace(
       /COUNT\s*\(\s*DISTINCT\s+(?:[a-zA-Z_.]+\.)?session_id\s*\)\s+as\s+Unike_besokende/gi,
       'COUNT(DISTINCT visit_id) as `Antall økter`',
     )
-    processedSql = processedSql.replace(/\bUnike_besokende\b/g, '`Antall økter`')
+    processedSql = replaceMetricAlias(processedSql, 'Antall økter')
   }
 
   return processedSql

@@ -319,7 +319,7 @@ export const DashboardWidget = ({
   chartPresentationMode = false,
 }: DashboardWidgetProps) => {
   const [loading, setLoading] = useState(shouldWaitForBatch ?? false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{ message: string; variant: 'error' | 'info' } | null>(null)
   const [data, setData] = useState<DashboardRow[]>([])
   const [page, setPage] = useState(1)
   // Track if individual fetch has been done to prevent repeat fetches
@@ -409,7 +409,15 @@ export const DashboardWidget = ({
         setHasFetchedIndividually(true)
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Ukjent feil'
-        setError(message)
+        const missingUrlPath =
+          filters.urlFilters.length === 0 &&
+          /\{\{\s*url_(?:sti|path)\s*\}\}/i.test(chart.sql) &&
+          /Syntax error: Expected "\)" but got "AND"/i.test(message)
+        setError(
+          missingUrlPath
+            ? { message: 'Velg en URL-sti i filteret over og trykk Oppdater for å vise grafen.', variant: 'info' }
+            : { message, variant: 'error' },
+        )
       } finally {
         setLoading(false)
       }
@@ -464,7 +472,7 @@ export const DashboardWidget = ({
           <Loader />
         </div>
       )
-    if (error) return <Alert variant="error">{error}</Alert>
+    if (error) return <Alert variant={error.variant}>{error.message}</Alert>
     if (!data || data.length === 0)
       return <div className="text-[var(--ax-text-subtle)] p-8 text-center">Ingen data funnet</div>
 
