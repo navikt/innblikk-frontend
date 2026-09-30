@@ -17,6 +17,23 @@ Why this matters: path B's setup steps (gcloud auth, service account credentials
 fail or hang for someone without that access, and silently trying them first wastes the user's
 time on a path that was never going to work for their actual role.
 
+## Beta features
+
+When adding a new feature, **ask the user whether it should launch in beta**. If yes, wire it into the existing beta plumbing — all three parts, no partial jobs:
+
+1. **Registry entry** in `src/client/shared/lib/betaFeatures.ts` (`id`, `title`, one-line `description`, `href`). This powers the «Funksjoner i beta» overview on `/profil`, so the feature must be listed there to be documented.
+2. **Dismissable notice** mounted where the feature lives:
+   ```tsx
+   <BetaFeatureNotice id="<registry-id>" title="<Feature> er i beta">
+     ...what is experimental...
+     <BetaFeedbackLine />
+   </BetaFeatureNotice>
+   ```
+   (`src/client/shared/ui/BetaFeatureNotice.tsx`; the `id` must match the registry entry.)
+3. **Beta badge** on the page header (`<PageHeader ... beta />`) or, for analysis pages, `beta: true` on its entry in `src/client/features/analysis/model/analyticsNavigation.ts` (shows the badge in nav + header).
+
+When a feature graduates out of beta, remove all three parts (see the comment at the top of `betaFeatures.ts`).
+
 ## Code style
 
 Formatting is enforced via Prettier and linting via ESLint. Run both on any files you change before finishing:

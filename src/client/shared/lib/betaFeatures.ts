@@ -42,4 +42,10 @@ export const betaFeatures: BetaFeature[] = [
     description: 'Delbart lerret for å samle grafer og funn på ett sted.',
     href: '/canvas',
   },
+  {
+    id: 'sidegrupper',
+    title: 'Sidegrupper',
+    description: 'Grupper sider på nettstedet ditt etter URL-mønstre.',
+    href: '/sidegrupper',
+  },
 ]

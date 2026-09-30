@@ -19,6 +19,7 @@ import { fetchWebsites } from '../../../shared/api/websiteApi.ts'
 import type { Website } from '../../../shared/types/website.ts'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
+import { BetaFeatureNotice, BetaFeedbackLine } from '../../../shared/ui/BetaFeatureNotice.tsx'
 import { createSidegroup, deleteSidegroup, listSidegroups, updateSidegroup } from '../api/sidegroupsApi.ts'
 import {
   sidegroupMatchFields,
@@ -245,6 +246,12 @@ export default function Sidegroups() {
     <>
       <PageHeader title="Sidegrupper" description="Administrer alle grupper på nettstedet ditt" beta />
       <AppBlock className="pb-16">
+        {/* Dismissable beta notice — registry id in shared/lib/betaFeatures.ts */}
+        <BetaFeatureNotice id="sidegrupper" title="Sidegrupper er i beta" className="mb-4">
+          Sidegrupper er under utvikling, og funksjonalitet kan endre seg.
+          <BetaFeedbackLine />
+        </BetaFeatureNotice>
+
         <VStack gap="space-16">
           <div
             className="relative focus-within:z-10"
