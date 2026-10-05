@@ -7,18 +7,20 @@ import type { Sidegroup } from '../model/types.ts'
  * user pick a sidegruppe instead of typing URL paths manually.
  */
 export const useSidegroupsForWebsite = (websiteId?: string) => {
-  const [sidegroups, setSidegroups] = useState<Sidegroup[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loadedSidegroups, setLoadedSidegroups] = useState<{ websiteId: string; sidegroups: Sidegroup[] } | null>(null)
+  const [loadingWebsiteId, setLoadingWebsiteId] = useState<string | null>(null)
 
   const loadSidegroups = useCallback(async (id: string, isCancelled: () => boolean) => {
-    setLoading(true)
+    setLoadingWebsiteId(id)
     try {
       const all = await listSidegroups()
-      if (!isCancelled()) setSidegroups(all.filter((sidegroup) => sidegroup.websiteId === id))
+      if (!isCancelled()) {
+        setLoadedSidegroups({ websiteId: id, sidegroups: all.filter((sidegroup) => sidegroup.websiteId === id) })
+      }
     } catch {
-      if (!isCancelled()) setSidegroups([])
+      if (!isCancelled()) setLoadedSidegroups({ websiteId: id, sidegroups: [] })
     } finally {
-      if (!isCancelled()) setLoading(false)
+      if (!isCancelled()) setLoadingWebsiteId((current) => (current === id ? null : current))
     }
   }, [])
 
@@ -34,5 +36,9 @@ export const useSidegroupsForWebsite = (websiteId?: string) => {
     }
   }, [websiteId, loadSidegroups])
 
-  return { sidegroups: websiteId ? sidegroups : [], loading }
+  const hasLoadedCurrentWebsite = Boolean(websiteId && loadedSidegroups?.websiteId === websiteId)
+  return {
+    sidegroups: hasLoadedCurrentWebsite ? (loadedSidegroups?.sidegroups ?? []) : [],
+    loading: Boolean(websiteId && (!hasLoadedCurrentWebsite || loadingWebsiteId === websiteId)),
+  }
 }

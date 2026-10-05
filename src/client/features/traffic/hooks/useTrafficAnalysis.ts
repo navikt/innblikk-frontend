@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
 import type { ILineChartDataPoint } from '@fluentui/react-charting'
@@ -27,6 +27,7 @@ import type {
   DateRange,
 } from '../model/types'
 import type { Sidegroup } from '../../sidegroups/model/types.ts'
+import { useSidegroupsForWebsite } from '../../sidegroups/hooks/useSidegroupsForWebsite.ts'
 import {
   isCompareEnabled,
   getPreviousDateRange,
@@ -54,6 +55,9 @@ export const useTrafficAnalysis = () => {
   const cookieStartDate = useCookieStartDate(selectedWebsite?.domain, selectedWebsite?.id)
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const initialSidegroupIdRef = useRef(searchParams.get('sidegroupId'))
+  const [sidegroupUrlId, setSidegroupUrlId] = useState(initialSidegroupIdRef.current)
+  const [sidegroupReadyWebsiteId, setSidegroupReadyWebsiteId] = useState<string | null>(null)
 
   // Initialize state from URL params - support multiple paths
   const pathsFromUrl = searchParams.getAll('urlPath')
@@ -61,6 +65,22 @@ export const useTrafficAnalysis = () => {
   const [urlPaths, setUrlPaths] = useState<string[]>(initialPaths)
   const [pathOperator, setPathOperator] = useState<string>(() => searchParams.get('pathOperator') || 'equals')
   const [sidegroup, setSidegroup] = useState<Sidegroup | null>(null)
+  const { sidegroups, loading: loadingSidegroups } = useSidegroupsForWebsite(selectedWebsite?.id)
+  const sidegroupResolutionPending = Boolean(
+    sidegroupUrlId && selectedWebsite?.id && sidegroupReadyWebsiteId !== selectedWebsite.id,
+  )
+
+  useEffect(() => {
+    const websiteId = selectedWebsite?.id
+    if (!websiteId || !sidegroupUrlId || sidegroupReadyWebsiteId === websiteId || loadingSidegroups) return
+    const match = sidegroups.find((group) => String(group.id) === sidegroupUrlId)
+    if (match) {
+      setSidegroup(match)
+      setUrlPaths([])
+    }
+    setSidegroupReadyWebsiteId(websiteId)
+  }, [loadingSidegroups, selectedWebsite?.id, sidegroupReadyWebsiteId, sidegroupUrlId, sidegroups])
+
   const [period, setPeriodState] = useState<string>(() => getStoredPeriod(searchParams.get('period')))
 
   const setPeriod = (newPeriod: string) => {
@@ -99,6 +119,21 @@ export const useTrafficAnalysis = () => {
     () => searchParams.get('pathOperator') || 'equals',
   )
   const [submittedSidegroup, setSubmittedSidegroup] = useState<Sidegroup | null>(null)
+  const handleWebsiteChange = useCallback(
+    (website: Website | null) => {
+      if (selectedWebsite?.id && selectedWebsite.id !== website?.id) {
+        setSidegroup(null)
+        setSubmittedSidegroup(null)
+        setSidegroupUrlId(null)
+        setSidegroupReadyWebsiteId(website?.id ?? null)
+        const url = new URL(window.location.href)
+        url.searchParams.delete('sidegroupId')
+        window.history.replaceState({}, '', url.toString())
+      }
+      setSelectedWebsite(website)
+    },
+    [selectedWebsite?.id],
+  )
 
   const setMetricType = (newMetricType: string) => {
     setMetricTypeState(newMetricType)
@@ -255,6 +290,7 @@ export const useTrafficAnalysis = () => {
 
   const fetchSeriesData = useCallback(async () => {
     if (!selectedWebsite) return
+    if (sidegroupResolutionPending) return
 
     if (metricType === 'proportion' && urlPaths.length === 0 && !sidegroup) {
       setError(
@@ -378,6 +414,14 @@ export const useTrafficAnalysis = () => {
       } else {
         newParams.delete('pathOperator')
       }
+      if (sidegroup) {
+        newParams.set('sidegroupId', String(sidegroup.id))
+        setSidegroupUrlId(String(sidegroup.id))
+      } else {
+        newParams.delete('sidegroupId')
+        setSidegroupUrlId(null)
+      }
+      setSidegroupReadyWebsiteId(selectedWebsite.id)
 
       if (period === 'custom' && customStartDate && customEndDate) {
         newParams.set('from', format(customStartDate, 'yyyy-MM-dd'))
@@ -398,6 +442,7 @@ export const useTrafficAnalysis = () => {
     }
   }, [
     selectedWebsite,
+    sidegroupResolutionPending,
     metricType,
     urlPaths,
     pathOperator,
@@ -413,10 +458,10 @@ export const useTrafficAnalysis = () => {
 
   // Auto-submit when website is selected
   useEffect(() => {
-    if (selectedWebsite && !hasAttemptedFetch) {
+    if (selectedWebsite && !hasAttemptedFetch && !sidegroupResolutionPending) {
       void fetchSeriesData()
     }
-  }, [selectedWebsite, hasAttemptedFetch, fetchSeriesData])
+  }, [selectedWebsite, hasAttemptedFetch, sidegroupResolutionPending, fetchSeriesData])
 
   // Auto-fetch when granularity changes
   useEffect(() => {
@@ -1019,7 +1064,7 @@ export const useTrafficAnalysis = () => {
   return {
     // Website
     selectedWebsite,
-    setSelectedWebsite,
+    setSelectedWebsite: handleWebsiteChange,
     usesCookies,
     cookieStartDate,
 

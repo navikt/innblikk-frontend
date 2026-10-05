@@ -1,5 +1,36 @@
 import { describe, it, expect } from 'vitest'
-import { buildTimeSeriesBucketSql } from './helpers.js'
+import { buildSidegroupClause, buildTimeSeriesBucketSql } from './helpers.js'
+
+describe('buildSidegroupClause', () => {
+  it('uses literal, case-insensitive matching for every rule type', () => {
+    const params = {}
+    const clause = buildSidegroupClause(
+      {
+        include: ['/news_%'],
+        exclude: ['/private_%'],
+        exact: ['/EXACT'],
+        startWith: ['/start_%'],
+        endWith: ['/end_%'],
+      },
+      'e.url_path',
+      params,
+    )
+
+    expect(clause).toContain('STRPOS(LOWER(e.url_path), LOWER(@sgInclude0)) > 0')
+    expect(clause).toContain('STRPOS(LOWER(e.url_path), LOWER(@sgExclude0)) = 0')
+    expect(clause).toContain('LOWER(e.url_path) = LOWER(@sgExact0)')
+    expect(clause).toContain('STARTS_WITH(LOWER(e.url_path), LOWER(@sgStartWith0))')
+    expect(clause).toContain('ENDS_WITH(LOWER(e.url_path), LOWER(@sgEndWith0))')
+    expect(clause).not.toContain('LIKE')
+    expect(params).toEqual({
+      sgInclude0: '/news_%',
+      sgStartWith0: '/start_%',
+      sgEndWith0: '/end_%',
+      sgExact0: '/EXACT',
+      sgExclude0: '/private_%',
+    })
+  })
+})
 
 // day/week/month buckets are BigQuery DATE (day precision only). Casting them
 // to TIMESTAMP(tz) fabricates a time-of-day that never existed upstream, and

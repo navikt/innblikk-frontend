@@ -268,6 +268,34 @@ export const useOversikt = () => {
   }, [selectedWebsite, charts])
 
   const { sidegroups } = useSidegroupsForWebsite(dashboardWebsiteId)
+  const clearSidegroupFilter = useCallback(() => {
+    const hadSidegroup = Boolean(tempSidegroup || activeFilters.sidegroup)
+    setTempSidegroup(null)
+    if (hadSidegroup) setTempUrlPaths([])
+    setActiveFilters((prev) => (prev.sidegroup ? { ...prev, sidegroup: null, urlFilters: [] } : prev))
+    initialSidegroupIdRef.current = null
+    hasHydratedSidegroupRef.current = true
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.delete('sidegroupId')
+    if (hadSidegroup) nextParams.delete('path')
+    setSearchParams(nextParams, { replace: true })
+  }, [activeFilters.sidegroup, searchParams, setSearchParams, tempSidegroup])
+
+  const handleWebsiteChange = useCallback(
+    (website: Website | null) => {
+      if (selectedWebsite?.id && selectedWebsite.id !== website?.id) clearSidegroupFilter()
+      setSelectedWebsite(website)
+    },
+    [clearSidegroupFilter, selectedWebsite?.id],
+  )
+
+  const previousDashboardWebsiteIdRef = useRef(dashboardWebsiteId)
+  useEffect(() => {
+    const previousWebsiteId = previousDashboardWebsiteIdRef.current
+    if (previousWebsiteId === dashboardWebsiteId) return
+    previousDashboardWebsiteIdRef.current = dashboardWebsiteId
+    if (previousWebsiteId) clearSidegroupFilter()
+  }, [clearSidegroupFilter, dashboardWebsiteId])
 
   useEffect(() => {
     const sidegroupId = initialSidegroupIdRef.current
@@ -819,7 +847,7 @@ export const useOversikt = () => {
 
     // Website
     selectedWebsite,
-    setSelectedWebsite,
+    setSelectedWebsite: handleWebsiteChange,
     activeWebsite,
     activeWebsiteId,
 

@@ -153,14 +153,22 @@ export function parseSidegroupFilterFromRequest(source) {
  */
 export function buildSidegroupClause(sidegroupFilter, columnExpr, params, paramPrefix = 'sg') {
   const positiveClauses = []
-  const addLikeClause = (key, pattern) => {
+  const addContainsClause = (key, pattern) => {
     params[key] = pattern
-    positiveClauses.push(`LOWER(${columnExpr}) LIKE LOWER(@${key})`)
+    positiveClauses.push(`STRPOS(LOWER(${columnExpr}), LOWER(@${key})) > 0`)
   }
 
-  sidegroupFilter.include.forEach((pattern, i) => addLikeClause(`${paramPrefix}Include${i}`, `%${pattern}%`))
-  sidegroupFilter.startWith.forEach((pattern, i) => addLikeClause(`${paramPrefix}StartWith${i}`, `${pattern}%`))
-  sidegroupFilter.endWith.forEach((pattern, i) => addLikeClause(`${paramPrefix}EndWith${i}`, `%${pattern}`))
+  sidegroupFilter.include.forEach((pattern, i) => addContainsClause(`${paramPrefix}Include${i}`, pattern))
+  sidegroupFilter.startWith.forEach((pattern, i) => {
+    const key = `${paramPrefix}StartWith${i}`
+    params[key] = pattern
+    positiveClauses.push(`STARTS_WITH(LOWER(${columnExpr}), LOWER(@${key}))`)
+  })
+  sidegroupFilter.endWith.forEach((pattern, i) => {
+    const key = `${paramPrefix}EndWith${i}`
+    params[key] = pattern
+    positiveClauses.push(`ENDS_WITH(LOWER(${columnExpr}), LOWER(@${key}))`)
+  })
   sidegroupFilter.exact.forEach((pattern, i) => {
     const key = `${paramPrefix}Exact${i}`
     params[key] = pattern
@@ -169,8 +177,8 @@ export function buildSidegroupClause(sidegroupFilter, columnExpr, params, paramP
 
   const excludeClauses = sidegroupFilter.exclude.map((pattern, i) => {
     const key = `${paramPrefix}Exclude${i}`
-    params[key] = `%${pattern}%`
-    return `LOWER(${columnExpr}) NOT LIKE LOWER(@${key})`
+    params[key] = pattern
+    return `STRPOS(LOWER(${columnExpr}), LOWER(@${key})) = 0`
   })
 
   const positive = positiveClauses.length > 0 ? `(${positiveClauses.join(' OR ')})` : 'TRUE'

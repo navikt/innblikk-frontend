@@ -29,6 +29,22 @@ describe('processDashboardSql', () => {
     expect(result).not.toContain('{{url_sti}}')
   })
 
+  it('replaces optional standalone URL placeholders with a sidegroup condition', () => {
+    const sql = `SELECT url_path FROM events WHERE website_id = '{{website_id}}' [[AND {{url_sti}} ]]`
+    const result = processDashboardSql(sql, 'website-1', {
+      ...filters,
+      sidegroup: {
+        id: 'sidegroup-1',
+        name: 'Jobber',
+        websiteId: 'website-1',
+        include: ['/jobs'],
+      },
+    })
+
+    expect(result).toContain("STRPOS(LOWER(url_path), LOWER('/jobs')) > 0")
+    expect(result).not.toContain('{{url_sti}}')
+  })
+
   it('uses seven completed days and excludes today', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(2026, 8, 28, 12, 0, 0))

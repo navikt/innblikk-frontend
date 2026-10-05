@@ -755,6 +755,13 @@ const TableBuilder = () => {
   const [lastSql, setLastSql] = useState('')
   const [showAddToDashboardDialog, setShowAddToDashboardDialog] = useState(false)
   const [showMetabaseDialog, setShowMetabaseDialog] = useState(false)
+  const handleWebsiteChange = useCallback(
+    (website: Website | null) => {
+      if (selectedWebsite?.id !== website?.id) setSidegroup(null)
+      setSelectedWebsite(website)
+    },
+    [selectedWebsite?.id],
+  )
   const columnAliases = useMemo(() => getColumnAliases(columns), [columns])
   const dashboardRange = getDateRangeFromPeriod(period, startDate, endDate)
   const dashboardSql =
@@ -877,7 +884,7 @@ const TableBuilder = () => {
       <AppBlock className="pb-16">
         <div className="space-y-6">
           <div className="grid gap-4 rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-4 lg:grid-cols-[minmax(220px,1fr)_minmax(280px,1.2fr)_200px] lg:items-end">
-            <WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} disableAutoEvents />
+            <WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={handleWebsiteChange} disableAutoEvents />
             <UrlPathFilter
               urlPaths={urlPaths}
               onUrlPathsChange={setUrlPaths}

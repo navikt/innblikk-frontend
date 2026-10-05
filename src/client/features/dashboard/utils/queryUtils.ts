@@ -29,6 +29,11 @@ export const processDashboardSql = (sql: string, websiteId: string, filters: Fil
   const directUrlVarPattern = /\{\{\s*url_(?:sti|path)\s*\}\}/gi
   if (filters.sidegroup) {
     const sidegroup = filters.sidegroup
+    const optionalAndUrlPattern = /\[\[\s*AND\s*\{\{\s*url_(?:sti|path)\s*\}\}\s*\]\]/gi
+    processedSql = processedSql.replace(
+      optionalAndUrlPattern,
+      `AND ${buildSidegroupSqlCondition(sidegroup, 'url_path')}`,
+    )
     // Optional-clause form: column = [[ {{url_sti}} --]] 'value'
     const optionalClauseColumnRegex = /(\S+)\s*=\s*\[\[\s*\{\{url_(?:sti|path)\}\}\s*--\s*\]\]\s*('[^']+')/gi
     processedSql = processedSql.replace(optionalClauseColumnRegex, (_match, column: string) =>

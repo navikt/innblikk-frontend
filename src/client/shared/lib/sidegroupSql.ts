@@ -9,9 +9,9 @@ const escapeSqlString = (value: string) => value.replace(/\\/g, '\\\\').replace(
 export const buildSidegroupSqlCondition = (sidegroup: Sidegroup, columnExpr: string): string => {
   const positive = [
     ...(sidegroup.include ?? []).map((p) => `STRPOS(LOWER(${columnExpr}), LOWER('${escapeSqlString(p)}')) > 0`),
-    ...(sidegroup.exact ?? []).map((p) => `${columnExpr} = '${escapeSqlString(p)}'`),
-    ...(sidegroup.startWith ?? []).map((p) => `LOWER(${columnExpr}) LIKE LOWER('${escapeSqlString(p)}%')`),
-    ...(sidegroup.endWith ?? []).map((p) => `LOWER(${columnExpr}) LIKE LOWER('%${escapeSqlString(p)}')`),
+    ...(sidegroup.exact ?? []).map((p) => `LOWER(${columnExpr}) = LOWER('${escapeSqlString(p)}')`),
+    ...(sidegroup.startWith ?? []).map((p) => `STARTS_WITH(LOWER(${columnExpr}), LOWER('${escapeSqlString(p)}'))`),
+    ...(sidegroup.endWith ?? []).map((p) => `ENDS_WITH(LOWER(${columnExpr}), LOWER('${escapeSqlString(p)}'))`),
   ]
   const exclude = (sidegroup.exclude ?? []).map(
     (p) => `STRPOS(LOWER(${columnExpr}), LOWER('${escapeSqlString(p)}')) = 0`,
