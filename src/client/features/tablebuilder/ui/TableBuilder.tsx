@@ -35,6 +35,14 @@ import { SuggestingValueEditor } from '../../cohortmanager/ui/SuggestingValueEdi
 import { downloadCsvFile } from '../../traffic/utils/trafficUtils.ts'
 import type { JsonValue, Row } from '../../sql/model/types.ts'
 import { getUniqueColumnAliases, quoteBigQueryIdentifier } from '../utils/columnAliases.ts'
+import { VisitorBasisPicker } from './VisitorBasisPicker.tsx'
+import {
+  useVisitorIdCoverage,
+  resolveVisitorBasis,
+  visitorIdExpression,
+  type VisitorBasis,
+  type VisitorIdCoverage,
+} from '../utils/visitorIdCoverage.ts'
 
 type ColumnKind = 'dimension' | 'metric'
 type ColumnView = 'rows' | 'events' | 'visitors' | 'share' | 'visitor-share'
@@ -102,7 +110,7 @@ const COLUMN_GROUPS: Array<{ title: string; columns: ColumnDefinition[] }> = [
       {
         id: 'visitors',
         label: 'Antall unike besøkende',
-        description: 'Unike personer i hver rad',
+        description: 'Hver person telles én gang',
         kind: 'metric',
         expression: "APPROX_COUNT_DISTINCT(COALESCE(NULLIF(e.session_distinct_id, ''), CAST(e.session_id AS STRING)))",
         needsSession: true,
@@ -110,21 +118,21 @@ const COLUMN_GROUPS: Array<{ title: string; columns: ColumnDefinition[] }> = [
       {
         id: 'visits',
         label: 'Totalt antall besøk',
-        description: 'Unike besøk i hver rad',
+        description: 'Besøk. Én person kan ha flere besøk',
         kind: 'metric',
         expression: 'APPROX_COUNT_DISTINCT(e.visit_id)',
       },
       {
         id: 'pageviews',
         label: 'Sidevisninger',
-        description: 'Antall sidevisninger i hver rad',
+        description: 'Visninger. Teller hver gang en side vises',
         kind: 'metric',
         expression: 'COUNTIF(e.event_type = 1)',
       },
       {
         id: 'events',
         label: 'Totalt antall hendelser',
-        description: 'Alle egendefinerte hendelser i hver rad',
+        description: 'Handlinger som klikk og skjemaer. Teller hver gang de skjer',
         kind: 'metric',
         expression: 'COUNTIF(e.event_type = 2)',
       },
@@ -256,6 +264,9 @@ const suggestibleDimensions = [
 const supportsMetricViews = (column: SelectedColumn) =>
   column.id === 'selected_event' || (suggestibleDimensions.some((id) => id === column.id) && column.id !== 'event_name')
 
+const usesVisitorId = (column: SelectedColumn) =>
+  column.id === 'visitors' || column.view === 'visitors' || column.view === 'visitor-share'
+
 const isShareView = (column: SelectedColumn) => column.view === 'share' || column.view === 'visitor-share'
 
 const escapeSqlString = (value: string) => value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
@@ -264,9 +275,10 @@ const isGroupedShare = (column: SelectedColumn, columns: SelectedColumn[]) =>
   isShareView(column) &&
   columns.some((item) => item.instanceId !== column.instanceId && item.id === column.id && item.view === 'rows')
 
-const getColumnExpression = (column: SelectedColumn, columns: SelectedColumn[]) => {
+const getColumnExpression = (column: SelectedColumn, columns: SelectedColumn[], basis: VisitorBasis) => {
+  const visitorId = visitorIdExpression(basis)
+  if (column.id === 'visitors') return `APPROX_COUNT_DISTINCT(${visitorId})`
   if (isGroupedShare(column, columns)) {
-    const visitorId = "COALESCE(NULLIF(e.session_distinct_id, ''), CAST(e.session_id AS STRING))"
     const entityId = column.view === 'visitor-share' ? visitorId : 'e.visit_id'
     return `SAFE_DIVIDE(APPROX_COUNT_DISTINCT(${entityId}), SUM(APPROX_COUNT_DISTINCT(${entityId})) OVER ())`
   }
@@ -280,7 +292,6 @@ const getColumnExpression = (column: SelectedColumn, columns: SelectedColumn[]) 
           ? `${column.filterOperator === 'not-contains' ? 'NOT ' : ''}(STRPOS(LOWER(${expression}), LOWER('${value}')) > 0)`
           : `${expression} = '${value}'`
     const condition = column.id === 'selected_event' ? `e.event_type = 2 AND ${match}` : match
-    const visitorId = "COALESCE(NULLIF(e.session_distinct_id, ''), CAST(e.session_id AS STRING))"
     const visits = `APPROX_COUNT_DISTINCT(IF(${condition}, e.visit_id, NULL))`
     const visitors = `APPROX_COUNT_DISTINCT(IF(${condition}, ${visitorId}, NULL))`
     if (column.view === 'events') return column.id === 'selected_event' ? `COUNTIF(${condition})` : visits
@@ -309,6 +320,7 @@ const buildSql = (
   columns: SelectedColumn[],
   urlPaths: string[],
   pathOperator: string,
+  basis: VisitorBasis,
   useDashboardFilters = false,
 ) => {
   const projectId = getGcpProjectId()
@@ -322,15 +334,14 @@ const buildSql = (
       )
       .map((column) => column.id),
   )
-  if (
-    columns.some((column) => column.id === 'visitors' || column.view === 'visitors' || column.view === 'visitor-share')
-  ) {
+  if (basis !== 'session' && columns.some(usesVisitorId)) {
     sessionFields.add('distinct_id')
   }
   const needsSession = sessionFields.size > 0
   const columnAliases = getColumnAliases(columns)
   const selectColumns = columns.map(
-    (column, index) => `${getColumnExpression(column, columns)} AS ${quoteBigQueryIdentifier(columnAliases[index])}`,
+    (column, index) =>
+      `${getColumnExpression(column, columns, basis)} AS ${quoteBigQueryIdentifier(columnAliases[index])}`,
   )
   const urlConditions = urlPaths.map((path) => {
     const escapedPath = escapeSqlString(path)
@@ -400,12 +411,15 @@ type ColumnDialogProps = {
   open: boolean
   columns: SelectedColumn[]
   websiteId?: string
-  onApply: (columns: SelectedColumn[]) => void
+  coverage: VisitorIdCoverage | null
+  basis: VisitorBasis
+  onApply: (columns: SelectedColumn[], basis: VisitorBasis) => void
   onClose: () => void
 }
 
-const ColumnDialog = ({ open, columns, websiteId, onApply, onClose }: ColumnDialogProps) => {
+const ColumnDialog = ({ open, columns, websiteId, coverage, basis, onApply, onClose }: ColumnDialogProps) => {
   const [draft, setDraft] = useState(columns)
+  const [draftBasis, setDraftBasis] = useState(basis)
   const [search, setSearch] = useState('')
   const [validatedFilterValues, setValidatedFilterValues] = useState<Set<string>>(() => new Set())
 
@@ -448,7 +462,7 @@ const ColumnDialog = ({ open, columns, websiteId, onApply, onClose }: ColumnDial
       setValidatedFilterValues(new Set(columnsMissingFilterValue.map((column) => column.instanceId)))
       return
     }
-    onApply(draft)
+    onApply(draft, draftBasis)
   }
 
   const moveColumn = (index: number, direction: -1 | 1) => {
@@ -581,6 +595,9 @@ const ColumnDialog = ({ open, columns, websiteId, onApply, onClose }: ColumnDial
                               </option>
                             ))}
                           </Select>
+                        )}
+                        {usesVisitorId(column) && (
+                          <VisitorBasisPicker value={draftBasis} onChange={setDraftBasis} coverage={coverage} />
                         )}
                         {(column.kind === 'dimension' || (column.view && column.view !== 'rows')) &&
                           !isGroupedShare(column, draft) &&
@@ -749,8 +766,11 @@ const TableBuilder = () => {
   const [lastSql, setLastSql] = useState('')
   const [showAddToDashboardDialog, setShowAddToDashboardDialog] = useState(false)
   const [showMetabaseDialog, setShowMetabaseDialog] = useState(false)
+  const [chosenBasis, setBasis] = useState<VisitorBasis>('auto')
   const columnAliases = useMemo(() => getColumnAliases(columns), [columns])
   const dashboardRange = getDateRangeFromPeriod(period, startDate, endDate)
+  const coverage = useVisitorIdCoverage(selectedWebsite?.id, dashboardRange?.startDate, dashboardRange?.endDate)
+  const basis = resolveVisitorBasis(chosenBasis, coverage)
   const dashboardSql =
     selectedWebsite && dashboardRange && columns.length > 0
       ? buildSql(
@@ -760,6 +780,7 @@ const TableBuilder = () => {
           columns,
           urlPaths,
           pathOperator,
+          basis,
           true,
         )
       : ''
@@ -789,6 +810,7 @@ const TableBuilder = () => {
         columns,
         urlPaths.map(normalizeUrlToPath).filter(Boolean),
         pathOperator,
+        basis,
       )
       setLastSql(sql)
       const response = await fetch('/api/bigquery', {
@@ -808,14 +830,14 @@ const TableBuilder = () => {
     } finally {
       setLoading(false)
     }
-  }, [selectedWebsite, columns, period, startDate, endDate, urlPaths, pathOperator])
+  }, [selectedWebsite, columns, period, startDate, endDate, urlPaths, pathOperator, basis])
 
   useEffect(() => {
     if (!selectedWebsite || columns.length === 0) return
     if (period === 'custom' && (!startDate || !endDate)) return
     const timeoutId = window.setTimeout(() => void runTable(), 350)
     return () => window.clearTimeout(timeoutId)
-  }, [selectedWebsite, columns, period, startDate, endDate, urlPaths, pathOperator, runTable])
+  }, [selectedWebsite, columns, period, startDate, endDate, urlPaths, pathOperator, basis, runTable])
 
   const resultRows = rows
   const normalizedSearch = searchText.trim().toLocaleLowerCase('nb')
@@ -1056,6 +1078,11 @@ const TableBuilder = () => {
                   </div>
                 )}
               </div>
+              {coverage && columns.some(usesVisitorId) && (
+                <div className="border-t border-[var(--ax-border-neutral-subtle)] p-4">
+                  <VisitorBasisPicker value={basis} onChange={setBasis} coverage={coverage} />
+                </div>
+              )}
             </section>
           )}
         </div>
@@ -1065,9 +1092,12 @@ const TableBuilder = () => {
           open
           columns={columns}
           websiteId={selectedWebsite?.id}
+          coverage={coverage}
+          basis={basis}
           onClose={() => setDialogOpen(false)}
-          onApply={(nextColumns) => {
+          onApply={(nextColumns, nextBasis) => {
             setColumns(nextColumns)
+            setBasis(nextBasis)
             setRows([])
             setPage(1)
             setHasRun(false)
