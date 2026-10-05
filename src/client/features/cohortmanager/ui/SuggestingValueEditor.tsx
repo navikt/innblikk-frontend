@@ -151,10 +151,16 @@ export function SuggestingValueEditor({
     }, 0)
   }
 
+  // The list is portaled but React still bubbles its events here. Keeping focus in the
+  // input stops the blur from clearing the search text and reflowing the list under the pointer.
+  const keepInputFocus = (event: React.MouseEvent<HTMLDivElement>) => {
+    if ((event.target as HTMLElement).closest('[role="listbox"]')) event.preventDefault()
+  }
+
   const showScannedDaysNote = !disabled && scannedDays !== null && scannedDays < 30
 
   return (
-    <div className={`cohort-suggesting-value${className ? ` ${className}` : ''}`}>
+    <div className={`cohort-suggesting-value${className ? ` ${className}` : ''}`} onMouseDown={keepInputFocus}>
       <UNSAFE_Combobox
         label={label}
         hideLabel={hideLabel}
