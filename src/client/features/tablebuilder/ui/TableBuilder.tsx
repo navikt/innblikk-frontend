@@ -1078,11 +1078,6 @@ const TableBuilder = () => {
                   </div>
                 )}
               </div>
-              {coverage && columns.some(usesVisitorId) && (
-                <div className="border-t border-[var(--ax-border-neutral-subtle)] p-4">
-                  <VisitorBasisPicker value={basis} onChange={setBasis} coverage={coverage} />
-                </div>
-              )}
             </section>
           )}
         </div>
