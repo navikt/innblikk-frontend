@@ -769,7 +769,7 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
 
       const sidegroupFilter = parseSidegroupFilterFromRequest(req.query)
       if (sidegroupFilter) {
-        condition = buildSidegroupClause(sidegroupFilter, 'url_path', params)
+        condition = buildSidegroupClause(sidegroupFilter, 'original_url_path', params)
       } else if (urlPath) {
         if (pathOperator === 'starts-with') {
           condition = 'LOWER(url_path) LIKE @urlPathPattern'
@@ -819,6 +819,7 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
                       ${col}session_id,
                       ${col}visit_id,
                       ${col}referrer_domain,
+                      ${col}url_path as original_url_path,
                       ${normalizeUrlSql(`${col}url_path`)} as url_path,
                       ${col}created_at
                   FROM ${fromClause}
@@ -832,6 +833,7 @@ export function createTrafficRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZON
                       session_id,
                       visit_id,
                       url_path,
+                      original_url_path,
                       referrer_domain,
                       LAG(url_path) OVER (PARTITION BY session_id ORDER BY created_at) as prev_page,
                       LEAD(url_path) OVER (PARTITION BY session_id ORDER BY created_at) as next_page

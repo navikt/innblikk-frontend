@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
 import type { ILineChartDataPoint } from '@fluentui/react-charting'
@@ -55,31 +55,52 @@ export const useTrafficAnalysis = () => {
   const cookieStartDate = useCookieStartDate(selectedWebsite?.domain, selectedWebsite?.id)
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const initialSidegroupIdRef = useRef(searchParams.get('sidegroupId'))
-  const [sidegroupUrlId, setSidegroupUrlId] = useState(initialSidegroupIdRef.current)
+  const [sidegroupUrlId, setSidegroupUrlId] = useState(() => searchParams.get('sidegroupId'))
   const [sidegroupReadyWebsiteId, setSidegroupReadyWebsiteId] = useState<string | null>(null)
+  const [sidegroupResolutionFailed, setSidegroupResolutionFailed] = useState(false)
 
   // Initialize state from URL params - support multiple paths
   const pathsFromUrl = searchParams.getAll('urlPath')
   const initialPaths = pathsFromUrl.length > 0 ? pathsFromUrl.map((p) => normalizeUrlToPath(p)).filter(Boolean) : []
   const [urlPaths, setUrlPaths] = useState<string[]>(initialPaths)
-  const [pathOperator, setPathOperator] = useState<string>(() => searchParams.get('pathOperator') || 'equals')
+  const [pathOperator, setPathOperator] = useState<string>(() =>
+    searchParams.get('sidegroupId') ? 'sidegroup' : searchParams.get('pathOperator') || 'equals',
+  )
   const [sidegroup, setSidegroup] = useState<Sidegroup | null>(null)
-  const { sidegroups, loading: loadingSidegroups } = useSidegroupsForWebsite(selectedWebsite?.id)
+  const {
+    sidegroups,
+    loading: loadingSidegroups,
+    error: sidegroupLoadFailed,
+  } = useSidegroupsForWebsite(selectedWebsite?.id)
   const sidegroupResolutionPending = Boolean(
-    sidegroupUrlId && selectedWebsite?.id && sidegroupReadyWebsiteId !== selectedWebsite.id,
+    sidegroupUrlId &&
+    selectedWebsite?.id &&
+    sidegroupReadyWebsiteId !== selectedWebsite.id &&
+    !sidegroupResolutionFailed,
   )
 
   useEffect(() => {
     const websiteId = selectedWebsite?.id
     if (!websiteId || !sidegroupUrlId || sidegroupReadyWebsiteId === websiteId || loadingSidegroups) return
-    const match = sidegroups.find((group) => String(group.id) === sidegroupUrlId)
-    if (match) {
-      setSidegroup(match)
-      setUrlPaths([])
+    if (sidegroupLoadFailed) {
+      setSidegroupResolutionFailed(true)
+      setError('Kunne ikke laste sidegruppen fra lenken. Trafikkdata ble ikke hentet.')
+      return
     }
+    const match = sidegroups.find((group) => String(group.id) === sidegroupUrlId)
+    if (!match) {
+      setSidegroupResolutionFailed(true)
+      setError('Sidegruppen fra lenken finnes ikke for dette nettstedet. Velg en annen sidegruppe.')
+      return
+    }
+    setSidegroupResolutionFailed(false)
+    setError(null)
+    setPathOperator('sidegroup')
+    setSubmittedPathOperator('sidegroup')
+    setSidegroup(match)
+    setUrlPaths([])
     setSidegroupReadyWebsiteId(websiteId)
-  }, [loadingSidegroups, selectedWebsite?.id, sidegroupReadyWebsiteId, sidegroupUrlId, sidegroups])
+  }, [loadingSidegroups, selectedWebsite?.id, sidegroupReadyWebsiteId, sidegroupUrlId, sidegroupLoadFailed, sidegroups])
 
   const [period, setPeriodState] = useState<string>(() => getStoredPeriod(searchParams.get('period')))
 
@@ -125,12 +146,25 @@ export const useTrafficAnalysis = () => {
         setSidegroup(null)
         setSubmittedSidegroup(null)
         setSidegroupUrlId(null)
+        setSidegroupResolutionFailed(false)
         setSidegroupReadyWebsiteId(website?.id ?? null)
+        setError(null)
         const url = new URL(window.location.href)
         url.searchParams.delete('sidegroupId')
         window.history.replaceState({}, '', url.toString())
       }
       setSelectedWebsite(website)
+    },
+    [selectedWebsite?.id],
+  )
+  const handleSidegroupChange = useCallback(
+    (nextSidegroup: Sidegroup | null) => {
+      setSidegroup(nextSidegroup)
+      if (nextSidegroup) setPathOperator('sidegroup')
+      setSidegroupUrlId(nextSidegroup ? String(nextSidegroup.id) : null)
+      setSidegroupReadyWebsiteId(nextSidegroup ? (selectedWebsite?.id ?? null) : null)
+      setSidegroupResolutionFailed(false)
+      setError(null)
     },
     [selectedWebsite?.id],
   )
@@ -290,7 +324,7 @@ export const useTrafficAnalysis = () => {
 
   const fetchSeriesData = useCallback(async () => {
     if (!selectedWebsite) return
-    if (sidegroupResolutionPending) return
+    if (sidegroupResolutionPending || sidegroupResolutionFailed) return
 
     if (metricType === 'proportion' && urlPaths.length === 0 && !sidegroup) {
       setError(
@@ -416,6 +450,7 @@ export const useTrafficAnalysis = () => {
       }
       if (sidegroup) {
         newParams.set('sidegroupId', String(sidegroup.id))
+        newParams.set('pathOperator', 'sidegroup')
         setSidegroupUrlId(String(sidegroup.id))
       } else {
         newParams.delete('sidegroupId')
@@ -443,6 +478,7 @@ export const useTrafficAnalysis = () => {
   }, [
     selectedWebsite,
     sidegroupResolutionPending,
+    sidegroupResolutionFailed,
     metricType,
     urlPaths,
     pathOperator,
@@ -458,10 +494,10 @@ export const useTrafficAnalysis = () => {
 
   // Auto-submit when website is selected
   useEffect(() => {
-    if (selectedWebsite && !hasAttemptedFetch && !sidegroupResolutionPending) {
+    if (selectedWebsite && !hasAttemptedFetch && !sidegroupResolutionPending && !sidegroupResolutionFailed) {
       void fetchSeriesData()
     }
-  }, [selectedWebsite, hasAttemptedFetch, sidegroupResolutionPending, fetchSeriesData])
+  }, [selectedWebsite, hasAttemptedFetch, sidegroupResolutionPending, sidegroupResolutionFailed, fetchSeriesData])
 
   // Auto-fetch when granularity changes
   useEffect(() => {
@@ -1074,7 +1110,7 @@ export const useTrafficAnalysis = () => {
     pathOperator,
     setPathOperator,
     sidegroup,
-    setSidegroup,
+    setSidegroup: handleSidegroupChange,
     period,
     setPeriod,
     customStartDate,

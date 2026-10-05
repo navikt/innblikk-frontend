@@ -156,6 +156,7 @@ const Oversikt = () => {
     tempSidegroup,
     setTempSidegroup,
     sidegroups,
+    isSidegroupFilterReady,
     tempDateRange,
     setTempDateRange,
     tempCustomStartDate,
@@ -2010,6 +2011,7 @@ const Oversikt = () => {
                         chart={activeChart}
                         websiteId={resolvedWebsiteId}
                         filters={activeFilters}
+                        shouldWaitForBatch={!isSidegroupFilterReady}
                         onDataLoaded={handleDataLoaded}
                         selectedWebsite={activeWebsite ? { ...activeWebsite } : undefined}
                         dashboardTitle={selectedDashboard.name}

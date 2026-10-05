@@ -7,7 +7,7 @@ vi.hoisted(() => {
   window.__RUNTIME_CONFIG__ = { GCP_PROJECT_ID: 'test-project' }
 })
 
-const { fetchTrafficSeriesMock, buildSeriesUrlMock } = vi.hoisted(() => ({
+const { fetchTrafficSeriesMock, buildSeriesUrlMock, useSidegroupsMock } = vi.hoisted(() => ({
   fetchTrafficSeriesMock: vi.fn(() => Promise.resolve({ data: [] })),
   buildSeriesUrlMock: vi.fn(
     (
@@ -22,6 +22,11 @@ const { fetchTrafficSeriesMock, buildSeriesUrlMock } = vi.hoisted(() => ({
       sidegroup?: { id: string } | null,
     ) => `/test-series${sidegroup ? `?sidegroupId=${sidegroup.id}` : ''}`,
   ),
+  useSidegroupsMock: vi.fn((websiteId?: string) => ({
+    sidegroups: websiteId ? [{ id: '42', name: 'Jobber', websiteId, include: ['/jobs'] }] : [],
+    loading: false,
+    error: false,
+  })),
 }))
 
 vi.mock('../../../shared/hooks/useSiteimproveSupport.ts', () => ({
@@ -30,10 +35,7 @@ vi.mock('../../../shared/hooks/useSiteimproveSupport.ts', () => ({
 }))
 
 vi.mock('../../sidegroups/hooks/useSidegroupsForWebsite.ts', () => ({
-  useSidegroupsForWebsite: (websiteId?: string) => ({
-    sidegroups: websiteId ? [{ id: '42', name: 'Jobber', websiteId, include: ['/jobs'] }] : [],
-    loading: false,
-  }),
+  useSidegroupsForWebsite: useSidegroupsMock,
 }))
 
 vi.mock('../api/trafficApi', () => ({
@@ -58,6 +60,11 @@ describe('useTrafficAnalysis sidegroup filter', () => {
   beforeEach(() => {
     fetchTrafficSeriesMock.mockClear()
     buildSeriesUrlMock.mockClear()
+    useSidegroupsMock.mockImplementation((websiteId?: string) => ({
+      sidegroups: websiteId ? [{ id: '42', name: 'Jobber', websiteId, include: ['/jobs'] }] : [],
+      loading: false,
+      error: false,
+    }))
     window.history.replaceState({}, '', '/trafikkanalyse')
   })
 
@@ -71,6 +78,7 @@ describe('useTrafficAnalysis sidegroup filter', () => {
     act(() => result.current.setSelectedWebsite(website))
 
     await waitFor(() => expect(fetchTrafficSeriesMock).toHaveBeenCalled())
+    expect(result.current.pathOperator).toBe('sidegroup')
     expect(buildSeriesUrlMock).toHaveBeenCalledWith(
       website.id,
       expect.any(Date),
@@ -82,6 +90,22 @@ describe('useTrafficAnalysis sidegroup filter', () => {
       expect.anything(),
       sidegroup,
     )
+    expect(window.location.search).toContain('sidegroupId=42')
+    expect(new URLSearchParams(window.location.search).get('pathOperator')).toBe('sidegroup')
+  })
+
+  it('does not fetch whole-site data when the shared sidegroup cannot be resolved', async () => {
+    useSidegroupsMock.mockImplementation(() => ({ sidegroups: [], loading: false, error: true }))
+    window.history.replaceState({}, '', '/trafikkanalyse?sidegroupId=42')
+    const sidegroupWrapper = ({ children }: { children: ReactNode }) => (
+      <MemoryRouter initialEntries={['/trafikkanalyse?sidegroupId=42']}>{children}</MemoryRouter>
+    )
+    const { result } = renderHook(() => useTrafficAnalysis(), { wrapper: sidegroupWrapper })
+
+    act(() => result.current.setSelectedWebsite(website))
+
+    await waitFor(() => expect(result.current.error).toContain('Kunne ikke laste sidegruppen'))
+    expect(fetchTrafficSeriesMock).not.toHaveBeenCalled()
     expect(window.location.search).toContain('sidegroupId=42')
   })
 

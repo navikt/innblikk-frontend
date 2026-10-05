@@ -24,4 +24,13 @@ describe('buildSidegroupSqlCondition', () => {
     expect(condition).toContain("ENDS_WITH(LOWER(e.url_path), LOWER('/end_%'))")
     expect(condition).not.toContain('LIKE')
   })
+
+  it('escapes apostrophes in BigQuery string literals', () => {
+    const condition = buildSidegroupSqlCondition(
+      { id: 'sidegroup-1', name: 'Example', websiteId: 'website-1', exact: ["/it's"] },
+      'e.url_path',
+    )
+
+    expect(condition).toContain("LOWER(e.url_path) = LOWER('/it\\'s')")
+  })
 })

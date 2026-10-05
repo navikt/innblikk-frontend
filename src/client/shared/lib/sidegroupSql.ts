@@ -1,6 +1,6 @@
 import type { Sidegroup } from '../../features/sidegroups/model/types.ts'
 
-const escapeSqlString = (value: string) => value.replace(/\\/g, '\\\\').replace(/'/g, "''")
+const escapeSqlString = (value: string) => value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
 
 /**
  * Builds a boolean SQL expression that matches `columnExpr` against a sidegruppe's
