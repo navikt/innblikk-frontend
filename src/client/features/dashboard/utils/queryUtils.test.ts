@@ -45,6 +45,30 @@ describe('processDashboardSql', () => {
     expect(result).not.toContain('{{url_sti}}')
   })
 
+  it('preserves predicate parentheses around optional sidegroup assignments', () => {
+    const result = processDashboardSql(
+      "SELECT url_path FROM events WHERE (e.url_path = [[ {{url_sti}} --]] '/')",
+      'website-1',
+      {
+        ...filters,
+        sidegroup: { id: 'sidegroup-1', name: 'Exact', websiteId: 'website-1', exact: ['/jobs'] },
+      },
+    )
+
+    expect(result).toContain("(LOWER(e.url_path) = LOWER('/jobs'))")
+    expect(result).not.toContain('LOWER((e.url_path)')
+  })
+
+  it('preserves predicate parentheses around direct sidegroup assignments', () => {
+    const result = processDashboardSql("SELECT url_path FROM events WHERE (e.url_path = '{{url_sti}}')", 'website-1', {
+      ...filters,
+      sidegroup: { id: 'sidegroup-1', name: 'Exact', websiteId: 'website-1', exact: ['/jobs'] },
+    })
+
+    expect(result).toContain("(LOWER(e.url_path) = LOWER('/jobs'))")
+    expect(result).not.toContain('{{url_sti}}')
+  })
+
   it('preserves dollar tokens in sidegroup rules during SQL replacement', () => {
     const result = processDashboardSql('SELECT url_path FROM events WHERE [[AND {{url_sti}} ]]', 'website-1', {
       ...filters,

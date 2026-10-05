@@ -35,12 +35,14 @@ export const processDashboardSql = (sql: string, websiteId: string, filters: Fil
       () => `AND ${buildSidegroupSqlCondition(sidegroup, 'url_path')}`,
     )
     // Optional-clause form: column = [[ {{url_sti}} --]] 'value'
-    const optionalClauseColumnRegex = /(\S+)\s*=\s*\[\[\s*\{\{url_(?:sti|path)\}\}\s*--\s*\]\]\s*('[^']+')/gi
+    const optionalClauseColumnRegex =
+      /([^\s()]+(?:\([^()]*\))?)\s*=\s*\[\[\s*\{\{url_(?:sti|path)\}\}\s*--\s*\]\]\s*('[^']+')/gi
     processedSql = processedSql.replace(optionalClauseColumnRegex, (_match, column: string) =>
       buildSidegroupSqlCondition(sidegroup, column),
     )
     // Direct form: column = {{url_sti}} / {{url_path}}
-    const directAssignmentColumnRegex = /(\S+)\s*=\s*(?:['"])?\s*\{\{\s*url_(?:sti|path)\s*\}\}\s*(?:['"])?/gi
+    const directAssignmentColumnRegex =
+      /([^\s()]+(?:\([^()]*\))?)\s*=\s*(?:['"])?\s*\{\{\s*url_(?:sti|path)\s*\}\}\s*(?:['"])?/gi
     processedSql = processedSql.replace(directAssignmentColumnRegex, (_match, column: string) =>
       buildSidegroupSqlCondition(sidegroup, column),
     )
