@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom'
 import { Accordion, Alert, Button, Textarea, TextField, ToggleGroup } from '@navikt/ds-react'
 import akselCss from '@navikt/ds-css/dist/index.min.css?inline'
 import { Eye } from 'lucide-react'
-import { buildHtmlSnapshot } from '../utils/buildHtmlSnapshot.ts'
+import { buildHtmlSnapshot, fetchHtmlSnapshot } from '../utils/buildHtmlSnapshot.ts'
+import { RESEARCHOPS_SLACK_URL } from '../../../shared/ui/BetaFeatureNotice.tsx'
 
 export const useAlternativePreview = (originalUrl: string | null, iframeRef: RefObject<HTMLIFrameElement | null>) => {
   const [originalUnavailable, setOriginalUnavailable] = useState(false)
@@ -15,13 +16,23 @@ export const useAlternativePreview = (originalUrl: string | null, iframeRef: Ref
   const [mockUrlDraft, setMockUrlDraft] = useState('')
   const [mockUrl, setMockUrl] = useState('')
   const [mockUrlError, setMockUrlError] = useState<string | undefined>()
+  const [browserSnapshot, setBrowserSnapshot] = useState<{ url: string; html: string } | null>(null)
+  const [browserFallbackPending, setBrowserFallbackPending] = useState(false)
+  const fallbackRequestRef = useRef<{ url: string; controller: AbortController } | null>(null)
+  const attemptedUrlsRef = useRef(new Set<string>())
   const cleanupDocumentRef = useRef<(() => void) | null>(null)
   const blankPreviewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const renderedSource = source === 'html' && htmlSnapshot ? 'html' : source === 'mock' && mockUrl ? 'mock' : 'url'
-  const targetUrl = renderedSource === 'mock' ? mockUrl : originalUrl
+  const targetUrl = source === 'mock' && mockUrl ? mockUrl : originalUrl
+  const snapshot =
+    source === 'html' && htmlSnapshot
+      ? htmlSnapshot
+      : browserSnapshot?.url === targetUrl
+        ? browserSnapshot.html
+        : undefined
+  const renderedSource = snapshot ? 'html' : source === 'mock' && mockUrl ? 'mock' : 'url'
   const src =
     renderedSource !== 'html' && targetUrl ? `/api/clickmap-preview?url=${encodeURIComponent(targetUrl)}` : undefined
-  const srcDoc = renderedSource === 'html' ? htmlSnapshot : undefined
+  const srcDoc = snapshot
 
   const attachShortcut = useCallback(() => {
     const document = iframeRef.current?.contentDocument
@@ -49,25 +60,85 @@ export const useAlternativePreview = (originalUrl: string | null, iframeRef: Ref
     setShortcutHost(host)
   }, [iframeRef])
 
-  const showUnavailablePreview = useCallback(() => {
-    const document = iframeRef.current?.contentDocument
-    if (!document?.body) return
-    document.body.setAttribute('data-clickmap-preview-error', 'unavailable')
-    const container = document.createElement('main')
-    container.className = 'wrap'
-    container.style.cssText = 'max-width: 720px; margin: 48px auto; padding: 24px; color: #1f2937; background: white;'
-    const heading = document.createElement('h1')
-    heading.textContent = 'Siden kan ikke vises'
-    const description = document.createElement('p')
-    description.textContent =
-      'Kunne ikke laste sideforhåndsvisningen. Siden kan være utilgjengelig eller kreve innlogging.'
-    container.append(heading, description)
-    document.body.replaceChildren(container)
-    setOriginalUnavailable(true)
-    attachShortcut()
-  }, [iframeRef, attachShortcut])
+  const showUnavailablePreview = useCallback(
+    (pending = false) => {
+      const document = iframeRef.current?.contentDocument
+      if (!document?.body) return
+      document.body.setAttribute('data-clickmap-preview-error', 'unavailable')
+      const container = document.createElement('main')
+      container.className = 'wrap'
+      container.style.cssText = 'max-width: 720px; margin: 48px auto; padding: 24px; color: #1f2937; background: white;'
+      const heading = document.createElement('h1')
+      heading.textContent = pending ? 'Prøver å hente siden i nettleseren' : 'Innblikk får ikke hentet siden'
+      const description = document.createElement('p')
+      if (pending) {
+        description.textContent = 'Serveren kunne ikke hente siden. Prøver direkte fra nettleseren.'
+      } else {
+        const contact = document.createElement('a')
+        contact.href = RESEARCHOPS_SLACK_URL
+        contact.target = '_blank'
+        contact.rel = 'noopener noreferrer'
+        contact.textContent = '#researchops'
+        description.append(
+          document.createTextNode(
+            'Siden kan være tilgjengelig selv om Innblikk ikke får hentet den. Serverens tilgangsregler (zero trust) eller nettleserens sikkerhetsregler kan blokkere forespørselen. Kontakt ',
+          ),
+          contact,
+          document.createTextNode(' for å få undersøkt og eventuelt åpnet tilgang til nettstedet. Oppgi nettadressen.'),
+        )
+      }
+      container.append(heading, description)
+      document.body.replaceChildren(container)
+      setOriginalUnavailable(true)
+      attachShortcut()
+    },
+    [iframeRef, attachShortcut],
+  )
+
+  const handlePreviewFailure = useCallback(
+    (reason = 'unavailable') => {
+      setOriginalUnavailable(true)
+      if (reason === 'unauthenticated') {
+        attachShortcut()
+        return
+      }
+      if (!targetUrl) return
+      if (attemptedUrlsRef.current.has(targetUrl)) {
+        showUnavailablePreview(fallbackRequestRef.current?.url === targetUrl)
+        return
+      }
+      attemptedUrlsRef.current.add(targetUrl)
+      const request = { url: targetUrl, controller: new AbortController() }
+      fallbackRequestRef.current = request
+      setBrowserFallbackPending(true)
+      showUnavailablePreview(true)
+      const timeout = setTimeout(() => request.controller.abort(), 8_000)
+      void fetchHtmlSnapshot(targetUrl, request.controller.signal)
+        .then((html) => {
+          if (fallbackRequestRef.current !== request || request.controller.signal.aborted) return
+          setBrowserSnapshot({ url: request.url, html })
+          setShortcutHost(null)
+        })
+        .catch(() => {
+          if (fallbackRequestRef.current === request) showUnavailablePreview()
+        })
+        .finally(() => {
+          clearTimeout(timeout)
+          if (fallbackRequestRef.current === request) {
+            fallbackRequestRef.current = null
+            setBrowserFallbackPending(false)
+          }
+        })
+    },
+    [targetUrl, attachShortcut, showUnavailablePreview],
+  )
 
   useEffect(() => {
+    fallbackRequestRef.current?.controller.abort()
+    fallbackRequestRef.current = null
+    attemptedUrlsRef.current.clear()
+    setBrowserSnapshot(null)
+    setBrowserFallbackPending(false)
     setOriginalUnavailable(false)
     setOptionsOpen(false)
     setShortcutHost(null)
@@ -81,7 +152,7 @@ export const useAlternativePreview = (originalUrl: string | null, iframeRef: Ref
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
-      if (event.source !== iframeRef.current?.contentWindow || renderedSource !== 'url') return
+      if (event.source !== iframeRef.current?.contentWindow || renderedSource === 'html') return
       const message: unknown = event.data
       if (
         message &&
@@ -89,17 +160,18 @@ export const useAlternativePreview = (originalUrl: string | null, iframeRef: Ref
         'type' in message &&
         message.type === 'umami-clickmap-preview-error'
       ) {
-        setOriginalUnavailable(true)
-        attachShortcut()
+        handlePreviewFailure('reason' in message && typeof message.reason === 'string' ? message.reason : 'unavailable')
       }
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
-  }, [iframeRef, renderedSource, attachShortcut])
+  }, [iframeRef, renderedSource, handlePreviewFailure])
 
   useEffect(
     () => () => {
       cleanupDocumentRef.current?.()
+      fallbackRequestRef.current?.controller.abort()
+      fallbackRequestRef.current = null
       if (blankPreviewTimerRef.current) clearTimeout(blankPreviewTimerRef.current)
     },
     [],
@@ -107,7 +179,13 @@ export const useAlternativePreview = (originalUrl: string | null, iframeRef: Ref
 
   useEffect(() => {
     if (blankPreviewTimerRef.current) clearTimeout(blankPreviewTimerRef.current)
-  }, [src, srcDoc])
+    const request = fallbackRequestRef.current
+    if (request && (request.url !== targetUrl || srcDoc)) {
+      request.controller.abort()
+      fallbackRequestRef.current = null
+      setBrowserFallbackPending(false)
+    }
+  }, [src, srcDoc, targetUrl])
 
   const onLoad = () => {
     cleanupDocumentRef.current?.()
@@ -115,21 +193,20 @@ export const useAlternativePreview = (originalUrl: string | null, iframeRef: Ref
     if (blankPreviewTimerRef.current) clearTimeout(blankPreviewTimerRef.current)
     const document = iframeRef.current?.contentDocument
     if (!document) return
-    if (renderedSource !== 'url') setShortcutHost(null)
-    if (renderedSource === 'url' && document.body?.getAttribute('data-clickmap-preview-error')) {
-      setOriginalUnavailable(true)
-      attachShortcut()
-    } else if (renderedSource === 'url' && document.body) {
+    if (renderedSource === 'html') setShortcutHost(null)
+    if (renderedSource !== 'html' && document.body?.getAttribute('data-clickmap-preview-error')) {
+      handlePreviewFailure(document.body.getAttribute('data-clickmap-preview-error') || 'unavailable')
+    } else if (renderedSource !== 'html' && document.body) {
       const responseText = document.querySelector('pre')?.textContent || document.body.textContent || ''
       try {
         const response: unknown = JSON.parse(responseText)
         if (response && typeof response === 'object' && 'error' in response && typeof response.error === 'string') {
-          showUnavailablePreview()
+          handlePreviewFailure()
           return
         }
       } catch {
         if (document.contentType === 'application/json') {
-          showUnavailablePreview()
+          handlePreviewFailure()
           return
         }
       }
@@ -144,7 +221,7 @@ export const useAlternativePreview = (originalUrl: string | null, iframeRef: Ref
           !content.textContent?.trim() &&
           !content.querySelector('img, svg, canvas, video, iframe, input, button, textarea, select')
         ) {
-          showUnavailablePreview()
+          handlePreviewFailure()
         }
       }, 12_000)
     }
@@ -174,6 +251,7 @@ export const useAlternativePreview = (originalUrl: string | null, iframeRef: Ref
     mockUrlDraft,
     setMockUrlDraft,
     mockUrlError,
+    browserFallbackPending,
     applyHtml: () => {
       if (originalUrl && htmlDraft.trim()) setHtmlSnapshot(buildHtmlSnapshot(htmlDraft, originalUrl))
     },

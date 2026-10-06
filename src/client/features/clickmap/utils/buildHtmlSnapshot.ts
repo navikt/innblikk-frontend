@@ -26,3 +26,28 @@ export const buildHtmlSnapshot = (html: string, pageUrl: string): string => {
 
   return `<!doctype html>\n${document.documentElement.outerHTML}`
 }
+
+export const fetchHtmlSnapshot = async (pageUrl: string, signal: AbortSignal): Promise<string> => {
+  const target = new URL(pageUrl)
+  if (target.protocol !== 'https:' || target.username || target.password) throw new Error('Unsupported preview URL')
+  const response = await fetch(target.toString(), {
+    mode: 'cors',
+    credentials: 'omit',
+    referrerPolicy: 'no-referrer',
+    signal,
+  })
+  if (!response.ok || !response.headers.get('content-type')?.includes('text/html')) {
+    throw new Error('Page is not readable HTML')
+  }
+  const html = await response.text()
+  if (!html.trim()) throw new Error('Page is empty')
+  const snapshot = buildHtmlSnapshot(html, response.url || target.toString())
+  const document = new DOMParser().parseFromString(snapshot, 'text/html')
+  if (
+    !document.body.textContent?.trim() &&
+    !document.body.querySelector('img, svg, canvas, video, input, button, textarea, select')
+  ) {
+    throw new Error('Page has no static content')
+  }
+  return snapshot
+}

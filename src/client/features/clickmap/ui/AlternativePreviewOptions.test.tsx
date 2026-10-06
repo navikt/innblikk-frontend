@@ -1,6 +1,6 @@
 import { useRef } from 'react'
-import { act, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AlternativePreviewOptions, useAlternativePreview } from './AlternativePreviewOptions.tsx'
 
 const Preview = ({ url = 'https://nav.no/account' }: { url?: string }) => {
@@ -9,15 +9,92 @@ const Preview = ({ url = 'https://nav.no/account' }: { url?: string }) => {
   return (
     <>
       <AlternativePreviewOptions preview={preview} />
-      <iframe ref={iframeRef} title="Preview" onLoad={preview.onLoad} />
+      <iframe ref={iframeRef} title="Preview" srcDoc={preview.srcDoc} onLoad={preview.onLoad} />
     </>
   )
 }
 
 describe('AlternativePreviewOptions', () => {
-  afterEach(() => vi.useRealTimers())
+  beforeEach(() => vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))))
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
 
-  it('replaces a legacy JSON fetch error with a readable error and Aksel alternatives button', () => {
+  it('uses a safe browser snapshot after server failure and makes only one request', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response('<a href="/next">Neste</a><script>alert(1)</script>', {
+        headers: { 'content-type': 'text/html' },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    render(<Preview />)
+    const iframe = screen.getByTitle<HTMLIFrameElement>('Preview')
+    iframe.contentDocument?.body.setAttribute('data-clickmap-preview-error', 'unavailable')
+    fireEvent.load(iframe)
+    fireEvent.load(iframe)
+    await waitFor(() => expect(iframe).toHaveAttribute('srcdoc', expect.stringContaining('Neste')))
+    expect(iframe.getAttribute('srcdoc')).not.toContain('<script')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('cancels a browser request when the original page changes and ignores its late response', async () => {
+    let resolveResponse: (response: Response) => void = () => {
+      throw new Error('Fetch has not started')
+    }
+    let signal: AbortSignal | undefined
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, options: RequestInit) => {
+        signal = options.signal || undefined
+        return new Promise<Response>((resolve) => {
+          resolveResponse = resolve
+        })
+      }),
+    )
+    const { rerender } = render(<Preview />)
+    const iframe = screen.getByTitle<HTMLIFrameElement>('Preview')
+    iframe.contentDocument?.body.setAttribute('data-clickmap-preview-error', 'unavailable')
+    fireEvent.load(iframe)
+    iframe.contentDocument?.body.removeAttribute('data-clickmap-preview-error')
+    rerender(<Preview url="https://nav.no/another-page" />)
+    expect(signal?.aborted).toBe(true)
+    await act(async () => {
+      resolveResponse(new Response('<p>Old page</p>', { headers: { 'content-type': 'text/html' } }))
+      await Promise.resolve()
+    })
+    expect(iframe).not.toHaveAttribute('srcdoc')
+    expect(screen.queryByRole('button', { name: 'Alternative visningsvalg' })).not.toBeInTheDocument()
+  })
+
+  it('times out a blocked browser fetch and points to researchops', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        (_url: string, options: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            options.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), {
+              once: true,
+            })
+          }),
+      ),
+    )
+    render(<Preview />)
+    const iframe = screen.getByTitle<HTMLIFrameElement>('Preview')
+    const document = iframe.contentDocument
+    if (!document) throw new Error('Expected the preview document')
+    document.body.setAttribute('data-clickmap-preview-error', 'unavailable')
+    fireEvent.load(iframe)
+    expect(document.body).toHaveTextContent('Prøver å hente siden i nettleseren')
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(8_000)
+    })
+    expect(document.body).toHaveTextContent('Innblikk får ikke hentet siden')
+    expect(document.body).toHaveTextContent('#researchops')
+  })
+
+  it('tries the browser after a JSON fetch error and offers researchops help when that fails', async () => {
     render(<Preview />)
     const iframe = screen.getByTitle<HTMLIFrameElement>('Preview')
     const document = iframe.contentDocument
@@ -27,13 +104,15 @@ describe('AlternativePreviewOptions', () => {
       message: 'fetch failed',
     })
     fireEvent.load(iframe)
-    expect(document.body).toHaveTextContent('Siden kan ikke vises')
+    await waitFor(() => expect(document.body).toHaveTextContent('Innblikk får ikke hentet siden'))
+    expect(document.body).toHaveTextContent('zero trust')
+    expect(document.querySelector('a')?.textContent).toBe('#researchops')
     expect(document.body).not.toHaveTextContent('fetch failed')
     expect(document.querySelector('[data-clickmap-open-alternatives]')).toHaveClass('aksel-button')
     expect(screen.getByRole('button', { name: 'Alternative visningsvalg' })).toBeInTheDocument()
   })
 
-  it('offers alternatives for a persistently empty preview but allows slow content to appear', () => {
+  it('offers alternatives for a persistently empty preview but allows slow content to appear', async () => {
     vi.useFakeTimers()
     render(<Preview />)
     const iframe = screen.getByTitle<HTMLIFrameElement>('Preview')
@@ -49,10 +128,10 @@ describe('AlternativePreviewOptions', () => {
     expect(screen.queryByRole('button', { name: 'Alternative visningsvalg' })).not.toBeInTheDocument()
     document.body.innerHTML = '<div id="root"></div>'
     fireEvent.load(iframe)
-    act(() => {
-      vi.advanceTimersByTime(12_000)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(12_000)
     })
-    expect(document.body).toHaveTextContent('Siden kan ikke vises')
+    expect(document.body).toHaveTextContent('Innblikk får ikke hentet siden')
     expect(screen.getByRole('button', { name: 'Alternative visningsvalg' })).toBeInTheDocument()
   })
 
@@ -78,7 +157,7 @@ describe('AlternativePreviewOptions', () => {
       window.dispatchEvent(
         new MessageEvent('message', {
           source: iframe.contentWindow,
-          data: { type: 'umami-clickmap-preview-error' },
+          data: { type: 'umami-clickmap-preview-error', reason: 'unauthenticated' },
         }),
       ),
     )

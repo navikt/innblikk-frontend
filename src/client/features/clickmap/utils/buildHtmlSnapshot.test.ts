@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { buildHtmlSnapshot } from './buildHtmlSnapshot.ts'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { buildHtmlSnapshot, fetchHtmlSnapshot } from './buildHtmlSnapshot.ts'
 
 describe('buildHtmlSnapshot', () => {
   it('preserves click targets and resolves relative assets against the original page', () => {
@@ -34,5 +34,40 @@ describe('buildHtmlSnapshot', () => {
     expect(policy?.getAttribute('content')).toContain("default-src 'none'")
     expect(policy?.getAttribute('content')).toContain("form-action 'none'")
     expect(document.querySelector('meta[name="referrer"]')?.getAttribute('content')).toBe('no-referrer')
+  })
+})
+
+describe('fetchHtmlSnapshot', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('fetches readable HTML with CORS and no credentials, then disables scripts', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response('<a href="/next">Neste</a><script>alert(1)</script>', {
+        headers: { 'content-type': 'text/html; charset=utf-8' },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const signal = new AbortController().signal
+    const snapshot = await fetchHtmlSnapshot('https://nav.no/account', signal)
+    expect(fetchMock).toHaveBeenCalledWith('https://nav.no/account', {
+      mode: 'cors',
+      credentials: 'omit',
+      referrerPolicy: 'no-referrer',
+      signal,
+    })
+    expect(snapshot).toContain('Neste')
+    expect(snapshot).not.toContain('<script')
+  })
+
+  it('rejects blocked browser requests and non-HTML responses', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+    await expect(fetchHtmlSnapshot('https://nav.no/account', new AbortController().signal)).rejects.toThrow()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('{}', { headers: { 'content-type': 'application/json' } })),
+    )
+    await expect(fetchHtmlSnapshot('https://nav.no/account', new AbortController().signal)).rejects.toThrow(
+      'not readable HTML',
+    )
   })
 })
