@@ -335,7 +335,7 @@ export const AlternativePreviewOptions = ({ preview }: { preview: ReturnType<typ
             data-clickmap-open-alternatives
             onClick={() => preview.setOptionsOpen(!preview.optionsOpen)}
           >
-            {preview.optionsOpen ? 'Lukk visningsvalg' : 'Bruk en annen side'}
+            {preview.optionsOpen ? 'Lukk visningsvalg' : 'Alternative visningsvalg'}
           </Button>,
           preview.shortcutHost,
         )}

@@ -183,7 +183,7 @@ describe('AlternativePreviewOptions', () => {
     fireEvent.load(iframe)
     expect(screen.getByRole('button', { name: 'Alternative visningsvalg' })).toBeInTheDocument()
     const shortcut = iframe.contentDocument?.querySelector<HTMLButtonElement>('[data-clickmap-open-alternatives]')
-    expect(shortcut?.textContent).toBe('Bruk en annen side')
+    expect(shortcut?.textContent).toBe('Alternative visningsvalg')
     expect(shortcut?.tagName).toBe('BUTTON')
     expect(shortcut).toHaveClass('aksel-button')
     expect(iframe.contentDocument?.body).toHaveTextContent('Siden krever innlogging')
@@ -191,7 +191,7 @@ describe('AlternativePreviewOptions', () => {
     expect(iframe.contentDocument?.body).not.toHaveTextContent('#researchops')
     expect(fetch).not.toHaveBeenCalled()
     expect(shortcut?.closest('.alternative-preview-message')?.textContent).toBe(
-      'Du kan bruke HTML eller en mockside.Bruk en annen side',
+      'Du kan bruke HTML eller en mockside.Alternative visningsvalg',
     )
     expect(iframe.contentDocument?.body.textContent).not.toContain('Prøv en offentlig side')
     if (!shortcut) throw new Error('Expected the error-page shortcut')
@@ -202,7 +202,7 @@ describe('AlternativePreviewOptions', () => {
     expect(shortcut).toHaveAttribute('aria-expanded', 'true')
     fireEvent.click(shortcut)
     expect(screen.getByRole('button', { name: 'Alternative visningsvalg' })).toHaveAttribute('aria-expanded', 'false')
-    expect(shortcut).toHaveTextContent('Bruk en annen side')
+    expect(shortcut).toHaveTextContent('Alternative visningsvalg')
   })
 
   it('detects an unavailable page on load and resets when the original URL changes', () => {

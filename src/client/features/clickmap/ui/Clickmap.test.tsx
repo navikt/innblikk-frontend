@@ -98,7 +98,7 @@ describe('Clickmap page', () => {
       )
       document.close()
       fireEvent.load(iframe)
-      const shortcut = within(document.body).getByRole('button', { name: 'Bruk en annen side' })
+      const shortcut = within(document.body).getByRole('button', { name: 'Alternative visningsvalg' })
       expect(shortcut).toHaveClass('aksel-button')
       fireEvent.click(shortcut)
       expect(screen.getByRole('button', { name: 'Alternative visningsvalg' })).toHaveAttribute('aria-expanded', 'true')
