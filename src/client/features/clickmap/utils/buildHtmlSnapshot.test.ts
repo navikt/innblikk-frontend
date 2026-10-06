@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { buildHtmlSnapshot, fetchHtmlSnapshot } from './buildHtmlSnapshot.ts'
+import { buildHtmlSnapshot, fetchHtmlSnapshot, LoginRequiredError } from './buildHtmlSnapshot.ts'
 
 describe('buildHtmlSnapshot', () => {
   it('preserves click targets and resolves relative assets against the original page', () => {
@@ -68,6 +68,15 @@ describe('fetchHtmlSnapshot', () => {
     )
     await expect(fetchHtmlSnapshot('https://nav.no/account', new AbortController().signal)).rejects.toThrow(
       'not readable HTML',
+    )
+  })
+
+  it('classifies readable Auth0 redirects as login pages, not site failures', async () => {
+    const response = new Response('<h1>Log in</h1>', { headers: { 'content-type': 'text/html' } })
+    Object.defineProperty(response, 'url', { value: 'https://tenant.auth0.com/authorize' })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response))
+    await expect(fetchHtmlSnapshot('https://nav.no/account', new AbortController().signal)).rejects.toBeInstanceOf(
+      LoginRequiredError,
     )
   })
 })

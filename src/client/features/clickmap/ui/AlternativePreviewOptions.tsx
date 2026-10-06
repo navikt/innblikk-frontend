@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Accordion, Alert, BodyShort, Button, Loader, Textarea, TextField, ToggleGroup } from '@navikt/ds-react'
 import akselCss from '@navikt/ds-css/dist/index.min.css?inline'
 import { Eye } from 'lucide-react'
-import { buildHtmlSnapshot, fetchHtmlSnapshot } from '../utils/buildHtmlSnapshot.ts'
+import { buildHtmlSnapshot, fetchHtmlSnapshot, LoginRequiredError } from '../utils/buildHtmlSnapshot.ts'
 import { RESEARCHOPS_SLACK_URL } from '../../../shared/ui/BetaFeatureNotice.tsx'
 
 export const useAlternativePreview = (originalUrl: string | null, iframeRef: RefObject<HTMLIFrameElement | null>) => {
@@ -61,33 +61,42 @@ export const useAlternativePreview = (originalUrl: string | null, iframeRef: Ref
   }, [iframeRef])
 
   const showUnavailablePreview = useCallback(
-    (pending = false) => {
+    (pending = false, requiresLogin = false) => {
       const document = iframeRef.current?.contentDocument
       if (!document?.body) return
-      document.body.setAttribute('data-clickmap-preview-error', 'unavailable')
+      document.body.setAttribute('data-clickmap-preview-error', requiresLogin ? 'unauthenticated' : 'unavailable')
       const container = document.createElement('main')
       container.className = 'wrap'
       container.style.cssText = 'max-width: 720px; margin: 48px auto; padding: 24px; color: #1f2937; background: white;'
       const heading = document.createElement('h1')
-      heading.textContent = pending ? 'Prøver å hente siden i nettleseren' : 'Innblikk får ikke hentet siden'
+      heading.textContent = pending
+        ? 'Prøver å hente siden i nettleseren'
+        : requiresLogin
+          ? 'Siden krever innlogging'
+          : 'Innblikk får ikke hentet siden'
       const description = document.createElement('p')
       if (pending) {
         description.textContent = 'Serveren kunne ikke hente siden. Prøver direkte fra nettleseren.'
+      } else if (requiresLogin) {
+        description.textContent = 'Denne siden er ikke offentlig. Innblikk kan ikke logge inn for å vise den.'
       } else {
+        description.textContent = 'Siden kan fungere i nettleseren din, men Innblikk får ikke vist den.'
+      }
+      container.append(heading, description)
+      if (!pending && !requiresLogin) {
+        const help = document.createElement('p')
         const contact = document.createElement('a')
         contact.href = RESEARCHOPS_SLACK_URL
         contact.target = '_blank'
         contact.rel = 'noopener noreferrer'
         contact.textContent = '#researchops'
-        description.append(
-          document.createTextNode(
-            'Siden kan være tilgjengelig selv om Innblikk ikke får hentet den. Serverens tilgangsregler (zero trust) eller nettleserens sikkerhetsregler kan blokkere forespørselen. Kontakt ',
-          ),
+        help.append(
+          document.createTextNode('Kontakt '),
           contact,
-          document.createTextNode(' for å få undersøkt og eventuelt åpnet tilgang til nettstedet. Oppgi nettadressen.'),
+          document.createTextNode(' og send oss nettadressen, så undersøker vi tilgangen.'),
         )
+        container.appendChild(help)
       }
-      container.append(heading, description)
       document.body.replaceChildren(container)
       setOriginalUnavailable(true)
       attachShortcut()
@@ -99,7 +108,10 @@ export const useAlternativePreview = (originalUrl: string | null, iframeRef: Ref
     (reason = 'unavailable') => {
       setOriginalUnavailable(true)
       if (reason === 'unauthenticated') {
-        attachShortcut()
+        fallbackRequestRef.current?.controller.abort()
+        fallbackRequestRef.current = null
+        setBrowserFallbackPending(false)
+        showUnavailablePreview(false, true)
         return
       }
       if (!targetUrl) return
@@ -119,8 +131,8 @@ export const useAlternativePreview = (originalUrl: string | null, iframeRef: Ref
           setBrowserSnapshot({ url: request.url, html })
           setShortcutHost(null)
         })
-        .catch(() => {
-          if (fallbackRequestRef.current === request) showUnavailablePreview()
+        .catch((error: unknown) => {
+          if (fallbackRequestRef.current === request) showUnavailablePreview(false, error instanceof LoginRequiredError)
         })
         .finally(() => {
           clearTimeout(timeout)
@@ -130,7 +142,7 @@ export const useAlternativePreview = (originalUrl: string | null, iframeRef: Ref
           }
         })
     },
-    [targetUrl, attachShortcut, showUnavailablePreview],
+    [targetUrl, showUnavailablePreview],
   )
 
   useEffect(() => {

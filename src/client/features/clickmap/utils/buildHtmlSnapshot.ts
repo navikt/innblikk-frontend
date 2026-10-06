@@ -27,6 +27,13 @@ export const buildHtmlSnapshot = (html: string, pageUrl: string): string => {
   return `<!doctype html>\n${document.documentElement.outerHTML}`
 }
 
+export class LoginRequiredError extends Error {
+  constructor() {
+    super('Page requires login')
+    this.name = 'LoginRequiredError'
+  }
+}
+
 export const fetchHtmlSnapshot = async (pageUrl: string, signal: AbortSignal): Promise<string> => {
   const target = new URL(pageUrl)
   if (target.protocol !== 'https:' || target.username || target.password) throw new Error('Unsupported preview URL')
@@ -36,6 +43,17 @@ export const fetchHtmlSnapshot = async (pageUrl: string, signal: AbortSignal): P
     referrerPolicy: 'no-referrer',
     signal,
   })
+  const finalUrl = new URL(response.url || target.toString())
+  if (
+    response.status === 401 ||
+    response.status === 403 ||
+    finalUrl.hostname === 'auth0.com' ||
+    finalUrl.hostname.endsWith('.auth0.com') ||
+    finalUrl.hostname === 'login.microsoftonline.com' ||
+    /\/(?:oauth2?\/(?:login|authorize)|auth\/(?:login|authorize)|login|signin)(?:\/|$)/i.test(finalUrl.pathname)
+  ) {
+    throw new LoginRequiredError()
+  }
   if (!response.ok || !response.headers.get('content-type')?.includes('text/html')) {
     throw new Error('Page is not readable HTML')
   }

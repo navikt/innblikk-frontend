@@ -1,5 +1,6 @@
 import express from 'express'
 import { logger } from '../../logger.js'
+import { fetchPreviewResponse } from './previewFetch.js'
 
 export function createClickmapPreviewRouter() {
   const router = express.Router()
@@ -1126,7 +1127,7 @@ export function createClickmapPreviewRouter() {
   router.get('/clickmap-preview', async (req, res) => {
     try {
       const targetUrl = parseClickmapPreviewTargetUrl(req.query.url)
-      const response = await fetch(targetUrl.toString())
+      const response = await fetchPreviewResponse(targetUrl.toString())
       const rawBody = await response.text()
       const contentType = String(response.headers.get('content-type') || '').toLowerCase()
       const rawBodyLower = rawBody.toLowerCase()
@@ -1141,7 +1142,7 @@ export function createClickmapPreviewRouter() {
       if (isUnauthenticatedResponse) {
         const infoHtml = renderClickmapPreviewInfoHtml({
           title: 'Siden krever innlogging',
-          description: 'Klikk-kart kan foreløpig bare vise åpne sider.',
+          description: 'Denne siden er ikke offentlig. Innblikk kan ikke logge inn for å vise den.',
           reason: 'unauthenticated',
           path: targetUrl.pathname,
           details:

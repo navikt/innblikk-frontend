@@ -119,7 +119,9 @@ describe('AlternativePreviewOptions', () => {
     })
     fireEvent.load(iframe)
     await waitFor(() => expect(document.body).toHaveTextContent('Innblikk får ikke hentet siden'))
-    expect(document.body).toHaveTextContent('zero trust')
+    expect(document.body).toHaveTextContent('Siden kan fungere i nettleseren din')
+    expect(document.body).not.toHaveTextContent('zero trust')
+    expect(document.body).not.toHaveTextContent('sikkerhetsregler')
     expect(document.querySelector('a')?.textContent).toBe('#researchops')
     expect(document.body).not.toHaveTextContent('fetch failed')
     expect(document.querySelector('[data-clickmap-open-alternatives]')).toHaveClass('aksel-button')
@@ -182,6 +184,10 @@ describe('AlternativePreviewOptions', () => {
     expect(shortcut?.textContent).toBe('Bruk en annen side')
     expect(shortcut?.tagName).toBe('BUTTON')
     expect(shortcut).toHaveClass('aksel-button')
+    expect(iframe.contentDocument?.body).toHaveTextContent('Siden krever innlogging')
+    expect(iframe.contentDocument?.body).toHaveTextContent('Denne siden er ikke offentlig')
+    expect(iframe.contentDocument?.body).not.toHaveTextContent('#researchops')
+    expect(fetch).not.toHaveBeenCalled()
     expect(shortcut?.closest('.alternative-preview-message')?.textContent).toBe(
       'Du kan bruke HTML eller en mockside.Bruk en annen side',
     )
@@ -205,5 +211,19 @@ describe('AlternativePreviewOptions', () => {
     expect(screen.getByRole('button', { name: 'Alternative visningsvalg' })).toBeInTheDocument()
     rerender(<Preview url="https://nav.no/another-page" />)
     expect(screen.queryByRole('button', { name: 'Alternative visningsvalg' })).not.toBeInTheDocument()
+  })
+
+  it('shows a login message when the browser fallback receives an authentication response', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('', { status: 401 })))
+    render(<Preview />)
+    const iframe = screen.getByTitle<HTMLIFrameElement>('Preview')
+    const document = iframe.contentDocument
+    if (!document) throw new Error('Expected the preview document')
+    document.body.setAttribute('data-clickmap-preview-error', 'unavailable')
+    fireEvent.load(iframe)
+    await waitFor(() => expect(document.body).toHaveTextContent('Siden krever innlogging'))
+    expect(document.body).not.toHaveTextContent('#researchops')
+    expect(document.body).not.toHaveTextContent('zero trust')
+    expect(document.querySelector('[data-clickmap-open-alternatives]')).toHaveClass('aksel-button')
   })
 })
