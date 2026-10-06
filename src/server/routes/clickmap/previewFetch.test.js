@@ -2,7 +2,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fetchPreviewResponse } from './previewFetch.js'
 
 describe('fetchPreviewResponse', () => {
-  afterEach(() => vi.unstubAllGlobals())
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+    vi.useRealTimers()
+  })
 
   it.each([
     'https://ansatt.dev.nav.no/oauth2/login?redirect=https://www.nav.no/pensjon',
@@ -14,7 +18,10 @@ describe('fetchPreviewResponse', () => {
     const response = await fetchPreviewResponse('https://www.nav.no/pensjon')
     expect(response.status).toBe(401)
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(fetchMock).toHaveBeenCalledWith('https://www.nav.no/pensjon', { redirect: 'manual' })
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://www.nav.no/pensjon',
+      expect.objectContaining({ redirect: 'manual', signal: expect.any(AbortSignal) }),
+    )
   })
 
   it('follows ordinary public redirects', async () => {
@@ -25,6 +32,32 @@ describe('fetchPreviewResponse', () => {
     vi.stubGlobal('fetch', fetchMock)
     const response = await fetchPreviewResponse('https://www.nav.no/')
     expect(await response.text()).toContain('Public page')
-    expect(fetchMock).toHaveBeenLastCalledWith('https://www.nav.no/public', { redirect: 'manual' })
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      'https://www.nav.no/public',
+      expect.objectContaining({ redirect: 'manual' }),
+    )
+    expect(fetchMock.mock.calls[0][1].signal).toBe(fetchMock.mock.calls[1][1].signal)
+  })
+
+  it('aborts a stalled server request after three seconds', async () => {
+    vi.useFakeTimers()
+    vi.spyOn(AbortSignal, 'timeout').mockImplementation((duration) => {
+      const controller = new AbortController()
+      setTimeout(() => controller.abort(new Error('Preview timeout')), duration)
+      return controller.signal
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        (_url, options) =>
+          new Promise((_resolve, reject) => {
+            options.signal.addEventListener('abort', () => reject(options.signal.reason), { once: true })
+          }),
+      ),
+    )
+    const result = expect(fetchPreviewResponse('https://www.nav.no/')).rejects.toThrow('Preview timeout')
+    await vi.advanceTimersByTimeAsync(3000)
+    await result
+    expect(AbortSignal.timeout).toHaveBeenCalledWith(3000)
   })
 })

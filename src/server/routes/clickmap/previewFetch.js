@@ -5,10 +5,11 @@ const isLoginUrl = (url) =>
   /\/(?:oauth2?\/(?:login|authorize)|auth\/(?:login|authorize)|login|signin)(?:\/|$)/i.test(url.pathname)
 
 export const fetchPreviewResponse = async (targetUrl) => {
+  const signal = AbortSignal.timeout(3000)
   let currentUrl = new URL(targetUrl)
   for (let redirects = 0; redirects <= 5; redirects += 1) {
     if (isLoginUrl(currentUrl)) return new Response('', { status: 401 })
-    const response = await fetch(currentUrl.toString(), { redirect: 'manual' })
+    const response = await fetch(currentUrl.toString(), { redirect: 'manual', signal })
     if (![301, 302, 303, 307, 308].includes(response.status)) return response
     const location = response.headers.get('location')
     if (!location) return response

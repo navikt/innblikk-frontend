@@ -84,6 +84,21 @@ export const useAlternativePreview = (originalUrl: string | null, iframeRef: Ref
       }
       container.append(heading, description)
       if (!pending && !requiresLogin) {
+        const reasonsTitle = document.createElement('p')
+        reasonsTitle.textContent = 'Mulige årsaker:'
+        const reasons = document.createElement('ul')
+        reasons.style.listStyleType = 'disc'
+        reasons.style.paddingInlineStart = '1.5rem'
+        for (const reason of [
+          'Siden krever innlogging.',
+          'Innblikk har ikke fått tilgang til nettstedet ennå.',
+          'Siden svarer for sakte eller er midlertidig utilgjengelig.',
+        ]) {
+          const item = document.createElement('li')
+          item.textContent = reason
+          reasons.appendChild(item)
+        }
+        container.append(reasonsTitle, reasons)
         const help = document.createElement('p')
         const contact = document.createElement('a')
         contact.href = RESEARCHOPS_SLACK_URL
@@ -124,7 +139,7 @@ export const useAlternativePreview = (originalUrl: string | null, iframeRef: Ref
       fallbackRequestRef.current = request
       setBrowserFallbackPending(true)
       showUnavailablePreview(true)
-      const timeout = setTimeout(() => request.controller.abort(), 8_000)
+      const timeout = setTimeout(() => request.controller.abort(), 3_000)
       void fetchHtmlSnapshot(targetUrl, request.controller.signal)
         .then((html) => {
           if (fallbackRequestRef.current !== request || request.controller.signal.aborted) return

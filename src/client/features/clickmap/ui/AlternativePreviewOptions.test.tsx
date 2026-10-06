@@ -101,7 +101,7 @@ describe('AlternativePreviewOptions', () => {
     expect(document.body).toHaveTextContent('Prøver å hente siden i nettleseren')
     expect(screen.getByRole('status')).toHaveTextContent('Prøver å hente siden direkte fra nettleseren...')
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(8_000)
+      await vi.advanceTimersByTimeAsync(3_000)
     })
     expect(document.body).toHaveTextContent('Innblikk får ikke hentet siden')
     expect(document.body).toHaveTextContent('#researchops')
@@ -122,6 +122,8 @@ describe('AlternativePreviewOptions', () => {
     expect(document.body).toHaveTextContent('Siden kan fungere i nettleseren din')
     expect(document.body).not.toHaveTextContent('zero trust')
     expect(document.body).not.toHaveTextContent('sikkerhetsregler')
+    expect(document.querySelectorAll('li')).toHaveLength(3)
+    expect(document.body).toHaveTextContent('Innblikk har ikke fått tilgang til nettstedet ennå')
     expect(document.querySelector('a')?.textContent).toBe('#researchops')
     expect(document.body).not.toHaveTextContent('fetch failed')
     expect(document.querySelector('[data-clickmap-open-alternatives]')).toHaveClass('aksel-button')
