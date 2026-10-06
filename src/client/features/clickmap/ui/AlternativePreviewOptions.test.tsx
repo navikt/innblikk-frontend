@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { AlternativePreviewOptions, useAlternativePreview } from './AlternativePreviewOptions.tsx'
+import { AlternativePreviewOptions, PreviewLoadingStatus, useAlternativePreview } from './AlternativePreviewOptions.tsx'
 
 const Preview = ({ url = 'https://nav.no/account' }: { url?: string }) => {
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
@@ -9,6 +9,7 @@ const Preview = ({ url = 'https://nav.no/account' }: { url?: string }) => {
   return (
     <>
       <AlternativePreviewOptions preview={preview} />
+      <PreviewLoadingStatus preview={preview} />
       <iframe ref={iframeRef} title="Preview" srcDoc={preview.srcDoc} onLoad={preview.onLoad} />
     </>
   )
@@ -19,6 +20,17 @@ describe('AlternativePreviewOptions', () => {
   afterEach(() => {
     vi.useRealTimers()
     vi.unstubAllGlobals()
+  })
+
+  it('shows loading immediately, hides it on load and shows it again for a different page', () => {
+    const { rerender } = render(<Preview />)
+    expect(screen.getByRole('status')).toHaveTextContent('Henter forhåndsvisning...')
+    const iframe = screen.getByTitle<HTMLIFrameElement>('Preview')
+    if (iframe.contentDocument) iframe.contentDocument.body.textContent = 'Siden er lastet'
+    fireEvent.load(iframe)
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    rerender(<Preview url="https://nav.no/another-page" />)
+    expect(screen.getByRole('status')).toHaveTextContent('Henter forhåndsvisning...')
   })
 
   it('uses a safe browser snapshot after server failure and makes only one request', async () => {
@@ -87,11 +99,13 @@ describe('AlternativePreviewOptions', () => {
     document.body.setAttribute('data-clickmap-preview-error', 'unavailable')
     fireEvent.load(iframe)
     expect(document.body).toHaveTextContent('Prøver å hente siden i nettleseren')
+    expect(screen.getByRole('status')).toHaveTextContent('Prøver å hente siden direkte fra nettleseren...')
     await act(async () => {
       await vi.advanceTimersByTimeAsync(8_000)
     })
     expect(document.body).toHaveTextContent('Innblikk får ikke hentet siden')
     expect(document.body).toHaveTextContent('#researchops')
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
   it('tries the browser after a JSON fetch error and offers researchops help when that fails', async () => {
@@ -165,22 +179,22 @@ describe('AlternativePreviewOptions', () => {
     fireEvent.load(iframe)
     expect(screen.getByRole('button', { name: 'Alternative visningsvalg' })).toBeInTheDocument()
     const shortcut = iframe.contentDocument?.querySelector<HTMLButtonElement>('[data-clickmap-open-alternatives]')
-    expect(shortcut?.textContent).toBe('Åpne alternative visningsvalg')
+    expect(shortcut?.textContent).toBe('Bruk en annen side')
     expect(shortcut?.tagName).toBe('BUTTON')
     expect(shortcut).toHaveClass('aksel-button')
     expect(shortcut?.closest('.alternative-preview-message')?.textContent).toBe(
-      'Vis markeringene med innlimt HTML eller en offentlig mockside.Åpne alternative visningsvalg',
+      'Du kan bruke HTML eller en mockside.Bruk en annen side',
     )
     expect(iframe.contentDocument?.body.textContent).not.toContain('Prøv en offentlig side')
     if (!shortcut) throw new Error('Expected the error-page shortcut')
     fireEvent.click(shortcut)
     expect(screen.getByRole('button', { name: 'Alternative visningsvalg' })).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByRole('radio', { name: 'Lim inn HTML' })).toBeVisible()
-    expect(shortcut).toHaveTextContent('Lukk alternative visningsvalg')
+    expect(shortcut).toHaveTextContent('Lukk visningsvalg')
     expect(shortcut).toHaveAttribute('aria-expanded', 'true')
     fireEvent.click(shortcut)
     expect(screen.getByRole('button', { name: 'Alternative visningsvalg' })).toHaveAttribute('aria-expanded', 'false')
-    expect(shortcut).toHaveTextContent('Åpne alternative visningsvalg')
+    expect(shortcut).toHaveTextContent('Bruk en annen side')
   })
 
   it('detects an unavailable page on load and resets when the original URL changes', () => {

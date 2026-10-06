@@ -9,7 +9,7 @@ import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
 import { parseJourneyStep } from '../../eventjourney/utils/parsers.ts'
 import { getStoredPeriod, normalizeUrlToPath, savePeriodPreference } from '../../../shared/lib/utils.ts'
 import type { Website } from '../../../shared/types/chart.ts'
-import { AlternativePreviewOptions, useAlternativePreview } from './AlternativePreviewOptions.tsx'
+import { AlternativePreviewOptions, PreviewLoadingStatus, useAlternativePreview } from './AlternativePreviewOptions.tsx'
 
 type JourneyStep = {
   rawStep: string
@@ -826,6 +826,7 @@ const EventJourneyClickmap = () => {
                     previewSource === 'html' ? 'allow-same-origin' : 'allow-same-origin allow-scripts allow-forms'
                   }
                 />
+                <PreviewLoadingStatus preview={preview} />
 
                 <div className="pointer-events-none absolute inset-0">
                   <svg className="absolute inset-0 w-full h-full" aria-hidden>

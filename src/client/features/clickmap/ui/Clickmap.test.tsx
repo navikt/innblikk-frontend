@@ -98,7 +98,7 @@ describe('Clickmap page', () => {
       )
       document.close()
       fireEvent.load(iframe)
-      const shortcut = within(document.body).getByRole('button', { name: 'Åpne alternative visningsvalg' })
+      const shortcut = within(document.body).getByRole('button', { name: 'Bruk en annen side' })
       expect(shortcut).toHaveClass('aksel-button')
       fireEvent.click(shortcut)
       expect(screen.getByRole('button', { name: 'Alternative visningsvalg' })).toHaveAttribute('aria-expanded', 'true')
@@ -110,9 +110,7 @@ describe('Clickmap page', () => {
       )
       expect(screen.getByRole('button', { name: 'Alternative visningsvalg' })).toHaveAttribute('aria-expanded', 'true')
       expect(screen.getByRole('radio', { name: 'Lim inn HTML' })).toBeVisible()
-      expect(within(document.body).getByRole('button', { name: 'Lukk alternative visningsvalg' })).toHaveClass(
-        'aksel-button',
-      )
+      expect(within(document.body).getByRole('button', { name: 'Lukk visningsvalg' })).toHaveClass('aksel-button')
     },
   )
 })

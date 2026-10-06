@@ -20,7 +20,7 @@ import { useClickmap } from '../hooks/useClickmap.ts'
 import type { ClickmapItem } from '../model/types.ts'
 import { ROUTE_BY_VISUALIZATION_MODE, type VisualizationMode } from '../model/visualizationMode.ts'
 import VisualizationModeSelect from './VisualizationModeSelect.tsx'
-import { AlternativePreviewOptions, useAlternativePreview } from './AlternativePreviewOptions.tsx'
+import { AlternativePreviewOptions, PreviewLoadingStatus, useAlternativePreview } from './AlternativePreviewOptions.tsx'
 
 const normalizeComparablePath = (value: string): string => {
   const normalizedValue = normalizeUrlToPath(value || '')
@@ -1121,22 +1121,29 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
           <section className="order-2 xl:order-1 border border-[var(--ax-border-neutral-subtle)] rounded-md overflow-hidden">
             <AlternativePreviewOptions preview={preview} />
             {iframeSrc || preview.srcDoc ? (
-              <iframe
-                key={preview.renderedSource}
-                ref={iframeRef}
-                title={
-                  isHeatmap ? 'Varmekart sidevisning' : isScrollmap ? 'Scrollmap sidevisning' : 'Klikk-kart sidevisning'
-                }
-                src={iframeSrc}
-                srcDoc={preview.srcDoc}
-                onLoad={preview.onLoad}
-                className="w-full h-[920px] bg-white"
-                sandbox={
-                  preview.renderedSource === 'html'
-                    ? 'allow-same-origin'
-                    : 'allow-same-origin allow-scripts allow-forms'
-                }
-              />
+              <div className="relative">
+                <iframe
+                  key={preview.renderedSource}
+                  ref={iframeRef}
+                  title={
+                    isHeatmap
+                      ? 'Varmekart sidevisning'
+                      : isScrollmap
+                        ? 'Scrollmap sidevisning'
+                        : 'Klikk-kart sidevisning'
+                  }
+                  src={iframeSrc}
+                  srcDoc={preview.srcDoc}
+                  onLoad={preview.onLoad}
+                  className="w-full h-[920px] bg-white"
+                  sandbox={
+                    preview.renderedSource === 'html'
+                      ? 'allow-same-origin'
+                      : 'allow-same-origin allow-scripts allow-forms'
+                  }
+                />
+                <PreviewLoadingStatus preview={preview} />
+              </div>
             ) : (
               <div className="p-4">
                 <Alert variant="info">Kunne ikke bygge forhåndsvisning for valgt domene/URL.</Alert>

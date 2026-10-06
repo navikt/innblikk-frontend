@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
-import { Accordion, Alert, Button, Textarea, TextField, ToggleGroup } from '@navikt/ds-react'
+import { Accordion, Alert, BodyShort, Button, Loader, Textarea, TextField, ToggleGroup } from '@navikt/ds-react'
 import akselCss from '@navikt/ds-css/dist/index.min.css?inline'
 import { Eye } from 'lucide-react'
 import { buildHtmlSnapshot, fetchHtmlSnapshot } from '../utils/buildHtmlSnapshot.ts'
@@ -18,6 +18,7 @@ export const useAlternativePreview = (originalUrl: string | null, iframeRef: Ref
   const [mockUrlError, setMockUrlError] = useState<string | undefined>()
   const [browserSnapshot, setBrowserSnapshot] = useState<{ url: string; html: string } | null>(null)
   const [browserFallbackPending, setBrowserFallbackPending] = useState(false)
+  const [loadedPreviewKey, setLoadedPreviewKey] = useState<string | undefined>()
   const fallbackRequestRef = useRef<{ url: string; controller: AbortController } | null>(null)
   const attemptedUrlsRef = useRef(new Set<string>())
   const cleanupDocumentRef = useRef<(() => void) | null>(null)
@@ -33,6 +34,8 @@ export const useAlternativePreview = (originalUrl: string | null, iframeRef: Ref
   const src =
     renderedSource !== 'html' && targetUrl ? `/api/clickmap-preview?url=${encodeURIComponent(targetUrl)}` : undefined
   const srcDoc = snapshot
+  const previewKey = srcDoc || src
+  const previewLoading = Boolean(previewKey && loadedPreviewKey !== previewKey)
 
   const attachShortcut = useCallback(() => {
     const document = iframeRef.current?.contentDocument
@@ -45,10 +48,7 @@ export const useAlternativePreview = (originalUrl: string | null, iframeRef: Ref
     const message =
       container.querySelector<HTMLElement>('.alternative-preview-message, .muted') || document.createElement('p')
     message.className = 'muted alternative-preview-message'
-    message.replaceChildren(
-      document.createTextNode('Vis markeringene med innlimt HTML eller en offentlig mockside.'),
-      host,
-    )
+    message.replaceChildren(document.createTextNode('Du kan bruke HTML eller en mockside.'), host)
     message.hidden = false
     if (!message.parentElement) container.appendChild(message)
     if (!document.getElementById('clickmap-aksel-styles')) {
@@ -139,6 +139,7 @@ export const useAlternativePreview = (originalUrl: string | null, iframeRef: Ref
     attemptedUrlsRef.current.clear()
     setBrowserSnapshot(null)
     setBrowserFallbackPending(false)
+    setLoadedPreviewKey(undefined)
     setOriginalUnavailable(false)
     setOptionsOpen(false)
     setShortcutHost(null)
@@ -188,6 +189,7 @@ export const useAlternativePreview = (originalUrl: string | null, iframeRef: Ref
   }, [src, srcDoc, targetUrl])
 
   const onLoad = () => {
+    setLoadedPreviewKey(previewKey)
     cleanupDocumentRef.current?.()
     cleanupDocumentRef.current = null
     if (blankPreviewTimerRef.current) clearTimeout(blankPreviewTimerRef.current)
@@ -252,6 +254,7 @@ export const useAlternativePreview = (originalUrl: string | null, iframeRef: Ref
     setMockUrlDraft,
     mockUrlError,
     browserFallbackPending,
+    previewLoading,
     applyHtml: () => {
       if (originalUrl && htmlDraft.trim()) setHtmlSnapshot(buildHtmlSnapshot(htmlDraft, originalUrl))
     },
@@ -266,6 +269,23 @@ export const useAlternativePreview = (originalUrl: string | null, iframeRef: Ref
       }
     },
   }
+}
+
+export const PreviewLoadingStatus = ({ preview }: { preview: ReturnType<typeof useAlternativePreview> }) => {
+  if (!preview.previewLoading && !preview.browserFallbackPending) return null
+
+  return (
+    <div className="absolute inset-0 z-10 flex items-start justify-center bg-[var(--ax-bg-default)] px-4 py-12">
+      <div role="status" aria-live="polite" className="flex max-w-md flex-col items-center gap-4 text-center">
+        <Loader size="large" title="Henter forhåndsvisning" />
+        <BodyShort>
+          {preview.browserFallbackPending
+            ? 'Prøver å hente siden direkte fra nettleseren...'
+            : 'Henter forhåndsvisning...'}
+        </BodyShort>
+      </div>
+    </div>
+  )
 }
 
 export const AlternativePreviewOptions = ({ preview }: { preview: ReturnType<typeof useAlternativePreview> }) => {
@@ -288,7 +308,7 @@ export const AlternativePreviewOptions = ({ preview }: { preview: ReturnType<typ
             data-clickmap-open-alternatives
             onClick={() => preview.setOptionsOpen(!preview.optionsOpen)}
           >
-            {preview.optionsOpen ? 'Lukk alternative visningsvalg' : 'Åpne alternative visningsvalg'}
+            {preview.optionsOpen ? 'Lukk visningsvalg' : 'Bruk en annen side'}
           </Button>,
           preview.shortcutHost,
         )}
