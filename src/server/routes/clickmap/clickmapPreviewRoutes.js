@@ -98,12 +98,12 @@ export function createClickmapPreviewRouter() {
         }
       </style>
     </head>
-    <body>
+    <body data-clickmap-preview-error="${escapeHtml(reason)}">
       <main class="wrap">
         <h1>${escapeHtml(title)}</h1>
         <p>${escapeHtml(description)}</p>
         ${path ? `<p class="code">${escapeHtml(path)}</p>` : ''}
-        ${details ? `<p class="muted">${escapeHtml(details)}</p>` : ''}
+        <div class="muted alternative-preview-message" hidden>Vis markeringene med innlimt HTML eller en offentlig mockside.<div data-clickmap-alternative-action></div></div>
       </main>
       <script>
         window.parent.postMessage(${payload}, '*')
@@ -1144,7 +1144,8 @@ export function createClickmapPreviewRouter() {
           description: 'Klikk-kart kan foreløpig bare vise åpne sider.',
           reason: 'unauthenticated',
           path: targetUrl.pathname,
-          details: 'Prøv en offentlig side for å se markeringene.',
+          details:
+            'Prøv en offentlig side, eller bruk innlimt HTML eller en offentlig mockside via alternative visningsvalg.',
         })
         res.status(200)
         res.type('text/html; charset=utf-8')
@@ -1152,7 +1153,22 @@ export function createClickmapPreviewRouter() {
         return
       }
 
-      if (!contentType.includes('text/html') && looksLikeJson) {
+      if (!response.ok) {
+        res
+          .status(200)
+          .type('text/html; charset=utf-8')
+          .send(
+            renderClickmapPreviewInfoHtml({
+              title: 'Siden er ikke tilgjengelig',
+              description: 'Kunne ikke laste den opprinnelige siden.',
+              reason: 'unavailable',
+              path: targetUrl.pathname,
+            }),
+          )
+        return
+      }
+
+      if (!contentType.includes('text/html') || looksLikeJson) {
         const infoHtml = renderClickmapPreviewInfoHtml({
           title: 'Siden kan ikke vises i klikk-kart',
           description: 'Forhåndsvisningen støtter bare HTML-sider som kan vises offentlig.',
@@ -1172,10 +1188,17 @@ export function createClickmapPreviewRouter() {
       res.type('text/html; charset=utf-8')
       res.send(hydratedHtml)
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      const statusCode = 500
       logger.error({ error: error.message ?? error }, 'Failed to fetch clickmap preview HTML')
-      res.status(statusCode).json({ error: 'Failed to fetch clickmap preview HTML', message: errorMessage })
+      res
+        .status(200)
+        .type('text/html; charset=utf-8')
+        .send(
+          renderClickmapPreviewInfoHtml({
+            title: 'Siden er ikke tilgjengelig',
+            description: 'Kunne ikke laste den opprinnelige siden.',
+            reason: 'unavailable',
+          }),
+        )
     }
   })
 

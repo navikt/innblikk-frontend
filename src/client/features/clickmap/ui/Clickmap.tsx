@@ -20,6 +20,7 @@ import { useClickmap } from '../hooks/useClickmap.ts'
 import type { ClickmapItem } from '../model/types.ts'
 import { ROUTE_BY_VISUALIZATION_MODE, type VisualizationMode } from '../model/visualizationMode.ts'
 import VisualizationModeSelect from './VisualizationModeSelect.tsx'
+import { AlternativePreviewOptions, useAlternativePreview } from './AlternativePreviewOptions.tsx'
 
 const normalizeComparablePath = (value: string): string => {
   const normalizedValue = normalizeUrlToPath(value || '')
@@ -232,7 +233,9 @@ const clearFocusedElement = (doc: Document) => {
 }
 
 const findBestElementForClickmapItem = (doc: Document, item: ClickmapItem): Element | null => {
-  const targetText = cleanText(item.linkText || '')
+  const recordedText = cleanText(item.linkText || '')
+  const toggleLabel = recordedText.match(/^toggle viser fane\s+(.+)$/)?.[1]
+  const targetText = toggleLabel || recordedText
   const targetDestination = normalizeDestination(item.destination || '')
   const targetIsAccordion = isAccordionLike(item.component || '')
   const targetIsInternalNavigation = isInternalNavigationComponent(item.component || '')
@@ -244,6 +247,11 @@ const findBestElementForClickmapItem = (doc: Document, item: ClickmapItem): Elem
       element,
       kind: 'accordion' as const,
     })),
+    ...Array.from(
+      doc.querySelectorAll(
+        'button:not([aria-expanded]):not([aria-controls]), [role="button"]:not(button), [role="radio"]:not(button), [role="tab"]:not(button)',
+      ),
+    ).map((element) => ({ element, kind: 'control' as const })),
   ]
 
   let bestElement: Element | null = null
@@ -252,12 +260,13 @@ const findBestElementForClickmapItem = (doc: Document, item: ClickmapItem): Elem
   for (const candidate of candidates) {
     if (!isElementVisible(candidate.element)) continue
     if (targetIsAccordion && candidate.kind !== 'accordion') continue
+    if (toggleLabel && !['radio', 'tab'].includes(candidate.element.getAttribute('role') || '')) continue
     if (candidate.kind === 'link' && isHeadingLink(candidate.element)) continue
     if (candidate.kind === 'link' && isInPageHashLink(candidate.element) && !isNavigationMenuLink(candidate.element))
       continue
     if (targetIsInternalNavigation && candidate.kind === 'link' && !isNavigationMenuLink(candidate.element)) continue
 
-    const elementText = cleanText(candidate.element.textContent || candidate.element.getAttribute('aria-label') || '')
+    const elementText = cleanText(candidate.element.getAttribute('aria-label') || candidate.element.textContent || '')
     const textExact = !!targetText && targetText === elementText
     const textContains =
       !!targetText && !textExact && (targetText.includes(elementText) || elementText.includes(targetText))
@@ -419,10 +428,8 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
     [selectedWebsite?.domain, urlPath],
   )
 
-  const iframeSrc = useMemo(
-    () => (previewTargetUrl ? `/api/clickmap-preview?url=${encodeURIComponent(previewTargetUrl)}` : ''),
-    [previewTargetUrl],
-  )
+  const preview = useAlternativePreview(previewTargetUrl, iframeRef, isClickmap)
+  const iframeSrc = preview.src
 
   const clickmapDataForPreview = useMemo(() => {
     if (!urlPath) return data
@@ -515,7 +522,53 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
     [clickmapDataForSelectedType, formatPercentBadge, getBadgeLabel, totalClicks],
   )
 
+  const updateSnapshotBadges = useCallback(() => {
+    const document = iframeRef.current?.contentDocument
+    if (!document) return
+    if (!document.getElementById('umami-clickmap-snapshot-style')) {
+      const style = document.createElement('style')
+      style.id = 'umami-clickmap-snapshot-style'
+      style.textContent = `
+        [data-clickmap-snapshot-count] {
+          position: relative !important;
+          outline: 2px solid #b91c1c !important;
+          outline-offset: 1px !important;
+        }
+        [data-clickmap-snapshot-count]::after {
+          content: attr(data-clickmap-snapshot-count) !important;
+          position: absolute !important;
+          top: -8px !important;
+          right: -8px !important;
+          background: #b91c1c !important;
+          color: white !important;
+          border: 2px solid white !important;
+          border-radius: 4px !important;
+          padding: 2px 6px !important;
+          font: bold 12px/1.4 sans-serif !important;
+          pointer-events: none !important;
+          z-index: 2147483647 !important;
+        }
+      `
+      document.head.appendChild(style)
+    }
+    document.querySelectorAll('[data-clickmap-snapshot-count]').forEach((element) => {
+      element.removeAttribute('data-clickmap-snapshot-count')
+    })
+    const counts = new Map<Element, number>()
+    for (const item of clickmapDataWithLabels) {
+      const element = findBestElementForClickmapItem(document, item)
+      if (element) counts.set(element, (counts.get(element) || 0) + item.count)
+    }
+    for (const [element, count] of counts) {
+      element.setAttribute('data-clickmap-snapshot-count', getBadgeLabel(count))
+    }
+  }, [clickmapDataWithLabels, getBadgeLabel])
+
   const sendHeatmapDataToIframe = useCallback(() => {
+    if (preview.renderedSource === 'html') {
+      updateSnapshotBadges()
+      return
+    }
     const contentWindow = iframeRef.current?.contentWindow
     if (!contentWindow) return
 
@@ -529,7 +582,14 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
       },
       '*',
     )
-  }, [clickmapDataWithLabels, badgeMode, visualizationMode, listTypeFilter])
+  }, [
+    clickmapDataWithLabels,
+    badgeMode,
+    visualizationMode,
+    listTypeFilter,
+    preview.renderedSource,
+    updateSnapshotBadges,
+  ])
 
   useEffect(() => {
     sendHeatmapDataToIframe()
@@ -547,7 +607,7 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
     return () => {
       iframeNode.removeEventListener('load', onLoad)
     }
-  }, [iframeSrc, sendHeatmapDataToIframe])
+  }, [iframeSrc, preview.srcDoc, sendHeatmapDataToIframe])
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -1058,16 +1118,24 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
             </div>
           </section>
 
-          <section className="order-2 xl:order-1 border border-[var(--ax-border-neutral-subtle)] rounded-md overflow-hidden bg-white">
-            {iframeSrc ? (
+          <section className="order-2 xl:order-1 border border-[var(--ax-border-neutral-subtle)] rounded-md overflow-hidden">
+            {isClickmap && <AlternativePreviewOptions preview={preview} />}
+            {iframeSrc || preview.srcDoc ? (
               <iframe
+                key={preview.renderedSource}
                 ref={iframeRef}
                 title={
                   isHeatmap ? 'Varmekart sidevisning' : isScrollmap ? 'Scrollmap sidevisning' : 'Klikk-kart sidevisning'
                 }
                 src={iframeSrc}
-                className="w-full h-[920px]"
-                sandbox="allow-same-origin allow-scripts allow-forms"
+                srcDoc={preview.srcDoc}
+                onLoad={preview.onLoad}
+                className="w-full h-[920px] bg-white"
+                sandbox={
+                  preview.renderedSource === 'html'
+                    ? 'allow-same-origin'
+                    : 'allow-same-origin allow-scripts allow-forms'
+                }
               />
             ) : (
               <div className="p-4">
