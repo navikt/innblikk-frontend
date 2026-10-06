@@ -1,0 +1,88 @@
+/* Styles the inline Skyra survey (shadow DOM, themed via --skyra-* vars and
+ * ::part()). --skyra-bg-color feeds both the host background and the inputs,
+ * so it gets a real surface for the textarea's sake, and the host is then
+ * made transparent (unlayered, beats Skyra's `@layer components :host` rule)
+ * so the survey blends into the section band everywhere except the inputs. */
+
+.kontakt-seksjon-skyra skyra-survey {
+  display: inline-block;
+  width: fit-content;
+  max-width: 100%;
+
+  --skyra-bg-color: var(--ax-bg-input);
+  background-color: transparent;
+  --skyra-text-color: var(--ax-text-neutral);
+  --skyra-interface-color: var(--ax-border-neutral-subtle);
+  --skyra-action-color: var(--ax-accent-700);
+  --skyra-action-text-color: var(--ax-bg-default);
+  --skyra-secondary-color: var(--ax-bg-accent-soft);
+  --skyra-link-color: var(--ax-text-accent);
+  --skyra-font-body: var(--ax-font-family);
+  --skyra-font-heading: var(--ax-font-family);
+  --skyra-font-size: 16px;
+}
+
+.kontakt-seksjon-skyra skyra-survey::part(wrapper) {
+  align-items: center;
+  text-align: center;
+  background-color: transparent;
+}
+
+.kontakt-seksjon-skyra skyra-survey::part(heading) {
+  color: var(--ax-text-neutral);
+  font-size: var(--ax-font-size-heading-medium, 1.5rem);
+  font-weight: var(--ax-font-weight-bold);
+  line-height: 1.3;
+  margin: 0 0 12px;
+  text-align: center;
+}
+
+.kontakt-seksjon-skyra skyra-survey::part(description) {
+  font-size: var(--ax-font-size-medium);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.kontakt-seksjon-skyra skyra-survey::part(button-primary),
+.kontakt-seksjon-skyra skyra-survey::part(button-secondary) {
+  background-color: transparent;
+  color: var(--ax-text-neutral);
+  border: none;
+  box-shadow: inset 0 0 0 2px var(--ax-border-neutral);
+  border-radius: var(--ax-radius-8);
+  padding: var(--ax-space-12, 12px) var(--ax-space-20, 20px);
+  font-family: var(--ax-font-family);
+  font-size: var(--ax-font-size-large);
+  font-weight: var(--ax-font-weight-regular);
+  line-height: var(--ax-font-line-height-large, 1.3);
+}
+
+.kontakt-seksjon-skyra skyra-survey::part(button-primary):hover,
+.kontakt-seksjon-skyra skyra-survey::part(button-secondary):hover {
+  background-color: var(--ax-bg-neutral-moderate-hoverA, rgba(0, 0, 0, 0.04));
+  box-shadow: inset 0 0 0 2px var(--ax-border-neutral-strong, var(--ax-border-neutral));
+  color: var(--ax-text-neutral);
+}
+
+.kontakt-seksjon-skyra skyra-survey::part(button-primary):active,
+.kontakt-seksjon-skyra skyra-survey::part(button-secondary):active {
+  background-color: var(--ax-bg-neutral-moderate-pressedA, rgba(0, 0, 0, 0.08));
+}
+
+.kontakt-seksjon-skyra skyra-survey::part(button-primary):focus-visible,
+.kontakt-seksjon-skyra skyra-survey::part(button-secondary):focus-visible {
+  outline: 3px solid var(--ax-border-focus);
+  outline-offset: 3px;
+}
+
+.kontakt-seksjon-skyra skyra-survey::part(button-link) {
+  font-family: var(--ax-font-family);
+  font-size: var(--ax-font-size-medium);
+  color: var(--ax-text-accent);
+}
+
+.kontakt-seksjon-skyra skyra-survey::part(button-chip) {
+  border-radius: var(--ax-radius-8);
+  font-family: var(--ax-font-family);
+  font-size: var(--ax-font-size-medium);
+}

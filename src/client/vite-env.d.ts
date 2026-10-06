@@ -10,6 +10,19 @@ declare global {
     umami?: UmamiTracker
     __innblikk_sporing_dev__?: (type: string, payload: Record<string, unknown>) => false
   }
+
+  namespace React {
+    namespace JSX {
+      interface IntrinsicElements {
+        'skyra-survey': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
+          slug: string
+          inline?: boolean
+          consent?: 'true' | 'false'
+          lang?: string
+        }
+      }
+    }
+  }
 }
 
 export {}
