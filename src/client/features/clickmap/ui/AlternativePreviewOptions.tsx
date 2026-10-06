@@ -16,6 +16,7 @@ export const useAlternativePreview = (originalUrl: string | null, iframeRef: Ref
   const [mockUrl, setMockUrl] = useState('')
   const [mockUrlError, setMockUrlError] = useState<string | undefined>()
   const cleanupDocumentRef = useRef<(() => void) | null>(null)
+  const blankPreviewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const renderedSource = source === 'html' && htmlSnapshot ? 'html' : source === 'mock' && mockUrl ? 'mock' : 'url'
   const targetUrl = renderedSource === 'mock' ? mockUrl : originalUrl
   const src =
@@ -48,6 +49,24 @@ export const useAlternativePreview = (originalUrl: string | null, iframeRef: Ref
     setShortcutHost(host)
   }, [iframeRef])
 
+  const showUnavailablePreview = useCallback(() => {
+    const document = iframeRef.current?.contentDocument
+    if (!document?.body) return
+    document.body.setAttribute('data-clickmap-preview-error', 'unavailable')
+    const container = document.createElement('main')
+    container.className = 'wrap'
+    container.style.cssText = 'max-width: 720px; margin: 48px auto; padding: 24px; color: #1f2937; background: white;'
+    const heading = document.createElement('h1')
+    heading.textContent = 'Siden kan ikke vises'
+    const description = document.createElement('p')
+    description.textContent =
+      'Kunne ikke laste sideforhåndsvisningen. Siden kan være utilgjengelig eller kreve innlogging.'
+    container.append(heading, description)
+    document.body.replaceChildren(container)
+    setOriginalUnavailable(true)
+    attachShortcut()
+  }, [iframeRef, attachShortcut])
+
   useEffect(() => {
     setOriginalUnavailable(false)
     setOptionsOpen(false)
@@ -78,17 +97,56 @@ export const useAlternativePreview = (originalUrl: string | null, iframeRef: Ref
     return () => window.removeEventListener('message', onMessage)
   }, [iframeRef, renderedSource, attachShortcut])
 
-  useEffect(() => () => cleanupDocumentRef.current?.(), [])
+  useEffect(
+    () => () => {
+      cleanupDocumentRef.current?.()
+      if (blankPreviewTimerRef.current) clearTimeout(blankPreviewTimerRef.current)
+    },
+    [],
+  )
+
+  useEffect(() => {
+    if (blankPreviewTimerRef.current) clearTimeout(blankPreviewTimerRef.current)
+  }, [src, srcDoc])
 
   const onLoad = () => {
     cleanupDocumentRef.current?.()
     cleanupDocumentRef.current = null
+    if (blankPreviewTimerRef.current) clearTimeout(blankPreviewTimerRef.current)
     const document = iframeRef.current?.contentDocument
     if (!document) return
     if (renderedSource !== 'url') setShortcutHost(null)
     if (renderedSource === 'url' && document.body?.getAttribute('data-clickmap-preview-error')) {
       setOriginalUnavailable(true)
       attachShortcut()
+    } else if (renderedSource === 'url' && document.body) {
+      const responseText = document.querySelector('pre')?.textContent || document.body.textContent || ''
+      try {
+        const response: unknown = JSON.parse(responseText)
+        if (response && typeof response === 'object' && 'error' in response && typeof response.error === 'string') {
+          showUnavailablePreview()
+          return
+        }
+      } catch {
+        if (document.contentType === 'application/json') {
+          showUnavailablePreview()
+          return
+        }
+      }
+      blankPreviewTimerRef.current = setTimeout(() => {
+        const currentDocument = iframeRef.current?.contentDocument
+        if (currentDocument !== document || !document.body || document.body.hasAttribute('data-clickmap-preview-error'))
+          return
+        const content = document.body.cloneNode(true)
+        if (!(content instanceof document.defaultView!.HTMLElement)) return
+        content.querySelectorAll('script, style, template, noscript').forEach((element) => element.remove())
+        if (
+          !content.textContent?.trim() &&
+          !content.querySelector('img, svg, canvas, video, iframe, input, button, textarea, select')
+        ) {
+          showUnavailablePreview()
+        }
+      }, 12_000)
     }
     if (renderedSource === 'html') {
       const preventNavigation = (event: MouseEvent) => {

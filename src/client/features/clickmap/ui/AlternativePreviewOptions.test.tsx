@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { act, fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AlternativePreviewOptions, useAlternativePreview } from './AlternativePreviewOptions.tsx'
 
 const Preview = ({ url = 'https://nav.no/account' }: { url?: string }) => {
@@ -15,6 +15,47 @@ const Preview = ({ url = 'https://nav.no/account' }: { url?: string }) => {
 }
 
 describe('AlternativePreviewOptions', () => {
+  afterEach(() => vi.useRealTimers())
+
+  it('replaces a legacy JSON fetch error with a readable error and Aksel alternatives button', () => {
+    render(<Preview />)
+    const iframe = screen.getByTitle<HTMLIFrameElement>('Preview')
+    const document = iframe.contentDocument
+    if (!document) throw new Error('Expected the preview document')
+    document.body.textContent = JSON.stringify({
+      error: 'Failed to fetch clickmap preview HTML',
+      message: 'fetch failed',
+    })
+    fireEvent.load(iframe)
+    expect(document.body).toHaveTextContent('Siden kan ikke vises')
+    expect(document.body).not.toHaveTextContent('fetch failed')
+    expect(document.querySelector('[data-clickmap-open-alternatives]')).toHaveClass('aksel-button')
+    expect(screen.getByRole('button', { name: 'Alternative visningsvalg' })).toBeInTheDocument()
+  })
+
+  it('offers alternatives for a persistently empty preview but allows slow content to appear', () => {
+    vi.useFakeTimers()
+    render(<Preview />)
+    const iframe = screen.getByTitle<HTMLIFrameElement>('Preview')
+    const document = iframe.contentDocument
+    if (!document) throw new Error('Expected the preview document')
+    document.body.innerHTML = '<div id="root"></div><script>/* app bootstrap */</script>'
+    fireEvent.load(iframe)
+    expect(screen.queryByRole('button', { name: 'Alternative visningsvalg' })).not.toBeInTheDocument()
+    document.body.textContent = 'Siden er lastet'
+    act(() => {
+      vi.advanceTimersByTime(12_000)
+    })
+    expect(screen.queryByRole('button', { name: 'Alternative visningsvalg' })).not.toBeInTheDocument()
+    document.body.innerHTML = '<div id="root"></div>'
+    fireEvent.load(iframe)
+    act(() => {
+      vi.advanceTimersByTime(12_000)
+    })
+    expect(document.body).toHaveTextContent('Siden kan ikke vises')
+    expect(screen.getByRole('button', { name: 'Alternative visningsvalg' })).toBeInTheDocument()
+  })
+
   it('only offers alternatives after the original preview reports failure', async () => {
     render(<Preview />)
     expect(screen.queryByRole('button', { name: 'Alternative visningsvalg' })).not.toBeInTheDocument()
