@@ -5,11 +5,7 @@ import akselCss from '@navikt/ds-css/dist/index.min.css?inline'
 import { Eye } from 'lucide-react'
 import { buildHtmlSnapshot } from '../utils/buildHtmlSnapshot.ts'
 
-export const useAlternativePreview = (
-  originalUrl: string | null,
-  iframeRef: RefObject<HTMLIFrameElement | null>,
-  enabled = true,
-) => {
+export const useAlternativePreview = (originalUrl: string | null, iframeRef: RefObject<HTMLIFrameElement | null>) => {
   const [originalUnavailable, setOriginalUnavailable] = useState(false)
   const [optionsOpen, setOptionsOpen] = useState(false)
   const [shortcutHost, setShortcutHost] = useState<HTMLDivElement | null>(null)
@@ -27,7 +23,6 @@ export const useAlternativePreview = (
   const srcDoc = renderedSource === 'html' ? htmlSnapshot : undefined
 
   const attachShortcut = useCallback(() => {
-    if (!enabled) return
     const document = iframeRef.current?.contentDocument
     const container = document?.querySelector('.wrap')
     if (!document || !container) return
@@ -51,7 +46,7 @@ export const useAlternativePreview = (
       document.head.appendChild(style)
     }
     setShortcutHost(host)
-  }, [enabled, iframeRef])
+  }, [iframeRef])
 
   useEffect(() => {
     setOriginalUnavailable(false)

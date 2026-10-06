@@ -428,7 +428,7 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
     [selectedWebsite?.domain, urlPath],
   )
 
-  const preview = useAlternativePreview(previewTargetUrl, iframeRef, isClickmap)
+  const preview = useAlternativePreview(previewTargetUrl, iframeRef)
   const iframeSrc = preview.src
 
   const clickmapDataForPreview = useMemo(() => {
@@ -1119,7 +1119,7 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
           </section>
 
           <section className="order-2 xl:order-1 border border-[var(--ax-border-neutral-subtle)] rounded-md overflow-hidden">
-            {isClickmap && <AlternativePreviewOptions preview={preview} />}
+            <AlternativePreviewOptions preview={preview} />
             {iframeSrc || preview.srcDoc ? (
               <iframe
                 key={preview.renderedSource}
