@@ -9,7 +9,6 @@
  * the element/part selectors must reach its markup untouched. */
 
 .wrapper {
-  margin-top: 60px;
   display: flex;
   justify-content: center;
 }
