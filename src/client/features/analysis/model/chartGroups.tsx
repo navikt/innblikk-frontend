@@ -1,5 +1,5 @@
 import React from 'react'
-import { BarChart2, Users, FileSearch, Activity } from 'lucide-react'
+import { BarChart2, FileSearch } from 'lucide-react'
 
 export interface ChartGroup {
   title: string
@@ -7,21 +7,17 @@ export interface ChartGroup {
   ids: string[]
 }
 
+// Trafikkanalyse (trafikkoversikt/klikkoversikt/navigasjonsflyt/trakt), Hendelser
+// (event-explorer/hendelsesreiser), and Brukere (brukersammensetning/enkeltbrukere/
+// brukerlojalitet/maloppnaelse) now live in the global left Sidebar (see
+// shared/ui/theme/Sidebar/Sidebar.tsx) — deliberately NOT repeated here to avoid
+// duplicate navigation on every analysis page. Only items with no Sidebar entry
+// (Kampanjer, and the Innholdskvalitet group) remain in this in-page selector.
 export const chartGroups: ChartGroup[] = [
   {
     title: 'Trafikk',
     icon: <BarChart2 size={18} />,
-    ids: ['trafikkanalyse', 'markedsanalyse', 'clickmap', 'brukerreiser', 'trakt'],
-  },
-  {
-    title: 'Hendelser',
-    icon: <Activity size={18} />,
-    ids: ['event-explorer', 'hendelsesreiser'],
-  },
-  {
-    title: 'Brukere',
-    icon: <Users size={18} />,
-    ids: ['brukersammensetning', 'enkeltbrukere', 'brukerlojalitet', 'maloppnaelse'],
+    ids: ['markedsanalyse'],
   },
   {
     title: 'Innholdskvalitet',
