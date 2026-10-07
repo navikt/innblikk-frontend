@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, Button, TextField } from '@navikt/ds-react'
+import { Alert, BodyShort, Button, Modal, TextField } from '@navikt/ds-react'
 import { format, parseISO } from 'date-fns'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -9,6 +9,7 @@ import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
 import { parseJourneyStep } from '../../eventjourney/utils/parsers.ts'
 import { getStoredPeriod, normalizeUrlToPath, savePeriodPreference } from '../../../shared/lib/utils.ts'
 import type { Website } from '../../../shared/types/chart.ts'
+import { AlternativePreviewOptions, PreviewLoadingStatus, useAlternativePreview } from './AlternativePreviewOptions.tsx'
 
 type JourneyStep = {
   rawStep: string
@@ -210,7 +211,9 @@ const findAccordionElementByTitle = (doc: Document, targetTextKey: string): Elem
 
 const findBestElementForStep = (doc: Document, step: JourneyStep): Element | null => {
   const matchMeta = getStepMatchMeta(step)
-  const targetTextKey = cleanText(matchMeta.title || matchMeta.linkText)
+  const recordedText = cleanText(matchMeta.title || matchMeta.linkText)
+  const toggleLabel = recordedText.match(/^toggle viser fane\s+(.+)$/)?.[1]
+  const targetTextKey = toggleLabel || recordedText
   const targetDestination = normalizeDestination(matchMeta.destination)
   const targetHash = getHashFragment(matchMeta.destination)
   const targetComponentKey = cleanText(matchMeta.component)
@@ -234,6 +237,11 @@ const findBestElementForStep = (doc: Document, step: JourneyStep): Element | nul
       element,
       kind: 'accordion' as const,
     })),
+    ...Array.from(
+      doc.querySelectorAll(
+        'button:not([aria-expanded]):not([aria-controls]), [role="button"]:not(button), [role="radio"]:not(button), [role="tab"]:not(button)',
+      ),
+    ).map((element) => ({ element, kind: 'control' as const })),
   ]
   let bestElement: Element | null = null
   let bestScore = -1
@@ -243,8 +251,9 @@ const findBestElementForStep = (doc: Document, step: JourneyStep): Element | nul
   for (const candidate of candidates) {
     if (!isElementVisible(candidate.element)) continue
     if (stepIsAccordion && candidate.kind !== 'accordion') continue
+    if (toggleLabel && !['radio', 'tab'].includes(candidate.element.getAttribute('role') || '')) continue
 
-    const textValue = candidate.element.textContent || candidate.element.getAttribute('aria-label') || ''
+    const textValue = candidate.element.getAttribute('aria-label') || candidate.element.textContent || ''
     const candidateTextKey = cleanText(textValue)
 
     const href = candidate.kind === 'link' ? candidate.element.getAttribute('href') || '' : ''
@@ -411,7 +420,6 @@ const EventJourneyClickmap = () => {
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
   const [isWebsitePickerInitializing, setIsWebsitePickerInitializing] = useState<boolean>(true)
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
-  const matchedElementsRef = useRef<Map<number, Element>>(new Map())
   const hasAutoScrolledToFirstStepRef = useRef(false)
 
   const [urlPath, setUrlPath] = useState(() => normalizeUrlToPath(searchParams.get('urlPath') || ''))
@@ -419,6 +427,13 @@ const EventJourneyClickmap = () => {
   const [overlayViewport, setOverlayViewport] = useState<{ width: number; height: number }>({ width: 0, height: 0 })
   const [unmatchedStepIndexes, setUnmatchedStepIndexes] = useState<number[]>([])
   const [activeStepIndex, setActiveStepIndex] = useState(0)
+  const [missingStepIndex, setMissingStepIndex] = useState<number | null>(null)
+  const clearSnapshot = () => {
+    setMarkers([])
+    setUnmatchedStepIndexes([])
+    setMissingStepIndex(null)
+    hasAutoScrolledToFirstStepRef.current = false
+  }
 
   const [period, setPeriodState] = useState<string>(() => getStoredPeriod(searchParams.get('period')))
   const setPeriod = (newPeriod: string) => {
@@ -454,10 +469,11 @@ const EventJourneyClickmap = () => {
     () => buildPreviewTargetUrl(selectedWebsite?.domain, urlPath),
     [selectedWebsite, urlPath],
   )
-  const iframeSrc = useMemo(
-    () => (previewTargetUrl ? `/api/clickmap-preview?url=${encodeURIComponent(previewTargetUrl)}` : ''),
-    [previewTargetUrl],
-  )
+  const preview = useAlternativePreview(previewTargetUrl, iframeRef)
+  const iframeSrc = preview.src
+  const previewHtml = preview.srcDoc
+  const previewSource = preview.renderedSource
+  const hasPreview = Boolean(iframeSrc || previewHtml)
 
   const updateJourneyOverlay = useCallback(() => {
     const iframeNode = iframeRef.current
@@ -529,7 +545,6 @@ const EventJourneyClickmap = () => {
     setMarkers(nextMarkers)
     setOverlayViewport({ width: iframeNode.clientWidth, height: iframeNode.clientHeight })
     setUnmatchedStepIndexes(nextUnmatched)
-    matchedElementsRef.current = nextMatchedElements
 
     const preferredElement = nextMatchedElements.get(activeStepIndex) || firstMatchedElement
     if (!hasAutoScrolledToFirstStepRef.current && preferredElement) {
@@ -548,8 +563,13 @@ const EventJourneyClickmap = () => {
     (stepIndex: number) => {
       setActiveStepIndex(stepIndex)
       const iframeNode = iframeRef.current
-      const matchedElement = matchedElementsRef.current.get(stepIndex)
-      if (!iframeNode || !matchedElement) return
+      const iframeDoc = iframeNode?.contentDocument
+      if (!iframeNode || !iframeDoc) return
+      const matchedElement = findBestElementForStep(iframeDoc, journeySteps[stepIndex])
+      if (!matchedElement) {
+        setMissingStepIndex(stepIndex)
+        return
+      }
       const iframeWindow = iframeNode.contentWindow
       if (!iframeWindow) return
 
@@ -559,7 +579,7 @@ const EventJourneyClickmap = () => {
       iframeWindow.scrollTo({ top: targetTop, behavior: 'smooth' })
       updateJourneyOverlay()
     },
-    [updateJourneyOverlay],
+    [journeySteps, updateJourneyOverlay],
   )
 
   useEffect(() => {
@@ -569,6 +589,8 @@ const EventJourneyClickmap = () => {
     hasAutoScrolledToFirstStepRef.current = false
 
     const onLoad = () => {
+      const previousCleanup = (iframeNode as HTMLIFrameElement & { __overlayCleanup?: () => void }).__overlayCleanup
+      previousCleanup?.()
       updateJourneyOverlay()
 
       const iframeWindow = iframeNode.contentWindow
@@ -602,14 +624,14 @@ const EventJourneyClickmap = () => {
         delete (iframeNode as HTMLIFrameElement & { __overlayCleanup?: () => void }).__overlayCleanup
       }
     }
-  }, [iframeSrc, updateJourneyOverlay])
+  }, [iframeSrc, previewHtml, previewSource, updateJourneyOverlay])
 
   useEffect(() => {
     hasAutoScrolledToFirstStepRef.current = false
   }, [urlPath, journeySteps, selectedWebsite?.domain])
 
   useEffect(() => {
-    if (!iframeSrc) return
+    if (!hasPreview) return
 
     const interval = window.setInterval(() => {
       updateJourneyOverlay()
@@ -618,7 +640,7 @@ const EventJourneyClickmap = () => {
     return () => {
       window.clearInterval(interval)
     }
-  }, [iframeSrc, updateJourneyOverlay])
+  }, [hasPreview, updateJourneyOverlay])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -642,7 +664,10 @@ const EventJourneyClickmap = () => {
       sidebarContent={
         <WebsitePicker
           selectedWebsite={selectedWebsite}
-          onWebsiteChange={setSelectedWebsite}
+          onWebsiteChange={(website) => {
+            clearSnapshot()
+            setSelectedWebsite(website)
+          }}
           onInitialLoadingChange={setIsWebsitePickerInitializing}
           variant="minimal"
         />
@@ -654,7 +679,10 @@ const EventJourneyClickmap = () => {
               size="small"
               label="URL"
               value={urlPath}
-              onChange={(event) => setUrlPath(event.target.value)}
+              onChange={(event) => {
+                clearSnapshot()
+                setUrlPath(event.target.value)
+              }}
               onBlur={(event) => setUrlPath(normalizeUrlToPath(event.target.value))}
               placeholder="/aap"
             />
@@ -673,6 +701,37 @@ const EventJourneyClickmap = () => {
         </>
       }
     >
+      <Modal
+        open={missingStepIndex !== null}
+        onClose={() => setMissingStepIndex(null)}
+        header={{ heading: `Fant ikke plasseringen til steg ${(missingStepIndex ?? 0) + 1}` }}
+        width="small"
+      >
+        <Modal.Body>
+          <BodyShort spacing>
+            Kunne ikke knytte denne hendelsen til et synlig element i sideforhåndsvisningen.
+          </BodyShort>
+          <BodyShort>
+            {missingStepIndex !== null &&
+            !getStepMatchMeta(journeySteps[missingStepIndex]).destination &&
+            !getStepMatchMeta(journeySteps[missingStepIndex]).linkText &&
+            !getStepMatchMeta(journeySteps[missingStepIndex]).component ? (
+              <>
+                Hendelsen mangler opplysninger som lenketekst, destinasjon eller komponent. Enhetsdata alene er ikke
+                nok.
+              </>
+            ) : (
+              <>Elementet kan være skjult, ha blitt endret eller mangle i HTML-en.</>
+            )}
+          </BodyShort>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button size="small" onClick={() => setMissingStepIndex(null)}>
+            Lukk
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
       {!hasJourney && (
         <Alert variant="warning" className="mb-4">
           Fant ikke valgt forløp. Gå til "Hendelsesforløp" og bruk knappen "Visualiser" i en forløpsboks.
@@ -685,13 +744,13 @@ const EventJourneyClickmap = () => {
         </Alert>
       )}
 
-      {hasJourney && selectedWebsite && !iframeSrc && (
+      {hasJourney && selectedWebsite && !previewTargetUrl && (
         <Alert variant="warning" className="mb-4">
           Kunne ikke bygge forhåndsvisning for valgt domene/URL.
         </Alert>
       )}
 
-      {hasJourney && selectedWebsite && iframeSrc && (
+      {hasJourney && selectedWebsite && previewTargetUrl && (
         <>
           <div className="mb-4 pb-[2px]">
             <Button
@@ -751,80 +810,91 @@ const EventJourneyClickmap = () => {
             </div>
           </div>
 
-          <section className="relative border border-[var(--ax-border-neutral-subtle)] rounded-md overflow-hidden bg-white">
-            <iframe
-              ref={iframeRef}
-              title="Visualisert hendelsesforløp"
-              src={iframeSrc}
-              className="w-full h-[920px]"
-              sandbox="allow-same-origin allow-scripts allow-forms"
-            />
+          <section className="border border-[var(--ax-border-neutral-subtle)] rounded-md overflow-hidden">
+            <AlternativePreviewOptions preview={preview} />
+            {hasPreview && (
+              <div className="relative bg-white">
+                <iframe
+                  key={previewSource}
+                  ref={iframeRef}
+                  title="Visualisert hendelsesforløp"
+                  src={previewSource === 'html' ? undefined : iframeSrc}
+                  srcDoc={previewHtml}
+                  onLoad={preview.onLoad}
+                  className="w-full h-[920px]"
+                  sandbox={
+                    previewSource === 'html' ? 'allow-same-origin' : 'allow-same-origin allow-scripts allow-forms'
+                  }
+                />
+                <PreviewLoadingStatus preview={preview} />
 
-            <div className="pointer-events-none absolute inset-0">
-              <svg className="absolute inset-0 w-full h-full" aria-hidden>
-                {markers.slice(0, -1).map((fromMarker, idx) => {
-                  const toMarker = markers[idx + 1]
-                  if (!overlayViewport.width || !overlayViewport.height) return null
-                  const fromPoint = getMarkerRenderPoint(fromMarker, overlayViewport.width, overlayViewport.height)
-                  const toPoint = getMarkerRenderPoint(toMarker, overlayViewport.width, overlayViewport.height)
-                  const dx = toPoint.x - fromPoint.x
-                  const dy = toPoint.y - fromPoint.y
-                  // Skip lines that collapse on the same viewport edge while both points are off-screen.
-                  if (!fromMarker.visible && !toMarker.visible && Math.hypot(dx, dy) < 2) return null
-                  const length = Math.hypot(dx, dy) || 1
-                  const lineClearance = JOURNEY_STEP_BADGE_RADIUS + 10
-                  const startX = fromPoint.x + (dx / length) * lineClearance
-                  const startY = fromPoint.y + (dy / length) * lineClearance
-                  const endX = toPoint.x - (dx / length) * lineClearance
-                  const endY = toPoint.y - (dy / length) * lineClearance
-                  return (
-                    <line
-                      key={`line-${fromMarker.index}-${toMarker.index}`}
-                      x1={startX}
-                      y1={startY}
-                      x2={endX}
-                      y2={endY}
-                      stroke="rgba(220, 38, 38, 0.95)"
-                      strokeWidth={3}
-                      strokeLinecap="round"
-                      markerEnd="url(#journey-arrow-head)"
-                    />
-                  )
-                })}
-                <defs>
-                  <marker id="journey-arrow-head" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-                    <path d="M0,0 L8,4 L0,8 z" fill="rgba(220, 38, 38, 0.95)" />
-                  </marker>
-                </defs>
-              </svg>
+                <div className="pointer-events-none absolute inset-0">
+                  <svg className="absolute inset-0 w-full h-full" aria-hidden>
+                    {markers.slice(0, -1).map((fromMarker, idx) => {
+                      const toMarker = markers[idx + 1]
+                      if (!overlayViewport.width || !overlayViewport.height) return null
+                      const fromPoint = getMarkerRenderPoint(fromMarker, overlayViewport.width, overlayViewport.height)
+                      const toPoint = getMarkerRenderPoint(toMarker, overlayViewport.width, overlayViewport.height)
+                      const dx = toPoint.x - fromPoint.x
+                      const dy = toPoint.y - fromPoint.y
+                      // Skip lines that collapse on the same viewport edge while both points are off-screen.
+                      if (!fromMarker.visible && !toMarker.visible && Math.hypot(dx, dy) < 2) return null
+                      const length = Math.hypot(dx, dy) || 1
+                      const lineClearance = JOURNEY_STEP_BADGE_RADIUS + 10
+                      const startX = fromPoint.x + (dx / length) * lineClearance
+                      const startY = fromPoint.y + (dy / length) * lineClearance
+                      const endX = toPoint.x - (dx / length) * lineClearance
+                      const endY = toPoint.y - (dy / length) * lineClearance
+                      return (
+                        <line
+                          key={`line-${fromMarker.index}-${toMarker.index}`}
+                          x1={startX}
+                          y1={startY}
+                          x2={endX}
+                          y2={endY}
+                          stroke="rgba(220, 38, 38, 0.95)"
+                          strokeWidth={3}
+                          strokeLinecap="round"
+                          markerEnd="url(#journey-arrow-head)"
+                        />
+                      )
+                    })}
+                    <defs>
+                      <marker id="journey-arrow-head" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+                        <path d="M0,0 L8,4 L0,8 z" fill="rgba(220, 38, 38, 0.95)" />
+                      </marker>
+                    </defs>
+                  </svg>
 
-              {markers
-                .filter((marker) => !marker.visible && overlayViewport.width > 0 && overlayViewport.height > 0)
-                .map((marker) => {
-                  const point = getMarkerRenderPoint(marker, overlayViewport.width, overlayViewport.height)
-                  return (
-                    <div
-                      key={`edge-marker-${marker.index}`}
-                      className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-red-700/90 text-white font-bold shadow-md flex items-center justify-center"
-                      style={{
-                        left: `${point.x}px`,
-                        top: `${point.y}px`,
-                        width: `${JOURNEY_STEP_BADGE_SIZE}px`,
-                        height: `${JOURNEY_STEP_BADGE_SIZE}px`,
-                        fontSize: '16px',
-                      }}
-                      title={`Steg ${marker.index + 1} (utenfor visning)`}
-                    >
-                      {marker.index + 1}
-                    </div>
-                  )
-                })}
-            </div>
+                  {markers
+                    .filter((marker) => !marker.visible && overlayViewport.width > 0 && overlayViewport.height > 0)
+                    .map((marker) => {
+                      const point = getMarkerRenderPoint(marker, overlayViewport.width, overlayViewport.height)
+                      return (
+                        <div
+                          key={`edge-marker-${marker.index}`}
+                          className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-red-700/90 text-white font-bold shadow-md flex items-center justify-center"
+                          style={{
+                            left: `${point.x}px`,
+                            top: `${point.y}px`,
+                            width: `${JOURNEY_STEP_BADGE_SIZE}px`,
+                            height: `${JOURNEY_STEP_BADGE_SIZE}px`,
+                            fontSize: '16px',
+                          }}
+                          title={`Steg ${marker.index + 1} (utenfor visning)`}
+                        >
+                          {marker.index + 1}
+                        </div>
+                      )
+                    })}
+                </div>
+              </div>
+            )}
           </section>
         </>
       )}
 
-      {hasJourney && selectedWebsite && iframeSrc && unmatchedStepIndexes.length > 0 && (
+      {hasJourney && selectedWebsite && hasPreview && unmatchedStepIndexes.length > 0 && (
         <Alert variant="info" className="mt-4">
           Fant ikke eksakt plassering på siden for steg: {unmatchedStepIndexes.map((idx) => idx + 1).join(', ')}.
         </Alert>
