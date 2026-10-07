@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { type AnalyticsPage, analyticsPages } from '../model/analyticsNavigation.ts'
 import { type ChartGroup } from '../model/chartGroups.tsx'
 import { KontaktSeksjon } from '../../../shared/ui/theme/Kontakt/KontaktSeksjon.tsx'
+import { Skyra } from '../../../shared/ui/theme/Skyra/Skyra.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { useChartNavigation } from '../hooks/useChartNavigation.ts'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
@@ -244,6 +245,7 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
           </div>
         </div>
       </AppBlock>
+      <Skyra />
       <KontaktSeksjon />
     </>
   )

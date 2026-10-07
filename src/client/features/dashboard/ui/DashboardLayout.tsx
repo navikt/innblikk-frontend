@@ -1,5 +1,6 @@
 import React from 'react'
 import { KontaktSeksjon } from '../../../shared/ui/theme/Kontakt/KontaktSeksjon.tsx'
+import { Skyra } from '../../../shared/ui/theme/Skyra/Skyra.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 
@@ -39,7 +40,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
         <div className="min-h-[400px] w-full">{children}</div>
       </AppBlock>
-      {showKontaktSection && <KontaktSeksjon />}
+      {showKontaktSection && (
+        <>
+          <Skyra />
+          <KontaktSeksjon />
+        </>
+      )}
     </>
   )
 }

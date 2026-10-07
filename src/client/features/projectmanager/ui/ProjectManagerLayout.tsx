@@ -1,6 +1,7 @@
 import React from 'react'
 import { Accordion } from '@navikt/ds-react'
 import { KontaktSeksjon } from '../../../shared/ui/theme/Kontakt/KontaktSeksjon.tsx'
+import { Skyra } from '../../../shared/ui/theme/Skyra/Skyra.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 
@@ -63,6 +64,7 @@ const ProjectManagerLayout: React.FC<ProjectManagerLayoutProps> = ({
           </div>
         </div>
       </AppBlock>
+      <Skyra />
       <KontaktSeksjon />
     </>
   )

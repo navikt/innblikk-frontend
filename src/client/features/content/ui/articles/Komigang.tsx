@@ -1,5 +1,6 @@
 import { BodyShort, Heading, Link, List } from '@navikt/ds-react'
 import { KontaktSeksjon } from '../../../../shared/ui/theme/Kontakt/KontaktSeksjon.tsx'
+import { Skyra } from '../../../../shared/ui/theme/Skyra/Skyra.tsx'
 import { PageHeader } from '../../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { AppBlock } from '../../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 
@@ -226,6 +227,7 @@ function Komigang() {
           </List>
         </div>
       </AppBlock>
+      <Skyra />
       <KontaktSeksjon narrowContent />
     </>
   )

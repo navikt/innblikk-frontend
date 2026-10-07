@@ -1,6 +1,7 @@
 import { BodyShort, Heading, Link, Tag } from '@navikt/ds-react'
 import { TeamWebsites } from '../../../settings'
 import { KontaktSeksjon } from '../../../../shared/ui/theme/Kontakt/KontaktSeksjon.tsx'
+import { Skyra } from '../../../../shared/ui/theme/Skyra/Skyra.tsx'
 import { PageHeader } from '../../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { developerTools } from '../../../analysis/ui/DeveloperToolsNavigation.tsx'
 import { AppBlock } from '../../../../shared/ui/theme/AppBlock/AppBlock.tsx'
@@ -274,6 +275,7 @@ function Oppsett() {
           .
         </BodyShort>
       </AppBlock>
+      <Skyra />
       <KontaktSeksjon />
     </>
   )

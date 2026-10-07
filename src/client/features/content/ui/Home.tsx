@@ -1,6 +1,7 @@
 import { Heading } from '@navikt/ds-react'
 import { UrlSearchForm } from '../../dashboard'
 import { KontaktSeksjon } from '../../../shared/ui/theme/Kontakt/KontaktSeksjon.tsx'
+import { Skyra } from '../../../shared/ui/theme/Skyra/Skyra.tsx'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 
 function Home() {
@@ -38,6 +39,7 @@ function Home() {
         </AppBlock>
       </section>
 
+      <Skyra />
       <KontaktSeksjon />
     </div>
   )
