@@ -121,25 +121,6 @@ export default function UserProfile() {
                         <Label>E-post</Label>
                         <BodyShort>{user.email}</BodyShort>
                       </div>
-
-                      {isReopsTeamMember && buildShortSha && (
-                        <>
-                          <div className="h-px bg-[var(--ax-border-neutral-subtle)]" />
-
-                          <div>
-                            <Label>Bygg</Label>
-                            <BodyShort>
-                              <Link
-                                href={`https://github.com/navikt/innblikk-frontend/commit/${buildSha}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                {buildShortSha}
-                              </Link>
-                            </BodyShort>
-                          </div>
-                        </>
-                      )}
                     </VStack>
                   </Box>
                 </Bleed>
@@ -259,6 +240,21 @@ export default function UserProfile() {
               )}
             </VStack>
           </section>
+
+          {isReopsTeamMember && buildShortSha && (
+            <section>
+              <Label>Bygg</Label>
+              <BodyShort>
+                <Link
+                  href={`https://github.com/navikt/innblikk-frontend/commit/${buildSha}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {buildShortSha}
+                </Link>
+              </BodyShort>
+            </section>
+          )}
         </VStack>
       </AppBlock>
     </>
