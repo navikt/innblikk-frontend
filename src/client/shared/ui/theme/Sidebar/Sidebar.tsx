@@ -328,8 +328,6 @@ export default function Sidebar({ theme }: SidebarProps) {
   const { pathname } = useLocation()
   const { isReopsTeamMember } = useIsReopsTeamMember()
   const navItems = getNavItems(isReopsTeamMember)
-  const buildSha = __GIT_SHA__
-  const buildShortSha = buildSha && buildSha !== 'unknown' ? buildSha.slice(0, 7) : null
 
   const { hostname, pathname: currentPathname, search, hash } = window.location
   const currentPath = `${currentPathname}${search}${hash}`
@@ -440,17 +438,6 @@ export default function Sidebar({ theme }: SidebarProps) {
           </span>
           <span>{theme === 'dark' ? 'Lyst tema' : 'Mørkt tema'}</span>
         </button>
-      )}
-      {!collapsed && isReopsTeamMember && buildShortSha && (
-        <a
-          href={`https://github.com/navikt/innblikk-frontend/commit/${buildSha}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-1 flex items-center gap-1 px-3 text-xs text-[var(--ax-text-subtle)] no-underline hover:underline"
-        >
-          Bygg: {buildShortSha}
-          <ExternalLinkIcon aria-hidden fontSize="0.75rem" />
-        </a>
       )}
       {!isMobile && (
         <button

@@ -1,4 +1,4 @@
-import { BodyLong, BodyShort, Heading, Tag } from '@navikt/ds-react'
+import { BodyLong, Detail, Heading, Tag } from '@navikt/ds-react'
 import { TestFlaskIcon } from '@navikt/aksel-icons'
 import React from 'react'
 import { AppBlock } from '../AppBlock/AppBlock.tsx'
@@ -23,7 +23,7 @@ export const PageHeader = ({
   notice,
 }: PageHeaderProps) => {
   const isArticle = variant === 'article'
-  const padding = isArticle ? '40px' : '24px'
+  const padding = isArticle ? '32px' : '16px'
 
   return (
     <div
@@ -44,7 +44,7 @@ export const PageHeader = ({
         >
           <div className="flex flex-col gap-[6px] md:col-start-1 md:row-start-1">
             <div className="flex items-center gap-3 flex-wrap">
-              <Heading level="1" size="large">
+              <Heading level="1" size="small" weight="semibold">
                 {title}
               </Heading>
               {beta && (
@@ -54,9 +54,9 @@ export const PageHeader = ({
               )}
             </div>
             {subtitle && (
-              <Heading level="2" size="small" className="text-[var(--ax-text-neutral-subtle)] font-normal">
+              <Detail as="h2" className="text-[var(--ax-text-neutral-subtle)]">
                 {subtitle}
-              </Heading>
+              </Detail>
             )}
             {description && (
               <div className="text-[var(--ax-text-neutral-subtle)]">
@@ -64,10 +64,10 @@ export const PageHeader = ({
                   isArticle ? (
                     <BodyLong size="large">{description}</BodyLong>
                   ) : (
-                    <BodyShort size="medium">{description}</BodyShort>
+                    <Detail>{description}</Detail>
                   )
                 ) : (
-                  <BodyLong size={isArticle ? 'large' : 'medium'} as="div">
+                  <BodyLong size={isArticle ? 'large' : 'small'} as="div">
                     {description}
                   </BodyLong>
                 )}

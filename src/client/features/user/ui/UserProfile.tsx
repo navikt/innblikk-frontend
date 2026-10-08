@@ -14,7 +14,7 @@ import {
   Loader,
   VStack,
 } from '@navikt/ds-react'
-import { PersonIcon } from '@navikt/aksel-icons'
+import { HeartFillIcon, PersonIcon } from '@navikt/aksel-icons'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { getFeatureFlags, setFeatureFlag, type FeatureFlags } from '../../../shared/lib/featureFlags.ts'
@@ -30,6 +30,8 @@ export default function UserProfile() {
   const [flags, setFlags] = useState<FeatureFlags>(getFeatureFlags)
   const { isReopsTeamMember } = useIsReopsTeamMember()
   const { hash } = useLocation()
+  const buildSha = __GIT_SHA__
+  const buildShortSha = buildSha && buildSha !== 'unknown' ? buildSha.slice(0, 7) : null
 
   useEffect(() => {
     if (!hash) return
@@ -119,6 +121,25 @@ export default function UserProfile() {
                         <Label>E-post</Label>
                         <BodyShort>{user.email}</BodyShort>
                       </div>
+
+                      {isReopsTeamMember && buildShortSha && (
+                        <>
+                          <div className="h-px bg-[var(--ax-border-neutral-subtle)]" />
+
+                          <div>
+                            <Label>Bygg</Label>
+                            <BodyShort>
+                              <Link
+                                href={`https://github.com/navikt/innblikk-frontend/commit/${buildSha}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                {buildShortSha}
+                              </Link>
+                            </BodyShort>
+                          </div>
+                        </>
+                      )}
                     </VStack>
                   </Box>
                 </Bleed>
@@ -169,16 +190,16 @@ export default function UserProfile() {
                   </Heading>
                 </Box>
                 <BodyLong textColor="subtle">
-                  Helt ferske eksperimenter som bare er skrudd på for deg hvis du vil være med å teste. Her kan ting
-                  være uferdige og endre seg ofte — tilbakemeldinger er gull.
+                  Eksperimenter du kan prøve før alle andre. Ting kan være uferdige og endre seg uten forvarsel. Vi vil
+                  veldig gjerne høre hva du synes underveis.{' '}
+                  <HeartFillIcon aria-hidden className="inline-block align-[-2px] text-[var(--ax-danger-500)]" />
                 </BodyLong>
               </div>
 
               <Checkbox checked={flags.alpha_new_nav} onChange={(e) => toggle('alpha_new_nav', e.target.checked)}>
-                Nytt navigasjonsmeny (sidemeny)
+                Ny navigasjonsmeny
                 <BodyShort as="span" size="small" textColor="subtle" className="block font-normal mt-0.5">
-                  Bytter ut toppmenyen med en fast sidemeny til venstre. Under aktiv utvikling — slå av igjen her hvis
-                  noe ikke fungerer.
+                  Bytter ut toppmenyen med en fast sidemeny til venstre. Slå av her hvis noe ikke fungerer.
                 </BodyShort>
               </Checkbox>
             </VStack>
