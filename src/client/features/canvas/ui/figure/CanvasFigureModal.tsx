@@ -1,16 +1,5 @@
-import type { ComponentType } from 'react'
 import { Alert, Button, Modal } from '@navikt/ds-react'
-
-type FigureIconProps = {
-  fontSize?: string
-  'aria-hidden'?: boolean
-}
-
-type CanvasFigureOption = {
-  id: string
-  label: string
-  Icon: ComponentType<FigureIconProps>
-}
+import type { CanvasFigureOption } from '../../model/types.ts'
 
 type CanvasIconColorOption = {
   id: string

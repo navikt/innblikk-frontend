@@ -20,6 +20,7 @@ import type { ClickmapItem } from '../../../clickmap/model/types.ts'
 import {
   CANVAS_TABLE_ROWS_PER_PAGE,
   CLICKMAP_EVENTS,
+  DEFAULT_DRAWING_STROKE_WIDTH,
   formatCanvasPathLabel,
   getCanvasCategoryDisplayName,
   getCanvasFrameVisualizationMode,
@@ -540,6 +541,7 @@ const CanvasShareView = () => {
                 drawingPath={frame.drawingPath}
                 drawingStrokeStyles={frame.drawingStrokeStyles}
                 strokeColor={frame.drawingColor || DEFAULT_CANVAS_ICON_COLOR}
+                strokeWidth={frame.drawingStrokeWidth ?? DEFAULT_DRAWING_STROKE_WIDTH}
                 rotationDeg={frame.drawingRotationDeg}
                 label={frame.label}
                 drawingAltText={frame.drawingAltText}
