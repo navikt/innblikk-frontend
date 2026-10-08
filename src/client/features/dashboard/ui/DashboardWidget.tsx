@@ -13,6 +13,7 @@ import TableSectionHeader from '../../../shared/ui/TableSectionHeader.tsx'
 import TransferToMetabaseDialog from '../../../shared/ui/TransferToMetabaseDialog.tsx'
 import { processDashboardSql } from '../utils/queryUtils.ts'
 import { parseDashboardResponse, getSpanClass, type DashboardRow } from '../utils/widgetUtils.ts'
+import type { Sidegroup } from '../../sidegroups/model/types.ts'
 import { executeBigQuery } from '../api/bigquery.ts'
 import { buildEditorUrl, downloadChartCsv, generateShareUrl } from '../../analysis/utils/chartActions.ts'
 
@@ -270,6 +271,7 @@ interface DashboardWidgetProps {
     metricType: 'visitors' | 'pageviews' | 'proportion' | 'visits'
     customStartDate?: Date
     customEndDate?: Date
+    sidegroup?: Sidegroup | null
   }
   onDataLoaded?: (stats: { id: string; gb: number; title: string; totalCount?: number }) => void
   // Pre-fetched data from batched query (optional - if provided, skip individual fetch)
@@ -411,6 +413,7 @@ export const DashboardWidget = ({
         const message = err instanceof Error ? err.message : 'Ukjent feil'
         const missingUrlPath =
           filters.urlFilters.length === 0 &&
+          !filters.sidegroup &&
           /\{\{\s*url_(?:sti|path)\s*\}\}/i.test(chart.sql) &&
           /Syntax error: Expected "\)" but got "AND"/i.test(message)
         setError(

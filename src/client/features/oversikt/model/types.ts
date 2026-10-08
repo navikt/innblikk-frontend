@@ -1,5 +1,6 @@
 import type { SavedChart } from '../../../shared/types/savedChart'
 import type { GraphDto, QueryDto } from '../../../shared/types/backend'
+import type { Sidegroup } from '../../sidegroups/model/types.ts'
 
 export type {
   ProjectDto,
@@ -29,6 +30,7 @@ export type FilterState = {
   metricType: MetricType
   customStartDate?: Date
   customEndDate?: Date
+  sidegroup?: Sidegroup | null
 }
 
 export type OversiktSelectOption = {

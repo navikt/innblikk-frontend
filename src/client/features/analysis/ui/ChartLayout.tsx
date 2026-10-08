@@ -140,21 +140,21 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
         <div className="rounded-lg shadow-sm border border-[var(--ax-border-neutral-subtle)] mb-8 bg-[var(--ax-bg-default)] overflow-hidden">
           {/* Unified Top Bar */}
           {(sidebarContent || (!hideSidebar && filters)) && (
-            <div className="border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-subtle)] flex flex-col md:flex-row md:min-h-[80px]">
+            <div className="group border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-subtle)] flex flex-col md:flex-row md:min-h-[80px]">
               {/* Left Column Header (Sidebar Content) — the website picker. Kept
                   independent of `hideAnalysisSelector`: that flag only controls
                   the in-page analysis-type nav column (COL 1 below), which now
                   defaults to hidden everywhere since that navigation lives in
                   the global left Sidebar (see shared/ui/theme/Sidebar/Sidebar.tsx). */}
               {sidebarContent && (
-                <div className="w-full md:w-[250px] flex-shrink-0 border-b md:border-b-0 p-4 flex flex-col justify-end">
+                <div className="w-full md:w-[250px] flex-shrink-0 border-b md:border-b-0 p-4 flex flex-col justify-end md:group-has-[.sidegroup-management-slot]:pb-10">
                   {sidebarContent}
                 </div>
               )}
 
               {/* Right Column Header (Filters) */}
               <div
-                className="w-full md:flex-1 p-4 flex flex-wrap items-end gap-4 border-b md:border-b-0 border-[var(--ax-border-neutral-subtle)] md:border-none"
+                className="w-full md:flex-1 p-4 flex flex-wrap items-end gap-4 border-b md:border-b-0 border-[var(--ax-border-neutral-subtle)] md:border-none has-[.sidegroup-management-slot]:pb-10"
                 onKeyDown={
                   onFiltersSubmit
                     ? (e) => {

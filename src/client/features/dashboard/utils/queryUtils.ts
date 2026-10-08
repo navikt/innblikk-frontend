@@ -1,6 +1,8 @@
 import { format } from 'date-fns'
 import { getDateRangeFromPeriod } from '../../../shared/lib/utils.ts'
 import { getGcpProjectId } from '../../../shared/lib/runtimeConfig'
+import { buildSidegroupSqlCondition } from '../../../shared/lib/sidegroupSql.ts'
+import type { Sidegroup } from '../../sidegroups/model/types.ts'
 
 interface FilterState {
   urlFilters: string[]
@@ -9,6 +11,7 @@ interface FilterState {
   metricType: 'visitors' | 'pageviews' | 'proportion' | 'visits'
   customStartDate?: Date
   customEndDate?: Date
+  sidegroup?: Sidegroup | null
 }
 
 export const supportsMetricTypeSelection = (sql: string): boolean => /\bUnike_besokende\b/i.test(sql)
@@ -31,7 +34,26 @@ export const processDashboardSql = (sql: string, websiteId: string, filters: Fil
 
   // 2. Substitute URL Path
   const directUrlVarPattern = /\{\{\s*url_(?:sti|path)\s*\}\}/gi
-  if (filters.urlFilters.length > 0) {
+  if (filters.sidegroup) {
+    const sidegroup = filters.sidegroup
+    const optionalAndUrlPattern = /\[\[\s*AND\s*\{\{\s*url_(?:sti|path)\s*\}\}\s*\]\]/gi
+    processedSql = processedSql.replace(
+      optionalAndUrlPattern,
+      () => `AND ${buildSidegroupSqlCondition(sidegroup, 'url_path')}`,
+    )
+    // Optional-clause form: column = [[ {{url_sti}} --]] 'value'
+    const optionalClauseColumnRegex =
+      /([^\s()]+(?:\([^()]*\))?)\s*=\s*\[\[\s*\{\{url_(?:sti|path)\}\}\s*--\s*\]\]\s*('[^']+')/gi
+    processedSql = processedSql.replace(optionalClauseColumnRegex, (_match, column: string) =>
+      buildSidegroupSqlCondition(sidegroup, column),
+    )
+    // Direct form: column = {{url_sti}} / {{url_path}}
+    const directAssignmentColumnRegex =
+      /([^\s()]+(?:\([^()]*\))?)\s*=\s*(?:['"])?\s*\{\{\s*url_(?:sti|path)\s*\}\}\s*(?:['"])?/gi
+    processedSql = processedSql.replace(directAssignmentColumnRegex, (_match, column: string) =>
+      buildSidegroupSqlCondition(sidegroup, column),
+    )
+  } else if (filters.urlFilters.length > 0) {
     const operator = filters.pathOperator || 'equals'
 
     if (operator === 'starts-with') {

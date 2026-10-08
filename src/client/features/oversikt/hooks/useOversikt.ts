@@ -3,6 +3,9 @@ import { useParams, useSearchParams } from 'react-router-dom'
 import { format, isValid, parseISO } from 'date-fns'
 import { normalizeUrlToPath } from '../../../shared/lib/utils.ts'
 import { parseFormattedPath } from '../../analysis/utils/urlPathFilter.ts'
+import { extractWebsiteId } from '../../sql/utils/sqlProcessing.ts'
+import { useSidegroupsForWebsite } from '../../sidegroups/hooks/useSidegroupsForWebsite.ts'
+import type { Sidegroup } from '../../sidegroups/model/types.ts'
 import type { Website } from '../../dashboard/model/types.ts'
 import type {
   ProjectDto,
@@ -165,6 +168,7 @@ export const useOversikt = () => {
 
   const [tempPathOperator, setTempPathOperator] = useState(initialPathOperator)
   const [tempUrlPaths, setTempUrlPaths] = useState<string[]>(initialResolvedUrlPaths)
+  const [tempSidegroup, setTempSidegroup] = useState<Sidegroup | null>(null)
   const [tempDateRange, setTempDateRange] = useState(initialDateRange)
   const [tempCustomStartDate, setTempCustomStartDate] = useState<Date | undefined>(initialCustomStartDate)
   const [tempCustomEndDate, setTempCustomEndDate] = useState<Date | undefined>(initialCustomEndDate)
@@ -178,6 +182,10 @@ export const useOversikt = () => {
   const [selectedDashboardId, setSelectedDashboardId] = useState<number | null>(initialDashboardId)
   const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null)
 
+  const initialSidegroupId = searchParams.get('sidegroupId')
+  const initialSidegroupIdRef = useRef(initialSidegroupId)
+  const hasHydratedSidegroupRef = useRef(false)
+
   const [activeFilters, setActiveFilters] = useState<FilterState>({
     pathOperator: initialPathOperator,
     urlFilters: initialResolvedUrlPaths,
@@ -185,7 +193,10 @@ export const useOversikt = () => {
     metricType: initialMetricType,
     customStartDate: initialDateRange === 'custom' ? initialCustomStartDate : undefined,
     customEndDate: initialDateRange === 'custom' ? initialCustomEndDate : undefined,
+    sidegroup: null,
   })
+  const [isSidegroupFilterReady, setIsSidegroupFilterReady] = useState(() => !initialSidegroupId)
+  const [sidegroupResolutionError, setSidegroupResolutionError] = useState<string | null>(null)
 
   const [loadingProjects, setLoadingProjects] = useState(false)
   const [loadingDashboards, setLoadingDashboards] = useState(false)
@@ -221,6 +232,7 @@ export const useOversikt = () => {
     [selectedWebsite, selectedDashboardId],
   )
   const hasUrlPathParams = searchParams.getAll('path').length > 0
+  const hasSidegroupUrlParam = searchParams.has('sidegroupId')
 
   const charts = useMemo<OversiktChart[]>(() => {
     return [...graphs]
@@ -250,6 +262,89 @@ export const useOversikt = () => {
       })
   }, [graphs])
 
+  const dashboardUsesWebsitePlaceholder = charts.some((chart) => chart.sql?.includes('{{website_id}}'))
+  const dashboardWebsiteId = useMemo(() => {
+    if (dashboardUsesWebsitePlaceholder && selectedWebsite?.id) return selectedWebsite.id
+    const chartWithWebsiteId = charts.find((chart) => chart.sql && extractWebsiteId(chart.sql))
+    return chartWithWebsiteId?.sql ? extractWebsiteId(chartWithWebsiteId.sql) : selectedWebsite?.id
+  }, [dashboardUsesWebsitePlaceholder, selectedWebsite, charts])
+
+  const {
+    sidegroups,
+    loading: loadingSidegroups,
+    error: sidegroupLoadFailed,
+  } = useSidegroupsForWebsite(dashboardWebsiteId)
+  const clearSidegroupFilter = useCallback(() => {
+    const hadSidegroup = Boolean(tempSidegroup || activeFilters.sidegroup)
+    setTempSidegroup(null)
+    if (hadSidegroup) setTempUrlPaths([])
+    setActiveFilters((prev) => (prev.sidegroup ? { ...prev, sidegroup: null, urlFilters: [] } : prev))
+    initialSidegroupIdRef.current = null
+    hasHydratedSidegroupRef.current = true
+    setIsSidegroupFilterReady(true)
+    setSidegroupResolutionError(null)
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.delete('sidegroupId')
+    if (hadSidegroup) nextParams.delete('path')
+    setSearchParams(nextParams, { replace: true })
+  }, [activeFilters.sidegroup, searchParams, setSearchParams, tempSidegroup])
+
+  const handleWebsiteChange = useCallback(
+    (website: Website | null) => {
+      if (selectedWebsite?.id && selectedWebsite.id !== website?.id) clearSidegroupFilter()
+      setSelectedWebsite(website)
+    },
+    [clearSidegroupFilter, selectedWebsite?.id],
+  )
+
+  const [sidegroupReadyWebsiteId, setSidegroupReadyWebsiteId] = useState(dashboardWebsiteId)
+  useEffect(() => {
+    if (sidegroupReadyWebsiteId === dashboardWebsiteId) return
+    setSidegroupReadyWebsiteId(dashboardWebsiteId)
+    if (sidegroupReadyWebsiteId) clearSidegroupFilter()
+  }, [clearSidegroupFilter, dashboardWebsiteId, sidegroupReadyWebsiteId])
+
+  useEffect(() => {
+    if (dashboardUsesWebsitePlaceholder || charts.length === 0 || !selectedWebsite) return
+    setSelectedWebsite(null)
+    setActiveWebsite(null)
+  }, [charts.length, dashboardUsesWebsitePlaceholder, selectedWebsite])
+
+  useEffect(() => {
+    const sidegroupId = initialSidegroupIdRef.current
+    if (!sidegroupId || hasHydratedSidegroupRef.current || !dashboardWebsiteId || loadingSidegroups) return
+    if (sidegroupLoadFailed) {
+      const message = 'Kunne ikke laste sidegruppen fra lenken. Dashboard-spørringene er satt på pause.'
+      setSidegroupResolutionError(message)
+      setError(message)
+      return
+    }
+    const match = sidegroups.find((group) => String(group.id) === sidegroupId)
+    if (!match) {
+      const message = 'Sidegruppen fra lenken finnes ikke for dette nettstedet. Velg en sidegruppe for å fortsette.'
+      setTempPathOperator('sidegroup')
+      setSidegroupResolutionError(message)
+      setError(message)
+      return
+    }
+    hasHydratedSidegroupRef.current = true
+    setIsSidegroupFilterReady(true)
+    setSidegroupResolutionError(null)
+    setError(null)
+    setTempPathOperator('sidegroup')
+    setTempSidegroup(match)
+    setTempUrlPaths([])
+    setActiveFilters((prev) => ({ ...prev, pathOperator: 'sidegroup', sidegroup: match, urlFilters: [] }))
+  }, [dashboardWebsiteId, loadingSidegroups, sidegroupLoadFailed, sidegroups])
+
+  const handleTempSidegroupChange = useCallback((sidegroup: Sidegroup | null) => {
+    initialSidegroupIdRef.current = null
+    hasHydratedSidegroupRef.current = true
+    setSidegroupResolutionError(null)
+    setError(null)
+    setTempSidegroup(sidegroup)
+  }, [])
+
   const filterCapabilities = useMemo(() => {
     return charts.reduce(
       (acc, chart) => {
@@ -271,6 +366,7 @@ export const useOversikt = () => {
     (tempDateRange === 'custom' && tempCustomEndDate?.getTime() !== activeFilters.customEndDate?.getTime()) ||
     !arraysEqual(tempUrlPaths, activeFilters.urlFilters) ||
     tempPathOperator !== activeFilters.pathOperator ||
+    String(tempSidegroup?.id ?? '') !== String(activeFilters.sidegroup?.id ?? '') ||
     tempMetricType !== activeFilters.metricType ||
     (selectedWebsite?.id ?? null) !== (activeWebsite?.id ?? null)
 
@@ -280,7 +376,7 @@ export const useOversikt = () => {
 
   const handleUpdate = useCallback(
     (overrides?: { urlPaths?: string[]; pathOperator?: string }) => {
-      const resolvedUrlPaths = overrides?.urlPaths ?? tempUrlPaths
+      const resolvedUrlPaths = tempSidegroup ? [] : (overrides?.urlPaths ?? tempUrlPaths)
       const resolvedPathOperator = overrides?.pathOperator ?? tempPathOperator
       const shouldUseCustomDates = tempDateRange === 'custom' && tempCustomStartDate && tempCustomEndDate
       const nextParams = new URLSearchParams(searchParams)
@@ -290,6 +386,9 @@ export const useOversikt = () => {
       })
       if (resolvedPathOperator !== 'equals') nextParams.set('pathOperator', resolvedPathOperator)
       else nextParams.delete('pathOperator')
+      if (tempSidegroup) nextParams.set('sidegroupId', tempSidegroup.id)
+      else nextParams.delete('sidegroupId')
+      if (tempSidegroup) nextParams.delete('path')
       if (tempDateRange && tempDateRange !== 'last_7_days') nextParams.set('periode', tempDateRange)
       else nextParams.delete('periode')
       if (shouldUseCustomDates) {
@@ -302,15 +401,20 @@ export const useOversikt = () => {
       if (tempMetricType !== 'visitors') nextParams.set('metrikk', tempMetricType)
       else nextParams.delete('metrikk')
       nextParams.delete('metricType')
+      initialSidegroupIdRef.current = null
+      hasHydratedSidegroupRef.current = true
+      setIsSidegroupFilterReady(true)
+      setSidegroupResolutionError(null)
       setSearchParams(nextParams)
 
       setActiveFilters({
         pathOperator: resolvedPathOperator,
-        urlFilters: resolvedUrlPaths,
+        urlFilters: tempSidegroup ? [] : resolvedUrlPaths,
         dateRange: tempDateRange,
         metricType: tempMetricType,
         customStartDate: shouldUseCustomDates ? tempCustomStartDate : undefined,
         customEndDate: shouldUseCustomDates ? tempCustomEndDate : undefined,
+        sidegroup: tempSidegroup,
       })
       setActiveWebsite(selectedWebsite)
     },
@@ -319,6 +423,7 @@ export const useOversikt = () => {
       setSearchParams,
       tempPathOperator,
       tempUrlPaths,
+      tempSidegroup,
       tempDateRange,
       tempCustomStartDate,
       tempCustomEndDate,
@@ -736,13 +841,13 @@ export const useOversikt = () => {
 
   useEffect(() => {
     if (!urlPathStorageKey) return
-    if (hasUrlPathParams) return
+    if (hasUrlPathParams || hasSidegroupUrlParam || tempSidegroup) return
     const storedPaths = getStoredUrlPaths(urlPathStorageKey)
     setTempUrlPaths((prev) => (arraysEqual(prev, storedPaths) ? prev : storedPaths))
     setActiveFilters((prev) =>
       arraysEqual(prev.urlFilters, storedPaths) ? prev : { ...prev, urlFilters: storedPaths },
     )
-  }, [urlPathStorageKey, hasUrlPathParams])
+  }, [urlPathStorageKey, hasSidegroupUrlParam, hasUrlPathParams, tempSidegroup])
 
   useEffect(() => {
     if (!urlPathStorageKey) return
@@ -784,7 +889,7 @@ export const useOversikt = () => {
 
     // Website
     selectedWebsite,
-    setSelectedWebsite,
+    setSelectedWebsite: handleWebsiteChange,
     activeWebsite,
     activeWebsiteId,
 
@@ -793,6 +898,11 @@ export const useOversikt = () => {
     setTempPathOperator,
     tempUrlPaths,
     setTempUrlPaths,
+    tempSidegroup,
+    setTempSidegroup: handleTempSidegroupChange,
+    sidegroups,
+    isSidegroupFilterReady: isSidegroupFilterReady && sidegroupReadyWebsiteId === dashboardWebsiteId,
+    sidegroupResolutionError,
     tempDateRange,
     setTempDateRange,
     tempCustomStartDate,

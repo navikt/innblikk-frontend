@@ -29,6 +29,60 @@ describe('processDashboardSql', () => {
     expect(result).not.toContain('{{url_sti}}')
   })
 
+  it('replaces optional standalone URL placeholders with a sidegroup condition', () => {
+    const sql = `SELECT url_path FROM events WHERE website_id = '{{website_id}}' [[AND {{url_sti}} ]]`
+    const result = processDashboardSql(sql, 'website-1', {
+      ...filters,
+      sidegroup: {
+        id: 'sidegroup-1',
+        name: 'Jobber',
+        websiteId: 'website-1',
+        include: ['/jobs'],
+      },
+    })
+
+    expect(result).toContain("STRPOS(LOWER(url_path), LOWER('/jobs')) > 0")
+    expect(result).not.toContain('{{url_sti}}')
+  })
+
+  it('preserves predicate parentheses around optional sidegroup assignments', () => {
+    const result = processDashboardSql(
+      "SELECT url_path FROM events WHERE (e.url_path = [[ {{url_sti}} --]] '/')",
+      'website-1',
+      {
+        ...filters,
+        sidegroup: { id: 'sidegroup-1', name: 'Exact', websiteId: 'website-1', exact: ['/jobs'] },
+      },
+    )
+
+    expect(result).toContain("(LOWER(e.url_path) = LOWER('/jobs'))")
+    expect(result).not.toContain('LOWER((e.url_path)')
+  })
+
+  it('preserves predicate parentheses around direct sidegroup assignments', () => {
+    const result = processDashboardSql("SELECT url_path FROM events WHERE (e.url_path = '{{url_sti}}')", 'website-1', {
+      ...filters,
+      sidegroup: { id: 'sidegroup-1', name: 'Exact', websiteId: 'website-1', exact: ['/jobs'] },
+    })
+
+    expect(result).toContain("(LOWER(e.url_path) = LOWER('/jobs'))")
+    expect(result).not.toContain('{{url_sti}}')
+  })
+
+  it('preserves dollar tokens in sidegroup rules during SQL replacement', () => {
+    const result = processDashboardSql('SELECT url_path FROM events WHERE [[AND {{url_sti}} ]]', 'website-1', {
+      ...filters,
+      sidegroup: {
+        id: 'sidegroup-1',
+        name: 'Dollar',
+        websiteId: 'website-1',
+        include: ['$&'],
+      },
+    })
+
+    expect(result).toContain("LOWER('$&')")
+  })
+
   it('uses seven completed days and excludes today', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(2026, 8, 28, 12, 0, 0))

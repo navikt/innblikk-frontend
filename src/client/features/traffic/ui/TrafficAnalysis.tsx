@@ -25,6 +25,8 @@ const TrafficAnalysis = () => {
     setUrlPaths,
     pathOperator,
     setPathOperator,
+    sidegroup,
+    setSidegroup,
     period,
     setPeriod,
     customStartDate,
@@ -158,6 +160,9 @@ const TrafficAnalysis = () => {
             pathOperator={pathOperator}
             onPathOperatorChange={setPathOperator}
             selectedWebsiteDomain={selectedWebsite?.domain}
+            selectedWebsiteId={selectedWebsite?.id}
+            sidegroup={sidegroup}
+            onSidegroupChange={setSidegroup}
             className="w-full sm:w-[350px]"
           />
 
