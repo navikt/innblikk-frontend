@@ -8,6 +8,7 @@ import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { useChartLayoutOriginal } from '../hooks/useChartLayoutOriginal.ts'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { ChevronLeftIcon, ChevronRightIcon } from '@navikt/aksel-icons'
+import { getFeatureFlag } from '../../../shared/lib/featureFlags.ts'
 
 interface ChartLayoutProps {
   title: string
@@ -35,7 +36,7 @@ const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
   currentPage,
   wideSidebar = false,
   hideSidebar = false,
-  hideAnalysisSelector = true,
+  hideAnalysisSelector,
   sidebarFilterGap = 'space-32',
   showPageHeader = true,
   showKontaktSection = true,
@@ -43,6 +44,16 @@ const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
   headerNotice,
 }) => {
   const { isSidebarOpen, setIsSidebarOpen, handleChartChange } = useChartLayoutOriginal(hideSidebar)
+  // Same alpha-gating as ChartLayout: the analysis-type Select is the only place that
+  // navigation exists when the global left Sidebar is off, so default to showing it there.
+  // Subscribed so toggling on /profil swaps without a remount.
+  const [alphaNewNav, setAlphaNewNav] = React.useState(() => getFeatureFlag('alpha_new_nav'))
+  React.useEffect(() => {
+    const handleChange = () => setAlphaNewNav(getFeatureFlag('alpha_new_nav'))
+    window.addEventListener('featureFlagsChange', handleChange)
+    return () => window.removeEventListener('featureFlagsChange', handleChange)
+  }, [])
+  const effectiveHideAnalysisSelector = hideAnalysisSelector ?? alphaNewNav
   const isFocusedEmbedLayout = !showPageHeader && !showKontaktSection
 
   // Define width classes based on wideSidebar prop
@@ -84,7 +95,7 @@ const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
                   }
                 >
                   <VStack gap={sidebarFilterGap}>
-                    {!hideAnalysisSelector && (
+                    {!effectiveHideAnalysisSelector && (
                       <div className="pb-2">
                         <Select
                           size="small"

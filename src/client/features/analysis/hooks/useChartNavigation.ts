@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useCallback } from 'react'
+import { useEffect, useMemo, useCallback, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   hasClickmapSupport,
   hasMarketingSupport,
   hasSiteimproveSupport,
 } from '../../../shared/hooks/useSiteimproveSupport.ts'
-import { chartGroups } from '../model/chartGroups.tsx'
+import { chartGroups, chartGroupsLegacy } from '../model/chartGroups.tsx'
+import { getFeatureFlag } from '../../../shared/lib/featureFlags.ts'
 import { SHARED_PARAMS } from '../model/types.ts'
 
 export const useChartNavigation = (
@@ -17,6 +18,17 @@ export const useChartNavigation = (
   const isNavOpen = !hideAnalysisSelector
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+
+  // Alpha left Sidebar off → in-page selector is the only navigation to most analyses,
+  // so it needs the full pre-Sidebar group set. Sidebar on → trimmed set (Sidebar has
+  // the rest). Reactive: toggling the flag on /profil swaps the list live.
+  const [alphaNewNav, setAlphaNewNav] = useState(() => getFeatureFlag('alpha_new_nav'))
+  useEffect(() => {
+    const handleChange = () => setAlphaNewNav(getFeatureFlag('alpha_new_nav'))
+    window.addEventListener('featureFlagsChange', handleChange)
+    return () => window.removeEventListener('featureFlagsChange', handleChange)
+  }, [])
+  const activeChartGroups = alphaNewNav ? chartGroups : chartGroupsLegacy
 
   const domain = websiteDomain || searchParams.get('domain')
   const resolvedWebsiteId = websiteId || searchParams.get('websiteId')
@@ -32,8 +44,8 @@ export const useChartNavigation = (
 
   const filteredChartGroups = useMemo(() => {
     const groupsWithoutSiteimprove = showSiteimproveSection
-      ? chartGroups
-      : chartGroups.filter((group) => group.title !== 'Innholdskvalitet')
+      ? activeChartGroups
+      : activeChartGroups.filter((group) => group.title !== 'Innholdskvalitet')
 
     return groupsWithoutSiteimprove
       .map((group) => ({
@@ -43,7 +55,7 @@ export const useChartNavigation = (
         ),
       }))
       .filter((group) => group.ids.length > 0)
-  }, [showSiteimproveSection, showMarketingSection, showClickmapSection])
+  }, [showSiteimproveSection, showMarketingSection, showClickmapSection, activeChartGroups])
 
   const getTargetUrl = useCallback((href: string) => {
     const currentParams = new URLSearchParams(window.location.search)

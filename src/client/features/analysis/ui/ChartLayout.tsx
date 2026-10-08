@@ -8,6 +8,7 @@ import { Skyra } from '../../../shared/ui/theme/Skyra/Skyra.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { useChartNavigation } from '../hooks/useChartNavigation.ts'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
+import { getFeatureFlag } from '../../../shared/lib/featureFlags.ts'
 
 interface ChartLayoutProps {
   title: string
@@ -115,7 +116,7 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
   children,
   currentPage,
   hideSidebar = false,
-  hideAnalysisSelector = true,
+  hideAnalysisSelector,
   sidebarContent,
   websiteId,
   websiteDomain,
@@ -127,6 +128,18 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
     websiteId,
     hideAnalysisSelector,
   )
+  // With the alpha left Sidebar off, the in-page analysis nav column is the only place
+  // that navigation exists — so it must default to VISIBLE in old-nav mode. With the
+  // alpha Sidebar on, the global sidebar covers it and the column stays hidden.
+  // (No caller passes this prop today; Grafdeling's explicit `true` still wins.)
+  // Subscribed to flag changes so toggling on /profil swaps without a remount.
+  const [alphaNewNav, setAlphaNewNav] = useState(() => getFeatureFlag('alpha_new_nav'))
+  React.useEffect(() => {
+    const handleChange = () => setAlphaNewNav(getFeatureFlag('alpha_new_nav'))
+    window.addEventListener('featureFlagsChange', handleChange)
+    return () => window.removeEventListener('featureFlagsChange', handleChange)
+  }, [])
+  const effectiveHideAnalysisSelector = hideAnalysisSelector ?? alphaNewNav
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const isCurrentPageBeta = currentPage
     ? ((analyticsPages.find((p) => p.id === currentPage) as { beta?: boolean } | undefined)?.beta ?? false)
@@ -143,9 +156,7 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
             <div className="group border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-subtle)] flex flex-col md:flex-row md:min-h-[80px]">
               {/* Left Column Header (Sidebar Content) — the website picker. Kept
                   independent of `hideAnalysisSelector`: that flag only controls
-                  the in-page analysis-type nav column (COL 1 below), which now
-                  defaults to hidden everywhere since that navigation lives in
-                  the global left Sidebar (see shared/ui/theme/Sidebar/Sidebar.tsx). */}
+                  the in-page analysis-type nav column (COL 1 below). */}
               {sidebarContent && (
                 <div className="w-full md:w-[250px] flex-shrink-0 border-b md:border-b-0 p-4 flex flex-col justify-end md:group-has-[.sidegroup-management-slot]:pb-10">
                   {sidebarContent}
@@ -174,7 +185,7 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
 
           <div className="flex flex-col md:flex-row min-h-[800px] relative transition-all duration-300">
             {/* ================= COL 1: NAVIGATION ================= */}
-            {!hideAnalysisSelector && (
+            {!effectiveHideAnalysisSelector && (
               <>
                 <div
                   className={`bg-[var(--ax-bg-neutral-soft)] md:border-b-0 flex-shrink-0 ${isSidebarOpen ? 'md:w-[250px]' : 'md:w-0'}`}

@@ -18,14 +18,15 @@
 }
 
 /* Prevent Page content area from flex-growing past content height,
-   avoiding a visible gap below the content (no footer follows it anymore —
-   Footer.tsx was removed, its links now live in the Sidebar's "Ressurser"
-   group). */
+   avoiding a visible gap below the content in sidebar (alpha) mode where
+   no footer follows it. In old-nav mode the Footer renders after content
+   and this is a no-op visually. */
 .aksel-page__content--grow {
   flex-grow: 0 !important;
 }
 
-/* Remove built-in bottom padding now that content is the last thing on the page. */
+/* Remove built-in bottom padding (sidebar mode: content is last; old-nav
+   mode: Footer provides its own spacing). */
 .aksel-page__content--padding {
   padding-block-end: 0 !important;
 }
@@ -202,6 +203,13 @@
 .sidebar-section:focus-within {
   position: relative;
   z-index: 1;
+}
+
+/* Cap footer content width on ultra-wide screens (old-nav mode — Footer.tsx
+   renders when the alpha left Sidebar is off). */
+.footer-block {
+  max-width: 1600px !important;
+  margin-inline: 0 !important;
 }
 
 /* =====================================================

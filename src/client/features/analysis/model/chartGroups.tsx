@@ -1,4 +1,4 @@
-import { BarChartIcon, MagnifyingGlassIcon } from '@navikt/aksel-icons'
+import { BarChartIcon, MagnifyingGlassIcon, PersonGroupIcon, SparklesIcon } from '@navikt/aksel-icons'
 import React from 'react'
 
 export interface ChartGroup {
@@ -9,15 +9,43 @@ export interface ChartGroup {
 
 // Trafikkanalyse (trafikkoversikt/klikkoversikt/navigasjonsflyt/trakt), Hendelser
 // (event-explorer/hendelsesreiser), and Brukere (brukersammensetning/enkeltbrukere/
-// brukerlojalitet/maloppnaelse) now live in the global left Sidebar (see
-// shared/ui/theme/Sidebar/Sidebar.tsx) — deliberately NOT repeated here to avoid
-// duplicate navigation on every analysis page. Only items with no Sidebar entry
-// (Kampanjer, and the Innholdskvalitet group) remain in this in-page selector.
+// brukerlojalitet/maloppnaelse) live in the global left Sidebar (see
+// shared/ui/theme/Sidebar/Sidebar.tsx) — when that Sidebar is enabled (alpha flag
+// `alpha_new_nav`), this in-page selector deliberately shows only items with no
+// Sidebar entry (Kampanjer, and the Innholdskvalitet group) to avoid duplicate
+// navigation. With the alpha flag OFF there is no global Sidebar, so consumers
+// must fall back to `chartGroupsLegacy` (handled inside useChartNavigation).
 export const chartGroups: ChartGroup[] = [
   {
     title: 'Trafikk',
     icon: <BarChartIcon fontSize="1.125rem" />,
     ids: ['markedsanalyse'],
+  },
+  {
+    title: 'Innholdskvalitet',
+    icon: <MagnifyingGlassIcon fontSize="1.125rem" />,
+    ids: ['odelagte-lenker', 'stavekontroll', 'wcag'],
+  },
+]
+
+// Pre-Sidebar full set (from before commit c48f15a4, re-created with aksel icons).
+// Used when the alpha left Sidebar is off — every analysis link must be reachable
+// from the in-page selector again.
+export const chartGroupsLegacy: ChartGroup[] = [
+  {
+    title: 'Trafikk',
+    icon: <BarChartIcon fontSize="1.125rem" />,
+    ids: ['trafikkanalyse', 'markedsanalyse', 'clickmap', 'brukerreiser', 'trakt'],
+  },
+  {
+    title: 'Hendelser',
+    icon: <SparklesIcon fontSize="1.125rem" />,
+    ids: ['event-explorer', 'hendelsesreiser'],
+  },
+  {
+    title: 'Brukere',
+    icon: <PersonGroupIcon fontSize="1.125rem" />,
+    ids: ['brukersammensetning', 'enkeltbrukere', 'brukerlojalitet', 'maloppnaelse'],
   },
   {
     title: 'Innholdskvalitet',
