@@ -45,6 +45,17 @@ function renderEditor(cohort: CohortDetailDto = emptyCohort) {
 const topLevelFieldSelect = () =>
   within(document.querySelector('.cohort-qb-field') as HTMLElement).getByRole('combobox')
 
+/**
+ * Single-select Aksel combobox chips (the committed value's visible label).
+ * getByText(value) can't be used: Aksel keeps the selected option mounted in
+ * the (closed) listbox too, as <li role="option"><p aria-label=value>, so a
+ * plain text query matches both chip and hidden list item.
+ */
+const selectedChipTexts = () =>
+  Array.from(document.querySelectorAll('.aksel-combobox__selected-options--no-bg')).map(
+    (el) => (el as HTMLElement).textContent,
+  )
+
 describe('CohortEditor — building and saving a SEQUENCE node end-to-end', () => {
   it('includes the anchor/target conditions typed into the sequence editor in the saved payload (regression: query.rules ended up empty)', async () => {
     const user = userEvent.setup()
@@ -83,11 +94,11 @@ describe('CohortEditor — building and saving a SEQUENCE node end-to-end', () =
     await user.click(verdiInputs[0])
     await user.keyboard('/')
     await user.tab()
-    await waitFor(() => expect(screen.getByText('/')).toBeInTheDocument())
+    await waitFor(() => expect(selectedChipTexts()).toContain('/'))
     await user.click(screen.getAllByLabelText('Verdi')[1])
     await user.keyboard('Chrome')
     await user.tab()
-    await waitFor(() => expect(screen.getByText('Chrome')).toBeInTheDocument())
+    await waitFor(() => expect(selectedChipTexts()).toContain('Chrome'))
 
     // Save.
     await user.click(screen.getByRole('button', { name: 'Lagre' }))
@@ -140,8 +151,8 @@ describe('CohortEditor — loading an EXISTING cohort that already has a SEQUENC
 
     // Selected values render as combobox chips (single-select: the chip label IS
     // the value), not as text in the search input — the input itself stays empty.
-    expect(screen.getByText('/')).toBeInTheDocument()
-    expect(screen.getByText('Chrome')).toBeInTheDocument()
+    expect(selectedChipTexts()).toContain('/')
+    expect(selectedChipTexts()).toContain('Chrome')
   })
 })
 

@@ -313,14 +313,7 @@ const GoalCompletion = () => {
                                       size="small"
                                       value={param.operator}
                                       onChange={(e) =>
-                                        setStep(
-                                          updateStepParam(
-                                            step,
-                                            paramIndex,
-                                            'operator',
-                                            e.target.value as GoalStepParam['operator'],
-                                          ),
-                                        )
+                                        setStep(updateStepParam(step, paramIndex, 'operator', e.target.value))
                                       }
                                     >
                                       <option value="equals">= Er lik</option>

@@ -702,7 +702,7 @@ const EditChartDialog = ({
                     height: editorHeight,
                   }}
                   onMouseUp={(event) => {
-                    const target = event.currentTarget as HTMLDivElement
+                    const target = event.currentTarget
                     setEditorHeight(target.offsetHeight)
                   }}
                 >

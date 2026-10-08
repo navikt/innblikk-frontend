@@ -171,9 +171,9 @@ const CanvasTopBar = ({
       setTheme(customEvent.detail === 'dark' ? 'dark' : 'light')
     }
 
-    window.addEventListener('themeChange', handleThemeChange as EventListener)
+    window.addEventListener('themeChange', handleThemeChange)
     return () => {
-      window.removeEventListener('themeChange', handleThemeChange as EventListener)
+      window.removeEventListener('themeChange', handleThemeChange)
     }
   }, [])
 

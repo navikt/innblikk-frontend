@@ -113,7 +113,7 @@ export function useJourneyData(
         setData({
           chartTitle: 'Brukerreiser',
           SankeyChartData: { nodes, links: styledLinks },
-        } as IChartProps)
+        })
 
         setReverseVisualOrder(journeyDirection === 'backward')
 

@@ -17,7 +17,7 @@ const toNumber = (value: JsonValue | undefined): number => {
 // BigQuery returns DATE/TIMESTAMP columns wrapped as { value: "..." }; unwrap them.
 const unwrapValue = (value: JsonValue | undefined): JsonValue | undefined => {
   if (value && typeof value === 'object' && !Array.isArray(value)) {
-    const obj = value as { [key: string]: JsonValue }
+    const obj = value
     if (Object.keys(obj).length === 1 && 'value' in obj) return obj.value
   }
   return value

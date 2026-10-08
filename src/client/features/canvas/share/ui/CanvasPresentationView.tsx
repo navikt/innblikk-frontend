@@ -11,7 +11,6 @@ import type { ClickmapItem } from '../../../clickmap/model/types.ts'
 import {
   CANVAS_TABLE_ROWS_PER_PAGE,
   CLICKMAP_EVENTS,
-  DEFAULT_DRAWING_STROKE_WIDTH,
   formatCanvasPathLabel,
   getCanvasFrameVisualizationMode,
   getVisualizationModeLabel,
@@ -269,9 +268,9 @@ const CanvasPresentationView = () => {
       setTheme(customEvent.detail === 'dark' ? 'dark' : 'light')
     }
 
-    window.addEventListener('themeChange', handleThemeChange as EventListener)
+    window.addEventListener('themeChange', handleThemeChange)
     return () => {
-      window.removeEventListener('themeChange', handleThemeChange as EventListener)
+      window.removeEventListener('themeChange', handleThemeChange)
     }
   }, [])
 

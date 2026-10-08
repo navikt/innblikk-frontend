@@ -120,7 +120,7 @@ export function resolveCohortToSegmentDefinition(
 
   const expression = (() => {
     try {
-      return resolveNodeToSql(cohort.root as CohortGroupNode, resolveCtx)
+      return resolveNodeToSql(cohort.root, resolveCtx)
     } catch (err) {
       // Never let a malformed/unexpected cohort tree crash the whole chart
       // render (this whole function runs inside a `useMemo` during render —

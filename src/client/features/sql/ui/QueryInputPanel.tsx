@@ -97,7 +97,7 @@ export default function QueryInputPanel({
         className="border rounded resize-y overflow-auto"
         style={{ position: 'relative', isolation: 'isolate', minHeight: 100, maxHeight: 600, height: editorHeight }}
         onMouseUp={(e) => {
-          const target = e.currentTarget as HTMLDivElement
+          const target = e.currentTarget
           onEditorHeightChange(target.offsetHeight)
         }}
       >
