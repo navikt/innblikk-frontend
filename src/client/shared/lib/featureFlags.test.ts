@@ -20,6 +20,7 @@ describe('featureFlags', () => {
       const flags = getFeatureFlags()
       expect(flags.copilot_show_technical_details).toBe(false)
       expect(flags.grafbygger_always_show_sql).toBe(false)
+      expect(flags.alpha_new_nav).toBe(false)
     })
 
     it('returns stored values merged with defaults', () => {

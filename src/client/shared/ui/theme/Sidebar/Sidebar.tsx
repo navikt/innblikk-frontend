@@ -16,7 +16,6 @@ import {
   SidebarRightIcon,
   SquareGridIcon,
   SunIcon,
-  TestFlaskIcon,
   WrenchIcon,
   XMarkIcon,
 } from '@navikt/aksel-icons'
@@ -24,7 +23,6 @@ import { Button, Select, Tag, Tooltip } from '@navikt/ds-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link as RouterLink, useLocation } from 'react-router-dom'
 import '../../../../tailwind.css'
-import { getFeatureFlag } from '../../../lib/featureFlags.ts'
 import { useIsReopsTeamMember } from '../../../hooks/useIsReopsTeamMember.ts'
 
 interface SidebarProps {
@@ -55,17 +53,16 @@ type NavEntry = NavLink | NavGroup
 // (the design used placeholder routes like /trafikkanalyse/klikk that don't exist
 // here — e.g. Klikkoversikt is /klikkoversikt, not /trafikkanalyse/klikk).
 //
-// "Innholdskvalitet" (stavekontroll/wcag) is a function of `isBeta` rather than a
-// static list, since /kvalitet/wcag redirects to /profil#beta when the beta_opt_in
-// flag is off (see routes.tsx's WcagRoute) — showing that link when it would
-// immediately redirect elsewhere would be misleading.
+// "Innholdskvalitet" (stavekontroll/wcag) shows the WCAG link unconditionally — WCAG is a
+// registered beta feature (betaFeatures.ts), and beta features are on for everyone since the
+// per-user beta opt-in was retired.
 //
 // "Ressurser" and "Verktøy" were originally moved here from a Header component's
 // cog/"Teknisk meny" ActionMenu (guideLinks/developerLinks). That Header (top bar
 // with logo + cog menu) has since been removed entirely — everything it held
 // (branding, main nav, Beta/dev tags, Miljø env switch, theme toggle, Profil) now
 // lives exclusively in this Sidebar, so there's a single persistent nav surface.
-const getNavItems = (isBeta: boolean, isReopsTeamMember: boolean): NavEntry[] => [
+const getNavItems = (isReopsTeamMember: boolean): NavEntry[] => [
   { kind: 'link', id: 'hjem', label: 'Hjem', to: '/', icon: <HouseIcon aria-hidden fontSize="1.25rem" /> },
   {
     kind: 'group',
@@ -110,7 +107,7 @@ const getNavItems = (isBeta: boolean, isReopsTeamMember: boolean): NavEntry[] =>
     items: [
       { id: 'stavekontroll', label: 'Stavekontroll', to: '/kvalitet/stavekontroll' },
       { id: 'odelagte-lenker', label: 'Ødelagte lenker', to: '/kvalitet/odelagte-lenker' },
-      ...(isBeta ? [{ id: 'wcag', label: 'Universell utforming', to: '/kvalitet/wcag' }] : []),
+      { id: 'wcag', label: 'Universell utforming', to: '/kvalitet/wcag' },
     ],
   },
   {
@@ -329,9 +326,8 @@ export default function Sidebar({ theme }: SidebarProps) {
   const [isMobileOpen, setIsMobileOpen] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(false)
   const { pathname } = useLocation()
-  const isBeta = getFeatureFlag('beta_opt_in')
   const { isReopsTeamMember } = useIsReopsTeamMember()
-  const navItems = getNavItems(isBeta, isReopsTeamMember)
+  const navItems = getNavItems(isReopsTeamMember)
   const buildSha = __GIT_SHA__
   const buildShortSha = buildSha && buildSha !== 'unknown' ? buildSha.slice(0, 7) : null
 
@@ -493,11 +489,6 @@ export default function Sidebar({ theme }: SidebarProps) {
             }`}
           >
             <span className="text-sm font-semibold">Innblikk</span>
-            {isBeta && (
-              <Tag data-color="meta-purple" variant="strong" size="small" icon={<TestFlaskIcon aria-hidden />}>
-                Beta
-              </Tag>
-            )}
             {environmentIndicator}
           </RouterLink>
           <Button
@@ -558,11 +549,6 @@ export default function Sidebar({ theme }: SidebarProps) {
           {!isCollapsed && (
             <span className="flex items-center gap-2">
               <span className="text-lg font-semibold mx-2 tracking-tight text-[var(--ax-text-default)]">Innblikk</span>
-              {isBeta && (
-                <Tag data-color="meta-purple" variant="strong" size="small" icon={<TestFlaskIcon aria-hidden />}>
-                  Beta
-                </Tag>
-              )}
             </span>
           )}
         </RouterLink>

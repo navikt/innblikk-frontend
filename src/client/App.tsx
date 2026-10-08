@@ -4,10 +4,12 @@ import { BrowserRouter as Router, Route, Routes, useLocation, Link } from 'react
 import routes, { isFullWidthPath } from './routes.tsx'
 import ScrollToTop from './shared/ui/theme/ScrollToTop/ScrollToTop.tsx'
 import Sidebar from './shared/ui/theme/Sidebar/Sidebar.tsx'
+import Header from './shared/ui/theme/Header/Header.tsx'
+import Footer from './shared/ui/theme/Footer/Footer.tsx'
 import { ErrorBoundary } from './shared/ui/ErrorBoundary.tsx'
 import { useHead } from '@unhead/react'
 import { AppBlock } from './shared/ui/theme/AppBlock/AppBlock.tsx'
-import { loadFeatureFlagsFromBackend } from './shared/lib/featureFlags.ts'
+import { getFeatureFlag, loadFeatureFlagsFromBackend } from './shared/lib/featureFlags.ts'
 import { touchUserSettings } from './shared/lib/heartbeat.ts'
 
 import './App.css'
@@ -54,8 +56,21 @@ const NotFound = () => (
   </div>
 )
 
+// Reactive read of the alpha_new_nav flag — AppShell must swap layouts immediately when the
+// user toggles it on /profil, without a reload.
+const useAlphaNewNav = () => {
+  const [enabled, setEnabled] = useState(() => getFeatureFlag('alpha_new_nav'))
+  useEffect(() => {
+    const handleChange = () => setEnabled(getFeatureFlag('alpha_new_nav'))
+    window.addEventListener('featureFlagsChange', handleChange)
+    return () => window.removeEventListener('featureFlagsChange', handleChange)
+  }, [])
+  return enabled
+}
+
 const AppShell = ({ theme }: { theme: 'light' | 'dark' }) => {
   const location = useLocation()
+  const alphaNewNav = useAlphaNewNav()
   const isCanvasPage = location.pathname.startsWith('/canvas')
   const isCopilotPage = location.pathname === '/copilot'
   const focusedParam = new URLSearchParams(location.search).get('focused')
@@ -81,14 +96,15 @@ const AppShell = ({ theme }: { theme: 'light' | 'dark' }) => {
   }
 
   if (isCopilotPage) {
-    // Full-height chat UI: wants the sidebar but not Aksel's `<Page>`/`<Footer>` — deliberately
-    // NOT routed through `<Page>` here. `<Page>` nests its children inside one shared, non-flex
-    // div (see Page.js — `children` all land in a single `.aksel-page__content--grow` wrapper),
-    // so giving our content a height/flex-grow value meant to "fill the remaining space" actually
-    // computed against that whole wrapper's height, overflowing past the real viewport — the
-    // composer looked "stuck to the top" instead of centered. Building the flex layout ourselves
-    // (Sidebar + content as direct, sibling flex items) sidesteps that entirely.
-    return (
+    // Full-height chat UI: wants the navigation chrome but not Aksel's `<Page>`/`<Footer>` —
+    // deliberately NOT routed through `<Page>` here. `<Page>` nests its children inside one
+    // shared, non-flex div (see Page.js — `children` all land in a single
+    // `.aksel-page__content--grow` wrapper), so giving our content a height/flex-grow value
+    // meant to "fill the remaining space" actually computed against that whole wrapper's
+    // height, overflowing past the real viewport — the composer looked "stuck to the top"
+    // instead of centered. Building the flex layout ourselves (navigation + content as direct,
+    // sibling flex items) sidesteps that entirely.
+    return alphaNewNav ? (
       <div className="flex h-dvh w-full flex-col md:flex-row">
         <Sidebar theme={theme} />
         <div className="flex h-dvh min-h-0 w-full flex-1 flex-col">
@@ -97,23 +113,49 @@ const AppShell = ({ theme }: { theme: 'light' | 'dark' }) => {
           </ErrorBoundary>
         </div>
       </div>
+    ) : (
+      <div className="flex h-dvh w-full flex-col">
+        <Header theme={theme} />
+        <div className="flex min-h-0 w-full flex-1 flex-col">
+          <ErrorBoundary>
+            <Suspense fallback={<PageLoader />}>{appRoutes}</Suspense>
+          </ErrorBoundary>
+        </div>
+      </div>
+    )
+  }
+
+  if (alphaNewNav) {
+    return (
+      <div className="flex min-h-dvh w-full flex-col md:flex-row">
+        <Sidebar theme={theme} />
+        <div className="flex min-h-0 w-full flex-1 flex-col">
+          <Page>
+            <PageLayout>
+              <ErrorBoundary>
+                <Suspense fallback={<PageLoader />}>{appRoutes}</Suspense>
+              </ErrorBoundary>
+              <ScrollToTopWrapper />
+            </PageLayout>
+          </Page>
+        </div>
+      </div>
     )
   }
 
   return (
-    <div className="flex min-h-dvh w-full flex-col md:flex-row">
-      <Sidebar theme={theme} />
-      <div className="flex min-h-0 w-full flex-1 flex-col">
-        <Page>
-          <PageLayout>
-            <ErrorBoundary>
-              <Suspense fallback={<PageLoader />}>{appRoutes}</Suspense>
-            </ErrorBoundary>
-            <ScrollToTopWrapper />
-          </PageLayout>
-        </Page>
-      </div>
-    </div>
+    <>
+      <Page>
+        <Header theme={theme} />
+        <PageLayout>
+          <ErrorBoundary>
+            <Suspense fallback={<PageLoader />}>{appRoutes}</Suspense>
+          </ErrorBoundary>
+          <ScrollToTopWrapper />
+        </PageLayout>
+      </Page>
+      <Footer />
+    </>
   )
 }
 

@@ -160,6 +160,30 @@ export default function UserProfile() {
             </VStack>
           </section>
 
+          <section id="alpha">
+            <VStack gap="space-16">
+              <div>
+                <Box asChild marginBlock={'space-0 space-6'}>
+                  <Heading level="2" size="medium">
+                    Funksjoner i alpha
+                  </Heading>
+                </Box>
+                <BodyLong textColor="subtle">
+                  Helt ferske eksperimenter som bare er skrudd på for deg hvis du vil være med å teste. Her kan ting
+                  være uferdige og endre seg ofte — tilbakemeldinger er gull.
+                </BodyLong>
+              </div>
+
+              <Checkbox checked={flags.alpha_new_nav} onChange={(e) => toggle('alpha_new_nav', e.target.checked)}>
+                Nytt navigasjonsmeny (sidemeny)
+                <BodyShort as="span" size="small" textColor="subtle" className="block font-normal mt-0.5">
+                  Bytter ut toppmenyen med en fast sidemeny til venstre. Under aktiv utvikling — slå av igjen her hvis
+                  noe ikke fungerer.
+                </BodyShort>
+              </Checkbox>
+            </VStack>
+          </section>
+
           <section>
             <VStack gap="space-24">
               <div>

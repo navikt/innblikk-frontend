@@ -28,11 +28,13 @@ function trackFlagChange<K extends keyof FeatureFlags>(key: K, value: FeatureFla
 export type FeatureFlags = {
   grafbygger_always_show_sql: boolean
   copilot_show_technical_details: boolean
+  alpha_new_nav: boolean
 }
 
 const DEFAULT_FLAGS: FeatureFlags = {
   grafbygger_always_show_sql: false,
   copilot_show_technical_details: false,
+  alpha_new_nav: false,
 }
 
 export const getFeatureFlags = (): FeatureFlags => {
