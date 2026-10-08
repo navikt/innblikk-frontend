@@ -1,5 +1,5 @@
 import { ActionMenu, Button, Tooltip } from '@navikt/ds-react'
-import { MoreVertical } from 'lucide-react'
+import { MenuElipsisVerticalIcon } from '@navikt/aksel-icons'
 
 export type CanvasActionMenuItem = {
   label: string
@@ -22,7 +22,7 @@ const CanvasActionMenu = ({ canvasName, items }: CanvasActionMenuProps) => {
           <Button
             variant="tertiary"
             size="xsmall"
-            icon={<MoreVertical aria-hidden />}
+            icon={<MenuElipsisVerticalIcon fontSize="1.25rem" aria-hidden />}
             aria-label={`Flere valg for ${canvasName}`}
           />
         </ActionMenu.Trigger>

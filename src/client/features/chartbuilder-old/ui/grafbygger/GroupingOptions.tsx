@@ -1,9 +1,9 @@
 import { Accordion, Checkbox, Button, Select, Label, Switch, Search } from '@navikt/ds-react'
-import { MoveUp, MoveDown } from 'lucide-react'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import type { Parameter, DateFormat, ColumnGroup, Filter } from '../../../../shared/types/chart.ts'
 import AlertWithCloseButton from './AlertWithCloseButton.tsx' // Import AlertWithCloseButton
 import accordionStyles from '../../../../shared/ui/GroupedAccordion.module.css'
+import { ArrowDownIcon, ArrowUpIcon } from '@navikt/aksel-icons'
 
 interface GroupingOptionsProps {
   groupByFields: string[]
@@ -446,7 +446,7 @@ const GroupingOptions = ({
                             <Button
                               variant="secondary"
                               size="small"
-                              icon={<MoveUp size={16} />}
+                              icon={<ArrowUpIcon fontSize="1rem" />}
                               onClick={() => moveGroupField(index, 'up')}
                               title="Flytt opp"
                             />
@@ -455,7 +455,7 @@ const GroupingOptions = ({
                             <Button
                               variant="secondary"
                               size="small"
-                              icon={<MoveDown size={16} />}
+                              icon={<ArrowDownIcon fontSize="1rem" />}
                               onClick={() => moveGroupField(index, 'down')}
                               title="Flytt ned"
                             />

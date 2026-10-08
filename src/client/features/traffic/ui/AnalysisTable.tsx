@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { ActionMenu, Button, Table, Pagination, VStack, HelpText, TextField, Tooltip } from '@navikt/ds-react'
-import { MoreVertical, Search } from 'lucide-react'
+import { MenuElipsisVerticalIcon, MagnifyingGlassIcon } from '@navikt/aksel-icons'
 import type { Website } from '../../../shared/types/chart.ts'
 import type { MarketingRow, QueryStats } from '../model/types'
 import TableSectionHeader from '../../../shared/ui/TableSectionHeader.tsx'
@@ -132,7 +132,7 @@ const AnalysisTable = ({
                       type="button"
                       variant={showSearch ? 'secondary' : 'tertiary'}
                       size="xsmall"
-                      icon={<Search aria-hidden />}
+                      icon={<MagnifyingGlassIcon fontSize="1.25rem" aria-hidden />}
                       aria-label={`Søk i ${title}`}
                       aria-pressed={showSearch}
                       onClick={() => {
@@ -148,7 +148,7 @@ const AnalysisTable = ({
                           type="button"
                           variant="tertiary"
                           size="xsmall"
-                          icon={<MoreVertical aria-hidden />}
+                          icon={<MenuElipsisVerticalIcon fontSize="1.25rem" aria-hidden />}
                           aria-label={`Flere valg for ${title}`}
                         />
                       </ActionMenu.Trigger>

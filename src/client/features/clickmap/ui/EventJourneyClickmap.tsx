@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, BodyShort, Button, Modal, TextField } from '@navikt/ds-react'
 import { format, parseISO } from 'date-fns'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
+import { ArrowLeftIcon, ArrowRightIcon } from '@navikt/aksel-icons'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
@@ -756,7 +756,7 @@ const EventJourneyClickmap = () => {
             <Button
               size="small"
               variant="secondary"
-              icon={<ArrowLeft size={16} />}
+              icon={<ArrowLeftIcon fontSize="1rem" />}
               onClick={() => {
                 const params = new URLSearchParams(window.location.search)
                 params.delete('journey')
@@ -803,7 +803,7 @@ const EventJourneyClickmap = () => {
                     )}
                   </button>
                   {index < journeySteps.length - 1 && (
-                    <ArrowRight size={18} className="text-[var(--ax-text-subtle)] flex-shrink-0" />
+                    <ArrowRightIcon fontSize="1.125rem" className="text-[var(--ax-text-subtle)] flex-shrink-0" />
                   )}
                 </div>
               ))}

@@ -1,4 +1,4 @@
-import { ArrowRight, Circle, Slash, Square } from 'lucide-react'
+import { ArrowRightIcon, CircleIcon, CircleSlashIcon, SquareIcon } from '@navikt/aksel-icons'
 import { formatDateRange } from '../../analysis/utils/periodPicker.ts'
 import { splitUrlStepInput } from '../../funnel/utils/stepUtils.ts'
 import type { FunnelStep } from '../../funnel/model/types.ts'
@@ -47,10 +47,10 @@ export const HEADING_FONT_SIZE_STEP = 4
 export const ICON_ROTATION_STEP_DEG = 15
 
 export const CANVAS_FIGURE_OPTIONS: CanvasFigureOption[] = [
-  { id: 'square', label: 'Kvadrat', Icon: Square },
-  { id: 'circle', label: 'Sirkel', Icon: Circle },
-  { id: 'line', label: 'Linje', Icon: Slash },
-  { id: 'arrow', label: 'Pil', Icon: ArrowRight },
+  { id: 'square', label: 'Kvadrat', Icon: SquareIcon },
+  { id: 'circle', label: 'Sirkel', Icon: CircleIcon },
+  { id: 'line', label: 'Linje', Icon: CircleSlashIcon },
+  { id: 'arrow', label: 'Pil', Icon: ArrowRightIcon },
 ]
 
 export const CANVAS_INVENTORY_KIND_OPTIONS: Array<{ kind: CanvasFrame['kind']; label: string }> = [

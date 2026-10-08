@@ -11,7 +11,7 @@ import {
   TextField,
   UNSAFE_Combobox as Combobox,
 } from '@navikt/ds-react'
-import { Plus, Trash2 } from 'lucide-react'
+import { PlusIcon, TrashIcon } from '@navikt/aksel-icons'
 import { ResponsiveContainer, LineChart } from '@fluentui/react-charting'
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
@@ -339,7 +339,7 @@ const GoalCompletion = () => {
                                     <Button
                                       variant="tertiary-neutral"
                                       size="small"
-                                      icon={<Trash2 size={14} />}
+                                      icon={<TrashIcon fontSize="0.875rem" />}
                                       onClick={() => setStep(removeStepParam(step, paramIndex))}
                                     >
                                       Fjern
@@ -353,7 +353,7 @@ const GoalCompletion = () => {
                           <Button
                             size="small"
                             variant="tertiary-neutral"
-                            icon={<Plus size={14} />}
+                            icon={<PlusIcon fontSize="0.875rem" />}
                             onClick={() => setStep({ ...step, params: [...(step.params ?? []), createEmptyParam()] })}
                           >
                             Legg til filter

@@ -2,7 +2,7 @@ import type { ComponentType } from 'react'
 import { Alert, Button, Modal } from '@navikt/ds-react'
 
 type FigureIconProps = {
-  size?: number
+  fontSize?: string
   'aria-hidden'?: boolean
 }
 
@@ -76,7 +76,7 @@ const CanvasFigureModal = ({
                         : 'border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)]'
                     }`}
                   >
-                    <FigureIcon size={16} aria-hidden={true} />
+                    <FigureIcon fontSize="1rem" aria-hidden={true} />
                     <span className="text-sm text-[var(--ax-text-default)]">{figureOption.label}</span>
                   </button>
                 )

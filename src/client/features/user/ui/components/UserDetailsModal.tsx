@@ -1,5 +1,5 @@
 import { Modal, Heading, BodyShort, Loader } from '@navikt/ds-react'
-import { Monitor, Clock } from 'lucide-react'
+import { ClockIcon, MonitorIcon } from '@navikt/aksel-icons'
 import type { UserProfile, ActivityItem } from '../../model'
 import { formatDateTime, formatTime } from '../../utils'
 import { getDeviceIcon } from './DeviceIcon'
@@ -123,12 +123,12 @@ export default function UserDetailsModal({
                 {activityData.map((item, idx) => (
                   <div key={idx} className="relative pl-8">
                     <span className="absolute -left-[41px] w-20 h-20 flex items-center justify-center rounded-full bg-[var(--ax-bg-accent-soft)] border-4 border-[var(--ax-bg-default)] ring-[var(--ax-bg-default)]">
-                      <Monitor size={18} className="text-[var(--ax-text-accent)]" />
+                      <MonitorIcon fontSize="1.125rem" className="text-[var(--ax-text-accent)]" />
                     </span>
 
                     <div className="flex flex-col gap-1">
                       <BodyShort size="small" className="text-[var(--ax-text-subtle)]">
-                        <Clock size={14} className="inline mr-1" />
+                        <ClockIcon fontSize="0.875rem" className="inline mr-1" />
                         {formatTime(item.createdAt)}
                       </BodyShort>
 

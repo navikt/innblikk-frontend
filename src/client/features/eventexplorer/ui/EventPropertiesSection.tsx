@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Heading, Button, BodyShort, Table, Tabs, Skeleton, Loader } from '@navikt/ds-react'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeftIcon } from '@navikt/aksel-icons'
 import type { EventProperty, ParameterValue, LatestEvent, QueryStats } from '../model/types.ts'
 
 interface EventPropertiesSectionProps {
@@ -223,7 +223,7 @@ const ParameterDrilldown = ({
 }) => (
   <>
     <div className="flex items-center gap-4 mb-4">
-      <Button variant="tertiary" size="small" icon={<ArrowLeft aria-hidden />} onClick={onBack}>
+      <Button variant="tertiary" size="small" icon={<ArrowLeftIcon aria-hidden fontSize="1.25rem" />} onClick={onBack}>
         Alle hendelsesdetaljer
       </Button>
     </div>

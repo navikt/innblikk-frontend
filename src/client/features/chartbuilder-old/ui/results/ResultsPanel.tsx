@@ -16,16 +16,6 @@ import {
   Tooltip,
   Link,
 } from '@navikt/ds-react'
-import {
-  PlayIcon,
-  Download,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
-  ExternalLink,
-  MoreVertical,
-  Search as SearchIcon,
-} from 'lucide-react'
 import type { ILineChartProps, IVerticalBarChartProps, IVerticalBarChartDataPoint } from '@fluentui/react-charting'
 import { LineChart, VerticalBarChart, AreaChart, PieChart, ResponsiveContainer } from '@fluentui/react-charting'
 import { translateValue } from '../../../../shared/lib/translations.ts'
@@ -38,6 +28,16 @@ import ShareResultsModal from './ShareResultsModal.tsx'
 import AnalysisActionModal from '../../../analysis/ui/AnalysisActionModal.tsx'
 import { encode } from '@toon-format/toon'
 import TransferToMetabaseDialog from '../../../../shared/ui/TransferToMetabaseDialog.tsx'
+import {
+  ArrowDownIcon,
+  ArrowsUpDownIcon,
+  ArrowUpIcon,
+  DownloadIcon,
+  ExternalLinkIcon,
+  MagnifyingGlassIcon as SearchIcon,
+  MenuElipsisVerticalIcon,
+  PlayIcon,
+} from '@navikt/aksel-icons'
 
 interface ResultsPanelProps {
   result: any
@@ -406,12 +406,12 @@ const ResultsPanel = ({
                     <span>{key}</span>
                     {sortColumn === key ? (
                       sortDirection === 'asc' ? (
-                        <ArrowUp size={14} className="text-blue-600" />
+                        <ArrowUpIcon fontSize="0.875rem" className="text-blue-600" />
                       ) : (
-                        <ArrowDown size={14} className="text-blue-600" />
+                        <ArrowDownIcon fontSize="0.875rem" className="text-blue-600" />
                       )
                     ) : (
-                      <ArrowUpDown size={14} className="text-[var(--ax-text-subtle)]" />
+                      <ArrowsUpDownIcon fontSize="0.875rem" className="text-[var(--ax-text-subtle)]" />
                     )}
                   </div>
                 </th>
@@ -458,7 +458,7 @@ const ResultsPanel = ({
                       >
                         {clickable ? (
                           <span className="text-blue-600 hover:underline flex items-center gap-1">
-                            {displayValue} <ExternalLink className="h-3 w-3" />
+                            {displayValue} <ExternalLinkIcon className="h-3 w-3" fontSize="1.25rem" />
                           </span>
                         ) : (
                           displayValue
@@ -661,7 +661,7 @@ const ResultsPanel = ({
               <Button
                 onClick={executeQuery}
                 loading={loading}
-                icon={<PlayIcon size={18} />}
+                icon={<PlayIcon fontSize="1.125rem" />}
                 variant="primary"
                 size="medium"
               >
@@ -738,7 +738,7 @@ const ResultsPanel = ({
                               type="button"
                               variant={showTableSearch ? 'secondary' : 'tertiary'}
                               size="xsmall"
-                              icon={<SearchIcon aria-hidden />}
+                              icon={<SearchIcon aria-hidden fontSize="1.25rem" />}
                               aria-label="Søk i tabellen"
                               aria-pressed={showTableSearch}
                               onClick={() => {
@@ -754,7 +754,7 @@ const ResultsPanel = ({
                                   type="button"
                                   variant="tertiary"
                                   size="xsmall"
-                                  icon={<MoreVertical aria-hidden />}
+                                  icon={<MenuElipsisVerticalIcon aria-hidden fontSize="1.25rem" />}
                                   aria-label="Flere valg for tabell"
                                 />
                               </ActionMenu.Trigger>
@@ -870,7 +870,7 @@ const ResultsPanel = ({
                               size="small"
                               variant="secondary"
                               onClick={downloadCSV}
-                              icon={<Download size={16} />}
+                              icon={<DownloadIcon fontSize="1rem" />}
                             >
                               Last ned CSV
                             </Button>
@@ -1339,27 +1339,47 @@ const ResultsPanel = ({
               </Tabs.Panel>
             </Tabs>
 
-            {/* Download Options */}
+            {/* DownloadIcon Options */}
             {showDownloadReadMore && (
               <div className="pt-2">
                 <ReadMore header="Last ned resultater">
                   <div className="space-y-4 mt-2">
-                    {/* Download Section */}
+                    {/* DownloadIcon Section */}
                     <div>
                       <div className="flex gap-2 flex-wrap items-center">
-                        <Button onClick={downloadCSV} variant="secondary" size="small" icon={<Download size={16} />}>
+                        <Button
+                          onClick={downloadCSV}
+                          variant="secondary"
+                          size="small"
+                          icon={<DownloadIcon fontSize="1rem" />}
+                        >
                           CSV
                         </Button>
 
-                        <Button onClick={downloadExcel} variant="secondary" size="small" icon={<Download size={16} />}>
+                        <Button
+                          onClick={downloadExcel}
+                          variant="secondary"
+                          size="small"
+                          icon={<DownloadIcon fontSize="1rem" />}
+                        >
                           Excel
                         </Button>
 
-                        <Button onClick={downloadJSON} variant="secondary" size="small" icon={<Download size={16} />}>
+                        <Button
+                          onClick={downloadJSON}
+                          variant="secondary"
+                          size="small"
+                          icon={<DownloadIcon fontSize="1rem" />}
+                        >
                           JSON
                         </Button>
 
-                        <Button onClick={downloadTOON} variant="secondary" size="small" icon={<Download size={16} />}>
+                        <Button
+                          onClick={downloadTOON}
+                          variant="secondary"
+                          size="small"
+                          icon={<DownloadIcon fontSize="1rem" />}
+                        >
                           TOON
                         </Button>
                       </div>
@@ -1406,7 +1426,7 @@ const ResultsPanel = ({
                   onClick={() => setShowShareModal(true)}
                   variant="secondary"
                   size="small"
-                  icon={<Share2 size={18} />}
+                  icon={<Share2 fontSize="1.125rem" />}
                 >
                   Del tabell & graf
                 </Button>

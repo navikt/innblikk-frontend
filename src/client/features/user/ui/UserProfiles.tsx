@@ -14,17 +14,17 @@ import {
   Tooltip,
 } from '@navikt/ds-react'
 import {
-  Monitor,
-  Smartphone,
-  Globe,
-  Clock,
-  User,
-  Laptop,
-  Tablet,
-  ExternalLink,
-  MoreVertical,
-  Search,
-} from 'lucide-react'
+  ClockIcon,
+  ExternalLinkIcon,
+  GlobeIcon,
+  LaptopIcon,
+  MagnifyingGlassIcon,
+  MenuElipsisVerticalIcon,
+  MobileIcon,
+  MonitorIcon,
+  PersonIcon,
+  TabletIcon,
+} from '@navikt/aksel-icons'
 import { parseISO } from 'date-fns'
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
@@ -268,14 +268,14 @@ const UserProfiles = () => {
   const getDeviceIcon = (device?: string) => {
     switch (device?.toLowerCase()) {
       case 'mobile':
-        return <Smartphone size={16} />
+        return <MobileIcon fontSize="1rem" />
       case 'tablet':
-        return <Tablet size={16} />
+        return <TabletIcon fontSize="1rem" />
       case 'laptop':
       case 'desktop':
-        return <Laptop size={16} />
+        return <LaptopIcon fontSize="1rem" />
       default:
-        return <Monitor size={16} />
+        return <MonitorIcon fontSize="1rem" />
     }
   }
 
@@ -478,7 +478,7 @@ const UserProfiles = () => {
                             type="button"
                             variant={showTableSearch ? 'secondary' : 'tertiary'}
                             size="xsmall"
-                            icon={<Search aria-hidden />}
+                            icon={<MagnifyingGlassIcon fontSize="1.25rem" aria-hidden />}
                             aria-label="Søk i brukertabell"
                             aria-pressed={showTableSearch}
                             onClick={() => {
@@ -494,7 +494,7 @@ const UserProfiles = () => {
                                 type="button"
                                 variant="tertiary"
                                 size="xsmall"
-                                icon={<MoreVertical aria-hidden />}
+                                icon={<MenuElipsisVerticalIcon fontSize="1.25rem" aria-hidden />}
                                 aria-label="Flere valg for brukertabell"
                               />
                             </ActionMenu.Trigger>
@@ -691,7 +691,7 @@ const UserProfiles = () => {
                     Først sett
                   </Heading>
                   <div className="flex items-center gap-2">
-                    <Clock size={16} className="text-gray-400" />
+                    <ClockIcon fontSize="1rem" className="text-gray-400" />
                     <span>{formatDate(selectedSession.firstSeen)}</span>
                   </div>
                 </div>
@@ -700,7 +700,7 @@ const UserProfiles = () => {
                     Sist sett
                   </Heading>
                   <div className="flex items-center gap-2">
-                    <Clock size={16} className="text-gray-400" />
+                    <ClockIcon fontSize="1rem" className="text-gray-400" />
                     <span>{formatDate(selectedSession.lastSeen)}</span>
                   </div>
                 </div>
@@ -718,7 +718,7 @@ const UserProfiles = () => {
                     Operativsystem
                   </Heading>
                   <div className="flex items-center gap-2">
-                    <Monitor size={16} className="text-gray-400" />
+                    <MonitorIcon fontSize="1rem" className="text-gray-400" />
                     <span>{selectedSession.os || '-'}</span>
                   </div>
                 </div>
@@ -727,7 +727,7 @@ const UserProfiles = () => {
                     Nettleser
                   </Heading>
                   <div className="flex items-center gap-2">
-                    <Globe size={16} className="text-gray-400" />
+                    <GlobeIcon fontSize="1rem" className="text-gray-400" />
                     <span>{selectedSession.browser || '-'}</span>
                   </div>
                 </div>
@@ -736,7 +736,7 @@ const UserProfiles = () => {
                     Land
                   </Heading>
                   <div className="flex items-center gap-2">
-                    <Globe size={16} className="text-gray-400" />
+                    <GlobeIcon fontSize="1rem" className="text-gray-400" />
                     <span>{translateCountry(selectedSession.country ?? '')}</span>
                   </div>
                 </div>
@@ -780,9 +780,9 @@ const UserProfiles = () => {
                       <div key={index} className="mb-8 ml-8 relative">
                         <span className="absolute flex items-center justify-center w-8 h-8 bg-[var(--ax-bg-accent-soft)] rounded-full -left-[41px] ring-4 ring-[var(--ax-bg-default)]">
                           {item.type === 'pageview' ? (
-                            <Monitor size={18} className="text-[var(--ax-text-accent)]" />
+                            <MonitorIcon fontSize="1.125rem" className="text-[var(--ax-text-accent)]" />
                           ) : (
-                            <User size={18} className="text-green-600" />
+                            <PersonIcon fontSize="1.125rem" className="text-green-600" />
                           )}
                         </span>
                         <div className="flex flex-col gap-1">
@@ -804,7 +804,7 @@ const UserProfiles = () => {
                                 if (item.url) setSelectedActivityUrl(item.url)
                               }}
                             >
-                              {item.url} <ExternalLink className="h-3 w-3" />
+                              {item.url} <ExternalLinkIcon className="h-3 w-3" fontSize="1.25rem" />
                             </code>
                           )}
                         </div>

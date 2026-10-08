@@ -1,6 +1,6 @@
 import { Button } from '@navikt/ds-react'
-import { ChartNoAxesCombined, Trash2 } from 'lucide-react'
 import type { CanvasConnectionMetric, CanvasConnectionVisual } from '../../model/types.ts'
+import { LineGraphIcon, TrashIcon } from '@navikt/aksel-icons'
 
 type CanvasConnectionPreview = {
   path: string
@@ -40,14 +40,12 @@ const CanvasConnectionLayer = ({
             <path
               d={segment.path}
               stroke="var(--ax-border-accent)"
-              strokeWidth={2}
               fill="none"
               markerEnd="url(#canvas-connection-arrow)"
             />
             <path
               d={segment.path}
               stroke="transparent"
-              strokeWidth={16}
               fill="none"
               className="pointer-events-auto cursor-pointer"
               onClick={(event) => event.preventDefault()}
@@ -75,7 +73,6 @@ const CanvasConnectionLayer = ({
         <path
           d={connectionPreview.path}
           stroke="var(--ax-border-accent)"
-          strokeWidth={3}
           strokeDasharray="8 5"
           strokeLinecap="round"
           fill="none"
@@ -95,13 +92,13 @@ const CanvasConnectionLayer = ({
       >
         <div className="absolute inset-x-0 -top-10 z-10 flex items-center justify-between gap-2 rounded-full border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-3 py-2 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
           <div className="flex items-center gap-1.5 text-[13px] font-medium text-[var(--ax-text-default)]">
-            <ChartNoAxesCombined size={13} className="text-[var(--ax-text-subtle)]" />
+            <LineGraphIcon fontSize="0.8125rem" className="text-[var(--ax-text-subtle)]" />
             <span>Kobling</span>
           </div>
           <Button
             size="xsmall"
             variant="tertiary"
-            icon={<Trash2 size={14} />}
+            icon={<TrashIcon fontSize="0.875rem" />}
             onClick={() => onRequestRemoveConnection(segment)}
             title="Fjern kobling"
             aria-label="Fjern kobling"

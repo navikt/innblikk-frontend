@@ -2,8 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { getFeatureFlag, type FeatureFlags } from '../../../../shared/lib/featureFlags.ts'
 import { getGcpProjectId } from '../../../../shared/lib/runtimeConfig.ts'
 import { Heading, Link, Button, Alert, Modal, TextField, Select, UNSAFE_Combobox } from '@navikt/ds-react'
-import { Copy, ExternalLink } from 'lucide-react'
-import { ArrowCirclepathReverseIcon } from '@navikt/aksel-icons'
+import { ArrowCirclepathReverseIcon, ExternalLinkIcon, FilesIcon } from '@navikt/aksel-icons'
 import type { ILineChartProps, IVerticalBarChartProps } from '@fluentui/react-charting'
 import { format, isEqual } from 'date-fns'
 import { getDateRangeFromPeriod } from '../../../../shared/lib/utils.ts'
@@ -1598,7 +1597,7 @@ const QueryPreview = ({
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1"
                         >
-                          Åpne Metabase <ExternalLink size={14} />
+                          Åpne Metabase <ExternalLinkIcon fontSize="0.875rem" />
                         </Link>
                       </li>
                       <li>Lim inn SQL-koden og lagre spørsmålet.</li>
@@ -1625,7 +1624,7 @@ const QueryPreview = ({
                             size="small"
                             variant="secondary"
                             onClick={handleCopy}
-                            icon={<Copy size={18} />}
+                            icon={<FilesIcon fontSize="1.125rem" />}
                             loading={estimating}
                           >
                             Kopier spørringen

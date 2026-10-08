@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react'
 import { Button, CopyButton, ReadMore, Heading, Link } from '@navikt/ds-react'
-import { Copy, ExternalLink } from 'lucide-react'
 import Editor from '@monaco-editor/react'
 import * as sqlFormatter from 'sql-formatter'
 import { Events, type LesMerApnetProperties } from '@navikt/analytics-types'
+import { ExternalLinkIcon, FilesIcon } from '@navikt/aksel-icons'
 
 interface SqlViewerProps {
   sql: string
@@ -107,7 +107,7 @@ const SqlViewer = ({
               variant="secondary"
               type="button"
               onClick={handleCopyToMetabase}
-              icon={<Copy size={14} />}
+              icon={<FilesIcon fontSize="0.875rem" />}
             >
               {copiedMetabase ? 'Kopiert!' : 'Kopier spørringen'}
             </Button>
@@ -117,7 +117,7 @@ const SqlViewer = ({
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-sm"
             >
-              Åpne Metabase <ExternalLink size={14} />
+              Åpne Metabase <ExternalLinkIcon fontSize="0.875rem" />
             </Link>
           </div>
         </div>

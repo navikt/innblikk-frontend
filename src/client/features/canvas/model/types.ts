@@ -1,4 +1,4 @@
-import type { LucideIcon } from 'lucide-react'
+import type React from 'react'
 import type { VisualizationMode } from '../../clickmap/model/visualizationMode.ts'
 import type { PageMetricRow } from '../../traffic/model/types.ts'
 
@@ -227,7 +227,7 @@ export type CanvasChartOption = {
 export type CanvasFigureOption = {
   id: CanvasFigureType
   label: string
-  Icon: LucideIcon
+  Icon: React.ComponentType<React.SVGProps<SVGSVGElement>>
 }
 
 export type PendingCanvasFrameDraft = Omit<CanvasFrame, 'id' | 'x' | 'y' | 'categoryId' | 'graphId' | 'queryId'>

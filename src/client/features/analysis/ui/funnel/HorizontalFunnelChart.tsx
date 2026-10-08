@@ -1,9 +1,9 @@
 import React from 'react'
-import { ExternalLink } from 'lucide-react'
 import AnalysisActionModal from '../AnalysisActionModal.tsx'
 import type { HorizontalFunnelChartProps } from '../../model/types.ts'
 import { computeFunnelStepMetrics, getStepLabel, getStepDestination } from '../../utils/horizontalFunnel.ts'
 import { useHorizontalFunnel } from '../../hooks/useHorizontalFunnel.ts'
+import { ExternalLinkIcon } from '@navikt/aksel-icons'
 
 const HorizontalFunnelChart: React.FC<HorizontalFunnelChartProps> = ({ data, loading, websiteId, period }) => {
   const { selectedUrl, handleUrlClick, closeModal } = useHorizontalFunnel(websiteId)
@@ -97,7 +97,9 @@ const HorizontalFunnelChart: React.FC<HorizontalFunnelChartProps> = ({ data, loa
                           onClick={(e) => (isClickable && item.url ? handleUrlClick(e, item.url) : undefined)}
                         >
                           <span className="truncate max-w-[120px]">{destCandidate || item.url}</span>
-                          {isClickable && <ExternalLink size={10} className="inline-block flex-shrink-0" />}
+                          {isClickable && (
+                            <ExternalLinkIcon fontSize="0.625rem" className="inline-block flex-shrink-0" />
+                          )}
                         </div>
                       </div>
                     )

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { ExternalLink } from 'lucide-react'
+import { ExternalLinkIcon } from '@navikt/aksel-icons'
 
 const LABEL_MIN_HEIGHT = '2.5rem' // Ensures all labels take up the same vertical space
 
@@ -249,7 +249,7 @@ const SiteScores = ({ pageUrl, siteimproveSelectedDomain, baseUrl, className }) 
                           className="mt-2 sm:mt-0 inline-flex items-center text-base font-medium text-blue-700 hover:underline"
                         >
                           Se rapport
-                          <ExternalLink className="ml-1 w-5 h-5" aria-hidden="true" />
+                          <ExternalLinkIcon className="ml-1 w-5 h-5" aria-hidden="true" fontSize="1.25rem" />
                         </a>
                       )}
                     </div>
@@ -291,7 +291,7 @@ const SiteScores = ({ pageUrl, siteimproveSelectedDomain, baseUrl, className }) 
                           className="mt-2 sm:mt-0 inline-flex items-center text-base font-medium text-blue-700 hover:underline"
                         >
                           Se rapport
-                          <ExternalLink className="ml-1 w-5 h-5" aria-hidden="true" />
+                          <ExternalLinkIcon className="ml-1 w-5 h-5" aria-hidden="true" fontSize="1.25rem" />
                         </a>
                       )}
                     </div>

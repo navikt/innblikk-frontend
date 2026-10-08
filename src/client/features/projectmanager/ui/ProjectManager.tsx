@@ -1,6 +1,14 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import { BarChartIcon, LineGraphIcon, PieChartIcon, TableIcon } from '@navikt/aksel-icons'
-import { ChevronDown, ChevronUp, MoreVertical, Plus } from 'lucide-react'
+import {
+  BarChartIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  LineGraphIcon,
+  MenuElipsisVerticalIcon,
+  PieChartIcon,
+  PlusIcon,
+  TableIcon,
+} from '@navikt/aksel-icons'
 import {
   ActionMenu,
   Alert,
@@ -1317,7 +1325,7 @@ const ProjectManager = () => {
                   type="button"
                   size="small"
                   variant="secondary"
-                  icon={<Plus aria-hidden size={16} />}
+                  icon={<PlusIcon aria-hidden fontSize="1rem" />}
                   aria-label={isCreateOpen ? 'Lukk nytt team' : 'Nytt team'}
                   onClick={toggleCreateProject}
                 />
@@ -1373,7 +1381,7 @@ const ProjectManager = () => {
                   type="button"
                   size="small"
                   variant="secondary"
-                  icon={<Plus aria-hidden size={16} />}
+                  icon={<PlusIcon aria-hidden fontSize="1rem" />}
                   onClick={toggleCreateProject}
                 >
                   Nytt team
@@ -1432,7 +1440,7 @@ const ProjectManager = () => {
                       <Button
                         variant="tertiary"
                         size="xsmall"
-                        icon={<MoreVertical aria-hidden />}
+                        icon={<MenuElipsisVerticalIcon aria-hidden fontSize="1.25rem" />}
                         aria-label={`Flere valg for ${selectedProject.project.name}`}
                       />
                     </ActionMenu.Trigger>
@@ -1510,9 +1518,9 @@ const ProjectManager = () => {
                                   className="inline-flex h-5 w-5 items-center justify-center rounded border border-transparent hover:border-[var(--ax-border-neutral)] hover:bg-[var(--ax-bg-neutral-moderate)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-border-accent)]"
                                 >
                                   {isDashboardExpanded ? (
-                                    <ChevronUp aria-hidden size={14} />
+                                    <ChevronUpIcon aria-hidden fontSize="0.875rem" />
                                   ) : (
-                                    <ChevronDown aria-hidden size={14} />
+                                    <ChevronDownIcon aria-hidden fontSize="0.875rem" />
                                   )}
                                 </button>
                               ) : row.type === 'category' ? (
@@ -1535,9 +1543,9 @@ const ProjectManager = () => {
                                   className="inline-flex h-5 w-5 items-center justify-center rounded border border-transparent hover:border-[var(--ax-border-neutral)] hover:bg-[var(--ax-bg-neutral-moderate)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-border-accent)]"
                                 >
                                   {isCategoryExpanded ? (
-                                    <ChevronUp aria-hidden size={14} />
+                                    <ChevronUpIcon aria-hidden fontSize="0.875rem" />
                                   ) : (
-                                    <ChevronDown aria-hidden size={14} />
+                                    <ChevronDownIcon aria-hidden fontSize="0.875rem" />
                                   )}
                                 </button>
                               ) : (
@@ -1570,7 +1578,7 @@ const ProjectManager = () => {
                                     <Button
                                       variant="tertiary"
                                       size="xsmall"
-                                      icon={<MoreVertical aria-hidden />}
+                                      icon={<MenuElipsisVerticalIcon aria-hidden fontSize="1.25rem" />}
                                       aria-label={`Flere valg for ${row.name}`}
                                     />
                                   </ActionMenu.Trigger>
@@ -1616,7 +1624,7 @@ const ProjectManager = () => {
                                     <Button
                                       variant="tertiary"
                                       size="xsmall"
-                                      icon={<MoreVertical aria-hidden />}
+                                      icon={<MenuElipsisVerticalIcon aria-hidden fontSize="1.25rem" />}
                                       aria-label={`Flere valg for ${row.name}`}
                                     />
                                   </ActionMenu.Trigger>
@@ -1663,7 +1671,7 @@ const ProjectManager = () => {
                                     <Button
                                       variant="tertiary"
                                       size="xsmall"
-                                      icon={<MoreVertical aria-hidden />}
+                                      icon={<MenuElipsisVerticalIcon aria-hidden fontSize="1.25rem" />}
                                       aria-label={`Flere valg for ${getCategoryDisplayName(row.name)}`}
                                     />
                                   </ActionMenu.Trigger>
@@ -1689,7 +1697,7 @@ const ProjectManager = () => {
                           <Table.HeaderCell scope="row">
                             <div className="inline-flex items-center gap-2 pl-6 sm:pl-12">
                               <span className="text-[var(--ax-text-subtle)]">
-                                <Plus aria-hidden size={14} />
+                                <PlusIcon aria-hidden fontSize="0.875rem" />
                               </span>
                               {renderDashboardAddMenu(row.dashboardId)}
                             </div>
@@ -1702,7 +1710,7 @@ const ProjectManager = () => {
                           <Table.HeaderCell scope="row">
                             <div className="inline-flex items-center gap-2 pl-3 sm:pl-6">
                               <span className="text-[var(--ax-text-subtle)]">
-                                <Plus aria-hidden size={14} />
+                                <PlusIcon aria-hidden fontSize="0.875rem" />
                               </span>
                               {renderDashboardAddMenu(row.dashboardId)}
                             </div>

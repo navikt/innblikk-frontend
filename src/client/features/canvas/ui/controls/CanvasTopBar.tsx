@@ -1,6 +1,14 @@
 import { ActionMenu, Alert, Button, Tabs, Tag, TextField } from '@navikt/ds-react'
-import { PersonGroupIcon, PersonIcon, TestFlaskIcon, ThemeIcon } from '@navikt/aksel-icons'
-import { House, FileText, MoreVertical, Presentation } from 'lucide-react'
+import {
+  FileTextIcon,
+  HouseIcon,
+  MenuElipsisVerticalIcon,
+  PersonGroupIcon,
+  PersonIcon,
+  PresentationIcon,
+  TestFlaskIcon,
+  ThemeIcon,
+} from '@navikt/aksel-icons'
 import { useEffect, useRef, useState, type KeyboardEvent, type RefObject, type TouchEvent } from 'react'
 import PeriodPicker from '../../../analysis/ui/PeriodPicker.tsx'
 import type { GraphCategoryDto } from '../../../oversikt/model/types.ts'
@@ -390,7 +398,7 @@ const CanvasTopBar = ({
                   <Button
                     size="small"
                     variant="tertiary"
-                    icon={<MoreVertical size={16} />}
+                    icon={<MenuElipsisVerticalIcon fontSize="1rem" />}
                     aria-label="Innstillinger"
                     disabled={canvasInitMode !== 'existing' || isInteractionLocked}
                   />
@@ -408,7 +416,7 @@ const CanvasTopBar = ({
                   <ActionMenu.Item onClick={() => window.location.assign('/')}>
                     <span className="inline-flex items-center gap-1">
                       Innblikk
-                      <House size={14} />
+                      <HouseIcon fontSize="0.875rem" />
                     </span>
                   </ActionMenu.Item>
                   <ActionMenu.Divider />
@@ -420,13 +428,13 @@ const CanvasTopBar = ({
                   </ActionMenu.Item>
                   <ActionMenu.Item onClick={onOpenShareView}>
                     <span className="inline-flex items-center gap-2 whitespace-nowrap">
-                      <FileText size={14} />
+                      <FileTextIcon fontSize="0.875rem" />
                       Artikkelvisning
                     </span>
                   </ActionMenu.Item>
                   <ActionMenu.Item onClick={onOpenPresentationView}>
                     <span className="inline-flex items-center gap-2 whitespace-nowrap">
-                      <Presentation size={14} />
+                      <PresentationIcon fontSize="0.875rem" />
                       Presentasjon
                     </span>
                   </ActionMenu.Item>

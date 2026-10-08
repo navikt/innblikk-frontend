@@ -1,25 +1,26 @@
-import { MenuHamburgerIcon, TestFlaskIcon, XMarkIcon } from '@navikt/aksel-icons'
-import { Button, Tag, Tooltip } from '@navikt/ds-react'
 import {
-  Activity,
-  ArrowLeftRight,
-  BarChart2,
-  BookOpen,
-  ChevronDown,
-  ChevronUp,
-  ExternalLink,
-  FileSearch,
-  Home,
-  LayoutDashboard,
-  LineChart,
-  Moon,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Settings,
-  Sun,
-  Users,
-  Wrench,
-} from 'lucide-react'
+  AreaChartIcon,
+  BarChartIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  CogIcon,
+  ExternalLinkIcon,
+  FileSearchIcon,
+  HouseIcon,
+  LightningIcon,
+  MenuHamburgerIcon,
+  MoonIcon,
+  OpenBookIcon,
+  PersonGroupIcon,
+  SidebarLeftIcon,
+  SidebarRightIcon,
+  SquareGridIcon,
+  SunIcon,
+  TestFlaskIcon,
+  WrenchIcon,
+  XMarkIcon,
+} from '@navikt/aksel-icons'
+import { Button, Select, Tag, Tooltip } from '@navikt/ds-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link as RouterLink, useLocation } from 'react-router-dom'
 import '../../../../tailwind.css'
@@ -48,39 +49,6 @@ type NavGroup = {
 
 type NavEntry = NavLink | NavGroup
 
-type EnvironmentLink = {
-  href: string
-  label: string
-}
-
-// Originally moved here from the now-deleted Header component (same logic) —
-// offers a link to switch between the dev and prod versions of the current
-// page, preserving path/query/hash.
-const getEnvironmentLinks = (hostname: string, currentPath: string): EnvironmentLink[] => {
-  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
-  const isDev = hostname.includes('.dev.nav.no')
-  const isProd = hostname.includes('.nav.no') && !isDev
-
-  if (isLocalhost) {
-    return [
-      { href: `https://startumami.ansatt.dev.nav.no${currentPath}`, label: 'Gå til dev-miljø' },
-      { href: `https://startumami.ansatt.nav.no${currentPath}`, label: 'Gå til prod-miljø' },
-    ]
-  }
-
-  if (isDev) {
-    const prodHostname = hostname.replace('.dev.nav.no', '.nav.no')
-    return [{ href: `https://${prodHostname}${currentPath}`, label: 'Gå til prod-miljø' }]
-  }
-
-  if (isProd) {
-    const devHostname = hostname.replace('.nav.no', '.dev.nav.no')
-    return [{ href: `https://${devHostname}${currentPath}`, label: 'Gå til dev-miljø' }]
-  }
-
-  return []
-}
-
 // Main app navigation — single source of truth, following the "sidemeny" design
 // at https://dish-sign-07547237.figma.site/. Sub-item groupings mirror the design
 // (Trafikk / Hendelser / Brukere), mapped onto this app's real existing routes
@@ -98,12 +66,12 @@ const getEnvironmentLinks = (hostname: string, currentPath: string): Environment
 // (branding, main nav, Beta/dev tags, Miljø env switch, theme toggle, Profil) now
 // lives exclusively in this Sidebar, so there's a single persistent nav surface.
 const getNavItems = (isBeta: boolean, isReopsTeamMember: boolean): NavEntry[] => [
-  { kind: 'link', id: 'hjem', label: 'Hjem', to: '/', icon: <Home aria-hidden size={20} /> },
+  { kind: 'link', id: 'hjem', label: 'Hjem', to: '/', icon: <HouseIcon aria-hidden fontSize="1.25rem" /> },
   {
     kind: 'group',
     id: 'trafikkanalyse',
     label: 'Trafikkanalyse',
-    icon: <BarChart2 aria-hidden size={20} />,
+    icon: <BarChartIcon aria-hidden fontSize="1.25rem" />,
     items: [
       { id: 'trafikkoversikt', label: 'Trafikkoversikt', to: '/trafikkanalyse' },
       { id: 'markedsanalyse', label: 'Kampanjer', to: '/markedsanalyse' },
@@ -116,7 +84,7 @@ const getNavItems = (isBeta: boolean, isReopsTeamMember: boolean): NavEntry[] =>
     kind: 'group',
     id: 'hendelser',
     label: 'Hendelser',
-    icon: <Activity aria-hidden size={20} />,
+    icon: <LightningIcon aria-hidden fontSize="1.25rem" />,
     items: [
       { id: 'egendefinerte', label: 'Egendefinerte hendelser', to: '/utforsk-hendelser' },
       { id: 'hendelsesforlop', label: 'Hendelsesforløp', to: '/hendelsesreiser' },
@@ -126,7 +94,7 @@ const getNavItems = (isBeta: boolean, isReopsTeamMember: boolean): NavEntry[] =>
     kind: 'group',
     id: 'brukere',
     label: 'Brukere',
-    icon: <Users aria-hidden size={20} />,
+    icon: <PersonGroupIcon aria-hidden fontSize="1.25rem" />,
     items: [
       { id: 'brukerdetaljer', label: 'Brukerdetaljer', to: '/brukersammensetning' },
       { id: 'enkeltbrukere', label: 'Enkeltbrukere', to: '/brukerprofiler' },
@@ -138,26 +106,32 @@ const getNavItems = (isBeta: boolean, isReopsTeamMember: boolean): NavEntry[] =>
     kind: 'group',
     id: 'innholdskvalitet',
     label: 'Innholdskvalitet',
-    icon: <FileSearch aria-hidden size={20} />,
+    icon: <FileSearchIcon aria-hidden fontSize="1.25rem" />,
     items: [
       { id: 'stavekontroll', label: 'Stavekontroll', to: '/kvalitet/stavekontroll' },
       { id: 'odelagte-lenker', label: 'Ødelagte lenker', to: '/kvalitet/odelagte-lenker' },
       ...(isBeta ? [{ id: 'wcag', label: 'Universell utforming', to: '/kvalitet/wcag' }] : []),
     ],
   },
-  { kind: 'link', id: 'grafbygger', label: 'Grafbygger', to: '/grafbygger', icon: <LineChart aria-hidden size={20} /> },
+  {
+    kind: 'link',
+    id: 'grafbygger',
+    label: 'Grafbygger',
+    to: '/grafbygger',
+    icon: <AreaChartIcon aria-hidden fontSize="1.25rem" />,
+  },
   {
     kind: 'link',
     id: 'dashboard',
     label: 'Dashboard',
     to: '/dashboard',
-    icon: <LayoutDashboard aria-hidden size={20} />,
+    icon: <SquareGridIcon aria-hidden fontSize="1.25rem" />,
   },
   {
     kind: 'group',
     id: 'verktoy',
     label: 'Verktøy',
-    icon: <Wrench aria-hidden size={20} />,
+    icon: <WrenchIcon aria-hidden fontSize="1.25rem" />,
     items: [
       { id: 'sporingskoder', label: 'Sporingskoder', to: '/sporingskoder' },
       { id: 'sql', label: 'SQL-spørringer', to: '/sql' },
@@ -170,7 +144,7 @@ const getNavItems = (isBeta: boolean, isReopsTeamMember: boolean): NavEntry[] =>
     kind: 'group',
     id: 'ressurser',
     label: 'Ressurser',
-    icon: <BookOpen aria-hidden size={20} />,
+    icon: <OpenBookIcon aria-hidden fontSize="1.25rem" />,
     items: [
       { id: 'komigang', label: 'Kom i gang', to: '/komigang' },
       {
@@ -292,7 +266,7 @@ function SidebarGroup({
         <>
           <span className="flex-1 truncate">{entry.label}</span>
           <span className="grid shrink-0 place-items-center text-[var(--ax-text-subtle)]">
-            {isOpen ? <ChevronUp aria-hidden size={16} /> : <ChevronDown aria-hidden size={16} />}
+            {isOpen ? <ChevronUpIcon aria-hidden fontSize="1rem" /> : <ChevronDownIcon aria-hidden fontSize="1rem" />}
           </span>
         </>
       )}
@@ -315,7 +289,7 @@ function SidebarGroup({
               <a key={item.id} href={item.to} target="_blank" rel="noopener noreferrer" className={subRowClass(false)}>
                 <span className="inline-flex items-center gap-1">
                   {item.label}
-                  <ExternalLink aria-hidden size={13} />
+                  <ExternalLinkIcon aria-hidden fontSize="0.8125rem" />
                 </span>
               </a>
             ) : (
@@ -363,10 +337,37 @@ export default function Sidebar({ theme }: SidebarProps) {
 
   const { hostname, pathname: currentPathname, search, hash } = window.location
   const currentPath = `${currentPathname}${search}${hash}`
-  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
-  const isDevEnvironment = isLocalhost || hostname.includes('.dev.nav.no')
-  const environmentBadgeLabel = isLocalhost ? 'Localhost' : 'Dev'
-  const environmentLinks = getEnvironmentLinks(hostname, currentPath)
+  const isLocalhost = false //  hostname === 'localhost' || hostname === '127.0.0.1'
+  const isDev = ['.dev.', '.intern.', '.ansatt.'].includes(hostname)
+  const isProd = true //hostname.includes('.nav.no') && !isDev
+
+  // Swap dev.nav.no ↔ nav.no on the current hostname, preserving path/query/hash.
+  // Originally two separate "Gå til dev-miljø" / "Gå til prod-miljø" links at the
+  // bottom — merged into a single Select at the top.
+  const switchEnvironment = (target: 'dev' | 'prod') => {
+    const targetHostname =
+      target === 'dev' ? hostname.replace('.nav.no', '.dev.nav.no') : hostname.replace('.dev.nav.no', '.nav.no')
+    window.location.href = `https://${targetHostname}${currentPath}`
+  }
+
+  const environmentIndicator = isLocalhost ? (
+    <Tooltip content="Kjører lokalt mot dev-miljøet. Ingen av handlingene dine påvirker ekte brukere eller produksjonsdata.">
+      <Tag data-color="info" variant="outline" size="small">
+        Localhost
+      </Tag>
+    </Tooltip>
+  ) : isDev || isProd ? (
+    <Select
+      label="Miljø"
+      hideLabel
+      size="small"
+      value={isDev ? 'dev' : 'prod'}
+      onChange={(e) => switchEnvironment(e.target.value as 'dev' | 'prod')}
+    >
+      <option value="dev">Dev</option>
+      <option value="prod">Prod</option>
+    </Select>
+  ) : null
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768)
@@ -407,7 +408,7 @@ export default function Sidebar({ theme }: SidebarProps) {
           id: 'innstillinger',
           label: 'Innstillinger',
           to: '/innstillinger',
-          icon: <Settings aria-hidden size={20} />,
+          icon: <CogIcon aria-hidden fontSize="1.25rem" />,
         }}
         collapsed={collapsed}
       />
@@ -420,7 +421,11 @@ export default function Sidebar({ theme }: SidebarProps) {
             className="flex w-full items-center gap-3 rounded-lg border-none bg-transparent px-3 py-2 text-left text-[15px] text-[var(--ax-text-default)] transition-colors hover:bg-[var(--ax-bg-neutral-moderate)]"
           >
             <span className="grid shrink-0 place-items-center">
-              {theme === 'dark' ? <Sun aria-hidden size={20} /> : <Moon aria-hidden size={20} />}
+              {theme === 'dark' ? (
+                <SunIcon aria-hidden fontSize="1.25rem" />
+              ) : (
+                <MoonIcon aria-hidden fontSize="1.25rem" />
+              )}
             </span>
           </button>
         </Tooltip>
@@ -431,37 +436,16 @@ export default function Sidebar({ theme }: SidebarProps) {
           className="flex w-full items-center gap-3 rounded-lg border-none bg-transparent px-3 py-2 text-left text-[15px] text-[var(--ax-text-default)] transition-colors hover:bg-[var(--ax-bg-neutral-moderate)]"
         >
           <span className="grid shrink-0 place-items-center">
-            {theme === 'dark' ? <Sun aria-hidden size={20} /> : <Moon aria-hidden size={20} />}
+            {theme === 'dark' ? (
+              <SunIcon aria-hidden fontSize="1.25rem" />
+            ) : (
+              <MoonIcon aria-hidden fontSize="1.25rem" />
+            )}
           </span>
           <span>{theme === 'dark' ? 'Lyst tema' : 'Mørkt tema'}</span>
         </button>
       )}
-      {environmentLinks.map((item) =>
-        collapsed ? (
-          <Tooltip key={item.href} content={item.label} placement="right">
-            <a
-              href={item.href}
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[15px] text-[var(--ax-text-default)] no-underline transition-colors hover:bg-[var(--ax-bg-neutral-moderate)]"
-            >
-              <span className="grid shrink-0 place-items-center">
-                <ArrowLeftRight aria-hidden size={20} />
-              </span>
-            </a>
-          </Tooltip>
-        ) : (
-          <a
-            key={item.href}
-            href={item.href}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[15px] text-[var(--ax-text-default)] no-underline transition-colors hover:bg-[var(--ax-bg-neutral-moderate)]"
-          >
-            <span className="grid shrink-0 place-items-center">
-              <ArrowLeftRight aria-hidden size={20} />
-            </span>
-            <span className="truncate">{item.label}</span>
-          </a>
-        ),
-      )}
-      {!collapsed && buildShortSha && (
+      {!collapsed && isReopsTeamMember && buildShortSha && (
         <a
           href={`https://github.com/navikt/innblikk-frontend/commit/${buildSha}`}
           target="_blank"
@@ -469,7 +453,7 @@ export default function Sidebar({ theme }: SidebarProps) {
           className="mt-1 flex items-center gap-1 px-3 text-xs text-[var(--ax-text-subtle)] no-underline hover:underline"
         >
           Bygg: {buildShortSha}
-          <ExternalLink aria-hidden size={12} />
+          <ExternalLinkIcon aria-hidden fontSize="0.75rem" />
         </a>
       )}
       {!isMobile && (
@@ -480,7 +464,11 @@ export default function Sidebar({ theme }: SidebarProps) {
           className="flex w-full items-center gap-3 rounded-lg border-none bg-transparent px-3 py-2 text-left text-sm text-[var(--ax-text-subtle)] transition-colors hover:bg-[var(--ax-bg-neutral-moderate)]"
         >
           <span className="grid shrink-0 place-items-center">
-            {collapsed ? <PanelLeftOpen aria-hidden size={20} /> : <PanelLeftClose aria-hidden size={20} />}
+            {collapsed ? (
+              <SidebarRightIcon aria-hidden fontSize="1.25rem" />
+            ) : (
+              <SidebarLeftIcon aria-hidden fontSize="1.25rem" />
+            )}
           </span>
           {!collapsed && <span>Skjul meny</span>}
         </button>
@@ -510,19 +498,7 @@ export default function Sidebar({ theme }: SidebarProps) {
                 Beta
               </Tag>
             )}
-            {isDevEnvironment && (
-              <Tooltip
-                content={
-                  isLocalhost
-                    ? 'Kjører lokalt mot dev-miljøet. Ingen av handlingene dine påvirker ekte brukere eller produksjonsdata.'
-                    : 'Dev-miljø. Ingen av handlingene dine påvirker ekte brukere eller produksjonsdata.'
-                }
-              >
-                <Tag data-color="info" variant="outline" size="small">
-                  {environmentBadgeLabel}
-                </Tag>
-              </Tooltip>
-            )}
+            {environmentIndicator}
           </RouterLink>
           <Button
             variant="tertiary-neutral"
@@ -558,51 +534,40 @@ export default function Sidebar({ theme }: SidebarProps) {
         isCollapsed ? 'w-16' : 'w-[240px]'
       }`}
     >
-      <RouterLink
-        to="/"
-        className="flex items-center gap-2 border-b px-3 py-4 no-underline"
+      <div
+        className="flex items-center gap-2 border-b px-3 py-4"
         style={{ borderColor: 'var(--ax-border-neutral-subtle)' }}
       >
-        <span aria-hidden="true" className="grid shrink-0 place-items-center">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path
-              d="M16.5 10.5C16.5 13.8137 13.8137 16.5 10.5 16.5C7.18629 16.5 4.5 13.8137 4.5 10.5C4.5 7.18629 7.18629 4.5 10.5 4.5C13.8137 4.5 16.5 7.18629 16.5 10.5Z"
-              stroke="currentColor"
-              strokeWidth="1.9"
-            />
-            <path d="M15.2 15.2L20.5 20.5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
-            <path
-              d="M7.9 12.5V10.2M10.5 12.5V8.5M13.1 12.5V9.3"
-              stroke="currentColor"
-              strokeWidth="1.9"
-              strokeLinecap="round"
-            />
-          </svg>
-        </span>
-        {!isCollapsed && (
-          <span className="flex flex-wrap items-center gap-2">
-            <span className="text-lg font-semibold tracking-tight text-[var(--ax-text-default)]">Innblikk</span>
-            {isBeta && (
-              <Tag data-color="meta-purple" variant="strong" size="small" icon={<TestFlaskIcon aria-hidden />}>
-                Beta
-              </Tag>
-            )}
-            {isDevEnvironment && (
-              <Tooltip
-                content={
-                  isLocalhost
-                    ? 'Kjører lokalt mot dev-miljøet. Ingen av handlingene dine påvirker ekte brukere eller produksjonsdata.'
-                    : 'Dev-miljø. Ingen av handlingene dine påvirker ekte brukere eller produksjonsdata.'
-                }
-              >
-                <Tag data-color="info" variant="outline" size="small">
-                  {environmentBadgeLabel}
-                </Tag>
-              </Tooltip>
-            )}
+        <RouterLink to="/" className="flex min-w-0 items-center gap-2 no-underline">
+          <span aria-hidden="true" className="grid shrink-0 place-items-center">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path
+                d="M16.5 10.5C16.5 13.8137 13.8137 16.5 10.5 16.5C7.18629 16.5 4.5 13.8137 4.5 10.5C4.5 7.18629 7.18629 4.5 10.5 4.5C13.8137 4.5 16.5 7.18629 16.5 10.5Z"
+                stroke="currentColor"
+                strokeWidth="1.9"
+              />
+              <path d="M15.2 15.2L20.5 20.5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+              <path
+                d="M7.9 12.5V10.2M10.5 12.5V8.5M13.1 12.5V9.3"
+                stroke="currentColor"
+                strokeWidth="1.9"
+                strokeLinecap="round"
+              />
+            </svg>
           </span>
-        )}
-      </RouterLink>
+          {!isCollapsed && (
+            <span className="flex items-center gap-2">
+              <span className="text-lg font-semibold mx-2 tracking-tight text-[var(--ax-text-default)]">Innblikk</span>
+              {isBeta && (
+                <Tag data-color="meta-purple" variant="strong" size="small" icon={<TestFlaskIcon aria-hidden />}>
+                  Beta
+                </Tag>
+              )}
+            </span>
+          )}
+        </RouterLink>
+        {!isCollapsed && environmentIndicator && <span className="shrink-0">{environmentIndicator}</span>}
+      </div>
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         <NavList collapsed={isCollapsed} items={navItems} onExpandSidebar={() => setIsCollapsed(false)} />
       </div>

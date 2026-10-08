@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import './CopyButton.css'
 import { Button } from '@navikt/ds-react'
-import { Copy, Check } from 'lucide-react'
+import { CheckmarkIcon, FilesIcon } from '@navikt/aksel-icons'
 
 interface CopyButtonProps {
   textToCopy: string
@@ -48,7 +48,7 @@ function CopyButton({ textToCopy, visible }: CopyButtonProps) {
     <Button
       onClick={copyToClipboard}
       id="sql-copy-button"
-      icon={isCopied ? <Check size="1.2rem" /> : <Copy size="1.2rem" />}
+      icon={isCopied ? <CheckmarkIcon fontSize="1.2rem" /> : <FilesIcon fontSize="1.2rem" />}
     >
       {isCopied ? 'Kopiert!' : 'Kopier spørsmålet'}
     </Button>

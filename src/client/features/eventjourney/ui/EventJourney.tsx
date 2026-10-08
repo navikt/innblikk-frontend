@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { TextField, Button, Alert, Loader, Switch, UNSAFE_Combobox } from '@navikt/ds-react'
-import { Share2, Check, ExternalLink } from 'lucide-react'
+import { CheckmarkIcon, ExternalLinkIcon, PaperplaneIcon } from '@navikt/aksel-icons'
 import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
 import { format } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
@@ -288,7 +288,12 @@ const EventJourney = () => {
                 >
                   Tøm valgte
                 </Button>
-                <Button variant="primary" size="small" onClick={navigateToFunnel} icon={<ExternalLink size={16} />}>
+                <Button
+                  variant="primary"
+                  size="small"
+                  onClick={navigateToFunnel}
+                  icon={<ExternalLinkIcon fontSize="1rem" />}
+                >
                   Opprett traktanalyse
                 </Button>
               </div>
@@ -299,7 +304,7 @@ const EventJourney = () => {
             <Button
               size="small"
               variant="secondary"
-              icon={copySuccess ? <Check size={16} /> : <Share2 size={16} />}
+              icon={copySuccess ? <CheckmarkIcon fontSize="1rem" /> : <PaperplaneIcon fontSize="1rem" />}
               onClick={copyShareLink}
             >
               {copySuccess ? 'Kopiert!' : 'Del analyse'}

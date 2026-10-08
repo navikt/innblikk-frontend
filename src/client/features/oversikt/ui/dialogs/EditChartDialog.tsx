@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { DragEvent } from 'react'
 import { ActionMenu, Alert, Button, Modal, Select, Switch, TextField, Tabs } from '@navikt/ds-react'
 import Editor from '@monaco-editor/react'
-import { GripVertical, MoreVertical } from 'lucide-react'
+import { DragVerticalIcon, MenuElipsisVerticalIcon } from '@navikt/aksel-icons'
 import type { GraphType, OversiktChart } from '../../model/types.ts'
 import type { Website } from '../../../../shared/types/website.ts'
 import { fetchWebsites } from '../../../../shared/api/websiteApi.ts'
@@ -560,7 +560,7 @@ const EditChartDialog = ({
                               }}
                               style={{ opacity: draggedVariantQueryId === variant.queryId ? 0.65 : 1 }}
                             >
-                              {canReorderVariants && <GripVertical aria-hidden size={14} />}
+                              {canReorderVariants && <DragVerticalIcon aria-hidden fontSize="0.875rem" />}
                               <span>{getVariantDisplayName(variant.queryName, index)}</span>
                             </span>
                           }
@@ -644,7 +644,7 @@ const EditChartDialog = ({
                             type="button"
                             variant="secondary"
                             size="xsmall"
-                            icon={<MoreVertical aria-hidden />}
+                            icon={<MenuElipsisVerticalIcon aria-hidden fontSize="1.25rem" />}
                             title="Handlinger for valgt variant"
                           />
                         </ActionMenu.Trigger>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button, Pagination, Select } from '@navikt/ds-react'
-import { ArrowRight, Plus, Check } from 'lucide-react'
+import { ArrowRightIcon, CheckmarkIcon, PlusIcon } from '@navikt/aksel-icons'
 import { parseJourneyStep } from '../../utils/parsers.ts'
 import { formatNumber } from '../../utils/formatters.ts'
 
@@ -112,9 +112,9 @@ const JourneyVisualView = ({
                             title={isSelectedForFunnel ? 'Fjern fra trakt' : 'Legg til i trakt'}
                           >
                             {isSelectedForFunnel ? (
-                              <Check size={14} strokeWidth={3} />
+                              <CheckmarkIcon fontSize="0.875rem" />
                             ) : (
-                              <Plus size={14} strokeWidth={3} />
+                              <PlusIcon fontSize="0.875rem" />
                             )}
                           </button>
                         </div>
@@ -142,7 +142,7 @@ const JourneyVisualView = ({
                         )}
                       </div>
                       {stepIndex < journey.path.length - 1 && (
-                        <ArrowRight size={16} className="text-[var(--ax-text-subtle)] flex-shrink-0" />
+                        <ArrowRightIcon fontSize="1rem" className="text-[var(--ax-text-subtle)] flex-shrink-0" />
                       )}
                     </div>
                   )

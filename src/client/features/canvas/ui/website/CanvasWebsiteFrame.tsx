@@ -1,6 +1,6 @@
 import { Alert, Link, Loader } from '@navikt/ds-react'
-import { ExternalLink } from 'lucide-react'
 import type { PageMetricRow } from '../../../traffic/model/types.ts'
+import { ExternalLinkIcon } from '@navikt/aksel-icons'
 
 type CanvasWebsiteFrameData = {
   id: string
@@ -148,7 +148,7 @@ const CanvasWebsiteFrame = ({
                 className="inline-flex max-w-full items-center gap-1.5 text-sm font-medium break-words text-left"
               >
                 <span>{formatCanvasPathLabel(frame.targetUrl, frame.displayUrl)}</span>
-                <ExternalLink size={14} aria-hidden="true" />
+                <ExternalLinkIcon fontSize="0.875rem" aria-hidden="true" />
               </Link>
             )}
           </div>

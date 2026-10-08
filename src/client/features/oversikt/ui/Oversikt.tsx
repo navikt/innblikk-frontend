@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { DragEvent, KeyboardEvent } from 'react'
-import { GripVertical } from 'lucide-react'
+import { DragVerticalIcon } from '@navikt/aksel-icons'
 import {
   ActionMenu,
   Alert,
@@ -1886,7 +1886,9 @@ const Oversikt = () => {
                             }}
                             style={{ opacity: draggedCategoryId === category.id ? 0.65 : 1 }}
                           >
-                            {isEditPanelOpen && categories.length > 1 && <GripVertical aria-hidden size={14} />}
+                            {isEditPanelOpen && categories.length > 1 && (
+                              <DragVerticalIcon aria-hidden fontSize="0.875rem" />
+                            )}
                             <span>{getCategoryDisplayName(category.name)}</span>
                           </span>
                         }
@@ -2059,7 +2061,7 @@ const Oversikt = () => {
                                         }}
                                       >
                                         {isEditPanelOpen && (chart.variants?.length ?? 0) > 1 && (
-                                          <GripVertical aria-hidden size={14} />
+                                          <DragVerticalIcon aria-hidden fontSize="0.875rem" />
                                         )}
                                         <span>{getVariantDisplayName(variant.queryName, variantIndex)}</span>
                                       </span>
@@ -2075,7 +2077,7 @@ const Oversikt = () => {
                             <Button
                               variant="secondary"
                               size="xsmall"
-                              icon={<GripVertical aria-hidden />}
+                              icon={<DragVerticalIcon aria-hidden fontSize="1.25rem" />}
                               title={grabbedGraphId === chart.graphId ? 'Slipp graf' : 'Flytt graf'}
                               aria-label={`${grabbedGraphId === chart.graphId ? 'Slipp' : 'Flytt'} ${chart.title}. Plass ${index + 1} av ${charts.length}.`}
                               aria-pressed={grabbedGraphId === chart.graphId}

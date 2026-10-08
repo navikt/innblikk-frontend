@@ -1,6 +1,12 @@
-import { ThemeIcon } from '@navikt/aksel-icons'
+import {
+  ArrowLeftIcon,
+  ExternalLinkIcon,
+  EyeSlashIcon,
+  LinkIcon,
+  MenuElipsisVerticalIcon,
+  ThemeIcon,
+} from '@navikt/aksel-icons'
 import { ActionMenu, Alert, BodyLong, BodyShort, Button, Heading, Link, Loader, Select, Table } from '@navikt/ds-react'
-import { ArrowLeft, ExternalLink, EyeOff, Link2, MoreVertical } from 'lucide-react'
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { DashboardWidget } from '../../../dashboard'
@@ -484,7 +490,7 @@ const CanvasShareView = () => {
         <div className="rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-4 sm:p-5">
           <Link href={href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5">
             {frame.label || formatCanvasPathLabel(frame.targetUrl, href)}
-            <ExternalLink size={14} aria-hidden="true" />
+            <ExternalLinkIcon fontSize="0.875rem" aria-hidden="true" />
           </Link>
           {frame.textContent && (
             <BodyShort className="mt-2 text-[var(--ax-text-subtle)]">{frame.textContent}</BodyShort>
@@ -535,7 +541,6 @@ const CanvasShareView = () => {
                 drawingPath={frame.drawingPath}
                 drawingStrokeStyles={frame.drawingStrokeStyles}
                 strokeColor={frame.drawingColor || DEFAULT_CANVAS_ICON_COLOR}
-                strokeWidth={frame.drawingStrokeWidth ?? DEFAULT_DRAWING_STROKE_WIDTH}
                 rotationDeg={frame.drawingRotationDeg}
                 label={frame.label}
                 drawingAltText={frame.drawingAltText}
@@ -740,20 +745,20 @@ const CanvasShareView = () => {
                 <Button
                   size="small"
                   variant="tertiary"
-                  icon={<MoreVertical size={16} />}
+                  icon={<MenuElipsisVerticalIcon fontSize="1rem" />}
                   aria-label="Flere handlinger"
                 />
               </ActionMenu.Trigger>
               <ActionMenu.Content align="end">
                 <ActionMenu.Item onClick={navigateBackToCanvas}>
                   <span className="inline-flex items-center gap-2">
-                    <ArrowLeft size={14} />
+                    <ArrowLeftIcon fontSize="0.875rem" />
                     Til canvas
                   </span>
                 </ActionMenu.Item>
                 <ActionMenu.Item onClick={() => void handleCopyShareLink()}>
                   <span className="inline-flex items-center gap-2">
-                    <Link2 size={14} />
+                    <LinkIcon fontSize="0.875rem" />
                     {copySuccess ? 'Lenke kopiert' : 'Kopier lenke'}
                   </span>
                 </ActionMenu.Item>
@@ -782,7 +787,7 @@ const CanvasShareView = () => {
             {hiddenCount > 0 && (
               <Alert variant="info" size="small">
                 <span className="inline-flex items-center gap-2">
-                  <EyeOff size={14} aria-hidden="true" />
+                  <EyeSlashIcon fontSize="0.875rem" aria-hidden="true" />
                   {hiddenCount} overlappende element{hiddenCount === 1 ? '' : 'er'} er skjult i artikkelvisning.
                 </span>
               </Alert>

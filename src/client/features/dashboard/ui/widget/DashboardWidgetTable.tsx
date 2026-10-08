@@ -1,5 +1,5 @@
 import { ActionMenu, Pagination, Table } from '@navikt/ds-react'
-import { ExternalLink } from 'lucide-react'
+import { ExternalLinkIcon } from '@navikt/aksel-icons'
 import type { DashboardRow } from '../../utils/widgetUtils.ts'
 import { formatTableValue, isClickablePath } from '../../utils/widgetUtils.ts'
 import { translateValue } from '../../../../shared/lib/translations.ts'
@@ -100,14 +100,14 @@ const DashboardWidgetTable = ({
                                 type="button"
                                 className="text-blue-600 hover:underline inline-flex items-center gap-1"
                               >
-                                {displayVal} <ExternalLink className="h-3 w-3" />
+                                {displayVal} <ExternalLinkIcon className="h-3 w-3" fontSize="1.25rem" />
                               </button>
                             </ActionMenu.Trigger>
                             <ActionMenu.Content align="start">
                               <ActionMenu.Item onClick={() => openOnWebsite(val)}>
                                 <span className="inline-flex items-center gap-1">
                                   <span>Åpne siden</span>
-                                  <ExternalLink aria-hidden size={16} />
+                                  <ExternalLinkIcon aria-hidden fontSize="1rem" />
                                 </span>
                               </ActionMenu.Item>
                               <ActionMenu.Item onClick={() => void copyPath(val)}>Kopier URL</ActionMenu.Item>

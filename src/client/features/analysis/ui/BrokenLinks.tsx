@@ -13,7 +13,6 @@ import {
   Heading,
   Tooltip,
 } from '@navikt/ds-react'
-import { ExternalLink, MoreVertical, Search } from 'lucide-react'
 import ChartLayout from './ChartLayout.tsx'
 import AnalysisActionModal from './AnalysisActionModal.tsx'
 import WebsitePicker from './WebsitePicker.tsx'
@@ -21,6 +20,7 @@ import type { Website } from '../../../shared/types/chart.ts'
 import { getUrlPath } from '../utils/url.ts'
 import { downloadCsv } from '../utils/siteimprove.ts'
 import { useBrokenLinks, usePageBrokenLinks, useBrokenLinkPages } from '../hooks/useBrokenLinks.ts'
+import { ExternalLinkIcon, MagnifyingGlassIcon, MenuElipsisVerticalIcon } from '@navikt/aksel-icons'
 
 function PageBrokenLinksContent({
   pageId,
@@ -72,7 +72,7 @@ function PageBrokenLinksContent({
             <Table.Row key={idx}>
               <Table.DataCell>
                 <DsLink href={link.url} target="_blank" className="break-all flex items-center gap-1 text-base">
-                  {link.url} <ExternalLink size={16} />
+                  {link.url} <ExternalLinkIcon fontSize="1rem" />
                 </DsLink>
               </Table.DataCell>
             </Table.Row>
@@ -134,7 +134,7 @@ function BrokenLinkPagesContent({
             <Table.Row key={idx}>
               <Table.DataCell>
                 <DsLink href={page.url} target="_blank" className="break-all flex items-center gap-1 text-base">
-                  {getUrlPath(page.url)} <ExternalLink size={16} />
+                  {getUrlPath(page.url)} <ExternalLinkIcon fontSize="1rem" />
                 </DsLink>
               </Table.DataCell>
               <Table.DataCell>{page.title || '-'}</Table.DataCell>
@@ -323,7 +323,7 @@ const BrokenLinks = () => {
                             type="button"
                             variant={showPagesSearch ? 'secondary' : 'tertiary'}
                             size="xsmall"
-                            icon={<Search aria-hidden />}
+                            icon={<MagnifyingGlassIcon aria-hidden fontSize="1.25rem" />}
                             aria-label="Søk i sider med ødelagte lenker"
                             aria-pressed={showPagesSearch}
                             onClick={() => {
@@ -339,7 +339,7 @@ const BrokenLinks = () => {
                                 type="button"
                                 variant="tertiary"
                                 size="xsmall"
-                                icon={<MoreVertical aria-hidden />}
+                                icon={<MenuElipsisVerticalIcon aria-hidden fontSize="1.25rem" />}
                                 aria-label="Flere valg for sider med ødelagte lenker"
                               />
                             </ActionMenu.Trigger>
@@ -411,7 +411,7 @@ const BrokenLinks = () => {
                                 }}
                                 className="break-all flex items-center gap-1"
                               >
-                                {getUrlPath(page.url)} <ExternalLink size={14} />
+                                {getUrlPath(page.url)} <ExternalLinkIcon fontSize="0.875rem" />
                               </DsLink>
                             </Table.HeaderCell>
                             <Table.DataCell>{page.broken_links}</Table.DataCell>
@@ -448,7 +448,7 @@ const BrokenLinks = () => {
                               type="button"
                               variant={showPagesSearch ? 'secondary' : 'tertiary'}
                               size="xsmall"
-                              icon={<Search aria-hidden />}
+                              icon={<MagnifyingGlassIcon aria-hidden fontSize="1.25rem" />}
                               aria-label="Søk i sider med ødelagte lenker"
                               aria-pressed={showPagesSearch}
                               onClick={() => {
@@ -464,7 +464,7 @@ const BrokenLinks = () => {
                                   type="button"
                                   variant="tertiary"
                                   size="xsmall"
-                                  icon={<MoreVertical aria-hidden />}
+                                  icon={<MenuElipsisVerticalIcon aria-hidden fontSize="1.25rem" />}
                                   aria-label="Flere valg for sider med ødelagte lenker"
                                 />
                               </ActionMenu.Trigger>
@@ -536,7 +536,7 @@ const BrokenLinks = () => {
                                   }}
                                   className="break-all flex items-center gap-1"
                                 >
-                                  {getUrlPath(page.url)} <ExternalLink size={14} />
+                                  {getUrlPath(page.url)} <ExternalLinkIcon fontSize="0.875rem" />
                                 </DsLink>
                               </Table.HeaderCell>
                               <Table.DataCell>{page.broken_links}</Table.DataCell>
@@ -567,7 +567,7 @@ const BrokenLinks = () => {
                               type="button"
                               variant={showLinksSearch ? 'secondary' : 'tertiary'}
                               size="xsmall"
-                              icon={<Search aria-hidden />}
+                              icon={<MagnifyingGlassIcon aria-hidden fontSize="1.25rem" />}
                               aria-label="Søk i alle ødelagte lenker"
                               aria-pressed={showLinksSearch}
                               onClick={() => {
@@ -583,7 +583,7 @@ const BrokenLinks = () => {
                                   type="button"
                                   variant="tertiary"
                                   size="xsmall"
-                                  icon={<MoreVertical aria-hidden />}
+                                  icon={<MenuElipsisVerticalIcon aria-hidden fontSize="1.25rem" />}
                                   aria-label="Flere valg for alle ødelagte lenker"
                                 />
                               </ActionMenu.Trigger>
@@ -645,7 +645,7 @@ const BrokenLinks = () => {
                             >
                               <Table.HeaderCell scope="row">
                                 <DsLink href={link.url} target="_blank" className="break-all flex items-center gap-1">
-                                  {link.url} <ExternalLink size={14} />
+                                  {link.url} <ExternalLinkIcon fontSize="0.875rem" />
                                 </DsLink>
                               </Table.HeaderCell>
                               <Table.DataCell>{link.pages}</Table.DataCell>

@@ -1,6 +1,5 @@
 import { Button, Heading, Textarea, Alert } from '@navikt/ds-react'
-import { Copy, Check } from 'lucide-react'
-
+import { CheckmarkIcon, FilesIcon } from '@navikt/aksel-icons'
 interface QuestionStepProps {
   question: string
   copiedPrompt: boolean
@@ -43,7 +42,7 @@ export default function QuestionStep({
       <div className="mt-4">
         <Button
           variant="primary"
-          icon={copiedPrompt ? <Check size={18} /> : <Copy size={18} />}
+          icon={copiedPrompt ? <CheckmarkIcon fontSize="1.125rem" /> : <FilesIcon fontSize="1.125rem" />}
           onClick={() => {
             onCopyPrompt()
             onOpenCopilot()

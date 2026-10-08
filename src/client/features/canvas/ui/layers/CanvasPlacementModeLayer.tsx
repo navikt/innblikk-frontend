@@ -1,9 +1,9 @@
 import { Button, Loader } from '@navikt/ds-react'
-import { Plus } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import type { CanvasFrame, PendingCanvasFrameDraft, PendingCsvStickyImport } from '../../model/types.ts'
 import { getCanvasStickyColorOptionById } from '../sticky/CanvasStickyColorRegistry.ts'
 import CanvasFigureFrame from '../figure/CanvasFigureFrame.tsx'
+import { PlusIcon } from '@navikt/aksel-icons'
 
 type CanvasPlacementModeBannerProps = {
   topOffsetPx: number
@@ -264,7 +264,7 @@ const CanvasPlacementModeLayer = ({
                       </div>
                     ) : (
                       <span className="flex flex-col items-center gap-1 text-[var(--ax-text-subtle)]">
-                        <Plus size={18} />
+                        <PlusIcon fontSize="1.125rem" />
                         <span className="text-xs">{pendingFramePlacementLabel || ghostLabel}</span>
                       </span>
                     )}
@@ -281,7 +281,7 @@ const CanvasPlacementModeLayer = ({
                     style={{ width: `${sectionDefaults.width}px`, height: `${sectionDefaults.height}px` }}
                   >
                     <span className="flex flex-col items-center gap-1 text-[var(--ax-text-subtle)]">
-                      <Plus size={18} />
+                      <PlusIcon fontSize="1.125rem" />
                       <span className="text-xs">{csvGhostLabel}</span>
                     </span>
                   </div>

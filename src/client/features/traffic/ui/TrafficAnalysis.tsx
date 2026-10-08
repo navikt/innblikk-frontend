@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { Button, Alert, Loader, Select } from '@navikt/ds-react'
-import { Share2, Check } from 'lucide-react'
+import { CheckmarkIcon, PaperplaneIcon } from '@navikt/aksel-icons'
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import OversiktTabContent from '../../analysis/ui/traffic/OversiktTabContent.tsx'
@@ -298,7 +298,7 @@ const TrafficAnalysis = () => {
             <Button
               size="small"
               variant="secondary"
-              icon={copySuccess ? <Check size={16} /> : <Share2 size={16} />}
+              icon={copySuccess ? <CheckmarkIcon fontSize="1rem" /> : <PaperplaneIcon fontSize="1rem" />}
               onClick={copyShareLink}
             >
               {copySuccess ? 'Kopiert!' : 'Del analyse'}

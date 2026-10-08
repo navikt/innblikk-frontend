@@ -1,6 +1,5 @@
 import { Button } from '@navikt/ds-react'
-import { Undo2 } from 'lucide-react'
-
+import { ArrowUndoIcon } from '@navikt/aksel-icons'
 type CanvasColorOption = {
   id: string
   label: string
@@ -86,7 +85,13 @@ const CanvasDrawingToolbar = ({
         <Button size="xsmall" onClick={() => void onComplete()}>
           Ferdig
         </Button>
-        <Button size="xsmall" variant="secondary" onClick={onUndo} disabled={!hasAnyStroke} icon={<Undo2 size={14} />}>
+        <Button
+          size="xsmall"
+          variant="secondary"
+          onClick={onUndo}
+          disabled={!hasAnyStroke}
+          icon={<ArrowUndoIcon fontSize="0.875rem" />}
+        >
           Angre
         </Button>
         <Button size="xsmall" variant="secondary" onClick={onCancel}>

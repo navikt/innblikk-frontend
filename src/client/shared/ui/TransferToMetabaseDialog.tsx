@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Alert, Button, Link, Modal, Select, Switch } from '@navikt/ds-react'
-import { ExternalLink } from 'lucide-react'
+import { ExternalLinkIcon } from '@navikt/aksel-icons'
 import type { Website } from '../types/website.ts'
 import { fetchWebsites } from '../api/websiteApi.ts'
 
@@ -105,7 +105,7 @@ const TransferToMetabaseDialog = ({ open, onClose, sqlText, sourceWebsiteId }: T
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-sm"
             >
-              Åpne Metabase <ExternalLink size={14} />
+              Åpne Metabase <ExternalLinkIcon fontSize="0.875rem" />
             </Link>
           </div>
 

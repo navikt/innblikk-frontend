@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { Loader, Alert, Button, Tooltip, ActionMenu } from '@navikt/ds-react'
-import { MoreVertical } from 'lucide-react'
+import { MenuElipsisVerticalIcon } from '@navikt/aksel-icons'
 import type { SavedChart } from '../../../shared/types/savedChart'
 import AnalysisActionModal from '../../analysis/ui/AnalysisActionModal.tsx'
 import DashboardWidgetLineChart from './widget/DashboardWidgetLineChart.tsx'
@@ -557,7 +557,7 @@ export const DashboardWidget = ({
             variant="tertiary"
             size="small"
             aria-label={`Flere valg for ${entityLabel} ${chart.title}`}
-            icon={<MoreVertical aria-hidden="true" />}
+            icon={<MenuElipsisVerticalIcon aria-hidden="true" fontSize="1.25rem" />}
           />
         </ActionMenu.Trigger>
       </Tooltip>

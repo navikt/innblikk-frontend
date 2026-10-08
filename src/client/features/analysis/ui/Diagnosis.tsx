@@ -1,5 +1,4 @@
 import { Alert, Loader, Radio, RadioGroup, Table, Heading, Tooltip, Tabs, Button } from '@navikt/ds-react'
-import { AlertTriangle, CheckCircle, X } from 'lucide-react'
 import { LineChart } from '@fluentui/react-charting'
 import { format } from 'date-fns'
 import { nb } from 'date-fns/locale'
@@ -8,6 +7,7 @@ import WebsitePicker from './WebsitePicker.tsx'
 import PeriodPicker from './PeriodPicker.tsx'
 import { useDiagnosis } from '../hooks/useDiagnosis.ts'
 import { getEnvironmentTitle } from '../utils/diagnosis.ts'
+import { CheckmarkCircleIcon, ExclamationmarkTriangleIcon, XMarkIcon } from '@navikt/aksel-icons'
 
 const Diagnosis = () => {
   const {
@@ -117,12 +117,12 @@ const Diagnosis = () => {
                   </Heading>
                   {highlightedWebsite.last_event_at ? (
                     <Tooltip content="Aktiv i perioden">
-                      <CheckCircle size={20} className="text-green-500" />
+                      <CheckmarkCircleIcon fontSize="1.25rem" className="text-green-500" />
                     </Tooltip>
                   ) : (
                     <Tooltip content="Ingen aktivitet registrert i perioden">
                       <>
-                        <AlertTriangle size={20} className="text-yellow-500" /> (trenger tilsyn)
+                        <ExclamationmarkTriangleIcon fontSize="1.25rem" className="text-yellow-500" /> (trenger tilsyn)
                       </>
                     </Tooltip>
                   )}
@@ -194,7 +194,7 @@ const Diagnosis = () => {
                   <Tabs.Tab
                     value="attention"
                     label="Trenger tilsyn"
-                    icon={<AlertTriangle size={16} className="text-yellow-500" />}
+                    icon={<ExclamationmarkTriangleIcon fontSize="1rem" className="text-yellow-500" />}
                   />
                 </Tabs.List>
               </Tabs>
@@ -244,11 +244,11 @@ const Diagnosis = () => {
                       <Table.DataCell>
                         {row.last_event_at ? (
                           <Tooltip content="Aktiv i perioden">
-                            <CheckCircle size={20} className="text-green-500" />
+                            <CheckmarkCircleIcon fontSize="1.25rem" className="text-green-500" />
                           </Tooltip>
                         ) : (
                           <Tooltip content="Ingen aktivitet registrert i perioden">
-                            <AlertTriangle size={20} className="text-yellow-500" />
+                            <ExclamationmarkTriangleIcon fontSize="1.25rem" className="text-yellow-500" />
                           </Tooltip>
                         )}
                       </Table.DataCell>
@@ -312,7 +312,7 @@ const Diagnosis = () => {
                 onClick={() => setIsModalOpen(false)}
                 className="text-gray-400 hover:text-[var(--ax-text-subtle)] transition-colors"
               >
-                <X size={24} />
+                <XMarkIcon fontSize="1.5rem" />
               </button>
             </div>
 

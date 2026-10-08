@@ -1,7 +1,7 @@
 import { Alert, BodyLong, Button, Heading, Link, ReadMore } from '@navikt/ds-react'
-import { Check, Copy } from 'lucide-react'
 import { useState } from 'react'
 import { RESEARCHOPS_SLACK_URL } from '../model/constants'
+import { CheckmarkIcon, FilesIcon } from '@navikt/aksel-icons'
 
 interface CopilotErrorHelpProps {
   error: string
@@ -30,7 +30,7 @@ export default function CopilotErrorHelp({ error, sql }: CopilotErrorHelpProps) 
       <Button
         size="small"
         variant="primary"
-        icon={copied ? <Check size={18} /> : <Copy size={18} />}
+        icon={copied ? <CheckmarkIcon fontSize="1.125rem" /> : <FilesIcon fontSize="1.125rem" />}
         onClick={copyError}
       >
         {copied ? 'Feilmeldingen er kopiert' : 'Kopier feilmeldingen'}

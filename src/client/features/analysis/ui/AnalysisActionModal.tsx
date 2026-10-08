@@ -1,23 +1,23 @@
 import React, { useState, useEffect } from 'react'
 import { Modal, Button } from '@navikt/ds-react'
-import {
-  BarChart2,
-  ExternalLink,
-  Activity,
-  Search,
-  Users,
-  Map,
-  Repeat,
-  TrendingUp,
-  UserSearch,
-  Copy,
-  Check,
-  SpellCheck,
-  Unlink,
-} from 'lucide-react'
 import { useSiteimproveSupport, useMarketingSupport } from '../../../shared/hooks/useSiteimproveSupport.ts'
 import type { AnalysisActionModalProps, AnalysisActionModalWebsite } from '../model/types.ts'
 import { isWebsitesResponse } from '../utils/typeGuards.ts'
+import {
+  ArrowsSquarepathIcon,
+  BarChartIcon,
+  CheckmarkIcon,
+  ExternalLinkIcon,
+  FilesIcon,
+  GlobeIcon,
+  LanguageIcon,
+  LightningIcon,
+  LinkBrokenIcon,
+  MagnifyingGlassIcon,
+  PersonCircleIcon,
+  PersonGroupIcon,
+  TrendUpIcon,
+} from '@navikt/aksel-icons'
 
 const AnalysisActionModal: React.FC<AnalysisActionModalProps> = ({
   open,
@@ -130,7 +130,13 @@ const AnalysisActionModal: React.FC<AnalysisActionModalProps> = ({
                   size="small"
                   variant="tertiary"
                   onClick={copyLink}
-                  icon={copySuccess ? <Check aria-hidden size={18} /> : <Copy aria-hidden size={18} />}
+                  icon={
+                    copySuccess ? (
+                      <CheckmarkIcon aria-hidden fontSize="1.125rem" />
+                    ) : (
+                      <FilesIcon aria-hidden fontSize="1.125rem" />
+                    )
+                  }
                 >
                   {copySuccess ? 'Kopiert!' : 'Kopier'}
                 </Button>
@@ -138,7 +144,7 @@ const AnalysisActionModal: React.FC<AnalysisActionModalProps> = ({
                   size="small"
                   variant="tertiary"
                   onClick={openOnWebsite}
-                  icon={<ExternalLink aria-hidden size={18} />}
+                  icon={<ExternalLinkIcon aria-hidden fontSize="1.125rem" />}
                 >
                   Åpne siden
                 </Button>
@@ -157,7 +163,7 @@ const AnalysisActionModal: React.FC<AnalysisActionModalProps> = ({
               <Button
                 variant="secondary"
                 onClick={() => openAnalysis('/trafikkanalyse', 'urlPath')}
-                icon={<BarChart2 aria-hidden />}
+                icon={<BarChartIcon aria-hidden fontSize="1.25rem" />}
                 className={actionButtonClass}
               >
                 Trafikkoversikt
@@ -165,7 +171,7 @@ const AnalysisActionModal: React.FC<AnalysisActionModalProps> = ({
               <Button
                 variant="secondary"
                 onClick={() => openAnalysis('/brukerreiser', 'startUrl')}
-                icon={<Map aria-hidden />}
+                icon={<GlobeIcon aria-hidden fontSize="1.25rem" />}
                 className={actionButtonClass}
               >
                 Navigasjonsflyt
@@ -173,7 +179,7 @@ const AnalysisActionModal: React.FC<AnalysisActionModalProps> = ({
               <Button
                 variant="secondary"
                 onClick={() => openAnalysis('/trakt', 'urlPath')}
-                icon={<BarChart2 aria-hidden />}
+                icon={<BarChartIcon aria-hidden fontSize="1.25rem" />}
                 className={actionButtonClass}
               >
                 Trakt
@@ -182,7 +188,7 @@ const AnalysisActionModal: React.FC<AnalysisActionModalProps> = ({
                 <Button
                   variant="secondary"
                   onClick={() => openAnalysis('/markedsanalyse', 'urlPath')}
-                  icon={<TrendingUp aria-hidden />}
+                  icon={<TrendUpIcon aria-hidden fontSize="1.25rem" />}
                   className={actionButtonClass}
                 >
                   Kampanjer
@@ -197,7 +203,7 @@ const AnalysisActionModal: React.FC<AnalysisActionModalProps> = ({
               <Button
                 variant="secondary"
                 onClick={() => openAnalysis('/utforsk-hendelser', 'pagePath')}
-                icon={<Search aria-hidden />}
+                icon={<MagnifyingGlassIcon aria-hidden fontSize="1.25rem" />}
                 className={actionButtonClass}
               >
                 Egendefinerte hendelser
@@ -205,7 +211,7 @@ const AnalysisActionModal: React.FC<AnalysisActionModalProps> = ({
               <Button
                 variant="secondary"
                 onClick={() => openAnalysis('/hendelsesreiser', 'urlPath')}
-                icon={<Activity aria-hidden />}
+                icon={<LightningIcon aria-hidden fontSize="1.25rem" />}
                 className={actionButtonClass}
               >
                 Hendelsesforløp
@@ -219,7 +225,7 @@ const AnalysisActionModal: React.FC<AnalysisActionModalProps> = ({
               <Button
                 variant="secondary"
                 onClick={() => openAnalysis('/brukersammensetning', 'pagePath')}
-                icon={<Users aria-hidden />}
+                icon={<PersonGroupIcon aria-hidden fontSize="1.25rem" />}
                 className={actionButtonClass}
               >
                 Brukerdetaljer
@@ -227,7 +233,7 @@ const AnalysisActionModal: React.FC<AnalysisActionModalProps> = ({
               <Button
                 variant="secondary"
                 onClick={() => openAnalysis('/brukerprofiler', 'pagePath')}
-                icon={<UserSearch aria-hidden />}
+                icon={<PersonCircleIcon aria-hidden fontSize="1.25rem" />}
                 className={actionButtonClass}
               >
                 Enkeltbrukere
@@ -235,7 +241,7 @@ const AnalysisActionModal: React.FC<AnalysisActionModalProps> = ({
               <Button
                 variant="secondary"
                 onClick={() => openAnalysis('/brukerlojalitet', 'urlPath')}
-                icon={<Repeat aria-hidden />}
+                icon={<ArrowsSquarepathIcon aria-hidden fontSize="1.25rem" />}
                 className={actionButtonClass}
               >
                 Gjenbesøk
@@ -250,7 +256,7 @@ const AnalysisActionModal: React.FC<AnalysisActionModalProps> = ({
                 <Button
                   variant="secondary"
                   onClick={() => openAnalysis('/kvalitet/odelagte-lenker', 'urlPath')}
-                  icon={<Unlink aria-hidden />}
+                  icon={<LinkBrokenIcon aria-hidden fontSize="1.25rem" />}
                   className={actionButtonClass}
                 >
                   Ødelagte lenker
@@ -258,7 +264,7 @@ const AnalysisActionModal: React.FC<AnalysisActionModalProps> = ({
                 <Button
                   variant="secondary"
                   onClick={() => openAnalysis('/kvalitet/stavekontroll', 'urlPath')}
-                  icon={<SpellCheck aria-hidden />}
+                  icon={<LanguageIcon aria-hidden fontSize="1.25rem" />}
                   className={actionButtonClass}
                 >
                   Stavekontroll

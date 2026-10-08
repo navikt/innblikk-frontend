@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Button, Alert, Loader, Tabs, Switch } from '@navikt/ds-react'
-import { Share2, Check } from 'lucide-react'
 import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
 import { parseISO } from 'date-fns'
 import { ResponsiveContainer, VerticalBarChart, PieChart } from '@fluentui/react-charting'
@@ -23,6 +22,7 @@ import { translateValue } from '../../../shared/lib/translations.ts'
 import type { IVerticalBarChartProps } from '@fluentui/react-charting'
 import AddToDashboardDialog from '../../../shared/ui/AddToDashboardDialog.tsx'
 import { getUserCompositionSqlTemplate } from '../utils/userCompositionDashboardSql.ts'
+import { CheckmarkIcon, PaperplaneIcon } from '@navikt/aksel-icons'
 
 const UserComposition = () => {
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
@@ -491,7 +491,7 @@ const UserComposition = () => {
             <Button
               size="small"
               variant="secondary"
-              icon={copySuccess ? <Check size={16} /> : <Share2 size={16} />}
+              icon={copySuccess ? <CheckmarkIcon fontSize="1rem" /> : <PaperplaneIcon fontSize="1rem" />}
               onClick={copyShareLink}
             >
               {copySuccess ? 'Kopiert!' : 'Del analyse'}

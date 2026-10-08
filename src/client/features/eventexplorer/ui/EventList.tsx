@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button, Table, TextField, ActionMenu, Tooltip } from '@navikt/ds-react'
-import { MoreVertical, Search } from 'lucide-react'
+import { MagnifyingGlassIcon, MenuElipsisVerticalIcon } from '@navikt/aksel-icons'
 import type { QueryStats } from '../model/types.ts'
 import AddToDashboardDialog from '../../../shared/ui/AddToDashboardDialog.tsx'
 import TransferToMetabaseDialog from '../../../shared/ui/TransferToMetabaseDialog.tsx'
@@ -57,7 +57,7 @@ const EventList = ({ events, eventsQueryStats, websiteName, selectedWebsiteId, o
                   type="button"
                   variant={showSearch ? 'secondary' : 'tertiary'}
                   size="xsmall"
-                  icon={<Search aria-hidden />}
+                  icon={<MagnifyingGlassIcon aria-hidden fontSize="1.25rem" />}
                   aria-label="Søk i hendelseslisten"
                   aria-pressed={showSearch}
                   onClick={() => {
@@ -73,7 +73,7 @@ const EventList = ({ events, eventsQueryStats, websiteName, selectedWebsiteId, o
                       type="button"
                       variant="tertiary"
                       size="xsmall"
-                      icon={<MoreVertical aria-hidden />}
+                      icon={<MenuElipsisVerticalIcon aria-hidden fontSize="1.25rem" />}
                       aria-label="Flere valg for hendelseslisten"
                     />
                   </ActionMenu.Trigger>

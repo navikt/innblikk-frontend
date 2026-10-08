@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { ActionMenu, Button, Heading, Label, Loader, Select, Switch, Tooltip } from '@navikt/ds-react'
-import { MoreVertical } from 'lucide-react'
 import { LineChart, ResponsiveContainer } from '@fluentui/react-charting'
 import TrafficStats from './TrafficStats.tsx'
 import type { Granularity, OversiktTabContentProps } from '../../model/types.ts'
@@ -9,6 +8,7 @@ import AddToDashboardDialog from '../../../../shared/ui/AddToDashboardDialog.tsx
 import TransferToMetabaseDialog from '../../../../shared/ui/TransferToMetabaseDialog.tsx'
 import { getTrafficSeriesSqlTemplate } from '../../../traffic/utils/trafficDashboardSqlTemplates.ts'
 import { openSqlEditorWithContext } from '../../../../shared/lib/openSqlEditor.ts'
+import { MenuElipsisVerticalIcon } from '@navikt/aksel-icons'
 
 const OversiktTabContent = ({
   hasAttemptedFetch,
@@ -159,7 +159,7 @@ const OversiktTabContent = ({
                       type="button"
                       variant="tertiary"
                       size="xsmall"
-                      icon={<MoreVertical aria-hidden />}
+                      icon={<MenuElipsisVerticalIcon aria-hidden fontSize="1.25rem" />}
                       aria-label="Flere valg for graf"
                     />
                   </ActionMenu.Trigger>

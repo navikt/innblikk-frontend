@@ -13,13 +13,12 @@ import {
   Heading,
   Tooltip,
 } from '@navikt/ds-react'
-import { MoreVertical, Search } from 'lucide-react'
-
 import ChartLayout from './ChartLayout.tsx'
 import WebsitePicker from './WebsitePicker.tsx'
 import type { SpellingIssue } from '../model/types.ts'
 import { downloadCsv } from '../utils/siteimprove.ts'
 import { useSpellings } from '../hooks/useSpellings.ts'
+import { MagnifyingGlassIcon, MenuElipsisVerticalIcon } from '@navikt/aksel-icons'
 
 const Spellings = () => {
   const {
@@ -85,7 +84,7 @@ const Spellings = () => {
                   type="button"
                   variant={showSearch ? 'secondary' : 'tertiary'}
                   size="xsmall"
-                  icon={<Search aria-hidden />}
+                  icon={<MagnifyingGlassIcon aria-hidden fontSize="1.25rem" />}
                   aria-label={`Søk i ${title.toLowerCase()}`}
                   aria-pressed={showSearch}
                   onClick={() => {
@@ -101,7 +100,7 @@ const Spellings = () => {
                       type="button"
                       variant="tertiary"
                       size="xsmall"
-                      icon={<MoreVertical aria-hidden />}
+                      icon={<MenuElipsisVerticalIcon aria-hidden fontSize="1.25rem" />}
                       aria-label={`Flere valg for ${title.toLowerCase()}`}
                     />
                   </ActionMenu.Trigger>

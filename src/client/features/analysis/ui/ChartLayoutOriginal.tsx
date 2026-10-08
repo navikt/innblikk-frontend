@@ -1,6 +1,5 @@
 import React from 'react'
 import { Select, VStack, type VStackProps } from '@navikt/ds-react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { type AnalyticsPage, analyticsPages } from '../model/analyticsNavigation.ts'
 import { chartGroupsOriginal } from '../model/chartGroups.tsx'
 import { KontaktSeksjon } from '../../../shared/ui/theme/Kontakt/KontaktSeksjon.tsx'
@@ -8,6 +7,7 @@ import { Skyra } from '../../../shared/ui/theme/Skyra/Skyra.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { useChartLayoutOriginal } from '../hooks/useChartLayoutOriginal.ts'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
+import { ChevronLeftIcon, ChevronRightIcon } from '@navikt/aksel-icons'
 
 interface ChartLayoutProps {
   title: string
@@ -130,7 +130,7 @@ const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
                   title="Minimer filter"
                   aria-label="Minimer filter"
                 >
-                  <ChevronLeft size={16} className="text-[var(--ax-text-accent)]" aria-hidden />
+                  <ChevronLeftIcon fontSize="1rem" className="text-[var(--ax-text-accent)]" aria-hidden />
                 </button>
               </>
             )}
@@ -142,7 +142,7 @@ const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
                 title="Vis filter"
                 aria-label="Vis filter"
               >
-                <ChevronRight size={16} className="text-[var(--ax-text-accent)]" aria-hidden />
+                <ChevronRightIcon fontSize="1rem" className="text-[var(--ax-text-accent)]" aria-hidden />
               </button>
             )}
             <div className={`w-full ${isSidebarOpen ? contentWidth : ''} ${hideSidebar ? '' : 'p-6'}`}>{children}</div>

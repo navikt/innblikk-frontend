@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { ActionMenu, Button, Table, Pagination, VStack, HelpText, TextField, Tooltip } from '@navikt/ds-react'
-import { ExternalLink, MoreVertical, Search } from 'lucide-react'
+import { ExternalLinkIcon, MagnifyingGlassIcon, MenuElipsisVerticalIcon } from '@navikt/aksel-icons'
 import type { Website } from '../../../shared/types/chart.ts'
 import TableSectionHeader from '../../../shared/ui/TableSectionHeader.tsx'
 import AddToDashboardDialog from '../../../shared/ui/AddToDashboardDialog.tsx'
@@ -139,7 +139,7 @@ const TrafficTable = ({
                       type="button"
                       variant={showSearch ? 'secondary' : 'tertiary'}
                       size="xsmall"
-                      icon={<Search aria-hidden />}
+                      icon={<MagnifyingGlassIcon fontSize="1.25rem" aria-hidden />}
                       aria-label={`Søk i ${title}`}
                       aria-pressed={showSearch}
                       onClick={() => {
@@ -155,7 +155,7 @@ const TrafficTable = ({
                           type="button"
                           variant="tertiary"
                           size="xsmall"
-                          icon={<MoreVertical aria-hidden />}
+                          icon={<MenuElipsisVerticalIcon fontSize="1.25rem" aria-hidden />}
                           aria-label={`Flere valg for ${title}`}
                         />
                       </ActionMenu.Trigger>
@@ -287,7 +287,7 @@ const TrafficTable = ({
                             >
                               {row.name === '/' ? '/ (forside)' : row.name}
                             </span>
-                            <ExternalLink className="h-3 w-3 shrink-0 text-blue-600" />
+                            <ExternalLinkIcon className="h-3 w-3 shrink-0 text-blue-600" fontSize="1.25rem" />
                           </span>
                         ) : (
                           renderName(row.name)

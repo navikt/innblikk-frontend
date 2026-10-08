@@ -1,6 +1,5 @@
 import { Button } from '@navikt/ds-react'
-import { Minus, Plus } from 'lucide-react'
-
+import { MinusIcon, PlusIcon } from '@navikt/aksel-icons'
 type CanvasZoomControlsProps = {
   canvasZoom: number
   onZoomOut: () => void
@@ -13,7 +12,7 @@ const CanvasZoomControls = ({ canvasZoom, onZoomOut, onZoomReset, onZoomIn }: Ca
     <Button
       size="xsmall"
       variant="tertiary"
-      icon={<Minus size={14} />}
+      icon={<MinusIcon fontSize="0.875rem" />}
       onClick={onZoomOut}
       title="Zoom ut"
       aria-label="Zoom ut"
@@ -31,7 +30,7 @@ const CanvasZoomControls = ({ canvasZoom, onZoomOut, onZoomReset, onZoomIn }: Ca
     <Button
       size="xsmall"
       variant="tertiary"
-      icon={<Plus size={14} />}
+      icon={<PlusIcon fontSize="0.875rem" />}
       onClick={onZoomIn}
       title="Zoom inn"
       aria-label="Zoom inn"

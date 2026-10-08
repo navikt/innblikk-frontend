@@ -1,7 +1,12 @@
-import { PersonChatIcon, PersonGroupIcon } from '@navikt/aksel-icons'
+import {
+  ClockIcon,
+  FileTextIcon,
+  PersonChatIcon,
+  PersonGroupIcon,
+  PresentationIcon,
+  RecordIcon,
+} from '@navikt/aksel-icons'
 import { ActionMenu, Button } from '@navikt/ds-react'
-import { CircleDot, Clock3, FileText, Presentation } from 'lucide-react'
-
 type CanvasFacilitatorActionMenuProps = {
   onOpenTimer: () => void
   onOpenDotVoting: () => void
@@ -66,13 +71,13 @@ const CanvasFacilitatorActionMenu = ({
     <ActionMenu.Content align="end">
       <ActionMenu.Item onClick={onOpenTimer}>
         <span className="inline-flex items-center gap-2 whitespace-nowrap">
-          <Clock3 size={14} />
+          <ClockIcon fontSize="0.875rem" />
           {timerLabel ? `Nedteller (${timerLabel})` : 'Nedteller'}
         </span>
       </ActionMenu.Item>
       <ActionMenu.Item onClick={onOpenDotVoting}>
         <span className="inline-flex items-center gap-2 whitespace-nowrap">
-          <CircleDot size={14} />
+          <RecordIcon fontSize="0.875rem" />
           {dotVotingLabel ? `Prikkvotering (${dotVotingLabel})` : 'Prikkvotering'}
         </span>
       </ActionMenu.Item>
@@ -88,7 +93,7 @@ const CanvasFacilitatorActionMenu = ({
       {onOpenShareView && (
         <ActionMenu.Item onClick={onOpenShareView}>
           <span className="inline-flex items-center gap-2 whitespace-nowrap">
-            <FileText size={14} />
+            <FileTextIcon fontSize="0.875rem" />
             Artikkelvisning
           </span>
         </ActionMenu.Item>
@@ -96,7 +101,7 @@ const CanvasFacilitatorActionMenu = ({
       {onOpenPresentationView && (
         <ActionMenu.Item onClick={onOpenPresentationView}>
           <span className="inline-flex items-center gap-2 whitespace-nowrap">
-            <Presentation size={14} />
+            <PresentationIcon fontSize="0.875rem" />
             Presentasjon
           </span>
         </ActionMenu.Item>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { ActionMenu, Alert, Button, Loader, ReadMore, Select, Switch, TextField, Tooltip } from '@navikt/ds-react'
-import { Minimize2, ExternalLink, MoreVertical, Search } from 'lucide-react'
+import { ExternalLinkIcon, MagnifyingGlassIcon, MenuElipsisVerticalIcon, ShrinkIcon } from '@navikt/aksel-icons'
 import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
@@ -272,7 +272,7 @@ const UserJourney = () => {
                   size="small"
                   variant="tertiary"
                   onClick={() => setIsFullscreen(false)}
-                  icon={<Minimize2 size={20} />}
+                  icon={<ShrinkIcon fontSize="1.25rem" />}
                 >
                   Lukk fullskjerm
                 </Button>
@@ -338,7 +338,7 @@ const UserJourney = () => {
                             type="button"
                             variant={showTableSearch ? 'secondary' : 'tertiary'}
                             size="xsmall"
-                            icon={<Search aria-hidden />}
+                            icon={<MagnifyingGlassIcon fontSize="1.25rem" aria-hidden />}
                             aria-label="Søk i tabell"
                             aria-pressed={showTableSearch}
                             onClick={() => {
@@ -354,7 +354,7 @@ const UserJourney = () => {
                                 type="button"
                                 variant="tertiary"
                                 size="xsmall"
-                                icon={<MoreVertical aria-hidden />}
+                                icon={<MenuElipsisVerticalIcon fontSize="1.25rem" aria-hidden />}
                                 aria-label="Flere valg for tabell"
                               />
                             </ActionMenu.Trigger>
@@ -435,7 +435,7 @@ const UserJourney = () => {
                                       }
                                     }}
                                   >
-                                    {targetNode.name} <ExternalLink className="h-3 w-3" />
+                                    {targetNode.name} <ExternalLinkIcon className="h-3 w-3" fontSize="1.25rem" />
                                   </span>
                                 ) : (
                                   <span className="text-[var(--ax-text-default)]">{targetNode?.name || '-'}</span>
@@ -451,7 +451,7 @@ const UserJourney = () => {
                                       }
                                     }}
                                   >
-                                    {sourceNode.name} <ExternalLink className="h-3 w-3" />
+                                    {sourceNode.name} <ExternalLinkIcon className="h-3 w-3" fontSize="1.25rem" />
                                   </span>
                                 ) : (
                                   <span className="text-[var(--ax-text-default)]">{sourceNode?.name || '-'}</span>

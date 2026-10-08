@@ -13,7 +13,17 @@ import {
   ActionMenu,
   Tooltip,
 } from '@navikt/ds-react'
-import { Plus, Trash2, Share2, Check, Code2, ExternalLink, ChevronLeft, ChevronRight, MoreVertical } from 'lucide-react'
+import {
+  CheckmarkIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  CodeIcon,
+  ExternalLinkIcon,
+  MenuElipsisVerticalIcon,
+  PaperplaneIcon,
+  PlusIcon,
+  TrashIcon,
+} from '@navikt/aksel-icons'
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
@@ -180,7 +190,7 @@ const Funnel = () => {
                 <Button
                   size="small"
                   variant="tertiary-neutral"
-                  icon={<ChevronLeft size={16} />}
+                  icon={<ChevronLeftIcon fontSize="1rem" />}
                   onClick={() => setIsStepsOpen(false)}
                   className="hidden xl:inline-flex"
                 >
@@ -277,7 +287,7 @@ const Funnel = () => {
                                     <Button
                                       variant="tertiary-neutral"
                                       size="small"
-                                      icon={<Trash2 size={12} />}
+                                      icon={<TrashIcon fontSize="0.75rem" />}
                                       onClick={() => setSteps(removeStepParam(steps, index, pIndex))}
                                       title="Fjern filter"
                                       className="absolute top-2 right-2"
@@ -335,7 +345,7 @@ const Funnel = () => {
                             <Button
                               size="small"
                               variant="tertiary"
-                              icon={<Plus size={14} />}
+                              icon={<PlusIcon fontSize="0.875rem" />}
                               onClick={() => setSteps(addStepParam(steps, index))}
                             >
                               Legg til filter
@@ -349,7 +359,7 @@ const Funnel = () => {
                         <Button
                           variant="tertiary-neutral"
                           size="small"
-                          icon={<Trash2 size={16} />}
+                          icon={<TrashIcon fontSize="1rem" />}
                           onClick={() => setSteps(removeStep(steps, index))}
                           aria-label="Fjern steg"
                           className="flex-shrink-0 mt-1"
@@ -369,7 +379,7 @@ const Funnel = () => {
                 <Button
                   variant="secondary"
                   size="small"
-                  icon={<Plus size={20} />}
+                  icon={<PlusIcon fontSize="1.25rem" />}
                   onClick={() => setSteps(addStep(steps))}
                   className="w-full mb-6"
                 >
@@ -397,7 +407,7 @@ const Funnel = () => {
               <Button
                 size="small"
                 variant="secondary"
-                icon={<ChevronRight size={16} />}
+                icon={<ChevronRightIcon fontSize="1rem" />}
                 onClick={() => setIsStepsOpen(true)}
               >
                 Vis steg i trakten
@@ -427,7 +437,7 @@ const Funnel = () => {
                 <Button
                   size="small"
                   variant="secondary"
-                  icon={copySuccess ? <Check size={16} /> : <Share2 size={16} />}
+                  icon={copySuccess ? <CheckmarkIcon fontSize="1rem" /> : <PaperplaneIcon fontSize="1rem" />}
                   onClick={copyShareLink}
                 >
                   {copySuccess ? 'Kopiert!' : 'Del analyse'}
@@ -454,7 +464,7 @@ const Funnel = () => {
                       size="small"
                       variant="tertiary"
                       onClick={copyMetabaseSql}
-                      icon={metabaseCopySuccess ? <Check size={16} /> : <Code2 size={16} />}
+                      icon={metabaseCopySuccess ? <CheckmarkIcon fontSize="1rem" /> : <CodeIcon fontSize="1rem" />}
                     >
                       {metabaseCopySuccess ? 'Kopiert!' : 'Kopier for Metabase'}
                     </Button>
@@ -463,7 +473,7 @@ const Funnel = () => {
                         size="small"
                         variant="tertiary"
                         onClick={() => setModalSql(funnelSql)}
-                        icon={<Code2 size={16} />}
+                        icon={<CodeIcon fontSize="1rem" />}
                       >
                         Vis SQL
                       </Button>
@@ -488,7 +498,7 @@ const Funnel = () => {
                       size="small"
                       variant="tertiary"
                       onClick={copyMetabaseSql}
-                      icon={metabaseCopySuccess ? <Check size={16} /> : <Code2 size={16} />}
+                      icon={metabaseCopySuccess ? <CheckmarkIcon fontSize="1rem" /> : <CodeIcon fontSize="1rem" />}
                     >
                       {metabaseCopySuccess ? 'Kopiert!' : 'Kopier for Metabase'}
                     </Button>
@@ -497,7 +507,7 @@ const Funnel = () => {
                         size="small"
                         variant="tertiary"
                         onClick={() => setModalSql(funnelSql)}
-                        icon={<Code2 size={16} />}
+                        icon={<CodeIcon fontSize="1rem" />}
                       >
                         Vis SQL
                       </Button>
@@ -525,7 +535,7 @@ const Funnel = () => {
                       size="small"
                       variant="tertiary"
                       onClick={copyMetabaseSql}
-                      icon={metabaseCopySuccess ? <Check size={16} /> : <Code2 size={16} />}
+                      icon={metabaseCopySuccess ? <CheckmarkIcon fontSize="1rem" /> : <CodeIcon fontSize="1rem" />}
                     >
                       {metabaseCopySuccess ? 'Kopiert!' : 'Kopier for Metabase'}
                     </Button>
@@ -534,7 +544,7 @@ const Funnel = () => {
                         size="small"
                         variant="tertiary"
                         onClick={() => setModalSql(funnelSql)}
-                        icon={<Code2 size={16} />}
+                        icon={<CodeIcon fontSize="1rem" />}
                       >
                         Vis SQL
                       </Button>
@@ -555,7 +565,7 @@ const Funnel = () => {
                                   type="button"
                                   variant="tertiary"
                                   size="xsmall"
-                                  icon={<MoreVertical aria-hidden />}
+                                  icon={<MenuElipsisVerticalIcon aria-hidden fontSize="1.25rem" />}
                                   aria-label="Flere valg for tabell"
                                 />
                               </ActionMenu.Trigger>
@@ -654,7 +664,7 @@ const Funnel = () => {
                                           className="text-blue-600 hover:underline cursor-pointer flex items-center gap-1"
                                           onClick={() => setSelectedTableUrl(item.url)}
                                         >
-                                          {item.url} <ExternalLink className="h-4 w-4" />
+                                          {item.url} <ExternalLinkIcon className="h-4 w-4" fontSize="1.25rem" />
                                         </span>
                                       )
                                     }
@@ -750,7 +760,7 @@ const Funnel = () => {
                                               type="button"
                                               variant="tertiary"
                                               size="xsmall"
-                                              icon={<MoreVertical aria-hidden />}
+                                              icon={<MenuElipsisVerticalIcon aria-hidden fontSize="1.25rem" />}
                                               aria-label="Flere valg for tidsbruk"
                                             />
                                           </ActionMenu.Trigger>
@@ -838,7 +848,11 @@ const Funnel = () => {
                                                 className="text-base text-blue-600 hover:underline cursor-pointer break-all flex items-center gap-1"
                                                 onClick={() => setSelectedTimingUrl(timing.fromUrl || null)}
                                               >
-                                                {timing.fromUrl} <ExternalLink className="h-4 w-4 flex-shrink-0" />
+                                                {timing.fromUrl}{' '}
+                                                <ExternalLinkIcon
+                                                  className="h-4 w-4 flex-shrink-0"
+                                                  fontSize="1.25rem"
+                                                />
                                               </span>
                                             ) : (
                                               <span className="text-base text-[var(--ax-text-default)] break-all">
@@ -855,7 +869,11 @@ const Funnel = () => {
                                                 className="text-base text-blue-600 hover:underline cursor-pointer break-all flex items-center gap-1"
                                                 onClick={() => setSelectedTimingUrl(timing.toUrl || null)}
                                               >
-                                                {timing.toUrl} <ExternalLink className="h-4 w-4 flex-shrink-0" />
+                                                {timing.toUrl}{' '}
+                                                <ExternalLinkIcon
+                                                  className="h-4 w-4 flex-shrink-0"
+                                                  fontSize="1.25rem"
+                                                />
                                               </span>
                                             ) : (
                                               <span className="text-base text-[var(--ax-text-default)] break-all">

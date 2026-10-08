@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ActionMenu, Button, Pagination, Select, TextField, Tooltip } from '@navikt/ds-react'
-import { MoreVertical, Search } from 'lucide-react'
+import { MagnifyingGlassIcon, MenuElipsisVerticalIcon } from '@navikt/aksel-icons'
 import { parseJourneyStep } from '../../utils/parsers.ts'
 import TableSectionHeader from '../../../../shared/ui/TableSectionHeader.tsx'
 
@@ -84,7 +84,7 @@ const JourneyTableView = ({ journeys, totalSessions }: JourneyTableViewProps) =>
                     type="button"
                     variant={showSearch ? 'secondary' : 'tertiary'}
                     size="xsmall"
-                    icon={<Search aria-hidden />}
+                    icon={<MagnifyingGlassIcon aria-hidden fontSize="1.25rem" />}
                     aria-label="Søk i tabell"
                     aria-pressed={showSearch}
                     onClick={() => {
@@ -100,7 +100,7 @@ const JourneyTableView = ({ journeys, totalSessions }: JourneyTableViewProps) =>
                         type="button"
                         variant="tertiary"
                         size="xsmall"
-                        icon={<MoreVertical aria-hidden />}
+                        icon={<MenuElipsisVerticalIcon aria-hidden fontSize="1.25rem" />}
                         aria-label="Flere valg for tabell"
                       />
                     </ActionMenu.Trigger>

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { Accordion, Alert, BodyShort, Button, Loader, Textarea, TextField, ToggleGroup } from '@navikt/ds-react'
 import akselCss from '@navikt/ds-css/dist/index.min.css?inline'
-import { Eye } from 'lucide-react'
+import { EyeIcon } from '@navikt/aksel-icons'
 import { buildHtmlSnapshot, fetchHtmlSnapshot, LoginRequiredError } from '../utils/buildHtmlSnapshot.ts'
 import { RESEARCHOPS_SLACK_URL } from '../../../shared/ui/BetaFeatureNotice.tsx'
 
@@ -375,7 +375,7 @@ export const AlternativePreviewOptions = ({ preview }: { preview: ReturnType<typ
                     />
                     <Button
                       size="small"
-                      icon={<Eye size={16} />}
+                      icon={<EyeIcon fontSize="1rem" />}
                       disabled={!preview.htmlDraft.trim()}
                       onClick={preview.applyHtml}
                     >
@@ -397,7 +397,7 @@ export const AlternativePreviewOptions = ({ preview }: { preview: ReturnType<typ
                     />
                     <Button
                       size="small"
-                      icon={<Eye size={16} />}
+                      icon={<EyeIcon fontSize="1rem" />}
                       disabled={!preview.mockUrlDraft.trim()}
                       onClick={preview.applyMock}
                     >

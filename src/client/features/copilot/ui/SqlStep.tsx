@@ -1,6 +1,5 @@
 import { Button, Heading, Textarea, Alert, HelpText } from '@navikt/ds-react'
-import { PlayIcon } from 'lucide-react'
-
+import { PlayIcon } from '@navikt/aksel-icons'
 type ValidationState = { status: 'idle' | 'valid' | 'invalid'; message: string }
 
 interface SqlStepProps {
@@ -86,7 +85,7 @@ export default function SqlStep({
         {needsRun && (
           <Button
             variant="primary"
-            icon={<PlayIcon size={18} />}
+            icon={<PlayIcon fontSize="1.125rem" />}
             onClick={onRun}
             loading={loading}
             disabled={!sql.trim() || validation.status === 'invalid'}

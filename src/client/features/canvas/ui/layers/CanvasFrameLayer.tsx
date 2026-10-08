@@ -1,5 +1,4 @@
 import { Button, HelpText, Loader, Select } from '@navikt/ds-react'
-import { ExternalLink } from 'lucide-react'
 import { useEffect, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
 import { createPortal } from 'react-dom'
 import type { Website } from '../../../../shared/types/website.ts'
@@ -32,6 +31,7 @@ import CanvasWebsiteActionMenu from '../website/CanvasWebsiteActionMenu.tsx'
 import CanvasWebsiteFrame from '../website/CanvasWebsiteFrame.tsx'
 import WebsitePicker from '../../../analysis/ui/WebsitePicker.tsx'
 import type { ClickmapItem } from '../../../clickmap/model/types.ts'
+import { ExternalLinkIcon } from '@navikt/aksel-icons'
 
 type CanvasFrameItem = CanvasFrame & {
   displayUrl?: string
@@ -713,7 +713,7 @@ const CanvasFrameLayer = ({
                           onTouchStart={(event) => event.stopPropagation()}
                         >
                           <span className="min-w-0 break-words">{frame.label}</span>
-                          <ExternalLink size={12} aria-hidden="true" className="shrink-0" />
+                          <ExternalLinkIcon fontSize="0.75rem" aria-hidden="true" className="shrink-0" />
                         </a>
                       ) : (
                         <div
@@ -1083,7 +1083,6 @@ const CanvasFrameLayer = ({
                         drawingPath={frame.drawingPath}
                         drawingStrokeStyles={frame.drawingStrokeStyles}
                         strokeColor={frame.drawingColor || DEFAULT_CANVAS_ICON_COLOR}
-                        strokeWidth={frame.drawingStrokeWidth ?? DEFAULT_DRAWING_STROKE_WIDTH}
                         rotationDeg={frame.drawingRotationDeg}
                         label={frame.label}
                         drawingAltText={frame.drawingAltText}

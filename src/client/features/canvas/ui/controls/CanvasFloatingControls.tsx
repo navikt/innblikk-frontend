@@ -1,6 +1,6 @@
 import { Button } from '@navikt/ds-react'
-import { Trash2 } from 'lucide-react'
 import CanvasZoomControls from './CanvasZoomControls.tsx'
+import { TrashIcon } from '@navikt/aksel-icons'
 
 type CanvasFloatingControlsProps = {
   isGrafbyggerEmbedded: boolean
@@ -34,7 +34,7 @@ const CanvasFloatingControls = ({
                 variant="tertiary"
                 onClick={onRequestRemoveSelectedFrames}
                 title="Fjern valgte kort"
-                icon={<Trash2 size={14} />}
+                icon={<TrashIcon fontSize="0.875rem" />}
                 className="rounded-full px-2"
               >
                 Fjern valgte ({selectedFrameCount})

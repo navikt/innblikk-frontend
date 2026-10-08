@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { ActionMenu, Button, Heading, TextField, Tooltip } from '@navikt/ds-react'
-import { MoreVertical, Search } from 'lucide-react'
+import { MagnifyingGlassIcon, MenuElipsisVerticalIcon } from '@navikt/aksel-icons'
 import type { SeriesPoint, QueryStats } from '../model/types.ts'
 import AddToDashboardDialog from '../../../shared/ui/AddToDashboardDialog.tsx'
 import TransferToMetabaseDialog from '../../../shared/ui/TransferToMetabaseDialog.tsx'
@@ -61,7 +61,7 @@ const EventSeriesTrendTable = ({ seriesData, selectedEvent, queryStats }: EventS
               type="button"
               variant={showSearch ? 'secondary' : 'tertiary'}
               size="xsmall"
-              icon={<Search aria-hidden />}
+              icon={<MagnifyingGlassIcon aria-hidden fontSize="1.25rem" />}
               aria-label="Søk i trendtabell"
               aria-pressed={showSearch}
               onClick={() => {
@@ -77,7 +77,7 @@ const EventSeriesTrendTable = ({ seriesData, selectedEvent, queryStats }: EventS
                   type="button"
                   variant="tertiary"
                   size="xsmall"
-                  icon={<MoreVertical aria-hidden />}
+                  icon={<MenuElipsisVerticalIcon aria-hidden fontSize="1.25rem" />}
                   aria-label="Flere valg for trendtabell"
                 />
               </ActionMenu.Trigger>

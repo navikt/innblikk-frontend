@@ -1,7 +1,6 @@
 import React, { useState } from 'react'
 import { Accordion, Tooltip } from '@navikt/ds-react'
-import { TestFlaskIcon } from '@navikt/aksel-icons'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeftIcon, ChevronRightIcon, TestFlaskIcon } from '@navikt/aksel-icons'
 import { type AnalyticsPage, analyticsPages } from '../model/analyticsNavigation.ts'
 import { type ChartGroup } from '../model/chartGroups.tsx'
 import { KontaktSeksjon } from '../../../shared/ui/theme/Kontakt/KontaktSeksjon.tsx'
@@ -220,7 +219,7 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
                     title="Minimer meny"
                     aria-label="Minimer meny"
                   >
-                    <ChevronLeft size={16} className="text-[var(--ax-text-accent)]" aria-hidden />
+                    <ChevronLeftIcon fontSize="1rem" className="text-[var(--ax-text-accent)]" aria-hidden />
                   </button>
                 )}
                 {!isSidebarOpen && (
@@ -230,7 +229,7 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
                     title="Vis meny"
                     aria-label="Vis meny"
                   >
-                    <ChevronRight size={16} className="text-[var(--ax-text-accent)]" aria-hidden />
+                    <ChevronRightIcon fontSize="1rem" className="text-[var(--ax-text-accent)]" aria-hidden />
                   </button>
                 )}
               </>

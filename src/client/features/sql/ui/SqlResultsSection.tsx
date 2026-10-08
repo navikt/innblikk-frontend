@@ -1,6 +1,6 @@
 import { ResultsPanel } from '../../chartbuilder-next'
 import { Alert, Button, Heading, Link, Modal, ReadMore, Select, TextField, UNSAFE_Combobox } from '@navikt/ds-react'
-import { Copy, ExternalLink } from 'lucide-react'
+import { ExternalLinkIcon, FilesIcon } from '@navikt/aksel-icons'
 import { useState } from 'react'
 import type { ILineChartProps, IVerticalBarChartProps } from '@fluentui/react-charting'
 import { truncateJSON } from '../utils/formatters'
@@ -444,7 +444,7 @@ export default function SqlResultsSection({
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1"
                   >
-                    Åpne Metabase <ExternalLink size={14} />
+                    Åpne Metabase <ExternalLinkIcon fontSize="0.875rem" />
                   </Link>
                 </li>
                 <li>Lim inn SQL-koden og lagre spørsmålet.</li>
@@ -452,7 +452,12 @@ export default function SqlResultsSection({
               </ol>
 
               <div>
-                <Button size="small" variant="secondary" onClick={onCopyMetabase} icon={<Copy size={18} />}>
+                <Button
+                  size="small"
+                  variant="secondary"
+                  onClick={onCopyMetabase}
+                  icon={<FilesIcon fontSize="1.125rem" />}
+                >
                   {copiedMetabase ? 'Kopiert!' : 'Kopier spørringen'}
                 </Button>
               </div>

@@ -1,5 +1,5 @@
 import { Button } from '@navikt/ds-react'
-import { PlayIcon } from 'lucide-react'
+import { PlayIcon } from '@navikt/aksel-icons'
 import ChartLayout from '../../analysis/ui/ChartLayoutOriginal.tsx'
 import { getGcpProjectId } from '../utils/formatters'
 import { useSqlEditor } from '../hooks/useSqlEditor'
@@ -130,7 +130,7 @@ export default function SqlEditor() {
 
           {/* Submit Button */}
           <div className="flex flex-wrap gap-2 mt-6">
-            <Button onClick={executeQuery} loading={loading} icon={<PlayIcon size={18} />} variant="primary">
+            <Button onClick={executeQuery} loading={loading} icon={<PlayIcon fontSize="1.125rem" />} variant="primary">
               Vis resultater
             </Button>
           </div>

@@ -1,5 +1,5 @@
+import { BarChartIcon, MagnifyingGlassIcon } from '@navikt/aksel-icons'
 import React from 'react'
-import { BarChart2, FileSearch } from 'lucide-react'
 
 export interface ChartGroup {
   title: string
@@ -16,12 +16,12 @@ export interface ChartGroup {
 export const chartGroups: ChartGroup[] = [
   {
     title: 'Trafikk',
-    icon: <BarChart2 size={18} />,
+    icon: <BarChartIcon fontSize="1.125rem" />,
     ids: ['markedsanalyse'],
   },
   {
     title: 'Innholdskvalitet',
-    icon: <FileSearch size={18} />,
+    icon: <MagnifyingGlassIcon fontSize="1.125rem" />,
     ids: ['odelagte-lenker', 'stavekontroll', 'wcag'],
   },
 ]

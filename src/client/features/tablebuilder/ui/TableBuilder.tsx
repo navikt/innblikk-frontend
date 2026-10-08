@@ -14,7 +14,16 @@ import {
   Table,
   TextField,
 } from '@navikt/ds-react'
-import { ArrowDown, ArrowUp, ArrowUpDown, Columns3, Download, Plus, Search, Trash2 } from 'lucide-react'
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  ArrowsUpDownIcon,
+  DownloadIcon,
+  MagnifyingGlassIcon,
+  PlusIcon,
+  TableIcon,
+  TrashIcon,
+} from '@navikt/aksel-icons'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import AddToDashboardDialog from '../../../shared/ui/AddToDashboardDialog.tsx'
@@ -507,7 +516,7 @@ const ColumnDialog = ({ open, columns, websiteId, coverage, basis, onApply, onCl
                             onClick={() => addColumn(column)}
                             className="flex w-full cursor-pointer gap-3 rounded-md border border-[var(--ax-border-neutral-subtle)] p-3 text-left"
                           >
-                            <Plus className="mt-0.5 shrink-0" aria-hidden />
+                            <PlusIcon className="mt-0.5 shrink-0" aria-hidden fontSize="1.25rem" />
                             <span>
                               <span className="block text-sm font-semibold">
                                 {column.label}
@@ -690,7 +699,7 @@ const ColumnDialog = ({ open, columns, websiteId, coverage, basis, onApply, onCl
                           type="button"
                           variant="tertiary"
                           size="small"
-                          icon={<ArrowUp aria-hidden />}
+                          icon={<ArrowUpIcon aria-hidden fontSize="1.25rem" />}
                           aria-label={`Flytt ${column.label} opp`}
                           disabled={index === 0}
                           onClick={() => moveColumn(index, -1)}
@@ -699,7 +708,7 @@ const ColumnDialog = ({ open, columns, websiteId, coverage, basis, onApply, onCl
                           type="button"
                           variant="tertiary"
                           size="small"
-                          icon={<ArrowDown aria-hidden />}
+                          icon={<ArrowDownIcon aria-hidden fontSize="1.25rem" />}
                           aria-label={`Flytt ${column.label} ned`}
                           disabled={index === draft.length - 1}
                           onClick={() => moveColumn(index, 1)}
@@ -708,7 +717,7 @@ const ColumnDialog = ({ open, columns, websiteId, coverage, basis, onApply, onCl
                           type="button"
                           variant="tertiary"
                           size="small"
-                          icon={<Trash2 aria-hidden />}
+                          icon={<TrashIcon aria-hidden fontSize="1.25rem" />}
                           aria-label={`Fjern ${column.label}`}
                           onClick={() =>
                             setDraft((current) => current.filter((item) => item.instanceId !== column.instanceId))
@@ -873,8 +882,12 @@ const TableBuilder = () => {
   }
 
   const sortIndicator = (column: SelectedColumn) => {
-    if (sortColumn !== column.instanceId) return <ArrowUpDown size={14} aria-hidden />
-    return sortDirection === 'asc' ? <ArrowUp size={14} aria-hidden /> : <ArrowDown size={14} aria-hidden />
+    if (sortColumn !== column.instanceId) return <ArrowsUpDownIcon fontSize="0.875rem" aria-hidden />
+    return sortDirection === 'asc' ? (
+      <ArrowUpIcon fontSize="0.875rem" aria-hidden />
+    ) : (
+      <ArrowDownIcon fontSize="0.875rem" aria-hidden />
+    )
   }
 
   const handleDownloadCsv = () => {
@@ -915,12 +928,17 @@ const TableBuilder = () => {
           {columns.length === 0 ? (
             <section className="flex flex-col items-start gap-3 rounded-md border border-dashed border-[var(--ax-border-neutral)] bg-[var(--ax-bg-neutral-soft)] p-5">
               <div className="flex items-center gap-2">
-                <Columns3 size={20} aria-hidden className="text-[var(--ax-text-subtle)]" />
+                <TableIcon fontSize="1.25rem" aria-hidden className="text-[var(--ax-text-subtle)]" />
                 <Heading level="2" size="small">
                   Hvilke kolonner vil du ha i tabellen?
                 </Heading>
               </div>
-              <Button variant="secondary" size="small" icon={<Plus aria-hidden />} onClick={() => setDialogOpen(true)}>
+              <Button
+                variant="secondary"
+                size="small"
+                icon={<PlusIcon aria-hidden fontSize="1.25rem" />}
+                onClick={() => setDialogOpen(true)}
+              >
                 Velg kolonner
               </Button>
             </section>
@@ -942,7 +960,7 @@ const TableBuilder = () => {
                   <Button
                     variant={showSearch ? 'secondary' : 'tertiary'}
                     size="small"
-                    icon={<Search aria-hidden />}
+                    icon={<MagnifyingGlassIcon aria-hidden fontSize="1.25rem" />}
                     aria-pressed={showSearch}
                     onClick={() => {
                       setShowSearch((current) => !current)
@@ -957,7 +975,7 @@ const TableBuilder = () => {
                   <Button
                     variant="secondary"
                     size="small"
-                    icon={<Columns3 aria-hidden />}
+                    icon={<TableIcon aria-hidden fontSize="1.25rem" />}
                     onClick={() => setDialogOpen(true)}
                   >
                     Endre kolonner
@@ -965,7 +983,7 @@ const TableBuilder = () => {
                   <Button
                     variant="secondary"
                     size="small"
-                    icon={<Plus aria-hidden />}
+                    icon={<PlusIcon aria-hidden fontSize="1.25rem" />}
                     disabled={!lastSql}
                     onClick={() => setShowAddToDashboardDialog(true)}
                   >
@@ -973,7 +991,12 @@ const TableBuilder = () => {
                   </Button>
                   <ActionMenu>
                     <ActionMenu.Trigger>
-                      <Button variant="secondary" size="small" icon={<Download aria-hidden />} disabled={!lastSql}>
+                      <Button
+                        variant="secondary"
+                        size="small"
+                        icon={<DownloadIcon aria-hidden fontSize="1.25rem" />}
+                        disabled={!lastSql}
+                      >
                         Eksporter
                       </Button>
                     </ActionMenu.Trigger>

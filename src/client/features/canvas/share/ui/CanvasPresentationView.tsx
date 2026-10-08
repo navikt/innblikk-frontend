@@ -1,5 +1,4 @@
 import { Alert, BodyLong, BodyShort, Button, Heading, Link, Loader, Select, Table } from '@navikt/ds-react'
-import { ChevronLeft, ChevronRight, ExternalLink, Maximize2, Minimize2, Moon, Sun } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { DashboardWidget } from '../../../dashboard'
@@ -30,6 +29,15 @@ import {
   getCanvasShareFrameBounds,
   parseCanvasShareRouteContext,
 } from '../utils/canvasShareLayout.ts'
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ExpandIcon,
+  ExternalLinkIcon,
+  MoonIcon,
+  ShrinkIcon,
+  SunIcon,
+} from '@navikt/aksel-icons'
 
 const WEBSITE_TOP_LIST_VISIBLE_STORAGE_KEY = 'canvas:websiteTopListVisible'
 
@@ -598,7 +606,7 @@ const CanvasPresentationView = () => {
         <div className="max-w-[560px] rounded-2xl border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-3.5 sm:p-4.5">
           <Link href={href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5">
             {frame.label || formatCanvasPathLabel(frame.targetUrl, href)}
-            <ExternalLink size={14} aria-hidden="true" />
+            <ExternalLinkIcon fontSize="0.875rem" aria-hidden="true" />
           </Link>
           {frame.textContent && (
             <BodyShort className="mt-2 text-[var(--ax-text-subtle)]">{frame.textContent}</BodyShort>
@@ -649,7 +657,6 @@ const CanvasPresentationView = () => {
                 drawingPath={frame.drawingPath}
                 drawingStrokeStyles={frame.drawingStrokeStyles}
                 strokeColor={frame.drawingColor || DEFAULT_CANVAS_ICON_COLOR}
-                strokeWidth={frame.drawingStrokeWidth ?? DEFAULT_DRAWING_STROKE_WIDTH}
                 rotationDeg={frame.drawingRotationDeg}
                 label={frame.label}
                 drawingAltText={frame.drawingAltText}
@@ -696,7 +703,7 @@ const CanvasPresentationView = () => {
                   <Button
                     size="xsmall"
                     variant="tertiary"
-                    icon={<Maximize2 size={14} aria-hidden="true" />}
+                    icon={<ExpandIcon fontSize="0.875rem" aria-hidden="true" />}
                     onClick={() => setMaximizedDashboardFrameId(frame.id)}
                     title="Maksimer dashboard"
                     aria-label="Maksimer dashboard"
@@ -872,7 +879,13 @@ const CanvasPresentationView = () => {
                     <Button
                       size="xsmall"
                       variant="tertiary-neutral"
-                      icon={isFullscreen ? <Minimize2 size={16} aria-hidden /> : <Maximize2 size={16} aria-hidden />}
+                      icon={
+                        isFullscreen ? (
+                          <ShrinkIcon fontSize="1rem" aria-hidden />
+                        ) : (
+                          <ExpandIcon fontSize="1rem" aria-hidden />
+                        )
+                      }
                       onClick={() => {
                         void toggleFullscreen()
                       }}
@@ -882,7 +895,7 @@ const CanvasPresentationView = () => {
                     <Button
                       size="xsmall"
                       variant="tertiary-neutral"
-                      icon={<ChevronLeft size={16} aria-hidden />}
+                      icon={<ChevronLeftIcon fontSize="1rem" aria-hidden />}
                       onClick={goToPreviousSlide}
                       disabled={currentSlideIndex <= 0}
                       aria-label="Forrige slide"
@@ -894,7 +907,7 @@ const CanvasPresentationView = () => {
                     <Button
                       size="xsmall"
                       variant="tertiary-neutral"
-                      icon={<ChevronRight size={16} aria-hidden />}
+                      icon={<ChevronRightIcon fontSize="1rem" aria-hidden />}
                       onClick={goToNextSlide}
                       disabled={currentSlideIndex >= slides.length - 1}
                       aria-label="Neste slide"
@@ -903,7 +916,13 @@ const CanvasPresentationView = () => {
                     <Button
                       size="xsmall"
                       variant="tertiary-neutral"
-                      icon={theme === 'dark' ? <Sun size={16} aria-hidden /> : <Moon size={16} aria-hidden />}
+                      icon={
+                        theme === 'dark' ? (
+                          <SunIcon fontSize="1rem" aria-hidden />
+                        ) : (
+                          <MoonIcon fontSize="1rem" aria-hidden />
+                        )
+                      }
                       onClick={toggleTheme}
                       aria-label={theme === 'dark' ? 'Bytt til lyst tema' : 'Bytt til mørkt tema'}
                       title={theme === 'dark' ? 'Bytt til lyst tema' : 'Bytt til mørkt tema'}
@@ -993,7 +1012,7 @@ const CanvasPresentationView = () => {
                         <Button
                           size="xsmall"
                           variant="tertiary"
-                          icon={<Minimize2 size={14} aria-hidden="true" />}
+                          icon={<ShrinkIcon fontSize="0.875rem" aria-hidden="true" />}
                           onClick={() => setMaximizedDashboardFrameId(null)}
                           title="Lukk maksimering"
                           aria-label="Lukk maksimering"

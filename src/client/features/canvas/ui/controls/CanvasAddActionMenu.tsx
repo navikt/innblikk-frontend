@@ -1,5 +1,5 @@
 import { ActionMenu, Button } from '@navikt/ds-react'
-import { Plus } from 'lucide-react'
+import { PlusIcon } from '@navikt/aksel-icons'
 
 type CanvasAddActionMenuProps = {
   onAddWebsite: () => void
@@ -102,7 +102,7 @@ const CanvasAddActionMenu = ({
             <Button
               size={buttonSize}
               variant={buttonVariant}
-              icon={<Plus size={iconSize} />}
+              icon={<PlusIcon fontSize={`${iconSize / 16}rem`} />}
               className={buttonClassName}
               disabled={disabled}
             >
@@ -113,7 +113,7 @@ const CanvasAddActionMenu = ({
           <Button
             size={buttonSize}
             variant={buttonVariant}
-            icon={<Plus size={iconSize} />}
+            icon={<PlusIcon fontSize={`${iconSize / 16}rem`} />}
             className={buttonClassName}
             disabled={disabled}
           >

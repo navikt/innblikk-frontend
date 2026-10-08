@@ -1,4 +1,4 @@
-import { Monitor, Smartphone, Laptop, Tablet } from 'lucide-react'
+import { LaptopIcon, MobileIcon, MonitorIcon, TabletIcon } from '@navikt/aksel-icons'
 
 interface DeviceIconProps {
   device?: string
@@ -6,15 +6,16 @@ interface DeviceIconProps {
 }
 
 export function getDeviceIcon(device?: string, size: number = 16) {
+  const fontSize = `${(size / 16).toFixed(4).replace(/0+$/, '').replace(/\.$/, '')}rem`
   switch (device?.toLowerCase()) {
     case 'mobile':
-      return <Smartphone size={size} />
+      return <MobileIcon fontSize={fontSize} />
     case 'tablet':
-      return <Tablet size={size} />
+      return <TabletIcon fontSize={fontSize} />
     case 'desktop':
-      return <Laptop size={size} />
+      return <LaptopIcon fontSize={fontSize} />
     default:
-      return <Monitor size={size} />
+      return <MonitorIcon fontSize={fontSize} />
   }
 }
 

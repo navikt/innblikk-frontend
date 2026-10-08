@@ -1,6 +1,6 @@
 import { Button, Heading, Loader } from '@navikt/ds-react'
-import { ArrowRight } from 'lucide-react'
 import type { InnOgUtgangerTabContentProps } from '../../model/types.ts'
+import { ArrowRightIcon } from '@navikt/aksel-icons'
 
 const InnOgUtgangerTabContent = ({
   hasAttemptedFetch,
@@ -66,7 +66,7 @@ const InnOgUtgangerTabContent = ({
           <Button
             variant="secondary"
             size="small"
-            icon={<ArrowRight size={16} />}
+            icon={<ArrowRightIcon fontSize="1rem" />}
             iconPosition="right"
             onClick={onNavigateToJourney}
             disabled={!selectedWebsite}

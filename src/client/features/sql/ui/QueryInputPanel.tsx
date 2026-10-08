@@ -1,6 +1,6 @@
 import { Button, Alert, Heading, BodyLong } from '@navikt/ds-react'
 import Editor from '@monaco-editor/react'
-import { X } from 'lucide-react'
+import { XMarkIcon } from '@navikt/aksel-icons'
 
 interface QueryInputPanelProps {
   query: string
@@ -85,7 +85,7 @@ export default function QueryInputPanel({
             aria-label="Lukk melding"
             type="button"
           >
-            <X size={20} />
+            <XMarkIcon fontSize="1.25rem" />
           </button>
         </Alert>
       )}

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ActionMenu, Button, Alert, Loader, Switch, Heading, BodyShort, Tooltip } from '@navikt/ds-react'
 import { ResponsiveContainer, LineChart } from '@fluentui/react-charting'
-import { Share2, Check, MoreVertical } from 'lucide-react'
+import { CheckmarkIcon, MenuElipsisVerticalIcon, PaperplaneIcon } from '@navikt/aksel-icons'
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
@@ -183,7 +183,7 @@ const Retention = () => {
                       type="button"
                       variant="tertiary"
                       size="xsmall"
-                      icon={<MoreVertical aria-hidden />}
+                      icon={<MenuElipsisVerticalIcon aria-hidden fontSize="1.25rem" />}
                       aria-label="Flere valg for gjenbesøksgraf"
                     />
                   </ActionMenu.Trigger>
@@ -284,7 +284,7 @@ const Retention = () => {
             <Button
               size="small"
               variant="secondary"
-              icon={copySuccess ? <Check size={16} /> : <Share2 size={16} />}
+              icon={copySuccess ? <CheckmarkIcon fontSize="1rem" /> : <PaperplaneIcon fontSize="1rem" />}
               onClick={copyShareLink}
             >
               {copySuccess ? 'Kopiert!' : 'Del analyse'}

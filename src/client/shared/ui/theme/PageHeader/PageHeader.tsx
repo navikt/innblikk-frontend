@@ -23,7 +23,7 @@ export const PageHeader = ({
   notice,
 }: PageHeaderProps) => {
   const isArticle = variant === 'article'
-  const padding = isArticle ? '64px' : '32px'
+  const padding = isArticle ? '40px' : '24px'
 
   return (
     <div
@@ -44,7 +44,7 @@ export const PageHeader = ({
         >
           <div className="flex flex-col gap-[6px] md:col-start-1 md:row-start-1">
             <div className="flex items-center gap-3 flex-wrap">
-              <Heading level="1" size="xlarge">
+              <Heading level="1" size="large">
                 {title}
               </Heading>
               {beta && (
@@ -54,7 +54,7 @@ export const PageHeader = ({
               )}
             </div>
             {subtitle && (
-              <Heading level="2" size="medium" className="text-[var(--ax-text-neutral-subtle)] font-normal">
+              <Heading level="2" size="small" className="text-[var(--ax-text-neutral-subtle)] font-normal">
                 {subtitle}
               </Heading>
             )}

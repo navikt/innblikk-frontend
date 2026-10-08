@@ -1,8 +1,8 @@
 import { ActionMenu, Button } from '@navikt/ds-react'
-import { Check, Edit2, Trash2 } from 'lucide-react'
 import type { MouseEvent } from 'react'
 import type { CanvasSectionLayoutMode } from '../../model/types.ts'
 import { ICON_ROTATION_STEP_DEG } from '../../utils/canvasUtils.ts'
+import { CheckmarkIcon, PencilIcon, TrashIcon } from '@navikt/aksel-icons'
 
 const stopMouseDownPropagation = (event: MouseEvent<HTMLElement>) => {
   event.stopPropagation()
@@ -103,7 +103,7 @@ const HeadingActionMenu = ({
       <Button
         size="xsmall"
         variant="tertiary"
-        icon={<Edit2 size={14} />}
+        icon={<PencilIcon fontSize="0.875rem" />}
         onMouseDown={stopMouseDownPropagation}
         title="Rediger"
         aria-label="Rediger"
@@ -182,7 +182,7 @@ const TextActionMenu = ({
       <Button
         size="xsmall"
         variant="tertiary"
-        icon={<Edit2 size={14} />}
+        icon={<PencilIcon fontSize="0.875rem" />}
         onMouseDown={stopMouseDownPropagation}
         title="Rediger"
         aria-label="Rediger"
@@ -287,7 +287,7 @@ const VisualAssetActionMenu = ({
       <Button
         size="xsmall"
         variant="tertiary"
-        icon={<Edit2 size={14} />}
+        icon={<PencilIcon fontSize="0.875rem" />}
         onMouseDown={stopMouseDownPropagation}
         title="Rediger"
         aria-label="Rediger"
@@ -435,7 +435,7 @@ const TableActionMenu = ({
       <Button
         size="xsmall"
         variant="tertiary"
-        icon={<Edit2 size={14} />}
+        icon={<PencilIcon fontSize="0.875rem" />}
         onMouseDown={stopMouseDownPropagation}
         title="Rediger"
         aria-label="Rediger"
@@ -484,7 +484,7 @@ const SectionActionMenu = ({
       <Button
         size="xsmall"
         variant="tertiary"
-        icon={<Edit2 size={14} />}
+        icon={<PencilIcon fontSize="0.875rem" />}
         onMouseDown={stopMouseDownPropagation}
         title="Rediger"
         aria-label="Rediger"
@@ -602,7 +602,7 @@ const StickyActionMenu = ({
         <Button
           size="xsmall"
           variant="tertiary"
-          icon={<Edit2 size={14} />}
+          icon={<PencilIcon fontSize="0.875rem" />}
           onMouseDown={stopMouseDownPropagation}
           title="Rediger"
           aria-label="Rediger"
@@ -644,7 +644,7 @@ const StickyActionMenu = ({
                     />
                     {option.label}
                     <span className="ml-auto" aria-hidden="true">
-                      {selectedStickyColorId === option.id ? <Check size={14} /> : null}
+                      {selectedStickyColorId === option.id ? <CheckmarkIcon fontSize="0.875rem" /> : null}
                     </span>
                   </span>
                 </ActionMenu.Item>
@@ -681,7 +681,7 @@ const ImageOrDashboardEditActionPoint = ({
     <Button
       size="xsmall"
       variant="tertiary"
-      icon={<Edit2 size={14} />}
+      icon={<PencilIcon fontSize="0.875rem" />}
       onMouseDown={stopMouseDownPropagation}
       onClick={onEditDashboard}
       title={title}
@@ -776,7 +776,7 @@ const CanvasFrameActionPoints = ({
         <Button
           size="xsmall"
           variant="tertiary"
-          icon={<Edit2 size={14} />}
+          icon={<PencilIcon fontSize="0.875rem" />}
           onMouseDown={stopMouseDownPropagation}
           onClick={onEditLink}
           title="Rediger lenke"
@@ -857,7 +857,7 @@ const CanvasFrameActionPoints = ({
         <Button
           size="xsmall"
           variant="tertiary"
-          icon={<Trash2 size={14} />}
+          icon={<TrashIcon fontSize="0.875rem" />}
           onMouseDown={stopMouseDownPropagation}
           onClick={onRemoveFrame}
           title="Fjern"

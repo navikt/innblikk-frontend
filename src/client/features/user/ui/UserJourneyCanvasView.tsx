@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Button } from '@navikt/ds-react'
-import { ExternalLink } from 'lucide-react'
+import { ExternalLinkIcon } from '@navikt/aksel-icons'
 import AnalysisActionModal from '../../analysis/ui/AnalysisActionModal.tsx'
 import { normalizeUrlToPath } from '../../../shared/lib/utils.ts'
 import type { JourneyLink, JourneyNode } from '../model'
@@ -398,7 +398,7 @@ const UserJourneyCanvasView = ({
                           <Button
                             size="xsmall"
                             variant="tertiary"
-                            icon={<ExternalLink size={14} />}
+                            icon={<ExternalLinkIcon fontSize="0.875rem" />}
                             onClick={(event) => {
                               event.stopPropagation()
                               setSelectedUrl(node.name)

@@ -1,7 +1,15 @@
 import React, { useState } from 'react'
 import { Modal, Button } from '@navikt/ds-react'
-import { ZoomPlusIcon, DownloadIcon, LinkIcon, CheckmarkIcon } from '@navikt/aksel-icons'
-import { Code2, Copy, Pencil, Trash2 } from 'lucide-react'
+import {
+  CheckmarkIcon,
+  CodeIcon,
+  DownloadIcon,
+  FilesIcon,
+  LinkIcon,
+  PencilIcon,
+  TrashIcon,
+  ZoomPlusIcon,
+} from '@navikt/aksel-icons'
 import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
 import type { ChartActionModalProps } from '../model/types.ts'
 import { buildEditorUrl, generateShareUrl, downloadChartCsv } from '../utils/chartActions.ts'
@@ -115,7 +123,7 @@ const ChartActionModal: React.FC<ChartActionModalProps> = ({
                   <Button variant="secondary" onClick={handleOpenInSqlEditor} className={actionButtonClass}>
                     <span className="inline-flex items-center gap-2">
                       <span className={iconSlotClass}>
-                        <Code2 aria-hidden size={16} />
+                        <CodeIcon aria-hidden fontSize="1rem" />
                       </span>
                       <span>Åpne i SQL-editor</span>
                     </span>
@@ -140,7 +148,7 @@ const ChartActionModal: React.FC<ChartActionModalProps> = ({
                 <Button variant="secondary" onClick={handleCopy} className={actionButtonClass}>
                   <span className="inline-flex items-center gap-2">
                     <span className={iconSlotClass}>
-                      <Copy aria-hidden size={16} />
+                      <FilesIcon aria-hidden fontSize="1rem" />
                     </span>
                     <span>{copyActionLabel}</span>
                   </span>
@@ -156,7 +164,7 @@ const ChartActionModal: React.FC<ChartActionModalProps> = ({
                 >
                   <span className="inline-flex items-center gap-2">
                     <span className={iconSlotClass}>
-                      <Copy aria-hidden size={16} />
+                      <FilesIcon aria-hidden fontSize="1rem" />
                     </span>
                     <span>Legg til i dashboard</span>
                   </span>
@@ -166,7 +174,7 @@ const ChartActionModal: React.FC<ChartActionModalProps> = ({
                 <Button variant="secondary" onClick={handleEdit} className={actionButtonClass}>
                   <span className="inline-flex items-center gap-2">
                     <span className={iconSlotClass}>
-                      <Pencil aria-hidden size={16} />
+                      <PencilIcon aria-hidden fontSize="1rem" />
                     </span>
                     <span>Rediger graf</span>
                   </span>
@@ -176,7 +184,7 @@ const ChartActionModal: React.FC<ChartActionModalProps> = ({
                 <Button variant="secondary" onClick={handleMove} className={actionButtonClass}>
                   <span className="inline-flex items-center gap-2">
                     <span className={iconSlotClass}>
-                      <Copy aria-hidden size={16} />
+                      <FilesIcon aria-hidden fontSize="1rem" />
                     </span>
                     <span>Flytt til annen fane</span>
                   </span>
@@ -186,7 +194,7 @@ const ChartActionModal: React.FC<ChartActionModalProps> = ({
                 <Button variant="secondary" onClick={handleDelete} className={actionButtonClass}>
                   <span className="inline-flex items-center gap-2">
                     <span className={iconSlotClass}>
-                      <Trash2 aria-hidden size={16} />
+                      <TrashIcon aria-hidden fontSize="1rem" />
                     </span>
                     <span>Slett graf</span>
                   </span>

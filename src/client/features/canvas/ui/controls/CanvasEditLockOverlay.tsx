@@ -1,5 +1,5 @@
-import { Lock } from 'lucide-react'
 import type { MouseEvent } from 'react'
+import { PadlockLockedIcon } from '@navikt/aksel-icons'
 
 type CanvasEditLockOverlayProps = {
   ownerLabel?: string | null
@@ -31,7 +31,7 @@ const CanvasEditLockOverlay = ({ ownerLabel, tone = 'default' }: CanvasEditLockO
             : 'border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] text-[var(--ax-text-default)]'
         }`}
       >
-        <Lock size={14} aria-hidden="true" />
+        <PadlockLockedIcon fontSize="0.875rem" aria-hidden="true" />
         <span className="truncate">{ownerLabel || 'En kollega'} redigerer akkurat nå</span>
       </div>
     </div>

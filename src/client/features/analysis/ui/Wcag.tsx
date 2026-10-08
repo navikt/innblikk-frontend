@@ -12,14 +12,13 @@ import {
   Heading,
   Tooltip,
 } from '@navikt/ds-react'
-import { MoreVertical, Search } from 'lucide-react'
-
 import ChartLayout from './ChartLayout.tsx'
 import { BetaFeatureNotice, BetaFeedbackLine } from '../../../shared/ui/BetaFeatureNotice.tsx'
 import WebsitePicker from './WebsitePicker.tsx'
 import type { WcagIssue } from '../model/types.ts'
 import { downloadCsv } from '../utils/siteimprove.ts'
 import { useWcag } from '../hooks/useWcag.ts'
+import { MagnifyingGlassIcon, MenuElipsisVerticalIcon } from '@navikt/aksel-icons'
 
 const toConformanceLabel = (value: unknown) => {
   if (value === null || value === undefined || value === '') return '-'
@@ -109,7 +108,7 @@ const Wcag = () => {
                   type="button"
                   variant={showSearch ? 'secondary' : 'tertiary'}
                   size="xsmall"
-                  icon={<Search aria-hidden />}
+                  icon={<MagnifyingGlassIcon aria-hidden fontSize="1.25rem" />}
                   aria-label={`Søk i ${title.toLowerCase()}`}
                   aria-pressed={showSearch}
                   onClick={() => {
@@ -125,7 +124,7 @@ const Wcag = () => {
                       type="button"
                       variant="tertiary"
                       size="xsmall"
-                      icon={<MoreVertical aria-hidden />}
+                      icon={<MenuElipsisVerticalIcon aria-hidden fontSize="1.25rem" />}
                       aria-label={`Flere valg for ${title.toLowerCase()}`}
                     />
                   </ActionMenu.Trigger>

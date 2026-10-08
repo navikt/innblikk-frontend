@@ -1,5 +1,5 @@
 import { Heading, Button, Loader } from '@navikt/ds-react'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeftIcon } from '@navikt/aksel-icons'
 import type { SeriesPoint, EventProperty, ParameterValue, LatestEvent, QueryStats } from '../model/types.ts'
 import EventSeriesChart from './EventSeriesChart.tsx'
 import EventPropertiesSection from './EventPropertiesSection.tsx'
@@ -41,7 +41,7 @@ const EventDetailView = ({
 }: EventDetailViewProps) => (
   <div className="space-y-6">
     <div className="flex items-center gap-4 mb-4">
-      <Button variant="tertiary" size="small" icon={<ArrowLeft aria-hidden />} onClick={onBack}>
+      <Button variant="tertiary" size="small" icon={<ArrowLeftIcon aria-hidden fontSize="1.25rem" />} onClick={onBack}>
         Alle hendelser
       </Button>
     </div>

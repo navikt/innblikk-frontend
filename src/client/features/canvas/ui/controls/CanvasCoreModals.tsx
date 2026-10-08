@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Alert, Button, Label, Modal, ReadMore, Select, TextField, UNSAFE_Combobox as Combobox } from '@navikt/ds-react'
-import { FolderOpen, Plus } from 'lucide-react'
 import type { CanvasChartOption, CanvasDeleteTarget } from '../../model/types.ts'
 import CanvasActionMenu from '../../../../shared/ui/CanvasActionMenu.tsx'
+import { FolderIcon, PlusIcon } from '@navikt/aksel-icons'
 
 type SelectOption = {
   id: number
@@ -164,7 +164,7 @@ const CanvasCoreModals = ({
                   variant="tertiary"
                   size="small"
                   type="button"
-                  icon={<Plus aria-hidden size={16} />}
+                  icon={<PlusIcon aria-hidden fontSize="1rem" />}
                   onClick={() => {
                     setIsCreateCanvasDetailsOpen(false)
                     onOpenCreateTeam()
@@ -202,7 +202,7 @@ const CanvasCoreModals = ({
                     variant="tertiary"
                     size="small"
                     type="button"
-                    icon={<Plus aria-hidden size={16} />}
+                    icon={<PlusIcon aria-hidden fontSize="1rem" />}
                     onClick={() => setIsCreateCanvasDetailsOpen(true)}
                     disabled={!createCanvasProjectId || isLoadingExistingCanvasOptions}
                   >
@@ -220,7 +220,7 @@ const CanvasCoreModals = ({
                     <div className="rounded-lg border border-dashed border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] px-4 py-5">
                       <div className="flex items-start gap-3">
                         <span className="mt-0.5 text-[var(--ax-text-neutral-subtle)]">
-                          <FolderOpen aria-hidden size={18} />
+                          <FolderIcon aria-hidden fontSize="1.125rem" />
                         </span>
                         <div className="space-y-1">
                           <p className="text-sm font-medium text-[var(--ax-text-default)]">Ingen canvas ennå</p>

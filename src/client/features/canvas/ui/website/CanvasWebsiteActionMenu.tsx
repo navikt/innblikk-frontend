@@ -1,6 +1,13 @@
 import { ActionMenu, Button } from '@navikt/ds-react'
-import { ChartNoAxesCombined, Copy, Edit2, List, RefreshCw, Trash2 } from 'lucide-react'
 import type { MouseEvent } from 'react'
+import {
+  ArrowCirclepathIcon,
+  BulletListIcon,
+  FilesIcon,
+  LineGraphIcon,
+  PencilIcon,
+  TrashIcon,
+} from '@navikt/aksel-icons'
 
 const stopMouseDownPropagation = (event: MouseEvent<HTMLElement>) => {
   event.stopPropagation()
@@ -59,7 +66,7 @@ const CanvasWebsiteActionMenu = ({
           size="xsmall"
           variant="tertiary"
           className={triggerClassName}
-          icon={<Edit2 size={14} />}
+          icon={<PencilIcon fontSize="0.875rem" />}
           onMouseDown={stopMouseDownPropagation}
           title="Flere valg"
           aria-label="Flere valg"
@@ -69,19 +76,19 @@ const CanvasWebsiteActionMenu = ({
     <ActionMenu.Content align="end">
       <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onRefresh}>
         <span className="inline-flex items-center gap-2">
-          <RefreshCw size={14} aria-hidden="true" />
+          <ArrowCirclepathIcon fontSize="0.875rem" aria-hidden="true" />
           <span>Last inn på nytt</span>
         </span>
       </ActionMenu.Item>
       <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onDuplicate} disabled={isEditingLocked}>
         <span className="inline-flex items-center gap-2">
-          <Copy size={14} aria-hidden="true" />
+          <FilesIcon fontSize="0.875rem" aria-hidden="true" />
           <span>Dupliser</span>
         </span>
       </ActionMenu.Item>
       <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onEdit} disabled={isEditingLocked}>
         <span className="inline-flex items-center gap-2">
-          <Edit2 size={14} aria-hidden="true" />
+          <PencilIcon fontSize="0.875rem" aria-hidden="true" />
           <span>{isInternalDashboard ? 'Rediger dashboard' : 'Rediger nettside'}</span>
         </span>
       </ActionMenu.Item>
@@ -92,7 +99,7 @@ const CanvasWebsiteActionMenu = ({
           disabled={isEditingLocked}
         >
           <span className="inline-flex items-center gap-2">
-            <ChartNoAxesCombined size={14} aria-hidden="true" />
+            <LineGraphIcon fontSize="0.875rem" aria-hidden="true" />
             <span>Visualisering</span>
           </span>
         </ActionMenu.Item>
@@ -100,7 +107,7 @@ const CanvasWebsiteActionMenu = ({
       {showInsightOption && onToggleInsight && (
         <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onToggleInsight} disabled={insightDisabled}>
           <span className="inline-flex items-center gap-2">
-            <ChartNoAxesCombined size={14} aria-hidden="true" />
+            <LineGraphIcon fontSize="0.875rem" aria-hidden="true" />
             <span>{isInsightOpen ? 'Skjul innsikt' : 'Vis innsikt'}</span>
           </span>
         </ActionMenu.Item>
@@ -108,14 +115,14 @@ const CanvasWebsiteActionMenu = ({
       {showTopListOption && onToggleTopList && (
         <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onToggleTopList}>
           <span className="inline-flex items-center gap-2">
-            <List size={14} aria-hidden="true" />
+            <BulletListIcon fontSize="0.875rem" aria-hidden="true" />
             <span>{isTopListEnabled ? 'Skjul toppliste' : 'Vis toppliste'}</span>
           </span>
         </ActionMenu.Item>
       )}
       <ActionMenu.Item onMouseDown={stopMouseDownPropagation} onClick={onRemove} disabled={isEditingLocked}>
         <span className="inline-flex items-center gap-2">
-          <Trash2 size={14} aria-hidden="true" />
+          <TrashIcon fontSize="0.875rem" aria-hidden="true" />
           <span>Fjern kort</span>
         </span>
       </ActionMenu.Item>

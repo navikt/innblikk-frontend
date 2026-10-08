@@ -1,5 +1,5 @@
 import { Button } from '@navikt/ds-react'
-import { Download, Share2, Check } from 'lucide-react'
+import { CheckmarkIcon, DownloadIcon, PaperplaneIcon } from '@navikt/aksel-icons'
 
 interface JourneyToolbarProps {
   onDownloadCSV: () => void
@@ -12,15 +12,15 @@ export default function JourneyToolbar({ onDownloadCSV, onDownloadExcel, onShare
   return (
     <div className="flex gap-2 p-3 bg-[var(--ax-bg-neutral-soft)] border-b">
       <Button size="small" variant="secondary" onClick={onDownloadCSV}>
-        <Download size={16} />
+        <DownloadIcon fontSize="1rem" />
         Last ned CSV
       </Button>
       <Button size="small" variant="secondary" onClick={onDownloadExcel}>
-        <Download size={16} />
+        <DownloadIcon fontSize="1rem" />
         Last ned Excel
       </Button>
       <Button size="small" variant="secondary" onClick={onShare}>
-        {copySuccess ? <Check size={16} /> : <Share2 size={16} />}
+        {copySuccess ? <CheckmarkIcon fontSize="1rem" /> : <PaperplaneIcon fontSize="1rem" />}
         {copySuccess ? 'Lenke kopiert!' : 'Del rapport'}
       </Button>
     </div>

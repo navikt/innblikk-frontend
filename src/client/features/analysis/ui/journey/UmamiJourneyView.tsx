@@ -1,9 +1,9 @@
 import React from 'react'
 import { Button, Tooltip, Loader } from '@navikt/ds-react'
-import { Plus, Check, ExternalLink, ArrowRight } from 'lucide-react'
 import AnalysisActionModal from '../AnalysisActionModal.tsx'
 import type { UmamiJourneyFullViewProps } from '../../model/types.ts'
 import { useUmamiJourney } from '../../hooks/useUmamiJourney.ts'
+import { ArrowRightIcon, CheckmarkIcon, ExternalLinkIcon, PlusIcon } from '@navikt/aksel-icons'
 
 const UmamiJourneyView: React.FC<UmamiJourneyFullViewProps> = ({
   nodes,
@@ -136,7 +136,7 @@ const UmamiJourneyView: React.FC<UmamiJourneyFullViewProps> = ({
                                       }}
                                       title="Åpne i analyse"
                                     >
-                                      <ExternalLink size={12} />
+                                      <ExternalLinkIcon fontSize="0.75rem" />
                                     </button>
                                   )}
                                 </div>
@@ -160,7 +160,7 @@ const UmamiJourneyView: React.FC<UmamiJourneyFullViewProps> = ({
                                                         `}
                               title={isFunnelStep ? 'Fjern fra trakt' : 'Legg til i trakt'}
                             >
-                              {isFunnelStep ? <Check size={14} strokeWidth={3} /> : <Plus size={14} strokeWidth={3} />}
+                              {isFunnelStep ? <CheckmarkIcon fontSize="0.875rem" /> : <PlusIcon fontSize="0.875rem" />}
                             </button>
                           </div>
                         </div>
@@ -201,8 +201,8 @@ const UmamiJourneyView: React.FC<UmamiJourneyFullViewProps> = ({
                   ) : (
                     <>
                       <div className="w-12 h-12 rounded-full bg-[var(--ax-bg-neutral-soft)] group-hover:bg-[var(--ax-bg-accent-soft)] flex items-center justify-center transition-colors shadow-sm border border-[var(--ax-border-neutral-subtle)]">
-                        <ArrowRight
-                          size={24}
+                        <ArrowRightIcon
+                          fontSize="1.5rem"
                           className="group-hover:translate-x-1 transition-transform text-[var(--ax-text-default)] group-hover:text-blue-700"
                         />
                       </div>
@@ -244,7 +244,7 @@ const UmamiJourneyView: React.FC<UmamiJourneyFullViewProps> = ({
                 size="medium"
                 onClick={navigateToFunnel}
                 disabled={funnelSteps.length < 2}
-                icon={<ExternalLink size={20} />}
+                icon={<ExternalLinkIcon fontSize="1.25rem" />}
               >
                 Opprett traktanalyse
               </Button>
