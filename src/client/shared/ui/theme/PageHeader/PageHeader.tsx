@@ -44,7 +44,7 @@ export const PageHeader = ({
         >
           <div className="flex flex-col gap-[6px] md:col-start-1 md:row-start-1">
             <div className="flex items-center gap-3 flex-wrap">
-              <Heading level="1" size="small" weight="semibold">
+              <Heading level="1" size="small">
                 {title}
               </Heading>
               {beta && (
