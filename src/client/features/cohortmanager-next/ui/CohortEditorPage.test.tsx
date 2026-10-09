@@ -49,7 +49,7 @@ describe('CohortEditorPage', () => {
     expect(screen.getByRole('button', { name: 'eller' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'deretter' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Fjern kriterium/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('complementary', { name: 'Slik leser vi gruppen' })).toBeInTheDocument()
+    expect(screen.queryByRole('complementary', { name: 'Oppsummering' })).not.toBeInTheDocument()
   })
 
   it('adds a second criterion with «og», then only offers «og» and a switch between og/eller', async () => {
@@ -60,6 +60,7 @@ describe('CohortEditorPage', () => {
 
     expect(screen.getByRole('region', { name: 'Kriterium 2' })).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: /Fjern kriterium/ })).toHaveLength(2)
+    expect(screen.getByRole('complementary', { name: 'Oppsummering' })).toBeInTheDocument()
     expect(screen.getByRole('radiogroup', { name: 'Hvordan henger kriteriene sammen?' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'eller' })).not.toBeInTheDocument()
 

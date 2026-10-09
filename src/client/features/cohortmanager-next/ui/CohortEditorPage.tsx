@@ -176,6 +176,8 @@ function CohortEditorPage() {
   }
 
   const lastCard = draft.cards[draft.cards.length - 1]
+  // One simple card already reads as a sentence; the summary only helps once cards combine.
+  const showSummary = draft.cards.length > 1 || draft.cards.some((c) => c.kind === 'sequence')
   const canContinueWithThen = lastCard?.kind === 'event' && !lastCard.negated
   const continueWithThen = () => {
     if (lastCard?.kind === 'event') updateCard(lastCard.id, eventToSequence(lastCard))
@@ -465,7 +467,7 @@ function CohortEditorPage() {
             </HStack>
           </VStack>
 
-          <SummaryPanel draft={draft} names={names} />
+          {showSummary && <SummaryPanel draft={draft} names={names} />}
           {saveError && <Alert variant="error">{saveError}</Alert>}
           <HStack gap="space-12">
             <Button loading={saving} onClick={() => void handleSave()}>
