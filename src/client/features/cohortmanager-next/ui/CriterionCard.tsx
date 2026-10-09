@@ -1,8 +1,9 @@
 import { createContext, useContext } from 'react'
 import { BodyShort, Box, Button, HStack, Select, TextField, ToggleGroup, VStack } from '@navikt/ds-react'
-import { TrashIcon } from '@navikt/aksel-icons'
+import { TrashIcon, XMarkIcon } from '@navikt/aksel-icons'
 import type { CohortDto, SequenceRelation, SequenceTimeUnit } from '../../cohortmanager/model/types.ts'
 import type { Card, CohortCard, EventCard, SequenceCard } from '../model/draft.ts'
+import { sequenceToEvent } from '../model/draft.ts'
 import { windowUnitLabel } from '../utils/describe.ts'
 import { anchorFor } from '../utils/validate.ts'
 import { StepEditor } from './StepEditor.tsx'
@@ -188,11 +189,6 @@ function CohortCardBody({
           ))}
         </Select>
       </div>
-      {cohorts.length === 0 && (
-        <BodyShort size="small" textColor="subtle">
-          Det finnes ingen andre brukergrupper på dette nettstedet ennå.
-        </BodyShort>
-      )}
     </CardShell>
   )
 }
@@ -278,10 +274,20 @@ function SequenceCardBody({
               ))}
             </Select>
           </div>
-          <BodyShort size="small" textColor="subtle" style={{ paddingBottom: '0.5rem' }}>
-            etter at det første skjedde
-          </BodyShort>
         </HStack>
+
+        <div>
+          <Button
+            type="button"
+            size="small"
+            variant="tertiary"
+            data-color="neutral"
+            icon={<XMarkIcon aria-hidden />}
+            onClick={() => onChange(sequenceToEvent(card))}
+          >
+            Fjern «deretter»
+          </Button>
+        </div>
       </VStack>
     </CardShell>
   )

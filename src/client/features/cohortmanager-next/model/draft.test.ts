@@ -6,7 +6,16 @@ import type {
   CohortSequenceNode,
   CohortNode,
 } from '../../cohortmanager/model/types.ts'
-import { draftToTree, treeToDraft, emptyDraft, emptyCondition, type Draft, type EventCard } from './draft.ts'
+import {
+  draftToTree,
+  treeToDraft,
+  emptyDraft,
+  emptyCondition,
+  eventToSequence,
+  sequenceToEvent,
+  type Draft,
+  type EventCard,
+} from './draft.ts'
 
 const condition = (
   field: string,
@@ -157,6 +166,15 @@ describe('resolved SQL is unchanged by loading an old cohort into cards', () => 
 })
 
 describe('draft sanity', () => {
+  it('turns an activity into a sequence and back without losing the first step', () => {
+    const card = { ...(emptyDraft().cards[0] as EventCard), time: '{"from":"a","to":"b"}' }
+    const sequence = eventToSequence(card)
+    expect(sequence.id).toBe(card.id)
+    expect(sequence.first).toEqual({ conditions: card.conditions, time: card.time })
+    expect(sequence.then.conditions).toHaveLength(1)
+    expect(sequenceToEvent(sequence)).toEqual({ ...card, negated: false })
+  })
+
   it('uses the draft combinator on the root', () => {
     const draft: Draft = {
       combinator: 'OR',

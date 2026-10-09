@@ -130,16 +130,21 @@ export function emptyCohortCard(): CohortCard {
   return { kind: 'cohort', id: newId(), negated: false, cohortId: null }
 }
 
-export function emptySequenceCard(): SequenceCard {
+/** Extends an activity with a following step; the card keeps its id so focus and anchors survive. */
+export function eventToSequence(card: EventCard): SequenceCard {
   return {
     kind: 'sequence',
-    id: newId(),
+    id: card.id,
     relation: 'FOLLOWED_BY',
-    first: emptyStep(),
+    first: { conditions: card.conditions, time: card.time },
     then: emptyStep(),
     windowValue: 1,
     windowUnit: 'DAY',
   }
+}
+
+export function sequenceToEvent(card: SequenceCard): EventCard {
+  return { kind: 'event', id: card.id, negated: false, ...card.first }
 }
 
 export function emptyDraft(): Draft {

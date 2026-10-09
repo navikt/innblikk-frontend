@@ -9,8 +9,8 @@ import {
   Heading,
   HStack,
   Loader,
-  Select,
   TextField,
+  ToggleGroup,
   VStack,
 } from '@navikt/ds-react'
 import { ArrowLeftIcon, PlusIcon } from '@navikt/aksel-icons'
@@ -32,7 +32,7 @@ import {
   emptyCohortCard,
   emptyDraft,
   emptyEventCard,
-  emptySequenceCard,
+  eventToSequence,
   treeToDraft,
   type Card,
   type Draft,
@@ -170,9 +170,15 @@ function CohortEditorPage() {
   const updateCard = (cardId: string, next: Card) =>
     setDraft((d) => ({ ...d, cards: d.cards.map((c) => (c.id === cardId ? next : c)) }))
 
-  const addCard = (card: Card) => {
-    setDraft((d) => ({ ...d, cards: [...d.cards, card] }))
+  const addCard = (card: Card, combinator?: LogicalOperator) => {
+    setDraft((d) => ({ ...d, combinator: combinator ?? d.combinator, cards: [...d.cards, card] }))
     setPendingFocus(card.id)
+  }
+
+  const lastCard = draft.cards[draft.cards.length - 1]
+  const canContinueWithThen = lastCard?.kind === 'event' && !lastCard.negated
+  const continueWithThen = () => {
+    if (lastCard?.kind === 'event') updateCard(lastCard.id, eventToSequence(lastCard))
   }
 
   const removeCard = (cardId: string) => setDraft((d) => ({ ...d, cards: d.cards.filter((c) => c.id !== cardId) }))
@@ -369,35 +375,21 @@ function CohortEditorPage() {
                 Hvem skal være med i gruppen?
               </Heading>
 
-              {draft.cards.length > 1 && (
-                <HStack gap="space-8" align="center" wrap>
-                  <BodyShort as="span">Brukeren må oppfylle</BodyShort>
-                  <Select
-                    label="Hvor mange kriterier må oppfylles?"
-                    hideLabel
-                    size="small"
-                    style={{ width: '9rem' }}
-                    value={draft.combinator}
-                    onChange={(e) => setDraft((d) => ({ ...d, combinator: e.target.value as LogicalOperator }))}
-                  >
-                    <option value="AND">alle</option>
-                    <option value="OR">minst ett</option>
-                  </Select>
-                  <BodyShort as="span">av kriteriene under.</BodyShort>
-                </HStack>
-              )}
-
               <VStack gap="space-8">
                 {draft.cards.map((card, index) => (
                   <div key={card.id}>
                     {index > 0 && (
-                      <BodyShort
-                        weight="semibold"
-                        textColor="subtle"
-                        style={{ textAlign: 'center', paddingBottom: '0.5rem' }}
-                      >
-                        {draft.combinator === 'OR' ? 'eller' : 'og'}
-                      </BodyShort>
+                      <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: '0.5rem' }}>
+                        <ToggleGroup
+                          size="small"
+                          aria-label="Hvordan henger kriteriene sammen?"
+                          value={draft.combinator}
+                          onChange={(v) => setDraft((d) => ({ ...d, combinator: v as LogicalOperator }))}
+                        >
+                          <ToggleGroup.Item value="AND" label="og" />
+                          <ToggleGroup.Item value="OR" label="eller" />
+                        </ToggleGroup>
+                      </div>
                     )}
                     <CriterionCard
                       card={card}
@@ -414,8 +406,8 @@ function CohortEditorPage() {
                 ))}
               </VStack>
 
-              <VStack gap="space-8" id={anchorFor('add-card')}>
-                <HStack gap="space-8" wrap>
+              <HStack gap="space-8" wrap id={anchorFor('add-card')}>
+                {draft.cards.length === 0 && (
                   <Button
                     type="button"
                     size="small"
@@ -423,28 +415,54 @@ function CohortEditorPage() {
                     icon={<PlusIcon aria-hidden />}
                     onClick={() => addCard(emptyEventCard())}
                   >
-                    Aktivitet
+                    Legg til kriterium
                   </Button>
+                )}
+                {draft.cards.length > 0 && (draft.cards.length === 1 || draft.combinator === 'AND') && (
                   <Button
                     type="button"
                     size="small"
                     variant="secondary"
+                    icon={<PlusIcon aria-hidden />}
+                    onClick={() => addCard(emptyEventCard(), 'AND')}
+                  >
+                    og
+                  </Button>
+                )}
+                {draft.cards.length > 0 && (draft.cards.length === 1 || draft.combinator === 'OR') && (
+                  <Button
+                    type="button"
+                    size="small"
+                    variant="secondary"
+                    icon={<PlusIcon aria-hidden />}
+                    onClick={() => addCard(emptyEventCard(), 'OR')}
+                  >
+                    eller
+                  </Button>
+                )}
+                {canContinueWithThen && (
+                  <Button
+                    type="button"
+                    size="small"
+                    variant="secondary"
+                    icon={<PlusIcon aria-hidden />}
+                    onClick={continueWithThen}
+                  >
+                    deretter
+                  </Button>
+                )}
+                {others.length > 0 && draft.cards.length > 0 && (
+                  <Button
+                    type="button"
+                    size="small"
+                    variant="tertiary"
                     icon={<PlusIcon aria-hidden />}
                     onClick={() => addCard(emptyCohortCard())}
                   >
-                    Annen brukergruppe
+                    Bruk en eksisterende brukergruppe
                   </Button>
-                  <Button
-                    type="button"
-                    size="small"
-                    variant="secondary"
-                    icon={<PlusIcon aria-hidden />}
-                    onClick={() => addCard(emptySequenceCard())}
-                  >
-                    Rekkefølge
-                  </Button>
-                </HStack>
-              </VStack>
+                )}
+              </HStack>
             </VStack>
           </VStack>
 

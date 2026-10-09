@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
@@ -40,23 +40,30 @@ describe('CohortEditorPage', () => {
     Element.prototype.scrollIntoView = vi.fn()
   })
 
-  it('starts with one empty criterion and a summary, without the and/or choice', async () => {
+  it('starts with one empty criterion and the og/eller/deretter choices', async () => {
     renderAt('/brukergrupper-next/ny?websiteId=site-1')
 
     expect(await screen.findByRole('heading', { name: 'Ny brukergruppe' })).toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'Kriterium 1' })).toBeInTheDocument()
-    expect(screen.queryByText('Brukeren må oppfylle')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'og' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'eller' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'deretter' })).toBeInTheDocument()
     expect(screen.getByRole('complementary', { name: 'Slik leser vi gruppen' })).toBeInTheDocument()
   })
 
-  it('shows the all/any choice once there are two criteria', async () => {
+  it('adds a second criterion with «og», then only offers «og» and a switch between og/eller', async () => {
     const user = userEvent.setup()
     renderAt('/brukergrupper-next/ny?websiteId=site-1')
 
-    await user.click(await screen.findByRole('button', { name: 'Aktivitet' }))
+    await user.click(await screen.findByRole('button', { name: 'og' }))
 
-    expect(screen.getByText('Brukeren må oppfylle')).toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'Kriterium 2' })).toBeInTheDocument()
+    expect(screen.getByRole('radiogroup', { name: 'Hvordan henger kriteriene sammen?' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'eller' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('radio', { name: 'eller' }))
+    expect(screen.getByRole('button', { name: 'eller' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'og' })).not.toBeInTheDocument()
   })
 
   it('refuses to save an incomplete group and lists what is missing', async () => {
@@ -68,6 +75,21 @@ describe('CohortEditorPage', () => {
     expect(await screen.findByText('Dette må rettes før du kan lagre:')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Gi brukergruppen et navn' })).toBeInTheDocument()
     expect(createCohort).not.toHaveBeenCalled()
+  })
+
+  it('extends the last activity with «deretter» and can undo it', async () => {
+    const user = userEvent.setup()
+    renderAt('/brukergrupper-next/ny?websiteId=site-1')
+
+    await user.click(await screen.findByRole('button', { name: 'deretter' }))
+
+    expect(screen.getAllByRole('region', { name: /Kriterium/ })).toHaveLength(1)
+    expect(within(screen.getByRole('region', { name: 'Kriterium 1' })).getByText('Brukere som')).toBeInTheDocument()
+    expect(screen.getByText('Hva skjedde etterpå?')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Rekkefølge' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Fjern «deretter»/ }))
+    expect(screen.queryByText('Hva skjedde etterpå?')).not.toBeInTheDocument()
   })
 
   it('lets you choose the website when creating, and asks for it if missing', async () => {
