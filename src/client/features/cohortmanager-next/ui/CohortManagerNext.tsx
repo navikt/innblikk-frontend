@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Alert, BodyShort, Button, Dialog, Heading, HStack, Loader, Table, VStack } from '@navikt/ds-react'
+import { Alert, BodyShort, Box, Button, Dialog, Heading, HStack, Loader, Table, VStack } from '@navikt/ds-react'
 import { ArchiveIcon, PencilIcon, PlusIcon, TrashIcon } from '@navikt/aksel-icons'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
@@ -121,14 +121,19 @@ export default function CohortManagerNext() {
               {error && <Alert variant="error">{error}</Alert>}
 
               {!loading && !error && cohorts.length === 0 && (
-                <VStack gap="space-12" align="start">
-                  <Alert variant="info" inline>
-                    Ingen brukergrupper for dette nettstedet.
-                  </Alert>
-                  <Button as={Link} to={newHref} variant="secondary" icon={<PlusIcon aria-hidden />}>
-                    Ny brukergruppe
-                  </Button>
-                </VStack>
+                <Box background="neutral-soft" borderRadius="8" padding="space-32" style={{ maxWidth: '32rem' }}>
+                  <VStack gap="space-16" align="start">
+                    <VStack gap="space-4">
+                      <Heading level="3" size="small">
+                        Ingen brukergrupper ennå
+                      </Heading>
+                      <BodyShort>Lag den første, og bruk den i grafene dine.</BodyShort>
+                    </VStack>
+                    <Button as={Link} to={newHref} icon={<PlusIcon aria-hidden />}>
+                      Ny brukergruppe
+                    </Button>
+                  </VStack>
+                </Box>
               )}
 
               {!loading && cohorts.length > 0 && (
