@@ -5,7 +5,7 @@
  * everyone gets beta features, and each feature surfaces its own dismissable
  * notice (BetaFeatureNotice) where it lives. This registry is the single
  * source of truth for which features are in beta, and powers the overview on
- * /profil («Funksjoner i beta»).
+ * /innstillinger («Funksjoner i beta»).
  *
  * When a feature graduates out of beta: remove its registry entry, its
  * mounted BetaFeatureNotice, and its `beta: true` marker in
@@ -17,7 +17,7 @@ export type BetaFeature = {
   id: string
   /** Short name, e.g. «Grafbyggeren». */
   title: string
-  /** One-liner about what is new/experimental, shown in the /profil overview. */
+  /** One-liner about what is new/experimental, shown in the /innstillinger overview. */
   description: string
   /** Where the feature lives. */
   href: string

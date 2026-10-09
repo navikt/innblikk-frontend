@@ -60,7 +60,7 @@ type NavEntry = NavLink | NavGroup
 // "Ressurser" and "Verktøy" were originally moved here from a Header component's
 // cog/"Teknisk meny" ActionMenu (guideLinks/developerLinks). That Header (top bar
 // with logo + cog menu) has since been removed entirely — everything it held
-// (branding, main nav, Beta/dev tags, Miljø env switch, theme toggle, Profil) now
+// (branding, main nav, Beta/dev tags, Miljø env switch, theme toggle, Innstillinger) now
 // lives exclusively in this Sidebar, so there's a single persistent nav surface.
 const getNavItems = (isReopsTeamMember: boolean): NavEntry[] => [
   { kind: 'link', id: 'hjem', label: 'Hjem', to: '/', icon: <HouseIcon aria-hidden fontSize="1.25rem" /> },

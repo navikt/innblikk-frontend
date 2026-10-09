@@ -57,7 +57,7 @@ const NotFound = () => (
 )
 
 // Reactive read of the alpha_new_nav flag — AppShell must swap layouts immediately when the
-// user toggles it on /profil, without a reload.
+// user toggles it on /innstillinger, without a reload.
 const useAlphaNewNav = () => {
   const [enabled, setEnabled] = useState(() => getFeatureFlag('alpha_new_nav'))
   useEffect(() => {
@@ -68,8 +68,19 @@ const useAlphaNewNav = () => {
   return enabled
 }
 
+// Reset scroll position on every route change. The browser does this for free on a real
+// navigation (full page load), but client-side routing (react-router) keeps whatever scrollY
+// the previous page had — jarring when the new page's content starts higher/lower than where
+// you left off on the old one.
+const useResetScrollOnNavigate = (pathname: string) => {
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [pathname])
+}
+
 const AppShell = ({ theme }: { theme: 'light' | 'dark' }) => {
   const location = useLocation()
+  useResetScrollOnNavigate(location.pathname)
   const alphaNewNav = useAlphaNewNav()
   const isCanvasPage = location.pathname.startsWith('/canvas')
   const isCopilotPage = location.pathname === '/copilot'

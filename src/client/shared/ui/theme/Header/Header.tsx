@@ -278,10 +278,10 @@ export default function Header({ theme }: HeaderProps) {
           </ActionMenu.Item>
           <ActionMenu.Item
             as="a"
-            href="/profil"
+            href="/innstillinger"
             onSelect={() => {
               const properties: ActionMenuValgValgtProperties = {
-                valgTekst: 'Profil',
+                valgTekst: 'Innstillinger',
                 gruppeLabel: 'Preferanser',
                 seksjon: 'header',
               }
@@ -290,7 +290,7 @@ export default function Header({ theme }: HeaderProps) {
           >
             <span className="inline-flex items-center gap-2 whitespace-nowrap">
               <PersonIcon aria-hidden fontSize="1.2rem" />
-              Profil
+              Innstillinger
             </span>
           </ActionMenu.Item>
         </ActionMenu.Group>

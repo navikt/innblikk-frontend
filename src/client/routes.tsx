@@ -88,7 +88,7 @@ const Copilot = lazy(() => import('./features/assistant').then((m) => ({ default
 // ReOps-internal Feature (unadvertised, nav-ident gated overview of hidden features)
 const ReopsInternal = lazy(() => import('./features/reops-internal').then((m) => ({ default: m.ReopsInternal })))
 
-const InnstillingerRedirect = () => <Navigate to="/profil" replace />
+const ProfilRedirect = () => <Navigate to="/innstillinger" replace />
 
 const DashboardRouteResolver = () => {
   const location = useLocation()
@@ -192,6 +192,7 @@ export const fullWidthPathPrefixes = [
   '/grafbygger-old',
   '/dashboard/',
   '/profil',
+  '/innstillinger',
   '/kvalitet/odelagte-lenker',
   '/kvalitet/stavekontroll',
   '/kvalitet/wcag',
@@ -225,7 +226,7 @@ export const routes: AppRoute[] = [
   { path: '/reops-internal', component: <ReopsInternalRoute />, fullWidth: true },
   { path: '/sql', component: <SqlEditor />, fullWidth: true },
   { path: '/stats', component: <Stats />, fullWidth: true },
-  { path: '/innstillinger', component: <InnstillingerRedirect />, fullWidth: true },
+  { path: '/innstillinger', component: <UserProfile />, fullWidth: true },
   { path: '/grafdeling', component: <Grafdeling />, fullWidth: true },
   { path: '/dashboard', component: <DashboardRouteResolver />, fullWidth: true },
   { path: '/dashboard/:dashboardId', component: <DashboardDetailRoute />, fullWidth: true },
@@ -265,7 +266,7 @@ export const routes: AppRoute[] = [
   { path: '/markedsanalyse', component: <MarketingAnalysis />, fullWidth: true },
   { path: '/personvernssjekk', component: <PrivacyCheck />, fullWidth: true },
   { path: '/diagnose', component: <Diagnosis />, fullWidth: true },
-  { path: '/profil', component: <UserProfile />, fullWidth: true },
+  { path: '/profil', component: <ProfilRedirect />, fullWidth: true },
   { path: '/oversikt', component: <LegacyOversiktRedirect />, fullWidth: true },
   { path: '/kvalitet/odelagte-lenker', component: <BrokenLinks />, fullWidth: true },
   { path: '/kvalitet/stavekontroll', component: <Spellings />, fullWidth: true },

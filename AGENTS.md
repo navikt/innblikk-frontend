@@ -21,7 +21,7 @@ time on a path that was never going to work for their actual role.
 
 When adding a new feature, **ask the user whether it should launch in beta**. If yes, wire it into the existing beta plumbing — all three parts, no partial jobs:
 
-1. **Registry entry** in `src/client/shared/lib/betaFeatures.ts` (`id`, `title`, one-line `description`, `href`). This powers the «Funksjoner i beta» overview on `/profil`, so the feature must be listed there to be documented.
+1. **Registry entry** in `src/client/shared/lib/betaFeatures.ts` (`id`, `title`, one-line `description`, `href`). This powers the «Funksjoner i beta» overview on `/innstillinger`, so the feature must be listed there to be documented.
 2. **Dismissable notice** mounted where the feature lives:
    ```tsx
    <BetaFeatureNotice id="<registry-id>" title="<Feature> er i beta">
