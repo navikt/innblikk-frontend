@@ -199,6 +199,7 @@ export const fullWidthPathPrefixes = [
   '/grafdeling',
   '/grafbygger-old',
   '/dashboard/',
+  '/brukergrupper-next/',
   '/profil',
   '/innstillinger',
   '/kvalitet/odelagte-lenker',
