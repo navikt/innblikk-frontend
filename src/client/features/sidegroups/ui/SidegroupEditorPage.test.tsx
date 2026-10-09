@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
@@ -100,7 +100,7 @@ describe('SidegroupEditorPage', () => {
     expect(screen.getByRole('textbox', { name: 'URL-sti' })).toHaveValue('')
   })
 
-  it('opens the bulk dialog when a pasted URL belongs to another website, and adds the corrected list', async () => {
+  it('adds the valid entries and keeps the ones from another website in the field with an error', async () => {
     const user = userEvent.setup()
     renderAt('/sidegrupper/ny?websiteId=site-1')
 
@@ -108,29 +108,20 @@ describe('SidegroupEditorPage', () => {
     await user.click(screen.getByRole('textbox', { name: 'URL-sti' }))
     await user.paste('https://nav.no/a\nhttps://annet.no/b')
 
-    const dialog = await screen.findByRole('dialog', { name: 'Legg til flere URL-er' })
-    expect(within(dialog).getByText(/Sjekk: https:\/\/annet\.no\/b/)).toBeInTheDocument()
-
-    const textarea = within(dialog).getByRole('textbox', { name: /URL-er/ })
-    await user.clear(textarea)
-    await user.type(textarea, '/a{Enter}/b')
-    await user.click(within(dialog).getByRole('button', { name: 'Legg til' }))
-
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Legg til flere URL-er' })).not.toBeInTheDocument())
     expect(screen.getByText('/a')).toBeInTheDocument()
-    expect(screen.getByText('/b')).toBeInTheDocument()
+    expect(screen.getByText(/Ikke lagt til .*https:\/\/annet\.no\/b/)).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'URL-sti' })).toHaveValue('https://annet.no/b')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('adds many patterns at once with the match type chosen in the bulk dialog', async () => {
+  it('splits a typed comma-separated list and uses the chosen match type', async () => {
     const user = userEvent.setup()
     renderAt('/sidegrupper/ny?websiteId=site-1')
 
     await user.type(await screen.findByLabelText('Navn'), 'Filer')
-    await user.click(screen.getByRole('button', { name: 'Legg til flere' }))
-    const dialog = await screen.findByRole('dialog', { name: 'Legg til flere URL-er' })
-    await user.selectOptions(within(dialog).getByLabelText('Samsvar'), 'endWith')
-    await user.type(within(dialog).getByRole('textbox', { name: /URL-er/ }), '.pdf,.docx')
-    await user.click(within(dialog).getByRole('button', { name: 'Legg til' }))
+    await user.selectOptions(screen.getByLabelText('Samsvar'), 'endWith')
+    await user.type(screen.getByRole('textbox', { name: 'URL-sti' }), '.pdf, .docx')
+    await user.click(screen.getByRole('button', { name: 'Legg til' }))
     await user.click(screen.getByRole('button', { name: 'Opprett sidegruppe' }))
 
     await waitFor(() => expect(createSidegroup).toHaveBeenCalled())
