@@ -417,10 +417,6 @@ function CohortEditorPage() {
                     Rekkefølge
                   </Button>
                 </HStack>
-                <BodyShort size="small" textColor="subtle">
-                  Aktivitet: besøkte en side eller gjorde noe. Annen brukergruppe: er også med i en gruppe du har laget.
-                  Rekkefølge: gjorde noe, og deretter noe annet.
-                </BodyShort>
               </VStack>
             </VStack>
           </VStack>
