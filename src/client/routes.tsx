@@ -27,6 +27,14 @@ const CohortManager = lazy(() =>
   import('./features/cohortmanager/index.ts').then((m) => ({ default: m.CohortManager })),
 )
 
+// Cohort Manager rewrite (isolated, reachable by URL only)
+const CohortManagerNext = lazy(() =>
+  import('./features/cohortmanager-next/index.ts').then((m) => ({ default: m.CohortManagerNext })),
+)
+const CohortEditorPage = lazy(() =>
+  import('./features/cohortmanager-next/index.ts').then((m) => ({ default: m.CohortEditorPage })),
+)
+
 // Backend Test Feature
 const Oversikt = lazy(() => import('./features/oversikt/index.ts').then((m) => ({ default: m.Oversikt })))
 const ProjectManager = lazy(() =>
@@ -217,6 +225,9 @@ export const routes: AppRoute[] = [
   // Legacy alias from the pre-rollout live-testing route.
   { path: '/grafbygger_next', component: <LegacyVisualizationRouteRedirect to="/grafbygger" />, fullWidth: true },
   { path: '/brukergrupper', component: <CohortManager />, fullWidth: true },
+  { path: '/brukergrupper-next', component: <CohortManagerNext />, fullWidth: true },
+  { path: '/brukergrupper-next/ny', component: <CohortEditorPage />, fullWidth: true },
+  { path: '/brukergrupper-next/:id', component: <CohortEditorPage />, fullWidth: true },
   // Legacy alias — user-facing name changed from "kohorter" to "brukergrupper"; backend still calls them cohorts.
   { path: '/kohorter', component: <LegacyVisualizationRouteRedirect to="/brukergrupper" />, fullWidth: true },
   { path: '/metabase', component: <MetabaseGuide />, fullWidth: true },

@@ -94,6 +94,8 @@ export interface CohortDateTimeEditorProps {
   /** Raw RQB rule value — a JSON `{from, to}` string (CohortDateRangeValue), or empty for a not-yet-configured row. */
   value: string
   onChange: (value: string) => void
+  /** Skip the explanatory alert and hints. */
+  hideNotes?: boolean
 }
 
 /**
@@ -108,7 +110,7 @@ export interface CohortDateTimeEditorProps {
  * three tabs, same preset set, same relative/fixed semantics — just
  * producing one {from, to} JSON value instead of two chartbuilder Filters.
  */
-export function CohortDateTimeEditor({ value, onChange }: CohortDateTimeEditorProps) {
+export function CohortDateTimeEditor({ value, onChange, hideNotes = false }: CohortDateTimeEditorProps) {
   const [mode, setMode] = useState<Mode>(() => inferInitialMode(value))
 
   const range = parseRange(value)
@@ -137,12 +139,14 @@ export function CohortDateTimeEditor({ value, onChange }: CohortDateTimeEditorPr
 
   return (
     <div className="cohort-datetime-editor">
-      <Alert variant="info" size="small">
-        Dette bestemmer <strong>når noen må ha vært aktiv for å telle som medlem</strong> av brukergruppen — det
-        begrenser <strong>ikke</strong> hvilke av deres andre hendelser som vises når brukergruppen brukes i en graf. En
-        bruker som kvalifiserer via en hendelse i denne perioden, telles fortsatt med all sin aktivitet i grafens egen
-        tidsperiode (som settes uavhengig, under «Overstyr tidsperiode» i grafbyggeren).
-      </Alert>
+      {!hideNotes && (
+        <Alert variant="info" size="small">
+          Dette bestemmer <strong>når noen må ha vært aktiv for å telle som medlem</strong> av brukergruppen — det
+          begrenser <strong>ikke</strong> hvilke av deres andre hendelser som vises når brukergruppen brukes i en graf.
+          En bruker som kvalifiserer via en hendelse i denne perioden, telles fortsatt med all sin aktivitet i grafens
+          egen tidsperiode (som settes uavhengig, under «Overstyr tidsperiode» i grafbyggeren).
+        </Alert>
+      )}
 
       <Tabs value={mode} onChange={(v) => setMode(v as Mode)} size="small">
         <Tabs.List>
@@ -201,9 +205,11 @@ export function CohortDateTimeEditor({ value, onChange }: CohortDateTimeEditorPr
               ))}
             </Select>
           </div>
-          <BodyShort size="small" style={{ color: 'var(--ax-text-subtle)', marginTop: 8 }}>
-            Regnes ut på nytt hver gang brukergruppen evalueres — glidende vindu, ikke en fast dato.
-          </BodyShort>
+          {!hideNotes && (
+            <BodyShort size="small" style={{ color: 'var(--ax-text-subtle)', marginTop: 8 }}>
+              Regnes ut på nytt hver gang brukergruppen evalueres — glidende vindu, ikke en fast dato.
+            </BodyShort>
+          )}
         </Tabs.Panel>
 
         <Tabs.Panel value="fixed" className="pt-3">
