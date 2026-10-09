@@ -1,3 +1,4 @@
+import { createContext, useContext } from 'react'
 import { BodyShort, Box, Button, HStack, Select, TextField, ToggleGroup, VStack } from '@navikt/ds-react'
 import { TrashIcon } from '@navikt/aksel-icons'
 import type { CohortDto, SequenceRelation, SequenceTimeUnit } from '../../cohortmanager/model/types.ts'
@@ -9,6 +10,8 @@ import { StepEditor } from './StepEditor.tsx'
 interface CriterionCardProps {
   card: Card
   index: number
+  /** Number of cards in the draft; the number badge only helps when there are several. */
+  total: number
   websiteId: string | undefined
   cohorts: CohortDto[]
   showErrors: boolean
@@ -18,6 +21,8 @@ interface CriterionCardProps {
 }
 
 const WINDOW_UNITS: SequenceTimeUnit[] = ['MINUTE', 'HOUR', 'DAY', 'WEEK', 'MONTH', 'YEAR']
+
+const ShowNumberContext = createContext(false)
 
 function CardShell({
   card,
@@ -32,6 +37,7 @@ function CardShell({
   onRemove: () => void
   children: React.ReactNode
 }) {
+  const showNumber = useContext(ShowNumberContext)
   return (
     <Box
       id={anchorFor(card.id)}
@@ -46,15 +52,17 @@ function CardShell({
       <VStack gap="space-16">
         <HStack justify="space-between" align="center" gap="space-12" wrap>
           <HStack gap="space-12" align="center" wrap>
-            <Box
-              background="accent-soft"
-              borderRadius="full"
-              style={{ width: '1.75rem', height: '1.75rem', display: 'grid', placeItems: 'center' }}
-            >
-              <BodyShort size="small" weight="semibold" as="span">
-                {index + 1}
-              </BodyShort>
-            </Box>
+            {showNumber && (
+              <Box
+                background="accent-soft"
+                borderRadius="full"
+                style={{ width: '1.75rem', height: '1.75rem', display: 'grid', placeItems: 'center' }}
+              >
+                <BodyShort size="small" weight="semibold" as="span">
+                  {index + 1}
+                </BodyShort>
+              </Box>
+            )}
             {title}
           </HStack>
           <Button
@@ -275,6 +283,14 @@ function SequenceCardBody({
 }
 
 export function CriterionCard(props: CriterionCardProps) {
+  return (
+    <ShowNumberContext.Provider value={props.total > 1}>
+      <CardByKind {...props} />
+    </ShowNumberContext.Provider>
+  )
+}
+
+function CardByKind(props: CriterionCardProps) {
   switch (props.card.kind) {
     case 'event':
       return <EventCardBody {...props} card={props.card} />

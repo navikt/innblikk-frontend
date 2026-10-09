@@ -385,6 +385,7 @@ function CohortEditorPage() {
                     <CriterionCard
                       card={card}
                       index={index}
+                      total={draft.cards.length}
                       websiteId={websiteId ?? undefined}
                       cohorts={others}
                       showErrors={showErrors}
