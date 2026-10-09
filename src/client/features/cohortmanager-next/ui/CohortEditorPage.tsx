@@ -286,202 +286,196 @@ function CohortEditorPage() {
       <PageHeader title={title} description={!isNew && websiteLabel ? `Nettsted: ${websiteLabel}` : undefined} />
 
       <AppBlock className="pb-16">
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
-          <VStack gap="space-24">
-            <Button
-              as={Link}
-              to={listHref}
-              variant="tertiary"
-              size="small"
-              icon={<ArrowLeftIcon aria-hidden />}
-              style={{ alignSelf: 'flex-start' }}
-              onClick={(e: React.MouseEvent) => {
-                if (dirty) {
-                  e.preventDefault()
-                  setConfirmLeave(true)
-                }
-              }}
-            >
-              Tilbake til brukergrupper
-            </Button>
+        <VStack gap="space-24" style={{ maxWidth: '56rem' }}>
+          <Button
+            as={Link}
+            to={listHref}
+            variant="tertiary"
+            size="small"
+            icon={<ArrowLeftIcon aria-hidden />}
+            style={{ alignSelf: 'flex-start' }}
+            onClick={(e: React.MouseEvent) => {
+              if (dirty) {
+                e.preventDefault()
+                setConfirmLeave(true)
+              }
+            }}
+          >
+            Tilbake til brukergrupper
+          </Button>
 
-            {showErrors && (name.trim() === '' || !websiteId || issues.length > 0) && (
-              <ErrorSummary ref={summaryRef} heading="Dette må rettes før du kan lagre:">
-                {!websiteId && (
-                  <ErrorSummary.Item
-                    href="#cohort-next-website"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      focusAnchor('cohort-next-website')
-                    }}
-                  >
-                    Velg hvilket nettsted brukergruppen gjelder
-                  </ErrorSummary.Item>
-                )}
-                {!name.trim() && (
-                  <ErrorSummary.Item
-                    href="#cohort-next-name"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      focusAnchor('cohort-next-name')
-                    }}
-                  >
-                    Gi brukergruppen et navn
-                  </ErrorSummary.Item>
-                )}
-                {issues.map((issue, i) => (
-                  <ErrorSummary.Item
-                    key={i}
-                    href={`#${issue.anchorId}`}
-                    onClick={(e) => {
-                      e.preventDefault()
-                      focusAnchor(issue.anchorId)
-                    }}
-                  >
-                    {issue.message}
-                  </ErrorSummary.Item>
-                ))}
-              </ErrorSummary>
-            )}
-
-            <VStack gap="space-12" style={{ maxWidth: '32rem' }}>
-              <TextField
-                id="cohort-next-name"
-                label="Navn"
-                value={name}
-                error={nameError}
-                autoFocus={isNew}
-                onChange={(e) => setName(e.target.value)}
-              />
-              <TextField
-                label="Beskrivelse (valgfri)"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-              {isNew && (
-                <div id="cohort-next-website">
-                  <WebsiteSelect
-                    websites={websites}
-                    selectedId={websiteId}
-                    onSelect={changeWebsite}
-                    error={websiteError}
-                    fullWidth
-                  />
-                </div>
+          {showErrors && (name.trim() === '' || !websiteId || issues.length > 0) && (
+            <ErrorSummary ref={summaryRef} heading="Dette må rettes før du kan lagre:">
+              {!websiteId && (
+                <ErrorSummary.Item
+                  href="#cohort-next-website"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    focusAnchor('cohort-next-website')
+                  }}
+                >
+                  Velg hvilket nettsted brukergruppen gjelder
+                </ErrorSummary.Item>
               )}
-            </VStack>
+              {!name.trim() && (
+                <ErrorSummary.Item
+                  href="#cohort-next-name"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    focusAnchor('cohort-next-name')
+                  }}
+                >
+                  Gi brukergruppen et navn
+                </ErrorSummary.Item>
+              )}
+              {issues.map((issue, i) => (
+                <ErrorSummary.Item
+                  key={i}
+                  href={`#${issue.anchorId}`}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    focusAnchor(issue.anchorId)
+                  }}
+                >
+                  {issue.message}
+                </ErrorSummary.Item>
+              ))}
+            </ErrorSummary>
+          )}
 
-            <VStack gap="space-12" as="section" aria-labelledby="cohort-next-criteria">
-              <Heading level="2" size="small" id="cohort-next-criteria">
-                Hvem skal være med i gruppen?
-              </Heading>
-
-              <VStack gap="space-8">
-                {draft.cards.map((card, index) => (
-                  <div key={card.id}>
-                    {index > 0 && (
-                      <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: '0.5rem' }}>
-                        <ToggleGroup
-                          size="small"
-                          aria-label="Hvordan henger kriteriene sammen?"
-                          value={draft.combinator}
-                          onChange={(v) => setDraft((d) => ({ ...d, combinator: v as LogicalOperator }))}
-                        >
-                          <ToggleGroup.Item value="AND" label="og" />
-                          <ToggleGroup.Item value="OR" label="eller" />
-                        </ToggleGroup>
-                      </div>
-                    )}
-                    <CriterionCard
-                      card={card}
-                      index={index}
-                      total={draft.cards.length}
-                      websiteId={websiteId ?? undefined}
-                      cohorts={others}
-                      showErrors={showErrors}
-                      onChange={(next) => updateCard(card.id, next)}
-                      onRemove={() => removeCard(card.id)}
-                      onSplitCondition={(conditionId) => splitCondition(card.id, conditionId)}
-                    />
-                  </div>
-                ))}
-              </VStack>
-
-              <HStack gap="space-8" wrap id={anchorFor('add-card')}>
-                {draft.cards.length === 0 && (
-                  <Button
-                    type="button"
-                    size="small"
-                    variant="secondary"
-                    icon={<PlusIcon aria-hidden />}
-                    onClick={() => addCard(emptyEventCard())}
-                  >
-                    Legg til kriterium
-                  </Button>
-                )}
-                {draft.cards.length > 0 && (draft.cards.length === 1 || draft.combinator === 'AND') && (
-                  <Button
-                    type="button"
-                    size="small"
-                    variant="secondary"
-                    icon={<PlusIcon aria-hidden />}
-                    onClick={() => addCard(emptyEventCard(), 'AND')}
-                  >
-                    og
-                  </Button>
-                )}
-                {draft.cards.length > 0 && (draft.cards.length === 1 || draft.combinator === 'OR') && (
-                  <Button
-                    type="button"
-                    size="small"
-                    variant="secondary"
-                    icon={<PlusIcon aria-hidden />}
-                    onClick={() => addCard(emptyEventCard(), 'OR')}
-                  >
-                    eller
-                  </Button>
-                )}
-                {canContinueWithThen && (
-                  <Button
-                    type="button"
-                    size="small"
-                    variant="secondary"
-                    icon={<PlusIcon aria-hidden />}
-                    onClick={continueWithThen}
-                  >
-                    deretter
-                  </Button>
-                )}
-                {others.length > 0 && draft.cards.length > 0 && (
-                  <Button
-                    type="button"
-                    size="small"
-                    variant="tertiary"
-                    icon={<PlusIcon aria-hidden />}
-                    onClick={() => addCard(emptyCohortCard())}
-                  >
-                    Bruk en eksisterende brukergruppe
-                  </Button>
-                )}
-              </HStack>
-            </VStack>
+          <VStack gap="space-12" style={{ maxWidth: '32rem' }}>
+            <TextField
+              id="cohort-next-name"
+              label="Navn"
+              value={name}
+              error={nameError}
+              autoFocus={isNew}
+              onChange={(e) => setName(e.target.value)}
+            />
+            <TextField
+              label="Beskrivelse (valgfri)"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+            {isNew && (
+              <div id="cohort-next-website">
+                <WebsiteSelect
+                  websites={websites}
+                  selectedId={websiteId}
+                  onSelect={changeWebsite}
+                  error={websiteError}
+                  fullWidth
+                />
+              </div>
+            )}
           </VStack>
 
-          <div className="lg:sticky lg:top-4 lg:self-start">
-            <VStack gap="space-16">
-              <SummaryPanel draft={draft} names={names} />
-              {saveError && <Alert variant="error">{saveError}</Alert>}
-              <HStack gap="space-12">
-                <Button loading={saving} onClick={() => void handleSave()}>
-                  {isNew ? 'Opprett brukergruppe' : 'Lagre endringer'}
-                </Button>
-                <Button variant="secondary" onClick={handleCancel}>
-                  Avbryt
-                </Button>
-              </HStack>
+          <VStack gap="space-12" as="section" aria-labelledby="cohort-next-criteria">
+            <Heading level="2" size="small" id="cohort-next-criteria">
+              Hvem skal være med i gruppen?
+            </Heading>
+
+            <VStack gap="space-8">
+              {draft.cards.map((card, index) => (
+                <div key={card.id}>
+                  {index > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: '0.5rem' }}>
+                      <ToggleGroup
+                        size="small"
+                        aria-label="Hvordan henger kriteriene sammen?"
+                        value={draft.combinator}
+                        onChange={(v) => setDraft((d) => ({ ...d, combinator: v as LogicalOperator }))}
+                      >
+                        <ToggleGroup.Item value="AND" label="og" />
+                        <ToggleGroup.Item value="OR" label="eller" />
+                      </ToggleGroup>
+                    </div>
+                  )}
+                  <CriterionCard
+                    card={card}
+                    index={index}
+                    total={draft.cards.length}
+                    websiteId={websiteId ?? undefined}
+                    cohorts={others}
+                    showErrors={showErrors}
+                    onChange={(next) => updateCard(card.id, next)}
+                    onRemove={() => removeCard(card.id)}
+                    onSplitCondition={(conditionId) => splitCondition(card.id, conditionId)}
+                  />
+                </div>
+              ))}
             </VStack>
-          </div>
-        </div>
+
+            <HStack gap="space-8" wrap id={anchorFor('add-card')}>
+              {draft.cards.length === 0 && (
+                <Button
+                  type="button"
+                  size="small"
+                  variant="secondary"
+                  icon={<PlusIcon aria-hidden />}
+                  onClick={() => addCard(emptyEventCard())}
+                >
+                  Legg til kriterium
+                </Button>
+              )}
+              {draft.cards.length > 0 && (draft.cards.length === 1 || draft.combinator === 'AND') && (
+                <Button
+                  type="button"
+                  size="small"
+                  variant="secondary"
+                  icon={<PlusIcon aria-hidden />}
+                  onClick={() => addCard(emptyEventCard(), 'AND')}
+                >
+                  og
+                </Button>
+              )}
+              {draft.cards.length > 0 && (draft.cards.length === 1 || draft.combinator === 'OR') && (
+                <Button
+                  type="button"
+                  size="small"
+                  variant="secondary"
+                  icon={<PlusIcon aria-hidden />}
+                  onClick={() => addCard(emptyEventCard(), 'OR')}
+                >
+                  eller
+                </Button>
+              )}
+              {canContinueWithThen && (
+                <Button
+                  type="button"
+                  size="small"
+                  variant="secondary"
+                  icon={<PlusIcon aria-hidden />}
+                  onClick={continueWithThen}
+                >
+                  deretter
+                </Button>
+              )}
+              {others.length > 0 && draft.cards.length > 0 && (
+                <Button
+                  type="button"
+                  size="small"
+                  variant="tertiary"
+                  icon={<PlusIcon aria-hidden />}
+                  onClick={() => addCard(emptyCohortCard())}
+                >
+                  Bruk en eksisterende brukergruppe
+                </Button>
+              )}
+            </HStack>
+          </VStack>
+
+          <SummaryPanel draft={draft} names={names} />
+          {saveError && <Alert variant="error">{saveError}</Alert>}
+          <HStack gap="space-12">
+            <Button loading={saving} onClick={() => void handleSave()}>
+              {isNew ? 'Opprett brukergruppe' : 'Lagre endringer'}
+            </Button>
+            <Button variant="secondary" onClick={handleCancel}>
+              Avbryt
+            </Button>
+          </HStack>
+        </VStack>
       </AppBlock>
 
       <Dialog open={confirmLeave} onOpenChange={setConfirmLeave}>
