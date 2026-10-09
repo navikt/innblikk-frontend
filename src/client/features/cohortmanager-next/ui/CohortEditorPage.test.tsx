@@ -70,6 +70,30 @@ describe('CohortEditorPage', () => {
     expect(createCohort).not.toHaveBeenCalled()
   })
 
+  it('lets you choose the website when creating, and asks for it if missing', async () => {
+    const user = userEvent.setup()
+    renderAt('/brukergrupper-next/ny')
+
+    expect(await screen.findByRole('combobox', { name: 'Nettsted' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Opprett brukergruppe' }))
+
+    expect(await screen.findByRole('link', { name: 'Velg hvilket nettsted brukergruppen gjelder' })).toBeInTheDocument()
+    expect(createCohort).not.toHaveBeenCalled()
+  })
+
+  it('does not offer a website picker when editing an existing group', async () => {
+    vi.mocked(getCohort).mockResolvedValue({
+      id: 3,
+      websiteId: 'site-1',
+      name: 'Eksisterende',
+      root: { nodeType: 'GROUP', combinator: 'AND', negated: false, children: [] },
+    })
+    renderAt('/brukergrupper-next/3')
+
+    expect(await screen.findByRole('heading', { name: 'Rediger brukergruppe' })).toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Nettsted' })).not.toBeInTheDocument()
+  })
+
   it('saves a complete group as a wrapped event group', async () => {
     const user = userEvent.setup()
     renderAt('/brukergrupper-next/ny?websiteId=site-1')

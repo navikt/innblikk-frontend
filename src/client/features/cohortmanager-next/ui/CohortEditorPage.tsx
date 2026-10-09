@@ -17,6 +17,7 @@ import { ArrowLeftIcon, PlusIcon } from '@navikt/aksel-icons'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { fetchWebsites } from '../../../shared/api/websiteApi.ts'
+import type { Website } from '../../../shared/types/website.ts'
 import {
   createCohort,
   deleteCohort,
@@ -39,6 +40,7 @@ import {
 import { validateDraft, anchorFor, type ValidationIssue } from '../utils/validate.ts'
 import { CriterionCard } from './CriterionCard.tsx'
 import { SummaryPanel } from './SummaryPanel.tsx'
+import { WebsiteSelect } from './WebsiteSelect.tsx'
 
 const LIST_PATH = '/brukergrupper-next'
 
@@ -64,7 +66,7 @@ function CohortEditorPage() {
   const isNew = cohortId === null
 
   const [websiteId, setWebsiteId] = useState<string | null>(searchParams.get('websiteId'))
-  const [websiteLabel, setWebsiteLabel] = useState('')
+  const [websites, setWebsites] = useState<Website[]>([])
   const [loading, setLoading] = useState(!isNew)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [unsupportedReason, setUnsupportedReason] = useState<string | null>(null)
@@ -119,17 +121,30 @@ function CohortEditorPage() {
   }, [cohortId, isNew])
 
   useEffect(() => {
+    fetchWebsites()
+      .then(setWebsites)
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
     if (!websiteId) return
     listCohorts(websiteId)
       .then((list) => setOthers(list.filter((c) => c.id !== cohortId)))
       .catch(() => setOthers([]))
-    fetchWebsites()
-      .then((sites) => {
-        const site = sites.find((s) => s.id === websiteId)
-        setWebsiteLabel(site ? `${site.name} — ${site.domain}` : '')
-      })
-      .catch(() => {})
   }, [websiteId, cohortId])
+
+  const changeWebsite = (id: string | null) => {
+    setWebsiteId(id)
+    setOthers([])
+    // A reference to a group on the previous site would point at the wrong place.
+    setDraft((d) => ({
+      ...d,
+      cards: d.cards.map((c) => (c.kind === 'cohort' ? { ...c, cohortId: null } : c)),
+    }))
+  }
+
+  const website = websites.find((s) => s.id === websiteId)
+  const websiteLabel = website ? `${website.name} — ${website.domain}` : ''
 
   const dirty = snapshot !== null && snapshot !== JSON.stringify({ name, description, draft })
 
@@ -149,6 +164,7 @@ function CohortEditorPage() {
   const names = useMemo(() => Object.fromEntries(others.map((c) => [String(c.id), c.name])), [others])
   const issues: ValidationIssue[] = useMemo(() => validateDraft(draft), [draft])
   const nameError = showErrors && !name.trim() ? 'Gi brukergruppen et navn' : undefined
+  const websiteError = showErrors && !websiteId ? 'Velg hvilket nettsted brukergruppen gjelder' : undefined
   const listHref = `${LIST_PATH}${websiteId ? `?websiteId=${encodeURIComponent(websiteId)}` : ''}`
 
   const updateCard = (cardId: string, next: Card) =>
@@ -177,13 +193,9 @@ function CohortEditorPage() {
 
   const handleSave = async () => {
     setSaveError(null)
-    if (!name.trim() || issues.length > 0) {
+    if (!name.trim() || !websiteId || issues.length > 0) {
       setShowErrors(true)
       requestAnimationFrame(() => summaryRef.current?.focus())
-      return
-    }
-    if (!websiteId) {
-      setSaveError('Mangler nettsted. Gå tilbake til oversikten og velg et nettsted.')
       return
     }
     setSaving(true)
@@ -265,7 +277,7 @@ function CohortEditorPage() {
 
   return (
     <>
-      <PageHeader title={title} description={websiteLabel ? `Nettsted: ${websiteLabel}` : undefined} />
+      <PageHeader title={title} description={!isNew && websiteLabel ? `Nettsted: ${websiteLabel}` : undefined} />
 
       <AppBlock className="pb-16">
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
@@ -287,8 +299,19 @@ function CohortEditorPage() {
               Tilbake til brukergrupper
             </Button>
 
-            {showErrors && (name.trim() === '' || issues.length > 0) && (
+            {showErrors && (name.trim() === '' || !websiteId || issues.length > 0) && (
               <ErrorSummary ref={summaryRef} heading="Dette må rettes før du kan lagre:">
+                {!websiteId && (
+                  <ErrorSummary.Item
+                    href="#cohort-next-website"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      focusAnchor('cohort-next-website')
+                    }}
+                  >
+                    Velg hvilket nettsted brukergruppen gjelder
+                  </ErrorSummary.Item>
+                )}
                 {!name.trim() && (
                   <ErrorSummary.Item
                     href="#cohort-next-name"
@@ -316,13 +339,23 @@ function CohortEditorPage() {
             )}
 
             <VStack gap="space-12" style={{ maxWidth: '32rem' }}>
+              {isNew && (
+                <div id="cohort-next-website">
+                  <WebsiteSelect
+                    websites={websites}
+                    selectedId={websiteId}
+                    onSelect={changeWebsite}
+                    error={websiteError}
+                  />
+                </div>
+              )}
               <TextField
                 id="cohort-next-name"
                 label="Navn på brukergruppen"
                 description="F.eks. «Søkte på dagpenger fra mobil»"
                 value={name}
                 error={nameError}
-                autoFocus={isNew}
+                autoFocus={isNew && !!websiteId}
                 onChange={(e) => setName(e.target.value)}
               />
               <TextField
