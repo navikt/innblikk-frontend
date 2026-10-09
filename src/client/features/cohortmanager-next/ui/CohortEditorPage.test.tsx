@@ -60,7 +60,7 @@ describe('CohortEditorPage', () => {
     expect(screen.queryByRole('complementary', { name: 'Oppsummering' })).not.toBeInTheDocument()
   })
 
-  it('adds a second criterion with «og», then only offers «og» and a switch between og/eller', async () => {
+  it('adds a second criterion with «og» and keeps both og and eller available', async () => {
     const user = userEvent.setup()
     renderAt('/brukergrupper-next/ny?websiteId=site-1')
 
@@ -70,11 +70,12 @@ describe('CohortEditorPage', () => {
     expect(screen.getAllByRole('button', { name: /Fjern kriterium/ })).toHaveLength(2)
     expect(screen.getByRole('complementary', { name: 'Oppsummering' })).toBeInTheDocument()
     expect(screen.getByRole('radiogroup', { name: 'Hvordan henger kriteriene sammen?' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'eller' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'og' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'eller' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('radio', { name: 'eller' }))
-    expect(screen.getByRole('button', { name: 'eller' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'og' })).not.toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'eller' })).toBeChecked()
+    expect(screen.getAllByRole('region', { name: /Kriterium/ })).toHaveLength(2)
   })
 
   it('refuses to save an incomplete group and lists what is missing', async () => {
@@ -236,18 +237,20 @@ describe('CohortEditorPage', () => {
     expect(within(screen.getByRole('region', { name: 'Kriterium 2' })).getAllByRole('region')).toHaveLength(2)
   })
 
-  it('builds a group from the «gruppe» button, with its own og/eller inside', async () => {
+  it('turns «A og B» + eller into «A og (B eller C)», and further eller adds to that group', async () => {
     const user = userEvent.setup()
     renderAt('/brukergrupper-next/ny?websiteId=site-1')
 
-    await user.click(await screen.findByRole('button', { name: 'og en av' }))
+    await user.click(await screen.findByRole('button', { name: 'og' }))
+    await user.click(screen.getByRole('button', { name: 'eller' }))
 
+    expect(screen.getAllByRole('region', { name: /^Kriterium/ })).toHaveLength(2)
     const group = screen.getByRole('region', { name: 'Kriterium 2' })
     expect(within(group).getByRole('radio', { name: 'en av disse' })).toBeChecked()
-    expect(within(group).getByRole('radio', { name: 'ingen av disse' })).toBeInTheDocument()
-    expect(within(group).getByRole('region', { name: 'Delkriterium 1' })).toBeInTheDocument()
-    expect(within(group).getByRole('button', { name: 'og' })).toBeInTheDocument()
-    expect(within(group).getByRole('button', { name: 'eller' })).toBeInTheDocument()
+    expect(within(group).getAllByRole('region', { name: /^Delkriterium/ })).toHaveLength(2)
+
+    await user.click(screen.getAllByRole('button', { name: 'eller' })[0])
+    expect(within(group).getAllByRole('region', { name: /^Delkriterium/ })).toHaveLength(3)
   })
 
   it('never points to the old editor, even for a group it cannot show', async () => {

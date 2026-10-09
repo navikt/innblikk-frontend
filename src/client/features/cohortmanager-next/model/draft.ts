@@ -139,17 +139,6 @@ export function emptyCohortCard(): CohortCard {
   return { kind: 'cohort', id: newId(), negated: false, cohortId: null }
 }
 
-/** Starts with the opposite combinator of its parent, the common «A og (B eller C)» shape. */
-export function emptyGroupCard(parent: LogicalOperator): GroupCard {
-  return {
-    kind: 'group',
-    id: newId(),
-    negated: false,
-    combinator: parent === 'AND' ? 'OR' : 'AND',
-    cards: [emptyEventCard()],
-  }
-}
-
 /** A cohort reference belongs to one website, so switching website clears them everywhere in the draft. */
 export function resetCohortRefs(cards: Card[]): Card[] {
   return cards.map((card) => {

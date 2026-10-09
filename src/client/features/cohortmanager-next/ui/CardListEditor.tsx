@@ -1,7 +1,7 @@
 import { Button, HStack, ToggleGroup, VStack } from '@navikt/ds-react'
 import { PlusIcon } from '@navikt/aksel-icons'
 import type { CohortDto, LogicalOperator } from '../../cohortmanager/model/types.ts'
-import { emptyCohortCard, emptyEventCard, emptyGroupCard, eventToSequence, type Card } from '../model/draft.ts'
+import { emptyCohortCard, emptyEventCard, eventToSequence, newId, type Card, type GroupCard } from '../model/draft.ts'
 import { anchorFor } from '../utils/validate.ts'
 import { CriterionCard } from './CriterionCard.tsx'
 
@@ -19,8 +19,6 @@ interface CardListEditorProps extends CardList {
   depth: number
   onFocusCard: (id: string) => void
 }
-
-const MAX_NEW_GROUP_DEPTH = 2
 
 /** One level of cards with its og/eller connectors and add buttons; groups render another one inside themselves. */
 export function CardListEditor({
@@ -57,10 +55,34 @@ export function CardListEditor({
     update({ cards: next })
   }
 
+  /**
+   * «og» / «eller» below the last card. A list has one connector, so asking for the other one
+   * puts the last card and the new one in a bracketed group: «A og B» + eller → «A og (B eller C)».
+   */
+  const addWith = (requested: LogicalOperator) => {
+    const next = emptyEventCard()
+    if (cards.length <= 1 || requested === combinator) {
+      addCard(next, requested)
+      return
+    }
+    const last = cards[cards.length - 1]
+    if (last.kind === 'group' && !last.negated && last.combinator === requested) {
+      updateCard(last.id, { ...last, cards: [...last.cards, next] })
+    } else {
+      const wrapped: GroupCard = {
+        kind: 'group',
+        id: newId(),
+        negated: false,
+        combinator: requested,
+        cards: [last, next],
+      }
+      update({ cards: [...cards.slice(0, -1), wrapped] })
+    }
+    onFocusCard(next.id)
+  }
+
   const lastCard = cards[cards.length - 1]
   const canContinueWithThen = lastCard?.kind === 'event' && !lastCard.negated
-  const showAnd = cards.length === 1 || combinator === 'AND'
-  const showOr = cards.length === 1 || combinator === 'OR'
 
   return (
     <VStack gap="space-8">
@@ -120,24 +142,24 @@ export function CardListEditor({
             Legg til kriterium
           </Button>
         )}
-        {cards.length > 0 && showAnd && (
+        {cards.length > 0 && (
           <Button
             type="button"
             size="small"
             variant="secondary"
             icon={<PlusIcon aria-hidden />}
-            onClick={() => addCard(emptyEventCard(), 'AND')}
+            onClick={() => addWith('AND')}
           >
             og
           </Button>
         )}
-        {cards.length > 0 && showOr && (
+        {cards.length > 0 && (
           <Button
             type="button"
             size="small"
             variant="secondary"
             icon={<PlusIcon aria-hidden />}
-            onClick={() => addCard(emptyEventCard(), 'OR')}
+            onClick={() => addWith('OR')}
           >
             eller
           </Button>
@@ -151,17 +173,6 @@ export function CardListEditor({
             onClick={() => updateCard(lastCard.id, eventToSequence(lastCard))}
           >
             deretter
-          </Button>
-        )}
-        {cards.length > 0 && depth < MAX_NEW_GROUP_DEPTH && (
-          <Button
-            type="button"
-            size="small"
-            variant="secondary"
-            icon={<PlusIcon aria-hidden />}
-            onClick={() => addCard(emptyGroupCard(combinator))}
-          >
-            {combinator === 'OR' ? 'eller alle av' : 'og en av'}
           </Button>
         )}
         {others.length > 0 && cards.length > 0 && (
