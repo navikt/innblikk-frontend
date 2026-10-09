@@ -1,4 +1,4 @@
-import type { CohortNode, SequenceTimeUnit } from '../../cohortmanager/model/types.ts'
+import type { CohortNode, LogicalOperator, SequenceTimeUnit } from '../../cohortmanager/model/types.ts'
 import {
   fieldLabel,
   FIELD_OPTIONS,
@@ -24,6 +24,12 @@ const WINDOW_UNIT_FORMS: Record<SequenceTimeUnit, [string, string]> = {
 
 export function windowUnitLabel(unit: SequenceTimeUnit, amount: number): string {
   return WINDOW_UNIT_FORMS[unit][amount === 1 ? 0 : 1]
+}
+
+/** How a bracketed group reads: «en av» for eller-groups, «alle» for og-groups, and their negations. */
+export function groupPhrase(combinator: LogicalOperator, negated: boolean): string {
+  if (combinator === 'OR') return negated ? 'ingen av' : 'en av'
+  return negated ? 'ikke alle' : 'alle'
 }
 
 function formatValue(c: ConditionDraft): string {
@@ -62,7 +68,7 @@ export function describeCard(card: Card, names: CohortNames): string {
     case 'group': {
       const word = card.combinator === 'OR' ? 'eller' : 'og'
       const inner = card.cards.map((c, i) => `${i > 0 ? `${word} ` : ''}${describeCard(c, names)}`).join(' ')
-      return `${card.negated ? 'oppfyller ikke' : 'oppfyller'} (${inner || '…'})`
+      return `${groupPhrase(card.combinator, card.negated)} (${inner || '…'})`
     }
     case 'cohort': {
       const name = card.cohortId == null ? '…' : (names[String(card.cohortId)] ?? `brukergruppe #${card.cohortId}`)

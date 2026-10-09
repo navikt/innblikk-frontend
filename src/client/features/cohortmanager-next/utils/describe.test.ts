@@ -68,7 +68,7 @@ describe('describeTreeInline', () => {
       ],
     }
     const text = describeTreeInline(nested, {})
-    expect(text).toContain('oppfyller (har gjort noe der URL-sti er «/b» eller har gjort noe der URL-sti er «/c»)')
+    expect(text).toContain('en av (har gjort noe der URL-sti er «/b» eller har gjort noe der URL-sti er «/c»)')
   })
 
   it('flags trees the cards cannot show', () => {

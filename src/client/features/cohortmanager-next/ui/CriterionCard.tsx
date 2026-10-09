@@ -4,7 +4,7 @@ import { TrashIcon, XMarkIcon } from '@navikt/aksel-icons'
 import type { CohortDto, SequenceRelation, SequenceTimeUnit } from '../../cohortmanager/model/types.ts'
 import type { Card, CohortCard, EventCard, GroupCard, SequenceCard } from '../model/draft.ts'
 import { sequenceToEvent } from '../model/draft.ts'
-import { windowUnitLabel } from '../utils/describe.ts'
+import { groupPhrase, windowUnitLabel } from '../utils/describe.ts'
 import { anchorFor } from '../utils/validate.ts'
 import { StepEditor } from './StepEditor.tsx'
 
@@ -328,13 +328,10 @@ function GroupCardBody({
           <NegationToggle
             negated={card.negated}
             onChange={(negated) => onChange({ ...card, negated })}
-            yes="oppfyller"
-            no="oppfyller ikke"
+            yes={`${groupPhrase(card.combinator, false)} disse`}
+            no={`${groupPhrase(card.combinator, true)} disse`}
             label="Skal brukeren oppfylle denne gruppen av kriterier eller ikke?"
           />
-          <BodyShort as="span" size="small">
-            disse:
-          </BodyShort>
         </HStack>
       }
     >

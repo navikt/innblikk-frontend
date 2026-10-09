@@ -240,9 +240,11 @@ describe('CohortEditorPage', () => {
     const user = userEvent.setup()
     renderAt('/brukergrupper-next/ny?websiteId=site-1')
 
-    await user.click(await screen.findByRole('button', { name: 'gruppe' }))
+    await user.click(await screen.findByRole('button', { name: 'og en av' }))
 
     const group = screen.getByRole('region', { name: 'Kriterium 2' })
+    expect(within(group).getByRole('radio', { name: 'en av disse' })).toBeChecked()
+    expect(within(group).getByRole('radio', { name: 'ingen av disse' })).toBeInTheDocument()
     expect(within(group).getByRole('region', { name: 'Delkriterium 1' })).toBeInTheDocument()
     expect(within(group).getByRole('button', { name: 'og' })).toBeInTheDocument()
     expect(within(group).getByRole('button', { name: 'eller' })).toBeInTheDocument()

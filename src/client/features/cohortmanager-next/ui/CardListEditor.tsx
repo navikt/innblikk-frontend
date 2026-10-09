@@ -161,7 +161,7 @@ export function CardListEditor({
             icon={<PlusIcon aria-hidden />}
             onClick={() => addCard(emptyGroupCard(combinator))}
           >
-            gruppe
+            {combinator === 'OR' ? 'eller alle av' : 'og en av'}
           </Button>
         )}
         {others.length > 0 && cards.length > 0 && (
