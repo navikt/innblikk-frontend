@@ -1,0 +1,5 @@
+/* Promotes the focused select above later siblings; the combobox list is not portaled (see AGENTS.md known gotchas). */
+.website-select-lift:focus-within {
+  position: relative;
+  z-index: 1;
+}

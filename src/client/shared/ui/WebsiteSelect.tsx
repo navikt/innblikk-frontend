@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { UNSAFE_Combobox } from '@navikt/ds-react'
-import type { Website } from '../../../shared/types/website.ts'
-import './cohortNext.css'
+import type { Website } from '../types/website.ts'
+import './WebsiteSelect.css'
 
 interface WebsiteSelectProps {
   websites: Website[]
@@ -49,7 +49,7 @@ export function WebsiteSelect({ websites, selectedId, onSelect, error, fullWidth
 
   return (
     <div
-      className="cohort-next-lift"
+      className="website-select-lift"
       style={{ maxWidth: fullWidth ? undefined : 400 }}
       onKeyDownCapture={handleKeyDownCapture}
     >

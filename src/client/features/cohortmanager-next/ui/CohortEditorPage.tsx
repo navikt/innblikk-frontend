@@ -31,7 +31,8 @@ import { draftToTree, emptyDraft, resetCohortRefs, treeToDraft, type Draft } fro
 import { validateDraft, anchorFor, type ValidationIssue } from '../utils/validate.ts'
 import { CardListEditor } from './CardListEditor.tsx'
 import { SummaryPanel } from './SummaryPanel.tsx'
-import { WebsiteSelect } from './WebsiteSelect.tsx'
+import { WebsiteSelect } from '../../../shared/ui/WebsiteSelect.tsx'
+import { useUnsavedChangesGuard } from '../../../shared/hooks/useUnsavedChangesGuard.ts'
 import './cohortNext.css'
 
 const LIST_PATH = '/brukergrupper-next'
@@ -75,7 +76,6 @@ function CohortEditorPage() {
   const [showErrors, setShowErrors] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const [leaveTarget, setLeaveTarget] = useState<string | null>(null)
   const [pendingFocus, setPendingFocus] = useState<string | null>(null)
   const summaryRef = useRef<HTMLDivElement>(null)
 
@@ -140,30 +140,7 @@ function CohortEditorPage() {
   const websiteLabel = website ? `${website.name} — ${website.domain}` : ''
 
   const dirty = snapshot !== null && snapshot !== JSON.stringify({ name, description, draft })
-
-  useEffect(() => {
-    if (!dirty) return
-    const handler = (e: BeforeUnloadEvent) => e.preventDefault()
-    window.addEventListener('beforeunload', handler)
-    return () => window.removeEventListener('beforeunload', handler)
-  }, [dirty])
-
-  // BrowserRouter has no navigation blocker, so intercept in-app link clicks while there are unsaved edits.
-  useEffect(() => {
-    if (!dirty) return
-    const onClick = (e: MouseEvent) => {
-      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
-      const anchor = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null
-      if (!anchor || anchor.target === '_blank' || anchor.origin !== window.location.origin) return
-      const destination = anchor.pathname + anchor.search + anchor.hash
-      if (destination === window.location.pathname + window.location.search + window.location.hash) return
-      e.preventDefault()
-      e.stopPropagation()
-      setLeaveTarget(destination)
-    }
-    document.addEventListener('click', onClick, true)
-    return () => document.removeEventListener('click', onClick, true)
-  }, [dirty])
+  const { leaveTarget, requestLeave, cancelLeave } = useUnsavedChangesGuard(dirty)
 
   useEffect(() => {
     if (!pendingFocus) return
@@ -219,7 +196,7 @@ function CohortEditorPage() {
     }
   }
 
-  const handleCancel = () => (dirty ? setLeaveTarget(listHref) : void navigate(listHref))
+  const handleCancel = () => (dirty ? requestLeave(listHref) : void navigate(listHref))
 
   const title = isNew ? 'Ny brukergruppe' : 'Rediger brukergruppe'
 
@@ -383,7 +360,7 @@ function CohortEditorPage() {
         </VStack>
       </AppBlock>
 
-      <Dialog open={leaveTarget !== null} onOpenChange={(o) => !o && setLeaveTarget(null)}>
+      <Dialog open={leaveTarget !== null} onOpenChange={(o) => !o && cancelLeave()}>
         <Dialog.Popup width="small" role="alertdialog">
           <Dialog.Header withClosebutton={false}>
             <Dialog.Title>Forkaste endringene?</Dialog.Title>
@@ -397,7 +374,7 @@ function CohortEditorPage() {
               onClick={() => {
                 const target = leaveTarget ?? listHref
                 setSnapshot(null)
-                setLeaveTarget(null)
+                cancelLeave()
                 void navigate(target)
               }}
             >

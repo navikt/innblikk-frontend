@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { WebsiteSelect } from './WebsiteSelect.tsx'
-import type { Website } from '../../../shared/types/website.ts'
+import type { Website } from '../types/website.ts'
 
 const sites = [
   { id: 'a', name: 'Aksel', domain: 'aksel.nav.no' },

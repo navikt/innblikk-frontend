@@ -11,7 +11,7 @@ import { getCohort, listCohorts } from '../../cohortmanager/api/cohortManagerApi
 import { deleteCohortChecked } from '../api/cohortApi.ts'
 import type { CohortDetailDto, CohortDto } from '../../cohortmanager/model/types.ts'
 import { describeTreeInline } from '../utils/describe.ts'
-import { WebsiteSelect } from './WebsiteSelect.tsx'
+import { WebsiteSelect } from '../../../shared/ui/WebsiteSelect.tsx'
 import { TrashDialog } from './TrashDialog.tsx'
 import './cohortNext.css'
 
