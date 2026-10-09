@@ -58,7 +58,13 @@ export function StepEditor({ step, anchorKey, websiteId, showErrors, onChange, o
         {step.conditions.map((condition, index) => (
           <HStack key={condition.id} gap="space-12" align="start" wrap={false}>
             <RowLabel inBox>{index === 0 ? 'der' : 'og'}</RowLabel>
-            <Box background="neutral-soft" borderRadius="4" padding="space-8" style={{ flex: '1 1 auto', minWidth: 0 }}>
+            <Box
+              background="neutral-soft"
+              borderRadius="4"
+              padding="space-8"
+              className="cohort-next-lift"
+              style={{ flex: '1 1 auto', minWidth: 0 }}
+            >
               <ConditionRow
                 condition={condition}
                 websiteId={websiteId}

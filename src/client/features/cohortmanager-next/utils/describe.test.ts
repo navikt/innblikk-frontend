@@ -2,7 +2,14 @@ import { describe, it, expect } from 'vitest'
 import { describeDraft, describeTreeInline } from './describe.ts'
 import { describeTime, matchPreset, presetValue, TIME_PRESETS } from './time.ts'
 import { conditionError, findConflictingConditionIds, validateDraft } from './validate.ts'
-import { emptyCondition, emptyDraft, emptyEventCard, type Draft, type EventCard } from '../model/draft.ts'
+import {
+  emptyCondition,
+  emptyDraft,
+  emptyEventCard,
+  eventToSequence,
+  type Draft,
+  type EventCard,
+} from '../model/draft.ts'
 import type { CohortGroupNode } from '../../cohortmanager/model/types.ts'
 
 const card = (overrides: Partial<EventCard> = {}): EventCard => ({ ...emptyEventCard(), ...overrides })
@@ -94,6 +101,17 @@ describe('validation', () => {
     const conflicts = findConflictingConditionIds({ conditions: [a, b], time: null })
     expect([...conflicts]).toEqual([b.id])
     expect(findConflictingConditionIds({ conditions: [a, cond('device', 'mobile')], time: null }).size).toBe(0)
+  })
+
+  it('only accepts whole-number sequence windows', () => {
+    const sequence = {
+      ...eventToSequence({ ...card({ conditions: [cond('url_path', '/a')] }) }),
+      windowValue: 1.5,
+    }
+    sequence.then = { conditions: [cond('url_path', '/b')], time: null }
+    const issues = validateDraft({ combinator: 'AND', cards: [sequence] })
+    expect(issues.map((i) => i.message)).toEqual([expect.stringContaining('helt tall')])
+    expect(validateDraft({ combinator: 'AND', cards: [{ ...sequence, windowValue: 2 }] })).toEqual([])
   })
 
   it('reports issues for an incomplete draft and none for a complete one', () => {

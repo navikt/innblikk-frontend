@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { UNSAFE_Combobox } from '@navikt/ds-react'
 import type { Website } from '../../../shared/types/website.ts'
+import './cohortNext.css'
 
 interface WebsiteSelectProps {
   websites: Website[]
@@ -36,17 +37,22 @@ export function WebsiteSelect({ websites, selectedId, onSelect, error, fullWidth
   }, [websites, options, filter])
 
   // Aksel's single-select input shows the selection as plain text, so backspace on it never clears; handle it on the wrapper.
+  // Only clear when nothing is being typed, so a search term can still be corrected one character at a time.
   const handleKeyDownCapture = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== 'Backspace' || !selected) return
     const inputValue = (e.target as HTMLInputElement).value
-    if (inputValue === labelOf(selected) || inputValue === filter) {
+    if (inputValue === labelOf(selected) || (inputValue === '' && filter === '')) {
       onSelect(null)
       setFilter('')
     }
   }
 
   return (
-    <div style={{ maxWidth: fullWidth ? undefined : 400 }} onKeyDownCapture={handleKeyDownCapture}>
+    <div
+      className="cohort-next-lift"
+      style={{ maxWidth: fullWidth ? undefined : 400 }}
+      onKeyDownCapture={handleKeyDownCapture}
+    >
       <UNSAFE_Combobox
         label="Nettsted"
         error={error}

@@ -1,8 +1,9 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
 import CohortEditorRoute from './CohortEditorPage.tsx'
+import { deleteCohortChecked } from '../api/cohortApi.ts'
 import { createCohort, getCohort, replaceCriteria } from '../../cohortmanager/api/cohortManagerApi.ts'
 import type { CohortDetailDto } from '../../cohortmanager/model/types.ts'
 
@@ -13,6 +14,11 @@ vi.mock('../../cohortmanager/api/cohortManagerApi.ts', () => ({
   updateCohort: vi.fn().mockResolvedValue({}),
   replaceCriteria: vi.fn().mockResolvedValue({}),
   deleteCohort: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock('../api/cohortApi.ts', () => ({
+  deleteCohortChecked: vi.fn().mockResolvedValue(undefined),
+  permanentlyDeleteCohortChecked: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('../../cohortmanager/api/columnValuesApi.ts', () => ({
@@ -30,7 +36,9 @@ function renderAt(path: string) {
         <Route path="/brukergrupper-next/ny" element={<CohortEditorRoute />} />
         <Route path="/brukergrupper-next/:id" element={<CohortEditorRoute />} />
         <Route path="/brukergrupper-next" element={<div>Oversikt</div>} />
+        <Route path="/annet" element={<div>Annen side</div>} />
       </Routes>
+      <Link to="/annet">Annen lenke</Link>
     </MemoryRouter>,
   )
 }
@@ -117,6 +125,41 @@ describe('CohortEditorPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Rediger brukergruppe' })).toBeInTheDocument()
     expect(screen.queryByRole('combobox', { name: 'Nettsted' })).not.toBeInTheDocument()
+  })
+
+  it('follows in-app links freely when nothing has been changed', async () => {
+    const user = userEvent.setup()
+    renderAt('/brukergrupper-next/ny?websiteId=site-1')
+
+    await user.click(await screen.findByRole('link', { name: 'Annen lenke' }))
+    expect(await screen.findByText('Annen side')).toBeInTheDocument()
+  })
+
+  it('asks before following an in-app link while there are unsaved edits', async () => {
+    const user = userEvent.setup()
+    renderAt('/brukergrupper-next/ny?websiteId=site-1')
+
+    await user.type(await screen.findByLabelText('Navn'), 'Halvferdig')
+    await user.click(screen.getByRole('link', { name: 'Annen lenke' }))
+
+    expect(await screen.findByText('Forkaste endringene?')).toBeInTheDocument()
+    expect(screen.queryByText('Annen side')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Forkast' }))
+    expect(await screen.findByText('Annen side')).toBeInTheDocument()
+  })
+
+  it('reports it when the empty group left by a failed save cannot be removed', async () => {
+    const user = userEvent.setup()
+    vi.mocked(replaceCriteria).mockRejectedValueOnce(new Error('Kriterier avvist'))
+    vi.mocked(deleteCohortChecked).mockRejectedValueOnce(new Error('500'))
+    renderAt('/brukergrupper-next/ny?websiteId=site-1')
+
+    await user.type(await screen.findByLabelText('Navn'), 'Søkere')
+    await user.type(screen.getByRole('combobox', { name: 'Verdi' }), '/soknad{Enter}')
+    await user.click(screen.getByRole('button', { name: 'Opprett brukergruppe' }))
+
+    expect(await screen.findByText(/kunne ikke fjernes/)).toBeInTheDocument()
   })
 
   it('saves a complete group as a wrapped event group', async () => {

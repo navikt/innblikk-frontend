@@ -1,0 +1,5 @@
+/* Promotes the focused owner of a non-portaled Aksel combobox above later siblings (see AGENTS.md known gotchas). */
+.cohort-next-lift:focus-within {
+  position: relative;
+  z-index: 1;
+}

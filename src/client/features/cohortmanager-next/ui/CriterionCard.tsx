@@ -257,7 +257,11 @@ function SequenceCardBody({
               type="number"
               min={1}
               value={String(card.windowValue)}
-              error={showErrors && !(card.windowValue >= 1) ? 'Minst 1' : undefined}
+              error={
+                showErrors && !(Number.isInteger(card.windowValue) && card.windowValue >= 1)
+                  ? 'Hele tall, minst 1'
+                  : undefined
+              }
               onChange={(e) => onChange({ ...card, windowValue: Number(e.target.value) })}
             />
           </div>

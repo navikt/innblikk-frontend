@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Alert, BodyShort, Box, Button, Dialog, Heading, HStack, Loader, Table, VStack } from '@navikt/ds-react'
 import { ArchiveIcon, PencilIcon, PlusIcon, TrashIcon } from '@navikt/aksel-icons'
@@ -7,11 +7,13 @@ import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { BetaFeatureNotice, BetaFeedbackLine } from '../../../shared/ui/BetaFeatureNotice.tsx'
 import { fetchWebsites } from '../../../shared/api/websiteApi.ts'
 import type { Website } from '../../../shared/types/website.ts'
-import { deleteCohort, getCohort, listCohorts } from '../../cohortmanager/api/cohortManagerApi.ts'
+import { getCohort, listCohorts } from '../../cohortmanager/api/cohortManagerApi.ts'
+import { deleteCohortChecked } from '../api/cohortApi.ts'
 import type { CohortDetailDto, CohortDto } from '../../cohortmanager/model/types.ts'
 import { describeTreeInline } from '../utils/describe.ts'
 import { WebsiteSelect } from './WebsiteSelect.tsx'
 import { TrashDialog } from './TrashDialog.tsx'
+import './cohortNext.css'
 
 export default function CohortManagerNext() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -26,7 +28,9 @@ export default function CohortManagerNext() {
   const [error, setError] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<CohortDto | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [trashOpen, setTrashOpen] = useState(false)
+  const loadSeq = useRef(0)
 
   const selectWebsite = useCallback(
     (id: string | null) => setSearchParams(id ? { websiteId: id } : {}, { replace: true }),
@@ -46,16 +50,21 @@ export default function CohortManagerNext() {
   }, [])
 
   const load = useCallback(async (websiteId: string) => {
+    // Only the newest request may write state, so a slow response for a previous site can't overwrite the list.
+    const seq = ++loadSeq.current
     setLoading(true)
     setError(null)
     try {
       const list = await listCohorts(websiteId)
+      const loaded = await Promise.all(list.map((c) => getCohort(c.id)))
+      if (seq !== loadSeq.current) return
       setCohorts(list)
-      setDetails(await Promise.all(list.map((c) => getCohort(c.id))))
+      setDetails(loaded)
     } catch (err: unknown) {
+      if (seq !== loadSeq.current) return
       setError(err instanceof Error ? err.message : 'Kunne ikke laste brukergrupper')
     } finally {
-      setLoading(false)
+      if (seq === loadSeq.current) setLoading(false)
     }
   }, [])
 
@@ -66,10 +75,13 @@ export default function CohortManagerNext() {
   const handleDelete = async () => {
     if (!deleteTarget || !websiteIdParam) return
     setDeleting(true)
+    setDeleteError(null)
     try {
-      await deleteCohort(deleteTarget.id)
+      await deleteCohortChecked(deleteTarget.id)
       setDeleteTarget(null)
       await load(websiteIdParam)
+    } catch (err: unknown) {
+      setDeleteError(err instanceof Error ? err.message : 'Kunne ikke slette brukergruppen')
     } finally {
       setDeleting(false)
     }
@@ -191,16 +203,27 @@ export default function CohortManagerNext() {
         </VStack>
       </AppBlock>
 
-      <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+      <Dialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => {
+          if (!o) {
+            setDeleteTarget(null)
+            setDeleteError(null)
+          }
+        }}
+      >
         <Dialog.Popup width="small" role="alertdialog">
           <Dialog.Header withClosebutton={false}>
             <Dialog.Title>Slette «{deleteTarget?.name}»?</Dialog.Title>
           </Dialog.Header>
           <Dialog.Body>
-            <BodyShort>
-              Brukergruppen flyttes til papirkurven, og du kan gjenopprette den derfra. Andre brukergrupper som bruker
-              denne mister referansen.
-            </BodyShort>
+            <VStack gap="space-12">
+              <BodyShort>
+                Brukergruppen flyttes til papirkurven, og du kan gjenopprette den derfra. Andre brukergrupper som bruker
+                denne mister referansen.
+              </BodyShort>
+              {deleteError && <Alert variant="error">{deleteError}</Alert>}
+            </VStack>
           </Dialog.Body>
           <Dialog.Footer>
             <Button data-color="danger" loading={deleting} onClick={() => void handleDelete()}>

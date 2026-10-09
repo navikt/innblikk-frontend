@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Alert, BodyShort, Button, Dialog, HStack, Loader, Table, VStack } from '@navikt/ds-react'
 import { ArrowUndoIcon, TrashIcon } from '@navikt/aksel-icons'
-import { listTrashedCohorts, permanentlyDeleteCohort, restoreCohort } from '../../cohortmanager/api/cohortManagerApi.ts'
+import { listTrashedCohorts, restoreCohort } from '../../cohortmanager/api/cohortManagerApi.ts'
+import { permanentlyDeleteCohortChecked } from '../api/cohortApi.ts'
 import type { CohortDto } from '../../cohortmanager/model/types.ts'
 
 interface TrashDialogProps {
@@ -17,6 +18,7 @@ export function TrashDialog({ websiteId, open, onOpenChange, onRestored }: Trash
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<number | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<CohortDto | null>(null)
+  const [confirmError, setConfirmError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -50,12 +52,13 @@ export function TrashDialog({ websiteId, open, onOpenChange, onRestored }: Trash
   const deletePermanently = async () => {
     if (!confirmDelete) return
     setBusyId(confirmDelete.id)
+    setConfirmError(null)
     try {
-      await permanentlyDeleteCohort(confirmDelete.id)
+      await permanentlyDeleteCohortChecked(confirmDelete.id)
       setConfirmDelete(null)
       await load()
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Kunne ikke slette')
+      setConfirmError(err instanceof Error ? err.message : 'Kunne ikke slette')
     } finally {
       setBusyId(null)
     }
@@ -80,6 +83,14 @@ export function TrashDialog({ websiteId, open, onOpenChange, onRestored }: Trash
               )}
               {!loading && items.length > 0 && (
                 <Table>
+                  <Table.Header>
+                    <Table.Row>
+                      <Table.HeaderCell scope="col">Navn</Table.HeaderCell>
+                      <Table.HeaderCell scope="col">
+                        <span className="sr-only">Handlinger</span>
+                      </Table.HeaderCell>
+                    </Table.Row>
+                  </Table.Header>
                   <Table.Body>
                     {items.map((item) => (
                       <Table.Row key={item.id}>
@@ -119,13 +130,26 @@ export function TrashDialog({ websiteId, open, onOpenChange, onRestored }: Trash
         </Dialog.Popup>
       </Dialog>
 
-      <Dialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
+      <Dialog
+        open={!!confirmDelete}
+        onOpenChange={(o) => {
+          if (!o) {
+            setConfirmDelete(null)
+            setConfirmError(null)
+          }
+        }}
+      >
         <Dialog.Popup width="small" role="alertdialog">
           <Dialog.Header withClosebutton={false}>
             <Dialog.Title>Slette «{confirmDelete?.name}» for godt?</Dialog.Title>
           </Dialog.Header>
           <Dialog.Body>
             <BodyShort>Dette kan ikke angres.</BodyShort>
+            {confirmError && (
+              <Alert variant="error" className="mt-3">
+                {confirmError}
+              </Alert>
+            )}
           </Dialog.Body>
           <Dialog.Footer>
             <Button data-color="danger" loading={busyId === confirmDelete?.id} onClick={() => void deletePermanently()}>

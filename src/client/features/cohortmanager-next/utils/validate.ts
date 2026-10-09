@@ -75,8 +75,11 @@ function validateCard(card: Card, index: number, issues: ValidationIssue[]) {
     case 'sequence':
       validateStep(card.first, `${label} (først)`, `${card.id}-first-add`, issues)
       validateStep(card.then, `${label} (deretter)`, `${card.id}-then-add`, issues)
-      if (!Number.isFinite(card.windowValue) || card.windowValue < 1) {
-        issues.push({ anchorId: anchorFor(`${card.id}-window`), message: `${label}: tidsrommet må være minst 1` })
+      if (!Number.isInteger(card.windowValue) || card.windowValue < 1) {
+        issues.push({
+          anchorId: anchorFor(`${card.id}-window`),
+          message: `${label}: tidsrommet må være et helt tall på minst 1`,
+        })
       }
       break
   }

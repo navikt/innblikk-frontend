@@ -16,16 +16,17 @@ import {
 import { ArrowLeftIcon, PlusIcon } from '@navikt/aksel-icons'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
+import { BetaFeatureNotice, BetaFeedbackLine } from '../../../shared/ui/BetaFeatureNotice.tsx'
 import { fetchWebsites } from '../../../shared/api/websiteApi.ts'
 import type { Website } from '../../../shared/types/website.ts'
 import {
   createCohort,
-  deleteCohort,
   getCohort,
   listCohorts,
   replaceCriteria,
   updateCohort,
 } from '../../cohortmanager/api/cohortManagerApi.ts'
+import { deleteCohortChecked } from '../api/cohortApi.ts'
 import type { CohortDetailDto, CohortDto, LogicalOperator } from '../../cohortmanager/model/types.ts'
 import {
   draftToTree,
@@ -41,6 +42,7 @@ import { validateDraft, anchorFor, type ValidationIssue } from '../utils/validat
 import { CriterionCard } from './CriterionCard.tsx'
 import { SummaryPanel } from './SummaryPanel.tsx'
 import { WebsiteSelect } from './WebsiteSelect.tsx'
+import './cohortNext.css'
 
 const LIST_PATH = '/brukergrupper-next'
 
@@ -83,7 +85,7 @@ function CohortEditorPage() {
   const [showErrors, setShowErrors] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const [confirmLeave, setConfirmLeave] = useState(false)
+  const [leaveTarget, setLeaveTarget] = useState<string | null>(null)
   const [pendingFocus, setPendingFocus] = useState<string | null>(null)
   const summaryRef = useRef<HTMLDivElement>(null)
 
@@ -128,9 +130,13 @@ function CohortEditorPage() {
 
   useEffect(() => {
     if (!websiteId) return
+    let cancelled = false
     listCohorts(websiteId)
-      .then((list) => setOthers(list.filter((c) => c.id !== cohortId)))
-      .catch(() => setOthers([]))
+      .then((list) => !cancelled && setOthers(list.filter((c) => c.id !== cohortId)))
+      .catch(() => !cancelled && setOthers([]))
+    return () => {
+      cancelled = true
+    }
   }, [websiteId, cohortId])
 
   const changeWebsite = (id: string | null) => {
@@ -153,6 +159,23 @@ function CohortEditorPage() {
     const handler = (e: BeforeUnloadEvent) => e.preventDefault()
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)
+  }, [dirty])
+
+  // BrowserRouter has no navigation blocker, so intercept in-app link clicks while there are unsaved edits.
+  useEffect(() => {
+    if (!dirty) return
+    const onClick = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+      const anchor = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null
+      if (!anchor || anchor.target === '_blank' || anchor.origin !== window.location.origin) return
+      const destination = anchor.pathname + anchor.search + anchor.hash
+      if (destination === window.location.pathname + window.location.search + window.location.hash) return
+      e.preventDefault()
+      e.stopPropagation()
+      setLeaveTarget(destination)
+    }
+    document.addEventListener('click', onClick, true)
+    return () => document.removeEventListener('click', onClick, true)
   }, [dirty])
 
   useEffect(() => {
@@ -216,7 +239,13 @@ function CohortEditorPage() {
           await replaceCriteria(created.id, root)
         } catch (criteriaErr: unknown) {
           // Don't leave a criteria-less group behind occupying the unique name.
-          await deleteCohort(created.id)
+          try {
+            await deleteCohortChecked(created.id)
+          } catch {
+            throw new Error(
+              `Kriteriene kunne ikke lagres, og den tomme brukergruppen «${trimmed.name}» kunne ikke fjernes. Slett den fra oversikten før du prøver igjen.`,
+            )
+          }
           throw criteriaErr
         }
       } else {
@@ -232,7 +261,7 @@ function CohortEditorPage() {
     }
   }
 
-  const handleCancel = () => (dirty ? setConfirmLeave(true) : void navigate(listHref))
+  const handleCancel = () => (dirty ? setLeaveTarget(listHref) : void navigate(listHref))
 
   const title = isNew ? 'Ny brukergruppe' : 'Rediger brukergruppe'
 
@@ -285,9 +314,14 @@ function CohortEditorPage() {
 
   return (
     <>
-      <PageHeader title={title} description={!isNew && websiteLabel ? `Nettsted: ${websiteLabel}` : undefined} />
+      <PageHeader title={title} description={!isNew && websiteLabel ? `Nettsted: ${websiteLabel}` : undefined} beta />
 
       <AppBlock className="pb-16">
+        <BetaFeatureNotice id="brukergrupper-next" title="Brukergrupper er i beta" className="mb-4">
+          Brukergrupper er under utvikling, og funksjonalitet kan endre seg.
+          <BetaFeedbackLine />
+        </BetaFeatureNotice>
+
         <VStack gap="space-24" style={{ maxWidth: '56rem' }}>
           <Button
             as={Link}
@@ -296,12 +330,6 @@ function CohortEditorPage() {
             size="small"
             icon={<ArrowLeftIcon aria-hidden />}
             style={{ alignSelf: 'flex-start' }}
-            onClick={(e: React.MouseEvent) => {
-              if (dirty) {
-                e.preventDefault()
-                setConfirmLeave(true)
-              }
-            }}
           >
             Tilbake til brukergrupper
           </Button>
@@ -480,7 +508,7 @@ function CohortEditorPage() {
         </VStack>
       </AppBlock>
 
-      <Dialog open={confirmLeave} onOpenChange={setConfirmLeave}>
+      <Dialog open={leaveTarget !== null} onOpenChange={(o) => !o && setLeaveTarget(null)}>
         <Dialog.Popup width="small" role="alertdialog">
           <Dialog.Header withClosebutton={false}>
             <Dialog.Title>Forkaste endringene?</Dialog.Title>
@@ -492,8 +520,10 @@ function CohortEditorPage() {
             <Button
               data-color="danger"
               onClick={() => {
+                const target = leaveTarget ?? listHref
                 setSnapshot(null)
-                void navigate(listHref)
+                setLeaveTarget(null)
+                void navigate(target)
               }}
             >
               Forkast
