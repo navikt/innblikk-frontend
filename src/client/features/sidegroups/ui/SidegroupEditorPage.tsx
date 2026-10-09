@@ -101,7 +101,8 @@ function SidegroupEditorPage() {
     listSidegroups()
       .then((all) => {
         if (cancelled) return
-        const sidegroup = all.find((s) => s.id === id)
+        // The backend may return numeric ids even though the type says string; the route param is always a string.
+        const sidegroup = all.find((s) => String(s.id) === id)
         if (!sidegroup) {
           setLoadError('Fant ikke sidegruppen')
           return

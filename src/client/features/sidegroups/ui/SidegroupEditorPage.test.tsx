@@ -126,6 +126,16 @@ describe('SidegroupEditorPage', () => {
     )
   })
 
+  it('finds a sidegroup whose id is numeric in the API response', async () => {
+    vi.mocked(listSidegroups).mockResolvedValue([
+      { id: 3 as unknown as string, name: 'Numerisk', websiteId: 'site-1', include: ['/a/'] },
+    ])
+    renderAt('/sidegrupper/3')
+
+    expect(await screen.findByRole('heading', { name: 'Rediger sidegruppe' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Navn')).toHaveValue('Numerisk')
+  })
+
   it('reports a sidegroup that does not exist', async () => {
     renderAt('/sidegrupper/finnes-ikke')
 
