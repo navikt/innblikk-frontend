@@ -149,8 +149,7 @@ export function ConditionRow({
       {conflict && (
         <Alert variant="warning" size="small" inline>
           <BodyShort size="small">
-            En aktivitet kan ikke ha to ulike verdier for «{fieldLabel(condition.field)}», så dette vilkåret vil aldri
-            treffe sammen med det over. Mente du to ulike kriterier?
+            Én aktivitet kan ikke ha to ulike «{fieldLabel(condition.field)}». Mente du to kriterier?
           </BodyShort>
           {onSplit && (
             <Button type="button" size="xsmall" variant="secondary" onClick={onSplit}>

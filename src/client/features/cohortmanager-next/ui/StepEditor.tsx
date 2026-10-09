@@ -54,12 +54,6 @@ export function StepEditor({ step, anchorKey, websiteId, showErrors, onChange, o
 
   return (
     <VStack gap="space-12">
-      {step.conditions.length > 1 && (
-        <BodyShort size="small" textColor="subtle">
-          Alle vilkårene må stemme på én og samme aktivitet.
-        </BodyShort>
-      )}
-
       <VStack gap="space-8">
         {step.conditions.map((condition, index) => (
           <HStack key={condition.id} gap="space-12" align="start" wrap={false}>

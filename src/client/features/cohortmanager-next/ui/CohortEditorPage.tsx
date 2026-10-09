@@ -352,7 +352,6 @@ function CohortEditorPage() {
               <TextField
                 id="cohort-next-name"
                 label="Navn på brukergruppen"
-                description="F.eks. «Søkte på dagpenger fra mobil»"
                 value={name}
                 error={nameError}
                 autoFocus={isNew && !!websiteId}
@@ -366,14 +365,9 @@ function CohortEditorPage() {
             </VStack>
 
             <VStack gap="space-12" as="section" aria-labelledby="cohort-next-criteria">
-              <VStack gap="space-4">
-                <Heading level="2" size="small" id="cohort-next-criteria">
-                  Hvem skal være med i gruppen?
-                </Heading>
-                <BodyShort textColor="subtle">
-                  Beskriv hva brukerne har gjort. Hvert kriterium er ett kort, og kortene kombineres nedenfor.
-                </BodyShort>
-              </VStack>
+              <Heading level="2" size="small" id="cohort-next-criteria">
+                Hvem skal være med i gruppen?
+              </Heading>
 
               {draft.cards.length > 1 && (
                 <HStack gap="space-8" align="center" wrap>

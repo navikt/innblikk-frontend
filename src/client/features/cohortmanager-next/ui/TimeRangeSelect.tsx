@@ -49,7 +49,7 @@ export function TimeRangeSelect({ value, onChange }: TimeRangeSelectProps) {
       </div>
       {custom && value !== null && (
         <Box marginBlock="space-8 space-0" padding="space-12" background="neutral-soft" borderRadius="4">
-          <CohortDateTimeEditor value={value} onChange={onChange} />
+          <CohortDateTimeEditor value={value} onChange={onChange} hideNotes />
         </Box>
       )}
     </div>
