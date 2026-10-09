@@ -63,6 +63,11 @@ function CardShell({
                 </BodyShort>
               </Box>
             )}
+            {index === 0 && (
+              <BodyShort size="small" as="span">
+                Brukere som
+              </BodyShort>
+            )}
             {title}
           </HStack>
           <Button
@@ -122,8 +127,8 @@ function EventCardBody({
           <NegationToggle
             negated={card.negated}
             onChange={(negated) => onChange({ ...card, negated })}
-            yes="Har gjort"
-            no="Har ikke gjort"
+            yes="har gjort"
+            no="har ikke gjort"
             label="Skal brukeren ha gjort dette eller ikke?"
           />
           <BodyShort as="span" size="small">
@@ -161,8 +166,8 @@ function CohortCardBody({
         <NegationToggle
           negated={card.negated}
           onChange={(negated) => onChange({ ...card, negated })}
-          yes="Er med i"
-          no="Er ikke med i"
+          yes="er med i"
+          no="er ikke med i"
           label="Skal brukeren være med i en annen brukergruppe eller ikke?"
         />
       }
@@ -207,7 +212,7 @@ function SequenceCardBody({
       onRemove={onRemove}
       title={
         <BodyShort as="span" weight="semibold">
-          Rekkefølge: gjorde noe, og deretter noe annet
+          gjorde noe først, og deretter noe annet
         </BodyShort>
       }
     >
