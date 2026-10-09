@@ -87,8 +87,8 @@ export default function CohortManagerNext() {
       />
 
       <AppBlock className="pb-16">
-        <BetaFeatureNotice id="brukergrupper-next" title="Nye brukergrupper er i beta" className="mb-4">
-          Dette er en ny måte å lage brukergrupper på, og funksjonalitet kan endre seg.
+        <BetaFeatureNotice id="brukergrupper-next" title="Brukergrupper er i beta" className="mb-4">
+          Brukergrupper er under utvikling, og funksjonalitet kan endre seg.
           <BetaFeedbackLine />
         </BetaFeatureNotice>
 
