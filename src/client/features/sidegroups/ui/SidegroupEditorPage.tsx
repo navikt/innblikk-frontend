@@ -272,14 +272,14 @@ function SidegroupEditorPage() {
             <VStack gap="space-16" as="section" aria-labelledby="sidegroup-conditions">
               <HStack gap="space-8" align="center">
                 <Heading level="2" size="small" id="sidegroup-conditions">
-                  URL-vilkår
+                  Hvilke sider skal være med i gruppen?
                 </Heading>
                 <HelpText title="URL-sti">For eksempel /artikler/.</HelpText>
               </HStack>
 
               <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(12rem,1fr)_minmax(0,2fr)_auto] md:items-end">
                 <Select
-                  label="Samsvarsvilkår"
+                  label="Samsvar"
                   value={newConditionField}
                   onChange={(event) => setNewConditionField(event.target.value as SidegroupMatchField)}
                 >
@@ -347,7 +347,7 @@ function SidegroupEditorPage() {
                             <Table.DataCell>
                               {isEditing ? (
                                 <Select
-                                  label="Samsvarsvilkår"
+                                  label="Samsvar"
                                   hideLabel
                                   value={editingConditionField}
                                   onChange={(event) =>
@@ -404,7 +404,7 @@ function SidegroupEditorPage() {
                                       size="xsmall"
                                       variant="tertiary-neutral"
                                       icon={<PencilIcon aria-hidden />}
-                                      aria-label="Rediger URL-vilkår"
+                                      aria-label="Rediger regel"
                                       onClick={() => startEditingCondition(condition)}
                                     />
                                     <Button
@@ -413,7 +413,7 @@ function SidegroupEditorPage() {
                                       variant="tertiary-neutral"
                                       data-color="danger"
                                       icon={<TrashIcon aria-hidden />}
-                                      aria-label="Fjern URL-vilkår"
+                                      aria-label="Fjern regel"
                                       onClick={() => removeCondition(condition.id)}
                                     />
                                   </>

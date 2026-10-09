@@ -120,7 +120,7 @@ export default function Sidegroups() {
                   <Table.Row>
                     <Table.HeaderCell scope="col" />
                     <Table.HeaderCell>Navn</Table.HeaderCell>
-                    <Table.HeaderCell>URL-vilkår</Table.HeaderCell>
+                    <Table.HeaderCell>Regler</Table.HeaderCell>
                     <Table.HeaderCell />
                   </Table.Row>
                 </Table.Header>
@@ -150,7 +150,7 @@ export default function Sidegroups() {
                         content={
                           <div id={`sidegroup-conditions-${sidegroup.id}`}>
                             {conditions.length === 0 ? (
-                              <BodyShort size="small">Ingen URL-vilkår.</BodyShort>
+                              <BodyShort size="small">Ingen regler.</BodyShort>
                             ) : (
                               <div style={{ maxWidth: '640px', overflowX: 'auto' }}>
                                 <Table size="small">

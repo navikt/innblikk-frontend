@@ -48,6 +48,7 @@ describe('SidegroupEditorPage', () => {
     renderAt('/sidegrupper/ny?websiteId=site-1')
 
     expect(await screen.findByRole('heading', { name: 'Ny sidegruppe' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Hvilke sider skal være med i gruppen?' })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: 'Nettsted' })).toBeInTheDocument()
     expect(screen.getByText('Beta')).toBeInTheDocument()
   })
