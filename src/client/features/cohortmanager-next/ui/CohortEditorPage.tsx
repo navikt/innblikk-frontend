@@ -345,6 +345,19 @@ function CohortEditorPage() {
             )}
 
             <VStack gap="space-12" style={{ maxWidth: '32rem' }}>
+              <TextField
+                id="cohort-next-name"
+                label="Navn på brukergruppen"
+                value={name}
+                error={nameError}
+                autoFocus={isNew}
+                onChange={(e) => setName(e.target.value)}
+              />
+              <TextField
+                label="Beskrivelse (valgfri)"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
               {isNew && (
                 <div id="cohort-next-website">
                   <WebsiteSelect
@@ -355,19 +368,6 @@ function CohortEditorPage() {
                   />
                 </div>
               )}
-              <TextField
-                id="cohort-next-name"
-                label="Navn på brukergruppen"
-                value={name}
-                error={nameError}
-                autoFocus={isNew && !!websiteId}
-                onChange={(e) => setName(e.target.value)}
-              />
-              <TextField
-                label="Beskrivelse (valgfri)"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
             </VStack>
 
             <VStack gap="space-12" as="section" aria-labelledby="cohort-next-criteria">
