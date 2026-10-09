@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Alert, BodyShort, Button, Dialog, HStack, Loader, Table, VStack } from '@navikt/ds-react'
+import { Alert, BodyShort, Button, Dialog, Heading, HStack, Loader, Table, VStack } from '@navikt/ds-react'
 import { ArchiveIcon, PencilIcon, PlusIcon, TrashIcon } from '@navikt/aksel-icons'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
+import { BetaFeatureNotice, BetaFeedbackLine } from '../../../shared/ui/BetaFeatureNotice.tsx'
 import { fetchWebsites } from '../../../shared/api/websiteApi.ts'
 import type { Website } from '../../../shared/types/website.ts'
 import { deleteCohort, getCohort, listCohorts } from '../../cohortmanager/api/cohortManagerApi.ts'
@@ -82,9 +83,15 @@ export default function CohortManagerNext() {
       <PageHeader
         title="Brukergrupper"
         description="Samle brukere som har gjort noe bestemt på nettstedet ditt, og bruk gruppen i grafene dine."
+        beta
       />
 
       <AppBlock className="pb-16">
+        <BetaFeatureNotice id="brukergrupper-next" title="Nye brukergrupper er i beta" className="mb-4">
+          Dette er en ny måte å lage brukergrupper på, og funksjonalitet kan endre seg.
+          <BetaFeedbackLine />
+        </BetaFeatureNotice>
+
         <VStack gap="space-24">
           {websitesLoading ? (
             <Loader title="Laster nettsteder…" />
@@ -95,21 +102,33 @@ export default function CohortManagerNext() {
           {websiteIdParam && (
             <VStack gap="space-16">
               <HStack justify="space-between" align="center" wrap gap="space-12">
-                <Button variant="tertiary" icon={<ArchiveIcon aria-hidden />} onClick={() => setTrashOpen(true)}>
-                  Papirkurv
-                </Button>
-                <Button as={Link} to={newHref} icon={<PlusIcon aria-hidden />}>
-                  Ny brukergruppe
-                </Button>
+                <Heading level="2" size="medium">
+                  Brukergrupper
+                </Heading>
+                <HStack gap="space-8">
+                  <Button variant="tertiary" icon={<ArchiveIcon aria-hidden />} onClick={() => setTrashOpen(true)}>
+                    Papirkurv
+                  </Button>
+                  {cohorts.length > 0 && (
+                    <Button as={Link} to={newHref} icon={<PlusIcon aria-hidden />}>
+                      Ny brukergruppe
+                    </Button>
+                  )}
+                </HStack>
               </HStack>
 
               {loading && <Loader title="Laster brukergrupper…" />}
               {error && <Alert variant="error">{error}</Alert>}
 
               {!loading && !error && cohorts.length === 0 && (
-                <Alert variant="info">
-                  Ingen brukergrupper for dette nettstedet ennå. Lag den første med «Ny brukergruppe».
-                </Alert>
+                <VStack gap="space-12" align="start">
+                  <Alert variant="info" inline>
+                    Ingen brukergrupper for dette nettstedet.
+                  </Alert>
+                  <Button as={Link} to={newHref} variant="secondary" icon={<PlusIcon aria-hidden />}>
+                    Ny brukergruppe
+                  </Button>
+                </VStack>
               )}
 
               {!loading && cohorts.length > 0 && (
