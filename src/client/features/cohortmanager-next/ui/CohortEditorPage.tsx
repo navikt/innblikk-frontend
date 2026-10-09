@@ -347,7 +347,7 @@ function CohortEditorPage() {
             <VStack gap="space-12" style={{ maxWidth: '32rem' }}>
               <TextField
                 id="cohort-next-name"
-                label="Navn på brukergruppen"
+                label="Navn"
                 value={name}
                 error={nameError}
                 autoFocus={isNew}
@@ -365,6 +365,7 @@ function CohortEditorPage() {
                     selectedId={websiteId}
                     onSelect={changeWebsite}
                     error={websiteError}
+                    fullWidth
                   />
                 </div>
               )}

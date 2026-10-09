@@ -122,7 +122,7 @@ describe('CohortEditorPage', () => {
     const user = userEvent.setup()
     renderAt('/brukergrupper-next/ny?websiteId=site-1')
 
-    await user.type(await screen.findByLabelText(/Navn på brukergruppen/), 'Søkere')
+    await user.type(await screen.findByLabelText('Navn'), 'Søkere')
     await user.type(screen.getByRole('combobox', { name: 'Verdi' }), '/soknad{Enter}')
     await user.click(screen.getByRole('button', { name: 'Opprett brukergruppe' }))
 

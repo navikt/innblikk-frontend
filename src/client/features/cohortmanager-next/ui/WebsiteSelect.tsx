@@ -7,12 +7,13 @@ interface WebsiteSelectProps {
   selectedId: string | null
   onSelect: (id: string | null) => void
   error?: string
+  fullWidth?: boolean
 }
 
 const labelOf = (w: Website) => `${w.name} — ${w.domain}`
 
 /** Ranks name-prefix matches above name-substring above domain matches, so «nav» finds the project named Nav first. */
-export function WebsiteSelect({ websites, selectedId, onSelect, error }: WebsiteSelectProps) {
+export function WebsiteSelect({ websites, selectedId, onSelect, error, fullWidth = false }: WebsiteSelectProps) {
   const [filter, setFilter] = useState('')
   const options = useMemo(() => websites.map((w) => ({ label: labelOf(w), value: w.id })), [websites])
   const selected = websites.find((w) => w.id === selectedId)
@@ -45,7 +46,7 @@ export function WebsiteSelect({ websites, selectedId, onSelect, error }: Website
   }
 
   return (
-    <div style={{ maxWidth: 400 }} onKeyDownCapture={handleKeyDownCapture}>
+    <div style={{ maxWidth: fullWidth ? undefined : 400 }} onKeyDownCapture={handleKeyDownCapture}>
       <UNSAFE_Combobox
         label="Nettsted"
         error={error}
