@@ -11,6 +11,7 @@ import {
   Loader,
   Select,
   Table,
+  Textarea,
   TextField,
   VStack,
 } from '@navikt/ds-react'
@@ -24,6 +25,7 @@ import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { createSidegroup, listSidegroups, updateSidegroup } from '../api/sidegroupsApi.ts'
 import { sidegroupMatchFields, type SidegroupMatchField, type SidegroupRequest } from '../model/types.ts'
+import { hasMultipleValues, parseBulkPatterns } from '../utils/bulkPatterns.ts'
 
 type MatchCondition = {
   id: number
@@ -86,6 +88,9 @@ function SidegroupEditorPage() {
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [showErrors, setShowErrors] = useState(false)
+  const [bulkOpen, setBulkOpen] = useState(false)
+  const [bulkInput, setBulkInput] = useState('')
+  const [bulkError, setBulkError] = useState('')
   const [snapshot, setSnapshot] = useState<string | null>(() => (isNew ? snapshotOf('', websiteId, [], '') : null))
   const nextConditionId = useRef(0)
 
@@ -142,6 +147,54 @@ function SidegroupEditorPage() {
     setConditions((current) => [...current, { id: conditionId, field: newConditionField, pattern }])
     setNewConditionPattern('')
     setShowPendingPatternDecision(false)
+  }
+
+  const addPatterns = (patterns: string[]) => {
+    const existing = new Set(conditions.filter((c) => c.field === newConditionField).map((c) => c.pattern))
+    const fresh = patterns.filter((pattern) => !existing.has(pattern))
+    setConditions((current) => [
+      ...current,
+      ...fresh.map((pattern) => ({ id: nextConditionId.current++, field: newConditionField, pattern })),
+    ])
+    setShowPendingPatternDecision(false)
+  }
+
+  const closeBulk = () => {
+    setBulkOpen(false)
+    setBulkInput('')
+    setBulkError('')
+  }
+
+  const bulkErrorFor = (invalid: string[]) =>
+    `Noen URL-er tilhører ikke ${website?.domain ?? 'valgt nettsted'} eller er ugyldige. Sjekk: ${invalid.slice(0, 3).join(', ')}${invalid.length > 3 ? '…' : ''}`
+
+  const handlePatternPaste = (event: React.ClipboardEvent<HTMLInputElement>) => {
+    const text = event.clipboardData.getData('text')
+    if (!hasMultipleValues(text)) return
+    event.preventDefault()
+    const { patterns, invalid } = parseBulkPatterns(text, website?.domain)
+    if (invalid.length > 0) {
+      setBulkInput(text)
+      setBulkError(bulkErrorFor(invalid))
+      setBulkOpen(true)
+      return
+    }
+    addPatterns(patterns)
+    setNewConditionPattern('')
+  }
+
+  const handleBulkAdd = () => {
+    if (!bulkInput.trim()) {
+      closeBulk()
+      return
+    }
+    const { patterns, invalid } = parseBulkPatterns(bulkInput, website?.domain)
+    if (invalid.length > 0) {
+      setBulkError(bulkErrorFor(invalid))
+      return
+    }
+    addPatterns(patterns)
+    closeBulk()
   }
 
   const startEditingCondition = (condition: MatchCondition) => {
@@ -294,6 +347,7 @@ function SidegroupEditorPage() {
                   label="URL-sti"
                   value={newConditionPattern}
                   onChange={(event) => setNewConditionPattern(event.target.value)}
+                  onPaste={handlePatternPaste}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter') {
                       event.preventDefault()
@@ -309,6 +363,11 @@ function SidegroupEditorPage() {
                   disabled={!newConditionPattern.trim()}
                 >
                   Legg til
+                </Button>
+              </div>
+              <div>
+                <Button type="button" size="small" variant="tertiary" onClick={() => setBulkOpen(true)}>
+                  Legg til flere
                 </Button>
               </div>
 
@@ -467,6 +526,50 @@ function SidegroupEditorPage() {
             <Dialog.CloseTrigger>
               <Button type="button" variant="secondary">
                 Fortsett å redigere
+              </Button>
+            </Dialog.CloseTrigger>
+          </Dialog.Footer>
+        </Dialog.Popup>
+      </Dialog>
+
+      <Dialog open={bulkOpen} onOpenChange={(open) => !open && closeBulk()}>
+        <Dialog.Popup width="medium">
+          <Dialog.Header>
+            <Dialog.Title>Legg til flere URL-er</Dialog.Title>
+          </Dialog.Header>
+          <Dialog.Body>
+            <VStack gap="space-16">
+              <Select
+                label="Samsvar"
+                value={newConditionField}
+                onChange={(event) => setNewConditionField(event.target.value as SidegroupMatchField)}
+              >
+                {sidegroupMatchFields.map((field) => (
+                  <option key={field.key} value={field.key}>
+                    {field.label}
+                  </option>
+                ))}
+              </Select>
+              <Textarea
+                label="URL-er (én per linje, eller kommaseparert)"
+                description="Hele URL-er eller bare stier, f.eks. /artikler/"
+                value={bulkInput}
+                onChange={(event) => {
+                  setBulkInput(event.target.value)
+                  setBulkError('')
+                }}
+                error={bulkError || undefined}
+                minRows={6}
+              />
+            </VStack>
+          </Dialog.Body>
+          <Dialog.Footer>
+            <Button type="button" onClick={handleBulkAdd}>
+              Legg til
+            </Button>
+            <Dialog.CloseTrigger>
+              <Button type="button" variant="secondary">
+                Avbryt
               </Button>
             </Dialog.CloseTrigger>
           </Dialog.Footer>
