@@ -33,6 +33,8 @@ export const PageHeader = ({
         color: 'var(--ax-text-default)',
         paddingTop: padding,
         paddingBottom: padding,
+        // Matches the sidebar's logo bar (65px) so the two bottom edges line up when there is no description.
+        minHeight: isArticle ? undefined : '65px',
         marginBottom: '24px',
       }}
     >
