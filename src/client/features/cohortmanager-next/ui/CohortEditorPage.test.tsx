@@ -188,11 +188,12 @@ describe('CohortEditorPage', () => {
     expect(await screen.findByText('Oversikt')).toBeInTheDocument()
   })
 
-  it('does not let an existing group with nested logic be edited here', async () => {
+  it('opens an existing group with nested logic and lets it be edited here', async () => {
+    // A AND (B OR C)
     const nested: CohortDetailDto = {
       id: 9,
       websiteId: 'site-1',
-      name: 'Avansert',
+      name: 'Nøstet',
       root: {
         nodeType: 'GROUP',
         combinator: 'AND',
@@ -202,7 +203,26 @@ describe('CohortEditorPage', () => {
             nodeType: 'GROUP',
             combinator: 'AND',
             negated: false,
-            children: [{ nodeType: 'GROUP', combinator: 'OR', negated: false, children: [] }],
+            children: [{ nodeType: 'CONDITION', field: 'url_path', conditionType: 'EQUALS', value: '/a' }],
+          },
+          {
+            nodeType: 'GROUP',
+            combinator: 'OR',
+            negated: false,
+            children: [
+              {
+                nodeType: 'GROUP',
+                combinator: 'AND',
+                negated: false,
+                children: [{ nodeType: 'CONDITION', field: 'url_path', conditionType: 'EQUALS', value: '/b' }],
+              },
+              {
+                nodeType: 'GROUP',
+                combinator: 'AND',
+                negated: false,
+                children: [{ nodeType: 'CONDITION', field: 'url_path', conditionType: 'EQUALS', value: '/c' }],
+              },
+            ],
           },
         ],
       },
@@ -210,10 +230,43 @@ describe('CohortEditorPage', () => {
     vi.mocked(getCohort).mockResolvedValue(nested)
     renderAt('/brukergrupper-next/9')
 
+    expect(await screen.findByRole('heading', { name: 'Rediger brukergruppe' })).toBeInTheDocument()
+    expect(screen.queryByText('Denne brukergruppen kan ikke redigeres her ennå')).not.toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Kriterium 2' })).toBeInTheDocument()
+    expect(within(screen.getByRole('region', { name: 'Kriterium 2' })).getAllByRole('region')).toHaveLength(2)
+  })
+
+  it('builds a group from the «gruppe» button, with its own og/eller inside', async () => {
+    const user = userEvent.setup()
+    renderAt('/brukergrupper-next/ny?websiteId=site-1')
+
+    await user.click(await screen.findByRole('button', { name: 'gruppe' }))
+
+    const group = screen.getByRole('region', { name: 'Kriterium 2' })
+    expect(within(group).getByRole('region', { name: 'Delkriterium 1' })).toBeInTheDocument()
+    expect(within(group).getByRole('button', { name: 'og' })).toBeInTheDocument()
+    expect(within(group).getByRole('button', { name: 'eller' })).toBeInTheDocument()
+  })
+
+  it('never points to the old editor, even for a group it cannot show', async () => {
+    vi.mocked(getCohort).mockResolvedValue({
+      id: 10,
+      websiteId: 'site-1',
+      name: 'Ukjent felt',
+      root: {
+        nodeType: 'GROUP',
+        combinator: 'AND',
+        negated: false,
+        children: [{ nodeType: 'CONDITION', field: 'screen', conditionType: 'EQUALS', value: '1x1' }],
+      },
+    })
+    renderAt('/brukergrupper-next/10')
+
     expect(await screen.findByText('Denne brukergruppen kan ikke redigeres her ennå')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Åpne i den gamle editoren' })).toHaveAttribute(
+    expect(screen.queryByText(/gamle editoren/)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Tilbake til brukergrupper/ })).toHaveAttribute(
       'href',
-      '/brukergrupper?websiteId=site-1',
+      '/brukergrupper-next?websiteId=site-1',
     )
   })
 })

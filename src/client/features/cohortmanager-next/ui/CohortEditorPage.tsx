@@ -10,10 +10,9 @@ import {
   HStack,
   Loader,
   TextField,
-  ToggleGroup,
   VStack,
 } from '@navikt/ds-react'
-import { ArrowLeftIcon, PlusIcon } from '@navikt/aksel-icons'
+import { ArrowLeftIcon } from '@navikt/aksel-icons'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { BetaFeatureNotice, BetaFeedbackLine } from '../../../shared/ui/BetaFeatureNotice.tsx'
@@ -27,19 +26,10 @@ import {
   updateCohort,
 } from '../../cohortmanager/api/cohortManagerApi.ts'
 import { deleteCohortChecked } from '../api/cohortApi.ts'
-import type { CohortDetailDto, CohortDto, LogicalOperator } from '../../cohortmanager/model/types.ts'
-import {
-  draftToTree,
-  emptyCohortCard,
-  emptyDraft,
-  emptyEventCard,
-  eventToSequence,
-  treeToDraft,
-  type Card,
-  type Draft,
-} from '../model/draft.ts'
+import type { CohortDetailDto, CohortDto } from '../../cohortmanager/model/types.ts'
+import { draftToTree, emptyDraft, resetCohortRefs, treeToDraft, type Draft } from '../model/draft.ts'
 import { validateDraft, anchorFor, type ValidationIssue } from '../utils/validate.ts'
-import { CriterionCard } from './CriterionCard.tsx'
+import { CardListEditor } from './CardListEditor.tsx'
 import { SummaryPanel } from './SummaryPanel.tsx'
 import { WebsiteSelect } from './WebsiteSelect.tsx'
 import './cohortNext.css'
@@ -143,10 +133,7 @@ function CohortEditorPage() {
     setWebsiteId(id)
     setOthers([])
     // A reference to a group on the previous site would point at the wrong place.
-    setDraft((d) => ({
-      ...d,
-      cards: d.cards.map((c) => (c.kind === 'cohort' ? { ...c, cohortId: null } : c)),
-    }))
+    setDraft((d) => ({ ...d, cards: resetCohortRefs(d.cards) }))
   }
 
   const website = websites.find((s) => s.id === websiteId)
@@ -190,37 +177,8 @@ function CohortEditorPage() {
   const websiteError = showErrors && !websiteId ? 'Velg hvilket nettsted brukergruppen gjelder' : undefined
   const listHref = `${LIST_PATH}${websiteId ? `?websiteId=${encodeURIComponent(websiteId)}` : ''}`
 
-  const updateCard = (cardId: string, next: Card) =>
-    setDraft((d) => ({ ...d, cards: d.cards.map((c) => (c.id === cardId ? next : c)) }))
-
-  const addCard = (card: Card, combinator?: LogicalOperator) => {
-    setDraft((d) => ({ ...d, combinator: combinator ?? d.combinator, cards: [...d.cards, card] }))
-    setPendingFocus(card.id)
-  }
-
-  const lastCard = draft.cards[draft.cards.length - 1]
   // One simple card already reads as a sentence; the summary only helps once cards combine.
-  const showSummary = draft.cards.length > 1 || draft.cards.some((c) => c.kind === 'sequence')
-  const canContinueWithThen = lastCard?.kind === 'event' && !lastCard.negated
-  const continueWithThen = () => {
-    if (lastCard?.kind === 'event') updateCard(lastCard.id, eventToSequence(lastCard))
-  }
-
-  const removeCard = (cardId: string) => setDraft((d) => ({ ...d, cards: d.cards.filter((c) => c.id !== cardId) }))
-
-  const splitCondition = (cardId: string, conditionId: string) =>
-    setDraft((d) => {
-      const index = d.cards.findIndex((c) => c.id === cardId)
-      const card = d.cards[index]
-      if (!card || card.kind !== 'event') return d
-      const moved = card.conditions.find((c) => c.id === conditionId)
-      if (!moved) return d
-      const split = { ...emptyEventCard(), negated: card.negated, time: card.time, conditions: [moved] }
-      const cards = d.cards.slice()
-      cards[index] = { ...card, conditions: card.conditions.filter((c) => c.id !== conditionId) }
-      cards.splice(index + 1, 0, split)
-      return { ...d, cards }
-    })
+  const showSummary = draft.cards.length > 1 || draft.cards.some((c) => c.kind === 'sequence' || c.kind === 'group')
 
   const handleSave = async () => {
     setSaveError(null)
@@ -295,17 +253,12 @@ function CohortEditorPage() {
             <Alert variant="info">
               <VStack gap="space-8">
                 <BodyShort weight="semibold">Denne brukergruppen kan ikke redigeres her ennå</BodyShort>
-                <BodyShort>{unsupportedReason} Åpne den i den gamle editoren for å endre den.</BodyShort>
+                <BodyShort>{unsupportedReason}</BodyShort>
               </VStack>
             </Alert>
-            <HStack gap="space-12">
-              <Button as={Link} to={`/brukergrupper${websiteId ? `?websiteId=${encodeURIComponent(websiteId)}` : ''}`}>
-                Åpne i den gamle editoren
-              </Button>
-              <Button as={Link} to={listHref} variant="secondary" icon={<ArrowLeftIcon aria-hidden />}>
-                Tilbake
-              </Button>
-            </HStack>
+            <Button as={Link} to={listHref} variant="secondary" icon={<ArrowLeftIcon aria-hidden />}>
+              Tilbake til brukergrupper
+            </Button>
           </VStack>
         </AppBlock>
       </>
@@ -405,94 +358,16 @@ function CohortEditorPage() {
               Hvem skal være med i gruppen?
             </Heading>
 
-            <VStack gap="space-8">
-              {draft.cards.map((card, index) => (
-                <div key={card.id}>
-                  {index > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: '0.5rem' }}>
-                      <ToggleGroup
-                        size="small"
-                        aria-label="Hvordan henger kriteriene sammen?"
-                        value={draft.combinator}
-                        onChange={(v) => setDraft((d) => ({ ...d, combinator: v as LogicalOperator }))}
-                      >
-                        <ToggleGroup.Item value="AND" label="og" />
-                        <ToggleGroup.Item value="OR" label="eller" />
-                      </ToggleGroup>
-                    </div>
-                  )}
-                  <CriterionCard
-                    card={card}
-                    index={index}
-                    total={draft.cards.length}
-                    websiteId={websiteId ?? undefined}
-                    cohorts={others}
-                    showErrors={showErrors}
-                    onChange={(next) => updateCard(card.id, next)}
-                    onRemove={() => removeCard(card.id)}
-                    onSplitCondition={(conditionId) => splitCondition(card.id, conditionId)}
-                  />
-                </div>
-              ))}
-            </VStack>
-
-            <HStack gap="space-8" wrap id={anchorFor('add-card')}>
-              {draft.cards.length === 0 && (
-                <Button
-                  type="button"
-                  size="small"
-                  variant="secondary"
-                  icon={<PlusIcon aria-hidden />}
-                  onClick={() => addCard(emptyEventCard())}
-                >
-                  Legg til kriterium
-                </Button>
-              )}
-              {draft.cards.length > 0 && (draft.cards.length === 1 || draft.combinator === 'AND') && (
-                <Button
-                  type="button"
-                  size="small"
-                  variant="secondary"
-                  icon={<PlusIcon aria-hidden />}
-                  onClick={() => addCard(emptyEventCard(), 'AND')}
-                >
-                  og
-                </Button>
-              )}
-              {draft.cards.length > 0 && (draft.cards.length === 1 || draft.combinator === 'OR') && (
-                <Button
-                  type="button"
-                  size="small"
-                  variant="secondary"
-                  icon={<PlusIcon aria-hidden />}
-                  onClick={() => addCard(emptyEventCard(), 'OR')}
-                >
-                  eller
-                </Button>
-              )}
-              {canContinueWithThen && (
-                <Button
-                  type="button"
-                  size="small"
-                  variant="secondary"
-                  icon={<PlusIcon aria-hidden />}
-                  onClick={continueWithThen}
-                >
-                  deretter
-                </Button>
-              )}
-              {others.length > 0 && draft.cards.length > 0 && (
-                <Button
-                  type="button"
-                  size="small"
-                  variant="tertiary"
-                  icon={<PlusIcon aria-hidden />}
-                  onClick={() => addCard(emptyCohortCard())}
-                >
-                  Bruk en eksisterende brukergruppe
-                </Button>
-              )}
-            </HStack>
+            <CardListEditor
+              combinator={draft.combinator}
+              cards={draft.cards}
+              onChange={(next) => setDraft(next)}
+              websiteId={websiteId ?? undefined}
+              others={others}
+              showErrors={showErrors}
+              depth={0}
+              onFocusCard={setPendingFocus}
+            />
           </VStack>
 
           {showSummary && <SummaryPanel draft={draft} names={names} />}

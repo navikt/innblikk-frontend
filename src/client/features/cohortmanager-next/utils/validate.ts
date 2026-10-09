@@ -62,9 +62,14 @@ function validateStep(step: StepDraft, label: string, addAnchorKey: string, issu
   }
 }
 
-function validateCard(card: Card, index: number, issues: ValidationIssue[]) {
-  const label = `Kriterium ${index + 1}`
+function validateCard(card: Card, label: string, issues: ValidationIssue[]) {
   switch (card.kind) {
+    case 'group':
+      if (card.cards.length === 0) {
+        issues.push({ anchorId: anchorFor(card.id), message: `${label}: gruppen må ha minst ett kriterium` })
+      }
+      card.cards.forEach((inner, index) => validateCard(inner, `${label}.${index + 1}`, issues))
+      break
     case 'event':
       validateStep(card, label, `${card.id}-add`, issues)
       break
@@ -90,6 +95,6 @@ export function validateDraft(draft: Draft): ValidationIssue[] {
   if (draft.cards.length === 0) {
     issues.push({ anchorId: anchorFor('add-card'), message: 'Legg til minst ett kriterium' })
   }
-  draft.cards.forEach((card, index) => validateCard(card, index, issues))
+  draft.cards.forEach((card, index) => validateCard(card, `Kriterium ${index + 1}`, issues))
   return issues
 }

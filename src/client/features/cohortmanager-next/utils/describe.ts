@@ -59,6 +59,11 @@ export function describeCard(card: Card, names: CohortNames): string {
   switch (card.kind) {
     case 'event':
       return `${card.negated ? 'har ikke' : 'har'} gjort noe der ${describeStep(card)}`
+    case 'group': {
+      const word = card.combinator === 'OR' ? 'eller' : 'og'
+      const inner = card.cards.map((c, i) => `${i > 0 ? `${word} ` : ''}${describeCard(c, names)}`).join(' ')
+      return `${card.negated ? 'oppfyller ikke' : 'oppfyller'} (${inner || '…'})`
+    }
     case 'cohort': {
       const name = card.cohortId == null ? '…' : (names[String(card.cohortId)] ?? `brukergruppe #${card.cohortId}`)
       return `${card.negated ? 'er ikke med' : 'er med'} i «${name}»`
@@ -92,7 +97,7 @@ export function describeDraft(draft: Draft, names: CohortNames): DraftDescriptio
 /** One-line summary for lists. */
 export function describeTreeInline(root: CohortNode | null, names: CohortNames): string {
   const result = treeToDraft(root)
-  if (!result.ok) return 'Avansert logikk – åpne i den gamle editoren for å se kriteriene.'
+  if (!result.ok) return 'Kriteriene kan ikke vises som kort ennå.'
   const { lines } = describeDraft(result.draft, names)
   const body = lines.map((l) => `${l.connector ? `${l.connector} ` : ''}${l.text}`).join(' ')
   return `Brukere som ${body}`

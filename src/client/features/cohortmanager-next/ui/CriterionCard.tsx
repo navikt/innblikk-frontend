@@ -2,7 +2,7 @@ import { createContext, useContext } from 'react'
 import { BodyShort, Box, Button, HStack, Select, TextField, ToggleGroup, VStack } from '@navikt/ds-react'
 import { TrashIcon, XMarkIcon } from '@navikt/aksel-icons'
 import type { CohortDto, SequenceRelation, SequenceTimeUnit } from '../../cohortmanager/model/types.ts'
-import type { Card, CohortCard, EventCard, SequenceCard } from '../model/draft.ts'
+import type { Card, CohortCard, EventCard, GroupCard, SequenceCard } from '../model/draft.ts'
 import { sequenceToEvent } from '../model/draft.ts'
 import { windowUnitLabel } from '../utils/describe.ts'
 import { anchorFor } from '../utils/validate.ts'
@@ -13,6 +13,10 @@ interface CriterionCardProps {
   index: number
   /** Number of cards in the draft; the number badge and remove button only make sense with several. */
   total: number
+  /** 0 for the top level, 1+ inside a group. */
+  depth: number
+  /** Renders the nested card list of a group card; supplied by the list editor to avoid a circular import. */
+  renderGroupContent?: (card: GroupCard) => React.ReactNode
   websiteId: string | undefined
   cohorts: CohortDto[]
   showErrors: boolean
@@ -23,7 +27,7 @@ interface CriterionCardProps {
 
 const WINDOW_UNITS: SequenceTimeUnit[] = ['MINUTE', 'HOUR', 'DAY', 'WEEK', 'MONTH', 'YEAR']
 
-const HasSiblingsContext = createContext(false)
+const CardContext = createContext({ hasSiblings: false, depth: 0 })
 
 function CardShell({
   card,
@@ -38,7 +42,7 @@ function CardShell({
   onRemove: () => void
   children: React.ReactNode
 }) {
-  const hasSiblings = useContext(HasSiblingsContext)
+  const { hasSiblings, depth } = useContext(CardContext)
   return (
     <Box
       id={anchorFor(card.id)}
@@ -48,12 +52,12 @@ function CardShell({
       padding="space-16"
       background="default"
       as="section"
-      aria-label={`Kriterium ${index + 1}`}
+      aria-label={depth === 0 ? `Kriterium ${index + 1}` : `Delkriterium ${index + 1}`}
     >
       <VStack gap="space-16">
         <HStack justify="space-between" align="center" gap="space-12" wrap>
           <HStack gap="space-12" align="center" wrap>
-            {hasSiblings && (
+            {hasSiblings && depth === 0 && (
               <Box
                 background="accent-soft"
                 borderRadius="full"
@@ -64,14 +68,14 @@ function CardShell({
                 </BodyShort>
               </Box>
             )}
-            {index === 0 && (
+            {index === 0 && depth === 0 && (
               <BodyShort size="small" as="span">
                 Brukere som
               </BodyShort>
             )}
             {title}
           </HStack>
-          {hasSiblings && (
+          {(hasSiblings || card.kind === 'group') && (
             <Button
               type="button"
               size="small"
@@ -80,7 +84,7 @@ function CardShell({
               icon={<TrashIcon aria-hidden />}
               onClick={onRemove}
             >
-              Fjern kriterium
+              {card.kind === 'group' ? 'Fjern gruppen' : 'Fjern kriterium'}
             </Button>
           )}
         </HStack>
@@ -301,14 +305,48 @@ function SequenceCardBody({
 
 export function CriterionCard(props: CriterionCardProps) {
   return (
-    <HasSiblingsContext.Provider value={props.total > 1}>
+    <CardContext.Provider value={{ hasSiblings: props.total > 1, depth: props.depth }}>
       <CardByKind {...props} />
-    </HasSiblingsContext.Provider>
+    </CardContext.Provider>
+  )
+}
+
+function GroupCardBody({
+  card,
+  index,
+  onChange,
+  onRemove,
+  renderGroupContent,
+}: CriterionCardProps & { card: GroupCard }) {
+  return (
+    <CardShell
+      card={card}
+      index={index}
+      onRemove={onRemove}
+      title={
+        <HStack gap="space-8" align="center" wrap>
+          <NegationToggle
+            negated={card.negated}
+            onChange={(negated) => onChange({ ...card, negated })}
+            yes="oppfyller"
+            no="oppfyller ikke"
+            label="Skal brukeren oppfylle denne gruppen av kriterier eller ikke?"
+          />
+          <BodyShort as="span" size="small">
+            disse:
+          </BodyShort>
+        </HStack>
+      }
+    >
+      {renderGroupContent?.(card)}
+    </CardShell>
   )
 }
 
 function CardByKind(props: CriterionCardProps) {
   switch (props.card.kind) {
+    case 'group':
+      return <GroupCardBody {...props} card={props.card} />
     case 'event':
       return <EventCardBody {...props} card={props.card} />
     case 'cohort':

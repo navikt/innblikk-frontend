@@ -50,21 +50,35 @@ describe('describeDraft', () => {
 })
 
 describe('describeTreeInline', () => {
-  it('flags trees the cards cannot show', () => {
+  it('describes a nested group in brackets', () => {
+    const cond = (value: string) =>
+      ({
+        nodeType: 'GROUP',
+        combinator: 'AND',
+        negated: false,
+        children: [{ nodeType: 'CONDITION', field: 'url_path', conditionType: 'EQUALS', value }],
+      }) as CohortGroupNode
     const nested: CohortGroupNode = {
       nodeType: 'GROUP',
       combinator: 'AND',
       negated: false,
       children: [
-        {
-          nodeType: 'GROUP',
-          combinator: 'AND',
-          negated: false,
-          children: [{ nodeType: 'GROUP', combinator: 'AND', negated: false, children: [] }],
-        },
+        cond('/a'),
+        { nodeType: 'GROUP', combinator: 'OR', negated: false, children: [cond('/b'), cond('/c')] },
       ],
     }
-    expect(describeTreeInline(nested, {})).toMatch(/Avansert logikk/)
+    const text = describeTreeInline(nested, {})
+    expect(text).toContain('oppfyller (har gjort noe der URL-sti er «/b» eller har gjort noe der URL-sti er «/c»)')
+  })
+
+  it('flags trees the cards cannot show', () => {
+    const unknown: CohortGroupNode = {
+      nodeType: 'GROUP',
+      combinator: 'AND',
+      negated: false,
+      children: [{ nodeType: 'CONDITION', field: 'screen', conditionType: 'EQUALS', value: '1x1' }],
+    }
+    expect(describeTreeInline(unknown, {})).toMatch(/ikke vises som kort/)
   })
 })
 

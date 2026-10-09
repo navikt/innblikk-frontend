@@ -104,7 +104,16 @@ export interface SequenceCard {
   windowUnit: SequenceTimeUnit
 }
 
-export type Card = EventCard | CohortCard | SequenceCard
+export type Card = EventCard | CohortCard | SequenceCard | GroupCard
+
+/** A bracketed set of cards with its own og/eller, so «A og (B eller C)» can be built. */
+export interface GroupCard {
+  kind: 'group'
+  id: string
+  negated: boolean
+  combinator: LogicalOperator
+  cards: Card[]
+}
 
 export interface Draft {
   combinator: LogicalOperator
@@ -128,6 +137,26 @@ export function emptyEventCard(): EventCard {
 
 export function emptyCohortCard(): CohortCard {
   return { kind: 'cohort', id: newId(), negated: false, cohortId: null }
+}
+
+/** Starts with the opposite combinator of its parent, the common «A og (B eller C)» shape. */
+export function emptyGroupCard(parent: LogicalOperator): GroupCard {
+  return {
+    kind: 'group',
+    id: newId(),
+    negated: false,
+    combinator: parent === 'AND' ? 'OR' : 'AND',
+    cards: [emptyEventCard()],
+  }
+}
+
+/** A cohort reference belongs to one website, so switching website clears them everywhere in the draft. */
+export function resetCohortRefs(cards: Card[]): Card[] {
+  return cards.map((card) => {
+    if (card.kind === 'cohort') return { ...card, cohortId: null }
+    if (card.kind === 'group') return { ...card, cards: resetCohortRefs(card.cards) }
+    return card
+  })
 }
 
 /** Extends an activity with a following step; the card keeps its id so focus and anchors survive. */
@@ -179,6 +208,13 @@ function cardToNode(card: Card): CohortNode {
       return stepToGroup(card, card.negated)
     case 'cohort':
       return { nodeType: 'COHORT_REF', referencedCohortId: card.cohortId ?? 0, negated: card.negated }
+    case 'group':
+      return {
+        nodeType: 'GROUP',
+        combinator: card.combinator,
+        negated: card.negated,
+        children: card.cards.map(cardToNode),
+      }
     case 'sequence':
       return {
         nodeType: 'SEQUENCE',
@@ -199,7 +235,7 @@ export function draftToTree(draft: Draft): CohortGroupNode {
 
 export type TreeToDraftResult = { ok: true; draft: Draft } | { ok: false; reason: string }
 
-const NESTED_REASON = 'Brukergruppen har nøstede grupper som ikke kan vises i kriteriekort.'
+const UNSUPPORTED_REASON = 'Den bruker en egenskap eller en tidsangivelse som ikke kan vises i kriteriekort ennå.'
 
 function conditionsToStep(children: CohortNode[]): StepDraft | null {
   const conditions: ConditionDraft[] = []
@@ -241,45 +277,63 @@ function groupToStep(group: CohortGroupNode): StepDraft | null {
 
 export function treeToDraft(root: CohortNode | null): TreeToDraftResult {
   if (!root) return { ok: true, draft: emptyDraft() }
-  if (root.nodeType !== 'GROUP') return { ok: false, reason: NESTED_REASON }
-  if (root.negated) return { ok: false, reason: 'Hele brukergruppen er snudd med «IKKE», noe kortene ikke støtter.' }
+  if (root.nodeType !== 'GROUP') return { ok: false, reason: UNSUPPORTED_REASON }
 
+  const cards = childrenToCards(root.children, root.combinator)
+  if (!cards) return { ok: false, reason: UNSUPPORTED_REASON }
+  if (cards.length === 0) return { ok: true, draft: { ...emptyDraft(), combinator: root.combinator } }
+
+  // A negated root has no card of its own, so it becomes a negated group holding everything.
+  if (root.negated) {
+    const group: GroupCard = { kind: 'group', id: newId(), negated: true, combinator: root.combinator, cards }
+    return { ok: true, draft: { combinator: 'AND', cards: [group] } }
+  }
+  return { ok: true, draft: { combinator: root.combinator, cards } }
+}
+
+/** Turns a group's children into cards; null if any child can't be shown as one. */
+function childrenToCards(children: CohortNode[], combinator: LogicalOperator): Card[] | null {
   const cards: Card[] = []
-  const bareConditions = root.children.filter((c) => c.nodeType === 'CONDITION')
+  const bareConditions = children.filter((c) => c.nodeType === 'CONDITION')
 
   // Bare conditions come first, matching the order the SQL resolver emits them in.
   if (bareConditions.length > 0) {
-    if (root.combinator === 'AND') {
+    if (combinator === 'AND') {
       const step = conditionsToStep(bareConditions)
-      if (!step) return { ok: false, reason: NESTED_REASON }
+      if (!step) return null
       cards.push({ kind: 'event', id: newId(), negated: false, ...step })
     } else {
       for (const condition of bareConditions) {
         const step = conditionsToStep([condition])
-        if (!step) return { ok: false, reason: NESTED_REASON }
+        if (!step) return null
         cards.push({ kind: 'event', id: newId(), negated: false, ...step })
       }
     }
   }
 
-  for (const child of root.children) {
+  for (const child of children) {
     switch (child.nodeType) {
       case 'CONDITION':
         break
       case 'GROUP': {
         const step = groupToStep(child)
-        if (!step) return { ok: false, reason: NESTED_REASON }
-        cards.push({ kind: 'event', id: newId(), negated: child.negated, ...step })
+        if (step) {
+          cards.push({ kind: 'event', id: newId(), negated: child.negated, ...step })
+          break
+        }
+        const inner = childrenToCards(child.children, child.combinator)
+        if (!inner) return null
+        cards.push({ kind: 'group', id: newId(), negated: child.negated, combinator: child.combinator, cards: inner })
         break
       }
       case 'COHORT_REF':
         cards.push({ kind: 'cohort', id: newId(), negated: child.negated, cohortId: child.referencedCohortId })
         break
       case 'SEQUENCE': {
-        if (child.anchor.negated || child.target.negated) return { ok: false, reason: NESTED_REASON }
+        if (child.anchor.negated || child.target.negated) return null
         const first = groupToStep(child.anchor)
         const then = groupToStep(child.target)
-        if (!first || !then) return { ok: false, reason: NESTED_REASON }
+        if (!first || !then) return null
         cards.push({
           kind: 'sequence',
           id: newId(),
@@ -294,6 +348,5 @@ export function treeToDraft(root: CohortNode | null): TreeToDraftResult {
     }
   }
 
-  if (cards.length === 0) return { ok: true, draft: { ...emptyDraft(), combinator: root.combinator } }
-  return { ok: true, draft: { combinator: root.combinator, cards } }
+  return cards
 }

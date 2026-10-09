@@ -94,21 +94,40 @@ describe('treeToDraft / draftToTree', () => {
     expect(roundTrip(root).children[0]).toEqual(group({ children: [detail] }))
   })
 
-  it('rejects groups nested more than one level', () => {
-    const root = group({ children: [group({ children: [group({ children: [condition('url_path', '/a')] })] })] })
-    expect(treeToDraft(root).ok).toBe(false)
+  it('maps a nested group to a group card with its own combinator', () => {
+    // A AND (B OR C)
+    const root = group({
+      children: [
+        group({ children: [condition('url_path', '/a')] }),
+        group({
+          combinator: 'OR',
+          children: [
+            group({ children: [condition('url_path', '/b')] }),
+            group({ children: [condition('url_path', '/c')] }),
+          ],
+        }),
+      ],
+    })
+    const result = treeToDraft(root)
+    expect(result.ok).toBe(true)
+    const nested = result.ok ? result.draft.cards[1] : undefined
+    expect(nested).toMatchObject({ kind: 'group', combinator: 'OR', negated: false })
+    expect(nested?.kind === 'group' && nested.cards).toHaveLength(2)
+    expect(roundTrip(root)).toEqual(root)
   })
 
-  it('rejects an OR group with several conditions inside one card', () => {
-    const root = group({
+  it('handles a negated root and an OR group of bare conditions', () => {
+    expect(treeToDraft(group({ negated: true, children: [condition('url_path', '/a')] })).ok).toBe(true)
+    const orGroup = group({
       children: [group({ combinator: 'OR', children: [condition('url_path', '/a'), condition('device', 'mobile')] })],
     })
-    expect(treeToDraft(root).ok).toBe(false)
+    const result = treeToDraft(orGroup)
+    expect(result.ok && result.draft.cards[0].kind).toBe('group')
   })
 
-  it('rejects a negated root and unknown fields', () => {
-    expect(treeToDraft(group({ negated: true, children: [condition('url_path', '/a')] })).ok).toBe(false)
+  it('still rejects fields the cards have no control for', () => {
     expect(treeToDraft(group({ children: [condition('screen', '1x1')] })).ok).toBe(false)
+    expect(treeToDraft(group({ children: [group({ children: [condition('screen', '1x1')] })] })).ok).toBe(false)
   })
 
   it('round-trips a sequence node', () => {
@@ -156,6 +175,49 @@ describe('resolved SQL is unchanged by loading an old cohort into cards', () => 
       children: [group({ children: [condition('url_path', '/a'), condition('created_at', time, 'BETWEEN')] })],
     }),
     cohort: group({ children: [{ nodeType: 'COHORT_REF', referencedCohortId: 1, negated: true }] }),
+    'A and (B or C)': group({
+      children: [
+        group({ children: [condition('url_path', '/a')] }),
+        group({
+          combinator: 'OR',
+          children: [
+            group({ children: [condition('url_path', '/b')] }),
+            group({ children: [condition('url_path', '/c')] }),
+          ],
+        }),
+      ],
+    }),
+    'negated group of groups': group({
+      children: [
+        group({
+          negated: true,
+          combinator: 'OR',
+          children: [group({ children: [condition('os', 'iOS')] }), group({ children: [condition('os', 'Android')] })],
+        }),
+      ],
+    }),
+    'OR group of bare conditions': group({
+      children: [
+        group({ combinator: 'OR', children: [condition('url_path', '/a'), condition('device', 'mobile')] }),
+        condition('os', 'iOS'),
+      ],
+    }),
+    'negated root': group({
+      negated: true,
+      combinator: 'OR',
+      children: [group({ children: [condition('url_path', '/a')] })],
+    }),
+    'mixed conditions and sub-groups in one group': group({
+      children: [
+        group({
+          children: [
+            condition('url_path', '/a'),
+            group({ negated: true, children: [condition('event_name', 'sendt')] }),
+            { nodeType: 'COHORT_REF', referencedCohortId: 2, negated: false },
+          ],
+        }),
+      ],
+    }),
   }
 
   for (const [name, root] of Object.entries(cases)) {
