@@ -6,10 +6,9 @@ import { DEFAULT_TIME_PRESET, matchPreset, presetValue, TIME_PRESETS } from '../
 interface TimeRangeSelectProps {
   value: string | null
   onChange: (value: string | null) => void
-  label?: string
 }
 
-export function TimeRangeSelect({ value, onChange, label = 'Tidsrom' }: TimeRangeSelectProps) {
+export function TimeRangeSelect({ value, onChange }: TimeRangeSelectProps) {
   const preset = matchPreset(value)
   const [custom, setCustom] = useState(() => value !== null && !preset)
   const selectValue = custom ? 'custom' : (preset?.id ?? 'any')
@@ -30,9 +29,15 @@ export function TimeRangeSelect({ value, onChange, label = 'Tidsrom' }: TimeRang
   }
 
   return (
-    <div>
+    <div style={{ flex: '1 1 auto', minWidth: 0 }}>
       <div style={{ maxWidth: '16rem' }}>
-        <Select label={label} size="small" value={selectValue} onChange={(e) => handleChange(e.target.value)}>
+        <Select
+          label="Tidsrom"
+          hideLabel
+          size="small"
+          value={selectValue}
+          onChange={(e) => handleChange(e.target.value)}
+        >
           <option value="any">Når som helst</option>
           {TIME_PRESETS.map((p) => (
             <option key={p.id} value={p.id}>
@@ -43,7 +48,7 @@ export function TimeRangeSelect({ value, onChange, label = 'Tidsrom' }: TimeRang
         </Select>
       </div>
       {custom && value !== null && (
-        <Box marginBlock="space-8" padding="space-12" background="neutral-soft" borderRadius="4">
+        <Box marginBlock="space-8 space-0" padding="space-12" background="neutral-soft" borderRadius="4">
           <CohortDateTimeEditor value={value} onChange={onChange} />
         </Box>
       )}

@@ -1,4 +1,4 @@
-import { BodyShort, Button, HStack, VStack } from '@navikt/ds-react'
+import { BodyShort, Box, Button, HStack, VStack } from '@navikt/ds-react'
 import { PlusIcon } from '@navikt/aksel-icons'
 import { emptyCondition, FIELD_OPTIONS, type ConditionDraft, type StepDraft } from '../model/draft.ts'
 import { anchorFor, findConflictingConditionIds } from '../utils/validate.ts'
@@ -13,6 +13,28 @@ interface StepEditorProps {
   showErrors: boolean
   onChange: (next: StepDraft) => void
   onSplitCondition?: (conditionId: string) => void
+}
+
+const LABEL_WIDTH = '4.5rem'
+
+/** Left-hand word that lines up with the 2rem-high small controls next to it. */
+function RowLabel({ children, inBox = false }: { children: React.ReactNode; inBox?: boolean }) {
+  return (
+    <BodyShort
+      size="small"
+      weight="semibold"
+      as="span"
+      style={{
+        flex: `0 0 ${LABEL_WIDTH}`,
+        height: '2rem',
+        display: 'flex',
+        alignItems: 'center',
+        marginTop: inBox ? '0.5rem' : undefined,
+      }}
+    >
+      {children}
+    </BodyShort>
+  )
 }
 
 export function StepEditor({ step, anchorKey, websiteId, showErrors, onChange, onSplitCondition }: StepEditorProps) {
@@ -38,13 +60,11 @@ export function StepEditor({ step, anchorKey, websiteId, showErrors, onChange, o
         </BodyShort>
       )}
 
-      <VStack gap="space-12">
+      <VStack gap="space-8">
         {step.conditions.map((condition, index) => (
           <HStack key={condition.id} gap="space-12" align="start" wrap={false}>
-            <BodyShort size="small" weight="semibold" style={{ flex: '0 0 2.5rem', paddingTop: '0.5rem' }}>
-              {index === 0 ? 'der' : 'og'}
-            </BodyShort>
-            <div style={{ flex: '1 1 auto', minWidth: 0 }}>
+            <RowLabel inBox>{index === 0 ? 'der' : 'og'}</RowLabel>
+            <Box background="neutral-soft" borderRadius="4" padding="space-8" style={{ flex: '1 1 auto', minWidth: 0 }}>
               <ConditionRow
                 condition={condition}
                 websiteId={websiteId}
@@ -55,18 +75,30 @@ export function StepEditor({ step, anchorKey, websiteId, showErrors, onChange, o
                 onRemove={() => onChange({ ...step, conditions: step.conditions.filter((c) => c.id !== condition.id) })}
                 onSplit={onSplitCondition ? () => onSplitCondition(condition.id) : undefined}
               />
-            </div>
+            </Box>
           </HStack>
         ))}
+
+        <HStack gap="space-12" wrap={false}>
+          <span style={{ flex: `0 0 ${LABEL_WIDTH}` }} />
+          <div id={anchorFor(anchorKey)}>
+            <Button
+              type="button"
+              size="small"
+              variant="tertiary"
+              icon={<PlusIcon aria-hidden />}
+              onClick={addCondition}
+            >
+              Legg til vilkår
+            </Button>
+          </div>
+        </HStack>
       </VStack>
 
-      <div id={anchorFor(anchorKey)}>
-        <Button type="button" size="small" variant="tertiary" icon={<PlusIcon aria-hidden />} onClick={addCondition}>
-          Legg til vilkår
-        </Button>
-      </div>
-
-      <TimeRangeSelect value={step.time} onChange={(time) => onChange({ ...step, time })} />
+      <HStack gap="space-12" align="start" wrap={false}>
+        <RowLabel>Tidsrom</RowLabel>
+        <TimeRangeSelect value={step.time} onChange={(time) => onChange({ ...step, time })} />
+      </HStack>
     </VStack>
   )
 }

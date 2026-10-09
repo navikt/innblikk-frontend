@@ -3,7 +3,6 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   Alert,
   BodyShort,
-  Box,
   Button,
   Dialog,
   ErrorSummary,
@@ -270,7 +269,7 @@ function CohortEditorPage() {
     <>
       <PageHeader title={title} description={websiteLabel ? `Nettsted: ${websiteLabel}` : undefined} />
 
-      <AppBlock className="pb-24">
+      <AppBlock className="pb-16">
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
           <VStack gap="space-24">
             <Button
@@ -436,32 +435,21 @@ function CohortEditorPage() {
           </VStack>
 
           <div className="lg:sticky lg:top-4 lg:self-start">
-            <SummaryPanel draft={draft} names={names} />
+            <VStack gap="space-16">
+              <SummaryPanel draft={draft} names={names} />
+              {saveError && <Alert variant="error">{saveError}</Alert>}
+              <HStack gap="space-12">
+                <Button loading={saving} onClick={() => void handleSave()}>
+                  {isNew ? 'Opprett brukergruppe' : 'Lagre endringer'}
+                </Button>
+                <Button variant="secondary" onClick={handleCancel}>
+                  Avbryt
+                </Button>
+              </HStack>
+            </VStack>
           </div>
         </div>
       </AppBlock>
-
-      <Box
-        padding="space-16"
-        background="default"
-        borderWidth="1 0 0 0"
-        borderColor="neutral-subtle"
-        style={{ position: 'sticky', bottom: 0, zIndex: 10 }}
-      >
-        <AppBlock>
-          <VStack gap="space-8">
-            {saveError && <Alert variant="error">{saveError}</Alert>}
-            <HStack gap="space-12">
-              <Button loading={saving} onClick={() => void handleSave()}>
-                {isNew ? 'Opprett brukergruppe' : 'Lagre endringer'}
-              </Button>
-              <Button variant="secondary" onClick={handleCancel}>
-                Avbryt
-              </Button>
-            </HStack>
-          </VStack>
-        </AppBlock>
-      </Box>
 
       <Dialog open={confirmLeave} onOpenChange={setConfirmLeave}>
         <Dialog.Popup width="small" role="alertdialog">

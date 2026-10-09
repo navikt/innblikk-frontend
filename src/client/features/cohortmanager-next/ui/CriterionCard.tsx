@@ -46,12 +46,25 @@ function CardShell({
       <VStack gap="space-16">
         <HStack justify="space-between" align="center" gap="space-12" wrap>
           <HStack gap="space-12" align="center" wrap>
-            <BodyShort weight="semibold" as="span">
-              {index + 1}
-            </BodyShort>
+            <Box
+              background="accent-soft"
+              borderRadius="full"
+              style={{ width: '1.75rem', height: '1.75rem', display: 'grid', placeItems: 'center' }}
+            >
+              <BodyShort size="small" weight="semibold" as="span">
+                {index + 1}
+              </BodyShort>
+            </Box>
             {title}
           </HStack>
-          <Button type="button" size="small" variant="tertiary" icon={<TrashIcon aria-hidden />} onClick={onRemove}>
+          <Button
+            type="button"
+            size="small"
+            variant="tertiary"
+            data-color="neutral"
+            icon={<TrashIcon aria-hidden />}
+            onClick={onRemove}
+          >
             Fjern kriterium
           </Button>
         </HStack>
@@ -75,7 +88,7 @@ function NegationToggle({
   label: string
 }) {
   return (
-    <ToggleGroup size="small" label={label} value={negated ? 'no' : 'yes'} onChange={(v) => onChange(v === 'no')}>
+    <ToggleGroup size="small" aria-label={label} value={negated ? 'no' : 'yes'} onChange={(v) => onChange(v === 'no')}>
       <ToggleGroup.Item value="yes" label={yes} />
       <ToggleGroup.Item value="no" label={no} />
     </ToggleGroup>
@@ -105,7 +118,9 @@ function EventCardBody({
             no="Har ikke gjort"
             label="Skal brukeren ha gjort dette eller ikke?"
           />
-          <BodyShort as="span">noe på nettstedet</BodyShort>
+          <BodyShort as="span" size="small">
+            noe på nettstedet
+          </BodyShort>
         </HStack>
       }
     >

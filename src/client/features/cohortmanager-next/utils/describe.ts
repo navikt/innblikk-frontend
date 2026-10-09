@@ -35,7 +35,7 @@ function formatValue(c: ConditionDraft): string {
       // fall through
     }
   }
-  return `«${c.value}»`
+  return c.value ? `«${c.value}»` : '…'
 }
 
 export function describeCondition(c: ConditionDraft): string {

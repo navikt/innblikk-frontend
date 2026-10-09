@@ -17,7 +17,7 @@ export function SummaryPanel({ draft, names }: SummaryPanelProps) {
           Slik leser vi gruppen
         </Heading>
         <BodyShort>{intro}</BodyShort>
-        <ul style={{ margin: 0, paddingLeft: '1.25rem' }}>
+        <ul style={{ margin: 0, paddingLeft: '1.25rem', listStyle: 'disc' }}>
           {lines.map((line, index) => (
             <li key={index} style={{ marginBottom: '0.5rem' }}>
               <BodyShort as="span">

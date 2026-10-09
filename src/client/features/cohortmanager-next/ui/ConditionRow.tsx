@@ -128,7 +128,7 @@ export function ConditionRow({
           type="button"
           variant="tertiary"
           size="small"
-          data-color="danger"
+          data-color="neutral"
           icon={<XMarkIcon aria-hidden />}
           onClick={onRemove}
         >
