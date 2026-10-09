@@ -11,7 +11,7 @@ import { StepEditor } from './StepEditor.tsx'
 interface CriterionCardProps {
   card: Card
   index: number
-  /** Number of cards in the draft; the number badge only helps when there are several. */
+  /** Number of cards in the draft; the number badge and remove button only make sense with several. */
   total: number
   websiteId: string | undefined
   cohorts: CohortDto[]
@@ -23,7 +23,7 @@ interface CriterionCardProps {
 
 const WINDOW_UNITS: SequenceTimeUnit[] = ['MINUTE', 'HOUR', 'DAY', 'WEEK', 'MONTH', 'YEAR']
 
-const ShowNumberContext = createContext(false)
+const HasSiblingsContext = createContext(false)
 
 function CardShell({
   card,
@@ -38,7 +38,7 @@ function CardShell({
   onRemove: () => void
   children: React.ReactNode
 }) {
-  const showNumber = useContext(ShowNumberContext)
+  const hasSiblings = useContext(HasSiblingsContext)
   return (
     <Box
       id={anchorFor(card.id)}
@@ -53,7 +53,7 @@ function CardShell({
       <VStack gap="space-16">
         <HStack justify="space-between" align="center" gap="space-12" wrap>
           <HStack gap="space-12" align="center" wrap>
-            {showNumber && (
+            {hasSiblings && (
               <Box
                 background="accent-soft"
                 borderRadius="full"
@@ -71,16 +71,18 @@ function CardShell({
             )}
             {title}
           </HStack>
-          <Button
-            type="button"
-            size="small"
-            variant="tertiary"
-            data-color="neutral"
-            icon={<TrashIcon aria-hidden />}
-            onClick={onRemove}
-          >
-            Fjern kriterium
-          </Button>
+          {hasSiblings && (
+            <Button
+              type="button"
+              size="small"
+              variant="tertiary"
+              data-color="neutral"
+              icon={<TrashIcon aria-hidden />}
+              onClick={onRemove}
+            >
+              Fjern kriterium
+            </Button>
+          )}
         </HStack>
         {children}
       </VStack>
@@ -295,9 +297,9 @@ function SequenceCardBody({
 
 export function CriterionCard(props: CriterionCardProps) {
   return (
-    <ShowNumberContext.Provider value={props.total > 1}>
+    <HasSiblingsContext.Provider value={props.total > 1}>
       <CardByKind {...props} />
-    </ShowNumberContext.Provider>
+    </HasSiblingsContext.Provider>
   )
 }
 

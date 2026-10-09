@@ -48,6 +48,7 @@ describe('CohortEditorPage', () => {
     expect(screen.getByRole('button', { name: 'og' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'eller' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'deretter' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Fjern kriterium/ })).not.toBeInTheDocument()
     expect(screen.getByRole('complementary', { name: 'Slik leser vi gruppen' })).toBeInTheDocument()
   })
 
@@ -58,6 +59,7 @@ describe('CohortEditorPage', () => {
     await user.click(await screen.findByRole('button', { name: 'og' }))
 
     expect(screen.getByRole('region', { name: 'Kriterium 2' })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /Fjern kriterium/ })).toHaveLength(2)
     expect(screen.getByRole('radiogroup', { name: 'Hvordan henger kriteriene sammen?' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'eller' })).not.toBeInTheDocument()
 
