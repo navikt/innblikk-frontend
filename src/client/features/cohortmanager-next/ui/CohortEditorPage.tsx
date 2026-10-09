@@ -72,7 +72,6 @@ function CohortEditorPage() {
 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [showDescription, setShowDescription] = useState(false)
   const [initialDraft] = useState<Draft>(() => emptyDraft())
   const [draft, setDraft] = useState<Draft>(initialDraft)
   const [snapshot, setSnapshot] = useState<string | null>(() =>
@@ -95,7 +94,6 @@ function CohortEditorPage() {
         setWebsiteId(detail.websiteId)
         setName(detail.name)
         setDescription(detail.description ?? '')
-        setShowDescription(Boolean(detail.description))
         const result = treeToDraft(detail.root)
         if (result.ok) {
           setDraft(result.draft)
@@ -327,19 +325,11 @@ function CohortEditorPage() {
                 autoFocus={isNew}
                 onChange={(e) => setName(e.target.value)}
               />
-              {showDescription ? (
-                <TextField
-                  label="Beskrivelse (valgfri)"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                />
-              ) : (
-                <div>
-                  <Button type="button" size="small" variant="tertiary" onClick={() => setShowDescription(true)}>
-                    Legg til beskrivelse
-                  </Button>
-                </div>
-              )}
+              <TextField
+                label="Beskrivelse (valgfri)"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
             </VStack>
 
             <VStack gap="space-12" as="section" aria-labelledby="cohort-next-criteria">
