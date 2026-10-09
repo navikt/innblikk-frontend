@@ -59,6 +59,8 @@ interface SuggestingValueEditorProps {
   error?: string
   /** Hide the visible label (still read by screen readers) — set when the field/operator siblings in the same row also hide theirs, so position alone conveys meaning. */
   hideLabel?: boolean
+  /** Skip the «Kunne ikke hente forslag» note; the input still accepts free text. */
+  hideFailureNote?: boolean
 }
 
 /**
@@ -81,6 +83,7 @@ export function SuggestingValueEditor({
   className,
   error,
   hideLabel = false,
+  hideFailureNote = false,
 }: SuggestingValueEditorProps) {
   const { values, scannedDays, failed, loading, load } = useColumnValueSuggestions(
     websiteId,
@@ -181,7 +184,7 @@ export function SuggestingValueEditor({
           Forslag fra siste {scannedDays} dager
         </BodyShort>
       )}
-      {failed && !disabled && (
+      {failed && !disabled && !hideFailureNote && (
         <BodyShort size="small" style={{ color: 'var(--ax-text-subtle)' }}>
           Kunne ikke hente forslag — du kan fortsatt skrive verdien manuelt
         </BodyShort>

@@ -69,6 +69,7 @@ export function ConditionRow({
             <SuggestingValueEditor
               websiteId={websiteId}
               column="event_data_key"
+              hideFailureNote
               eventName={scopedEvent}
               label="Detalj"
               hideLabel
@@ -114,6 +115,7 @@ export function ConditionRow({
               eventName={scopedEvent}
               label="Verdi"
               hideLabel
+              hideFailureNote
               multi={isSet}
               disabled={isDetail && keyMissing}
               placeholder={isDetail && keyMissing ? 'Velg en detalj først' : fieldOption(condition.field)?.placeholder}
