@@ -135,7 +135,7 @@ function EventCardBody({
             negated={card.negated}
             onChange={(negated) => onChange({ ...card, negated })}
             yes="har gjort"
-            no="har ikke gjort"
+            no="ikke har gjort"
             label="Skal brukeren ha gjort dette eller ikke?"
           />
           <BodyShort as="span" size="small">
