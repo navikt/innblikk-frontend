@@ -25,12 +25,25 @@ const THUMB_ICON: Record<string, string> = {
 const enhanceSkyraRoot = (root: ShadowRoot) => {
   // Center the answer-button row (no `part`, so document CSS can't reach it).
   // The :has() guards leave the Tilbake/Neste nav row spread to its edges.
+  //
+  // The :host block strips the "card" look Skyra's inline theme gives the
+  // survey (.survey-inline-surface: border, box-shadow, 24px padding, tinted
+  // bg). Skyra declares all of these as --skyra-authored-* on its own :host
+  // stylesheet, which beats custom properties set on the host element from
+  // document CSS (including the --skyra-bg-color in Skyra.module.css) — only a
+  // stylesheet inside the shadow root can override them.
   if (!root.getElementById('innblikk-skyra-actions')) {
     const style = document.createElement('style')
     style.id = 'innblikk-skyra-actions'
     style.textContent =
       '[data-survey-actions]:not(:has([part="button-secondary"])):not(:has([part="button-link"])) { justify-content: center; }' +
-      '[data-survey-actions] [part="button-primary"] { display: inline-flex; align-items: center; }'
+      '[data-survey-actions] [part="button-primary"] { display: inline-flex; align-items: center; }' +
+      ':host {' +
+      '--skyra-authored-container-border: none;' +
+      '--skyra-authored-shadow-md: none;' +
+      '--skyra-authored-inline-padding: 0px;' +
+      '--skyra-authored-bg-color: transparent;' +
+      '}'
     root.appendChild(style)
   }
 
