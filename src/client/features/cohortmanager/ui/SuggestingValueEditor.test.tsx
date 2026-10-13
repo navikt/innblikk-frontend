@@ -67,6 +67,36 @@ describe('SuggestingValueEditor', () => {
     expect(fetchColumnValues).toHaveBeenCalledWith('w1', 'browser', undefined, undefined)
   })
 
+  it.each(['NO', 'no'])('displays a saved country name for %s even without a matching suggestion', async (code) => {
+    vi.mocked(fetchColumnValues).mockResolvedValue({ values: ['SE'], scannedDays: 7 })
+    const onChange = vi.fn()
+    render(<SuggestingValueEditor websiteId="w1" column="country" value={code} onChange={onChange} label="Verdi" />)
+    expect(screen.getByRole('list')).toHaveTextContent(/Norge \(NO\)/)
+    expect(screen.queryByText(code, { exact: true })).not.toBeInTheDocument()
+    await screen.findByText('Forslag fra siste 7 dager')
+    expect(screen.getByRole('list')).toHaveTextContent(/Norge \(NO\)/)
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('displays country names for multiple saved codes without changing their stored values', async () => {
+    vi.mocked(fetchColumnValues).mockRejectedValue(new Error('unavailable'))
+    const onChange = vi.fn()
+    render(
+      <SuggestingValueEditor
+        websiteId="w1"
+        column="country"
+        value='["NO","se"]'
+        onChange={onChange}
+        label="Verdi"
+        multi
+      />,
+    )
+    expect(screen.getByText(/Norge \(NO\)/)).toBeInTheDocument()
+    expect(screen.getByText(/Sverige \(SE\)/)).toBeInTheDocument()
+    await screen.findByText(/Kunne ikke hente forslag/)
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
   it('keeps the country dropdown usable when its response contains malformed values', async () => {
     vi.mocked(fetchColumnValues).mockResolvedValue({ values: ['/', '/soknad', 'no'], scannedDays: 30 })
     const onChange = vi.fn()

@@ -119,6 +119,14 @@ export function SuggestingValueEditor({
     }
   }, [multi, value])
 
+  const selectedOptions = useMemo(
+    () =>
+      column === 'country'
+        ? selected.map((code) => toSuggestionOptions(column, [code])[0] ?? { label: code, value: code })
+        : selected,
+    [column, selected],
+  )
+
   // Set synchronously when a toggle fires so the deferred blur-commit below
   // can tell "input blurred because user picked an option" apart from "input
   // blurred because user tabbed away" — Aksel does not preventDefault option
@@ -175,7 +183,7 @@ export function SuggestingValueEditor({
         hideLabel={hideLabel}
         size="small"
         options={options}
-        selectedOptions={selected}
+        selectedOptions={selectedOptions}
         onToggleSelected={handleToggle}
         onBlur={handleBlur}
         isMultiSelect={multi}
