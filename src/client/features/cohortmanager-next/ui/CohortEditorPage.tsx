@@ -317,11 +317,13 @@ function CohortEditorPage() {
               autoFocus={isNew}
               onChange={(e) => setName(e.target.value)}
             />
-            <TextField
-              label="Beskrivelse (valgfri)"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
+            <div hidden>
+              <TextField
+                label="Beskrivelse (valgfri)"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
             {isNew && !hasWebsiteFromUrl && (
               <div id="cohort-next-website">
                 <WebsiteSelect

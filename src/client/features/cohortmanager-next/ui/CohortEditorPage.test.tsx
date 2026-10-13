@@ -4,7 +4,7 @@ import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
 import CohortEditorRoute from './CohortEditorPage.tsx'
 import { deleteCohortChecked } from '../api/cohortApi.ts'
-import { createCohort, getCohort, replaceCriteria } from '../../cohortmanager/api/cohortManagerApi.ts'
+import { createCohort, getCohort, replaceCriteria, updateCohort } from '../../cohortmanager/api/cohortManagerApi.ts'
 import type { CohortDetailDto } from '../../cohortmanager/model/types.ts'
 import { fetchCohortPreview } from '../api/previewApi.ts'
 
@@ -61,6 +61,8 @@ describe('CohortEditorPage', () => {
     renderAt('/brukergrupper-next/ny?websiteId=site-1')
 
     expect(await screen.findByRole('heading', { name: 'Ny brukergruppe' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Beskrivelse (valgfri)')).not.toBeVisible()
+    expect(screen.queryByRole('textbox', { name: 'Beskrivelse (valgfri)' })).not.toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'Kriterium 1' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'og' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'eller' })).toBeInTheDocument()
@@ -242,11 +244,13 @@ describe('CohortEditorPage', () => {
   })
 
   it('opens an existing group with nested logic and lets it be edited here', async () => {
+    const user = userEvent.setup()
     // A AND (B OR C)
     const nested: CohortDetailDto = {
       id: 9,
       websiteId: 'site-1',
       name: 'Nøstet',
+      description: 'En eksisterende beskrivelse',
       root: {
         nodeType: 'GROUP',
         combinator: 'AND',
@@ -287,6 +291,16 @@ describe('CohortEditorPage', () => {
     expect(screen.queryByText('Denne brukergruppen kan ikke redigeres her ennå')).not.toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'Kriterium 2' })).toBeInTheDocument()
     expect(within(screen.getByRole('region', { name: 'Kriterium 2' })).getAllByRole('region')).toHaveLength(2)
+    expect(screen.getByLabelText('Beskrivelse (valgfri)')).not.toBeVisible()
+    await user.type(screen.getByRole('textbox', { name: 'Navn' }), ' oppdatert')
+    await user.click(screen.getByRole('button', { name: 'Lagre endringer' }))
+    await waitFor(() =>
+      expect(updateCohort).toHaveBeenCalledWith(9, {
+        websiteId: 'site-1',
+        name: 'Nøstet oppdatert',
+        description: 'En eksisterende beskrivelse',
+      }),
+    )
   })
 
   it('turns «A og B» + eller into «A og (B eller C)», and further eller adds to that group', async () => {
