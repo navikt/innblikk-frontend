@@ -1,4 +1,4 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { act, render, renderHook, screen, waitFor, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { SuggestingValueEditor, countryFlagEmoji, toSuggestionOptions } from './SuggestingValueEditor.tsx'
 import { columnValuesSuggestions } from '../hooks/useColumnValueSuggestions.ts'
@@ -8,6 +8,7 @@ vi.mock('../api/columnValuesApi.ts', () => ({
 }))
 
 import { fetchColumnValues } from '../api/columnValuesApi.ts'
+import type { SuggestibleColumn } from '../api/columnValuesApi.ts'
 
 describe('countryFlagEmoji', () => {
   it('maps an ISO alpha-2 code to its flag', () => {
@@ -57,6 +58,102 @@ describe('SuggestingValueEditor', () => {
     await waitFor(() => expect(fetchColumnValues).toHaveBeenCalledTimes(1))
     expect(fetchColumnValues).toHaveBeenCalledWith('w1', 'browser', undefined, undefined)
   })
+
+  it('removes URL options from the open dropdown while country suggestions are loading', async () => {
+    let resolveCountry!: (value: { values: string[]; scannedDays: number }) => void
+    vi.mocked(fetchColumnValues)
+      .mockResolvedValueOnce({ values: ['/soknad'], scannedDays: 30 })
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveCountry = resolve
+          }),
+      )
+    const onChange = vi.fn()
+    const { rerender } = render(
+      <SuggestingValueEditor websiteId="w1" column="url_path" value="" onChange={onChange} label="Verdi" />,
+    )
+    fireEvent.focus(screen.getByRole('combobox'))
+    fireEvent.keyDown(screen.getByRole('combobox'), { key: 'ArrowDown' })
+    expect(await screen.findByRole('option', { name: '/soknad' })).toBeInTheDocument()
+
+    rerender(<SuggestingValueEditor websiteId="w1" column="country" value="" onChange={onChange} label="Verdi" />)
+
+    expect(screen.queryByRole('option', { name: '/soknad' })).not.toBeInTheDocument()
+    expect(onChange).not.toHaveBeenCalled()
+    await act(async () => {
+      resolveCountry({ values: ['no'], scannedDays: 30 })
+      await Promise.resolve()
+    })
+    expect(await screen.findByRole('option', { name: /Norge/ })).toBeInTheDocument()
+    fireEvent.pointerUp(screen.getByRole('option', { name: /Norge/ }))
+    expect(onChange).toHaveBeenCalledWith('no')
+  })
+
+  it.each([
+    { websiteId: 'w2', column: 'event_data_value', suggestionKey: 'page', eventName: 'visit' },
+    { websiteId: 'w1', column: 'country', suggestionKey: 'page', eventName: 'visit' },
+    { websiteId: 'w1', column: 'event_data_value', suggestionKey: 'country', eventName: 'visit' },
+    { websiteId: 'w1', column: 'event_data_value', suggestionKey: 'page', eventName: 'click' },
+  ])('immediately clears suggestions when their scope changes to %j', async (next) => {
+    vi.mocked(fetchColumnValues).mockResolvedValue({ values: ['/soknad'], scannedDays: 7 })
+    const { result, rerender } = renderHook(
+      ({ websiteId, column, suggestionKey, eventName }) =>
+        columnValuesSuggestions.useColumnValueSuggestions(websiteId, column, suggestionKey, eventName),
+      {
+        initialProps: {
+          websiteId: 'w1',
+          column: 'event_data_value' as SuggestibleColumn,
+          suggestionKey: 'page',
+          eventName: 'visit',
+        },
+      },
+    )
+    act(() => result.current.load())
+    await waitFor(() => expect(result.current.values).toEqual(['/soknad']))
+
+    rerender({ ...next, column: next.column as SuggestibleColumn })
+
+    expect(result.current.values).toEqual([])
+    expect(result.current.scannedDays).toBeNull()
+    expect(result.current.failed).toBe(false)
+  })
+
+  it.each(['success', 'failure'])(
+    'ignores an old request finishing with %s after switching fields',
+    async (outcome) => {
+      let resolveOld!: (value: { values: string[]; scannedDays: number }) => void
+      let rejectOld!: (reason: Error) => void
+      vi.mocked(fetchColumnValues)
+        .mockImplementationOnce(
+          () =>
+            new Promise((resolve, reject) => {
+              resolveOld = resolve
+              rejectOld = reject
+            }),
+        )
+        .mockResolvedValueOnce({ values: ['no'], scannedDays: 30 })
+      const { result, rerender } = renderHook(
+        ({ column }) => columnValuesSuggestions.useColumnValueSuggestions('w1', column),
+        { initialProps: { column: 'url_path' as SuggestibleColumn } },
+      )
+      act(() => result.current.load())
+      rerender({ column: 'country' })
+      act(() => result.current.load())
+      await waitFor(() => expect(result.current.values).toEqual(['no']))
+
+      await act(async () => {
+        if (outcome === 'success') resolveOld({ values: ['/soknad'], scannedDays: 7 })
+        else rejectOld(new Error('old request failed'))
+        await Promise.resolve()
+      })
+
+      expect(result.current.values).toEqual(['no'])
+      expect(result.current.scannedDays).toBe(30)
+      expect(result.current.failed).toBe(false)
+      expect(result.current.loading).toBe(false)
+    },
+  )
 
   it('shows «Forslag fra siste N dager» only when the server narrowed the window', async () => {
     vi.mocked(fetchColumnValues).mockResolvedValue({ values: ['Chrome'], scannedDays: 7 })

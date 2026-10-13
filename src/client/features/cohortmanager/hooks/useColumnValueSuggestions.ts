@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { fetchColumnValues, type SuggestibleColumn } from '../api/columnValuesApi.ts'
 
 export interface ColumnValueSuggestionsResult {
@@ -31,28 +31,46 @@ export function createColumnValuesSuggestionsSource() {
     eventName?: string,
   ): ColumnValueSuggestionsResult {
     const cacheKey = `${websiteId ?? ''}|${column}|${key ?? ''}|${eventName ?? ''}`
-    const [entry, setEntry] = useState(() => cache.get(cacheKey) ?? null)
-    const [failed, setFailed] = useState(false)
-    const [loading, setLoading] = useState(false)
+    const [state, setState] = useState(() => ({
+      cacheKey,
+      requestId: 0,
+      entry: cache.get(cacheKey) ?? null,
+      failed: false,
+      loading: false,
+    }))
+    const requestSequence = useRef(0)
 
     const load = useCallback(() => {
+      const requestId = ++requestSequence.current
+      const entry = cache.get(cacheKey) ?? null
+      setState({ cacheKey, requestId, entry, failed: false, loading: !!websiteId && !entry })
       if (!websiteId || cache.has(cacheKey)) {
-        setEntry(cache.get(cacheKey) ?? null)
         return
       }
-      setLoading(true)
-      setFailed(false)
       fetchColumnValues(websiteId, column, key, eventName)
         .then((res) => {
           const next = { values: res.values, scannedDays: res.scannedDays }
           cache.set(cacheKey, next)
-          setEntry(next)
+          setState((current) =>
+            current.requestId === requestId ? { ...current, entry: next, loading: false } : current,
+          )
         })
-        .catch(() => setFailed(true))
-        .finally(() => setLoading(false))
+        .catch(() => {
+          setState((current) =>
+            current.requestId === requestId ? { ...current, failed: true, loading: false } : current,
+          )
+        })
     }, [websiteId, column, key, eventName, cacheKey])
 
-    return { values: entry?.values ?? [], scannedDays: entry?.scannedDays ?? null, failed, loading, load }
+    const current = state.cacheKey === cacheKey ? state : null
+    const entry = current ? current.entry : (cache.get(cacheKey) ?? null)
+    return {
+      values: entry?.values ?? [],
+      scannedDays: entry?.scannedDays ?? null,
+      failed: current?.failed ?? false,
+      loading: current?.loading ?? false,
+      load,
+    }
   }
 
   return {
