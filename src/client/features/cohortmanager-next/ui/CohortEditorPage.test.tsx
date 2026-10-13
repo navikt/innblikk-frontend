@@ -44,6 +44,10 @@ function renderAt(path: string) {
 }
 
 describe('CohortEditorPage', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
   beforeAll(() => {
     Element.prototype.scrollIntoView = vi.fn()
   })
@@ -104,16 +108,45 @@ describe('CohortEditorPage', () => {
     expect(screen.queryByText('Hva skjedde etterpå?')).not.toBeInTheDocument()
   })
 
-  it('lets you choose the website when creating, and asks for it if missing', async () => {
-    const user = userEvent.setup()
-    renderAt('/brukergrupper-next/ny')
+  it('hides the website picker when the URL identifies a known website', async () => {
+    renderAt('/brukergrupper-next/ny?websiteId=site-1')
 
-    expect(await screen.findByRole('combobox', { name: 'Nettsted' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Opprett brukergruppe' }))
-
-    expect(await screen.findByRole('link', { name: 'Velg hvilket nettsted brukergruppen gjelder' })).toBeInTheDocument()
-    expect(createCohort).not.toHaveBeenCalled()
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Tilbake til brukergrupper' })).toHaveAttribute(
+        'href',
+        '/brukergrupper-next?websiteId=site-1',
+      ),
+    )
+    expect(screen.queryByRole('combobox', { name: 'Nettsted' })).not.toBeInTheDocument()
   })
+
+  it.each(['/brukergrupper-next/ny', '/brukergrupper-next/ny?websiteId=', '/brukergrupper-next/ny?websiteId=unknown'])(
+    'requires a website selection when the URL has no valid website: %s',
+    async (path) => {
+      const user = userEvent.setup()
+      renderAt(path)
+
+      expect(await screen.findByRole('combobox', { name: 'Nettsted' })).toBeInTheDocument()
+      await user.type(screen.getByLabelText('Navn'), 'Søkere')
+      await user.type(screen.getByRole('combobox', { name: 'Verdi' }), '/soknad{Enter}')
+      await user.click(screen.getByRole('button', { name: 'Opprett brukergruppe' }))
+
+      expect(
+        await screen.findByRole('link', { name: 'Velg hvilket nettsted brukergruppen gjelder' }),
+      ).toBeInTheDocument()
+      expect(createCohort).not.toHaveBeenCalled()
+
+      await user.type(screen.getByRole('combobox', { name: 'Nettsted' }), 'Nav.no')
+      await user.click(await screen.findByRole('option', { name: /Nav.no/ }))
+      expect(screen.getByRole('combobox', { name: 'Nettsted' })).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Opprett brukergruppe' }))
+
+      await waitFor(() =>
+        expect(createCohort).toHaveBeenCalledWith({ websiteId: 'site-1', name: 'Søkere', description: undefined }),
+      )
+      expect(await screen.findByText('Oversikt')).toBeInTheDocument()
+    },
+  )
 
   it('does not offer a website picker when editing an existing group', async () => {
     vi.mocked(getCohort).mockResolvedValue({

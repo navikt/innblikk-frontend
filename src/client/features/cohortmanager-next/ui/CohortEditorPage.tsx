@@ -58,8 +58,10 @@ function CohortEditorPage() {
   const cohortId = id ? Number(id) : null
   const isNew = cohortId === null
 
-  const [websiteId, setWebsiteId] = useState<string | null>(searchParams.get('websiteId'))
+  const [selectedWebsiteId, setWebsiteId] = useState<string | null>(searchParams.get('websiteId'))
   const [websites, setWebsites] = useState<Website[]>([])
+  const websiteId = isNew ? (websites.find((site) => site.id === selectedWebsiteId)?.id ?? null) : selectedWebsiteId
+  const hasWebsiteFromUrl = websites.some((site) => site.id === searchParams.get('websiteId'))
   const [loading, setLoading] = useState(!isNew)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [unsupportedReason, setUnsupportedReason] = useState<string | null>(null)
@@ -317,7 +319,7 @@ function CohortEditorPage() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
-            {isNew && (
+            {isNew && !hasWebsiteFromUrl && (
               <div id="cohort-next-website">
                 <WebsiteSelect
                   websites={websites}
