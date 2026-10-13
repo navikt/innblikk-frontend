@@ -31,6 +31,7 @@ import { draftToTree, emptyDraft, resetCohortRefs, treeToDraft, type Draft } fro
 import { validateDraft, anchorFor, type ValidationIssue } from '../utils/validate.ts'
 import { CardListEditor } from './CardListEditor.tsx'
 import { SummaryPanel } from './SummaryPanel.tsx'
+import { CohortPreview } from './CohortPreview.tsx'
 import { WebsiteSelect } from '../../../shared/ui/WebsiteSelect.tsx'
 import { useUnsavedChangesGuard } from '../../../shared/hooks/useUnsavedChangesGuard.ts'
 import './cohortNext.css'
@@ -76,6 +77,7 @@ function CohortEditorPage() {
   )
 
   const [showErrors, setShowErrors] = useState(false)
+  const [showPreviewErrors, setShowPreviewErrors] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [pendingFocus, setPendingFocus] = useState<string | null>(null)
@@ -153,7 +155,8 @@ function CohortEditorPage() {
   const names = useMemo(() => Object.fromEntries(others.map((c) => [String(c.id), c.name])), [others])
   const issues: ValidationIssue[] = useMemo(() => validateDraft(draft), [draft])
   const nameError = showErrors && !name.trim() ? 'Gi brukergruppen et navn' : undefined
-  const websiteError = showErrors && !websiteId ? 'Velg hvilket nettsted brukergruppen gjelder' : undefined
+  const websiteError =
+    (showErrors || showPreviewErrors) && !websiteId ? 'Velg hvilket nettsted brukergruppen gjelder' : undefined
   const listHref = `${LIST_PATH}${websiteId ? `?websiteId=${encodeURIComponent(websiteId)}` : ''}`
 
   // One simple card already reads as a sentence; the summary only helps once cards combine.
@@ -343,13 +346,19 @@ function CohortEditorPage() {
               onChange={(next) => setDraft(next)}
               websiteId={websiteId ?? undefined}
               others={others}
-              showErrors={showErrors}
+              showErrors={showErrors || showPreviewErrors}
               depth={0}
               onFocusCard={setPendingFocus}
             />
           </VStack>
 
           {showSummary && <SummaryPanel draft={draft} names={names} />}
+          <CohortPreview
+            key={websiteId ?? 'no-website'}
+            websiteId={websiteId}
+            root={issues.length === 0 ? draftToTree(draft) : null}
+            onInvalid={() => setShowPreviewErrors(true)}
+          />
           {saveError && <Alert variant="error">{saveError}</Alert>}
           <HStack gap="space-12">
             <Button loading={saving} onClick={() => void handleSave()}>

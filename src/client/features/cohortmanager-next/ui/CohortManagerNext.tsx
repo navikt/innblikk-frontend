@@ -13,6 +13,7 @@ import type { CohortDetailDto, CohortDto } from '../../cohortmanager/model/types
 import { describeTreeInline } from '../utils/describe.ts'
 import { WebsiteSelect } from '../../../shared/ui/WebsiteSelect.tsx'
 import { TrashDialog } from './TrashDialog.tsx'
+import { CohortPreview } from './CohortPreview.tsx'
 import './cohortNext.css'
 
 export default function CohortManagerNext() {
@@ -30,6 +31,7 @@ export default function CohortManagerNext() {
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [trashOpen, setTrashOpen] = useState(false)
+  const [previewTarget, setPreviewTarget] = useState<CohortDetailDto | null>(null)
   const loadSeq = useRef(0)
 
   const selectWebsite = useCallback(
@@ -172,7 +174,15 @@ export default function CohortManagerNext() {
                             <BodyShort>{detail ? describeTreeInline(detail.root, names) : '…'}</BodyShort>
                           </Table.DataCell>
                           <Table.DataCell style={{ verticalAlign: 'top' }}>
-                            <HStack gap="space-8" justify="end" wrap={false}>
+                            <HStack gap="space-8" justify="end" wrap>
+                              <Button
+                                size="small"
+                                variant="secondary"
+                                disabled={!detail}
+                                onClick={() => setPreviewTarget(detail ?? null)}
+                              >
+                                Forhåndsvis
+                              </Button>
                               <Button
                                 size="small"
                                 variant="secondary"
@@ -202,6 +212,53 @@ export default function CohortManagerNext() {
           )}
         </VStack>
       </AppBlock>
+
+      <Dialog
+        open={!!previewTarget}
+        onOpenChange={(open) => {
+          if (!open) setPreviewTarget(null)
+        }}
+      >
+        <Dialog.Popup width="medium">
+          <Dialog.Header>
+            <Dialog.Title>{previewTarget?.name}</Dialog.Title>
+          </Dialog.Header>
+          <Dialog.Body>
+            {previewTarget && (
+              <VStack gap="space-24">
+                <VStack gap="space-8">
+                  {previewTarget.description && <BodyShort>{previewTarget.description}</BodyShort>}
+                  <BodyShort>{describeTreeInline(previewTarget.root, names)}</BodyShort>
+                </VStack>
+                <CohortPreview
+                  key={previewTarget.id}
+                  websiteId={previewTarget.websiteId}
+                  root={previewTarget.root}
+                  defaultExpanded
+                  autoPreview
+                />
+              </VStack>
+            )}
+          </Dialog.Body>
+          <Dialog.Footer>
+            {previewTarget && (
+              <Button
+                as={Link}
+                to={`/brukergrupper-next/${previewTarget.id}`}
+                variant="secondary"
+                icon={<PencilIcon aria-hidden />}
+              >
+                Rediger gruppe
+              </Button>
+            )}
+            <Dialog.CloseTrigger>
+              <Button type="button" variant="tertiary">
+                Lukk
+              </Button>
+            </Dialog.CloseTrigger>
+          </Dialog.Footer>
+        </Dialog.Popup>
+      </Dialog>
 
       <Dialog
         open={!!deleteTarget}

@@ -211,6 +211,24 @@ describe('SuggestingValueEditor', () => {
   describe('free-text blur commit vs. mouse-pick race', () => {
     const flushMacrotask = () => new Promise<void>((resolve) => setTimeout(resolve, 0))
 
+    it('commits free text synchronously when focus moves to an action button', async () => {
+      vi.mocked(fetchColumnValues).mockResolvedValue({ values: [], scannedDays: 30 })
+      const onChange = vi.fn()
+      render(
+        <>
+          <SuggestingValueEditor websiteId="w1" column="url_path" value="" onChange={onChange} label="Verdi" />
+          <button type="button">Forhåndsvis gruppe</button>
+        </>,
+      )
+      const input = await screen.findByRole('combobox')
+      fireEvent.change(input, { target: { value: '/soknad' } })
+      fireEvent.blur(input, {
+        target: { value: '/soknad' },
+        relatedTarget: screen.getByRole('button', { name: 'Forhåndsvis gruppe' }),
+      })
+      expect(onChange).toHaveBeenCalledExactlyOnceWith('/soknad')
+    })
+
     it('commits leftover free text on a real blur (tab away)', async () => {
       vi.mocked(fetchColumnValues).mockResolvedValue({ values: ['Chrome'], scannedDays: 30 })
       const onChange = vi.fn()

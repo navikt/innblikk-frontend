@@ -146,13 +146,18 @@ export function SuggestingValueEditor({
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     if (multi) return
     const typed = e.target.value.trim()
-    setTimeout(() => {
+    const commitTypedValue = () => {
       if (justToggledRef.current) {
         justToggledRef.current = false
         return
       }
       if (typed && typed !== value) onChange(typed)
-    }, 0)
+    }
+    if (e.relatedTarget instanceof Element && !e.relatedTarget.closest('[role="listbox"]')) {
+      commitTypedValue()
+    } else {
+      setTimeout(commitTypedValue, 0)
+    }
   }
 
   // The list is portaled but React still bubbles its events here. Keeping focus in the

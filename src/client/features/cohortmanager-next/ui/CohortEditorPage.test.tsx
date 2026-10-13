@@ -6,6 +6,11 @@ import CohortEditorRoute from './CohortEditorPage.tsx'
 import { deleteCohortChecked } from '../api/cohortApi.ts'
 import { createCohort, getCohort, replaceCriteria } from '../../cohortmanager/api/cohortManagerApi.ts'
 import type { CohortDetailDto } from '../../cohortmanager/model/types.ts'
+import { fetchCohortPreview } from '../api/previewApi.ts'
+
+vi.mock('../api/previewApi.ts', () => ({
+  fetchCohortPreview: vi.fn().mockResolvedValue({ users: 12, total: 100, coverage: { total: 100, withDistinctId: 0 } }),
+}))
 
 vi.mock('../../cohortmanager/api/cohortManagerApi.ts', () => ({
   listCohorts: vi.fn().mockResolvedValue([]),
@@ -80,6 +85,20 @@ describe('CohortEditorPage', () => {
     await user.click(screen.getByRole('radio', { name: 'eller' }))
     expect(screen.getByRole('radio', { name: 'eller' })).toBeChecked()
     expect(screen.getAllByRole('region', { name: /Kriterium/ })).toHaveLength(2)
+  })
+
+  it('previews unsaved criteria without requiring a name or creating a group', async () => {
+    const user = userEvent.setup()
+    renderAt('/brukergrupper-next/ny?websiteId=site-1')
+    await user.type(await screen.findByRole('combobox', { name: 'Verdi' }), '/soknad{Enter}')
+    await user.click(screen.getByRole('button', { name: 'Forhåndsvis gruppe' }))
+    expect(await screen.findByText('12 unike brukere')).toBeInTheDocument()
+    expect(fetchCohortPreview).toHaveBeenCalledWith(
+      expect.objectContaining({ websiteId: 'site-1' }),
+      expect.any(AbortSignal),
+    )
+    expect(createCohort).not.toHaveBeenCalled()
+    expect(screen.queryByText('Gi brukergruppen et navn')).not.toBeInTheDocument()
   })
 
   it('refuses to save an incomplete group and lists what is missing', async () => {

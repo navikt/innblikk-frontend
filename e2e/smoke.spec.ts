@@ -68,3 +68,111 @@ test.describe('App smoke tests', () => {
     })
   }
 })
+
+for (const width of [390, 1440]) {
+  test(`cohort preview modal at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 1000 })
+    const errors: string[] = []
+    page.on('pageerror', (error) => errors.push(error.message))
+    const queries: string[] = []
+    const writes: string[] = []
+    const cohort = {
+      id: 3,
+      websiteId: 'site-1',
+      name: 'Søkere',
+      root: {
+        nodeType: 'GROUP',
+        combinator: 'AND',
+        negated: false,
+        children: [
+          {
+            nodeType: 'GROUP',
+            combinator: 'AND',
+            negated: false,
+            children: [{ nodeType: 'CONDITION', field: 'url_path', conditionType: 'EQUALS', value: '/soknad' }],
+          },
+        ],
+      },
+    }
+    await page.route(
+      (url) => url.pathname.startsWith('/api/'),
+      async (route) => {
+        const request = route.request()
+        const path = new URL(request.url()).pathname
+        let body: unknown = {}
+        if (path === '/api/bigquery/websites') body = { data: MOCK_WEBSITES }
+        else if (path === '/api/backend/cohort') {
+          if (request.method() !== 'GET') writes.push(request.method())
+          body = [cohort]
+        } else if (path === '/api/backend/cohort/3') body = cohort
+        else if (path.includes('column-values')) body = { values: ['/soknad'], scannedDays: 30 }
+        else if (path === '/api/bigquery') {
+          queries.push((request.postDataJSON() as { query: string }).query)
+          body = {
+            data: [{ kind: 'summary', name: '', users: 120, total: 1000, coverage_total: 1500, coverage_cookie: 750 }],
+          }
+        }
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
+      },
+    )
+
+    await page.goto('/brukergrupper-next?websiteId=site-1')
+    const previewButton = page.getByRole('button', { name: 'Forhåndsvis', exact: true })
+    await expect(previewButton).toBeVisible()
+    expect(queries).toHaveLength(0)
+    await previewButton.click()
+    const dialog = page.getByRole('dialog', { name: 'Søkere', exact: true })
+    await expect(dialog).toBeVisible()
+    await expect(page).toHaveURL(/\/brukergrupper-next\?websiteId=site-1$/)
+    await expect(dialog.getByRole('heading', { name: 'Søkere', exact: true })).toBeVisible()
+    await expect(page.getByLabel('Periode', { exact: true })).toHaveValue('last_7_days')
+    await expect(page.getByText('120 unike brukere', { exact: true })).toBeVisible()
+    expect(queries).toHaveLength(1)
+    await expect(page.getByRole('button', { name: 'Se mer om gruppen', exact: true })).toHaveCount(0)
+    await expect(
+      page.getByText('Tellemetode i forhåndsvisningen: Cookie og fingeravtrykk', { exact: true }),
+    ).not.toBeVisible()
+    await page.getByRole('button', { name: 'Om tellemetoden i forhåndsvisningen', exact: true }).click()
+    await expect(
+      page.getByText('Tellemetode i forhåndsvisningen: Cookie og fingeravtrykk', { exact: true }),
+    ).toBeVisible()
+    await expect(page.getByText(/Uten cookie brukes fingeravtrykk/)).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeVisible()
+    await expect(page.getByRole('button', { name: /Hvordan telles/ })).toHaveCount(0)
+    await page.getByLabel('Periode', { exact: true }).selectOption('last_28_days')
+    await expect(page.getByText('120 unike brukere', { exact: true })).not.toBeVisible()
+    expect(queries).toHaveLength(1)
+    await page.getByRole('button', { name: 'Oppdater', exact: true }).click()
+    await expect(page.getByText('120 unike brukere', { exact: true })).toBeVisible()
+    await page.screenshot({ path: testInfo.outputPath('cohort-preview-modal.png'), fullPage: true })
+    const preview = page.getByRole('region', { name: 'Forhåndsvisning', exact: true })
+    const bounds = await preview.boundingBox()
+    expect(bounds).not.toBeNull()
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width)
+
+    await dialog.getByRole('button', { name: 'Lukk', exact: true }).last().click()
+    await expect(dialog).not.toBeVisible()
+    await expect(previewButton).toBeFocused()
+    await previewButton.click()
+    await expect(dialog).toBeVisible()
+    await expect(page.getByLabel('Periode', { exact: true })).toHaveValue('last_7_days')
+    await expect(page.getByText('120 unike brukere', { exact: true })).toBeVisible()
+    expect(queries).toHaveLength(3)
+
+    await page.getByRole('button', { name: 'Rediger gruppe', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Rediger brukergruppe' })).toBeVisible()
+    await page.getByRole('button', { name: 'Forhåndsvis gruppe', exact: true }).click()
+    await expect(page.getByText('120 unike brukere', { exact: true })).toBeVisible()
+
+    await page.goto('/brukergrupper-next/ny?websiteId=site-1')
+    await page.getByRole('combobox', { name: 'Verdi', exact: true }).fill('/soknad')
+    await page.getByRole('button', { name: 'Forhåndsvis gruppe', exact: true }).click()
+    await expect(page.getByText('120 unike brukere', { exact: true })).toBeVisible()
+    await expect(page.getByLabel('Navn', { exact: true })).toBeEmpty()
+    await expect(page.getByRole('button', { name: 'Opprett brukergruppe', exact: true })).toBeEnabled()
+    await page.screenshot({ path: testInfo.outputPath('cohort-create-preview.png'), fullPage: true })
+    expect(errors).toEqual([])
+    expect(writes).toEqual([])
+  })
+}
