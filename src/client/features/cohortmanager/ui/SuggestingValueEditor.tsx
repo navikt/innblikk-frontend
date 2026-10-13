@@ -22,8 +22,9 @@ export function countryFlagEmoji(code: string): string {
 }
 
 export function toSuggestionOptions(column: string, values: string[]): { label: string; value: string }[] {
-  return values.map((value) => {
+  return values.flatMap((value) => {
     if (column === 'country') {
+      if (!/^[A-Za-z]{2}$/.test(value)) return []
       const flag = countryFlagEmoji(value)
       const name = regionNames.of(value.toUpperCase()) ?? value
       return { label: `${flag ? `${flag} ` : ''}${name} (${value.toUpperCase()})`, value }

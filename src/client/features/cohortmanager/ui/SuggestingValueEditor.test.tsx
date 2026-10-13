@@ -31,6 +31,14 @@ describe('toSuggestionOptions', () => {
     expect(opt.label).toContain('Norge')
   })
 
+  it('excludes malformed country suggestions without crashing or dropping valid codes', () => {
+    const options = toSuggestionOptions('country', ['/', '/soknad', '', 'NOR', 'unknown', '123', 'no', 'SE'])
+
+    expect(options.map((option) => option.value)).toEqual(['no', 'SE'])
+    expect(options[0].label).toContain('Norge')
+    expect(options[1].label).toContain('Sverige')
+  })
+
   it('renders language values as localized names while preserving the raw code', () => {
     const [opt] = toSuggestionOptions('language', ['nb-NO'])
     expect(opt.value).toBe('nb-NO')
@@ -57,6 +65,20 @@ describe('SuggestingValueEditor', () => {
     render(<SuggestingValueEditor websiteId="w1" column="browser" value="" onChange={() => {}} label="Verdi" />)
     await waitFor(() => expect(fetchColumnValues).toHaveBeenCalledTimes(1))
     expect(fetchColumnValues).toHaveBeenCalledWith('w1', 'browser', undefined, undefined)
+  })
+
+  it('keeps the country dropdown usable when its response contains malformed values', async () => {
+    vi.mocked(fetchColumnValues).mockResolvedValue({ values: ['/', '/soknad', 'no'], scannedDays: 30 })
+    const onChange = vi.fn()
+    render(<SuggestingValueEditor websiteId="w1" column="country" value="" onChange={onChange} label="Verdi" />)
+    fireEvent.focus(screen.getByRole('combobox'))
+    fireEvent.keyDown(screen.getByRole('combobox'), { key: 'ArrowDown' })
+
+    const countryOption = await screen.findByRole('option', { name: /Norge/ })
+    expect(screen.queryByRole('option', { name: '/' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: '/soknad' })).not.toBeInTheDocument()
+    fireEvent.pointerUp(countryOption)
+    expect(onChange).toHaveBeenCalledWith('no')
   })
 
   it('removes URL options from the open dropdown while country suggestions are loading', async () => {
