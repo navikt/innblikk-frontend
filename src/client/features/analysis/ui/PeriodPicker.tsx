@@ -76,7 +76,7 @@ export const PeriodPicker = ({
         <Modal.Body>
           <div className="flex flex-col gap-4">
             {/* strategy="fixed": popover escapes overflow clipping (AGENTS.md DatePicker gotcha) */}
-            <DatePicker {...datepickerProps} strategy="fixed">
+            <DatePicker {...datepickerProps} strategy="fixed" dropdownCaption>
               <div className="flex flex-col gap-2">
                 <DatePicker.Input
                   id="custom-start-date"
