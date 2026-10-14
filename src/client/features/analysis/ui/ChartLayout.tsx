@@ -157,7 +157,7 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
               {/* Left Column Header (Sidebar Content) — the website picker. Kept
                   independent of `hideAnalysisSelector`: that flag only controls
                   the in-page analysis-type nav column (COL 1 below). */}
-              {sidebarContent && (
+              {sidebarContent && !alphaNewNav && (
                 <div className="w-full md:w-[250px] flex-shrink-0 border-b md:border-b-0 p-4 flex flex-col justify-end md:group-has-[.sidegroup-management-slot]:pb-10">
                   {sidebarContent}
                 </div>
@@ -178,6 +178,9 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
                     : undefined
                 }
               >
+                {sidebarContent && alphaNewNav && (
+                  <div className="w-full md:w-[250px] flex-shrink-0">{sidebarContent}</div>
+                )}
                 {!hideSidebar && filters}
               </div>
             </div>
