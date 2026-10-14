@@ -71,10 +71,8 @@ const TrafficAnalysis = () => {
     hasFetchedExternalReferrers,
     isLoadingBreakdown,
     hasFetchedBreakdown,
-    fetchSeriesData,
     copyShareLink,
     copySuccess,
-    hasUnappliedFilterChanges,
     selectedInternalUrl,
     setSelectedInternalUrl,
     currentDateRange,
@@ -148,10 +146,6 @@ const TrafficAnalysis = () => {
       websiteDomain={selectedWebsite?.domain}
       websiteName={selectedWebsite?.name}
       sidebarContent={<WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} />}
-      onFiltersSubmit={() => {
-        if (!selectedWebsite || loading || !hasUnappliedFilterChanges) return
-        void fetchSeriesData()
-      }}
       filters={
         <>
           <UrlPathFilter
@@ -188,17 +182,6 @@ const TrafficAnalysis = () => {
               <option value="pageviews">Sidevisninger</option>
               <option value="proportion">Andel (av besøkende)</option>
             </Select>
-          </div>
-
-          <div className="flex items-end pb-[2px]">
-            <Button
-              onClick={fetchSeriesData}
-              disabled={!selectedWebsite || loading || !hasUnappliedFilterChanges}
-              loading={loading}
-              size="small"
-            >
-              Vis trafikk
-            </Button>
           </div>
         </>
       }

@@ -102,7 +102,7 @@ describe('WebsitePicker domain restore', () => {
     // The single-select combobox renders the selected option's label as visible text.
     await waitFor(() => {
       const selectedText = container.querySelector('.aksel-combobox__selected-options--no-bg')
-      expect(selectedText?.textContent).toBe('Innblikk')
+      expect(selectedText?.textContent).toBe('innblikk.ansatt.dev.nav.no')
     })
   })
 
@@ -162,7 +162,7 @@ describe('WebsitePicker domain restore', () => {
     // not silently filtered out of the options.
     await waitFor(() => {
       const selectedText = container.querySelector('.aksel-combobox__selected-options--no-bg')
-      expect(selectedText?.textContent).toBe('Nav.no - dev')
+      expect(selectedText?.textContent).toBe('www.ansatt.dev.nav.no')
     })
   })
 

@@ -12,15 +12,18 @@ vi.mock('../../analysis/ui/ChartLayout.tsx', () => ({
   default: ({
     title,
     sidebarContent,
+    filters,
     children,
   }: {
     title: string
     sidebarContent?: React.ReactNode
+    filters?: React.ReactNode
     children: React.ReactNode
   }) => (
     <div>
       <h1>{title}</h1>
       <aside>{sidebarContent}</aside>
+      <div>{filters}</div>
       <main>{children}</main>
     </div>
   ),
@@ -65,5 +68,12 @@ describe('TrafficAnalysis page', () => {
   it('renders the website picker', async () => {
     renderPage()
     expect(await screen.findByRole('combobox', { name: /nettside/i })).toBeInTheDocument()
+  })
+
+  it('shows filters without a manual refresh button', async () => {
+    renderPage()
+    expect(screen.getByRole('combobox', { name: 'Visning' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Vis trafikk' })).not.toBeInTheDocument()
+    await screen.findByRole('combobox', { name: /nettside/i })
   })
 })

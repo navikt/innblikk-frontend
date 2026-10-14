@@ -37,8 +37,8 @@ export function WebsiteNavigation({ children }: { children: ReactNode }) {
             value={isLocalhost ? 'localhost' : isDev ? 'dev' : 'prod'}
             onChange={(event) => switchEnvironment(event.target.value)}
           >
-            {isLocalhost ? <option value="localhost">Local</option> : <option value="prod">Prod</option>}
-            <option value="dev">Dev</option>
+            {isLocalhost ? <option value="localhost">local</option> : <option value="prod">prod</option>}
+            <option value="dev">dev</option>
           </Select>
         )}
       </header>

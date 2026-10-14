@@ -58,6 +58,7 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 
 describe('useTrafficAnalysis sidegroup filter', () => {
   beforeEach(() => {
+    localStorage.clear()
     fetchTrafficSeriesMock.mockClear()
     buildSeriesUrlMock.mockClear()
     useSidegroupsMock.mockImplementation((websiteId?: string) => ({
@@ -66,6 +67,26 @@ describe('useTrafficAnalysis sidegroup filter', () => {
       error: false,
     }))
     window.history.replaceState({}, '', '/trafikkanalyse')
+  })
+
+  it('automatically refreshes after filter and website changes', async () => {
+    const { result } = renderHook(() => useTrafficAnalysis(), { wrapper })
+    act(() => result.current.setSelectedWebsite(website))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    await waitFor(() => expect(fetchTrafficSeriesMock).toHaveBeenCalledTimes(1))
+
+    act(() => {
+      result.current.setUrlPaths(['/jobs'])
+      result.current.setPeriod('last_28_days')
+      result.current.setMetricType('visitors')
+    })
+    await waitFor(() => expect(fetchTrafficSeriesMock).toHaveBeenCalledTimes(2))
+    expect(result.current.submittedMetricType).toBe('visitors')
+    expect(window.location.search).toContain('urlPath=%2Fjobs')
+
+    act(() => result.current.setSelectedWebsite({ ...website, id: 'site-2' }))
+    await waitFor(() => expect(fetchTrafficSeriesMock).toHaveBeenCalledTimes(3))
+    expect(buildSeriesUrlMock.mock.lastCall?.[0]).toBe('site-2')
   })
 
   it('restores a sidegroup from the URL before the first traffic request', async () => {

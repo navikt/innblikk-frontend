@@ -39,7 +39,7 @@ describe('WebsiteNavigation', () => {
     expect(screen.getByText('Valgt: fia')).toBeInTheDocument()
     expect(selector).toHaveValue('fia')
     const environment = within(navigation).getByRole('combobox', { name: 'Miljø' })
-    expect(environment).toHaveDisplayValue('Local')
+    expect(environment).toHaveDisplayValue('local')
     expect(selector.compareDocumentPosition(environment) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.getAllByRole('combobox')).toHaveLength(2)
   })

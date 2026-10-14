@@ -576,22 +576,15 @@ const WebsitePicker = ({
     if (aIndex !== -1) return -1
     if (bIndex !== -1) return 1
 
-    return a.name.localeCompare(b.name)
+    return a.domain.localeCompare(b.domain) || a.name.localeCompare(b.name)
   })
 
   const isProdHost = !window.location.hostname.includes('.dev.nav.no')
   const devToggleOptionValue = '__toggle_dev_sites__'
   const toggleDevSitesLabel = showDevSites ? 'Skjul dev sider' : 'Vis dev sider'
   const getDisplayName = (website: Website) => {
-    const name = website.name.trim()
-    if (!name) return name
-    return name.charAt(0).toUpperCase() + name.slice(1)
+    return website.domain.trim() || website.name.trim()
   }
-  const getBaseName = (name: string) =>
-    name
-      .replace(/\s*-\s*prod$/i, '')
-      .trim()
-      .toLowerCase()
 
   const visibleWebsites = sortedWebsites.filter((website) => {
     if (!isProdHost) return true
@@ -611,17 +604,11 @@ const WebsitePicker = ({
   const comboboxOptions = [
     ...visibleWebsites.map((website) => {
       const displayName = getDisplayName(website)
-      const isProdVariant = /\s*-\s*prod$/i.test(displayName)
-      const hasProdSibling = visibleWebsites.some((other) => {
-        if (other.id === website.id) return false
-        return getBaseName(other.name) === getBaseName(website.name) && /\s*-\s*prod$/i.test(other.name)
-      })
-      const oldLabel = !isProdVariant && hasProdSibling ? `${displayName} (gammel)` : displayName
-      const finalLabel = displayLabelCounts[displayName] > 1 ? `${oldLabel} (${website.domain})` : oldLabel
+      const finalLabel = displayLabelCounts[displayName] > 1 ? `${displayName} (${website.name})` : displayName
 
       return {
         label: finalLabel,
-        value: finalLabel,
+        value: website.id,
         website: website,
       }
     }),
@@ -647,7 +634,7 @@ const WebsitePicker = ({
             const selectedOption = comboboxOptions.find(
               (opt) => 'website' in opt && opt.website.id === selectedWebsite.id,
             )
-            return selectedOption ? [selectedOption.value] : []
+            return selectedOption ? [selectedOption] : []
           })()}
           onToggleSelected={(option: string, isSelected: boolean) => {
             if (option === devToggleOptionValue) {
