@@ -7,7 +7,6 @@ export const usePeriodPicker = (onPeriodChange: (period: string) => void) => {
     (e: React.ChangeEvent<HTMLSelectElement>) => {
       const value = e.target.value
       if (value === 'custom' || value === 'custom-edit') {
-        onPeriodChange('custom')
         setIsDateModalOpen(true)
       } else {
         onPeriodChange(value)

@@ -199,8 +199,8 @@ export const useTrafficAnalysis = () => {
         pathOperator,
         sidegroupId: sidegroup?.id ?? null,
         period,
-        customStartDate: customStartDate?.toISOString() ?? null,
-        customEndDate: customEndDate?.toISOString() ?? null,
+        customStartDate: customStartDate?.toJSON() ?? null,
+        customEndDate: customEndDate?.toJSON() ?? null,
         metricType,
         granularity: granularityOverride,
         comparePreviousPeriod,
@@ -326,6 +326,9 @@ export const useTrafficAnalysis = () => {
   const fetchSeriesData = useCallback(async () => {
     if (!selectedWebsite) return
     if (sidegroupResolutionPending || sidegroupResolutionFailed) return
+    if (pathOperator === 'sidegroup' && !sidegroup) return
+    const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
+    if (!dateRange || !(dateRange.endDate.getTime() >= dateRange.startDate.getTime())) return
     lastRequestedFilterKey.current = buildFilterKey()
 
     if (metricType === 'proportion' && urlPaths.length === 0 && !sidegroup) {
@@ -374,12 +377,6 @@ export const useTrafficAnalysis = () => {
 
     const interval = effectiveGranularity
 
-    const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
-    if (!dateRange) {
-      setError('Vennligst velg en gyldig periode.')
-      setLoading(false)
-      return
-    }
     const { startDate, endDate } = dateRange
     const previousDateRange = comparePreviousPeriod ? getPreviousDateRange(startDate, endDate) : null
     setSubmittedDateRange({ startDate, endDate })

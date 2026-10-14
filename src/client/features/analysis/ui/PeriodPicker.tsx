@@ -22,15 +22,12 @@ export const PeriodPicker = ({
   // useRangeDatepicker wires the inputs + popover + typing. Do NOT pass readOnly /
   // a manual `value` to DatePicker.Input — readOnly disables the calendar toggle
   // button entirely (inputs become "locked") and manual value fights hook state.
-  const { datepickerProps, fromInputProps, toInputProps } = useRangeDatepicker({
+  const { datepickerProps, fromInputProps, toInputProps, selectedRange, setSelected } = useRangeDatepicker({
     defaultSelected: startDate && endDate ? { from: startDate, to: endDate } : undefined,
-    onRangeChange: (range) => {
-      if (range) {
-        onStartDateChange(range.from)
-        onEndDateChange(range.to)
-      }
-    },
   })
+  const canApply = Boolean(
+    selectedRange?.from && selectedRange.to && selectedRange.to.getTime() >= selectedRange.from.getTime(),
+  )
 
   return (
     <>
@@ -39,7 +36,12 @@ export const PeriodPicker = ({
           label="Periode"
           size="small"
           value={period === 'custom' && startDate && endDate ? 'custom' : period}
-          onChange={handlePeriodChange}
+          onChange={(event) => {
+            if (event.target.value === 'custom' || event.target.value === 'custom-edit') {
+              setSelected(startDate && endDate ? { from: startDate, to: endDate } : undefined)
+            }
+            handlePeriodChange(event)
+          }}
         >
           {/* Period options in requested order */}
           {showShortPeriods && (
@@ -98,12 +100,14 @@ export const PeriodPicker = ({
           <Button
             type="button"
             onClick={() => {
-              if (startDate && endDate) {
+              if (canApply && selectedRange?.from && selectedRange.to) {
+                onStartDateChange(selectedRange.from)
+                onEndDateChange(selectedRange.to)
                 onPeriodChange('custom')
                 closeDateModal()
               }
             }}
-            disabled={!startDate || !endDate}
+            disabled={!canApply}
           >
             Bruk datoer
           </Button>
