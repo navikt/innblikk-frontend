@@ -85,6 +85,7 @@ const MarketingAnalysis = () => {
             pathOperator={pathOperator}
             onPathOperatorChange={setPathOperator}
             selectedWebsiteDomain={selectedWebsite?.domain}
+            selectedWebsiteId={selectedWebsite?.id}
             className="w-full sm:w-[350px]"
           />
 

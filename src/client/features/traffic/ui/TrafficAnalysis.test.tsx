@@ -40,8 +40,9 @@ vi.mock('../../../shared/hooks/useSiteimproveSupport.ts', () => ({
 const FAKE_WEBSITES = [{ id: 'site-1', name: 'Nav.no - prod', domain: 'nav.no', createdAt: '2023-01-01T00:00:00Z' }]
 
 function renderPage() {
+  window.history.replaceState({}, '', '/trafikkanalyse?websiteId=site-1')
   return render(
-    <MemoryRouter initialEntries={['/trafikkanalyse']}>
+    <MemoryRouter initialEntries={['/trafikkanalyse?websiteId=site-1']}>
       <TrafficAnalysis />
     </MemoryRouter>,
   )
@@ -79,7 +80,9 @@ describe('TrafficAnalysis page', () => {
     renderPage()
     const selector = screen.getByRole('combobox', { name: 'Visning' })
     fireEvent.change(selector, { target: { value: 'visitors' } })
-    await waitFor(() => expect(selector).toHaveAccessibleDescription(`Telles med ${method}`))
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: 'Visning' })).toHaveAccessibleDescription(`Telles med ${method}`),
+    )
     const helpButton = screen.getByRole('button', { name: 'Hvordan telles unike besøkende?' })
     expect(helpButton).toHaveAttribute('aria-expanded', 'false')
     fireEvent.click(helpButton)
@@ -95,7 +98,7 @@ describe('TrafficAnalysis page', () => {
     ).toBeInTheDocument()
     fireEvent.click(helpButton)
     expect(helpButton).toHaveAttribute('aria-expanded', 'false')
-    fireEvent.change(selector, { target: { value: 'pageviews' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Visning' }), { target: { value: 'pageviews' } })
     expect(screen.queryByRole('button', { name: 'Hvordan telles unike besøkende?' })).not.toBeInTheDocument()
     expect(screen.queryByText(`Telles med ${method}`)).not.toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: 'Visning' })).not.toHaveAttribute('aria-describedby')

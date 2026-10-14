@@ -81,6 +81,8 @@ const Retention = () => {
               pathOperator={pathOperator}
               onPathOperatorChange={setPathOperator}
               selectedWebsiteDomain={selectedWebsite?.domain}
+              selectedWebsiteId={selectedWebsite?.id}
+              isMultiSelect={false}
               label="URL"
             />
           </div>

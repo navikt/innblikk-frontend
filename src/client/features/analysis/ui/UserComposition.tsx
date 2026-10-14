@@ -70,8 +70,7 @@ const UserComposition = () => {
   }
 
   type CompositionApiResponse =
-    | { error: string }
-    | { data: CompositionRow[]; queryStats?: QueryStatsLike; generatedSql?: string }
+    { error: string } | { data: CompositionRow[]; queryStats?: QueryStatsLike; generatedSql?: string }
 
   const [data, setData] = useState<CompositionRow[] | null>(null)
   const [loading, setLoading] = useState<boolean>(false)
@@ -289,6 +288,7 @@ const UserComposition = () => {
             pathOperator={pathOperator}
             onPathOperatorChange={setPathOperator}
             selectedWebsiteDomain={selectedWebsite?.domain}
+            selectedWebsiteId={selectedWebsite?.id}
             label="URL"
           />
 

@@ -5,6 +5,7 @@ import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
+import UrlPathFilter from '../../analysis/ui/UrlPathFilter.tsx'
 import UmamiJourneyView from '../../analysis/ui/journey/UmamiJourneyView.tsx'
 import AnalysisActionModal from '../../analysis/ui/AnalysisActionModal.tsx'
 import UserJourneyCanvasView from './UserJourneyCanvasView.tsx'
@@ -151,12 +152,15 @@ const UserJourney = () => {
       filters={
         <>
           <div className="w-full sm:w-[300px]">
-            <TextField
-              size="small"
-              label="URL"
-              value={startUrl}
-              onChange={(e) => setStartUrl(e.target.value)}
-              onBlur={(e) => setStartUrl(normalizeUrlToPath(e.target.value))}
+            <UrlPathFilter
+              urlPaths={startUrl ? [startUrl] : []}
+              onUrlPathsChange={(paths) => setStartUrl(paths[0] || '')}
+              pathOperator="equals"
+              onPathOperatorChange={() => {}}
+              showOperator={false}
+              isMultiSelect={false}
+              selectedWebsiteId={selectedWebsite?.id}
+              selectedWebsiteDomain={selectedWebsite?.domain}
             />
           </div>
 
