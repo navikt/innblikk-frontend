@@ -118,7 +118,7 @@ const AppShell = ({ theme }: { theme: 'light' | 'dark' }) => {
     return alphaNewNav ? (
       <div className="flex h-dvh w-full flex-col md:flex-row">
         <Sidebar theme={theme} />
-        <div className="flex h-dvh min-h-0 w-full flex-1 flex-col">
+        <div className="flex h-dvh min-h-0 min-w-0 w-full flex-1 flex-col">
           <ErrorBoundary>
             <Suspense fallback={<PageLoader />}>{appRoutes}</Suspense>
           </ErrorBoundary>
@@ -140,7 +140,7 @@ const AppShell = ({ theme }: { theme: 'light' | 'dark' }) => {
     return (
       <div className="flex min-h-dvh w-full flex-col md:flex-row">
         <Sidebar theme={theme} />
-        <div className="flex min-h-0 w-full flex-1 flex-col">
+        <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col">
           <Page>
             <PageLayout>
               <ErrorBoundary>
