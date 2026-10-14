@@ -8,7 +8,11 @@ import {
   WEBSITES_CACHE_KEY,
   SELECTED_WEBSITE_CACHE_KEY,
 } from '../storage/websiteCache.ts'
-import { normalizeDomain, DEFAULT_WEBSITE_ID } from '../../../shared/lib/domain'
+import {
+  normalizeDomain,
+  DEFAULT_WEBSITE_ID,
+  getWebsiteDisplayName as getDisplayName,
+} from '../../../shared/lib/domain'
 import { getGcpProjectId } from '../../../shared/lib/runtimeConfig'
 
 export type { Website }
@@ -555,7 +559,7 @@ const WebsitePicker = ({
   }, [externalDateRange, shouldReload, selectedWebsite, fetchEventNames, dateRangeInDays, onEventsLoad])
 
   const sortedWebsites = [...websites].sort((a, b) => {
-    const priorityIds = ['35abb2b7-3f97-42ce-931b-cf547d40d967', '83b80c84-b551-4dff-a679-f21be5fa0453']
+    const priorityIds: string[] = [DEFAULT_WEBSITE_ID.prod, '83b80c84-b551-4dff-a679-f21be5fa0453']
     const aIndex = priorityIds.indexOf(a.id)
     const bIndex = priorityIds.indexOf(b.id)
 
@@ -565,11 +569,6 @@ const WebsitePicker = ({
 
     return a.domain.localeCompare(b.domain) || a.name.localeCompare(b.name)
   })
-
-  const getDisplayName = (website: Website) => {
-    const domain = website.domain.trim()
-    return normalizeDomain(domain) === 'navno.sharepoint.com' ? `${domain} (Navet)` : domain || website.name.trim()
-  }
 
   const displayLabelCounts = sortedWebsites.reduce(
     (acc, website) => {
@@ -582,7 +581,10 @@ const WebsitePicker = ({
 
   const comboboxOptions = sortedWebsites.map((website) => {
     const displayName = getDisplayName(website)
-    const finalLabel = displayLabelCounts[displayName] > 1 ? `${displayName} (${website.name})` : displayName
+    const finalLabel =
+      website.id !== DEFAULT_WEBSITE_ID.prod && displayLabelCounts[displayName] > 1
+        ? `${displayName} (${website.name})`
+        : displayName
 
     return {
       label: finalLabel,

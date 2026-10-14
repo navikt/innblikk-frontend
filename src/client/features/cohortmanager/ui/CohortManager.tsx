@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Button, Dialog, Heading, Loader, Alert, Table, VStack, HStack, BodyShort } from '@navikt/ds-react'
+import { Button, Dialog, Loader, Alert, Table, VStack, HStack, BodyShort } from '@navikt/ds-react'
 import { PlusIcon, TrashIcon, PencilIcon, ArchiveIcon, ArrowUndoIcon } from '@navikt/aksel-icons'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
+import { WebsiteNavigationSlot } from '../../../shared/ui/theme/WebsiteNavigation.tsx'
 import { fetchWebsites } from '../../../shared/api/websiteApi.ts'
 import type { Website } from '../../../shared/types/website.ts'
 import {
@@ -218,61 +219,66 @@ export default function CohortManager() {
 
   return (
     <>
-      <PageHeader title="Brukergrupper" description="Definer brukergrupper basert på hendelser og egenskaper." beta />
+      <PageHeader
+        title="Brukergrupper"
+        description="Definer brukergrupper basert på hendelser og egenskaper."
+        beta
+        compact
+        actions={
+          selectedWebsiteId && (
+            <HStack gap="space-8" wrap>
+              <Button size="small" variant="tertiary" icon={<ArchiveIcon aria-hidden />} onClick={openTrash}>
+                Papirkurv
+              </Button>
+              <Button
+                size="small"
+                variant="secondary"
+                icon={<PlusIcon aria-hidden />}
+                onClick={() => setEditorTarget('new')}
+              >
+                Ny brukergruppe
+              </Button>
+            </HStack>
+          )
+        }
+      />
 
-      <AppBlock className="pb-16">
+      <AppBlock className="pb-8 md:!px-6">
         <VStack gap="space-16">
           {/* Website picker */}
-          <div style={{ maxWidth: 400 }} onKeyDownCapture={handleWebsiteKeyDownCapture}>
-            {websitesLoading ? (
-              <Loader size="small" title="Laster nettsteder…" />
-            ) : (
-              <UNSAFE_Combobox
-                label="Nettsted"
-                options={websiteOptions}
-                filteredOptions={filteredWebsiteOptions}
-                selectedOptions={
-                  selectedWebsite
-                    ? [{ label: `${selectedWebsite.name} — ${selectedWebsite.domain}`, value: selectedWebsite.id }]
-                    : []
-                }
-                onToggleSelected={(value, isSelected) => {
-                  // Selecting sets the site; deselecting the current one (or the
-                  // clear button) clears it, so backspace/clear/re-click all agree.
-                  setSelectedWebsiteId(isSelected ? value : null)
-                }}
-                value={websiteFilter}
-                onChange={(v) => setWebsiteFilter(v)}
-                placeholder="Søk etter nettsted…"
-                clearButton
-                isMultiSelect={false}
-                size="small"
-              />
-            )}
-          </div>
+          <WebsiteNavigationSlot>
+            <div style={{ maxWidth: 400 }} onKeyDownCapture={handleWebsiteKeyDownCapture}>
+              {websitesLoading ? (
+                <Loader size="small" title="Laster nettsteder…" />
+              ) : (
+                <UNSAFE_Combobox
+                  label="Nettsted"
+                  options={websiteOptions}
+                  filteredOptions={filteredWebsiteOptions}
+                  selectedOptions={
+                    selectedWebsite
+                      ? [{ label: `${selectedWebsite.name} — ${selectedWebsite.domain}`, value: selectedWebsite.id }]
+                      : []
+                  }
+                  onToggleSelected={(value, isSelected) => {
+                    // Selecting sets the site; deselecting the current one (or the
+                    // clear button) clears it, so backspace/clear/re-click all agree.
+                    setSelectedWebsiteId(isSelected ? value : null)
+                  }}
+                  value={websiteFilter}
+                  onChange={(v) => setWebsiteFilter(v)}
+                  placeholder="Søk etter nettsted…"
+                  clearButton
+                  isMultiSelect={false}
+                  size="small"
+                />
+              )}
+            </div>
+          </WebsiteNavigationSlot>
 
           {/* Cohort list */}
           {selectedWebsiteId && (
             <VStack gap="space-12">
-              <HStack justify="space-between" align="center">
-                <Heading size="small" level="2">
-                  Brukergrupper
-                </Heading>
-                <HStack gap="space-8">
-                  <Button size="small" variant="tertiary" icon={<ArchiveIcon aria-hidden />} onClick={openTrash}>
-                    Papirkurv
-                  </Button>
-                  <Button
-                    size="small"
-                    variant="secondary"
-                    icon={<PlusIcon aria-hidden />}
-                    onClick={() => setEditorTarget('new')}
-                  >
-                    Ny brukergruppe
-                  </Button>
-                </HStack>
-              </HStack>
-
               {cohortsLoading && <Loader size="medium" title="Laster brukergrupper…" />}
               {cohortsError && <Alert variant="error">{cohortsError}</Alert>}
 

@@ -5,6 +5,14 @@ import { PageHeader } from './PageHeader.tsx'
 const description = 'Se besok over tid, hvor de kommer fra og hvor de gar videre.'
 
 describe('PageHeader', () => {
+  it.each(['Brukergrupper', 'Sidegrupper'])('preserves the beta badge beside the compact %s heading', (title) => {
+    render(<PageHeader title={title} description={description} compact beta />)
+
+    const heading = screen.getByRole('heading', { level: 1, name: title })
+    expect(heading.parentElement).toContainElement(screen.getByText('Beta'))
+    expect(screen.getByRole('button', { name: `Om ${title}` })).toHaveAttribute('aria-expanded', 'false')
+  })
+
   it('offers the compact description through an accessible help button', () => {
     render(<PageHeader title="Trafikkoversikt" description={description} compact />)
 

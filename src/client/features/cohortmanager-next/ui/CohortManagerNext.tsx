@@ -12,6 +12,7 @@ import { deleteCohortChecked } from '../api/cohortApi.ts'
 import type { CohortDetailDto, CohortDto } from '../../cohortmanager/model/types.ts'
 import { describeTreeInline } from '../utils/describe.ts'
 import { WebsiteSelect } from '../../../shared/ui/WebsiteSelect.tsx'
+import { WebsiteNavigationSlot } from '../../../shared/ui/theme/WebsiteNavigation.tsx'
 import { TrashDialog } from './TrashDialog.tsx'
 import { CohortPreview } from './CohortPreview.tsx'
 import './cohortNext.css'
@@ -98,39 +99,45 @@ export default function CohortManagerNext() {
         title="Brukergrupper"
         description="Samle brukere som har gjort noe bestemt på nettstedet ditt, og bruk gruppen i grafene dine."
         beta
+        compact
+        actions={
+          websiteIdParam && (
+            <HStack gap="space-8" wrap>
+              <Button
+                size="small"
+                variant="tertiary"
+                icon={<ArchiveIcon aria-hidden />}
+                onClick={() => setTrashOpen(true)}
+              >
+                Papirkurv
+              </Button>
+              {cohorts.length > 0 && (
+                <Button size="small" as={Link} to={newHref} icon={<PlusIcon aria-hidden />}>
+                  Ny brukergruppe
+                </Button>
+              )}
+            </HStack>
+          )
+        }
       />
 
-      <AppBlock className="pb-16">
+      <AppBlock className="pb-8 md:!px-6">
         <BetaFeatureNotice id="brukergrupper-next" title="Brukergrupper er i beta" className="mb-4">
           Brukergrupper er under utvikling, og funksjonalitet kan endre seg.
           <BetaFeedbackLine />
         </BetaFeatureNotice>
 
         <VStack gap="space-24">
-          {websitesLoading ? (
-            <Loader title="Laster nettsteder…" />
-          ) : (
-            <WebsiteSelect websites={websites} selectedId={websiteIdParam} onSelect={selectWebsite} />
-          )}
+          <WebsiteNavigationSlot>
+            {websitesLoading ? (
+              <Loader title="Laster nettsteder…" />
+            ) : (
+              <WebsiteSelect websites={websites} selectedId={websiteIdParam} onSelect={selectWebsite} size="small" />
+            )}
+          </WebsiteNavigationSlot>
 
           {websiteIdParam && (
             <VStack gap="space-16">
-              <HStack justify="space-between" align="center" wrap gap="space-12">
-                <Heading level="2" size="medium">
-                  Brukergrupper
-                </Heading>
-                <HStack gap="space-8">
-                  <Button variant="tertiary" icon={<ArchiveIcon aria-hidden />} onClick={() => setTrashOpen(true)}>
-                    Papirkurv
-                  </Button>
-                  {cohorts.length > 0 && (
-                    <Button as={Link} to={newHref} icon={<PlusIcon aria-hidden />}>
-                      Ny brukergruppe
-                    </Button>
-                  )}
-                </HStack>
-              </HStack>
-
               {loading && <Loader title="Laster brukergrupper…" />}
               {error && <Alert variant="error">{error}</Alert>}
 
@@ -138,7 +145,7 @@ export default function CohortManagerNext() {
                 <Box background="neutral-soft" borderRadius="8" padding="space-32" style={{ maxWidth: '32rem' }}>
                   <VStack gap="space-16" align="start">
                     <VStack gap="space-4">
-                      <Heading level="3" size="small">
+                      <Heading level="2" size="small">
                         Ingen brukergrupper ennå
                       </Heading>
                       <BodyShort>Lag den første, og bruk den i grafene dine.</BodyShort>
