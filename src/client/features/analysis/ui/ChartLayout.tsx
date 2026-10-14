@@ -9,6 +9,7 @@ import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { useChartNavigation } from '../hooks/useChartNavigation.ts'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { getFeatureFlag } from '../../../shared/lib/featureFlags.ts'
+import { WebsiteNavigationSlot } from '../../../shared/ui/theme/WebsiteNavigation.tsx'
 
 interface ChartLayoutProps {
   title: string
@@ -147,13 +148,16 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
 
   return (
     <>
-      <PageHeader title={title} description={description} beta={isCurrentPageBeta} />
+      {sidebarContent && alphaNewNav && <WebsiteNavigationSlot>{sidebarContent}</WebsiteNavigationSlot>}
+      <PageHeader title={title} description={description} beta={isCurrentPageBeta} compact={alphaNewNav} />
 
-      <AppBlock className="pb-16">
+      <AppBlock className={alphaNewNav ? 'pb-8 md:!px-6' : 'pb-16'}>
         <div className="rounded-lg shadow-sm border border-[var(--ax-border-neutral-subtle)] mb-8 bg-[var(--ax-bg-default)] overflow-hidden">
           {/* Unified Top Bar */}
           {(sidebarContent || (!hideSidebar && filters)) && (
-            <div className="group border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-subtle)] flex flex-col md:flex-row md:min-h-[80px]">
+            <div
+              className={`group border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-subtle)] flex flex-col md:flex-row ${alphaNewNav ? '' : 'md:min-h-[80px]'}`}
+            >
               {/* Left Column Header (Sidebar Content) — the website picker. Kept
                   independent of `hideAnalysisSelector`: that flag only controls
                   the in-page analysis-type nav column (COL 1 below). */}
@@ -178,15 +182,14 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
                     : undefined
                 }
               >
-                {sidebarContent && alphaNewNav && (
-                  <div className="w-full md:w-[250px] flex-shrink-0">{sidebarContent}</div>
-                )}
                 {!hideSidebar && filters}
               </div>
             </div>
           )}
 
-          <div className="flex flex-col md:flex-row min-h-[800px] relative transition-all duration-300">
+          <div
+            className={`flex flex-col md:flex-row relative transition-all duration-300 ${alphaNewNav ? '' : 'min-h-[800px]'}`}
+          >
             {/* ================= COL 1: NAVIGATION ================= */}
             {!effectiveHideAnalysisSelector && (
               <>
@@ -255,7 +258,7 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
               tabIndex={-1}
               className="flex-1 min-w-0 bg-[var(--ax-bg-default)] flex flex-col z-0 relative focus:outline-none"
             >
-              <div className="p-6 md:p-8 flex-1 overflow-x-auto">{children}</div>
+              <div className={`${alphaNewNav ? 'p-4 md:p-5' : 'p-6 md:p-8'} flex-1 overflow-x-auto`}>{children}</div>
             </div>
           </div>
         </div>

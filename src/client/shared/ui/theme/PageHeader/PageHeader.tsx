@@ -11,6 +11,7 @@ interface PageHeaderProps {
   variant?: 'regular' | 'article'
   beta?: boolean
   notice?: React.ReactNode
+  compact?: boolean
 }
 
 export const PageHeader = ({
@@ -21,9 +22,10 @@ export const PageHeader = ({
   variant = 'regular',
   beta,
   notice,
+  compact = false,
 }: PageHeaderProps) => {
   const isArticle = variant === 'article'
-  const padding = isArticle ? '32px' : '16px'
+  const padding = isArticle ? '32px' : compact ? '12px' : '16px'
 
   return (
     <div
@@ -35,10 +37,10 @@ export const PageHeader = ({
         paddingBottom: padding,
         // Matches the sidebar's logo bar (65px) so the two bottom edges line up when there is no description.
         minHeight: isArticle ? undefined : '65px',
-        marginBottom: '24px',
+        marginBottom: compact ? '16px' : '24px',
       }}
     >
-      <AppBlock>
+      <AppBlock className={compact ? 'md:!px-6' : ''}>
         <div
           className={`grid gap-[10px] md:grid-cols-[minmax(0,1fr)_auto] md:items-start ${
             isArticle ? 'max-w-[800px] mx-auto' : ''

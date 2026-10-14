@@ -19,7 +19,7 @@ import {
   WrenchIcon,
   XMarkIcon,
 } from '@navikt/aksel-icons'
-import { Button, Select, Tooltip } from '@navikt/ds-react'
+import { Button, Tooltip } from '@navikt/ds-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link as RouterLink, useLocation } from 'react-router-dom'
 import '../../../../tailwind.css'
@@ -329,50 +329,6 @@ export default function Sidebar({ theme }: SidebarProps) {
   const { isReopsTeamMember } = useIsReopsTeamMember()
   const navItems = getNavItems(isReopsTeamMember)
 
-  const { hostname, pathname: currentPathname, search, hash } = window.location
-  const currentPath = `${currentPathname}${search}${hash}`
-  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
-  const isDev = hostname.includes('.dev.')
-  const isProd = hostname.includes('.nav.no') && !isDev
-
-  // Swap dev.nav.no ↔ nav.no on the current hostname, preserving path/query/hash —
-  // picking an option navigates to the same page in that environment, like a link.
-  // Localhost has no matching nav.no hostname to swap into, so it goes to the fixed
-  // dev URL instead (mirrors the old Header's «Gå til dev-miljø» link).
-  const switchEnvironment = (target: 'dev' | 'prod') => {
-    if (isLocalhost) {
-      window.location.href = `https://innblikk.ansatt.dev.nav.no${currentPath}`
-      return
-    }
-    const targetHostname =
-      target === 'dev' ? hostname.replace('.nav.no', '.dev.nav.no') : hostname.replace('.dev.nav.no', '.nav.no')
-    window.location.href = `https://${targetHostname}${currentPath}`
-  }
-
-  const environmentIndicator = isLocalhost ? (
-    <Select
-      label="Miljø"
-      hideLabel
-      size="small"
-      value="localhost"
-      onChange={(e) => switchEnvironment(e.target.value as 'dev')}
-    >
-      <option value="localhost">Localhost</option>
-      <option value="dev">Dev</option>
-    </Select>
-  ) : isDev || isProd ? (
-    <Select
-      label="Miljø"
-      hideLabel
-      size="small"
-      value={isDev ? 'dev' : 'prod'}
-      onChange={(e) => switchEnvironment(e.target.value as 'dev' | 'prod')}
-    >
-      <option value="dev">Dev</option>
-      <option value="prod">Prod</option>
-    </Select>
-  ) : null
-
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768)
     handleResize()
@@ -486,7 +442,6 @@ export default function Sidebar({ theme }: SidebarProps) {
             }`}
           >
             <span className="text-sm font-semibold">Innblikk</span>
-            {environmentIndicator}
           </RouterLink>
           <Button
             variant="tertiary-neutral"
@@ -523,7 +478,7 @@ export default function Sidebar({ theme }: SidebarProps) {
       }`}
     >
       <div
-        className="flex items-center gap-2 border-b px-3 py-4"
+        className="flex h-16 shrink-0 items-center gap-2 border-b px-3"
         style={{ borderColor: 'var(--ax-border-neutral-subtle)' }}
       >
         <RouterLink to="/" className="flex min-w-0 items-center gap-2 no-underline">
@@ -549,7 +504,6 @@ export default function Sidebar({ theme }: SidebarProps) {
             </span>
           )}
         </RouterLink>
-        {!isCollapsed && environmentIndicator && <span className="shrink-0">{environmentIndicator}</span>}
       </div>
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         <NavList collapsed={isCollapsed} items={navItems} onExpandSidebar={() => setIsCollapsed(false)} />
