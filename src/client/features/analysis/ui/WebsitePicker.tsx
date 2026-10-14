@@ -567,7 +567,8 @@ const WebsitePicker = ({
   })
 
   const getDisplayName = (website: Website) => {
-    return website.domain.trim() || website.name.trim()
+    const domain = website.domain.trim()
+    return normalizeDomain(domain) === 'navno.sharepoint.com' ? `${domain} (Navet)` : domain || website.name.trim()
   }
 
   const displayLabelCounts = sortedWebsites.reduce(

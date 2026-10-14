@@ -15,6 +15,13 @@ const PROD_DEFAULT_ID = '35abb2b7-3f97-42ce-931b-cf547d40d967' // www.nav.no
 const DEV_DEFAULT_ID = 'c44a6db3-c974-4316-b433-214f87e80b4d' // www.ansatt.dev.nav.no
 
 const REAL_WEBSITES = [
+  {
+    id: 'navet-id',
+    name: 'SharePoint',
+    domain: 'navno.sharepoint.com',
+    teamId: 't1',
+    createdAt: '2023-01-01T00:00:00Z',
+  },
   { id: PROD_DEFAULT_ID, name: 'Nav.no - prod', domain: 'www.nav.no', teamId: 't1', createdAt: '2023-01-01T00:00:00Z' },
   { id: 'gaupe-id', name: 'Gaupe', domain: 'gaupe.nav.no', teamId: 't1', createdAt: '2023-01-01T00:00:00Z' },
   {
