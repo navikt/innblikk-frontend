@@ -1,4 +1,4 @@
-import { render, waitFor } from '@testing-library/react'
+import { fireEvent, render, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { vi, beforeEach, afterEach, describe, it, expect } from 'vitest'
 import { useState } from 'react'
@@ -157,13 +157,28 @@ describe('WebsitePicker domain restore', () => {
     await waitFor(() => {
       expect(getByTestId('selected-id').textContent).toBe(DEV_DEFAULT_ID)
     })
-    // The dev default is a dev site — it must be revealed (showDevSites) so the selected
-    // label actually renders in the combobox on a prod-classified host (e.g. localhost),
-    // not silently filtered out of the options.
     await waitFor(() => {
       const selectedText = container.querySelector('.aksel-combobox__selected-options--no-bg')
       expect(selectedText?.textContent).toBe('www.ansatt.dev.nav.no')
     })
+  })
+
+  it('offers dev websites directly without a visibility toggle', async () => {
+    window.history.replaceState({}, '', '/trafikkanalyse')
+    const { getByRole, getByTestId, findByRole, queryByText } = render(
+      <MemoryRouter>
+        <Harness />
+      </MemoryRouter>,
+    )
+    await waitFor(() => expect(getByTestId('selected-id')).toHaveTextContent(PROD_DEFAULT_ID))
+
+    fireEvent.keyDown(getByRole('combobox'), { key: 'ArrowDown' })
+    const devOption = await findByRole('option', { name: 'innblikk.ansatt.dev.nav.no' })
+    expect(queryByText('Vis dev sider')).not.toBeInTheDocument()
+    expect(queryByText('Skjul dev sider')).not.toBeInTheDocument()
+    fireEvent.click(devOption)
+
+    await waitFor(() => expect(getByTestId('selected-id')).toHaveTextContent('innblikk-dev-id'))
   })
 
   it('prefers the canonical front-page ID when several websites share the ?domain= domain', async () => {
@@ -200,13 +215,14 @@ describe('WebsitePicker domain restore', () => {
       ),
     )
     window.history.replaceState({}, '', '/trafikkanalyse?domain=www.nav.no&urlPath=%2Fpensjon')
-    const { getByTestId } = render(
+    const { container, getByTestId } = render(
       <MemoryRouter initialEntries={['/trafikkanalyse?domain=www.nav.no&urlPath=%2Fpensjon']}>
         <Harness />
       </MemoryRouter>,
     )
     await waitFor(() => {
       expect(getByTestId('selected-id').textContent).toBe(PROD_DEFAULT_ID)
+      expect(container.querySelector('.aksel-combobox__selected-options--no-bg')?.textContent).toBe('www.nav.no')
     })
   })
 

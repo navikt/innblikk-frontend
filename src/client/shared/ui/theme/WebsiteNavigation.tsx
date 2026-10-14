@@ -27,7 +27,7 @@ export function WebsiteNavigation({ children }: { children: ReactNode }) {
         aria-label="Valgt nettside"
         className="website-navigation flex h-16 shrink-0 items-center gap-3 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-4 md:px-6"
       >
-        <div ref={setContainer} className="min-w-0 w-full max-w-[200px] empty:hidden [&_label]:sr-only" />
+        <div ref={setContainer} className="min-w-0 w-full max-w-[260px] empty:hidden [&_label]:sr-only" />
         {(isLocalhost || isDev || isProd) && (
           <Select
             label="Miljø"
