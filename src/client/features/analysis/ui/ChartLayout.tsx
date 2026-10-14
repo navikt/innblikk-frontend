@@ -169,7 +169,7 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
 
               {/* Right Column Header (Filters) */}
               <div
-                className="w-full md:flex-1 p-4 flex flex-wrap items-end gap-4 border-b md:border-b-0 border-[var(--ax-border-neutral-subtle)] md:border-none has-[.sidegroup-management-slot]:pb-10"
+                className="w-full md:flex-1 p-4 flex flex-wrap items-end gap-4 border-b md:border-b-0 border-[var(--ax-border-neutral-subtle)] md:border-none has-[.sidegroup-management-slot]:pb-10 has-[.filter-description-slot]:pb-10"
                 onKeyDown={
                   onFiltersSubmit
                     ? (e) => {

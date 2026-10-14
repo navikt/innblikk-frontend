@@ -1,5 +1,5 @@
-import { useCallback } from 'react'
-import { Button, Alert, Loader, Select } from '@navikt/ds-react'
+import { useCallback, useId } from 'react'
+import { Button, Alert, HelpText, Loader, Select } from '@navikt/ds-react'
 import { CheckmarkIcon, PaperplaneIcon } from '@navikt/aksel-icons'
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
@@ -18,6 +18,7 @@ import CombinedEntrancesTable from './CombinedEntrancesTable'
 import ExternalTrafficTable from './ExternalTrafficTable'
 
 const TrafficAnalysis = () => {
+  const countingMethodId = useId()
   const {
     selectedWebsite,
     setSelectedWebsite,
@@ -82,6 +83,11 @@ const TrafficAnalysis = () => {
     navigateToJourney,
     getVisitorLabelWithBadge,
   } = useTrafficAnalysis()
+
+  const showCountingMethod =
+    selectedWebsite && currentDateRange && (metricType === 'visitors' || metricType === 'proportion')
+  const countingMethod =
+    cookieBadge === 'mix' ? 'cookie og fingerprinting' : cookieBadge === 'cookie' ? 'cookie' : 'fingerprinting'
 
   // Bridge components: wrap the extracted table components to inject submittedMetricType
   // These wrappers match the ComponentType signatures expected by OversiktTabContent / InnOgUtgangerTabContent
@@ -169,9 +175,12 @@ const TrafficAnalysis = () => {
             onEndDateChange={setCustomEndDate}
           />
 
-          <div className="w-full sm:w-auto min-w-[200px]">
+          <div
+            className={`relative w-full sm:w-auto min-w-[200px] ${showCountingMethod ? 'filter-description-slot' : ''}`}
+          >
             <Select
               label="Visning"
+              aria-describedby={showCountingMethod ? countingMethodId : undefined}
               size="small"
               value={metricType}
               key={`metric-${metricType}-${cookieBadge || 'nocookie'}`}
@@ -182,6 +191,18 @@ const TrafficAnalysis = () => {
               <option value="pageviews">Sidevisninger</option>
               <option value="proportion">Andel (av besøkende)</option>
             </Select>
+            {showCountingMethod && (
+              <div className="absolute left-0 top-full mt-1 flex items-center gap-1 text-sm text-[var(--ax-text-subtle)]">
+                <span id={countingMethodId}>Telles med {countingMethod}</span>
+                <HelpText title="Hvordan telles unike besøkende?" strategy="fixed">
+                  {cookieBadge === 'cookie'
+                    ? 'En cookie gjør at samme nettleser kan gjenkjennes på tvers av besøk i opptil 90 dager. Bytter personen nettleser eller enhet, eller sletter cookien, kan personen telles på nytt.'
+                    : cookieBadge === 'mix'
+                      ? 'Den valgte perioden omfatter både telling med cookie og telling med fingerprinting. Cookie kan gjenkjenne samme nettleser i opptil 90 dager. Fingerprinting gjenkjenner besøkende innen én måned og starter på nytt neste måned. Samme person kan derfor telles flere ganger i perioden.'
+                      : 'Fingerprinting bruker tekniske opplysninger fra besøket for å skille besøkende, uten cookie. Samme person er unik innen en måned, og telles på nytt neste måned. Metoden er mindre presis enn cookie og teller ikke nødvendigvis faktiske personer.'}
+                </HelpText>
+              </div>
+            )}
           </div>
         </>
       }
