@@ -14,6 +14,7 @@ import { WebsiteNavigationSlot } from '../../../shared/ui/theme/WebsiteNavigatio
 interface ChartLayoutProps {
   title: string
   description?: string
+  beta?: boolean
   filters?: React.ReactNode
   onFiltersSubmit?: () => void
   children: React.ReactNode
@@ -112,6 +113,7 @@ const SidebarNavigationContent: React.FC<SidebarNavigationContentProps> = ({
 const ChartLayout: React.FC<ChartLayoutProps> = ({
   title,
   description,
+  beta,
   filters,
   onFiltersSubmit,
   children,
@@ -149,7 +151,7 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
   return (
     <>
       {sidebarContent && alphaNewNav && <WebsiteNavigationSlot>{sidebarContent}</WebsiteNavigationSlot>}
-      <PageHeader title={title} description={description} beta={isCurrentPageBeta} compact={alphaNewNav} />
+      <PageHeader title={title} description={description} beta={beta ?? isCurrentPageBeta} compact={alphaNewNav} />
 
       <AppBlock className={alphaNewNav ? 'pb-8 md:!px-6' : 'pb-16'}>
         <div className="rounded-lg shadow-sm border border-[var(--ax-border-neutral-subtle)] mb-8 bg-[var(--ax-bg-default)] overflow-hidden">
