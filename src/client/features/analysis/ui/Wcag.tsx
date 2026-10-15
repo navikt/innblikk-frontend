@@ -13,6 +13,7 @@ import {
   Tooltip,
 } from '@navikt/ds-react'
 import ChartLayout from './ChartLayout.tsx'
+import UrlPathInput from './UrlPathInput.tsx'
 import { BetaFeatureNotice, BetaFeedbackLine } from '../../../shared/ui/BetaFeatureNotice.tsx'
 import WebsitePicker from './WebsitePicker.tsx'
 import type { WcagIssue } from '../model/types.ts'
@@ -208,7 +209,7 @@ const Wcag = () => {
       }}
       filters={
         <>
-          <TextField size="small" label="URL" value={urlPath} onChange={(e) => setUrlPath(e.target.value)} />
+          <UrlPathInput websiteId={selectedWebsite?.id} value={urlPath} onChange={setUrlPath} />
 
           <div className="mt-8">
             <Button

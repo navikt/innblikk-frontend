@@ -87,6 +87,7 @@ const EventExplorer = () => {
             pathOperator={pathOperator}
             onPathOperatorChange={setPathOperator}
             selectedWebsiteDomain={selectedWebsite?.domain}
+            selectedWebsiteId={selectedWebsite?.id}
             className="w-full sm:w-[300px]"
             label="URL"
             showOperator={true}

@@ -354,6 +354,7 @@ const UserProfiles = () => {
               pathOperator={pathOperator}
               onPathOperatorChange={setPathOperator}
               selectedWebsiteDomain={selectedWebsite?.domain}
+              selectedWebsiteId={selectedWebsite?.id}
               label="URL"
             />
           </div>

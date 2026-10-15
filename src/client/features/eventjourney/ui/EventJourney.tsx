@@ -5,6 +5,7 @@ import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
 import { format } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
+import UrlPathInput from '../../analysis/ui/UrlPathInput.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
 import { normalizeUrlToPath } from '../../../shared/lib/utils.ts'
@@ -152,12 +153,12 @@ const EventJourney = () => {
       }}
       filters={
         <>
-          <TextField
-            size="small"
+          <UrlPathInput
+            websiteId={selectedWebsite?.id}
             label="URL"
             value={urlPath}
-            onChange={(e) => setUrlPath(e.target.value)}
-            onBlur={(e) => setUrlPath(normalizeUrlToPath(e.target.value))}
+            onChange={setUrlPath}
+            onCommit={(value) => setUrlPath(normalizeUrlToPath(value))}
           />
 
           <PeriodPicker

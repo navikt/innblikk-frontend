@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { ExternalLinkIcon } from '@navikt/aksel-icons'
 import { Label, Select, UNSAFE_Combobox, Modal, Textarea, Button } from '@navikt/ds-react'
@@ -27,6 +27,7 @@ export const UrlPathFilter = ({
   sidegroup = null,
   onSidegroupChange,
 }: UrlPathFilterProps) => {
+  const inputId = useId()
   const urlModalRef = useRef<HTMLDialogElement>(null)
   const switchModalRef = useRef<HTMLDialogElement>(null)
   const { sidegroups } = useSidegroupsForWebsite(onSidegroupChange ? selectedWebsiteId : undefined)
@@ -80,11 +81,12 @@ export const UrlPathFilter = ({
       {showOperator && (
         <div className="flex items-center gap-2 mb-1">
           {!hideLabel && (
-            <Label size={size} htmlFor="url-filter">
+            <Label size={size} htmlFor={inputId} id={`${inputId}-label`}>
               {label}
             </Label>
           )}
           <select
+            aria-label={`${label}: sammenligning`}
             className="text-sm bg-[var(--ax-bg-default)] border border-[var(--ax-border-neutral-subtle)] rounded text-[var(--ax-text-accent)] font-medium cursor-pointer focus:outline-none py-1 px-2"
             value={pathOperator}
             onChange={(e) => handleOperatorChange(e.target.value)}
@@ -136,7 +138,8 @@ export const UrlPathFilter = ({
           }}
         >
           <UNSAFE_Combobox
-            id="url-filter"
+            id={inputId}
+            aria-labelledby={showOperator && !hideLabel ? `${inputId}-label` : undefined}
             label={label}
             hideLabel={showOperator || hideLabel}
             size={size}
