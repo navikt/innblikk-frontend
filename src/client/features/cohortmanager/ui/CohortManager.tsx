@@ -7,6 +7,7 @@ import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { WebsiteNavigationSlot } from '../../../shared/ui/theme/WebsiteNavigation.tsx'
 import { fetchWebsites } from '../../../shared/api/websiteApi.ts'
 import type { Website } from '../../../shared/types/website.ts'
+import { DEFAULT_WEBSITE_ID, getWebsiteDisplayName } from '../../../shared/lib/domain.ts'
 import {
   listCohorts,
   getCohort,
@@ -167,11 +168,27 @@ export default function CohortManager() {
   }
 
   const selectedWebsite = websites.find((w) => w.id === selectedWebsiteId)
-  const selectedWebsiteLabel = selectedWebsite ? `${selectedWebsite.name} — ${selectedWebsite.domain}` : ''
+  const selectedWebsiteLabel = selectedWebsite
+    ? selectedWebsite.id === DEFAULT_WEBSITE_ID.prod
+      ? getWebsiteDisplayName(selectedWebsite)
+      : `${selectedWebsite.name} — ${selectedWebsite.domain}`
+    : ''
   const cohortNames = Object.fromEntries(allDetails.map((c) => [String(c.id), c.name]))
 
   const websiteOptions = useMemo(
-    () => websites.map((w) => ({ label: `${w.name} — ${w.domain}`, value: w.id })),
+    () =>
+      [...websites]
+        .sort(
+          (first, second) =>
+            Number(second.id === DEFAULT_WEBSITE_ID.prod) - Number(first.id === DEFAULT_WEBSITE_ID.prod),
+        )
+        .map((website) => ({
+          label:
+            website.id === DEFAULT_WEBSITE_ID.prod
+              ? getWebsiteDisplayName(website)
+              : `${website.name} — ${website.domain}`,
+          value: website.id,
+        })),
     [websites],
   )
 
@@ -197,7 +214,12 @@ export default function CohortManager() {
     return websiteOptions
       .map((opt) => ({ opt, s: score(opt) }))
       .filter((x) => x.s >= 0)
-      .sort((a, b) => a.s - b.s || a.opt.label.localeCompare(b.opt.label, 'nb'))
+      .sort(
+        (a, b) =>
+          Number(b.opt.value === DEFAULT_WEBSITE_ID.prod) - Number(a.opt.value === DEFAULT_WEBSITE_ID.prod) ||
+          a.s - b.s ||
+          a.opt.label.localeCompare(b.opt.label, 'nb'),
+      )
       .map((x) => x.opt)
   }, [websiteOptions, websiteFilter])
 
@@ -255,11 +277,7 @@ export default function CohortManager() {
                   label="Nettsted"
                   options={websiteOptions}
                   filteredOptions={filteredWebsiteOptions}
-                  selectedOptions={
-                    selectedWebsite
-                      ? [{ label: `${selectedWebsite.name} — ${selectedWebsite.domain}`, value: selectedWebsite.id }]
-                      : []
-                  }
+                  selectedOptions={selectedWebsite ? [{ label: selectedWebsiteLabel, value: selectedWebsite.id }] : []}
                   onToggleSelected={(value, isSelected) => {
                     // Selecting sets the site; deselecting the current one (or the
                     // clear button) clears it, so backspace/clear/re-click all agree.
