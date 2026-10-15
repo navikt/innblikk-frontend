@@ -1,20 +1,25 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { vi, beforeEach, afterEach } from 'vitest'
+import userEvent from '@testing-library/user-event'
+import { columnValuesSuggestions } from '../../cohortmanager/hooks/useColumnValueSuggestions.ts'
 
 vi.mock('../../analysis/ui/ChartLayout.tsx', () => ({
   default: ({
     title,
     sidebarContent,
+    filters,
     children,
   }: {
     title: string
     sidebarContent?: React.ReactNode
+    filters?: React.ReactNode
     children: React.ReactNode
   }) => (
     <div>
       <h1>{title}</h1>
       <aside>{sidebarContent}</aside>
+      <section>{filters}</section>
       <main>{children}</main>
     </div>
   ),
@@ -39,10 +44,17 @@ function renderPage(visualizationMode: VisualizationMode = 'clickmap', withPrevi
 describe('Clickmap page', () => {
   beforeEach(() => {
     localStorage.clear()
+    columnValuesSuggestions.clearColumnValuesCache()
     window.history.replaceState({}, '', '/')
     vi.stubGlobal(
       'fetch',
       vi.fn((url: string) => {
+        if (url.includes('/column-values')) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ values: ['/arbeid', '/helse'], scannedDays: 30 }),
+          })
+        }
         if (url.includes('/clickmap?') || url.includes('/scrollmap?')) {
           return Promise.resolve({
             ok: true,
@@ -84,6 +96,22 @@ describe('Clickmap page', () => {
     renderPage()
     expect(await screen.findByRole('combobox', { name: /nettside/i })).toBeInTheDocument()
   })
+
+  it.each<VisualizationMode>(['clickmap', 'heatmap', 'scrollmap'])(
+    'suggests URLs without applying them immediately in %s mode',
+    async (mode) => {
+      const user = userEvent.setup()
+      renderPage(mode, true)
+      await screen.findByTitle(/sidevisning/)
+      const input = screen.getByRole('combobox', { name: 'URL', exact: true })
+      await user.click(input)
+      await user.keyboard('{Backspace}')
+      await user.type(input, '/arb')
+      await user.click(await screen.findByRole('option', { name: '/arbeid', exact: true }))
+      expect(new URLSearchParams(window.location.search).get('urlPath')).toBe('/account')
+      expect(screen.getByText('/arbeid', { selector: '.aksel-combobox__selected-options--no-bg' })).toBeInTheDocument()
+    },
+  )
 
   it.each<VisualizationMode>(['clickmap', 'heatmap', 'scrollmap'])(
     'shows the Aksel shortcut and alternatives in %s mode',

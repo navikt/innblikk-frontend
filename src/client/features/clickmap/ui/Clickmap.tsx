@@ -1,20 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  Alert,
-  Button,
-  ExpansionCard,
-  Loader,
-  Modal,
-  ReadMore,
-  Search,
-  Select,
-  Switch,
-  TextField,
-} from '@navikt/ds-react'
+import { Alert, Button, ExpansionCard, Loader, Modal, ReadMore, Search, Select, Switch } from '@navikt/ds-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
+import UrlPathInput from '../../analysis/ui/UrlPathInput.tsx'
 import { normalizeUrlToPath } from '../../../shared/lib/utils.ts'
 import { useClickmap } from '../hooks/useClickmap.ts'
 import type { ClickmapItem } from '../model/types.ts'
@@ -771,7 +761,7 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
       filters={
         <>
           <div className="w-full sm:w-[260px]">
-            <TextField size="small" label="URL" value={urlInput} onChange={(e) => setUrlInput(e.target.value)} />
+            <UrlPathInput websiteId={selectedWebsite?.id} value={urlInput} onChange={setUrlInput} />
           </div>
 
           <PeriodPicker
