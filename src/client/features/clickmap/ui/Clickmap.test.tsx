@@ -50,10 +50,7 @@ describe('Clickmap page', () => {
       'fetch',
       vi.fn((url: string) => {
         if (url.includes('/column-values')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({ values: ['/arbeid', '/helse'], scannedDays: 30 }),
-          })
+          return Promise.resolve(Response.json({ values: ['/arbeid', '/helse'], scannedDays: 30 }))
         }
         if (url.includes('/clickmap?') || url.includes('/scrollmap?')) {
           return Promise.resolve({
