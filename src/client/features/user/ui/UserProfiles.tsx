@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useAutoRefresh } from '../../analysis/hooks/useAutoRefresh'
 import { useSearchParams } from 'react-router-dom'
 import {
   ActionMenu,
@@ -88,7 +89,7 @@ const UserProfiles = () => {
   const [totalUsers, setTotalUsers] = useState<number>(0)
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
-  const [page, setPage] = useState<number>(1)
+  const [pagination, setPagination] = useState({ key: '', page: 1 })
   const [maxUsers, setMaxUsers] = useState<number>(DEFAULT_MAX_USERS)
   const [queryStats, setQueryStats] = useState<QueryStats | null>(null)
   const [generatedSql, setGeneratedSql] = useState<string | null>(null)
@@ -103,6 +104,19 @@ const UserProfiles = () => {
   const [activityData, setActivityData] = useState<ActivityItem[]>([])
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false)
   const [selectedActivityUrl, setSelectedActivityUrl] = useState<string | null>(null)
+
+  const filterKey = JSON.stringify([
+    selectedWebsite?.id,
+    period,
+    customStartDate,
+    customEndDate,
+    pagePath,
+    pathOperator,
+    searchQuery,
+    maxUsers,
+  ])
+  const page = pagination.key === filterKey ? pagination.page : 1
+  const setPage = (nextPage: number) => setPagination({ key: filterKey, page: nextPage })
 
   const getDateRange = useCallback(() => {
     const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
@@ -205,16 +219,19 @@ const UserProfiles = () => {
     ],
   )
 
-  const handleSearchClick = useCallback(() => {
-    setPage(1)
-    void fetchUsers(1)
-  }, [fetchUsers])
-
-  useEffect(() => {
-    if (selectedWebsite) {
-      handleSearchClick() // Trigger fetch when website/period changes
-    }
-  }, [selectedWebsite, period, page, handleSearchClick])
+  const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
+  useAutoRefresh(
+    JSON.stringify([filterKey, page]),
+    Boolean(
+      selectedWebsite &&
+      maxUsers >= MIN_MAX_USERS &&
+      maxUsers <= MAX_MAX_USERS &&
+      dateRange &&
+      dateRange.endDate >= dateRange.startDate,
+    ),
+    loading,
+    fetchUsers,
+  )
 
   // Handle "Enter" key in search fields
 
@@ -341,10 +358,6 @@ const UserProfiles = () => {
       sidebarContent={
         <WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} variant="minimal" />
       }
-      onFiltersSubmit={() => {
-        if (!selectedWebsite) return
-        handleSearchClick()
-      }}
       filters={
         <>
           <div className="w-full sm:w-auto min-w-[200px]">
@@ -394,12 +407,6 @@ const UserProfiles = () => {
                 }
               }}
             />
-          </div>
-
-          <div className="flex items-end pb-[2px]">
-            <Button className="w-full sm:w-auto" size="small" onClick={handleSearchClick} disabled={!selectedWebsite}>
-              Vis enkeltbrukere
-            </Button>
           </div>
         </>
       }

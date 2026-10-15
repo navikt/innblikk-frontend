@@ -338,8 +338,6 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
     error,
     hasSearched,
     queryStats,
-    hasUnappliedFilterChanges,
-    fetchData,
   } = useClickmap(visualizationMode === 'scrollmap' ? 'scrollmap' : 'clickmap')
 
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
@@ -351,11 +349,6 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
     : isScrollmap
       ? 'Klikkoversikt: Scrollkart'
       : 'Klikkoversikt'
-  const showButtonLabel = isHeatmap
-    ? 'Oppdater varmekart'
-    : isScrollmap
-      ? 'Oppdater scrollmap'
-      : 'Oppdater klikkoversikt'
   const [isTopListOpen, setIsTopListOpen] = useState<boolean>(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return true
     return !window.matchMedia(TOP_LIST_MOBILE_MEDIA_QUERY).matches
@@ -410,8 +403,6 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
     if (!isScrollmap) return
     setScrollmapSummary(null)
   }, [isScrollmap, data, urlPath])
-
-  const hasPendingUrlChange = normalizeComparablePath(urlInput) !== normalizeComparablePath(urlPath)
 
   const previewTargetUrl = useMemo(
     () => buildPreviewTargetUrl(selectedWebsite?.domain, urlPath),
@@ -685,8 +676,7 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
     const nextPath = pendingLinkNavigation.path
     setPendingLinkNavigation(null)
     setUrlPath(nextPath)
-    void fetchData(nextPath)
-  }, [pendingLinkNavigation, setUrlPath, fetchData])
+  }, [pendingLinkNavigation, setUrlPath])
 
   const handleFocusTopListItem = useCallback((item: (typeof clickmapDataForPreview)[number], index: number) => {
     const itemKey = `${item.sourcePath}-${item.linkText}-${item.destination}-${index}`
@@ -751,17 +741,15 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
       websiteDomain={selectedWebsite?.domain}
       websiteName={selectedWebsite?.name}
       sidebarContent={<WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} />}
-      onFiltersSubmit={() => {
-        if (!selectedWebsite || loading || !urlInput.trim() || (!hasUnappliedFilterChanges && !hasPendingUrlChange))
-          return
-        const nextPath = urlInput.trim()
-        setUrlPath(nextPath)
-        void fetchData(nextPath)
-      }}
       filters={
         <>
           <div className="w-full sm:w-[260px]">
-            <UrlPathInput websiteId={selectedWebsite?.id} value={urlInput} onChange={setUrlInput} />
+            <UrlPathInput
+              websiteId={selectedWebsite?.id}
+              value={urlInput}
+              onChange={setUrlInput}
+              onCommit={(value) => setUrlPath(value.trim())}
+            />
           </div>
 
           <PeriodPicker
@@ -783,23 +771,6 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
               size="small"
               label="Karttype"
             />
-          </div>
-
-          <div className="self-end pb-[2px]">
-            <Button
-              onClick={() => {
-                const nextPath = urlInput.trim()
-                setUrlPath(nextPath)
-                void fetchData(nextPath)
-              }}
-              disabled={
-                !selectedWebsite || loading || !urlInput.trim() || (!hasUnappliedFilterChanges && !hasPendingUrlChange)
-              }
-              loading={loading}
-              size="small"
-            >
-              {showButtonLabel}
-            </Button>
           </div>
         </>
       }

@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback } from 'react'
+import { useAutoRefresh } from '../../analysis/hooks/useAutoRefresh'
 import { useSearchParams } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
 import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
@@ -95,8 +96,8 @@ export const useMarketingAnalysis = () => {
         urlPaths,
         pathOperator,
         period,
-        customStartDate: customStartDate?.toISOString() ?? null,
-        customEndDate: customEndDate?.toISOString() ?? null,
+        customStartDate: customStartDate?.toJSON() ?? null,
+        customEndDate: customEndDate?.toJSON() ?? null,
         metricType,
       }),
     [selectedWebsite?.id, urlPaths, pathOperator, period, customStartDate, customEndDate, metricType],
@@ -189,12 +190,14 @@ export const useMarketingAnalysis = () => {
     cookieStartDate,
   ])
 
-  // Auto-submit when website is selected
-  useEffect(() => {
-    if (selectedWebsite && !hasAttemptedFetch) {
-      void fetchData()
-    }
-  }, [selectedWebsite, hasAttemptedFetch, fetchData])
+  useAutoRefresh(
+    buildFilterKey(),
+    Boolean(
+      selectedWebsite && hasMarketing && currentDateRange && currentDateRange.endDate >= currentDateRange.startDate,
+    ),
+    loading,
+    fetchData,
+  )
 
   const copyShareLink = async () => {
     try {

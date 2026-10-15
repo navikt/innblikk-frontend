@@ -45,8 +45,6 @@ const EventJourney = () => {
     journeyStats,
     queryStats,
     generatedSql,
-    hasUnappliedFilterChanges,
-    fetchData,
   } = useEventJourney()
 
   const [filterText, setFilterText] = useState<string>('')
@@ -147,10 +145,6 @@ const EventJourney = () => {
       sidebarContent={
         <WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} variant="minimal" />
       }
-      onFiltersSubmit={() => {
-        if (!selectedWebsite || loading || !urlPath || !hasUnappliedFilterChanges) return
-        void fetchData()
-      }}
       filters={
         <>
           <UrlPathInput
@@ -169,17 +163,6 @@ const EventJourney = () => {
             endDate={customEndDate}
             onEndDateChange={setCustomEndDate}
           />
-
-          <div className="flex items-end pb-[2px]">
-            <Button
-              onClick={fetchData}
-              disabled={!selectedWebsite || loading || !urlPath || !hasUnappliedFilterChanges}
-              loading={loading}
-              size="small"
-            >
-              Vis
-            </Button>
-          </div>
         </>
       }
     >

@@ -47,7 +47,6 @@ const Wcag = () => {
     error,
     urlPath,
     setUrlPath,
-    fetchWcagData,
   } = useWcag()
 
   const [confirmedSearch, setConfirmedSearch] = useState('')
@@ -203,25 +202,9 @@ const Wcag = () => {
       sidebarContent={
         <WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} variant="minimal" />
       }
-      onFiltersSubmit={() => {
-        if (!selectedWebsite || loading) return
-        void fetchWcagData()
-      }}
       filters={
         <>
           <UrlPathInput websiteId={selectedWebsite?.id} value={urlPath} onChange={setUrlPath} />
-
-          <div className="mt-8">
-            <Button
-              onClick={fetchWcagData}
-              disabled={!selectedWebsite || loading}
-              loading={loading}
-              className="w-full"
-              size="small"
-            >
-              Kjør UU-sjekk
-            </Button>
-          </div>
         </>
       }
     >

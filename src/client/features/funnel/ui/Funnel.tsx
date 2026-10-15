@@ -100,7 +100,6 @@ const Funnel = () => {
     setSelectedTableUrl,
     selectedTimingUrl,
     setSelectedTimingUrl,
-    fetchData,
     fetchTiming,
     copyShareLink,
     setMetabaseCopySuccess,
@@ -139,10 +138,6 @@ const Funnel = () => {
       sidebarContent={
         <WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} variant="minimal" />
       }
-      onFiltersSubmit={() => {
-        if (!selectedWebsite || loading || steps.filter((s) => s.value.trim() !== '').length < 2) return
-        void fetchData()
-      }}
       filters={
         <>
           <PeriodPicker
@@ -165,17 +160,6 @@ const Funnel = () => {
               <Radio value="loose">Tillat andre steg imellom</Radio>
             </div>
           </RadioGroup>
-
-          <div className="flex items-end pb-[2px]">
-            <Button
-              size="small"
-              onClick={fetchData}
-              disabled={!selectedWebsite || loading || steps.filter((s) => s.value.trim() !== '').length < 2}
-              loading={loading}
-            >
-              {funnelData.length > 0 ? 'Oppdater' : 'Lag trakt'}
-            </Button>
-          </div>
         </>
       }
     >
@@ -387,16 +371,6 @@ const Funnel = () => {
                   Legg til steg
                 </Button>
               </div>
-
-              <Button
-                onClick={fetchData}
-                disabled={!selectedWebsite || loading || steps.filter((s) => s.value.trim() !== '').length < 2}
-                loading={loading}
-                className="w-full"
-                style={{ marginTop: '2rem' }}
-              >
-                Lag trakt
-              </Button>
             </div>
           </div>
         )}

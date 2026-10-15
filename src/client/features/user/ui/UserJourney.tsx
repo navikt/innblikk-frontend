@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useAutoRefresh } from '../../analysis/hooks/useAutoRefresh'
 import { ActionMenu, Alert, Button, Loader, ReadMore, Select, Switch, TextField, Tooltip } from '@navikt/ds-react'
 import { ExternalLinkIcon, MagnifyingGlassIcon, MenuElipsisVerticalIcon, ShrinkIcon } from '@navikt/aksel-icons'
 import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
@@ -11,11 +12,11 @@ import AnalysisActionModal from '../../analysis/ui/AnalysisActionModal.tsx'
 import UserJourneyCanvasView from './UserJourneyCanvasView.tsx'
 import TableSectionHeader from '../../../shared/ui/TableSectionHeader.tsx'
 import type { Website } from '../../../shared/types/chart.ts'
-import { normalizeUrlToPath } from '../../../shared/lib/utils.ts'
+import { getDateRangeFromPeriod } from '../../../shared/lib/utils.ts'
 import type { JourneyLink } from '../model'
 import { useUrlState, useJourneyData } from '../hooks'
 import { SqlViewer } from '../../chartbuilder-next'
-import { buildAppliedFilterKey, downloadJourneyCSV, downloadJourneyExcel, copyShareLink } from '../utils'
+import { downloadJourneyCSV, downloadJourneyExcel, copyShareLink } from '../utils'
 
 const UserJourney = () => {
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
@@ -39,23 +40,12 @@ const UserJourney = () => {
     setLimitInput,
     journeyDirection,
     setJourneyDirection,
-    searchParams,
   } = urlState
 
   // Use custom hook for journey data fetching
   const journeyData = useJourneyData(selectedWebsite, period, customStartDate, customEndDate, limit, journeyDirection)
-  const {
-    data,
-    rawData,
-    loading,
-    isUpdating,
-    error,
-    queryStats,
-    generatedSql,
-    lastAppliedFilterKey,
-    reverseVisualOrder,
-    fetchData,
-  } = journeyData
+  const { data, rawData, loading, isUpdating, error, queryStats, generatedSql, reverseVisualOrder, fetchData } =
+    journeyData
 
   // UI state
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false)
@@ -66,39 +56,22 @@ const UserJourney = () => {
   const [tableSearch, setTableSearch] = useState<string>('')
   const [showTableSearch, setShowTableSearch] = useState<boolean>(false)
   const tableSearchInputRef = useRef<HTMLInputElement>(null)
-  const hasAutoSubmittedRef = useRef<boolean>(false)
-
-  const hasUnappliedFilterChanges = lastAppliedFilterKey
-    ? buildAppliedFilterKey(
-        selectedWebsite?.id,
-        normalizeUrlToPath(startUrl) || '',
-        period,
-        customStartDate,
-        customEndDate,
-        steps,
-        limit,
-        journeyDirection,
-      ) !== lastAppliedFilterKey
-    : true
-
-  const handleSearch = () => {
-    void fetchData(startUrl, steps)
-  }
-
-  // Auto-submit when URL parameters are present (for shared links)
-  useEffect(() => {
-    const hasConfigParams =
-      searchParams.has('period') ||
-      searchParams.has('urlPath') ||
-      searchParams.has('startUrl') ||
-      searchParams.has('steps') ||
-      searchParams.has('limit') ||
-      searchParams.has('direction')
-    if (selectedWebsite && hasConfigParams && !hasAutoSubmittedRef.current && !loading) {
-      hasAutoSubmittedRef.current = true
-      void fetchData(startUrl, steps)
-    }
-  }, [selectedWebsite, searchParams, loading, fetchData, startUrl, steps])
+  const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
+  useAutoRefresh(
+    JSON.stringify([
+      selectedWebsite?.id,
+      startUrl,
+      period,
+      customStartDate,
+      customEndDate,
+      steps,
+      limit,
+      journeyDirection,
+    ]),
+    Boolean(selectedWebsite && startUrl.trim() && dateRange && dateRange.endDate >= dateRange.startDate),
+    loading || isUpdating,
+    () => fetchData(startUrl, steps),
+  )
 
   const handleCopyShareLink = async () => {
     const success = await copyShareLink()
@@ -121,7 +94,6 @@ const UserJourney = () => {
   const handleLoadMore = (increment: number) => {
     const newSteps = steps + increment
     setSteps(newSteps)
-    void fetchData(startUrl, newSteps, true)
   }
 
   const filteredTableLinks = rawData
@@ -145,10 +117,6 @@ const UserJourney = () => {
       websiteDomain={selectedWebsite?.domain}
       websiteName={selectedWebsite?.name}
       sidebarContent={<WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} />}
-      onFiltersSubmit={() => {
-        if (!selectedWebsite || loading || !hasUnappliedFilterChanges) return
-        handleSearch()
-      }}
       filters={
         <>
           <div className="w-full sm:w-[300px]">
@@ -221,17 +189,6 @@ const UserJourney = () => {
                 }
               }}
             />
-          </div>
-
-          <div className="w-full sm:w-auto self-end pb-[2px]">
-            <Button
-              onClick={handleSearch}
-              disabled={!selectedWebsite || loading || !hasUnappliedFilterChanges}
-              loading={loading}
-              size="small"
-            >
-              Vis
-            </Button>
           </div>
         </>
       }

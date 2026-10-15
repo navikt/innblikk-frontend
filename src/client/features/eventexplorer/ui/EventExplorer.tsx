@@ -45,8 +45,6 @@ const EventExplorer = () => {
     selectedParameterForDrilldown,
     setSelectedParameterForDrilldown,
     parameterValuesQueryStats,
-    hasUnappliedFilterChanges,
-    fetchEventsData,
     fetchAllParameterValues,
   } = useEventExplorer()
 
@@ -75,10 +73,6 @@ const EventExplorer = () => {
       websiteDomain={selectedWebsite?.domain}
       websiteName={selectedWebsite?.name}
       sidebarContent={<WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} />}
-      onFiltersSubmit={() => {
-        if (!selectedWebsite || loadingEvents || !hasUnappliedFilterChanges) return
-        void fetchEventsData()
-      }}
       filters={
         <>
           <UrlPathFilter
@@ -101,17 +95,6 @@ const EventExplorer = () => {
             endDate={customEndDate}
             onEndDateChange={setCustomEndDate}
           />
-
-          <div className="w-full sm:w-auto self-end pb-[2px]">
-            <Button
-              onClick={fetchEventsData}
-              disabled={!selectedWebsite || loadingEvents || !hasUnappliedFilterChanges}
-              loading={loadingEvents}
-              size="small"
-            >
-              Vis hendelser
-            </Button>
-          </div>
         </>
       }
     >

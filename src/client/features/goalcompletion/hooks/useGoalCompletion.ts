@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useAutoRefresh } from '../../analysis/hooks/useAutoRefresh'
 import { useSearchParams } from 'react-router-dom'
 import type { ILineChartProps } from '@fluentui/react-charting'
 import { parseISO } from 'date-fns'
@@ -86,7 +87,6 @@ export function useGoalCompletion(): GoalCompletionState {
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
   const [hasAttemptedFetch, setHasAttemptedFetch] = useState<boolean>(false)
-  const hasAutoSubmittedRef = useRef(false)
   const [lastAppliedFilterKey, setLastAppliedFilterKey] = useState<string | null>(null)
   const [eventsCache, setEventsCache] = useState<Record<string, string[]>>({})
 
@@ -112,8 +112,8 @@ export function useGoalCompletion(): GoalCompletionState {
         startStep: normalizeGoalStep(startStep),
         goalStep: normalizeGoalStep(goalStep),
         period,
-        customStartDate: customStartDate?.toISOString() ?? null,
-        customEndDate: customEndDate?.toISOString() ?? null,
+        customStartDate: customStartDate?.toJSON() ?? null,
+        customEndDate: customEndDate?.toJSON() ?? null,
       }),
     [selectedWebsite?.id, startStep, goalStep, period, customStartDate, customEndDate],
   )
@@ -206,27 +206,17 @@ export function useGoalCompletion(): GoalCompletionState {
     customEndDate,
   ])
 
-  useEffect(() => {
-    const hasConfigParams =
-      searchParams.has('startStep') ||
-      searchParams.has('goalStep') ||
-      searchParams.has('startUrl') ||
-      searchParams.has('goalUrl') ||
-      searchParams.has('urlPath') ||
-      searchParams.has('pagePath')
-
-    const normalizedStartStep = normalizeGoalStep(startStep)
-    const normalizedGoalStep = normalizeGoalStep(goalStep)
-    const hasValidSteps = Boolean(normalizedStartStep.value && normalizedGoalStep.value)
-
-    if (selectedWebsite && hasConfigParams && hasValidSteps && !hasAutoSubmittedRef.current && !loading) {
-      hasAutoSubmittedRef.current = true
-      const timer = window.setTimeout(() => {
-        void fetchData()
-      }, 0)
-      return () => window.clearTimeout(timer)
-    }
-  }, [fetchData, goalStep, loading, searchParams, selectedWebsite, startStep])
+  const hasValidSteps = [startStep, goalStep].every(
+    (step) =>
+      normalizeGoalStep(step).value &&
+      (step.type !== 'event' || (step.params ?? []).every((param) => param.key.trim() && param.value.trim())),
+  )
+  useAutoRefresh(
+    buildFilterKey(),
+    Boolean(selectedWebsite && hasValidSteps && dateRange && dateRange.endDate >= dateRange.startDate),
+    loading,
+    fetchData,
+  )
 
   return {
     selectedWebsite,

@@ -1,4 +1,4 @@
-import { Alert, Loader, Radio, RadioGroup, Table, Heading, Tooltip, Tabs, Button } from '@navikt/ds-react'
+import { Alert, Loader, Radio, RadioGroup, Table, Heading, Tooltip, Tabs } from '@navikt/ds-react'
 import { LineChart } from '@fluentui/react-charting'
 import { format } from 'date-fns'
 import { nb } from 'date-fns/locale'
@@ -42,7 +42,6 @@ const Diagnosis = () => {
     historyQueryStats,
     chartData,
     handleExplore,
-    fetchData,
   } = useDiagnosis()
 
   return (
@@ -50,10 +49,6 @@ const Diagnosis = () => {
       title="Diagnoseverktøy"
       description="Oversikt over aktivitet på alle nettsteder og apper."
       currentPage="diagnose"
-      onFiltersSubmit={() => {
-        if (loading) return
-        void fetchData()
-      }}
       filters={
         <>
           <WebsitePicker
@@ -78,11 +73,6 @@ const Diagnosis = () => {
               <Radio value="dev">Dev-miljø</Radio>
             </div>
           </RadioGroup>
-          <div className="flex items-end pb-[2px] mt-8">
-            <Button onClick={() => void fetchData()} disabled={loading} loading={loading} size="small">
-              {selectedWebsiteFilter ? 'Kjør diagnose' : 'Søk i alle nettsteder'}
-            </Button>
-          </div>
         </>
       }
     >

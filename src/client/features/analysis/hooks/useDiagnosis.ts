@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
+import { useAutoRefresh } from './useAutoRefresh'
 import { useSearchParams } from 'react-router-dom'
 import { parseISO } from 'date-fns'
 import type { Website } from '../../../shared/types/chart.ts'
@@ -81,6 +82,14 @@ export const useDiagnosis = () => {
       setLoading(false)
     }
   }, [period, customStartDate, customEndDate])
+
+  const dateRange = calculateDateRange(period, customStartDate, customEndDate)
+  useAutoRefresh(
+    JSON.stringify([period, customStartDate, customEndDate]),
+    Boolean(dateRange && dateRange.endDate >= dateRange.startDate),
+    loading,
+    fetchData,
+  )
 
   const environmentData = useMemo(() => (data ? filterByEnvironment(data, environment) : []), [data, environment])
 

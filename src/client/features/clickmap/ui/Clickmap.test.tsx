@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { vi, beforeEach, afterEach } from 'vitest'
 import userEvent from '@testing-library/user-event'
@@ -95,17 +95,21 @@ describe('Clickmap page', () => {
   })
 
   it.each<VisualizationMode>(['clickmap', 'heatmap', 'scrollmap'])(
-    'suggests URLs without applying them immediately in %s mode',
+    'automatically applies selected URL suggestions in %s mode',
     async (mode) => {
       const user = userEvent.setup()
       renderPage(mode, true)
       await screen.findByTitle(/sidevisning/)
-      const input = screen.getByRole('combobox', { name: 'URL', exact: true })
+      const input = screen.getByRole('combobox', { name: 'URL' })
       await user.click(input)
       await user.keyboard('{Backspace}')
       await user.type(input, '/arb')
-      await user.click(await screen.findByRole('option', { name: '/arbeid', exact: true }))
       expect(new URLSearchParams(window.location.search).get('urlPath')).toBe('/account')
+      await user.click(await screen.findByRole('option', { name: '/arbeid' }))
+      await waitFor(() => expect(new URLSearchParams(window.location.search).get('urlPath')).toBe('/arbeid'))
+      expect(
+        screen.queryByRole('button', { name: /Oppdater (klikkoversikt|varmekart|scrollmap)/ }),
+      ).not.toBeInTheDocument()
       expect(screen.getByText('/arbeid', { selector: '.aksel-combobox__selected-options--no-bg' })).toBeInTheDocument()
     },
   )

@@ -38,7 +38,6 @@ const Spellings = () => {
     error,
     urlPath,
     setUrlPath,
-    fetchSpellingData,
   } = useSpellings()
 
   const [potentialSearch, setPotentialSearch] = useState('')
@@ -168,25 +167,9 @@ const Spellings = () => {
       sidebarContent={
         <WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} variant="minimal" />
       }
-      onFiltersSubmit={() => {
-        if (!selectedWebsite || loading) return
-        void fetchSpellingData()
-      }}
       filters={
         <>
           <UrlPathInput websiteId={selectedWebsite?.id} value={urlPath} onChange={setUrlPath} />
-
-          <div className="mt-8">
-            <Button
-              onClick={fetchSpellingData}
-              disabled={!selectedWebsite || loading}
-              loading={loading}
-              className="w-full"
-              size="small"
-            >
-              Vis stavefeil
-            </Button>
-          </div>
         </>
       }
     >

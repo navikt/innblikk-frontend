@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
+import { useAutoRefresh } from '../../analysis/hooks/useAutoRefresh'
 import { useSearchParams } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
 import type { Website } from '../../../shared/types/chart'
@@ -19,7 +20,6 @@ type ClickmapDataset = 'clickmap' | 'scrollmap'
 export const useClickmap = (dataset: ClickmapDataset = 'clickmap') => {
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
   const [searchParams] = useSearchParams()
-  const initialAutoLoadAttemptedRef = useRef(false)
 
   const [urlPath, setUrlPath] = useState<string>(
     () => searchParams.get('urlPath') || searchParams.get('pagePath') || '',
@@ -38,7 +38,6 @@ export const useClickmap = (dataset: ClickmapDataset = 'clickmap') => {
 
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(initialCustomStartDate)
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(initialCustomEndDate)
-  const shouldInitialAutoLoad = searchParams.has('urlPath') || searchParams.has('pagePath')
 
   const [data, setData] = useState<ClickmapItem[]>([])
   const [loading, setLoading] = useState<boolean>(false)
@@ -54,8 +53,8 @@ export const useClickmap = (dataset: ClickmapDataset = 'clickmap') => {
         websiteId: selectedWebsite?.id ?? null,
         urlPath: normalizeUrlToPath(urlPath),
         period,
-        customStartDate: customStartDate?.toISOString() ?? null,
-        customEndDate: customEndDate?.toISOString() ?? null,
+        customStartDate: customStartDate?.toJSON() ?? null,
+        customEndDate: customEndDate?.toJSON() ?? null,
       }),
     [selectedWebsite?.id, urlPath, period, customStartDate, customEndDate],
   )
@@ -132,15 +131,13 @@ export const useClickmap = (dataset: ClickmapDataset = 'clickmap') => {
     [selectedWebsite, urlPath, period, customStartDate, customEndDate, dataset],
   )
 
-  useEffect(() => {
-    if (initialAutoLoadAttemptedRef.current) return
-    if (!selectedWebsite) return
-
-    initialAutoLoadAttemptedRef.current = true
-
-    if (!shouldInitialAutoLoad || !urlPath.trim()) return
-    void fetchData()
-  }, [selectedWebsite, shouldInitialAutoLoad, urlPath, fetchData])
+  const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
+  useAutoRefresh(
+    JSON.stringify([buildFilterKey(), dataset]),
+    Boolean(selectedWebsite && urlPath.trim() && dateRange && dateRange.endDate >= dateRange.startDate),
+    loading,
+    fetchData,
+  )
 
   return {
     selectedWebsite,

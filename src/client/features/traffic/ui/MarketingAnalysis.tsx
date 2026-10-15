@@ -33,10 +33,8 @@ const MarketingAnalysis = () => {
     loading,
     error,
     hasAttemptedFetch,
-    fetchData,
     copyShareLink,
     copySuccess,
-    hasUnappliedFilterChanges,
     activeTab,
     setActiveTab,
     currentDateRange,
@@ -73,10 +71,6 @@ const MarketingAnalysis = () => {
       websiteDomain={selectedWebsite?.domain}
       websiteName={selectedWebsite?.name}
       sidebarContent={<WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} />}
-      onFiltersSubmit={() => {
-        if (!selectedWebsite || loading || !hasUnappliedFilterChanges) return
-        void fetchData()
-      }}
       filters={
         <>
           <UrlPathFilter
@@ -111,17 +105,6 @@ const MarketingAnalysis = () => {
               <option value="pageviews">Sidevisninger</option>
               <option value="proportion">Andel (av besøkende)</option>
             </Select>
-          </div>
-
-          <div className="w-full sm:w-auto self-end pb-[2px]">
-            <Button
-              onClick={fetchData}
-              disabled={!selectedWebsite || loading || !hasUnappliedFilterChanges}
-              loading={loading}
-              size="small"
-            >
-              Vis analyse
-            </Button>
           </div>
         </>
       }

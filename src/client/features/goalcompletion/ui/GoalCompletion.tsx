@@ -73,11 +73,9 @@ const GoalCompletion = () => {
     loading,
     error,
     hasAttemptedFetch,
-    hasUnappliedFilterChanges,
     cookieBadge,
     isPreCookieRange,
     cookieStartDate,
-    fetchData,
   } = useGoalCompletion()
 
   const [showTableSection, setShowTableSection] = useState(false)
@@ -355,17 +353,6 @@ const GoalCompletion = () => {
               </div>
             </div>
           ))}
-        </div>
-
-        <div className="mt-4 flex justify-end">
-          <Button
-            onClick={fetchData}
-            size="small"
-            disabled={!selectedWebsite || loading || !hasUnappliedFilterChanges || !hasValidSteps}
-            loading={loading}
-          >
-            Beregn måloppnåelse
-          </Button>
         </div>
       </div>
 

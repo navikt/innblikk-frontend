@@ -42,13 +42,11 @@ const Retention = () => {
     error,
     hasAttemptedFetch,
     copySuccess,
-    hasUnappliedFilterChanges,
     cookieBadge,
     isPreCookieRange,
     cookieStartDate,
     overriddenGlobalPeriod,
     isCurrentMonthData,
-    fetchData,
     downloadCSV,
     copyShareLink,
   } = useRetention()
@@ -68,10 +66,6 @@ const Retention = () => {
       websiteDomain={selectedWebsite?.domain}
       websiteName={selectedWebsite?.name}
       sidebarContent={<WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} />}
-      onFiltersSubmit={() => {
-        if (!selectedWebsite || loading || !hasUnappliedFilterChanges) return
-        void fetchData()
-      }}
       filters={
         <>
           <div className="w-full sm:w-[300px]">
@@ -106,17 +100,6 @@ const Retention = () => {
             >
               Retur på samme URL
             </Switch>
-          </div>
-
-          <div className="flex items-end pb-[2px]">
-            <Button
-              onClick={fetchData}
-              size="small"
-              disabled={!selectedWebsite || loading || !hasUnappliedFilterChanges}
-              loading={loading}
-            >
-              Vis
-            </Button>
           </div>
         </>
       }
