@@ -64,7 +64,7 @@ describe('WebsiteSelect backspace', () => {
     )
     expect(container.querySelector('.aksel-combobox__selected-options--no-bg')).toHaveTextContent(/^aksel.nav.no$/)
     await user.click(screen.getByRole('combobox', { name: 'Nettsted' }))
-    expect(screen.getByRole('option', { name: 'aksel.nav.no (Aksel)' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'aksel.nav.no', selected: true })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'aksel.nav.no (Another Aksel)' })).toBeInTheDocument()
   })
 

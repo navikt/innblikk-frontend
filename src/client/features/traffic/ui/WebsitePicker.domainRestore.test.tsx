@@ -1,4 +1,5 @@
-import { fireEvent, render, waitFor } from '@testing-library/react'
+import { render, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { vi, beforeEach, afterEach, describe, it, expect } from 'vitest'
 import { useState } from 'react'
@@ -47,6 +48,7 @@ function Harness() {
 describe('WebsitePicker domain restore', () => {
   beforeEach(() => {
     localStorage.clear()
+    window.history.replaceState({}, '', '/trafikkanalyse')
     // Default to the prod dataset; individual tests override for dev.
     window.__RUNTIME_CONFIG__ = { GCP_PROJECT_ID: 'team-researchops-prod-01d6' }
     vi.stubGlobal(
@@ -164,6 +166,7 @@ describe('WebsitePicker domain restore', () => {
   })
 
   it('finds SharePoint by Navet and retains the alias after selection', async () => {
+    const user = userEvent.setup()
     vi.stubGlobal(
       'fetch',
       vi.fn(() =>
@@ -191,9 +194,8 @@ describe('WebsitePicker domain restore', () => {
       </MemoryRouter>,
     )
     await waitFor(() => expect(getByTestId('selected-id')).toHaveTextContent(PROD_DEFAULT_ID))
-    fireEvent.change(getByRole('combobox'), { target: { value: 'Navet' } })
-    fireEvent.keyDown(getByRole('combobox'), { key: 'ArrowDown' })
-    fireEvent.click(await findByRole('option', { name: 'navno.sharepoint.com (Navet)' }))
+    await user.type(getByRole('combobox'), 'Navet')
+    await user.click(await findByRole('option', { name: 'navno.sharepoint.com (Navet)' }))
     await waitFor(() => expect(getByTestId('selected-id')).toHaveTextContent('navet-id'))
     expect(container.querySelector('.aksel-combobox__selected-options--no-bg')).toHaveTextContent(
       'navno.sharepoint.com (Navet)',
@@ -201,6 +203,7 @@ describe('WebsitePicker domain restore', () => {
   })
 
   it('offers dev websites directly without a visibility toggle', async () => {
+    const user = userEvent.setup()
     window.history.replaceState({}, '', '/trafikkanalyse')
     const { getByRole, getByTestId, findByRole, queryByText } = render(
       <MemoryRouter>
@@ -209,11 +212,11 @@ describe('WebsitePicker domain restore', () => {
     )
     await waitFor(() => expect(getByTestId('selected-id')).toHaveTextContent(PROD_DEFAULT_ID))
 
-    fireEvent.keyDown(getByRole('combobox'), { key: 'ArrowDown' })
+    await user.click(getByRole('combobox'))
     const devOption = await findByRole('option', { name: 'innblikk.ansatt.dev.nav.no' })
     expect(queryByText('Vis dev sider')).not.toBeInTheDocument()
     expect(queryByText('Skjul dev sider')).not.toBeInTheDocument()
-    fireEvent.click(devOption)
+    await user.click(devOption)
 
     await waitFor(() => expect(getByTestId('selected-id')).toHaveTextContent('innblikk-dev-id'))
   })

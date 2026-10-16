@@ -35,6 +35,8 @@ import { useCookieSupport, useCookieStartDate } from '../../../shared/hooks/useS
 vi.mock('../../../shared/hooks/useSiteimproveSupport.ts', () => ({
   useCookieSupport: vi.fn(() => false),
   useCookieStartDate: vi.fn(() => null),
+  useSiteimproveSupport: vi.fn(() => false),
+  useMarketingSupport: vi.fn(() => false),
 }))
 
 const FAKE_WEBSITES = [{ id: 'site-1', name: 'Nav.no - prod', domain: 'nav.no', createdAt: '2023-01-01T00:00:00Z' }]
@@ -56,8 +58,11 @@ describe('TrafficAnalysis page', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn((url: string) => {
-        if (url.includes('/api/bigquery/websites')) {
+        if (url === '/api/bigquery/websites') {
           return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: FAKE_WEBSITES }) })
+        }
+        if (url.includes('/traffic-series?')) {
+          return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: [], totalCount: 0 }) })
         }
         return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
       }),
