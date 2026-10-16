@@ -1,4 +1,4 @@
-import { BodyLong, Detail, Heading, HelpText, Tag } from '@navikt/ds-react'
+import { BodyLong, Detail, Heading, Tag } from '@navikt/ds-react'
 import { TestFlaskIcon } from '@navikt/aksel-icons'
 import React from 'react'
 import { AppBlock } from '../AppBlock/AppBlock.tsx'
@@ -11,7 +11,6 @@ interface PageHeaderProps {
   variant?: 'regular' | 'article'
   beta?: boolean
   notice?: React.ReactNode
-  compact?: boolean
 }
 
 export const PageHeader = ({
@@ -22,40 +21,34 @@ export const PageHeader = ({
   variant = 'regular',
   beta,
   notice,
-  compact = false,
 }: PageHeaderProps) => {
   const isArticle = variant === 'article'
-  const isCompact = compact && !isArticle
-  const padding = isArticle ? '32px' : isCompact ? '8px' : '16px'
+  const padding = isArticle ? '32px' : '16px'
 
   return (
     <div
       style={{
         width: '100%',
-        backgroundColor: isCompact ? 'transparent' : 'var(--ax-bg-accent-soft)',
+        backgroundColor: 'var(--ax-bg-accent-soft)',
         color: 'var(--ax-text-default)',
-        paddingTop: isCompact ? '20px' : padding,
-        paddingBottom: isCompact ? '12px' : padding,
-        minHeight: isArticle || isCompact ? undefined : '65px',
-        marginBottom: isCompact ? '0' : '24px',
+        paddingTop: padding,
+        paddingBottom: padding,
+        // Matches the sidebar's logo bar (65px) so the two bottom edges line up when there is no description.
+        minHeight: isArticle ? undefined : '65px',
+        marginBottom: '24px',
       }}
     >
-      <AppBlock className={isCompact ? 'md:!px-6' : ''}>
+      <AppBlock>
         <div
           className={`grid gap-[10px] md:grid-cols-[minmax(0,1fr)_auto] md:items-start ${
             isArticle ? 'max-w-[800px] mx-auto' : ''
           }`}
         >
           <div className="flex flex-col gap-[6px] md:col-start-1 md:row-start-1">
-            <div className={`flex items-center flex-wrap ${isCompact ? 'gap-2' : 'gap-3'}`}>
+            <div className="flex items-center gap-3 flex-wrap">
               <Heading level="1" size="small">
                 {title}
               </Heading>
-              {isCompact && description && (
-                <HelpText title={`Om ${title}`} strategy="fixed">
-                  {description}
-                </HelpText>
-              )}
               {beta && (
                 <Tag variant="moderate" size="small" data-color="meta-purple" icon={<TestFlaskIcon aria-hidden />}>
                   Beta
@@ -67,7 +60,7 @@ export const PageHeader = ({
                 {subtitle}
               </Detail>
             )}
-            {description && !isCompact && (
+            {description && (
               <div className="text-[var(--ax-text-neutral-subtle)]">
                 {typeof description === 'string' ? (
                   isArticle ? (

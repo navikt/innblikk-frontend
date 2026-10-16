@@ -18,6 +18,7 @@ import { ArrowLeftIcon, PencilIcon, PlusIcon, TrashIcon } from '@navikt/aksel-ic
 import { fetchWebsites } from '../../../shared/api/websiteApi.ts'
 import { useUnsavedChangesGuard } from '../../../shared/hooks/useUnsavedChangesGuard.ts'
 import type { Website } from '../../../shared/types/website.ts'
+import { BetaFeatureNotice, BetaFeedbackLine } from '../../../shared/ui/BetaFeatureNotice.tsx'
 import { WebsiteSelect } from '../../../shared/ui/WebsiteSelect.tsx'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
@@ -268,6 +269,11 @@ function SidegroupEditorPage() {
       <PageHeader title={title} description={!isNew && websiteLabel ? `Nettsted: ${websiteLabel}` : undefined} beta />
 
       <AppBlock className="pb-16">
+        <BetaFeatureNotice id="sidegrupper" title="Sidegrupper er i beta" className="mb-4">
+          Sidegrupper er under utvikling, og funksjonalitet kan endre seg.
+          <BetaFeedbackLine />
+        </BetaFeatureNotice>
+
         <form onSubmit={handleSubmit}>
           <VStack gap="space-24" style={{ maxWidth: '56rem' }}>
             <Button

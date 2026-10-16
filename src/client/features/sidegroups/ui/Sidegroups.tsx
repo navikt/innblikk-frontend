@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Alert, BodyShort, Button, Dialog, Loader, Table, VStack } from '@navikt/ds-react'
+import { Alert, BodyShort, Button, Dialog, HStack, Heading, Loader, Table, VStack } from '@navikt/ds-react'
 import { PencilIcon, PlusIcon, TrashIcon } from '@navikt/aksel-icons'
 import { fetchWebsites } from '../../../shared/api/websiteApi.ts'
 import type { Website } from '../../../shared/types/website.ts'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
+import { BetaFeatureNotice, BetaFeedbackLine } from '../../../shared/ui/BetaFeatureNotice.tsx'
 import { WebsiteSelect } from '../../../shared/ui/WebsiteSelect.tsx'
-import { WebsiteNavigationSlot } from '../../../shared/ui/theme/WebsiteNavigation.tsx'
 import { deleteSidegroup, listSidegroups } from '../api/sidegroupsApi.ts'
 import { sidegroupMatchFields, type Sidegroup } from '../model/types.ts'
 
@@ -69,37 +69,34 @@ export default function Sidegroups() {
 
   return (
     <>
-      <PageHeader
-        title="Sidegrupper"
-        description="Administrer alle grupper på nettstedet ditt"
-        beta
-        compact
-        actions={
-          selectedWebsiteId ? (
-            <Button as={Link} to={newHref} size="small" variant="secondary" icon={<PlusIcon aria-hidden />}>
-              Ny sidegruppe
-            </Button>
-          ) : (
-            <Button size="small" variant="secondary" icon={<PlusIcon aria-hidden />} disabled>
-              Ny sidegruppe
-            </Button>
-          )
-        }
-      />
-      <AppBlock className="pb-8 md:!px-6">
+      <PageHeader title="Sidegrupper" description="Administrer alle grupper på nettstedet ditt" beta />
+      <AppBlock className="pb-16">
+        {/* Dismissable beta notice — registry id in shared/lib/betaFeatures.ts */}
+        <BetaFeatureNotice id="sidegrupper" title="Sidegrupper er i beta" className="mb-4">
+          Sidegrupper er under utvikling, og funksjonalitet kan endre seg.
+          <BetaFeedbackLine />
+        </BetaFeatureNotice>
+
         <VStack gap="space-16">
-          <WebsiteNavigationSlot>
-            {websitesLoading ? (
-              <Loader size="small" title="Laster nettsteder…" />
+          {websitesLoading ? (
+            <Loader size="small" title="Laster nettsteder…" />
+          ) : (
+            <WebsiteSelect websites={websites} selectedId={selectedWebsiteId} onSelect={setSelectedWebsiteId} />
+          )}
+          <HStack justify="space-between" align="center">
+            <Heading size="small" level="2">
+              Sidegrupper
+            </Heading>
+            {selectedWebsiteId ? (
+              <Button as={Link} to={newHref} size="small" variant="secondary" icon={<PlusIcon aria-hidden />}>
+                Ny sidegruppe
+              </Button>
             ) : (
-              <WebsiteSelect
-                websites={websites}
-                selectedId={selectedWebsiteId}
-                onSelect={setSelectedWebsiteId}
-                size="small"
-              />
+              <Button size="small" variant="secondary" icon={<PlusIcon aria-hidden />} disabled>
+                Ny sidegruppe
+              </Button>
             )}
-          </WebsiteNavigationSlot>
+          </HStack>
           {error && <Alert variant="error">{error}</Alert>}
           {loading || websitesLoading ? (
             <Loader size="medium" title="Laster sidegrupper…" />

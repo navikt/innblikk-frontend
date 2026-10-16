@@ -11,8 +11,6 @@ import { useHead } from '@unhead/react'
 import { AppBlock } from './shared/ui/theme/AppBlock/AppBlock.tsx'
 import { getFeatureFlag, loadFeatureFlagsFromBackend } from './shared/lib/featureFlags.ts'
 import { touchUserSettings } from './shared/lib/heartbeat.ts'
-import { WebsiteNavigation } from './shared/ui/theme/WebsiteNavigation.tsx'
-import { SkipToContent } from './shared/ui/theme/SkipToContent.tsx'
 
 import './App.css'
 
@@ -35,18 +33,10 @@ const PageLayout = ({ children }: { children: React.ReactNode }) => {
   const isFullWidthPage = isFullWidthPath(location.pathname)
 
   if (isFullWidthPage) {
-    return (
-      <main id="main-content" tabIndex={-1} style={{ width: '100%' }}>
-        {children}
-      </main>
-    )
+    return <main style={{ width: '100%' }}>{children}</main>
   }
 
-  return (
-    <AppBlock as="main" id="main-content" tabIndex={-1}>
-      {children}
-    </AppBlock>
-  )
+  return <AppBlock as="main">{children}</AppBlock>
 }
 
 // Loading fallback for lazy-loaded routes
@@ -127,16 +117,11 @@ const AppShell = ({ theme }: { theme: 'light' | 'dark' }) => {
     // sibling flex items) sidesteps that entirely.
     return alphaNewNav ? (
       <div className="flex h-dvh w-full flex-col md:flex-row">
-        <SkipToContent />
         <Sidebar theme={theme} />
-        <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col">
-          <WebsiteNavigation>
-            <main id="main-content" tabIndex={-1} className="flex min-h-0 flex-1 flex-col">
-              <ErrorBoundary>
-                <Suspense fallback={<PageLoader />}>{appRoutes}</Suspense>
-              </ErrorBoundary>
-            </main>
-          </WebsiteNavigation>
+        <div className="flex h-dvh min-h-0 min-w-0 w-full flex-1 flex-col">
+          <ErrorBoundary>
+            <Suspense fallback={<PageLoader />}>{appRoutes}</Suspense>
+          </ErrorBoundary>
         </div>
       </div>
     ) : (
@@ -154,19 +139,16 @@ const AppShell = ({ theme }: { theme: 'light' | 'dark' }) => {
   if (alphaNewNav) {
     return (
       <div className="flex min-h-dvh w-full flex-col md:flex-row">
-        <SkipToContent />
         <Sidebar theme={theme} />
         <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col">
-          <WebsiteNavigation>
-            <Page>
-              <PageLayout>
-                <ErrorBoundary>
-                  <Suspense fallback={<PageLoader />}>{appRoutes}</Suspense>
-                </ErrorBoundary>
-                <ScrollToTopWrapper />
-              </PageLayout>
-            </Page>
-          </WebsiteNavigation>
+          <Page>
+            <PageLayout>
+              <ErrorBoundary>
+                <Suspense fallback={<PageLoader />}>{appRoutes}</Suspense>
+              </ErrorBoundary>
+              <ScrollToTopWrapper />
+            </PageLayout>
+          </Page>
         </div>
       </div>
     )

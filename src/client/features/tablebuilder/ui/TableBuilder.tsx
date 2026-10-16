@@ -24,7 +24,8 @@ import {
   TableIcon,
   TrashIcon,
 } from '@navikt/aksel-icons'
-import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
+import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
+import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import AddToDashboardDialog from '../../../shared/ui/AddToDashboardDialog.tsx'
 import TransferToMetabaseDialog from '../../../shared/ui/TransferToMetabaseDialog.tsx'
 import { openSqlEditorWithContext } from '../../../shared/lib/openSqlEditor.ts'
@@ -914,19 +915,11 @@ const TableBuilder = () => {
 
   return (
     <>
-      <ChartLayout
-        title="Tabellbygger"
-        description="Bygg en tabell med kolonnene du trenger"
-        beta
-        hideAnalysisSelector
-        websiteId={selectedWebsite?.id}
-        websiteDomain={selectedWebsite?.domain}
-        websiteName={selectedWebsite?.name}
-        sidebarContent={
-          <WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={handleWebsiteChange} disableAutoEvents />
-        }
-        filters={
-          <>
+      <PageHeader title="Tabellbygger" description="Bygg en tabell med kolonnene du trenger" beta />
+      <AppBlock className="pb-16">
+        <div className="space-y-6">
+          <div className="grid gap-4 rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-4 lg:grid-cols-[minmax(220px,1fr)_minmax(280px,1.2fr)_200px] lg:items-end">
+            <WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={handleWebsiteChange} disableAutoEvents />
             <UrlPathFilter
               urlPaths={urlPaths}
               onUrlPathsChange={setUrlPaths}
@@ -936,7 +929,7 @@ const TableBuilder = () => {
               selectedWebsiteId={selectedWebsite?.id}
               sidegroup={sidegroup}
               onSidegroupChange={setSidegroup}
-              className="w-full sm:w-[350px]"
+              className="w-full"
             />
             <PeriodPicker
               period={period}
@@ -946,14 +939,12 @@ const TableBuilder = () => {
               endDate={endDate}
               onEndDateChange={setEndDate}
             />
-          </>
-        }
-      >
-        <div className="space-y-6">
+          </div>
+
           {error && <Alert variant="error">{error}</Alert>}
 
           {columns.length === 0 ? (
-            <section className="flex flex-col items-start gap-3">
+            <section className="flex flex-col items-start gap-3 rounded-md border border-dashed border-[var(--ax-border-neutral)] bg-[var(--ax-bg-neutral-soft)] p-5">
               <div className="flex items-center gap-2">
                 <TableIcon fontSize="1.25rem" aria-hidden className="text-[var(--ax-text-subtle)]" />
                 <Heading level="2" size="small">
@@ -970,8 +961,8 @@ const TableBuilder = () => {
               </Button>
             </section>
           ) : (
-            <section className="min-w-0">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--ax-border-neutral-subtle)] pb-4">
+            <section className="overflow-hidden rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)]">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--ax-border-neutral-subtle)] p-4">
                 <div>
                   <Heading level="2" size="small">
                     Tabell
@@ -1044,7 +1035,7 @@ const TableBuilder = () => {
                 </div>
               </div>
               {showSearch && (
-                <div className="border-b border-[var(--ax-border-neutral-subtle)] py-4">
+                <div className="border-b border-[var(--ax-border-neutral-subtle)] p-4">
                   <TextField
                     label="Søk i tabellen"
                     size="small"
@@ -1131,7 +1122,7 @@ const TableBuilder = () => {
             </section>
           )}
         </div>
-      </ChartLayout>
+      </AppBlock>
       {dialogOpen && (
         <ColumnDialog
           open

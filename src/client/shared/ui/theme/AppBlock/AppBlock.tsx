@@ -8,8 +8,6 @@ import React from 'react'
  * Change it in one place to affect every layout, header, footer and section.
  */
 interface AppBlockProps {
-  id?: string
-  tabIndex?: number
   as?: React.ElementType
   gutters?: boolean
   className?: string
@@ -17,27 +15,19 @@ interface AppBlockProps {
   style?: React.CSSProperties
 }
 
-export const AppBlock = ({ id, tabIndex, as, gutters = true, className = '', children, style }: AppBlockProps) => {
+export const AppBlock = ({ as, gutters = true, className = '', children, style }: AppBlockProps) => {
   const combinedClassName = `app-block${className ? ` ${className}` : ''}`
 
   if (as) {
     return (
-      <Page.Block
-        id={id}
-        tabIndex={tabIndex}
-        as={as}
-        width="2xl"
-        gutters={gutters}
-        className={combinedClassName}
-        style={style}
-      >
+      <Page.Block as={as} width="2xl" gutters={gutters} className={combinedClassName} style={style}>
         {children}
       </Page.Block>
     )
   }
 
   return (
-    <Page.Block id={id} tabIndex={tabIndex} width="2xl" gutters={gutters} className={combinedClassName} style={style}>
+    <Page.Block width="2xl" gutters={gutters} className={combinedClassName} style={style}>
       {children}
     </Page.Block>
   )
