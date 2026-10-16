@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
+import { useAutoRefresh } from '../../analysis/hooks/useAutoRefresh'
 import { useSearchParams } from 'react-router-dom'
 import { parseISO, format } from 'date-fns'
 import type { Website } from '../../../shared/types/chart'
@@ -56,7 +57,6 @@ export const useEventJourney = () => {
   const [journeyStats, setJourneyStats] = useState<JourneyStats | null>(null)
   const [queryStats, setQueryStats] = useState<QueryStats | null>(null)
   const [generatedSql, setGeneratedSql] = useState<string | null>(null)
-  const [hasAutoSubmitted, setHasAutoSubmitted] = useState<boolean>(false)
   const [lastAppliedFilterKey, setLastAppliedFilterKey] = useState<string | null>(null)
 
   const buildFilterKey = useCallback(
@@ -65,8 +65,8 @@ export const useEventJourney = () => {
         websiteId: selectedWebsite?.id ?? null,
         urlPath: normalizeUrlToPath(urlPath),
         period,
-        customStartDate: customStartDate?.toISOString() ?? null,
-        customEndDate: customEndDate?.toISOString() ?? null,
+        customStartDate: customStartDate?.toJSON() ?? null,
+        customEndDate: customEndDate?.toJSON() ?? null,
       }),
     [selectedWebsite?.id, urlPath, period, customStartDate, customEndDate],
   )
@@ -77,6 +77,7 @@ export const useEventJourney = () => {
     if (!selectedWebsite) return
     if (!urlPath) return
 
+    const normalizedUrlPath = normalizeUrlToPath(urlPath)
     const appliedFilterKey = buildFilterKey()
 
     const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
@@ -90,7 +91,7 @@ export const useEventJourney = () => {
     const syncSearchParams = () => {
       const newParams = new URLSearchParams(window.location.search)
       newParams.set('period', period)
-      newParams.set('urlPath', urlPath)
+      newParams.set('urlPath', normalizedUrlPath)
       newParams.delete('minEvents')
       if (period === 'custom' && customStartDate && customEndDate) {
         newParams.set('from', format(customStartDate, 'yyyy-MM-dd'))
@@ -105,7 +106,6 @@ export const useEventJourney = () => {
     const cachedResult = eventJourneyCache.get(appliedFilterKey)
     if (cachedResult) {
       setHasSearched(true)
-      setHasAutoSubmitted(true)
       setError(null)
       setData(cachedResult.data)
       setJourneyStats(cachedResult.journeyStats)
@@ -122,12 +122,11 @@ export const useEventJourney = () => {
     setData([])
     setJourneyStats(null)
     setQueryStats(null)
-    setHasAutoSubmitted(true)
 
     try {
       const result = await fetchEventJourneys({
         websiteId: selectedWebsite.id,
-        urlPath,
+        urlPath: normalizedUrlPath,
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
         minEvents: 1,
@@ -157,14 +156,13 @@ export const useEventJourney = () => {
     }
   }, [selectedWebsite, urlPath, buildFilterKey, period, customStartDate, customEndDate])
 
-  // Auto-submit when URL parameters are present
-  useEffect(() => {
-    const hasConfigParams = searchParams.has('period') || searchParams.has('urlPath')
-    if (selectedWebsite && hasConfigParams && !hasAutoSubmitted && !loading) {
-      setHasAutoSubmitted(true)
-      void fetchData()
-    }
-  }, [selectedWebsite, searchParams, hasAutoSubmitted, loading, fetchData])
+  const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
+  useAutoRefresh(
+    buildFilterKey(),
+    Boolean(selectedWebsite && urlPath.trim() && dateRange && dateRange.endDate >= dateRange.startDate),
+    loading,
+    fetchData,
+  )
 
   return {
     selectedWebsite,

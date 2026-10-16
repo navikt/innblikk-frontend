@@ -26,3 +26,8 @@ export const DEFAULT_WEBSITE_ID = {
   prod: '35abb2b7-3f97-42ce-931b-cf547d40d967', // www.nav.no
   dev: 'c44a6db3-c974-4316-b433-214f87e80b4d', // www.ansatt.dev.nav.no
 } as const
+
+export const getWebsiteDisplayName = (website: { domain: string; name: string }): string => {
+  const domain = website.domain.trim()
+  return normalizeDomain(domain) === 'navno.sharepoint.com' ? `${domain} (Navet)` : domain || website.name.trim()
+}

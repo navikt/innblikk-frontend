@@ -1,20 +1,22 @@
 import { useEffect, useRef, useState } from 'react'
+import { useAutoRefresh } from '../../analysis/hooks/useAutoRefresh'
 import { ActionMenu, Alert, Button, Loader, ReadMore, Select, Switch, TextField, Tooltip } from '@navikt/ds-react'
 import { ExternalLinkIcon, MagnifyingGlassIcon, MenuElipsisVerticalIcon, ShrinkIcon } from '@navikt/aksel-icons'
 import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
+import UrlPathFilter from '../../analysis/ui/UrlPathFilter.tsx'
 import UmamiJourneyView from '../../analysis/ui/journey/UmamiJourneyView.tsx'
 import AnalysisActionModal from '../../analysis/ui/AnalysisActionModal.tsx'
 import UserJourneyCanvasView from './UserJourneyCanvasView.tsx'
 import TableSectionHeader from '../../../shared/ui/TableSectionHeader.tsx'
 import type { Website } from '../../../shared/types/chart.ts'
-import { normalizeUrlToPath } from '../../../shared/lib/utils.ts'
+import { getDateRangeFromPeriod } from '../../../shared/lib/utils.ts'
 import type { JourneyLink } from '../model'
 import { useUrlState, useJourneyData } from '../hooks'
 import { SqlViewer } from '../../chartbuilder-next'
-import { buildAppliedFilterKey, downloadJourneyCSV, downloadJourneyExcel, copyShareLink } from '../utils'
+import { downloadJourneyCSV, downloadJourneyExcel, copyShareLink } from '../utils'
 
 const UserJourney = () => {
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
@@ -38,23 +40,13 @@ const UserJourney = () => {
     setLimitInput,
     journeyDirection,
     setJourneyDirection,
-    searchParams,
   } = urlState
 
   // Use custom hook for journey data fetching
   const journeyData = useJourneyData(selectedWebsite, period, customStartDate, customEndDate, limit, journeyDirection)
-  const {
-    data,
-    rawData,
-    loading,
-    isUpdating,
-    error,
-    queryStats,
-    generatedSql,
-    lastAppliedFilterKey,
-    reverseVisualOrder,
-    fetchData,
-  } = journeyData
+  const { data, rawData, loading, isUpdating, error, queryStats, generatedSql, reverseVisualOrder, fetchData } =
+    journeyData
+  const loadMoreFilterKey = useRef<string | null>(null)
 
   // UI state
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false)
@@ -65,39 +57,29 @@ const UserJourney = () => {
   const [tableSearch, setTableSearch] = useState<string>('')
   const [showTableSearch, setShowTableSearch] = useState<boolean>(false)
   const tableSearchInputRef = useRef<HTMLInputElement>(null)
-  const hasAutoSubmittedRef = useRef<boolean>(false)
-
-  const hasUnappliedFilterChanges = lastAppliedFilterKey
-    ? buildAppliedFilterKey(
-        selectedWebsite?.id,
-        normalizeUrlToPath(startUrl) || '',
-        period,
-        customStartDate,
-        customEndDate,
-        steps,
-        limit,
-        journeyDirection,
-      ) !== lastAppliedFilterKey
-    : true
-
-  const handleSearch = () => {
-    void fetchData(startUrl, steps)
-  }
-
-  // Auto-submit when URL parameters are present (for shared links)
-  useEffect(() => {
-    const hasConfigParams =
-      searchParams.has('period') ||
-      searchParams.has('urlPath') ||
-      searchParams.has('startUrl') ||
-      searchParams.has('steps') ||
-      searchParams.has('limit') ||
-      searchParams.has('direction')
-    if (selectedWebsite && hasConfigParams && !hasAutoSubmittedRef.current && !loading) {
-      hasAutoSubmittedRef.current = true
-      void fetchData(startUrl, steps)
-    }
-  }, [selectedWebsite, searchParams, loading, fetchData, startUrl, steps])
+  const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
+  const getJourneyFilterKey = (stepCount: number) =>
+    JSON.stringify([
+      selectedWebsite?.id,
+      startUrl,
+      period,
+      customStartDate,
+      customEndDate,
+      stepCount,
+      limit,
+      journeyDirection,
+    ])
+  const journeyFilterKey = getJourneyFilterKey(steps)
+  useAutoRefresh(
+    journeyFilterKey,
+    Boolean(selectedWebsite && startUrl.trim() && dateRange && dateRange.endDate >= dateRange.startDate),
+    loading || isUpdating,
+    () => {
+      const preserveData = loadMoreFilterKey.current === journeyFilterKey
+      loadMoreFilterKey.current = null
+      return fetchData(startUrl, steps, preserveData)
+    },
+  )
 
   const handleCopyShareLink = async () => {
     const success = await copyShareLink()
@@ -119,8 +101,8 @@ const UserJourney = () => {
 
   const handleLoadMore = (increment: number) => {
     const newSteps = steps + increment
+    loadMoreFilterKey.current = getJourneyFilterKey(newSteps)
     setSteps(newSteps)
-    void fetchData(startUrl, newSteps, true)
   }
 
   const filteredTableLinks = rawData
@@ -144,19 +126,18 @@ const UserJourney = () => {
       websiteDomain={selectedWebsite?.domain}
       websiteName={selectedWebsite?.name}
       sidebarContent={<WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} />}
-      onFiltersSubmit={() => {
-        if (!selectedWebsite || loading || !hasUnappliedFilterChanges) return
-        handleSearch()
-      }}
       filters={
         <>
           <div className="w-full sm:w-[300px]">
-            <TextField
-              size="small"
-              label="URL"
-              value={startUrl}
-              onChange={(e) => setStartUrl(e.target.value)}
-              onBlur={(e) => setStartUrl(normalizeUrlToPath(e.target.value))}
+            <UrlPathFilter
+              urlPaths={startUrl ? [startUrl] : []}
+              onUrlPathsChange={(paths) => setStartUrl(paths[0] || '')}
+              pathOperator="equals"
+              onPathOperatorChange={() => {}}
+              showOperator={false}
+              isMultiSelect={false}
+              selectedWebsiteId={selectedWebsite?.id}
+              selectedWebsiteDomain={selectedWebsite?.domain}
             />
           </div>
 
@@ -217,17 +198,6 @@ const UserJourney = () => {
                 }
               }}
             />
-          </div>
-
-          <div className="w-full sm:w-auto self-end pb-[2px]">
-            <Button
-              onClick={handleSearch}
-              disabled={!selectedWebsite || loading || !hasUnappliedFilterChanges}
-              loading={loading}
-              size="small"
-            >
-              Vis
-            </Button>
           </div>
         </>
       }

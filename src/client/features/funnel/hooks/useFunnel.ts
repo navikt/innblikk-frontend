@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useAutoRefresh } from '../../analysis/hooks/useAutoRefresh'
 import { useSearchParams } from 'react-router-dom'
 import { parseISO } from 'date-fns'
 import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
 import type { FunnelStep, FunnelResultRow, TimingResultRow, QueryStats } from '../model/types'
 import type { Website } from '../../../shared/types/chart'
-import { getStoredPeriod, savePeriodPreference } from '../../../shared/lib/utils'
+import { getDateRangeFromPeriod, getStoredPeriod, savePeriodPreference } from '../../../shared/lib/utils'
 import { fetchFunnelData, fetchTimingData as fetchTimingDataApi, fetchWebsiteEvents } from '../api/funnelApi'
 import { parseStepsFromParams } from '../utils/stepUtils'
 
@@ -129,7 +130,6 @@ export function useFunnel(): FunnelState {
   const [copySuccess, setCopySuccess] = useState<boolean>(false)
   const [metabaseCopySuccess, setMetabaseCopySuccess] = useState<boolean>(false)
   const [timingMetabaseCopySuccess, setTimingMetabaseCopySuccess] = useState<boolean>(false)
-  const [hasAutoSubmitted, setHasAutoSubmitted] = useState<boolean>(false)
   const [modalSql, setModalSql] = useState<string | null>(null)
   const [selectedTableUrl, setSelectedTableUrl] = useState<string | null>(null)
   const [selectedTimingUrl, setSelectedTimingUrl] = useState<string | null>(null)
@@ -189,15 +189,20 @@ export function useFunnel(): FunnelState {
     setLoading(false)
   }, [customEndDate, customStartDate, onlyDirectEntry, period, selectedWebsite, steps])
 
-  // Auto-submit when URL parameters are present (for shared links)
-  useEffect(() => {
-    const hasConfigParams = searchParams.has('period') || searchParams.has('strict') || searchParams.has('step')
-    const stepsWithValues = steps.filter((s) => s.value.trim() !== '').length
-    if (selectedWebsite && hasConfigParams && stepsWithValues >= 2 && !hasAutoSubmitted && !loading) {
-      setHasAutoSubmitted(true)
-      void fetchData()
-    }
-  }, [fetchData, hasAutoSubmitted, loading, searchParams, selectedWebsite, steps])
+  const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
+  const hasValidSteps =
+    steps.length >= 2 &&
+    steps.every(
+      (step) =>
+        step.value.trim() &&
+        (step.type !== 'event' || (step.params ?? []).every((param) => param.key.trim() && param.value.trim())),
+    )
+  useAutoRefresh(
+    JSON.stringify([selectedWebsite?.id, steps, period, customStartDate, customEndDate, onlyDirectEntry]),
+    Boolean(selectedWebsite && hasValidSteps && dateRange && dateRange.endDate >= dateRange.startDate),
+    loading,
+    fetchData,
+  )
 
   // Reset timing state when funnel configuration changes.
   // Keep this effect scoped to config dependencies so timing results are not

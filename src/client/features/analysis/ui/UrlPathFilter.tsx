@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { ExternalLinkIcon } from '@navikt/aksel-icons'
 import { Label, Select, UNSAFE_Combobox, Modal, Textarea, Button } from '@navikt/ds-react'
@@ -6,6 +6,9 @@ import type { UrlPathFilterProps } from '../model/types.ts'
 import { formatPathLabel } from '../utils/urlPathFilter.ts'
 import { useUrlPathFilter } from '../hooks/useUrlPathFilter.ts'
 import { useSidegroupsForWebsite } from '../../sidegroups/hooks/useSidegroupsForWebsite.ts'
+import { columnValuesSuggestions } from '../../cohortmanager/hooks/useColumnValueSuggestions.ts'
+
+const { useColumnValueSuggestions } = columnValuesSuggestions
 
 export const UrlPathFilter = ({
   urlPaths,
@@ -17,13 +20,14 @@ export const UrlPathFilter = ({
   size = 'small',
   hideLabel = false,
   showOperator = true,
-  showSuggestions = false,
+  showSuggestions = true,
   isMultiSelect = true,
   className = '',
   selectedWebsiteId,
   sidegroup = null,
   onSidegroupChange,
 }: UrlPathFilterProps) => {
+  const inputId = useId()
   const urlModalRef = useRef<HTMLDialogElement>(null)
   const switchModalRef = useRef<HTMLDialogElement>(null)
   const { sidegroups } = useSidegroupsForWebsite(onSidegroupChange ? selectedWebsiteId : undefined)
@@ -59,6 +63,13 @@ export const UrlPathFilter = ({
 
   const canPickSidegroup = Boolean(onSidegroupChange && selectedWebsiteId)
   const isSidegroupMode = canPickSidegroup && pathOperator === 'sidegroup'
+  const { values, loading, load } = useColumnValueSuggestions(selectedWebsiteId, 'url_path')
+
+  useEffect(() => {
+    if (showSuggestions && selectedWebsiteId && !isSidegroupMode) load()
+  }, [showSuggestions, selectedWebsiteId, isSidegroupMode, load])
+
+  const suggestedPaths = Array.from(new Set([...values, ...uniqueUrlPaths]))
 
   const handleOperatorChange = (nextOperator: string) => {
     onPathOperatorChange(nextOperator)
@@ -70,11 +81,12 @@ export const UrlPathFilter = ({
       {showOperator && (
         <div className="flex items-center gap-2 mb-1">
           {!hideLabel && (
-            <Label size={size} htmlFor="url-filter">
+            <Label size={size} htmlFor={inputId} id={`${inputId}-label`}>
               {label}
             </Label>
           )}
           <select
+            aria-label={`${label}: sammenligning`}
             className="text-sm bg-[var(--ax-bg-default)] border border-[var(--ax-border-neutral-subtle)] rounded text-[var(--ax-text-accent)] font-medium cursor-pointer focus:outline-none py-1 px-2"
             value={pathOperator}
             onChange={(e) => handleOperatorChange(e.target.value)}
@@ -118,18 +130,26 @@ export const UrlPathFilter = ({
           </Link>
         </>
       ) : (
-        <div onPaste={handlePaste} onBlur={handleBlur}>
+        <div
+          onPaste={handlePaste}
+          onBlur={handleBlur}
+          onMouseDown={(event) => {
+            if ((event.target as HTMLElement).closest('[role="listbox"]')) event.preventDefault()
+          }}
+        >
           <UNSAFE_Combobox
-            id="url-filter"
+            id={inputId}
+            aria-labelledby={showOperator && !hideLabel ? `${inputId}-label` : undefined}
             label={label}
             hideLabel={showOperator || hideLabel}
             size={size}
             isMultiSelect={isMultiSelect}
             allowNewValues
+            isLoading={showSuggestions && loading}
             toggleListButton={showSuggestions}
             options={
               showSuggestions
-                ? uniqueUrlPaths.map((p) => ({ label: formatPathLabel(p), value: formatPathLabel(p) }))
+                ? suggestedPaths.map((path) => ({ label: formatPathLabel(path), value: formatPathLabel(path) }))
                 : []
             }
             filteredOptions={showSuggestions ? undefined : []}

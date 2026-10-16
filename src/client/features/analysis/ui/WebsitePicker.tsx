@@ -8,7 +8,11 @@ import {
   WEBSITES_CACHE_KEY,
   SELECTED_WEBSITE_CACHE_KEY,
 } from '../storage/websiteCache.ts'
-import { normalizeDomain, DEFAULT_WEBSITE_ID } from '../../../shared/lib/domain'
+import {
+  normalizeDomain,
+  DEFAULT_WEBSITE_ID,
+  getWebsiteDisplayName as getDisplayName,
+} from '../../../shared/lib/domain'
 import { getGcpProjectId } from '../../../shared/lib/runtimeConfig'
 
 export type { Website }
@@ -34,13 +38,6 @@ interface WebsitePickerProps {
 }
 
 const API_TIMEOUT_MS = 120000 // timeout
-
-// A website counts as a "dev site" if its domain or name points at a dev host, or its
-// name ends in " - dev". Pure helper, hoisted so the restore effects can use it too.
-const isDevWebsite = (website: Website) =>
-  website.domain.includes('.dev.nav.no') ||
-  website.name.includes('.dev.nav.no') ||
-  /\s-\sdev$/i.test(website.name.trim())
 
 const timeoutPromise = (ms: number) => {
   return new Promise((_, reject) => {
@@ -93,7 +90,6 @@ const WebsitePicker = ({
   // const [estimatedGbProcessed, setEstimatedGbProcessed] = useState<string | null>(null);
   const [includeParams, setIncludeParams] = useState<boolean>(false)
   const prevIncludeParams = useRef<boolean>(false)
-  const [showDevSites, setShowDevSites] = useState<boolean>(false)
 
   // Reset includeParams when resetIncludeParams prop changes
   useEffect(() => {
@@ -165,7 +161,6 @@ const WebsitePicker = ({
       if (websiteIdFromUrl) {
         const website = websites.find((w) => w.id === websiteIdFromUrl)
         if (website && !selectedWebsite) {
-          if (isDevWebsite(website)) setShowDevSites(true) // reveal the option so the selection is visible
           handleWebsiteChange(website) // Use handleWebsiteChange to ensure caching
         }
       } else if (domainFromUrl) {
@@ -174,7 +169,6 @@ const WebsitePicker = ({
         const normalizedInput = normalizeDomain(domainFromUrl)
         const website = websites.find((w) => normalizeDomain(w.domain) === normalizedInput)
         if (website && !selectedWebsite) {
-          if (isDevWebsite(website)) setShowDevSites(true) // reveal the option so the selection is visible
           handleWebsiteChange(website)
         }
       }
@@ -449,7 +443,6 @@ const WebsitePicker = ({
     if (websiteIdFromUrl) {
       const website = websites.find((w) => w.id === websiteIdFromUrl)
       if (website) {
-        if (isDevWebsite(website)) setShowDevSites(true) // reveal the option so the selection is visible
         handleWebsiteChange(website)
       }
     } else if (domainFromUrl) {
@@ -462,7 +455,6 @@ const WebsitePicker = ({
       const preferredId = getGcpProjectId().includes('-dev-') ? DEFAULT_WEBSITE_ID.dev : DEFAULT_WEBSITE_ID.prod
       const website = matches.find((w) => w.id === preferredId) ?? matches[0]
       if (website && (!selectedWebsite || selectedWebsite.id !== website.id)) {
-        if (isDevWebsite(website)) setShowDevSites(true) // reveal the option so the selection is visible
         handleWebsiteChange(website)
       }
     } else if (!selectedWebsite) {
@@ -472,7 +464,6 @@ const WebsitePicker = ({
       const defaultWebsiteId = getGcpProjectId().includes('-dev-') ? DEFAULT_WEBSITE_ID.dev : DEFAULT_WEBSITE_ID.prod
       const defaultWebsite = websites.find((w) => w.id === defaultWebsiteId)
       if (defaultWebsite) {
-        if (isDevWebsite(defaultWebsite)) setShowDevSites(true) // reveal the option so the selection is visible
         handleWebsiteChange(defaultWebsite)
       }
     }
@@ -568,7 +559,7 @@ const WebsitePicker = ({
   }, [externalDateRange, shouldReload, selectedWebsite, fetchEventNames, dateRangeInDays, onEventsLoad])
 
   const sortedWebsites = [...websites].sort((a, b) => {
-    const priorityIds = ['35abb2b7-3f97-42ce-931b-cf547d40d967', '83b80c84-b551-4dff-a679-f21be5fa0453']
+    const priorityIds: string[] = [DEFAULT_WEBSITE_ID.prod, '83b80c84-b551-4dff-a679-f21be5fa0453']
     const aIndex = priorityIds.indexOf(a.id)
     const bIndex = priorityIds.indexOf(b.id)
 
@@ -576,30 +567,10 @@ const WebsitePicker = ({
     if (aIndex !== -1) return -1
     if (bIndex !== -1) return 1
 
-    return a.name.localeCompare(b.name)
+    return a.domain.localeCompare(b.domain) || a.name.localeCompare(b.name)
   })
 
-  const isProdHost = !window.location.hostname.includes('.dev.nav.no')
-  const devToggleOptionValue = '__toggle_dev_sites__'
-  const toggleDevSitesLabel = showDevSites ? 'Skjul dev sider' : 'Vis dev sider'
-  const getDisplayName = (website: Website) => {
-    const name = website.name.trim()
-    if (!name) return name
-    return name.charAt(0).toUpperCase() + name.slice(1)
-  }
-  const getBaseName = (name: string) =>
-    name
-      .replace(/\s*-\s*prod$/i, '')
-      .trim()
-      .toLowerCase()
-
-  const visibleWebsites = sortedWebsites.filter((website) => {
-    if (!isProdHost) return true
-    if (showDevSites) return true
-    return !isDevWebsite(website)
-  })
-
-  const displayLabelCounts = visibleWebsites.reduce(
+  const displayLabelCounts = sortedWebsites.reduce(
     (acc, website) => {
       const label = getDisplayName(website)
       acc[label] = (acc[label] || 0) + 1
@@ -608,25 +579,19 @@ const WebsitePicker = ({
     {} as Record<string, number>,
   )
 
-  const comboboxOptions = [
-    ...visibleWebsites.map((website) => {
-      const displayName = getDisplayName(website)
-      const isProdVariant = /\s*-\s*prod$/i.test(displayName)
-      const hasProdSibling = visibleWebsites.some((other) => {
-        if (other.id === website.id) return false
-        return getBaseName(other.name) === getBaseName(website.name) && /\s*-\s*prod$/i.test(other.name)
-      })
-      const oldLabel = !isProdVariant && hasProdSibling ? `${displayName} (gammel)` : displayName
-      const finalLabel = displayLabelCounts[displayName] > 1 ? `${oldLabel} (${website.domain})` : oldLabel
+  const comboboxOptions = sortedWebsites.map((website) => {
+    const displayName = getDisplayName(website)
+    const finalLabel =
+      website.id !== DEFAULT_WEBSITE_ID.prod && displayLabelCounts[displayName] > 1
+        ? `${displayName} (${website.name})`
+        : displayName
 
-      return {
-        label: finalLabel,
-        value: finalLabel,
-        website: website,
-      }
-    }),
-    ...(isProdHost ? [{ label: toggleDevSitesLabel, value: devToggleOptionValue }] : []),
-  ]
+    return {
+      label: finalLabel,
+      value: website.id,
+      website: website,
+    }
+  })
 
   return (
     <div id={id} className={`${variant === 'minimal' ? '' : ''}`}>
@@ -644,22 +609,12 @@ const WebsitePicker = ({
           options={comboboxOptions}
           selectedOptions={(() => {
             if (!selectedWebsite) return []
-            const selectedOption = comboboxOptions.find(
-              (opt) => 'website' in opt && opt.website.id === selectedWebsite.id,
-            )
-            return selectedOption ? [selectedOption.value] : []
+            const selectedOption = comboboxOptions.find((opt) => opt.website.id === selectedWebsite.id)
+            return selectedOption ? [{ ...selectedOption, label: getDisplayName(selectedWebsite) }] : []
           })()}
           onToggleSelected={(option: string, isSelected: boolean) => {
-            if (option === devToggleOptionValue) {
-              if (isSelected) {
-                setShowDevSites((prev) => !prev)
-              }
-              return
-            }
-
             if (isSelected) {
-              const selectedOption = comboboxOptions.find((opt) => opt.value === option && 'website' in opt)
-              const website = selectedOption && 'website' in selectedOption ? selectedOption.website : undefined
+              const website = comboboxOptions.find((opt) => opt.value === option)?.website
               if (website) {
                 handleWebsiteChange(website)
               }

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
 import type { ILineChartDataPoint } from '@fluentui/react-charting'
@@ -199,8 +199,8 @@ export const useTrafficAnalysis = () => {
         pathOperator,
         sidegroupId: sidegroup?.id ?? null,
         period,
-        customStartDate: customStartDate?.toISOString() ?? null,
-        customEndDate: customEndDate?.toISOString() ?? null,
+        customStartDate: customStartDate?.toJSON() ?? null,
+        customEndDate: customEndDate?.toJSON() ?? null,
         metricType,
         granularity: granularityOverride,
         comparePreviousPeriod,
@@ -219,6 +219,7 @@ export const useTrafficAnalysis = () => {
     ],
   )
   const hasUnappliedFilterChanges = buildFilterKey() !== lastAppliedFilterKey
+  const lastRequestedFilterKey = useRef<string | null>(null)
 
   const includedPagesData = useMemo(() => {
     if (!pageMetrics.length) return []
@@ -325,6 +326,10 @@ export const useTrafficAnalysis = () => {
   const fetchSeriesData = useCallback(async () => {
     if (!selectedWebsite) return
     if (sidegroupResolutionPending || sidegroupResolutionFailed) return
+    if (pathOperator === 'sidegroup' && !sidegroup) return
+    const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
+    if (!dateRange || !(dateRange.endDate.getTime() >= dateRange.startDate.getTime())) return
+    lastRequestedFilterKey.current = buildFilterKey()
 
     if (metricType === 'proportion' && urlPaths.length === 0 && !sidegroup) {
       setError(
@@ -365,18 +370,13 @@ export const useTrafficAnalysis = () => {
       setGranularity('hour')
     }
     const appliedFilterKey = buildFilterKey(effectiveGranularity)
+    lastRequestedFilterKey.current = appliedFilterKey
 
     setSubmittedGranularity(effectiveGranularity)
     setSubmittedPeriod(period)
 
     const interval = effectiveGranularity
 
-    const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
-    if (!dateRange) {
-      setError('Vennligst velg en gyldig periode.')
-      setLoading(false)
-      return
-    }
     const { startDate, endDate } = dateRange
     const previousDateRange = comparePreviousPeriod ? getPreviousDateRange(startDate, endDate) : null
     setSubmittedDateRange({ startDate, endDate })
@@ -492,33 +492,18 @@ export const useTrafficAnalysis = () => {
     getCountByQueryParams,
   ])
 
-  // Auto-submit when website is selected
   useEffect(() => {
-    if (selectedWebsite && !hasAttemptedFetch && !sidegroupResolutionPending && !sidegroupResolutionFailed) {
-      void fetchSeriesData()
-    }
-  }, [selectedWebsite, hasAttemptedFetch, sidegroupResolutionPending, sidegroupResolutionFailed, fetchSeriesData])
-
-  // Auto-fetch when granularity changes
-  useEffect(() => {
-    if (!hasAttemptedFetch || !selectedWebsite || loading) return
-    if (granularity !== submittedGranularity) {
-      void fetchSeriesData()
-    }
-  }, [granularity, submittedGranularity, hasAttemptedFetch, selectedWebsite, loading, fetchSeriesData])
-
-  // Auto-fetch when compare option changes
-  useEffect(() => {
-    if (!hasAttemptedFetch || !selectedWebsite || loading) return
-    if (comparePreviousPeriod !== submittedComparePreviousPeriod) {
-      void fetchSeriesData()
-    }
+    if (!selectedWebsite || loading || sidegroupResolutionPending || sidegroupResolutionFailed) return
+    if (buildFilterKey() === lastRequestedFilterKey.current) return
+    const timer = window.setTimeout(() => void fetchSeriesData(), hasAttemptedFetch ? 300 : 0)
+    return () => window.clearTimeout(timer)
   }, [
-    comparePreviousPeriod,
-    submittedComparePreviousPeriod,
-    hasAttemptedFetch,
     selectedWebsite,
     loading,
+    sidegroupResolutionPending,
+    sidegroupResolutionFailed,
+    buildFilterKey,
+    hasAttemptedFetch,
     fetchSeriesData,
   ])
 

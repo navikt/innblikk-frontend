@@ -14,6 +14,7 @@ import {
   Tooltip,
 } from '@navikt/ds-react'
 import ChartLayout from './ChartLayout.tsx'
+import UrlPathInput from './UrlPathInput.tsx'
 import AnalysisActionModal from './AnalysisActionModal.tsx'
 import WebsitePicker from './WebsitePicker.tsx'
 import type { Website } from '../../../shared/types/chart.ts'
@@ -201,12 +202,11 @@ const BrokenLinks = () => {
       }
       filters={
         <>
-          <TextField
-            size="small"
+          <UrlPathInput
+            websiteId={selectedWebsite?.id}
             label="URL"
             value={urlPath}
-            onChange={(e) => {
-              const val = e.target.value
+            onChange={(val) => {
               setUrlPath(val)
 
               const newParams = new URLSearchParams(searchParams)

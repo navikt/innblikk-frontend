@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useAutoRefresh } from './useAutoRefresh'
 import { useSearchParams } from 'react-router-dom'
 import type { Website } from '../../../shared/types/chart.ts'
 import type { WcagIssue } from '../model/types.ts'
@@ -88,12 +89,12 @@ export const useWcag = () => {
     }
   }, [siteimproveId, urlPath])
 
-  useEffect(() => {
-    const hasConfigParams = searchParams.has('urlPath')
-    if (siteimproveId && hasConfigParams && !hasAttemptedFetch) {
-      void fetchWcagData()
-    }
-  }, [siteimproveId, hasAttemptedFetch, searchParams, fetchWcagData])
+  useAutoRefresh(
+    JSON.stringify([selectedWebsite?.id, siteimproveId, urlPath]),
+    Boolean(siteimproveId && urlPath.trim()),
+    loading,
+    fetchWcagData,
+  )
 
   return {
     selectedWebsite,

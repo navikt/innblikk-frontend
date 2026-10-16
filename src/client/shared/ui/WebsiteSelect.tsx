@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { UNSAFE_Combobox } from '@navikt/ds-react'
 import type { Website } from '../types/website.ts'
+import { DEFAULT_WEBSITE_ID, getWebsiteDisplayName } from '../lib/domain.ts'
 import './WebsiteSelect.css'
 
 interface WebsiteSelectProps {
@@ -9,14 +10,35 @@ interface WebsiteSelectProps {
   onSelect: (id: string | null) => void
   error?: string
   fullWidth?: boolean
+  size?: 'small' | 'medium'
 }
 
-const labelOf = (w: Website) => `${w.name} — ${w.domain}`
+const labelOf = getWebsiteDisplayName
 
 /** Ranks name-prefix matches above name-substring above domain matches, so «nav» finds the project named Nav first. */
-export function WebsiteSelect({ websites, selectedId, onSelect, error, fullWidth = false }: WebsiteSelectProps) {
+export function WebsiteSelect({ websites, selectedId, onSelect, error, fullWidth = false, size }: WebsiteSelectProps) {
   const [filter, setFilter] = useState('')
-  const options = useMemo(() => websites.map((w) => ({ label: labelOf(w), value: w.id })), [websites])
+  const options = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const website of websites) {
+      const label = labelOf(website)
+      counts.set(label, (counts.get(label) ?? 0) + 1)
+    }
+    return [...websites]
+      .sort(
+        (first, second) => Number(second.id === DEFAULT_WEBSITE_ID.prod) - Number(first.id === DEFAULT_WEBSITE_ID.prod),
+      )
+      .map((website) => {
+        const label = labelOf(website)
+        return {
+          label:
+            website.id !== DEFAULT_WEBSITE_ID.prod && (counts.get(label) ?? 0) > 1
+              ? `${label} (${website.name})`
+              : label,
+          value: website.id,
+        }
+      })
+  }, [websites])
   const selected = websites.find((w) => w.id === selectedId)
 
   const filtered = useMemo(() => {
@@ -27,13 +49,19 @@ export function WebsiteSelect({ websites, selectedId, onSelect, error, fullWidth
       if (name.startsWith(q)) return 0
       if (name.includes(q)) return 1
       if (w.domain.toLowerCase().includes(q)) return 2
+      if (labelOf(w).toLowerCase().includes(q)) return 2
       return -1
     }
     return websites
       .map((w) => ({ w, s: score(w) }))
       .filter((x) => x.s >= 0)
-      .sort((a, b) => a.s - b.s || a.w.name.localeCompare(b.w.name, 'nb'))
-      .map((x) => ({ label: labelOf(x.w), value: x.w.id }))
+      .sort(
+        (a, b) =>
+          Number(b.w.id === DEFAULT_WEBSITE_ID.prod) - Number(a.w.id === DEFAULT_WEBSITE_ID.prod) ||
+          a.s - b.s ||
+          a.w.name.localeCompare(b.w.name, 'nb'),
+      )
+      .map((x) => options.find((option) => option.value === x.w.id)!)
   }, [websites, options, filter])
 
   // Aksel's single-select input shows the selection as plain text, so backspace on it never clears; handle it on the wrapper.
@@ -55,6 +83,7 @@ export function WebsiteSelect({ websites, selectedId, onSelect, error, fullWidth
     >
       <UNSAFE_Combobox
         label="Nettsted"
+        size={size}
         error={error}
         options={options}
         filteredOptions={filtered}

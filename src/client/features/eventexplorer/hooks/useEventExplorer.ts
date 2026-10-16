@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useAutoRefresh } from '../../analysis/hooks/useAutoRefresh'
 import { useSearchParams } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
 import type { Website } from '../../../shared/types/chart'
@@ -70,7 +71,6 @@ export const useEventExplorer = () => {
   const [selectedParameterForDrilldown, setSelectedParameterForDrilldown] = useState<string | null>(null)
   const [parameterValuesQueryStats, setParameterValuesQueryStats] = useState<QueryStats | null>(null)
 
-  const [hasAutoSubmitted, setHasAutoSubmitted] = useState<boolean>(false)
   const [lastAppliedFilterKey, setLastAppliedFilterKey] = useState<string | null>(null)
 
   const buildFilterKey = useCallback(
@@ -80,8 +80,8 @@ export const useEventExplorer = () => {
         urlPaths,
         pathOperator,
         period,
-        customStartDate: customStartDate?.toISOString() ?? null,
-        customEndDate: customEndDate?.toISOString() ?? null,
+        customStartDate: customStartDate?.toJSON() ?? null,
+        customEndDate: customEndDate?.toJSON() ?? null,
       }),
     [selectedWebsite?.id, urlPaths, pathOperator, period, customStartDate, customEndDate],
   )
@@ -160,13 +160,9 @@ export const useEventExplorer = () => {
     }
   }, [selectedWebsite, buildFilterKey, getDates, urlPaths, pathOperator, period, customStartDate, customEndDate])
 
-  // Auto-submit when website is selected
-  useEffect(() => {
-    if (selectedWebsite && !hasAutoSubmitted && !loadingEvents) {
-      setHasAutoSubmitted(true)
-      void fetchEventsData()
-    }
-  }, [selectedWebsite, hasAutoSubmitted, loadingEvents, fetchEventsData])
+  const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
+  const canRefresh = Boolean(selectedWebsite && dateRange && dateRange.endDate >= dateRange.startDate)
+  useAutoRefresh(buildFilterKey(), canRefresh && !selectedEvent, loadingEvents || loadingData, fetchEventsData)
 
   // Fetch data when an event is selected
   const fetchEventData = useCallback(async () => {
@@ -248,9 +244,12 @@ export const useEventExplorer = () => {
     }
   }, [selectedWebsite, selectedEvent, getDates, urlPaths, pathOperator, period, customStartDate, customEndDate])
 
-  useEffect(() => {
-    void fetchEventData()
-  }, [fetchEventData])
+  useAutoRefresh(
+    JSON.stringify([buildFilterKey(), selectedEvent]),
+    canRefresh && Boolean(selectedEvent),
+    loadingData || loadingEvents,
+    fetchEventData,
+  )
 
   // Fetch values for ALL parameters
   const fetchAllParameterValues = useCallback(async () => {

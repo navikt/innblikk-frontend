@@ -67,6 +67,26 @@ describe('SuggestingValueEditor', () => {
     expect(fetchColumnValues).toHaveBeenCalledWith('w1', 'browser', undefined, undefined)
   })
 
+  it('shares a pending request between consumers with the same scope', async () => {
+    let resolveRequest!: (value: { values: string[]; scannedDays: number }) => void
+    vi.mocked(fetchColumnValues).mockImplementation(() => new Promise((resolve) => (resolveRequest = resolve)))
+    const first = renderHook(() => columnValuesSuggestions.useColumnValueSuggestions('w1', 'browser'))
+    const second = renderHook(() => columnValuesSuggestions.useColumnValueSuggestions('w1', 'browser'))
+
+    act(() => {
+      first.result.current.load()
+      second.result.current.load()
+    })
+    expect(fetchColumnValues).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      resolveRequest({ values: ['Chrome'], scannedDays: 30 })
+      await Promise.resolve()
+    })
+    expect(first.result.current.values).toEqual(['Chrome'])
+    expect(second.result.current.values).toEqual(['Chrome'])
+  })
+
   it.each(['NO', 'no'])('displays a saved country name for %s even without a matching suggestion', async (code) => {
     vi.mocked(fetchColumnValues).mockResolvedValue({ values: ['SE'], scannedDays: 7 })
     const onChange = vi.fn()

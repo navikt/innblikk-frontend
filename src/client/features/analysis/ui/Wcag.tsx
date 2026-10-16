@@ -13,6 +13,7 @@ import {
   Tooltip,
 } from '@navikt/ds-react'
 import ChartLayout from './ChartLayout.tsx'
+import UrlPathInput from './UrlPathInput.tsx'
 import { BetaFeatureNotice, BetaFeedbackLine } from '../../../shared/ui/BetaFeatureNotice.tsx'
 import WebsitePicker from './WebsitePicker.tsx'
 import type { WcagIssue } from '../model/types.ts'
@@ -46,7 +47,6 @@ const Wcag = () => {
     error,
     urlPath,
     setUrlPath,
-    fetchWcagData,
   } = useWcag()
 
   const [confirmedSearch, setConfirmedSearch] = useState('')
@@ -202,25 +202,9 @@ const Wcag = () => {
       sidebarContent={
         <WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} variant="minimal" />
       }
-      onFiltersSubmit={() => {
-        if (!selectedWebsite || loading) return
-        void fetchWcagData()
-      }}
       filters={
         <>
-          <TextField size="small" label="URL" value={urlPath} onChange={(e) => setUrlPath(e.target.value)} />
-
-          <div className="mt-8">
-            <Button
-              onClick={fetchWcagData}
-              disabled={!selectedWebsite || loading}
-              loading={loading}
-              className="w-full"
-              size="small"
-            >
-              Kjør UU-sjekk
-            </Button>
-          </div>
+          <UrlPathInput websiteId={selectedWebsite?.id} value={urlPath} onChange={setUrlPath} />
         </>
       }
     >

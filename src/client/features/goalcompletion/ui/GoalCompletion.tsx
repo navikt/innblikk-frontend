@@ -14,6 +14,7 @@ import {
 import { PlusIcon, TrashIcon } from '@navikt/aksel-icons'
 import { ResponsiveContainer, LineChart } from '@fluentui/react-charting'
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
+import UrlPathInput from '../../analysis/ui/UrlPathInput.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
 import CookieMixNotice from '../../analysis/ui/CookieMixNotice.tsx'
@@ -72,11 +73,9 @@ const GoalCompletion = () => {
     loading,
     error,
     hasAttemptedFetch,
-    hasUnappliedFilterChanges,
     cookieBadge,
     isPreCookieRange,
     cookieStartDate,
-    fetchData,
   } = useGoalCompletion()
 
   const [showTableSection, setShowTableSection] = useState(false)
@@ -169,24 +168,19 @@ const GoalCompletion = () => {
                   return (
                     <>
                       <div className="space-y-2">
-                        <Label size="small" htmlFor={`goal-step-url-${scopeKey}`}>
-                          URL-sti
-                        </Label>
-                        <TextField
+                        <UrlPathInput
+                          websiteId={selectedWebsite?.id}
                           label="URL-sti"
-                          hideLabel
-                          id={`goal-step-url-${scopeKey}`}
-                          size="small"
                           value={getGoalStepUrlDisplay(stepUrlData)}
-                          onChange={(e) => {
+                          onChange={(value) => {
                             if (step.type === 'event') {
-                              setStep({ ...step, urlPath: e.target.value, urlQuery: '' })
+                              setStep({ ...step, urlPath: value, urlQuery: '' })
                             } else {
-                              setStep({ ...step, value: e.target.value, query: '' })
+                              setStep({ ...step, value, query: '' })
                             }
                           }}
-                          onBlur={(e) => {
-                            const next = splitGoalStepUrlInput(e.target.value, stepUrlData.query)
+                          onCommit={(value) => {
+                            const next = splitGoalStepUrlInput(value, stepUrlData.query)
                             if (step.type === 'event') {
                               setStep({ ...step, urlPath: next.value || undefined, urlQuery: next.query || undefined })
                             } else {
@@ -359,17 +353,6 @@ const GoalCompletion = () => {
               </div>
             </div>
           ))}
-        </div>
-
-        <div className="mt-4 flex justify-end">
-          <Button
-            onClick={fetchData}
-            size="small"
-            disabled={!selectedWebsite || loading || !hasUnappliedFilterChanges || !hasValidSteps}
-            loading={loading}
-          >
-            Beregn måloppnåelse
-          </Button>
         </div>
       </div>
 

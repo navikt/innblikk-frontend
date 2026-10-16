@@ -14,6 +14,7 @@ import {
   Tooltip,
 } from '@navikt/ds-react'
 import ChartLayout from './ChartLayout.tsx'
+import UrlPathInput from './UrlPathInput.tsx'
 import WebsitePicker from './WebsitePicker.tsx'
 import type { SpellingIssue } from '../model/types.ts'
 import { downloadCsv } from '../utils/siteimprove.ts'
@@ -37,7 +38,6 @@ const Spellings = () => {
     error,
     urlPath,
     setUrlPath,
-    fetchSpellingData,
   } = useSpellings()
 
   const [potentialSearch, setPotentialSearch] = useState('')
@@ -167,25 +167,9 @@ const Spellings = () => {
       sidebarContent={
         <WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} variant="minimal" />
       }
-      onFiltersSubmit={() => {
-        if (!selectedWebsite || loading) return
-        void fetchSpellingData()
-      }}
       filters={
         <>
-          <TextField size="small" label="URL" value={urlPath} onChange={(e) => setUrlPath(e.target.value)} />
-
-          <div className="mt-8">
-            <Button
-              onClick={fetchSpellingData}
-              disabled={!selectedWebsite || loading}
-              loading={loading}
-              className="w-full"
-              size="small"
-            >
-              Vis stavefeil
-            </Button>
-          </div>
+          <UrlPathInput websiteId={selectedWebsite?.id} value={urlPath} onChange={setUrlPath} />
         </>
       }
     >

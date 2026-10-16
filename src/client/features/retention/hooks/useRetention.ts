@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useAutoRefresh } from '../../analysis/hooks/useAutoRefresh'
 import { useSearchParams } from 'react-router-dom'
 import type { ILineChartProps } from '@fluentui/react-charting'
 import { parseISO } from 'date-fns'
@@ -129,7 +130,6 @@ export function useRetention(): RetentionState {
   const [sameDayReturningUsers, setSameDayReturningUsers] = useState<number>(0)
   const [nonReturningUsers, setNonReturningUsers] = useState<number>(0)
   const [copySuccess, setCopySuccess] = useState<boolean>(false)
-  const [hasAutoSubmitted, setHasAutoSubmitted] = useState<boolean>(false)
   const [lastAppliedFilterKey, setLastAppliedFilterKey] = useState<string | null>(null)
 
   const buildFilterKey = useCallback(
@@ -140,8 +140,8 @@ export function useRetention(): RetentionState {
         pathOperator,
         returnScope,
         period,
-        customStartDate: customStartDate?.toISOString() ?? null,
-        customEndDate: customEndDate?.toISOString() ?? null,
+        customStartDate: customStartDate?.toJSON() ?? null,
+        customEndDate: customEndDate?.toJSON() ?? null,
       }),
     [selectedWebsite?.id, urlPath, pathOperator, returnScope, period, customStartDate, customEndDate],
   )
@@ -245,13 +245,12 @@ export function useRetention(): RetentionState {
     cookieStartDate,
   ])
 
-  // Auto-submit when website is selected
-  useEffect(() => {
-    if (selectedWebsite && !hasAutoSubmitted && !loading) {
-      setHasAutoSubmitted(true)
-      void fetchData()
-    }
-  }, [selectedWebsite, hasAutoSubmitted, loading, fetchData])
+  useAutoRefresh(
+    buildFilterKey(),
+    Boolean(selectedWebsite && dateRange && dateRange.endDate >= dateRange.startDate),
+    loading,
+    fetchData,
+  )
 
   const downloadCSV = useCallback(() => {
     downloadRetentionCSV(retentionData, selectedWebsite?.name)

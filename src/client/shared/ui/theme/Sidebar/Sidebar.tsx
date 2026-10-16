@@ -22,6 +22,7 @@ import {
 import { Button, Select, Tooltip } from '@navikt/ds-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link as RouterLink, useLocation } from 'react-router-dom'
+import { preserveSharedAnalysisParams } from '../../../lib/analysisNavigation.ts'
 import '../../../../tailwind.css'
 import { useIsReopsTeamMember } from '../../../hooks/useIsReopsTeamMember.ts'
 
@@ -35,6 +36,7 @@ type NavLink = {
   label: string
   to: string
   icon: ReactNode
+  preserveAnalysisParams?: boolean
 }
 
 type NavGroup = {
@@ -42,6 +44,7 @@ type NavGroup = {
   id: string
   label: string
   icon: ReactNode
+  preserveAnalysisParams?: boolean
   items: { id: string; label: string; to: string; external?: boolean }[]
 }
 
@@ -69,6 +72,7 @@ const getNavItems = (isReopsTeamMember: boolean): NavEntry[] => [
     id: 'trafikkanalyse',
     label: 'Trafikkanalyse',
     icon: <BarChartIcon aria-hidden fontSize="1.25rem" />,
+    preserveAnalysisParams: true,
     items: [
       { id: 'trafikkoversikt', label: 'Trafikkoversikt', to: '/trafikkanalyse' },
       { id: 'markedsanalyse', label: 'Kampanjer', to: '/markedsanalyse' },
@@ -82,6 +86,7 @@ const getNavItems = (isReopsTeamMember: boolean): NavEntry[] => [
     id: 'hendelser',
     label: 'Hendelser',
     icon: <LightningIcon aria-hidden fontSize="1.25rem" />,
+    preserveAnalysisParams: true,
     items: [
       { id: 'egendefinerte', label: 'Egendefinerte hendelser', to: '/utforsk-hendelser' },
       { id: 'hendelsesforlop', label: 'Hendelsesforløp', to: '/hendelsesreiser' },
@@ -92,6 +97,7 @@ const getNavItems = (isReopsTeamMember: boolean): NavEntry[] => [
     id: 'brukere',
     label: 'Brukere',
     icon: <PersonGroupIcon aria-hidden fontSize="1.25rem" />,
+    preserveAnalysisParams: true,
     items: [
       { id: 'brukerdetaljer', label: 'Brukerdetaljer', to: '/brukersammensetning' },
       { id: 'enkeltbrukere', label: 'Enkeltbrukere', to: '/brukerprofiler' },
@@ -104,6 +110,7 @@ const getNavItems = (isReopsTeamMember: boolean): NavEntry[] => [
     id: 'innholdskvalitet',
     label: 'Innholdskvalitet',
     icon: <FileSearchIcon aria-hidden fontSize="1.25rem" />,
+    preserveAnalysisParams: true,
     items: [
       { id: 'stavekontroll', label: 'Stavekontroll', to: '/kvalitet/stavekontroll' },
       { id: 'odelagte-lenker', label: 'Ødelagte lenker', to: '/kvalitet/odelagte-lenker' },
@@ -116,6 +123,7 @@ const getNavItems = (isReopsTeamMember: boolean): NavEntry[] => [
     label: 'Grafbygger',
     to: '/grafbygger',
     icon: <AreaChartIcon aria-hidden fontSize="1.25rem" />,
+    preserveAnalysisParams: true,
   },
   {
     kind: 'link',
@@ -198,11 +206,14 @@ const subRowClass = (active: boolean) =>
   }`
 
 function SidebarLink({ entry, collapsed }: { entry: NavLink; collapsed: boolean }) {
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   const active = isPathActive(pathname, entry.to, entry.to === '/')
 
   const content = (
-    <RouterLink to={entry.to} className={rowClass(active)}>
+    <RouterLink
+      to={entry.preserveAnalysisParams ? preserveSharedAnalysisParams(entry.to, search) : entry.to}
+      className={rowClass(active)}
+    >
       <span className="grid shrink-0 place-items-center">{entry.icon}</span>
       {!collapsed && <span className="truncate">{entry.label}</span>}
     </RouterLink>
@@ -226,7 +237,7 @@ function SidebarGroup({
   collapsed: boolean
   onExpandSidebar: () => void
 }) {
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   const isActiveGroup = entry.items.some((item) => isPathActive(pathname, item.to))
   const [isOpen, setIsOpen] = useState(isActiveGroup)
 
@@ -290,7 +301,11 @@ function SidebarGroup({
                 </span>
               </a>
             ) : (
-              <RouterLink key={item.id} to={item.to} className={subRowClass(pathname === item.to)}>
+              <RouterLink
+                key={item.id}
+                to={entry.preserveAnalysisParams ? preserveSharedAnalysisParams(item.to, search) : item.to}
+                className={subRowClass(pathname === item.to)}
+              >
                 {item.label}
               </RouterLink>
             ),
@@ -357,7 +372,7 @@ export default function Sidebar({ theme }: SidebarProps) {
       value="localhost"
       onChange={(e) => switchEnvironment(e.target.value as 'dev')}
     >
-      <option value="localhost">Localhost</option>
+      <option value="localhost">Local</option>
       <option value="dev">Dev</option>
     </Select>
   ) : isDev || isProd ? (

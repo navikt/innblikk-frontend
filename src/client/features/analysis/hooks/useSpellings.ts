@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useAutoRefresh } from './useAutoRefresh'
 import { useSearchParams } from 'react-router-dom'
 import type { Website } from '../../../shared/types/chart.ts'
 import type { SpellingIssue, QualityAssuranceCheck, SpellingCrawlData } from '../model/types.ts'
@@ -97,15 +98,12 @@ export const useSpellings = () => {
     }
   }, [siteimproveId, urlPath])
 
-  // Auto-submit when URL parameters are present or website is selected
-  useEffect(() => {
-    const hasConfigParams = searchParams.has('urlPath')
-    if (siteimproveId && hasConfigParams && !hasAttemptedFetch) {
-      void fetchSpellingData()
-    } else if (siteimproveId && !urlPath && !hasAttemptedFetch) {
-      void fetchSpellingData()
-    }
-  }, [siteimproveId, hasAttemptedFetch, searchParams, urlPath, fetchSpellingData])
+  useAutoRefresh(
+    JSON.stringify([selectedWebsite?.id, siteimproveId, urlPath]),
+    Boolean(siteimproveId),
+    loading,
+    fetchSpellingData,
+  )
 
   return {
     selectedWebsite,

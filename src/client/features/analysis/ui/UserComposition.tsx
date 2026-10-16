@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
+import { useAutoRefresh } from '../hooks/useAutoRefresh'
 import { useSearchParams } from 'react-router-dom'
 import { Button, Alert, Loader, Tabs, Switch } from '@navikt/ds-react'
 import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
@@ -70,8 +71,7 @@ const UserComposition = () => {
   }
 
   type CompositionApiResponse =
-    | { error: string }
-    | { data: CompositionRow[]; queryStats?: QueryStatsLike; generatedSql?: string }
+    { error: string } | { data: CompositionRow[]; queryStats?: QueryStatsLike; generatedSql?: string }
 
   const [data, setData] = useState<CompositionRow[] | null>(null)
   const [loading, setLoading] = useState<boolean>(false)
@@ -80,8 +80,6 @@ const UserComposition = () => {
   const [queryStats, setQueryStats] = useState<QueryStatsLike | null>(null)
   const [generatedSql, setGeneratedSql] = useState<string | null>(null)
   const [copySuccess, setCopySuccess] = useState<boolean>(false)
-  const [hasAutoSubmitted, setHasAutoSubmitted] = useState<boolean>(false)
-  const [lastAppliedFilterKey, setLastAppliedFilterKey] = useState<string | null>(null)
   const [showBarChart, setShowBarChart] = useState<boolean>(false)
   const [showPieChart, setShowPieChart] = useState<boolean>(false)
   const [showAddToDashboardDialog, setShowAddToDashboardDialog] = useState<boolean>(false)
@@ -93,16 +91,14 @@ const UserComposition = () => {
         urlPaths,
         pathOperator,
         period,
-        customStartDate: customStartDate?.toISOString() ?? null,
-        customEndDate: customEndDate?.toISOString() ?? null,
+        customStartDate: customStartDate?.toJSON() ?? null,
+        customEndDate: customEndDate?.toJSON() ?? null,
       }),
     [selectedWebsite?.id, urlPaths, pathOperator, period, customStartDate, customEndDate],
   )
-  const hasUnappliedFilterChanges = buildFilterKey() !== lastAppliedFilterKey
 
   const fetchData = useCallback(async () => {
     if (!selectedWebsite) return
-    const appliedFilterKey = buildFilterKey()
 
     setLoading(true)
     setError(null)
@@ -163,7 +159,6 @@ const UserComposition = () => {
         newParams.delete('pagePath')
       }
       window.history.replaceState({}, '', `${window.location.pathname}?${newParams.toString()}`)
-      setLastAppliedFilterKey(appliedFilterKey)
     } catch {
       setError('Det oppstod en feil ved henting av data.')
     } finally {
@@ -171,7 +166,6 @@ const UserComposition = () => {
     }
   }, [
     selectedWebsite,
-    buildFilterKey,
     period,
     customStartDate,
     customEndDate,
@@ -182,13 +176,13 @@ const UserComposition = () => {
     activeCategory,
   ])
 
-  // Auto-submit when website is selected (from localStorage, URL, or Home page picker)
-  useEffect(() => {
-    if (selectedWebsite && !hasAutoSubmitted && !loading) {
-      setHasAutoSubmitted(true)
-      void fetchData()
-    }
-  }, [selectedWebsite, hasAutoSubmitted, loading, fetchData])
+  const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
+  useAutoRefresh(
+    buildFilterKey(),
+    Boolean(selectedWebsite && dateRange && dateRange.endDate >= dateRange.startDate),
+    loading,
+    fetchData,
+  )
 
   const copyShareLink = async () => {
     try {
@@ -277,10 +271,6 @@ const UserComposition = () => {
       sidebarContent={
         <WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} variant="minimal" />
       }
-      onFiltersSubmit={() => {
-        if (!selectedWebsite || loading || !hasUnappliedFilterChanges) return
-        void fetchData()
-      }}
       filters={
         <>
           <UrlPathFilter
@@ -289,6 +279,7 @@ const UserComposition = () => {
             pathOperator={pathOperator}
             onPathOperatorChange={setPathOperator}
             selectedWebsiteDomain={selectedWebsite?.domain}
+            selectedWebsiteId={selectedWebsite?.id}
             label="URL"
           />
 
@@ -300,17 +291,6 @@ const UserComposition = () => {
             endDate={customEndDate}
             onEndDateChange={setCustomEndDate}
           />
-
-          <div className="flex items-end pb-[2px] mt-8 sm:mt-0">
-            <Button
-              onClick={fetchData}
-              disabled={!selectedWebsite || loading || !hasUnappliedFilterChanges}
-              loading={loading}
-              size="small"
-            >
-              Vis brukerdetaljer
-            </Button>
-          </div>
         </>
       }
     >

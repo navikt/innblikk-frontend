@@ -58,6 +58,7 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 
 describe('useTrafficAnalysis sidegroup filter', () => {
   beforeEach(() => {
+    localStorage.clear()
     fetchTrafficSeriesMock.mockClear()
     buildSeriesUrlMock.mockClear()
     useSidegroupsMock.mockImplementation((websiteId?: string) => ({
@@ -66,6 +67,97 @@ describe('useTrafficAnalysis sidegroup filter', () => {
       error: false,
     }))
     window.history.replaceState({}, '', '/trafikkanalyse')
+  })
+
+  it('automatically refreshes after filter and website changes', async () => {
+    const { result } = renderHook(() => useTrafficAnalysis(), { wrapper })
+    act(() => result.current.setSelectedWebsite(website))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    await waitFor(() => expect(fetchTrafficSeriesMock).toHaveBeenCalledTimes(1))
+
+    act(() => {
+      result.current.setUrlPaths(['/jobs'])
+      result.current.setPeriod('last_28_days')
+      result.current.setMetricType('visitors')
+    })
+    await waitFor(() => expect(fetchTrafficSeriesMock).toHaveBeenCalledTimes(2))
+    expect(result.current.submittedMetricType).toBe('visitors')
+    expect(window.location.search).toContain('urlPath=%2Fjobs')
+
+    act(() => result.current.setSelectedWebsite({ ...website, id: 'site-2' }))
+    await waitFor(() => expect(fetchTrafficSeriesMock).toHaveBeenCalledTimes(3))
+    expect(buildSeriesUrlMock.mock.lastCall?.[0]).toBe('site-2')
+  })
+
+  it('keeps the report until custom dates form a complete valid range', async () => {
+    const { result } = renderHook(() => useTrafficAnalysis(), { wrapper })
+    act(() => result.current.setSelectedWebsite(website))
+    await waitFor(() => expect(fetchTrafficSeriesMock).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    const previousRange = result.current.submittedDateRange
+    const previousPeriod = result.current.submittedPeriod
+
+    vi.useFakeTimers()
+    try {
+      act(() => result.current.setPeriod('custom'))
+      const incompleteRanges: [Date | undefined, Date | undefined][] = [
+        [undefined, undefined],
+        [new Date(2026, 9, 7), undefined],
+        [undefined, new Date(2026, 9, 13)],
+        [new Date(2026, 9, 7), new Date(2026, 9, 6)],
+        [new Date('invalid'), new Date(2026, 9, 13)],
+      ]
+      for (const [startDate, endDate] of incompleteRanges) {
+        act(() => {
+          result.current.setCustomStartDate(startDate)
+          result.current.setCustomEndDate(endDate)
+        })
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(400)
+        })
+        expect(fetchTrafficSeriesMock).toHaveBeenCalledTimes(1)
+        expect(result.current.loading).toBe(false)
+        expect(result.current.error).toBeNull()
+        expect(result.current.submittedDateRange).toBe(previousRange)
+        expect(result.current.submittedPeriod).toBe(previousPeriod)
+      }
+
+      act(() => result.current.setCustomStartDate(new Date(2026, 9, 7)))
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(400)
+      })
+      expect(fetchTrafficSeriesMock).toHaveBeenCalledTimes(2)
+      expect(result.current.submittedPeriod).toBe('custom')
+      expect(result.current.error).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('waits for a sidegroup selection before automatically refreshing', async () => {
+    const { result } = renderHook(() => useTrafficAnalysis(), { wrapper })
+    act(() => result.current.setSelectedWebsite(website))
+    await waitFor(() => expect(fetchTrafficSeriesMock).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    vi.useFakeTimers()
+    try {
+      act(() => result.current.setPathOperator('sidegroup'))
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(400)
+      })
+      expect(fetchTrafficSeriesMock).toHaveBeenCalledTimes(1)
+      expect(result.current.loading).toBe(false)
+
+      act(() => result.current.setSidegroup(sidegroup))
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(400)
+      })
+      expect(fetchTrafficSeriesMock).toHaveBeenCalledTimes(2)
+      expect(buildSeriesUrlMock.mock.lastCall?.[8]).toEqual(sidegroup)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('restores a sidegroup from the URL before the first traffic request', async () => {

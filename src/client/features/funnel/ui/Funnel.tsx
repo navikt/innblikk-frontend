@@ -25,6 +25,7 @@ import {
   TrashIcon,
 } from '@navikt/aksel-icons'
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
+import UrlPathInput from '../../analysis/ui/UrlPathInput.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
 import FunnelChart from '../../analysis/ui/funnel/FunnelChart.tsx'
@@ -99,7 +100,6 @@ const Funnel = () => {
     setSelectedTableUrl,
     selectedTimingUrl,
     setSelectedTimingUrl,
-    fetchData,
     fetchTiming,
     copyShareLink,
     setMetabaseCopySuccess,
@@ -138,10 +138,6 @@ const Funnel = () => {
       sidebarContent={
         <WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} variant="minimal" />
       }
-      onFiltersSubmit={() => {
-        if (!selectedWebsite || loading || steps.filter((s) => s.value.trim() !== '').length < 2) return
-        void fetchData()
-      }}
       filters={
         <>
           <PeriodPicker
@@ -164,17 +160,6 @@ const Funnel = () => {
               <Radio value="loose">Tillat andre steg imellom</Radio>
             </div>
           </RadioGroup>
-
-          <div className="flex items-end pb-[2px]">
-            <Button
-              size="small"
-              onClick={fetchData}
-              disabled={!selectedWebsite || loading || steps.filter((s) => s.value.trim() !== '').length < 2}
-              loading={loading}
-            >
-              {funnelData.length > 0 ? 'Oppdater' : 'Lag trakt'}
-            </Button>
-          </div>
         </>
       }
     >
@@ -225,18 +210,18 @@ const Funnel = () => {
 
                         {/* Value input */}
                         {step.type === 'url' ? (
-                          <TextField
+                          <UrlPathInput
+                            websiteId={selectedWebsite?.id}
                             label="URL-sti"
                             value={step.query ? getStepUrlDisplay(step) : step.value}
-                            onChange={(e) =>
-                              setSteps(updateStepQuery(updateStepValue(steps, index, e.target.value), index, ''))
+                            onChange={(value) =>
+                              setSteps(updateStepQuery(updateStepValue(steps, index, value), index, ''))
                             }
-                            onBlur={(e) => {
-                              if (!e.target.value.trim()) return
-                              const next = splitUrlStepInput(e.target.value, step.query ?? '')
+                            onCommit={(value) => {
+                              if (!value.trim()) return
+                              const next = splitUrlStepInput(value, step.query ?? '')
                               setSteps(updateStepQuery(updateStepValue(steps, index, next.value), index, next.query))
                             }}
-                            size="small"
                             description="Valgfritt. Du kan lime inn hele URL-en med ?query."
                           />
                         ) : (
@@ -386,16 +371,6 @@ const Funnel = () => {
                   Legg til steg
                 </Button>
               </div>
-
-              <Button
-                onClick={fetchData}
-                disabled={!selectedWebsite || loading || steps.filter((s) => s.value.trim() !== '').length < 2}
-                loading={loading}
-                className="w-full"
-                style={{ marginTop: '2rem' }}
-              >
-                Lag trakt
-              </Button>
             </div>
           </div>
         )}

@@ -5,6 +5,7 @@ import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
 import { format } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
+import UrlPathInput from '../../analysis/ui/UrlPathInput.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
 import { normalizeUrlToPath } from '../../../shared/lib/utils.ts'
@@ -44,8 +45,6 @@ const EventJourney = () => {
     journeyStats,
     queryStats,
     generatedSql,
-    hasUnappliedFilterChanges,
-    fetchData,
   } = useEventJourney()
 
   const [filterText, setFilterText] = useState<string>('')
@@ -146,18 +145,14 @@ const EventJourney = () => {
       sidebarContent={
         <WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} variant="minimal" />
       }
-      onFiltersSubmit={() => {
-        if (!selectedWebsite || loading || !urlPath || !hasUnappliedFilterChanges) return
-        void fetchData()
-      }}
       filters={
         <>
-          <TextField
-            size="small"
+          <UrlPathInput
+            websiteId={selectedWebsite?.id}
             label="URL"
             value={urlPath}
-            onChange={(e) => setUrlPath(e.target.value)}
-            onBlur={(e) => setUrlPath(normalizeUrlToPath(e.target.value))}
+            onChange={setUrlPath}
+            onCommit={(value) => setUrlPath(normalizeUrlToPath(value))}
           />
 
           <PeriodPicker
@@ -168,17 +163,6 @@ const EventJourney = () => {
             endDate={customEndDate}
             onEndDateChange={setCustomEndDate}
           />
-
-          <div className="flex items-end pb-[2px]">
-            <Button
-              onClick={fetchData}
-              disabled={!selectedWebsite || loading || !urlPath || !hasUnappliedFilterChanges}
-              loading={loading}
-              size="small"
-            >
-              Vis
-            </Button>
-          </div>
         </>
       }
     >
