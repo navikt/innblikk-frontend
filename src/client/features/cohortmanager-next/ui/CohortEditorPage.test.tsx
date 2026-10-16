@@ -158,7 +158,7 @@ describe('CohortEditorPage', () => {
       expect(createCohort).not.toHaveBeenCalled()
 
       await user.type(screen.getByRole('combobox', { name: 'Nettsted' }), 'Nav.no')
-      await user.click(await screen.findByRole('option', { name: /Nav.no/ }))
+      await user.click(await screen.findByRole('option', { name: 'nav.no' }))
       expect(screen.getByRole('combobox', { name: 'Nettsted' })).toBeInTheDocument()
       await user.click(screen.getByRole('button', { name: 'Opprett brukergruppe' }))
 
