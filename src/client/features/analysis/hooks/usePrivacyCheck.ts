@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useAutoRefresh } from './useAutoRefresh'
 import { useSearchParams } from 'react-router-dom'
 import { parseISO } from 'date-fns'
 import type { Website } from '../../../shared/types/chart.ts'
@@ -31,8 +30,6 @@ export const usePrivacyCheck = () => {
   const [showEmpty, setShowEmpty] = useState<boolean>(false)
   const [dryRunStats, setDryRunStats] = useState<QueryStats | null>(null)
   const [showDryRunWarning, setShowDryRunWarning] = useState<boolean>(false)
-  const [warningFilterKey, setWarningFilterKey] = useState<string | null>(null)
-  const filterKey = JSON.stringify([selectedWebsite?.id, period, customStartDate, customEndDate])
   const [detailsPage, setDetailsPage] = useState<number>(1)
   const [redactedPage, setRedactedPage] = useState<number>(1)
 
@@ -57,7 +54,6 @@ export const usePrivacyCheck = () => {
 
   const fetchData = useCallback(
     async (force: boolean = false) => {
-      if (force && warningFilterKey !== filterKey) return
       setLoading(true)
       setError(null)
       if (force) {
@@ -79,7 +75,7 @@ export const usePrivacyCheck = () => {
       }
 
       try {
-        let dryRun = !force
+        let dryRun = !force && period === 'custom'
         let shouldRetry = false
 
         do {
@@ -97,7 +93,6 @@ export const usePrivacyCheck = () => {
             const gbProcessed = parseFloat(String(result.queryStats?.totalBytesProcessedGB ?? '0'))
             if (gbProcessed > 50) {
               setDryRunStats(result.queryStats ?? null)
-              setWarningFilterKey(filterKey)
               setShowDryRunWarning(true)
               setLoading(false)
               return
@@ -130,16 +125,10 @@ export const usePrivacyCheck = () => {
       } catch (err) {
         console.error('Error fetching privacy check data:', err)
         setError('Det oppstod en feil ved henting av data.')
-      } finally {
         setLoading(false)
       }
     },
-    [period, customStartDate, customEndDate, selectedWebsite, filterKey, warningFilterKey],
-  )
-
-  const dateRange = calculatePrivacyDateRange(period, customStartDate, customEndDate)
-  useAutoRefresh(filterKey, Boolean(dateRange && dateRange.endDate >= dateRange.startDate), loading, () =>
-    fetchData(false),
+    [period, customStartDate, customEndDate, selectedWebsite],
   )
 
   const handleExplore = useCallback((type: string) => {
@@ -200,7 +189,7 @@ export const usePrivacyCheck = () => {
     queryStats,
     generatedSql,
     dryRunStats,
-    showDryRunWarning: showDryRunWarning && warningFilterKey === filterKey,
+    showDryRunWarning,
     setShowDryRunWarning,
 
     // Tabs & filters

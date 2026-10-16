@@ -211,6 +211,10 @@ const PrivacyCheck = () => {
       title="Personvernssjekk"
       description="Søk etter potensielle personopplysninger."
       currentPage="personvern"
+      onFiltersSubmit={() => {
+        if (loading) return
+        void fetchData(false)
+      }}
       filters={
         <>
           <WebsitePicker selectedWebsite={selectedWebsite} onWebsiteChange={setSelectedWebsite} variant="minimal" />
@@ -222,6 +226,11 @@ const PrivacyCheck = () => {
             endDate={customEndDate}
             onEndDateChange={setCustomEndDate}
           />
+          <div className="flex items-end pb-[2px] mt-8 sm:mt-0">
+            <Button onClick={() => fetchData(false)} disabled={loading} loading={loading} size="small">
+              {selectedWebsite ? 'Kjør personvernssjekk' : 'Søk i alle nettsteder'}
+            </Button>
+          </div>
         </>
       }
     >
