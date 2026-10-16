@@ -5,9 +5,9 @@ import {
   hasMarketingSupport,
   hasSiteimproveSupport,
 } from '../../../shared/hooks/useSiteimproveSupport.ts'
+import { preserveSharedAnalysisParams } from '../../../shared/lib/analysisNavigation.ts'
 import { chartGroups, chartGroupsLegacy } from '../model/chartGroups.tsx'
 import { getFeatureFlag } from '../../../shared/lib/featureFlags.ts'
-import { SHARED_PARAMS } from '../model/types.ts'
 
 export const useChartNavigation = (
   websiteDomain?: string,
@@ -58,18 +58,7 @@ export const useChartNavigation = (
   }, [showSiteimproveSection, showMarketingSection, showClickmapSection, activeChartGroups])
 
   const getTargetUrl = useCallback((href: string) => {
-    const currentParams = new URLSearchParams(window.location.search)
-    const preservedParams = new URLSearchParams()
-
-    SHARED_PARAMS.forEach((param) => {
-      const value = currentParams.get(param)
-      if (value) {
-        preservedParams.set(param, value)
-      }
-    })
-
-    const queryString = preservedParams.toString()
-    return queryString ? `${href}?${queryString}` : href
+    return preserveSharedAnalysisParams(href, window.location.search)
   }, [])
 
   const handleNavigation = useCallback(

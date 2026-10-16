@@ -29,7 +29,7 @@ describe('UrlPathFilter autocomplete', () => {
 
     await waitFor(() => expect(fetchColumnValues).toHaveBeenCalledWith('website-one', 'url_path', undefined, undefined))
     await user.type(screen.getByRole('combobox', { name: 'URL' }), '/arb')
-    await user.click(await screen.findByRole('option', { name: '/arbeid', exact: true }))
+    await user.click(await screen.findByRole('option', { name: /^\/arbeid$/ }))
 
     expect(props.onUrlPathsChange).toHaveBeenCalledWith(['/arbeid'])
     expect(props.onUrlPathsChange).not.toHaveBeenCalledWith(['/arb'])

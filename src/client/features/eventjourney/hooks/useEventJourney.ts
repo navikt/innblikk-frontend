@@ -77,6 +77,7 @@ export const useEventJourney = () => {
     if (!selectedWebsite) return
     if (!urlPath) return
 
+    const normalizedUrlPath = normalizeUrlToPath(urlPath)
     const appliedFilterKey = buildFilterKey()
 
     const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
@@ -90,7 +91,7 @@ export const useEventJourney = () => {
     const syncSearchParams = () => {
       const newParams = new URLSearchParams(window.location.search)
       newParams.set('period', period)
-      newParams.set('urlPath', urlPath)
+      newParams.set('urlPath', normalizedUrlPath)
       newParams.delete('minEvents')
       if (period === 'custom' && customStartDate && customEndDate) {
         newParams.set('from', format(customStartDate, 'yyyy-MM-dd'))
@@ -125,7 +126,7 @@ export const useEventJourney = () => {
     try {
       const result = await fetchEventJourneys({
         websiteId: selectedWebsite.id,
-        urlPath,
+        urlPath: normalizedUrlPath,
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
         minEvents: 1,

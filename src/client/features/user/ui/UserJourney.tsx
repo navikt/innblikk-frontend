@@ -46,6 +46,7 @@ const UserJourney = () => {
   const journeyData = useJourneyData(selectedWebsite, period, customStartDate, customEndDate, limit, journeyDirection)
   const { data, rawData, loading, isUpdating, error, queryStats, generatedSql, reverseVisualOrder, fetchData } =
     journeyData
+  const loadMoreFilterKey = useRef<string | null>(null)
 
   // UI state
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false)
@@ -57,20 +58,27 @@ const UserJourney = () => {
   const [showTableSearch, setShowTableSearch] = useState<boolean>(false)
   const tableSearchInputRef = useRef<HTMLInputElement>(null)
   const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
-  useAutoRefresh(
+  const getJourneyFilterKey = (stepCount: number) =>
     JSON.stringify([
       selectedWebsite?.id,
       startUrl,
       period,
       customStartDate,
       customEndDate,
-      steps,
+      stepCount,
       limit,
       journeyDirection,
-    ]),
+    ])
+  const journeyFilterKey = getJourneyFilterKey(steps)
+  useAutoRefresh(
+    journeyFilterKey,
     Boolean(selectedWebsite && startUrl.trim() && dateRange && dateRange.endDate >= dateRange.startDate),
     loading || isUpdating,
-    () => fetchData(startUrl, steps),
+    () => {
+      const preserveData = loadMoreFilterKey.current === journeyFilterKey
+      loadMoreFilterKey.current = null
+      return fetchData(startUrl, steps, preserveData)
+    },
   )
 
   const handleCopyShareLink = async () => {
@@ -93,6 +101,7 @@ const UserJourney = () => {
 
   const handleLoadMore = (increment: number) => {
     const newSteps = steps + increment
+    loadMoreFilterKey.current = getJourneyFilterKey(newSteps)
     setSteps(newSteps)
   }
 

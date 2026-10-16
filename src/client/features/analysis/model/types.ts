@@ -234,18 +234,7 @@ export interface ChartActionModalProps {
 
 // ===== ChartLayout types =====
 
-export const SHARED_PARAMS = [
-  'urlPath',
-  'pagePath',
-  'period',
-  'startDate',
-  'endDate',
-  'from',
-  'to',
-  'websiteId',
-  'domain',
-  'pathOperator',
-]
+export { SHARED_PARAMS } from '../../../shared/lib/analysisNavigation.ts'
 
 // ===== CookieMixNotice types =====
 

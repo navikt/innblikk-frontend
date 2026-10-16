@@ -23,6 +23,7 @@ export interface ColumnValueSuggestionsResult {
  */
 export function createColumnValuesSuggestionsSource() {
   const cache = new Map<string, { values: string[]; scannedDays: number }>()
+  const inFlight = new Map<string, Promise<{ values: string[]; scannedDays: number }>>()
 
   function useColumnValueSuggestions(
     websiteId: string | undefined,
@@ -47,10 +48,19 @@ export function createColumnValuesSuggestionsSource() {
       if (!websiteId || cache.has(cacheKey)) {
         return
       }
-      fetchColumnValues(websiteId, column, key, eventName)
-        .then((res) => {
-          const next = { values: res.values, scannedDays: res.scannedDays }
-          cache.set(cacheKey, next)
+      let request = inFlight.get(cacheKey)
+      if (!request) {
+        request = fetchColumnValues(websiteId, column, key, eventName)
+          .then((res) => {
+            const next = { values: res.values, scannedDays: res.scannedDays }
+            cache.set(cacheKey, next)
+            return next
+          })
+          .finally(() => inFlight.delete(cacheKey))
+        inFlight.set(cacheKey, request)
+      }
+      request
+        .then((next) => {
           setState((current) =>
             current.requestId === requestId ? { ...current, entry: next, loading: false } : current,
           )

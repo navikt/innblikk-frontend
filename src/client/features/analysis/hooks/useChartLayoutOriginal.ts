@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { preserveSharedAnalysisParams } from '../../../shared/lib/analysisNavigation.ts'
 import { analyticsPages } from '../model/analyticsNavigation.ts'
-import { SHARED_PARAMS } from '../model/types.ts'
 
 export const useChartLayoutOriginal = (hideSidebar: boolean) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(!hideSidebar)
@@ -12,19 +12,7 @@ export const useChartLayoutOriginal = (hideSidebar: boolean) => {
       const selectedId = event.target.value
       const page = analyticsPages.find((p) => p.id === selectedId)
       if (page) {
-        const currentParams = new URLSearchParams(window.location.search)
-        const preservedParams = new URLSearchParams()
-
-        SHARED_PARAMS.forEach((param) => {
-          const value = currentParams.get(param)
-          if (value) {
-            preservedParams.set(param, value)
-          }
-        })
-
-        const queryString = preservedParams.toString()
-        const targetUrl = queryString ? `${page.href}?${queryString}` : page.href
-        void navigate(targetUrl)
+        void navigate(preserveSharedAnalysisParams(page.href, window.location.search))
       }
     },
     [navigate],
