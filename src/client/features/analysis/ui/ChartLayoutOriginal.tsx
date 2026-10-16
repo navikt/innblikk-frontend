@@ -63,9 +63,25 @@ const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
 
   return (
     <>
-      {showPageHeader && <PageHeader title={title} description={description} beta={beta} notice={headerNotice} />}
+      {showPageHeader && (
+        <PageHeader
+          title={title}
+          description={description}
+          beta={beta}
+          notice={headerNotice}
+          compactGutters={alphaNewNav}
+        />
+      )}
 
-      <AppBlock className={isFocusedEmbedLayout ? 'pb-0' : 'pb-16'} gutters={!isFocusedEmbedLayout}>
+      <AppBlock
+        className={isFocusedEmbedLayout ? 'pb-0' : 'pb-16'}
+        gutters={isFocusedEmbedLayout ? false : alphaNewNav ? 'compact' : true}
+      >
+        {/*
+          Alpha sidebar mode: drop the outer card chrome (border/shadow/rounded/
+          background) — the global left Sidebar is already the page's visual
+          anchor. Inner stat cards and tables keep their chrome.
+        */}
         <div
           className={
             hideSidebar
@@ -74,7 +90,9 @@ const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
                 : 'mb-8'
               : isFocusedEmbedLayout
                 ? 'bg-[var(--ax-bg-default)]'
-                : 'rounded-lg shadow-sm border border-[var(--ax-border-neutral-subtle)] mb-8 bg-[var(--ax-bg-default)]'
+                : alphaNewNav
+                  ? 'mb-8'
+                  : 'rounded-lg shadow-sm border border-[var(--ax-border-neutral-subtle)] mb-8 bg-[var(--ax-bg-default)]'
           }
         >
           <div className={hideSidebar ? '' : 'flex flex-col md:flex-row min-h-[600px] relative'}>

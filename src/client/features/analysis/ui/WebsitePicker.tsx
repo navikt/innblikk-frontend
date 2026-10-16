@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { UNSAFE_Combobox, Alert } from '@navikt/ds-react'
 import type { Website } from '../../../shared/types/chart.ts'
 import type { EventProperty, ApiCache, WebsiteApiResponse } from '../model/types.ts'
@@ -66,6 +67,7 @@ const WebsitePicker = ({
   labelClassName,
   id,
 }: WebsitePickerProps) => {
+  const [, setSearchParams] = useSearchParams()
   const [websites, setWebsites] = useState<Website[]>([])
   const [loadedWebsiteId, setLoadedWebsiteId] = useState<string | null>(null)
   const [setMaxDaysAvailable] = useState<number>(30)
@@ -118,19 +120,27 @@ const WebsitePicker = ({
     }
   }, [isInitialLoading, onInitialLoadingChange])
 
-  // Function to update URL with website ID
-  const updateUrlWithWebsiteId = useCallback((website: Website | null) => {
-    const url = new URL(window.location.href)
-
-    if (website && website.id) {
-      url.searchParams.set('websiteId', website.id)
-    } else {
-      url.searchParams.delete('websiteId')
-    }
-
-    // Update URL without full page reload
-    window.history.pushState({}, '', url.toString())
-  }, [])
+  // Function to update URL with website ID.
+  // Uses React Router's setSearchParams (not raw pushState) so that
+  // useLocation().search stays in sync — the Sidebar reads it to build
+  // param-preserving links, and a raw pushState would leave it stale.
+  const updateUrlWithWebsiteId = useCallback(
+    (website: Website | null) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          if (website && website.id) {
+            next.set('websiteId', website.id)
+          } else {
+            next.delete('websiteId')
+          }
+          return next
+        },
+        { replace: true, preventScrollReset: true },
+      )
+    },
+    [setSearchParams],
+  )
 
   // Handle website selection and update URL
   const handleWebsiteChange = useCallback(

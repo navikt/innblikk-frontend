@@ -147,10 +147,22 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
 
   return (
     <>
-      <PageHeader title={title} description={description} beta={isCurrentPageBeta} />
+      <PageHeader title={title} description={description} beta={isCurrentPageBeta} compactGutters={alphaNewNav} />
 
-      <AppBlock className="pb-16">
-        <div className="rounded-lg shadow-sm border border-[var(--ax-border-neutral-subtle)] mb-8 bg-[var(--ax-bg-default)] overflow-hidden">
+      <AppBlock className="pb-16" gutters={alphaNewNav ? 'compact' : true}>
+        {/*
+          Alpha sidebar mode: the global left Sidebar is the page's visual anchor,
+          so we drop the outer card chrome (border/shadow/rounded/background) and
+          let the content sit directly on the page surface. Inner stat cards and
+          tables keep their own chrome — they still group related data.
+        */}
+        <div
+          className={
+            alphaNewNav
+              ? 'mb-8'
+              : 'rounded-lg shadow-sm border border-[var(--ax-border-neutral-subtle)] mb-8 bg-[var(--ax-bg-default)] overflow-hidden'
+          }
+        >
           {/* Unified Top Bar */}
           {(sidebarContent || (!hideSidebar && filters)) && (
             <div className="group border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-subtle)] flex flex-col md:flex-row md:min-h-[80px]">

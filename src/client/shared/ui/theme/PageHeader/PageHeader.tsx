@@ -11,6 +11,12 @@ interface PageHeaderProps {
   variant?: 'regular' | 'article'
   beta?: boolean
   notice?: React.ReactNode
+  /**
+   * Use the tighter 16/24px inline gutters so the header lines up with
+   * content laid out by the alpha left-Sidebar pages. Defaults off —
+   * legacy pages keep Aksel's standard gutters.
+   */
+  compactGutters?: boolean
 }
 
 export const PageHeader = ({
@@ -21,6 +27,7 @@ export const PageHeader = ({
   variant = 'regular',
   beta,
   notice,
+  compactGutters = false,
 }: PageHeaderProps) => {
   const isArticle = variant === 'article'
   const padding = isArticle ? '32px' : '16px'
@@ -38,7 +45,7 @@ export const PageHeader = ({
         marginBottom: '24px',
       }}
     >
-      <AppBlock>
+      <AppBlock gutters={compactGutters ? 'compact' : true}>
         <div
           className={`grid gap-[10px] md:grid-cols-[minmax(0,1fr)_auto] md:items-start ${
             isArticle ? 'max-w-[800px] mx-auto' : ''
