@@ -47,7 +47,7 @@ test.describe('App smoke tests', () => {
     await expect(combobox).toBeVisible({ timeout: 10_000 })
     // Open the dropdown and verify mock data populated the picker
     await combobox.click()
-    await expect(page.getByRole('option', { name: /test site/i })).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('option', { name: /test\.nav\.no/i })).toBeVisible({ timeout: 10_000 })
   })
 
   const routesWithHeadings: Array<{ path: string; heading: RegExp }> = [
