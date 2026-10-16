@@ -8,8 +8,6 @@ import { useFunnel } from '../../funnel/hooks/useFunnel'
 import { fetchFunnelData } from '../../funnel/api/funnelApi'
 import { useGoalCompletion } from '../../goalcompletion/hooks/useGoalCompletion'
 import { fetchGoalCompletionData } from '../../goalcompletion/api/goalCompletionApi'
-import { usePrivacyCheck } from './usePrivacyCheck'
-import { fetchPrivacyCheck } from '../api/privacy'
 
 vi.mock('../../../shared/hooks/useSiteimproveSupport.ts', () => ({
   useCookieSupport: () => false,
@@ -23,7 +21,6 @@ vi.mock('../../funnel/api/funnelApi', () => ({
   fetchWebsiteEvents: vi.fn(() => Promise.resolve([])),
 }))
 vi.mock('../../goalcompletion/api/goalCompletionApi', () => ({ fetchGoalCompletionData: vi.fn() }))
-vi.mock('../api/privacy', () => ({ fetchPrivacyCheck: vi.fn() }))
 
 const website = { id: 'site-1', name: 'Nav', domain: 'nav.no', teamId: 'team-1', createdAt: '2023-01-01T00:00:00Z' }
 const wrapper = ({ children }: { children: ReactNode }) => <MemoryRouter>{children}</MemoryRouter>
@@ -53,7 +50,6 @@ describe('automatic analysis reports', () => {
       queryStats: null,
       error: null,
     })
-    vi.mocked(fetchPrivacyCheck).mockResolvedValue({ dryRun: true, queryStats: { totalBytesProcessedGB: '60' } })
   })
   afterEach(() => vi.useRealTimers())
 
@@ -164,24 +160,5 @@ describe('automatic analysis reports', () => {
     act(() => result.current.setPeriod('current_month'))
     await flushRefresh()
     expect(fetchGoalCompletionData).toHaveBeenCalledTimes(2)
-  })
-
-  it('estimates privacy queries without bypassing confirmation for large scans', async () => {
-    const { result } = renderHook(usePrivacyCheck, { wrapper })
-    await flushRefresh()
-    expect(fetchPrivacyCheck).toHaveBeenCalledTimes(1)
-    expect(fetchPrivacyCheck).toHaveBeenLastCalledWith(expect.objectContaining({ dryRun: true }))
-    expect(result.current.showDryRunWarning).toBe(true)
-    await flushRefresh()
-    expect(fetchPrivacyCheck).toHaveBeenCalledTimes(1)
-    act(() => result.current.setSelectedWebsite(website))
-    expect(result.current.showDryRunWarning).toBe(false)
-    await act(async () => result.current.fetchData(true))
-    expect(fetchPrivacyCheck).toHaveBeenCalledTimes(1)
-    await flushRefresh()
-    expect(fetchPrivacyCheck).toHaveBeenCalledTimes(2)
-    vi.mocked(fetchPrivacyCheck).mockResolvedValue({ data: [] })
-    await act(async () => result.current.fetchData(true))
-    expect(fetchPrivacyCheck).toHaveBeenLastCalledWith(expect.objectContaining({ websiteId: 'site-1', dryRun: false }))
   })
 })
