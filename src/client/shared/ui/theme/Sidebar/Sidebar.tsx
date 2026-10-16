@@ -357,7 +357,7 @@ export default function Sidebar({ theme }: SidebarProps) {
       value="localhost"
       onChange={(e) => switchEnvironment(e.target.value as 'dev')}
     >
-      <option value="localhost">Localhost</option>
+      <option value="localhost">Local</option>
       <option value="dev">Dev</option>
     </Select>
   ) : isDev || isProd ? (
