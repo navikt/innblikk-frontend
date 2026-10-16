@@ -81,7 +81,7 @@ describe('useTrafficAnalysis sidegroup filter', () => {
       result.current.setMetricType('visitors')
     })
     await waitFor(() => expect(fetchTrafficSeriesMock).toHaveBeenCalledTimes(2))
-    expect(result.current.submittedMetricType).toBe('visitors')
+    await waitFor(() => expect(result.current.submittedMetricType).toBe('visitors'))
     expect(window.location.search).toContain('urlPath=%2Fjobs')
 
     act(() => result.current.setSelectedWebsite({ ...website, id: 'site-2' }))
