@@ -60,15 +60,26 @@ export function HelpTextButton({ label, title, children, placement = 'right', cl
           {label}
         </Button>
       </span>
+      {/*
+        Popover renders inline (no portal in ds-react), so it inherits CSS like
+        `white-space: nowrap` from ancestor wrappers (e.g. inline-flex cells in
+        DataGrid). Reset `white-space` + force a sane width so text wraps.
+      */}
       <Popover
         open={open}
         onClose={() => setOpen(false)}
         anchorEl={anchorEl}
         placement={placement}
         className="aksel-help-text__popover"
-        style={{ maxWidth: 'min(65ch, calc(100vw - var(--ax-space-24)))' }}
+        style={{
+          maxWidth: 'min(65ch, calc(100vw - var(--ax-space-24)))',
+          whiteSpace: 'normal',
+        }}
       >
-        <Popover.Content className="aksel-body-short" style={{ overflowWrap: 'break-word' }}>
+        <Popover.Content
+          className="aksel-body-short"
+          style={{ overflowWrap: 'break-word', whiteSpace: 'normal', minWidth: 'min(30ch, 100%)' }}
+        >
           {children}
         </Popover.Content>
       </Popover>
