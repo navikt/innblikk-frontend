@@ -21,10 +21,11 @@ import {
 } from '@navikt/aksel-icons'
 import { Button, Select, Tooltip } from '@navikt/ds-react'
 import { useEffect, useState, type ReactNode } from 'react'
-import { Link as RouterLink, useLocation } from 'react-router-dom'
+import { Link as RouterLink, useLocation, useSearchParams } from 'react-router-dom'
 import { preserveSharedAnalysisParams } from '../../../lib/analysisNavigation.ts'
 import '../../../../tailwind.css'
 import { useIsReopsTeamMember } from '../../../hooks/useIsReopsTeamMember.ts'
+import { hasMarketingSupport } from '../../../hooks/useSiteimproveSupport.ts'
 
 interface SidebarProps {
   theme: 'light' | 'dark'
@@ -65,7 +66,7 @@ type NavEntry = NavLink | NavGroup
 // with logo + cog menu) has since been removed entirely — everything it held
 // (branding, main nav, Beta/dev tags, Miljø env switch, theme toggle, Innstillinger) now
 // lives exclusively in this Sidebar, so there's a single persistent nav surface.
-const getNavItems = (isReopsTeamMember: boolean): NavEntry[] => [
+const getNavItems = (isReopsTeamMember: boolean, showMarketing: boolean): NavEntry[] => [
   { kind: 'link', id: 'hjem', label: 'Hjem', to: '/', icon: <HouseIcon aria-hidden fontSize="1.25rem" /> },
   {
     kind: 'group',
@@ -75,7 +76,7 @@ const getNavItems = (isReopsTeamMember: boolean): NavEntry[] => [
     preserveAnalysisParams: true,
     items: [
       { id: 'trafikkoversikt', label: 'Trafikkoversikt', to: '/trafikkanalyse' },
-      { id: 'markedsanalyse', label: 'Kampanjer', to: '/markedsanalyse' },
+      ...(showMarketing ? [{ id: 'markedsanalyse', label: 'Kampanjer', to: '/markedsanalyse' }] : []),
       { id: 'klikkoversikt', label: 'Klikkoversikt', to: '/klikkoversikt' },
       { id: 'navigasjonsflyt', label: 'Navigasjonsflyt', to: '/brukerreiser' },
       { id: 'trakt', label: 'Trakt', to: '/trakt' },
@@ -342,8 +343,10 @@ export default function Sidebar({ theme }: SidebarProps) {
   const [isMobileOpen, setIsMobileOpen] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(false)
   const { pathname } = useLocation()
+  const [searchParams] = useSearchParams()
   const { isReopsTeamMember } = useIsReopsTeamMember()
-  const navItems = getNavItems(isReopsTeamMember)
+  const showMarketing = hasMarketingSupport(searchParams.get('domain'), undefined, searchParams.get('websiteId'))
+  const navItems = getNavItems(isReopsTeamMember, showMarketing)
 
   const { hostname, pathname: currentPathname, search, hash } = window.location
   const currentPath = `${currentPathname}${search}${hash}`
