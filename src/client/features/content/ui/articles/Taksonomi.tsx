@@ -189,9 +189,9 @@ const TaksonomiPage = () => {
       />
 
       <AppBlock className="pb-24 px-4">
-        <div className="max-w-[960px] mx-auto">
+        <div className="max-w-[800px] mx-auto">
           <VStack gap="space-20">
-            <section className="pt-16">
+            <section className="pt-12">
               <BodyLong spacing>
                 En felles taksonomi gjør det enklere å sammenligne data, gjenbruke kode og forstå hva hendelsene betyr —
                 på tvers av team og løsninger.

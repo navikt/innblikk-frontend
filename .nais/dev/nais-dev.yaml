@@ -37,6 +37,8 @@ spec:
         - host: www.nav.no
         - host: reops-demo-appen.ekstern.dev.nav.no
         - host: teamkatalog-api.intern.nav.no
+        - host: github.com
+        - host: release-assets.githubusercontent.com
       rules:
           - application: reops-proxy
             namespace: team-researchops
