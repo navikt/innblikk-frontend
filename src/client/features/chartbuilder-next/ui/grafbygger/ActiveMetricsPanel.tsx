@@ -17,6 +17,8 @@ const ActiveMetricsPanel = ({ metrics, METRICS, updateMetric }: ActiveMetricsPan
     if (metric.function === 'distinct' && metric.column === 'visit_id') return 'Økter / besøk'
     if (metric.function === 'count' && metric.alias === 'Antall_sidevisninger') return 'Antall sidevisninger'
     if (metric.function === 'count' && metric.alias === 'Antall_hendelser') return 'Antall hendelser'
+    if (metric.function === 'count' && metric.alias === 'Antall_sidevisninger_hendelser')
+      return 'Antall sidevisninger / hendelser'
     if (
       metric.function === 'percentage' &&
       metric.column === 'session_id' &&
