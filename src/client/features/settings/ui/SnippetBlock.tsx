@@ -5,6 +5,8 @@ import 'prismjs/themes/prism-tomorrow.css'
 // Languages - imports must be side-effectual to register with Prism
 import 'prismjs/components/prism-javascript'
 import 'prismjs/components/prism-jsx'
+import 'prismjs/components/prism-typescript'
+import 'prismjs/components/prism-tsx'
 import 'prismjs/components/prism-markup' // html
 
 import { Box, CopyButton } from '@navikt/ds-react'
@@ -30,6 +32,9 @@ export function SnippetBlock({ text, language, wrapLongLines = true }: SnippetBl
     jsx: 'jsx',
     javascript: 'javascript',
     js: 'javascript',
+    typescript: 'typescript',
+    ts: 'typescript',
+    tsx: 'tsx',
   }
 
   const prismLang = langMap[language.toLowerCase()] || language

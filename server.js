@@ -10,6 +10,7 @@ import { createBackendProxyRouter } from './src/server/routes/backend/backendRou
 import { createSiteimproveProxyRouter } from './src/server/routes/siteimprove/siteimproveRoutes.js'
 import { createUserRouter } from './src/server/routes/user/userRoutes.js'
 import { createClickmapPreviewRouter } from './src/server/routes/clickmap/clickmapPreviewRoutes.js'
+import { createAnalyticsEventsRouter } from './src/server/routes/analytics-events/analyticsEventsRoutes.js'
 import { createCopilotRouter } from './src/server/routes/copilot/copilotRoutes.js'
 import { createGenAIClient } from './src/server/genai/client.js'
 import { authenticateUser } from './src/server/middleware/authenticateUser.js'
@@ -83,6 +84,9 @@ app.use(createBigQueryRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE }))
 
 // Clickmap preview
 app.use('/api', createClickmapPreviewRouter())
+
+// Event taxonomy (public, cached proxy of navikt/analytics-types release artifact)
+app.use('/api', createAnalyticsEventsRouter())
 
 // Data mode for the header badge: 'generated' (local synthesis, no GCP creds), 'proxy'
 // (real dev data via reops-proxy passthrough), or 'real' (direct BigQuery w/ credentials).
