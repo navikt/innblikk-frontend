@@ -9,7 +9,7 @@ import React from 'react'
  *
  * `gutters` accepts `true` (Aksel default: 16px / 48px desktop), `false`
  * (no inline padding), or `'compact'` (16px / 24px desktop) — used by the
- * alpha left-Sidebar layout where the sidebar already takes up horizontal
+ * left-Sidebar layout where the sidebar already takes up horizontal
  * space and the default 48px gutters feel excessive.
  */
 interface AppBlockProps {

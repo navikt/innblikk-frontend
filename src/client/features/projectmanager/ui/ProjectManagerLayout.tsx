@@ -6,7 +6,6 @@ import { KontaktSeksjon } from '../../../shared/ui/theme/Kontakt/KontaktSeksjon.
 import { Skyra } from '../../../shared/ui/theme/Skyra/Skyra.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
-import { getFeatureFlag } from '../../../shared/lib/featureFlags.ts'
 
 interface ProjectManagerLayoutProps {
   title: string
@@ -25,27 +24,12 @@ const ProjectManagerLayout: React.FC<ProjectManagerLayoutProps> = ({
   sidebar,
   children,
 }) => {
-  // Same alpha-gating as ChartLayout: with the global left Sidebar on, the outer
-  // card chrome goes away and gutters tighten.
-  const [alphaNewNav, setAlphaNewNav] = React.useState(() => getFeatureFlag('alpha_new_nav'))
-  React.useEffect(() => {
-    const handleChange = () => setAlphaNewNav(getFeatureFlag('alpha_new_nav'))
-    window.addEventListener('featureFlagsChange', handleChange)
-    return () => window.removeEventListener('featureFlagsChange', handleChange)
-  }, [])
-
   return (
     <>
-      <PageHeader title={title} description={description} compactGutters={alphaNewNav} />
+      <PageHeader title={title} description={description} compactGutters />
 
-      <AppBlock className="pb-16" gutters={alphaNewNav ? 'compact' : true}>
-        <div
-          className={
-            alphaNewNav
-              ? 'overflow-hidden'
-              : 'rounded-lg shadow-sm border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] overflow-hidden'
-          }
-        >
+      <AppBlock className="pb-16" gutters="compact">
+        <div className="overflow-hidden">
           {(toolbar || sidebarHeader) && (
             <div className="border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-subtle)] flex flex-col md:flex-row md:min-h-[76px]">
               {sidebarHeader && (

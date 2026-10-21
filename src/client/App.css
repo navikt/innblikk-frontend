@@ -17,7 +17,7 @@
   max-width: none !important;
 }
 
-/* Compact gutters for the alpha left-Sidebar layout. Aksel's default
+/* Compact gutters for the left-Sidebar layout. Aksel's default
    Page.Block gutters are 16px mobile / 48px desktop — that 48px is tuned
    for a centered, top-nav page. With a 240px left sidebar already carving
    out horizontal space, 48px gutters + 24–32px card padding stacked to
@@ -33,15 +33,13 @@
 }
 
 /* Prevent Page content area from flex-growing past content height,
-   avoiding a visible gap below the content in sidebar (alpha) mode where
-   no footer follows it. In old-nav mode the Footer renders after content
-   and this is a no-op visually. */
+   avoiding a visible gap below the content in sidebar mode where no
+   footer follows it. */
 .aksel-page__content--grow {
   flex-grow: 0 !important;
 }
 
-/* Remove built-in bottom padding (sidebar mode: content is last; old-nav
-   mode: Footer provides its own spacing). */
+/* Remove built-in bottom padding — content is last in sidebar mode. */
 .aksel-page__content--padding {
   padding-block-end: 0 !important;
 }
@@ -218,13 +216,6 @@
 .sidebar-section:focus-within {
   position: relative;
   z-index: 1;
-}
-
-/* Cap footer content width on ultra-wide screens (old-nav mode — Footer.tsx
-   renders when the alpha left Sidebar is off). */
-.footer-block {
-  max-width: 1600px !important;
-  margin-inline: 0 !important;
 }
 
 /* =====================================================

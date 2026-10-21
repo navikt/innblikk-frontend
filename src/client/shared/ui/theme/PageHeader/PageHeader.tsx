@@ -13,8 +13,8 @@ interface PageHeaderProps {
   notice?: React.ReactNode
   /**
    * Use the tighter 16/24px inline gutters so the header lines up with
-   * content laid out by the alpha left-Sidebar pages. Defaults off —
-   * legacy pages keep Aksel's standard gutters.
+   * content laid out by the left-Sidebar pages. Defaults off — legacy
+   * pages keep Aksel's standard gutters.
    */
   compactGutters?: boolean
 }

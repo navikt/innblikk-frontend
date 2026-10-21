@@ -19,11 +19,16 @@ export type BetaFeature = {
   title: string
   /** One-liner about what is new/experimental, shown in the /innstillinger overview. */
   description: string
-  /** Where the feature lives. */
-  href: string
+  /** Where the feature lives. Omit for global features (e.g. the design itself). */
+  href?: string
 }
 
 export const betaFeatures: BetaFeature[] = [
+  {
+    id: 'nytt-design',
+    title: 'Nytt design',
+    description: 'Ny sidemeny og nytt design på alle sider.',
+  },
   {
     id: 'grafbygger-rewrite',
     title: 'Grafbyggeren',

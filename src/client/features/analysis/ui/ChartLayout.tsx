@@ -8,7 +8,6 @@ import { Skyra } from '../../../shared/ui/theme/Skyra/Skyra.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { useChartNavigation } from '../hooks/useChartNavigation.ts'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
-import { getFeatureFlag } from '../../../shared/lib/featureFlags.ts'
 
 interface ChartLayoutProps {
   title: string
@@ -128,18 +127,10 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
     websiteId,
     hideAnalysisSelector,
   )
-  // With the alpha left Sidebar off, the in-page analysis nav column is the only place
-  // that navigation exists — so it must default to VISIBLE in old-nav mode. With the
-  // alpha Sidebar on, the global sidebar covers it and the column stays hidden.
-  // (No caller passes this prop today; Grafdeling's explicit `true` still wins.)
-  // Subscribed to flag changes so toggling on /profil swaps without a remount.
-  const [alphaNewNav, setAlphaNewNav] = useState(() => getFeatureFlag('alpha_new_nav'))
-  React.useEffect(() => {
-    const handleChange = () => setAlphaNewNav(getFeatureFlag('alpha_new_nav'))
-    window.addEventListener('featureFlagsChange', handleChange)
-    return () => window.removeEventListener('featureFlagsChange', handleChange)
-  }, [])
-  const effectiveHideAnalysisSelector = hideAnalysisSelector ?? alphaNewNav
+  // The global left Sidebar covers the main analysis navigation, so the in-page
+  // analysis-type selector column defaults to hidden. (No caller passes this prop
+  // today; Grafdeling's explicit `true` still wins.)
+  const effectiveHideAnalysisSelector = hideAnalysisSelector ?? true
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const isCurrentPageBeta = currentPage
     ? ((analyticsPages.find((p) => p.id === currentPage) as { beta?: boolean } | undefined)?.beta ?? false)
@@ -147,34 +138,19 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
 
   return (
     <>
-      <PageHeader title={title} description={description} beta={isCurrentPageBeta} compactGutters={alphaNewNav} />
+      <PageHeader title={title} description={description} beta={isCurrentPageBeta} compactGutters />
 
-      <AppBlock className="pb-16" gutters={alphaNewNav ? 'compact' : true}>
+      <AppBlock className="pb-16" gutters="compact">
         {/*
-          Alpha sidebar mode: the global left Sidebar is the page's visual anchor,
-          so we drop the outer card chrome (border/shadow/rounded/background) and
-          let the content sit directly on the page surface. Inner stat cards and
-          tables keep their own chrome — they still group related data.
+          The global left Sidebar is the page's visual anchor, so we drop the
+          outer card chrome (border/shadow/rounded/background) and let the
+          content sit directly on the page surface. Inner stat cards and tables
+          keep their own chrome — they still group related data.
         */}
-        <div
-          className={
-            alphaNewNav
-              ? 'mb-8'
-              : 'rounded-lg shadow-sm border border-[var(--ax-border-neutral-subtle)] mb-8 bg-[var(--ax-bg-default)] overflow-hidden'
-          }
-        >
+        <div className="mb-8">
           {/* Unified Top Bar */}
           {(sidebarContent || (!hideSidebar && filters)) && (
             <div className="group border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-subtle)] flex flex-col md:flex-row md:min-h-[80px]">
-              {/* Left Column Header (Sidebar Content) — the website picker. Kept
-                  independent of `hideAnalysisSelector`: that flag only controls
-                  the in-page analysis-type nav column (COL 1 below). */}
-              {sidebarContent && !alphaNewNav && (
-                <div className="w-full md:w-[250px] flex-shrink-0 border-b md:border-b-0 p-4 flex flex-col justify-end md:group-has-[.sidegroup-management-slot]:pb-10">
-                  {sidebarContent}
-                </div>
-              )}
-
               {/* Right Column Header (Filters) */}
               <div
                 className="w-full md:flex-1 p-4 flex flex-wrap items-end gap-4 border-b md:border-b-0 border-[var(--ax-border-neutral-subtle)] md:border-none has-[.sidegroup-management-slot]:pb-10"
@@ -190,9 +166,7 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
                     : undefined
                 }
               >
-                {sidebarContent && alphaNewNav && (
-                  <div className="w-full md:w-[250px] flex-shrink-0">{sidebarContent}</div>
-                )}
+                {sidebarContent && <div className="w-full md:w-[250px] flex-shrink-0">{sidebarContent}</div>}
                 {!hideSidebar && filters}
               </div>
             </div>

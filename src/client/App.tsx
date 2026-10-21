@@ -4,12 +4,10 @@ import { BrowserRouter as Router, Route, Routes, useLocation, Link } from 'react
 import routes, { isFullWidthPath } from './routes.tsx'
 import ScrollToTop from './shared/ui/theme/ScrollToTop/ScrollToTop.tsx'
 import Sidebar from './shared/ui/theme/Sidebar/Sidebar.tsx'
-import Header from './shared/ui/theme/Header/Header.tsx'
-import Footer from './shared/ui/theme/Footer/Footer.tsx'
 import { ErrorBoundary } from './shared/ui/ErrorBoundary.tsx'
 import { useHead } from '@unhead/react'
 import { AppBlock } from './shared/ui/theme/AppBlock/AppBlock.tsx'
-import { getFeatureFlag, loadFeatureFlagsFromBackend } from './shared/lib/featureFlags.ts'
+import { loadFeatureFlagsFromBackend } from './shared/lib/featureFlags.ts'
 import { touchUserSettings } from './shared/lib/heartbeat.ts'
 import { identifyTeamContext } from './shared/lib/identifyTeamContext.ts'
 
@@ -57,18 +55,6 @@ const NotFound = () => (
   </div>
 )
 
-// Reactive read of the alpha_new_nav flag — AppShell must swap layouts immediately when the
-// user toggles it on /innstillinger, without a reload.
-const useAlphaNewNav = () => {
-  const [enabled, setEnabled] = useState(() => getFeatureFlag('alpha_new_nav'))
-  useEffect(() => {
-    const handleChange = () => setEnabled(getFeatureFlag('alpha_new_nav'))
-    window.addEventListener('featureFlagsChange', handleChange)
-    return () => window.removeEventListener('featureFlagsChange', handleChange)
-  }, [])
-  return enabled
-}
-
 // Reset scroll position on every route change. The browser does this for free on a real
 // navigation (full page load), but client-side routing (react-router) keeps whatever scrollY
 // the previous page had — jarring when the new page's content starts higher/lower than where
@@ -82,7 +68,6 @@ const useResetScrollOnNavigate = (pathname: string) => {
 const AppShell = ({ theme }: { theme: 'light' | 'dark' }) => {
   const location = useLocation()
   useResetScrollOnNavigate(location.pathname)
-  const alphaNewNav = useAlphaNewNav()
   const isCanvasPage = location.pathname.startsWith('/canvas')
   const isCopilotPage = location.pathname === '/copilot'
   const focusedParam = new URLSearchParams(location.search).get('focused')
@@ -116,7 +101,7 @@ const AppShell = ({ theme }: { theme: 'light' | 'dark' }) => {
     // height, overflowing past the real viewport — the composer looked "stuck to the top"
     // instead of centered. Building the flex layout ourselves (navigation + content as direct,
     // sibling flex items) sidesteps that entirely.
-    return alphaNewNav ? (
+    return (
       <div className="flex h-dvh w-full flex-col md:flex-row">
         <Sidebar theme={theme} />
         <div className="flex h-dvh min-h-0 min-w-0 w-full flex-1 flex-col">
@@ -125,49 +110,23 @@ const AppShell = ({ theme }: { theme: 'light' | 'dark' }) => {
           </ErrorBoundary>
         </div>
       </div>
-    ) : (
-      <div className="flex h-dvh w-full flex-col">
-        <Header theme={theme} />
-        <div className="flex min-h-0 w-full flex-1 flex-col">
-          <ErrorBoundary>
-            <Suspense fallback={<PageLoader />}>{appRoutes}</Suspense>
-          </ErrorBoundary>
-        </div>
-      </div>
-    )
-  }
-
-  if (alphaNewNav) {
-    return (
-      <div className="flex min-h-dvh w-full flex-col md:flex-row">
-        <Sidebar theme={theme} />
-        <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col">
-          <Page>
-            <PageLayout>
-              <ErrorBoundary>
-                <Suspense fallback={<PageLoader />}>{appRoutes}</Suspense>
-              </ErrorBoundary>
-              <ScrollToTopWrapper />
-            </PageLayout>
-          </Page>
-        </div>
-      </div>
     )
   }
 
   return (
-    <>
-      <Page>
-        <Header theme={theme} />
-        <PageLayout>
-          <ErrorBoundary>
-            <Suspense fallback={<PageLoader />}>{appRoutes}</Suspense>
-          </ErrorBoundary>
-          <ScrollToTopWrapper />
-        </PageLayout>
-      </Page>
-      <Footer />
-    </>
+    <div className="flex min-h-dvh w-full flex-col md:flex-row">
+      <Sidebar theme={theme} />
+      <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col">
+        <Page>
+          <PageLayout>
+            <ErrorBoundary>
+              <Suspense fallback={<PageLoader />}>{appRoutes}</Suspense>
+            </ErrorBoundary>
+            <ScrollToTopWrapper />
+          </PageLayout>
+        </Page>
+      </div>
+    </div>
   )
 }
 

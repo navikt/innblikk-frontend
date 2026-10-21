@@ -40,9 +40,9 @@ test.describe('App smoke tests', () => {
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: MOCK_WEBSITES }) }),
     )
     await page.goto('/grafbygger')
-    // Scoped by accessible name ("Nettside") — not .first(), since old-nav mode
-    // (alpha_new_nav off) also renders a "Type analyse" <select> combobox ahead
-    // of the website picker in DOM order (see ChartLayoutOriginal.tsx).
+    // Scoped by accessible name ("Nettside") — the "Type analyse" <select> is
+    // hidden under the new navigation, but stay scoped by role rather than
+    // .first() to be robust against future additions.
     const combobox = page.getByRole('combobox', { name: /nettside/i })
     await expect(combobox).toBeVisible({ timeout: 10_000 })
     // Open the dropdown and verify mock data populated the picker

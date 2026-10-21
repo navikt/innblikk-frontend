@@ -19,7 +19,7 @@ import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { getFeatureFlags, setFeatureFlag, type FeatureFlags } from '../../../shared/lib/featureFlags.ts'
 import { betaFeatures } from '../../../shared/lib/betaFeatures.ts'
-import { BetaFeatureNotice, BetaFeedbackLine } from '../../../shared/ui/BetaFeatureNotice.tsx'
+import { BetaFeatureNotice, RESEARCHOPS_SLACK_URL } from '../../../shared/ui/BetaFeatureNotice.tsx'
 import { useIsReopsTeamMember } from '../../../shared/hooks/useIsReopsTeamMember.ts'
 import type { UserInfo } from '../model'
 
@@ -138,7 +138,11 @@ export default function UserProfile() {
                 </Box>
                 <BodyLong textColor="subtle">
                   Disse funksjonene er under utvikling. De er skrudd på for alle, og tilbakemeldinger hjelper oss å
-                  gjøre dem bedre.
+                  gjøre dem bedre. Si ifra i{' '}
+                  <Link href={RESEARCHOPS_SLACK_URL} target="_blank">
+                    #researchops
+                  </Link>{' '}
+                  på Slack.
                 </BodyLong>
               </div>
 
@@ -153,8 +157,13 @@ export default function UserProfile() {
                       title={`${feature.title} er i beta`}
                       variant="static"
                     >
-                      {feature.description} <Link href={feature.href}>Åpne {feature.title.toLowerCase()}</Link>
-                      <BetaFeedbackLine />
+                      {feature.description}
+                      {feature.href && (
+                        <>
+                          {' '}
+                          <Link href={feature.href}>Åpne {feature.title.toLowerCase()}</Link>
+                        </>
+                      )}
                     </BetaFeatureNotice>
                   ))}
                 </VStack>
@@ -177,12 +186,7 @@ export default function UserProfile() {
                 </BodyLong>
               </div>
 
-              <Checkbox checked={flags.alpha_new_nav} onChange={(e) => toggle('alpha_new_nav', e.target.checked)}>
-                Ny navigasjonsmeny
-                <BodyShort as="span" size="small" textColor="subtle" className="block font-normal mt-0.5">
-                  Bytter ut toppmenyen med en fast sidemeny til venstre. Slå av her hvis noe ikke fungerer.
-                </BodyShort>
-              </Checkbox>
+              <BodyShort textColor="subtle">Ingen funksjoner i alpha akkurat nå.</BodyShort>
             </VStack>
           </section>
 

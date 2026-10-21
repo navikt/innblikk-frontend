@@ -8,7 +8,6 @@ import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { useChartLayoutOriginal } from '../hooks/useChartLayoutOriginal.ts'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { ChevronLeftIcon, ChevronRightIcon } from '@navikt/aksel-icons'
-import { getFeatureFlag } from '../../../shared/lib/featureFlags.ts'
 
 interface ChartLayoutProps {
   title: string
@@ -44,16 +43,9 @@ const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
   headerNotice,
 }) => {
   const { isSidebarOpen, setIsSidebarOpen, handleChartChange } = useChartLayoutOriginal(hideSidebar)
-  // Same alpha-gating as ChartLayout: the analysis-type Select is the only place that
-  // navigation exists when the global left Sidebar is off, so default to showing it there.
-  // Subscribed so toggling on /profil swaps without a remount.
-  const [alphaNewNav, setAlphaNewNav] = React.useState(() => getFeatureFlag('alpha_new_nav'))
-  React.useEffect(() => {
-    const handleChange = () => setAlphaNewNav(getFeatureFlag('alpha_new_nav'))
-    window.addEventListener('featureFlagsChange', handleChange)
-    return () => window.removeEventListener('featureFlagsChange', handleChange)
-  }, [])
-  const effectiveHideAnalysisSelector = hideAnalysisSelector ?? alphaNewNav
+  // The global left Sidebar covers the main analysis navigation, so the in-page
+  // "Type analyse" Select defaults to hidden (an explicit prop still wins).
+  const effectiveHideAnalysisSelector = hideAnalysisSelector ?? true
   const isFocusedEmbedLayout = !showPageHeader && !showKontaktSection
 
   // Define width classes based on wideSidebar prop
@@ -64,23 +56,14 @@ const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
   return (
     <>
       {showPageHeader && (
-        <PageHeader
-          title={title}
-          description={description}
-          beta={beta}
-          notice={headerNotice}
-          compactGutters={alphaNewNav}
-        />
+        <PageHeader title={title} description={description} beta={beta} notice={headerNotice} compactGutters />
       )}
 
-      <AppBlock
-        className={isFocusedEmbedLayout ? 'pb-0' : 'pb-16'}
-        gutters={isFocusedEmbedLayout ? false : alphaNewNav ? 'compact' : true}
-      >
+      <AppBlock className={isFocusedEmbedLayout ? 'pb-0' : 'pb-16'} gutters={isFocusedEmbedLayout ? false : 'compact'}>
         {/*
-          Alpha sidebar mode: drop the outer card chrome (border/shadow/rounded/
-          background) — the global left Sidebar is already the page's visual
-          anchor. Inner stat cards and tables keep their chrome.
+          The global left Sidebar is already the page's visual anchor, so the
+          outer card chrome (border/shadow/rounded/background) is dropped.
+          Inner stat cards and tables keep their chrome.
         */}
         <div
           className={
@@ -90,9 +73,7 @@ const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
                 : 'mb-8'
               : isFocusedEmbedLayout
                 ? 'bg-[var(--ax-bg-default)]'
-                : alphaNewNav
-                  ? 'mb-8'
-                  : 'rounded-lg shadow-sm border border-[var(--ax-border-neutral-subtle)] mb-8 bg-[var(--ax-bg-default)]'
+                : 'mb-8'
           }
         >
           <div className={hideSidebar ? '' : 'flex flex-col md:flex-row min-h-[600px] relative'}>

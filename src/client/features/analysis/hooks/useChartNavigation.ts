@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useCallback, useState } from 'react'
+import { useEffect, useMemo, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   hasClickmapSupport,
@@ -6,8 +6,7 @@ import {
   hasSiteimproveSupport,
 } from '../../../shared/hooks/useSiteimproveSupport.ts'
 import { preserveSharedAnalysisParams } from '../../../shared/lib/analysisNavigation.ts'
-import { chartGroups, chartGroupsLegacy } from '../model/chartGroups.tsx'
-import { getFeatureFlag } from '../../../shared/lib/featureFlags.ts'
+import { chartGroups } from '../model/chartGroups.tsx'
 
 export const useChartNavigation = (
   websiteDomain?: string,
@@ -19,16 +18,10 @@ export const useChartNavigation = (
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
-  // Alpha left Sidebar off → in-page selector is the only navigation to most analyses,
-  // so it needs the full pre-Sidebar group set. Sidebar on → trimmed set (Sidebar has
-  // the rest). Reactive: toggling the flag on /profil swaps the list live.
-  const [alphaNewNav, setAlphaNewNav] = useState(() => getFeatureFlag('alpha_new_nav'))
-  useEffect(() => {
-    const handleChange = () => setAlphaNewNav(getFeatureFlag('alpha_new_nav'))
-    window.addEventListener('featureFlagsChange', handleChange)
-    return () => window.removeEventListener('featureFlagsChange', handleChange)
-  }, [])
-  const activeChartGroups = alphaNewNav ? chartGroups : chartGroupsLegacy
+  // The global left Sidebar covers Trafikkanalyse/Hendelser/Brukere — the in-page
+  // selector deliberately shows only items with no Sidebar entry (Kampanjer,
+  // Innholdskvalitet) to avoid duplicate navigation.
+  const activeChartGroups = chartGroups
 
   const domain = websiteDomain || searchParams.get('domain')
   const resolvedWebsiteId = websiteId || searchParams.get('websiteId')
