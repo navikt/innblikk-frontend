@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react'
 
+const activeGuards = new Set<symbol>()
+
+export function hasUnsavedChanges(): boolean {
+  return activeGuards.size > 0
+}
+
 /**
  * Warns about unsaved edits when the tab is closed and when an in-app link is clicked.
  * BrowserRouter has no navigation blocker, so link clicks are intercepted instead:
@@ -10,9 +16,14 @@ export function useUnsavedChangesGuard(dirty: boolean) {
 
   useEffect(() => {
     if (!dirty) return
+    const guard = Symbol()
+    activeGuards.add(guard)
     const handler = (e: BeforeUnloadEvent) => e.preventDefault()
     window.addEventListener('beforeunload', handler)
-    return () => window.removeEventListener('beforeunload', handler)
+    return () => {
+      activeGuards.delete(guard)
+      window.removeEventListener('beforeunload', handler)
+    }
   }, [dirty])
 
   useEffect(() => {
