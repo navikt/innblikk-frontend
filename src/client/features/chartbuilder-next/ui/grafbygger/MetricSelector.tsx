@@ -1,5 +1,5 @@
 import { Radio, RadioGroup, TextField } from '@navikt/ds-react'
-import { useState, useEffect, forwardRef, useImperativeHandle } from 'react'
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react'
 import { createPortal } from 'react-dom'
 import { Events } from '@navikt/analytics-types'
 import { trackEvent } from '../../../../shared/lib/trackEvent.ts'
@@ -23,13 +23,6 @@ interface SummarizeProps {
 
 const RADIO_OPTIONS = [
   {
-    value: 'count' as RadioValue,
-    label: 'Antall',
-    defaultAlias: 'antall',
-    metricFunction: 'count',
-    column: undefined as string | undefined,
-  },
-  {
     value: 'distinct_session' as RadioValue,
     label: 'Unike besøkende',
     defaultAlias: 'unike_besokende',
@@ -43,7 +36,41 @@ const RADIO_OPTIONS = [
     metricFunction: 'distinct',
     column: 'visit_id',
   },
+  {
+    value: 'count' as RadioValue,
+    label: 'Antall',
+    defaultAlias: 'antall',
+    metricFunction: 'count',
+    column: undefined as string | undefined,
+  },
 ]
+
+const getRadioOptions = (filters: Filter[]) => {
+  const eventTypeFilter = filters.find((filter) => filter.column === 'event_type')
+  const activeEventTypes = new Set([
+    ...(eventTypeFilter?.multipleValues ?? []),
+    ...(eventTypeFilter?.value ? [eventTypeFilter.value] : []),
+  ])
+  const hasPageviews = activeEventTypes.has('1')
+  const hasCustomEvents = activeEventTypes.has('2')
+
+  let countLabel = 'Antall'
+  let countAlias = 'antall'
+  if (hasPageviews && hasCustomEvents) {
+    countLabel = 'Antall sidevisninger / hendelser'
+    countAlias = 'Antall_sidevisninger_hendelser'
+  } else if (hasPageviews) {
+    countLabel = 'Antall sidevisninger'
+    countAlias = 'Antall_sidevisninger'
+  } else if (hasCustomEvents) {
+    countLabel = 'Antall hendelser'
+    countAlias = 'Antall_hendelser'
+  }
+
+  return RADIO_OPTIONS.map((option) =>
+    option.value === 'count' ? { ...option, label: countLabel, defaultAlias: countAlias } : option,
+  )
+}
 
 const TID_METHOD_OPTIONS: { value: TidSubValue; label: string }[] = [
   { value: 'median', label: 'Median' },
@@ -69,7 +96,9 @@ const isTidDefaultAlias = (alias: string): boolean =>
   TID_METHOD_OPTIONS.some((m) => TID_UNIT_OPTIONS.some((u) => alias === getTidDefaultAlias(m.value, u.value)))
 
 const isKnownDefaultAlias = (alias: string): boolean =>
-  RADIO_OPTIONS.some((o) => alias === o.defaultAlias) || isTidDefaultAlias(alias)
+  ['antall', 'Antall_sidevisninger', 'Antall_hendelser', 'Antall_sidevisninger_hendelser'].includes(alias) ||
+  RADIO_OPTIONS.some((o) => o.value !== 'count' && alias === o.defaultAlias) ||
+  isTidDefaultAlias(alias)
 
 const getRadioValueFromMetric = (metric: Metric): RadioValue => {
   if (metric.column === 'visit_duration') return 'tid'
@@ -86,14 +115,15 @@ const getTidSubFromMetric = (metric: Metric): TidSubValue => {
 }
 
 const MetricSelector = forwardRef(
-  ({ metrics, removeMetric, addMetric, resetSignal, kolonnenavnContainer }: SummarizeProps, ref) => {
+  ({ metrics, filters, removeMetric, addMetric, resetSignal, kolonnenavnContainer }: SummarizeProps, ref) => {
     const activeMetric = metrics.length > 0 ? metrics[0] : null
     const activeRadioValue: RadioValue = activeMetric ? getRadioValueFromMetric(activeMetric) : ''
+    const radioOptions = getRadioOptions(filters)
 
     const getInitialAlias = (): string => {
       if (!activeMetric) return ''
       if (activeMetric.alias) return activeMetric.alias
-      const option = RADIO_OPTIONS.find((o) => o.value === getRadioValueFromMetric(activeMetric))
+      const option = radioOptions.find((o) => o.value === getRadioValueFromMetric(activeMetric))
       return option?.defaultAlias || ''
     }
 
@@ -103,14 +133,23 @@ const MetricSelector = forwardRef(
     )
     const [tidUnit, setTidUnit] = useState<TidUnit>(() => (activeMetric?.showInMinutes ? 'minutes' : 'seconds'))
     const [showKolonnenavnField, setShowKolonnenavnField] = useState<boolean>(false)
+    const didInitializeMetric = useRef(false)
+
+    useEffect(() => {
+      if (didInitializeMetric.current) return
+      didInitializeMetric.current = true
+      if (metrics.length === 0) {
+        addMetric('distinct', { column: 'session_id', alias: 'unike_besokende' })
+      }
+    }, [addMetric, metrics.length])
 
     const resetConfig = (_silent = false) => {
       const count = metrics.length
       for (let i = count - 1; i >= 0; i--) {
         removeMetric(i)
       }
-      addMetric('count', { alias: 'antall' })
-      setAliasInput('antall')
+      addMetric('distinct', { column: 'session_id', alias: 'unike_besokende' })
+      setAliasInput('unike_besokende')
       setTidSub('median')
       setTidUnit('seconds')
       setShowKolonnenavnField(false)
@@ -122,7 +161,7 @@ const MetricSelector = forwardRef(
 
     useEffect(() => {
       if (activeMetric && !aliasInput) {
-        setAliasInput(activeMetric.alias || RADIO_OPTIONS.find((o) => o.value === activeRadioValue)?.defaultAlias || '')
+        setAliasInput(activeMetric.alias || radioOptions.find((o) => o.value === activeRadioValue)?.defaultAlias || '')
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeMetric])
@@ -176,7 +215,7 @@ const MetricSelector = forwardRef(
         return
       }
 
-      const option = RADIO_OPTIONS.find((o) => o.value === radioValue)
+      const option = radioOptions.find((o) => o.value === radioValue)
       if (!option) return
 
       const alias =
@@ -219,12 +258,12 @@ const MetricSelector = forwardRef(
       }
 
       if (!trimmed) {
-        const option = RADIO_OPTIONS.find((o) => o.value === activeRadioValue)
+        const option = radioOptions.find((o) => o.value === activeRadioValue)
         const fallback = option?.defaultAlias || 'antall'
         setAliasInput(fallback)
         return
       }
-      const option = RADIO_OPTIONS.find((o) => o.value === activeRadioValue)
+      const option = radioOptions.find((o) => o.value === activeRadioValue)
       if (!option) return
       removeMetric(0)
       const updates: Partial<Metric> = { alias: trimmed }
@@ -234,7 +273,7 @@ const MetricSelector = forwardRef(
 
     const getDefaultAliasForCurrentSelection = (): string => {
       if (activeRadioValue === 'tid') return getTidDefaultAlias(tidSub, tidUnit)
-      return RADIO_OPTIONS.find((o) => o.value === activeRadioValue)?.defaultAlias || 'antall'
+      return radioOptions.find((o) => o.value === activeRadioValue)?.defaultAlias || 'antall'
     }
 
     const kolonnenavnField = activeRadioValue !== '' && (
@@ -270,7 +309,7 @@ const MetricSelector = forwardRef(
           placeholder={
             activeRadioValue === 'tid'
               ? 'gjennomsnittlig_tid'
-              : (RADIO_OPTIONS.find((o) => o.value === activeRadioValue)?.defaultAlias ?? 'antall')
+              : (radioOptions.find((o) => o.value === activeRadioValue)?.defaultAlias ?? 'antall')
           }
         />
       </ToggleOption>
@@ -279,7 +318,7 @@ const MetricSelector = forwardRef(
     return (
       <div className="flex flex-col gap-4">
         <RadioGroup legend="Velg måltype" hideLegend value={activeRadioValue} onChange={handleRadioChange} size="small">
-          {RADIO_OPTIONS.map((option) => (
+          {radioOptions.map((option) => (
             <Radio key={option.value} value={option.value}>
               {option.label}
             </Radio>

@@ -33,12 +33,43 @@ function renderMetricSelector(
 }
 
 describe('MetricSelector', () => {
+  it('defaults to unique visitors when no metric is configured', () => {
+    const { addMetric } = renderMetricSelector()
+
+    expect(addMetric).toHaveBeenCalledWith('distinct', { column: 'session_id', alias: 'unike_besokende' })
+  })
+
   it('renders radio options for metric type', () => {
     renderMetricSelector()
     expect(screen.getByRole('radio', { name: 'Antall' })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: 'Unike besøkende' })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: 'Økter / besøk' })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: 'Gjennomsnittlig tid' })).toBeInTheDocument()
+    expect(screen.getAllByRole('radio').map((radio) => radio.getAttribute('value'))).toEqual([
+      'distinct_session',
+      'distinct_visit',
+      'count',
+      'tid',
+    ])
+  })
+
+  it.each([
+    {
+      filters: [{ column: 'event_type', operator: '=', value: '1' }],
+      label: 'Antall sidevisninger',
+    },
+    {
+      filters: [{ column: 'event_type', operator: '=', value: '2' }],
+      label: 'Antall hendelser',
+    },
+    {
+      filters: [{ column: 'event_type', operator: 'IN', value: '1', multipleValues: ['1', '2'] }],
+      label: 'Antall sidevisninger / hendelser',
+    },
+  ])('labels count according to selected data sources', ({ filters, label }) => {
+    renderMetricSelector([{ function: 'distinct', column: 'session_id' }], { filters })
+
+    expect(screen.getByRole('radio', { name: label })).toBeInTheDocument()
   })
 
   it('shows kolonnenavn field when the "Endre kolonnenavn" toggle is turned on', async () => {
