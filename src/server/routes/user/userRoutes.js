@@ -6,18 +6,20 @@ import { REOPS_TEAM_KATALOG_ID } from '../../config/reopsTeam.js'
 import { logger } from '../../logger.js'
 
 /**
- * Pseudonymous analytics person id: HMAC-SHA256(navIdent, secret + quarter).
+ * Pseudonymous analytics person id: HMAC-SHA256(navIdent, pepper + quarter).
  * Quarter buckets (e.g. "2026-Q2") rotate the id every ~90 days — same input
  * within a quarter → same id (stable, cross-app joinable), new quarter → new
- * id (forced re-anonymization). Key comes from ANALYTICS_IDENTITY_KEY; absent
- * in local dev → null (client falls back to a random cookie UUID).
+ * id (forced re-anonymization). The pepper (ANALYTICS_IDENTITY_PEPPER) is a
+ * secret shared salt: without it the hash can't be brute-forced back to a
+ * navident. Absent in local dev → null (client falls back to a random cookie
+ * UUID).
  */
 export function computePersonId(navIdent) {
-  const key = process.env.ANALYTICS_IDENTITY_KEY
-  if (!key) return null
+  const pepper = process.env.ANALYTICS_IDENTITY_PEPPER
+  if (!pepper) return null
   const now = new Date()
   const quarter = `${now.getUTCFullYear()}-Q${Math.floor(now.getUTCMonth() / 3) + 1}`
-  return createHmac('sha256', `${key}:${quarter}`).update(navIdent.toLowerCase()).digest('hex')
+  return createHmac('sha256', `${pepper}:${quarter}`).update(navIdent.toLowerCase()).digest('hex')
 }
 
 export function createUserRouter({ BACKEND_BASE_URL }) {
@@ -157,11 +159,11 @@ export function createUserRouter({ BACKEND_BASE_URL }) {
   // count distinct teams using the app, and join the same (pseudonymous)
   // person across apps — without the nav-ident ever leaving the server.
   //
-  // personId = HMAC-SHA256(navIdent, key + current-quarter). The quarter salt
-  // (e.g. "2026-Q2") makes ids stable within ~90 days and rotate on quarter
-  // boundaries, matching the client cookie's retention rhythm. Without
-  // ANALYTICS_IDENTITY_KEY (local dev) personId is omitted and the client
-  // falls back to a random cookie UUID.
+  // personId = HMAC-SHA256(navIdent, pepper + current-quarter). The quarter
+  // salt (e.g. "2026-Q2") makes ids stable within ~90 days and rotate on
+  // quarter boundaries, matching the client cookie's retention rhythm.
+  // Without ANALYTICS_IDENTITY_PEPPER (local dev) personId is omitted and the
+  // client falls back to a random cookie UUID.
   router.get('/team-context', authenticateUser, async (req, res) => {
     try {
       const navIdent = req.user?.navIdent

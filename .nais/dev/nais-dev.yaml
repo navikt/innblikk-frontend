@@ -10,6 +10,7 @@ spec:
   port: 8080
   envFrom:
   - secret: umami-bigquery
+  - secret: reops-innblikk
   liveness:
     path: /isalive
     port: 8080
