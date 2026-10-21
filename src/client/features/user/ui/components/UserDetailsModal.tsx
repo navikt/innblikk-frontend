@@ -1,5 +1,8 @@
+import { useEffect, useRef } from 'react'
 import { Modal, Heading, BodyShort, Loader } from '@navikt/ds-react'
 import { ClockIcon, MonitorIcon } from '@navikt/aksel-icons'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../../shared/lib/trackEvent.ts'
 import type { UserProfile, ActivityItem } from '../../model'
 import { formatDateTime, formatTime } from '../../utils'
 import { getDeviceIcon } from './DeviceIcon'
@@ -23,10 +26,32 @@ export default function UserDetailsModal({
   selectedActivityUrl,
   onActivityUrlClick,
 }: UserDetailsModalProps) {
+  const wasOpenRef = useRef(false)
+
+  useEffect(() => {
+    if (isOpen && !wasOpenRef.current) {
+      trackEvent(Events.MODAL_APNET, {
+        seksjon: 'brukerprofiler',
+        komponentId: 'brukerdetaljer',
+        tittel: 'Brukerdetaljer',
+      })
+    }
+    wasOpenRef.current = isOpen
+  }, [isOpen])
+
+  const handleClose = () => {
+    trackEvent(Events.MODAL_LUKKET, {
+      seksjon: 'brukerprofiler',
+      komponentId: 'brukerdetaljer',
+      tittel: 'Brukerdetaljer',
+    })
+    onClose()
+  }
+
   if (!selectedSession) return null
 
   return (
-    <Modal open={isOpen} onClose={onClose} width="medium" aria-labelledby="user-details-title">
+    <Modal open={isOpen} onClose={handleClose} width="medium" aria-labelledby="user-details-title">
       <Modal.Header>
         <Heading size="medium" id="user-details-title">
           Brukerdetaljer

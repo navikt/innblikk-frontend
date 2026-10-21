@@ -1,6 +1,8 @@
 import PeriodPicker from '../../../analysis/ui/PeriodPicker.tsx'
 import type { Filter } from '../../../../shared/types/chart.ts'
 import { useState, useEffect, useMemo, useRef } from 'react'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../../shared/lib/trackEvent.ts'
 import { getFeatureFlag, type FeatureFlags } from '../../../../shared/lib/featureFlags.ts'
 import { getGcpProjectId } from '../../../../shared/lib/runtimeConfig.ts'
 import {
@@ -832,6 +834,11 @@ const QueryPreview = ({
 
       if (shouldWarn) {
         setPendingQueryEstimate(estimateData)
+        trackEvent(Events.MODAL_APNET, {
+          seksjon: 'grafbygger',
+          komponentId: 'bekreft-stor-sporring',
+          tittel: 'Bekreft stor spørring',
+        })
         setShowConfirmModal(true)
         setLoading(false)
         return
@@ -933,16 +940,44 @@ const QueryPreview = ({
   }
 
   const handleConfirmQuery = async () => {
+    trackEvent(Events.MODAL_LUKKET, {
+      seksjon: 'grafbygger',
+      komponentId: 'bekreft-stor-sporring',
+      tittel: 'Bekreft stor spørring',
+      lukkMetode: 'handlings-knapp',
+    })
     setShowConfirmModal(false)
     await runQuery()
   }
 
   const handleCancelQuery = () => {
+    trackEvent(Events.MODAL_LUKKET, {
+      seksjon: 'grafbygger',
+      komponentId: 'bekreft-stor-sporring',
+      tittel: 'Bekreft stor spørring',
+    })
     setShowConfirmModal(false)
     setPendingQueryEstimate(null)
   }
 
+  const closeSaveModal = (
+    lukkMetode?: 'escape' | 'klikk-utenfor' | 'lukk-knapp' | 'handlings-knapp' | 'programmatisk',
+  ) => {
+    trackEvent(Events.MODAL_LUKKET, {
+      seksjon: 'grafbygger',
+      komponentId: 'legg-til-i-dashboard',
+      tittel: 'Legg til i dashboard',
+      ...(lukkMetode ? { lukkMetode } : {}),
+    })
+    setShowSaveModal(false)
+  }
+
   const openSaveModal = () => {
+    trackEvent(Events.MODAL_APNET, {
+      seksjon: 'grafbygger',
+      komponentId: 'legg-til-i-dashboard',
+      tittel: 'Legg til i dashboard',
+    })
     setSaveError(null)
     setSaveSuccess(null)
     setCanvasAddSuccess(null)
@@ -1809,7 +1844,7 @@ const QueryPreview = ({
         */}
       </div>
 
-      <Modal open={showSaveModal} onClose={() => setShowSaveModal(false)} header={{ heading: 'Legg til i dashboard' }}>
+      <Modal open={showSaveModal} onClose={() => closeSaveModal()} header={{ heading: 'Legg til i dashboard' }}>
         <Modal.Body>
           <div className="space-y-4">
             <UNSAFE_Combobox
@@ -1875,7 +1910,7 @@ const QueryPreview = ({
           <Button variant="primary" onClick={handleSaveChart} loading={savingChart}>
             Legg til
           </Button>
-          <Button variant="secondary" onClick={() => setShowSaveModal(false)} disabled={savingChart}>
+          <Button variant="secondary" onClick={() => closeSaveModal('handlings-knapp')} disabled={savingChart}>
             Avbryt
           </Button>
         </Modal.Footer>

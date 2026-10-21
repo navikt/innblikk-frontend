@@ -1,6 +1,8 @@
 import { Button, Checkbox, Select, Tag, TextField, UNSAFE_Combobox } from '@navikt/ds-react'
 import { PencilIcon } from '@navikt/aksel-icons'
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'react'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../../shared/lib/trackEvent.ts'
 import type { Filter, Parameter, SegmentDefinition as ChartSegmentDefinition } from '../../../../shared/types/chart.ts'
 import { OPERATORS } from '../../../../shared/lib/constants.ts'
 import EventFilter from './EventFilter.tsx'
@@ -366,6 +368,12 @@ const SegmentBy = forwardRef<SegmentByRef, SegmentByProps>(
                       label="Hendelsesnavn"
                       value={(performedSelections[segment.id]?.operator || 'IN') as string}
                       onChange={(e) => {
+                        trackEvent(Events.NEDTREKKSLISTE_VALG_ENDRET, {
+                          seksjon: 'grafbygger',
+                          komponentId: 'segment-hendelsesnavn-operator',
+                          valgtVerdi: e.target.value,
+                          tekst: e.target.selectedOptions[0]?.text,
+                        })
                         const nextOperator = e.target.value as PerformedSelection['operator']
                         const currentEvents = performedSelections[segment.id]?.events || []
                         updatePerformedSelection(segment.id, {
@@ -461,6 +469,12 @@ const SegmentBy = forwardRef<SegmentByRef, SegmentByProps>(
               checked={ratioMode}
               onChange={(e) => {
                 const next = e.target.checked
+                trackEvent(Events.AVKRYSNINGSBOKS_ENDRET, {
+                  seksjon: 'grafbygger',
+                  komponentId: 'segment-ratio',
+                  tekst: 'Vis som ratio',
+                  checked: next,
+                })
                 setRatioMode(next)
                 onRatioModeChange?.(next)
               }}

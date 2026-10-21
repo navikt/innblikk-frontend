@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Accordion, Bleed, BodyShort, Box, Checkbox, Loader } from '@navikt/ds-react'
 import { ArrowCirclepathReverseIcon } from '@navikt/aksel-icons'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import QueryPreview from './results/QueryPreview.tsx'
 import ResultsDisplayOptions from './results/ResultsDisplayOptions.tsx'
@@ -426,7 +428,15 @@ const ChartsPage = () => {
           showDownloadReadMore={false}
           additionalOptions={
             <Accordion size="small" indent={false} className="mb-4">
-              <Accordion.Item>
+              <Accordion.Item
+                onOpenChange={(open) => {
+                  trackEvent(open ? Events.ACCORDION_APNET : Events.ACCORDION_LUKKET, {
+                    seksjon: 'grafbygger',
+                    komponentId: 'tilleggsvalg',
+                    tittel: 'Tilleggsvalg',
+                  })
+                }}
+              >
                 <Accordion.Header className="before:hidden after:hidden">Tilleggsvalg</Accordion.Header>
                 <Accordion.Content>
                   <div ref={setKolonnenavnContainer} />
@@ -453,7 +463,15 @@ const ChartsPage = () => {
                       size="small"
                       checked={config.paramAggregation === 'representative'}
                       description="Kun relevant hvis du grupperer på en tekstparameter. Normalt viser vi den eksakte verdien for hver rad. Med dette valget viser vi i stedet én tilfeldig verdi per gruppe – raskere spørring, men verdien kan avvike fra enkeltrader i gruppen."
-                      onChange={(e) => setParamAggregation(e.target.checked ? 'representative' : 'unique')}
+                      onChange={(e) => {
+                        trackEvent(Events.AVKRYSNINGSBOKS_ENDRET, {
+                          seksjon: 'grafbygger',
+                          komponentId: 'vis-representativ-parameterverdi',
+                          tekst: 'Vis representativ parameterverdi',
+                          checked: e.target.checked,
+                        })
+                        setParamAggregation(e.target.checked ? 'representative' : 'unique')
+                      }}
                     >
                       Vis representativ parameterverdi
                     </Checkbox>

@@ -62,14 +62,7 @@ interface QueryPreviewProps {
 }
 
 type DatePreset =
-  | 'today'
-  | 'yesterday'
-  | 'this_week'
-  | 'last_7_days'
-  | 'last_week'
-  | 'last_28_days'
-  | 'current_month'
-  | 'last_month'
+  'today' | 'yesterday' | 'this_week' | 'last_7_days' | 'last_week' | 'last_28_days' | 'current_month' | 'last_month'
 
 const DEFAULT_DATE_PRESET: DatePreset = 'last_7_days'
 

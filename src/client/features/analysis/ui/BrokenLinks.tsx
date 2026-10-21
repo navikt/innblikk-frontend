@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import {
   Table,
   Alert,
@@ -391,6 +393,14 @@ const BrokenLinks = () => {
                         {displayedPages.map((page, index) => (
                           <Table.ExpandableRow
                             key={page.id || index}
+                            onOpenChange={(open) => {
+                              trackEvent(Events.TABELL_RAD_UTVIDET, {
+                                seksjon: 'brutte-lenker',
+                                komponentId: 'sider-med-brutte-lenker',
+                                radIndeks: index,
+                                erUtvidet: open,
+                              })
+                            }}
                             content={
                               siteimproveId ? (
                                 <PageBrokenLinksContent
@@ -516,6 +526,14 @@ const BrokenLinks = () => {
                           {displayedPages.map((page, index) => (
                             <Table.ExpandableRow
                               key={page.id || index}
+                              onOpenChange={(open) => {
+                                trackEvent(Events.TABELL_RAD_UTVIDET, {
+                                  seksjon: 'brutte-lenker',
+                                  komponentId: 'sider-med-brutte-lenker',
+                                  radIndeks: index,
+                                  erUtvidet: open,
+                                })
+                              }}
                               content={
                                 siteimproveId ? (
                                   <PageBrokenLinksContent
@@ -632,6 +650,14 @@ const BrokenLinks = () => {
                           {displayedLinks.map((link, index) => (
                             <Table.ExpandableRow
                               key={link.id || index}
+                              onOpenChange={(open) => {
+                                trackEvent(Events.TABELL_RAD_UTVIDET, {
+                                  seksjon: 'brutte-lenker',
+                                  komponentId: 'alle-brutte-lenker',
+                                  radIndeks: index,
+                                  erUtvidet: open,
+                                })
+                              }}
                               content={
                                 siteimproveId ? (
                                   <BrokenLinkPagesContent

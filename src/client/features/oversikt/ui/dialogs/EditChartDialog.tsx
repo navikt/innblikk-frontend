@@ -3,10 +3,12 @@ import type { DragEvent } from 'react'
 import { ActionMenu, Alert, Button, Modal, Select, Switch, TextField, Tabs } from '@navikt/ds-react'
 import Editor from '@monaco-editor/react'
 import { DragVerticalIcon, MenuElipsisVerticalIcon } from '@navikt/aksel-icons'
+import { Events } from '@navikt/analytics-types'
 import type { GraphType, OversiktChart } from '../../model/types.ts'
 import type { Website } from '../../../../shared/types/website.ts'
 import { fetchWebsites } from '../../../../shared/api/websiteApi.ts'
 import { openSqlEditorWithContext } from '../../../../shared/lib/openSqlEditor.ts'
+import { trackEvent } from '../../../../shared/lib/trackEvent.ts'
 
 type EditChartDialogProps = {
   open: boolean
@@ -104,6 +106,19 @@ const EditChartDialog = ({
   const [dashboardId, setDashboardId] = useState<number | null>(initialDashboardId)
   const [editorHeight, setEditorHeight] = useState(260)
   const [localError, setLocalError] = useState<string | null>(null)
+  const wasOpenRef = useRef(false)
+
+  useEffect(() => {
+    if (open && !wasOpenRef.current) {
+      trackEvent(Events.MODAL_APNET, { seksjon: 'oversikt', komponentId: 'rediger-graf' })
+    }
+    wasOpenRef.current = open
+  }, [open])
+
+  const handleClose = () => {
+    trackEvent(Events.MODAL_LUKKET, { seksjon: 'oversikt', komponentId: 'rediger-graf' })
+    onClose()
+  }
 
   useEffect(() => {
     if (!open) return
@@ -298,6 +313,12 @@ const EditChartDialog = ({
     if (!Number.isFinite(queryId)) return
     const nextVariant = variants.find((variant) => variant.queryId === queryId)
     if (!nextVariant) return
+    trackEvent(Events.FANE_BYTTET, {
+      seksjon: 'oversikt',
+      komponentId: 'rediger-graf',
+      fraFane: selectedVariantQueryId !== null ? String(selectedVariantQueryId) : undefined,
+      tilFane: value,
+    })
     setSelectedVariantQueryId(queryId)
     setSqlText(nextVariant.sql)
     const isDraft = nextVariant.queryId < 0
@@ -463,7 +484,7 @@ const EditChartDialog = ({
   }
 
   return (
-    <Modal open={open} onClose={onClose} header={{ heading: 'Rediger graf' }} width="medium">
+    <Modal open={open} onClose={handleClose} header={{ heading: 'Rediger graf' }} width="medium">
       <Modal.Body>
         <div className="flex flex-col gap-4">
           {localError && <Alert variant="error">{localError}</Alert>}
@@ -746,7 +767,7 @@ const EditChartDialog = ({
         <Button onClick={() => void handleSave()} loading={loading}>
           Lagre endringer
         </Button>
-        <Button variant="secondary" onClick={onClose} disabled={loading}>
+        <Button variant="secondary" onClick={handleClose} disabled={loading}>
           Avbryt
         </Button>
       </Modal.Footer>

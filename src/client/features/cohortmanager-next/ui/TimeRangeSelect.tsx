@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Box, Select } from '@navikt/ds-react'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import { CohortDateTimeEditor } from '../../cohortmanager/ui/CohortDateTimeEditor.tsx'
 import { DEFAULT_TIME_PRESET, matchPreset, presetValue, TIME_PRESETS } from '../utils/time.ts'
 
@@ -14,6 +16,11 @@ export function TimeRangeSelect({ value, onChange }: TimeRangeSelectProps) {
   const selectValue = custom ? 'custom' : (preset?.id ?? 'any')
 
   const handleChange = (next: string) => {
+    trackEvent(Events.NEDTREKKSLISTE_VALG_ENDRET, {
+      seksjon: 'kohorter',
+      komponentId: 'kohort-tidsrom',
+      valgtVerdi: next,
+    })
     if (next === 'any') {
       setCustom(false)
       onChange(null)

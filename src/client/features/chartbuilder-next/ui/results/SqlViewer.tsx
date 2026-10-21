@@ -3,6 +3,7 @@ import { Button, CopyButton, ReadMore, Heading, Link } from '@navikt/ds-react'
 import Editor from '@monaco-editor/react'
 import * as sqlFormatter from 'sql-formatter'
 import { Events, type LesMerApnetProperties } from '@navikt/analytics-types'
+import { trackEvent } from '../../../../shared/lib/trackEvent.ts'
 import { ExternalLinkIcon, FilesIcon } from '@navikt/aksel-icons'
 
 interface SqlViewerProps {
@@ -140,7 +141,7 @@ const SqlViewer = ({
               tittel: 'Vis SQL-kode',
               ...(seksjon ? { seksjon } : {}),
             }
-            window.umami?.track(Events.LES_MER_APNET, properties)
+            trackEvent(Events.LES_MER_APNET, properties)
           }
         }}
       >

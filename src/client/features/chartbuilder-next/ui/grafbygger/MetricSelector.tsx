@@ -1,6 +1,8 @@
 import { Radio, RadioGroup, TextField } from '@navikt/ds-react'
 import { useState, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { createPortal } from 'react-dom'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../../shared/lib/trackEvent.ts'
 import type { Metric, MetricOption, Filter } from '../../../../shared/types/chart.ts'
 import ToggleOption from '../../../../shared/ui/ToggleOption.tsx'
 
@@ -153,6 +155,13 @@ const MetricSelector = forwardRef(
 
     const handleRadioChange = (value: string) => {
       const radioValue = value as RadioValue
+      trackEvent(Events.RADIO_VALG_ENDRET, {
+        seksjon: 'grafbygger',
+        komponentId: 'maltype',
+        valgtAlternativ: radioValue,
+        forrigeAlternativ: activeRadioValue || undefined,
+        antallAlternativer: RADIO_OPTIONS.length + 1,
+      })
 
       const count = metrics.length
       for (let i = count - 1; i >= 0; i--) {

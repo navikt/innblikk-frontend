@@ -1,3 +1,4 @@
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import { useState } from 'react'
 import { Button, Alert, Loader } from '@navikt/ds-react'
 import { CheckmarkIcon, PaperplaneIcon } from '@navikt/aksel-icons'
@@ -54,7 +55,7 @@ const EventExplorer = () => {
     const success = await copyToClipboard(window.location.href)
     if (success) {
       const properties: KopierLenkeProperties = { seksjon: 'event-explorer' }
-      window.umami?.track(Events.KOPIER_LENKE, properties)
+      trackEvent(Events.KOPIER_LENKE, properties)
       setCopySuccess(true)
       setTimeout(() => setCopySuccess(false), 2000)
     }

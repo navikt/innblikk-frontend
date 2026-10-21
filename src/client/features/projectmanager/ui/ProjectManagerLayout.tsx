@@ -1,5 +1,7 @@
 import React from 'react'
 import { Accordion } from '@navikt/ds-react'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import { KontaktSeksjon } from '../../../shared/ui/theme/Kontakt/KontaktSeksjon.tsx'
 import { Skyra } from '../../../shared/ui/theme/Skyra/Skyra.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
@@ -63,7 +65,15 @@ const ProjectManagerLayout: React.FC<ProjectManagerLayoutProps> = ({
             <aside className="md:w-[280px] bg-[var(--ax-bg-neutral-soft)] border-b md:border-b-0 md:border-r border-[var(--ax-border-neutral-subtle)] flex-shrink-0">
               <div className="md:hidden">
                 <Accordion size="small" headingSize="xsmall">
-                  <Accordion.Item>
+                  <Accordion.Item
+                    onOpenChange={(open) =>
+                      trackEvent(open ? Events.ACCORDION_APNET : Events.ACCORDION_LUKKET, {
+                        seksjon: 'prosjektadmin',
+                        komponentId: 'sidepanel-mobil',
+                        tittel: 'Team',
+                      })
+                    }
+                  >
                     <Accordion.Header>Team</Accordion.Header>
                     <Accordion.Content className="p-0 border-t border-[var(--ax-border-neutral-subtle)]">
                       <div className="p-3">{sidebar}</div>

@@ -1,8 +1,24 @@
 import express from 'express'
+import { createHmac } from 'node:crypto'
 import { authenticateUser } from '../../middleware/authenticateUser.js'
 import { getTeamMembership } from '../../teamkatalog/teamkatalogApi.js'
 import { REOPS_TEAM_KATALOG_ID } from '../../config/reopsTeam.js'
 import { logger } from '../../logger.js'
+
+/**
+ * Pseudonymous analytics person id: HMAC-SHA256(navIdent, secret + quarter).
+ * Quarter buckets (e.g. "2026-Q2") rotate the id every ~90 days — same input
+ * within a quarter → same id (stable, cross-app joinable), new quarter → new
+ * id (forced re-anonymization). Key comes from ANALYTICS_IDENTITY_KEY; absent
+ * in local dev → null (client falls back to a random cookie UUID).
+ */
+export function computePersonId(navIdent) {
+  const key = process.env.ANALYTICS_IDENTITY_KEY
+  if (!key) return null
+  const now = new Date()
+  const quarter = `${now.getUTCFullYear()}-Q${Math.floor(now.getUTCMonth() / 3) + 1}`
+  return createHmac('sha256', `${key}:${quarter}`).update(navIdent.toLowerCase()).digest('hex')
+}
 
 export function createUserRouter({ BACKEND_BASE_URL }) {
   const router = express.Router()
@@ -131,6 +147,34 @@ export function createUserRouter({ BACKEND_BASE_URL }) {
         '[Team membership] Error — failing closed (isReopsTeamMember: false)',
       )
       res.json({ isReopsTeamMember: false })
+    }
+  })
+
+  // Analytics self-identification context: the user's team(s) plus a
+  // pseudonymous person id. Sent to the tracking script via
+  // `identify(personId, { team_id, team_navn })` → lands as distinct_id +
+  // session_data in BigQuery. Lets us filter out our own team's traffic,
+  // count distinct teams using the app, and join the same (pseudonymous)
+  // person across apps — without the nav-ident ever leaving the server.
+  //
+  // personId = HMAC-SHA256(navIdent, key + current-quarter). The quarter salt
+  // (e.g. "2026-Q2") makes ids stable within ~90 days and rotate on quarter
+  // boundaries, matching the client cookie's retention rhythm. Without
+  // ANALYTICS_IDENTITY_KEY (local dev) personId is omitted and the client
+  // falls back to a random cookie UUID.
+  router.get('/team-context', authenticateUser, async (req, res) => {
+    try {
+      const navIdent = req.user?.navIdent
+      if (!navIdent) {
+        return res.json({ teams: [] })
+      }
+
+      const memberships = await getTeamMembership(navIdent)
+      const personId = computePersonId(navIdent)
+      res.json({ teams: memberships.map((t) => ({ id: t.id, name: t.name })), ...(personId ? { personId } : {}) })
+    } catch (error) {
+      logger.warn({ error: error.message ?? error }, '[Team context] lookup failed — returning empty')
+      res.json({ teams: [] })
     }
   })
 

@@ -14,6 +14,8 @@ import {
   VStack,
 } from '@navikt/ds-react'
 import { PaperplaneIcon, PersonIcon, RobotSmileIcon } from '@navikt/aksel-icons'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import type { KeyboardEvent } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -50,7 +52,16 @@ const CopilotReply = ({ text }: { text: string }) => (
 
 const sqlReadMore = (sql: string) =>
   sql && (
-    <ReadMore header="Vis SQL" size="small">
+    <ReadMore
+      header="Vis SQL"
+      size="small"
+      onOpenChange={(open) =>
+        trackEvent(open ? Events.LES_MER_APNET : Events.LES_MER_LUKKET, {
+          seksjon: 'copilot',
+          tittel: 'copilot-forklaring',
+        })
+      }
+    >
       <pre
         className="bg-[var(--ax-bg-neutral-soft)] border border-[var(--ax-border-neutral-subtle)] rounded p-3 text-xs font-mono whitespace-pre-wrap"
         style={{ margin: 0 }}

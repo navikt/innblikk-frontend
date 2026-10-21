@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Heading, Button, BodyShort, Table, Tabs, Skeleton, Loader } from '@navikt/ds-react'
 import { ArrowLeftIcon } from '@navikt/aksel-icons'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import type { EventProperty, ParameterValue, LatestEvent, QueryStats } from '../model/types.ts'
 
 interface EventPropertiesSectionProps {
@@ -27,6 +29,16 @@ const EventPropertiesSection = ({
   onFetchValues,
 }: EventPropertiesSectionProps) => {
   const [parameterValuesTab, setParameterValuesTab] = useState<string>('latest')
+
+  const handleTabChange = (value: string) => {
+    trackEvent(Events.FANE_BYTTET, {
+      seksjon: 'hendelsesutforsker',
+      komponentId: 'hendelsesdetaljer-faner',
+      fraFane: parameterValuesTab,
+      tilFane: value,
+    })
+    setParameterValuesTab(value)
+  }
 
   if (selectedParameterForDrilldown) {
     return (
@@ -89,7 +101,7 @@ const EventPropertiesSection = ({
 
       {hasLoadedValues && (Object.keys(allParameterValues).length > 0 || latestEvents.length > 0) && (
         <div className="mt-6 pt-6 border-t">
-          <Tabs value={parameterValuesTab} onChange={setParameterValuesTab}>
+          <Tabs value={parameterValuesTab} onChange={handleTabChange}>
             <Tabs.List>
               <Tabs.Tab value="latest" label="Siste 20" />
               <Tabs.Tab value="top" label="Topp verdier" />

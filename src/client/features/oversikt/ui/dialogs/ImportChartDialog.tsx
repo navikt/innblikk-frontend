@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Alert, Button, Modal, Select, Textarea, TextField } from '@navikt/ds-react'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../../shared/lib/trackEvent.ts'
 
 type GraphType = 'LINE' | 'BAR' | 'PIE' | 'TABLE'
 
@@ -47,6 +49,19 @@ const ImportChartDialog = ({
   const [localError, setLocalError] = useState<string | null>(null)
   const displayError = localError ?? error
   const errorRef = useRef<HTMLDivElement | null>(null)
+  const wasOpenRef = useRef(false)
+
+  useEffect(() => {
+    if (open && !wasOpenRef.current) {
+      trackEvent(Events.MODAL_APNET, { seksjon: 'oversikt', komponentId: 'importer-graf' })
+    }
+    wasOpenRef.current = open
+  }, [open])
+
+  const handleClose = () => {
+    trackEvent(Events.MODAL_LUKKET, { seksjon: 'oversikt', komponentId: 'importer-graf' })
+    onClose()
+  }
 
   useEffect(() => {
     if (!open || !displayError) return
@@ -82,7 +97,7 @@ const ImportChartDialog = ({
       open={open}
       onClose={() => {
         if (loading) return
-        onClose()
+        handleClose()
       }}
       header={{ heading: 'Importer graf' }}
       width="medium"
@@ -149,7 +164,7 @@ const ImportChartDialog = ({
         <Button onClick={() => void handleImport()} loading={loading}>
           Importer graf
         </Button>
-        <Button variant="secondary" onClick={onClose} disabled={loading}>
+        <Button variant="secondary" onClick={handleClose} disabled={loading}>
           Avbryt
         </Button>
       </Modal.Footer>

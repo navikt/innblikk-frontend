@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, Button, ExpansionCard, Loader, Modal, ReadMore, Search, Select, Switch } from '@navikt/ds-react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
@@ -789,14 +791,32 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
             <Switch
               size="small"
               checked={badgeMode === 'percent'}
-              onChange={(event) => setBadgeMode(event.target.checked ? 'percent' : 'count')}
+              onChange={(event) => {
+                trackEvent(Events.SWITCH_TILSTAND_ENDRET, {
+                  seksjon: 'klikkart',
+                  komponentId: 'vis-prosent',
+                  erPa: event.target.checked,
+                })
+                setBadgeMode(event.target.checked ? 'percent' : 'count')
+              }}
             >
               Vis prosent
             </Switch>
           )}
           {isClickmap && (
             <div className="hidden sm:block">
-              <Switch size="small" checked={isTopListOpen} onChange={(event) => setIsTopListOpen(event.target.checked)}>
+              <Switch
+                size="small"
+                checked={isTopListOpen}
+                onChange={(event) => {
+                  trackEvent(Events.SWITCH_TILSTAND_ENDRET, {
+                    seksjon: 'klikkart',
+                    komponentId: 'vis-filter',
+                    erPa: event.target.checked,
+                  })
+                  setIsTopListOpen(event.target.checked)
+                }}
+              >
                 Vis filter
               </Switch>
             </div>
@@ -806,7 +826,18 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
 
       {isClickmap && (
         <div className="mb-4 sm:hidden">
-          <Switch size="small" checked={isTopListOpen} onChange={(event) => setIsTopListOpen(event.target.checked)}>
+          <Switch
+            size="small"
+            checked={isTopListOpen}
+            onChange={(event) => {
+              trackEvent(Events.SWITCH_TILSTAND_ENDRET, {
+                seksjon: 'klikkart',
+                komponentId: 'vis-filter',
+                erPa: event.target.checked,
+              })
+              setIsTopListOpen(event.target.checked)
+            }}
+          >
             Vis filter
           </Switch>
         </div>
@@ -1006,7 +1037,14 @@ const Clickmap = ({ visualizationMode = 'clickmap' }: ClickmapProps) => {
                   size="small"
                   label="Filter"
                   value={listTypeFilter}
-                  onChange={(event) => setListTypeFilter(event.target.value)}
+                  onChange={(event) => {
+                    trackEvent(Events.NEDTREKKSLISTE_VALG_ENDRET, {
+                      seksjon: 'klikkart',
+                      komponentId: 'toppliste-filter',
+                      valgtVerdi: event.target.value,
+                    })
+                    setListTypeFilter(event.target.value)
+                  }}
                 >
                   {listTypeOptions.map((option) => (
                     <option key={option.value} value={option.value}>

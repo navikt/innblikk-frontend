@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { UNSAFE_Combobox, Alert } from '@navikt/ds-react'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import type { Website } from '../../../shared/types/chart.ts'
 import type { EventProperty, ApiCache, WebsiteApiResponse } from '../model/types.ts'
 import {
@@ -623,8 +625,16 @@ const WebsitePicker = ({
             return selectedOption ? [{ ...selectedOption, label: getDisplayName(selectedWebsite) }] : []
           })()}
           onToggleSelected={(option: string, isSelected: boolean) => {
+            const selectedOption = comboboxOptions.find((opt) => opt.value === option)
+            trackEvent(Events.COMBOBOX_OPTION_TOGGLED, {
+              seksjon: 'diagnose',
+              komponentId: 'website-picker',
+              optionValue: selectedOption?.label ?? option,
+              isSelected,
+              isMultiSelect: false,
+            })
             if (isSelected) {
-              const website = comboboxOptions.find((opt) => opt.value === option)?.website
+              const website = selectedOption?.website
               if (website) {
                 handleWebsiteChange(website)
               }

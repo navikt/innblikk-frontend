@@ -1,4 +1,6 @@
 import { BodyShort, ReadMore, Select } from '@navikt/ds-react'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import {
   getVisitorBasisOptions,
   resolveVisitorBasis,
@@ -33,7 +35,14 @@ export const VisitorBasisPicker = ({
         label="Tell besøkende med"
         size="small"
         value={selected}
-        onChange={(event) => onChange(event.target.value as VisitorBasis)}
+        onChange={(event) => {
+          trackEvent(Events.NEDTREKKSLISTE_VALG_ENDRET, {
+            seksjon: 'tabellbygger',
+            komponentId: 'besoksgrunnlag',
+            valgtVerdi: event.target.value,
+          })
+          onChange(event.target.value as VisitorBasis)
+        }}
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>

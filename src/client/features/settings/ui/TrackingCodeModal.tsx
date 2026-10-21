@@ -1,5 +1,7 @@
 import { forwardRef } from 'react'
 import { Modal, Button, Accordion, BodyShort, Link, List, CopyButton, Heading } from '@navikt/ds-react'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import { SnippetBlock } from './SnippetBlock'
 import {
   getStandardSnippet,
@@ -18,136 +20,160 @@ interface TrackingCodeModalProps {
 }
 
 export const TrackingCodeModal = forwardRef<HTMLDialogElement, TrackingCodeModalProps>(
-  ({ selectedItem, onClose }, ref) => (
-    <Modal
-      ref={ref}
-      header={{ heading: 'Sporingskode for ' + selectedItem.name }}
-      width="medium"
-      className="sporings-modal"
-      onClose={onClose}
-    >
-      <Modal.Body>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
-          {selectedItem.createdAt && (
-            <BodyShort size="medium">
-              <strong>Opprettet:</strong> {formatDate(selectedItem.createdAt)}
-            </BodyShort>
-          )}
-          {selectedItem.updatedAt && (
-            <BodyShort size="medium">
-              <strong>Sist endret:</strong> {formatDate(selectedItem.updatedAt)}
-            </BodyShort>
-          )}
-          {selectedItem.domain && (
-            <BodyShort size="medium">
-              <strong>Hoveddomene:</strong> {selectedItem.domain}
-            </BodyShort>
-          )}
-          <BodyShort
-            size="medium"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-            }}
-          >
-            <span>
-              <strong>Nettside-ID:</strong> {selectedItem.id}
-            </span>
-            <CopyButton copyText={selectedItem.id} text="Kopier ID" activeText="Kopiert!" size="small" />
-          </BodyShort>
-        </div>
+  ({ selectedItem, onClose }, ref) => {
+    const handleToggle = (event: React.SyntheticEvent<HTMLDialogElement, Event>) => {
+      const isOpen = event.currentTarget.open
+      trackEvent(isOpen ? Events.MODAL_APNET : Events.MODAL_LUKKET, {
+        seksjon: 'innstillinger',
+        komponentId: 'sporingskode',
+        tittel: 'Sporingskode',
+      })
+    }
 
-        <Accordion>
-          <Accordion.Item>
-            <Accordion.Header>Sporingskode (standard)</Accordion.Header>
-            <Accordion.Content>
-              <SnippetBlock text={getStandardSnippet(selectedItem.id)} language="html" />
-            </Accordion.Content>
-          </Accordion.Item>
-          <Accordion.Item>
-            <Accordion.Header>Sporingskode for Next.js-apper</Accordion.Header>
-            <Accordion.Content>
-              <div style={{ marginBottom: '15px' }}>
-                <SnippetBlock text={getNextJsSnippet(selectedItem.id)} language="jsx" />
-              </div>
-              <p style={{ marginBottom: '15px' }}>Benytter next.js sin innebygde import Script from 'next/script';</p>
-              <p style={{ marginBottom: '15px' }}>
-                Trigges ikke koden? Forsøk å legger til export const dynamic = 'force-dynamic'; i en layout.tsx fil.
-              </p>
-              <Link target="_blank" href={`https://github.com/navikt/delta-frontend/blob/main/src/app/layout.tsx`}>
-                Kodeeksempel for Next.js-apper
+    return (
+      <Modal
+        ref={ref}
+        header={{ heading: 'Sporingskode for ' + selectedItem.name }}
+        width="medium"
+        className="sporings-modal"
+        onClose={onClose}
+        onToggle={handleToggle}
+      >
+        <Modal.Body>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
+            {selectedItem.createdAt && (
+              <BodyShort size="medium">
+                <strong>Opprettet:</strong> {formatDate(selectedItem.createdAt)}
+              </BodyShort>
+            )}
+            {selectedItem.updatedAt && (
+              <BodyShort size="medium">
+                <strong>Sist endret:</strong> {formatDate(selectedItem.updatedAt)}
+              </BodyShort>
+            )}
+            {selectedItem.domain && (
+              <BodyShort size="medium">
+                <strong>Hoveddomene:</strong> {selectedItem.domain}
+              </BodyShort>
+            )}
+            <BodyShort
+              size="medium"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+              }}
+            >
+              <span>
+                <strong>Nettside-ID:</strong> {selectedItem.id}
+              </span>
+              <CopyButton
+                copyText={selectedItem.id}
+                text="Kopier ID"
+                activeText="Kopiert!"
+                size="small"
+                onClick={() =>
+                  trackEvent(Events.TEKST_KOPIERT, {
+                    seksjon: 'innstillinger',
+                    komponentId: 'sporingskode',
+                    tekst: 'nettside-id',
+                  })
+                }
+              />
+            </BodyShort>
+          </div>
+
+          <Accordion>
+            <Accordion.Item>
+              <Accordion.Header>Sporingskode (standard)</Accordion.Header>
+              <Accordion.Content>
+                <SnippetBlock text={getStandardSnippet(selectedItem.id)} language="html" />
+              </Accordion.Content>
+            </Accordion.Item>
+            <Accordion.Item>
+              <Accordion.Header>Sporingskode for Next.js-apper</Accordion.Header>
+              <Accordion.Content>
+                <div style={{ marginBottom: '15px' }}>
+                  <SnippetBlock text={getNextJsSnippet(selectedItem.id)} language="jsx" />
+                </div>
+                <p style={{ marginBottom: '15px' }}>Benytter next.js sin innebygde import Script from 'next/script';</p>
+                <p style={{ marginBottom: '15px' }}>
+                  Trigges ikke koden? Forsøk å legger til export const dynamic = 'force-dynamic'; i en layout.tsx fil.
+                </p>
+                <Link target="_blank" href={`https://github.com/navikt/delta-frontend/blob/main/src/app/layout.tsx`}>
+                  Kodeeksempel for Next.js-apper
+                </Link>
+              </Accordion.Content>
+            </Accordion.Item>
+            <Accordion.Item>
+              <Accordion.Header>Sporingskode for React med Vite.js</Accordion.Header>
+              <Accordion.Content>
+                <p style={{ marginBottom: '10px' }}>
+                  <strong>Steg 1:</strong> Installer <code>@unhead/react</code> og sett opp UnheadProvider i
+                  hovedkomponenten din (f.eks. App.tsx)
+                </p>
+                <div style={{ marginBottom: '15px' }}>
+                  <SnippetBlock text={getReactViteProviderSnippet()} language="jsx" />
+                </div>
+                <p style={{ marginBottom: '10px' }}>
+                  <strong>Steg 2:</strong> Legg til sporingskoden med Head-komponenten
+                </p>
+                <div style={{ marginBottom: '15px' }}>
+                  <SnippetBlock text={getReactViteHeadSnippet(selectedItem.id)} language="jsx" />
+                </div>
+                <Link target="_blank" href={`https://github.com/navikt/reops-felgen/blob/master/src/App.tsx`}>
+                  Kodeeksempel for React med Vite.js
+                </Link>
+              </Accordion.Content>
+            </Accordion.Item>
+            <Accordion.Item>
+              <Accordion.Header>Sporingskode for Astro.js-apper</Accordion.Header>
+              <Accordion.Content>
+                <div style={{ marginBottom: '15px' }}>
+                  <SnippetBlock text={getAstroSnippet(selectedItem.id)} language="html" />
+                </div>
+                <Link target="_blank" href={`https://github.com/navikt/docs/blob/main/src/components/BaseHead.astro`}>
+                  Kodeeksempel for Astro.js-apper
+                </Link>
+              </Accordion.Content>
+            </Accordion.Item>
+            <Accordion.Item>
+              <Accordion.Header>Sporingskode for Google Tag Manager (GTM)</Accordion.Header>
+              <Accordion.Content>
+                <SnippetBlock text={getGTMSnippet(selectedItem.id)} language="javascript" />
+              </Accordion.Content>
+            </Accordion.Item>
+          </Accordion>
+          <Heading level="3" size="xsmall" spacing style={{ marginTop: '30px' }}>
+            Verdt å vite
+          </Heading>
+          <List as="ul">
+            <List.Item>Sporingskoden legges vanligvis til i &lt;head&gt;-delen på nettsiden.</List.Item>
+            <List.Item>
+              Vil du at sporingskoden kun skal kjøre på spesifikke domener, for eksempel ikke på localhost? Da kan du
+              legge til{' '}
+              <Link target="_blank" href={`https://reops-docs.ansatt.dev.nav.no/innsamling/sporingsskript.html`}>
+                attributtet data-domains
               </Link>
-            </Accordion.Content>
-          </Accordion.Item>
-          <Accordion.Item>
-            <Accordion.Header>Sporingskode for React med Vite.js</Accordion.Header>
-            <Accordion.Content>
-              <p style={{ marginBottom: '10px' }}>
-                <strong>Steg 1:</strong> Installer <code>@unhead/react</code> og sett opp UnheadProvider i
-                hovedkomponenten din (f.eks. App.tsx)
-              </p>
-              <div style={{ marginBottom: '15px' }}>
-                <SnippetBlock text={getReactViteProviderSnippet()} language="jsx" />
-              </div>
-              <p style={{ marginBottom: '10px' }}>
-                <strong>Steg 2:</strong> Legg til sporingskoden med Head-komponenten
-              </p>
-              <div style={{ marginBottom: '15px' }}>
-                <SnippetBlock text={getReactViteHeadSnippet(selectedItem.id)} language="jsx" />
-              </div>
-              <Link target="_blank" href={`https://github.com/navikt/reops-felgen/blob/master/src/App.tsx`}>
-                Kodeeksempel for React med Vite.js
+              .
+            </List.Item>
+            <List.Item>
+              Innblikk sporer besøk (sidevisninger) ut av boksen. Ønsker du ikke dette? Da kan du legge til{' '}
+              <Link target="_blank" href={`https://reops-docs.ansatt.dev.nav.no/innsamling/sporingsskript.html`}>
+                attributtet data-auto-track="false"
               </Link>
-            </Accordion.Content>
-          </Accordion.Item>
-          <Accordion.Item>
-            <Accordion.Header>Sporingskode for Astro.js-apper</Accordion.Header>
-            <Accordion.Content>
-              <div style={{ marginBottom: '15px' }}>
-                <SnippetBlock text={getAstroSnippet(selectedItem.id)} language="html" />
-              </div>
-              <Link target="_blank" href={`https://github.com/navikt/docs/blob/main/src/components/BaseHead.astro`}>
-                Kodeeksempel for Astro.js-apper
-              </Link>
-            </Accordion.Content>
-          </Accordion.Item>
-          <Accordion.Item>
-            <Accordion.Header>Sporingskode for Google Tag Manager (GTM)</Accordion.Header>
-            <Accordion.Content>
-              <SnippetBlock text={getGTMSnippet(selectedItem.id)} language="javascript" />
-            </Accordion.Content>
-          </Accordion.Item>
-        </Accordion>
-        <Heading level="3" size="xsmall" spacing style={{ marginTop: '30px' }}>
-          Verdt å vite
-        </Heading>
-        <List as="ul">
-          <List.Item>Sporingskoden legges vanligvis til i &lt;head&gt;-delen på nettsiden.</List.Item>
-          <List.Item>
-            Vil du at sporingskoden kun skal kjøre på spesifikke domener, for eksempel ikke på localhost? Da kan du
-            legge til{' '}
-            <Link target="_blank" href={`https://reops-docs.ansatt.dev.nav.no/innsamling/sporingsskript.html`}>
-              attributtet data-domains
-            </Link>
-            .
-          </List.Item>
-          <List.Item>
-            Innblikk sporer besøk (sidevisninger) ut av boksen. Ønsker du ikke dette? Da kan du legge til{' '}
-            <Link target="_blank" href={`https://reops-docs.ansatt.dev.nav.no/innsamling/sporingsskript.html`}>
-              attributtet data-auto-track="false"
-            </Link>
-            .
-          </List.Item>
-        </List>
-      </Modal.Body>
-      <Modal.Footer>
-        <Button type="button" onClick={() => (ref as React.RefObject<HTMLDialogElement>).current?.close()}>
-          Lukk
-        </Button>
-      </Modal.Footer>
-    </Modal>
-  ),
+              .
+            </List.Item>
+          </List>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button type="button" onClick={() => (ref as React.RefObject<HTMLDialogElement>).current?.close()}>
+            Lukk
+          </Button>
+        </Modal.Footer>
+      </Modal>
+    )
+  },
 )
 
 TrackingCodeModal.displayName = 'TrackingCodeModal'

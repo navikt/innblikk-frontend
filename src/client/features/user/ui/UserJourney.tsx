@@ -1,3 +1,4 @@
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import { useEffect, useRef, useState } from 'react'
 import { useAutoRefresh } from '../../analysis/hooks/useAutoRefresh'
 import { ActionMenu, Alert, Button, Loader, ReadMore, Select, Switch, TextField, Tooltip } from '@navikt/ds-react'
@@ -85,7 +86,7 @@ const UserJourney = () => {
     const success = await copyShareLink()
     if (success) {
       const properties: KopierLenkeProperties = { seksjon: 'brukerreise' }
-      window.umami?.track(Events.KOPIER_LENKE, properties)
+      trackEvent(Events.KOPIER_LENKE, properties)
       setCopySuccess(true)
       setTimeout(() => setCopySuccess(false), 2000)
     }

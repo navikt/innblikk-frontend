@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { ActionMenu, Button, Table, Pagination, VStack, HelpText, TextField, Tooltip } from '@navikt/ds-react'
 import { MenuElipsisVerticalIcon, MagnifyingGlassIcon } from '@navikt/aksel-icons'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import type { Website } from '../../../shared/types/chart.ts'
 import type { MarketingRow, QueryStats } from '../model/types'
 import TableSectionHeader from '../../../shared/ui/TableSectionHeader.tsx'
@@ -141,7 +143,23 @@ const AnalysisTable = ({
                       }}
                     />
                   </Tooltip>
-                  <ActionMenu>
+                  <ActionMenu
+                    onOpenChange={(open) => {
+                      if (open) {
+                        trackEvent(Events.ACTIONMENU_APNET, {
+                          seksjon: 'trafikk',
+                          komponentId: `analysetabell-meny-${title}`,
+                          triggerTekst: 'Flere valg',
+                        })
+                      } else {
+                        trackEvent(Events.ACTIONMENU_LUKKET, {
+                          seksjon: 'trafikk',
+                          komponentId: `analysetabell-meny-${title}`,
+                          lukkAarsak: 'programmatisk',
+                        })
+                      }
+                    }}
+                  >
                     <Tooltip content="Flere valg" placement="top">
                       <ActionMenu.Trigger>
                         <Button

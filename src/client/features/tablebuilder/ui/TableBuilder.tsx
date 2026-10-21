@@ -26,6 +26,8 @@ import {
 } from '@navikt/aksel-icons'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import AddToDashboardDialog from '../../../shared/ui/AddToDashboardDialog.tsx'
 import TransferToMetabaseDialog from '../../../shared/ui/TransferToMetabaseDialog.tsx'
 import { openSqlEditorWithContext } from '../../../shared/lib/openSqlEditor.ts'
@@ -889,11 +891,25 @@ const TableBuilder = () => {
   const handleSort = (column: SelectedColumn) => {
     setPage(1)
     if (sortColumn === column.instanceId) {
-      setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'))
+      const nextDirection = sortDirection === 'asc' ? 'desc' : 'asc'
+      trackEvent(Events.TABELL_SORTERING_ENDRET, {
+        seksjon: 'tabellbygger',
+        komponentId: 'resultattabell',
+        kolonne: getColumnLabel(column),
+        retning: nextDirection,
+      })
+      setSortDirection(nextDirection)
       return
     }
+    const nextDirection = column.kind === 'dimension' ? 'asc' : 'desc'
+    trackEvent(Events.TABELL_SORTERING_ENDRET, {
+      seksjon: 'tabellbygger',
+      komponentId: 'resultattabell',
+      kolonne: getColumnLabel(column),
+      retning: nextDirection,
+    })
     setSortColumn(column.instanceId)
-    setSortDirection(column.kind === 'dimension' ? 'asc' : 'desc')
+    setSortDirection(nextDirection)
   }
 
   const sortIndicator = (column: SelectedColumn) => {

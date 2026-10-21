@@ -1,6 +1,8 @@
 import { Alert, Button, Checkbox, DatePicker, Modal, Pagination, Select, Table, TextField } from '@navikt/ds-react'
 import { format } from 'date-fns'
 import { useRef, useState } from 'react'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../../shared/lib/trackEvent.ts'
 import type { GraphCategoryDto } from '../../../oversikt/model/types.ts'
 
 type CanvasAdminModalsProps = {
@@ -391,6 +393,13 @@ const CanvasAdminModals = ({
                       <Table.ExpandableRow
                         key={item.key}
                         togglePlacement="left"
+                        onOpenChange={(open) =>
+                          trackEvent(Events.TABELL_RAD_UTVIDET, {
+                            seksjon: 'canvas',
+                            komponentId: 'innholdsfortegnelse-tabell',
+                            erUtvidet: open,
+                          })
+                        }
                         content={
                           <div className="space-y-2 bg-[var(--ax-bg-neutral-soft)]">
                             <div className="flex flex-wrap justify-end gap-2">

@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Alert, Button, Modal, Select, TextField } from '@navikt/ds-react'
+import { Events } from '@navikt/analytics-types'
 import type { DashboardDto, GraphCategoryDto, ProjectDto } from '../../model/types.ts'
 import type { Website } from '../../../../shared/types/website.ts'
 import { fetchWebsites } from '../../../../shared/api/websiteApi.ts'
+import { trackEvent } from '../../../../shared/lib/trackEvent.ts'
 
 type CopyChartDialogProps = {
   open: boolean
@@ -53,6 +55,19 @@ const CopyChartDialog = ({
   const [websiteId, setWebsiteId] = useState(sourceWebsiteId ?? '')
   const [chartName, setChartName] = useState(chart?.title ?? '')
   const [loadingWebsites, setLoadingWebsites] = useState(false)
+  const wasOpenRef = useRef(false)
+
+  useEffect(() => {
+    if (open && !wasOpenRef.current) {
+      trackEvent(Events.MODAL_APNET, { seksjon: 'oversikt', komponentId: 'kopier-graf' })
+    }
+    wasOpenRef.current = open
+  }, [open])
+
+  const handleClose = () => {
+    trackEvent(Events.MODAL_LUKKET, { seksjon: 'oversikt', komponentId: 'kopier-graf' })
+    onClose()
+  }
 
   useEffect(() => {
     if (!open) return
@@ -183,7 +198,7 @@ const CopyChartDialog = ({
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={handleClose}
       header={{ heading: chart ? `Kopier graf: ${chart.title}` : 'Kopier graf' }}
       width="small"
     >
@@ -274,7 +289,7 @@ const CopyChartDialog = ({
         <Button onClick={() => void handleCopy()} loading={loading}>
           Kopier graf
         </Button>
-        <Button variant="secondary" onClick={onClose} disabled={loading}>
+        <Button variant="secondary" onClick={handleClose} disabled={loading}>
           Avbryt
         </Button>
       </Modal.Footer>

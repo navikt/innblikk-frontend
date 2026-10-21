@@ -1,5 +1,7 @@
 import { Button, Alert, Heading, BodyLong } from '@navikt/ds-react'
 import { ReadMore } from '@navikt/ds-react'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 
 interface QueryErrorDisplayProps {
   error: string
@@ -28,7 +30,17 @@ export default function QueryErrorDisplay({ error, lastProcessedSql, onAddDateFi
       )}
 
       {lastProcessedSql && (
-        <ReadMore header="SQL etter filtre" size="small" className="mt-3">
+        <ReadMore
+          header="SQL etter filtre"
+          size="small"
+          className="mt-3"
+          onOpenChange={(open) =>
+            trackEvent(open ? Events.LES_MER_APNET : Events.LES_MER_LUKKET, {
+              seksjon: 'sql',
+              tittel: 'sporre-feil-detaljer',
+            })
+          }
+        >
           <pre
             className="bg-[var(--ax-bg-neutral-soft)] border border-[var(--ax-border-neutral-subtle)] rounded p-3 text-xs font-mono whitespace-pre-wrap"
             style={{ margin: 0 }}

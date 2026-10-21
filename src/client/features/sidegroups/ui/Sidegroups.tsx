@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Alert, BodyShort, Button, Dialog, HStack, Heading, Loader, Table, VStack } from '@navikt/ds-react'
 import { PencilIcon, PlusIcon, TrashIcon } from '@navikt/aksel-icons'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import { fetchWebsites } from '../../../shared/api/websiteApi.ts'
 import type { Website } from '../../../shared/types/website.ts'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
@@ -138,14 +140,19 @@ export default function Sidegroups() {
                       <Table.ExpandableRow
                         key={sidegroup.id}
                         open={isExpanded}
-                        onOpenChange={(open) =>
+                        onOpenChange={(open) => {
+                          trackEvent(Events.TABELL_RAD_UTVIDET, {
+                            seksjon: 'sidegrupper',
+                            komponentId: 'sidegruppe-tabell',
+                            erUtvidet: open,
+                          })
                           setExpandedSidegroups((current) => {
                             const next = new Set(current)
                             if (open) next.add(sidegroup.id)
                             else next.delete(sidegroup.id)
                             return next
                           })
-                        }
+                        }}
                         expansionDisabled={conditions.length === 0}
                         content={
                           <div id={`sidegroup-conditions-${sidegroup.id}`}>

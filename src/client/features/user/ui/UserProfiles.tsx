@@ -27,6 +27,8 @@ import {
   TabletIcon,
 } from '@navikt/aksel-icons'
 import { parseISO } from 'date-fns'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
@@ -262,6 +264,7 @@ const UserProfiles = () => {
   }
 
   const handleRowClick = (user: UserProfile) => {
+    trackEvent(Events.TABELL_RAD_VALGT, { seksjon: 'brukerprofiler', komponentId: 'bruker-tabell', erValgt: true })
     setSelectedSession(user)
     setIsModalOpen(true)
     void fetchUserActivity(user.primarySessionId || user.sessionIds?.[0] || user.userId || '')

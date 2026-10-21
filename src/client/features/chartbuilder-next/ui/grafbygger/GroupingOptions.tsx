@@ -1,5 +1,7 @@
 import { Accordion, Checkbox, Button, Select, Label, Switch, Search } from '@navikt/ds-react'
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../../shared/lib/trackEvent.ts'
 import type { Parameter, DateFormat, ColumnGroup, Filter } from '../../../../shared/types/chart.ts'
 import AlertWithCloseButton from './AlertWithCloseButton.tsx' // Import AlertWithCloseButton
 import accordionStyles from '../../../../shared/ui/GroupedAccordion.module.css'
@@ -293,7 +295,15 @@ const GroupingOptions = ({
               <Checkbox
                 size="small"
                 checked={groupByFields.includes('created_at')}
-                onChange={() => handleToggleGroupField('created_at')}
+                onChange={(e) => {
+                  trackEvent(Events.AVKRYSNINGSBOKS_ENDRET, {
+                    seksjon: 'grafbygger',
+                    komponentId: 'gruppering-dato',
+                    tekst: 'Dato',
+                    checked: e.target.checked,
+                  })
+                  handleToggleGroupField('created_at')
+                }}
               >
                 Dato
               </Checkbox>
@@ -302,7 +312,15 @@ const GroupingOptions = ({
                   <Select
                     label="Visning per"
                     value={dateFormat || 'day'}
-                    onChange={(e) => setDateFormat(e.target.value)}
+                    onChange={(e) => {
+                      trackEvent(Events.NEDTREKKSLISTE_VALG_ENDRET, {
+                        seksjon: 'grafbygger',
+                        komponentId: 'gruppering-visning-per',
+                        valgtVerdi: e.target.value,
+                        tekst: e.target.selectedOptions[0]?.text,
+                      })
+                      setDateFormat(e.target.value)
+                    }}
                     size="small"
                   >
                     {DATE_FORMATS.map((format) => (
@@ -382,7 +400,15 @@ const GroupingOptions = ({
                                 <Checkbox
                                   size="small"
                                   checked={groupByFields.includes(option.value)}
-                                  onChange={() => handleToggleGroupField(option.value)}
+                                  onChange={(e) => {
+                                    trackEvent(Events.AVKRYSNINGSBOKS_ENDRET, {
+                                      seksjon: 'grafbygger',
+                                      komponentId: `gruppering-${group.key}`,
+                                      tekst: option.label,
+                                      checked: e.target.checked,
+                                    })
+                                    handleToggleGroupField(option.value)
+                                  }}
                                 >
                                   {option.label}
                                 </Checkbox>
@@ -391,7 +417,15 @@ const GroupingOptions = ({
                                     <Select
                                       label="Visning per"
                                       value={dateFormat || 'day'}
-                                      onChange={(e) => setDateFormat(e.target.value)}
+                                      onChange={(e) => {
+                                        trackEvent(Events.NEDTREKKSLISTE_VALG_ENDRET, {
+                                          seksjon: 'grafbygger',
+                                          komponentId: 'gruppering-visning-per',
+                                          valgtVerdi: e.target.value,
+                                          tekst: e.target.selectedOptions[0]?.text,
+                                        })
+                                        setDateFormat(e.target.value)
+                                      }}
                                       size="small"
                                     >
                                       {DATE_FORMATS.map((format) => (
@@ -418,7 +452,14 @@ const GroupingOptions = ({
             <Switch
               size="small"
               checked={showReorderGroupings}
-              onChange={(e) => setShowReorderGroupings(e.target.checked)}
+              onChange={(e) => {
+                trackEvent(Events.SWITCH_TILSTAND_ENDRET, {
+                  seksjon: 'grafbygger',
+                  komponentId: 'gruppering-endre-rekkefolge',
+                  erPa: e.target.checked,
+                })
+                setShowReorderGroupings(e.target.checked)
+              }}
               description="Vis liste for å endre rekkefølge med piler"
             >
               Endre rekkefølge på grupperinger
@@ -456,7 +497,15 @@ const GroupingOptions = ({
                           <Select
                             label=""
                             value={dateFormat || 'day'}
-                            onChange={(e) => setDateFormat(e.target.value)}
+                            onChange={(e) => {
+                              trackEvent(Events.NEDTREKKSLISTE_VALG_ENDRET, {
+                                seksjon: 'grafbygger',
+                                komponentId: 'gruppering-visning-per',
+                                valgtVerdi: e.target.value,
+                                tekst: e.target.selectedOptions[0]?.text,
+                              })
+                              setDateFormat(e.target.value)
+                            }}
                             size="small"
                             className="w-auto min-w-[120px]"
                           >

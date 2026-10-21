@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Alert, Button, Link, Modal, Select, Switch } from '@navikt/ds-react'
 import { ExternalLinkIcon } from '@navikt/aksel-icons'
+import { Events } from '@navikt/analytics-types'
 import type { Website } from '../types/website.ts'
 import { fetchWebsites } from '../api/websiteApi.ts'
+import { trackEvent } from '../lib/trackEvent.ts'
 
 type TransferToMetabaseDialogProps = {
   open: boolean
@@ -25,6 +27,19 @@ const TransferToMetabaseDialog = ({ open, onClose, sqlText, sourceWebsiteId }: T
   const [showSqlCode, setShowSqlCode] = useState(false)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const wasOpenRef = useRef(false)
+
+  useEffect(() => {
+    if (open && !wasOpenRef.current) {
+      trackEvent(Events.MODAL_APNET, { komponentId: 'overfor-metabase' })
+    }
+    wasOpenRef.current = open
+  }, [open])
+
+  const handleClose = () => {
+    trackEvent(Events.MODAL_LUKKET, { komponentId: 'overfor-metabase' })
+    onClose()
+  }
 
   useEffect(() => {
     if (!open) return
@@ -69,6 +84,7 @@ const TransferToMetabaseDialog = ({ open, onClose, sqlText, sourceWebsiteId }: T
     }
     try {
       await navigator.clipboard.writeText(sqlForCopy)
+      trackEvent(Events.TEKST_KOPIERT, { komponentId: 'overfor-metabase', tekst: 'SQL for Metabase' })
       setCopied(true)
       setError(null)
     } catch {
@@ -77,7 +93,7 @@ const TransferToMetabaseDialog = ({ open, onClose, sqlText, sourceWebsiteId }: T
   }
 
   return (
-    <Modal open={open} onClose={onClose} header={{ heading: 'Overfør til Metabase' }} width="small">
+    <Modal open={open} onClose={handleClose} header={{ heading: 'Overfør til Metabase' }} width="small">
       <Modal.Body>
         <div className="flex flex-col gap-4">
           <Select
@@ -127,7 +143,7 @@ const TransferToMetabaseDialog = ({ open, onClose, sqlText, sourceWebsiteId }: T
         </div>
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="secondary" onClick={onClose}>
+        <Button variant="secondary" onClick={handleClose}>
           Lukk
         </Button>
       </Modal.Footer>

@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { ActionMenu, Button, Alert, Loader, Switch, Heading, BodyShort, Tooltip } from '@navikt/ds-react'
 import { ResponsiveContainer, LineChart } from '@fluentui/react-charting'
 import { CheckmarkIcon, MenuElipsisVerticalIcon, PaperplaneIcon } from '@navikt/aksel-icons'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
@@ -94,7 +96,14 @@ const Retention = () => {
           <div className="flex items-end pb-[2px]">
             <Switch
               checked={Boolean(urlPath) && returnScope === 'same_url'}
-              onChange={(e) => setReturnScope(e.target.checked ? 'same_url' : 'site')}
+              onChange={(e) => {
+                trackEvent(Events.SWITCH_TILSTAND_ENDRET, {
+                  seksjon: 'retensjon',
+                  komponentId: 'retur-samme-url',
+                  erPa: e.target.checked,
+                })
+                setReturnScope(e.target.checked ? 'same_url' : 'site')
+              }}
               size="small"
               disabled={!urlPath}
             >
@@ -161,7 +170,23 @@ const Retention = () => {
               <Heading level="3" size="small">
                 Gjenbesøk over tid
               </Heading>
-              <ActionMenu>
+              <ActionMenu
+                onOpenChange={(open) => {
+                  if (open) {
+                    trackEvent(Events.ACTIONMENU_APNET, {
+                      seksjon: 'retensjon',
+                      komponentId: 'gjenbesok-graf-meny',
+                      triggerTekst: 'Flere valg',
+                    })
+                  } else {
+                    trackEvent(Events.ACTIONMENU_LUKKET, {
+                      seksjon: 'retensjon',
+                      komponentId: 'gjenbesok-graf-meny',
+                      lukkAarsak: 'programmatisk',
+                    })
+                  }
+                }}
+              >
                 <Tooltip content="Flere valg" placement="top">
                   <ActionMenu.Trigger>
                     <Button
@@ -187,7 +212,19 @@ const Retention = () => {
                   >
                     Åpne i SQL-editor
                   </ActionMenu.Item>
-                  <ActionMenu.Item onClick={downloadCSV}>Last ned CSV</ActionMenu.Item>
+                  <ActionMenu.Item
+                    onClick={() => {
+                      trackEvent(Events.LAST_NED, {
+                        seksjon: 'retensjon',
+                        komponentId: 'gjenbesok-graf-meny',
+                        tittel: 'gjenbesok',
+                        type: 'CSV',
+                      })
+                      downloadCSV()
+                    }}
+                  >
+                    Last ned CSV
+                  </ActionMenu.Item>
                   {queryStats && (
                     <>
                       <ActionMenu.Divider />
@@ -217,7 +254,18 @@ const Retention = () => {
               )}
             </div>
             <div className="mt-4 flex justify-end">
-              <Switch checked={showTableSection} onChange={(e) => setShowTableSection(e.target.checked)} size="small">
+              <Switch
+                checked={showTableSection}
+                onChange={(e) => {
+                  trackEvent(Events.SWITCH_TILSTAND_ENDRET, {
+                    seksjon: 'retensjon',
+                    komponentId: 'vis-som-tabell',
+                    erPa: e.target.checked,
+                  })
+                  setShowTableSection(e.target.checked)
+                }}
+                size="small"
+              >
                 Vis som tabell
               </Switch>
             </div>

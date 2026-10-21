@@ -13,6 +13,8 @@ import {
   VStack,
 } from '@navikt/ds-react'
 import { DataGrid } from '@navikt/ds-react/PREVIEW'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../../shared/lib/trackEvent.ts'
 import { HelpTextButton } from '../../../../shared/ui/HelpTextButton.tsx'
 import { KontaktSeksjon } from '../../../../shared/ui/theme/Kontakt/KontaktSeksjon.tsx'
 import { Skyra } from '../../../../shared/ui/theme/Skyra/Skyra.tsx'
@@ -203,7 +205,18 @@ const TaksonomiPage = () => {
                 </Link>
                 {doc ? ` (versjon ${doc.version}, ${doc.eventCount} hendelser)` : ''}. Bruk gjerne AI-agenten din til å
                 legge inn sporing i appen din:{' '}
-                <Link href={SKILL_URL} target="_blank">
+                <Link
+                  href={SKILL_URL}
+                  target="_blank"
+                  onClick={() =>
+                    trackEvent(Events.NAVIGERE, {
+                      lenketekst: 'reops-add-tracking skill',
+                      destinasjon: SKILL_URL,
+                      lenkegruppe: 'taksonomi-skill',
+                      seksjon: 'taksonomi',
+                    })
+                  }
+                >
                   last ned skill-en «reops-add-tracking»
                 </Link>{' '}
                 og pek agenten på den, så finner den komponentene dine og kobler på riktige hendelser.
@@ -242,7 +255,16 @@ const TaksonomiPage = () => {
                     }))}
                     selectedOptions={selectedEventName ? [selectedEventName] : []}
                     onToggleSelected={(option, isSelected) => {
-                      if (isSelected) setSelectedEventName(option)
+                      if (isSelected) {
+                        setSelectedEventName(option)
+                        trackEvent(Events.COMBOBOX_OPTION_TOGGLED, {
+                          optionValue: option,
+                          optionText: option,
+                          isSelected: true,
+                          komponentId: 'taksonomi-hendelsessok',
+                          seksjon: 'taksonomi',
+                        })
+                      }
                     }}
                   />
 

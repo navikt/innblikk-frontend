@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Modal, Button, Textarea, Select, Checkbox, CheckboxGroup, ReadMore, CopyButton } from '@navikt/ds-react'
 import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
+import { trackEvent } from '../../../../shared/lib/trackEvent.ts'
 
 interface ShareResultsModalProps {
   sql: string
@@ -8,11 +9,23 @@ interface ShareResultsModalProps {
   onClose: () => void
 }
 
+const MODAL_TITTEL = 'Del tabell & graf'
+
 const ShareResultsModal = ({ sql, open, onClose }: ShareResultsModalProps) => {
   const [description, setDescription] = useState('')
   const [selectedTab, setSelectedTab] = useState('table')
   const [hiddenTabs, setHiddenTabs] = useState<string[]>([])
   const maxChars = 200
+
+  useEffect(() => {
+    if (open) {
+      trackEvent(Events.MODAL_APNET, {
+        seksjon: 'grafbygger',
+        komponentId: 'del-resultater',
+        tittel: MODAL_TITTEL,
+      })
+    }
+  }, [open])
 
   // On open, if description/selectedTab/hiddenTabs are default, set from URL params
   useEffect(() => {
@@ -64,6 +77,11 @@ const ShareResultsModal = ({ sql, open, onClose }: ShareResultsModalProps) => {
   }
 
   const handleClose = () => {
+    trackEvent(Events.MODAL_LUKKET, {
+      seksjon: 'grafbygger',
+      komponentId: 'del-resultater',
+      tittel: MODAL_TITTEL,
+    })
     setDescription('')
     setSelectedTab('table')
     setHiddenTabs([])
@@ -83,7 +101,7 @@ const ShareResultsModal = ({ sql, open, onClose }: ShareResultsModalProps) => {
       open={open}
       onClose={handleClose}
       header={{
-        heading: 'Del tabell & graf',
+        heading: MODAL_TITTEL,
         closeButton: true,
       }}
       width="medium"
@@ -143,7 +161,7 @@ const ShareResultsModal = ({ sql, open, onClose }: ShareResultsModalProps) => {
           className="mr-2"
           onClick={() => {
             const properties: KopierLenkeProperties = { seksjon: 'grafbygger-deling' }
-            window.umami?.track(Events.KOPIER_LENKE, properties)
+            trackEvent(Events.KOPIER_LENKE, properties)
           }}
         />
       </Modal.Footer>

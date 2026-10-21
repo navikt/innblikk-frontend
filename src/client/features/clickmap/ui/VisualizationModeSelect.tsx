@@ -1,4 +1,6 @@
 import { Select } from '@navikt/ds-react'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import { CLICKMAP_VISUALIZATION_MODE_OPTIONS, type VisualizationMode } from '../model/visualizationMode.ts'
 
 type VisualizationModeSelectProps = {
@@ -27,7 +29,14 @@ const VisualizationModeSelect = ({
       size={size}
       label={label}
       value={value}
-      onChange={(event) => onChange(event.target.value as VisualizationMode | '')}
+      onChange={(event) => {
+        trackEvent(Events.NEDTREKKSLISTE_VALG_ENDRET, {
+          seksjon: 'klikkart',
+          komponentId: 'karttype',
+          valgtVerdi: event.target.value,
+        })
+        onChange(event.target.value as VisualizationMode | '')
+      }}
       className={className}
       disabled={disabled}
     >

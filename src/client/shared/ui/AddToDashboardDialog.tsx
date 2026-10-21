@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Alert, Button, Modal, Select, TextField } from '@navikt/ds-react'
+import { Events } from '@navikt/analytics-types'
 import type { DashboardDto, GraphCategoryDto, ProjectDto } from '../types/backend.ts'
 import type { Website } from '../types/website.ts'
+import { trackEvent } from '../lib/trackEvent.ts'
 import {
   fetchProjects,
   fetchDashboards,
@@ -100,6 +102,19 @@ const AddToDashboardDialog = ({
     dashboardId: number
     dashboardName: string
   } | null>(null)
+  const wasOpenRef = useRef(false)
+
+  useEffect(() => {
+    if (open && !wasOpenRef.current) {
+      trackEvent(Events.MODAL_APNET, { komponentId: 'legg-til-i-dashbord' })
+    }
+    wasOpenRef.current = open
+  }, [open])
+
+  const handleClose = () => {
+    trackEvent(Events.MODAL_LUKKET, { komponentId: 'legg-til-i-dashbord' })
+    onClose()
+  }
 
   useEffect(() => {
     if (!open) return
@@ -320,7 +335,7 @@ const AddToDashboardDialog = ({
 
   return (
     <>
-      <Modal open={open} onClose={onClose} header={{ heading: 'Legg til i dashboard' }} width="small">
+      <Modal open={open} onClose={handleClose} header={{ heading: 'Legg til i dashboard' }} width="small">
         <Modal.Body>
           <div className="flex flex-col gap-4">
             {graphName && <p className="text-sm text-[var(--ax-text-subtle)]">{graphName}</p>}
@@ -331,6 +346,11 @@ const AddToDashboardDialog = ({
               value={projectId ? String(projectId) : ''}
               onChange={(event) => {
                 const nextProjectId = Number(event.target.value)
+                trackEvent(Events.NEDTREKKSLISTE_VALG_ENDRET, {
+                  komponentId: 'legg-til-i-dashbord',
+                  valgtVerdi: event.target.value,
+                  tekst: event.target.selectedOptions[0]?.text,
+                })
                 setProjectId(nextProjectId)
                 if (nextProjectId) saveStoredProjectId(nextProjectId)
                 setError(null)
@@ -351,6 +371,11 @@ const AddToDashboardDialog = ({
               value={dashboardId ? String(dashboardId) : ''}
               onChange={(event) => {
                 const nextDashboardId = Number(event.target.value)
+                trackEvent(Events.NEDTREKKSLISTE_VALG_ENDRET, {
+                  komponentId: 'legg-til-i-dashbord',
+                  valgtVerdi: event.target.value,
+                  tekst: event.target.selectedOptions[0]?.text,
+                })
                 setDashboardId(nextDashboardId)
                 if (nextDashboardId) saveStoredDashboardId(nextDashboardId)
                 setCategoryId(0)
@@ -373,6 +398,11 @@ const AddToDashboardDialog = ({
                 value={categoryId ? String(categoryId) : ''}
                 onChange={(event) => {
                   const nextCategoryId = Number(event.target.value)
+                  trackEvent(Events.NEDTREKKSLISTE_VALG_ENDRET, {
+                    komponentId: 'legg-til-i-dashbord',
+                    valgtVerdi: event.target.value,
+                    tekst: event.target.selectedOptions[0]?.text,
+                  })
                   setCategoryId(nextCategoryId)
                   if (nextCategoryId) saveStoredCategoryId(nextCategoryId)
                   setError(null)
@@ -403,6 +433,11 @@ const AddToDashboardDialog = ({
                 value={websiteId}
                 onChange={(event) => {
                   const nextWebsiteId = event.target.value
+                  trackEvent(Events.NEDTREKKSLISTE_VALG_ENDRET, {
+                    komponentId: 'legg-til-i-dashbord',
+                    valgtVerdi: nextWebsiteId,
+                    tekst: event.target.selectedOptions[0]?.text,
+                  })
                   setWebsiteId(nextWebsiteId)
                   saveStoredWebsiteId(nextWebsiteId)
                 }}

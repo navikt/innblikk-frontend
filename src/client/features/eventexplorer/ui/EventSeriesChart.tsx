@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Switch } from '@navikt/ds-react'
 import { LineChart, ResponsiveContainer } from '@fluentui/react-charting'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import { formatSeriesAxisLabel } from '../../../shared/lib/seriesDateFormat.ts'
 import type { SeriesPoint, QueryStats } from '../model/types.ts'
 import { prepareLineChartData } from '../utils/chartHelpers.ts'
@@ -19,10 +21,32 @@ const EventSeriesChart = ({ seriesData, selectedEvent, queryStats }: EventSeries
   return (
     <div className="flex flex-col gap-4">
       <div className="flex justify-end gap-6 -mb-5">
-        <Switch checked={showTrendTable} onChange={(e) => setShowTrendTable(e.target.checked)} size="small">
+        <Switch
+          checked={showTrendTable}
+          onChange={(e) => {
+            trackEvent(Events.SWITCH_TILSTAND_ENDRET, {
+              seksjon: 'hendelsesutforsker',
+              komponentId: 'vis-tabell',
+              erPa: e.target.checked,
+            })
+            setShowTrendTable(e.target.checked)
+          }}
+          size="small"
+        >
           Vis tabell
         </Switch>
-        <Switch checked={showAverage} onChange={(e) => setShowAverage(e.target.checked)} size="small">
+        <Switch
+          checked={showAverage}
+          onChange={(e) => {
+            trackEvent(Events.SWITCH_TILSTAND_ENDRET, {
+              seksjon: 'hendelsesutforsker',
+              komponentId: 'vis-gjennomsnitt',
+              erPa: e.target.checked,
+            })
+            setShowAverage(e.target.checked)
+          }}
+          size="small"
+        >
           Vis gjennomsnitt
         </Switch>
       </div>

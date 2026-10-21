@@ -14,6 +14,8 @@ import {
   VStack,
 } from '@navikt/ds-react'
 import { XMarkIcon, PlusIcon, CheckmarkIcon } from '@navikt/aksel-icons'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../../shared/lib/trackEvent.ts'
 import type { Filter, Parameter } from '../../../../shared/types/chart.ts'
 
 // ─── Local types ─────────────────────────────────────────────────────────────
@@ -92,7 +94,16 @@ const SelectableValuesCombobox = ({
         description={multiDescription}
         options={options}
         selectedOptions={selectedValues}
-        onToggleSelected={onToggle}
+        onToggleSelected={(option, isSelected) => {
+          trackEvent(Events.COMBOBOX_OPTION_TOGGLED, {
+            seksjon: 'grafbygger',
+            komponentId: multiLabel,
+            optionValue: option,
+            isSelected,
+            isMultiSelect: true,
+          })
+          onToggle(option, isSelected)
+        }}
         isMultiSelect
         size="small"
         allowNewValues
@@ -106,7 +117,16 @@ const SelectableValuesCombobox = ({
       description={partialMatchDescriptions[operator] ?? null}
       options={options}
       selectedOptions={selectedValues.length > 0 ? [selectedValues[0]] : []}
-      onToggleSelected={(option, isSelected) => onToggle(option, isSelected)}
+      onToggleSelected={(option, isSelected) => {
+        trackEvent(Events.COMBOBOX_OPTION_TOGGLED, {
+          seksjon: 'grafbygger',
+          komponentId: singleLabel,
+          optionValue: option,
+          isSelected,
+          isMultiSelect: false,
+        })
+        onToggle(option, isSelected)
+      }}
       isMultiSelect={false}
       size="small"
       allowNewValues
@@ -353,6 +373,13 @@ const EventParamFilter = ({
         }))}
         selectedOptions={selectedEventParam ? [selectedEventParam] : []}
         onToggleSelected={(option, isSelected) => {
+          trackEvent(Events.COMBOBOX_OPTION_TOGGLED, {
+            seksjon: 'grafbygger',
+            komponentId: 'hendelsesdetaljer',
+            optionValue: option,
+            isSelected,
+            isMultiSelect: false,
+          })
           if (isSelected && option) {
             setSelectedEventParam(option)
             setEventParamValue('')

@@ -1,4 +1,6 @@
 import { Alert, Select } from '@navikt/ds-react'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../../shared/lib/trackEvent.ts'
 
 type CanvasSectionPlacementSelectProps = {
   sectionOptions: Array<{ id: string; label: string }>
@@ -26,7 +28,14 @@ const CanvasSectionPlacementSelect = ({
       id="canvas-section-placement"
       label={label}
       value={selectedSectionId}
-      onChange={(event) => onSectionChange(event.target.value)}
+      onChange={(event) => {
+        trackEvent(Events.NEDTREKKSLISTE_VALG_ENDRET, {
+          seksjon: 'canvas',
+          komponentId: 'seksjon-plassering',
+          valgtVerdi: event.target.value,
+        })
+        onSectionChange(event.target.value)
+      }}
     >
       <option value="">Plasser fritt</option>
       {sectionOptions.map((option) => (

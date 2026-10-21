@@ -10,6 +10,8 @@ import {
   ThemeIcon,
 } from '@navikt/aksel-icons'
 import { useEffect, useRef, useState, type KeyboardEvent, type RefObject, type TouchEvent } from 'react'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../../shared/lib/trackEvent.ts'
 import PeriodPicker from '../../../analysis/ui/PeriodPicker.tsx'
 import type { GraphCategoryDto } from '../../../oversikt/model/types.ts'
 import CanvasAddActionMenu from './CanvasAddActionMenu.tsx'
@@ -457,6 +459,12 @@ const CanvasTopBar = ({
               onChange={(value) => {
                 const categoryId = Number(value)
                 if (!Number.isFinite(categoryId)) return
+                trackEvent(Events.FANE_BYTTET, {
+                  seksjon: 'canvas',
+                  komponentId: 'canvas-faner',
+                  fraFane: activeCanvasCategoryId !== null ? String(activeCanvasCategoryId) : undefined,
+                  tilFane: value,
+                })
                 onChangeActiveCanvasCategory(categoryId)
               }}
             >

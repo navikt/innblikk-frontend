@@ -10,6 +10,8 @@ import 'prismjs/components/prism-tsx'
 import 'prismjs/components/prism-markup' // html
 
 import { Box, CopyButton } from '@navikt/ds-react'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 
 interface SnippetBlockProps {
   text: string
@@ -70,6 +72,13 @@ export function SnippetBlock({ text, language, wrapLongLines = true }: SnippetBl
             text="Kopier"
             activeText="Kopiert!"
             size="small"
+            onClick={() =>
+              trackEvent(Events.TEKST_KOPIERT, {
+                seksjon: 'innstillinger',
+                komponentId: 'kodesnutt',
+                tekst: language,
+              })
+            }
             className="!bg-[var(--ax-bg-default)] !border !border-solid !border-[var(--ax-border-default)] hover:!bg-[var(--ax-bg-neutral-moderate-hover)]"
           />
         </div>

@@ -2,6 +2,8 @@ import { Alert, Loader, Radio, RadioGroup, Table, Heading, Tooltip, Tabs } from 
 import { LineChart } from '@fluentui/react-charting'
 import { format } from 'date-fns'
 import { nb } from 'date-fns/locale'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import ChartLayout from './ChartLayoutOriginal.tsx'
 import WebsitePicker from './WebsitePicker.tsx'
 import PeriodPicker from './PeriodPicker.tsx'
@@ -43,6 +45,16 @@ const Diagnosis = () => {
     chartData,
     handleExplore,
   } = useDiagnosis()
+
+  const handleSortWithTracking = (sortKey: string) => {
+    trackEvent(Events.TABELL_SORTERING_ENDRET, {
+      seksjon: 'diagnose',
+      komponentId: 'diagnose-resultater',
+      kolonne: sortKey,
+      retning: sort?.orderBy === sortKey && sort?.direction === 'descending' ? 'asc' : 'desc',
+    })
+    handleSort(sortKey)
+  }
 
   return (
     <ChartLayout
@@ -191,27 +203,27 @@ const Diagnosis = () => {
             </div>
 
             <div className="overflow-x-auto">
-              <Table sort={sort} onSortChange={handleSort}>
+              <Table sort={sort} onSortChange={handleSortWithTracking}>
                 <Table.Header>
                   <Table.Row>
                     <Table.HeaderCell>Status</Table.HeaderCell>
                     <Table.HeaderCell>Nettsted</Table.HeaderCell>
                     <Table.HeaderCell
-                      onClick={() => handleSort('pageviews')}
+                      onClick={() => handleSortWithTracking('pageviews')}
                       align="right"
                       className="cursor-pointer hover:bg-[var(--ax-bg-neutral-soft)]"
                     >
                       Sidevisninger
                     </Table.HeaderCell>
                     <Table.HeaderCell
-                      onClick={() => handleSort('custom_events')}
+                      onClick={() => handleSortWithTracking('custom_events')}
                       align="right"
                       className="cursor-pointer hover:bg-[var(--ax-bg-neutral-soft)]"
                     >
                       Egendefinerte
                     </Table.HeaderCell>
                     <Table.HeaderCell
-                      onClick={() => handleSort('total')}
+                      onClick={() => handleSortWithTracking('total')}
                       align="right"
                       className="cursor-pointer hover:bg-[var(--ax-bg-neutral-soft)]"
                     >
@@ -219,7 +231,7 @@ const Diagnosis = () => {
                     </Table.HeaderCell>
                     {activeTab !== 'attention' && (
                       <Table.HeaderCell
-                        onClick={() => handleSort('last_event_at')}
+                        onClick={() => handleSortWithTracking('last_event_at')}
                         align="right"
                         className="cursor-pointer hover:bg-[var(--ax-bg-neutral-soft)]"
                       >

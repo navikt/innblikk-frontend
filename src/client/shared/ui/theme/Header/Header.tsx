@@ -1,3 +1,4 @@
+import { trackEvent } from '../../../lib/trackEvent.ts'
 import {
   CogIcon,
   ExternalLinkIcon,
@@ -177,7 +178,7 @@ export default function Header({ theme }: HeaderProps) {
             triggerTekst: 'Teknisk meny',
             seksjon: 'header',
           }
-          window.umami?.track(Events.ACTIONMENU_APNET, properties)
+          trackEvent(Events.ACTIONMENU_APNET, properties)
         }
       }}
     >
@@ -204,7 +205,7 @@ export default function Header({ theme }: HeaderProps) {
                   gruppeLabel: 'Veiledninger',
                   seksjon: 'header',
                 }
-                window.umami?.track(Events.ACTIONMENU_VALG_VALGT, properties)
+                trackEvent(Events.ACTIONMENU_VALG_VALGT, properties)
               }}
             >
               <span className="inline-flex items-center gap-1">
@@ -229,7 +230,7 @@ export default function Header({ theme }: HeaderProps) {
                       gruppeLabel: 'Miljø',
                       seksjon: 'header',
                     }
-                    window.umami?.track(Events.ACTIONMENU_VALG_VALGT, properties)
+                    trackEvent(Events.ACTIONMENU_VALG_VALGT, properties)
                   }}
                 >
                   {item.label}
@@ -251,7 +252,7 @@ export default function Header({ theme }: HeaderProps) {
                   gruppeLabel: 'Utviklerverktøy',
                   seksjon: 'header',
                 }
-                window.umami?.track(Events.ACTIONMENU_VALG_VALGT, properties)
+                trackEvent(Events.ACTIONMENU_VALG_VALGT, properties)
               }}
             >
               {item.label}
@@ -268,7 +269,7 @@ export default function Header({ theme }: HeaderProps) {
                 gruppeLabel: 'Preferanser',
                 seksjon: 'header',
               }
-              window.umami?.track(Events.ACTIONMENU_VALG_VALGT, properties)
+              trackEvent(Events.ACTIONMENU_VALG_VALGT, properties)
             }}
           >
             <span className="inline-flex items-center gap-2 whitespace-nowrap">
@@ -285,7 +286,7 @@ export default function Header({ theme }: HeaderProps) {
                 gruppeLabel: 'Preferanser',
                 seksjon: 'header',
               }
-              window.umami?.track(Events.ACTIONMENU_VALG_VALGT, properties)
+              trackEvent(Events.ACTIONMENU_VALG_VALGT, properties)
             }}
           >
             <span className="inline-flex items-center gap-2 whitespace-nowrap">

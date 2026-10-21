@@ -1,7 +1,9 @@
 import { ResultsPanel } from '../../chartbuilder-next'
 import { Alert, Button, Heading, Link, Modal, ReadMore, Select, TextField, UNSAFE_Combobox } from '@navikt/ds-react'
 import { ExternalLinkIcon, FilesIcon } from '@navikt/aksel-icons'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import type { ILineChartProps, IVerticalBarChartProps } from '@fluentui/react-charting'
 import { truncateJSON } from '../utils/formatters'
 import type { QueryResult, QueryStats } from '../model/types'
@@ -112,6 +114,19 @@ export default function SqlResultsSection({
 }: SqlResultsSectionProps) {
   const [showSaveModal, setShowSaveModal] = useState(false)
   const [showSaveSuccessModal, setShowSaveSuccessModal] = useState(false)
+  const wasSaveModalOpenRef = useRef(false)
+
+  useEffect(() => {
+    if (showSaveModal && !wasSaveModalOpenRef.current) {
+      trackEvent(Events.MODAL_APNET, { seksjon: 'sql', komponentId: 'lagre-sql-graf', tittel: 'Legg til i dashboard' })
+    }
+    wasSaveModalOpenRef.current = showSaveModal
+  }, [showSaveModal])
+
+  const handleCloseSaveModal = () => {
+    trackEvent(Events.MODAL_LUKKET, { seksjon: 'sql', komponentId: 'lagre-sql-graf', tittel: 'Legg til i dashboard' })
+    setShowSaveModal(false)
+  }
   const [savingChart, setSavingChart] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [savedLocation, setSavedLocation] = useState<{
@@ -466,7 +481,7 @@ export default function SqlResultsSection({
         )}
       </div>
 
-      <Modal open={showSaveModal} onClose={() => setShowSaveModal(false)} header={{ heading: 'Legg til i dashboard' }}>
+      <Modal open={showSaveModal} onClose={handleCloseSaveModal} header={{ heading: 'Legg til i dashboard' }}>
         <Modal.Body>
           <div className="space-y-4">
             <UNSAFE_Combobox
@@ -501,7 +516,14 @@ export default function SqlResultsSection({
               <Select
                 label="Fane"
                 value={selectedCategoryOption ?? ''}
-                onChange={(e) => setSelectedCategoryOption(e.target.value || null)}
+                onChange={(e) => {
+                  trackEvent(Events.NEDTREKKSLISTE_VALG_ENDRET, {
+                    seksjon: 'sql',
+                    komponentId: 'lagre-sql-graf-fane',
+                    valgtVerdi: e.target.value,
+                  })
+                  setSelectedCategoryOption(e.target.value || null)
+                }}
                 size="small"
                 disabled={savingChart}
               >
@@ -514,7 +536,19 @@ export default function SqlResultsSection({
               </Select>
             )}
             <TextField label="Grafnavn" value={graphName} onChange={(e) => setGraphName(e.target.value)} size="small" />
-            <Select label="Visning" value={graphType} onChange={(e) => setGraphType(e.target.value)} size="small">
+            <Select
+              label="Visning"
+              value={graphType}
+              onChange={(e) => {
+                trackEvent(Events.NEDTREKKSLISTE_VALG_ENDRET, {
+                  seksjon: 'sql',
+                  komponentId: 'lagre-sql-graf-visning',
+                  valgtVerdi: e.target.value,
+                })
+                setGraphType(e.target.value)
+              }}
+              size="small"
+            >
               <option value="LINE">Linjediagram</option>
               <option value="BAR">Stolpediagram</option>
               <option value="PIE">Kakediagram</option>
@@ -532,7 +566,7 @@ export default function SqlResultsSection({
           <Button variant="primary" onClick={handleSaveChart} loading={savingChart}>
             Legg til
           </Button>
-          <Button variant="secondary" onClick={() => setShowSaveModal(false)} disabled={savingChart}>
+          <Button variant="secondary" onClick={handleCloseSaveModal} disabled={savingChart}>
             Avbryt
           </Button>
         </Modal.Footer>

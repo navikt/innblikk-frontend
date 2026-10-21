@@ -25,6 +25,8 @@ import {
   Tooltip,
 } from '@navikt/ds-react'
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import DeleteDashboardDialog from '../../oversikt/ui/dialogs/DeleteDashboardDialog.tsx'
 import CopyChartDialog from '../../oversikt/ui/dialogs/CopyChartDialog.tsx'
 import EditChartDialog from '../../oversikt/ui/dialogs/EditChartDialog.tsx'
@@ -192,6 +194,16 @@ const ProjectManager = () => {
     useState<ProjectManagerMoveDashboardSuccessTarget | null>(null)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [projectSearch, setProjectSearch] = useState('')
+  const projectSearchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleProjectSearchChange = (value: string) => {
+    setProjectSearch(value)
+    if (projectSearchDebounceRef.current) clearTimeout(projectSearchDebounceRef.current)
+    if (!value.trim()) return
+    projectSearchDebounceRef.current = setTimeout(() => {
+      trackEvent(Events.SOK, { seksjon: 'prosjektadmin', komponentId: 'prosjekt-sok' })
+    }, 800)
+  }
   const [isCreateDashboardOpen, setIsCreateDashboardOpen] = useState(false)
   const [isCreateCanvas, setIsCreateCanvas] = useState(false)
   const [newDashboardName, setNewDashboardName] = useState('')
@@ -1315,7 +1327,7 @@ const ProjectManager = () => {
                   variant="simple"
                   hideLabel={false}
                   value={projectSearch}
-                  onChange={setProjectSearch}
+                  onChange={handleProjectSearchChange}
                   onClear={() => setProjectSearch('')}
                   size="small"
                 />
@@ -1338,7 +1350,19 @@ const ProjectManager = () => {
               </div>
             )}
             {!isInitialLoading && projectSummaries.length === 0 && showNoProjectsAlert && (
-              <Alert variant="info" size="small" closeButton onClose={() => setShowNoProjectsAlert(false)}>
+              <Alert
+                variant="info"
+                size="small"
+                closeButton
+                onClose={() => {
+                  trackEvent(Events.ALERT_LUKKET, {
+                    seksjon: 'prosjektadmin',
+                    komponentId: 'ingen-team-varsel',
+                    variant: 'info',
+                  })
+                  setShowNoProjectsAlert(false)
+                }}
+              >
                 Ingen team funnet.
               </Alert>
             )}
@@ -1346,7 +1370,19 @@ const ProjectManager = () => {
               projectSummaries.length > 0 &&
               filteredProjectSummaries.length === 0 &&
               showNoSearchResultsAlert && (
-                <Alert variant="info" size="small" closeButton onClose={() => setShowNoSearchResultsAlert(false)}>
+                <Alert
+                  variant="info"
+                  size="small"
+                  closeButton
+                  onClose={() => {
+                    trackEvent(Events.ALERT_LUKKET, {
+                      seksjon: 'prosjektadmin',
+                      komponentId: 'ingen-soketreff-varsel',
+                      variant: 'info',
+                    })
+                    setShowNoSearchResultsAlert(false)
+                  }}
+                >
                   Ingen treff for sok.
                 </Alert>
               )}
@@ -1393,17 +1429,50 @@ const ProjectManager = () => {
       >
         <div className="space-y-4">
           {error && showErrorAlert && (
-            <Alert variant="error" closeButton onClose={() => setShowErrorAlert(false)}>
+            <Alert
+              variant="error"
+              closeButton
+              onClose={() => {
+                trackEvent(Events.ALERT_LUKKET, {
+                  seksjon: 'prosjektadmin',
+                  komponentId: 'feil-varsel',
+                  variant: 'error',
+                })
+                setShowErrorAlert(false)
+              }}
+            >
               {error}
             </Alert>
           )}
           {message && showMessageAlert && (
-            <Alert variant="success" closeButton onClose={() => setShowMessageAlert(false)}>
+            <Alert
+              variant="success"
+              closeButton
+              onClose={() => {
+                trackEvent(Events.ALERT_LUKKET, {
+                  seksjon: 'prosjektadmin',
+                  komponentId: 'melding-varsel',
+                  variant: 'success',
+                })
+                setShowMessageAlert(false)
+              }}
+            >
               {message}
             </Alert>
           )}
           {chartMutationError && !editChartTarget && !deleteChartTarget && !moveChartTarget && (
-            <Alert variant="error" closeButton onClose={() => setChartMutationError(null)}>
+            <Alert
+              variant="error"
+              closeButton
+              onClose={() => {
+                trackEvent(Events.ALERT_LUKKET, {
+                  seksjon: 'prosjektadmin',
+                  komponentId: 'graf-mutasjon-feil-varsel',
+                  variant: 'error',
+                })
+                setChartMutationError(null)
+              }}
+            >
               {chartMutationError}
             </Alert>
           )}
@@ -1415,7 +1484,19 @@ const ProjectManager = () => {
           )}
 
           {!isInitialLoading && !selectedProject && showNoSelectedProjectAlert && (
-            <Alert variant="info" size="small" closeButton onClose={() => setShowNoSelectedProjectAlert(false)}>
+            <Alert
+              variant="info"
+              size="small"
+              closeButton
+              onClose={() => {
+                trackEvent(Events.ALERT_LUKKET, {
+                  seksjon: 'prosjektadmin',
+                  komponentId: 'velg-team-varsel',
+                  variant: 'info',
+                })
+                setShowNoSelectedProjectAlert(false)
+              }}
+            >
               Velg et team for a se dashboard og grafer.
             </Alert>
           )}
@@ -2006,6 +2087,11 @@ const ProjectManager = () => {
               label="Team"
               value={moveDashboardTargetProjectId ? String(moveDashboardTargetProjectId) : ''}
               onChange={(event) => {
+                trackEvent(Events.NEDTREKKSLISTE_VALG_ENDRET, {
+                  seksjon: 'prosjektadmin',
+                  komponentId: 'flytt-dashboard-team',
+                  valgtVerdi: event.target.value,
+                })
                 setMoveDashboardTargetProjectId(Number(event.target.value))
                 setMoveDashboardError(null)
               }}

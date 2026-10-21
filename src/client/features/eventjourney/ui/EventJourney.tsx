@@ -4,6 +4,7 @@ import { CheckmarkIcon, ExternalLinkIcon, PaperplaneIcon } from '@navikt/aksel-i
 import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
 import { format } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
 import UrlPathInput from '../../analysis/ui/UrlPathInput.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
@@ -63,7 +64,7 @@ const EventJourney = () => {
     const success = await copyToClipboard(window.location.href)
     if (success) {
       const properties: KopierLenkeProperties = { seksjon: 'event-journey' }
-      window.umami?.track(Events.KOPIER_LENKE, properties)
+      trackEvent(Events.KOPIER_LENKE, properties)
       setCopySuccess(true)
       setTimeout(() => setCopySuccess(false), 2000)
     }
@@ -200,6 +201,13 @@ const EventJourney = () => {
                     isMultiSelect
                     placeholder="Velg..."
                     onToggleSelected={(option: string, isSelected: boolean) => {
+                      trackEvent(Events.COMBOBOX_OPTION_TOGGLED, {
+                        seksjon: 'hendelsesreise',
+                        komponentId: 'vis-hendelser',
+                        optionValue: option,
+                        isSelected,
+                        isMultiSelect: true,
+                      })
                       if (isSelected) {
                         setIncludedEventTypes([...includedEventTypes, option])
                       } else {
@@ -216,6 +224,13 @@ const EventJourney = () => {
                     isMultiSelect
                     placeholder="Velg..."
                     onToggleSelected={(option: string, isSelected: boolean) => {
+                      trackEvent(Events.COMBOBOX_OPTION_TOGGLED, {
+                        seksjon: 'hendelsesreise',
+                        komponentId: 'skjul-hendelser',
+                        optionValue: option,
+                        isSelected,
+                        isMultiSelect: true,
+                      })
                       if (isSelected) {
                         setExcludedEventTypes([...excludedEventTypes, option])
                       } else {

@@ -1,5 +1,7 @@
 import { Select, TextField } from '@navikt/ds-react'
 import { useState, useEffect, forwardRef, useImperativeHandle } from 'react'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../../shared/lib/trackEvent.ts'
 import type { ColumnGroup, OrderBy, Metric } from '../../../../shared/types/chart.ts'
 import ToggleOption from '../../../../shared/ui/ToggleOption.tsx'
 
@@ -85,6 +87,12 @@ const DisplayOptions = forwardRef(
                 label="Sorter etter"
                 value={orderBy?.column || ''}
                 onChange={(e) => {
+                  trackEvent(Events.NEDTREKKSLISTE_VALG_ENDRET, {
+                    seksjon: 'grafbygger',
+                    komponentId: 'visningsvalg-sorter-etter',
+                    valgtVerdi: e.target.value,
+                    tekst: e.target.selectedOptions[0]?.text,
+                  })
                   if (e.target.value) {
                     const direction = e.target.value === 'dato' ? 'ASC' : 'DESC'
                     setOrderBy(e.target.value, direction)
@@ -121,7 +129,15 @@ const DisplayOptions = forwardRef(
               <Select
                 label="Retning"
                 value={orderBy?.direction || 'ASC'}
-                onChange={(e) => setOrderBy(orderBy?.column || '', e.target.value as 'ASC' | 'DESC')}
+                onChange={(e) => {
+                  trackEvent(Events.NEDTREKKSLISTE_VALG_ENDRET, {
+                    seksjon: 'grafbygger',
+                    komponentId: 'visningsvalg-sorter-retning',
+                    valgtVerdi: e.target.value,
+                    tekst: e.target.selectedOptions[0]?.text,
+                  })
+                  setOrderBy(orderBy?.column || '', e.target.value as 'ASC' | 'DESC')
+                }}
                 size="small"
               >
                 <option value="ASC">Stigende (A-Å, 0-9)</option>

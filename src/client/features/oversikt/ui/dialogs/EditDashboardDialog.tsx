@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Alert, Button, Modal, TextField } from '@navikt/ds-react'
+import { Events } from '@navikt/analytics-types'
 import type { DashboardDto } from '../../model/types.ts'
+import { trackEvent } from '../../../../shared/lib/trackEvent.ts'
 
 type EditDashboardDialogProps = {
   open: boolean
@@ -23,6 +25,19 @@ const EditDashboardDialog = ({
   const [name, setName] = useState(dashboard?.name ?? '')
   const [description, setDescription] = useState(dashboard?.description ?? '')
   const [localError, setLocalError] = useState<string | null>(null)
+  const wasOpenRef = useRef(false)
+
+  useEffect(() => {
+    if (open && !wasOpenRef.current) {
+      trackEvent(Events.MODAL_APNET, { seksjon: 'oversikt', komponentId: 'rediger-dashbord' })
+    }
+    wasOpenRef.current = open
+  }, [open])
+
+  const handleClose = () => {
+    trackEvent(Events.MODAL_LUKKET, { seksjon: 'oversikt', komponentId: 'rediger-dashbord' })
+    onClose()
+  }
 
   const handleSave = async () => {
     if (!dashboard) return
@@ -38,7 +53,7 @@ const EditDashboardDialog = ({
   }
 
   return (
-    <Modal open={open} onClose={onClose} header={{ heading: 'Endre info' }} width="small">
+    <Modal open={open} onClose={handleClose} header={{ heading: 'Endre info' }} width="small">
       <Modal.Body>
         <div className="flex flex-col gap-4">
           {localError && <Alert variant="error">{localError}</Alert>}
@@ -63,7 +78,7 @@ const EditDashboardDialog = ({
         <Button onClick={() => void handleSave()} loading={loading}>
           Endre info
         </Button>
-        <Button variant="secondary" onClick={onClose} disabled={loading}>
+        <Button variant="secondary" onClick={handleClose} disabled={loading}>
           Avbryt
         </Button>
       </Modal.Footer>

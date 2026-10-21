@@ -1,5 +1,7 @@
 import { Button, HStack, ToggleGroup, VStack } from '@navikt/ds-react'
 import { PlusIcon } from '@navikt/aksel-icons'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import type { CohortDto, LogicalOperator } from '../../cohortmanager/model/types.ts'
 import { emptyCohortCard, emptyEventCard, eventToSequence, newId, type Card, type GroupCard } from '../model/draft.ts'
 import { anchorFor } from '../utils/validate.ts'
@@ -94,7 +96,14 @@ export function CardListEditor({
                 size="small"
                 aria-label="Hvordan henger kriteriene sammen?"
                 value={combinator}
-                onChange={(v) => update({ combinator: v as LogicalOperator })}
+                onChange={(v) => {
+                  trackEvent(Events.TOGGLEGROUP_VALGT, {
+                    seksjon: 'kohorter',
+                    komponentId: 'kriterium-kobling',
+                    valgtVerdi: v,
+                  })
+                  update({ combinator: v as LogicalOperator })
+                }}
               >
                 <ToggleGroup.Item value="AND" label="og" />
                 <ToggleGroup.Item value="OR" label="eller" />

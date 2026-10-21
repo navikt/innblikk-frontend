@@ -152,6 +152,7 @@ const getNavItems = (isReopsTeamMember: boolean): NavEntry[] => [
     icon: <OpenBookIcon aria-hidden fontSize="1.25rem" />,
     items: [
       { id: 'komigang', label: 'Kom i gang', to: '/komigang' },
+      { id: 'taksonomi', label: 'Taksonomi', to: '/taksonomi' },
       {
         id: 'retningslinjer',
         label: 'Retningslinjer',

@@ -8,7 +8,7 @@ describe('featureFlags', () => {
       'fetch',
       vi.fn(() => Promise.resolve({ ok: true })),
     )
-    vi.stubGlobal('umami', undefined)
+    vi.stubGlobal('sporing', undefined)
   })
 
   afterEach(() => {
@@ -100,9 +100,9 @@ describe('featureFlags', () => {
       window.removeEventListener('featureFlagsChange', listener)
     })
 
-    it('calls umami.track with avkrysningsboks endret event', () => {
+    it('calls sporing.track with avkrysningsboks endret event', () => {
       const trackMock = vi.fn()
-      vi.stubGlobal('umami', { track: trackMock })
+      vi.stubGlobal('sporing', { track: trackMock })
       setFeatureFlag('copilot_show_technical_details', true)
       expect(trackMock).toHaveBeenCalledWith('avkrysningsboks endret', {
         checked: true,
@@ -111,8 +111,8 @@ describe('featureFlags', () => {
       })
     })
 
-    it('does not throw when umami is not loaded', () => {
-      vi.stubGlobal('umami', undefined)
+    it('does not throw when the tracking script is not loaded', () => {
+      vi.stubGlobal('sporing', undefined)
       expect(() => setFeatureFlag('copilot_show_technical_details', true)).not.toThrow()
     })
 

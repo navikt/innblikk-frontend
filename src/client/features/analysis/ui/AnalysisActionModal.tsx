@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Modal, Button } from '@navikt/ds-react'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import { useSiteimproveSupport, useMarketingSupport } from '../../../shared/hooks/useSiteimproveSupport.ts'
 import type { AnalysisActionModalProps, AnalysisActionModalWebsite } from '../model/types.ts'
 import { isWebsitesResponse } from '../utils/typeGuards.ts'
@@ -35,6 +37,16 @@ const AnalysisActionModal: React.FC<AnalysisActionModalProps> = ({
   const websiteName = propWebsiteName ?? resolvedWebsiteName
   const hasSiteimprove = useSiteimproveSupport(domain, websiteId)
   const hasMarketing = useMarketingSupport(domain, websiteName, websiteId)
+
+  useEffect(() => {
+    if (open) {
+      trackEvent(Events.MODAL_APNET, {
+        seksjon: 'diagnose',
+        komponentId: 'analyse-handlingsmodal',
+        tittel: 'Hva vil du gjøre med lenken?',
+      })
+    }
+  }, [open])
 
   useEffect(() => {
     const shouldResolveDomain = !propDomain
@@ -92,18 +104,27 @@ const AnalysisActionModal: React.FC<AnalysisActionModalProps> = ({
 
   if (!urlPath || !websiteId) return null
 
+  const handleClose = () => {
+    trackEvent(Events.MODAL_LUKKET, {
+      seksjon: 'diagnose',
+      komponentId: 'analyse-handlingsmodal',
+      tittel: 'Hva vil du gjøre med lenken?',
+    })
+    onClose()
+  }
+
   const openAnalysis = (path: string, paramName: string = 'urlPath') => {
     const encodedPath = encodeURIComponent(urlPath)
     const url = `${path}?websiteId=${websiteId}&period=${period}&${paramName}=${encodedPath}`
     window.open(url, '_blank')
-    onClose()
+    handleClose()
   }
 
   const openOnWebsite = () => {
     const protocol = domain.includes('http') ? '' : 'https://'
     const url = `${protocol}${domain}${urlPath}`
     window.open(url, '_blank')
-    onClose()
+    handleClose()
   }
 
   const copyLink = async () => {
@@ -119,7 +140,7 @@ const AnalysisActionModal: React.FC<AnalysisActionModalProps> = ({
   const actionButtonClass = '!w-full !justify-start'
 
   return (
-    <Modal open={open} onClose={onClose} header={{ heading: 'Hva vil du gjøre med lenken?' }} width="medium">
+    <Modal open={open} onClose={handleClose} header={{ heading: 'Hva vil du gjøre med lenken?' }} width="medium">
       <Modal.Body>
         <div className="p-2 pb-4 flex flex-col gap-6 text-left">
           <div>

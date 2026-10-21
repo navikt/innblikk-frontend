@@ -1,13 +1,15 @@
 /// <reference types="vite/client" />
 
-interface UmamiTracker {
+interface SporingTracker {
   track(eventName: string, data?: Record<string, unknown> | object): void
   track(dataCallback: (props: Record<string, unknown>) => Record<string, unknown>): void
+  identify(id?: string | Record<string, unknown>, data?: Record<string, unknown>): void
 }
 
 declare global {
   interface Window {
-    umami?: UmamiTracker
+    /** ResearchOps tracking script (`sporing-reops.js`). `umami` is a legacy alias kept by the script — don't use it in app code. */
+    sporing?: SporingTracker
     __innblikk_sporing_dev__?: (type: string, payload: Record<string, unknown>) => false
   }
 

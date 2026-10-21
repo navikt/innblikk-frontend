@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { BodyShort, Link, Table, Button, Tag, Search, Select } from '@navikt/ds-react'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import { useWebsites, useWebsiteFilters, useWebsiteModal } from '../hooks'
 import { TrackingCodeModal } from './TrackingCodeModal'
 import { formatDate } from '../utils'
@@ -22,6 +24,16 @@ export function TeamWebsites() {
   const { pendingSporingskode, openModal, closeModal } = useWebsiteModal()
   const [selectedItem, setSelectedItem] = useState<SelectedWebsite>({ name: '', id: '' })
   const modalRef = useRef<HTMLDialogElement>(null)
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value)
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
+    if (!value.trim()) return
+    searchDebounceRef.current = setTimeout(() => {
+      trackEvent(Events.SOK, { seksjon: 'innstillinger', komponentId: 'team-nettsider-sok' })
+    }, 800)
+  }
   const { hostname, pathname, search, hash } = window.location
   const currentPath = `${pathname}${search}${hash}`
   const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
@@ -89,7 +101,7 @@ export function TeamWebsites() {
             hideLabel={false}
             variant="simple"
             value={searchQuery}
-            onChange={setSearchQuery}
+            onChange={handleSearchChange}
             onClear={() => setSearchQuery('')}
             size="small"
           />
@@ -99,7 +111,14 @@ export function TeamWebsites() {
             label="Filtrer miljø"
             size="small"
             value={filter}
-            onChange={(e) => setFilter(e.target.value as FilterType)}
+            onChange={(e) => {
+              trackEvent(Events.NEDTREKKSLISTE_VALG_ENDRET, {
+                seksjon: 'innstillinger',
+                komponentId: 'team-nettsider-miljo',
+                valgtVerdi: e.target.value,
+              })
+              setFilter(e.target.value as FilterType)
+            }}
             style={{ width: '180px' }}
           >
             <option value="all">Alle</option>

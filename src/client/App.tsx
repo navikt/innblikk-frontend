@@ -11,6 +11,7 @@ import { useHead } from '@unhead/react'
 import { AppBlock } from './shared/ui/theme/AppBlock/AppBlock.tsx'
 import { getFeatureFlag, loadFeatureFlagsFromBackend } from './shared/lib/featureFlags.ts'
 import { touchUserSettings } from './shared/lib/heartbeat.ts'
+import { identifyTeamContext } from './shared/lib/identifyTeamContext.ts'
 
 import './App.css'
 
@@ -180,6 +181,7 @@ function App() {
   useEffect(() => {
     loadFeatureFlagsFromBackend()
     touchUserSettings()
+    void identifyTeamContext()
   }, [])
 
   useEffect(() => {

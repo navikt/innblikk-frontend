@@ -1,5 +1,7 @@
 import { Button, TextField, Label, Accordion } from '@navikt/ds-react'
 import { CogIcon } from '@navikt/aksel-icons'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../../shared/lib/trackEvent.ts'
 import type { ChangeEvent } from 'react'
 
 interface AdvancedOptionsProps {
@@ -19,7 +21,15 @@ const AdvancedOptions: React.FC<AdvancedOptionsProps> = ({
 }) => {
   return (
     <Accordion>
-      <Accordion.Item>
+      <Accordion.Item
+        onOpenChange={(open) => {
+          trackEvent(open ? Events.ACCORDION_APNET : Events.ACCORDION_LUKKET, {
+            seksjon: 'grafbygger',
+            komponentId: 'avanserte-valg',
+            tittel: 'Avanserte valg',
+          })
+        }}
+      >
         <Accordion.Header>
           <div className="flex items-center gap-2">
             <CogIcon aria-hidden="true" />

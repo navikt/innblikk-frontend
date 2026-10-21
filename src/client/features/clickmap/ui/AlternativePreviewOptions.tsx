@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom'
 import { Accordion, Alert, BodyShort, Button, Loader, Textarea, TextField, ToggleGroup } from '@navikt/ds-react'
 import akselCss from '@navikt/ds-css/dist/index.min.css?inline'
 import { EyeIcon } from '@navikt/aksel-icons'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import { buildHtmlSnapshot, fetchHtmlSnapshot, LoginRequiredError } from '../utils/buildHtmlSnapshot.ts'
 import { RESEARCHOPS_SLACK_URL } from '../../../shared/ui/BetaFeatureNotice.tsx'
 
@@ -341,7 +343,16 @@ export const AlternativePreviewOptions = ({ preview }: { preview: ReturnType<typ
         )}
       <div ref={panelRef}>
         <Accordion size="small">
-          <Accordion.Item open={preview.optionsOpen} onOpenChange={preview.setOptionsOpen}>
+          <Accordion.Item
+            open={preview.optionsOpen}
+            onOpenChange={(open) => {
+              trackEvent(open ? Events.ACCORDION_APNET : Events.ACCORDION_LUKKET, {
+                seksjon: 'klikkart',
+                tittel: 'Alternative visningsvalg',
+              })
+              preview.setOptionsOpen(open)
+            }}
+          >
             <Accordion.Header>Alternative visningsvalg</Accordion.Header>
             <Accordion.Content>
               <div className="space-y-3">

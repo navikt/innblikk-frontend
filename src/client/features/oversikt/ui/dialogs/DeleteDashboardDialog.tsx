@@ -1,5 +1,8 @@
+import { useEffect, useRef } from 'react'
 import { Alert, Button, Modal } from '@navikt/ds-react'
+import { Events } from '@navikt/analytics-types'
 import type { DashboardDto } from '../../model/types.ts'
+import { trackEvent } from '../../../../shared/lib/trackEvent.ts'
 
 type DeleteDashboardDialogProps = {
   open: boolean
@@ -25,9 +28,22 @@ const DeleteDashboardDialog = ({
   const targetLabel = type === 'canvas' ? 'canvas' : 'dashboard'
   const targetDefinite = type === 'canvas' ? 'canvaset' : 'dashboardet'
   const targetCapitalized = type === 'canvas' ? 'Canvas' : 'Dashboard'
+  const wasOpenRef = useRef(false)
+
+  useEffect(() => {
+    if (open && !wasOpenRef.current) {
+      trackEvent(Events.MODAL_APNET, { seksjon: 'oversikt', komponentId: 'slett-dashbord' })
+    }
+    wasOpenRef.current = open
+  }, [open])
+
+  const handleClose = () => {
+    trackEvent(Events.MODAL_LUKKET, { seksjon: 'oversikt', komponentId: 'slett-dashbord' })
+    onClose()
+  }
 
   return (
-    <Modal open={open} onClose={onClose} header={{ heading: `Slett ${targetLabel}` }} width="small">
+    <Modal open={open} onClose={handleClose} header={{ heading: `Slett ${targetLabel}` }} width="small">
       <Modal.Body>
         <div className="flex flex-col gap-4">
           {error && <Alert variant="error">{error}</Alert>}
@@ -49,7 +65,7 @@ const DeleteDashboardDialog = ({
             {`Slett ${targetLabel}`}
           </Button>
         )}
-        <Button variant="secondary" onClick={onClose} disabled={loading}>
+        <Button variant="secondary" onClick={handleClose} disabled={loading}>
           Lukk
         </Button>
       </Modal.Footer>

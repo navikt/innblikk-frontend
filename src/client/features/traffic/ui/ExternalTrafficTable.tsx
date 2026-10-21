@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { ActionMenu, Button, Table, Pagination, VStack, HelpText, TextField, Tooltip } from '@navikt/ds-react'
 import { MenuElipsisVerticalIcon, MagnifyingGlassIcon } from '@navikt/aksel-icons'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import TableSectionHeader from '../../../shared/ui/TableSectionHeader.tsx'
 import AddToDashboardDialog from '../../../shared/ui/AddToDashboardDialog.tsx'
 import TransferToMetabaseDialog from '../../../shared/ui/TransferToMetabaseDialog.tsx'
@@ -125,7 +127,23 @@ const ExternalTrafficTable = ({
                       }}
                     />
                   </Tooltip>
-                  <ActionMenu>
+                  <ActionMenu
+                    onOpenChange={(open) => {
+                      if (open) {
+                        trackEvent(Events.ACTIONMENU_APNET, {
+                          seksjon: 'trafikk',
+                          komponentId: `ekstern-trafikk-meny-${title}`,
+                          triggerTekst: 'Flere valg',
+                        })
+                      } else {
+                        trackEvent(Events.ACTIONMENU_LUKKET, {
+                          seksjon: 'trafikk',
+                          komponentId: `ekstern-trafikk-meny-${title}`,
+                          lukkAarsak: 'programmatisk',
+                        })
+                      }
+                    }}
+                  >
                     <Tooltip content="Flere valg" placement="top">
                       <ActionMenu.Trigger>
                         <Button
@@ -139,18 +157,53 @@ const ExternalTrafficTable = ({
                     </Tooltip>
                     <ActionMenu.Content align="end">
                       <ActionMenu.Item
-                        onClick={() => setShowAddToDashboardDialog(true)}
+                        onClick={() => {
+                          trackEvent(Events.ACTIONMENU_VALG_VALGT, {
+                            seksjon: 'trafikk',
+                            komponentId: `ekstern-trafikk-meny-${title}`,
+                            valgTekst: 'Legg til i dashboard',
+                          })
+                          setShowAddToDashboardDialog(true)
+                        }}
                         disabled={!filteredData.length}
                       >
                         Legg til i dashboard
                       </ActionMenu.Item>
-                      <ActionMenu.Item onClick={() => setShowTransferToMetabaseDialog(true)}>
+                      <ActionMenu.Item
+                        onClick={() => {
+                          trackEvent(Events.ACTIONMENU_VALG_VALGT, {
+                            seksjon: 'trafikk',
+                            komponentId: `ekstern-trafikk-meny-${title}`,
+                            valgTekst: 'Overfør til Metabase',
+                          })
+                          setShowTransferToMetabaseDialog(true)
+                        }}
+                      >
                         Overfør til Metabase
                       </ActionMenu.Item>
-                      <ActionMenu.Item onClick={() => openSqlEditorWithContext({ sql: addToDashboardSql })}>
+                      <ActionMenu.Item
+                        onClick={() => {
+                          trackEvent(Events.ACTIONMENU_VALG_VALGT, {
+                            seksjon: 'trafikk',
+                            komponentId: `ekstern-trafikk-meny-${title}`,
+                            valgTekst: 'Åpne i SQL-editor',
+                          })
+                          openSqlEditorWithContext({ sql: addToDashboardSql })
+                        }}
+                      >
                         Åpne i SQL-editor
                       </ActionMenu.Item>
-                      <ActionMenu.Item onClick={handleDownloadCSV} disabled={!data.length}>
+                      <ActionMenu.Item
+                        onClick={() => {
+                          trackEvent(Events.ACTIONMENU_VALG_VALGT, {
+                            seksjon: 'trafikk',
+                            komponentId: `ekstern-trafikk-meny-${title}`,
+                            valgTekst: 'Last ned CSV',
+                          })
+                          handleDownloadCSV()
+                        }}
+                        disabled={!data.length}
+                      >
                         Last ned CSV
                       </ActionMenu.Item>
                     </ActionMenu.Content>
@@ -224,7 +277,21 @@ const ExternalTrafficTable = ({
           </div>
           {totalPages > 1 ? (
             <div className="px-4 py-3">
-              <Pagination page={currentPage} onPageChange={setPage} count={totalPages} size="small" />
+              <Pagination
+                page={currentPage}
+                onPageChange={(newPage) => {
+                  trackEvent(Events.PAGINERING_SIDE_VALGT, {
+                    seksjon: 'trafikk',
+                    komponentId: `ekstern-trafikk-paginering-${title}`,
+                    side: newPage,
+                    forrigeSide: currentPage,
+                    antallSider: totalPages,
+                  })
+                  setPage(newPage)
+                }}
+                count={totalPages}
+                size="small"
+              />
             </div>
           ) : (
             <div className="px-4 pb-4" aria-hidden="true" />

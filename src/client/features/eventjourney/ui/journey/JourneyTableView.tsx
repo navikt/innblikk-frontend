@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ActionMenu, Button, Pagination, Select, TextField, Tooltip } from '@navikt/ds-react'
 import { MagnifyingGlassIcon, MenuElipsisVerticalIcon } from '@navikt/aksel-icons'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../../shared/lib/trackEvent.ts'
 import { parseJourneyStep } from '../../utils/parsers.ts'
 import TableSectionHeader from '../../../../shared/ui/TableSectionHeader.tsx'
 
@@ -173,7 +175,14 @@ const JourneyTableView = ({ journeys, totalSessions }: JourneyTableViewProps) =>
             size="small"
             label="Rader per side"
             value={rowsPerPage}
-            onChange={(e) => setRowsPerPage(Number(e.target.value))}
+            onChange={(e) => {
+              trackEvent(Events.NEDTREKKSLISTE_VALG_ENDRET, {
+                seksjon: 'hendelsesreise',
+                komponentId: 'rader-per-side',
+                valgtVerdi: e.target.value,
+              })
+              setRowsPerPage(Number(e.target.value))
+            }}
           >
             {ROWS_PER_PAGE_OPTIONS.map((option) => (
               <option key={option} value={option}>
@@ -185,7 +194,21 @@ const JourneyTableView = ({ journeys, totalSessions }: JourneyTableViewProps) =>
       </div>
 
       <div className="mt-4 flex justify-center">
-        <Pagination page={currentPage} onPageChange={setPage} count={totalPages} size="small" />
+        <Pagination
+          page={currentPage}
+          onPageChange={(newPage) => {
+            trackEvent(Events.PAGINERING_SIDE_VALGT, {
+              seksjon: 'hendelsesreise',
+              komponentId: 'reise-tabell',
+              side: newPage,
+              forrigeSide: currentPage,
+              antallSider: totalPages,
+            })
+            setPage(newPage)
+          }}
+          count={totalPages}
+          size="small"
+        />
       </div>
     </>
   )

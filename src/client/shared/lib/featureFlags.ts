@@ -1,4 +1,5 @@
 import { Events, type AvkrysningsboksEndretProperties } from '@navikt/analytics-types'
+import { trackEvent } from './trackEvent.ts'
 
 const FEATURE_FLAGS_KEY = 'innblikk_feature_flags'
 
@@ -22,7 +23,7 @@ function trackFlagChange<K extends keyof FeatureFlags>(key: K, value: FeatureFla
     komponentId: key,
     seksjon: 'innstillinger',
   }
-  window.umami?.track(Events.AVKRYSNINGSBOKS_ENDRET, properties)
+  trackEvent(Events.AVKRYSNINGSBOKS_ENDRET, properties)
 }
 
 export type FeatureFlags = {

@@ -1,5 +1,7 @@
 import { Button } from '@navikt/ds-react'
 import { ReadMore } from '@navikt/ds-react'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 
 interface AvailableTablesInfoProps {
   projectId: string
@@ -30,7 +32,17 @@ function TableEntry({ label, tableName }: { label: string; tableName: string }) 
 
 export default function AvailableTablesInfo({ projectId }: AvailableTablesInfoProps) {
   return (
-    <ReadMore header="Tilgjengelige tabeller" size="small" className="mt-4">
+    <ReadMore
+      header="Tilgjengelige tabeller"
+      size="small"
+      className="mt-4"
+      onOpenChange={(open) =>
+        trackEvent(open ? Events.LES_MER_APNET : Events.LES_MER_LUKKET, {
+          seksjon: 'sql',
+          tittel: 'tilgjengelige-tabeller',
+        })
+      }
+    >
       <ul className="space-y-3">
         <TableEntry label="Nettsider/apper" tableName={`${projectId}.umami.public_website`} />
         <TableEntry label="Personer" tableName={`${projectId}.umami_views.session`} />

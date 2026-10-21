@@ -1,5 +1,7 @@
 import { Alert, BodyShort, Checkbox, Link, Loader, UNSAFE_Combobox } from '@navikt/ds-react'
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../../shared/lib/trackEvent.ts'
 import { fetchCohorts, fetchCohortsDeep, cohortUsesTimeCriterion } from '../../api/cohortApi.ts'
 import type { CohortDto } from '../../../../shared/types/cohort.ts'
 
@@ -194,6 +196,13 @@ const CohortPicker = forwardRef<CohortPickerRef, CohortPickerProps>(
           selectedOptions={selectedNames}
           onToggleSelected={(option: string, isSelected: boolean) => {
             if (!option) return
+            trackEvent(Events.COMBOBOX_OPTION_TOGGLED, {
+              seksjon: 'grafbygger',
+              komponentId: 'brukergrupper',
+              optionValue: option,
+              isSelected,
+              isMultiSelect: true,
+            })
             setSelectedNames((prev) => {
               if (isSelected) {
                 return [...new Set([...prev, option])]

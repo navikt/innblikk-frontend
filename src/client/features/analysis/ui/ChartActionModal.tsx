@@ -11,6 +11,7 @@ import {
   ZoomPlusIcon,
 } from '@navikt/aksel-icons'
 import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import type { ChartActionModalProps } from '../model/types.ts'
 import { buildEditorUrl, generateShareUrl, downloadChartCsv } from '../utils/chartActions.ts'
 
@@ -45,7 +46,7 @@ const ChartActionModal: React.FC<ChartActionModalProps> = ({
     try {
       await navigator.clipboard.writeText(generateShareUrl(chart, websiteId, filters, domain, dashboardTitle))
       const properties: KopierLenkeProperties = { seksjon: 'graf-deling' }
-      window.umami?.track(Events.KOPIER_LENKE, properties)
+      trackEvent(Events.KOPIER_LENKE, properties)
       setCopyFeedback(true)
       setTimeout(() => setCopyFeedback(false), 2000)
     } catch (err) {

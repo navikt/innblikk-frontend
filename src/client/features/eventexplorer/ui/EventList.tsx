@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button, Table, TextField, ActionMenu, Tooltip } from '@navikt/ds-react'
 import { MagnifyingGlassIcon, MenuElipsisVerticalIcon } from '@navikt/aksel-icons'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import type { QueryStats } from '../model/types.ts'
 import AddToDashboardDialog from '../../../shared/ui/AddToDashboardDialog.tsx'
 import TransferToMetabaseDialog from '../../../shared/ui/TransferToMetabaseDialog.tsx'
@@ -22,6 +24,7 @@ const EventList = ({ events, eventsQueryStats, websiteName, selectedWebsiteId, o
   const [showAddToDashboardDialog, setShowAddToDashboardDialog] = useState(false)
   const [showTransferToMetabaseDialog, setShowTransferToMetabaseDialog] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const filteredEvents = events.filter((event) => event.name.toLowerCase().includes(eventSearch.toLowerCase()))
 
@@ -29,7 +32,44 @@ const EventList = ({ events, eventsQueryStats, websiteName, selectedWebsiteId, o
     if (showSearch) searchInputRef.current?.focus()
   }, [showSearch])
 
+  useEffect(() => {
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
+    }
+  }, [])
+
+  const handleSearchChange = (value: string) => {
+    setEventSearch(value)
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
+    if (!value.trim()) return
+    searchDebounceRef.current = setTimeout(() => {
+      trackEvent(Events.SOK, { seksjon: 'hendelsesutforsker', komponentId: 'hendelse-sok' })
+    }, 800)
+  }
+
+  const handleActionMenuOpenChange = (open: boolean) => {
+    if (open) {
+      trackEvent(Events.ACTIONMENU_APNET, {
+        seksjon: 'hendelsesutforsker',
+        komponentId: 'hendelsesliste-meny',
+        triggerTekst: 'Flere valg',
+      })
+    } else {
+      trackEvent(Events.ACTIONMENU_LUKKET, {
+        seksjon: 'hendelsesutforsker',
+        komponentId: 'hendelsesliste-meny',
+        lukkAarsak: 'programmatisk',
+      })
+    }
+  }
+
   const handleDownloadCsv = () => {
+    trackEvent(Events.LAST_NED, {
+      seksjon: 'hendelsesutforsker',
+      komponentId: 'hendelsesliste-meny',
+      tittel: 'hendelsesliste',
+      type: 'csv',
+    })
     const headers = ['Hendelsesnavn', 'Antall']
     const csvRows = [headers.join(','), ...filteredEvents.map((event) => [`"${event.name}"`, event.count].join(','))]
     const csvContent = csvRows.join('\n')
@@ -66,7 +106,7 @@ const EventList = ({ events, eventsQueryStats, websiteName, selectedWebsiteId, o
                   }}
                 />
               </Tooltip>
-              <ActionMenu>
+              <ActionMenu onOpenChange={handleActionMenuOpenChange}>
                 <Tooltip content="Flere valg" placement="top">
                   <ActionMenu.Trigger>
                     <Button
@@ -117,7 +157,7 @@ const EventList = ({ events, eventsQueryStats, websiteName, selectedWebsiteId, o
                   size="small"
                   value={eventSearch}
                   ref={searchInputRef}
-                  onChange={(e) => setEventSearch(e.target.value)}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                 />
               </div>
             ) : undefined

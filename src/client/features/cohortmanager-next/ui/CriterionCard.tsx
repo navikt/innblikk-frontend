@@ -1,6 +1,8 @@
 import { createContext, useContext } from 'react'
 import { BodyShort, Box, Button, HStack, Select, TextField, ToggleGroup, VStack } from '@navikt/ds-react'
 import { TrashIcon, XMarkIcon } from '@navikt/aksel-icons'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import type { CohortDto, SequenceRelation, SequenceTimeUnit } from '../../cohortmanager/model/types.ts'
 import type { Card, CohortCard, EventCard, GroupCard, SequenceCard } from '../model/draft.ts'
 import { sequenceToEvent } from '../model/draft.ts'
@@ -108,7 +110,15 @@ function NegationToggle({
   label: string
 }) {
   return (
-    <ToggleGroup size="small" aria-label={label} value={negated ? 'no' : 'yes'} onChange={(v) => onChange(v === 'no')}>
+    <ToggleGroup
+      size="small"
+      aria-label={label}
+      value={negated ? 'no' : 'yes'}
+      onChange={(v) => {
+        trackEvent(Events.TOGGLEGROUP_VALGT, { seksjon: 'kohorter', komponentId: 'kriterium-negasjon', valgtVerdi: v })
+        onChange(v === 'no')
+      }}
+    >
       <ToggleGroup.Item value="yes" label={yes} />
       <ToggleGroup.Item value="no" label={no} />
     </ToggleGroup>
@@ -185,7 +195,14 @@ function CohortCardBody({
           size="small"
           value={card.cohortId == null ? '' : String(card.cohortId)}
           error={showErrors && card.cohortId == null ? 'Velg en brukergruppe' : undefined}
-          onChange={(e) => onChange({ ...card, cohortId: e.target.value ? Number(e.target.value) : null })}
+          onChange={(e) => {
+            trackEvent(Events.NEDTREKKSLISTE_VALG_ENDRET, {
+              seksjon: 'kohorter',
+              komponentId: 'kriterium-brukergruppe',
+              valgtVerdi: e.target.value,
+            })
+            onChange({ ...card, cohortId: e.target.value ? Number(e.target.value) : null })
+          }}
         >
           <option value="">Velg brukergruppe …</option>
           {cohorts.map((c) => (
@@ -235,7 +252,14 @@ function SequenceCardBody({
             label="Hva skjedde etterpå?"
             size="small"
             value={card.relation}
-            onChange={(e) => onChange({ ...card, relation: e.target.value as SequenceRelation })}
+            onChange={(e) => {
+              trackEvent(Events.NEDTREKKSLISTE_VALG_ENDRET, {
+                seksjon: 'kohorter',
+                komponentId: 'sekvens-relasjon',
+                valgtVerdi: e.target.value,
+              })
+              onChange({ ...card, relation: e.target.value as SequenceRelation })
+            }}
           >
             <option value="FOLLOWED_BY">Deretter gjorde brukeren</option>
             <option value="NOT_FOLLOWED_BY">Deretter gjorde brukeren IKKE</option>
@@ -275,7 +299,14 @@ function SequenceCardBody({
               hideLabel
               size="small"
               value={card.windowUnit}
-              onChange={(e) => onChange({ ...card, windowUnit: e.target.value as SequenceTimeUnit })}
+              onChange={(e) => {
+                trackEvent(Events.NEDTREKKSLISTE_VALG_ENDRET, {
+                  seksjon: 'kohorter',
+                  komponentId: 'sekvens-tidsenhet',
+                  valgtVerdi: e.target.value,
+                })
+                onChange({ ...card, windowUnit: e.target.value as SequenceTimeUnit })
+              }}
             >
               {WINDOW_UNITS.map((u) => (
                 <option key={u} value={u}>

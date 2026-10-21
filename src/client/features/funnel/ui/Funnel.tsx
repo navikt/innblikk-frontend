@@ -24,6 +24,8 @@ import {
   PlusIcon,
   TrashIcon,
 } from '@navikt/aksel-icons'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
 import UrlPathInput from '../../analysis/ui/UrlPathInput.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
@@ -202,7 +204,15 @@ const Funnel = () => {
                           label={`Stegtype`}
                           size="small"
                           value={step.type}
-                          onChange={(e) => setSteps(updateStepType(steps, index, e.target.value as 'url' | 'event'))}
+                          onChange={(e) => {
+                            trackEvent(Events.NEDTREKKSLISTE_VALG_ENDRET, {
+                              seksjon: 'trakt',
+                              komponentId: 'trakt-stegtype',
+                              valgtVerdi: e.target.value,
+                              tekst: e.target.selectedOptions[0]?.text,
+                            })
+                            setSteps(updateStepType(steps, index, e.target.value as 'url' | 'event'))
+                          }}
                         >
                           <option value="url">URL-sti</option>
                           <option value="event">Hendelse</option>
@@ -231,6 +241,13 @@ const Funnel = () => {
                             options={availableEvents.map((e) => ({ label: e, value: e }))}
                             selectedOptions={step.value ? [step.value] : []}
                             onToggleSelected={(option, isSelected) => {
+                              trackEvent(Events.COMBOBOX_OPTION_TOGGLED, {
+                                seksjon: 'trakt',
+                                komponentId: 'trakt-steg-hendelse',
+                                optionValue: option,
+                                isSelected,
+                                isMultiSelect: false,
+                              })
                               if (isSelected) {
                                 setSteps(updateStepValue(steps, index, option))
                               } else {

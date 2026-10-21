@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { DragEvent, KeyboardEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { DragVerticalIcon, ExternalLinkIcon } from '@navikt/aksel-icons'
+import { Events } from '@navikt/analytics-types'
 import {
   ActionMenu,
   Alert,
@@ -56,6 +57,7 @@ import navkontorData from '../../../../data/navkontor.json'
 import hjelpemiddelsentralerData from '../../../../data/hjelpemiddelsentraler.json'
 import { supportsMetricTypeSelection } from '../../dashboard/utils/queryUtils.ts'
 import { formatPathLabel } from '../../analysis/utils/urlPathFilter.ts'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 
 const parseChartWidth = (width?: string): number | undefined => {
   const parsed = Number(width)
@@ -1585,6 +1587,30 @@ const Oversikt = () => {
     })
   }
 
+  const handleAddMenuOpenChange =
+    (komponentId: string, triggerTekst = '+ legg til') =>
+    (open: boolean) => {
+      if (open) {
+        trackEvent(Events.ACTIONMENU_APNET, {
+          seksjon: 'oversikt',
+          komponentId,
+          triggerTekst,
+          kontrollert: false,
+        })
+      } else {
+        trackEvent(Events.ACTIONMENU_LUKKET, {
+          seksjon: 'oversikt',
+          komponentId,
+          lukkAarsak: 'programmatisk',
+        })
+      }
+    }
+
+  const trackAddMenuValg = (komponentId: string, valg: string, onClick?: () => void) => () => {
+    trackEvent(Events.ACTIONMENU_VALG_VALGT, { seksjon: 'oversikt', komponentId, valgTekst: valg })
+    onClick?.()
+  }
+
   const filters = (
     <>
       {supportsVisibleStandardFilters && (
@@ -1756,19 +1782,29 @@ const Oversikt = () => {
     selectedDashboard && isEditPanelOpen ? (
       <section className="p-3 border border-[var(--ax-border-neutral-subtle)] rounded-md bg-[var(--ax-bg-default)]">
         <div className="flex flex-wrap items-center gap-1.5">
-          <ActionMenu>
+          <ActionMenu onOpenChange={handleAddMenuOpenChange('dashbord-legg-til')}>
             <ActionMenu.Trigger>
               <Button type="button" variant="secondary" size="xsmall">
                 + legg til
               </Button>
             </ActionMenu.Trigger>
             <ActionMenu.Content>
-              <ActionMenu.Item as="a" href="/grafbygger">
+              <ActionMenu.Item
+                as="a"
+                href="/grafbygger"
+                onClick={trackAddMenuValg('dashbord-legg-til', 'Legg til graf')}
+              >
                 Legg til graf
               </ActionMenu.Item>
-              <ActionMenu.Item onClick={openAddTextModal}>Legg til tekstboks</ActionMenu.Item>
-              <ActionMenu.Item onClick={openCreateTabModal}>Legg til fane</ActionMenu.Item>
-              <ActionMenu.Item onClick={openImportModal}>Importer graf</ActionMenu.Item>
+              <ActionMenu.Item onClick={trackAddMenuValg('dashbord-legg-til', 'Legg til tekstboks', openAddTextModal)}>
+                Legg til tekstboks
+              </ActionMenu.Item>
+              <ActionMenu.Item onClick={trackAddMenuValg('dashbord-legg-til', 'Legg til fane', openCreateTabModal)}>
+                Legg til fane
+              </ActionMenu.Item>
+              <ActionMenu.Item onClick={trackAddMenuValg('dashbord-legg-til', 'Importer graf', openImportModal)}>
+                Importer graf
+              </ActionMenu.Item>
             </ActionMenu.Content>
           </ActionMenu>
           <Button variant="secondary" size="xsmall" onClick={openEditDashboardDialog} disabled={!selectedDashboard}>
@@ -1819,19 +1855,35 @@ const Oversikt = () => {
       headerActions={
         selectedDashboard ? (
           <div className="flex justify-end gap-2">
-            <ActionMenu>
+            <ActionMenu onOpenChange={handleAddMenuOpenChange('dashbord-legg-til-header')}>
               <ActionMenu.Trigger>
                 <Button type="button" variant="secondary" size="small">
                   + legg til
                 </Button>
               </ActionMenu.Trigger>
               <ActionMenu.Content align="end">
-                <ActionMenu.Item as="a" href="/grafbygger">
+                <ActionMenu.Item
+                  as="a"
+                  href="/grafbygger"
+                  onClick={trackAddMenuValg('dashbord-legg-til-header', 'Legg til graf')}
+                >
                   Legg til graf
                 </ActionMenu.Item>
-                <ActionMenu.Item onClick={openAddTextModal}>Legg til tekstboks</ActionMenu.Item>
-                <ActionMenu.Item onClick={openCreateTabModal}>Legg til fane</ActionMenu.Item>
-                <ActionMenu.Item onClick={openImportModal}>Importer graf</ActionMenu.Item>
+                <ActionMenu.Item
+                  onClick={trackAddMenuValg('dashbord-legg-til-header', 'Legg til tekstboks', openAddTextModal)}
+                >
+                  Legg til tekstboks
+                </ActionMenu.Item>
+                <ActionMenu.Item
+                  onClick={trackAddMenuValg('dashbord-legg-til-header', 'Legg til fane', openCreateTabModal)}
+                >
+                  Legg til fane
+                </ActionMenu.Item>
+                <ActionMenu.Item
+                  onClick={trackAddMenuValg('dashbord-legg-til-header', 'Importer graf', openImportModal)}
+                >
+                  Importer graf
+                </ActionMenu.Item>
               </ActionMenu.Content>
             </ActionMenu>
             <Button variant={isEditPanelOpen ? 'primary' : 'secondary'} size="small" onClick={toggleEditPanel}>
@@ -1845,7 +1897,18 @@ const Oversikt = () => {
     >
       {error && <Alert variant="error">{error}</Alert>}
       {dashboardMoveSuccessMessage && (
-        <Alert variant="success" closeButton onClose={() => setDashboardMoveSuccessMessage(null)}>
+        <Alert
+          variant="success"
+          closeButton
+          onClose={() => {
+            trackEvent(Events.ALERT_LUKKET, {
+              seksjon: 'oversikt',
+              komponentId: 'dashbord-flyttet',
+              variant: 'success',
+            })
+            setDashboardMoveSuccessMessage(null)
+          }}
+        >
           {dashboardMoveSuccessMessage}
         </Alert>
       )}
@@ -1954,19 +2017,35 @@ const Oversikt = () => {
                       Du kan flytte grafer hit fra handlingsmenyen på en graf i en annen fane.
                     </span>
                   )}
-                  <ActionMenu>
+                  <ActionMenu onOpenChange={handleAddMenuOpenChange('tom-dashbord-legg-til', '+ legg til graf')}>
                     <ActionMenu.Trigger>
                       <Button type="button" variant="secondary" size="xsmall">
                         + legg til graf
                       </Button>
                     </ActionMenu.Trigger>
                     <ActionMenu.Content align="start">
-                      <ActionMenu.Item as="a" href="/grafbygger">
+                      <ActionMenu.Item
+                        as="a"
+                        href="/grafbygger"
+                        onClick={trackAddMenuValg('tom-dashbord-legg-til', 'Legg til ny graf')}
+                      >
                         Legg til ny graf
                       </ActionMenu.Item>
-                      <ActionMenu.Item onClick={openAddTextModal}>Legg til tekstboks</ActionMenu.Item>
-                      <ActionMenu.Item onClick={openImportModal}>Importer graf</ActionMenu.Item>
-                      <ActionMenu.Item onClick={openCreateTabModal}>Legg til fane</ActionMenu.Item>
+                      <ActionMenu.Item
+                        onClick={trackAddMenuValg('tom-dashbord-legg-til', 'Legg til tekstboks', openAddTextModal)}
+                      >
+                        Legg til tekstboks
+                      </ActionMenu.Item>
+                      <ActionMenu.Item
+                        onClick={trackAddMenuValg('tom-dashbord-legg-til', 'Importer graf', openImportModal)}
+                      >
+                        Importer graf
+                      </ActionMenu.Item>
+                      <ActionMenu.Item
+                        onClick={trackAddMenuValg('tom-dashbord-legg-til', 'Legg til fane', openCreateTabModal)}
+                      >
+                        Legg til fane
+                      </ActionMenu.Item>
                     </ActionMenu.Content>
                   </ActionMenu>
                 </div>
@@ -2166,18 +2245,30 @@ const Oversikt = () => {
 
             {charts.length > 4 && (
               <div className="flex justify-end mt-4 pb-6">
-                <ActionMenu>
+                <ActionMenu onOpenChange={handleAddMenuOpenChange('dashbord-legg-til-bunn')}>
                   <ActionMenu.Trigger>
                     <Button type="button" variant="secondary" size="small">
                       + legg til
                     </Button>
                   </ActionMenu.Trigger>
                   <ActionMenu.Content align="end">
-                    <ActionMenu.Item as="a" href="/grafbygger">
+                    <ActionMenu.Item
+                      as="a"
+                      href="/grafbygger"
+                      onClick={trackAddMenuValg('dashbord-legg-til-bunn', 'Legg til graf')}
+                    >
                       Legg til graf
                     </ActionMenu.Item>
-                    <ActionMenu.Item onClick={openAddTextModal}>Legg til tekstboks</ActionMenu.Item>
-                    <ActionMenu.Item onClick={openImportModal}>Importer graf</ActionMenu.Item>
+                    <ActionMenu.Item
+                      onClick={trackAddMenuValg('dashbord-legg-til-bunn', 'Legg til tekstboks', openAddTextModal)}
+                    >
+                      Legg til tekstboks
+                    </ActionMenu.Item>
+                    <ActionMenu.Item
+                      onClick={trackAddMenuValg('dashbord-legg-til-bunn', 'Importer graf', openImportModal)}
+                    >
+                      Importer graf
+                    </ActionMenu.Item>
                   </ActionMenu.Content>
                 </ActionMenu>
               </div>
@@ -2419,6 +2510,12 @@ const Oversikt = () => {
               label="Team"
               value={moveDashboardTargetProjectId ? String(moveDashboardTargetProjectId) : ''}
               onChange={(event) => {
+                trackEvent(Events.NEDTREKKSLISTE_VALG_ENDRET, {
+                  seksjon: 'oversikt',
+                  komponentId: 'team-velger',
+                  valgtVerdi: event.target.value,
+                  tekst: event.target.selectedOptions[0]?.text,
+                })
                 setMoveDashboardTargetProjectId(Number(event.target.value))
                 setMoveDashboardError(null)
               }}

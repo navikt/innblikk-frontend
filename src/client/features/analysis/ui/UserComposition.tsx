@@ -3,6 +3,7 @@ import { useAutoRefresh } from '../hooks/useAutoRefresh'
 import { useSearchParams } from 'react-router-dom'
 import { Button, Alert, Loader, Tabs, Switch } from '@navikt/ds-react'
 import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import { parseISO } from 'date-fns'
 import { ResponsiveContainer, VerticalBarChart, PieChart } from '@fluentui/react-charting'
 import ChartLayout from './ChartLayout.tsx'
@@ -188,7 +189,7 @@ const UserComposition = () => {
     try {
       await navigator.clipboard.writeText(window.location.href)
       const properties: KopierLenkeProperties = { seksjon: 'brukersammensetning' }
-      window.umami?.track(Events.KOPIER_LENKE, properties)
+      trackEvent(Events.KOPIER_LENKE, properties)
       setCopySuccess(true)
       setTimeout(() => setCopySuccess(false), 2000)
     } catch {
@@ -308,7 +309,18 @@ const UserComposition = () => {
 
       {!loading && data && (
         <>
-          <Tabs value={activeCategory} onChange={setActiveCategory}>
+          <Tabs
+            value={activeCategory}
+            onChange={(value) => {
+              trackEvent(Events.FANE_BYTTET, {
+                seksjon: 'brukersammensetning',
+                komponentId: 'brukersammensetning-kategori',
+                fraFane: activeCategory,
+                tilFane: value,
+              })
+              setActiveCategory(value)
+            }}
+          >
             <Tabs.List>
               <Tabs.Tab value="browser" label="Nettleser" />
               <Tabs.Tab value="os" label="Operativsystem" />
@@ -323,10 +335,32 @@ const UserComposition = () => {
 
             <div className="mt-6">
               <div className="mb-4 flex flex-wrap justify-start gap-4">
-                <Switch checked={showPieChart} onChange={(e) => setShowPieChart(e.target.checked)} size="small">
+                <Switch
+                  checked={showPieChart}
+                  onChange={(e) => {
+                    trackEvent(Events.SWITCH_TILSTAND_ENDRET, {
+                      seksjon: 'brukersammensetning',
+                      komponentId: 'vis-sektordiagram',
+                      erPa: e.target.checked,
+                    })
+                    setShowPieChart(e.target.checked)
+                  }}
+                  size="small"
+                >
                   Vis sektordiagram
                 </Switch>
-                <Switch checked={showBarChart} onChange={(e) => setShowBarChart(e.target.checked)} size="small">
+                <Switch
+                  checked={showBarChart}
+                  onChange={(e) => {
+                    trackEvent(Events.SWITCH_TILSTAND_ENDRET, {
+                      seksjon: 'brukersammensetning',
+                      komponentId: 'vis-stolpediagram',
+                      erPa: e.target.checked,
+                    })
+                    setShowBarChart(e.target.checked)
+                  }}
+                  size="small"
+                >
                   Vis stolpediagram
                 </Switch>
               </div>

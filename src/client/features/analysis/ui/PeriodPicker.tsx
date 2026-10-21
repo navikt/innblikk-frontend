@@ -1,5 +1,7 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { Select, Modal, DatePicker, Button, useRangeDatepicker } from '@navikt/ds-react'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import type { PeriodPickerProps } from '../model/types.ts'
 import { formatDateRange } from '../utils/periodPicker.ts'
 import { usePeriodPicker } from '../hooks/usePeriodPicker.ts'
@@ -19,6 +21,25 @@ export const PeriodPicker = ({
   const dateModalRef = useRef<HTMLDialogElement>(null)
   const { isDateModalOpen, handlePeriodChange, closeDateModal } = usePeriodPicker(onPeriodChange)
 
+  useEffect(() => {
+    if (isDateModalOpen) {
+      trackEvent(Events.MODAL_APNET, {
+        seksjon: 'diagnose',
+        komponentId: 'periode-modal',
+        tittel: 'Velg datoperiode',
+      })
+    }
+  }, [isDateModalOpen])
+
+  const closeDateModalWithTracking = () => {
+    trackEvent(Events.MODAL_LUKKET, {
+      seksjon: 'diagnose',
+      komponentId: 'periode-modal',
+      tittel: 'Velg datoperiode',
+    })
+    closeDateModal()
+  }
+
   // useRangeDatepicker wires the inputs + popover + typing. Do NOT pass readOnly /
   // a manual `value` to DatePicker.Input — readOnly disables the calendar toggle
   // button entirely (inputs become "locked") and manual value fights hook state.
@@ -37,6 +58,12 @@ export const PeriodPicker = ({
           size="small"
           value={period === 'custom' && startDate && endDate ? 'custom' : period}
           onChange={(event) => {
+            trackEvent(Events.NEDTREKKSLISTE_VALG_ENDRET, {
+              seksjon: 'diagnose',
+              komponentId: 'periode',
+              valgtVerdi: event.target.value,
+              tekst: event.target.selectedOptions[0]?.text,
+            })
             if (event.target.value === 'custom' || event.target.value === 'custom-edit') {
               setSelected(startDate && endDate ? { from: startDate, to: endDate } : undefined)
             }
@@ -70,7 +97,7 @@ export const PeriodPicker = ({
       <Modal
         ref={dateModalRef}
         open={isDateModalOpen}
-        onClose={closeDateModal}
+        onClose={closeDateModalWithTracking}
         header={{ heading: 'Velg datoperiode', closeButton: true }}
       >
         <Modal.Body>
@@ -101,6 +128,13 @@ export const PeriodPicker = ({
             type="button"
             onClick={() => {
               if (canApply && selectedRange?.from && selectedRange.to) {
+                trackEvent(Events.DATO_VALGT, {
+                  seksjon: 'diagnose',
+                  komponentId: 'periode-egendefinert',
+                  mode: 'range',
+                  from: selectedRange.from.toISOString().slice(0, 10),
+                  to: selectedRange.to.toISOString().slice(0, 10),
+                })
                 onStartDateChange(selectedRange.from)
                 onEndDateChange(selectedRange.to)
                 onPeriodChange('custom')
@@ -111,7 +145,7 @@ export const PeriodPicker = ({
           >
             Bruk datoer
           </Button>
-          <Button type="button" variant="secondary" onClick={closeDateModal}>
+          <Button type="button" variant="secondary" onClick={closeDateModalWithTracking}>
             Avbryt
           </Button>
         </Modal.Footer>
