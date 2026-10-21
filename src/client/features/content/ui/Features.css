@@ -1,0 +1,115 @@
+.feature-catalog {
+  max-width: 1280px;
+  margin-inline: auto;
+  padding: 48px 48px 64px;
+  color: var(--ax-text-default);
+  letter-spacing: 0;
+}
+
+.feature-catalog__intro {
+  padding-bottom: 32px;
+}
+
+.feature-catalog__lead {
+  max-width: 650px;
+  margin: 16px 0;
+  font-size: 1.125rem;
+  line-height: 1.6;
+}
+
+.feature-catalog__navigation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  border-block: 1px solid var(--ax-border-neutral-subtle);
+  padding-block: 16px;
+}
+
+.feature-catalog__navigation a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ax-text-default);
+  text-decoration: none;
+}
+
+.feature-catalog__navigation a:hover {
+  text-decoration: underline;
+}
+
+.feature-catalog__section {
+  padding-top: 40px;
+  scroll-margin-top: 32px;
+}
+
+.feature-catalog__section-heading {
+  margin-bottom: 20px;
+}
+
+.feature-catalog__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.feature-catalog__card {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.feature-catalog__navigation a:focus-visible {
+  outline: 3px solid var(--ax-border-focus);
+  outline-offset: 3px;
+}
+
+.feature-catalog__note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px solid var(--ax-border-neutral-subtle);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.feature-catalog__note p {
+  max-width: 650px;
+  margin: 0;
+  color: var(--ax-text-subtle);
+}
+
+@media (max-width: 1100px) {
+  .feature-catalog {
+    padding: 32px 24px 48px;
+  }
+  .feature-catalog__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .feature-catalog__note {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 600px) {
+  .feature-catalog {
+    padding: 24px 16px 40px;
+  }
+  .feature-catalog__intro h1 {
+    font-size: 2rem;
+  }
+  .feature-catalog__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .feature-catalog__navigation {
+    gap: 8px 16px;
+  }
+  .feature-catalog__section {
+    padding-top: 32px;
+  }
+}

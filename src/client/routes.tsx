@@ -6,6 +6,7 @@ import { useIsReopsTeamMember } from './shared/hooks/useIsReopsTeamMember.ts'
 
 // Content Feature
 const Home = lazy(() => import('./features/content').then((m) => ({ default: m.Home })))
+const Features = lazy(() => import('./features/content/ui/Features.tsx'))
 const Komigang = lazy(() => import('./features/content').then((m) => ({ default: m.Komigang })))
 const MetabaseGuide = lazy(() => import('./features/content').then((m) => ({ default: m.MetabaseGuide })))
 const Personvern = lazy(() => import('./features/content').then((m) => ({ default: m.Personvern })))
@@ -215,6 +216,7 @@ export const fullWidthPathPrefixes = [
 
 export const routes: AppRoute[] = [
   { path: '/', component: <Home />, fullWidth: true },
+  { path: '/funksjoner', component: <Features />, fullWidth: true },
   { path: '/komigang', component: <Komigang />, fullWidth: true },
   { path: '/oppsett', component: <Oppsett />, fullWidth: true },
   { path: '/sporingskoder', component: <Sporingskoder />, fullWidth: true },
