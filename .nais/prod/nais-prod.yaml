@@ -40,6 +40,8 @@ spec:
             namespace: team-researchops
           - application: reops-innblikk-backend
             namespace: team-researchops
+          - application: reops-clean-to-enriched
+            namespace: team-researchops
   azure:
     application:
       enabled: true
@@ -60,3 +62,7 @@ spec:
       value: "reops-innblikk-backend"
     - name: NAIS_CLUSTER_NAME
       value: "prod-gcp"
+    - name: WEBSITE_MANAGEMENT_BASE_URL
+      value: "http://reops-clean-to-enriched.team-researchops.svc.cluster.local"
+    - name: WEBSITE_MANAGEMENT_OBO_SCOPE
+      value: "api://prod-gcp.team-researchops.reops-clean-to-enriched/.default"
