@@ -27,7 +27,8 @@ describe('getWebsitesList', () => {
     const whereIndex = query.indexOf('WHERE')
     expect(qualifyIndex).toBeGreaterThan(-1)
     expect(whereIndex).toBeGreaterThan(-1)
-    expect(query).not.toMatch(/WHERE[^]*deleted_at IS NULL/)
+    expect(qualifyIndex).toBeGreaterThan(whereIndex)
+    expect(query.slice(whereIndex, qualifyIndex)).not.toContain('deleted_at')
     expect(query.slice(qualifyIndex)).toContain('deleted_at IS NULL')
   })
 
