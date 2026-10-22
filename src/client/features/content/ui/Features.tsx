@@ -71,6 +71,11 @@ const groups = [
         description: 'Samle grafer og nøkkeltall i en oversikt som teamet kan følge sammen.',
       },
       {
+        href: '/canvas',
+        label: 'Canvas',
+        description: 'Samle grafer, tekst og funn på et lerret som du kan dele og presentere.',
+      },
+      {
         href: '/sidegrupper',
         label: 'Sidegrupper',
         description: 'Samle sider som hører sammen, og bruk gruppen i analyser.',
@@ -105,14 +110,6 @@ export default function Features() {
           </p>
         </div>
       </header>
-
-      <nav className="feature-catalog__navigation" aria-label="Funksjonsområder">
-        {groups.map((group) => (
-          <a key={group.id} href={`#${group.id}`}>
-            {group.title}
-          </a>
-        ))}
-      </nav>
 
       {groups.map((group) => (
         <section
@@ -149,12 +146,6 @@ export default function Features() {
           </div>
         </section>
       ))}
-      <aside className="feature-catalog__note">
-        <p>
-          Innholdskvalitet krever at nettstedet finnes i Siteimprove. Kampanjer og egendefinerte hendelser krever at
-          måling er satt opp.
-        </p>
-      </aside>
     </div>
   )
 }

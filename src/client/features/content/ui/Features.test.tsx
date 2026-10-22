@@ -11,11 +11,11 @@ describe('Features', () => {
       </MemoryRouter>,
     )
     expect(screen.getByRole('heading', { level: 1, name: 'Funksjoner i Innblikk' })).toBeInTheDocument()
-    expect(within(screen.getByRole('navigation', { name: 'Funksjonsområder' })).getAllByRole('link')).toHaveLength(5)
+    expect(screen.queryByRole('navigation', { name: 'Funksjonsområder' })).not.toBeInTheDocument()
     const sections = screen.getAllByRole('region')
     expect(sections).toHaveLength(5)
     const cards = sections.flatMap((section) => within(section).getAllByRole('link'))
-    expect(cards).toHaveLength(21)
+    expect(cards).toHaveLength(22)
     for (const card of cards) {
       expect(routes.some((route) => route.path === card.getAttribute('href'))).toBe(true)
     }
@@ -33,6 +33,11 @@ describe('Features', () => {
         name: /Brukergrupper/,
       }),
     ).toBeInTheDocument()
+    expect(
+      within(screen.getByRole('region', { name: 'Hvordan kan vi bygge og dele egne analyser?' })).getByRole('link', {
+        name: 'Canvas',
+      }),
+    ).toHaveAttribute('href', '/canvas')
     expect(
       within(screen.getByRole('region', { name: 'Hva bør vi kvalitetssikre?' })).getByRole('link', {
         name: /Personvernssjekk/,
