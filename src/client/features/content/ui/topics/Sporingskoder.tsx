@@ -12,11 +12,8 @@ function Sporingskoder() {
         title="Sporingskoder"
         description={
           <>
-            Kontakt{' '}
-            <Link target="_blank" href="https://nav-it.slack.com/archives/C02UGFS2J4B">
-              #ResearchOps på Slack
-            </Link>{' '}
-            for å få sporingskode til nettsiden eller appen din.
+            Oversikt over alle registrerte nettsider og sporingskodene deres. Vil du registrere eller endre en nettside
+            for teamet ditt, gå til <Link href="/mine-nettsider">Mine team sine nettsider</Link> (beta).
           </>
         }
       />

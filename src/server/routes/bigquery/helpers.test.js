@@ -1,5 +1,64 @@
-import { describe, it, expect } from 'vitest'
-import { buildSidegroupClause, buildTimeSeriesBucketSql } from './helpers.js'
+import { describe, it, expect, vi } from 'vitest'
+import { buildSidegroupClause, buildTimeSeriesBucketSql, getWebsitesList } from './helpers.js'
+
+/**
+ * Captures the SQL that getWebsitesList sends to BigQuery. The mock chain mirrors the
+ * @google-cloud/bigquery call shape: createQueryJob -> job.getQueryResults().
+ */
+function createBigQuerySpy(rows = []) {
+  const createQueryJob = vi.fn(async () => [{ getQueryResults: async () => [rows] }])
+  return { bigquery: { createQueryJob }, createQueryJob }
+}
+
+const identityAuditLogging = (options) => options
+
+describe('getWebsitesList', () => {
+  // public_website is append-only, and soft delete appends a tombstone row with
+  // deleted_at set. Filtering deleted_at before deduplicating would resurrect the
+  // pre-delete version of a deleted website, so the latest-version pick (QUALIFY)
+  // must happen first and the tombstone filter must apply to that latest row only.
+  it('deduplicates to the latest version BEFORE excluding deleted rows', async () => {
+    const { bigquery, createQueryJob } = createBigQuerySpy()
+
+    await getWebsitesList(bigquery, 'test-project', 'Z123456', identityAuditLogging)
+
+    const query = createQueryJob.mock.calls[0][0].query
+    const qualifyIndex = query.indexOf('QUALIFY')
+    const whereIndex = query.indexOf('WHERE')
+    expect(qualifyIndex).toBeGreaterThan(-1)
+    expect(whereIndex).toBeGreaterThan(-1)
+    expect(query).not.toMatch(/WHERE[^]*deleted_at IS NULL/)
+    expect(query.slice(qualifyIndex)).toContain('deleted_at IS NULL')
+  })
+
+  it('returns only rows BigQuery yields from the tombstone-filtered query', async () => {
+    const rows = [{ id: 'a', name: 'Aktiv', domain: 'a.nav.no', createdAt: '2026-01-01', updatedAt: '2026-01-02' }]
+    const { bigquery } = createBigQuerySpy(rows)
+
+    const result = await getWebsitesList(bigquery, 'test-project', 'Z123456', identityAuditLogging)
+
+    expect(result).toHaveLength(1)
+    expect(result[0].id).toBe('a')
+  })
+
+  it('unwraps BigQuery timestamp objects ({value}) for created/updated dates', async () => {
+    const rows = [
+      {
+        id: 'a',
+        name: 'Aktiv',
+        domain: 'a.nav.no',
+        createdAt: { value: '2026-01-01T00:00:00Z' },
+        updatedAt: { value: '2026-01-02T00:00:00Z' },
+      },
+    ]
+    const { bigquery } = createBigQuerySpy(rows)
+
+    const result = await getWebsitesList(bigquery, 'test-project', 'Z123456', identityAuditLogging)
+
+    expect(result[0].createdAt).toBe('2026-01-01T00:00:00Z')
+    expect(result[0].updatedAt).toBe('2026-01-02T00:00:00Z')
+  })
+})
 
 describe('buildSidegroupClause', () => {
   it('uses literal, case-insensitive matching for every rule type', () => {

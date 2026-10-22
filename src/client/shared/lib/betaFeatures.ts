@@ -53,4 +53,11 @@ export const betaFeatures: BetaFeature[] = [
     description: 'Grupper sider på nettstedet ditt etter URL-mønstre.',
     href: '/sidegrupper',
   },
+  {
+    id: 'nettsideadministrasjon',
+    title: 'Nettsideadministrasjon',
+    description:
+      'Registrer, endre og deaktiver sporingskoder for teamene dine — og ReOps-administrasjon av alle registreringer.',
+    href: '/mine-nettsider',
+  },
 ]
