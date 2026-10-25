@@ -30,8 +30,9 @@ export interface SqlJoinSuggestion {
 }
 
 export const getSqlJoinSuggestion = (query: string, error: string, projectId: string): SqlJoinSuggestion | null => {
-  const field = /\bUnrecognized name:\s*`?([a-z_]\w*)`?(?=\s|[;,]|$)/i.exec(error)?.[1]
-  if (!field) return null
+  const missingName = /\bUnrecognized name:\s*`?([a-z_]\w*)`?(?=\s|[;,]|$)/i.exec(error)?.[1]
+  if (!missingName) return null
+  let field = missingName
   try {
     const parsed = new Parser().astify(query)
     if (Array.isArray(parsed) && parsed.length !== 1) return null
@@ -41,6 +42,40 @@ export const getSqlJoinSuggestion = (query: string, error: string, projectId: st
     const sources = ast.from.filter(isNode)
     const source = tables.find((table) => sources[0]?.table === `${projectId}.${table.datasetTable}`)
     if (!source) return null
+    if (field.toLowerCase() === 'ep') {
+      if (sources.some((entry) => typeof entry.as === 'string' && entry.as.toLowerCase() === 'ep')) return null
+      const details = tables.find((table) => table.id === 'event_data')!
+      const findDetailField = (value: unknown): string | null => {
+        if (Array.isArray(value)) {
+          for (const child of value) {
+            const found = findDetailField(child)
+            if (found) return found
+          }
+        } else if (isNode(value)) {
+          if (value.type === 'select' && value !== ast) return null
+          if (value.type === 'column_ref') {
+            let reference: string | null = null
+            if (typeof value.table === 'string' && typeof value.column === 'string')
+              reference = `${value.table}.${value.column}`
+            else if (isNode(value.column) && isNode(value.column.expr) && Array.isArray(value.column.offset)) {
+              const offset = value.column.offset[0]
+              if (isNode(offset) && typeof offset.value === 'string')
+                reference = `${String(value.column.expr.value)}.${offset.value}`
+            }
+            const column = details.columns.find(
+              (candidate) =>
+                candidate.name.toLowerCase() === reference?.toLowerCase() && candidate.name.startsWith('ep.'),
+            )
+            if (column) return column.name
+          }
+          return findDetailField(Object.values(value))
+        }
+        return null
+      }
+      const detailField = findDetailField(ast)
+      if (!detailField) return null
+      field = detailField
+    }
     const hasField = (table: BigQueryTableDoc) =>
       table.columns.some((column) => column.name.toLowerCase() === field.toLowerCase())
     const present = tables.filter((table) =>

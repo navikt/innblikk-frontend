@@ -5,6 +5,35 @@ const projectId = 'test-project'
 const eventTable = `\`${projectId}.umami_views.event\``
 
 describe('JOIN suggestions for missing fields', () => {
+  it.each(['data_key', 'string_value', 'number_value', 'date_value', 'data_type'])(
+    'suggests event details and UNNEST for an unknown ep alias used as ep.%s',
+    (column) => {
+      const query = `SELECT ep.${column}, COUNT(DISTINCT NULLIF(distinct_id, '')) AS unike_besokende FROM ${eventTable} LEFT JOIN \`${projectId}.umami_views.session\` ON event.session_id = session.session_id WHERE event_name = 'navigere' GROUP BY event.event_name ORDER BY 2 DESC`
+      const suggestion = getSqlJoinSuggestion(query, 'Unrecognized name: ep at [5:8]', projectId)
+      expect(suggestion?.field).toBe(`ep.${column}`)
+      expect(suggestion?.tableTitle).toBe('Detaljer på hendelser')
+      expect(suggestion?.joinSql).toContain('umami_views.event_data')
+      expect(suggestion?.joinSql).toContain('LEFT JOIN UNNEST')
+      expect(suggestion?.joinSql).toContain('AS ep ON TRUE')
+      expect(suggestion?.sql).toContain(`ep.${column}`)
+      expect(suggestion?.sql).toContain('COUNT(DISTINCT NULLIF(')
+      expect(suggestion?.sql).toContain("event_name = 'navigere'")
+      expect(suggestion?.sql).toMatch(/GROUP BY\s+event\.event_name/)
+      expect(suggestion?.sql).toMatch(/ORDER BY\s+2 DESC/)
+      expect(suggestion?.sql!.match(/umami_views\.session/g)).toHaveLength(1)
+      expect(() => new Parser().astify(suggestion!.sql)).not.toThrow()
+    },
+  )
+
+  it('does not guess an event-details join for an unknown ep field', () => {
+    expect(
+      getSqlJoinSuggestion(`SELECT ep.unknown_field FROM ${eventTable}`, 'Unrecognized name: ep at [1:8]', projectId),
+    ).toBeNull()
+    expect(
+      getSqlJoinSuggestion(`SELECT ep.data_key FROM ${eventTable} AS ep`, 'Unrecognized name: ep at [1:8]', projectId),
+    ).toBeNull()
+  })
+
   it.each([
     'Unrecognized name: distinct_id; Did you mean visit_id? at [5:42]',
     'Unrecognized name: `distinct_id`; Did you mean visit_id? at [5:42]',
