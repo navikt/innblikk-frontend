@@ -6,6 +6,44 @@ const eventTable = `\`${projectId}.umami_views.event\``
 
 describe('JOIN suggestions for missing fields', () => {
   it.each(['data_key', 'string_value', 'number_value', 'date_value', 'data_type'])(
+    'suggests the full chain from user details to ep.%s without replacing the source',
+    (column) => {
+      const sessionTable = `\`${projectId}.umami_views.session\``
+      const query = `SELECT ep.${column}, COUNT(DISTINCT NULLIF(distinct_id, '')) AS unike_besokende\nFROM ${sessionTable}\n`
+      const suggestion = getSqlJoinSuggestion(query, 'Unrecognized name: ep at [5:8]', projectId)
+      expect(suggestion?.field).toBe(`ep.${column}`)
+      expect(suggestion?.sourceTitle).toBe('Brukerdetaljer')
+      expect(suggestion?.tableTitle).toBe('Detaljer på hendelser')
+      expect(suggestion?.warning).toBeTruthy()
+      expect(suggestion?.sql).toMatch(/FROM\s+`test-project\.umami_views\.session`/)
+      expect(suggestion?.sql).toContain(`ep.${column}`)
+      expect(suggestion?.sql).toContain('COUNT(DISTINCT NULLIF(')
+      expect(suggestion?.sql).toContain('AS unike_besokende')
+      expect(suggestion?.sql!.match(/umami_views\.event`/g)).toHaveLength(1)
+      expect(suggestion?.sql!.match(/umami_views\.event_data`/g)).toHaveLength(1)
+      expect(suggestion?.joinSql).toContain('umami_views.event`')
+      expect(suggestion?.joinSql).toContain('umami_views.event_data`')
+      expect(suggestion?.joinSql).toContain('LEFT JOIN UNNEST')
+      expect(suggestion?.joinSql).toContain('AS ep ON TRUE')
+      expect(() => new Parser().astify(suggestion!.sql)).not.toThrow()
+    },
+  )
+
+  it.each([false, true])('preserves aliases and filters with an existing event JOIN: %s', (hasEvents) => {
+    const sessionTable = `\`${projectId}.umami_views.session\``
+    const eventJoin = hasEvents ? ` LEFT JOIN ${eventTable} AS e ON s.session_id = e.session_id` : ''
+    const query = `SELECT ep.data_key, COUNT(DISTINCT NULLIF(s.distinct_id, '')) AS antall FROM ${sessionTable} AS s${eventJoin} WHERE s.browser = 'chrome' GROUP BY ep.data_key ORDER BY antall DESC`
+    const suggestion = getSqlJoinSuggestion(query, 'Unrecognized name: ep at [5:8]', projectId)
+    expect(suggestion?.sql).toContain('s.distinct_id')
+    expect(suggestion?.sql).toContain("s.browser = 'chrome'")
+    expect(suggestion?.sql).toMatch(/GROUP BY\s+ep\.data_key/)
+    expect(suggestion?.sql).toMatch(/ORDER BY\s+antall DESC/)
+    expect(suggestion?.sql!.match(/umami_views\.event`/g)).toHaveLength(1)
+    expect(suggestion?.joinSql).toContain(hasEvents ? '`e`.event_id' : '`event`.event_id')
+    expect(() => new Parser().astify(suggestion!.sql)).not.toThrow()
+  })
+
+  it.each(['data_key', 'string_value', 'number_value', 'date_value', 'data_type'])(
     'suggests event details and UNNEST for an unknown ep alias used as ep.%s',
     (column) => {
       const query = `SELECT ep.${column}, COUNT(DISTINCT NULLIF(distinct_id, '')) AS unike_besokende FROM ${eventTable} LEFT JOIN \`${projectId}.umami_views.session\` ON event.session_id = session.session_id WHERE event_name = 'navigere' GROUP BY event.event_name ORDER BY 2 DESC`

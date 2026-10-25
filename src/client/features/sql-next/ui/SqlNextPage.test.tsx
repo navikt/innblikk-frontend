@@ -109,6 +109,36 @@ describe('SQL error results', () => {
     expect(executeQueryApi).not.toHaveBeenCalled()
   })
 
+  it.each(['Vis resultater', 'Valider'])(
+    'suggests the JOIN chain from user details for ep after %s',
+    async (action) => {
+      vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+      const sql = `SELECT ep.data_key, COUNT(DISTINCT NULLIF(distinct_id, '')) AS unike_besokende\nFROM \`${getGcpProjectId()}.umami_views.session\`\n`
+      window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'chosen-website' })}`)
+      vi.mocked(executeQueryApi).mockClear()
+      vi.mocked(estimateQueryCost).mockReset().mockRejectedValueOnce(new Error('Unrecognized name: ep at [5:8]'))
+      render(
+        <MemoryRouter>
+          <SqlNextPage />
+        </MemoryRouter>,
+      )
+      fireEvent.click(screen.getByRole('button', { name: action }))
+      const fixButton = await screen.findByRole('button', { name: 'Koble til Detaljer på hendelser' })
+      expect(screen.getByTestId('editor-query').textContent).toBe(sql)
+      fireEvent.click(fixButton)
+      const corrected = screen.getByTestId('editor-query').textContent
+      expect(corrected).toMatch(/FROM\s+`[^`]+\.umami_views\.session`/)
+      expect(corrected).toContain('umami_views.event`')
+      expect(corrected).toContain('umami_views.event_data`')
+      expect(corrected).toContain('LEFT JOIN UNNEST')
+      expect(corrected).toContain('AS ep ON TRUE')
+      expect(corrected).toContain('ep.data_key')
+      expect(corrected).toContain('COUNT(DISTINCT NULLIF(')
+      expect(estimateQueryCost).toHaveBeenCalledOnce()
+      expect(executeQueryApi).not.toHaveBeenCalled()
+    },
+  )
+
   it.each(['Vis resultater', 'Valider'])('suggests event details with UNNEST for ep after %s', async (action) => {
     vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
     const sql = `SELECT ep.data_key, COUNT(DISTINCT NULLIF(distinct_id, '')) AS unike_besokende FROM \`${getGcpProjectId()}.umami_views.event\` LEFT JOIN \`${getGcpProjectId()}.umami_views.session\` ON event.session_id = session.session_id WHERE event_name = 'navigere' GROUP BY event.event_name ORDER BY 2 DESC`

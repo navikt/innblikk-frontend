@@ -85,7 +85,19 @@ export const getSqlJoinSuggestion = (query: string, error: string, projectId: st
     const targets = tables.filter(hasField)
     if (targets.length !== 1) return null
     const target = targets[0]
-    const option = getSqlJoinOptions(query, projectId, source.id).find((join) => join.id === target.id)
+    let option = getSqlJoinOptions(query, projectId, source.id).find((join) => join.id === target.id)
+    if (!option?.sql && source.id !== 'event' && target.id !== 'event') {
+      option = getSqlJoinOptions(query, projectId).find((join) => join.id === target.id)
+      if (!option?.sql) {
+        const eventOption = getSqlJoinOptions(query, projectId, source.id).find((join) => join.id === 'event')
+        if (eventOption?.sql && eventOption.joinSql) {
+          const targetOption = getSqlJoinOptions(eventOption.sql, projectId).find((join) => join.id === target.id)
+          if (targetOption?.joinSql) {
+            option = { ...targetOption, joinSql: `${eventOption.joinSql}\n${targetOption.joinSql}` }
+          }
+        }
+      }
+    }
     if (!option?.sql || !option.joinSql) return null
     return {
       field,
@@ -224,8 +236,8 @@ export const getSqlJoinOptions = (
     }
     if (!Array.isArray(ast.from)) return options
     const sources = ast.from.filter(isNode)
-    const base = sources[0]
-    if (base?.table !== `${projectId}.${sourceTable.datasetTable}`) return options
+    const base = sources.find((source) => source.table === `${projectId}.${sourceTable.datasetTable}`)
+    if (!base) return options
     const sourceReference = typeof base.as === 'string' ? base.as : sourceTable.datasetTable.split('.').pop()!
 
     return options.map((option) => {
