@@ -106,7 +106,12 @@ export const prepareSqlBlockInsertion = (sqlBeforeCursor: string, code: string) 
 }
 
 export const getSqlSuggestionFragment = (sqlBeforeCursor: string, kind: SqlSuggestion['kind']): string => {
-  const pattern = kind === 'table' ? /`?[\w.-]*$/ : kind === 'value' ? /'[^'\n]*$|[\w-]+(?:[\t ]+[\w-]+)*$/ : /[\w.]*$/
+  if (kind === 'value') {
+    return (
+      sqlBeforeCursor.match(/(?:[=<>!]+|\bLIKE)\s*('(?:''|\\[^\n]|[^'\\\n])*|[\w-]*(?:[\t ]+[\w-]+)*)$/i)?.[1] ?? ''
+    )
+  }
+  const pattern = kind === 'table' ? /`?[\w.-]*$/ : /[\w.]*$/
   return sqlBeforeCursor.match(pattern)?.[0] ?? ''
 }
 

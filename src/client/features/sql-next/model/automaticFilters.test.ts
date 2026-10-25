@@ -168,6 +168,33 @@ describe('automatic website and period filters', () => {
     expect(await applyAutomaticFilters(sql, context)).toBe(sql)
   })
 
+  it.each([
+    ['event_data', 'event_parameters'],
+    ['session', 'session_parameters'],
+  ])('preserves unqualified filters owned by %s alongside UNNEST(%s)', async (table, parameters) => {
+    const sql = `SELECT details.data_key FROM \`test-project.umami_views.${table}\` base, UNNEST(base.${parameters}) details WHERE website_id = 'manual' AND created_at >= TIMESTAMP('2026-09-01')`
+    const usage = vi.fn()
+    expect(await applyAutomaticFilters(sql, context, usage)).toBe(sql)
+    expect(usage).toHaveBeenCalledWith({ table: `test-project.umami_views.${table}`, website: 'sql', period: 'sql' })
+  })
+
+  it('does not assign ambiguous unqualified filters to both joined base tables', async () => {
+    const sql =
+      "SELECT e.event_id FROM `test-project.umami_views.event` e JOIN `test-project.umami_views.session` s ON e.session_id = s.session_id WHERE website_id = 'manual' AND created_at >= TIMESTAMP('2026-09-01')"
+    const usage = vi.fn()
+    await applyAutomaticFilters(sql, context, usage)
+    expect(usage).toHaveBeenCalledWith({
+      table: 'test-project.umami_views.event',
+      website: 'automatic',
+      period: 'automatic',
+    })
+    expect(usage).toHaveBeenCalledWith({
+      table: 'test-project.umami_views.session',
+      website: 'automatic',
+      period: 'automatic',
+    })
+  })
+
   it('adds only the missing date filter when website is already specified', async () => {
     const processed = await applyAutomaticFilters(
       "SELECT * FROM `test-project.umami_views.session` WHERE website_id = 'manual'",
@@ -186,6 +213,27 @@ describe('automatic website and period filters', () => {
     expect(processed).toContain('ON s.session_id = e.session_id')
     expect(processed.match(/created_at BETWEEN/g)).toHaveLength(2)
     expect(processed.match(/website_id = 'chosen-website'/g)).toHaveLength(2)
+  })
+
+  it.each([
+    ['LEFT JOIN', 'e', 'automatic'],
+    ['LEFT JOIN', 's', 'sql'],
+    ['RIGHT JOIN', 'e', 'sql'],
+    ['RIGHT JOIN', 's', 'automatic'],
+    ['FULL JOIN', 'e', 'automatic'],
+    ['FULL JOIN', 's', 'automatic'],
+    ['INNER JOIN', 'e', 'sql'],
+  ])('respects the preserved side of %s for filters on %s', async (join, alias, expected) => {
+    const usage = vi.fn()
+    const sql = `SELECT e.event_id FROM \`test-project.umami_views.event\` e ${join} \`test-project.umami_views.session\` s ON e.session_id = s.session_id AND ${alias}.website_id = 'manual' AND ${alias}.created_at >= TIMESTAMP('2026-09-01')`
+    const processed = await applyAutomaticFilters(sql, context, usage)
+    expect(usage).toHaveBeenCalledWith({
+      table: alias === 'e' ? 'test-project.umami_views.event' : 'test-project.umami_views.session',
+      website: expected,
+      period: expected,
+    })
+    expect(processed).toContain(`${alias}.website_id = 'manual'`)
+    expect(() => new Parser().astify(processed)).not.toThrow()
   })
 
   it('filters tables in CTEs and leaves outer grouping intact', async () => {

@@ -413,6 +413,17 @@ describe('SQL builder suggestions', () => {
     expect(prefix.slice(0, prefix.length - fragment.length) + "'samsung internet'").toBe("browser = 'samsung internet'")
   })
 
+  it.each(['ch', "'ch", '', 'samsung in'])('preserves earlier quoted filters when completing %j', (value) => {
+    const prefix = `device = 'mobile' AND browser = ${value}`
+    const label = value.startsWith('samsung') ? 'samsung internet' : 'chrome'
+    const suggestion = getSqlSuggestions(prefix, projectId).find((item) => item.label === label)!
+    const fragment = getSqlSuggestionFragment(prefix, suggestion.kind)
+    expect(fragment).toBe(value)
+    expect(prefix.slice(0, prefix.length - fragment.length) + suggestion.insertText).toBe(
+      `device = 'mobile' AND browser = '${label}'`,
+    )
+  })
+
   it.each([
     ['SEL', 'SELECT'],
     ['sel', 'SELECT'],

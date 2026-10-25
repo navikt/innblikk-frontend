@@ -110,24 +110,12 @@ export const applyAutomaticFilters = async (
   visit(ast, (select) => {
     if (select.type !== 'select' || !Array.isArray(select.from)) return
     const sources = select.from.filter(isNode)
-    const predicates = [select.where, ...sources.map((source) => source.on)]
     const periodSource =
       sources.find((source) => typeof source.table === 'string' && /(?:^|\.)umami_views\.event$/i.test(source.table)) ??
       sources.find(
         (source) =>
           typeof source.table === 'string' && /(?:^|\.)umami_views\.(?:session|event_data)$/i.test(source.table),
       )
-    let hasDynamicPeriod = false
-    predicates.forEach((predicate) =>
-      visit(
-        predicate,
-        (node) => {
-          const column = getColumn(node)
-          if (column && periodTokens.has(column.name)) hasDynamicPeriod = true
-        },
-        false,
-      ),
-    )
     for (const source of sources) {
       if (typeof source.table !== 'string') continue
       const match = /(?:^|\.)(umami_views\.(event_data|event|session)|umami\.public_website)$/i.exec(source.table)
@@ -136,10 +124,42 @@ export const applyAutomaticFilters = async (
       const alias = typeof source.as === 'string' ? source.as : table.split('.').pop()!
       const references = [table, alias, table.split('.').pop()!].map((value) => value.toLowerCase())
       const conditions: string[] = []
-      const hasWebsiteFilter = hasFilter(predicates, 'website_id', references, sources.length === 1)
+      const predicates = [
+        select.where,
+        ...sources
+          .filter((joined, joinedIndex) => {
+            const join = String(joined.join ?? '').toUpperCase()
+            if (join.startsWith('FULL')) return false
+            if (join.startsWith('LEFT')) return joined === source
+            if (join.startsWith('RIGHT')) return sources.indexOf(source) < joinedIndex
+            return true
+          })
+          .map((joined) => joined.on),
+      ]
+      let hasDynamicPeriod = false
+      predicates.forEach((predicate) =>
+        visit(
+          predicate,
+          (node) => {
+            const column = getColumn(node)
+            if (column && periodTokens.has(column.name)) hasDynamicPeriod = true
+          },
+          false,
+        ),
+      )
+      const unqualified = sources.every((candidate) => {
+        if (candidate === source) return true
+        if (candidate.type !== 'unnest' || candidate.with_offset || !isNode(candidate.expr)) return false
+        const column = getColumn(candidate.expr)
+        return Boolean(
+          column &&
+          ['event_parameters', 'session_parameters'].includes(column.name) &&
+          (!column.table || references.includes(column.table.toLowerCase())),
+        )
+      })
+      const hasWebsiteFilter = hasFilter(predicates, 'website_id', references, unqualified)
       const hasPeriodFilter =
-        hasFilter(predicates, 'created_at', references, sources.length === 1) ||
-        (source === periodSource && hasDynamicPeriod)
+        hasFilter(predicates, 'created_at', references, unqualified) || (source === periodSource && hasDynamicPeriod)
       if (!hasWebsiteFilter) {
         const ids = [
           ...new Set(context.websiteIds?.length ? context.websiteIds : [context.websiteIdState].filter(Boolean)),
