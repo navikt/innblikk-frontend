@@ -71,6 +71,7 @@ interface SqlResultsSectionProps {
   hideMetabaseTransfer?: boolean
   showSqlCode?: boolean
   showJson?: boolean
+  copyableCells?: boolean
   showExecuteButton?: boolean
   showError?: boolean
   showCost?: boolean
@@ -102,6 +103,7 @@ export default function SqlResultsSection({
   hideMetabaseTransfer = false,
   showSqlCode = true,
   showJson = true,
+  copyableCells = false,
   showExecuteButton = true,
   showError = true,
   showCost = true,
@@ -429,6 +431,7 @@ export default function SqlResultsSection({
           initialTab={initialTab}
           websiteId={websiteId}
           compactTableActions={true}
+          copyableCells={copyableCells}
           compactSpacing={true}
           compactTableTitle="Resultater"
           hideTableFooter={true}

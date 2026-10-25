@@ -286,6 +286,7 @@ export default function SqlNextPage() {
               {hasAttemptedFetch || queryError ? (
                 queryError ? null : (
                   <SqlResultsSection
+                    copyableCells
                     showJson={false}
                     result={result}
                     loading={loading}
