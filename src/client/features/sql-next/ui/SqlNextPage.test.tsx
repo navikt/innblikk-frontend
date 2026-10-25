@@ -38,6 +38,29 @@ vi.mock('../../sql/ui/SqlResultsSection', () => ({
 }))
 
 describe('SQL error results', () => {
+  it.each(['Vis resultater', 'Valider'])('offers missing quotes for event detail values after %s', async (action) => {
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+    const sql = `SELECT ep.data_key, COUNT(DISTINCT NULLIF(distinct_id, '')) AS unike_besokende FROM \`${getGcpProjectId()}.umami_views.event\` LEFT JOIN \`${getGcpProjectId()}.umami_views.session\` ON event.session_id = session.session_id LEFT JOIN \`${getGcpProjectId()}.umami_views.event_data\` ON event.event_id = event_data.website_event_id LEFT JOIN UNNEST(event_data.event_parameters) AS ep ON TRUE WHERE event.event_name = 'navigere' AND ep.data_key = innholdstype GROUP BY event.event_name, ep.data_key ORDER BY 2 DESC`
+    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'chosen-website' })}`)
+    vi.mocked(executeQueryApi).mockClear()
+    vi.mocked(estimateQueryCost)
+      .mockReset()
+      .mockRejectedValueOnce(new Error('Unrecognized name: innholdstype at [5:1032]'))
+    render(
+      <MemoryRouter>
+        <SqlNextPage />
+      </MemoryRouter>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: action }))
+    const fixButton = await screen.findByRole('button', { name: 'Legg til anførselstegn' })
+    fireEvent.click(fixButton)
+    expect(screen.getByTestId('editor-query').textContent).toBe(
+      sql.replace('ep.data_key = innholdstype', "ep.data_key = 'innholdstype'"),
+    )
+    expect(estimateQueryCost).toHaveBeenCalledOnce()
+    expect(executeQueryApi).not.toHaveBeenCalled()
+  })
+
   it.each(['Vis resultater', 'Valider'])('suggests event details with UNNEST for ep after %s', async (action) => {
     vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
     const sql = `SELECT ep.data_key, COUNT(DISTINCT NULLIF(distinct_id, '')) AS unike_besokende FROM \`${getGcpProjectId()}.umami_views.event\` LEFT JOIN \`${getGcpProjectId()}.umami_views.session\` ON event.session_id = session.session_id WHERE event_name = 'navigere' GROUP BY event.event_name ORDER BY 2 DESC`

@@ -2,7 +2,7 @@ import { Parser } from 'node-sql-parser/build/bigquery'
 import { getBigQueryTables } from './schemaAndSnippets'
 
 const columnNames = new Set(
-  getBigQueryTables('').flatMap((table) => table.columns.map((column) => column.name.toLowerCase())),
+  getBigQueryTables('').flatMap((table) => table.columns.map((column) => column.name.split('.').pop()!.toLowerCase())),
 )
 const reservedValues =
   /^(?:true|false|null|unknown|default|current_date|current_time|current_timestamp|current_user|session_user|interval|case|not|exists|select|all|any|some)$/i
