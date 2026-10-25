@@ -12,6 +12,7 @@ interface QueryErrorDisplayProps {
   quoteFixValues?: string[]
   onAddQuotes?: () => void
   onAddComma?: () => void
+  onMoveWhere?: () => void
   joinSuggestion?: {
     field: string
     sourceTitle: string
@@ -31,6 +32,7 @@ export default function QueryErrorDisplay({
   quoteFixValues,
   onAddQuotes,
   onAddComma,
+  onMoveWhere,
   joinSuggestion,
   onAddJoin,
 }: QueryErrorDisplayProps) {
@@ -44,6 +46,16 @@ export default function QueryErrorDisplay({
           <BodyLong>Det mangler et komma mellom feltene etter SELECT.</BodyLong>
           <Button size="small" variant="secondary" type="button" onClick={onAddComma}>
             Legg til komma
+          </Button>
+          <ReadMore header="Teknisk feilmelding" size="small">
+            <BodyLong>{error}</BodyLong>
+          </ReadMore>
+        </div>
+      ) : onMoveWhere ? (
+        <div className="flex flex-col items-start gap-3">
+          <BodyLong>WHERE filtrerer radene og må stå før GROUP BY.</BodyLong>
+          <Button size="small" variant="secondary" type="button" onClick={onMoveWhere}>
+            Flytt WHERE før GROUP BY
           </Button>
           <ReadMore header="Teknisk feilmelding" size="small">
             <BodyLong>{error}</BodyLong>

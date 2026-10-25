@@ -60,6 +60,25 @@ describe('SQL block insertion', () => {
 })
 
 describe('SQL builder suggestions', () => {
+  it.each(['SELECT ep.', `SELECT * FROM \`${projectId}.umami_views.event_data\`\nWHERE ep.`])(
+    'puts text values before other value types for %s',
+    (query) => {
+      const details = getSqlSuggestions(query, projectId)
+        .filter((suggestion) => suggestion.label.startsWith('ep.'))
+        .sort((first, second) => (first.sortText ?? first.label).localeCompare(second.sortText ?? second.label))
+      expect(details.map((suggestion) => suggestion.label)).toEqual([
+        'ep.data_key',
+        'ep.string_value',
+        'ep.number_value',
+        'ep.date_value',
+        'ep.data_type',
+      ])
+      expect(details[1].labelDescription).toBe('Tekst (ofte brukt)')
+      expect(details[1].insertText).toBe('ep.string_value')
+      expect(details.filter((suggestion) => suggestion.labelDescription?.includes('ofte brukt'))).toHaveLength(1)
+    },
+  )
+
   it.each([
     'SELECT ',
     `${sessionQuery}\nAND `,

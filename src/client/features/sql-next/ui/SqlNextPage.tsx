@@ -14,6 +14,7 @@ import SqlBuilderPanel from './SqlBuilderPanel'
 import JoinQueryDialog, { type JoinTableId } from './JoinQueryDialog'
 import { getSqlQuoteFix } from '../model/sqlQuoteFix'
 import { getSqlCommaFix } from '../model/sqlCommaFix'
+import { getSqlClauseOrderFix } from '../model/sqlClauseOrderFix'
 import { getSqlJoinSuggestion } from '../model/sqlJoins'
 import { getGroupBySimplification } from '../model/groupBySimplification'
 
@@ -88,6 +89,7 @@ export default function SqlNextPage() {
   const groupBySimplification =
     estimate && !queryError && !loading && !estimating ? getGroupBySimplification(query) : null
   const commaFix = queryError ? getSqlCommaFix(query) : null
+  const clauseOrderFix = queryError ? getSqlClauseOrderFix(query) : null
   const quoteFix = queryError ? getSqlQuoteFix(query) : null
   const joinSuggestion = queryError ? getSqlJoinSuggestion(query, queryError, projectId) : null
 
@@ -268,6 +270,7 @@ export default function SqlNextPage() {
                   quoteFixValues={quoteFix?.values}
                   onAddQuotes={quoteFix ? () => handleQueryChange(quoteFix.sql) : undefined}
                   onAddComma={commaFix ? () => handleQueryChange(commaFix) : undefined}
+                  onMoveWhere={clauseOrderFix ? () => handleQueryChange(clauseOrderFix) : undefined}
                   joinSuggestion={joinSuggestion}
                   onAddJoin={joinSuggestion ? () => handleQueryChange(joinSuggestion.sql) : undefined}
                 />

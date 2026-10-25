@@ -26,7 +26,9 @@ export const getSqlCommaFix = (query: string): string | null => {
   ].filter((token) => !/^(?:--|#|\/\*)/.test(token[0]))
   let depth = 0
   const selectDepths = new Set<number>()
-  let fix: string | null = null
+  const positions: number[] = []
+  let projectionEnd: number | null = null
+  let canCheckProjection = /^select$/i.test(tokens[0]?.[0] ?? '')
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index][0]
     if (token === '(') depth += 1
@@ -34,15 +36,42 @@ export const getSqlCommaFix = (query: string): string | null => {
       selectDepths.delete(depth)
       depth -= 1
     }
+    if (depth === 0) {
+      if (token === ';' && index < tokens.length - 1) return null
+      if (/^(?:union|except|intersect)$/i.test(token) || (/^select$/i.test(token) && index !== 0))
+        canCheckProjection = false
+      const source = tokens[index + 1]?.[0] ?? ''
+      if (
+        projectionEnd === null &&
+        /^from$/i.test(token) &&
+        /^[a-z_`]/i.test(source) &&
+        expression.test(source) &&
+        !keywords.test(source)
+      )
+        projectionEnd = tokens[index].index
+    }
     if (/^select$/i.test(token)) selectDepths.add(depth)
     if (/^(?:from|union|except|intersect)$/i.test(token)) selectDepths.delete(depth)
     if (!selectDepths.has(depth) || index === 0) continue
     const previous = tokens[index - 1]
     if (keywords.test(token) || keywords.test(previous[0])) continue
     if (!expression.test(token) || !(expression.test(previous[0]) || previous[0] === ')')) continue
-    const position = previous.index + previous[0].length
+    positions.push(previous.index + previous[0].length)
+  }
+  const projectionNeedsComma = canCheckProjection && projectionEnd !== null && !parses(query.slice(0, projectionEnd))
+  let fix: string | null = null
+  for (const position of positions) {
     const candidate = `${query.slice(0, position)},${query.slice(position)}`
-    if (!parses(candidate)) continue
+    if (
+      !parses(candidate) &&
+      !(
+        projectionNeedsComma &&
+        projectionEnd !== null &&
+        position < projectionEnd &&
+        parses(candidate.slice(0, projectionEnd + 1))
+      )
+    )
+      continue
     if (fix) return null
     fix = candidate
   }

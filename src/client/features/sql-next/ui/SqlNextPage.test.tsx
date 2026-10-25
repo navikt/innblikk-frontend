@@ -39,6 +39,49 @@ vi.mock('../../sql/ui/SqlResultsSection', () => ({
 
 describe('SQL error results', () => {
   it.each(['Vis resultater', 'Valider'])(
+    'keeps comma, clause-order and grouping nudges working together after %s',
+    async (action) => {
+      vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+      const sql = `SELECT ep.string_value\nCOUNT(DISTINCT NULLIF(session.distinct_id, '')) AS unike_besokende FROM \`${getGcpProjectId()}.umami_views.session\` LEFT JOIN \`${getGcpProjectId()}.umami_views.event\` ON session.session_id = event.session_id LEFT JOIN \`${getGcpProjectId()}.umami_views.event_data\` ON event.event_id = event_data.website_event_id LEFT JOIN UNNEST(event_data.event_parameters) AS ep ON TRUE\nGROUP BY ep.data_key\nWHERE ep.data_key = 'aktivitet'`
+      window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'chosen-website' })}`)
+      vi.mocked(executeQueryApi).mockClear()
+      vi.mocked(estimateQueryCost)
+        .mockReset()
+        .mockRejectedValueOnce(
+          new Error(
+            'SELECT list expression references column ep.string_value which is neither grouped nor aggregated at [2:3]',
+          ),
+        )
+      render(
+        <MemoryRouter>
+          <SqlNextPage />
+        </MemoryRouter>,
+      )
+      fireEvent.click(screen.getByRole('button', { name: action }))
+      fireEvent.click(await screen.findByRole('button', { name: 'Legg til komma' }))
+      expect(screen.getByTestId('editor-query').textContent).toBe(
+        sql.replace('ep.string_value\n', 'ep.string_value,\n'),
+      )
+      fireEvent.click(screen.getByRole('button', { name: action }))
+      const move = await screen.findByRole('button', { name: 'Flytt WHERE før GROUP BY' })
+      expect(estimateQueryCost).not.toHaveBeenCalled()
+      fireEvent.click(move)
+      const reordered = screen.getByTestId('editor-query').textContent
+      expect(reordered).toContain("WHERE ep.data_key = 'aktivitet'\nGROUP BY ep.data_key")
+      expect(reordered).toContain('ep.string_value,')
+      expect(estimateQueryCost).not.toHaveBeenCalled()
+      fireEvent.click(screen.getByRole('button', { name: action }))
+      fireEvent.click(await screen.findByRole('button', { name: 'Legg til GROUP BY ep.string_value' }))
+      const grouped = screen.getByTestId('editor-query').textContent
+      expect(grouped).toContain('GROUP BY ep.data_key, ep.string_value')
+      expect(grouped).toContain("WHERE ep.data_key = 'aktivitet'")
+      expect(grouped).toContain("COUNT(DISTINCT NULLIF(session.distinct_id, ''))")
+      expect(estimateQueryCost).toHaveBeenCalledOnce()
+      expect(executeQueryApi).not.toHaveBeenCalled()
+    },
+  )
+
+  it.each(['Vis resultater', 'Valider'])(
     'offers optional GROUP BY simplification after successful %s',
     async (action) => {
       vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
@@ -67,9 +110,20 @@ describe('SQL error results', () => {
     },
   )
 
-  it.each(['Vis resultater', 'Valider'])('suggests a missing SELECT comma after %s', async (action) => {
+  it.each([
+    ['Vis resultater', false],
+    ['Valider', false],
+    ['Vis resultater', true],
+    ['Valider', true],
+  ])('suggests a missing SELECT comma after %s with misplaced WHERE: %s', async (action, misplacedWhere) => {
     vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
-    const sql = `SELECT ep.string_value\nCOUNT(DISTINCT NULLIF(session.distinct_id, '')) AS unike_besokende FROM \`${getGcpProjectId()}.umami_views.event\` LEFT JOIN \`${getGcpProjectId()}.umami_views.session\` ON event.session_id = session.session_id LEFT JOIN \`${getGcpProjectId()}.umami_views.event_data\` ON event.event_id = event_data.website_event_id LEFT JOIN UNNEST(event_data.event_parameters) AS ep ON TRUE WHERE event.event_name = 'navigere' AND ep.data_key = 'innholdstype' GROUP BY ep.string_value ORDER BY 2 DESC`
+    const base = `SELECT ep.string_value\nCOUNT(DISTINCT NULLIF(session.distinct_id, '')) AS unike_besokende FROM \`${getGcpProjectId()}.umami_views.event\` LEFT JOIN \`${getGcpProjectId()}.umami_views.session\` ON event.session_id = session.session_id LEFT JOIN \`${getGcpProjectId()}.umami_views.event_data\` ON event.event_id = event_data.website_event_id LEFT JOIN UNNEST(event_data.event_parameters) AS ep ON TRUE WHERE event.event_name = 'navigere' AND ep.data_key = 'innholdstype' GROUP BY ep.string_value ORDER BY 2 DESC`
+    const sql = misplacedWhere
+      ? base.replace(
+          "WHERE event.event_name = 'navigere' AND ep.data_key = 'innholdstype' GROUP BY ep.string_value",
+          "GROUP BY ep.string_value WHERE event.event_name = 'navigere' AND ep.data_key = 'innholdstype'",
+        )
+      : base
     window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'chosen-website' })}`)
     vi.mocked(executeQueryApi).mockClear()
     vi.mocked(estimateQueryCost).mockReset()

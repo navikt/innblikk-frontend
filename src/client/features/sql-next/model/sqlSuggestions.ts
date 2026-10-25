@@ -40,6 +40,7 @@ const FIELD_DESCRIPTIONS: Record<string, string> = {
   session_id: 'Besøkende-ID (avtrykk)',
   session_parameters: 'Besøksdetaljer',
   event_parameters: 'Hendelsesdetaljer',
+  'ep.string_value': 'Tekst (ofte brukt)',
   'sp.data_key': 'Navn på detalj',
   'sp.string_value': 'Verdi (tekst)',
   'sp.number_value': 'Verdi (tall)',
@@ -50,6 +51,14 @@ const FIELD_DESCRIPTIONS: Record<string, string> = {
   domain: 'Domene',
   reset_at: 'Nullstilt',
   created_by: 'Opprettet av',
+}
+
+const EVENT_DETAIL_SORT_ORDER: Record<string, string> = {
+  'ep.data_key': 'ep.0',
+  'ep.string_value': 'ep.1',
+  'ep.number_value': 'ep.2',
+  'ep.date_value': 'ep.3',
+  'ep.data_type': 'ep.4',
 }
 
 const FILTER_VALUES: Record<string, string[]> = {
@@ -380,6 +389,7 @@ export const getSqlSuggestions = (sqlBeforeCursor: string, projectId: string, sq
     ...additionalFieldInsertion,
     detail: column.label,
     kind: 'field',
+    ...(EVENT_DETAIL_SORT_ORDER[column.name] ? { sortText: EVENT_DETAIL_SORT_ORDER[column.name] } : {}),
     ...(isFilterField ? { command: { id: 'editor.action.triggerSuggest', title: 'Velg operator' } } : {}),
   }))
 
