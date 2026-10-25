@@ -1,8 +1,9 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
-import { estimateQueryCost, executeQueryApi } from '../../sql/api/sqlApi'
+import { BrowserRouter, MemoryRouter, useLocation } from 'react-router-dom'
+import { estimateQueryCost, executeQueryApi, fetchWebsites } from '../../sql/api/sqlApi'
 import { useSqlNextEditor } from './useSqlNextEditor'
 import { INITIAL_SQL_QUERY } from '../model/schemaAndSnippets'
+import { getFromLocalStorage, saveToLocalStorage, SELECTED_WEBSITE_CACHE_KEY } from '../../../shared/lib/localStorage'
 
 vi.mock('../../sql/api/sqlApi', () => ({
   fetchWebsites: vi.fn().mockResolvedValue([]),
@@ -11,6 +12,105 @@ vi.mock('../../sql/api/sqlApi', () => ({
 }))
 
 describe('SQL editor actions', () => {
+  const recentWebsite = {
+    id: 'recent-website',
+    name: 'Recently added',
+    domain: 'a11y-statement-ny.ansatt.nav.no',
+    teamId: 'team',
+    createdAt: '2026-10-25',
+  }
+
+  it('restores the same recent website as traffic analysis without URL parameters', async () => {
+    saveToLocalStorage(SELECTED_WEBSITE_CACHE_KEY, recentWebsite)
+    vi.mocked(fetchWebsites).mockResolvedValueOnce([recentWebsite])
+    window.history.replaceState({}, '', '/sql')
+    const { result } = renderHook(() => useSqlNextEditor(), {
+      wrapper: ({ children }) => <BrowserRouter>{children}</BrowserRouter>,
+    })
+    expect(result.current.websiteIds).toEqual([recentWebsite.id])
+    expect(result.current.selectedWebsite).toEqual(recentWebsite)
+    await waitFor(() => expect(result.current.availableWebsites).toEqual([recentWebsite]))
+    expect(estimateQueryCost).not.toHaveBeenCalled()
+    expect(executeQueryApi).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['websiteId=explicit-website', ['explicit-website']],
+    ['websiteIds=first,second', ['first', 'second']],
+    [
+      new URLSearchParams({
+        sql: "SELECT browser FROM `test-project.umami_views.session` WHERE website_id = '11111111-1111-4111-8111-111111111111'",
+      }).toString(),
+      ['11111111-1111-4111-8111-111111111111'],
+    ],
+  ])('prefers explicit website selection over the recent website for %s', async (search, expected) => {
+    saveToLocalStorage(SELECTED_WEBSITE_CACHE_KEY, recentWebsite)
+    window.history.replaceState({}, '', `/sql?${search}`)
+    const { result } = renderHook(() => useSqlNextEditor(), {
+      wrapper: ({ children }) => <BrowserRouter>{children}</BrowserRouter>,
+    })
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(result.current.websiteIds).toEqual(expected)
+  })
+
+  it('restores a website from a domain link and allows clearing it', async () => {
+    saveToLocalStorage(SELECTED_WEBSITE_CACHE_KEY, { ...recentWebsite, id: 'old-website', domain: 'other.nav.no' })
+    vi.mocked(fetchWebsites).mockResolvedValueOnce([recentWebsite])
+    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ domain: recentWebsite.domain })}`)
+    const { result } = renderHook(() => useSqlNextEditor(), {
+      wrapper: ({ children }) => <BrowserRouter>{children}</BrowserRouter>,
+    })
+    await waitFor(() => expect(result.current.websiteIds).toEqual([recentWebsite.id]))
+    expect(result.current.selectedWebsite).toEqual(recentWebsite)
+    act(() => result.current.handleWebsiteIdsChange([]))
+    expect(result.current.websiteIds).toEqual([])
+    expect(new URLSearchParams(window.location.search).has('domain')).toBe(false)
+    expect(estimateQueryCost).not.toHaveBeenCalled()
+    expect(executeQueryApi).not.toHaveBeenCalled()
+  })
+
+  it('saves website selection for other pages and removes it when cleared', async () => {
+    vi.mocked(fetchWebsites).mockResolvedValueOnce([recentWebsite])
+    window.history.replaceState({}, '', '/sql')
+    const { result } = renderHook(() => useSqlNextEditor(), {
+      wrapper: ({ children }) => <BrowserRouter>{children}</BrowserRouter>,
+    })
+    await waitFor(() => expect(result.current.availableWebsites).toEqual([recentWebsite]))
+    act(() => result.current.handleWebsiteIdsChange([recentWebsite.id]))
+    expect(getFromLocalStorage(SELECTED_WEBSITE_CACHE_KEY)).toEqual(recentWebsite)
+    act(() => result.current.handleWebsiteIdsChange([]))
+    expect(getFromLocalStorage(SELECTED_WEBSITE_CACHE_KEY)).toBeNull()
+    expect(result.current.websiteIds).toEqual([])
+  })
+
+  it.each([['new-website'], ['new-website', 'second-website'], []])(
+    'keeps the router and restored website selection in sync for %j',
+    (...ids) => {
+      const sql = 'SELECT browser FROM `test-project.umami_views.session`'
+      const params = new URLSearchParams({ sql, websiteId: 'old-website', dateRange: 'last_28_days' })
+      window.history.replaceState({}, '', `/sql?${params}`)
+      const wrapper = ({ children }: { children: React.ReactNode }) => <BrowserRouter>{children}</BrowserRouter>
+      const { result, unmount } = renderHook(() => ({ editor: useSqlNextEditor(), location: useLocation() }), {
+        wrapper,
+      })
+      act(() => result.current.editor.handleWebsiteIdsChange(ids))
+      const routerParams = new URLSearchParams(result.current.location.search)
+      expect(result.current.location.search).toBe(window.location.search)
+      expect(routerParams.get('websiteId')).toBe(ids.length === 1 ? ids[0] : null)
+      expect(routerParams.get('websiteIds')).toBe(ids.length > 1 ? ids.join(',') : null)
+      expect(routerParams.get('sql')).toBe(sql)
+      expect(routerParams.get('dateRange')).toBe('last_28_days')
+      unmount()
+      const restored = renderHook(() => useSqlNextEditor(), { wrapper })
+      expect(restored.result.current.websiteIds).toEqual(ids)
+      expect(restored.result.current.query).toBe(sql)
+      expect(estimateQueryCost).not.toHaveBeenCalled()
+      expect(executeQueryApi).not.toHaveBeenCalled()
+    },
+  )
+
   it.each([
     ['event_name', '21.5', false],
     ['event_name', '49.99', false],
@@ -462,7 +562,7 @@ describe('SQL editor actions', () => {
     const sql = 'SELECT browser, COUNT(*) AS antall FROM `test-project.umami_views.session` GROUP BY browser'
     window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql })}`)
     const { result } = renderHook(() => useSqlNextEditor(), {
-      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+      wrapper: ({ children }) => <BrowserRouter>{children}</BrowserRouter>,
     })
     await act(async () => {
       result.current.handleWebsiteIdsChange(['first', 'second'])
@@ -567,6 +667,7 @@ describe('SQL editor actions', () => {
   })
 
   beforeEach(() => {
+    localStorage.removeItem(SELECTED_WEBSITE_CACHE_KEY)
     window.sessionStorage.removeItem('innblikk-sql-editor-draft')
     vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
     vi.mocked(estimateQueryCost).mockReset().mockResolvedValue({ totalBytesProcessedGB: '0' })
@@ -574,6 +675,7 @@ describe('SQL editor actions', () => {
   })
 
   afterEach(() => {
+    localStorage.removeItem(SELECTED_WEBSITE_CACHE_KEY)
     window.sessionStorage.removeItem('innblikk-sql-editor-draft')
     vi.useRealTimers()
     window.history.replaceState({}, '', '/')

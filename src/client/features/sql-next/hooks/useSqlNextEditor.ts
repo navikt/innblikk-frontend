@@ -16,6 +16,9 @@ import { fetchWebsites, estimateQueryCost, executeQueryApi } from '../../sql/api
 import type { Website, QueryResult, QueryStats } from '../model/types'
 import { INITIAL_SQL_QUERY } from '../model/schemaAndSnippets'
 import { applyAutomaticFilters, type AutomaticFilterUsage } from '../model/automaticFilters'
+import { getFromLocalStorage, saveToLocalStorage, SELECTED_WEBSITE_CACHE_KEY } from '../../../shared/lib/localStorage'
+import { DEFAULT_WEBSITE_ID, normalizeDomain } from '../../../shared/lib/domain'
+import { getGcpProjectId } from '../../../shared/lib/runtimeConfig'
 
 const sqlPrefillCache = new Map<string, string>()
 const SQL_DRAFT_KEY = 'innblikk-sql-editor-draft'
@@ -106,9 +109,10 @@ const getInitialQuery = (): string => {
 }
 
 export const useSqlNextEditor = () => {
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const urlPathFromUrl = searchParams.get('urlPath')
+  const domainFromUrl = searchParams.get('domain')
   const pathOperatorFromUrl = searchParams.get('pathOperator')
   const dateRangeFromUrl = searchParams.get('dateRange')
   const customStartFromUrl = searchParams.get('customStartDate')
@@ -116,7 +120,18 @@ export const useSqlNextEditor = () => {
 
   const [customVariableValues, setCustomVariableValues] = useState<Record<string, string>>({})
   const [hasAttemptedFetch, setHasAttemptedFetch] = useState<boolean>(false)
-  const [availableWebsites, setAvailableWebsites] = useState<Website[]>([])
+  const [restoredWebsite] = useState<Website | null>(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (
+      params.has('websiteId') ||
+      params.has('websiteIds') ||
+      params.has('domain') ||
+      extractWebsiteId(getInitialQuery())
+    )
+      return null
+    return getFromLocalStorage<Website>(SELECTED_WEBSITE_CACHE_KEY)
+  })
+  const [availableWebsites, setAvailableWebsites] = useState<Website[]>(restoredWebsite ? [restoredWebsite] : [])
 
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>(() => {
     const range = getDateRangeFromPeriod(
@@ -130,9 +145,9 @@ export const useSqlNextEditor = () => {
   const [urlPath, setUrlPath] = useState(() => (urlPathFromUrl ? urlPathFromUrl.split(',')[0] : '/'))
   const [websiteIdState, setWebsiteIdState] = useState<string>(() => {
     if (typeof window === 'undefined') return ''
-    return new URLSearchParams(window.location.search).get('websiteId') || ''
+    return new URLSearchParams(window.location.search).get('websiteId') || restoredWebsite?.id || ''
   })
-  const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
+  const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(restoredWebsite)
   const [websiteIdsState, setWebsiteIdsState] = useState<string[]>(() => {
     if (typeof window === 'undefined') return []
     const ids = new URLSearchParams(window.location.search).get('websiteIds')
@@ -275,8 +290,15 @@ export const useSqlNextEditor = () => {
         return availableWebsites.find((w) => w.id === detectedId) ?? null
       }
     }
+    if (domainFromUrl && !websiteIdState && websiteIdsState.length === 0) {
+      const matches = availableWebsites.filter(
+        (website) => normalizeDomain(website.domain) === normalizeDomain(domainFromUrl),
+      )
+      const preferredId = getGcpProjectId().includes('-dev-') ? DEFAULT_WEBSITE_ID.dev : DEFAULT_WEBSITE_ID.prod
+      return matches.find((website) => website.id === preferredId) ?? matches[0] ?? null
+    }
     return null
-  }, [selectedWebsite, hasHardcodedWebsiteId, availableWebsites, query])
+  }, [selectedWebsite, hasHardcodedWebsiteId, availableWebsites, query, domainFromUrl, websiteIdState, websiteIdsState])
 
   const effectiveWebsiteId =
     websiteIdsState[0] || websiteIdState || effectiveSelectedWebsite?.id || extractWebsiteId(query) || ''
@@ -324,13 +346,12 @@ export const useSqlNextEditor = () => {
 
   // Load websites
   useEffect(() => {
-    if (availableWebsites.length > 0) return
     fetchWebsites()
       .then(setAvailableWebsites)
       .catch((err: unknown) => {
         console.error('Error fetching websites:', err)
       })
-  }, [availableWebsites.length])
+  }, [])
 
   const formatSQL = () => {
     try {
@@ -560,12 +581,18 @@ export const useSqlNextEditor = () => {
     const uniqueIds = [...new Set(ids)]
     setWebsiteIdsState(uniqueIds)
     setWebsiteIdState(uniqueIds[0] ?? '')
-    setSelectedWebsite(availableWebsites.find((website) => website.id === uniqueIds[0]) ?? null)
+    const website = availableWebsites.find((website) => website.id === uniqueIds[0]) ?? null
+    setSelectedWebsite(website)
+    if (website) saveToLocalStorage(SELECTED_WEBSITE_CACHE_KEY, website)
+    else if (uniqueIds.length === 0) localStorage.removeItem(SELECTED_WEBSITE_CACHE_KEY)
     handleQueryChange(query)
-    updateUrlParams({
-      websiteId: uniqueIds.length === 1 ? uniqueIds[0] : null,
-      websiteIds: uniqueIds.length > 1 ? uniqueIds.join(',') : null,
-    })
+    const params = new URLSearchParams(window.location.search)
+    params.delete('websiteId')
+    params.delete('websiteIds')
+    params.delete('domain')
+    if (uniqueIds.length === 1) params.set('websiteId', uniqueIds[0])
+    else if (uniqueIds.length > 1) params.set('websiteIds', uniqueIds.join(','))
+    setSearchParams(params, { replace: true, preventScrollReset: true })
   }
 
   const handleUpgradeTables = () => {
