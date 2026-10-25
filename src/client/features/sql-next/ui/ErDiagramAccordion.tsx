@@ -1,9 +1,22 @@
-import { useState } from 'react'
-import { ReadMore, Button, Tooltip } from '@navikt/ds-react'
+import { Fragment, useEffect, useState, type ComponentProps, type ReactNode } from 'react'
+import { ReadMore, Button, Heading, Tooltip as AkselTooltip } from '@navikt/ds-react'
 import { CheckmarkIcon, FilesIcon, PlusIcon, LinkIcon, KeyHorizontalIcon } from '@navikt/aksel-icons'
 import { getBigQueryTables, getFullTableName } from '../model/schemaAndSnippets'
 import type { BigQueryTableDoc } from '../model/types'
 import styles from './ErDiagramAccordion.module.css'
+
+function Tooltip(props: ComponentProps<typeof AkselTooltip>) {
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    const close = () => setOpen(false)
+    document.addEventListener('scroll', close, true)
+    return () => document.removeEventListener('scroll', close, true)
+  }, [open])
+
+  return <AkselTooltip {...props} open={open} onOpenChange={setOpen} />
+}
 
 interface ErDiagramAccordionProps {
   projectId: string
@@ -47,6 +60,107 @@ const KEY_ROLES: Record<BigQueryTableDoc['id'], Record<string, 'PK' | 'FK'>> = {
   website: { website_id: 'PK' },
   session: { session_id: 'PK', website_id: 'FK' },
   event_data: { website_event_id: 'FK', website_id: 'FK' },
+}
+
+export function JoinRelationDiagram({
+  projectId,
+  tableId,
+  targetSelector,
+}: {
+  projectId: string
+  tableId: Exclude<BigQueryTableDoc['id'], 'event'>
+  targetSelector?: ReactNode
+}) {
+  const tables = getBigQueryTables(projectId)
+  const source = tables.find((table) => table.id === 'event')!
+  const target = tables.find((table) => table.id === tableId)!
+  const relation = RELATIONS.find((candidate) => candidate.id === tableId)!
+
+  return (
+    <figure className={styles.joinDiagram} aria-label="Valgt JOIN">
+      <figcaption className="sr-only">
+        {source.title} kobles til {target.title} med {relation.source} og {relation.target}.
+      </figcaption>
+      {[source, target].map((table, index) => {
+        const field = index === 0 ? relation.source : relation.target
+        const role = KEY_ROLES[table.id][field]
+        return (
+          <Fragment key={table.id}>
+            {index === 1 && (
+              <div className={styles.joinConnection} aria-hidden="true">
+                <svg viewBox="0 0 64 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M 0 12 H 64" />
+                  <path
+                    d={
+                      tableId === 'event_data'
+                        ? 'M 8 5 V 19 M 56 12 L 64 4 M 56 12 L 64 20'
+                        : 'M 0 4 L 8 12 L 0 20 M 56 5 V 19'
+                    }
+                  />
+                </svg>
+              </div>
+            )}
+            <div className={styles.joinColumn}>
+              <Heading level="2" size="xsmall" className={styles.joinLabel}>
+                {index === 0 ? 'Hovedtabell' : 'JOIN med'}
+              </Heading>
+              <section className={`${styles.table} ${styles.joinTable}`} aria-label={table.shortName}>
+                <div className={`${styles.tableHeader} ${styles.joinHeader}`}>
+                  {index === 1 && targetSelector ? (
+                    targetSelector
+                  ) : (
+                    <span className={styles.tableName}>{table.title}</span>
+                  )}
+                  <span className={styles.dataset}>{table.shortName}</span>
+                </div>
+                <div className={`${styles.keyField} ${styles.joinField}`}>
+                  <Tooltip content={role === 'PK' ? 'Primærnøkkel' : 'Fremmednøkkel'}>
+                    <KeyHorizontalIcon
+                      className={`${styles.keyIcon} ${role === 'PK' ? styles.primaryKey : styles.foreignKey}`}
+                      aria-label={role === 'PK' ? 'Primærnøkkel' : 'Fremmednøkkel'}
+                    />
+                  </Tooltip>
+                  <code>{field}</code>
+                  <code>({role})</code>
+                </div>
+                <ReadMore
+                  header={`${table.columns.length - 1} andre felt`}
+                  defaultOpen
+                  size="small"
+                  className={styles.joinOtherFields}
+                >
+                  <ul className={`${styles.fields} ${styles.joinExpandedFields}`}>
+                    {table.columns
+                      .filter((column) => column.name !== field)
+                      .map((column) => {
+                        const keyRole = KEY_ROLES[table.id][column.name]
+                        return (
+                          <li key={column.name}>
+                            <Tooltip content={column.label}>
+                              <span className={styles.joinField}>
+                                <span className={styles.fieldMarker} aria-hidden="true">
+                                  {keyRole && (
+                                    <KeyHorizontalIcon
+                                      className={`${styles.keyIcon} ${keyRole === 'PK' ? styles.primaryKey : styles.foreignKey}`}
+                                    />
+                                  )}
+                                </span>
+                                <code>{column.name}</code>
+                                {keyRole && <code>({keyRole})</code>}
+                              </span>
+                            </Tooltip>
+                          </li>
+                        )
+                      })}
+                  </ul>
+                </ReadMore>
+              </section>
+            </div>
+          </Fragment>
+        )
+      })}
+    </figure>
+  )
 }
 
 export default function ErDiagramAccordion({ projectId, onOpenJoin, onInsertSnippet }: ErDiagramAccordionProps) {

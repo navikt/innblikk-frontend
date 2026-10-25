@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import JoinQueryDialog from './JoinQueryDialog'
 
 const renderDialog = (query = 'SELECT') => {
@@ -9,19 +10,114 @@ const renderDialog = (query = 'SELECT') => {
 }
 
 describe('JOIN dialog', () => {
+  it.each(['field list', 'modal body'])('dismisses field tooltips when scrolling the %s', async (container) => {
+    const user = userEvent.setup()
+    renderDialog()
+    const diagram = within(screen.getByRole('figure', { name: 'Valgt JOIN' }))
+    const table = within(diagram.getByRole('region', { name: 'umami_views.session' }))
+    expect(table.getByRole('button', { name: /andre felt/ })).toHaveAttribute('aria-expanded', 'true')
+    const field = table.getByText('browser')
+    await user.hover(field.parentElement!)
+    expect(await screen.findByRole('tooltip')).toBeInTheDocument()
+    fireEvent.scroll(
+      container === 'field list'
+        ? field.closest('ul')!
+        : screen.getByRole('dialog').querySelector('.aksel-modal__body')!,
+    )
+    await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument())
+    await user.unhover(field.parentElement!)
+    await user.hover(field.parentElement!)
+    expect(await screen.findByRole('tooltip')).toBeInTheDocument()
+  })
+
+  it('starts with other fields open and supports collapsing them with visible key roles', async () => {
+    const user = userEvent.setup()
+    const { onApply, onClose } = renderDialog()
+    expect(screen.queryByRole('heading', { name: 'Forhåndsvisning' })).not.toBeInTheDocument()
+    const diagram = within(screen.getByRole('figure', { name: 'Valgt JOIN' }))
+    const source = within(diagram.getByRole('region', { name: 'umami_views.event' }))
+    const target = within(diagram.getByRole('region', { name: 'umami_views.session' }))
+    expect(diagram.getByRole('heading', { name: 'Hovedtabell' }).parentElement).toContainElement(
+      source.getByText('session_id'),
+    )
+    expect(diagram.getByRole('heading', { name: 'JOIN med' }).parentElement).toContainElement(
+      target.getByRole('combobox', { name: 'JOIN med' }),
+    )
+    expect(target.getByRole('combobox', { name: 'JOIN med' })).toHaveValue('session')
+    expect(source.getByText('session_id').parentElement).toHaveTextContent('(FK)')
+    expect(target.getByText('session_id').parentElement).toHaveTextContent('(PK)')
+    const sourceToggle = source.getByRole('button', { name: /andre felt/ })
+    const targetToggle = target.getByRole('button', { name: /andre felt/ })
+    expect(sourceToggle).toHaveAttribute('aria-expanded', 'true')
+    expect(targetToggle).toHaveAttribute('aria-expanded', 'true')
+    expect(source.getByText('event_id').parentElement).toHaveTextContent('(PK)')
+    expect(source.getByText('website_id').parentElement).toHaveTextContent('(FK)')
+    targetToggle.focus()
+    await user.keyboard('{Enter}')
+    expect(targetToggle).toHaveAttribute('aria-expanded', 'false')
+    await user.keyboard('{Enter}')
+    expect(targetToggle).toHaveAttribute('aria-expanded', 'true')
+    expect(target.getByText('browser')).toBeInTheDocument()
+    await user.click(sourceToggle)
+    expect(sourceToggle).toHaveAttribute('aria-expanded', 'false')
+    expect(onApply).not.toHaveBeenCalled()
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['session', 'umami_views.session', 'session_id', 'session_id'],
+    ['event_data', 'umami_views.event_data', 'event_id', 'website_event_id'],
+    ['website', 'umami.public_website', 'website_id', 'website_id'],
+  ])('diagrams only the selected %s relation and its keys', (tableId, tableName, sourceField, targetField) => {
+    renderDialog()
+    fireEvent.change(screen.getByRole('combobox', { name: 'JOIN med' }), { target: { value: tableId } })
+    const diagram = within(screen.getByRole('figure', { name: 'Valgt JOIN' }))
+    expect(diagram.getAllByRole('region')).toHaveLength(2)
+    expect(
+      within(diagram.getByRole('region', { name: 'umami_views.event' })).getByText(sourceField),
+    ).toBeInTheDocument()
+    expect(within(diagram.getByRole('region', { name: tableName })).getByText(targetField)).toBeInTheDocument()
+    expect(diagram.getAllByText(/andre felt/)).toHaveLength(2)
+    expect(screen.queryByText(/Du kan hente|Hendelser uten/)).not.toBeInTheDocument()
+  })
+
+  it('keeps SQL collapsed initially and copies the currently selected JOIN when opened', async () => {
+    const user = userEvent.setup()
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined)
+    const { onApply, onClose } = renderDialog()
+    const toggle = screen.getByRole('button', { name: 'Vis SQL' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('event.session_id = session.session_id')).not.toBeInTheDocument()
+    await user.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    await user.click(screen.getByRole('button', { name: 'Kopier SQL' }))
+    expect(writeText).toHaveBeenLastCalledWith(screen.getByLabelText('JOIN-kode').textContent)
+    expect(writeText.mock.calls[0][0]).toContain('umami_views.session')
+    fireEvent.change(screen.getByRole('combobox', { name: 'JOIN med' }), { target: { value: 'event_data' } })
+    await user.click(screen.getByRole('button', { name: 'SQL kopiert' }))
+    expect(writeText).toHaveBeenLastCalledWith(screen.getByLabelText('JOIN-kode').textContent)
+    expect(writeText.mock.calls[1][0]).toContain('LEFT JOIN UNNEST')
+    expect(onApply).not.toHaveBeenCalled()
+    expect(onClose).not.toHaveBeenCalled()
+    await user.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    writeText.mockRestore()
+  })
+
   it('includes a collapsible data model that selects JOINs without editing SQL', () => {
     const { onApply, onClose } = renderDialog()
     const toggle = screen.getByRole('button', { name: 'Datamodell – tabeller og felter' })
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     fireEvent.click(toggle)
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    const model = within(screen.getByRole('region', { name: 'ER-diagram med fire tabeller' }))
     for (const table of [
       'umami_views.event',
       'umami_views.session',
       'umami_views.event_data',
       'umami.public_website',
     ]) {
-      expect(screen.getByRole('region', { name: table })).toBeInTheDocument()
+      expect(model.getByRole('region', { name: table })).toBeInTheDocument()
     }
     expect(screen.getByText('PK (primærnøkkel):')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^Sett inn umami/ })).not.toBeInTheDocument()
@@ -30,7 +126,7 @@ describe('JOIN dialog', () => {
     expect(screen.getByRole('combobox', { name: 'JOIN med' })).toHaveValue('event_data')
     expect(screen.getByLabelText('JOIN-kode')).toHaveTextContent('LEFT JOIN UNNEST')
     expect(
-      within(screen.getByRole('region', { name: 'umami_views.event_data' })).getByText('ep.string_value'),
+      within(model.getByRole('region', { name: 'umami_views.event_data' })).getByText('ep.string_value'),
     ).toBeInTheDocument()
     expect(onApply).not.toHaveBeenCalled()
     expect(onClose).not.toHaveBeenCalled()
@@ -59,11 +155,12 @@ describe('JOIN dialog', () => {
   it('starts a new query with a preview and selected join', () => {
     const { onApply, onClose } = renderDialog()
     expect(screen.getByRole('dialog', { name: 'JOIN tabeller' })).toBeInTheDocument()
-    expect(screen.getByRole('textbox', { name: 'Hovedtabell' })).toHaveValue('Hendelser (event)')
-    expect(screen.getByRole('textbox', { name: 'Hovedtabell' })).toHaveAttribute('readonly')
+    expect(screen.queryByRole('textbox', { name: 'Hovedtabell' })).not.toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: 'JOIN med' })).toHaveValue('session')
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
-    expect(screen.getByText('Hendelser uten brukerdetaljer beholdes i koblingen.')).toBeInTheDocument()
+    expect(
+      within(screen.getByRole('figure', { name: 'Valgt JOIN' })).getByRole('combobox', { name: 'JOIN med' }),
+    ).toHaveValue('session')
     expect(screen.queryByRole('option', { name: 'Hendelser (event)' })).not.toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Brukerdetaljer (session)' })).toBeInTheDocument()
     expect(screen.getAllByRole('option')).toHaveLength(3)
@@ -78,7 +175,7 @@ describe('JOIN dialog', () => {
     const { onApply } = renderDialog()
     fireEvent.change(screen.getByRole('combobox', { name: 'JOIN med' }), { target: { value: 'event_data' } })
     expect(screen.getByLabelText('JOIN-kode')).toHaveTextContent('UNNEST')
-    expect(screen.getByText('Hendelser uten hendelsesdetaljer beholdes i koblingen.')).toBeInTheDocument()
+    expect(within(screen.getByRole('figure', { name: 'Valgt JOIN' })).getByText('website_event_id')).toBeInTheDocument()
     expect(screen.getByText(/En hendelse kan vises flere ganger/)).toBeInTheDocument()
     expect(screen.getByLabelText('JOIN-kode')).toHaveTextContent('LEFT JOIN UNNEST')
     fireEvent.click(screen.getByRole('button', { name: 'Sett inn JOIN' }))

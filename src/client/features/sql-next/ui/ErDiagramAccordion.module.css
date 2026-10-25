@@ -2,6 +2,100 @@
   min-width: 0;
 }
 
+.joinDiagram {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 64px minmax(0, 1fr);
+  align-items: start;
+  margin: 0;
+}
+
+.table.joinTable {
+  position: static;
+  width: auto;
+  min-width: 0;
+  box-shadow: none;
+}
+
+.joinColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.joinLabel {
+  margin: 0;
+  line-height: 24px;
+}
+
+.tableHeader.joinHeader {
+  cursor: default;
+}
+
+.joinHeader span {
+  overflow-wrap: anywhere;
+}
+
+.joinField {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
+.joinField code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.joinField code:last-child:not(:first-of-type) {
+  flex-shrink: 0;
+}
+
+.joinExpandedFields {
+  max-height: 240px;
+  overflow: auto;
+}
+
+.joinOtherFields {
+  padding: 6px 12px;
+  border-top: 1px solid var(--ax-border-neutral-subtle);
+  color: var(--ax-text-subtle);
+  font-size: 12px;
+}
+
+.joinConnection {
+  display: flex;
+  align-self: start;
+  align-items: center;
+  justify-content: center;
+  padding-top: 120px;
+  color: var(--ax-border-accent);
+}
+
+.joinConnection svg {
+  width: 64px;
+  height: 24px;
+}
+
+@media (max-width: 480px) {
+  .joinDiagram {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .joinConnection {
+    height: 48px;
+    padding-top: 0;
+  }
+
+  .joinConnection svg {
+    width: 48px;
+    transform: rotate(90deg);
+  }
+}
+
 .scrollArea {
   overflow: auto;
   max-width: 100%;
