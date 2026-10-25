@@ -158,7 +158,7 @@ describe('SQL builder suggestions', () => {
       "SELECT COUNT(DISTINCT NULLIF(distinct_id, '')) AS unike_besokende FROM ",
       projectId,
     )
-    expect(suggestions.map((suggestion) => suggestion.label)).toEqual(['umami_views.session'])
+    expect(suggestions.map((suggestion) => suggestion.label)).toEqual(['Brukerdetaljer'])
   })
 
   it.each(['GROUP BY ', 'GROUP BY bro', 'GROUP BY browser\nGROUP BY '])(
@@ -482,8 +482,9 @@ describe('SQL builder suggestions', () => {
   it('offers fully quoted table names after FROM and JOIN', () => {
     for (const keyword of ['FROM', 'LEFT JOIN']) {
       expect(getSqlSuggestions(`SELECT *\n${keyword}\n  `, projectId)).toContainEqual({
-        label: 'umami_views.session',
-        labelDescription: 'Brukerdetaljer',
+        label: 'Brukerdetaljer',
+        labelDescription: 'Tabell',
+        filterText: `\`${projectId}.umami_views.session\` Brukerdetaljer`,
         insertText: `\`${projectId}.umami_views.session\``,
         detail: 'Brukerdetaljer',
         kind: 'table',
@@ -494,10 +495,10 @@ describe('SQL builder suggestions', () => {
   it('provides an always-visible description for every table suggestion', () => {
     const suggestions = getSqlSuggestions('SELECT *\nFROM ', projectId)
     expect(suggestions.map((suggestion) => [suggestion.label, suggestion.labelDescription])).toEqual([
-      ['umami_views.event', 'Hendelser'],
-      ['umami_views.session', 'Brukerdetaljer'],
-      ['umami_views.event_data', 'Detaljer på hendelser'],
-      ['umami.public_website', 'Nettsider'],
+      ['Hendelser', 'Tabell'],
+      ['Brukerdetaljer', 'Tabell'],
+      ['Detaljer på hendelser', 'Tabell'],
+      ['Nettsider', 'Tabell'],
     ])
   })
 
@@ -508,16 +509,16 @@ describe('SQL builder suggestions', () => {
   })
 
   it.each([
-    ['browser', 'umami_views.session'],
-    ['device', 'umami_views.session'],
-    ['url_path', 'umami_views.event'],
-    ['visit_id', 'umami_views.event'],
-    ['COUNT(DISTINCT visit_id) AS okter', 'umami_views.event'],
-    ['domain', 'umami.public_website'],
-    ['ep.data_key', 'umami_views.event_data'],
-    ['`browser`', 'umami_views.session'],
-    ['browser AS domain', 'umami_views.session'],
-    ['BROWSER, DEVICE', 'umami_views.session'],
+    ['browser', 'Brukerdetaljer'],
+    ['device', 'Brukerdetaljer'],
+    ['url_path', 'Hendelser'],
+    ['visit_id', 'Hendelser'],
+    ['COUNT(DISTINCT visit_id) AS okter', 'Hendelser'],
+    ['domain', 'Nettsider'],
+    ['ep.data_key', 'Detaljer på hendelser'],
+    ['`browser`', 'Brukerdetaljer'],
+    ['browser AS domain', 'Brukerdetaljer'],
+    ['BROWSER, DEVICE', 'Brukerdetaljer'],
   ])('shows only the table containing %s', (fields, expectedTable) => {
     const suggestions = getSqlSuggestions(`SELECT ${fields}\nFROM `, projectId)
     expect(suggestions).toHaveLength(1)
@@ -532,7 +533,7 @@ describe('SQL builder suggestions', () => {
 
   it('shows only compatible tables for a shared field without choosing one', () => {
     const suggestions = getSqlSuggestions('SELECT session_id FROM ', projectId)
-    expect(suggestions.map((suggestion) => suggestion.label)).toEqual(['umami_views.event', 'umami_views.session'])
+    expect(suggestions.map((suggestion) => suggestion.label)).toEqual(['Hendelser', 'Brukerdetaljer'])
     expect(suggestions.some((suggestion) => suggestion.preselect)).toBe(false)
   })
 
@@ -549,7 +550,7 @@ describe('SQL builder suggestions', () => {
   it('does not treat a field mentioned in a comment as selected', () => {
     const suggestions = getSqlSuggestions('SELECT browser /* url_path */ FROM ', projectId)
     expect(suggestions).toHaveLength(1)
-    expect(suggestions[0].label).toBe('umami_views.session')
+    expect(suggestions[0].label).toBe('Brukerdetaljer')
     expect(suggestions[0].detail).toBe('Brukerdetaljer')
   })
 

@@ -168,8 +168,9 @@ export const getSqlSuggestions = (sqlBeforeCursor: string, projectId: string, sq
 
     return availableTables.map<SqlSuggestion>((table) => {
       return {
-        label: table.shortName,
-        labelDescription: table.title,
+        label: table.title,
+        labelDescription: 'Tabell',
+        filterText: `${getFullTableName(projectId, table.datasetTable)} ${table.title}`,
         insertText: getFullTableName(projectId, table.datasetTable),
         detail: table.title,
         kind: 'table',
