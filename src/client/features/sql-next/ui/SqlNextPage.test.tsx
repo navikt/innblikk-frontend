@@ -38,6 +38,25 @@ vi.mock('../../sql/ui/SqlResultsSection', () => ({
 }))
 
 describe('SQL error results', () => {
+  it.each(['Vis resultater', 'Valider'])('suggests a missing SELECT comma after %s', async (action) => {
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+    const sql = `SELECT ep.string_value\nCOUNT(DISTINCT NULLIF(session.distinct_id, '')) AS unike_besokende FROM \`${getGcpProjectId()}.umami_views.event\` LEFT JOIN \`${getGcpProjectId()}.umami_views.session\` ON event.session_id = session.session_id LEFT JOIN \`${getGcpProjectId()}.umami_views.event_data\` ON event.event_id = event_data.website_event_id LEFT JOIN UNNEST(event_data.event_parameters) AS ep ON TRUE WHERE event.event_name = 'navigere' AND ep.data_key = 'innholdstype' GROUP BY ep.string_value ORDER BY 2 DESC`
+    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'chosen-website' })}`)
+    vi.mocked(executeQueryApi).mockClear()
+    vi.mocked(estimateQueryCost).mockReset()
+    render(
+      <MemoryRouter>
+        <SqlNextPage />
+      </MemoryRouter>,
+    )
+    expect(screen.queryByRole('button', { name: 'Legg til komma' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: action }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Legg til komma' }))
+    expect(screen.getByTestId('editor-query').textContent).toBe(sql.replace('ep.string_value\n', 'ep.string_value,\n'))
+    expect(executeQueryApi).not.toHaveBeenCalled()
+    expect(estimateQueryCost).not.toHaveBeenCalled()
+  })
+
   it.each(['Vis resultater', 'Valider'])('offers missing quotes for event detail values after %s', async (action) => {
     vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
     const sql = `SELECT ep.data_key, COUNT(DISTINCT NULLIF(distinct_id, '')) AS unike_besokende FROM \`${getGcpProjectId()}.umami_views.event\` LEFT JOIN \`${getGcpProjectId()}.umami_views.session\` ON event.session_id = session.session_id LEFT JOIN \`${getGcpProjectId()}.umami_views.event_data\` ON event.event_id = event_data.website_event_id LEFT JOIN UNNEST(event_data.event_parameters) AS ep ON TRUE WHERE event.event_name = 'navigere' AND ep.data_key = innholdstype GROUP BY event.event_name, ep.data_key ORDER BY 2 DESC`

@@ -13,6 +13,7 @@ import ErDiagramAccordion from './ErDiagramAccordion.tsx'
 import SqlBuilderPanel from './SqlBuilderPanel'
 import JoinQueryDialog, { type JoinTableId } from './JoinQueryDialog'
 import { getSqlQuoteFix } from '../model/sqlQuoteFix'
+import { getSqlCommaFix } from '../model/sqlCommaFix'
 import { getSqlJoinSuggestion } from '../model/sqlJoins'
 
 export default function SqlNextPage() {
@@ -83,6 +84,7 @@ export default function SqlNextPage() {
   } = useSqlNextEditor()
 
   const queryError = error ?? dryRunError
+  const commaFix = queryError ? getSqlCommaFix(query) : null
   const quoteFix = queryError ? getSqlQuoteFix(query) : null
   const joinSuggestion = queryError ? getSqlJoinSuggestion(query, queryError, projectId) : null
 
@@ -244,6 +246,7 @@ export default function SqlNextPage() {
                   onAddGroupBy={handleAddGroupBy}
                   quoteFixValues={quoteFix?.values}
                   onAddQuotes={quoteFix ? () => handleQueryChange(quoteFix.sql) : undefined}
+                  onAddComma={commaFix ? () => handleQueryChange(commaFix) : undefined}
                   joinSuggestion={joinSuggestion}
                   onAddJoin={joinSuggestion ? () => handleQueryChange(joinSuggestion.sql) : undefined}
                 />

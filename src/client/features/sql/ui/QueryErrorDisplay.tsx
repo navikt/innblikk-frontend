@@ -11,6 +11,7 @@ interface QueryErrorDisplayProps {
   onAddGroupBy?: () => void
   quoteFixValues?: string[]
   onAddQuotes?: () => void
+  onAddComma?: () => void
   joinSuggestion?: {
     field: string
     sourceTitle: string
@@ -29,6 +30,7 @@ export default function QueryErrorDisplay({
   onAddGroupBy,
   quoteFixValues,
   onAddQuotes,
+  onAddComma,
   joinSuggestion,
   onAddJoin,
 }: QueryErrorDisplayProps) {
@@ -37,7 +39,17 @@ export default function QueryErrorDisplay({
       <Heading level="3" size="small" spacing>
         Feil i spørringen
       </Heading>
-      {groupByField && onAddGroupBy ? (
+      {onAddComma ? (
+        <div className="flex flex-col items-start gap-3">
+          <BodyLong>Det mangler et komma mellom feltene etter SELECT.</BodyLong>
+          <Button size="small" variant="secondary" type="button" onClick={onAddComma}>
+            Legg til komma
+          </Button>
+          <ReadMore header="Teknisk feilmelding" size="small">
+            <BodyLong>{error}</BodyLong>
+          </ReadMore>
+        </div>
+      ) : groupByField && onAddGroupBy ? (
         <div className="flex flex-col items-start gap-3">
           <BodyLong>
             Når du teller og samtidig viser {groupByField}, må resultatene grupperes etter {groupByField}.
