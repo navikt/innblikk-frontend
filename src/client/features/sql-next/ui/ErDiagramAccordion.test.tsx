@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import ErDiagramAccordion from './ErDiagramAccordion'
 import styles from './ErDiagramAccordion.module.css'
 
@@ -13,6 +14,23 @@ const renderDiagram = () => {
 }
 
 describe('ER diagram', () => {
+  it('searches fields without hiding relation keys and restores fields when cleared', async () => {
+    const user = userEvent.setup()
+    const { onInsertSnippet, onOpenJoin } = renderDiagram()
+    const search = screen.getByRole('searchbox', { name: 'Søk etter felt' })
+    await user.type(search, 'BROWSER')
+    expect(screen.getByRole('button', { name: 'Sett inn umami_views.session.browser' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Sett inn umami_views.event.url_path' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sett inn umami_views.event.session_id' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sett inn umami_views.session.session_id' })).toBeInTheDocument()
+    await user.clear(search)
+    expect(screen.getByRole('button', { name: 'Sett inn umami_views.event.url_path' })).toBeInTheDocument()
+    await user.type(search, 'no-such-field')
+    expect(screen.getByRole('status')).toHaveTextContent('Ingen felt funnet.')
+    expect(onInsertSnippet).not.toHaveBeenCalled()
+    expect(onOpenJoin).not.toHaveBeenCalled()
+  })
+
   it.each([
     ['umami_views.event', 'event_id', 'PK'],
     ['umami_views.event', 'website_id', 'FK'],
@@ -33,12 +51,10 @@ describe('ER diagram', () => {
     expect(onInsertSnippet).toHaveBeenLastCalledWith(field)
   })
 
-  it('explains both key labels outside the horizontally scrolling diagram', () => {
+  it('keeps key markers without the bottom explanation', () => {
     renderDiagram()
-    const diagram = screen.getByRole('region', { name: 'ER-diagram med fire tabeller' })
-    expect(screen.getByText('PK (primærnøkkel):')).toBeInTheDocument()
-    expect(screen.getByText('FK (fremmednøkkel):')).toBeInTheDocument()
-    expect(within(diagram).queryByText('PK (primærnøkkel):')).not.toBeInTheDocument()
+    expect(screen.queryByText('PK (primærnøkkel):')).not.toBeInTheDocument()
+    expect(screen.queryByText('FK (fremmednøkkel):')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Sett inn umami_views.session.browser' })).not.toHaveTextContent(
       /\((?:PK|FK)\)/,
     )

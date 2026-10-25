@@ -119,7 +119,7 @@ describe('JOIN dialog', () => {
     ]) {
       expect(model.getByRole('region', { name: table })).toBeInTheDocument()
     }
-    expect(screen.getByText('PK (primærnøkkel):')).toBeInTheDocument()
+    expect(screen.queryByText('PK (primærnøkkel):')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^Sett inn umami/ })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Kopier umami_views.event_data' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Legg til JOIN med Detaljer på hendelser' }))

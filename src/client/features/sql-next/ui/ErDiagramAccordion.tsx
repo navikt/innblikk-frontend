@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState, type ComponentProps, type ReactNode } from 'react'
-import { ReadMore, Button, Heading, Tooltip as AkselTooltip } from '@navikt/ds-react'
+import { ReadMore, Button, Heading, Search, Tooltip as AkselTooltip } from '@navikt/ds-react'
 import { CheckmarkIcon, FilesIcon, PlusIcon, LinkIcon, KeyHorizontalIcon } from '@navikt/aksel-icons'
 import { getBigQueryTables, getFullTableName } from '../model/schemaAndSnippets'
 import type { BigQueryTableDoc } from '../model/types'
@@ -61,6 +61,9 @@ const KEY_ROLES: Record<BigQueryTableDoc['id'], Record<string, 'PK' | 'FK'>> = {
   session: { session_id: 'PK', website_id: 'FK' },
   event_data: { website_event_id: 'FK', website_id: 'FK' },
 }
+
+const matchesField = (column: BigQueryTableDoc['columns'][number], search: string) =>
+  `${column.name} ${column.label}`.toLowerCase().includes(search.trim().toLowerCase())
 
 export function JoinRelationDiagram({
   projectId,
@@ -168,6 +171,11 @@ export default function ErDiagramAccordion({ projectId, onOpenJoin, onInsertSnip
   const Field = onInsertSnippet ? 'button' : 'span'
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [selectedTableId, setSelectedTableId] = useState<BigQueryTableDoc['id']>('event')
+  const [fieldSearch, setFieldSearch] = useState('')
+  const matchingFields = tables.reduce(
+    (count, table) => count + table.columns.filter((column) => matchesField(column, fieldSearch)).length,
+    0,
+  )
 
   const copyTable = async (table: BigQueryTableDoc) => {
     await navigator.clipboard.writeText(getFullTableName(projectId, table.datasetTable))
@@ -177,6 +185,14 @@ export default function ErDiagramAccordion({ projectId, onOpenJoin, onInsertSnip
 
   return (
     <ReadMore header="Datamodell – tabeller og felter" size="small" className={styles.accordion}>
+      <div className="mb-3 max-w-xs">
+        <Search label="Søk etter felt" variant="simple" size="small" value={fieldSearch} onChange={setFieldSearch} />
+      </div>
+      {fieldSearch.trim() && matchingFields === 0 && (
+        <p role="status" className="mb-3 text-sm text-[var(--ax-text-subtle)]">
+          Ingen felt funnet.
+        </p>
+      )}
       <div className={styles.scrollArea} role="region" aria-label="ER-diagram med fire tabeller" tabIndex={0}>
         <div className={styles.diagram}>
           <svg className={styles.connections} viewBox="0 0 1056 1280" aria-hidden="true">
@@ -199,7 +215,7 @@ export default function ErDiagramAccordion({ projectId, onOpenJoin, onInsertSnip
             const keys = KEY_FIELDS[table.id]
             const orderedColumns = [
               ...keys.flatMap((name) => table.columns.filter((column) => column.name === name)),
-              ...table.columns.filter((column) => !keys.includes(column.name)),
+              ...table.columns.filter((column) => !keys.includes(column.name) && matchesField(column, fieldSearch)),
             ]
             return (
               <section
@@ -314,10 +330,6 @@ export default function ErDiagramAccordion({ projectId, onOpenJoin, onInsertSnip
           </div>
         </div>
       </div>
-      <p className="mt-2 text-sm text-[var(--ax-text-subtle)]">
-        <strong>PK (primærnøkkel):</strong> identifiserer en rad. <strong>FK (fremmednøkkel):</strong> kobler til en
-        annen tabell.
-      </p>
     </ReadMore>
   )
 }
