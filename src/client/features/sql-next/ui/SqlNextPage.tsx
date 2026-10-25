@@ -213,6 +213,7 @@ export default function SqlNextPage() {
               <SqlBuilderPanel
                 projectId={projectId}
                 selectedWebsiteId={selectedWebsite?.id || websiteId}
+                selectedWebsiteIds={websiteIds}
                 query={query}
                 loading={loading}
                 estimating={estimating}

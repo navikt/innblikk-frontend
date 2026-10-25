@@ -1,10 +1,12 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import SqlBuilderPanel from './SqlBuilderPanel'
 import type { ComponentProps } from 'react'
+import { DEFAULT_WEBSITE_ID } from '../../../shared/lib/domain'
 
 const renderPanel = (overrides: Partial<ComponentProps<typeof SqlBuilderPanel>> = {}) => {
   const props: ComponentProps<typeof SqlBuilderPanel> = {
     projectId: 'test-project',
+    selectedWebsiteId: DEFAULT_WEBSITE_ID.prod,
     showBuildingBlocks: true,
     query: '',
     loading: false,
@@ -36,6 +38,23 @@ const renderPanel = (overrides: Partial<ComponentProps<typeof SqlBuilderPanel>> 
 }
 
 describe('SQL insertion toolbar', () => {
+  it.each([
+    [DEFAULT_WEBSITE_ID.prod, true],
+    [DEFAULT_WEBSITE_ID.dev, true],
+    ['other-subdomain', false],
+  ] as const)('only offers cookie counts for a supported website: %s', (id, supported) => {
+    renderPanel({ selectedWebsiteId: id })
+    fireEvent.click(screen.getByRole('button', { name: 'Felter' }))
+    expect(Boolean(screen.queryByRole('menuitem', { name: 'Unike besøkende (cookie)' }))).toBe(supported)
+    expect(screen.getByRole('menuitem', { name: 'Unike besøkende (fingeravtrykk)' })).toBeInTheDocument()
+  })
+
+  it('does not offer cookie counts for a mixed website selection', () => {
+    renderPanel({ selectedWebsiteIds: [DEFAULT_WEBSITE_ID.prod, 'other-subdomain'] })
+    fireEvent.click(screen.getByRole('button', { name: 'Felter' }))
+    expect(screen.queryByRole('menuitem', { name: 'Unike besøkende (cookie)' })).not.toBeInTheDocument()
+  })
+
   it('hides the old menus by default and keeps the JOIN guide available', () => {
     const props = renderPanel({ showBuildingBlocks: undefined })
     expect(screen.queryByRole('group', { name: 'Byggeklosser' })).not.toBeInTheDocument()

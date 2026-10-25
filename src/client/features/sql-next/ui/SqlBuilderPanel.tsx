@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ActionMenu, Alert, Button, Tooltip } from '@navikt/ds-react'
 import {
   PlusIcon,
@@ -11,6 +11,7 @@ import {
 import Editor, { type OnMount } from '@monaco-editor/react'
 import { getSqlBuildingBlocks, INITIAL_SQL_QUERY } from '../model/schemaAndSnippets'
 import {
+  canCountCookieVisitors,
   getSqlSuggestionFragment,
   getSqlSuggestionPresentation,
   getSqlSuggestions,
@@ -41,6 +42,7 @@ interface SqlBuilderPanelProps {
   projectId: string
   showBuildingBlocks?: boolean
   selectedWebsiteId?: string
+  selectedWebsiteIds?: readonly string[]
   query: string
   loading: boolean
   estimating: boolean
@@ -79,6 +81,7 @@ export default function SqlBuilderPanel({
   projectId,
   showBuildingBlocks = false,
   selectedWebsiteId,
+  selectedWebsiteIds,
   query,
   loading,
   estimating,
@@ -102,8 +105,15 @@ export default function SqlBuilderPanel({
   const [isDragOver, setIsDragOver] = useState(false)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mountedEditorRef = useRef<Parameters<OnMount>[0] | null>(null)
+  const websiteIds = selectedWebsiteIds ?? (selectedWebsiteId ? [selectedWebsiteId] : [])
+  const websiteIdsRef = useRef(websiteIds)
+  useEffect(() => {
+    websiteIdsRef.current = selectedWebsiteIds ?? (selectedWebsiteId ? [selectedWebsiteId] : [])
+  }, [selectedWebsiteIds, selectedWebsiteId])
 
-  const blocks = getSqlBuildingBlocks(projectId, selectedWebsiteId)
+  const blocks = getSqlBuildingBlocks(projectId, selectedWebsiteId).filter(
+    (block) => block.id !== 'fld-visitors-cookie' || canCountCookieVisitors(websiteIds),
+  )
 
   const insertSnippetIntoEditor = (codeToInsert: string) => {
     const ed = editorInstanceRef.current
@@ -316,7 +326,7 @@ export default function SqlBuilderPanel({
                     endColumn: position.column,
                   })
                   const suffix = model.getValue().slice(model.getOffsetAt(position))
-                  const suggestions = getSqlSuggestions(prefix, projectId, suffix)
+                  const suggestions = getSqlSuggestions(prefix, projectId, suffix, websiteIdsRef.current)
                   return {
                     suggestions: suggestions.map((suggestion) => {
                       const fragment = getSqlSuggestionFragment(prefix, suggestion.kind)

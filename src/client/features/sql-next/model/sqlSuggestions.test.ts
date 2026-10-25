@@ -7,6 +7,7 @@ import {
   prepareSqlBlockInsertion,
 } from './sqlSuggestions'
 import { Parser } from 'node-sql-parser/build/bigquery'
+import { DEFAULT_WEBSITE_ID } from '../../../shared/lib/domain'
 
 const projectId = 'team-researchops-prod-01d6'
 const sessionQuery = `SELECT * FROM \`${projectId}.umami_views.session\`\nWHERE website_id = '{{website_id}}'\n  [[AND {{created_at}}]]`
@@ -60,6 +61,26 @@ describe('SQL block insertion', () => {
 })
 
 describe('SQL builder suggestions', () => {
+  it.each([[DEFAULT_WEBSITE_ID.prod], [DEFAULT_WEBSITE_ID.dev], [DEFAULT_WEBSITE_ID.prod, DEFAULT_WEBSITE_ID.dev]])(
+    'offers cookie visitors only for supported selected websites: %j',
+    (...websiteIds) => {
+      expect(
+        getSqlSuggestions('SELECT ', projectId, '', websiteIds).some(
+          (suggestion) => suggestion.label === 'Unike besøkende (cookie)',
+        ),
+      ).toBe(true)
+    },
+  )
+
+  it.each([[], ['other-subdomain'], [DEFAULT_WEBSITE_ID.prod, 'other-subdomain']])(
+    'omits cookie visitors for unsupported or unknown selections: %j',
+    (...websiteIds) => {
+      const suggestions = getSqlSuggestions('SELECT event_name, ', projectId, '', websiteIds)
+      expect(suggestions.some((suggestion) => suggestion.label === 'Unike besøkende (cookie)')).toBe(false)
+      expect(suggestions.some((suggestion) => suggestion.label === 'Unike besøkende (fingeravtrykk)')).toBe(true)
+    },
+  )
+
   it.each(['SELECT ep.', `SELECT * FROM \`${projectId}.umami_views.event_data\`\nWHERE ep.`])(
     'puts text values before other value types for %s',
     (query) => {
@@ -204,7 +225,7 @@ describe('SQL builder suggestions', () => {
   })
 
   it('offers both ways to count unique visitors in SELECT suggestions', () => {
-    const suggestions = getSqlSuggestions('SELECT ', projectId)
+    const suggestions = getSqlSuggestions('SELECT ', projectId, '', [DEFAULT_WEBSITE_ID.prod])
     expect(suggestions).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -432,7 +453,7 @@ describe('SQL builder suggestions', () => {
   })
 
   it('ranks common building blocks below all fields and above column names', () => {
-    const suggestions = getSqlSuggestions('SELECT ', projectId)
+    const suggestions = getSqlSuggestions('SELECT ', projectId, '', [DEFAULT_WEBSITE_ID.prod])
     const sorted = [...suggestions].sort((left, right) =>
       (left.sortText ?? left.label).localeCompare(right.sortText ?? right.label),
     )
@@ -451,7 +472,9 @@ describe('SQL builder suggestions', () => {
     'inserts the existing %s snippet without moving to a new line',
     (blockId) => {
       const block = getSqlBuildingBlocks(projectId).find((candidate) => candidate.id === blockId)!
-      const suggestion = getSqlSuggestions('SELECT ', projectId).find((candidate) => candidate.label === block.label)!
+      const suggestion = getSqlSuggestions('SELECT ', projectId, '', [DEFAULT_WEBSITE_ID.prod]).find(
+        (candidate) => candidate.label === block.label,
+      )!
       expect(suggestion.insertText).toBe(block.code)
       expect(suggestion.command).toBeUndefined()
     },
@@ -500,7 +523,7 @@ describe('SQL builder suggestions', () => {
     'SELECT COUNT(*) AS antall ',
     "SELECT COUNT(DISTINCT NULLIF(distinct_id, '')) AS unike_besokende ",
   ])('offers another SELECT field after a space and inserts the missing comma: %j', (prefix) => {
-    const suggestions = getSqlSuggestions(prefix, projectId)
+    const suggestions = getSqlSuggestions(prefix, projectId, '', [DEFAULT_WEBSITE_ID.prod])
     const country = suggestions.find((suggestion) => suggestion.label === 'country')!
     expect(country).toBeDefined()
     expect(country.insertText).toBe(', country')

@@ -1,5 +1,9 @@
 import { getBigQueryTables, getFullTableName, getSqlBuildingBlocks } from './schemaAndSnippets'
 import { getSqlJoinOptions } from './sqlJoins'
+import { DEFAULT_WEBSITE_ID } from '../../../shared/lib/domain'
+
+export const canCountCookieVisitors = (websiteIds: readonly string[]): boolean =>
+  websiteIds.length > 0 && websiteIds.every((id) => Object.values(DEFAULT_WEBSITE_ID).some((knownId) => knownId === id))
 
 export interface SqlSuggestion {
   label: string
@@ -126,7 +130,12 @@ const getSelectedExpressions = (sql: string): string[] => {
   return []
 }
 
-export const getSqlSuggestions = (sqlBeforeCursor: string, projectId: string, sqlAfterCursor = ''): SqlSuggestion[] => {
+export const getSqlSuggestions = (
+  sqlBeforeCursor: string,
+  projectId: string,
+  sqlAfterCursor = '',
+  websiteIds: readonly string[] = [],
+): SqlSuggestion[] => {
   const tables = getBigQueryTables(projectId)
   const context = sqlBeforeCursor.replace(/\[\[[\s\S]*?\]\]/g, ' ')
   const selectExpression = String.raw`(?:\*|[\w.]+(?:\((?:[^()]|\([^()]*\))*\))?)(?:\s+AS\s+\w+)?`
@@ -394,8 +403,10 @@ export const getSqlSuggestions = (sqlBeforeCursor: string, projectId: string, sq
   }))
 
   if (isSelectContext) {
-    const commonBlocks = getSqlBuildingBlocks(projectId).filter((block) =>
-      ['fld-date', 'fld-visitors', 'fld-visitors-cookie', 'fld-views', 'fld-visits'].includes(block.id),
+    const commonBlocks = getSqlBuildingBlocks(projectId).filter(
+      (block) =>
+        ['fld-date', 'fld-visitors', 'fld-visitors-cookie', 'fld-views', 'fld-visits'].includes(block.id) &&
+        (block.id !== 'fld-visitors-cookie' || canCountCookieVisitors(websiteIds)),
     )
     const commonSuggestions: SqlSuggestion[] = commonBlocks.map((block, index) => ({
       label: block.label,
