@@ -33,6 +33,7 @@ export default function SqlNextPage() {
     error,
     validateError,
     incompleteQueryMessage,
+    isSelectEmpty,
     shareSuccess,
     lastProcessedSql,
     copiedMetabase,
@@ -276,6 +277,27 @@ export default function SqlNextPage() {
                       onClick={() => handleQueryChange(groupBySimplification.sql)}
                     >
                       Forenkle GROUP BY
+                    </Button>
+                  </div>
+                </Alert>
+              )}
+              {isSelectEmpty && (
+                <Alert variant="info" size="small">
+                  <div className="flex flex-col items-start gap-3">
+                    <Heading level="2" size="xsmall">
+                      Velg felt
+                    </Heading>
+                    <BodyShort>
+                      SELECT mangler felt. Velg feltene du vil hente, eller bruk * for alle felt. Alle felt kan lese mer
+                      data.
+                    </BodyShort>
+                    <Button
+                      size="small"
+                      variant="secondary"
+                      type="button"
+                      onClick={() => handleQueryChange(query.replace(/^(\s*SELECT)\b/i, '$1 *'))}
+                    >
+                      Legg til * (alle felt)
                     </Button>
                   </div>
                 </Alert>

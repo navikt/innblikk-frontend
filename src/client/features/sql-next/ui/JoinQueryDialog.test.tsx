@@ -167,7 +167,25 @@ describe('JOIN dialog', () => {
     expect(screen.getByLabelText('JOIN-kode')).toHaveTextContent('LEFT JOIN')
     expect(screen.getByLabelText('JOIN-kode')).not.toHaveTextContent(/SELECT|FROM/)
     fireEvent.click(screen.getByRole('button', { name: 'Sett inn JOIN' }))
-    expect(onApply).toHaveBeenCalledWith(expect.stringContaining('session.browser'))
+    expect(onApply).toHaveBeenCalledWith(expect.stringMatching(/^SELECT\s+FROM\b/))
+    expect(onClose).toHaveBeenCalledOnce()
+  })
+
+  it.each([
+    ['', 'session'],
+    ['', 'event_data'],
+    ['', 'website'],
+    ['SELECT', 'session'],
+    ['SELECT', 'event_data'],
+    ['SELECT', 'website'],
+    [' \n ', 'session'],
+    [' select\n ', 'session'],
+  ])('leaves SELECT empty when joining %j with %s', (query, tableId) => {
+    const { onApply, onClose } = renderDialog(query)
+    fireEvent.change(screen.getByRole('combobox', { name: 'JOIN med' }), { target: { value: tableId } })
+    const preview = screen.getByLabelText('JOIN-kode').textContent
+    fireEvent.click(screen.getByRole('button', { name: 'Sett inn JOIN' }))
+    expect(onApply).toHaveBeenCalledWith(`SELECT\nFROM \`test-project.umami_views.event\`\n${preview}`)
     expect(onClose).toHaveBeenCalledOnce()
   })
 
@@ -179,7 +197,8 @@ describe('JOIN dialog', () => {
     expect(screen.getByText(/En hendelse kan vises flere ganger/)).toBeInTheDocument()
     expect(screen.getByLabelText('JOIN-kode')).toHaveTextContent('LEFT JOIN UNNEST')
     fireEvent.click(screen.getByRole('button', { name: 'Sett inn JOIN' }))
-    expect(onApply).toHaveBeenCalledWith(expect.stringContaining('ep.string_value'))
+    expect(onApply).toHaveBeenCalledWith(expect.stringContaining('LEFT JOIN UNNEST'))
+    expect(onApply.mock.calls[0][0]).toMatch(/^SELECT\s+FROM\b/)
   })
 
   it('extends an existing query without replacing its filters', () => {

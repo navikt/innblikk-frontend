@@ -260,8 +260,10 @@ export const useSqlNextEditor = () => {
       error ?? dryRunError ?? '',
     )?.[1] ?? null
 
-  const incompleteQueryMessage =
-    /(?:\b(?:SELECT|FROM|WHERE|AND|OR|ON|JOIN|BY|LIMIT|OFFSET)|[=<>!+*/,-])\s*;?\s*$/i.test(getSqlCode(query))
+  const isSelectEmpty = /^\s*SELECT\b\s+(?=FROM\b)/i.test(getSqlCode(query))
+  const incompleteQueryMessage = isSelectEmpty
+    ? 'Velg hvilke felt du vil hente.'
+    : /(?:\b(?:SELECT|FROM|WHERE|AND|OR|ON|JOIN|BY|LIMIT|OFFSET)|[=<>!+*/,-])\s*;?\s*$/i.test(getSqlCode(query))
       ? 'Spørringen er ikke ferdig.'
       : null
 
@@ -693,6 +695,7 @@ export const useSqlNextEditor = () => {
     error,
     validateError,
     incompleteQueryMessage: validationRequested ? incompleteQueryMessage : null,
+    isSelectEmpty: validationRequested && isSelectEmpty,
     shareSuccess,
     lastProcessedSql,
     copiedMetabase,

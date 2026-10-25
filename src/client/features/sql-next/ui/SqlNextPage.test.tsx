@@ -285,6 +285,34 @@ describe('SQL error results', () => {
   beforeEach(() => window.sessionStorage.removeItem('innblikk-sql-editor-draft'))
   afterEach(() => window.sessionStorage.removeItem('innblikk-sql-editor-draft'))
 
+  it.each(['Valider', 'Vis resultater'])(
+    'nudges an empty SELECT after %s and offers all fields without executing',
+    async (action) => {
+      vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+      const sql = `SELECT\nFROM \`test-project.umami_views.event\`\nLEFT JOIN \`test-project.umami_views.session\` ON event.session_id = session.session_id`
+      window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'chosen-website' })}`)
+      vi.mocked(estimateQueryCost).mockReset()
+      vi.mocked(executeQueryApi).mockClear()
+      render(
+        <MemoryRouter>
+          <SqlNextPage />
+        </MemoryRouter>,
+      )
+      expect(screen.queryByRole('button', { name: 'Legg til * (alle felt)' })).not.toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: action }))
+      const button = await screen.findByRole('button', { name: 'Legg til * (alle felt)' })
+      expect(screen.getByRole('heading', { name: 'Velg felt' })).toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: 'Feil i spørringen' })).not.toBeInTheDocument()
+      expect(estimateQueryCost).not.toHaveBeenCalled()
+      expect(executeQueryApi).not.toHaveBeenCalled()
+      fireEvent.click(button)
+      expect(screen.getByTestId('editor-query').textContent).toBe(sql.replace('SELECT', 'SELECT *'))
+      expect(screen.queryByRole('heading', { name: 'Velg felt' })).not.toBeInTheDocument()
+      expect(estimateQueryCost).not.toHaveBeenCalled()
+      expect(executeQueryApi).not.toHaveBeenCalled()
+    },
+  )
+
   it('explains automatic filters without a second SQL dropdown', () => {
     vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
     const sql = 'SELECT browser FROM `test-project.umami_views.session`'

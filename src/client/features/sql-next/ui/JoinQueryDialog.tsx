@@ -19,22 +19,18 @@ const TABLE_CHOICES = [
   {
     id: 'event',
     title: 'Hendelser',
-    fields: 'event.url_path',
   },
   {
     id: 'session',
     title: 'Brukerdetaljer',
-    fields: 'session.browser',
   },
   {
     id: 'event_data',
     title: 'Hendelsesdetaljer',
-    fields: 'ep.data_key, ep.string_value',
   },
   {
     id: 'website',
     title: 'Nettsider',
-    fields: 'public_website.name',
   },
 ] as const
 
@@ -49,21 +45,20 @@ export default function JoinQueryDialog({
   const tables = getBigQueryTables(projectId)
   const source = tables.find((table) => table.id === 'event')!
   const sourceChoice = TABLE_CHOICES.find((table) => table.id === 'event')!
-  const choice = TABLE_CHOICES.filter((table) => table.id !== 'event').find((table) => table.id === tableId)!
   const options = getSqlJoinOptions(query, projectId)
   const option = options.find((join) => join.id === tableId)!
   const isNewQuery = !query.trim() || /^\s*SELECT\s*$/i.test(query)
-  const example = `SELECT ${sourceChoice.fields}, ${choice.fields}\nFROM ${getFullTableName(projectId, source.datasetTable)}`
-  const exampleOption = getSqlJoinOptions(example, projectId).find((join) => join.id === tableId)
-  const replacementSource = exampleOption?.joinSql
-    ? `FROM ${getFullTableName(projectId, source.datasetTable)}\n${exampleOption.joinSql}`
+  const baseQuery = `SELECT 1\nFROM ${getFullTableName(projectId, source.datasetTable)}`
+  const baseOption = getSqlJoinOptions(baseQuery, projectId).find((join) => join.id === tableId)
+  const replacementSource = baseOption?.joinSql
+    ? `FROM ${getFullTableName(projectId, source.datasetTable)}\n${baseOption.joinSql}`
     : null
   const replacement =
     !option.sql && !isNewQuery && !option.alreadyJoined && replacementSource
       ? replaceSqlJoinSource(query, replacementSource)
       : null
-  const sql = option.sql ?? (isNewQuery ? exampleOption?.sql : replacement)
-  const preview = replacement ? replacementSource : (option.joinSql ?? exampleOption?.joinSql)
+  const sql = isNewQuery && replacementSource ? `SELECT\n${replacementSource}` : (option.sql ?? replacement)
+  const preview = replacement ? replacementSource : (option.joinSql ?? baseOption?.joinSql)
   const cannotExtend = !sql && !isNewQuery && !option.alreadyJoined
   const countWarning =
     tableId === 'event_data'
