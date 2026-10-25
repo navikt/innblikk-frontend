@@ -196,6 +196,56 @@ export const getSqlSuggestions = (sqlBeforeCursor: string, projectId: string, sq
     }))
   }
 
+  const operatorMatch =
+    /\b(?:WHERE|AND|OR|ON|HAVING)\s+((?:`[^`]+`|[a-z_][\w$]*)(?:\.(?:`[^`]+`|[a-z_][\w$]*))*)([\t ]*)([!<>=]+|[a-z]+(?:[\t ]+[a-z]+)*)?([\t ]*)$/i.exec(
+      context,
+    )
+  if (operatorMatch) {
+    const field = operatorMatch[1].replace(/`/g, '').split('.').pop()!.toLowerCase()
+    const knownField = tables.some((table) =>
+      table.columns.some((column) => column.name.split('.').pop()!.toLowerCase() === field),
+    )
+    let cursorInNonSql = false
+    context.replace(
+      /--[^\n]*|\/\*[\s\S]*?(?:\*\/|$)|'(?:''|\\[\s\S]|[^'\\])*(?:'|$)|"(?:""|[^"])*(?:"|$)|`[^`]*(?:`|$)/g,
+      (token: string, offset: number) => {
+        if (offset + token.length === context.length) {
+          cursorInNonSql = /^(?:--|\/\*)/.test(token) || !token.endsWith(token[0])
+        }
+        return token
+      },
+    )
+    if (knownField && !cursorInNonSql) {
+      const prefix = (operatorMatch[3] ?? '').replace(/[\t ]+/g, ' ').toUpperCase()
+      const replacement = operatorMatch[3] ? operatorMatch[3].length + operatorMatch[4].length : 0
+      return [
+        { label: '=', labelDescription: 'Er lik' },
+        { label: '!=', labelDescription: 'Er ulik' },
+        { label: '>', labelDescription: 'Større enn' },
+        { label: '>=', labelDescription: 'Større enn eller lik' },
+        { label: '<', labelDescription: 'Mindre enn' },
+        { label: '<=', labelDescription: 'Mindre enn eller lik' },
+        { label: 'LIKE', labelDescription: 'Tekst med jokertegn (% og _)' },
+        { label: 'NOT LIKE', labelDescription: 'Utelat tekst med jokertegn (% og _)' },
+        { label: 'IN', labelDescription: 'Er en av flere verdier' },
+        { label: 'NOT IN', labelDescription: 'Er ingen av verdiene' },
+        { label: 'BETWEEN', labelDescription: 'Er mellom to verdier' },
+        { label: 'IS NULL', labelDescription: 'Mangler verdi' },
+        { label: 'IS NOT NULL', labelDescription: 'Har verdi' },
+      ]
+        .filter((operator) => operator.label.startsWith(prefix))
+        .map((operator, index) => ({
+          ...operator,
+          insertText: `${operatorMatch[2] ? '' : ' '}${operator.label} `,
+          detail: '',
+          kind: 'keyword',
+          replaceBefore: replacement,
+          sortText: String(index).padStart(2, '0'),
+          command: { id: 'editor.action.triggerSuggest', title: 'Velg verdi' },
+        }))
+    }
+  }
+
   const additionalSelectField = new RegExp(
     String.raw`^\s*SELECT\s+(?:DISTINCT\s+)?${selectExpression}(?:\s*,\s*${selectExpression})*[\t ]+$`,
     'i',
@@ -231,12 +281,14 @@ export const getSqlSuggestions = (sqlBeforeCursor: string, projectId: string, sq
   const referencedTables = tables.filter((table) => context.includes(table.datasetTable))
   const columns = (referencedTables.length ? referencedTables : tables).flatMap((table) => table.columns)
   const uniqueColumns = [...new Map(columns.map((column) => [column.name, column])).values()]
+  const isFilterField = /\b(?:WHERE|AND|OR|ON|HAVING)\s+[\w.]*$/i.test(context)
   const fieldSuggestions: SqlSuggestion[] = uniqueColumns.map((column) => ({
     label: column.name,
     insertText: additionalSelectField ? `, ${column.name}` : column.name,
     ...additionalFieldInsertion,
     detail: column.label,
     kind: 'field',
+    ...(isFilterField ? { command: { id: 'editor.action.triggerSuggest', title: 'Velg operator' } } : {}),
   }))
 
   if (isSelectContext) {

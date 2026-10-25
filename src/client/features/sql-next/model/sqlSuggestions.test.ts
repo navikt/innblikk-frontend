@@ -54,6 +54,87 @@ describe('SQL block insertion', () => {
 })
 
 describe('SQL builder suggestions', () => {
+  it('opens operator suggestions after accepting a filter field', () => {
+    const prefix = `${sessionQuery}\nAND bro`
+    const browser = getSqlSuggestions(prefix, projectId).find((suggestion) => suggestion.label === 'browser')!
+    expect(browser.command).toEqual({ id: 'editor.action.triggerSuggest', title: 'Velg operator' })
+    const completed = prefix.slice(0, -getSqlSuggestionFragment(prefix, browser.kind).length) + browser.insertText
+    expect(getSqlSuggestions(completed, projectId)[0]).toEqual(
+      expect.objectContaining({ label: '=', insertText: ' = ' }),
+    )
+    expect(
+      getSqlSuggestions('SELECT bro', projectId).find((suggestion) => suggestion.label === 'browser')?.command,
+    ).toBeUndefined()
+  })
+
+  it.each([
+    'url_path',
+    'browser',
+    'event_type',
+    'created_at',
+    'event.event_name',
+    'ep.data_key',
+    'sp.string_value',
+    '`event`.`url_path`',
+  ])('offers described operators after %s without replacing the field', (field) => {
+    const prefix = `${sessionQuery}\nAND ${field}`
+    const suggestions = getSqlSuggestions(prefix, projectId)
+    expect(suggestions.map((suggestion) => [suggestion.label, suggestion.labelDescription])).toEqual([
+      ['=', 'Er lik'],
+      ['!=', 'Er ulik'],
+      ['>', 'Større enn'],
+      ['>=', 'Større enn eller lik'],
+      ['<', 'Mindre enn'],
+      ['<=', 'Mindre enn eller lik'],
+      ['LIKE', 'Tekst med jokertegn (% og _)'],
+      ['NOT LIKE', 'Utelat tekst med jokertegn (% og _)'],
+      ['IN', 'Er en av flere verdier'],
+      ['NOT IN', 'Er ingen av verdiene'],
+      ['BETWEEN', 'Er mellom to verdier'],
+      ['IS NULL', 'Mangler verdi'],
+      ['IS NOT NULL', 'Har verdi'],
+    ])
+    const equal = suggestions[0]
+    const result =
+      prefix.slice(0, prefix.length - (equal.replaceBefore ?? getSqlSuggestionFragment(prefix, equal.kind).length)) +
+      equal.insertText
+    expect(result).toBe(`${prefix} = `)
+  })
+
+  it.each(['WHERE', 'AND', 'OR', 'ON', 'HAVING'])('offers operators in %s expressions', (clause) => {
+    expect(getSqlSuggestions(`${sessionQuery}\n${clause} event_type `, projectId)).toContainEqual(
+      expect.objectContaining({ label: '=', insertText: '= ', replaceBefore: 0 }),
+    )
+  })
+
+  it.each([
+    ['event_type >', '>=', 'event_type >= '],
+    ['url_path L', 'LIKE', 'url_path LIKE '],
+    ['url_path NOT L', 'NOT LIKE', 'url_path NOT LIKE '],
+    ['event_type IS N', 'IS NULL', 'event_type IS NULL '],
+    ['event_type>=', '>=', 'event_type >= '],
+    ['event_type > ', '>=', 'event_type >= '],
+  ])('completes the operator in %s', (condition, label, corrected) => {
+    const prefix = `${sessionQuery}\nAND ${condition}`
+    const suggestion = getSqlSuggestions(prefix, projectId).find((item) => item.label === label)!
+    expect(suggestion).toBeDefined()
+    expect(prefix.slice(0, prefix.length - suggestion.replaceBefore!) + suggestion.insertText).toBe(
+      `${sessionQuery}\nAND ${corrected}`,
+    )
+  })
+
+  it.each([
+    'SELECT url_path',
+    `${sessionQuery}\nGROUP BY url_path`,
+    `${sessionQuery}\nORDER BY url_path`,
+    `${sessionQuery}\nAND bro`,
+    `${sessionQuery}\n-- AND url_path`,
+    `${sessionQuery}\n/* AND url_path`,
+    `${sessionQuery}\nAND browser = 'AND url_path`,
+  ])('does not offer operators outside a completed filter field: %s', (query) => {
+    expect(getSqlSuggestions(query, projectId).some((suggestion) => suggestion.label === '=')).toBe(false)
+  })
+
   it('offers both ways to count unique visitors in SELECT suggestions', () => {
     const suggestions = getSqlSuggestions('SELECT ', projectId)
     expect(suggestions).toEqual(
