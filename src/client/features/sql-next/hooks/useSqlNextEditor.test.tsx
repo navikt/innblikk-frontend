@@ -11,6 +11,68 @@ vi.mock('../../sql/api/sqlApi', () => ({
 }))
 
 describe('SQL editor actions', () => {
+  it('restores edits to a query initially loaded through a storage key', () => {
+    const key = 'sql-draft-prefill-test'
+    window.sessionStorage.setItem(key, 'SELECT 1')
+    window.history.replaceState({}, '', `/sql?sqlStorageKey=${key}`)
+    const wrapper = ({ children }: { children: React.ReactNode }) => <MemoryRouter>{children}</MemoryRouter>
+    const first = renderHook(() => useSqlNextEditor(), { wrapper })
+    expect(first.result.current.query).toBe('SELECT 1')
+    act(() => first.result.current.handleQueryChange('SELECT 42'))
+    first.unmount()
+    const restored = renderHook(() => useSqlNextEditor(), { wrapper })
+    expect(restored.result.current.query).toBe('SELECT 42')
+  })
+
+  it('keeps editing functional when draft storage is unavailable', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('Storage blocked')
+    })
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('Storage blocked')
+    })
+    window.history.replaceState({}, '', '/sql?sql=SELECT%201')
+    const { result } = renderHook(() => useSqlNextEditor(), {
+      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+    })
+    expect(result.current.query).toBe('SELECT 1')
+    act(() => result.current.handleQueryChange('SELECT 42'))
+    expect(result.current.query).toBe('SELECT 42')
+  })
+
+  it.each([false, true])('restores unexecuted edits after remount, with previous URL SQL: %s', (withUrlQuery) => {
+    window.history.replaceState({}, '', withUrlQuery ? '/sql?sql=SELECT%201' : '/sql')
+    const wrapper = ({ children }: { children: React.ReactNode }) => <MemoryRouter>{children}</MemoryRouter>
+    const first = renderHook(() => useSqlNextEditor(), { wrapper })
+    act(() => first.result.current.handleQueryChange('SELECT browser FROM `test-project.umami_views.session`'))
+    first.unmount()
+    const restored = renderHook(() => useSqlNextEditor(), { wrapper })
+    expect(restored.result.current.query).toBe('SELECT browser FROM `test-project.umami_views.session`')
+    expect(executeQueryApi).not.toHaveBeenCalled()
+  })
+
+  it('restores the draft when returning to the editor without query parameters', () => {
+    window.history.replaceState({}, '', '/sql?sql=SELECT%201')
+    const wrapper = ({ children }: { children: React.ReactNode }) => <MemoryRouter>{children}</MemoryRouter>
+    const first = renderHook(() => useSqlNextEditor(), { wrapper })
+    act(() => first.result.current.handleQueryChange('SELECT 42'))
+    first.unmount()
+    window.history.replaceState({}, '', '/sql')
+    const restored = renderHook(() => useSqlNextEditor(), { wrapper })
+    expect(restored.result.current.query).toBe('SELECT 42')
+  })
+
+  it('opens a different shared query instead of the previous draft', () => {
+    window.history.replaceState({}, '', '/sql?sql=SELECT%201')
+    const wrapper = ({ children }: { children: React.ReactNode }) => <MemoryRouter>{children}</MemoryRouter>
+    const first = renderHook(() => useSqlNextEditor(), { wrapper })
+    act(() => first.result.current.handleQueryChange('SELECT 42'))
+    first.unmount()
+    window.history.replaceState({}, '', '/sql?sql=SELECT%202')
+    const shared = renderHook(() => useSqlNextEditor(), { wrapper })
+    expect(shared.result.current.query).toBe('SELECT 2')
+  })
+
   it('exports every selected website while retaining existing dynamic dates', async () => {
     const sql =
       "SELECT event_id FROM `test-project.umami_views.event` WHERE website_id = '{{website_id}}' [[AND {{created_at}} ]]"
@@ -334,12 +396,14 @@ describe('SQL editor actions', () => {
   })
 
   beforeEach(() => {
+    window.sessionStorage.removeItem('innblikk-sql-editor-draft')
     vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
     vi.mocked(estimateQueryCost).mockReset().mockResolvedValue({ totalBytesProcessedGB: '0' })
     vi.mocked(executeQueryApi).mockReset().mockResolvedValue({ data: [] })
   })
 
   afterEach(() => {
+    window.sessionStorage.removeItem('innblikk-sql-editor-draft')
     vi.useRealTimers()
     window.history.replaceState({}, '', '/')
     vi.restoreAllMocks()

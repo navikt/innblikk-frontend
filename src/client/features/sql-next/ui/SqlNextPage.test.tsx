@@ -38,6 +38,9 @@ vi.mock('../../sql/ui/SqlResultsSection', () => ({
 }))
 
 describe('SQL error results', () => {
+  beforeEach(() => window.sessionStorage.removeItem('innblikk-sql-editor-draft'))
+  afterEach(() => window.sessionStorage.removeItem('innblikk-sql-editor-draft'))
+
   it('explains automatic filters without a second SQL dropdown', () => {
     vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
     const sql = 'SELECT browser FROM `test-project.umami_views.session`'

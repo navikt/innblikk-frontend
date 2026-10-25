@@ -18,6 +18,14 @@ import { INITIAL_SQL_QUERY } from '../model/schemaAndSnippets'
 import { applyAutomaticFilters, type AutomaticFilterUsage } from '../model/automaticFilters'
 
 const sqlPrefillCache = new Map<string, string>()
+const SQL_DRAFT_KEY = 'innblikk-sql-editor-draft'
+
+const getDraftSource = () => {
+  const params = new URLSearchParams(window.location.search)
+  if (params.get('sql')) return `sql:${params.get('sql')}`
+  if (params.get('sqlStorageKey')) return `storage:${params.get('sqlStorageKey')}`
+  return null
+}
 
 export const SAFETY_LIMIT_OPTIONS = [100, 500, 1000, 5000] as const
 
@@ -79,6 +87,21 @@ const getInitialQuery = (): string => {
     }
   }
 
+  try {
+    const storedDraft = window.sessionStorage.getItem(SQL_DRAFT_KEY)
+    const draft: unknown = storedDraft ? JSON.parse(storedDraft) : null
+    const source = getDraftSource()
+    if (
+      draft &&
+      typeof draft === 'object' &&
+      'query' in draft &&
+      typeof draft.query === 'string' &&
+      (!source || ('source' in draft && draft.source === source))
+    )
+      return draft.query
+  } catch {
+    return sqlParam || INITIAL_SQL_QUERY
+  }
   return sqlParam || INITIAL_SQL_QUERY
 }
 
@@ -117,6 +140,14 @@ export const useSqlNextEditor = () => {
   })
 
   const [query, setQuery] = useState<string>(getInitialQuery)
+  useEffect(() => {
+    try {
+      if (!query.trim() || query === INITIAL_SQL_QUERY) window.sessionStorage.removeItem(SQL_DRAFT_KEY)
+      else window.sessionStorage.setItem(SQL_DRAFT_KEY, JSON.stringify({ source: getDraftSource(), query }))
+    } catch {
+      return
+    }
+  }, [query])
   const [safetyLimit, setSafetyLimit] = useState<number | null>(100)
   const [validateError, setValidateError] = useState<string | null>(null)
   const [validationRequested, setValidationRequested] = useState(false)
