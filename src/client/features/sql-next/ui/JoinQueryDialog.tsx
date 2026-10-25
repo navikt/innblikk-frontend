@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Alert, BodyShort, Button, Modal, Select, TextField } from '@navikt/ds-react'
-import { getSqlJoinOptions } from '../model/sqlJoins'
+import { getSqlJoinOptions, replaceSqlJoinSource } from '../model/sqlJoins'
 import { getBigQueryTables, getFullTableName } from '../model/schemaAndSnippets'
 import type { BigQueryTableDoc } from '../model/types'
 
@@ -54,9 +54,16 @@ export default function JoinQueryDialog({
   const isNewQuery = !query.trim() || /^\s*SELECT\s*$/i.test(query)
   const example = `SELECT ${sourceChoice.fields}, ${choice.fields}\nFROM ${getFullTableName(projectId, source.datasetTable)}`
   const exampleOption = getSqlJoinOptions(example, projectId).find((join) => join.id === tableId)
-  const sql = option.sql ?? (isNewQuery ? exampleOption?.sql : null)
-  const preview = option.joinSql ?? exampleOption?.joinSql
-  const cannotExtend = !option.sql && !isNewQuery && !option.alreadyJoined
+  const replacementSource = exampleOption?.joinSql
+    ? `FROM ${getFullTableName(projectId, source.datasetTable)}\n${exampleOption.joinSql}`
+    : null
+  const replacement =
+    !option.sql && !isNewQuery && !option.alreadyJoined && replacementSource
+      ? replaceSqlJoinSource(query, replacementSource)
+      : null
+  const sql = option.sql ?? (isNewQuery ? exampleOption?.sql : replacement)
+  const preview = replacement ? replacementSource : (option.joinSql ?? exampleOption?.joinSql)
+  const cannotExtend = !sql && !isNewQuery && !option.alreadyJoined
   const targetName = choice.title.toLowerCase()
   const countWarning =
     tableId === 'event_data'
@@ -98,7 +105,12 @@ export default function JoinQueryDialog({
             </Alert>
           ) : cannotExtend ? (
             <Alert variant="warning" size="small">
-              Kan ikke legge til JOIN. Spørringen må være gyldig SQL og ta utgangspunkt i Hendelser (event).
+              Kan ikke finne FROM-delen sikkert. Bruk én SELECT-spørring uten UNION eller WITH.
+            </Alert>
+          ) : replacement ? (
+            <Alert variant="info" size="small">
+              Erstatter FROM og eksisterende JOIN-er. Resten av spørringen beholdes. Kontroller feltnavn og aliaser
+              etterpå.
             </Alert>
           ) : null}
           {!option.alreadyJoined && preview && (
@@ -121,7 +133,7 @@ export default function JoinQueryDialog({
             }
           }}
         >
-          Sett inn JOIN
+          {replacement ? 'Erstatt FROM og JOIN' : 'Sett inn JOIN'}
         </Button>
         <Button variant="secondary" onClick={onClose}>
           Avbryt

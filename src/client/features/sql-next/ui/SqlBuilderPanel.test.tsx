@@ -5,6 +5,7 @@ import type { ComponentProps } from 'react'
 const renderPanel = (overrides: Partial<ComponentProps<typeof SqlBuilderPanel>> = {}) => {
   const props: ComponentProps<typeof SqlBuilderPanel> = {
     projectId: 'test-project',
+    showBuildingBlocks: true,
     query: '',
     loading: false,
     estimating: false,
@@ -35,6 +36,20 @@ const renderPanel = (overrides: Partial<ComponentProps<typeof SqlBuilderPanel>> 
 }
 
 describe('SQL insertion toolbar', () => {
+  it('hides the old menus by default and keeps the JOIN guide available', () => {
+    const props = renderPanel({ showBuildingBlocks: undefined })
+    expect(screen.queryByRole('group', { name: 'Byggeklosser' })).not.toBeInTheDocument()
+    for (const name of ['SQL-ord', 'Felter', 'Tabeller', 'Filtre']) {
+      expect(screen.queryByRole('button', { name })).not.toBeInTheDocument()
+    }
+    const actions = screen.getByRole('group', { name: 'Editorhandlinger' })
+    const join = within(actions).getByRole('button', { name: 'Legg til JOIN' })
+    expect(join.querySelector('svg')).toBeNull()
+    expect(join).toBeEnabled()
+    fireEvent.click(join)
+    expect(props.onOpenJoin).toHaveBeenCalledOnce()
+  })
+
   it.each([true, false])('confirms successful validation with website selected: %s', (selectedWebsiteSelected) => {
     renderPanel({ query: 'SELECT 1', selectedWebsiteSelected, estimate: { totalBytesProcessedGB: '1' } })
     expect(screen.getByText('Gyldig SQL').closest('[role="status"]')).toHaveTextContent(/Gyldig SQL\s*· 1\.00 GB/)

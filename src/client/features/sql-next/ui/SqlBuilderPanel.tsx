@@ -34,6 +34,7 @@ interface CompletionModel {
 
 interface SqlBuilderPanelProps {
   projectId: string
+  showBuildingBlocks?: boolean
   selectedWebsiteId?: string
   query: string
   loading: boolean
@@ -71,6 +72,7 @@ const SECTIONS: { id: BlockSectionId; title: string }[] = [
 
 export default function SqlBuilderPanel({
   projectId,
+  showBuildingBlocks = false,
   selectedWebsiteId,
   query,
   loading,
@@ -185,52 +187,57 @@ export default function SqlBuilderPanel({
         }`}
       >
         <div className="flex items-center gap-2 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-2 py-1">
-          <div role="group" aria-label="Byggeklosser" className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
-            {SECTIONS.map((section) => {
-              const sectionBlocks = blocks.filter((block) => block.section === section.id)
-              return (
-                <ActionMenu key={section.id}>
-                  <ActionMenu.Trigger>
-                    <Button
-                      type="button"
-                      variant="tertiary"
-                      size="small"
-                      icon={<ChevronDownIcon aria-hidden />}
-                      iconPosition="right"
-                    >
-                      {section.title}
-                    </Button>
-                  </ActionMenu.Trigger>
-                  <ActionMenu.Content align="start">
-                    {sectionBlocks.map((block) => (
-                      <ActionMenu.Item
-                        key={block.id}
-                        icon={<PlusIcon aria-hidden />}
-                        draggable
-                        onDragStart={(event) => event.dataTransfer.setData('text/plain', block.code)}
-                        onSelect={() => {
-                          window.requestAnimationFrame(() => insertSnippetIntoEditor(block.code))
-                        }}
+          {showBuildingBlocks && (
+            <div role="group" aria-label="Byggeklosser" className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+              {SECTIONS.map((section) => {
+                const sectionBlocks = blocks.filter((block) => block.section === section.id)
+                return (
+                  <ActionMenu key={section.id}>
+                    <ActionMenu.Trigger>
+                      <Button
+                        type="button"
+                        variant="tertiary"
+                        size="small"
+                        icon={<ChevronDownIcon aria-hidden />}
+                        iconPosition="right"
                       >
-                        <span className="block max-w-[min(24rem,calc(100vw-4rem))] whitespace-normal break-words text-sm">
-                          {block.label}
-                        </span>
-                      </ActionMenu.Item>
-                    ))}
-                    {section.id === 'tables' && (
-                      <>
-                        <ActionMenu.Divider />
-                        <ActionMenu.Item icon={<LinkIcon aria-hidden />} onSelect={onOpenJoin}>
-                          <span className="text-sm">Legg til JOIN</span>
+                        {section.title}
+                      </Button>
+                    </ActionMenu.Trigger>
+                    <ActionMenu.Content align="start">
+                      {sectionBlocks.map((block) => (
+                        <ActionMenu.Item
+                          key={block.id}
+                          icon={<PlusIcon aria-hidden />}
+                          draggable
+                          onDragStart={(event) => event.dataTransfer.setData('text/plain', block.code)}
+                          onSelect={() => {
+                            window.requestAnimationFrame(() => insertSnippetIntoEditor(block.code))
+                          }}
+                        >
+                          <span className="block max-w-[min(24rem,calc(100vw-4rem))] whitespace-normal break-words text-sm">
+                            {block.label}
+                          </span>
                         </ActionMenu.Item>
-                      </>
-                    )}
-                  </ActionMenu.Content>
-                </ActionMenu>
-              )
-            })}
-          </div>
+                      ))}
+                      {section.id === 'tables' && (
+                        <>
+                          <ActionMenu.Divider />
+                          <ActionMenu.Item icon={<LinkIcon aria-hidden />} onSelect={onOpenJoin}>
+                            <span className="text-sm">Legg til JOIN</span>
+                          </ActionMenu.Item>
+                        </>
+                      )}
+                    </ActionMenu.Content>
+                  </ActionMenu>
+                )
+              })}
+            </div>
+          )}
           <div role="group" aria-label="Editorhandlinger" className="ml-auto flex shrink-0 items-center gap-1">
+            <Button size="xsmall" variant="tertiary" type="button" onClick={onOpenJoin}>
+              Legg til JOIN
+            </Button>
             <Tooltip content="Tøm spørringen">
               <Button
                 size="small"

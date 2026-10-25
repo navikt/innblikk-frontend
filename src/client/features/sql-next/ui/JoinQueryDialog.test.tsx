@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import JoinQueryDialog from './JoinQueryDialog'
 
 const renderDialog = (query = 'SELECT') => {
-  const onApply = vi.fn()
+  const onApply = vi.fn<(query: string) => void>()
   const onClose = vi.fn()
   render(<JoinQueryDialog projectId="test-project" query={query} onApply={onApply} onClose={onClose} />)
   return { onApply, onClose }
@@ -82,12 +82,61 @@ describe('JOIN dialog', () => {
     expect(sql).not.toMatch(/url_path|browser/)
   })
 
-  it('does not replace an existing query when it cannot be extended', () => {
+  it('offers to replace a different source without replacing selected fields', () => {
     const { onApply } = renderDialog('SELECT browser FROM `test-project.umami_views.session`')
-    expect(screen.getByText(/Kan ikke legge til JOIN/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Sett inn JOIN' })).toBeDisabled()
+    expect(screen.getByText(/Erstatter FROM og eksisterende JOIN-er/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Erstatt FROM og JOIN' })).toBeEnabled()
     expect(screen.queryByRole('button', { name: 'Erstatt med eksempel' })).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Sett inn JOIN' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Erstatt FROM og JOIN' }))
+    expect(onApply).toHaveBeenCalledWith(expect.stringMatching(/^SELECT browser\nFROM/))
+    expect(onApply.mock.calls[0][0]).toContain('umami_views.event')
+    expect(onApply.mock.calls[0][0]).toContain('LEFT JOIN')
+  })
+
+  it('replaces FROM for an unfinished WHERE while retaining fields and grouping', () => {
+    const before = "SELECT browser, COUNT(DISTINCT NULLIF(distinct_id, '')) AS unike_besokende\n"
+    const tail = 'WHERE\nGROUP BY browser\n'
+    const { onApply } = renderDialog(`${before}FROM \`test-project.umami_views.session\`\n${tail}`)
+    expect(screen.queryByText(/Kan ikke finne FROM-delen/)).not.toBeInTheDocument()
+    expect(screen.getByLabelText('JOIN-kode')).toHaveTextContent('FROM')
+    expect(screen.getByLabelText('JOIN-kode')).toHaveTextContent('umami_views.event')
+    fireEvent.click(screen.getByRole('button', { name: 'Erstatt FROM og JOIN' }))
+    const sql = onApply.mock.calls[0][0]
+    expect(sql.startsWith(before)).toBe(true)
+    expect(sql.endsWith(tail)).toBe(true)
+    expect(sql.match(/\bFROM\b/g)).toHaveLength(1)
+    expect(sql).toContain('LEFT JOIN')
+  })
+
+  it('replaces old JOINs and does not confuse quoted keywords with clauses', () => {
+    const before = "SELECT 'FROM WHERE JOIN' AS tekst, browser\n"
+    const tail = "WHERE browser = 'FROM WHERE' AND\nGROUP BY browser"
+    const { onApply } = renderDialog(
+      `${before}FROM \`test-project.umami_views.session\` LEFT JOIN old_table ON TRUE\n${tail}`,
+    )
+    fireEvent.change(screen.getByRole('combobox', { name: 'Legg til' }), { target: { value: 'event_data' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Erstatt FROM og JOIN' }))
+    const sql = onApply.mock.calls[0][0]
+    expect(sql.startsWith(before)).toBe(true)
+    expect(sql.endsWith(tail)).toBe(true)
+    expect(sql).not.toContain('old_table')
+    expect(sql).toContain('LEFT JOIN UNNEST')
+  })
+
+  it('preserves optional filters after replacing a different source', () => {
+    const tail = '[[WHERE {{created_at}}]]\nGROUP BY browser'
+    const { onApply } = renderDialog(`SELECT browser FROM \`test-project.umami_views.session\`\n${tail}`)
+    fireEvent.click(screen.getByRole('button', { name: 'Erstatt FROM og JOIN' }))
+    expect(onApply.mock.calls[0][0].endsWith(tail)).toBe(true)
+  })
+
+  it.each([
+    'WITH source AS (SELECT 1) SELECT * FROM source',
+    'SELECT 1 FROM old UNION ALL SELECT 2 FROM other',
+    'SELECT 1 FROM old; SELECT 2 FROM other',
+  ])('does not guess which source to replace in %s', (query) => {
+    const { onApply } = renderDialog(query)
+    expect(screen.getByRole('button', { name: 'Sett inn JOIN' })).toBeDisabled()
     expect(onApply).not.toHaveBeenCalled()
   })
 

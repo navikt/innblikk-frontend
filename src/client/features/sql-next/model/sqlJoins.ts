@@ -128,6 +128,45 @@ const qualifyColumns = (value: unknown, columns: Set<string>, reference: string)
   }
 }
 
+export const replaceSqlJoinSource = (query: string, sourceSql: string): string | null => {
+  const code = query.replace(
+    /--[^\r\n]*|#[^\r\n]*|\/\*[\s\S]*?(?:\*\/|$)|'(?:''|\\[\s\S]|[^'\\])*(?:'|$)|"(?:""|[^"])*(?:"|$)|`[^`]*(?:`|$)/g,
+    (token) => ' '.repeat(token.length),
+  )
+  if (!/^\s*SELECT\b/i.test(code)) return null
+  let depth = 0
+  let fromIndex: number | null = null
+  let tailIndex: number | null = null
+  let endIndex = query.trimEnd().length
+  let selectCount = 0
+  for (const token of code.matchAll(/\[\[[\s\S]*?\]\]|\b[a-z_]\w*\b|[();]/gi)) {
+    const word = token[0].toUpperCase()
+    if (word === '(') depth += 1
+    else if (word === ')') depth -= 1
+    if (depth < 0) return null
+    if (depth !== 0) continue
+    if (word === 'SELECT') selectCount += 1
+    if (selectCount > 1 || /^(?:UNION|EXCEPT|INTERSECT)$/.test(word)) return null
+    if (word === ';') {
+      if (code.slice(token.index + 1).trim()) return null
+      endIndex = token.index
+    }
+    if (word === 'FROM' && fromIndex === null && tailIndex === null) fromIndex = token.index
+    if (
+      (/^(?:WHERE|GROUP|HAVING|QUALIFY|WINDOW|ORDER|LIMIT|OFFSET)$/.test(word) ||
+        /^\[\[\s*(?:WHERE|AND|OR)\b/.test(word)) &&
+      tailIndex === null
+    )
+      tailIndex = token.index
+  }
+  if (depth !== 0 || selectCount !== 1) return null
+  const start = fromIndex ?? tailIndex ?? endIndex
+  const end = tailIndex ?? endIndex
+  const before = query.slice(0, start).trimEnd()
+  const after = query.slice(end)
+  return `${before}\n${sourceSql.trim()}${after ? `\n${after}` : ''}`
+}
+
 export const getSqlJoinOptions = (
   query: string,
   projectId: string,
