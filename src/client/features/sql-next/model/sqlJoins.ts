@@ -136,7 +136,8 @@ export const getSqlJoinOptions = (
         return `'${token}'`
       })
     const parser = new Parser()
-    const parsed = parser.astify(sanitized)
+    const unfinishedFrom = /\bFROM\s*;?\s*$/i.test(code)
+    const parsed = parser.astify(unfinishedFrom ? sanitized.replace(/\bFROM(?=\s*;?\s*$)/i, '') : sanitized)
     if (Array.isArray(parsed) && parsed.length !== 1) return options
     const ast: unknown = Array.isArray(parsed) ? parsed[0] : parsed
     if (!isNode(ast) || ast.type !== 'select' || ast.with || ast._next) return options

@@ -67,6 +67,23 @@ describe('JOIN suggestions for missing fields', () => {
 })
 
 describe('common event joins', () => {
+  it.each(['FROM', 'from\n  ', 'FROM ;'])(
+    'fills an empty %s before adding a JOIN without replacing the selected fields',
+    (ending) => {
+      const query = `SELECT event_name, COUNT(DISTINCT NULLIF(distinct_id, '')) AS unike_besokende\n${ending}`
+      for (const option of getSqlJoinOptions(query, projectId)) {
+        expect(option.sql).toContain('COUNT(DISTINCT NULLIF(')
+        expect(option.sql).toContain('AS unike_besokende')
+        expect(option.sql).toContain('event_name')
+        expect(option.sql).toContain(eventTable)
+        expect(option.sql).toContain('LEFT JOIN')
+        expect(option.joinSql).toMatch(/^FROM/)
+        expect(option.sql!.match(/\bFROM\b/g)).toHaveLength(1)
+        expect(() => new Parser().astify(option.sql!)).not.toThrow()
+      }
+    },
+  )
+
   it.each(['session', 'event_data', 'website'])('adds the %s join before WHERE and keeps the query parseable', (id) => {
     const query = `SELECT session_id, COUNT(*) AS antall FROM ${eventTable} WHERE event_type = 1 GROUP BY session_id ORDER BY antall DESC LIMIT 20`
     const sql = getSqlJoinOptions(query, projectId).find((option) => option.id === id)!.sql!

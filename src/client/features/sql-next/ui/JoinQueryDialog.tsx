@@ -91,11 +91,7 @@ export default function JoinQueryDialog({
             <BodyShort size="small">Hendelser uten {targetName} beholdes i koblingen.</BodyShort>
           )}
           <code className="text-sm break-words">{option.relation}</code>
-          {!option.alreadyJoined && countWarning && (
-            <Alert variant="warning" size="small">
-              {countWarning}
-            </Alert>
-          )}
+          {!option.alreadyJoined && countWarning && <BodyShort size="small">{countWarning}</BodyShort>}
           {option.alreadyJoined ? (
             <Alert variant="info" size="small">
               Denne tabellen er allerede koblet til {sourceChoice.title}.

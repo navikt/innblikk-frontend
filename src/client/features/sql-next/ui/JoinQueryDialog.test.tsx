@@ -9,6 +9,26 @@ const renderDialog = (query = 'SELECT') => {
 }
 
 describe('JOIN dialog', () => {
+  it('fills a pending FROM and inserts event details without blocking warnings', () => {
+    const { onApply } = renderDialog(
+      "SELECT event_name, COUNT(DISTINCT NULLIF(distinct_id, '')) AS unike_besokende\nFROM\n",
+    )
+    fireEvent.change(screen.getByRole('combobox', { name: 'Legg til' }), { target: { value: 'event_data' } })
+    expect(screen.queryByText(/Kan ikke legge til JOIN/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.getByText(/En hendelse kan vises flere ganger/)).toBeInTheDocument()
+    expect(screen.getByLabelText('JOIN-kode')).toHaveTextContent('FROM')
+    expect(screen.getByLabelText('JOIN-kode')).toHaveTextContent('umami_views.event')
+    expect(screen.getByRole('button', { name: 'Sett inn JOIN' })).toBeEnabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Sett inn JOIN' }))
+    const sql = onApply.mock.calls[0][0]
+    expect(sql).toContain('event_name')
+    expect(sql).toContain('COUNT(DISTINCT NULLIF(')
+    expect(sql).toContain('AS unike_besokende')
+    expect(sql).toContain('LEFT JOIN UNNEST')
+    expect(sql.match(/\bFROM\b/g)).toHaveLength(1)
+  })
+
   it('starts a new query with a preview and selected join', () => {
     const { onApply, onClose } = renderDialog()
     expect(screen.getByRole('dialog', { name: 'Legg til JOIN' })).toBeInTheDocument()
