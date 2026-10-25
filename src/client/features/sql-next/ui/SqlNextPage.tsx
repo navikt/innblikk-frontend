@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Alert, BodyShort, Button, Heading, Modal, Select, TextField } from '@navikt/ds-react'
+import { Alert, BodyShort, Button, Heading, HelpText, Modal, Select, TextField } from '@navikt/ds-react'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { WebsiteSelect } from '../../../shared/ui/WebsiteSelect.tsx'
@@ -200,8 +200,11 @@ export default function SqlNextPage() {
                 </div>
               ))}
             </div>
-            <BodyShort size="small" className="mt-3">
-              Filtrene legges til automatisk når spørringen kjøres. Du trenger ikke legge dem inn manuelt.
+            <BodyShort as="div" size="small" className="mt-3 flex items-center gap-2">
+              <span>Filtrene legges til automatisk når spørringen kjøres.</span>
+              <HelpText title="Om automatiske filtre">
+                Du trenger ikke legge inn nettside, periode eller maks rader (LIMIT) i SQL-en, de legges til automatisk.
+              </HelpText>
             </BodyShort>
           </div>
 

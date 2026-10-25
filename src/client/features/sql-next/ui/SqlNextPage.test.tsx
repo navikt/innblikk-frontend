@@ -324,8 +324,15 @@ describe('SQL error results', () => {
         <SqlNextPage />
       </MemoryRouter>,
     )
+    expect(screen.getByText('Filtrene legges til automatisk når spørringen kjøres.')).toBeInTheDocument()
+    const helpButton = screen.getByRole('button', { name: 'Om automatiske filtre' })
+    expect(helpButton).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(helpButton)
+    expect(helpButton).toHaveAttribute('aria-expanded', 'true')
     expect(
-      screen.getByText('Filtrene legges til automatisk når spørringen kjøres. Du trenger ikke legge dem inn manuelt.'),
+      screen.getByText(
+        'Du trenger ikke legge inn nettside, periode eller maks rader (LIMIT) i SQL-en, de legges til automatisk.',
+      ),
     ).toBeInTheDocument()
     expect(screen.queryByText('Vis SQL som kjøres')).not.toBeInTheDocument()
     expect(screen.getByTestId('editor-query').textContent).toBe(sql)
