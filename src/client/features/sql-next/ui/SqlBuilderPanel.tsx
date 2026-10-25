@@ -10,7 +10,12 @@ import {
 } from '@navikt/aksel-icons'
 import Editor, { type OnMount } from '@monaco-editor/react'
 import { getSqlBuildingBlocks, INITIAL_SQL_QUERY } from '../model/schemaAndSnippets'
-import { getSqlSuggestionFragment, getSqlSuggestions, prepareSqlBlockInsertion } from '../model/sqlSuggestions'
+import {
+  getSqlSuggestionFragment,
+  getSqlSuggestionPresentation,
+  getSqlSuggestions,
+  prepareSqlBlockInsertion,
+} from '../model/sqlSuggestions'
 import { registerSqlNextLanguage, SQL_NEXT_LANGUAGE_ID } from '../model/sqlLanguage'
 import type { BlockSectionId, MonacoEditorInstance, QueryStats } from '../model/types'
 
@@ -321,10 +326,7 @@ export default function SqlBuilderPanel({
                         model.getLineContent(position.lineNumber)[position.column - 1] === closingQuote
                       return {
                         ...suggestion,
-                        label: suggestion.labelDescription
-                          ? { label: suggestion.label, description: suggestion.labelDescription }
-                          : suggestion.label,
-                        detail: suggestion.labelDescription ? undefined : suggestion.detail,
+                        ...getSqlSuggestionPresentation(suggestion),
                         insertTextRules: monaco.languages.CompletionItemInsertTextRule.KeepWhitespace,
                         kind:
                           suggestion.kind === 'keyword'

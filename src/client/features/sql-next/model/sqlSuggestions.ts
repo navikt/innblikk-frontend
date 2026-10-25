@@ -7,11 +7,49 @@ export interface SqlSuggestion {
   filterText?: string
   insertText: string
   detail: string
+  documentation?: string
   kind: 'table' | 'field' | 'value' | 'keyword'
   sortText?: string
   preselect?: boolean
   replaceBefore?: number
   command?: { id: string; title: string }
+}
+
+export const getSqlSuggestionPresentation = (suggestion: SqlSuggestion) => {
+  const description = suggestion.labelDescription ?? suggestion.detail
+  return {
+    label: { label: suggestion.label, detail: description ? `  ${description}` : undefined },
+    detail: undefined,
+    documentation:
+      suggestion.documentation ?? (suggestion.labelDescription ? suggestion.detail || undefined : undefined),
+  }
+}
+
+const FIELD_DESCRIPTIONS: Record<string, string> = {
+  url_path: 'Sidesti',
+  event_name: 'Navn på hendelse',
+  event_type: 'Hendelsestype',
+  referrer_domain: 'Forrige domene',
+  referrer_path: 'Forrige sidesti',
+  referrer_query: 'Forrige URL-parametere',
+  utm_source: 'Kampanjekilde',
+  device: 'Enhet',
+  browser: 'Nettleser',
+  os: 'Operativsystem',
+  distinct_id: 'Besøkende-ID (cookie)',
+  session_id: 'Besøkende-ID (avtrykk)',
+  session_parameters: 'Besøksdetaljer',
+  event_parameters: 'Hendelsesdetaljer',
+  'sp.data_key': 'Navn på detalj',
+  'sp.string_value': 'Verdi (tekst)',
+  'sp.number_value': 'Verdi (tall)',
+  'sp.date_value': 'Verdi (dato)',
+  'sp.data_type': 'Verditype',
+  website_event_id: 'Hendelse-ID',
+  website_id: 'Nettside-ID',
+  domain: 'Domene',
+  reset_at: 'Nullstilt',
+  created_by: 'Opprettet av',
 }
 
 const FILTER_VALUES: Record<string, string[]> = {
@@ -173,6 +211,7 @@ export const getSqlSuggestions = (sqlBeforeCursor: string, projectId: string, sq
         filterText: `${getFullTableName(projectId, table.datasetTable)} ${table.title}`,
         insertText: getFullTableName(projectId, table.datasetTable),
         detail: table.title,
+        documentation: `${getFullTableName(projectId, table.datasetTable)}\n\n${table.summary}`,
         kind: 'table',
         ...(matchingTables.length === 1 ? { preselect: true } : {}),
       }
@@ -184,8 +223,8 @@ export const getSqlSuggestions = (sqlBeforeCursor: string, projectId: string, sq
   )
   if (directionPrefix) {
     return [
-      { label: 'DESC', labelDescription: 'Synkende: størst til minst' },
-      { label: 'ASC', labelDescription: 'Stigende: minst til størst' },
+      { label: 'DESC', labelDescription: 'Størst til minst', documentation: 'Synkende: størst til minst' },
+      { label: 'ASC', labelDescription: 'Minst til størst', documentation: 'Stigende: minst til størst' },
     ]
       .filter((direction) => direction.label.startsWith(directionPrefix[1].toUpperCase()))
       .map((direction, index) => ({
@@ -217,6 +256,7 @@ export const getSqlSuggestions = (sqlBeforeCursor: string, projectId: string, sq
           label: `${name.replace(/^`|`$/g, '')} (${index + 1})`,
           insertText: `${index + 1} `,
           detail: '',
+          documentation: expression,
           kind: 'field',
           sortText: String(index + 1).padStart(4, '0'),
           ...(isGrouping ? {} : { command: { id: 'editor.action.triggerSuggest', title: 'Velg sorteringsretning' } }),
@@ -261,14 +301,26 @@ export const getSqlSuggestions = (sqlBeforeCursor: string, projectId: string, sq
         { label: '=', labelDescription: 'Er lik' },
         { label: '!=', labelDescription: 'Er ulik' },
         { label: '>', labelDescription: 'Større enn' },
-        { label: '>=', labelDescription: 'Større enn eller lik' },
+        { label: '>=', labelDescription: 'Større eller lik', documentation: 'Større enn eller lik' },
         { label: '<', labelDescription: 'Mindre enn' },
-        { label: '<=', labelDescription: 'Mindre enn eller lik' },
-        { label: 'LIKE', labelDescription: 'Tekst med jokertegn (% og _)' },
-        { label: 'NOT LIKE', labelDescription: 'Utelat tekst med jokertegn (% og _)' },
-        { label: 'IN', labelDescription: 'Er en av flere verdier' },
-        { label: 'NOT IN', labelDescription: 'Er ingen av verdiene' },
-        { label: 'BETWEEN', labelDescription: 'Er mellom to verdier' },
+        { label: '<=', labelDescription: 'Mindre eller lik', documentation: 'Mindre enn eller lik' },
+        {
+          label: 'LIKE',
+          labelDescription: 'Tekst med jokertegn',
+          documentation: 'Tekst med jokertegn: % er null eller flere tegn, _ er ett tegn.',
+        },
+        {
+          label: 'NOT LIKE',
+          labelDescription: 'Utelat tekstreff',
+          documentation: 'Utelat tekst som passer med jokertegn: % er null eller flere tegn, _ er ett tegn.',
+        },
+        { label: 'IN', labelDescription: 'En av verdiene' },
+        { label: 'NOT IN', labelDescription: 'Ingen av verdiene' },
+        {
+          label: 'BETWEEN',
+          labelDescription: 'Mellom to verdier',
+          documentation: 'Mellom to verdier, inkludert begge grensene.',
+        },
         { label: 'IS NULL', labelDescription: 'Mangler verdi' },
         { label: 'IS NOT NULL', labelDescription: 'Har verdi' },
       ]
@@ -323,6 +375,7 @@ export const getSqlSuggestions = (sqlBeforeCursor: string, projectId: string, sq
   const isFilterField = /\b(?:WHERE|AND|OR|ON|HAVING)\s+[\w.]*$/i.test(context)
   const fieldSuggestions: SqlSuggestion[] = uniqueColumns.map((column) => ({
     label: column.name,
+    labelDescription: FIELD_DESCRIPTIONS[column.name] ?? column.label,
     insertText: additionalSelectField ? `, ${column.name}` : column.name,
     ...additionalFieldInsertion,
     detail: column.label,
@@ -339,6 +392,7 @@ export const getSqlSuggestions = (sqlBeforeCursor: string, projectId: string, sq
       insertText: additionalSelectField ? `, ${block.code}` : block.code,
       ...additionalFieldInsertion,
       detail: '',
+      documentation: block.code,
       kind: 'field',
       sortText: String(index + 1).padStart(2, '0'),
     }))

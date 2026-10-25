@@ -1,6 +1,11 @@
 import { applyUrlFiltersToSql } from '../../sql/utils/sqlProcessing'
 import { getSqlBuildingBlocks } from './schemaAndSnippets'
-import { getSqlSuggestionFragment, getSqlSuggestions, prepareSqlBlockInsertion } from './sqlSuggestions'
+import {
+  getSqlSuggestionFragment,
+  getSqlSuggestionPresentation,
+  getSqlSuggestions,
+  prepareSqlBlockInsertion,
+} from './sqlSuggestions'
 import { Parser } from 'node-sql-parser/build/bigquery'
 
 const projectId = 'team-researchops-prod-01d6'
@@ -55,6 +60,49 @@ describe('SQL block insertion', () => {
 })
 
 describe('SQL builder suggestions', () => {
+  it.each([
+    'SELECT ',
+    `${sessionQuery}\nAND `,
+    `${sessionQuery}\nAND url_path `,
+    `${sessionQuery}\nAND browser = `,
+    'SELECT * FROM ',
+    'SELECT url_path, browser FROM ',
+    'SELECT COUNT(*) AS antall FROM events ORDER BY ',
+    'SELECT COUNT(*) AS antall FROM events ORDER BY antall ',
+    'SELECT * FROM events\n',
+  ])('keeps inline explanations beside the label for %s', (query) => {
+    const suggestions = getSqlSuggestions(query, projectId)
+    expect(suggestions.length).toBeGreaterThan(0)
+    for (const suggestion of suggestions) {
+      const presentation = getSqlSuggestionPresentation(suggestion)
+      const description = suggestion.labelDescription ?? suggestion.detail
+      expect(presentation.label).toEqual({
+        label: suggestion.label,
+        detail: description ? `  ${description}` : undefined,
+      })
+      expect(presentation.detail).toBeUndefined()
+      expect(description.length, `${suggestion.label}: ${description}`).toBeLessThanOrEqual(24)
+    }
+  })
+
+  it('retains operator explanations in expandable documentation', () => {
+    const suggestions = getSqlSuggestions(`${sessionQuery}\nAND url_path `, projectId)
+    const like = suggestions.find((suggestion) => suggestion.label === 'LIKE')!
+    expect(getSqlSuggestionPresentation(like).documentation).toContain('% er null eller flere tegn')
+    const between = suggestions.find((suggestion) => suggestion.label === 'BETWEEN')!
+    expect(getSqlSuggestionPresentation(between).documentation).toContain('inkludert begge grensene')
+  })
+
+  it('keeps long field explanations and JOIN relations accessible', () => {
+    const fields = getSqlSuggestions('SELECT ', projectId)
+    const parameter = fields.find((suggestion) => suggestion.label === 'sp.string_value')!
+    expect(parameter.labelDescription).toBe('Verdi (tekst)')
+    expect(getSqlSuggestionPresentation(parameter).documentation).toContain('UNNEST session_parameters AS sp')
+    const join = getSqlSuggestions('SELECT url_path, browser FROM ', projectId)[0]
+    expect(join.labelDescription).toBe('JOIN')
+    expect(getSqlSuggestionPresentation(join).documentation).toBe(join.detail)
+  })
+
   it('opens operator suggestions after accepting a filter field', () => {
     const prefix = `${sessionQuery}\nAND bro`
     const browser = getSqlSuggestions(prefix, projectId).find((suggestion) => suggestion.label === 'browser')!
@@ -84,14 +132,14 @@ describe('SQL builder suggestions', () => {
       ['=', 'Er lik'],
       ['!=', 'Er ulik'],
       ['>', 'Større enn'],
-      ['>=', 'Større enn eller lik'],
+      ['>=', 'Større eller lik'],
       ['<', 'Mindre enn'],
-      ['<=', 'Mindre enn eller lik'],
-      ['LIKE', 'Tekst med jokertegn (% og _)'],
-      ['NOT LIKE', 'Utelat tekst med jokertegn (% og _)'],
-      ['IN', 'Er en av flere verdier'],
-      ['NOT IN', 'Er ingen av verdiene'],
-      ['BETWEEN', 'Er mellom to verdier'],
+      ['<=', 'Mindre eller lik'],
+      ['LIKE', 'Tekst med jokertegn'],
+      ['NOT LIKE', 'Utelat tekstreff'],
+      ['IN', 'En av verdiene'],
+      ['NOT IN', 'Ingen av verdiene'],
+      ['BETWEEN', 'Mellom to verdier'],
       ['IS NULL', 'Mangler verdi'],
       ['IS NOT NULL', 'Har verdi'],
     ])
@@ -209,8 +257,8 @@ describe('SQL builder suggestions', () => {
     (clause) => {
       const suggestions = getSqlSuggestions(`${sessionQuery}\n${clause}`, projectId)
       expect(suggestions.map((suggestion) => [suggestion.label, suggestion.labelDescription])).toEqual([
-        ['DESC', 'Synkende: størst til minst'],
-        ['ASC', 'Stigende: minst til størst'],
+        ['DESC', 'Størst til minst'],
+        ['ASC', 'Minst til størst'],
       ])
     },
   )
@@ -487,6 +535,7 @@ describe('SQL builder suggestions', () => {
         filterText: `\`${projectId}.umami_views.session\` Brukerdetaljer`,
         insertText: `\`${projectId}.umami_views.session\``,
         detail: 'Brukerdetaljer',
+        documentation: `\`${projectId}.umami_views.session\`\n\nMobil eller PC, nettleser, språk og operativsystem.`,
         kind: 'table',
       })
     }
