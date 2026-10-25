@@ -529,7 +529,7 @@ const ResultsPanel = ({
                       >
                         <div className={copyableCells ? 'inline-flex items-center gap-1' : undefined}>
                           {clickable ? (
-                            <span className="text-blue-600 hover:underline flex items-center gap-1">
+                            <span className="text-[var(--ax-text-accent)] hover:underline flex items-center gap-1">
                               {displayValue} <ExternalLinkIcon className="h-3 w-3" fontSize="1.25rem" />
                             </span>
                           ) : (

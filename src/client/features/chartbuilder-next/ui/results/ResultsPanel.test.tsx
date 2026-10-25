@@ -31,6 +31,14 @@ const props = {
 describe('result cell copying', () => {
   afterEach(() => vi.restoreAllMocks())
 
+  it('uses the theme-aware accent text color for result paths and their icons', () => {
+    render(<ResultsPanel {...props} websiteId="test-website" result={{ data: [{ url_path: '/pensjon' }] }} />)
+    const path = screen.getByText('/pensjon')
+    expect(path).toHaveClass('text-[var(--ax-text-accent)]')
+    expect(path).not.toHaveClass('text-blue-600')
+    expect(path.querySelector('svg')).toBeInTheDocument()
+  })
+
   it('does not add cell copy controls by default', () => {
     render(<ResultsPanel {...props} />)
     expect(within(screen.getByRole('table')).queryByRole('button', { name: 'Kopier verdi' })).not.toBeInTheDocument()
