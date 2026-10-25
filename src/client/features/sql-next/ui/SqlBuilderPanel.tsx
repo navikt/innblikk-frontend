@@ -277,7 +277,7 @@ export default function SqlBuilderPanel({
 
         <div
           className="border border-[var(--ax-border-neutral)] rounded focus-within:outline focus-within:outline-2 focus-within:outline-[var(--ax-border-focus)] focus-within:outline-offset-[-2px]"
-          style={{ position: 'relative', isolation: 'isolate', height: 260 }}
+          style={{ position: 'relative', isolation: 'isolate', height: 'clamp(260px, 50vh, 420px)' }}
         >
           <Editor
             height="100%"
