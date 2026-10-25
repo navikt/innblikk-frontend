@@ -149,17 +149,20 @@
 .fieldMarker {
   display: flex;
   align-items: center;
-  width: 8px;
-  flex: 0 0 8px;
+  width: 16px;
+  flex: 0 0 16px;
 }
-.keyDot {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  flex: 0 0 7px;
-  border: 1px solid var(--ax-text-accent);
-  border-radius: 50%;
-  background: var(--ax-bg-accent-soft);
+.keyIcon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+}
+.primaryKey {
+  color: light-dark(#8a6100, #ffd166);
+  transform: rotate(45deg);
+}
+.foreignKey {
+  color: inherit;
 }
 .insertIcon {
   width: 16px;

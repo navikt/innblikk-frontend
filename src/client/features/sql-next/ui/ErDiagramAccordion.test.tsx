@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import ErDiagramAccordion from './ErDiagramAccordion'
+import styles from './ErDiagramAccordion.module.css'
 
 const renderDiagram = () => {
   const onInsertSnippet = vi.fn()
@@ -7,11 +8,42 @@ const renderDiagram = () => {
   const view = render(
     <ErDiagramAccordion projectId="test-project" onOpenJoin={onOpenJoin} onInsertSnippet={onInsertSnippet} />,
   )
-  fireEvent.click(screen.getByRole('button', { name: 'Datamodell' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Datamodell – tabeller og felter' }))
   return { ...view, onInsertSnippet, onOpenJoin }
 }
 
 describe('ER diagram', () => {
+  it.each([
+    ['umami_views.event', 'event_id', 'PK'],
+    ['umami_views.event', 'website_id', 'FK'],
+    ['umami_views.event', 'session_id', 'FK'],
+    ['umami_views.session', 'session_id', 'PK'],
+    ['umami_views.session', 'website_id', 'FK'],
+    ['umami.public_website', 'website_id', 'PK'],
+    ['umami_views.event_data', 'website_event_id', 'FK'],
+    ['umami_views.event_data', 'website_id', 'FK'],
+  ])('labels %s.%s as %s without inserting the label', (tableName, field, role) => {
+    const { onInsertSnippet } = renderDiagram()
+    const button = screen.getByRole('button', { name: `Sett inn ${tableName}.${field}` })
+    expect(within(button).getByText(`(${role})`)).toBeInTheDocument()
+    const icon = button.querySelector('svg')
+    expect(icon).toHaveClass(role === 'PK' ? styles.primaryKey : styles.foreignKey)
+    expect(icon).toHaveAttribute('aria-hidden', 'true')
+    fireEvent.click(button)
+    expect(onInsertSnippet).toHaveBeenLastCalledWith(field)
+  })
+
+  it('explains both key labels outside the horizontally scrolling diagram', () => {
+    renderDiagram()
+    const diagram = screen.getByRole('region', { name: 'ER-diagram med fire tabeller' })
+    expect(screen.getByText('PK (primærnøkkel):')).toBeInTheDocument()
+    expect(screen.getByText('FK (fremmednøkkel):')).toBeInTheDocument()
+    expect(within(diagram).queryByText('PK (primærnøkkel):')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sett inn umami_views.session.browser' })).not.toHaveTextContent(
+      /\((?:PK|FK)\)/,
+    )
+  })
+
   it('shows all four tables with connecting fields and three relationships', () => {
     const { container } = renderDiagram()
     const event = screen.getByRole('region', { name: 'umami_views.event' })

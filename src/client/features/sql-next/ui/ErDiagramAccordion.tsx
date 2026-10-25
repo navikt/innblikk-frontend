@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ReadMore, Button, Tooltip } from '@navikt/ds-react'
-import { CheckmarkIcon, FilesIcon, PlusIcon, LinkIcon } from '@navikt/aksel-icons'
+import { CheckmarkIcon, FilesIcon, PlusIcon, LinkIcon, KeyHorizontalIcon } from '@navikt/aksel-icons'
 import { getBigQueryTables, getFullTableName } from '../model/schemaAndSnippets'
 import type { BigQueryTableDoc } from '../model/types'
 import styles from './ErDiagramAccordion.module.css'
@@ -42,6 +42,13 @@ const KEY_FIELDS: Record<BigQueryTableDoc['id'], string[]> = {
   event_data: ['website_event_id'],
 }
 
+const KEY_ROLES: Record<BigQueryTableDoc['id'], Record<string, 'PK' | 'FK'>> = {
+  event: { event_id: 'PK', website_id: 'FK', session_id: 'FK' },
+  website: { website_id: 'PK' },
+  session: { session_id: 'PK', website_id: 'FK' },
+  event_data: { website_event_id: 'FK', website_id: 'FK' },
+}
+
 export default function ErDiagramAccordion({ projectId, onOpenJoin, onInsertSnippet }: ErDiagramAccordionProps) {
   const tables = getBigQueryTables(projectId)
   const [copiedId, setCopiedId] = useState<string | null>(null)
@@ -54,7 +61,7 @@ export default function ErDiagramAccordion({ projectId, onOpenJoin, onInsertSnip
   }
 
   return (
-    <ReadMore header="Datamodell" size="small" className={styles.accordion}>
+    <ReadMore header="Datamodell – tabeller og felter" size="small" className={styles.accordion}>
       <div className={styles.scrollArea} role="region" aria-label="ER-diagram med fire tabeller" tabIndex={0}>
         <div className={styles.diagram}>
           <svg className={styles.connections} viewBox="0 0 1056 1280" aria-hidden="true">
@@ -96,28 +103,44 @@ export default function ErDiagramAccordion({ projectId, onOpenJoin, onInsertSnip
                   <span className={styles.tableTitle}>{table.title}</span>
                 </button>
                 <ul className={styles.fields}>
-                  {orderedColumns.map((column) => (
-                    <li key={column.name}>
-                      <Tooltip content={column.label}>
-                        <button
-                          type="button"
-                          draggable
-                          className={`${styles.field} ${keys.includes(column.name) ? styles.keyField : ''}`}
-                          aria-label={`Sett inn ${table.shortName}.${column.name}`}
-                          onClick={() => onInsertSnippet(column.insertSnippet || column.name)}
-                          onDragStart={(event) =>
-                            event.dataTransfer.setData('text/plain', column.insertSnippet || column.name)
-                          }
-                        >
-                          <span className={styles.fieldMarker} aria-hidden="true">
-                            {keys.includes(column.name) ? <span className={styles.keyDot} /> : null}
-                          </span>
-                          <code>{column.name}</code>
-                          <PlusIcon className={styles.insertIcon} aria-hidden="true" />
-                        </button>
-                      </Tooltip>
-                    </li>
-                  ))}
+                  {orderedColumns.map((column) => {
+                    const keyRole = KEY_ROLES[table.id][column.name]
+                    const keyDescription = keyRole === 'PK' ? 'Primærnøkkel' : keyRole === 'FK' ? 'Fremmednøkkel' : null
+                    return (
+                      <li key={column.name}>
+                        <Tooltip content={keyDescription ? `${column.label}. ${keyDescription}` : column.label}>
+                          <button
+                            type="button"
+                            draggable
+                            className={`${styles.field} ${keys.includes(column.name) ? styles.keyField : ''}`}
+                            aria-label={`Sett inn ${table.shortName}.${column.name}`}
+                            onClick={() => onInsertSnippet(column.insertSnippet || column.name)}
+                            onDragStart={(event) =>
+                              event.dataTransfer.setData('text/plain', column.insertSnippet || column.name)
+                            }
+                          >
+                            <span className={styles.fieldMarker} aria-hidden="true">
+                              {keyRole === 'PK' && (
+                                <KeyHorizontalIcon
+                                  className={`${styles.keyIcon} ${styles.primaryKey}`}
+                                  aria-hidden="true"
+                                />
+                              )}
+                              {keyRole === 'FK' && (
+                                <KeyHorizontalIcon
+                                  className={`${styles.keyIcon} ${styles.foreignKey}`}
+                                  aria-hidden="true"
+                                />
+                              )}
+                            </span>
+                            <code>{column.name}</code>
+                            {keyRole && <code>({keyRole})</code>}
+                            <PlusIcon className={styles.insertIcon} aria-hidden="true" />
+                          </button>
+                        </Tooltip>
+                      </li>
+                    )
+                  })}
                 </ul>
                 <div className={styles.tableActions}>
                   {table.id !== 'event' && onOpenJoin && (
@@ -161,11 +184,17 @@ export default function ErDiagramAccordion({ projectId, onOpenJoin, onInsertSnip
           <div className={styles.legend}>
             <span className={styles.legendLine} aria-hidden="true" />
             <span>Én til mange</span>
-            <span className={styles.keyDot} aria-hidden="true" />
-            <span>Felt som kobler tabellene</span>
+            <KeyHorizontalIcon className={`${styles.keyIcon} ${styles.primaryKey}`} aria-hidden="true" />
+            <span>Primærnøkkel (PK)</span>
+            <KeyHorizontalIcon className={`${styles.keyIcon} ${styles.foreignKey}`} aria-hidden="true" />
+            <span>Fremmednøkkel (FK)</span>
           </div>
         </div>
       </div>
+      <p className="mt-2 text-sm text-[var(--ax-text-subtle)]">
+        <strong>PK (primærnøkkel):</strong> identifiserer en rad. <strong>FK (fremmednøkkel):</strong> kobler til en
+        annen tabell.
+      </p>
     </ReadMore>
   )
 }
