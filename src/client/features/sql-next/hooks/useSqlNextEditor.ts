@@ -23,7 +23,7 @@ export const SAFETY_LIMIT_OPTIONS = [100, 500, 1000, 5000] as const
 
 const getSqlCode = (sql: string): string =>
   sql.replace(
-    /--[^\r\n]*|#[^\r\n]*|\/\*[\s\S]*?\*\/|'(?:''|\\[\s\S]|[^'\\])*'|"(?:""|\\[\s\S]|[^"\\])*"|`(?:\\[\s\S]|[^`\\])*`/g,
+    /\[\[[\s\S]*?\]\]|\{\{[^}]+\}\}|--[^\r\n]*|#[^\r\n]*|\/\*[\s\S]*?\*\/|'(?:''|\\[\s\S]|[^'\\])*'|"(?:""|\\[\s\S]|[^"\\])*"|`(?:\\[\s\S]|[^`\\])*`/g,
     (token) => token.replace(/[^\r\n]/g, /^(?:--|#|\/\*)/.test(token) ? ' ' : '_'),
   )
 
@@ -131,7 +131,7 @@ export const useSqlNextEditor = () => {
   const [copiedMetabase, setCopiedMetabase] = useState(false)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [pendingQueryEstimate, setPendingQueryEstimate] = useState<QueryStats | null>(null)
-  const [pendingLimitOverride, setPendingLimitOverride] = useState<number | null | undefined>(undefined)
+  const [pendingQuery, setPendingQuery] = useState<{ sql: string; source: string } | null>(null)
 
   const dryRunRequestIdRef = useRef(0)
 
@@ -337,29 +337,15 @@ export const useSqlNextEditor = () => {
     }
   }
 
-  const runQueryWithLimit = async (overrideLimit?: number | null) => {
-    const limitToUse = overrideLimit !== undefined ? overrideLimit : safetyLimit
-    const nextQuery =
-      overrideLimit === null
-        ? removeExplicitLimit(query)
-        : overrideLimit !== undefined && explicitLimit !== null
-          ? replaceExplicitLimit(query, overrideLimit)
-          : query
-
-    if (nextQuery !== query) {
-      setQuery(nextQuery)
-    }
-
+  const runPreparedQuery = async (processedSql: string, sourceQuery: string) => {
     setLoading(true)
     setError(null)
+    setDryRunError(null)
     setResult(null)
     setHasAttemptedFetch(true)
-    updateUrlParams({ sql: nextQuery })
-
-    const sqlWithLimit = applySafetyLimit(nextQuery, limitToUse)
+    updateUrlParams({ sql: sourceQuery })
 
     try {
-      const processedSql = await prepareQuery(sqlWithLimit)
       setLastProcessedSql(processedSql)
       const data = await executeQueryApi(processedSql)
       setResult(data)
@@ -385,6 +371,9 @@ export const useSqlNextEditor = () => {
 
     setLoading(true)
     setError(null)
+    setDryRunError(null)
+    dryRunRequestIdRef.current += 1
+    setEstimating(false)
 
     try {
       const sqlWithLimit = applySafetyLimit(nextQuery, limitToUse)
@@ -399,13 +388,14 @@ export const useSqlNextEditor = () => {
 
       if (shouldWarn) {
         setPendingQueryEstimate(estimateData)
-        setPendingLimitOverride(overrideLimit)
+        setPendingQuery({ sql: processedSql, source: nextQuery })
         setShowConfirmModal(true)
         setLoading(false)
         return
       }
 
-      await runQueryWithLimit(overrideLimit)
+      if (nextQuery !== query) setQuery(nextQuery)
+      await runPreparedQuery(processedSql, nextQuery)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Noe gikk galt under kjøring av spørringen'
       setError(message)
@@ -422,15 +412,15 @@ export const useSqlNextEditor = () => {
 
   const handleConfirmQuery = async () => {
     setShowConfirmModal(false)
-    const override = pendingLimitOverride
-    setPendingLimitOverride(undefined)
+    const prepared = pendingQuery
+    setPendingQuery(null)
     setPendingQueryEstimate(null)
-    await runQueryWithLimit(override)
+    if (prepared) await runPreparedQuery(prepared.sql, prepared.source)
   }
 
   const handleCancelQuery = () => {
     setShowConfirmModal(false)
-    setPendingLimitOverride(undefined)
+    setPendingQuery(null)
     setPendingQueryEstimate(null)
   }
 
@@ -537,10 +527,14 @@ export const useSqlNextEditor = () => {
   }
 
   const getExportQuery = useCallback(async () => {
-    const template = applyWebsiteIdOnly(applySafetyLimit(query, safetyLimit), effectiveWebsiteId)
-    if (/\{\{/.test(template)) return template
-    return applyAutomaticFilters(template, getFilterContext(), undefined, 'template')
-  }, [query, safetyLimit, effectiveWebsiteId, getFilterContext])
+    const context = getFilterContext()
+    const template = applyWebsiteIdOnly(
+      applySafetyLimit(query, safetyLimit),
+      context.websiteIdState,
+      context.websiteIds,
+    )
+    return applyAutomaticFilters(template, context, undefined, 'template')
+  }, [query, safetyLimit, getFilterContext])
 
   const handleCopyMetabase = async () => {
     try {

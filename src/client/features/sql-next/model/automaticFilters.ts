@@ -1,5 +1,9 @@
-import { format, subDays } from 'date-fns'
-import type { applyUrlFiltersToSql } from '../../sql/utils/sqlProcessing'
+import {
+  getSqlDateBounds,
+  sanitizePlaceholders,
+  restorePlaceholders,
+  type applyUrlFiltersToSql,
+} from '../../sql/utils/sqlProcessing'
 
 type FilterContext = Parameters<typeof applyUrlFiltersToSql>[1]
 type SqlNode = Record<string, unknown>
@@ -13,10 +17,11 @@ export interface AutomaticFilterUsage {
 const isNode = (value: unknown): value is SqlNode =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-const visit = (value: unknown, action: (node: SqlNode) => void) => {
-  if (Array.isArray(value)) value.forEach((item) => visit(item, action))
+const visit = (value: unknown, action: (node: SqlNode) => void, includeSubqueries = true) => {
+  if (Array.isArray(value)) value.forEach((item) => visit(item, action, includeSubqueries))
   else if (isNode(value)) {
-    Object.values(value).forEach((child) => visit(child, action))
+    if (!includeSubqueries && value.type === 'select') return
+    Object.values(value).forEach((child) => visit(child, action, includeSubqueries))
     action(value)
   }
 }
@@ -35,29 +40,50 @@ const getColumn = (node: SqlNode): { name: string; table: string | null } | null
 }
 
 const hasFilter = (predicates: unknown[], field: string, references: string[], unqualified: boolean) => {
+  const containsTarget = (value: unknown) => {
+    let matches = false
+    visit(
+      value,
+      (node) => {
+        const column = getColumn(node)
+        if (
+          column?.name.toLowerCase() === field &&
+          (column.table ? references.includes(column.table.toLowerCase()) : unqualified)
+        )
+          matches = true
+      },
+      false,
+    )
+    return matches
+  }
+  const isValue = (value: unknown) => {
+    let hasReference = false
+    visit(value, (node) => {
+      if (getColumn(node) || node.type === 'select') hasReference = true
+    })
+    return !hasReference
+  }
   let found = false
   predicates.forEach((predicate) =>
-    visit(predicate, (node) => {
-      const column = getColumn(node)
-      if (
-        column?.name.toLowerCase() === field &&
-        (column.table ? references.includes(column.table.toLowerCase()) : unqualified)
-      )
-        found = true
-    }),
+    visit(
+      predicate,
+      (node) => {
+        if (
+          node.type === 'binary_expr' &&
+          /^(?:=|!=|<>|[<>]=?|(?:NOT )?(?:BETWEEN|IN|LIKE)|IS(?: NOT)?)$/i.test(String(node.operator)) &&
+          ((containsTarget(node.left) && isValue(node.right)) || (containsTarget(node.right) && isValue(node.left)))
+        )
+          found = true
+      },
+      false,
+    ),
   )
   return found
 }
 
 const getDateCondition = (context: FilterContext) => {
-  const now = new Date()
-  const from = new Date(context.dateRange.from ?? subDays(now, 30))
-  const to = new Date(context.dateRange.to ?? now)
-  from.setHours(0, 0, 0, 0)
-  if (to.toDateString() === now.toDateString()) to.setTime(now.getTime())
-  else to.setHours(23, 59, 59, 999)
-  const timestamp = (date: Date) => `TIMESTAMP('${format(date, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx")}')`
-  return `created_at BETWEEN ${timestamp(from)} AND ${timestamp(to)}`
+  const { fromSql, toSql } = getSqlDateBounds(context.dateRange)
+  return `created_at BETWEEN ${fromSql} AND ${toSql}`
 }
 
 export const applyAutomaticFilters = async (
@@ -69,7 +95,14 @@ export const applyAutomaticFilters = async (
   if (!/\b(?:umami_views\.(?:event|session|event_data)|umami\.public_website)\b/i.test(sql)) return sql
   const { Parser } = await import('node-sql-parser/build/bigquery')
   const parser = new Parser()
-  const parsed = parser.astify(sql)
+  const { sanitized, placeholders } =
+    mode === 'template'
+      ? sanitizePlaceholders(sql, 'parse')
+      : { sanitized: sql, placeholders: new Map<string, string>() }
+  const periodTokens = new Set(
+    [...placeholders].filter(([, text]) => /\{\{\s*created_at\s*\}\}/i.test(text)).map(([token]) => token),
+  )
+  const parsed = parser.astify(sanitized)
   if (Array.isArray(parsed) && parsed.length !== 1) throw new Error('Bruk én spørring om gangen.')
   const ast = Array.isArray(parsed) ? parsed[0] : parsed
   let changed = false
@@ -78,6 +111,23 @@ export const applyAutomaticFilters = async (
     if (select.type !== 'select' || !Array.isArray(select.from)) return
     const sources = select.from.filter(isNode)
     const predicates = [select.where, ...sources.map((source) => source.on)]
+    const periodSource =
+      sources.find((source) => typeof source.table === 'string' && /(?:^|\.)umami_views\.event$/i.test(source.table)) ??
+      sources.find(
+        (source) =>
+          typeof source.table === 'string' && /(?:^|\.)umami_views\.(?:session|event_data)$/i.test(source.table),
+      )
+    let hasDynamicPeriod = false
+    predicates.forEach((predicate) =>
+      visit(
+        predicate,
+        (node) => {
+          const column = getColumn(node)
+          if (column && periodTokens.has(column.name)) hasDynamicPeriod = true
+        },
+        false,
+      ),
+    )
     for (const source of sources) {
       if (typeof source.table !== 'string') continue
       const match = /(?:^|\.)(umami_views\.(event_data|event|session)|umami\.public_website)$/i.exec(source.table)
@@ -87,8 +137,10 @@ export const applyAutomaticFilters = async (
       const references = [table, alias, table.split('.').pop()!].map((value) => value.toLowerCase())
       const conditions: string[] = []
       const hasWebsiteFilter = hasFilter(predicates, 'website_id', references, sources.length === 1)
-      const hasPeriodFilter = hasFilter(predicates, 'created_at', references, sources.length === 1)
-      if (match[2] !== 'event_data' && !hasWebsiteFilter) {
+      const hasPeriodFilter =
+        hasFilter(predicates, 'created_at', references, sources.length === 1) ||
+        (source === periodSource && hasDynamicPeriod)
+      if (!hasWebsiteFilter) {
         const ids = [
           ...new Set(context.websiteIds?.length ? context.websiteIds : [context.websiteIdState].filter(Boolean)),
         ]
@@ -101,7 +153,7 @@ export const applyAutomaticFilters = async (
       }
       onFilterUsage?.({
         table,
-        website: match[2] === 'event_data' ? null : hasWebsiteFilter ? 'sql' : 'automatic',
+        website: hasWebsiteFilter ? 'sql' : 'automatic',
         period: match[2] ? (hasPeriodFilter ? 'sql' : 'automatic') : null,
       })
       if (!conditions.length) continue
@@ -126,6 +178,9 @@ export const applyAutomaticFilters = async (
 
   const processed = changed ? parser.sqlify(ast) : sql
   return mode === 'template'
-    ? processed.replace(/\bAND\s+`?__INNBL_DYNAMIC_PERIOD__`?/g, '[[AND {{created_at}}]]')
+    ? restorePlaceholders(processed, placeholders).replace(
+        /\bAND\s+`?__INNBL_DYNAMIC_PERIOD__`?/g,
+        '[[AND {{created_at}}]]',
+      )
     : processed
 }

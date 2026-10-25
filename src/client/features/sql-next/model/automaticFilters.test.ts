@@ -1,5 +1,5 @@
 import { applyAutomaticFilters } from './automaticFilters'
-import { applyUrlFiltersToSql } from '../../sql/utils/sqlProcessing'
+import { applyUrlFiltersToSql, replaceDateFilterPlaceholders } from '../../sql/utils/sqlProcessing'
 import { getGcpProjectId } from '../../sql/utils/formatters'
 import { processDashboardSql } from '../../dashboard/utils/queryUtils'
 import { Parser } from 'node-sql-parser/build/bigquery'
@@ -16,6 +16,65 @@ const context = {
 }
 
 describe('automatic website and period filters', () => {
+  it('exports and reruns a JOIN with an existing outer date placeholder and missing source filters', async () => {
+    const query =
+      'SELECT e.event_id, s.browser FROM `test-project.umami_views.event` e LEFT JOIN `test-project.umami_views.session` s ON e.session_id = s.session_id WHERE 1 = 1 [[AND {{created_at}} ]]'
+    const exported = await applyAutomaticFilters(query, context, undefined, 'template')
+    expect(exported.match(/\[\[AND \{\{created_at\}\}\s*\]\]/g)).toHaveLength(2)
+    expect(exported.match(/website_id = 'chosen-website'/g)).toHaveLength(2)
+    const rerun = applyUrlFiltersToSql(exported, context)
+    expect(rerun).toContain('AND e.created_at BETWEEN')
+    expect(rerun).toContain('`test-project.umami_views.session`.created_at BETWEEN')
+    expect(rerun).not.toContain('{{')
+    expect(rerun).not.toContain('__METABASE_')
+    expect(() => new Parser().astify(rerun)).not.toThrow()
+    const dashboardSql = processDashboardSql(exported, 'chosen-website', {
+      urlFilters: [],
+      dateRange: 'last_7_days',
+      pathOperator: 'equals',
+      metricType: 'visitors',
+    })
+    expect(dashboardSql).toContain('AND e.created_at BETWEEN')
+    expect(() => new Parser().astify(dashboardSql)).not.toThrow()
+  })
+
+  it('keeps inner and outer date placeholders in their own SELECT scopes', () => {
+    const sql =
+      'SELECT e.event_id FROM `test-project.umami_views.event` e WHERE e.session_id IN (SELECT s.session_id FROM `test-project.umami_views.session` s WHERE 1 = 1 [[AND {{created_at}}]]) [[AND {{created_at}}]]'
+    const processed = replaceDateFilterPlaceholders(sql, 'START', 'END', 'fallback.created_at')
+    expect(processed).toContain(
+      'WHERE 1 = 1 AND s.created_at BETWEEN START AND END) AND e.created_at BETWEEN START AND END',
+    )
+    expect(processed).not.toContain('fallback')
+  })
+
+  it('resolves aliases around derived tables and ignores SQL-looking strings and comments', () => {
+    const sql =
+      "SELECT e.event_id, 'SELECT FROM )' AS text FROM (SELECT event_id FROM `test-project.umami_views.event` WHERE 1 = 1 [[AND {{created_at}}]]) AS e WHERE 1 = 1 /* SELECT FROM fake ) */ [[AND {{created_at}}]]"
+    const processed = replaceDateFilterPlaceholders(sql, 'START', 'END', 'fallback.created_at')
+    expect(processed).toContain('AND `test-project.umami_views.event`.created_at BETWEEN START AND END) AS e')
+    expect(processed).toContain('/* SELECT FROM fake ) */ AND e.created_at BETWEEN START AND END')
+    expect(processed).toContain("'SELECT FROM )'")
+  })
+
+  it.each([0, 6])(
+    'uses Oslo calendar-day bounds for automatic and existing date filters in month %s',
+    async (month) => {
+      const datedContext = { ...context, dateRange: { from: new Date(2026, month, 1), to: new Date(2026, month, 2) } }
+      const monthText = String(month + 1).padStart(2, '0')
+      const bounds = `created_at BETWEEN TIMESTAMP('2026-${monthText}-01', 'Europe/Oslo') AND TIMESTAMP('2026-${monthText}-02T23:59:59.999', 'Europe/Oslo')`
+      expect(
+        await applyAutomaticFilters('SELECT event_id FROM `test-project.umami_views.event`', datedContext),
+      ).toContain(bounds)
+      expect(
+        applyUrlFiltersToSql(
+          'SELECT event_id FROM `test-project.umami_views.event` WHERE 1 = 1 [[AND {{created_at}}]]',
+          datedContext,
+        ),
+      ).toContain(bounds)
+    },
+  )
+
   it('exports automatic date filters as dynamic placeholders on both sides of a join', async () => {
     const query =
       'SELECT s.browser, e.url_path FROM `test-project.umami_views.session` s LEFT JOIN `test-project.umami_views.event` e ON s.session_id = e.session_id'
@@ -138,10 +197,30 @@ describe('automatic website and period filters', () => {
     expect(processed).toContain('FROM visits GROUP BY browser')
   })
 
-  it('applies only a date filter to event_data, which has no website_id', async () => {
+  it('applies website and date filters to event_data', async () => {
     const processed = await applyAutomaticFilters('SELECT * FROM `test-project.umami_views.event_data`', context)
     expect(processed).toContain('created_at BETWEEN')
-    expect(processed).not.toContain('website_id')
+    expect(processed).toContain("website_id = 'chosen-website'")
+  })
+
+  it('does not mistake website JOIN keys for selected website filters', async () => {
+    const sql =
+      'SELECT e.event_id FROM `test-project.umami_views.event` e LEFT JOIN `test-project.umami.public_website` w ON e.website_id = w.website_id'
+    const processed = await applyAutomaticFilters(sql, context)
+    expect(processed.match(/website_id = 'chosen-website'/g)).toHaveLength(2)
+    expect(processed).toContain('ON e.website_id = w.website_id')
+  })
+
+  it('does not mistake column-to-column date comparisons for date bounds', async () => {
+    const sql =
+      'SELECT e.event_id FROM `test-project.umami_views.event` e JOIN `test-project.umami_views.session` s ON e.session_id = s.session_id AND e.created_at >= s.created_at'
+    expect((await applyAutomaticFilters(sql, context)).match(/created_at BETWEEN/g)).toHaveLength(2)
+  })
+
+  it('requires a website for event_data too', async () => {
+    await expect(
+      applyAutomaticFilters('SELECT * FROM `test-project.umami_views.event_data`', { ...context, websiteIdState: '' }),
+    ).rejects.toThrow('Velg en nettside først.')
   })
 
   it('does not add dates to the website directory', async () => {

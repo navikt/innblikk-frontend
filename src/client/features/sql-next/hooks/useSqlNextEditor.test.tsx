@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { estimateQueryCost, executeQueryApi } from '../../sql/api/sqlApi'
 import { useSqlNextEditor } from './useSqlNextEditor'
@@ -11,6 +11,124 @@ vi.mock('../../sql/api/sqlApi', () => ({
 }))
 
 describe('SQL editor actions', () => {
+  it('exports every selected website while retaining existing dynamic dates', async () => {
+    const sql =
+      "SELECT event_id FROM `test-project.umami_views.event` WHERE website_id = '{{website_id}}' [[AND {{created_at}} ]]"
+    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteIds: 'first,second' })}`)
+    const { result } = renderHook(() => useSqlNextEditor(), {
+      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+    })
+    const exported = await result.current.getExportQuery()
+    expect(exported).toContain("website_id IN ('first', 'second')")
+    expect(exported).toContain('[[AND {{created_at}} ]]')
+    expect(exported).not.toContain('TIMESTAMP(')
+  })
+
+  it.each([
+    'SELECT browser FROM `test-project.umami_views.session` WHERE 1 = 1 [[AND {{created_at}} ]]',
+    'SELECT browser FROM `test-project.umami_views.session` WHERE browser = {{browser}}',
+    "SELECT browser FROM `test-project.umami_views.session` WHERE url_path = [[ {{url_sti}} --]] '/'",
+  ])('adds missing export filters without losing existing placeholders: %s', async (sql) => {
+    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'chosen-website' })}`)
+    const { result } = renderHook(() => useSqlNextEditor(), {
+      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+    })
+    const exported = await result.current.getExportQuery()
+    expect(exported).toContain("website_id = 'chosen-website'")
+    expect(exported.match(/\[\[AND \{\{created_at\}\}\s*\]\]/g)).toHaveLength(1)
+    if (sql.includes('{{browser}}')) expect(exported).toContain('{{browser}}')
+    if (sql.includes('{{url_sti}}')) expect(exported).toContain("[[ {{url_sti}} --]] '/'")
+    expect(exported).not.toContain('__METABASE_')
+    expect(exported).not.toContain('TIMESTAMP(')
+  })
+
+  it('clears a previous validation error when execution succeeds', async () => {
+    window.history.replaceState({}, '', '/sql?sql=SELECT%201')
+    const { result } = renderHook(() => useSqlNextEditor(), {
+      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+    })
+    vi.mocked(estimateQueryCost).mockRejectedValueOnce(new Error('Temporary validation failure'))
+    await act(async () => {
+      await result.current.validateSQL()
+    })
+    expect(result.current.dryRunError).toBe('Temporary validation failure')
+    await act(async () => {
+      await result.current.executeQuery()
+    })
+    expect(result.current.dryRunError).toBeNull()
+    expect(result.current.result).toEqual({ data: [] })
+  })
+
+  it('confirms exactly the estimated SQL despite edits while the estimate is pending', async () => {
+    const sql = 'SELECT event_id FROM `test-project.umami_views.event`'
+    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'first' })}`)
+    const { result } = renderHook(() => useSqlNextEditor(), {
+      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+    })
+    let resolveEstimate!: (value: { totalBytesProcessedGB: string }) => void
+    vi.mocked(estimateQueryCost).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveEstimate = resolve
+        }),
+    )
+    let executing!: Promise<void>
+    act(() => {
+      executing = result.current.executeQuery()
+    })
+    await waitFor(() => expect(estimateQueryCost).toHaveBeenCalledOnce())
+    const estimatedSql = vi.mocked(estimateQueryCost).mock.calls[0][0]
+    act(() => {
+      result.current.handleQueryChange('SELECT COUNT(*) FROM `test-project.umami_views.event`')
+    })
+    await act(async () => {
+      result.current.handleWebsiteIdsChange(['second'])
+      result.current.handlePeriodChange('last_28_days')
+      await result.current.handleSafetyLimitChange(500)
+    })
+    expect(result.current.query).toBe('SELECT COUNT(*) FROM `test-project.umami_views.event`')
+    await act(async () => {
+      resolveEstimate({ totalBytesProcessedGB: '25' })
+      await executing
+    })
+    expect(result.current.showConfirmModal).toBe(true)
+    expect(executeQueryApi).not.toHaveBeenCalled()
+    await act(async () => {
+      await result.current.handleConfirmQuery()
+    })
+    expect(executeQueryApi).toHaveBeenCalledExactlyOnceWith(estimatedSql)
+    expect(estimatedSql).toContain("website_id = 'first'")
+    expect(estimatedSql).toContain('LIMIT 100')
+  })
+
+  it('ignores a late validation failure after a newer successful execution', async () => {
+    window.history.replaceState({}, '', '/sql?sql=SELECT%201')
+    const { result } = renderHook(() => useSqlNextEditor(), {
+      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+    })
+    let rejectValidation!: (reason: Error) => void
+    vi.mocked(estimateQueryCost).mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectValidation = reject
+        }),
+    )
+    let validating!: Promise<void>
+    act(() => {
+      validating = result.current.validateSQL()
+    })
+    await waitFor(() => expect(estimateQueryCost).toHaveBeenCalledOnce())
+    await act(async () => {
+      await result.current.executeQuery()
+    })
+    await act(async () => {
+      rejectValidation(new Error('Late validation failure'))
+      await validating
+    })
+    expect(result.current.dryRunError).toBeNull()
+    expect(result.current.result).toEqual({ data: [] })
+  })
+
   it('exports dynamic dates after executing a join with concrete dates', async () => {
     const clipboard = { writeText: vi.fn().mockResolvedValue(undefined) }
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: clipboard })
