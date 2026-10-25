@@ -8,7 +8,7 @@ import styles from './ErDiagramAccordion.module.css'
 interface ErDiagramAccordionProps {
   projectId: string
   onOpenJoin?: (tableId: Exclude<BigQueryTableDoc['id'], 'event'>) => void
-  onInsertSnippet: (code: string) => void
+  onInsertSnippet?: (code: string) => void
 }
 
 const RELATIONS = [
@@ -51,6 +51,7 @@ const KEY_ROLES: Record<BigQueryTableDoc['id'], Record<string, 'PK' | 'FK'>> = {
 
 export default function ErDiagramAccordion({ projectId, onOpenJoin, onInsertSnippet }: ErDiagramAccordionProps) {
   const tables = getBigQueryTables(projectId)
+  const Field = onInsertSnippet ? 'button' : 'span'
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [selectedTableId, setSelectedTableId] = useState<BigQueryTableDoc['id']>('event')
 
@@ -109,14 +110,20 @@ export default function ErDiagramAccordion({ projectId, onOpenJoin, onInsertSnip
                     return (
                       <li key={column.name}>
                         <Tooltip content={keyDescription ? `${column.label}. ${keyDescription}` : column.label}>
-                          <button
-                            type="button"
-                            draggable
+                          <Field
+                            type={onInsertSnippet ? 'button' : undefined}
+                            draggable={Boolean(onInsertSnippet)}
                             className={`${styles.field} ${keys.includes(column.name) ? styles.keyField : ''}`}
-                            aria-label={`Sett inn ${table.shortName}.${column.name}`}
-                            onClick={() => onInsertSnippet(column.insertSnippet || column.name)}
-                            onDragStart={(event) =>
-                              event.dataTransfer.setData('text/plain', column.insertSnippet || column.name)
+                            style={onInsertSnippet ? undefined : { cursor: 'default' }}
+                            aria-label={onInsertSnippet ? `Sett inn ${table.shortName}.${column.name}` : undefined}
+                            onClick={
+                              onInsertSnippet ? () => onInsertSnippet(column.insertSnippet || column.name) : undefined
+                            }
+                            onDragStart={
+                              onInsertSnippet
+                                ? (event) =>
+                                    event.dataTransfer.setData('text/plain', column.insertSnippet || column.name)
+                                : undefined
                             }
                           >
                             <span className={styles.fieldMarker} aria-hidden="true">
@@ -135,8 +142,8 @@ export default function ErDiagramAccordion({ projectId, onOpenJoin, onInsertSnip
                             </span>
                             <code>{column.name}</code>
                             {keyRole && <code>({keyRole})</code>}
-                            <PlusIcon className={styles.insertIcon} aria-hidden="true" />
-                          </button>
+                            {onInsertSnippet && <PlusIcon className={styles.insertIcon} aria-hidden="true" />}
+                          </Field>
                         </Tooltip>
                       </li>
                     )
@@ -167,16 +174,18 @@ export default function ErDiagramAccordion({ projectId, onOpenJoin, onInsertSnip
                       onClick={() => void copyTable(table)}
                     />
                   </Tooltip>
-                  <Tooltip content="Sett inn tabellnavn">
-                    <Button
-                      size="xsmall"
-                      variant="tertiary"
-                      type="button"
-                      aria-label={`Sett inn ${table.shortName}`}
-                      icon={<PlusIcon aria-hidden />}
-                      onClick={() => onInsertSnippet(getFullTableName(projectId, table.datasetTable))}
-                    />
-                  </Tooltip>
+                  {onInsertSnippet && (
+                    <Tooltip content="Sett inn tabellnavn">
+                      <Button
+                        size="xsmall"
+                        variant="tertiary"
+                        type="button"
+                        aria-label={`Sett inn ${table.shortName}`}
+                        icon={<PlusIcon aria-hidden />}
+                        onClick={() => onInsertSnippet(getFullTableName(projectId, table.datasetTable))}
+                      />
+                    </Tooltip>
+                  )}
                 </div>
               </section>
             )

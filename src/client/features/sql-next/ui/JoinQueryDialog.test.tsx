@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import JoinQueryDialog from './JoinQueryDialog'
 
 const renderDialog = (query = 'SELECT') => {
@@ -9,6 +9,33 @@ const renderDialog = (query = 'SELECT') => {
 }
 
 describe('JOIN dialog', () => {
+  it('includes a collapsible data model that selects JOINs without editing SQL', () => {
+    const { onApply, onClose } = renderDialog()
+    const toggle = screen.getByRole('button', { name: 'Datamodell – tabeller og felter' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    for (const table of [
+      'umami_views.event',
+      'umami_views.session',
+      'umami_views.event_data',
+      'umami.public_website',
+    ]) {
+      expect(screen.getByRole('region', { name: table })).toBeInTheDocument()
+    }
+    expect(screen.getByText('PK (primærnøkkel):')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Sett inn umami/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Kopier umami_views.event_data' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Legg til JOIN med Detaljer på hendelser' }))
+    expect(screen.getByRole('combobox', { name: 'Legg til' })).toHaveValue('event_data')
+    expect(screen.getByLabelText('JOIN-kode')).toHaveTextContent('LEFT JOIN UNNEST')
+    expect(
+      within(screen.getByRole('region', { name: 'umami_views.event_data' })).getByText('ep.string_value'),
+    ).toBeInTheDocument()
+    expect(onApply).not.toHaveBeenCalled()
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
   it('fills a pending FROM and inserts event details without blocking warnings', () => {
     const { onApply } = renderDialog(
       "SELECT event_name, COUNT(DISTINCT NULLIF(distinct_id, '')) AS unike_besokende\nFROM\n",

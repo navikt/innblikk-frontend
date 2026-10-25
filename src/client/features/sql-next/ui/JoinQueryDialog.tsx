@@ -3,6 +3,7 @@ import { Alert, BodyShort, Button, Modal, Select, TextField } from '@navikt/ds-r
 import { getSqlJoinOptions, replaceSqlJoinSource } from '../model/sqlJoins'
 import { getBigQueryTables, getFullTableName } from '../model/schemaAndSnippets'
 import type { BigQueryTableDoc } from '../model/types'
+import ErDiagramAccordion from './ErDiagramAccordion'
 
 export type JoinTableId = Exclude<BigQueryTableDoc['id'], 'event'>
 
@@ -121,6 +122,7 @@ export default function JoinQueryDialog({
               {preview}
             </pre>
           )}
+          <ErDiagramAccordion projectId={projectId} onOpenJoin={setTableId} />
         </div>
       </Modal.Body>
       <Modal.Footer>
