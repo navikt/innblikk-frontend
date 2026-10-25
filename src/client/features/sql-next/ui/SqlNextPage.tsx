@@ -15,6 +15,7 @@ import JoinQueryDialog, { type JoinTableId } from './JoinQueryDialog'
 import { getSqlQuoteFix } from '../model/sqlQuoteFix'
 import { getSqlCommaFix } from '../model/sqlCommaFix'
 import { getSqlJoinSuggestion } from '../model/sqlJoins'
+import { getGroupBySimplification } from '../model/groupBySimplification'
 
 export default function SqlNextPage() {
   const projectId = getGcpProjectId()
@@ -84,6 +85,8 @@ export default function SqlNextPage() {
   } = useSqlNextEditor()
 
   const queryError = error ?? dryRunError
+  const groupBySimplification =
+    estimate && !queryError && !loading && !estimating ? getGroupBySimplification(query) : null
   const commaFix = queryError ? getSqlCommaFix(query) : null
   const quoteFix = queryError ? getSqlQuoteFix(query) : null
   const joinSuggestion = queryError ? getSqlJoinSuggestion(query, queryError, projectId) : null
@@ -237,6 +240,24 @@ export default function SqlNextPage() {
             </div>
 
             <div className="xl:col-span-6 min-w-0 flex flex-col gap-3">
+              {groupBySimplification && (
+                <Alert variant="info" size="small">
+                  <div className="flex flex-col items-start gap-3">
+                    <BodyShort>
+                      <code>{groupBySimplification.fields.join(', ')}</code> er allerede låst til én verdi i WHERE og
+                      kan fjernes fra GROUP BY.
+                    </BodyShort>
+                    <Button
+                      size="small"
+                      variant="secondary"
+                      type="button"
+                      onClick={() => handleQueryChange(groupBySimplification.sql)}
+                    >
+                      Forenkle GROUP BY
+                    </Button>
+                  </div>
+                </Alert>
+              )}
               {queryError && (
                 <QueryErrorDisplay
                   error={queryError}

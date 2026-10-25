@@ -38,6 +38,35 @@ vi.mock('../../sql/ui/SqlResultsSection', () => ({
 }))
 
 describe('SQL error results', () => {
+  it.each(['Vis resultater', 'Valider'])(
+    'offers optional GROUP BY simplification after successful %s',
+    async (action) => {
+      vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+      const sql = `SELECT ep.string_value, COUNT(DISTINCT NULLIF(session.distinct_id, '')) AS unike_besokende FROM \`${getGcpProjectId()}.umami_views.event\` LEFT JOIN \`${getGcpProjectId()}.umami_views.session\` ON event.session_id = session.session_id LEFT JOIN \`${getGcpProjectId()}.umami_views.event_data\` ON event.event_id = event_data.website_event_id LEFT JOIN UNNEST(event_data.event_parameters) AS ep ON TRUE WHERE event.url_path = '/pensjon' AND event.event_name = 'søk' AND ep.data_key = 'søkeord' GROUP BY event.event_name, ep.data_key, ep.string_value`
+      window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'chosen-website' })}`)
+      const stats = { totalBytesProcessedGB: '0.01', estimatedCostUSD: '0.00' }
+      vi.mocked(estimateQueryCost).mockReset().mockResolvedValue(stats)
+      vi.mocked(executeQueryApi)
+        .mockReset()
+        .mockResolvedValue({ data: [{ string_value: '[redacted: search]', unike_besokende: 9 }], queryStats: stats })
+      render(
+        <MemoryRouter>
+          <SqlNextPage />
+        </MemoryRouter>,
+      )
+      expect(screen.queryByRole('button', { name: 'Forenkle GROUP BY' })).not.toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: action }))
+      const simplify = await screen.findByRole('button', { name: 'Forenkle GROUP BY' })
+      expect(screen.getByTestId('editor-query').textContent).toBe(sql)
+      expect(screen.queryByRole('heading', { name: 'Feil i spørringen' })).not.toBeInTheDocument()
+      fireEvent.click(simplify)
+      expect(screen.getByTestId('editor-query').textContent).toMatch(/GROUP BY\s+ep\.string_value/)
+      expect(estimateQueryCost).toHaveBeenCalledOnce()
+      expect(executeQueryApi).toHaveBeenCalledTimes(action === 'Vis resultater' ? 1 : 0)
+      expect(screen.queryByRole('button', { name: 'Forenkle GROUP BY' })).not.toBeInTheDocument()
+    },
+  )
+
   it.each(['Vis resultater', 'Valider'])('suggests a missing SELECT comma after %s', async (action) => {
     vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
     const sql = `SELECT ep.string_value\nCOUNT(DISTINCT NULLIF(session.distinct_id, '')) AS unike_besokende FROM \`${getGcpProjectId()}.umami_views.event\` LEFT JOIN \`${getGcpProjectId()}.umami_views.session\` ON event.session_id = session.session_id LEFT JOIN \`${getGcpProjectId()}.umami_views.event_data\` ON event.event_id = event_data.website_event_id LEFT JOIN UNNEST(event_data.event_parameters) AS ep ON TRUE WHERE event.event_name = 'navigere' AND ep.data_key = 'innholdstype' GROUP BY ep.string_value ORDER BY 2 DESC`
