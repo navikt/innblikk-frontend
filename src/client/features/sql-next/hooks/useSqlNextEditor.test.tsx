@@ -11,6 +11,157 @@ vi.mock('../../sql/api/sqlApi', () => ({
 }))
 
 describe('SQL editor actions', () => {
+  it('does not repeat a manual run started during the filter debounce', async () => {
+    vi.useFakeTimers()
+    try {
+      const sql = 'SELECT event_name FROM `test-project.umami_views.event`'
+      window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'first' })}`)
+      const { result } = renderHook(() => useSqlNextEditor(), {
+        wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+      })
+      await act(async () => {
+        await result.current.executeQuery()
+      })
+      act(() => result.current.handlePeriodChange('last_28_days'))
+      await act(async () => {
+        await result.current.executeQuery()
+      })
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(400)
+      })
+      expect(executeQueryApi).toHaveBeenCalledTimes(2)
+      expect(estimateQueryCost).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it.each([false, true])(
+    'does not run unvalidated SQL on filter changes, with previous results: %s',
+    async (previousResults) => {
+      vi.useFakeTimers()
+      try {
+        const sql = 'SELECT event_name FROM `test-project.umami_views.event`'
+        window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'first' })}`)
+        const { result } = renderHook(() => useSqlNextEditor(), {
+          wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+        })
+        if (previousResults) {
+          await act(async () => {
+            await result.current.executeQuery()
+          })
+          act(() => result.current.handleQueryChange('SELECT browser FROM `test-project.umami_views.session`'))
+        }
+        act(() => result.current.handlePeriodChange('last_28_days'))
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(400)
+        })
+        expect(executeQueryApi).toHaveBeenCalledTimes(previousResults ? 1 : 0)
+      } finally {
+        vi.useRealTimers()
+      }
+    },
+  )
+
+  it('combines rapid filter changes and still confirms an expensive refresh', async () => {
+    vi.useFakeTimers()
+    try {
+      const sql = 'SELECT event_name FROM `test-project.umami_views.event`'
+      window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'first' })}`)
+      const { result } = renderHook(() => useSqlNextEditor(), {
+        wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+      })
+      await act(async () => {
+        await result.current.executeQuery()
+      })
+      vi.mocked(estimateQueryCost).mockResolvedValueOnce({ totalBytesProcessedGB: '25' })
+      act(() => result.current.handlePeriodChange('last_28_days'))
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100)
+      })
+      act(() => result.current.handleWebsiteIdsChange(['second']))
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(300)
+      })
+      expect(estimateQueryCost).toHaveBeenCalledTimes(2)
+      expect(executeQueryApi).toHaveBeenCalledOnce()
+      expect(result.current.showConfirmModal).toBe(true)
+      const estimatedSql = vi.mocked(estimateQueryCost).mock.calls[1][0]
+      expect(estimatedSql).toContain("website_id = 'second'")
+      await act(async () => {
+        await result.current.handleConfirmQuery()
+      })
+      expect(executeQueryApi).toHaveBeenLastCalledWith(estimatedSql)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('waits for a running refresh and then runs the latest filter selection', async () => {
+    const sql = 'SELECT event_name FROM `test-project.umami_views.event`'
+    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'first' })}`)
+    const { result } = renderHook(() => useSqlNextEditor(), {
+      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+    })
+    await act(async () => {
+      await result.current.executeQuery()
+    })
+    let completeRefresh!: (data: { data: [] }) => void
+    vi.mocked(executeQueryApi).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          completeRefresh = resolve
+        }),
+    )
+    act(() => result.current.handlePeriodChange('last_28_days'))
+    await waitFor(() => expect(executeQueryApi).toHaveBeenCalledTimes(2))
+    act(() => result.current.handleWebsiteIdsChange(['latest']))
+    expect(executeQueryApi).toHaveBeenCalledTimes(2)
+    act(() => {
+      completeRefresh({ data: [] })
+    })
+    await waitFor(() => expect(executeQueryApi).toHaveBeenCalledTimes(3))
+    expect(vi.mocked(executeQueryApi).mock.calls[2][0]).toContain("website_id = 'latest'")
+  })
+
+  it.each(['period', 'websites'])('reruns a successful query with the updated %s filter', async (filter) => {
+    const sql =
+      'SELECT event_name, COUNT(DISTINCT session_id) AS antall FROM `test-project.umami_views.event` GROUP BY event_name'
+    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'first' })}`)
+    const { result } = renderHook(() => useSqlNextEditor(), {
+      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+    })
+    await act(async () => {
+      await result.current.executeQuery()
+    })
+    const originalSql = vi.mocked(executeQueryApi).mock.calls[0][0]
+    act(() => {
+      if (filter === 'period') result.current.handlePeriodChange('last_28_days')
+      else result.current.handleWebsiteIdsChange(['second', 'third'])
+    })
+    await waitFor(() => expect(executeQueryApi).toHaveBeenCalledTimes(2))
+    const updatedSql = vi.mocked(executeQueryApi).mock.calls[1][0]
+    expect(updatedSql).not.toBe(originalSql)
+    if (filter === 'websites') expect(updatedSql).toContain("website_id IN ('second', 'third')")
+    expect(estimateQueryCost).toHaveBeenCalledTimes(2)
+    expect(result.current.query).toBe(sql)
+  })
+
+  it('runs a successfully validated query when its period changes', async () => {
+    const sql = 'SELECT event_name FROM `test-project.umami_views.event`'
+    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'first' })}`)
+    const { result } = renderHook(() => useSqlNextEditor(), {
+      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+    })
+    await act(async () => {
+      await result.current.validateSQL()
+    })
+    expect(executeQueryApi).not.toHaveBeenCalled()
+    act(() => result.current.handlePeriodChange('last_28_days'))
+    await waitFor(() => expect(executeQueryApi).toHaveBeenCalledOnce())
+    expect(estimateQueryCost).toHaveBeenCalledTimes(2)
+  })
+
   it('restores edits to a query initially loaded through a storage key', () => {
     const key = 'sql-draft-prefill-test'
     window.sessionStorage.setItem(key, 'SELECT 1')

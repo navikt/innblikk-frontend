@@ -165,6 +165,7 @@ export const useSqlNextEditor = () => {
   const [pendingQuery, setPendingQuery] = useState<{ sql: string; source: string } | null>(null)
 
   const dryRunRequestIdRef = useRef(0)
+  const lastValidQueryRef = useRef<string | null>(null)
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' })
@@ -358,7 +359,10 @@ export const useSqlNextEditor = () => {
       const processedSql = await prepareQuery(query)
       setLastProcessedSql(processedSql)
       const data = await estimateQueryCost(processedSql)
-      if (dryRunRequestIdRef.current === reqId) setEstimate(data)
+      if (dryRunRequestIdRef.current === reqId) {
+        setEstimate(data)
+        lastValidQueryRef.current = query
+      }
     } catch (err: unknown) {
       if (dryRunRequestIdRef.current === reqId) {
         setDryRunError(err instanceof Error ? err.message : 'Kunne ikke sjekke spørringen')
@@ -391,7 +395,17 @@ export const useSqlNextEditor = () => {
     }
   }
 
+  const automaticFilterKey = JSON.stringify({
+    websiteIds: effectiveWebsiteIds,
+    from: dateRange.from,
+    to: dateRange.to,
+    urlPath,
+    customVariableValues,
+  })
+  const previousFilterKeyRef = useRef(automaticFilterKey)
+
   const executeQueryWithLimit = async (overrideLimit?: number | null) => {
+    previousFilterKeyRef.current = automaticFilterKey
     const limitToUse = overrideLimit !== undefined ? overrideLimit : safetyLimit
     const nextQuery =
       overrideLimit === null
@@ -413,6 +427,7 @@ export const useSqlNextEditor = () => {
 
       const estimateData = await estimateQueryCost(processedSql)
       setEstimate(estimateData)
+      lastValidQueryRef.current = nextQuery
 
       const gb = Number(estimateData.totalBytesProcessedGB ?? 0)
       const shouldWarn = gb >= 20 || (isSelectStarOnBigTable && gb >= 5)
@@ -440,6 +455,43 @@ export const useSqlNextEditor = () => {
     if (incompleteQueryMessage) return
     await executeQueryWithLimit()
   }
+
+  const executeLatestQueryRef = useRef(executeQuery)
+  useEffect(() => {
+    executeLatestQueryRef.current = executeQuery
+  })
+  useEffect(() => {
+    if (previousFilterKeyRef.current === automaticFilterKey) return
+    if (
+      lastValidQueryRef.current !== query ||
+      !query.trim() ||
+      incompleteQueryMessage ||
+      effectiveWebsiteIds.length === 0 ||
+      !dateRange.from ||
+      !dateRange.to ||
+      !Number.isFinite(dateRange.from.getTime()) ||
+      !Number.isFinite(dateRange.to.getTime()) ||
+      dateRange.from > dateRange.to
+    ) {
+      previousFilterKeyRef.current = automaticFilterKey
+      return
+    }
+    if (loading || estimating || showConfirmModal) return
+    const timer = window.setTimeout(() => {
+      if (previousFilterKeyRef.current !== automaticFilterKey) void executeLatestQueryRef.current()
+    }, 300)
+    return () => window.clearTimeout(timer)
+  }, [
+    automaticFilterKey,
+    query,
+    incompleteQueryMessage,
+    effectiveWebsiteIds.length,
+    dateRange.from,
+    dateRange.to,
+    loading,
+    estimating,
+    showConfirmModal,
+  ])
 
   const handleConfirmQuery = async () => {
     setShowConfirmModal(false)
