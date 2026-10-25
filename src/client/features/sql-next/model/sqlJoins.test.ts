@@ -5,6 +5,25 @@ const projectId = 'test-project'
 const eventTable = `\`${projectId}.umami_views.event\``
 
 describe('JOIN suggestions for missing fields', () => {
+  it.each([
+    'Unrecognized name: distinct_id; Did you mean visit_id? at [5:42]',
+    'Unrecognized name: `distinct_id`; Did you mean visit_id? at [5:42]',
+    'Unrecognized name: distinct_id, Did you mean visit_id? at [5:42]',
+  ])('suggests user details for the cookie count despite BigQuery spelling advice: %s', (error) => {
+    const query = `SELECT event_name, COUNT(DISTINCT NULLIF(distinct_id, '')) AS unike_besokende FROM ${eventTable} GROUP BY 1 ORDER BY 2 DESC`
+    const suggestion = getSqlJoinSuggestion(query, error, projectId)
+    expect(suggestion?.field).toBe('distinct_id')
+    expect(suggestion?.tableTitle).toBe('Brukerdetaljer')
+    expect(suggestion?.sourceTitle).toBe('Hendelser')
+    expect(suggestion?.sql).toContain("COUNT(DISTINCT NULLIF(distinct_id, ''))")
+    expect(suggestion?.sql).toContain('AS unike_besokende')
+    expect(suggestion?.sql).toMatch(/GROUP BY\s+1/)
+    expect(suggestion?.sql).toMatch(/ORDER BY\s+2 DESC/)
+    expect(suggestion?.sql).not.toContain('visit_id')
+    expect(suggestion?.joinSql).toContain('session_id')
+    expect(() => new Parser().astify(suggestion!.sql)).not.toThrow()
+  })
+
   it('suggests events for a path filter on user details without changing the count or filters', () => {
     const query = `SELECT COUNT(DISTINCT NULLIF(distinct_id, '')) AS unike_besokende FROM \`${projectId}.umami_views.session\` WHERE browser = 'chrome' AND url_path = '/pensjon'`
     const suggestion = getSqlJoinSuggestion(query, 'Unrecognized name: url_path at [5:348]', projectId)

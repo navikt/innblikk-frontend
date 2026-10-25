@@ -30,7 +30,7 @@ export interface SqlJoinSuggestion {
 }
 
 export const getSqlJoinSuggestion = (query: string, error: string, projectId: string): SqlJoinSuggestion | null => {
-  const field = /\bUnrecognized name:\s*`?([a-z_]\w*)`?(?=\s|$)/i.exec(error)?.[1]
+  const field = /\bUnrecognized name:\s*`?([a-z_]\w*)`?(?=\s|[;,]|$)/i.exec(error)?.[1]
   if (!field) return null
   try {
     const parsed = new Parser().astify(query)

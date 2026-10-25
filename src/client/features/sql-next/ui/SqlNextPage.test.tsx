@@ -38,6 +38,35 @@ vi.mock('../../sql/ui/SqlResultsSection', () => ({
 }))
 
 describe('SQL error results', () => {
+  it.each(['Vis resultater', 'Valider'])(
+    'offers a user-details JOIN for distinct_id with spelling advice after %s',
+    async (action) => {
+      vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+      const sql = `SELECT event_name, COUNT(DISTINCT NULLIF(distinct_id, '')) AS unike_besokende FROM \`${getGcpProjectId()}.umami_views.event\` GROUP BY 1 ORDER BY 2 DESC`
+      window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'chosen-website' })}`)
+      vi.mocked(executeQueryApi).mockClear()
+      vi.mocked(estimateQueryCost)
+        .mockReset()
+        .mockRejectedValueOnce(new Error('Unrecognized name: distinct_id; Did you mean visit_id? at [5:42]'))
+      render(
+        <MemoryRouter>
+          <SqlNextPage />
+        </MemoryRouter>,
+      )
+      fireEvent.click(screen.getByRole('button', { name: action }))
+      const fixButton = await screen.findByRole('button', { name: 'Koble til Brukerdetaljer' })
+      expect(screen.getByText(/finnes i Brukerdetaljer, ikke i Hendelser/)).toBeInTheDocument()
+      fireEvent.click(fixButton)
+      const corrected = screen.getByTestId('editor-query').textContent
+      expect(corrected).toContain('LEFT JOIN')
+      expect(corrected).toContain('session_id')
+      expect(corrected).toContain("COUNT(DISTINCT NULLIF(distinct_id, ''))")
+      expect(corrected).not.toContain('visit_id')
+      expect(estimateQueryCost).toHaveBeenCalledOnce()
+      expect(executeQueryApi).not.toHaveBeenCalled()
+    },
+  )
+
   beforeEach(() => window.sessionStorage.removeItem('innblikk-sql-editor-draft'))
   afterEach(() => window.sessionStorage.removeItem('innblikk-sql-editor-draft'))
 
