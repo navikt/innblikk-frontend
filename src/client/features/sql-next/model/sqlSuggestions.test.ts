@@ -412,7 +412,7 @@ describe('SQL builder suggestions', () => {
   it('provides an always-visible description for every table suggestion', () => {
     const suggestions = getSqlSuggestions('SELECT *\nFROM ', projectId)
     expect(suggestions.map((suggestion) => [suggestion.label, suggestion.labelDescription])).toEqual([
-      ['umami_views.event', 'Sidevisninger og klikk'],
+      ['umami_views.event', 'Hendelser'],
       ['umami_views.session', 'Brukerdetaljer'],
       ['umami_views.event_data', 'Detaljer på hendelser'],
       ['umami.public_website', 'Nettsider'],

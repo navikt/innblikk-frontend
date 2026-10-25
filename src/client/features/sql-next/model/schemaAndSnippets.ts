@@ -7,10 +7,10 @@ export const getFullTableName = (projectId: string, datasetTable: string) => `\`
 export const getBigQueryTables = (projectId: string): BigQueryTableDoc[] => [
   {
     id: 'event',
-    title: 'Sidevisninger og klikk',
+    title: 'Hendelser',
     shortName: 'umami_views.event',
     datasetTable: 'umami_views.event',
-    summary: 'Hovedtabellen. Én rad for hver sidevisning eller hendelse.',
+    summary: 'Sidevisninger, klikk og andre hendelser. Én rad per hendelse.',
     columns: [
       { name: 'url_path', label: 'Sidesti (f.eks. /minside)' },
       { name: 'url_query', label: 'Parametere i adressen' },
@@ -72,7 +72,7 @@ export const getBigQueryTables = (projectId: string): BigQueryTableDoc[] => [
     title: 'Detaljer på hendelser',
     shortName: 'umami_views.event_data',
     datasetTable: 'umami_views.event_data',
-    summary: 'Ekstra informasjon lagret på et klikk (f.eks. tekst på knapp eller valg i skjema).',
+    summary: 'Ekstra informasjon lagret på en hendelse (f.eks. tekst på en knapp eller valg i et skjema).',
     relationLabel: 'event_id → website_event_id',
     joinSnippet: `JOIN \`${projectId}.umami_views.event_data\` ON \`${projectId}.umami_views.event_data\`.website_event_id = \`${projectId}.umami_views.event\`.event_id\nCROSS JOIN UNNEST(\`${projectId}.umami_views.event_data\`.event_parameters) AS ep`,
     columns: [
