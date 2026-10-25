@@ -11,6 +11,26 @@ vi.mock('../../sql/api/sqlApi', () => ({
 }))
 
 describe('SQL editor actions', () => {
+  it.each([
+    ['event_name', '21.5', false],
+    ['event_name', '49.99', false],
+    ['event_name', '50', true],
+    ['*', '4.99', false],
+    ['*', '5', true],
+  ])('requires confirmation for SELECT %s reading %s GB: %s', async (projection, gb, confirm) => {
+    const sql = `SELECT ${projection} FROM \`test-project.umami_views.event\``
+    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'first' })}`)
+    vi.mocked(estimateQueryCost).mockResolvedValueOnce({ totalBytesProcessedGB: gb })
+    const { result } = renderHook(() => useSqlNextEditor(), {
+      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+    })
+    await act(async () => {
+      await result.current.executeQuery()
+    })
+    expect(result.current.showConfirmModal).toBe(confirm)
+    expect(executeQueryApi).toHaveBeenCalledTimes(confirm ? 0 : 1)
+  })
+
   it('does not repeat a manual run started during the filter debounce', async () => {
     vi.useFakeTimers()
     try {
@@ -74,7 +94,7 @@ describe('SQL editor actions', () => {
       await act(async () => {
         await result.current.executeQuery()
       })
-      vi.mocked(estimateQueryCost).mockResolvedValueOnce({ totalBytesProcessedGB: '25' })
+      vi.mocked(estimateQueryCost).mockResolvedValueOnce({ totalBytesProcessedGB: '50' })
       act(() => result.current.handlePeriodChange('last_28_days'))
       await act(async () => {
         await vi.advanceTimersByTimeAsync(100)
@@ -301,7 +321,7 @@ describe('SQL editor actions', () => {
     })
     expect(result.current.query).toBe('SELECT COUNT(*) FROM `test-project.umami_views.event`')
     await act(async () => {
-      resolveEstimate({ totalBytesProcessedGB: '25' })
+      resolveEstimate({ totalBytesProcessedGB: '50' })
       await executing
     })
     expect(result.current.showConfirmModal).toBe(true)
@@ -521,7 +541,7 @@ describe('SQL editor actions', () => {
     await act(async () => {
       await result.current.executeQuery()
     })
-    vi.mocked(estimateQueryCost).mockResolvedValueOnce({ totalBytesProcessedGB: '25' })
+    vi.mocked(estimateQueryCost).mockResolvedValueOnce({ totalBytesProcessedGB: '50' })
     await act(async () => {
       await result.current.handleSafetyLimitChange(null)
     })

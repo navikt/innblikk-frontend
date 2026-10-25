@@ -228,7 +228,6 @@ export default function SqlNextPage() {
                 explicitLimit={explicitLimit}
                 isSelectStarOnBigTable={isSelectStarOnBigTable}
                 isMissingPartitionFilter={isMissingPartitionFilter}
-                isHighCost={isHighCost}
                 onQueryChange={handleQueryChange}
                 onUpgradeTables={handleUpgradeTables}
                 onAddDateFilter={handleAddDateFilter}
@@ -243,6 +242,26 @@ export default function SqlNextPage() {
             </div>
 
             <div className="xl:col-span-6 min-w-0 flex flex-col gap-3">
+              {isHighCost && (
+                <Alert
+                  variant={
+                    Number(estimate?.totalBytesProcessedGB ?? 0) >= 300
+                      ? 'error'
+                      : Number(estimate?.totalBytesProcessedGB ?? 0) >= 100
+                        ? 'warning'
+                        : 'info'
+                  }
+                  size="small"
+                >
+                  <Heading level="2" size="xsmall" className="mb-2">
+                    Spørringen leser mye data
+                  </Heading>
+                  <BodyShort>
+                    Spørringen leser {Number(estimate?.totalBytesProcessedGB ?? 0).toFixed(2)} GB. Begrens gjerne med
+                    nettside og kortere tidsperiode.
+                  </BodyShort>
+                </Alert>
+              )}
               {groupBySimplification && (
                 <Alert variant="info" size="small">
                   <div className="flex flex-col items-start gap-3">

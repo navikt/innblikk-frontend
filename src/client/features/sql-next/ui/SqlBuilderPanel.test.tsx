@@ -21,7 +21,6 @@ const renderPanel = (overrides: Partial<ComponentProps<typeof SqlBuilderPanel>> 
     explicitLimit: null,
     isSelectStarOnBigTable: false,
     isMissingPartitionFilter: false,
-    isHighCost: false,
     onQueryChange: vi.fn(),
     onUpgradeTables: vi.fn(),
     onAddDateFilter: vi.fn(),

@@ -254,7 +254,7 @@ export const useSqlNextEditor = () => {
 
   const activeLimit = explicitLimit ?? safetyLimit
   const isResultLimited = activeLimit !== null && Boolean(result?.data && result.data.length >= activeLimit)
-  const isHighCost = Boolean(estimate && Number(estimate.totalBytesProcessedGB ?? 0) >= 5)
+  const isHighCost = Boolean(estimate && Number(estimate.totalBytesProcessedGB ?? 0) >= 50)
   const groupByField =
     /SELECT list expression references (?:column )?([a-z_]\w*(?:\.[a-z_]\w*)*) which is neither grouped nor aggregated/i.exec(
       error ?? dryRunError ?? '',
@@ -430,7 +430,7 @@ export const useSqlNextEditor = () => {
       lastValidQueryRef.current = nextQuery
 
       const gb = Number(estimateData.totalBytesProcessedGB ?? 0)
-      const shouldWarn = gb >= 20 || (isSelectStarOnBigTable && gb >= 5)
+      const shouldWarn = gb >= 50 || (isSelectStarOnBigTable && gb >= 5)
 
       if (shouldWarn) {
         setPendingQueryEstimate(estimateData)

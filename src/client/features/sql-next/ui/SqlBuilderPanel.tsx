@@ -57,7 +57,6 @@ interface SqlBuilderPanelProps {
   explicitLimit: number | null
   isSelectStarOnBigTable: boolean
   isMissingPartitionFilter: boolean
-  isHighCost: boolean
   onQueryChange: (value: string) => void
   onUpgradeTables: () => void
   onAddDateFilter: () => void
@@ -92,7 +91,6 @@ export default function SqlBuilderPanel({
   oldTableWarning,
   shareSuccess,
   selectedWebsiteSelected,
-  isHighCost,
   onQueryChange,
   onUpgradeTables,
   onShare,
@@ -288,14 +286,6 @@ export default function SqlBuilderPanel({
             </span>
           </div>
         </div>
-
-        {isHighCost && (
-          <div className="px-3 py-2 border-b border-[var(--ax-border-warning-subtle)] bg-[var(--ax-bg-warning-soft)] text-xs flex flex-wrap items-center justify-between gap-2">
-            <p className="font-medium text-[var(--ax-text-default)]">
-              Spørringen leser mye data ({formatDataAmount()}). Begrens gjerne med nettside og kortere tidsperiode.
-            </p>
-          </div>
-        )}
 
         <div
           className="border border-[var(--ax-border-neutral)] rounded focus-within:outline focus-within:outline-2 focus-within:outline-[var(--ax-border-focus)] focus-within:outline-offset-[-2px]"

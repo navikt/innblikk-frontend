@@ -38,6 +38,40 @@ vi.mock('../../sql/ui/SqlResultsSection', () => ({
 }))
 
 describe('SQL error results', () => {
+  it.each([
+    ['4.99', null],
+    ['5.30', null],
+    ['21.50', null],
+    ['49.99', null],
+    ['50.00', 'info'],
+    ['99.99', 'info'],
+    ['100.00', 'warning'],
+    ['299.99', 'warning'],
+    ['300.00', 'error'],
+  ])('shows the data warning at %s GB with severity %s', async (gb, severity) => {
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+    const sql = `SELECT event_name FROM \`${getGcpProjectId()}.umami_views.event\``
+    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'chosen-website' })}`)
+    vi.mocked(estimateQueryCost).mockReset().mockResolvedValue({ totalBytesProcessedGB: gb })
+    render(
+      <MemoryRouter>
+        <SqlNextPage />
+      </MemoryRouter>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Valider' }))
+    await waitFor(() => expect(estimateQueryCost).toHaveBeenCalledOnce())
+    if (!severity) {
+      expect(screen.queryByRole('heading', { name: 'Spørringen leser mye data' })).not.toBeInTheDocument()
+      return
+    }
+    const heading = await screen.findByRole('heading', { name: 'Spørringen leser mye data' })
+    expect(heading.closest('[data-variant]')).toHaveAttribute('data-variant', severity)
+    expect(heading.parentElement?.parentElement).not.toContainElement(screen.getByTestId('editor-query'))
+    expect(
+      screen.getByText(`Spørringen leser ${gb} GB. Begrens gjerne med nettside og kortere tidsperiode.`),
+    ).toBeInTheDocument()
+  })
+
   it.each(['Vis resultater', 'Valider'])(
     'keeps comma, clause-order and grouping nudges working together after %s',
     async (action) => {
