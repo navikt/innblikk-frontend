@@ -1,6 +1,7 @@
 import { applyUrlFiltersToSql } from '../../sql/utils/sqlProcessing'
 import { getSqlBuildingBlocks } from './schemaAndSnippets'
 import { getSqlSuggestionFragment, getSqlSuggestions, prepareSqlBlockInsertion } from './sqlSuggestions'
+import { Parser } from 'node-sql-parser/build/bigquery'
 
 const projectId = 'team-researchops-prod-01d6'
 const sessionQuery = `SELECT * FROM \`${projectId}.umami_views.session\`\nWHERE website_id = '{{website_id}}'\n  [[AND {{created_at}}]]`
@@ -535,7 +536,7 @@ describe('SQL builder suggestions', () => {
     expect(suggestions.some((suggestion) => suggestion.preselect)).toBe(false)
   })
 
-  it.each(['*', 'COUNT(*) AS antall', 'browser, url_path', "'browser' AS name", 'unknown_field'])(
+  it.each(['*', 'COUNT(*) AS antall', "'browser' AS name", 'unknown_field'])(
     'does not invent a single matching table for %s',
     (fields) => {
       const suggestions = getSqlSuggestions(`SELECT ${fields} FROM `, projectId)
@@ -550,6 +551,72 @@ describe('SQL builder suggestions', () => {
     expect(suggestions).toHaveLength(1)
     expect(suggestions[0].label).toBe('umami_views.session')
     expect(suggestions[0].detail).toBe('Brukerdetaljer')
+  })
+
+  it.each([
+    ["event_name, COUNT(DISTINCT NULLIF(distinct_id, '')) AS unike_besokende", 'session', 'session_id'],
+    ['browser, url_path', 'session', 'session_id'],
+    ['event_name, ep.data_key', 'event_data', 'website_event_id'],
+    ['event_name, domain', 'website', 'website_id'],
+  ])('offers a complete JOIN for %s', (fields, targetId, joinField) => {
+    const prefix = `SELECT\n  ${fields}\nFROM `
+    const suggestions = getSqlSuggestions(prefix, projectId)
+    expect(suggestions).toHaveLength(1)
+    const joined = suggestions[0]
+    expect(joined.label).toMatch(/^Hendelser \+ /)
+    expect(joined.label).not.toContain('umami')
+    expect(joined.labelDescription).toBe('JOIN')
+    expect(joined.preselect).toBe(true)
+    expect(joined.insertText).toContain(`\`${projectId}.umami_views.event\``)
+    expect(joined.insertText).toContain('LEFT JOIN')
+    expect(joined.insertText).toContain(joinField)
+    const targetTable = targetId === 'website' ? 'umami.public_website' : `umami_views.${targetId}`
+    expect(joined.insertText).toContain(`LEFT JOIN \`${projectId}.${targetTable}\``)
+    expect(() => new Parser().astify(prefix + joined.insertText)).not.toThrow()
+    expect(
+      [...suggestions].sort((left, right) =>
+        (left.sortText ?? left.label).localeCompare(right.sortText ?? right.label),
+      )[0],
+    ).toBe(joined)
+    if (targetId === 'event_data') {
+      expect(joined.insertText).toContain('LEFT JOIN UNNEST')
+      expect(joined.insertText).toContain('AS ep ON TRUE')
+    }
+  })
+
+  it('replaces a partial table name with the complete JOIN suggestion', () => {
+    const prefix = `SELECT event_name, distinct_id FROM \`${projectId}.umami_v`
+    const suggestion = getSqlSuggestions(prefix, projectId)[0]
+    const fragment = getSqlSuggestionFragment(prefix, suggestion.kind)
+    const sql = prefix.slice(0, -fragment.length) + suggestion.insertText
+    expect(suggestion.label).toBe('Hendelser + Brukerdetaljer')
+    expect(suggestion.labelDescription).toBe('JOIN')
+    expect(suggestion.filterText).toContain(`${projectId}.umami_views.event`)
+    expect(suggestion.filterText).toContain(`${projectId}.umami_views.session`)
+    expect(() => new Parser().astify(sql)).not.toThrow()
+    expect(sql).toContain(`LEFT JOIN \`${projectId}.umami_views.session\``)
+    expect(sql.match(/\bFROM\b/g)).toHaveLength(1)
+  })
+
+  it.each([
+    'event_name, distinct_id, created_at',
+    'event_name, distinct_id, domain',
+    'event_name, /* preserve */ distinct_id',
+  ])('does not guess a JOIN for ambiguous or unsupported projections: %s', (fields) => {
+    expect(
+      getSqlSuggestions(`SELECT ${fields} FROM `, projectId).some(
+        (suggestion) => suggestion.labelDescription === 'JOIN',
+      ),
+    ).toBe(false)
+  })
+
+  it('does not suggest another base table with JOINs when SQL already follows the cursor', () => {
+    const suggestions = getSqlSuggestions(
+      'SELECT event_name, distinct_id FROM ',
+      projectId,
+      `\`${projectId}.umami_views.event\` LEFT JOIN \`${projectId}.umami_views.session\` ON event.session_id = session.session_id`,
+    )
+    expect(suggestions.some((suggestion) => suggestion.labelDescription === 'JOIN')).toBe(false)
   })
 
   it('offers quoted browser values when starting or typing a value', () => {

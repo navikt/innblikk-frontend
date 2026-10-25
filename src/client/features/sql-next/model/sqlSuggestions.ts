@@ -1,8 +1,10 @@
 import { getBigQueryTables, getFullTableName, getSqlBuildingBlocks } from './schemaAndSnippets'
+import { getSqlJoinOptions } from './sqlJoins'
 
 export interface SqlSuggestion {
   label: string
   labelDescription?: string
+  filterText?: string
   insertText: string
   detail: string
   kind: 'table' | 'field' | 'value' | 'keyword'
@@ -127,8 +129,44 @@ export const getSqlSuggestions = (sqlBeforeCursor: string, projectId: string, sq
         )
       : []
     const availableTables = matchingTables.length ? matchingTables : tables
+    const eventTable = tables.find((table) => table.id === 'event')!
+    const hasField = (table: (typeof tables)[number], field: string) =>
+      table.columns.some((column) => column.name.toLowerCase() === field)
+    const joinTargets =
+      !matchingTables.length && selectedFields.length > 1 && !sqlAfterCursor.trim()
+        ? tables.filter(
+            (table) =>
+              table.id !== 'event' &&
+              selectedFields.every(
+                (field) => Number(hasField(eventTable, field)) + Number(hasField(table, field)) === 1,
+              ) &&
+              selectedFields.some((field) => hasField(eventTable, field)) &&
+              selectedFields.some((field) => hasField(table, field)),
+          )
+        : []
+    const joinOptions = joinTargets.length
+      ? getSqlJoinOptions(context.replace(/\bFROM\s+[`\w.-]*$/i, 'FROM '), projectId)
+      : []
+    const joinSuggestions: SqlSuggestion[] = joinTargets.flatMap((table) => {
+      const option = joinOptions.find((candidate) => candidate.id === table.id)
+      if (!option?.joinSql || !option.sql || option.alreadyJoined) return []
+      return [
+        {
+          label: `${eventTable.title} + ${table.title}`,
+          labelDescription: 'JOIN',
+          filterText: `${getFullTableName(projectId, eventTable.datasetTable)} ${getFullTableName(projectId, table.datasetTable)} ${eventTable.title} ${table.title}`,
+          insertText: option.joinSql.replace(/^FROM\s+/i, ''),
+          detail: option.relation,
+          kind: 'table',
+          sortText: '0',
+          preselect: true,
+        },
+      ]
+    })
 
-    return availableTables.map((table) => {
+    if (joinSuggestions.length === 1) return joinSuggestions
+
+    return availableTables.map<SqlSuggestion>((table) => {
       return {
         label: table.shortName,
         labelDescription: table.title,
