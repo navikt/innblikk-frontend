@@ -4,6 +4,7 @@ import type { Website } from '../model/types'
 
 interface SqlFilterContext {
   websiteIdState: string
+  websiteIds?: string[]
   selectedWebsite: Website | null
   urlPathFromUrl: string | null
   urlPath: string
@@ -12,6 +13,19 @@ interface SqlFilterContext {
   customVariables: string[]
   customVariableValues: Record<string, string>
 }
+
+export const replaceDateFilterPlaceholders = (
+  sql: string,
+  fromSql: string,
+  toSql: string,
+  defaultColumn: string,
+): string =>
+  sql
+    .replace(
+      /(\bFROM\s+(`[^`]+\.umami_views\.(?:event_data|event|session)`)\s+WHERE\s+(?:(?!\bSELECT\b|\bFROM\b|\[\[)[\s\S])*?)\[\[\s*AND\s*\{\{created_at\}\}\s*\]\]/gi,
+      (_match, prefix: string, table: string) => `${prefix}AND ${table}.created_at BETWEEN ${fromSql} AND ${toSql}`,
+    )
+    .replace(/\[\[\s*AND\s*\{\{created_at\}\}\s*\]\]/gi, `AND ${defaultColumn} BETWEEN ${fromSql} AND ${toSql}`)
 
 export const applyUrlFiltersToSql = (sql: string, ctx: SqlFilterContext): string => {
   let processedSql = sql
@@ -32,6 +46,13 @@ export const applyUrlFiltersToSql = (sql: string, ctx: SqlFilterContext): string
   }
 
   // Website ID substitution {{website_id}}
+  if (ctx.websiteIds && ctx.websiteIds.length > 1) {
+    const values = [...new Set(ctx.websiteIds)].map((id) => `'${escapeSqlString(id)}'`).join(', ')
+    processedSql = processedSql.replace(
+      /((?:`[^`]+`|\w+)(?:\.(?:`[^`]+`|\w+))*)\s*=\s*(['"])?\s*\{\{\s*website_id\s*\}\}\s*\2?/gi,
+      (_match, column: string) => `${column} IN (${values})`,
+    )
+  }
   const hasWebsitePlaceholderInline = /\{\{\s*website_id\s*\}\}/i.test(processedSql)
   if (hasWebsitePlaceholderInline && ctx.websiteIdState) {
     const sanitizedWebsiteId = ctx.websiteIdState.replace(/'/g, "''")
@@ -180,8 +201,7 @@ export const applyUrlFiltersToSql = (sql: string, ctx: SqlFilterContext): string
       tablePrefix = `\`${projectId}.umami.public_session\``
     }
 
-    const dateReplacement = `AND ${tablePrefix}.created_at BETWEEN ${fromSql} AND ${toSql}`
-    processedSql = processedSql.replace(datePattern, dateReplacement)
+    processedSql = replaceDateFilterPlaceholders(processedSql, fromSql, toSql, `${tablePrefix}.created_at`)
   }
 
   // If query joins partitioned public_session, mirror the date filter
@@ -278,7 +298,7 @@ export const sanitizePlaceholders = (sql: string): { sanitized: string; placehol
   })
 
   // Replace {{...}} variable placeholders with a unique token
-  sanitized = sanitized.replace(/\{\{[^}]+\}\}/g, (match) => {
+  sanitized = sanitized.replace(/'\{\{[^}]+\}\}'|"\{\{[^}]+\}\}"|\{\{[^}]+\}\}/g, (match) => {
     const token = `__METABASE_VAR_${counter++}__`
     placeholders.set(token, match)
     return `'${token}'`

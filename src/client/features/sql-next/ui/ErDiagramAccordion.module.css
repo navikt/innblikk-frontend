@@ -1,0 +1,198 @@
+.accordion {
+  min-width: 0;
+}
+
+.scrollArea {
+  overflow: auto;
+  max-width: 100%;
+  border: 1px solid var(--ax-border-neutral-subtle);
+  border-radius: 4px;
+  background-color: var(--ax-bg-neutral-soft);
+  background-image: radial-gradient(var(--ax-border-neutral-subtle) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+.scrollArea:focus-visible {
+  outline: 3px solid var(--ax-border-focus);
+  outline-offset: 2px;
+}
+
+.diagram {
+  position: relative;
+  width: 1056px;
+  height: 1280px;
+  margin-inline: auto;
+}
+
+.connections {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.connection {
+  stroke: var(--ax-border-neutral-strong);
+}
+.activeConnection {
+  stroke: var(--ax-border-accent);
+}
+
+.table {
+  position: absolute;
+  width: 272px;
+  border: 1px solid var(--ax-border-neutral-strong);
+  border-radius: 6px;
+  background: var(--ax-bg-default);
+  box-shadow: 0 2px 6px #00000012;
+}
+
+.selected {
+  border-color: var(--ax-border-accent);
+  box-shadow: 0 0 0 1px var(--ax-border-accent);
+}
+
+.website {
+  top: 32px;
+  left: 24px;
+}
+.session {
+  top: 488px;
+  left: 760px;
+}
+.event {
+  top: 32px;
+  left: 392px;
+  width: 288px;
+}
+.event_data {
+  top: 32px;
+  left: 760px;
+}
+
+.tableHeader {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 100%;
+  height: 76px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--ax-border-neutral-subtle);
+  border-radius: 5px 5px 0 0;
+  background: var(--ax-bg-neutral-moderate);
+  text-align: left;
+  cursor: pointer;
+}
+
+.selected .tableHeader {
+  background: var(--ax-bg-accent-soft);
+}
+.dataset {
+  color: var(--ax-text-subtle);
+  font-family: monospace;
+  font-size: 11px;
+  line-height: 14px;
+}
+.tableName {
+  color: var(--ax-text-default);
+  font-family: monospace;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 22px;
+}
+.tableTitle {
+  color: var(--ax-text-subtle);
+  font-size: 12px;
+  line-height: 18px;
+}
+.fields {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 32px;
+  padding: 0 12px;
+  color: var(--ax-text-default);
+  text-align: left;
+  cursor: pointer;
+}
+
+.field code {
+  font-size: 12px;
+  line-height: 20px;
+}
+.keyField {
+  background: var(--ax-bg-neutral-soft);
+  font-weight: 600;
+}
+.field:hover {
+  background: var(--ax-bg-accent-soft);
+}
+
+.field:focus-visible,
+.tableHeader:focus-visible {
+  position: relative;
+  outline: 3px solid var(--ax-border-focus);
+  outline-offset: -3px;
+}
+
+.fieldMarker {
+  display: flex;
+  align-items: center;
+  width: 8px;
+  flex: 0 0 8px;
+}
+.keyDot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border: 1px solid var(--ax-text-accent);
+  border-radius: 50%;
+  background: var(--ax-bg-accent-soft);
+}
+.insertIcon {
+  width: 16px;
+  height: 16px;
+  margin-left: auto;
+  color: var(--ax-text-subtle);
+  visibility: hidden;
+}
+.field:hover .insertIcon,
+.field:focus-visible .insertIcon {
+  visibility: visible;
+}
+.tableActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: 44px;
+  padding-inline: 8px;
+  border-top: 1px solid var(--ax-border-neutral-subtle);
+}
+.legend {
+  position: absolute;
+  bottom: 32px;
+  left: 392px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ax-text-subtle);
+  font-size: 12px;
+}
+.legendLine {
+  width: 28px;
+  height: 12px;
+  border-left: 2px solid var(--ax-border-accent);
+  background: linear-gradient(var(--ax-border-accent), var(--ax-border-accent)) center / 100% 2px no-repeat;
+}

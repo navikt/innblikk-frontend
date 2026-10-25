@@ -70,6 +70,7 @@ interface ResultsPanelProps {
   // rendered outside this component and the full tab UI would be noise.
   sqlOnly?: boolean
   compactTableActions?: boolean
+  compactSpacing?: boolean
   hideTableFooter?: boolean
   compactTableTitle?: string
   // Optional props for AnalysisActionModal
@@ -109,6 +110,7 @@ const ResultsPanel = ({
   hideTabList = false,
   sqlOnly = false,
   compactTableActions = false,
+  compactSpacing = false,
   hideTableFooter = false,
   compactTableTitle,
   websiteId,
@@ -653,7 +655,7 @@ const ResultsPanel = ({
   return (
     // sqlOnly = embedded under Copilot's KPI chat bubble — no bottom margin, no container
     // styling, the parent chat flow owns the spacing.
-    <div className={sqlOnly ? 'space-y-2' : 'space-y-2 mb-6'}>
+    <div className={sqlOnly || compactSpacing ? 'space-y-2' : 'space-y-2 mb-6'}>
       <div className={sqlOnly ? '' : containerClass}>
         {/* Only show button if no results yet */}
         {!result && !error && (
@@ -775,6 +777,7 @@ const ResultsPanel = ({
                                 </ActionMenu.Item>
                               )}
                               <ActionMenu.Item onClick={downloadCSV}>Last ned CSV</ActionMenu.Item>
+                              <ActionMenu.Item onClick={downloadJSON}>Last ned JSON</ActionMenu.Item>
                             </ActionMenu.Content>
                           </ActionMenu>
                         </div>

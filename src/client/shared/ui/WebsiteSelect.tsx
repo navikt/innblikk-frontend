@@ -8,6 +8,9 @@ interface WebsiteSelectProps {
   websites: Website[]
   selectedId: string | null
   onSelect: (id: string | null) => void
+  selectedIds?: string[]
+  onSelectMultiple?: (ids: string[]) => void
+  label?: string
   error?: string
   fullWidth?: boolean
   size?: 'small' | 'medium'
@@ -16,7 +19,17 @@ interface WebsiteSelectProps {
 const labelOf = getWebsiteDisplayName
 
 /** Ranks name-prefix matches above name-substring above domain matches, so «nav» finds the project named Nav first. */
-export function WebsiteSelect({ websites, selectedId, onSelect, error, fullWidth = false, size }: WebsiteSelectProps) {
+export function WebsiteSelect({
+  websites,
+  selectedId,
+  onSelect,
+  selectedIds,
+  onSelectMultiple,
+  label = 'Nettsted',
+  error,
+  fullWidth = false,
+  size,
+}: WebsiteSelectProps) {
   const [filter, setFilter] = useState('')
   const options = useMemo(() => {
     const counts = new Map<string, number>()
@@ -40,6 +53,7 @@ export function WebsiteSelect({ websites, selectedId, onSelect, error, fullWidth
       })
   }, [websites])
   const selected = websites.find((w) => w.id === selectedId)
+  const isMultiSelect = selectedIds !== undefined
 
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase()
@@ -67,6 +81,7 @@ export function WebsiteSelect({ websites, selectedId, onSelect, error, fullWidth
   // Aksel's single-select input shows the selection as plain text, so backspace on it never clears; handle it on the wrapper.
   // Only clear when nothing is being typed, so a search term can still be corrected one character at a time.
   const handleKeyDownCapture = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (isMultiSelect) return
     if (e.key !== 'Backspace' || !selected) return
     const inputValue = (e.target as HTMLInputElement).value
     if (inputValue === labelOf(selected) || (inputValue === '' && filter === '')) {
@@ -82,18 +97,30 @@ export function WebsiteSelect({ websites, selectedId, onSelect, error, fullWidth
       onKeyDownCapture={handleKeyDownCapture}
     >
       <UNSAFE_Combobox
-        label="Nettsted"
+        label={label}
         size={size}
         error={error}
         options={options}
         filteredOptions={filtered}
-        selectedOptions={selected ? [{ label: labelOf(selected), value: selected.id }] : []}
-        onToggleSelected={(value, isSelected) => onSelect(isSelected ? value : null)}
+        selectedOptions={
+          isMultiSelect
+            ? options.filter((option) => selectedIds.includes(option.value))
+            : selected
+              ? [{ label: labelOf(selected), value: selected.id }]
+              : []
+        }
+        onToggleSelected={(value, isSelected) => {
+          if (isMultiSelect) {
+            onSelectMultiple?.(
+              isSelected ? [...new Set([...selectedIds, value])] : selectedIds.filter((id) => id !== value),
+            )
+          } else onSelect(isSelected ? value : null)
+        }}
         value={filter}
         onChange={setFilter}
         placeholder="Søk etter nettsted…"
         clearButton
-        isMultiSelect={false}
+        isMultiSelect={isMultiSelect}
       />
     </div>
   )

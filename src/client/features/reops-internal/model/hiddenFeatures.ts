@@ -38,6 +38,12 @@ export const hiddenFeatures: HiddenFeature[] = [
     label: 'Statistikk',
     description: 'Aggregert oversikt over innstillinger/feature flags på tvers av brukere (fra innstillingstabellen).',
   },
+  {
+    id: 'sql-old',
+    href: '/sql-old',
+    label: 'SQL-editor (gammel)',
+    description: 'Den forrige SQL-editoren, beholdt som alternativ til den nye SQL-byggeren.',
+  },
 ]
 
 /**

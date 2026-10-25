@@ -7,15 +7,77 @@ interface QueryErrorDisplayProps {
   error: string
   lastProcessedSql: string
   onAddDateFilter: () => void
+  groupByField?: string | null
+  onAddGroupBy?: () => void
+  quoteFixValues?: string[]
+  onAddQuotes?: () => void
+  joinSuggestion?: {
+    field: string
+    sourceTitle: string
+    tableTitle: string
+    joinSql: string
+    warning: string | null
+  } | null
+  onAddJoin?: () => void
 }
 
-export default function QueryErrorDisplay({ error, lastProcessedSql, onAddDateFilter }: QueryErrorDisplayProps) {
+export default function QueryErrorDisplay({
+  error,
+  lastProcessedSql,
+  onAddDateFilter,
+  groupByField,
+  onAddGroupBy,
+  quoteFixValues,
+  onAddQuotes,
+  joinSuggestion,
+  onAddJoin,
+}: QueryErrorDisplayProps) {
   return (
     <Alert variant="error" className="mb-4">
       <Heading level="3" size="small" spacing>
-        Query Error
+        Feil i spørringen
       </Heading>
-      <BodyLong>{error}</BodyLong>
+      {groupByField && onAddGroupBy ? (
+        <div className="flex flex-col items-start gap-3">
+          <BodyLong>
+            Når du teller og samtidig viser {groupByField}, må resultatene grupperes etter {groupByField}.
+          </BodyLong>
+          <Button size="small" variant="secondary" type="button" onClick={onAddGroupBy}>
+            Legg til GROUP BY {groupByField}
+          </Button>
+        </div>
+      ) : quoteFixValues?.length && onAddQuotes ? (
+        <div className="flex flex-col items-start gap-3">
+          <BodyLong>
+            Tekstverdier må stå i anførselstegn, for eksempel <code>'{quoteFixValues[0]}'</code>.
+          </BodyLong>
+          <Button size="small" variant="secondary" type="button" onClick={onAddQuotes}>
+            Legg til anførselstegn
+          </Button>
+          <ReadMore header="Teknisk feilmelding" size="small">
+            <BodyLong>{error}</BodyLong>
+          </ReadMore>
+        </div>
+      ) : joinSuggestion && onAddJoin ? (
+        <div className="flex flex-col items-start gap-3">
+          <BodyLong>
+            <code>{joinSuggestion.field}</code> finnes i {joinSuggestion.tableTitle}, ikke i{' '}
+            {joinSuggestion.sourceTitle}.
+          </BodyLong>
+          {joinSuggestion.warning && <BodyLong size="small">{joinSuggestion.warning}</BodyLong>}
+          <Button size="small" variant="secondary" type="button" onClick={onAddJoin}>
+            Koble til {joinSuggestion.tableTitle}
+          </Button>
+          <ReadMore header="Vis JOIN-kode" size="small">
+            <pre className="m-0 whitespace-pre-wrap break-words text-xs">{joinSuggestion.joinSql}</pre>
+          </ReadMore>
+          <ReadMore header="Teknisk feilmelding" size="small">
+            <BodyLong>{error}</BodyLong>
+          </ReadMore>
+        </div>
+      ) : (
+        <BodyLong>{error}</BodyLong>
+      )}
 
       {/* Helper button for partition error */}
       {error.includes('partition elimination') && error.includes('created_at') && (

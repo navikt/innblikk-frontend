@@ -65,6 +65,7 @@ interface SqlResultsSectionProps {
   queryStats: QueryStats | undefined | null
   query: string
   lastProcessedSql: string
+  getExportQuery?: () => Promise<string>
   websiteId: string | undefined
   copiedMetabase: boolean
   hideMetabaseTransfer?: boolean
@@ -95,6 +96,7 @@ export default function SqlResultsSection({
   queryStats,
   query,
   lastProcessedSql,
+  getExportQuery,
   websiteId,
   copiedMetabase,
   hideMetabaseTransfer = false,
@@ -148,7 +150,22 @@ export default function SqlResultsSection({
   const [isCreatingProject, setIsCreatingProject] = useState(false)
   const [isCreatingDashboard, setIsCreatingDashboard] = useState(false)
   const [showMetabaseInstructions, setShowMetabaseInstructions] = useState(false)
-  const sqlForSave = query || lastProcessedSql
+  const [exportedSql, setExportedSql] = useState<{ source: () => Promise<string>; sql: string } | null>(null)
+  useEffect(() => {
+    if (!getExportQuery) return
+    let active = true
+    void getExportQuery()
+      .then((sql) => {
+        if (active) setExportedSql({ source: getExportQuery, sql })
+      })
+      .catch((err: unknown) => {
+        if (active) setSaveError(err instanceof Error ? err.message : 'Kunne ikke klargjøre SQL for eksport.')
+      })
+    return () => {
+      active = false
+    }
+  }, [getExportQuery])
+  const sqlForSave = exportedSql && exportedSql.source === getExportQuery ? exportedSql.sql : query || lastProcessedSql
   const isDevEnvironment = typeof window !== 'undefined' && window.location.hostname.includes('.dev.nav.no')
   const metabaseQuestionUrl = isDevEnvironment
     ? 'https://metabase.ansatt.dev.nav.no/question#eyJkYXRhc2V0X3F1ZXJ5Ijp7ImxpYi90eXBlIjoibWJxbC9xdWVyeSIsImRhdGFiYXNlIjo1Njg2LCJzdGFnZXMiOlt7ImxpYi90eXBlIjoibWJxbC5zdGFnZS9uYXRpdmUiLCJuYXRpdmUiOiIiLCJ0ZW1wbGF0ZS10YWdzIjp7fX1dfSwiZGlzcGxheSI6InRhYmxlIiwidmlzdWFsaXphdGlvbl9zZXR0aW5ncyI6e30sInR5cGUiOiJxdWVzdGlvbiJ9'
@@ -328,13 +345,14 @@ export default function SqlResultsSection({
     setSaveError(null)
 
     try {
+      const sqlText = getExportQuery ? await getExportQuery() : sqlForSave
       const saved = await saveChartToBackend({
         projectName: projectName.trim(),
         dashboardName: dashboardName.trim(),
         graphName: graphName.trim(),
         queryName: `${graphName.trim()} - query`,
         graphType: graphType.trim(),
-        sqlText: sqlForSave,
+        sqlText,
         categoryId: selectedCategoryOption ? Number(selectedCategoryOption) : undefined,
       })
 
@@ -388,51 +406,54 @@ export default function SqlResultsSection({
 
   return (
     <>
-      <ResultsPanel
-        result={result}
-        loading={loading}
-        error={error}
-        queryStats={queryStats}
-        lastAction={null}
-        showLoadingMessage={estimating || loading}
-        executeQuery={onExecuteQuery}
-        handleRetry={onExecuteQuery}
-        prepareLineChartData={prepareLineChartData}
-        prepareBarChartData={prepareBarChartData}
-        preparePieChartData={preparePieChartData}
-        sql={lastProcessedSql || query}
-        showSqlCode={showSqlCode}
-        showEditButton={true}
-        showExecuteButton={showExecuteButton}
-        showError={showError}
-        showSqlMetabaseActions={false}
-        showCost={showCost}
-        initialTab={initialTab}
-        websiteId={websiteId}
-        compactTableActions={true}
-        compactTableTitle="Resultater"
-        hideTableFooter={true}
-        showDownloadReadMore={false}
-        onAddToDashboard={openSaveModal}
-        sqlOnly={sqlOnly}
-      />
+      <div className="flex flex-col">
+        <ResultsPanel
+          result={result}
+          loading={loading}
+          error={error}
+          queryStats={queryStats}
+          lastAction={null}
+          showLoadingMessage={estimating || loading}
+          executeQuery={onExecuteQuery}
+          handleRetry={onExecuteQuery}
+          prepareLineChartData={prepareLineChartData}
+          prepareBarChartData={prepareBarChartData}
+          preparePieChartData={preparePieChartData}
+          sql={getExportQuery ? sqlForSave : lastProcessedSql || query}
+          showSqlCode={showSqlCode}
+          showEditButton={true}
+          showExecuteButton={showExecuteButton}
+          showError={showError}
+          showSqlMetabaseActions={false}
+          showCost={showCost}
+          initialTab={initialTab}
+          websiteId={websiteId}
+          compactTableActions={true}
+          compactSpacing={true}
+          compactTableTitle="Resultater"
+          hideTableFooter={true}
+          showDownloadReadMore={false}
+          onAddToDashboard={openSaveModal}
+          sqlOnly={sqlOnly}
+        />
 
-      {/* JSON Output - below results */}
-      {!sqlOnly && result && showJson && (
-        <ReadMore header="JSON" size="small" className="mt-6">
-          <pre
-            className="bg-[var(--ax-bg-neutral-soft)] border border-gray-300 rounded p-3 text-xs font-mono whitespace-pre-wrap"
-            style={{ margin: 0 }}
-          >
-            {truncateJSON(result)}
-          </pre>
-        </ReadMore>
-      )}
+        {/* JSON Output - below results */}
+        {!sqlOnly && result && showJson && (
+          <ReadMore header="JSON" size="small">
+            <pre
+              className="bg-[var(--ax-bg-neutral-soft)] border border-gray-300 rounded p-3 text-xs font-mono whitespace-pre-wrap"
+              style={{ margin: 0 }}
+            >
+              {truncateJSON(result)}
+            </pre>
+          </ReadMore>
+        )}
+      </div>
 
       {/* Metabase section */}
       {/* sqlOnly (Copilot KPI replies) renders embedded directly under a chat bubble — tight
           margins so the actions read as part of the answer, not a separate section. */}
-      <div className={sqlOnly ? 'space-y-3 mt-2' : 'space-y-3 mt-6 mb-4'}>
+      <div className={sqlOnly ? 'space-y-3 mt-2' : 'space-y-3 mt-2 mb-4'}>
         <div className="flex flex-wrap gap-2">
           <Button size={dashboardButtonSize} variant="primary" onClick={openSaveModal}>
             Legg til i dashboard
