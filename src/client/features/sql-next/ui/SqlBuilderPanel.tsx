@@ -237,7 +237,7 @@ export default function SqlBuilderPanel({
                         <>
                           <ActionMenu.Divider />
                           <ActionMenu.Item icon={<LinkIcon aria-hidden />} onSelect={onOpenJoin}>
-                            <span className="text-sm">Legg til JOIN</span>
+                            <span className="text-sm">JOIN tabeller</span>
                           </ActionMenu.Item>
                         </>
                       )}
@@ -249,7 +249,7 @@ export default function SqlBuilderPanel({
           )}
           <div role="group" aria-label="Editorhandlinger" className="ml-auto flex shrink-0 items-center gap-1">
             <Button size="xsmall" variant="tertiary" type="button" onClick={onOpenJoin}>
-              Legg til JOIN
+              JOIN tabeller
             </Button>
             <Tooltip content="Tøm spørringen">
               <Button

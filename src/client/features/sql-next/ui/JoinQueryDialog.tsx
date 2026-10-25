@@ -72,13 +72,13 @@ export default function JoinQueryDialog({
       : null
 
   return (
-    <Modal open onClose={onClose} header={{ heading: 'Legg til JOIN' }} width="medium">
+    <Modal open onClose={onClose} header={{ heading: 'JOIN tabeller' }} width="medium">
       <Modal.Body>
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <TextField label="Start med" value="Hendelser (event)" readOnly />
+            <TextField label="Hovedtabell" value="Hendelser (event)" readOnly />
             <Select
-              label="Legg til"
+              label="JOIN med"
               value={tableId}
               onChange={(event) => {
                 setTableId(event.target.value as JoinTableId)

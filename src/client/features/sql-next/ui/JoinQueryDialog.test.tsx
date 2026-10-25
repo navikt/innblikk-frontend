@@ -27,7 +27,7 @@ describe('JOIN dialog', () => {
     expect(screen.queryByRole('button', { name: /^Sett inn umami/ })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Kopier umami_views.event_data' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Legg til JOIN med Detaljer på hendelser' }))
-    expect(screen.getByRole('combobox', { name: 'Legg til' })).toHaveValue('event_data')
+    expect(screen.getByRole('combobox', { name: 'JOIN med' })).toHaveValue('event_data')
     expect(screen.getByLabelText('JOIN-kode')).toHaveTextContent('LEFT JOIN UNNEST')
     expect(
       within(screen.getByRole('region', { name: 'umami_views.event_data' })).getByText('ep.string_value'),
@@ -40,7 +40,7 @@ describe('JOIN dialog', () => {
     const { onApply } = renderDialog(
       "SELECT event_name, COUNT(DISTINCT NULLIF(distinct_id, '')) AS unike_besokende\nFROM\n",
     )
-    fireEvent.change(screen.getByRole('combobox', { name: 'Legg til' }), { target: { value: 'event_data' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'JOIN med' }), { target: { value: 'event_data' } })
     expect(screen.queryByText(/Kan ikke legge til JOIN/)).not.toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(screen.getByText(/En hendelse kan vises flere ganger/)).toBeInTheDocument()
@@ -58,10 +58,10 @@ describe('JOIN dialog', () => {
 
   it('starts a new query with a preview and selected join', () => {
     const { onApply, onClose } = renderDialog()
-    expect(screen.getByRole('dialog', { name: 'Legg til JOIN' })).toBeInTheDocument()
-    expect(screen.getByRole('textbox', { name: 'Start med' })).toHaveValue('Hendelser (event)')
-    expect(screen.getByRole('textbox', { name: 'Start med' })).toHaveAttribute('readonly')
-    expect(screen.getByRole('combobox', { name: 'Legg til' })).toHaveValue('session')
+    expect(screen.getByRole('dialog', { name: 'JOIN tabeller' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Hovedtabell' })).toHaveValue('Hendelser (event)')
+    expect(screen.getByRole('textbox', { name: 'Hovedtabell' })).toHaveAttribute('readonly')
+    expect(screen.getByRole('combobox', { name: 'JOIN med' })).toHaveValue('session')
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
     expect(screen.getByText('Hendelser uten brukerdetaljer beholdes i koblingen.')).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'Hendelser (event)' })).not.toBeInTheDocument()
@@ -76,7 +76,7 @@ describe('JOIN dialog', () => {
 
   it('previews and applies event details with UNNEST', () => {
     const { onApply } = renderDialog()
-    fireEvent.change(screen.getByRole('combobox', { name: 'Legg til' }), { target: { value: 'event_data' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'JOIN med' }), { target: { value: 'event_data' } })
     expect(screen.getByLabelText('JOIN-kode')).toHaveTextContent('UNNEST')
     expect(screen.getByText('Hendelser uten hendelsesdetaljer beholdes i koblingen.')).toBeInTheDocument()
     expect(screen.getByText(/En hendelse kan vises flere ganger/)).toBeInTheDocument()
@@ -141,7 +141,7 @@ describe('JOIN dialog', () => {
     const { onApply } = renderDialog(
       `${before}FROM \`test-project.umami_views.session\` LEFT JOIN old_table ON TRUE\n${tail}`,
     )
-    fireEvent.change(screen.getByRole('combobox', { name: 'Legg til' }), { target: { value: 'event_data' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'JOIN med' }), { target: { value: 'event_data' } })
     fireEvent.click(screen.getByRole('button', { name: 'Erstatt FROM og JOIN' }))
     const sql = onApply.mock.calls[0][0]
     expect(sql.startsWith(before)).toBe(true)
@@ -199,7 +199,7 @@ describe('JOIN dialog', () => {
       'event_data',
       'website',
     ])
-    fireEvent.change(screen.getByRole('combobox', { name: 'Legg til' }), { target: { value: 'website' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'JOIN med' }), { target: { value: 'website' } })
     expect(screen.getByLabelText('JOIN-kode')).toHaveTextContent('LEFT JOIN')
     expect(screen.getByLabelText('JOIN-kode')).toHaveTextContent('public_website')
     expect(screen.queryByText(/En hendelse kan vises flere ganger/)).not.toBeInTheDocument()
