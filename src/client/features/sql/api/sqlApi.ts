@@ -20,13 +20,16 @@ export const estimateQueryCost = async (processedSql: string): Promise<QueryStat
   return data
 }
 
-export const executeQueryApi = async (processedSql: string): Promise<QueryResult> => {
+export const executeQueryApi = async (
+  processedSql: string,
+  options: { maxRows?: number } = {},
+): Promise<QueryResult> => {
   const response = await fetch('/api/bigquery', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ query: processedSql, analysisType: 'Sqlverktøy' }),
+    body: JSON.stringify({ query: processedSql, analysisType: 'Sqlverktøy', ...options }),
   })
 
   const data = (await response.json()) as QueryResult & { error?: string }

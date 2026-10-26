@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Alert, BodyShort, Button, Checkbox, Heading, HelpText, Modal, Select, TextField } from '@navikt/ds-react'
+import { Alert, BodyShort, Button, Heading, Modal, TextField } from '@navikt/ds-react'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { WebsiteSelect } from '../../../shared/ui/WebsiteSelect.tsx'
@@ -7,12 +7,13 @@ import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
 import { getGcpProjectId } from '../../sql/utils/formatters'
 import QueryErrorDisplay from '../../sql/ui/QueryErrorDisplay'
 import SqlResultsSection from '../../sql/ui/SqlResultsSection'
-import { SAFETY_LIMIT_OPTIONS, useSqlNextEditor } from '../hooks/useSqlNextEditor'
+import { MORE_ROWS, useSqlNextEditor } from '../hooks/useSqlNextEditor'
 import type { MonacoEditorInstance } from '../model/types'
 import ErDiagramAccordion from './ErDiagramAccordion.tsx'
 import SqlBuilderPanel from './SqlBuilderPanel'
 import JoinQueryDialog, { type JoinTableId } from './JoinQueryDialog'
 import GroupQueryDialog from './GroupQueryDialog'
+import FilterQueryDialog from './FilterQueryDialog'
 import { getSqlQuoteFix } from '../model/sqlQuoteFix'
 import { getSqlCommaFix } from '../model/sqlCommaFix'
 import { getSqlClauseOrderFix } from '../model/sqlClauseOrderFix'
@@ -24,6 +25,7 @@ export default function SqlNextPage() {
   const editorInstanceRef = useRef<MonacoEditorInstance | null>(null)
   const [joinTableId, setJoinTableId] = useState<JoinTableId | null>(null)
   const [showGroupDialog, setShowGroupDialog] = useState(false)
+  const [showFilterDialog, setShowFilterDialog] = useState(false)
 
   const {
     query,
@@ -51,11 +53,13 @@ export default function SqlNextPage() {
     customVariables,
     customVariableValues,
     hasUrlPathFilter,
-    automaticFiltersEnabled,
-    safetyLimit,
-    activeLimit,
+    hasWebsiteIdPlaceholder,
+    hasNettsidePlaceholder,
+    hasPeriodPlaceholder,
     explicitLimit,
     isResultLimited,
+    canLoadMoreRows,
+    loadMoreRows,
     isSelectStarOnBigTable,
     isMissingPartitionFilter,
     isHighCost,
@@ -65,7 +69,6 @@ export default function SqlNextPage() {
 
     setUrlPath,
     setCustomVariableValues,
-    handleAutomaticFiltersChange,
     handleQueryChange,
     handleWebsiteIdsChange,
     handleUpgradeTables,
@@ -77,7 +80,6 @@ export default function SqlNextPage() {
     handlePeriodChange,
     handleStartDateChange,
     handleEndDateChange,
-    handleSafetyLimitChange,
     handleConfirmQuery,
     handleCancelQuery,
     executeQuery,
@@ -91,6 +93,8 @@ export default function SqlNextPage() {
   } = useSqlNextEditor()
 
   const queryError = error ?? dryRunError
+  const showWebsiteFilter = hasWebsiteIdPlaceholder || hasNettsidePlaceholder
+  const showFilterBar = showWebsiteFilter || hasPeriodPlaceholder || hasUrlPathFilter || customVariables.length > 0
   const groupBySimplification =
     estimate && !queryError && !loading && !estimating ? getGroupBySimplification(query) : null
   const commaFix = queryError ? getSqlCommaFix(query) : null
@@ -128,57 +132,36 @@ export default function SqlNextPage() {
 
       <AppBlock className="pb-12" gutters="compact">
         <div className="flex flex-col gap-4">
-          {/* Top Filter Bar (clean, no copy buttons here) */}
-          <div className="rounded-lg border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-3.5">
-            <fieldset disabled={!automaticFiltersEnabled} className="m-0 min-w-0 border-0 p-0">
+          {showFilterBar && (
+            <div className="rounded-lg border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-3.5">
               <div className="flex flex-wrap items-end gap-4">
-                <div className="flex-1 min-w-[260px]">
-                  <WebsiteSelect
-                    websites={availableWebsites}
-                    selectedId={websiteIds[0] ?? null}
-                    onSelect={(id) => handleWebsiteIdsChange(id ? [id] : [])}
-                    selectedIds={websiteIds}
-                    onSelectMultiple={handleWebsiteIdsChange}
-                    label="Nettsider eller apper"
-                    fullWidth
-                    size="small"
-                  />
-                </div>
+                {showWebsiteFilter && (
+                  <div className="flex-1 min-w-[260px]">
+                    <WebsiteSelect
+                      websites={availableWebsites}
+                      selectedId={websiteIds[0] ?? null}
+                      onSelect={(id) => handleWebsiteIdsChange(id ? [id] : [])}
+                      selectedIds={websiteIds}
+                      onSelectMultiple={handleWebsiteIdsChange}
+                      label="Nettsider eller apper"
+                      fullWidth
+                      size="small"
+                    />
+                  </div>
+                )}
 
-                <div className="flex-1 min-w-[240px]">
-                  <PeriodPicker
-                    period={period}
-                    onPeriodChange={handlePeriodChange}
-                    startDate={dateRange.from}
-                    onStartDateChange={handleStartDateChange}
-                    endDate={dateRange.to}
-                    onEndDateChange={handleEndDateChange}
-                  />
-                </div>
-
-                <div className="min-w-[140px]">
-                  <Select
-                    label="Maks rader"
-                    size="small"
-                    value={activeLimit === null ? 'unlimited' : String(activeLimit)}
-                    disabled={loading}
-                    onChange={(event) => {
-                      void handleSafetyLimitChange(
-                        event.target.value === 'unlimited' ? null : Number(event.target.value),
-                      )
-                    }}
-                  >
-                    {activeLimit !== null && !SAFETY_LIMIT_OPTIONS.some((limit) => limit === activeLimit) && (
-                      <option value={String(activeLimit)}>{activeLimit}</option>
-                    )}
-                    {SAFETY_LIMIT_OPTIONS.map((limit) => (
-                      <option key={limit} value={String(limit)}>
-                        {limit}
-                      </option>
-                    ))}
-                    <option value="unlimited">Ubegrenset</option>
-                  </Select>
-                </div>
+                {hasPeriodPlaceholder && (
+                  <div className="flex-1 min-w-[240px]">
+                    <PeriodPicker
+                      period={period}
+                      onPeriodChange={handlePeriodChange}
+                      startDate={dateRange.from}
+                      onStartDateChange={handleStartDateChange}
+                      endDate={dateRange.to}
+                      onEndDateChange={handleEndDateChange}
+                    />
+                  </div>
+                )}
 
                 {hasUrlPathFilter && (
                   <div className="min-w-[200px]">
@@ -207,22 +190,8 @@ export default function SqlNextPage() {
                   </div>
                 ))}
               </div>
-            </fieldset>
-            <div className="mt-3 flex items-center gap-2">
-              <Checkbox
-                size="small"
-                checked={automaticFiltersEnabled}
-                disabled={loading || estimating}
-                onChange={(event) => handleAutomaticFiltersChange(event.target.checked)}
-              >
-                Filtrene legges til automatisk når spørringen kjøres
-              </Checkbox>
-              <HelpText title="Om automatiske filtre">
-                Du trenger ikke legge inn nettside, periode eller maks rader (LIMIT) i SQL-en, de legges til automatisk.
-                Fjern avkrysningen for å kjøre SQL-en akkurat som du har skrevet den.
-              </HelpText>
             </div>
-          </div>
+          )}
 
           {/* Collapsible ER-diagram and table reference */}
           <ErDiagramAccordion projectId={projectId} onOpenJoin={setJoinTableId} onInsertSnippet={handleInsertSnippet} />
@@ -243,8 +212,6 @@ export default function SqlNextPage() {
                 incompleteQueryMessage={incompleteQueryMessage}
                 oldTableWarning={oldTableWarning}
                 shareSuccess={shareSuccess}
-                selectedWebsiteSelected={Boolean(selectedWebsite?.id || websiteId)}
-                safetyLimit={safetyLimit}
                 explicitLimit={explicitLimit}
                 isSelectStarOnBigTable={isSelectStarOnBigTable}
                 isMissingPartitionFilter={isMissingPartitionFilter}
@@ -252,6 +219,7 @@ export default function SqlNextPage() {
                 onUpgradeTables={handleUpgradeTables}
                 onAddDateFilter={handleAddDateFilter}
                 onAddWebsiteFilter={handleAddWebsiteFilter}
+                onOpenFilters={() => setShowFilterDialog(true)}
                 onShare={shareQuery}
                 onExecute={executeQuery}
                 onValidate={() => void validateSQL()}
@@ -327,11 +295,6 @@ export default function SqlNextPage() {
                   error={queryError}
                   lastProcessedSql={lastProcessedSql}
                   onAddDateFilter={handleAddDateFilter}
-                  onEnableAutomaticFilters={
-                    !automaticFiltersEnabled && queryError.startsWith('Spørringen inneholder malfelt')
-                      ? () => handleAutomaticFiltersChange(true)
-                      : undefined
-                  }
                   groupByField={groupByField}
                   onAddGroupBy={handleAddGroupBy}
                   quoteFixValues={quoteFix?.values}
@@ -343,10 +306,36 @@ export default function SqlNextPage() {
                 />
               )}
 
+              {hasAttemptedFetch && result?.truncated && !queryError && (
+                <Alert variant="warning" size="small">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span>
+                      Viser de første {result.data?.length.toLocaleString('nb-NO')}{' '}
+                      {result.totalRows
+                        ? `av ${result.totalRows.toLocaleString('nb-NO')} rader.`
+                        : 'rader. Det kan være flere.'}
+                      {canLoadMoreRows
+                        ? ' Nedlasting og diagram bruker bare disse.'
+                        : ' Legg til filtre eller LIMIT for å begrense resultatet.'}
+                    </span>
+                    {canLoadMoreRows && (
+                      <Button
+                        size="xsmall"
+                        variant="secondary"
+                        type="button"
+                        loading={loading}
+                        onClick={() => void loadMoreRows()}
+                      >
+                        Vis flere ({MORE_ROWS.toLocaleString('nb-NO')})
+                      </Button>
+                    )}
+                  </div>
+                </Alert>
+              )}
+
               {hasAttemptedFetch && isResultLimited && !queryError && (
                 <Alert variant="info" size="small">
-                  Resultatet er begrenset til <strong>{activeLimit}</strong> rader. Du kan endre grensen under «Maks
-                  rader».
+                  Resultatet er begrenset av <code>LIMIT {explicitLimit}</code> i SQL-en.
                 </Alert>
               )}
 
@@ -355,6 +344,8 @@ export default function SqlNextPage() {
                   <SqlResultsSection
                     copyableCells
                     showJson={false}
+                    showSqlCode={false}
+                    tableTitle={`Resultater · ${(result?.data?.length ?? 0).toLocaleString('nb-NO')} rader`}
                     result={result}
                     loading={loading}
                     estimating={estimating}
@@ -392,8 +383,19 @@ export default function SqlNextPage() {
           projectId={projectId}
           query={query}
           websiteIds={websiteIds}
+          websites={availableWebsites}
+          onWebsiteIdsChange={handleWebsiteIdsChange}
           onApply={handleQueryChange}
           onClose={() => setShowGroupDialog(false)}
+        />
+      )}
+
+      {showFilterDialog && (
+        <FilterQueryDialog
+          projectId={projectId}
+          query={query}
+          onApply={handleQueryChange}
+          onClose={() => setShowFilterDialog(false)}
         />
       )}
 

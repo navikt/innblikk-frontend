@@ -4,6 +4,31 @@ import { requireBigQuery, getNavIdent, MAX_BYTES_BILLED } from './helpers.js'
 import { logger } from '../../logger.js'
 
 const BIGQUERY_PRICE_PER_TIB_USD = 6.25
+const MAX_RESULT_ROWS = 10000
+
+export function parseMaxRows(value) {
+  const rows = Number(value)
+  if (!Number.isInteger(rows) || rows < 1) return null
+  return Math.min(rows, MAX_RESULT_ROWS)
+}
+
+// Returns at most maxRows rows. Data modes that ignore maxResults still get cut here.
+export async function readQueryRows(job, maxRows) {
+  if (!maxRows) {
+    const [rows] = await job.getQueryResults()
+    return { rows, totalRows: rows.length, truncated: false }
+  }
+  const [rows, , response] = await job.getQueryResults({ maxResults: maxRows, autoPaginate: false })
+  const limited = rows.slice(0, maxRows)
+  const reported = response?.totalRows === undefined || response?.totalRows === null ? NaN : Number(response.totalRows)
+  if (Number.isFinite(reported)) {
+    const totalRows = Math.max(reported, limited.length)
+    return { rows: limited, totalRows, truncated: totalRows > limited.length }
+  }
+  // Without a reported total, a full page may or may not be everything.
+  if (rows.length > maxRows) return { rows: limited, totalRows: rows.length, truncated: true }
+  return { rows: limited, totalRows: rows.length < maxRows ? rows.length : null, truncated: rows.length >= maxRows }
+}
 
 export function getCompletedQueryStats(metadata) {
   const totalBytesProcessed = Number(metadata?.statistics?.totalBytesProcessed || 0)
@@ -96,7 +121,7 @@ export function createSqlRouter({ bigquery }) {
   // BigQuery API endpoint — execute a read-only query
   router.post('/api/bigquery', async (req, res) => {
     try {
-      const { query, analysisType } = req.body
+      const { query, analysisType, maxRows } = req.body
 
       if (!query) {
         return res.status(400).json({ error: 'Query is required' })
@@ -124,7 +149,7 @@ export function createSqlRouter({ bigquery }) {
         ),
       )
 
-      const [rows] = await job.getQueryResults()
+      const { rows, totalRows, truncated } = await readQueryRows(job, parseMaxRows(maxRows))
       const [metadata] = await job.getMetadata()
       const queryStats = getCompletedQueryStats(metadata)
       const processedGB = (queryStats.totalBytesProcessed / 1024 ** 3).toFixed(1)
@@ -144,6 +169,8 @@ export function createSqlRouter({ bigquery }) {
         success: true,
         data: rows,
         rowCount: rows.length,
+        totalRows,
+        truncated,
         queryStats,
       })
     } catch (error) {

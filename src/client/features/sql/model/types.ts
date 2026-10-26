@@ -16,6 +16,8 @@ export type { QueryStats }
 
 export type QueryResult = {
   data?: Row[]
+  totalRows?: number | null
+  truncated?: boolean
   queryStats?: QueryStats
 }
 

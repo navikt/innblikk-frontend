@@ -9,7 +9,7 @@ import {
   CheckmarkIcon,
 } from '@navikt/aksel-icons'
 import Editor, { type OnMount } from '@monaco-editor/react'
-import { getSqlBuildingBlocks, INITIAL_SQL_QUERY } from '../model/schemaAndSnippets'
+import { getInitialSqlQuery, getSqlBuildingBlocks, INITIAL_CURSOR, isInitialSqlQuery } from '../model/schemaAndSnippets'
 import {
   canCountCookieVisitors,
   getSqlSuggestionFragment,
@@ -18,6 +18,7 @@ import {
   prepareSqlBlockInsertion,
 } from '../model/sqlSuggestions'
 import { registerSqlNextLanguage, SQL_NEXT_LANGUAGE_ID } from '../model/sqlLanguage'
+import { hasSqlFilters } from '../model/sqlFilters'
 import type { BlockSectionId, MonacoEditorInstance, QueryStats } from '../model/types'
 
 interface CompletionPosition {
@@ -52,8 +53,6 @@ interface SqlBuilderPanelProps {
   incompleteQueryMessage?: string | null
   oldTableWarning: boolean
   shareSuccess: boolean
-  selectedWebsiteSelected: boolean
-  safetyLimit: number | null
   explicitLimit: number | null
   isSelectStarOnBigTable: boolean
   isMissingPartitionFilter: boolean
@@ -61,6 +60,7 @@ interface SqlBuilderPanelProps {
   onUpgradeTables: () => void
   onAddDateFilter: () => void
   onAddWebsiteFilter: () => void
+  onOpenFilters: () => void
   onShare: () => void
   onExecute: () => void
   onFormat: () => void
@@ -91,9 +91,10 @@ export default function SqlBuilderPanel({
   incompleteQueryMessage,
   oldTableWarning,
   shareSuccess,
-  selectedWebsiteSelected,
+  isMissingPartitionFilter,
   onQueryChange,
   onUpgradeTables,
+  onOpenFilters,
   onShare,
   onExecute,
   onFormat,
@@ -106,6 +107,7 @@ export default function SqlBuilderPanel({
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mountedEditorRef = useRef<Parameters<OnMount>[0] | null>(null)
   const websiteIds = selectedWebsiteIds ?? (selectedWebsiteId ? [selectedWebsiteId] : [])
+  const filters = hasSqlFilters(query)
   const websiteIdsRef = useRef(websiteIds)
   useEffect(() => {
     websiteIdsRef.current = selectedWebsiteIds ?? (selectedWebsiteId ? [selectedWebsiteId] : [])
@@ -253,6 +255,17 @@ export default function SqlBuilderPanel({
             <Button size="xsmall" variant="tertiary" type="button" icon={<PlusIcon aria-hidden />} onClick={onOpenJoin}>
               JOIN tabeller
             </Button>
+            {!(filters.website && filters.period) && (
+              <Button
+                size="xsmall"
+                variant="tertiary"
+                type="button"
+                icon={<PlusIcon aria-hidden />}
+                onClick={onOpenFilters}
+              >
+                Filtre
+              </Button>
+            )}
             {onOpenGroup && (
               <Button
                 size="xsmall"
@@ -274,9 +287,9 @@ export default function SqlBuilderPanel({
                 disabled={!query.trim()}
                 icon={<TrashIcon aria-hidden />}
                 onClick={() => {
-                  onQueryChange(INITIAL_SQL_QUERY)
+                  onQueryChange(getInitialSqlQuery(projectId))
                   window.requestAnimationFrame(() => {
-                    mountedEditorRef.current?.setPosition({ lineNumber: 1, column: INITIAL_SQL_QUERY.length + 1 })
+                    mountedEditorRef.current?.setPosition(INITIAL_CURSOR)
                     mountedEditorRef.current?.focus()
                   })
                 }}
@@ -373,8 +386,8 @@ export default function SqlBuilderPanel({
                 contentListener.dispose()
                 mountedEditorRef.current = null
               })
-              if (editor.getValue() === INITIAL_SQL_QUERY) {
-                editor.setPosition({ lineNumber: 1, column: INITIAL_SQL_QUERY.length + 1 })
+              if (isInitialSqlQuery(editor.getValue(), projectId)) {
+                editor.setPosition(INITIAL_CURSOR)
                 editor.focus()
               }
             }}
@@ -429,8 +442,13 @@ export default function SqlBuilderPanel({
                   {estimate.cacheHit ? ' · Hurtigminne' : ''}
                 </span>
               </div>
-            ) : !selectedWebsiteSelected ? (
-              <span className="text-[var(--ax-text-subtle)]">Velg en nettside øverst for å sjekke kostnad.</span>
+            ) : isMissingPartitionFilter ? (
+              <span className="inline-flex flex-wrap items-center gap-1 text-[var(--ax-text-subtle)]">
+                Mangler periode, så hele tabellen leses.
+                <Button size="xsmall" variant="tertiary" type="button" onClick={onOpenFilters}>
+                  Legg til periode
+                </Button>
+              </span>
             ) : null}
           </div>
 

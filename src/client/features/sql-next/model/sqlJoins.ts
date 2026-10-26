@@ -1,6 +1,7 @@
 import { Parser } from 'node-sql-parser/build/bigquery'
 import { format } from 'sql-formatter'
 import { getBigQueryTables, getFullTableName } from './schemaAndSnippets'
+import { addTemporaryField, removeTemporaryField } from './sqlCode'
 import type { BigQueryTableDoc } from './types'
 
 type SqlNode = Record<string, unknown>
@@ -223,7 +224,9 @@ export const getSqlJoinOptions = (
       })
     const parser = new Parser()
     const unfinishedFrom = /\bFROM\s*;?\s*$/i.test(code)
-    const parsed = parser.astify(unfinishedFrom ? sanitized.replace(/\bFROM(?=\s*;?\s*$)/i, '') : sanitized)
+    const parsed = parser.astify(
+      addTemporaryField(unfinishedFrom ? sanitized.replace(/\bFROM(?=\s*;?\s*$)/i, '') : sanitized),
+    )
     if (Array.isArray(parsed) && parsed.length !== 1) return options
     const ast: unknown = Array.isArray(parsed) ? parsed[0] : parsed
     if (!isNode(ast) || ast.type !== 'select' || ast.with || ast._next) return options
@@ -285,7 +288,9 @@ export const getSqlJoinOptions = (
         }
       }
       next.from = [...sources, ...joinAst.from.slice(1)]
-      let sql = format(parser.sqlify(next as unknown as Parameters<Parser['sqlify']>[0]), { language: 'bigquery' })
+      let sql = removeTemporaryField(
+        format(parser.sqlify(next as unknown as Parameters<Parser['sqlify']>[0]), { language: 'bigquery' }),
+      )
       for (const [token, text] of variables) sql = sql.split(`'${token}'`).join(text)
       for (const { token, text, conjunction } of optionalBlocks) {
         sql = sql.replace(new RegExp(`${conjunction ? `\\b${conjunction}\\s+` : ''}\u0060?${token}\u0060?`, 'i'), text)

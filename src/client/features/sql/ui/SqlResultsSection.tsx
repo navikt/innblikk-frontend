@@ -70,6 +70,7 @@ interface SqlResultsSectionProps {
   copiedMetabase: boolean
   hideMetabaseTransfer?: boolean
   showSqlCode?: boolean
+  tableTitle?: string
   showJson?: boolean
   copyableCells?: boolean
   showExecuteButton?: boolean
@@ -102,6 +103,7 @@ export default function SqlResultsSection({
   copiedMetabase,
   hideMetabaseTransfer = false,
   showSqlCode = true,
+  tableTitle = 'Resultater',
   showJson = true,
   copyableCells = false,
   showExecuteButton = true,
@@ -433,7 +435,7 @@ export default function SqlResultsSection({
           compactTableActions={true}
           copyableCells={copyableCells}
           compactSpacing={true}
-          compactTableTitle="Resultater"
+          compactTableTitle={tableTitle}
           hideTableFooter={true}
           showDownloadReadMore={false}
           onAddToDashboard={openSaveModal}
