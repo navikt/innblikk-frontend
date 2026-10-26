@@ -33,8 +33,11 @@ import {
   ArrowDownIcon,
   ArrowsUpDownIcon,
   ArrowUpIcon,
+  CheckmarkIcon,
   DownloadIcon,
+  ExclamationmarkTriangleIcon,
   ExternalLinkIcon,
+  FilesIcon,
   MagnifyingGlassIcon as SearchIcon,
   MenuElipsisVerticalIcon,
   PlayIcon,
@@ -70,6 +73,8 @@ interface ResultsPanelProps {
   // rendered outside this component and the full tab UI would be noise.
   sqlOnly?: boolean
   compactTableActions?: boolean
+  copyableCells?: boolean
+  compactSpacing?: boolean
   hideTableFooter?: boolean
   compactTableTitle?: string
   // Optional props for AnalysisActionModal
@@ -81,6 +86,69 @@ interface ResultsPanelProps {
   // present — this only applies when there's no URL param to read, e.g. embedded results like
   // Copilot's chat that don't want to touch the browser URL per message).
   initialTab?: 'table' | 'linechart' | 'areachart' | 'barchart' | 'piechart'
+}
+
+function ResultCellCopyButton({ value }: { value: unknown }) {
+  const [status, setStatus] = useState<'idle' | 'copied' | 'error'>('idle')
+  const label =
+    status === 'copied' ? 'Kopiert' : status === 'error' ? 'Kunne ikke kopiere. Prøv igjen.' : 'Kopier verdi'
+
+  useEffect(() => {
+    if (status !== 'copied') return
+    const timer = window.setTimeout(() => setStatus('idle'), 2000)
+    return () => window.clearTimeout(timer)
+  }, [status])
+
+  return (
+    <>
+      <Tooltip content={label}>
+        <Button
+          type="button"
+          size="xsmall"
+          variant="tertiary"
+          aria-label={label}
+          className="shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
+          icon={
+            status === 'copied' ? (
+              <CheckmarkIcon />
+            ) : status === 'error' ? (
+              <ExclamationmarkTriangleIcon />
+            ) : (
+              <FilesIcon />
+            )
+          }
+          onClick={async (event) => {
+            event.stopPropagation()
+            try {
+              const rawValue =
+                value !== null &&
+                typeof value === 'object' &&
+                !(value instanceof Date) &&
+                Object.keys(value).length === 1 &&
+                'value' in value
+                  ? value.value
+                  : value
+              const text =
+                rawValue == null
+                  ? 'NULL'
+                  : rawValue instanceof Date
+                    ? rawValue.toISOString()
+                    : typeof rawValue === 'object'
+                      ? JSON.stringify(rawValue)
+                      : String(rawValue)
+              await navigator.clipboard.writeText(text)
+              setStatus('copied')
+            } catch {
+              setStatus('error')
+            }
+          }}
+        />
+      </Tooltip>
+      <span className="sr-only" role="status">
+        {status === 'idle' ? '' : label}
+      </span>
+    </>
+  )
 }
 
 const ResultsPanel = ({
@@ -109,6 +177,8 @@ const ResultsPanel = ({
   hideTabList = false,
   sqlOnly = false,
   compactTableActions = false,
+  copyableCells = false,
+  compactSpacing = false,
   hideTableFooter = false,
   compactTableTitle,
   websiteId,
@@ -454,16 +524,19 @@ const ResultsPanel = ({
                     return (
                       <td
                         key={cellIdx}
-                        className={`px-4 py-2 whitespace-nowrap text-sm ${clickable ? 'cursor-pointer' : 'text-[var(--ax-text-default)]'}`}
+                        className={`group px-4 py-2 whitespace-nowrap text-sm ${clickable ? 'cursor-pointer' : 'text-[var(--ax-text-default)]'}`}
                         onClick={clickable ? () => setSelectedUrl(value) : undefined}
                       >
-                        {clickable ? (
-                          <span className="text-blue-600 hover:underline flex items-center gap-1">
-                            {displayValue} <ExternalLinkIcon className="h-3 w-3" fontSize="1.25rem" />
-                          </span>
-                        ) : (
-                          displayValue
-                        )}
+                        <div className={copyableCells ? 'inline-flex items-center gap-1' : undefined}>
+                          {clickable ? (
+                            <span className="text-[var(--ax-text-accent)] hover:underline flex items-center gap-1">
+                              {displayValue} <ExternalLinkIcon className="h-3 w-3" fontSize="1.25rem" />
+                            </span>
+                          ) : (
+                            displayValue
+                          )}
+                          {copyableCells && <ResultCellCopyButton value={value} />}
+                        </div>
                       </td>
                     )
                   })}
@@ -481,6 +554,7 @@ const ResultsPanel = ({
     sortColumn,
     sortDirection,
     handleSort,
+    copyableCells,
     isClickablePath,
     setSelectedUrl,
   ])
@@ -653,7 +727,7 @@ const ResultsPanel = ({
   return (
     // sqlOnly = embedded under Copilot's KPI chat bubble — no bottom margin, no container
     // styling, the parent chat flow owns the spacing.
-    <div className={sqlOnly ? 'space-y-2' : 'space-y-2 mb-6'}>
+    <div className={sqlOnly || compactSpacing ? 'space-y-2' : 'space-y-2 mb-6'}>
       <div className={sqlOnly ? '' : containerClass}>
         {/* Only show button if no results yet */}
         {!result && !error && (
@@ -775,6 +849,7 @@ const ResultsPanel = ({
                                 </ActionMenu.Item>
                               )}
                               <ActionMenu.Item onClick={downloadCSV}>Last ned CSV</ActionMenu.Item>
+                              <ActionMenu.Item onClick={downloadJSON}>Last ned JSON</ActionMenu.Item>
                             </ActionMenu.Content>
                           </ActionMenu>
                         </div>

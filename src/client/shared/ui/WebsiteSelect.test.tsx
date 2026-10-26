@@ -29,6 +29,35 @@ async function pickArbeid(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('WebsiteSelect backspace', () => {
+  it('allows selecting and removing multiple sites without replacing the other selections', async () => {
+    const user = userEvent.setup()
+    function MultiHarness() {
+      const [ids, setIds] = useState<string[]>([])
+      return (
+        <>
+          <WebsiteSelect
+            websites={sites}
+            selectedId={ids[0] ?? null}
+            onSelect={() => {}}
+            selectedIds={ids}
+            onSelectMultiple={setIds}
+          />
+          <output data-testid="selected-ids">{ids.join(',')}</output>
+        </>
+      )
+    }
+    render(<MultiHarness />)
+    const input = screen.getByRole('combobox', { name: 'Nettsted' })
+    await user.click(input)
+    await user.click(await screen.findByRole('option', { name: 'aksel.nav.no' }))
+    await user.click(input)
+    await user.click(await screen.findByRole('option', { name: 'arbeidogvelferd.nav.no' }))
+    expect(screen.getByTestId('selected-ids')).toHaveTextContent('a,b')
+    await user.click(input)
+    await user.click(await screen.findByRole('option', { name: 'aksel.nav.no' }))
+    expect(screen.getByTestId('selected-ids')).toHaveTextContent(/^b$/)
+  })
+
   it('pins the main production site without parentheses while retaining duplicate names', async () => {
     const user = userEvent.setup()
     render(

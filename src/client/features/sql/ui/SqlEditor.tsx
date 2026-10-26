@@ -72,7 +72,7 @@ export default function SqlEditor() {
   return (
     <ChartLayout
       title="SQL-editor"
-      description="Kjør SQL-spørringer mot Umami datasettet i BigQuery."
+      description="Kjør SQL-spørringer mot Innblikk datasettet i BigQuery."
       currentPage="sql"
       wideSidebar={true}
       onFiltersSubmit={() => {

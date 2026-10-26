@@ -45,6 +45,12 @@ export const hiddenFeatures: HiddenFeature[] = [
     description:
       'Administrer alle nettsideregistreringer (beta): tildel eierskap (UUID), deaktiver, eller slett registreringer permanent (kun Postgres).',
   },
+  {
+    id: 'sql-old',
+    href: '/sql-old',
+    label: 'SQL-editor (gammel)',
+    description: 'Den forrige SQL-editoren, beholdt som alternativ til den nye SQL-byggeren.',
+  },
 ]
 
 /**

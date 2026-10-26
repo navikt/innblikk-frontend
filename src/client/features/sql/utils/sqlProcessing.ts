@@ -4,6 +4,7 @@ import type { Website } from '../model/types'
 
 interface SqlFilterContext {
   websiteIdState: string
+  websiteIds?: string[]
   selectedWebsite: Website | null
   urlPathFromUrl: string | null
   urlPath: string
@@ -13,8 +14,85 @@ interface SqlFilterContext {
   customVariableValues: Record<string, string>
 }
 
+export const getSqlDateBounds = (dateRange: SqlFilterContext['dateRange']) => {
+  const now = new Date()
+  const fromDay = format(dateRange.from ?? subDays(now, 30), 'yyyy-MM-dd')
+  const toDay = format(dateRange.to ?? now, 'yyyy-MM-dd')
+  const today = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Oslo' }).format(now)
+  return {
+    fromSql: `TIMESTAMP('${fromDay}', 'Europe/Oslo')`,
+    toSql: toDay === today ? `TIMESTAMP('${now.toISOString()}')` : `TIMESTAMP('${toDay}T23:59:59.999', 'Europe/Oslo')`,
+  }
+}
+
+export const replaceDateFilterPlaceholders = (
+  sql: string,
+  fromSql: string,
+  toSql: string,
+  defaultColumn: string,
+): string => {
+  const datePattern = /\[\[\s*AND\s*\{\{created_at\}\}\s*\]\]/gi
+  if (!datePattern.test(sql)) return sql
+  type DateScope = { sources: Array<{ table: string; reference: string }> }
+  const tokens = [
+    ...sql.matchAll(
+      /--[^\r\n]*|#[^\r\n]*|\/\*[\s\S]*?\*\/|'(?:''|\\[\s\S]|[^'\\])*'|"(?:""|\\[\s\S]|[^"\\])*"|`[^`]*`|\[\[[\s\S]*?\]\]|\{\{[^}]+\}\}|[a-z_][\w$]*|[().]/gi,
+    ),
+  ]
+  const identifier = /^(?:`[^`]+`|[a-z_][\w$]*)$/i
+  const reserved =
+    /^(?:AS|SELECT|FROM|WHERE|AND|OR|JOIN|LEFT|RIGHT|FULL|INNER|OUTER|CROSS|ON|USING|GROUP|ORDER|HAVING|QUALIFY|LIMIT|OFFSET|UNION|EXCEPT|INTERSECT|WINDOW|FOR|TABLESAMPLE|PIVOT|UNPIVOT)$/i
+  const aliasAt = (index: number) => {
+    const candidate = tokens[index]?.[0].toUpperCase() === 'AS' ? tokens[index + 1]?.[0] : tokens[index]?.[0]
+    return candidate && identifier.test(candidate) && !reserved.test(candidate) ? candidate : undefined
+  }
+  let scope: DateScope = { sources: [] }
+  const parents: Array<{ scope: DateScope; derived: boolean }> = []
+  const placeholders: Array<{ offset: number; scope: DateScope }> = []
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index][0]
+    if (token === '(') {
+      parents.push({ scope, derived: /^(?:FROM|JOIN)$/i.test(tokens[index - 1]?.[0] ?? '') })
+    } else if (token === ')') {
+      const parent = parents.pop()
+      if (parent) {
+        scope = parent.scope
+        const alias = parent.derived ? aliasAt(index + 1) : undefined
+        if (alias) scope.sources.push({ table: '', reference: alias })
+      }
+    } else if (/^SELECT$/i.test(token)) {
+      scope = { sources: [] }
+    } else if (/^(?:FROM|JOIN)$/i.test(token)) {
+      let end = index + 1
+      let table = tokens[end]?.[0]
+      if (!table || !identifier.test(table)) continue
+      while (tokens[end + 1]?.[0] === '.' && identifier.test(tokens[end + 2]?.[0] ?? '')) {
+        table += `.${tokens[end + 2][0]}`
+        end += 2
+      }
+      if (tokens[end + 1]?.[0] === '(') continue
+      scope.sources.push({ table: table.replace(/`/g, ''), reference: aliasAt(end + 1) ?? table })
+    } else if (/^\[\[\s*AND\s*\{\{created_at\}\}\s*\]\]$/i.test(token)) {
+      placeholders.push({ offset: tokens[index].index, scope })
+    }
+  }
+  const columns = new Map(
+    placeholders.map(({ offset, scope: owner }) => {
+      const source =
+        owner.sources.find(({ table }) => /(?:^|\.)umami_views\.event$/i.test(table)) ??
+        owner.sources.find(({ table }) => /(?:^|\.)umami_views\.(?:session|event_data)$/i.test(table)) ??
+        owner.sources[0]
+      return [offset, source ? `${source.reference}.created_at` : defaultColumn]
+    }),
+  )
+  return sql.replace(
+    datePattern,
+    (_match, offset: number) => `AND ${columns.get(offset) ?? defaultColumn} BETWEEN ${fromSql} AND ${toSql}`,
+  )
+}
+
 export const applyUrlFiltersToSql = (sql: string, ctx: SqlFilterContext): string => {
-  let processedSql = sql
+  let processedSql = applyWebsiteIdOnly(sql, ctx.websiteIdState, ctx.websiteIds)
   let fromSql: string | null = null
   let toSql: string | null = null
   const escapeSqlString = (value: string) => value.replace(/'/g, "''")
@@ -29,16 +107,6 @@ export const applyUrlFiltersToSql = (sql: string, ctx: SqlFilterContext): string
     }
 
     return `(${column} = '${safePath}' OR ${column} = '${safePathSlash}' OR ${column} LIKE '${queryPattern}')`
-  }
-
-  // Website ID substitution {{website_id}}
-  const hasWebsitePlaceholderInline = /\{\{\s*website_id\s*\}\}/i.test(processedSql)
-  if (hasWebsitePlaceholderInline && ctx.websiteIdState) {
-    const sanitizedWebsiteId = ctx.websiteIdState.replace(/'/g, "''")
-    processedSql = processedSql.replace(
-      /(['"])?(\s*)\{\{\s*website_id\s*\}\}(\s*)\1?/gi,
-      (_match, _quote, leading = '', trailing = '') => `${leading}'${sanitizedWebsiteId}'${trailing}`,
-    )
   }
 
   // Nettside substitution {{nettside}} -> website domain
@@ -151,24 +219,9 @@ export const applyUrlFiltersToSql = (sql: string, ctx: SqlFilterContext): string
   // Date substitution [[AND {{created_at}} ]]
   const datePattern = /\[\[\s*AND\s*\{\{created_at\}\}\s*\]\]/gi
   if (datePattern.test(processedSql)) {
-    const now = new Date()
-    const rawFrom = ctx.dateRange.from || subDays(now, 30)
-    const rawTo = ctx.dateRange.to || now
-
-    const from = new Date(rawFrom)
-    from.setHours(0, 0, 0, 0)
-
-    const to = new Date(rawTo)
-    const isToday =
-      to.getDate() === now.getDate() && to.getMonth() === now.getMonth() && to.getFullYear() === now.getFullYear()
-    if (isToday) {
-      to.setTime(now.getTime())
-    } else {
-      to.setHours(23, 59, 59, 999)
-    }
-
-    fromSql = `TIMESTAMP('${format(from, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx")}')`
-    toSql = `TIMESTAMP('${format(to, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx")}')`
+    const bounds = getSqlDateBounds(ctx.dateRange)
+    fromSql = bounds.fromSql
+    toSql = bounds.toSql
 
     const projectId = getGcpProjectId()
     let tablePrefix = `\`${projectId}.umami_views.event\``
@@ -180,8 +233,7 @@ export const applyUrlFiltersToSql = (sql: string, ctx: SqlFilterContext): string
       tablePrefix = `\`${projectId}.umami.public_session\``
     }
 
-    const dateReplacement = `AND ${tablePrefix}.created_at BETWEEN ${fromSql} AND ${toSql}`
-    processedSql = processedSql.replace(datePattern, dateReplacement)
+    processedSql = replaceDateFilterPlaceholders(processedSql, fromSql, toSql, `${tablePrefix}.created_at`)
   }
 
   // If query joins partitioned public_session, mirror the date filter
@@ -217,8 +269,15 @@ export const applyUrlFiltersToSql = (sql: string, ctx: SqlFilterContext): string
 }
 
 // Only substitute website_id placeholder for copy actions (keep other filters untouched)
-export const applyWebsiteIdOnly = (sql: string, websiteIdState: string): string => {
+export const applyWebsiteIdOnly = (sql: string, websiteIdState: string, websiteIds?: string[]): string => {
   let processedSql = sql
+  if (websiteIds && websiteIds.length > 1) {
+    const values = [...new Set(websiteIds)].map((id) => `'${id.replace(/'/g, "''")}'`).join(', ')
+    processedSql = processedSql.replace(
+      /((?:`[^`]+`|\w+)(?:\.(?:`[^`]+`|\w+))*)\s*=\s*(['"])?\s*\{\{\s*website_id\s*\}\}\s*\2?/gi,
+      (_match, column: string) => `${column} IN (${values})`,
+    )
+  }
   const hasWebsitePlaceholderInline = /\{\{\s*website_id\s*\}\}/i.test(processedSql)
   if (hasWebsitePlaceholderInline && websiteIdState) {
     const sanitizedWebsiteId = websiteIdState.replace(/'/g, "''")
@@ -265,20 +324,28 @@ export const replaceHardcodedWebsiteId = (sql: string, newWebsiteId: string): st
 }
 
 // Temporarily replace Metabase placeholders with valid SQL for formatting/validation
-export const sanitizePlaceholders = (sql: string): { sanitized: string; placeholders: Map<string, string> } => {
+export const sanitizePlaceholders = (
+  sql: string,
+  mode: 'format' | 'parse' = 'format',
+): { sanitized: string; placeholders: Map<string, string> } => {
   const placeholders = new Map<string, string>()
   let sanitized = sql
   let counter = 0
 
   // Replace [[...]] optional blocks with a unique token
-  sanitized = sanitized.replace(/\[\[[^\]]*\]\]/g, (match) => {
+  const optionalPattern = mode === 'parse' ? /\[\[[\s\S]*?\]\](?:[ \t]*'(?:''|[^'])*')?/g : /\[\[[^\]]*\]\]/g
+  sanitized = sanitized.replace(optionalPattern, (match) => {
     const token = `__METABASE_OPT_${counter++}__`
     placeholders.set(token, match)
+    if (mode === 'parse') {
+      const conjunction = /^\[\[\s*(AND|OR)\b/i.exec(match)?.[1]
+      return conjunction ? `${conjunction} ${token}` : `'${token}'`
+    }
     return `/* ${token} */`
   })
 
   // Replace {{...}} variable placeholders with a unique token
-  sanitized = sanitized.replace(/\{\{[^}]+\}\}/g, (match) => {
+  sanitized = sanitized.replace(/'\{\{[^}]+\}\}'|"\{\{[^}]+\}\}"|\{\{[^}]+\}\}/g, (match) => {
     const token = `__METABASE_VAR_${counter++}__`
     placeholders.set(token, match)
     return `'${token}'`
@@ -291,8 +358,11 @@ export const sanitizePlaceholders = (sql: string): { sanitized: string; placehol
 export const restorePlaceholders = (sql: string, placeholders: Map<string, string>): string => {
   let restored = sql
   placeholders.forEach((original, token) => {
-    restored = restored.replace(new RegExp(`/\\*\\s*${token}\\s*\\*/`, 'g'), original)
-    restored = restored.replace(new RegExp(`'${token}'`, 'g'), original)
+    const conjunction = /^\[\[\s*(AND|OR)\b/i.exec(original)?.[1]
+    if (conjunction)
+      restored = restored.replace(new RegExp(`\\b${conjunction}\\s+\u0060?${token}\u0060?`, 'gi'), () => original)
+    restored = restored.replace(new RegExp(`/\\*\\s*${token}\\s*\\*/`, 'g'), () => original)
+    restored = restored.replace(new RegExp(`'${token}'`, 'g'), () => original)
   })
   return restored
 }

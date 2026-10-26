@@ -88,6 +88,7 @@ const Stats = lazy(() => import('./features/stats').then((m) => ({ default: m.St
 
 // SQL Feature
 const SqlEditor = lazy(() => import('./features/sql').then((m) => ({ default: m.SqlEditor })))
+const SqlNextPage = lazy(() => import('./features/sql-next').then((m) => ({ default: m.SqlNextPage })))
 
 // Copilot Feature (unadvertised, for designers – ask in natural language, paste SQL from Microsoft Copilot)
 const CopilotAnalyse = lazy(() => import('./features/copilot').then((m) => ({ default: m.CopilotAnalyse })))
@@ -228,6 +229,7 @@ export const fullWidthPathPrefixes = [
   '/kvalitet/odelagte-lenker',
   '/kvalitet/stavekontroll',
   '/kvalitet/wcag',
+  '/sql-old',
   '/sql',
   '/grafbygger-copilot',
   '/copilot',
@@ -265,7 +267,8 @@ export const routes: AppRoute[] = [
   { path: '/reops-internal', component: <ReopsInternalRoute />, fullWidth: true },
   { path: '/reops-internal/nettsider', component: <AdminNettsiderRoute />, fullWidth: true },
   { path: '/mine-nettsider', component: <MineNettsider />, fullWidth: true },
-  { path: '/sql', component: <SqlEditor />, fullWidth: true },
+  { path: '/sql', component: <SqlNextPage />, fullWidth: true },
+  { path: '/sql-old', component: <SqlEditor />, fullWidth: true },
   { path: '/stats', component: <Stats />, fullWidth: true },
   { path: '/innstillinger', component: <UserProfile />, fullWidth: true },
   { path: '/grafdeling', component: <Grafdeling />, fullWidth: true },
