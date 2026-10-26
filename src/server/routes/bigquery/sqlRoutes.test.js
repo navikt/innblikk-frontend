@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { getCompletedQueryStats, parseMaxRows, readQueryRows } from './sqlRoutes.js'
+import { addAuditLogging, getAuditLineOffset, removeAuditLineOffset } from '../../bigquery/audit.js'
 
 describe('getCompletedQueryStats', () => {
   it('calculates processed data and estimated on-demand cost from completed job metadata', () => {
@@ -102,5 +103,29 @@ describe('readQueryRows', () => {
   it('says the result is complete when fewer rows than the limit arrive and no total is reported', async () => {
     const job = { getQueryResults: vi.fn().mockResolvedValue([rows(30)]) }
     expect(await readQueryRows(job, 100)).toMatchObject({ totalRows: 30, truncated: false })
+  })
+})
+
+describe('line numbers in BigQuery errors', () => {
+  const query = 'SELECT 1\nFROM t\nWHERE x'
+
+  it('counts the comment lines the audit step adds above the query', () => {
+    const audited = addAuditLogging({ query }, 'z123456', 'Sqlverktoy')
+    expect(getAuditLineOffset(query, audited.query)).toBe(audited.query.split('\n').length - 3)
+    expect(getAuditLineOffset(query, audited.query)).toBeGreaterThanOrEqual(2)
+    const dry = addAuditLogging({ query, dryRun: true }, 'z123456', 'Sqlverktoy')
+    expect(getAuditLineOffset(query, dry.query)).toBe(getAuditLineOffset(query, audited.query) + 1)
+  })
+
+  it('points error positions back at the line in the editor', () => {
+    expect(removeAuditLineOffset('Unrecognized name: event at [10:65]', 4)).toBe('Unrecognized name: event at [6:65]')
+    expect(removeAuditLineOffset('a at [5:8] and b at [9:1]', 4)).toBe('a at [1:8] and b at [5:1]')
+  })
+
+  it('leaves positions inside the audit comments and messages without positions alone', () => {
+    expect(removeAuditLineOffset('Syntax error at [2:3]', 4)).toBe('Syntax error at [2:3]')
+    expect(removeAuditLineOffset('Access denied', 4)).toBe('Access denied')
+    expect(removeAuditLineOffset(undefined, 4)).toBeUndefined()
+    expect(removeAuditLineOffset('x at [10:1]', 0)).toBe('x at [10:1]')
   })
 })

@@ -99,7 +99,7 @@ describe('getFilterTargets', () => {
       ),
     ).toEqual([
       { label: 'e', reference: 'e' },
-      { label: 'session', reference: '`session`' },
+      { label: 'session', reference: '`test-project.umami_views.session`' },
     ])
     expect(getFilterTargets('SELECT 1 FROM `other.dataset.table`')).toEqual([])
   })

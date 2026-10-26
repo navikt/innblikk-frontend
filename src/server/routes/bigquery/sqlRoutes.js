@@ -1,5 +1,5 @@
 import express from 'express'
-import { addAuditLogging } from '../../bigquery/audit.js'
+import { addAuditLogging, getAuditLineOffset, removeAuditLineOffset } from '../../bigquery/audit.js'
 import { requireBigQuery, getNavIdent, MAX_BYTES_BILLED } from './helpers.js'
 import { logger } from '../../logger.js'
 
@@ -120,6 +120,7 @@ export function createSqlRouter({ bigquery }) {
 
   // BigQuery API endpoint — execute a read-only query
   router.post('/api/bigquery', async (req, res) => {
+    let lineOffset = 0
     try {
       const { query, analysisType, maxRows } = req.body
 
@@ -137,17 +138,17 @@ export function createSqlRouter({ bigquery }) {
 
       const navIdent = getNavIdent(req)
 
-      const [job] = await bigquery.createQueryJob(
-        addAuditLogging(
-          {
-            query,
-            location: 'europe-north1',
-            maximumBytesBilled: MAX_BYTES_BILLED,
-          },
-          navIdent,
-          analysisType || 'Sqlverktoy',
-        ),
+      const audited = addAuditLogging(
+        {
+          query,
+          location: 'europe-north1',
+          maximumBytesBilled: MAX_BYTES_BILLED,
+        },
+        navIdent,
+        analysisType || 'Sqlverktoy',
       )
+      lineOffset = getAuditLineOffset(query, audited.query)
+      const [job] = await bigquery.createQueryJob(audited)
 
       const { rows, totalRows, truncated } = await readQueryRows(job, parseMaxRows(maxRows))
       const [metadata] = await job.getMetadata()
@@ -180,7 +181,7 @@ export function createSqlRouter({ bigquery }) {
       }
 
       res.status(500).json({
-        error: error.message || 'Failed to execute query',
+        error: removeAuditLineOffset(error.message, lineOffset) || 'Failed to execute query',
         code: error.code,
       })
     }
@@ -188,6 +189,7 @@ export function createSqlRouter({ bigquery }) {
 
   // BigQuery dry run endpoint — estimate query cost
   router.post('/api/bigquery/estimate', async (req, res) => {
+    let lineOffset = 0
     try {
       const { query, analysisType } = req.body
 
@@ -205,17 +207,17 @@ export function createSqlRouter({ bigquery }) {
 
       const navIdent = getNavIdent(req)
 
-      const [job] = await bigquery.createQueryJob(
-        addAuditLogging(
-          {
-            query,
-            location: 'europe-north1',
-            dryRun: true,
-          },
-          navIdent,
-          analysisType || 'Sqlverktoy',
-        ),
+      const audited = addAuditLogging(
+        {
+          query,
+          location: 'europe-north1',
+          dryRun: true,
+        },
+        navIdent,
+        analysisType || 'Sqlverktoy',
       )
+      lineOffset = getAuditLineOffset(query, audited.query)
+      const [job] = await bigquery.createQueryJob(audited)
 
       const stats = job.metadata.statistics
       const totalBytesProcessed = parseInt(stats.totalBytesProcessed || 0)
@@ -237,7 +239,7 @@ export function createSqlRouter({ bigquery }) {
     } catch (error) {
       logger.error({ error: error.message }, '[BigQuery Estimate] Error')
       res.status(500).json({
-        error: error.message || 'Failed to estimate query',
+        error: removeAuditLineOffset(error.message, lineOffset) || 'Failed to estimate query',
       })
     }
   })

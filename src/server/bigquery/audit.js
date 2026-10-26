@@ -28,6 +28,18 @@ function addAuditLogging(queryConfig, navIdent, analysisType = null) {
   return queryConfig
 }
 
+// The audit comments sit above the query, so BigQuery reports lines that many too high.
+function getAuditLineOffset(originalQuery, auditedQuery) {
+  return Math.max(0, auditedQuery.split('\n').length - originalQuery.split('\n').length)
+}
+
+function removeAuditLineOffset(message, offset) {
+  if (!message || !offset) return message
+  return message.replace(/\[(\d+):(\d+)\]/g, (match, line, column) =>
+    Number(line) > offset ? `[${Number(line) - offset}:${column}]` : match,
+  )
+}
+
 function getAnalysisTypeOverride(req, fallback) {
   const referer = typeof req?.headers?.referer === 'string' ? req.headers.referer : ''
   if (referer) {
@@ -77,4 +89,10 @@ const substituteQueryParameters = (query, params) => {
   return substitutedQuery
 }
 
-export { addAuditLogging, getAnalysisTypeOverride, substituteQueryParameters }
+export {
+  addAuditLogging,
+  getAnalysisTypeOverride,
+  getAuditLineOffset,
+  removeAuditLineOffset,
+  substituteQueryParameters,
+}

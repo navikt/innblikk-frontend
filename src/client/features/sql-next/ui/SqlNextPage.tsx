@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react'
-import { Alert, BodyShort, Button, Heading, Modal, TextField } from '@navikt/ds-react'
+import { useEffect, useRef, useState } from 'react'
+import { Alert, BodyShort, Button, Heading, Modal, ReadMore, TextField } from '@navikt/ds-react'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { WebsiteSelect } from '../../../shared/ui/WebsiteSelect.tsx'
@@ -17,8 +17,10 @@ import FilterQueryDialog from './FilterQueryDialog'
 import { getSqlQuoteFix } from '../model/sqlQuoteFix'
 import { getSqlCommaFix } from '../model/sqlCommaFix'
 import { getSqlClauseOrderFix } from '../model/sqlClauseOrderFix'
-import { getSqlJoinSuggestion } from '../model/sqlJoins'
+import { getSqlJoinHint, getSqlJoinSuggestion } from '../model/sqlJoins'
 import { getGroupBySimplification } from '../model/groupBySimplification'
+
+const JOIN_HINT_DELAY_MS = 1000
 
 export default function SqlNextPage() {
   const projectId = getGcpProjectId()
@@ -101,6 +103,19 @@ export default function SqlNextPage() {
   const clauseOrderFix = queryError ? getSqlClauseOrderFix(query) : null
   const quoteFix = queryError ? getSqlQuoteFix(query) : null
   const joinSuggestion = queryError ? getSqlJoinSuggestion(query, queryError, projectId) : null
+  const [settledQuery, setSettledQuery] = useState(query)
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSettledQuery(query), JOIN_HINT_DELAY_MS)
+    return () => window.clearTimeout(timer)
+  }, [query])
+  const joinHint = getSqlJoinHint(settledQuery, projectId)
+  const showJoinHint = Boolean(joinHint) && !queryError
+  const applyJoinHint = () => {
+    const current = getSqlJoinHint(query, projectId)
+    if (!current) return
+    handleQueryChange(current.sql)
+    setSettledQuery(current.sql)
+  }
 
   const handleInsertSnippet = (code: string) => {
     const ed = editorInstanceRef.current
@@ -249,6 +264,22 @@ export default function SqlNextPage() {
                     Spørringen leser {Number(estimate?.totalBytesProcessedGB ?? 0).toFixed(2)} GB. Begrens gjerne med
                     nettside og kortere tidsperiode.
                   </BodyShort>
+                </Alert>
+              )}
+              {showJoinHint && joinHint && (
+                <Alert variant="info" size="small">
+                  <div className="flex flex-col items-start gap-3">
+                    <BodyShort>
+                      <code>{joinHint.field}</code> finnes i {joinHint.tableTitle}, ikke i {joinHint.sourceTitle}.
+                    </BodyShort>
+                    {joinHint.warning && <BodyShort size="small">{joinHint.warning}</BodyShort>}
+                    <Button size="small" variant="secondary" type="button" onClick={applyJoinHint}>
+                      Koble til {joinHint.tableTitle}
+                    </Button>
+                    <ReadMore header="Vis JOIN-kode" size="small">
+                      <pre className="m-0 whitespace-pre-wrap break-words text-xs">{joinHint.joinSql}</pre>
+                    </ReadMore>
+                  </div>
                 </Alert>
               )}
               {groupBySimplification && (

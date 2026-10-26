@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { estimateQueryCost, executeQueryApi } from '../../sql/api/sqlApi'
@@ -19,9 +19,20 @@ vi.mock('../../analysis/ui/WebsitePicker.tsx', () => ({ default: () => null }))
 vi.mock('../../analysis/ui/PeriodPicker.tsx', () => ({ default: () => null }))
 vi.mock('./ErDiagramAccordion', () => ({ default: () => null }))
 vi.mock('./SqlBuilderPanel', () => ({
-  default: ({ query, onExecute, onValidate }: { query: string; onExecute: () => void; onValidate: () => void }) => (
+  default: ({
+    query,
+    onQueryChange,
+    onExecute,
+    onValidate,
+  }: {
+    query: string
+    onQueryChange: (value: string) => void
+    onExecute: () => void
+    onValidate: () => void
+  }) => (
     <div>
       <pre data-testid="editor-query">{query}</pre>
+      <textarea aria-label="Skriv SQL" value={query} onChange={(e) => onQueryChange(e.target.value)} />
       <button type="button" onClick={onExecute}>
         Vis resultater
       </button>
@@ -225,6 +236,7 @@ describe('SQL error results', () => {
         </MemoryRouter>,
       )
       fireEvent.click(screen.getByRole('button', { name: action }))
+      await screen.findByRole('heading', { name: 'Feil i spørringen' })
       const fixButton = await screen.findByRole('button', { name: 'Koble til Detaljer på hendelser' })
       expect(screen.getByTestId('editor-query').textContent).toBe(sql)
       fireEvent.click(fixButton)
@@ -253,6 +265,7 @@ describe('SQL error results', () => {
       </MemoryRouter>,
     )
     fireEvent.click(screen.getByRole('button', { name: action }))
+    await screen.findByRole('heading', { name: 'Feil i spørringen' })
     const fixButton = await screen.findByRole('button', { name: 'Koble til Detaljer på hendelser' })
     expect(screen.getByText('ep.data_key')).toBeInTheDocument()
     fireEvent.click(fixButton)
@@ -283,6 +296,7 @@ describe('SQL error results', () => {
         </MemoryRouter>,
       )
       fireEvent.click(screen.getByRole('button', { name: action }))
+      await screen.findByRole('heading', { name: 'Feil i spørringen' })
       const fixButton = await screen.findByRole('button', { name: 'Koble til Brukerdetaljer' })
       expect(screen.getByText(/finnes i Brukerdetaljer, ikke i Hendelser/)).toBeInTheDocument()
       fireEvent.click(fixButton)
@@ -401,8 +415,8 @@ describe('SQL error results', () => {
           <SqlNextPage />
         </MemoryRouter>,
       )
-      expect(screen.queryByRole('button', { name: 'Koble til Hendelser' })).not.toBeInTheDocument()
       fireEvent.click(screen.getByRole('button', { name: action }))
+      await screen.findByRole('heading', { name: 'Feil i spørringen' })
       const fixButton = await screen.findByRole('button', { name: 'Koble til Hendelser' })
       expect(screen.getByText(/finnes i Hendelser, ikke i Brukerdetaljer/)).toBeInTheDocument()
       expect(screen.getByText(/Koblingen kan gi flere rader/)).toBeInTheDocument()
@@ -600,5 +614,103 @@ describe('SQL error results', () => {
     )
     fireEvent.click(screen.getByRole('button', { name: 'Vis resultater' }))
     expect((await screen.findByTestId('results-section')).getAttribute('data-show-sql')).toBe('false')
+  })
+
+  describe('JOIN hint before validating', () => {
+    const renderWith = (sql: string) => {
+      vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+      window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'chosen-website' })}`)
+      vi.mocked(estimateQueryCost).mockReset()
+      vi.mocked(executeQueryApi).mockClear()
+      render(
+        <MemoryRouter>
+          <SqlNextPage />
+        </MemoryRouter>,
+      )
+    }
+    const event = () => `\`${getGcpProjectId()}.umami_views.event\``
+    const filters = "\nWHERE website_id = '{{website_id}}'\n  [[AND {{created_at}}]]"
+
+    it('tells the user a field needs a JOIN as soon as it is typed, without sending anything', async () => {
+      renderWith(`SELECT browser\nFROM ${event()}${filters}`)
+      expect(await screen.findByRole('button', { name: 'Koble til Brukerdetaljer' })).toBeInTheDocument()
+      expect(screen.getByText(/finnes i Brukerdetaljer, ikke i Hendelser/)).toBeInTheDocument()
+      expect(screen.getByText('Vis JOIN-kode')).toBeInTheDocument()
+      expect(estimateQueryCost).not.toHaveBeenCalled()
+      expect(executeQueryApi).not.toHaveBeenCalled()
+    })
+
+    it('adds the JOIN to the editor on request, keeping the template fields, and then goes away', async () => {
+      renderWith(`SELECT browser\nFROM ${event()}${filters}`)
+      fireEvent.click(await screen.findByRole('button', { name: 'Koble til Brukerdetaljer' }))
+      const sql = screen.getByTestId('editor-query').textContent ?? ''
+      expect(sql).toContain('LEFT JOIN')
+      expect(sql).toContain("event.website_id = '{{website_id}}'")
+      expect(sql).toContain('[[AND {{created_at}}]]')
+      await waitFor(() => expect(screen.queryByRole('button', { name: /Koble til/ })).not.toBeInTheDocument())
+      expect(estimateQueryCost).not.toHaveBeenCalled()
+    })
+
+    describe('while typing', () => {
+      beforeEach(() => vi.useFakeTimers())
+      afterEach(() => vi.useRealTimers())
+
+      const type = (value: string) => fireEvent.change(screen.getByLabelText('Skriv SQL'), { target: { value } })
+      const offer = () => screen.queryByRole('button', { name: 'Koble til Brukerdetaljer' })
+
+      it('waits until the user pauses before showing the hint', () => {
+        renderWith(`SELECT url_path\nFROM ${event()}${filters}`)
+        type(`SELECT b\nFROM ${event()}${filters}`)
+        type(`SELECT br\nFROM ${event()}${filters}`)
+        type(`SELECT browser\nFROM ${event()}${filters}`)
+        expect(offer()).not.toBeInTheDocument()
+        act(() => void vi.advanceTimersByTime(999))
+        expect(offer()).not.toBeInTheDocument()
+        act(() => void vi.advanceTimersByTime(1))
+        expect(offer()).toBeInTheDocument()
+      })
+
+      it('keeps the hint steady while typing continues, then updates after the pause', () => {
+        renderWith(`SELECT browser\nFROM ${event()}${filters}`)
+        expect(offer()).toBeInTheDocument()
+        type(`SELECT browser, u\nFROM ${event()}${filters}`)
+        act(() => void vi.advanceTimersByTime(500))
+        expect(offer()).toBeInTheDocument()
+        type(`SELECT url_path\nFROM ${event()}${filters}`)
+        act(() => void vi.advanceTimersByTime(999))
+        expect(offer()).toBeInTheDocument()
+        act(() => void vi.advanceTimersByTime(1))
+        expect(offer()).not.toBeInTheDocument()
+      })
+
+      it('adds the JOIN to what is in the editor now, even before the pause is over', () => {
+        renderWith(`SELECT url_path\nFROM ${event()}${filters}`)
+        type(`SELECT browser\nFROM ${event()}${filters}`)
+        act(() => void vi.advanceTimersByTime(1000))
+        type(`SELECT browser, url_path\nFROM ${event()}${filters}`)
+        fireEvent.click(offer()!)
+        const sql = screen.getByTestId('editor-query').textContent ?? ''
+        expect(sql).toMatch(/browser,\s+event\.url_path/)
+        expect(sql).toContain('LEFT JOIN')
+      })
+    })
+
+    it('stays quiet when every field exists in the chosen tables', () => {
+      renderWith(`SELECT event_name, url_path\nFROM ${event()}${filters}`)
+      expect(screen.queryByRole('button', { name: /Koble til/ })).not.toBeInTheDocument()
+    })
+
+    it('stays quiet for a name that exists in no table', () => {
+      renderWith(`SELECT nonsense_column\nFROM ${event()}${filters}`)
+      expect(screen.queryByRole('button', { name: /Koble til/ })).not.toBeInTheDocument()
+    })
+
+    it('shows only one JOIN offer when validation also reports the missing field', async () => {
+      renderWith(`SELECT browser\nFROM ${event()}${filters}`)
+      vi.mocked(estimateQueryCost).mockRejectedValueOnce(new Error('Unrecognized name: browser at [5:8]'))
+      fireEvent.click(screen.getByRole('button', { name: 'Valider' }))
+      await screen.findByRole('heading', { name: 'Feil i spørringen' })
+      expect(screen.getAllByRole('button', { name: 'Koble til Brukerdetaljer' })).toHaveLength(1)
+    })
   })
 })

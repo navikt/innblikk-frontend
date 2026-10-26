@@ -54,7 +54,7 @@ export const getFilterTargets = (query: string): FilterTarget[] => {
     if (!FILTERABLE_TABLE.test(table)) continue
     const alias = match[2] && !NOT_AN_ALIAS.test(match[2]) ? match[2] : null
     const name = table.split('.').pop()!
-    targets.push({ label: alias ?? name, reference: alias ?? `\`${name}\`` })
+    targets.push({ label: alias ?? name, reference: alias ?? `\`${table}\`` })
   }
   return targets
 }

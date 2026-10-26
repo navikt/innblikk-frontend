@@ -37,7 +37,8 @@ export function addGroupsToSql(
   if (!source || !('table' in source) || typeof source.table !== 'string') {
     throw new Error('Legg til Hendelser eller Brukerdetaljer før du legger til grupper.')
   }
-  const reference = `\`${source.as ?? source.table.split('.').pop()}\``
+  if (typeof source.as !== 'string') source.as = source.table.split('.').pop()!
+  const reference = `\`${source.as}\``
   const conditions = groups.map((selection) => {
     const { group } = selection
     if (selection.kind === 'sidegroup') {
