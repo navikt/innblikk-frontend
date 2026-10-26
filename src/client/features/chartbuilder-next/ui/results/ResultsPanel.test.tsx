@@ -78,16 +78,18 @@ describe('large results', () => {
     )
 
   it('limits wide results by cells so the page stays responsive, and shows all rows on request', () => {
-    render(<ResultsPanel {...props} result={{ data: rows(1000, 40) }} />)
-    expect(screen.getAllByRole('row')).toHaveLength(1 + 100)
-    expect(screen.getByText(/Viser bare 100 av 1 000 rader for ytelse/)).toBeInTheDocument()
+    render(<ResultsPanel {...props} result={{ data: rows(101, 40) }} />)
+    const table = screen.getByRole<HTMLTableElement>('table')
+    expect(table.rows).toHaveLength(1 + 100)
+    expect(screen.getByText(/Viser bare 100 av 101 rader for ytelse/)).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Vis alle rader' }))
-    expect(screen.getAllByRole('row')).toHaveLength(1 + 1000)
+    expect(table.rows).toHaveLength(1 + 101)
+    expect(table.rows[101].cells[39]).toHaveTextContent('100-39')
   })
 
   it('shows every row of a narrow result', () => {
     render(<ResultsPanel {...props} result={{ data: rows(1000, 3) }} />)
-    expect(screen.getAllByRole('row')).toHaveLength(1 + 1000)
+    expect(screen.getByRole<HTMLTableElement>('table').rows).toHaveLength(1 + 1000)
     expect(screen.queryByText(/for ytelse/)).not.toBeInTheDocument()
   })
 })
