@@ -37,6 +37,23 @@ const renderPanel = (overrides: Partial<ComponentProps<typeof SqlBuilderPanel>> 
 }
 
 describe('SQL insertion toolbar', () => {
+  it('opens the group picker separately from JOIN', () => {
+    const onOpenGroup = vi.fn()
+    const props = renderPanel({ onOpenGroup })
+    const actions = screen.getByRole('group', { name: 'Editorhandlinger' })
+    const buttons = within(actions).getAllByRole('button')
+    expect(buttons[0]).toHaveAccessibleName('JOIN tabeller')
+    expect(buttons[1]).toHaveAccessibleName('Gruppe')
+    for (const button of buttons.slice(0, 2)) {
+      expect(button).toHaveAttribute('data-variant', 'tertiary')
+      expect(button).toHaveClass('aksel-button--xsmall')
+      expect(button.querySelector('svg')).not.toBeNull()
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Gruppe' }))
+    expect(onOpenGroup).toHaveBeenCalledOnce()
+    expect(props.onOpenJoin).not.toHaveBeenCalled()
+  })
+
   it.each([
     [DEFAULT_WEBSITE_ID.prod, true],
     [DEFAULT_WEBSITE_ID.dev, true],
@@ -62,7 +79,7 @@ describe('SQL insertion toolbar', () => {
     }
     const actions = screen.getByRole('group', { name: 'Editorhandlinger' })
     const join = within(actions).getByRole('button', { name: 'JOIN tabeller' })
-    expect(join.querySelector('svg')).toBeNull()
+    expect(join.querySelector('svg')).not.toBeNull()
     expect(join).toBeEnabled()
     fireEvent.click(join)
     expect(props.onOpenJoin).toHaveBeenCalledOnce()

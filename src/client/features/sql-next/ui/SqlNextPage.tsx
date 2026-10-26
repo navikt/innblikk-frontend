@@ -12,6 +12,7 @@ import type { MonacoEditorInstance } from '../model/types'
 import ErDiagramAccordion from './ErDiagramAccordion.tsx'
 import SqlBuilderPanel from './SqlBuilderPanel'
 import JoinQueryDialog, { type JoinTableId } from './JoinQueryDialog'
+import GroupQueryDialog from './GroupQueryDialog'
 import { getSqlQuoteFix } from '../model/sqlQuoteFix'
 import { getSqlCommaFix } from '../model/sqlCommaFix'
 import { getSqlClauseOrderFix } from '../model/sqlClauseOrderFix'
@@ -22,6 +23,7 @@ export default function SqlNextPage() {
   const projectId = getGcpProjectId()
   const editorInstanceRef = useRef<MonacoEditorInstance | null>(null)
   const [joinTableId, setJoinTableId] = useState<JoinTableId | null>(null)
+  const [showGroupDialog, setShowGroupDialog] = useState(false)
 
   const {
     query,
@@ -241,6 +243,7 @@ export default function SqlNextPage() {
                 onValidate={() => void validateSQL()}
                 onFormat={formatSQL}
                 onOpenJoin={() => setJoinTableId('session')}
+                onOpenGroup={() => setShowGroupDialog(true)}
                 editorInstanceRef={editorInstanceRef}
               />
             </div>
@@ -363,6 +366,16 @@ export default function SqlNextPage() {
           </div>
         </div>
       </AppBlock>
+
+      {showGroupDialog && (
+        <GroupQueryDialog
+          projectId={projectId}
+          query={query}
+          websiteIds={websiteIds}
+          onApply={handleQueryChange}
+          onClose={() => setShowGroupDialog(false)}
+        />
+      )}
 
       {joinTableId && (
         <JoinQueryDialog

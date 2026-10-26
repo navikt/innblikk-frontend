@@ -65,6 +65,7 @@ interface SqlBuilderPanelProps {
   onExecute: () => void
   onFormat: () => void
   onOpenJoin: () => void
+  onOpenGroup?: () => void
   onValidate?: () => void
   editorInstanceRef: React.MutableRefObject<MonacoEditorInstance | null>
 }
@@ -97,6 +98,7 @@ export default function SqlBuilderPanel({
   onExecute,
   onFormat,
   onOpenJoin,
+  onOpenGroup,
   onValidate,
   editorInstanceRef,
 }: SqlBuilderPanelProps) {
@@ -199,7 +201,7 @@ export default function SqlBuilderPanel({
             : 'border-[var(--ax-border-neutral-subtle)]'
         }`}
       >
-        <div className="flex items-center gap-2 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-2 py-1">
+        <div className="flex flex-wrap items-center gap-2 border-b border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] px-2 py-1">
           {showBuildingBlocks && (
             <div role="group" aria-label="Byggeklosser" className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
               {SECTIONS.map((section) => {
@@ -248,9 +250,20 @@ export default function SqlBuilderPanel({
             </div>
           )}
           <div role="group" aria-label="Editorhandlinger" className="ml-auto flex shrink-0 items-center gap-1">
-            <Button size="xsmall" variant="tertiary" type="button" onClick={onOpenJoin}>
+            <Button size="xsmall" variant="tertiary" type="button" icon={<PlusIcon aria-hidden />} onClick={onOpenJoin}>
               JOIN tabeller
             </Button>
+            {onOpenGroup && (
+              <Button
+                size="xsmall"
+                variant="tertiary"
+                type="button"
+                icon={<PlusIcon aria-hidden />}
+                onClick={onOpenGroup}
+              >
+                Gruppe
+              </Button>
+            )}
             <Tooltip content="Tøm spørringen">
               <Button
                 size="small"
