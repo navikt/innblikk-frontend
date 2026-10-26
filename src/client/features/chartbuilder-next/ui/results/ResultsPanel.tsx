@@ -151,6 +151,11 @@ function ResultCellCopyButton({ value }: { value: unknown }) {
   )
 }
 
+// Tabellen tegner ekte HTML for hver celle; begrens celler, ikke bare rader.
+const MAX_PREVIEW_ROWS = 5000
+const MIN_PREVIEW_ROWS = 50
+const MAX_PREVIEW_CELLS = 4000
+
 const ResultsPanel = ({
   result,
   loading,
@@ -208,7 +213,11 @@ const ResultsPanel = ({
   const [isPercentageStacked, setIsPercentageStacked] = useState<boolean>(false)
   const [granularity, setGranularity] = useState<'day' | 'week' | 'month'>('day')
   const [showShareModal, setShowShareModal] = useState<boolean>(false)
-  const [rowLimit] = useState<number>(5000) // Limit rows for performance
+  const columnCount = Object.keys(result?.data?.[0] ?? {}).length
+  const rowLimit = Math.min(
+    MAX_PREVIEW_ROWS,
+    Math.max(MIN_PREVIEW_ROWS, Math.floor(MAX_PREVIEW_CELLS / Math.max(columnCount, 1))),
+  )
   const [showAllRows, setShowAllRows] = useState<boolean>(false)
   const [selectedUrl, setSelectedUrl] = useState<string | null>(null)
   const [showTableSearch, setShowTableSearch] = useState<boolean>(false)
@@ -220,9 +229,10 @@ const ResultsPanel = ({
   }, [showTableSearch])
 
   // Helper to check if a value is a clickable URL path
-  const isClickablePath = (val: any): boolean => {
-    return typeof val === 'string' && val.startsWith('/') && val !== '/' && websiteId !== undefined
-  }
+  const isClickablePath = useCallback(
+    (val: any): boolean => typeof val === 'string' && val.startsWith('/') && val !== '/' && websiteId !== undefined,
+    [websiteId],
+  )
 
   // Helper to aggregate chart data by week or month
   const aggregateChartData = (chartData: ILineChartProps, granularity: 'day' | 'week' | 'month'): ILineChartProps => {

@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
-import { getCompletedQueryStats } from './sqlRoutes.js'
+import { describe, expect, it, vi } from 'vitest'
+import { getCompletedQueryStats, parseMaxRows, readQueryRows } from './sqlRoutes.js'
+import { addAuditLogging, getAuditLineOffset, removeAuditLineOffset } from '../../bigquery/audit.js'
 
 describe('getCompletedQueryStats', () => {
   it('calculates processed data and estimated on-demand cost from completed job metadata', () => {
@@ -37,5 +38,94 @@ describe('getCompletedQueryStats', () => {
       estimatedCostUSD: '0.000',
       cacheHit: true,
     })
+  })
+})
+
+describe('parseMaxRows', () => {
+  it.each([
+    [100, 100],
+    ['1000', 1000],
+    [50000, 10000],
+    [0, null],
+    [-5, null],
+    [1.5, null],
+    ['abc', null],
+    [undefined, null],
+    [null, null],
+  ])('turns %j into %j', (value, expected) => {
+    expect(parseMaxRows(value)).toBe(expected)
+  })
+})
+
+describe('readQueryRows', () => {
+  const rows = (count) => Array.from({ length: count }, (_, index) => ({ id: index }))
+
+  it('reads everything as before when no limit is given', async () => {
+    const job = { getQueryResults: vi.fn().mockResolvedValue([rows(7)]) }
+    expect(await readQueryRows(job, null)).toEqual({ rows: rows(7), totalRows: 7, truncated: false })
+    expect(job.getQueryResults).toHaveBeenCalledWith()
+  })
+
+  it('asks BigQuery for a single page and reports the total', async () => {
+    const job = { getQueryResults: vi.fn().mockResolvedValue([rows(100), null, { totalRows: '2500000' }]) }
+    const result = await readQueryRows(job, 100)
+    expect(job.getQueryResults).toHaveBeenCalledWith({ maxResults: 100, autoPaginate: false })
+    expect(result.rows).toHaveLength(100)
+    expect(result.totalRows).toBe(2500000)
+    expect(result.truncated).toBe(true)
+  })
+
+  it('reports no truncation when the result fits', async () => {
+    const job = { getQueryResults: vi.fn().mockResolvedValue([rows(40), null, { totalRows: '40' }]) }
+    expect(await readQueryRows(job, 100)).toMatchObject({ totalRows: 40, truncated: false })
+  })
+
+  it('still cuts the rows when a data mode ignores maxResults and sends no response', async () => {
+    const job = { getQueryResults: vi.fn().mockResolvedValue([rows(500)]) }
+    const result = await readQueryRows(job, 100)
+    expect(result.rows).toHaveLength(100)
+    expect(result.totalRows).toBe(500)
+    expect(result.truncated).toBe(true)
+  })
+
+  it('never reports fewer total rows than it returns', async () => {
+    const job = { getQueryResults: vi.fn().mockResolvedValue([rows(10), null, { totalRows: '3' }]) }
+    const result = await readQueryRows(job, 100)
+    expect(result.totalRows).toBe(10)
+    expect(result.truncated).toBe(false)
+  })
+
+  it('says the result may be cut, without a total, when a full page arrives and no total is reported', async () => {
+    const job = { getQueryResults: vi.fn().mockResolvedValue([rows(100), null, {}]) }
+    expect(await readQueryRows(job, 100)).toMatchObject({ totalRows: null, truncated: true })
+  })
+
+  it('says the result is complete when fewer rows than the limit arrive and no total is reported', async () => {
+    const job = { getQueryResults: vi.fn().mockResolvedValue([rows(30)]) }
+    expect(await readQueryRows(job, 100)).toMatchObject({ totalRows: 30, truncated: false })
+  })
+})
+
+describe('line numbers in BigQuery errors', () => {
+  const query = 'SELECT 1\nFROM t\nWHERE x'
+
+  it('counts the comment lines the audit step adds above the query', () => {
+    const audited = addAuditLogging({ query }, 'z123456', 'Sqlverktoy')
+    expect(getAuditLineOffset(query, audited.query)).toBe(audited.query.split('\n').length - 3)
+    expect(getAuditLineOffset(query, audited.query)).toBeGreaterThanOrEqual(2)
+    const dry = addAuditLogging({ query, dryRun: true }, 'z123456', 'Sqlverktoy')
+    expect(getAuditLineOffset(query, dry.query)).toBe(getAuditLineOffset(query, audited.query) + 1)
+  })
+
+  it('points error positions back at the line in the editor', () => {
+    expect(removeAuditLineOffset('Unrecognized name: event at [10:65]', 4)).toBe('Unrecognized name: event at [6:65]')
+    expect(removeAuditLineOffset('a at [5:8] and b at [9:1]', 4)).toBe('a at [1:8] and b at [5:1]')
+  })
+
+  it('leaves positions inside the audit comments and messages without positions alone', () => {
+    expect(removeAuditLineOffset('Syntax error at [2:3]', 4)).toBe('Syntax error at [2:3]')
+    expect(removeAuditLineOffset('Access denied', 4)).toBe('Access denied')
+    expect(removeAuditLineOffset(undefined, 4)).toBeUndefined()
+    expect(removeAuditLineOffset('x at [10:1]', 0)).toBe('x at [10:1]')
   })
 })

@@ -1,8 +1,9 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { BrowserRouter, MemoryRouter, useLocation } from 'react-router-dom'
 import { estimateQueryCost, executeQueryApi, fetchWebsites } from '../../sql/api/sqlApi'
-import { useSqlNextEditor } from './useSqlNextEditor'
-import { INITIAL_SQL_QUERY } from '../model/schemaAndSnippets'
+import { MORE_ROWS, PREVIEW_ROWS, useSqlNextEditor } from './useSqlNextEditor'
+import { getInitialSqlQuery } from '../model/schemaAndSnippets'
+import { getGcpProjectId } from '../../../shared/lib/runtimeConfig'
 import { getFromLocalStorage, saveToLocalStorage, SELECTED_WEBSITE_CACHE_KEY } from '../../../shared/lib/localStorage'
 
 vi.mock('../../sql/api/sqlApi', () => ({
@@ -11,32 +12,28 @@ vi.mock('../../sql/api/sqlApi', () => ({
   executeQueryApi: vi.fn(),
 }))
 
+const TEMPLATED_EVENT_SQL =
+  "SELECT event_name FROM `test-project.umami_views.event` WHERE website_id = '{{website_id}}' [[AND {{created_at}}]]"
+
 describe('SQL editor actions', () => {
-  it.each([
-    "SELECT event.url_path FROM (SELECT * FROM `test-project.umami_views.event` WHERE website_id = 'manual' AND 1 = 1 [[AND {{created_at}}]]) AS event LEFT JOIN (SELECT * FROM `test-project.umami_views.session` WHERE website_id = 'manual' AND 1 = 1 [[AND {{created_at}}]]) AS session ON event.session_id = session.session_id LIMIT 100",
-    "SELECT browser FROM `test-project.umami_views.session` WHERE website_id = '{{website_id}}'",
-  ])('explains unresolved template fields in manual mode without sending SQL: %s', async (sql) => {
+  it('asks for a website before a template query runs, without sending SQL', async () => {
+    const sql = "SELECT browser FROM `test-project.umami_views.session` WHERE website_id = '{{website_id}}'"
     window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql })}`)
     const { result } = renderHook(() => useSqlNextEditor(), {
       wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
     })
-    act(() => result.current.handleAutomaticFiltersChange(false))
     await act(async () => {
       await result.current.validateSQL()
     })
-    expect(result.current.dryRunError).toContain('Slå på automatiske filtre')
+    expect(result.current.dryRunError).toBe('Velg en nettside først.')
     await act(async () => {
       await result.current.executeQuery()
     })
-    expect(result.current.error).toContain('erstatt malfeltene med egne verdier og SQL-filtre')
-    await expect(result.current.getQueryPreview()).rejects.toThrow('Spørringen inneholder malfelt')
+    expect(result.current.error).toBe('Velg en nettside først.')
     expect(estimateQueryCost).not.toHaveBeenCalled()
     expect(executeQueryApi).not.toHaveBeenCalled()
     expect(result.current.query).toBe(sql)
-    act(() => {
-      result.current.handleWebsiteIdsChange(['first'])
-      result.current.handleAutomaticFiltersChange(true)
-    })
+    act(() => result.current.handleWebsiteIdsChange(['first']))
     await act(async () => {
       await result.current.validateSQL()
     })
@@ -45,30 +42,29 @@ describe('SQL editor actions', () => {
     expect(result.current.dryRunError).toBeNull()
   })
 
-  it('ignores template fields in SQL comments in manual mode', async () => {
+  it('does not treat template fields in SQL comments as missing values', async () => {
     const sql = "SELECT '-- not a comment' AS label -- [[AND {{created_at}}]]\n/* {{website_id}} */"
     window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql })}`)
     const { result } = renderHook(() => useSqlNextEditor(), {
       wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
     })
-    act(() => result.current.handleAutomaticFiltersChange(false))
     await act(async () => {
       await result.current.executeQuery()
     })
-    expect(executeQueryApi).toHaveBeenCalledExactlyOnceWith(sql)
+    expect(result.current.error).toBeNull()
+    expect(executeQueryApi).toHaveBeenCalledOnce()
+    expect(vi.mocked(executeQueryApi).mock.calls[0][0]).toContain("'-- not a comment'")
   })
 
   it.each(['SELECT browser FROM `test-project.umami_views.session`', 'SELECT 1 LIMIT 20'])(
-    'leaves SQL unchanged across validation, preview, export and execution with automatic filters off: %s',
+    'runs SQL without template fields exactly as written: %s',
     async (sql) => {
-      window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql })}`)
+      window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'first' })}`)
       const { result } = renderHook(() => useSqlNextEditor(), {
         wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
       })
-      expect(result.current.automaticFiltersEnabled).toBe(true)
-      act(() => result.current.handleAutomaticFiltersChange(false))
-      expect(result.current.activeLimit).toBe(sql.includes('LIMIT') ? 20 : null)
-      expect(await result.current.getQueryPreview()).toEqual({ sql, filterUsage: [] })
+      expect(result.current.hasTemplateFields).toBe(false)
+      expect(result.current.explicitLimit).toBe(sql.includes('LIMIT') ? 20 : null)
       expect(await result.current.getExportQuery()).toBe(sql)
       await act(async () => {
         await result.current.validateSQL()
@@ -77,40 +73,20 @@ describe('SQL editor actions', () => {
       await act(async () => {
         await result.current.executeQuery()
       })
-      expect(executeQueryApi).toHaveBeenLastCalledWith(sql)
+      expect(executeQueryApi).toHaveBeenLastCalledWith(sql, { maxRows: PREVIEW_ROWS })
       expect(result.current.query).toBe(sql)
     },
   )
 
-  it('restores automatic filters when re-enabled', async () => {
-    const sql = 'SELECT browser FROM `test-project.umami_views.session`'
-    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'first' })}`)
-    const { result } = renderHook(() => useSqlNextEditor(), {
-      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
-    })
-    act(() => result.current.handleAutomaticFiltersChange(false))
-    act(() => result.current.handleAutomaticFiltersChange(true))
-    const preview = await result.current.getQueryPreview()
-    expect(preview.sql).toContain("website_id = 'first'")
-    expect(preview.sql).toContain('created_at BETWEEN')
-    expect(preview.sql).toContain('LIMIT 100')
-    expect(executeQueryApi).not.toHaveBeenCalled()
-  })
-
-  it('preserves manual mode in shared links and does not rerun on filter changes', async () => {
+  it('does not rerun when filters change and the SQL has no template fields', async () => {
     vi.useFakeTimers()
     const clipboard = { writeText: vi.fn().mockResolvedValue(undefined) }
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: clipboard })
     const sql = 'SELECT browser FROM `test-project.umami_views.session`'
-    window.history.replaceState(
-      {},
-      '',
-      `/sql?${new URLSearchParams({ sql, websiteId: 'first', automaticFilters: 'false' })}`,
-    )
+    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'first' })}`)
     const { result } = renderHook(() => useSqlNextEditor(), {
       wrapper: ({ children }) => <BrowserRouter>{children}</BrowserRouter>,
     })
-    expect(result.current.automaticFiltersEnabled).toBe(false)
     await act(async () => {
       await result.current.executeQuery()
     })
@@ -122,8 +98,8 @@ describe('SQL editor actions', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(400)
     })
-    expect(executeQueryApi).toHaveBeenCalledExactlyOnceWith(sql)
-    expect(new URL(clipboard.writeText.mock.calls[0][0] as string).searchParams.get('automaticFilters')).toBe('false')
+    expect(executeQueryApi).toHaveBeenCalledExactlyOnceWith(sql, { maxRows: PREVIEW_ROWS })
+    expect(new URL(clipboard.writeText.mock.calls[0][0] as string).searchParams.has('automaticFilters')).toBe(false)
   })
 
   const recentWebsite = {
@@ -252,7 +228,7 @@ describe('SQL editor actions', () => {
   it('does not repeat a manual run started during the filter debounce', async () => {
     vi.useFakeTimers()
     try {
-      const sql = 'SELECT event_name FROM `test-project.umami_views.event`'
+      const sql = TEMPLATED_EVENT_SQL
       window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'first' })}`)
       const { result } = renderHook(() => useSqlNextEditor(), {
         wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
@@ -279,7 +255,7 @@ describe('SQL editor actions', () => {
     async (previousResults) => {
       vi.useFakeTimers()
       try {
-        const sql = 'SELECT event_name FROM `test-project.umami_views.event`'
+        const sql = TEMPLATED_EVENT_SQL
         window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'first' })}`)
         const { result } = renderHook(() => useSqlNextEditor(), {
           wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
@@ -304,7 +280,7 @@ describe('SQL editor actions', () => {
   it('combines rapid filter changes and still confirms an expensive refresh', async () => {
     vi.useFakeTimers()
     try {
-      const sql = 'SELECT event_name FROM `test-project.umami_views.event`'
+      const sql = TEMPLATED_EVENT_SQL
       window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'first' })}`)
       const { result } = renderHook(() => useSqlNextEditor(), {
         wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
@@ -329,14 +305,14 @@ describe('SQL editor actions', () => {
       await act(async () => {
         await result.current.handleConfirmQuery()
       })
-      expect(executeQueryApi).toHaveBeenLastCalledWith(estimatedSql)
+      expect(executeQueryApi).toHaveBeenLastCalledWith(estimatedSql, { maxRows: PREVIEW_ROWS })
     } finally {
       vi.useRealTimers()
     }
   })
 
   it('waits for a running refresh and then runs the latest filter selection', async () => {
-    const sql = 'SELECT event_name FROM `test-project.umami_views.event`'
+    const sql = TEMPLATED_EVENT_SQL
     window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'first' })}`)
     const { result } = renderHook(() => useSqlNextEditor(), {
       wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
@@ -364,7 +340,7 @@ describe('SQL editor actions', () => {
 
   it.each(['period', 'websites'])('reruns a successful query with the updated %s filter', async (filter) => {
     const sql =
-      'SELECT event_name, COUNT(DISTINCT session_id) AS antall FROM `test-project.umami_views.event` GROUP BY event_name'
+      "SELECT event_name, COUNT(DISTINCT session_id) AS antall FROM `test-project.umami_views.event` WHERE website_id = '{{website_id}}' [[AND {{created_at}}]] GROUP BY event_name"
     window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'first' })}`)
     const { result } = renderHook(() => useSqlNextEditor(), {
       wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
@@ -386,7 +362,7 @@ describe('SQL editor actions', () => {
   })
 
   it('runs a successfully validated query when its period changes', async () => {
-    const sql = 'SELECT event_name FROM `test-project.umami_views.event`'
+    const sql = TEMPLATED_EVENT_SQL
     window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'first' })}`)
     const { result } = renderHook(() => useSqlNextEditor(), {
       wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
@@ -479,18 +455,12 @@ describe('SQL editor actions', () => {
     'SELECT browser FROM `test-project.umami_views.session` WHERE 1 = 1 [[AND {{created_at}} ]]',
     'SELECT browser FROM `test-project.umami_views.session` WHERE browser = {{browser}}',
     "SELECT browser FROM `test-project.umami_views.session` WHERE url_path = [[ {{url_sti}} --]] '/'",
-  ])('adds missing export filters without losing existing placeholders: %s', async (sql) => {
+  ])('exports the SQL as written without adding filters: %s', async (sql) => {
     window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'chosen-website' })}`)
     const { result } = renderHook(() => useSqlNextEditor(), {
       wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
     })
-    const exported = await result.current.getExportQuery()
-    expect(exported).toContain("website_id = 'chosen-website'")
-    expect(exported.match(/\[\[AND \{\{created_at\}\}\s*\]\]/g)).toHaveLength(1)
-    if (sql.includes('{{browser}}')) expect(exported).toContain('{{browser}}')
-    if (sql.includes('{{url_sti}}')) expect(exported).toContain("[[ {{url_sti}} --]] '/'")
-    expect(exported).not.toContain('__METABASE_')
-    expect(exported).not.toContain('TIMESTAMP(')
+    expect(await result.current.getExportQuery()).toBe(sql)
   })
 
   it('clears a previous validation error when execution succeeds', async () => {
@@ -511,7 +481,8 @@ describe('SQL editor actions', () => {
   })
 
   it('confirms exactly the estimated SQL despite edits while the estimate is pending', async () => {
-    const sql = 'SELECT event_id FROM `test-project.umami_views.event`'
+    const sql =
+      "SELECT event_id FROM `test-project.umami_views.event` WHERE website_id = '{{website_id}}' [[AND {{created_at}}]]"
     window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'first' })}`)
     const { result } = renderHook(() => useSqlNextEditor(), {
       wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
@@ -532,10 +503,9 @@ describe('SQL editor actions', () => {
     act(() => {
       result.current.handleQueryChange('SELECT COUNT(*) FROM `test-project.umami_views.event`')
     })
-    await act(async () => {
+    act(() => {
       result.current.handleWebsiteIdsChange(['second'])
       result.current.handlePeriodChange('last_28_days')
-      await result.current.handleSafetyLimitChange(500)
     })
     expect(result.current.query).toBe('SELECT COUNT(*) FROM `test-project.umami_views.event`')
     await act(async () => {
@@ -547,9 +517,9 @@ describe('SQL editor actions', () => {
     await act(async () => {
       await result.current.handleConfirmQuery()
     })
-    expect(executeQueryApi).toHaveBeenCalledExactlyOnceWith(estimatedSql)
+    expect(executeQueryApi).toHaveBeenCalledExactlyOnceWith(estimatedSql, { maxRows: PREVIEW_ROWS })
     expect(estimatedSql).toContain("website_id = 'first'")
-    expect(estimatedSql).toContain('LIMIT 100')
+    expect(estimatedSql).not.toContain('LIMIT')
   })
 
   it('ignores a late validation failure after a newer successful execution', async () => {
@@ -584,7 +554,7 @@ describe('SQL editor actions', () => {
     const clipboard = { writeText: vi.fn().mockResolvedValue(undefined) }
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: clipboard })
     const sql =
-      "SELECT COUNT(DISTINCT NULLIF(s.distinct_id, '')) AS unike_besokende FROM `test-project.umami_views.session` s LEFT JOIN `test-project.umami_views.event` e ON s.session_id = e.session_id WHERE e.url_path = '/pensjon'"
+      "SELECT COUNT(DISTINCT NULLIF(s.distinct_id, '')) AS unike_besokende FROM `test-project.umami_views.session` s LEFT JOIN `test-project.umami_views.event` e ON s.session_id = e.session_id WHERE s.website_id = '{{website_id}}' [[AND {{created_at}}]] AND e.url_path = '/pensjon'"
     window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'chosen-website' })}`)
     const { result } = renderHook(() => useSqlNextEditor(), {
       wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
@@ -594,7 +564,7 @@ describe('SQL editor actions', () => {
     })
     expect(result.current.lastProcessedSql).toContain('TIMESTAMP(')
     const exported = await result.current.getExportQuery()
-    expect(exported.match(/\[\[AND \{\{created_at\}\}\s*\]\]/g)).toHaveLength(2)
+    expect(exported.match(/\[\[AND \{\{created_at\}\}\s*\]\]/g)).toHaveLength(1)
     expect(exported).not.toContain('TIMESTAMP(')
     expect(exported).toContain("website_id = 'chosen-website'")
     expect(exported).toContain("url_path = '/pensjon'")
@@ -617,67 +587,11 @@ describe('SQL editor actions', () => {
     expect(exported).not.toContain('TIMESTAMP(')
   })
 
-  it('previews the same filters and limit used for execution without sending a request', async () => {
-    const sql = 'SELECT browser FROM `test-project.umami_views.session`'
-    window.history.replaceState(
-      {},
-      '',
-      `/sql?${new URLSearchParams({ sql, websiteIds: 'first,second', dateRange: 'custom', customStartDate: '2026-09-01', customEndDate: '2026-09-02' })}`,
-    )
-    const { result } = renderHook(() => useSqlNextEditor(), {
-      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
-    })
-    const preview = await result.current.getQueryPreview()
-    expect(preview.sql).toContain("website_id IN ('first', 'second')")
-    expect(preview.sql).toContain('created_at BETWEEN')
-    expect(preview.sql).toContain('LIMIT 100')
-    expect(preview.filterUsage).toEqual([
-      { table: 'test-project.umami_views.session', website: 'automatic', period: 'automatic' },
-    ])
-    expect(result.current.query).toBe(sql)
-    expect(estimateQueryCost).not.toHaveBeenCalled()
-    expect(executeQueryApi).not.toHaveBeenCalled()
-    await act(async () => {
-      await result.current.executeQuery()
-    })
-    expect(executeQueryApi).toHaveBeenCalledWith(preview.sql)
-  })
-
-  it('previews explicit SQL filters and LIMIT without overriding them with top selections', async () => {
-    const sql =
-      "SELECT browser FROM `test-project.umami_views.session` WHERE website_id = 'manual' AND created_at >= TIMESTAMP('2026-09-01') LIMIT 20"
-    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'ignored-website' })}`)
-    const { result } = renderHook(() => useSqlNextEditor(), {
-      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
-    })
-    const preview = await result.current.getQueryPreview()
-    expect(preview.sql).toBe(sql)
-    expect(preview.filterUsage).toEqual([{ table: 'test-project.umami_views.session', website: 'sql', period: 'sql' }])
-    expect(preview.sql).not.toContain('ignored-website')
-    expect(estimateQueryCost).not.toHaveBeenCalled()
-  })
-
-  it('refreshes the preview after website and row-limit changes without executing', async () => {
-    const sql = 'SELECT browser FROM `test-project.umami_views.session`'
-    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'first' })}`)
-    const { result } = renderHook(() => useSqlNextEditor(), {
-      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
-    })
-    await act(async () => {
-      result.current.handleWebsiteIdsChange(['second'])
-      await result.current.handleSafetyLimitChange(500)
-    })
-    const preview = await result.current.getQueryPreview()
-    expect(preview.sql).toContain("website_id = 'second'")
-    expect(preview.sql).toContain('LIMIT 500')
-    expect(result.current.query).toBe(sql)
-    expect(executeQueryApi).not.toHaveBeenCalled()
-  })
-
   it('combines selected websites without changing editor SQL and shares every selection', async () => {
     const clipboard = { writeText: vi.fn().mockResolvedValue(undefined) }
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: clipboard })
-    const sql = 'SELECT browser, COUNT(*) AS antall FROM `test-project.umami_views.session` GROUP BY browser'
+    const sql =
+      "SELECT browser, COUNT(*) AS antall FROM `test-project.umami_views.session` WHERE website_id = '{{website_id}}' GROUP BY browser"
     window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql })}`)
     const { result } = renderHook(() => useSqlNextEditor(), {
       wrapper: ({ children }) => <BrowserRouter>{children}</BrowserRouter>,
@@ -691,7 +605,9 @@ describe('SQL editor actions', () => {
     await act(async () => {
       await result.current.executeQuery()
     })
-    expect(executeQueryApi).toHaveBeenLastCalledWith(expect.stringContaining("website_id IN ('first', 'second')"))
+    expect(executeQueryApi).toHaveBeenLastCalledWith(expect.stringContaining("website_id IN ('first', 'second')"), {
+      maxRows: PREVIEW_ROWS,
+    })
     await act(async () => {
       result.current.shareQuery()
       await Promise.resolve()
@@ -712,78 +628,6 @@ describe('SQL editor actions', () => {
     expect(estimateQueryCost).toHaveBeenLastCalledWith(expect.stringContaining("website_id IN ('first', 'second')"))
   })
 
-  it.each(['SELECT 1', 'SELECT 1 LIMIT 20;', 'SELECT 1 LIMIT 20 OFFSET 5; -- rows'])(
-    'runs without a LIMIT only after unlimited is explicitly selected for %s',
-    async (sql) => {
-      window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql })}`)
-      const { result } = renderHook(() => useSqlNextEditor(), {
-        wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
-      })
-      expect(result.current.activeLimit).not.toBeNull()
-      await act(async () => {
-        await result.current.handleSafetyLimitChange(null)
-      })
-      expect(result.current.activeLimit).toBeNull()
-      expect(result.current.query).not.toMatch(/\bLIMIT\b/i)
-      expect(result.current.isResultLimited).toBe(false)
-      await act(async () => {
-        await result.current.executeQuery()
-      })
-      expect(executeQueryApi).toHaveBeenCalledOnce()
-      expect(vi.mocked(executeQueryApi).mock.calls[0][0]).not.toMatch(/\bLIMIT\b/i)
-    },
-  )
-
-  it('restores a safety limit when switching back from unlimited', async () => {
-    window.history.replaceState({}, '', '/sql?sql=SELECT%201')
-    const { result } = renderHook(() => useSqlNextEditor(), {
-      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
-    })
-    await act(async () => {
-      await result.current.handleSafetyLimitChange(null)
-    })
-    await act(async () => {
-      await result.current.handleSafetyLimitChange(500)
-    })
-    await act(async () => {
-      await result.current.executeQuery()
-    })
-    expect(executeQueryApi).toHaveBeenLastCalledWith('SELECT 1\nLIMIT 500')
-  })
-
-  it('retains explicit unlimited selection through the costly-query confirmation', async () => {
-    window.history.replaceState({}, '', '/sql?sql=SELECT%201')
-    const { result } = renderHook(() => useSqlNextEditor(), {
-      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
-    })
-    await act(async () => {
-      await result.current.executeQuery()
-    })
-    vi.mocked(estimateQueryCost).mockResolvedValueOnce({ totalBytesProcessedGB: '50' })
-    await act(async () => {
-      await result.current.handleSafetyLimitChange(null)
-    })
-    expect(result.current.showConfirmModal).toBe(true)
-    expect(executeQueryApi).toHaveBeenCalledTimes(1)
-    await act(async () => {
-      await result.current.handleConfirmQuery()
-    })
-    expect(executeQueryApi).toHaveBeenLastCalledWith('SELECT 1')
-    expect(result.current.activeLimit).toBeNull()
-  })
-
-  it('does not enable unlimited from URL parameters or a query without LIMIT', async () => {
-    window.history.replaceState({}, '', '/sql?sql=SELECT%201&limit=unlimited')
-    const { result } = renderHook(() => useSqlNextEditor(), {
-      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
-    })
-    expect(result.current.activeLimit).toBe(100)
-    await act(async () => {
-      await result.current.executeQuery()
-    })
-    expect(executeQueryApi).toHaveBeenLastCalledWith('SELECT 1\nLIMIT 100')
-  })
-
   beforeEach(() => {
     localStorage.removeItem(SELECTED_WEBSITE_CACHE_KEY)
     window.sessionStorage.removeItem('innblikk-sql-editor-draft')
@@ -800,13 +644,17 @@ describe('SQL editor actions', () => {
     vi.restoreAllMocks()
   })
 
-  it('starts a new query with SELECT without estimating or running it', async () => {
+  it('starts a new query with website and period already in place, without estimating or running it', async () => {
     vi.useFakeTimers()
     window.history.replaceState({}, '', '/sql')
     const { result } = renderHook(() => useSqlNextEditor(), {
       wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
     })
-    expect(result.current.query).toBe('SELECT')
+    expect(result.current.query).toBe(getInitialSqlQuery(getGcpProjectId()))
+    expect(result.current.query).toContain("website_id = '{{website_id}}'")
+    expect(result.current.query).toContain('[[AND {{created_at}}]]')
+    expect(result.current.hasWebsiteIdPlaceholder).toBe(true)
+    expect(result.current.hasPeriodPlaceholder).toBe(true)
     expect(result.current.incompleteQueryMessage).toBeNull()
     await act(async () => {
       await vi.advanceTimersByTimeAsync(700)
@@ -815,7 +663,92 @@ describe('SQL editor actions', () => {
     expect(executeQueryApi).not.toHaveBeenCalled()
   })
 
-  it('keeps only SELECT when a website is selected before building the query', async () => {
+  it('does not run the starting query until fields are chosen and says what is missing', async () => {
+    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ websiteId: 'first' })}`)
+    const { result } = renderHook(() => useSqlNextEditor(), {
+      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+    })
+    await act(async () => {
+      await result.current.executeQuery()
+    })
+    expect(result.current.isSelectEmpty).toBe(true)
+    expect(result.current.incompleteQueryMessage).toBe('Velg hvilke felt du vil hente.')
+    expect(executeQueryApi).not.toHaveBeenCalled()
+    act(() => result.current.handleQueryChange(result.current.query.replace('SELECT', 'SELECT browser')))
+    await act(async () => {
+      await result.current.executeQuery()
+    })
+    expect(executeQueryApi).toHaveBeenCalledOnce()
+    expect(vi.mocked(executeQueryApi).mock.calls[0][0]).toContain("website_id = 'first'")
+  })
+
+  it('asks the server for a preview of the rows and never changes the SQL', async () => {
+    const sql = 'SELECT browser FROM `test-project.umami_views.session`'
+    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql })}`)
+    const { result } = renderHook(() => useSqlNextEditor(), {
+      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+    })
+    await act(async () => {
+      await result.current.executeQuery()
+    })
+    expect(executeQueryApi).toHaveBeenCalledExactlyOnceWith(sql, { maxRows: PREVIEW_ROWS })
+    expect(await result.current.getExportQuery()).toBe(sql)
+    expect(vi.mocked(executeQueryApi).mock.calls[0][0]).not.toMatch(/\bLIMIT\b/i)
+  })
+
+  it('offers more rows only when the result was cut, and reruns the same SQL once without a new estimate', async () => {
+    const sql = 'SELECT browser FROM `test-project.umami_views.session`'
+    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql })}`)
+    vi.mocked(executeQueryApi).mockResolvedValueOnce({ data: [{ browser: 'a' }], totalRows: 25000, truncated: true })
+    const { result } = renderHook(() => useSqlNextEditor(), {
+      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+    })
+    await act(async () => {
+      await result.current.executeQuery()
+    })
+    expect(result.current.canLoadMoreRows).toBe(true)
+    expect(estimateQueryCost).toHaveBeenCalledOnce()
+    vi.mocked(executeQueryApi).mockResolvedValueOnce({ data: [{ browser: 'a' }], totalRows: 25000, truncated: true })
+    await act(async () => {
+      await result.current.loadMoreRows()
+    })
+    expect(executeQueryApi).toHaveBeenLastCalledWith(sql, { maxRows: MORE_ROWS })
+    expect(estimateQueryCost).toHaveBeenCalledOnce()
+    expect(result.current.canLoadMoreRows).toBe(false)
+    expect(result.current.query).toBe(sql)
+  })
+
+  it('does not offer more rows when the whole result was returned', async () => {
+    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql: 'SELECT 1' })}`)
+    vi.mocked(executeQueryApi).mockResolvedValueOnce({ data: [{ n: 1 }], totalRows: 1, truncated: false })
+    const { result } = renderHook(() => useSqlNextEditor(), {
+      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+    })
+    await act(async () => {
+      await result.current.executeQuery()
+    })
+    expect(result.current.canLoadMoreRows).toBe(false)
+  })
+
+  it('starts the next run from the preview size again after loading more', async () => {
+    const sql = 'SELECT browser FROM `test-project.umami_views.session`'
+    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql })}`)
+    vi.mocked(executeQueryApi).mockResolvedValue({ data: [{ browser: 'a' }], totalRows: 25000, truncated: true })
+    const { result } = renderHook(() => useSqlNextEditor(), {
+      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+    })
+    await act(async () => {
+      await result.current.executeQuery()
+      await result.current.loadMoreRows()
+    })
+    await act(async () => {
+      await result.current.executeQuery()
+    })
+    expect(executeQueryApi).toHaveBeenLastCalledWith(sql, { maxRows: PREVIEW_ROWS })
+    expect(result.current.canLoadMoreRows).toBe(true)
+  })
+
+  it('keeps the starting query when a website is selected before building the query', async () => {
     window.history.replaceState({}, '', '/sql')
     const { result } = renderHook(() => useSqlNextEditor(), {
       wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
@@ -831,7 +764,7 @@ describe('SQL editor actions', () => {
       await Promise.resolve()
     })
     expect(result.current.websiteId).toBe('test-website')
-    expect(result.current.query).toBe('SELECT')
+    expect(result.current.query).toBe(getInitialSqlQuery(getGcpProjectId()))
   })
 
   it.each(['SELECT 42', 'WITH example AS (SELECT 1 AS value) SELECT * FROM example'])(
@@ -848,27 +781,6 @@ describe('SQL editor actions', () => {
     },
   )
 
-  it.each([
-    ['SELECT 1', 'SELECT 1'],
-    ['SELECT 1 LIMIT 20;', 'SELECT 1 LIMIT 500;'],
-    ['SELECT 1 LIMIT 20 OFFSET 5; -- rows', 'SELECT 1 LIMIT 500 OFFSET 5; -- rows'],
-  ])('changes the row limit before running %s without executing the query', async (query, expectedQuery) => {
-    vi.mocked(executeQueryApi).mockClear()
-    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql: query })}`)
-    const { result } = renderHook(() => useSqlNextEditor(), {
-      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
-    })
-    expect(result.current.activeLimit).toBe(query.includes('LIMIT') ? 20 : 100)
-
-    await act(async () => {
-      await result.current.handleSafetyLimitChange(500)
-    })
-
-    expect(result.current.activeLimit).toBe(500)
-    expect(result.current.query).toBe(expectedQuery)
-    expect(executeQueryApi).not.toHaveBeenCalled()
-  })
-
   it('formats SQL without executing or estimating it', () => {
     window.history.replaceState({}, '', '/sql?sql=SELECT%201')
     const { result } = renderHook(() => useSqlNextEditor(), {
@@ -880,6 +792,18 @@ describe('SQL editor actions', () => {
     expect(result.current.query).toBe('SELECT\n  1')
     expect(estimateQueryCost).not.toHaveBeenCalled()
     expect(executeQueryApi).not.toHaveBeenCalled()
+  })
+
+  it('starts with a query that Formater would leave exactly as it is', () => {
+    window.history.replaceState({}, '', '/sql')
+    const { result } = renderHook(() => useSqlNextEditor(), {
+      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+    })
+    const start = result.current.query
+    act(() => {
+      result.current.formatSQL()
+    })
+    expect(result.current.query).toBe(start)
   })
 
   it('preserves placeholders when formatting SQL', () => {
@@ -911,7 +835,7 @@ describe('SQL editor actions', () => {
     expect(result.current.validateError).toBe('Kunne ikke formatere SQL. Sjekk om den er gyldig.')
   })
 
-  it('checks SQL only on request and adds LIMIT only when running', async () => {
+  it('checks SQL only on request and runs it exactly as written', async () => {
     vi.useFakeTimers()
     window.history.replaceState({}, '', '/sql?sql=SELECT%201')
     const { result } = renderHook(() => useSqlNextEditor(), {
@@ -932,7 +856,7 @@ describe('SQL editor actions', () => {
     await act(async () => {
       await result.current.executeQuery()
     })
-    expect(executeQueryApi).toHaveBeenLastCalledWith('SELECT 1\nLIMIT 100')
+    expect(executeQueryApi).toHaveBeenLastCalledWith('SELECT 1', { maxRows: PREVIEW_ROWS })
     expect(result.current.query).toBe('SELECT 1')
   })
 
@@ -970,12 +894,12 @@ describe('SQL editor actions', () => {
     await act(async () => {
       await result.current.validateSQL()
     })
-    expect(estimateQueryCost).toHaveBeenLastCalledWith(expect.stringContaining("website_id = 'chosen-website'"))
+    expect(estimateQueryCost).toHaveBeenLastCalledWith(sql)
   })
 
-  it('adds selected filters only to submitted SQL, not the editor text', async () => {
+  it('fills template fields only in submitted SQL, not the editor text', async () => {
     const sql =
-      'SELECT browser, COUNT(DISTINCT session_id) AS besokende FROM `test-project.umami_views.session` GROUP BY browser'
+      "SELECT browser, COUNT(DISTINCT session_id) AS besokende FROM `test-project.umami_views.session` WHERE website_id = '{{website_id}}' [[AND {{created_at}}]] GROUP BY browser"
     window.history.replaceState(
       {},
       '',
@@ -993,12 +917,14 @@ describe('SQL editor actions', () => {
     await act(async () => {
       await result.current.executeQuery()
     })
-    expect(executeQueryApi).toHaveBeenLastCalledWith(expect.stringContaining('created_at BETWEEN'))
-    expect(result.current.lastProcessedSql).toContain('LIMIT 100')
+    expect(executeQueryApi).toHaveBeenLastCalledWith(expect.stringContaining('created_at BETWEEN'), {
+      maxRows: PREVIEW_ROWS,
+    })
+    expect(result.current.lastProcessedSql).not.toMatch(/\bLIMIT\b/)
     expect(result.current.query).toBe(sql)
   })
 
-  it('does not insert visible filter code when changing the website on a completed query', async () => {
+  it('does not add website filters to SQL without template fields when the website changes', async () => {
     const sql = 'SELECT browser FROM `test-project.umami_views.session`'
     window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql })}`)
     const { result } = renderHook(() => useSqlNextEditor(), {
@@ -1018,7 +944,7 @@ describe('SQL editor actions', () => {
     await act(async () => {
       await result.current.executeQuery()
     })
-    expect(executeQueryApi).toHaveBeenLastCalledWith(expect.stringContaining("website_id = 'chosen-website'"))
+    expect(executeQueryApi).toHaveBeenLastCalledWith(sql, { maxRows: PREVIEW_ROWS })
   })
 
   it('does not show errors for an unfinished comparison until the user checks', async () => {
@@ -1042,33 +968,22 @@ describe('SQL editor actions', () => {
   })
 
   it.each([
-    'SELECT 1 LIMIT 20',
-    'SELECT 1 LIMIT 20; -- rows',
-    'SELECT 1 LIMIT 20 /* rows */',
-    'SELECT 1 LIMIT 20 OFFSET 5;',
-  ])('does not duplicate a user-specified limit in %s', async (sql) => {
+    ['SELECT 1', null],
+    ['SELECT 1 LIMIT 20', 20],
+    ['SELECT 1 LIMIT 20; -- rows', 20],
+    ['SELECT 1 LIMIT 20 /* rows */', 20],
+    ['SELECT 1 LIMIT 20 OFFSET 5;', 20],
+    ["SELECT 'LIMIT 20' AS label; -- keep this comment", null],
+  ])('never adds a row limit of its own to %s', async (sql, expectedLimit) => {
     window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql })}`)
     const { result } = renderHook(() => useSqlNextEditor(), {
       wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
     })
-    expect(result.current.activeLimit).toBe(20)
     await act(async () => {
       await result.current.executeQuery()
     })
-    expect(executeQueryApi).toHaveBeenLastCalledWith(sql)
-  })
-
-  it('adds the safety limit before a semicolon followed by a comment', async () => {
-    const sql = "SELECT 'LIMIT 20' AS label; -- keep this comment"
-    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql })}`)
-    const { result } = renderHook(() => useSqlNextEditor(), {
-      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
-    })
-    expect(result.current.explicitLimit).toBeNull()
-    await act(async () => {
-      await result.current.executeQuery()
-    })
-    expect(executeQueryApi).toHaveBeenLastCalledWith("SELECT 'LIMIT 20' AS label\nLIMIT 100; -- keep this comment")
+    expect(executeQueryApi).toHaveBeenLastCalledWith(sql, { maxRows: PREVIEW_ROWS })
+    expect(result.current.explicitLimit).toBe(expectedLimit)
   })
 
   it.each([
@@ -1168,7 +1083,7 @@ describe('SQL editor actions', () => {
     const reloaded = renderHook(() => useSqlNextEditor(), {
       wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
     })
-    expect(reloaded.result.current.query).toBe(INITIAL_SQL_QUERY)
+    expect(reloaded.result.current.query).toBe(getInitialSqlQuery(getGcpProjectId()))
     await act(async () => {})
   })
 })

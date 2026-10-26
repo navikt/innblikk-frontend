@@ -291,4 +291,43 @@ describe('common event joins', () => {
   ])('leaves unsupported or unfinished SQL unchanged: %s', (query) => {
     expect(getSqlJoinOptions(query, projectId).every((option) => option.sql === null)).toBe(true)
   })
+
+  it('qualifies the website filter and keeps its template fields when joining the starting query', () => {
+    const start =
+      "SELECT\nFROM `test-project.umami_views.event`\nWHERE website_id = '{{website_id}}'\n  [[AND {{created_at}}]]"
+    const sql = getSqlJoinOptions(start, 'test-project').find((join) => join.id === 'session')!.sql!
+    expect(sql).toMatch(/^SELECT\s+FROM\b/)
+    expect(sql).toContain('`test-project.umami_views.event` AS event')
+    expect(sql).toContain(
+      'LEFT JOIN `test-project.umami_views.session` AS `session` ON event.session_id = session.session_id',
+    )
+    expect(sql).toContain("event.website_id = '{{website_id}}'")
+    expect(sql).toContain('[[AND {{created_at}}]]')
+    expect(sql).not.toContain('__innblikk_no_fields__')
+  })
+
+  it('does not strip a real SELECT 1 when joining', () => {
+    const query = "SELECT 1\nFROM `test-project.umami_views.event`\nWHERE website_id = 'abc'"
+    const sql = getSqlJoinOptions(query, 'test-project').find((join) => join.id === 'session')!.sql!
+    expect(sql).toMatch(/^SELECT\s+1\s+FROM\b/)
+  })
+
+  it.each([
+    ['the starting query', "SELECT\nFROM `test-project.umami_views.event`\nWHERE website_id = '{{website_id}}'"],
+    ['a query with fields', 'SELECT browser\nFROM `test-project.umami_views.event`'],
+    ['a query that already has an alias', 'SELECT 1\nFROM `test-project.umami_views.event` AS e'],
+  ])('never refers to a table by its short name unless the table has that name as an alias: %s', (_name, query) => {
+    for (const option of getSqlJoinOptions(query, 'test-project')) {
+      if (!option.sql) continue
+      const aliases = new Set(
+        [...option.sql.matchAll(/`test-project\.umami_views\.\w+`\s+AS\s+`?(\w+)`?/gi)].map((match) =>
+          match[1].toLowerCase(),
+        ),
+      )
+      const used = [...option.sql.matchAll(/(?<![\w.`])`?(event|session|event_data)`?\.[a-z_]+/gi)].map((match) =>
+        match[1].toLowerCase(),
+      )
+      for (const name of used) expect(aliases, `${option.id}: ${name}`).toContain(name)
+    }
+  })
 })

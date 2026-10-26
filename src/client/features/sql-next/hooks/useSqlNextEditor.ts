@@ -14,11 +14,14 @@ import {
 import { prepareLineChartData, prepareBarChartData, preparePieChartData } from '../../sql/utils/chartHelpers'
 import { fetchWebsites, estimateQueryCost, executeQueryApi } from '../../sql/api/sqlApi'
 import type { Website, QueryResult, QueryStats } from '../model/types'
-import { INITIAL_SQL_QUERY } from '../model/schemaAndSnippets'
-import { applyAutomaticFilters, type AutomaticFilterUsage } from '../model/automaticFilters'
+import { getInitialSqlQuery, isInitialSqlQuery } from '../model/schemaAndSnippets'
+import { getSqlCode } from '../model/sqlCode'
 import { getFromLocalStorage, saveToLocalStorage, SELECTED_WEBSITE_CACHE_KEY } from '../../../shared/lib/localStorage'
 import { DEFAULT_WEBSITE_ID, normalizeDomain } from '../../../shared/lib/domain'
 import { getGcpProjectId } from '../../../shared/lib/runtimeConfig'
+
+export const PREVIEW_ROWS = 1000
+export const MORE_ROWS = 10000
 
 const sqlPrefillCache = new Map<string, string>()
 const SQL_DRAFT_KEY = 'innblikk-sql-editor-draft'
@@ -30,14 +33,6 @@ const getDraftSource = () => {
   return null
 }
 
-export const SAFETY_LIMIT_OPTIONS = [100, 500, 1000, 5000] as const
-
-const getSqlCode = (sql: string): string =>
-  sql.replace(
-    /\[\[[\s\S]*?\]\]|\{\{[^}]+\}\}|--[^\r\n]*|#[^\r\n]*|\/\*[\s\S]*?\*\/|'(?:''|\\[\s\S]|[^'\\])*'|"(?:""|\\[\s\S]|[^"\\])*"|`(?:\\[\s\S]|[^`\\])*`/g,
-    (token) => token.replace(/[^\r\n]/g, /^(?:--|#|\/\*)/.test(token) ? ' ' : '_'),
-  )
-
 const getExplicitLimitMatch = (sql: string) => getSqlCode(sql).match(/\bLIMIT\s+(\d+)(?:\s+OFFSET\s+\d+)?\s*;?\s*$/i)
 
 const extractExplicitLimit = (sql: string): number | null => {
@@ -45,31 +40,8 @@ const extractExplicitLimit = (sql: string): number | null => {
   return match ? Number(match[1]) : null
 }
 
-const replaceExplicitLimit = (sql: string, limit: number): string => {
-  const match = getExplicitLimitMatch(sql)
-  if (!match || match.index === undefined) return sql
-  const numberOffset = match.index + match[0].indexOf(match[1])
-  return `${sql.slice(0, numberOffset)}${limit}${sql.slice(numberOffset + match[1].length)}`
-}
-
-const removeExplicitLimit = (sql: string): string => {
-  const match = getExplicitLimitMatch(sql)
-  if (!match || match.index === undefined) return sql
-  const clause = /^LIMIT\s+\d+(?:\s+OFFSET\s+\d+)?/i.exec(getSqlCode(sql).slice(match.index))
-  if (!clause) return sql
-  return sql.slice(0, match.index).trimEnd() + sql.slice(match.index + clause[0].length)
-}
-
-const applySafetyLimit = (sql: string, safetyLimit: number | null): string => {
-  if (safetyLimit === null) return sql
-  const code = getSqlCode(sql).trimEnd()
-  if (!code || extractExplicitLimit(sql) !== null) return sql
-  const insertionOffset = code.endsWith(';') ? code.length - 1 : code.length
-  return `${sql.slice(0, insertionOffset).trimEnd()}\nLIMIT ${safetyLimit}${sql.slice(insertionOffset)}`
-}
-
 const getInitialQuery = (): string => {
-  if (typeof window === 'undefined') return INITIAL_SQL_QUERY
+  if (typeof window === 'undefined') return getInitialSqlQuery(getGcpProjectId())
   const urlParams = new URLSearchParams(window.location.search)
   let sqlParam = urlParams.get('sql')
   const sqlStorageKey = urlParams.get('sqlStorageKey')
@@ -103,9 +75,9 @@ const getInitialQuery = (): string => {
     )
       return draft.query
   } catch {
-    return sqlParam || INITIAL_SQL_QUERY
+    return sqlParam || getInitialSqlQuery(getGcpProjectId())
   }
-  return sqlParam || INITIAL_SQL_QUERY
+  return sqlParam || getInitialSqlQuery(getGcpProjectId())
 }
 
 export const useSqlNextEditor = () => {
@@ -157,16 +129,12 @@ export const useSqlNextEditor = () => {
   const [query, setQuery] = useState<string>(getInitialQuery)
   useEffect(() => {
     try {
-      if (!query.trim() || query === INITIAL_SQL_QUERY) window.sessionStorage.removeItem(SQL_DRAFT_KEY)
+      if (!query.trim() || isInitialSqlQuery(query, getGcpProjectId())) window.sessionStorage.removeItem(SQL_DRAFT_KEY)
       else window.sessionStorage.setItem(SQL_DRAFT_KEY, JSON.stringify({ source: getDraftSource(), query }))
     } catch {
       return
     }
   }, [query])
-  const [safetyLimit, setSafetyLimit] = useState<number | null>(100)
-  const [automaticFiltersEnabled, setAutomaticFiltersEnabled] = useState(
-    () => searchParams.get('automaticFilters') !== 'false',
-  )
   const [validateError, setValidateError] = useState<string | null>(null)
   const [validationRequested, setValidationRequested] = useState(false)
   const [result, setResult] = useState<QueryResult | null>(null)
@@ -181,6 +149,7 @@ export const useSqlNextEditor = () => {
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [pendingQueryEstimate, setPendingQueryEstimate] = useState<QueryStats | null>(null)
   const [pendingQuery, setPendingQuery] = useState<{ sql: string; source: string } | null>(null)
+  const [rowCap, setRowCap] = useState(PREVIEW_ROWS)
 
   const dryRunRequestIdRef = useRef(0)
   const lastValidQueryRef = useRef<string | null>(null)
@@ -195,6 +164,8 @@ export const useSqlNextEditor = () => {
     hasUrlPathFilter,
     hasWebsiteIdPlaceholder,
     hasNettsidePlaceholder,
+    hasPeriodPlaceholder,
+    hasTemplateFields,
     hasHardcodedWebsiteId,
     customVariables,
     oldTableWarning,
@@ -208,6 +179,8 @@ export const useSqlNextEditor = () => {
         hasUrlPathFilter: false,
         hasWebsiteIdPlaceholder: false,
         hasNettsidePlaceholder: false,
+        hasPeriodPlaceholder: false,
+        hasTemplateFields: false,
         hasHardcodedWebsiteId: false,
         customVariables: [] as string[],
         oldTableWarning: false,
@@ -261,6 +234,8 @@ export const useSqlNextEditor = () => {
       hasUrlPathFilter: urlPathInSpecialPattern,
       hasWebsiteIdPlaceholder: websiteIdPattern.test(query),
       hasNettsidePlaceholder: nettsidePattern.test(query),
+      hasPeriodPlaceholder: /\{\{\s*created_at\s*\}\}/i.test(query),
+      hasTemplateFields: matches.length > 0,
       hasHardcodedWebsiteId: hardcodedWebsiteIdPattern.test(query),
       customVariables: detectedVars,
       oldTableWarning: hasOldEventTable || hasOldSessionTable,
@@ -270,8 +245,7 @@ export const useSqlNextEditor = () => {
     }
   }, [query])
 
-  const activeLimit = explicitLimit ?? (automaticFiltersEnabled ? safetyLimit : null)
-  const isResultLimited = activeLimit !== null && Boolean(result?.data && result.data.length >= activeLimit)
+  const isResultLimited = explicitLimit !== null && Boolean(result?.data && result.data.length >= explicitLimit)
   const isHighCost = Boolean(estimate && Number(estimate.totalBytesProcessedGB ?? 0) >= 50)
   const groupByField =
     /SELECT list expression references (?:column )?([a-z_]\w*(?:\.[a-z_]\w*)*) which is neither grouped nor aggregated/i.exec(
@@ -333,33 +307,20 @@ export const useSqlNextEditor = () => {
   )
 
   const prepareQuery = useCallback(
-    async (sql: string, onFilterUsage?: (usage: AutomaticFilterUsage) => void) => {
-      if (!automaticFiltersEnabled) {
-        const sqlWithoutComments = sql.replace(
-          /--[^\r\n]*|#[^\r\n]*|\/\*[\s\S]*?\*\/|'(?:''|\\[\s\S]|[^'\\])*'|"(?:""|\\[\s\S]|[^"\\])*"|`(?:\\[\s\S]|[^`\\])*`/g,
-          (token) => (/^(?:--|#|\/\*)/.test(token) ? ' ' : token),
-        )
-        if (/\{\{\s*[a-zA-Z_][a-zA-Z0-9_]*\s*\}\}/.test(sqlWithoutComments)) {
-          throw new Error(
-            'Spørringen inneholder malfelt som {{created_at}} eller {{website_id}}, som BigQuery ikke forstår. Slå på automatiske filtre, eller erstatt malfeltene med egne verdier og SQL-filtre.',
-          )
-        }
-        return sql
+    (sql: string) => {
+      const processed = applyUrlFiltersToSql(sql, getFilterContext())
+      const withoutComments = processed.replace(
+        /--[^\r\n]*|#[^\r\n]*|\/\*[\s\S]*?\*\/|'(?:''|\\[\s\S]|[^'\\])*'|"(?:""|\\[\s\S]|[^"\\])*"|`(?:\\[\s\S]|[^`\\])*`/g,
+        (token) => (/^(?:--|#|\/\*)/.test(token) ? ' ' : token),
+      )
+      if (/\{\{\s*website_id\s*\}\}/i.test(withoutComments)) throw new Error('Velg en nettside først.')
+      if (/\{\{\s*[a-zA-Z_][a-zA-Z0-9_]*\s*\}\}/.test(withoutComments)) {
+        throw new Error('Spørringen har et malfelt som ikke er fylt ut. Fyll det inn over editoren.')
       }
-      const context = getFilterContext()
-      return applyAutomaticFilters(applyUrlFiltersToSql(sql, context), context, onFilterUsage)
+      return processed
     },
-    [getFilterContext, automaticFiltersEnabled],
+    [getFilterContext],
   )
-
-  const getQueryPreview = useCallback(async () => {
-    if (!query.trim() || incompleteQueryMessage) throw new Error('Fullfør spørringen for å se SQL som kjøres.')
-    const filterUsage: AutomaticFilterUsage[] = []
-    const sql = await prepareQuery(applySafetyLimit(query, automaticFiltersEnabled ? safetyLimit : null), (usage) =>
-      filterUsage.push(usage),
-    )
-    return { sql, filterUsage }
-  }, [query, safetyLimit, automaticFiltersEnabled, incompleteQueryMessage, prepareQuery])
 
   // Load websites
   useEffect(() => {
@@ -388,15 +349,10 @@ export const useSqlNextEditor = () => {
     setEstimate(null)
     setDryRunError(null)
     if (!query.trim() || incompleteQueryMessage) return
-    if (automaticFiltersEnabled && /\{\{\s*website_id\s*\}\}/i.test(query) && !effectiveWebsiteId) {
-      setValidateError('Velg en nettside først.')
-      return
-    }
-
     const reqId = ++dryRunRequestIdRef.current
     setEstimating(true)
     try {
-      const processedSql = await prepareQuery(query)
+      const processedSql = prepareQuery(query)
       setLastProcessedSql(processedSql)
       const data = await estimateQueryCost(processedSql)
       if (dryRunRequestIdRef.current === reqId) {
@@ -412,17 +368,18 @@ export const useSqlNextEditor = () => {
     }
   }
 
-  const runPreparedQuery = async (processedSql: string, sourceQuery: string) => {
+  const runPreparedQuery = async (processedSql: string, sourceQuery: string, maxRows = PREVIEW_ROWS) => {
     setLoading(true)
     setError(null)
     setDryRunError(null)
     setResult(null)
     setHasAttemptedFetch(true)
+    setRowCap(maxRows)
     updateUrlParams({ sql: sourceQuery })
 
     try {
       setLastProcessedSql(processedSql)
-      const data = await executeQueryApi(processedSql)
+      const data = await executeQueryApi(processedSql, { maxRows })
       setResult(data)
       if (data.queryStats) {
         setEstimate(data.queryStats)
@@ -444,15 +401,10 @@ export const useSqlNextEditor = () => {
   })
   const previousFilterKeyRef = useRef(automaticFilterKey)
 
-  const executeQueryWithLimit = async (overrideLimit?: number | null) => {
+  const executeQuery = async () => {
+    setValidationRequested(true)
+    if (incompleteQueryMessage) return
     previousFilterKeyRef.current = automaticFilterKey
-    const limitToUse = overrideLimit !== undefined ? overrideLimit : safetyLimit
-    const nextQuery =
-      overrideLimit === null
-        ? removeExplicitLimit(query)
-        : overrideLimit !== undefined && explicitLimit !== null
-          ? replaceExplicitLimit(query, overrideLimit)
-          : query
 
     setLoading(true)
     setError(null)
@@ -461,39 +413,29 @@ export const useSqlNextEditor = () => {
     setEstimating(false)
 
     try {
-      const sqlWithLimit = applySafetyLimit(nextQuery, automaticFiltersEnabled ? limitToUse : null)
-      const processedSql = await prepareQuery(sqlWithLimit)
+      const processedSql = prepareQuery(query)
       setLastProcessedSql(processedSql)
 
       const estimateData = await estimateQueryCost(processedSql)
       setEstimate(estimateData)
-      lastValidQueryRef.current = nextQuery
+      lastValidQueryRef.current = query
 
       const gb = Number(estimateData.totalBytesProcessedGB ?? 0)
-      const shouldWarn = gb >= 50
-
-      if (shouldWarn) {
+      if (gb >= 50) {
         setPendingQueryEstimate(estimateData)
-        setPendingQuery({ sql: processedSql, source: nextQuery })
+        setPendingQuery({ sql: processedSql, source: query })
         setShowConfirmModal(true)
         setLoading(false)
         return
       }
 
-      if (nextQuery !== query) setQuery(nextQuery)
-      await runPreparedQuery(processedSql, nextQuery)
+      await runPreparedQuery(processedSql, query)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Noe gikk galt under kjøring av spørringen'
       setError(message)
       setHasAttemptedFetch(true)
       setLoading(false)
     }
-  }
-
-  const executeQuery = async () => {
-    setValidationRequested(true)
-    if (incompleteQueryMessage) return
-    await executeQueryWithLimit()
   }
 
   const executeLatestQueryRef = useRef(executeQuery)
@@ -503,7 +445,7 @@ export const useSqlNextEditor = () => {
   useEffect(() => {
     if (previousFilterKeyRef.current === automaticFilterKey) return
     if (
-      !automaticFiltersEnabled ||
+      !hasTemplateFields ||
       lastValidQueryRef.current !== query ||
       !query.trim() ||
       incompleteQueryMessage ||
@@ -524,7 +466,7 @@ export const useSqlNextEditor = () => {
     return () => window.clearTimeout(timer)
   }, [
     automaticFilterKey,
-    automaticFiltersEnabled,
+    hasTemplateFields,
     query,
     incompleteQueryMessage,
     effectiveWebsiteIds.length,
@@ -534,6 +476,11 @@ export const useSqlNextEditor = () => {
     estimating,
     showConfirmModal,
   ])
+
+  const loadMoreRows = async () => {
+    if (!lastProcessedSql || loading) return
+    await runPreparedQuery(lastProcessedSql, query, MORE_ROWS)
+  }
 
   const handleConfirmQuery = async () => {
     setShowConfirmModal(false)
@@ -549,21 +496,8 @@ export const useSqlNextEditor = () => {
     setPendingQueryEstimate(null)
   }
 
-  const handleSafetyLimitChange = async (newLimit: number | null) => {
-    setSafetyLimit(newLimit)
-    if (explicitLimit !== null) {
-      setQuery((previous) =>
-        newLimit === null ? removeExplicitLimit(previous) : replaceExplicitLimit(previous, newLimit),
-      )
-    }
-    if (hasAttemptedFetch && query.trim()) {
-      await executeQueryWithLimit(newLimit)
-    }
-  }
-
   const shareQuery = () => {
     const params = new URLSearchParams({ sql: query, dateRange: period })
-    if (!automaticFiltersEnabled) params.set('automaticFilters', 'false')
     if (effectiveWebsiteIds.length > 1) params.set('websiteIds', effectiveWebsiteIds.join(','))
     else if (effectiveWebsiteId) params.set('websiteId', effectiveWebsiteId)
     if (period === 'custom') {
@@ -585,16 +519,9 @@ export const useSqlNextEditor = () => {
     setEstimating(false)
     setValidateError(null)
     setQuery(val)
-    if (!val.trim() || val === INITIAL_SQL_QUERY) {
+    if (!val.trim() || isInitialSqlQuery(val, getGcpProjectId())) {
       updateUrlParams({ sql: null, sqlStorageKey: null })
     }
-  }
-
-  const handleAutomaticFiltersChange = (enabled: boolean) => {
-    setAutomaticFiltersEnabled(enabled)
-    handleQueryChange(query)
-    handleCancelQuery()
-    updateUrlParams({ automaticFilters: enabled ? null : 'false' })
   }
 
   const handleWebsiteChange = (website: Website | null) => {
@@ -665,16 +592,10 @@ export const useSqlNextEditor = () => {
     })
   }
 
-  const getExportQuery = useCallback(async () => {
-    if (!automaticFiltersEnabled) return query
+  const getExportQuery = useCallback(() => {
     const context = getFilterContext()
-    const template = applyWebsiteIdOnly(
-      applySafetyLimit(query, safetyLimit),
-      context.websiteIdState,
-      context.websiteIds,
-    )
-    return applyAutomaticFilters(template, context, undefined, 'template')
-  }, [query, safetyLimit, getFilterContext, automaticFiltersEnabled])
+    return Promise.resolve(applyWebsiteIdOnly(query, context.websiteIdState, context.websiteIds))
+  }, [query, getFilterContext])
 
   const handleCopyMetabase = async () => {
     try {
@@ -769,10 +690,9 @@ export const useSqlNextEditor = () => {
     hasUrlPathFilter,
     hasWebsiteIdPlaceholder,
     hasNettsidePlaceholder,
+    hasPeriodPlaceholder,
+    hasTemplateFields,
     hasHardcodedWebsiteId,
-    automaticFiltersEnabled,
-    safetyLimit,
-    activeLimit,
     explicitLimit,
     isResultLimited,
     isSelectStarOnBigTable,
@@ -781,10 +701,12 @@ export const useSqlNextEditor = () => {
     groupByField,
     showConfirmModal,
     pendingQueryEstimate,
+    rowCap,
+    canLoadMoreRows: Boolean(result?.truncated) && rowCap < MORE_ROWS,
+    loadMoreRows,
 
     setUrlPath,
     setCustomVariableValues,
-    handleAutomaticFiltersChange,
     handleQueryChange,
     handleWebsiteChange,
     handleWebsiteIdsChange,
@@ -797,12 +719,10 @@ export const useSqlNextEditor = () => {
     handlePeriodChange,
     handleStartDateChange,
     handleEndDateChange,
-    handleSafetyLimitChange,
     handleConfirmQuery,
     handleCancelQuery,
     executeQuery,
     validateSQL,
-    getQueryPreview,
     formatSQL,
     shareQuery,
 

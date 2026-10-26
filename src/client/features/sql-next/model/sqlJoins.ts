@@ -1,6 +1,7 @@
 import { Parser } from 'node-sql-parser/build/bigquery'
 import { format } from 'sql-formatter'
 import { getBigQueryTables, getFullTableName } from './schemaAndSnippets'
+import { addTemporaryField, removeTemporaryField } from './sqlCode'
 import type { BigQueryTableDoc } from './types'
 
 type SqlNode = Record<string, unknown>
@@ -29,15 +30,28 @@ export interface SqlJoinSuggestion {
   warning: string | null
 }
 
+// Template fields are not valid SQL, so swap them for plain names before parsing for analysis.
+const sanitizeTemplates = (query: string) =>
+  query
+    .replace(/\[\[\s*(AND|OR)\b[\s\S]*?\]\]/gi, (_text, conjunction: string) => `${conjunction} __template__`)
+    .replace(/\[\[[\s\S]*?\]\]/g, "'__template__'")
+    .replace(/'\{\{[^}]+\}\}'|"\{\{[^}]+\}\}"|\{\{[^}]+\}\}/g, "'__template__'")
+
+const parseForAnalysis = (query: string) => {
+  const parsed = new Parser().astify(addTemporaryField(sanitizeTemplates(query)))
+  if (Array.isArray(parsed) && parsed.length !== 1) return null
+  const ast: unknown = Array.isArray(parsed) ? parsed[0] : parsed
+  if (!isNode(ast) || ast.type !== 'select' || ast.with || ast._next || !Array.isArray(ast.from)) return null
+  return ast
+}
+
 export const getSqlJoinSuggestion = (query: string, error: string, projectId: string): SqlJoinSuggestion | null => {
   const missingName = /\bUnrecognized name:\s*`?([a-z_]\w*)`?(?=\s|[;,]|$)/i.exec(error)?.[1]
   if (!missingName) return null
   let field = missingName
   try {
-    const parsed = new Parser().astify(query)
-    if (Array.isArray(parsed) && parsed.length !== 1) return null
-    const ast: unknown = Array.isArray(parsed) ? parsed[0] : parsed
-    if (!isNode(ast) || ast.type !== 'select' || ast.with || ast._next || !Array.isArray(ast.from)) return null
+    const ast = parseForAnalysis(query)
+    if (!ast || !Array.isArray(ast.from)) return null
     const tables = getBigQueryTables(projectId)
     const sources = ast.from.filter(isNode)
     const source = tables.find((table) => sources[0]?.table === `${projectId}.${table.datasetTable}`)
@@ -110,6 +124,66 @@ export const getSqlJoinSuggestion = (query: string, error: string, projectId: st
           ? 'Koblingen kan gi flere rader. Vær oppmerksom på dette når du teller rader.'
           : null,
     }
+  } catch {
+    return null
+  }
+}
+
+const columnName = (node: SqlNode): string | null => {
+  if (typeof node.column === 'string') return node.column
+  if (isNode(node.column) && isNode(node.column.expr) && typeof node.column.expr.value === 'string')
+    return node.column.expr.value
+  return null
+}
+
+// Finds a field that is used but missing from the tables in FROM, before the query has been run.
+export const getSqlJoinHint = (query: string, projectId: string): SqlJoinSuggestion | null => {
+  try {
+    const ast = parseForAnalysis(query)
+    if (!ast || !Array.isArray(ast.from)) return null
+    const tables = getBigQueryTables(projectId)
+    const sources = ast.from.filter(isNode)
+    if (sources.some((entry) => entry.expr)) return null
+    const present = tables.filter((table) =>
+      sources.some((entry) => entry.table === `${projectId}.${table.datasetTable}`),
+    )
+    if (!present.length) return null
+    const references = new Set<string>(
+      sources.flatMap((entry) => [
+        ...(typeof entry.as === 'string' ? [entry.as.toLowerCase()] : []),
+        ...(typeof entry.table === 'string' ? [entry.table.split('.').pop()!.toLowerCase()] : []),
+      ]),
+    )
+    const aliases = new Set<string>(
+      (Array.isArray(ast.columns) ? ast.columns : [])
+        .filter(isNode)
+        .flatMap((column) => (typeof column.as === 'string' ? [column.as.toLowerCase()] : [])),
+    )
+    const known = (name: string) =>
+      present.some((table) => table.columns.some((column) => column.name.toLowerCase() === name))
+    const candidates = new Set<string>()
+    const visit = (value: unknown) => {
+      if (Array.isArray(value)) value.forEach(visit)
+      else if (isNode(value)) {
+        if (value.type === 'select') return
+        if (value.type === 'column_ref') {
+          const name = columnName(value)?.toLowerCase()
+          const table = typeof value.table === 'string' ? value.table.toLowerCase() : null
+          if (!name || name === '*' || name.startsWith('__')) return
+          if (table === 'ep') {
+            if (!references.has('ep')) candidates.add('ep')
+          } else if ((!table || references.has(table)) && !aliases.has(name) && !known(name)) candidates.add(name)
+          return
+        }
+        Object.values(value).forEach(visit)
+      }
+    }
+    for (const part of [ast.columns, ast.where, ast.groupby, ast.having, ast.orderby]) visit(part)
+    for (const name of candidates) {
+      const suggestion = getSqlJoinSuggestion(query, `Unrecognized name: ${name}`, projectId)
+      if (suggestion) return suggestion
+    }
+    return null
   } catch {
     return null
   }
@@ -223,7 +297,9 @@ export const getSqlJoinOptions = (
       })
     const parser = new Parser()
     const unfinishedFrom = /\bFROM\s*;?\s*$/i.test(code)
-    const parsed = parser.astify(unfinishedFrom ? sanitized.replace(/\bFROM(?=\s*;?\s*$)/i, '') : sanitized)
+    const parsed = parser.astify(
+      addTemporaryField(unfinishedFrom ? sanitized.replace(/\bFROM(?=\s*;?\s*$)/i, '') : sanitized),
+    )
     if (Array.isArray(parsed) && parsed.length !== 1) return options
     const ast: unknown = Array.isArray(parsed) ? parsed[0] : parsed
     if (!isNode(ast) || ast.type !== 'select' || ast.with || ast._next) return options
@@ -239,6 +315,7 @@ export const getSqlJoinOptions = (
     const base = sources.find((source) => source.table === `${projectId}.${sourceTable.datasetTable}`)
     if (!base) return options
     const sourceReference = typeof base.as === 'string' ? base.as : sourceTable.datasetTable.split('.').pop()!
+    const aliasedSources = sources.map((source) => (source === base ? { ...base, as: sourceReference } : source))
 
     return options.map((option) => {
       const target = tables.find((table) => table.id === option.id)!
@@ -248,13 +325,15 @@ export const getSqlJoinOptions = (
       const keys = JOIN_KEYS[(sourceId === 'event' ? target.id : sourceId) as keyof typeof JOIN_KEYS]
       const sourceField = sourceId === 'event' ? keys.eventField : keys.otherField
       const targetField = sourceId === 'event' ? keys.otherField : keys.eventField
-      let snippet = `${joinType} ${getFullTableName(projectId, target.datasetTable)} ON \`${sourceReference}\`.${sourceField} = \`${targetReference}\`.${targetField}`
+      let snippet = `${joinType} ${getFullTableName(projectId, target.datasetTable)} AS \`${targetReference}\` ON \`${sourceReference}\`.${sourceField} = \`${targetReference}\`.${targetField}`
       if (target.id === 'event_data') {
         snippet += onlyMatches
           ? `\nCROSS JOIN UNNEST(\`${targetReference}\`.event_parameters) AS ep`
           : `\nLEFT JOIN UNNEST(\`${targetReference}\`.event_parameters) AS ep ON TRUE`
       }
-      const joined = parser.astify(`SELECT * FROM ${getFullTableName(projectId, sourceTable.datasetTable)} ${snippet}`)
+      const joined = parser.astify(
+        `SELECT * FROM ${getFullTableName(projectId, sourceTable.datasetTable)} AS \`${sourceReference}\` ${snippet}`,
+      )
       const joinAst: unknown = Array.isArray(joined) ? joined[0] : joined
       if (!isNode(joinAst) || !Array.isArray(joinAst.from)) return option
       const next = structuredClone(ast)
@@ -284,13 +363,17 @@ export const getSqlJoinOptions = (
             )
         }
       }
-      next.from = [...sources, ...joinAst.from.slice(1)]
-      let sql = format(parser.sqlify(next as unknown as Parameters<Parser['sqlify']>[0]), { language: 'bigquery' })
+      next.from = [...aliasedSources, ...joinAst.from.slice(1)]
+      let sql = removeTemporaryField(
+        format(parser.sqlify(next as unknown as Parameters<Parser['sqlify']>[0]), { language: 'bigquery' }),
+      )
       for (const [token, text] of variables) sql = sql.split(`'${token}'`).join(text)
       for (const { token, text, conjunction } of optionalBlocks) {
         sql = sql.replace(new RegExp(`${conjunction ? `\\b${conjunction}\\s+` : ''}\u0060?${token}\u0060?`, 'i'), text)
       }
-      const addedSql = needsFrom ? `FROM ${getFullTableName(projectId, sourceTable.datasetTable)}\n${snippet}` : snippet
+      const addedSql = needsFrom
+        ? `FROM ${getFullTableName(projectId, sourceTable.datasetTable)} AS \`${sourceReference}\`\n${snippet}`
+        : snippet
       return { ...option, sql, joinSql: format(addedSql, { language: 'bigquery' }) }
     })
   } catch {

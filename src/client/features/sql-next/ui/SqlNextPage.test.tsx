@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { estimateQueryCost, executeQueryApi } from '../../sql/api/sqlApi'
@@ -19,9 +19,20 @@ vi.mock('../../analysis/ui/WebsitePicker.tsx', () => ({ default: () => null }))
 vi.mock('../../analysis/ui/PeriodPicker.tsx', () => ({ default: () => null }))
 vi.mock('./ErDiagramAccordion', () => ({ default: () => null }))
 vi.mock('./SqlBuilderPanel', () => ({
-  default: ({ query, onExecute, onValidate }: { query: string; onExecute: () => void; onValidate: () => void }) => (
+  default: ({
+    query,
+    onQueryChange,
+    onExecute,
+    onValidate,
+  }: {
+    query: string
+    onQueryChange: (value: string) => void
+    onExecute: () => void
+    onValidate: () => void
+  }) => (
     <div>
       <pre data-testid="editor-query">{query}</pre>
+      <textarea aria-label="Skriv SQL" value={query} onChange={(e) => onQueryChange(e.target.value)} />
       <button type="button" onClick={onExecute}>
         Vis resultater
       </button>
@@ -32,8 +43,18 @@ vi.mock('./SqlBuilderPanel', () => ({
   ),
 }))
 vi.mock('../../sql/ui/SqlResultsSection', () => ({
-  default: ({ error }: { error: string | null }) => (
-    <div data-testid="results-section">{error && <div role="alert">{error}</div>}</div>
+  default: ({
+    error,
+    tableTitle,
+    showSqlCode,
+  }: {
+    error: string | null
+    tableTitle?: string
+    showSqlCode?: boolean
+  }) => (
+    <div data-testid="results-section" data-title={tableTitle} data-show-sql={String(showSqlCode)}>
+      {error && <div role="alert">{error}</div>}
+    </div>
   ),
 }))
 
@@ -81,6 +102,8 @@ describe('SQL error results', () => {
       vi.mocked(executeQueryApi).mockClear()
       vi.mocked(estimateQueryCost)
         .mockReset()
+        .mockRejectedValueOnce(new Error('Syntax error: Expected end of input but got identifier at [2:1]'))
+        .mockRejectedValueOnce(new Error('Syntax error: Unexpected keyword WHERE at [6:1]'))
         .mockRejectedValueOnce(
           new Error(
             'SELECT list expression references column ep.string_value which is neither grouped nor aggregated at [2:3]',
@@ -98,19 +121,19 @@ describe('SQL error results', () => {
       )
       fireEvent.click(screen.getByRole('button', { name: action }))
       const move = await screen.findByRole('button', { name: 'Flytt WHERE før GROUP BY' })
-      expect(estimateQueryCost).not.toHaveBeenCalled()
+      expect(estimateQueryCost).toHaveBeenCalledTimes(2)
       fireEvent.click(move)
       const reordered = screen.getByTestId('editor-query').textContent
       expect(reordered).toContain("WHERE ep.data_key = 'aktivitet'\nGROUP BY ep.data_key")
       expect(reordered).toContain('ep.string_value,')
-      expect(estimateQueryCost).not.toHaveBeenCalled()
+      expect(estimateQueryCost).toHaveBeenCalledTimes(2)
       fireEvent.click(screen.getByRole('button', { name: action }))
       fireEvent.click(await screen.findByRole('button', { name: 'Legg til GROUP BY ep.string_value' }))
       const grouped = screen.getByTestId('editor-query').textContent
       expect(grouped).toContain('GROUP BY ep.data_key, ep.string_value')
       expect(grouped).toContain("WHERE ep.data_key = 'aktivitet'")
       expect(grouped).toContain("COUNT(DISTINCT NULLIF(session.distinct_id, ''))")
-      expect(estimateQueryCost).toHaveBeenCalledOnce()
+      expect(estimateQueryCost).toHaveBeenCalledTimes(3)
       expect(executeQueryApi).not.toHaveBeenCalled()
     },
   )
@@ -160,7 +183,9 @@ describe('SQL error results', () => {
       : base
     window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'chosen-website' })}`)
     vi.mocked(executeQueryApi).mockClear()
-    vi.mocked(estimateQueryCost).mockReset()
+    vi.mocked(estimateQueryCost)
+      .mockReset()
+      .mockRejectedValueOnce(new Error('Syntax error: Expected end of input but got identifier at [2:1]'))
     render(
       <MemoryRouter>
         <SqlNextPage />
@@ -171,7 +196,7 @@ describe('SQL error results', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Legg til komma' }))
     expect(screen.getByTestId('editor-query').textContent).toBe(sql.replace('ep.string_value\n', 'ep.string_value,\n'))
     expect(executeQueryApi).not.toHaveBeenCalled()
-    expect(estimateQueryCost).not.toHaveBeenCalled()
+    expect(estimateQueryCost).toHaveBeenCalledOnce()
   })
 
   it.each(['Vis resultater', 'Valider'])('offers missing quotes for event detail values after %s', async (action) => {
@@ -211,6 +236,7 @@ describe('SQL error results', () => {
         </MemoryRouter>,
       )
       fireEvent.click(screen.getByRole('button', { name: action }))
+      await screen.findByRole('heading', { name: 'Feil i spørringen' })
       const fixButton = await screen.findByRole('button', { name: 'Koble til Detaljer på hendelser' })
       expect(screen.getByTestId('editor-query').textContent).toBe(sql)
       fireEvent.click(fixButton)
@@ -239,6 +265,7 @@ describe('SQL error results', () => {
       </MemoryRouter>,
     )
     fireEvent.click(screen.getByRole('button', { name: action }))
+    await screen.findByRole('heading', { name: 'Feil i spørringen' })
     const fixButton = await screen.findByRole('button', { name: 'Koble til Detaljer på hendelser' })
     expect(screen.getByText('ep.data_key')).toBeInTheDocument()
     fireEvent.click(fixButton)
@@ -269,6 +296,7 @@ describe('SQL error results', () => {
         </MemoryRouter>,
       )
       fireEvent.click(screen.getByRole('button', { name: action }))
+      await screen.findByRole('heading', { name: 'Feil i spørringen' })
       const fixButton = await screen.findByRole('button', { name: 'Koble til Brukerdetaljer' })
       expect(screen.getByText(/finnes i Brukerdetaljer, ikke i Hendelser/)).toBeInTheDocument()
       fireEvent.click(fixButton)
@@ -313,7 +341,7 @@ describe('SQL error results', () => {
     },
   )
 
-  it('allows turning automatic filters off without changing or running SQL', async () => {
+  it('shows no filter fields, checkbox or row limit for SQL without template fields', () => {
     vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
     const sql = 'SELECT browser FROM `test-project.umami_views.session`'
     window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'chosen-website' })}`)
@@ -324,39 +352,33 @@ describe('SQL error results', () => {
         <SqlNextPage />
       </MemoryRouter>,
     )
-    const checkbox = screen.getByRole('checkbox', {
-      name: 'Filtrene legges til automatisk når spørringen kjøres',
-    })
-    expect(checkbox).toBeChecked()
-    const helpButton = screen.getByRole('button', { name: 'Om automatiske filtre' })
-    expect(helpButton).toHaveAttribute('aria-expanded', 'false')
-    fireEvent.click(helpButton)
-    expect(helpButton).toHaveAttribute('aria-expanded', 'true')
-    expect(
-      screen.getByText(
-        /Du trenger ikke legge inn nettside, periode eller maks rader \(LIMIT\) i SQL-en, de legges til automatisk\./,
-      ),
-    ).toBeInTheDocument()
-    expect(screen.queryByText('Vis SQL som kjøres')).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Nettsider eller apper' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('checkbox', { name: /Filtrene legges til automatisk/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Maks rader' })).not.toBeInTheDocument()
     expect(screen.getByTestId('editor-query').textContent).toBe(sql)
     expect(estimateQueryCost).not.toHaveBeenCalled()
     expect(executeQueryApi).not.toHaveBeenCalled()
-    fireEvent.click(checkbox)
-    expect(checkbox).not.toBeChecked()
-    expect(screen.getByRole('combobox', { name: 'Maks rader' })).toBeDisabled()
-    expect(screen.getByTestId('editor-query').textContent).toBe(sql)
-    expect(executeQueryApi).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: 'Valider' }))
-    await waitFor(() => expect(estimateQueryCost).toHaveBeenCalledExactlyOnceWith(sql))
+  })
+
+  it('shows the website field once the SQL has a website template field', () => {
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+    const sql = "SELECT browser FROM `test-project.umami_views.session` WHERE website_id = '{{website_id}}'"
+    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'chosen-website' })}`)
+    render(
+      <MemoryRouter>
+        <SqlNextPage />
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('combobox', { name: 'Nettsider eller apper' })).toBeInTheDocument()
   })
 
   it.each(['Vis resultater', 'Valider'])(
-    'offers to enable automatic filters for template fields after %s without running automatically',
+    'asks for a website when a template field needs one after %s, without sending SQL',
     async (action) => {
       vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
       const sql =
         "SELECT browser FROM `test-project.umami_views.session` WHERE website_id = '{{website_id}}' [[AND {{created_at}}]]"
-      window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'chosen-website' })}`)
+      window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql })}`)
       vi.mocked(estimateQueryCost).mockReset().mockResolvedValue({ totalBytesProcessedGB: '0' })
       vi.mocked(executeQueryApi).mockClear()
       render(
@@ -364,27 +386,11 @@ describe('SQL error results', () => {
           <SqlNextPage />
         </MemoryRouter>,
       )
-      const checkbox = screen.getByRole('checkbox', {
-        name: 'Filtrene legges til automatisk når spørringen kjøres',
-      })
-      fireEvent.click(checkbox)
-      expect(screen.queryByRole('button', { name: 'Slå på automatiske filtre' })).not.toBeInTheDocument()
       fireEvent.click(screen.getByRole('button', { name: action }))
-      const enableButton = await screen.findByRole('button', { name: 'Slå på automatiske filtre' })
-      expect(estimateQueryCost).not.toHaveBeenCalled()
-      fireEvent.click(enableButton)
-      expect(checkbox).toBeChecked()
-      expect(screen.getByRole('combobox', { name: 'Maks rader' })).toBeEnabled()
-      expect(screen.queryByRole('heading', { name: 'Feil i spørringen' })).not.toBeInTheDocument()
+      expect(await screen.findByText('Velg en nettside først.')).toBeInTheDocument()
+      expect(screen.getByRole('combobox', { name: 'Nettsider eller apper' })).toBeInTheDocument()
       expect(screen.getByTestId('editor-query').textContent).toBe(sql)
       expect(estimateQueryCost).not.toHaveBeenCalled()
-      expect(executeQueryApi).not.toHaveBeenCalled()
-      fireEvent.click(screen.getByRole('button', { name: 'Valider' }))
-      await waitFor(() => expect(estimateQueryCost).toHaveBeenCalledOnce())
-      const processed = vi.mocked(estimateQueryCost).mock.calls[0][0]
-      expect(processed).toContain("website_id = 'chosen-website'")
-      expect(processed).toContain('created_at BETWEEN')
-      expect(processed).not.toMatch(/\{\{|\[\[/)
       expect(executeQueryApi).not.toHaveBeenCalled()
     },
   )
@@ -409,8 +415,8 @@ describe('SQL error results', () => {
           <SqlNextPage />
         </MemoryRouter>,
       )
-      expect(screen.queryByRole('button', { name: 'Koble til Hendelser' })).not.toBeInTheDocument()
       fireEvent.click(screen.getByRole('button', { name: action }))
+      await screen.findByRole('heading', { name: 'Feil i spørringen' })
       const fixButton = await screen.findByRole('button', { name: 'Koble til Hendelser' })
       expect(screen.getByText(/finnes i Hendelser, ikke i Brukerdetaljer/)).toBeInTheDocument()
       expect(screen.getByText(/Koblingen kan gi flere rader/)).toBeInTheDocument()
@@ -459,7 +465,7 @@ describe('SQL error results', () => {
     vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
     const sql = 'SELECT COUNT(*) FROM `test-project.umami_views.event` WHERE url_path = /pensjon'
     window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'chosen-website' })}`)
-    vi.mocked(estimateQueryCost).mockReset()
+    vi.mocked(estimateQueryCost).mockReset().mockRejectedValueOnce(new Error('Syntax error: Unexpected "/" at [1:75]'))
     vi.mocked(executeQueryApi).mockClear()
     render(
       <MemoryRouter>
@@ -514,5 +520,197 @@ describe('SQL error results', () => {
     expect(await screen.findByText(message)).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Resultater vises her' })).not.toBeInTheDocument()
     expect(screen.queryByTestId('results-section')).not.toBeInTheDocument()
+  })
+
+  it('shows how many rows were cut and loads more of the same query on request', async () => {
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+    const sql = 'SELECT browser FROM `test-project.umami_views.session`'
+    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql })}`)
+    vi.mocked(estimateQueryCost).mockReset().mockResolvedValue({ totalBytesProcessedGB: '0' })
+    vi.mocked(executeQueryApi)
+      .mockReset()
+      .mockResolvedValueOnce({ data: [{ browser: 'a' }], totalRows: 25000, truncated: true })
+      .mockResolvedValueOnce({ data: [{ browser: 'a' }], totalRows: 25000, truncated: true })
+    render(
+      <MemoryRouter>
+        <SqlNextPage />
+      </MemoryRouter>,
+    )
+    expect(screen.queryByRole('button', { name: /Vis flere/ })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Vis resultater' }))
+    const more = await screen.findByRole('button', { name: /Vis flere/ })
+    expect(screen.getByText(/Viser de første/)).toHaveTextContent(/av\s*25[\s\u00a0]000 rader/)
+    fireEvent.click(more)
+    await waitFor(() => expect(executeQueryApi).toHaveBeenCalledTimes(2))
+    expect(executeQueryApi).toHaveBeenLastCalledWith(sql, { maxRows: 10000 })
+    expect(estimateQueryCost).toHaveBeenCalledOnce()
+    await waitFor(() => expect(screen.queryByRole('button', { name: /Vis flere/ })).not.toBeInTheDocument())
+    expect(screen.getByText(/Legg til filtre eller LIMIT/)).toBeInTheDocument()
+  })
+
+  it('shows no row notice when the whole result was returned', async () => {
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql: 'SELECT 1' })}`)
+    vi.mocked(estimateQueryCost).mockReset().mockResolvedValue({ totalBytesProcessedGB: '0' })
+    vi.mocked(executeQueryApi)
+      .mockReset()
+      .mockResolvedValue({ data: [{ n: 1 }], totalRows: 1, truncated: false })
+    render(
+      <MemoryRouter>
+        <SqlNextPage />
+      </MemoryRouter>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Vis resultater' }))
+    await waitFor(() => expect(executeQueryApi).toHaveBeenCalledOnce())
+    expect(screen.queryByText(/Viser de første/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Vis flere/ })).not.toBeInTheDocument()
+  })
+
+  it('always shows how many rows came back in the results title', async () => {
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql: 'SELECT 1' })}`)
+    vi.mocked(estimateQueryCost).mockReset().mockResolvedValue({ totalBytesProcessedGB: '0' })
+    vi.mocked(executeQueryApi)
+      .mockReset()
+      .mockResolvedValue({ data: Array.from({ length: 1234 }, (_, n) => ({ n })), totalRows: 1234, truncated: false })
+    render(
+      <MemoryRouter>
+        <SqlNextPage />
+      </MemoryRouter>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Vis resultater' }))
+    const section = await screen.findByTestId('results-section')
+    expect(section.getAttribute('data-title')).toMatch(/^Resultater · 1[\s\u00a0]234 rader$/)
+  })
+
+  it('warns that the result was cut even when no total is known', async () => {
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql: 'SELECT 1' })}`)
+    vi.mocked(estimateQueryCost).mockReset().mockResolvedValue({ totalBytesProcessedGB: '0' })
+    vi.mocked(executeQueryApi)
+      .mockReset()
+      .mockResolvedValue({ data: [{ n: 1 }], totalRows: null, truncated: true })
+    render(
+      <MemoryRouter>
+        <SqlNextPage />
+      </MemoryRouter>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Vis resultater' }))
+    expect(await screen.findByText(/Det kan være flere/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Vis flere/ })).toBeInTheDocument()
+  })
+
+  it('does not repeat the SQL under the results, since the editor already shows it', async () => {
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql: 'SELECT 1' })}`)
+    vi.mocked(estimateQueryCost).mockReset().mockResolvedValue({ totalBytesProcessedGB: '0' })
+    vi.mocked(executeQueryApi)
+      .mockReset()
+      .mockResolvedValue({ data: [{ n: 1 }], totalRows: 1, truncated: false })
+    render(
+      <MemoryRouter>
+        <SqlNextPage />
+      </MemoryRouter>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Vis resultater' }))
+    expect((await screen.findByTestId('results-section')).getAttribute('data-show-sql')).toBe('false')
+  })
+
+  describe('JOIN hint before validating', () => {
+    const renderWith = (sql: string) => {
+      vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+      window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'chosen-website' })}`)
+      vi.mocked(estimateQueryCost).mockReset()
+      vi.mocked(executeQueryApi).mockClear()
+      render(
+        <MemoryRouter>
+          <SqlNextPage />
+        </MemoryRouter>,
+      )
+    }
+    const event = () => `\`${getGcpProjectId()}.umami_views.event\``
+    const filters = "\nWHERE website_id = '{{website_id}}'\n  [[AND {{created_at}}]]"
+
+    it('tells the user a field needs a JOIN as soon as it is typed, without sending anything', async () => {
+      renderWith(`SELECT browser\nFROM ${event()}${filters}`)
+      expect(await screen.findByRole('button', { name: 'Koble til Brukerdetaljer' })).toBeInTheDocument()
+      expect(screen.getByText(/finnes i Brukerdetaljer, ikke i Hendelser/)).toBeInTheDocument()
+      expect(screen.getByText('Vis JOIN-kode')).toBeInTheDocument()
+      expect(estimateQueryCost).not.toHaveBeenCalled()
+      expect(executeQueryApi).not.toHaveBeenCalled()
+    })
+
+    it('adds the JOIN to the editor on request, keeping the template fields, and then goes away', async () => {
+      renderWith(`SELECT browser\nFROM ${event()}${filters}`)
+      fireEvent.click(await screen.findByRole('button', { name: 'Koble til Brukerdetaljer' }))
+      const sql = screen.getByTestId('editor-query').textContent ?? ''
+      expect(sql).toContain('LEFT JOIN')
+      expect(sql).toContain("event.website_id = '{{website_id}}'")
+      expect(sql).toContain('[[AND {{created_at}}]]')
+      await waitFor(() => expect(screen.queryByRole('button', { name: /Koble til/ })).not.toBeInTheDocument())
+      expect(estimateQueryCost).not.toHaveBeenCalled()
+    })
+
+    describe('while typing', () => {
+      beforeEach(() => vi.useFakeTimers())
+      afterEach(() => vi.useRealTimers())
+
+      const type = (value: string) => fireEvent.change(screen.getByLabelText('Skriv SQL'), { target: { value } })
+      const offer = () => screen.queryByRole('button', { name: 'Koble til Brukerdetaljer' })
+
+      it('waits until the user pauses before showing the hint', () => {
+        renderWith(`SELECT url_path\nFROM ${event()}${filters}`)
+        type(`SELECT b\nFROM ${event()}${filters}`)
+        type(`SELECT br\nFROM ${event()}${filters}`)
+        type(`SELECT browser\nFROM ${event()}${filters}`)
+        expect(offer()).not.toBeInTheDocument()
+        act(() => void vi.advanceTimersByTime(999))
+        expect(offer()).not.toBeInTheDocument()
+        act(() => void vi.advanceTimersByTime(1))
+        expect(offer()).toBeInTheDocument()
+      })
+
+      it('keeps the hint steady while typing continues, then updates after the pause', () => {
+        renderWith(`SELECT browser\nFROM ${event()}${filters}`)
+        expect(offer()).toBeInTheDocument()
+        type(`SELECT browser, u\nFROM ${event()}${filters}`)
+        act(() => void vi.advanceTimersByTime(500))
+        expect(offer()).toBeInTheDocument()
+        type(`SELECT url_path\nFROM ${event()}${filters}`)
+        act(() => void vi.advanceTimersByTime(999))
+        expect(offer()).toBeInTheDocument()
+        act(() => void vi.advanceTimersByTime(1))
+        expect(offer()).not.toBeInTheDocument()
+      })
+
+      it('adds the JOIN to what is in the editor now, even before the pause is over', () => {
+        renderWith(`SELECT url_path\nFROM ${event()}${filters}`)
+        type(`SELECT browser\nFROM ${event()}${filters}`)
+        act(() => void vi.advanceTimersByTime(1000))
+        type(`SELECT browser, url_path\nFROM ${event()}${filters}`)
+        fireEvent.click(offer()!)
+        const sql = screen.getByTestId('editor-query').textContent ?? ''
+        expect(sql).toMatch(/browser,\s+event\.url_path/)
+        expect(sql).toContain('LEFT JOIN')
+      })
+    })
+
+    it('stays quiet when every field exists in the chosen tables', () => {
+      renderWith(`SELECT event_name, url_path\nFROM ${event()}${filters}`)
+      expect(screen.queryByRole('button', { name: /Koble til/ })).not.toBeInTheDocument()
+    })
+
+    it('stays quiet for a name that exists in no table', () => {
+      renderWith(`SELECT nonsense_column\nFROM ${event()}${filters}`)
+      expect(screen.queryByRole('button', { name: /Koble til/ })).not.toBeInTheDocument()
+    })
+
+    it('shows only one JOIN offer when validation also reports the missing field', async () => {
+      renderWith(`SELECT browser\nFROM ${event()}${filters}`)
+      vi.mocked(estimateQueryCost).mockRejectedValueOnce(new Error('Unrecognized name: browser at [5:8]'))
+      fireEvent.click(screen.getByRole('button', { name: 'Valider' }))
+      await screen.findByRole('heading', { name: 'Feil i spørringen' })
+      expect(screen.getAllByRole('button', { name: 'Koble til Brukerdetaljer' })).toHaveLength(1)
+    })
   })
 })

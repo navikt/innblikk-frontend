@@ -15,6 +15,8 @@ export type Row = Record<string, JsonValue | undefined>
 
 export type QueryResult = {
   data?: Row[]
+  totalRows?: number | null
+  truncated?: boolean
   queryStats?: QueryStats
 }
 

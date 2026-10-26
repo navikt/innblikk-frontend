@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import GroupQueryDialog from './GroupQueryDialog'
 import { listSidegroups } from '../../sidegroups/api/sidegroupsApi'
 import { getCohort, listCohorts } from '../../cohortmanager/api/cohortManagerApi'
@@ -25,13 +26,27 @@ beforeEach(() => {
   })
 })
 
+const websites = [
+  { id: 'site', name: 'Nav', domain: 'www.nav.no', teamId: 'team', createdAt: '2026-10-01' },
+  { id: 'other', name: 'Annen', domain: 'annen.nav.no', teamId: 'team', createdAt: '2026-10-01' },
+]
+
 const setup = (query = 'SELECT', websiteIds = ['site']) => {
   const onApply = vi.fn()
   const onClose = vi.fn()
+  const onWebsiteIdsChange = vi.fn()
   render(
-    <GroupQueryDialog projectId="test" query={query} websiteIds={websiteIds} onApply={onApply} onClose={onClose} />,
+    <GroupQueryDialog
+      projectId="test"
+      query={query}
+      websiteIds={websiteIds}
+      websites={websites}
+      onWebsiteIdsChange={onWebsiteIdsChange}
+      onApply={onApply}
+      onClose={onClose}
+    />,
   )
-  return { onApply, onClose }
+  return { onApply, onClose, onWebsiteIdsChange }
 }
 
 it('selects both group types and inserts their filters together', async () => {
@@ -52,6 +67,9 @@ it('selects both group types and inserts their filters together', async () => {
   await waitFor(() => expect(onApply).toHaveBeenCalledOnce())
   expect(onApply.mock.calls[0][0]).toContain('/soknad')
   expect(onApply.mock.calls[0][0]).toContain('mobile')
+  expect(onApply.mock.calls[0][0]).toContain("website_id = '{{website_id}}'")
+  expect(onApply.mock.calls[0][0]).toContain('[[AND {{created_at}}]]')
+  expect(onApply.mock.calls[0][0]).not.toMatch(/website_id = '(?!\{\{)/)
   expect(onClose).toHaveBeenCalledOnce()
 })
 
@@ -66,10 +84,15 @@ it('keeps the original query when insertion is unsafe', async () => {
   expect(onClose).not.toHaveBeenCalled()
 })
 
-it('requires a selected website', async () => {
-  setup('SELECT', [])
-  expect(await screen.findByText('Velg en nettside før du legger til grupper.')).toBeInTheDocument()
+it('lets the user pick a website inside the dialog when none is selected', async () => {
+  const { onWebsiteIdsChange } = setup('SELECT', [])
+  expect(screen.getByRole('combobox', { name: 'Nettsider eller apper' })).toBeInTheDocument()
+  expect(screen.queryByRole('tab', { name: 'Brukergrupper' })).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Legg til i SQL' })).toBeDisabled()
+  const user = userEvent.setup()
+  await user.click(screen.getByRole('combobox', { name: 'Nettsider eller apper' }))
+  await user.click(await screen.findByRole('option', { name: 'www.nav.no' }))
+  expect(onWebsiteIdsChange).toHaveBeenCalledWith(['site'])
 })
 
 it('offers creation links in both empty tabs without unnecessary controls', async () => {

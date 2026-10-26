@@ -185,7 +185,7 @@ describe('JOIN dialog', () => {
     fireEvent.change(screen.getByRole('combobox', { name: 'JOIN med' }), { target: { value: tableId } })
     const preview = screen.getByLabelText('JOIN-kode').textContent
     fireEvent.click(screen.getByRole('button', { name: 'Sett inn JOIN' }))
-    expect(onApply).toHaveBeenCalledWith(`SELECT\nFROM \`test-project.umami_views.event\`\n${preview}`)
+    expect(onApply).toHaveBeenCalledWith(`SELECT\nFROM \`test-project.umami_views.event\` AS event\n${preview}`)
     expect(onClose).toHaveBeenCalledOnce()
   })
 

@@ -6,6 +6,8 @@ import { resolveNodeToSql } from '../../cohortmanager/utils/cohortSqlResolver'
 import { SESSION_COLUMNS } from '../../chartbuilder-next/model/constants'
 import { buildSidegroupSqlCondition } from '../../../shared/lib/sidegroupSql'
 import { sanitizePlaceholders, restorePlaceholders } from '../../sql/utils/sqlProcessing'
+import { addFiltersWithParser } from './sqlFilters'
+import { addTemporaryField, removeTemporaryField } from './sqlCode'
 
 export type SqlGroup = { kind: 'sidegroup'; group: Sidegroup } | { kind: 'cohort'; group: CohortDetailDto }
 
@@ -22,7 +24,7 @@ export function addGroupsToSql(
     initial ? `SELECT * FROM \`${projectId}.umami_views.event\`` : query,
     'parse',
   )
-  const parsed = parser.astify(sanitized)
+  const parsed = parser.astify(addTemporaryField(sanitized))
   if (Array.isArray(parsed) && parsed.length !== 1) throw new Error('Bruk én SELECT-spørring om gangen.')
   const ast = Array.isArray(parsed) ? parsed[0] : parsed
   if (ast.type !== 'select' || ast.with || ast._next) {
@@ -35,7 +37,8 @@ export function addGroupsToSql(
   if (!source || !('table' in source) || typeof source.table !== 'string') {
     throw new Error('Legg til Hendelser eller Brukerdetaljer før du legger til grupper.')
   }
-  const reference = `\`${source.as ?? source.table.split('.').pop()}\``
+  if (typeof source.as !== 'string') source.as = source.table.split('.').pop()!
+  const reference = `\`${source.as}\``
   const conditions = groups.map((selection) => {
     const { group } = selection
     if (selection.kind === 'sidegroup') {
@@ -108,5 +111,15 @@ export function addGroupsToSql(
   } else {
     ast.where = filter
   }
-  return restorePlaceholders(format(parser.sqlify(ast), { language: 'bigquery' }), placeholders)
+  return removeTemporaryField(restorePlaceholders(format(parser.sqlify(ast), { language: 'bigquery' }), placeholders))
+}
+
+// Group subqueries read their own copy of the tables, so each needs the same visible website and period filters.
+export async function addGroupsWithFilters(
+  query: string,
+  projectId: string,
+  groups: SqlGroup[],
+  cohorts: Map<string, CohortDetailDto>,
+): Promise<string> {
+  return addFiltersWithParser(addGroupsToSql(query, projectId, groups, cohorts))
 }

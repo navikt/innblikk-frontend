@@ -2,6 +2,8 @@ import { useState, useMemo } from 'react'
 import { Button, CopyButton, ReadMore, Heading, Link } from '@navikt/ds-react'
 import Editor from '@monaco-editor/react'
 import * as sqlFormatter from 'sql-formatter'
+import { registerSqlNextLanguage, SQL_NEXT_LANGUAGE_ID } from '../../../sql-next/model/sqlLanguage'
+import { restorePlaceholders, sanitizePlaceholders } from '../../../sql/utils/sqlProcessing'
 import { Events, type LesMerApnetProperties } from '@navikt/analytics-types'
 import { trackEvent } from '../../../../shared/lib/trackEvent.ts'
 import { ExternalLinkIcon, FilesIcon } from '@navikt/aksel-icons'
@@ -26,7 +28,8 @@ const SqlViewer = ({
 
   const formattedSql = useMemo(() => {
     try {
-      return sqlFormatter.format(sql)
+      const { sanitized, placeholders } = sanitizePlaceholders(sql)
+      return restorePlaceholders(sqlFormatter.format(sanitized), placeholders)
     } catch {
       return sql
     }
@@ -78,6 +81,13 @@ const SqlViewer = ({
           defaultLanguage="sql"
           value={formattedSql}
           theme="vs-dark"
+          onMount={(editor, monaco) => {
+            void registerSqlNextLanguage(monaco).then((registered) => {
+              const model = editor.getModel()
+              if (registered && model && !model.isDisposed())
+                monaco.editor.setModelLanguage(model, SQL_NEXT_LANGUAGE_ID)
+            })
+          }}
           options={{
             readOnly: true,
             minimap: { enabled: false },

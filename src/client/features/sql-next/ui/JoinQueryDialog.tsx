@@ -51,7 +51,7 @@ export default function JoinQueryDialog({
   const baseQuery = `SELECT 1\nFROM ${getFullTableName(projectId, source.datasetTable)}`
   const baseOption = getSqlJoinOptions(baseQuery, projectId).find((join) => join.id === tableId)
   const replacementSource = baseOption?.joinSql
-    ? `FROM ${getFullTableName(projectId, source.datasetTable)}\n${baseOption.joinSql}`
+    ? `FROM ${getFullTableName(projectId, source.datasetTable)} AS ${source.datasetTable.split('.').pop()}\n${baseOption.joinSql}`
     : null
   const replacement =
     !option.sql && !isNewQuery && !option.alreadyJoined && replacementSource

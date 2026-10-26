@@ -18,17 +18,29 @@ import { getCohort, listCohorts } from '../../cohortmanager/api/cohortManagerApi
 import type { CohortDetailDto, CohortDto } from '../../cohortmanager/model/types'
 import type { Sidegroup } from '../../sidegroups/model/types'
 import { previewReferenceIds } from '../../cohortmanager-next/utils/previewQuery'
-import { addGroupsToSql, type SqlGroup } from '../model/sqlGroups'
+import { addGroupsWithFilters, type SqlGroup } from '../model/sqlGroups'
+import { WebsiteSelect } from '../../../shared/ui/WebsiteSelect.tsx'
+import type { Website } from '../model/types'
 
 interface GroupQueryDialogProps {
   projectId: string
   query: string
   websiteIds: readonly string[]
+  websites: Website[]
+  onWebsiteIdsChange: (ids: string[]) => void
   onApply: (query: string) => void
   onClose: () => void
 }
 
-export default function GroupQueryDialog({ projectId, query, websiteIds, onApply, onClose }: GroupQueryDialogProps) {
+export default function GroupQueryDialog({
+  projectId,
+  query,
+  websiteIds,
+  websites,
+  onWebsiteIdsChange,
+  onApply,
+  onClose,
+}: GroupQueryDialogProps) {
   const [sidegroups, setSidegroups] = useState<Sidegroup[]>([])
   const [cohorts, setCohorts] = useState<CohortDto[]>([])
   const [selected, setSelected] = useState<string[]>([])
@@ -92,7 +104,7 @@ export default function GroupQueryDialog({ projectId, query, websiteIds, onApply
           throw new Error('Brukergruppen har byttet nettside. Åpne gruppevelgeren på nytt.')
         groups.push({ kind: 'cohort', group: detail })
       }
-      onApply(addGroupsToSql(query, projectId, groups, lookup))
+      onApply(await addGroupsWithFilters(query, projectId, groups, lookup))
       onClose()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Kunne ikke legge til gruppene. Prøv igjen.')
@@ -111,11 +123,17 @@ export default function GroupQueryDialog({ projectId, query, websiteIds, onApply
     <Modal open onClose={onClose} header={{ heading: 'Legg til grupper' }} width="medium">
       <Modal.Body>
         <div className="flex min-w-0 flex-col gap-4">
-          {!websiteIds.length ? (
-            <Alert variant="info" size="small">
-              Velg en nettside før du legger til grupper.
-            </Alert>
-          ) : loading ? (
+          <WebsiteSelect
+            websites={websites}
+            selectedId={websiteIds[0] ?? null}
+            onSelect={(id) => onWebsiteIdsChange(id ? [id] : [])}
+            selectedIds={[...websiteIds]}
+            onSelectMultiple={onWebsiteIdsChange}
+            label="Nettsider eller apper"
+            fullWidth
+            size="small"
+          />
+          {!websiteIds.length ? null : loading ? (
             <Loader title="Henter grupper" />
           ) : (
             <>
