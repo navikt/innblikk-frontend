@@ -3,6 +3,7 @@ import { getDateRangeFromPeriod } from '../../../shared/lib/utils.ts'
 import { getGcpProjectId } from '../../../shared/lib/runtimeConfig'
 import { buildSidegroupSqlCondition } from '../../../shared/lib/sidegroupSql.ts'
 import type { Sidegroup } from '../../sidegroups/model/types.ts'
+import { replaceDateFilterPlaceholders } from '../../sql/utils/sqlProcessing'
 
 interface FilterState {
   urlFilters: string[]
@@ -158,8 +159,7 @@ export const processDashboardSql = (sql: string, websiteId: string, filters: Fil
   const eventDateColumn = eventTableAlias
     ? `${eventTableAlias}.created_at`
     : `\`${projectId}.umami_views.event\`.created_at`
-  const dateReplacement = `AND ${eventDateColumn} BETWEEN ${fromSql} AND ${toSql}`
-  processedSql = processedSql.replace(/\[\[\s*AND\s*\{\{created_at\}\}\s*\]\]/gi, dateReplacement)
+  processedSql = replaceDateFilterPlaceholders(processedSql, fromSql, toSql, eventDateColumn)
 
   // 4. Handle metric type substitutions
   if (filters.metricType === 'pageviews') {

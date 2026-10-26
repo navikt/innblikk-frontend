@@ -340,7 +340,7 @@ export const useSqlEditor = () => {
 
   const shareQuery = () => {
     const encodedSql = encodeURIComponent(query)
-    const shareUrl = `${window.location.origin}/sql?sql=${encodedSql}`
+    const shareUrl = `${window.location.origin}/sql-old?sql=${encodedSql}`
     void navigator.clipboard.writeText(shareUrl)
     setShareSuccess(true)
     setTimeout(() => setShareSuccess(false), 3000)
