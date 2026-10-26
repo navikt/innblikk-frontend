@@ -345,7 +345,8 @@ export default function SqlNextPage() {
 
               {hasAttemptedFetch && isResultLimited && !queryError && (
                 <Alert variant="info" size="small">
-                  Viser de første <strong>{activeLimit}</strong> radene for at det skal gå raskt.
+                  Viser de første <strong>{activeLimit}</strong> radene. Du kan endre grensen under «Maks rader»
+                  eller velge «Ubegrenset».
                 </Alert>
               )}
 
