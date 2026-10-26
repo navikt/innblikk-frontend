@@ -3,10 +3,15 @@ import type { BigQueryTableDoc, SqlBuildingBlock } from './types'
 export const getFullTableName = (projectId: string, datasetTable: string) => `\`${projectId}.${datasetTable}\``
 
 export const getInitialSqlQuery = (projectId: string) =>
+  `SELECT\nFROM\n  ${getFullTableName(projectId, 'umami_views.event')}\nWHERE\n  website_id = '{{website_id}}'\n  [[AND {{created_at}}]]`
+
+const getUnformattedInitialSqlQuery = (projectId: string) =>
   `SELECT\nFROM ${getFullTableName(projectId, 'umami_views.event')}\nWHERE website_id = '{{website_id}}'\n  [[AND {{created_at}}]]`
 
 export const isInitialSqlQuery = (query: string, projectId: string) =>
-  query === getInitialSqlQuery(projectId) || /^\s*SELECT\s*$/i.test(query)
+  query === getInitialSqlQuery(projectId) ||
+  query === getUnformattedInitialSqlQuery(projectId) ||
+  /^\s*SELECT\s*$/i.test(query)
 
 export const INITIAL_CURSOR = { lineNumber: 1, column: 'SELECT'.length + 1 }
 

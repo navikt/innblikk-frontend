@@ -169,7 +169,7 @@ describe('SQL insertion toolbar', () => {
     const props = renderPanel({ query: 'SELECT * FROM `test-project.umami_views.session`' })
     fireEvent.click(screen.getByRole('button', { name: 'Tøm' }))
     expect(props.onQueryChange).toHaveBeenCalledWith(
-      "SELECT\nFROM `test-project.umami_views.event`\nWHERE website_id = '{{website_id}}'\n  [[AND {{created_at}}]]",
+      "SELECT\nFROM\n  `test-project.umami_views.event`\nWHERE\n  website_id = '{{website_id}}'\n  [[AND {{created_at}}]]",
     )
   })
 

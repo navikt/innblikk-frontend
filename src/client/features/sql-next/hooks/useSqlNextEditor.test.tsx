@@ -794,6 +794,18 @@ describe('SQL editor actions', () => {
     expect(executeQueryApi).not.toHaveBeenCalled()
   })
 
+  it('starts with a query that Formater would leave exactly as it is', () => {
+    window.history.replaceState({}, '', '/sql')
+    const { result } = renderHook(() => useSqlNextEditor(), {
+      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+    })
+    const start = result.current.query
+    act(() => {
+      result.current.formatSQL()
+    })
+    expect(result.current.query).toBe(start)
+  })
+
   it('preserves placeholders when formatting SQL', () => {
     const sql =
       "SELECT browser FROM `test-project.umami_views.session` WHERE website_id = '{{website_id}}' [[AND {{created_at}}]]"
