@@ -313,7 +313,7 @@ describe('SQL error results', () => {
     },
   )
 
-  it('explains automatic filters without a second SQL dropdown', () => {
+  it('allows turning automatic filters off without changing or running SQL', async () => {
     vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
     const sql = 'SELECT browser FROM `test-project.umami_views.session`'
     window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'chosen-website' })}`)
@@ -324,21 +324,70 @@ describe('SQL error results', () => {
         <SqlNextPage />
       </MemoryRouter>,
     )
-    expect(screen.getByText('Filtrene legges til automatisk når spørringen kjøres.')).toBeInTheDocument()
+    const checkbox = screen.getByRole('checkbox', {
+      name: 'Filtrene legges til automatisk når spørringen kjøres',
+    })
+    expect(checkbox).toBeChecked()
     const helpButton = screen.getByRole('button', { name: 'Om automatiske filtre' })
     expect(helpButton).toHaveAttribute('aria-expanded', 'false')
     fireEvent.click(helpButton)
     expect(helpButton).toHaveAttribute('aria-expanded', 'true')
     expect(
       screen.getByText(
-        'Du trenger ikke legge inn nettside, periode eller maks rader (LIMIT) i SQL-en, de legges til automatisk.',
+        /Du trenger ikke legge inn nettside, periode eller maks rader \(LIMIT\) i SQL-en, de legges til automatisk\./,
       ),
     ).toBeInTheDocument()
     expect(screen.queryByText('Vis SQL som kjøres')).not.toBeInTheDocument()
     expect(screen.getByTestId('editor-query').textContent).toBe(sql)
     expect(estimateQueryCost).not.toHaveBeenCalled()
     expect(executeQueryApi).not.toHaveBeenCalled()
+    fireEvent.click(checkbox)
+    expect(checkbox).not.toBeChecked()
+    expect(screen.getByRole('combobox', { name: 'Maks rader' })).toBeDisabled()
+    expect(screen.getByTestId('editor-query').textContent).toBe(sql)
+    expect(executeQueryApi).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Valider' }))
+    await waitFor(() => expect(estimateQueryCost).toHaveBeenCalledExactlyOnceWith(sql))
   })
+
+  it.each(['Vis resultater', 'Valider'])(
+    'offers to enable automatic filters for template fields after %s without running automatically',
+    async (action) => {
+      vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+      const sql =
+        "SELECT browser FROM `test-project.umami_views.session` WHERE website_id = '{{website_id}}' [[AND {{created_at}}]]"
+      window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'chosen-website' })}`)
+      vi.mocked(estimateQueryCost).mockReset().mockResolvedValue({ totalBytesProcessedGB: '0' })
+      vi.mocked(executeQueryApi).mockClear()
+      render(
+        <MemoryRouter>
+          <SqlNextPage />
+        </MemoryRouter>,
+      )
+      const checkbox = screen.getByRole('checkbox', {
+        name: 'Filtrene legges til automatisk når spørringen kjøres',
+      })
+      fireEvent.click(checkbox)
+      expect(screen.queryByRole('button', { name: 'Slå på automatiske filtre' })).not.toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: action }))
+      const enableButton = await screen.findByRole('button', { name: 'Slå på automatiske filtre' })
+      expect(estimateQueryCost).not.toHaveBeenCalled()
+      fireEvent.click(enableButton)
+      expect(checkbox).toBeChecked()
+      expect(screen.getByRole('combobox', { name: 'Maks rader' })).toBeEnabled()
+      expect(screen.queryByRole('heading', { name: 'Feil i spørringen' })).not.toBeInTheDocument()
+      expect(screen.getByTestId('editor-query').textContent).toBe(sql)
+      expect(estimateQueryCost).not.toHaveBeenCalled()
+      expect(executeQueryApi).not.toHaveBeenCalled()
+      fireEvent.click(screen.getByRole('button', { name: 'Valider' }))
+      await waitFor(() => expect(estimateQueryCost).toHaveBeenCalledOnce())
+      const processed = vi.mocked(estimateQueryCost).mock.calls[0][0]
+      expect(processed).toContain("website_id = 'chosen-website'")
+      expect(processed).toContain('created_at BETWEEN')
+      expect(processed).not.toMatch(/\{\{|\[\[/)
+      expect(executeQueryApi).not.toHaveBeenCalled()
+    },
+  )
 
   afterEach(() => {
     window.history.replaceState({}, '', '/')

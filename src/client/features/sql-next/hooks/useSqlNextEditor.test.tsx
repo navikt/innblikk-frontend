@@ -12,6 +12,120 @@ vi.mock('../../sql/api/sqlApi', () => ({
 }))
 
 describe('SQL editor actions', () => {
+  it.each([
+    "SELECT event.url_path FROM (SELECT * FROM `test-project.umami_views.event` WHERE website_id = 'manual' AND 1 = 1 [[AND {{created_at}}]]) AS event LEFT JOIN (SELECT * FROM `test-project.umami_views.session` WHERE website_id = 'manual' AND 1 = 1 [[AND {{created_at}}]]) AS session ON event.session_id = session.session_id LIMIT 100",
+    "SELECT browser FROM `test-project.umami_views.session` WHERE website_id = '{{website_id}}'",
+  ])('explains unresolved template fields in manual mode without sending SQL: %s', async (sql) => {
+    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql })}`)
+    const { result } = renderHook(() => useSqlNextEditor(), {
+      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+    })
+    act(() => result.current.handleAutomaticFiltersChange(false))
+    await act(async () => {
+      await result.current.validateSQL()
+    })
+    expect(result.current.dryRunError).toContain('Slå på automatiske filtre')
+    await act(async () => {
+      await result.current.executeQuery()
+    })
+    expect(result.current.error).toContain('erstatt malfeltene med egne verdier og SQL-filtre')
+    await expect(result.current.getQueryPreview()).rejects.toThrow('Spørringen inneholder malfelt')
+    expect(estimateQueryCost).not.toHaveBeenCalled()
+    expect(executeQueryApi).not.toHaveBeenCalled()
+    expect(result.current.query).toBe(sql)
+    act(() => {
+      result.current.handleWebsiteIdsChange(['first'])
+      result.current.handleAutomaticFiltersChange(true)
+    })
+    await act(async () => {
+      await result.current.validateSQL()
+    })
+    expect(estimateQueryCost).toHaveBeenCalledOnce()
+    expect(vi.mocked(estimateQueryCost).mock.calls[0][0]).not.toMatch(/\{\{|\[\[/)
+    expect(result.current.dryRunError).toBeNull()
+  })
+
+  it('ignores template fields in SQL comments in manual mode', async () => {
+    const sql = "SELECT '-- not a comment' AS label -- [[AND {{created_at}}]]\n/* {{website_id}} */"
+    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql })}`)
+    const { result } = renderHook(() => useSqlNextEditor(), {
+      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+    })
+    act(() => result.current.handleAutomaticFiltersChange(false))
+    await act(async () => {
+      await result.current.executeQuery()
+    })
+    expect(executeQueryApi).toHaveBeenCalledExactlyOnceWith(sql)
+  })
+
+  it.each(['SELECT browser FROM `test-project.umami_views.session`', 'SELECT 1 LIMIT 20'])(
+    'leaves SQL unchanged across validation, preview, export and execution with automatic filters off: %s',
+    async (sql) => {
+      window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql })}`)
+      const { result } = renderHook(() => useSqlNextEditor(), {
+        wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+      })
+      expect(result.current.automaticFiltersEnabled).toBe(true)
+      act(() => result.current.handleAutomaticFiltersChange(false))
+      expect(result.current.activeLimit).toBe(sql.includes('LIMIT') ? 20 : null)
+      expect(await result.current.getQueryPreview()).toEqual({ sql, filterUsage: [] })
+      expect(await result.current.getExportQuery()).toBe(sql)
+      await act(async () => {
+        await result.current.validateSQL()
+      })
+      expect(estimateQueryCost).toHaveBeenLastCalledWith(sql)
+      await act(async () => {
+        await result.current.executeQuery()
+      })
+      expect(executeQueryApi).toHaveBeenLastCalledWith(sql)
+      expect(result.current.query).toBe(sql)
+    },
+  )
+
+  it('restores automatic filters when re-enabled', async () => {
+    const sql = 'SELECT browser FROM `test-project.umami_views.session`'
+    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'first' })}`)
+    const { result } = renderHook(() => useSqlNextEditor(), {
+      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+    })
+    act(() => result.current.handleAutomaticFiltersChange(false))
+    act(() => result.current.handleAutomaticFiltersChange(true))
+    const preview = await result.current.getQueryPreview()
+    expect(preview.sql).toContain("website_id = 'first'")
+    expect(preview.sql).toContain('created_at BETWEEN')
+    expect(preview.sql).toContain('LIMIT 100')
+    expect(executeQueryApi).not.toHaveBeenCalled()
+  })
+
+  it('preserves manual mode in shared links and does not rerun on filter changes', async () => {
+    vi.useFakeTimers()
+    const clipboard = { writeText: vi.fn().mockResolvedValue(undefined) }
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: clipboard })
+    const sql = 'SELECT browser FROM `test-project.umami_views.session`'
+    window.history.replaceState(
+      {},
+      '',
+      `/sql?${new URLSearchParams({ sql, websiteId: 'first', automaticFilters: 'false' })}`,
+    )
+    const { result } = renderHook(() => useSqlNextEditor(), {
+      wrapper: ({ children }) => <BrowserRouter>{children}</BrowserRouter>,
+    })
+    expect(result.current.automaticFiltersEnabled).toBe(false)
+    await act(async () => {
+      await result.current.executeQuery()
+    })
+    act(() => {
+      result.current.handleWebsiteIdsChange(['second'])
+      result.current.handlePeriodChange('last_28_days')
+      result.current.shareQuery()
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(400)
+    })
+    expect(executeQueryApi).toHaveBeenCalledExactlyOnceWith(sql)
+    expect(new URL(clipboard.writeText.mock.calls[0][0] as string).searchParams.get('automaticFilters')).toBe('false')
+  })
+
   const recentWebsite = {
     id: 'recent-website',
     name: 'Recently added',
@@ -116,7 +230,11 @@ describe('SQL editor actions', () => {
     ['event_name', '49.99', false],
     ['event_name', '50', true],
     ['*', '4.99', false],
-    ['*', '5', true],
+    ['*', '5', false],
+    ['*', '5.1', false],
+    ['*', '49.99', false],
+    ['*', '50', true],
+    ['*', '100', true],
   ])('requires confirmation for SELECT %s reading %s GB: %s', async (projection, gb, confirm) => {
     const sql = `SELECT ${projection} FROM \`test-project.umami_views.event\``
     window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'first' })}`)

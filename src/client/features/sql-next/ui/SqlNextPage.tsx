@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Alert, BodyShort, Button, Heading, HelpText, Modal, Select, TextField } from '@navikt/ds-react'
+import { Alert, BodyShort, Button, Checkbox, Heading, HelpText, Modal, Select, TextField } from '@navikt/ds-react'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { WebsiteSelect } from '../../../shared/ui/WebsiteSelect.tsx'
@@ -51,6 +51,7 @@ export default function SqlNextPage() {
     customVariables,
     customVariableValues,
     hasUrlPathFilter,
+    automaticFiltersEnabled,
     safetyLimit,
     activeLimit,
     explicitLimit,
@@ -64,6 +65,7 @@ export default function SqlNextPage() {
 
     setUrlPath,
     setCustomVariableValues,
+    handleAutomaticFiltersChange,
     handleQueryChange,
     handleWebsiteIdsChange,
     handleUpgradeTables,
@@ -128,86 +130,98 @@ export default function SqlNextPage() {
         <div className="flex flex-col gap-4">
           {/* Top Filter Bar (clean, no copy buttons here) */}
           <div className="rounded-lg border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-3.5">
-            <div className="flex flex-wrap items-end gap-4">
-              <div className="flex-1 min-w-[260px]">
-                <WebsiteSelect
-                  websites={availableWebsites}
-                  selectedId={websiteIds[0] ?? null}
-                  onSelect={(id) => handleWebsiteIdsChange(id ? [id] : [])}
-                  selectedIds={websiteIds}
-                  onSelectMultiple={handleWebsiteIdsChange}
-                  label="Nettsider eller apper"
-                  fullWidth
-                  size="small"
-                />
-              </div>
-
-              <div className="flex-1 min-w-[240px]">
-                <PeriodPicker
-                  period={period}
-                  onPeriodChange={handlePeriodChange}
-                  startDate={dateRange.from}
-                  onStartDateChange={handleStartDateChange}
-                  endDate={dateRange.to}
-                  onEndDateChange={handleEndDateChange}
-                />
-              </div>
-
-              <div className="min-w-[140px]">
-                <Select
-                  label="Maks rader"
-                  size="small"
-                  value={activeLimit === null ? 'unlimited' : String(activeLimit)}
-                  disabled={loading}
-                  onChange={(event) => {
-                    void handleSafetyLimitChange(event.target.value === 'unlimited' ? null : Number(event.target.value))
-                  }}
-                >
-                  {activeLimit !== null && !SAFETY_LIMIT_OPTIONS.some((limit) => limit === activeLimit) && (
-                    <option value={String(activeLimit)}>{activeLimit}</option>
-                  )}
-                  {SAFETY_LIMIT_OPTIONS.map((limit) => (
-                    <option key={limit} value={String(limit)}>
-                      {limit}
-                    </option>
-                  ))}
-                  <option value="unlimited">Ubegrenset</option>
-                </Select>
-              </div>
-
-              {hasUrlPathFilter && (
-                <div className="min-w-[200px]">
-                  <TextField
-                    label="Sidesti (URL)"
+            <fieldset disabled={!automaticFiltersEnabled} className="m-0 min-w-0 border-0 p-0">
+              <div className="flex flex-wrap items-end gap-4">
+                <div className="flex-1 min-w-[260px]">
+                  <WebsiteSelect
+                    websites={availableWebsites}
+                    selectedId={websiteIds[0] ?? null}
+                    onSelect={(id) => handleWebsiteIdsChange(id ? [id] : [])}
+                    selectedIds={websiteIds}
+                    onSelectMultiple={handleWebsiteIdsChange}
+                    label="Nettsider eller apper"
+                    fullWidth
                     size="small"
-                    value={urlPath}
-                    onChange={(e) => setUrlPath(e.target.value)}
                   />
                 </div>
-              )}
 
-              {customVariables.map((varName) => (
-                <div key={varName} className="min-w-[180px]">
-                  <TextField
-                    label={varName.replace(/_/g, ' ')}
-                    size="small"
-                    value={customVariableValues[varName] || ''}
-                    onChange={(e) =>
-                      setCustomVariableValues((prev) => ({
-                        ...prev,
-                        [varName]: e.target.value,
-                      }))
-                    }
+                <div className="flex-1 min-w-[240px]">
+                  <PeriodPicker
+                    period={period}
+                    onPeriodChange={handlePeriodChange}
+                    startDate={dateRange.from}
+                    onStartDateChange={handleStartDateChange}
+                    endDate={dateRange.to}
+                    onEndDateChange={handleEndDateChange}
                   />
                 </div>
-              ))}
-            </div>
-            <BodyShort as="div" size="small" className="mt-3 flex items-center gap-2">
-              <span>Filtrene legges til automatisk når spørringen kjøres.</span>
+
+                <div className="min-w-[140px]">
+                  <Select
+                    label="Maks rader"
+                    size="small"
+                    value={activeLimit === null ? 'unlimited' : String(activeLimit)}
+                    disabled={loading}
+                    onChange={(event) => {
+                      void handleSafetyLimitChange(
+                        event.target.value === 'unlimited' ? null : Number(event.target.value),
+                      )
+                    }}
+                  >
+                    {activeLimit !== null && !SAFETY_LIMIT_OPTIONS.some((limit) => limit === activeLimit) && (
+                      <option value={String(activeLimit)}>{activeLimit}</option>
+                    )}
+                    {SAFETY_LIMIT_OPTIONS.map((limit) => (
+                      <option key={limit} value={String(limit)}>
+                        {limit}
+                      </option>
+                    ))}
+                    <option value="unlimited">Ubegrenset</option>
+                  </Select>
+                </div>
+
+                {hasUrlPathFilter && (
+                  <div className="min-w-[200px]">
+                    <TextField
+                      label="Sidesti (URL)"
+                      size="small"
+                      value={urlPath}
+                      onChange={(e) => setUrlPath(e.target.value)}
+                    />
+                  </div>
+                )}
+
+                {customVariables.map((varName) => (
+                  <div key={varName} className="min-w-[180px]">
+                    <TextField
+                      label={varName.replace(/_/g, ' ')}
+                      size="small"
+                      value={customVariableValues[varName] || ''}
+                      onChange={(e) =>
+                        setCustomVariableValues((prev) => ({
+                          ...prev,
+                          [varName]: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+            </fieldset>
+            <div className="mt-3 flex items-center gap-2">
+              <Checkbox
+                size="small"
+                checked={automaticFiltersEnabled}
+                disabled={loading || estimating}
+                onChange={(event) => handleAutomaticFiltersChange(event.target.checked)}
+              >
+                Filtrene legges til automatisk når spørringen kjøres
+              </Checkbox>
               <HelpText title="Om automatiske filtre">
                 Du trenger ikke legge inn nettside, periode eller maks rader (LIMIT) i SQL-en, de legges til automatisk.
+                Fjern avkrysningen for å kjøre SQL-en akkurat som du har skrevet den.
               </HelpText>
-            </BodyShort>
+            </div>
           </div>
 
           {/* Collapsible ER-diagram and table reference */}
@@ -313,6 +327,11 @@ export default function SqlNextPage() {
                   error={queryError}
                   lastProcessedSql={lastProcessedSql}
                   onAddDateFilter={handleAddDateFilter}
+                  onEnableAutomaticFilters={
+                    !automaticFiltersEnabled && queryError.startsWith('Spørringen inneholder malfelt')
+                      ? () => handleAutomaticFiltersChange(true)
+                      : undefined
+                  }
                   groupByField={groupByField}
                   onAddGroupBy={handleAddGroupBy}
                   quoteFixValues={quoteFix?.values}

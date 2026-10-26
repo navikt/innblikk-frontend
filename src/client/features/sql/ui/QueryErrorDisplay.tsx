@@ -7,6 +7,7 @@ interface QueryErrorDisplayProps {
   error: string
   lastProcessedSql: string
   onAddDateFilter: () => void
+  onEnableAutomaticFilters?: () => void
   groupByField?: string | null
   onAddGroupBy?: () => void
   quoteFixValues?: string[]
@@ -27,6 +28,7 @@ export default function QueryErrorDisplay({
   error,
   lastProcessedSql,
   onAddDateFilter,
+  onEnableAutomaticFilters,
   groupByField,
   onAddGroupBy,
   quoteFixValues,
@@ -41,7 +43,14 @@ export default function QueryErrorDisplay({
       <Heading level="3" size="small" spacing>
         Feil i spørringen
       </Heading>
-      {onAddComma ? (
+      {onEnableAutomaticFilters ? (
+        <div className="flex flex-col items-start gap-3">
+          <BodyLong>{error}</BodyLong>
+          <Button size="small" variant="secondary" type="button" onClick={onEnableAutomaticFilters}>
+            Slå på automatiske filtre
+          </Button>
+        </div>
+      ) : onAddComma ? (
         <div className="flex flex-col items-start gap-3">
           <BodyLong>Det mangler et komma mellom feltene etter SELECT.</BodyLong>
           <Button size="small" variant="secondary" type="button" onClick={onAddComma}>
