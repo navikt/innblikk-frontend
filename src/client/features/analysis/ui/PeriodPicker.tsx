@@ -6,6 +6,8 @@ import type { PeriodPickerProps } from '../model/types.ts'
 import { formatDateRange } from '../utils/periodPicker.ts'
 import { usePeriodPicker } from '../hooks/usePeriodPicker.ts'
 
+const pageSection = () => window.location.pathname.split('/').filter(Boolean)[0] ?? 'forside'
+
 export const PeriodPicker = ({
   period,
   onPeriodChange,
@@ -24,7 +26,7 @@ export const PeriodPicker = ({
   useEffect(() => {
     if (isDateModalOpen) {
       trackEvent(Events.MODAL_APNET, {
-        seksjon: 'diagnose',
+        seksjon: pageSection(),
         komponentId: 'periode-modal',
         tittel: 'Velg datoperiode',
       })
@@ -33,7 +35,7 @@ export const PeriodPicker = ({
 
   const closeDateModalWithTracking = () => {
     trackEvent(Events.MODAL_LUKKET, {
-      seksjon: 'diagnose',
+      seksjon: pageSection(),
       komponentId: 'periode-modal',
       tittel: 'Velg datoperiode',
     })
@@ -59,7 +61,7 @@ export const PeriodPicker = ({
           value={period === 'custom' && startDate && endDate ? 'custom' : period}
           onChange={(event) => {
             trackEvent(Events.NEDTREKKSLISTE_VALG_ENDRET, {
-              seksjon: 'diagnose',
+              seksjon: pageSection(),
               komponentId: 'periode',
               valgtVerdi: event.target.value,
               tekst: event.target.selectedOptions[0]?.text,
@@ -129,7 +131,7 @@ export const PeriodPicker = ({
             onClick={() => {
               if (canApply && selectedRange?.from && selectedRange.to) {
                 trackEvent(Events.DATO_VALGT, {
-                  seksjon: 'diagnose',
+                  seksjon: pageSection(),
                   komponentId: 'periode-egendefinert',
                   mode: 'range',
                   from: selectedRange.from.toISOString().slice(0, 10),

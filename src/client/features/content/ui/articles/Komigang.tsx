@@ -1,4 +1,5 @@
 import { BodyShort, Heading, Link, List } from '@navikt/ds-react'
+import { BOOKING_URL, SLACK_URL, trackKontakt } from '../../../../shared/ui/theme/Kontakt/trackKontakt.ts'
 import { KontaktSeksjon } from '../../../../shared/ui/theme/Kontakt/KontaktSeksjon.tsx'
 import { Skyra } from '../../../../shared/ui/theme/Skyra/Skyra.tsx'
 import { PageHeader } from '../../../../shared/ui/theme/PageHeader/PageHeader.tsx'
@@ -214,12 +215,17 @@ function Komigang() {
           <List as="ul">
             <List.Item>
               <strong>Slack:</strong> Bli med i kanalen{' '}
-              <Link href={'https://nav-it.slack.com/archives/C02UGFS2J4B'}>#researchops</Link> for å få hjelp og dele
-              erfaringer.
+              <Link href={SLACK_URL} onClick={() => trackKontakt('slack', '#researchops', 'komigang')}>
+                #researchops
+              </Link>{' '}
+              for å få hjelp og dele erfaringer.
             </List.Item>
             <List.Item>
               <strong>Samtale:</strong>{' '}
-              <Link href={'https://outlook.office365.com/owa/calendar/TeamResearchOps@nav.no/bookings/'}>
+              <Link
+                href={BOOKING_URL}
+                onClick={() => trackKontakt('book-prat', 'Book en prat 1:1 eller workshop', 'komigang')}
+              >
                 Book en prat 1:1 eller workshop
               </Link>{' '}
               for å lære mer om Innblikk og produktanalyse.

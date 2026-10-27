@@ -1,4 +1,6 @@
 import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../../shared/lib/trackEvent.ts'
 import type { Filter } from '../../../../shared/types/chart.ts'
 import ToggleOption from '../../../../shared/ui/ToggleOption.tsx'
 
@@ -53,6 +55,12 @@ export default function PeriodOverrideOption({
       }
       checked={dashboardOverrideEnabled}
       onChange={(checked) => {
+        trackEvent(Events.AVKRYSNINGSBOKS_ENDRET, {
+          seksjon: 'grafbygger',
+          komponentId: 'dashboard-overstyrer-tidsperiode',
+          tekst: 'La dashboardet overstyre tidsperioden',
+          checked,
+        })
         userDisabledRef.current = !checked
         setFilters((previous) => {
           const withoutDate = previous.filter((filter) => filter.column !== 'created_at')

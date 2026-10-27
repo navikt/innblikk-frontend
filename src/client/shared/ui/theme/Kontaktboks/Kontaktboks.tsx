@@ -1,4 +1,5 @@
 import { List, Link, Heading, VStack } from '@navikt/ds-react'
+import { BOOKING_URL, SLACK_URL, trackKontakt } from '../Kontakt/trackKontakt.ts'
 
 export default function Kontaktboks() {
   return (
@@ -9,14 +10,18 @@ export default function Kontaktboks() {
       <List as="ul">
         <List.Item>
           <strong>Slack:</strong> Bli med i kanalen{' '}
-          <Link href={'https://nav-it.slack.com/archives/C02UGFS2J4B'} target={'_blank'}>
+          <Link href={SLACK_URL} target="_blank" onClick={() => trackKontakt('slack', '#researchops', 'kontaktboks')}>
             #researchops
           </Link>
           .
         </List.Item>
         <List.Item>
           <strong>Samtale:</strong>{' '}
-          <Link href={'https://outlook.office365.com/owa/calendar/TeamResearchOps@nav.no/bookings/'} target={'_blank'}>
+          <Link
+            href={BOOKING_URL}
+            target="_blank"
+            onClick={() => trackKontakt('book-prat', 'Book en prat 1:1 eller workshop', 'kontaktboks')}
+          >
             Book en prat 1:1 eller workshop
           </Link>
           .
