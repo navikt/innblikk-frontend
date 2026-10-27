@@ -33,22 +33,9 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          registry-url: https://npm.pkg.github.com
-          scope: '@navikt'
-
-      - name: 'Configure GitHub Packages auth'
-        run: |
-          cat <<EOF >> ~/.npmrc
-          @navikt:registry=https://npm.pkg.github.com
-          //npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
-          EOF
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 'Install dependencies'
         run: pnpm install --frozen-lockfile
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 'Run ESLint'
         run: pnpm lint
@@ -69,22 +56,9 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          registry-url: https://npm.pkg.github.com
-          scope: '@navikt'
-
-      - name: 'Configure GitHub Packages auth'
-        run: |
-          cat <<EOF >> ~/.npmrc
-          @navikt:registry=https://npm.pkg.github.com
-          //npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
-          EOF
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 'Install dependencies'
         run: pnpm install --frozen-lockfile
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 'Run Vitest'
         run: pnpm test
@@ -105,22 +79,9 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          registry-url: https://npm.pkg.github.com
-          scope: '@navikt'
-
-      - name: 'Configure GitHub Packages auth'
-        run: |
-          cat <<EOF >> ~/.npmrc
-          @navikt:registry=https://npm.pkg.github.com
-          //npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
-          EOF
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 'Install dependencies'
         run: pnpm install --frozen-lockfile
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 'Install Playwright browsers'
         run: pnpm exec playwright install --with-deps chromium

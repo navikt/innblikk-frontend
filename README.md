@@ -38,6 +38,10 @@ naisdevice/internnett er **ikke** nødvendig).
    pnpm start
    ```
 
+`pnpm i` krever ingen tilgang til GitHub Packages. `@navikt/oasis` (token-validering) er ikke en
+avhengighet i repoet; den installeres kun i Docker-bildet. Lokalt faller serveren tilbake til
+`MOCK_NAV_IDENT` / `LOCAL_DEV`.
+
 Bruk din egen Z-bruker som `MOCK_NAV_IDENT` (ikke en tilfeldig placeholder) — den brukes til
 visningsnavn og revisjonslogging av BigQuery-spørringer.
 
