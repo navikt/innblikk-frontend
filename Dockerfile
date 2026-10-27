@@ -12,15 +12,12 @@ FROM base AS builder
 
 WORKDIR /app
 
-# Copy package files and .npmrc
-COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml .npmrc ./
+# Copy package files
+COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml ./
 
 # Install dependencies with cache mount
-RUN --mount=type=secret,id=NODE_AUTH_TOKEN \
-    --mount=type=cache,id=pnpm,target=/pnpm/store \
-    printf '//npm.pkg.github.com/:_authToken=%s\n@navikt:registry=https://npm.pkg.github.com\n' "$(cat /run/secrets/NODE_AUTH_TOKEN)" > $HOME/.npmrc \
-    && pnpm install --frozen-lockfile \
-    && rm -f $HOME/.npmrc
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+    pnpm install --frozen-lockfile
 
 # Copy source code and build
 COPY . .
@@ -35,17 +32,22 @@ RUN apk update && apk add --no-cache nodejs-24
 
 WORKDIR /app
 
-COPY --from=builder /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml /app/.npmrc ./
+COPY --from=builder /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml ./
 
 RUN apk add --no-cache npm && npm install -g corepack && corepack enable
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 
+# @navikt/oasis (and its dep @navikt/texas) only exist on GitHub Packages, so they are
+# not in package.json/lockfile; external contributors can then install without a token.
+# The server falls back to a local user when oasis is missing (see authUtils.js).
+ARG OASIS_VERSION=4.1.1
 RUN --mount=type=secret,id=NODE_AUTH_TOKEN \
     --mount=type=cache,id=pnpm,target=/pnpm/store \
-    printf '//npm.pkg.github.com/:_authToken=%s\n@navikt:registry=https://npm.pkg.github.com\n' "$(cat /run/secrets/NODE_AUTH_TOKEN)" > $HOME/.npmrc \
-    && pnpm install --prod --frozen-lockfile \
+    pnpm install --prod --frozen-lockfile \
+    && printf '//npm.pkg.github.com/:_authToken=%s\n@navikt:registry=https://npm.pkg.github.com\n' "$(cat /run/secrets/NODE_AUTH_TOKEN)" > $HOME/.npmrc \
+    && pnpm add --workspace-root --prod --save-exact "@navikt/oasis@${OASIS_VERSION}" \
     && rm -f $HOME/.npmrc
 
 RUN apk del npm

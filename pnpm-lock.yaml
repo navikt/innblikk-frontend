@@ -31,9 +31,6 @@ importers:
       '@navikt/aksel-icons':
         specifier: ^8.10.6
         version: 8.18.0
-      '@navikt/oasis':
-        specifier: 4.1.1
-        version: 4.1.1
       '@react-querybuilder/datetime':
         specifier: 8.19.0
         version: 8.19.0(date-fns@4.4.0)(dayjs@1.11.23)(react-querybuilder@8.19.0(@types/react@19.3.0)(react@19.3.0)(redux@5.0.1))(react@19.3.0)
@@ -96,8 +93,8 @@ importers:
         specifier: ^4.7.0
         version: 4.7.0(monaco-editor@0.57.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@navikt/analytics-types':
-        specifier: 0.0.9
-        version: 0.0.9
+        specifier: 0.0.12
+        version: 0.0.12
       '@navikt/ds-css':
         specifier: ^8.10.6
         version: 8.18.0
@@ -815,35 +812,27 @@ packages:
     libc: [glibc]
 
   '@navikt/aksel-icons@8.18.0':
-    resolution: {integrity: sha512-pN15b6dQxDiPdJbXcL7W9xJ0sPUHo5GKM5ltAQ8kLb3Mf5is6Mf6gfON1nwft+aB8WlehDrTTseXVwu1BEfmQA==, tarball: https://npm.pkg.github.com/download/@navikt/aksel-icons/8.18.0/fcb261e25fc2aea91307c75b7429a27a0f5eaef9}
+    resolution: {integrity: sha512-pN15b6dQxDiPdJbXcL7W9xJ0sPUHo5GKM5ltAQ8kLb3Mf5is6Mf6gfON1nwft+aB8WlehDrTTseXVwu1BEfmQA==}
 
-  '@navikt/analytics-types@0.0.9':
-    resolution: {integrity: sha512-bopCvqEogyFcmrJiBxK/Mr25d6yPKF7GR36MGrJqiHCPJYf1rDu6lK4cpooTG4Q//D/1xTkHRom8ZH5BI6dTew==, tarball: https://npm.pkg.github.com/download/@navikt/analytics-types/0.0.9/5919241a6dbb782eb101fff3234ce5c36d16e942}
+  '@navikt/analytics-types@0.0.12':
+    resolution: {integrity: sha512-VvRgmur1N4UttVQprjHQWj3DCt7aH93LK8g9ATqtZGAEy8/HxHAESaEUJpvQ2o1wbFwLU4siyi1qBTfTzZRerA==}
     engines: {node: '>=20.0.0', npm: '>=9.0.0'}
 
   '@navikt/ds-css@8.18.0':
-    resolution: {integrity: sha512-y714U2FDmMSETRlxg4k8scsMu6FawVGrcYqXrC/D+fQqpe05WD3wEY4BIymUpsFO+OyMsGK+uV3GPlOqtG9x0w==, tarball: https://npm.pkg.github.com/download/@navikt/ds-css/8.18.0/6df9818e932eda17b0ba4ee2c3745279ae60d7c3}
+    resolution: {integrity: sha512-y714U2FDmMSETRlxg4k8scsMu6FawVGrcYqXrC/D+fQqpe05WD3wEY4BIymUpsFO+OyMsGK+uV3GPlOqtG9x0w==}
 
   '@navikt/ds-react@8.18.0':
-    resolution: {integrity: sha512-ViuLezUKvJ+p/kIAXUfVSFyccQCuMRyQoLwo9dXUU013fxNXmJG6wQYUBfmC2U3tUfWdBx0SK1hzY63vDjw68Q==, tarball: https://npm.pkg.github.com/download/@navikt/ds-react/8.18.0/9ba39995afc34dcd8742f27bfb17ece53240f021}
+    resolution: {integrity: sha512-ViuLezUKvJ+p/kIAXUfVSFyccQCuMRyQoLwo9dXUU013fxNXmJG6wQYUBfmC2U3tUfWdBx0SK1hzY63vDjw68Q==}
     peerDependencies:
       '@types/react': ^17.0.30 || ^18 || ^19
       react: ^17 || ^18 || ^19
       react-dom: ^17 || ^18 || ^19
 
   '@navikt/ds-tailwind@8.18.0':
-    resolution: {integrity: sha512-m6qyY0sq7v4kEWQSrKn8K58u0SfLNVt5Z1tssfuN5OHxNKpskgWuAVoKs89kw312BS48YHRV9ci1DRMIjwFKnA==, tarball: https://npm.pkg.github.com/download/@navikt/ds-tailwind/8.18.0/b349c9df9524f79fe26e0a132e447efc90edda4d}
+    resolution: {integrity: sha512-m6qyY0sq7v4kEWQSrKn8K58u0SfLNVt5Z1tssfuN5OHxNKpskgWuAVoKs89kw312BS48YHRV9ci1DRMIjwFKnA==}
 
   '@navikt/ds-tokens@8.18.0':
-    resolution: {integrity: sha512-jX+5Kl2oTMX5e5vRoo9nulv/3dRNXH5+8o/VKeWQaAIsBbFzJavkJkXbfI5wCAsl5vGcTnuHoX2Mifwv3cLwFg==, tarball: https://npm.pkg.github.com/download/@navikt/ds-tokens/8.18.0/ae4c9a33ed7b61d9981a723dcba0a51a6a2a35f4}
-
-  '@navikt/oasis@4.1.1':
-    resolution: {integrity: sha512-WNAoUvK9z098/4lFzAD/09Q0Oz+Hf2mTTN8iAVi62xUgEXryq3am3t82cVfi3YttDKPrYrsrkEo8bJnte8qxbg==, tarball: https://npm.pkg.github.com/download/@navikt/oasis/4.1.1/970a0555b93c862b7c7b0919349f48fc8e7de53c}
-    engines: {node: ^20.19.0 || >= 22.12.0 || 24.x || 25.x}
-
-  '@navikt/texas@4.2.2':
-    resolution: {integrity: sha512-w/iTWLSdmvn2j2U3M+sJX9bSBvoV5UcMk+FuKs9EKz1QuaCoUksZrEfqX9/FtqyTUaOhwDnm/1iIuR6BudzFAg==, tarball: https://npm.pkg.github.com/download/@navikt/texas/4.2.2/862d743a1df21630a007a0d2d2a36a74dd8b5187}
-    engines: {node: ^20.19.0 || >= 22.12.0 || 24.x || 25.x}
+    resolution: {integrity: sha512-jX+5Kl2oTMX5e5vRoo9nulv/3dRNXH5+8o/VKeWQaAIsBbFzJavkJkXbfI5wCAsl5vGcTnuHoX2Mifwv3cLwFg==}
 
   '@opentelemetry/api@1.9.1':
     resolution: {integrity: sha512-gLyJlPHPZYdAk1JENA9LeHejZe1Ti77/pTeFm/nMXmQH/HFZlcS/O2XJB+L8fkbrNSqhdtlvjBVjxwUYanNH5Q==}
@@ -1409,8 +1398,7 @@ packages:
     resolution: {integrity: sha512-b4e2xxj/yMeT2hNlD6x7zNFiQK2Dlmkb9CQ6v3/1G2RezKN4YS2lcEv8lzGm1mhs4f2lM4yNAMI/zUDBZBBt7w==}
 
   '@types/pegjs@0.10.6':
-    resolution:
-      { integrity: sha512-eLYXDbZWXh2uxf+w8sXS8d6KSoXTswfps6fvCUuVAGN8eRpfe7h9eSRydxiSJvo9Bf+GzifsDOr9TMQlmJdmkw== }
+    resolution: {integrity: sha512-eLYXDbZWXh2uxf+w8sXS8d6KSoXTswfps6fvCUuVAGN8eRpfe7h9eSRydxiSJvo9Bf+GzifsDOr9TMQlmJdmkw==}
 
   '@types/prismjs@1.26.6':
     resolution: {integrity: sha512-vqlvI7qlMvcCBbVe0AKAb4f97//Hy0EBTaiW8AalRnG/xAN5zOiWWyrNqNXeq8+KAuvRewjCVY1+IPxk4RdNYw==}
@@ -1676,18 +1664,14 @@ packages:
     resolution: {integrity: sha512-fX1Onk0tdVPC7obPWB5EbJ1z7NVhLq4m2xZLq2YXBkxzMXIGRpNMU88n0EPgWseKl12J7zXs7qrDxPK4sRs2fg==}
 
   big-integer@1.6.52:
-    resolution:
-      { integrity: sha512-QxD8cf2eVqJOOz63z6JIN9BzvVs/dlySa5HGSBH5xtR8dPteIRQnBxxKqkNTiT6jbDTF6jAfrd4oMcND9RGbQg== }
-    engines: { node: '>=0.6' }
+    resolution: {integrity: sha512-QxD8cf2eVqJOOz63z6JIN9BzvVs/dlySa5HGSBH5xtR8dPteIRQnBxxKqkNTiT6jbDTF6jAfrd4oMcND9RGbQg==}
+    engines: {node: '>=0.6'}
 
   big.js@7.0.1:
     resolution: {integrity: sha512-iFgV784tD8kq4ccF1xtNMZnXeZzVuXWWM+ERFzKQjv+A5G9HC8CY3DuV45vgzFFcW+u2tIvmF95+AzWgs6BjCg==}
 
   bignumber.js@9.3.1:
     resolution: {integrity: sha512-Ko0uX15oIUS7wJ3Rb30Fs6SkVbLmPBAKdlm7q9+ak9bbIeFf0MwuBsQV6z7+X768/cHsfg+WlysDWJcmthjsjQ==}
-
-  bintrees@1.0.2:
-    resolution: {integrity: sha512-VOMgTMwjAaUG580SXn3LacVgjurrbMme7ZZNYGSSV7mmtY6QQRh0Eg3pwIcntQ77DErK1L0NxkbetjcoXzVwKw==}
 
   body-parser@2.4.0:
     resolution: {integrity: sha512-Ifk1KcLrxaGt1occQagQNFNNOqRt1LFuehEnHHzB8Z6cRgIxRU1TBaiIsUiCdA+gy5PL7Y1IX31DNKkRmxtXjQ==}
@@ -2478,9 +2462,6 @@ packages:
     resolution: {integrity: sha512-AC/7JofJvZGrrneWNaEnJeOLUx+JlGt7tNa0wZiRPT4MY1wmfKjt2+6O2p2uz2+skll8OZZmJMNqeke7kKbNgQ==}
     hasBin: true
 
-  jose@6.2.12:
-    resolution: {integrity: sha512-9NiFmJEex0sy2Dk58j2UGBSHgUs2ypF9eZSu4L6vjOX3Dp96Sw1F3uL+H+D1sx02jZZdzUT0HgvCy59CuvXcWw==}
-
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
 
@@ -2870,9 +2851,8 @@ packages:
     engines: {node: '>=18'}
 
   node-sql-parser@5.4.0:
-    resolution:
-      { integrity: sha512-jVe6Z61gPcPjCElPZ6j8llB3wnqGcuQzefim1ERsqIakxnEy5JlzV7XKdO1KmacRG5TKwPc4vJTgSRQ0LfkbFw== }
-    engines: { node: '>=8' }
+    resolution: {integrity: sha512-jVe6Z61gPcPjCElPZ6j8llB3wnqGcuQzefim1ERsqIakxnEy5JlzV7XKdO1KmacRG5TKwPc4vJTgSRQ0LfkbFw==}
+    engines: {node: '>=8'}
 
   numeric-quantity@3.3.3:
     resolution: {integrity: sha512-XICjnIs8Q8vUlOvVOFI8Xe3kte8fknfpzASHjwy4R2GtRm4Q5lI+d62JqFe54X4kqj/xdsucWxYe8G+OD9O8Uw==}
@@ -3014,11 +2994,6 @@ packages:
 
   process-warning@5.1.0:
     resolution: {integrity: sha512-jQSaVHsPgtyw60e1rQ/A+/ArPEj/S8pS/vFnyGa/gYFXrKk/6RuDkoqVDQ5NI5MmS01698ltlAk0NoDBNLujRw==}
-
-  prom-client@15.1.3:
-    resolution: {integrity: sha512-6ZiOBfCywsD4k1BN9IX0uZhF+tJkV8q8llP64G5Hajs4JOeVLPCwpPVcpXy3BwYiUGgyJzsJJQeOIv7+hDSq8g==}
-    engines: {node: ^16 || ^18 || >=20}
-    deprecated: prom-client has been replaced by @prometheus-io/client
 
   property-information@5.6.0:
     resolution: {integrity: sha512-YUHSPk+A30YPv+0Qf8i9Mbfe/C0hdPXk1s1jPVToV8pk8BQtpw10ct89Eo7OWkutrwqvT0eicAxlOg3dOAu8JA==}
@@ -3439,9 +3414,6 @@ packages:
   tapable@2.3.3:
     resolution: {integrity: sha512-uxc/zpqFg6x7C8vOE7lh6Lbda8eEL9zmVm/PLeTPBRhh1xCgdWaQ+J1CUieGpIfm2HdtsUpRv+HshiasBMcc6A==}
     engines: {node: '>=6'}
-
-  tdigest@0.1.3:
-    resolution: {integrity: sha512-zbRt+lT+/H4fRItHshczHErVCQnitJk8MfMT24MqFJf3YL7SJJPqGIGeuOdvxXxM/AHFzKBl7WoyaYwqO9s3Kw==}
 
   teeny-request@10.1.4:
     resolution: {integrity: sha512-R1Cg4Vu0UULeDfHL/kjABLaTW++9yD/B6n2g48y5dJ04hsEaxcfmAqbNDzNsbqAYJyIpZafjklLG9YxRu9uzOg==}
@@ -4473,7 +4445,7 @@ snapshots:
 
   '@navikt/aksel-icons@8.18.0': {}
 
-  '@navikt/analytics-types@0.0.9': {}
+  '@navikt/analytics-types@0.0.12': {}
 
   '@navikt/ds-css@8.18.0': {}
 
@@ -4493,16 +4465,8 @@ snapshots:
 
   '@navikt/ds-tokens@8.18.0': {}
 
-  '@navikt/oasis@4.1.1':
-    dependencies:
-      '@navikt/texas': 4.2.2
-      '@opentelemetry/api': 1.9.1
-      jose: 6.2.12
-      prom-client: 15.1.3
-
-  '@navikt/texas@4.2.2': {}
-
-  '@opentelemetry/api@1.9.1': {}
+  '@opentelemetry/api@1.9.1':
+    optional: true
 
   '@pinojs/redact@0.4.0': {}
 
@@ -5202,8 +5166,6 @@ snapshots:
   big.js@7.0.1: {}
 
   bignumber.js@9.3.1: {}
-
-  bintrees@1.0.2: {}
 
   body-parser@2.4.0(supports-color@8.1.1):
     dependencies:
@@ -6010,8 +5972,6 @@ snapshots:
 
   jiti@2.7.0: {}
 
-  jose@6.2.12: {}
-
   js-tokens@4.0.0: {}
 
   js-yaml@4.3.2:
@@ -6743,11 +6703,6 @@ snapshots:
 
   process-warning@5.1.0: {}
 
-  prom-client@15.1.3:
-    dependencies:
-      '@opentelemetry/api': 1.9.1
-      tdigest: 0.1.3
-
   property-information@5.6.0:
     dependencies:
       xtend: 4.0.2
@@ -7248,10 +7203,6 @@ snapshots:
   tailwindcss@4.3.3: {}
 
   tapable@2.3.3: {}
-
-  tdigest@0.1.3:
-    dependencies:
-      bintrees: 1.0.2
 
   teeny-request@10.1.4(supports-color@8.1.1):
     dependencies:
