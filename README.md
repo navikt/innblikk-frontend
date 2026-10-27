@@ -116,18 +116,40 @@ BACKEND_BASE_URL=http://localhost:8086 \
 
 ---
 
+## Kjør helt uten backend-tilgang (mock-backend)
+
+Har du ikke `BACKEND_TOKEN` eller nettverkstilgang til dev-backend, kan du bruke en innebygd mock av
+innblikk-backend. Den kjører i minnet i samme prosess, og all data nullstilles ved restart.
+
+```bash
+cat >> .env <<EOF
+MOCK_BACKEND=true
+MOCK_NAV_IDENT=Z123456
+EOF
+pnpm i && pnpm start
+```
+
+BigQuery og `/copilot` bruker allerede genererte data når `GOOGLE_APPLICATION_CREDENTIALS` og
+`BACKEND_TOKEN` ikke er satt, så da kjører hele appen uten eksterne avhengigheter. Mock-backenden
+dekker prosjekter, dashboards, faner, grafer, spørringer, sidegrupper, kohorter, brukerinnstillinger og
+statistikk (se `src/server/mock/mockBackend.js`). Canvas-samarbeid i sanntid (WebSocket) støttes ikke.
+Kalles et endepunkt som ikke er mocket, svarer den med 404 og logger en advarsel.
+
+---
+
 ## Miljøvariabler
 
-| Variabel                         | Påkrevd | Beskrivelse                                                                                                                                                     |
-| -------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GCP_PROJECT_ID`                 | Nei     | GCP-prosjekt-ID for BigQuery-spørringer (standard: dev-prosjektet lokalt)                                                                                       |
-| `SITEIMPROVE_BASE_URL`           | Prod    | Base URL for Siteimprove-proxyen (ikke satt lokalt → proxyen feiler grasiøst)                                                                                   |
-| `BACKEND_BASE_URL`               | Nei     | Overstyrer backend-URL (standard: dev-miljøet, ansatt-nett-tilgjengelig)                                                                                        |
-| `MOCK_NAV_IDENT`                 | Lokalt  | Mocker innlogget bruker — bruk din egen Z-bruker, ikke en placeholder                                                                                           |
-| `GOOGLE_APPLICATION_CREDENTIALS` | Nei     | Sti til GCP-nøkkelfil. Uten denne brukes genererte BigQuery-data lokalt                                                                                         |
-| `BACKEND_TOKEN`                  | Bane A  | Delt dev-only bearer-token mot ekte dev-backend (`/api/backend/*`) og reops-proxy sin BigQuery-passthrough. Hentes fra teamet via sikker kanal, aldri commitet. |
-| `BIGQUERY_PROXY_BASE_URL`        | Nei     | Hvor BigQuery-spørringer sendes i generert modus (standard: `https://reops-proxy.ekstern.dev.nav.no`)                                                           |
-| `LOG_LEVEL`                      | Nei     | Pino-loggnivå (`trace`/`debug`/`info`/`warn`/`error`, standard `info`). Sett `debug` lokalt for bl.a. teamkatalog-oppslag ved feilsøking av tilgang             |
+| Variabel                         | Påkrevd | Beskrivelse                                                                                                                                                          |
+| -------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GCP_PROJECT_ID`                 | Nei     | GCP-prosjekt-ID for BigQuery-spørringer (standard: dev-prosjektet lokalt)                                                                                            |
+| `SITEIMPROVE_BASE_URL`           | Prod    | Base URL for Siteimprove-proxyen (ikke satt lokalt → proxyen feiler grasiøst)                                                                                        |
+| `BACKEND_BASE_URL`               | Nei     | Overstyrer backend-URL (standard: dev-miljøet, ansatt-nett-tilgjengelig)                                                                                             |
+| `MOCK_BACKEND`                   | Nei     | `true` starter en in-memory mock av innblikk-backend og ignorerer `BACKEND_BASE_URL`/`BACKEND_TOKEN` (aldri i produksjon). Port: `MOCK_BACKEND_PORT` (standard 8087) |
+| `MOCK_NAV_IDENT`                 | Lokalt  | Mocker innlogget bruker — bruk din egen Z-bruker, ikke en placeholder                                                                                                |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Nei     | Sti til GCP-nøkkelfil. Uten denne brukes genererte BigQuery-data lokalt                                                                                              |
+| `BACKEND_TOKEN`                  | Bane A  | Delt dev-only bearer-token mot ekte dev-backend (`/api/backend/*`) og reops-proxy sin BigQuery-passthrough. Hentes fra teamet via sikker kanal, aldri commitet.      |
+| `BIGQUERY_PROXY_BASE_URL`        | Nei     | Hvor BigQuery-spørringer sendes i generert modus (standard: `https://reops-proxy.ekstern.dev.nav.no`)                                                                |
+| `LOG_LEVEL`                      | Nei     | Pino-loggnivå (`trace`/`debug`/`info`/`warn`/`error`, standard `info`). Sett `debug` lokalt for bl.a. teamkatalog-oppslag ved feilsøking av tilgang                  |
 
 ---
 

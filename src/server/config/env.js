@@ -16,7 +16,14 @@ export const BIGQUERY_TIMEZONE = 'Europe/Oslo'
 const defaultDevBackendBaseUrl =
   process.env.NODE_ENV === 'production' ? undefined : 'https://innblikk-backend.ansatt.dev.nav.no'
 
-export const BACKEND_BASE_URL = normalizeBaseUrl(process.env.BACKEND_BASE_URL || defaultDevBackendBaseUrl)
+// MOCK_BACKEND=true: an in-memory stand-in for innblikk-backend is started by server.js and used
+// instead of the dev backend (no BACKEND_TOKEN or network access needed). See server/mock/mockBackend.js.
+export const MOCK_BACKEND = process.env.MOCK_BACKEND === 'true' && process.env.NODE_ENV !== 'production'
+export const MOCK_BACKEND_PORT = Number(process.env.MOCK_BACKEND_PORT) || 8087
+
+export const BACKEND_BASE_URL = MOCK_BACKEND
+  ? `http://127.0.0.1:${MOCK_BACKEND_PORT}`
+  : normalizeBaseUrl(process.env.BACKEND_BASE_URL || defaultDevBackendBaseUrl)
 
 // Same rationale as BACKEND_BASE_URL/GCP_PROJECT_ID above for GCP_PROJECT_ID: default to the
 // real dev value locally so a contributor can `pnpm run server` with zero config.

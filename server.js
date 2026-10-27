@@ -15,11 +15,14 @@ import { createCopilotRouter } from './src/server/routes/copilot/copilotRoutes.j
 import { createGenAIClient } from './src/server/genai/client.js'
 import { authenticateUser } from './src/server/middleware/authenticateUser.js'
 import { requireReopsTeamMember } from './src/server/middleware/requireReopsTeamMember.js'
+import { startMockBackend } from './src/server/mock/mockBackend.js'
 import { logger } from './src/server/logger.js'
 
 import {
   BIGQUERY_TIMEZONE,
   BACKEND_BASE_URL,
+  MOCK_BACKEND,
+  MOCK_BACKEND_PORT,
   BACKEND_WS_HOST,
   SITEIMPROVE_BASE_URL,
   GCP_PROJECT_ID,
@@ -34,6 +37,8 @@ const __dirname = path.dirname(__filename)
 const buildPath = path.resolve(__dirname, 'dist')
 
 const app = createApp({ buildPath })
+
+if (MOCK_BACKEND) startMockBackend({ port: MOCK_BACKEND_PORT })
 
 // Initialize BigQuery client
 const bigquery = createBigQueryClient({

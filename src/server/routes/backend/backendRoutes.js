@@ -13,7 +13,8 @@ export function createBackendProxyRouter({ BACKEND_BASE_URL }) {
   const CANVAS_PRESENCE_QUERY_NAME = 'canvas-presence'
   const CANVAS_PRESENCE_GRAPH_PREFIX = 'canvas:presence:'
   const CANVAS_PRESENCE_TTL_MS = 60000
-  const isLocalDev = process.env.NODE_ENV !== 'production'
+  const isProductionEnv = process.env.NODE_ENV === 'production'
+  const isLocalDev = !isProductionEnv
   const isLocalBackend = ['localhost', '127.0.0.1', '::1'].includes(apiBaseUrl.hostname)
   const staticBackendToken = process.env.BACKEND_TOKEN || null
   const backendAppName = process.env.BACKEND_APP_NAME || null
@@ -26,10 +27,12 @@ export function createBackendProxyRouter({ BACKEND_BASE_URL }) {
       ? `api://${naisCluster}.${naisNamespace}.${backendServiceName}/.default`
       : null
 
-  const tokenUrl =
-    process.env.BACKEND_TOKEN_URL ||
-    (isLocalDev ? 'http://localhost:8080/issueissue/token' : null) ||
-    (isLocalBackend ? new URL('/issueissue/token', BACKEND_BASE_URL).toString() : null)
+  const isMockBackend = process.env.MOCK_BACKEND === 'true' && !isProductionEnv
+  const tokenUrl = isMockBackend
+    ? null
+    : process.env.BACKEND_TOKEN_URL ||
+      (isLocalDev ? 'http://localhost:8080/issueissue/token' : null) ||
+      (isLocalBackend ? new URL('/issueissue/token', BACKEND_BASE_URL).toString() : null)
   const tokenUrls = (() => {
     if (!tokenUrl) return []
     const urls = [tokenUrl]
