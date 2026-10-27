@@ -81,15 +81,13 @@ describe('JOIN dialog', () => {
     expect(screen.queryByText(/Du kan hente|Hendelser uten/)).not.toBeInTheDocument()
   })
 
-  it('keeps SQL collapsed initially and copies the currently selected JOIN when opened', async () => {
+  it('shows the SQL suggestion immediately and copies the currently selected JOIN without applying it', async () => {
     const user = userEvent.setup()
     const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined)
     const { onApply, onClose } = renderDialog()
-    const toggle = screen.getByRole('button', { name: 'Vis SQL' })
-    expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    expect(screen.queryByText('event.session_id = session.session_id')).not.toBeInTheDocument()
-    await user.click(toggle)
-    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('heading', { name: 'SQL-forslag', level: 3 })).toBeVisible()
+    expect(screen.getByLabelText('JOIN-kode')).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Vis SQL' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Kopier SQL' }))
     expect(writeText).toHaveBeenLastCalledWith(screen.getByLabelText('JOIN-kode').textContent)
     expect(writeText.mock.calls[0][0]).toContain('umami_views.session')
@@ -99,37 +97,14 @@ describe('JOIN dialog', () => {
     expect(writeText.mock.calls[1][0]).toContain('LEFT JOIN UNNEST')
     expect(onApply).not.toHaveBeenCalled()
     expect(onClose).not.toHaveBeenCalled()
-    await user.click(toggle)
-    expect(toggle).toHaveAttribute('aria-expanded', 'false')
     writeText.mockRestore()
   })
 
-  it('includes a collapsible data model that selects JOINs without editing SQL', () => {
-    const { onApply, onClose } = renderDialog()
-    const toggle = screen.getByRole('button', { name: 'Datamodell – tabeller og felter' })
-    expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    fireEvent.click(toggle)
-    expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    const model = within(screen.getByRole('region', { name: 'ER-diagram med fire tabeller' }))
-    for (const table of [
-      'umami_views.event',
-      'umami_views.session',
-      'umami_views.event_data',
-      'umami.public_website',
-    ]) {
-      expect(model.getByRole('region', { name: table })).toBeInTheDocument()
-    }
-    expect(screen.queryByText('PK (primærnøkkel):')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /^Sett inn umami/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Kopier umami_views.event_data' })).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Legg til JOIN med Detaljer på hendelser' }))
-    expect(screen.getByRole('combobox', { name: 'JOIN med' })).toHaveValue('event_data')
-    expect(screen.getByLabelText('JOIN-kode')).toHaveTextContent('LEFT JOIN UNNEST')
-    expect(
-      within(model.getByRole('region', { name: 'umami_views.event_data' })).getByText('ep.string_value'),
-    ).toBeInTheDocument()
-    expect(onApply).not.toHaveBeenCalled()
-    expect(onClose).not.toHaveBeenCalled()
+  it('omits the data model accordion while retaining the selected relation', () => {
+    renderDialog()
+    expect(screen.queryByRole('button', { name: 'Datamodell – tabeller og felter' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'ER-diagram med fire tabeller' })).not.toBeInTheDocument()
+    expect(screen.getByRole('figure', { name: 'Valgt JOIN' })).toBeInTheDocument()
   })
 
   it('fills a pending FROM and inserts event details without blocking warnings', () => {

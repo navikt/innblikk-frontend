@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { Alert, BodyShort, Button, CopyButton, Modal, ReadMore, Select } from '@navikt/ds-react'
+import { Alert, BodyShort, Button, CopyButton, Heading, Modal, Select } from '@navikt/ds-react'
 import { getSqlJoinOptions, replaceSqlJoinSource } from '../model/sqlJoins'
 import { getBigQueryTables, getFullTableName } from '../model/schemaAndSnippets'
 import type { BigQueryTableDoc } from '../model/types'
-import ErDiagramAccordion, { JoinRelationDiagram } from './ErDiagramAccordion'
+import { JoinRelationDiagram } from './ErDiagramAccordion'
 
 export type JoinTableId = Exclude<BigQueryTableDoc['id'], 'event'>
 
@@ -108,8 +108,11 @@ export default function JoinQueryDialog({
             </Alert>
           ) : null}
           {!option.alreadyJoined && preview && (
-            <ReadMore header="Vis SQL" size="small">
-              <div className="flex flex-col gap-2">
+            <section aria-labelledby="join-sql-heading" className="flex flex-col gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Heading id="join-sql-heading" level="3" size="small">
+                  SQL-forslag
+                </Heading>
                 <CopyButton
                   copyText={preview}
                   text="Kopier SQL"
@@ -117,16 +120,15 @@ export default function JoinQueryDialog({
                   size="small"
                   className="self-start"
                 />
-                <pre
-                  aria-label="JOIN-kode"
-                  className="m-0 max-h-80 overflow-auto rounded border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] p-3 text-xs whitespace-pre-wrap break-words"
-                >
-                  {preview}
-                </pre>
               </div>
-            </ReadMore>
+              <pre
+                aria-label="JOIN-kode"
+                className="m-0 max-h-80 overflow-auto rounded border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] p-3 text-xs whitespace-pre-wrap break-words"
+              >
+                {preview}
+              </pre>
+            </section>
           )}
-          <ErDiagramAccordion projectId={projectId} onOpenJoin={setTableId} />
         </div>
       </Modal.Body>
       <Modal.Footer>
