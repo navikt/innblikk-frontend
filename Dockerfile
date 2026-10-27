@@ -47,7 +47,7 @@ RUN --mount=type=secret,id=NODE_AUTH_TOKEN \
     --mount=type=cache,id=pnpm,target=/pnpm/store \
     pnpm install --prod --frozen-lockfile \
     && printf '//npm.pkg.github.com/:_authToken=%s\n@navikt:registry=https://npm.pkg.github.com\n' "$(cat /run/secrets/NODE_AUTH_TOKEN)" > $HOME/.npmrc \
-    && pnpm add --prod --save-exact "@navikt/oasis@${OASIS_VERSION}" \
+    && pnpm add --workspace-root --prod --save-exact "@navikt/oasis@${OASIS_VERSION}" \
     && rm -f $HOME/.npmrc
 
 RUN apk del npm
