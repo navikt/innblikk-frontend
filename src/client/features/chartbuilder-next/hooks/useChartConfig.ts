@@ -254,7 +254,7 @@ export function useChartConfig() {
       // first hours of the following Oslo day).
       const osloNow = `CURRENT_TIMESTAMP()`
       const tz = `'Europe/Oslo'`
-      let fromSQL = ''
+      let fromSQL: string
       let toSQL = BQ_END_OF_YESTERDAY_SQL
 
       if (dateRangeFromUrl === 'current_month') {
@@ -403,8 +403,8 @@ export function useChartConfig() {
 
       const updatedConfig = {
         ...prev,
-        metrics: prev.metrics.map(
-          (metric: Metric, i: number): Metric => (i === index ? { ...metric, ...updates } : metric),
+        metrics: prev.metrics.map((metric: Metric, i: number): Metric =>
+          i === index ? { ...metric, ...updates } : metric,
         ),
       }
 

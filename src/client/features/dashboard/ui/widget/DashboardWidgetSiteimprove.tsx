@@ -47,7 +47,7 @@ const DashboardWidgetSiteimprove = ({
 
   if (!selectedWebsite) return null
 
-  let team: TeamData | null = null
+  let team: TeamData | null
   let siteDomain = selectedWebsite.domain
   if (!siteDomain.startsWith('http')) {
     siteDomain = `https://${siteDomain}`

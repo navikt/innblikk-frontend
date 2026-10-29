@@ -199,7 +199,7 @@ function App() {
       ...(!isProd && !isDev
         ? [
             {
-              type: 'text/javascript',
+              type: 'text/javascript' as const,
               innerHTML: `window.__innblikk_sporing_dev__ = function(type, payload) { console.debug('[sporing]', type, payload); return false; }`,
             },
           ]
