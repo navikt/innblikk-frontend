@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { BodyShort, Button, Heading, Link, Loader, LocalAlert, Switch, VStack } from '@navikt/ds-react'
 import { PlusIcon } from '@navikt/aksel-icons'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
@@ -12,6 +12,7 @@ import {
   type WebsiteInput,
   type WebsiteRegistration,
 } from '../../../shared/api/websiteManagementApi.ts'
+import { mergeTeams, useTeamCatalog } from '../../../shared/hooks/useTeamCatalog.ts'
 import { useManagedWebsites, useWebsiteManagementContext } from '../model/useWebsiteManagement.ts'
 import { WebsiteFormDialog } from './WebsiteFormDialog.tsx'
 import { SoftDeleteDialog } from './SoftDeleteDialog.tsx'
@@ -20,13 +21,15 @@ import { WebsiteRegistrationsTable } from './WebsiteRegistrationsTable.tsx'
 
 /**
  * ReOps admin surface: ALL registrations, including unassigned (ownerTeamId = null) and
- * soft-deleted ones. Admins can assign/reassign ownership by Team Catalog UUID — existing
+ * soft-deleted ones. Admins can assign/reassign ownership by picking a Team Catalog team — existing
  * rows are never auto-mapped, ownership is set explicitly and manually here.
  */
 export default function AdminNettsider() {
   const { context, isLoading: contextLoading, error: contextError } = useWebsiteManagementContext()
   const [includeDeleted, setIncludeDeleted] = useState(true)
   const { websites, isLoading, error, reload } = useManagedWebsites({ scope: 'all', includeDeleted })
+  const { teams: catalogTeams } = useTeamCatalog()
+  const allTeams = useMemo(() => mergeTeams(context?.teams ?? [], catalogTeams), [context, catalogTeams])
 
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<WebsiteRegistration | null>(null)
@@ -66,7 +69,7 @@ export default function AdminNettsider() {
         <VStack gap="space-16">
           <BetaFeatureNotice id="nettsideadministrasjon" title="Nettsideadministrasjon er i beta">
             Eksisterende registreringer har foreløpig ingen eier (eierskap er ikke utledet fra tidligere team-ID-er).
-            Tildel eierskap manuelt per registrering.
+            Tildel eierskap manuelt per registrering ved å søke opp teamet.
             <BetaFeedbackLine />
           </BetaFeatureNotice>
 
@@ -104,7 +107,7 @@ export default function AdminNettsider() {
 
               <WebsiteRegistrationsTable
                 websites={websites}
-                teams={context.teams}
+                teams={allTeams}
                 onEdit={(website) => {
                   setEditing(website)
                   setFormOpen(true)
@@ -128,7 +131,7 @@ export default function AdminNettsider() {
           <WebsiteFormDialog
             open={formOpen}
             website={editing}
-            teams={context.teams}
+            teams={allTeams}
             adminMode
             onSubmit={handleSubmit}
             onClose={() => setFormOpen(false)}

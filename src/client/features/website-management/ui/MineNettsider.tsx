@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { BodyLong, BodyShort, Button, Heading, Link, Loader, LocalAlert, Switch, VStack } from '@navikt/ds-react'
+import { useMemo, useState } from 'react'
+import { BodyLong, BodyShort, Button, Heading, Link, Loader, LocalAlert, VStack } from '@navikt/ds-react'
 import { PlusIcon } from '@navikt/aksel-icons'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
@@ -12,6 +12,7 @@ import {
   type WebsiteInput,
   type WebsiteRegistration,
 } from '../../../shared/api/websiteManagementApi.ts'
+import { mergeTeams, useTeamCatalog } from '../../../shared/hooks/useTeamCatalog.ts'
 import { useManagedWebsites, useWebsiteManagementContext } from '../model/useWebsiteManagement.ts'
 import { WebsiteFormDialog } from './WebsiteFormDialog.tsx'
 import { SoftDeleteDialog } from './SoftDeleteDialog.tsx'
@@ -24,8 +25,9 @@ import { WebsiteRegistrationsTable } from './WebsiteRegistrationsTable.tsx'
  */
 export default function MineNettsider() {
   const { context, isLoading: contextLoading, error: contextError } = useWebsiteManagementContext()
-  const [includeDeleted, setIncludeDeleted] = useState(false)
-  const { websites, isLoading, error, reload } = useManagedWebsites({ scope: 'mine', includeDeleted })
+  const { websites, isLoading, error, reload } = useManagedWebsites({ scope: 'mine' })
+  const { teams: catalogTeams } = useTeamCatalog()
+  const allTeams = useMemo(() => mergeTeams(context?.teams ?? [], catalogTeams), [context, catalogTeams])
 
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<WebsiteRegistration | null>(null)
@@ -116,12 +118,9 @@ export default function MineNettsider() {
                         Registrer ny nettside
                       </Button>
                     </div>
-                    <Switch checked={includeDeleted} onChange={(event) => setIncludeDeleted(event.target.checked)}>
-                      Vis deaktiverte nettsider
-                    </Switch>
                     <WebsiteRegistrationsTable
                       websites={websites}
-                      teams={context.teams}
+                      teams={allTeams}
                       onEdit={(website) => {
                         setEditing(website)
                         setFormOpen(true)

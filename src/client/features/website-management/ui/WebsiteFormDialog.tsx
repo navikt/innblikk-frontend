@@ -1,19 +1,17 @@
 import { useState } from 'react'
-import { Button, LocalAlert, Modal, Select, TextField, VStack } from '@navikt/ds-react'
+import { Button, LocalAlert, Modal, Select, TextField, UNSAFE_Combobox, VStack } from '@navikt/ds-react'
 import type {
   WebsiteInput,
   WebsiteManagementTeam,
   WebsiteRegistration,
 } from '../../../shared/api/websiteManagementApi.ts'
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
 interface WebsiteFormDialogProps {
   open: boolean
   /** null/undefined = create mode. */
   website?: WebsiteRegistration | null
   teams: WebsiteManagementTeam[]
-  /** Admin mode: free-text UUID owner field instead of a team dropdown. */
+  /** Admin mode: owner autocomplete over all Team Catalog teams (teams = all teams), may be left empty. */
   adminMode?: boolean
   onSubmit: (input: WebsiteInput) => Promise<void>
   onClose: () => void
@@ -60,8 +58,9 @@ function WebsiteFormFields({ website, teams, adminMode, onSubmit, onClose }: For
   const isEdit = Boolean(website)
   const [name, setName] = useState(website?.name ?? '')
   const [domain, setDomain] = useState(website?.domain ?? '')
-  const [ownerTeamId, setOwnerTeamId] = useState<string>(website?.ownerTeamId ?? teams[0]?.id ?? '')
-  const [adminOwnerInput, setAdminOwnerInput] = useState<string>(website?.ownerTeamId ?? '')
+  const [ownerTeamId, setOwnerTeamId] = useState<string>(
+    website?.ownerTeamId ?? (adminMode ? '' : (teams[0]?.id ?? '')),
+  )
   const [nameError, setNameError] = useState<string | null>(null)
   const [domainError, setDomainError] = useState<string | null>(null)
   const [ownerError, setOwnerError] = useState<string | null>(null)
@@ -79,13 +78,8 @@ function WebsiteFormFields({ website, teams, adminMode, onSubmit, onClose }: For
     let resolvedOwnerTeamId: string | null = null
     let nextOwnerError: string | null = null
     if (adminMode) {
-      // Only admins (ReOps) may assign or change ownership — explicitly, by UUID.
-      const trimmedOwner = adminOwnerInput.trim()
-      if (trimmedOwner && !UUID_PATTERN.test(trimmedOwner)) {
-        nextOwnerError = 'Må være en gyldig team-ID (UUID), eller tom for «ingen eier»'
-      } else {
-        resolvedOwnerTeamId = trimmedOwner || null
-      }
+      // Only admins (ReOps) may assign or change ownership; empty means «ingen eier».
+      resolvedOwnerTeamId = ownerTeamId || null
     } else if (isEdit) {
       // Non-admin edit: ownership is read-only, always resubmit the existing owner.
       resolvedOwnerTeamId = website?.ownerTeamId ?? null
@@ -138,13 +132,22 @@ function WebsiteFormFields({ website, teams, adminMode, onSubmit, onClose }: For
             maxLength={MAX_DOMAIN_LENGTH}
           />
           {adminMode ? (
-            <TextField
-              label="Eier (team-ID i Teamkatalogen)"
-              description="UUID. La stå tom for «ingen eier» — eierskap kan tildeles senere."
-              value={adminOwnerInput}
-              onChange={(event) => setAdminOwnerInput(event.target.value)}
+            <UNSAFE_Combobox
+              label="Eier (team i Teamkatalogen)"
+              description="Søk på teamnavn. La stå tom for «ingen eier», eierskap kan tildeles senere."
+              options={teams.map((team) => ({ label: team.name, value: team.id }))}
+              selectedOptions={
+                ownerTeamId
+                  ? [
+                      {
+                        label: teams.find((team) => team.id === ownerTeamId)?.name ?? 'Ukjent team',
+                        value: ownerTeamId,
+                      },
+                    ]
+                  : []
+              }
+              onToggleSelected={(value, isSelected) => setOwnerTeamId(isSelected ? value : '')}
               error={ownerError ?? undefined}
-              autoComplete="off"
             />
           ) : (
             <Select

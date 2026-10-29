@@ -61,3 +61,50 @@ export async function getTeamMembership(navIdent) {
   cache.set(navIdent, { teams, cachedAt: Date.now() })
   return teams
 }
+
+const ALL_TEAMS_CACHE_TTL_MS = 60 * 60 * 1000
+const TEAMS_PAGE_SIZE = 500
+const MAX_TEAM_PAGES = 10
+let allTeamsCache = null // { teams, cachedAt }
+
+/**
+ * Fetches all active teams ({ id, name }) from Team Catalog, sorted by name. Used for
+ * team-name lookup and owner autocomplete so the UI never has to show raw team UUIDs.
+ * Cached for an hour; team names change rarely.
+ *
+ * @returns {Promise<Array<{ id: string, name: string }>>}
+ */
+export async function getAllActiveTeams() {
+  if (allTeamsCache && Date.now() - allTeamsCache.cachedAt < ALL_TEAMS_CACHE_TTL_MS) {
+    return allTeamsCache.teams
+  }
+
+  const teams = []
+  for (let page = 0; page < MAX_TEAM_PAGES; page++) {
+    const url = `${TEAMKATALOG_BASE_URL}/team?status=ACTIVE&size=${TEAMS_PAGE_SIZE}&page=${page}`
+    let response
+    try {
+      response = await fetch(url, { signal: AbortSignal.timeout(10000) })
+    } catch (error) {
+      logger.error({ url, error: error.message ?? error }, '[TeamCatalog] team list fetch failed')
+      throw error
+    }
+    if (!response.ok) {
+      logger.warn({ url, status: response.status }, '[TeamCatalog] team list non-OK response')
+      throw new Error(`Team Catalog API returned ${response.status} for team list`)
+    }
+
+    const data = await response.json()
+    const content = Array.isArray(data) ? data : (data.content ?? [])
+    for (const team of content) {
+      if (team?.id && team?.name) teams.push({ id: team.id, name: team.name })
+    }
+
+    const totalPages = Array.isArray(data) ? 1 : (data.totalPages ?? 1)
+    if (Array.isArray(data) || page + 1 >= totalPages || content.length === 0) break
+  }
+
+  teams.sort((a, b) => a.name.localeCompare(b.name, 'nb'))
+  allTeamsCache = { teams, cachedAt: Date.now() }
+  return teams
+}

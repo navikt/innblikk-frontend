@@ -14,11 +14,25 @@ const website: WebsiteRegistration = {
 }
 
 describe('WebsiteRegistrationsTable', () => {
-  it('shows the website UUID and unassigned ownership for active registrations', () => {
+  it('keeps the website UUID out of the name cell and shows it in the expandable details', () => {
     render(<WebsiteRegistrationsTable websites={[website]} teams={[]} onEdit={vi.fn()} />)
-    expect(screen.getByText(website.websiteId)).toBeInTheDocument()
+    expect(screen.getByText('Testnettside')).toBeInTheDocument()
+    expect(screen.queryByText(website.websiteId)).not.toBeInTheDocument()
     expect(screen.getByText('Ingen eier')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Rediger Testnettside' })).toBeInTheDocument()
+  })
+
+  it('shows the team name instead of the team UUID as owner', () => {
+    const owned = { ...website, ownerTeamId: '11111111-1111-4111-8111-111111111111' }
+    render(
+      <WebsiteRegistrationsTable
+        websites={[owned]}
+        teams={[{ id: owned.ownerTeamId, name: 'Team ResearchOps' }]}
+        onEdit={vi.fn()}
+      />,
+    )
+    expect(screen.getByText('Team ResearchOps')).toBeInTheDocument()
+    expect(screen.queryByText(owned.ownerTeamId)).not.toBeInTheDocument()
   })
 
   it('allows admins to hard-delete an already soft-deleted registration', () => {

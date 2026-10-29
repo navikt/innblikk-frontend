@@ -68,27 +68,28 @@ describe('WebsiteFormDialog', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Domenet er allerede registrert')
   })
 
-  it('accepts a UUID owner in admin mode, and rejects non-UUIDs', async () => {
+  it('lets admins pick the owner team by name, and allows no owner', async () => {
     const user = userEvent.setup()
     const { onSubmit } = renderDialog({ adminMode: true })
-    const adminOwner = '33333333-3333-4333-8333-333333333333'
 
     await user.type(screen.getByLabelText(/Navn på nettsiden/), 'Eldre registrering')
     await user.type(screen.getByLabelText(/Hoveddomene/), 'gammel.nav.no')
-    const ownerField = screen.getByLabelText(/Eier \(team-ID i Teamkatalogen\)/)
-    await user.type(ownerField, 'ikke-en-uuid')
-    await user.click(screen.getByRole('button', { name: 'Registrer nettside' }))
-    expect(await screen.findByText(/Må være en gyldig team-ID/)).toBeInTheDocument()
-    expect(onSubmit).not.toHaveBeenCalled()
-
-    await user.clear(ownerField)
-    await user.type(ownerField, adminOwner)
     await user.click(screen.getByRole('button', { name: 'Registrer nettside' }))
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
-    expect(onSubmit).toHaveBeenCalledWith({
+    expect(onSubmit).toHaveBeenLastCalledWith({
       name: 'Eldre registrering',
       domain: 'gammel.nav.no',
-      ownerTeamId: adminOwner,
+      ownerTeamId: null,
+    })
+
+    await user.type(screen.getByLabelText(/Eier \(team i Teamkatalogen\)/), 'Annet')
+    await user.click(await screen.findByRole('option', { name: 'Team Annet' }))
+    await user.click(screen.getByRole('button', { name: 'Registrer nettside' }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2))
+    expect(onSubmit).toHaveBeenLastCalledWith({
+      name: 'Eldre registrering',
+      domain: 'gammel.nav.no',
+      ownerTeamId: teams[1].id,
     })
   })
 })

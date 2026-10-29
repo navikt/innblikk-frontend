@@ -2,6 +2,7 @@ import express from 'express'
 import { loadOasis } from '../../middleware/authUtils.js'
 import { requireReopsTeamMember } from '../../middleware/requireReopsTeamMember.js'
 import { logger } from '../../logger.js'
+import { getAllActiveTeams } from '../../teamkatalog/teamkatalogApi.js'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -253,6 +254,15 @@ export function createWebsiteManagementRouter({ WEBSITE_MANAGEMENT_BASE_URL, WEB
   }
 
   router.get('/context', (req, res) => callUpstream(req, res, { method: 'GET', suffix: '/context' }))
+
+  // Team names/ids are openly readable in Team Catalog, so any validated user may list them.
+  router.get('/teams', async (req, res) => {
+    try {
+      return res.json(await getAllActiveTeams())
+    } catch {
+      return sanitizedError(res, 502, 'Kunne ikke hente teamliste fra Teamkatalogen')
+    }
+  })
 
   router.get('/', (req, res) => {
     const includeDeleted = req.query.includeDeleted === 'true'

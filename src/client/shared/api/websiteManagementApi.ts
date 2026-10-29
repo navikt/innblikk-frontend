@@ -114,3 +114,8 @@ export function hardDeleteManagedWebsite(websiteId: string, confirmWebsiteId: st
     headers: { 'x-confirm-website-id': confirmWebsiteId },
   })
 }
+
+/** All active Team Catalog teams, for name lookup and owner autocomplete. */
+export function fetchTeamCatalogTeams(): Promise<WebsiteManagementTeam[]> {
+  return request<WebsiteManagementTeam[]>('/teams')
+}
