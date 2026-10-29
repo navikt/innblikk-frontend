@@ -17,6 +17,8 @@ interface WebsiteRegistrationsTableProps {
   websites: WebsiteRegistration[]
   /** Team Catalog lookup for owner names. Unknown/unassigned owners are labeled clearly. */
   teams: WebsiteManagementTeam[]
+  /** Hide the Eier column when the owner is shown elsewhere (e.g. all rows share one team). */
+  showOwnerColumn?: boolean
   onEdit?: (website: WebsiteRegistration) => void
   onSoftDelete?: (website: WebsiteRegistration) => void
   /** ReOps-only hard delete. When provided, a destructive action is shown per row. */
@@ -26,6 +28,7 @@ interface WebsiteRegistrationsTableProps {
 export function WebsiteRegistrationsTable({
   websites,
   teams,
+  showOwnerColumn = true,
   onEdit,
   onSoftDelete,
   onHardDelete,
@@ -67,6 +70,18 @@ export function WebsiteRegistrationsTable({
     })
   }, [websites, teams, sortOrder])
 
+  const ownerColumn: DataGrid.Columns<WebsiteRegistration>[number] = {
+    id: 'owner',
+    header: 'Eier',
+    bodyCell: (website) =>
+      website.ownerTeamId ? (
+        teamName(website.ownerTeamId)
+      ) : (
+        <span style={{ color: 'var(--ax-text-neutral-subtle)' }}>Ingen eier</span>
+      ),
+    isSortable: true,
+  }
+
   const columns: DataGrid.Columns<WebsiteRegistration> = [
     {
       id: 'name',
@@ -74,27 +89,10 @@ export function WebsiteRegistrationsTable({
       bodyCell: (website) => website.name,
       isRowHeader: true,
       isSortable: true,
-      width: { defaultValue: 220 },
+      width: { defaultValue: 200 },
     },
     { id: 'domain', header: 'Domene', bodyCell: (website) => website.domain, isSortable: true },
-    {
-      id: 'owner',
-      header: 'Eier',
-      bodyCell: (website) =>
-        website.ownerTeamId ? (
-          teamName(website.ownerTeamId)
-        ) : (
-          <span style={{ color: 'var(--ax-text-neutral-subtle)' }}>Ingen eier</span>
-        ),
-      isSortable: true,
-    },
-    {
-      id: 'createdAt',
-      header: 'Opprettet',
-      bodyCell: (website) => formatDate(website.createdAt),
-      isSortable: true,
-      width: { defaultValue: 120 },
-    },
+    ...(showOwnerColumn ? [ownerColumn] : []),
     {
       id: 'updatedAt',
       header: 'Sist endret',
@@ -116,7 +114,7 @@ export function WebsiteRegistrationsTable({
           </Tag>
         ),
       isSortable: true,
-      width: { defaultValue: 190 },
+      width: { defaultValue: 170 },
     },
     {
       id: 'actions',
@@ -162,7 +160,7 @@ export function WebsiteRegistrationsTable({
           </HStack>
         )
       },
-      width: { defaultValue: 330 },
+      width: { defaultValue: 290 },
     },
   ]
 
@@ -171,12 +169,23 @@ export function WebsiteRegistrationsTable({
   }
 
   return (
-    <DataGrid columns={columns} data={sortedWebsites} getRowId={(website) => website.websiteId}>
+    <DataGrid
+      columns={columns}
+      data={sortedWebsites}
+      getRowId={(website) => website.websiteId}
+      settings={{ stickyColumns: { end: 1 } }}
+    >
       <DataGrid.Table<WebsiteRegistration>
         sorting={{ sortOrder, onSortOrderChange: setSortOrder, allowMultiSort: false }}
         detailsPanel={{
           getContent: (website) => (
             <VStack gap="space-8" padding="space-16">
+              <div>
+                <BodyShort size="small" weight="semibold">
+                  Opprettet
+                </BodyShort>
+                <BodyShort size="small">{formatDate(website.createdAt)}</BodyShort>
+              </div>
               <div>
                 <BodyShort size="small" weight="semibold">
                   Nettside-ID

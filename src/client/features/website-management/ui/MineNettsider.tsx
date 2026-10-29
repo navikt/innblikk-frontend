@@ -33,6 +33,14 @@ export default function MineNettsider() {
   const [editing, setEditing] = useState<WebsiteRegistration | null>(null)
   const [softDeleting, setSoftDeleting] = useState<WebsiteRegistration | null>(null)
 
+  const ownerIds = [...new Set(websites.map((website) => website.ownerTeamId))]
+  const singleOwner = ownerIds.length === 1
+  const singleOwnerName = singleOwner
+    ? ownerIds[0]
+      ? (allTeams.find((team) => team.id === ownerIds[0])?.name ?? 'Ukjent team')
+      : 'Ingen eier'
+    : null
+
   const isLoadingAnything = contextLoading || isLoading
 
   const handleSubmit = async (input: WebsiteInput) => {
@@ -118,8 +126,14 @@ export default function MineNettsider() {
                         Registrer ny nettside
                       </Button>
                     </div>
+                    {singleOwnerName && (
+                      <BodyShort size="small">
+                        Eier: <strong>{singleOwnerName}</strong>
+                      </BodyShort>
+                    )}
                     <WebsiteRegistrationsTable
                       websites={websites}
+                      showOwnerColumn={!singleOwner}
                       teams={allTeams}
                       onEdit={(website) => {
                         setEditing(website)
