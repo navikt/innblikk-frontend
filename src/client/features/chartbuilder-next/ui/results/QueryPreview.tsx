@@ -1949,8 +1949,8 @@ const QueryPreview = ({
             (() => {
               const gb = Number(pendingQueryEstimate.totalBytesProcessedGB ?? 0)
               const cost = Number(pendingQueryEstimate.estimatedCostUSD ?? NaN) || gb * 0.00625
-              let variant: 'info' | 'warning' | 'error' = 'info'
-              let message = ''
+              let variant: 'info' | 'warning' | 'error'
+              let message: string
 
               if (gb >= 100) {
                 variant = 'error'

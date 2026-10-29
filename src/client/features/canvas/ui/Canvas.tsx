@@ -3757,7 +3757,7 @@ const Canvas = () => {
     let nextFrame = frame
     const wasDirty = dirtyEditableFrameIdsRef.current.has(id)
     dirtyEditableFrameIdsRef.current.delete(id)
-    let shouldPersist = false
+    let shouldPersist: boolean
     if (frame.kind === 'heading') {
       const normalizedHeading = (frame.headingText || '').trim()
       const normalizedLabel = normalizedHeading || 'Overskrift'

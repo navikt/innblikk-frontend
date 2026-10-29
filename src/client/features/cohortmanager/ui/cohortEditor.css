@@ -82,14 +82,6 @@
   min-width: 9rem;
 }
 
-/*
- * Fields/operators/combinators/values/notToggle/add-remove buttons are all
- * Aksel components (see CohortEditor.tsx's Aksel*/
-controlElements wiring) —
- * they theme themselves, no CSS needed here beyond the group/row containers
- * above and the layout-only rules below.
- */
-
 /* Hide + Filter button at root level — only groups belong at root */
 .cohort-qb > .ruleGroup > .ruleGroup-header > .ruleGroup-addRule {
   display: none;

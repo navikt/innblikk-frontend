@@ -32,7 +32,7 @@ const HighlightedText = ({ text, type }: { text: string; type: string }) => {
   }
 
   if (lastIndex < text.length) {
-    parts.push(<span key={`text-${key++}`}>{text.substring(lastIndex)}</span>)
+    parts.push(<span key={`text-${key}`}>{text.substring(lastIndex)}</span>)
   }
 
   return <>{parts}</>

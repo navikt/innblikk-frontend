@@ -203,7 +203,7 @@ export function useChartConfig() {
     }
 
     if (dateRangeFromUrl) {
-      let fromSQL = ''
+      let fromSQL: string
       let toSQL = 'CURRENT_TIMESTAMP()'
 
       if (dateRangeFromUrl === 'current_month') {
@@ -351,8 +351,8 @@ export function useChartConfig() {
 
       const updatedConfig = {
         ...prev,
-        metrics: prev.metrics.map(
-          (metric: Metric, i: number): Metric => (i === index ? { ...metric, ...updates } : metric),
+        metrics: prev.metrics.map((metric: Metric, i: number): Metric =>
+          i === index ? { ...metric, ...updates } : metric,
         ),
       }
 

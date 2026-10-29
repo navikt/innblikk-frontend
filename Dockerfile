@@ -1,5 +1,5 @@
 # Build stage
-FROM cgr.dev/chainguard/wolfi-base@sha256:05d24163df148be377275af8374c16523a1dc7e19bf4f1c689784791553c5e45 AS base
+FROM cgr.dev/chainguard/wolfi-base:latest AS base
 
 # Install Node.js and enable pnpm
 RUN apk update && apk add --no-cache nodejs-24 npm && npm install -g corepack && corepack enable
