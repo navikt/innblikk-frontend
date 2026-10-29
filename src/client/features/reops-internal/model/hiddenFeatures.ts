@@ -39,6 +39,13 @@ export const hiddenFeatures: HiddenFeature[] = [
     description: 'Aggregert oversikt over innstillinger/feature flags på tvers av brukere (fra innstillingstabellen).',
   },
   {
+    id: 'nettsider',
+    href: '/reops-internal/nettsider',
+    label: 'Nettsideregistreringer',
+    description:
+      'Administrer alle nettsideregistreringer (beta): tildel eierskap (UUID), deaktiver, eller slett registreringer permanent (kun Postgres).',
+  },
+  {
     id: 'sql-old',
     href: '/sql-old',
     label: 'SQL-editor (gammel)',

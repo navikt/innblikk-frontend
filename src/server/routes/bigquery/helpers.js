@@ -37,6 +37,10 @@ export async function getWebsitesList(bigquery, GCP_PROJECT_ID, navIdent, addAud
   // public_website is append-only: each create/update in reops-clean-to-enriched appends
   // a new row per website_id, so dedupe to the latest updated_at per website_id. Plain
   // GROUP BY + ANY_VALUE(domain) was non-deterministic and could return a stale domain.
+  //
+  // The dedupe MUST happen before the tombstone filter: soft delete appends a final row
+  // with deleted_at set, so filtering deleted_at before picking the latest version would
+  // resurrect the pre-delete version of a deleted website.
   const query = `
     SELECT
         website_id as id,
@@ -47,9 +51,9 @@ export async function getWebsitesList(bigquery, GCP_PROJECT_ID, navIdent, addAud
         created_at as createdAt,
         updated_at as updatedAt
     FROM \`${GCP_PROJECT_ID}.umami.public_website\`
-    WHERE deleted_at IS NULL
-      AND name IS NOT NULL
-    QUALIFY ROW_NUMBER() OVER (PARTITION BY website_id ORDER BY updated_at DESC) = 1
+    WHERE name IS NOT NULL
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY website_id ORDER BY updated_at DESC, deleted_at DESC NULLS LAST) = 1
+      AND deleted_at IS NULL
     ORDER BY name
   `
 

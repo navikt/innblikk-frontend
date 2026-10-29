@@ -86,6 +86,13 @@ export const BIGQUERY_PROXY_BASE_URL = normalizeBaseUrl(
 export const GEMINI_LOCATION = process.env.GEMINI_LOCATION || 'europe-west4'
 export const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
 
+// Website management (reops-clean-to-enriched /api/manage/websites). Intentionally NO local
+// defaults: the management BFF is fail-closed, so an unset target locally just makes the
+// routes answer 503 (unavailable) — never fall back to a static token or guessed URL.
+// NAIS sets these per environment (dev -> dev cluster service, prod -> prod cluster service).
+export const WEBSITE_MANAGEMENT_BASE_URL = normalizeBaseUrl(process.env.WEBSITE_MANAGEMENT_BASE_URL)
+export const WEBSITE_MANAGEMENT_OBO_SCOPE = process.env.WEBSITE_MANAGEMENT_OBO_SCOPE || undefined
+
 if (!BACKEND_BASE_URL) {
   throw new Error('Missing env var: BACKEND_BASE_URL')
 }

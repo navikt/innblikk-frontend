@@ -12,6 +12,7 @@ import { createUserRouter } from './src/server/routes/user/userRoutes.js'
 import { createClickmapPreviewRouter } from './src/server/routes/clickmap/clickmapPreviewRoutes.js'
 import { createAnalyticsEventsRouter } from './src/server/routes/analytics-events/analyticsEventsRoutes.js'
 import { createCopilotRouter } from './src/server/routes/copilot/copilotRoutes.js'
+import { createWebsiteManagementRouter } from './src/server/routes/website-management/websiteManagementRoutes.js'
 import { createGenAIClient } from './src/server/genai/client.js'
 import { authenticateUser } from './src/server/middleware/authenticateUser.js'
 import { requireReopsTeamMember } from './src/server/middleware/requireReopsTeamMember.js'
@@ -29,6 +30,8 @@ import {
   GEMINI_LOCATION,
   GEMINI_MODEL,
   BIGQUERY_PROXY_BASE_URL,
+  WEBSITE_MANAGEMENT_BASE_URL,
+  WEBSITE_MANAGEMENT_OBO_SCOPE,
 } from './src/server/config/env.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -83,6 +86,14 @@ app.use('/api/user', createUserRouter({ BACKEND_BASE_URL }))
 
 // Backend proxy (Project/Dashboard/Graph/Query APIs)
 app.use('/api/backend', createBackendProxyRouter({ BACKEND_BASE_URL }))
+
+// Website management BFF (reops-clean-to-enriched). Explicit routes with Azure OBO to a
+// fixed per-environment target — fail-closed auth (no MOCK_NAV_IDENT/static-token/local
+// fallback on these routes), same-origin protection for mutations, no-cache responses.
+app.use(
+  '/api/website-management',
+  createWebsiteManagementRouter({ WEBSITE_MANAGEMENT_BASE_URL, WEBSITE_MANAGEMENT_OBO_SCOPE }),
+)
 
 // BigQuery routes (router paths already include /api/bigquery)
 app.use(createBigQueryRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE }))
