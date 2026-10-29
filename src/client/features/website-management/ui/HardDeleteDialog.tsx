@@ -21,8 +21,8 @@ export function HardDeleteDialog({ website, onConfirm, onClose }: HardDeleteDial
   const [confirmationWebsiteId, setConfirmationWebsiteId] = useState<string | null>(null)
 
   // Reset the typed confirmation when the dialog is reopened for another website.
-  if (website && confirmationWebsiteId !== website.websiteId) {
-    setConfirmationWebsiteId(website.websiteId)
+  if (confirmationWebsiteId !== (website?.websiteId ?? null)) {
+    setConfirmationWebsiteId(website?.websiteId ?? null)
     setConfirmation('')
     setError(null)
     setIsSubmitting(false)
