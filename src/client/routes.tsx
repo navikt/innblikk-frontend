@@ -222,7 +222,7 @@ export const fullWidthPathPrefixes = [
   '/grafdeling',
   '/grafbygger-old',
   '/dashboard/',
-  '/brukergrupper-next/',
+  '/brukergrupper/',
   '/sidegrupper/',
   '/profil',
   '/innstillinger',
@@ -254,10 +254,10 @@ export const routes: AppRoute[] = [
   { path: '/grafbygger-old', component: <GrafbyggerOld />, fullWidth: true },
   // Legacy alias from the pre-rollout live-testing route.
   { path: '/grafbygger_next', component: <LegacyVisualizationRouteRedirect to="/grafbygger" />, fullWidth: true },
-  { path: '/brukergrupper', component: <CohortManager />, fullWidth: true },
-  { path: '/brukergrupper-next', component: <CohortManagerNext />, fullWidth: true },
-  { path: '/brukergrupper-next/ny', component: <CohortEditorPage />, fullWidth: true },
-  { path: '/brukergrupper-next/:id', component: <CohortEditorPage />, fullWidth: true },
+  { path: '/brukergrupper-pro', component: <CohortManager />, fullWidth: true },
+  { path: '/brukergrupper', component: <CohortManagerNext />, fullWidth: true },
+  { path: '/brukergrupper/ny', component: <CohortEditorPage />, fullWidth: true },
+  { path: '/brukergrupper/:id', component: <CohortEditorPage />, fullWidth: true },
   // Legacy alias — user-facing name changed from "kohorter" to "brukergrupper"; backend still calls them cohorts.
   { path: '/kohorter', component: <LegacyVisualizationRouteRedirect to="/brukergrupper" />, fullWidth: true },
   { path: '/metabase', component: <MetabaseGuide />, fullWidth: true },
