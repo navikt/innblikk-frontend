@@ -32,6 +32,7 @@ import {
   BIGQUERY_PROXY_BASE_URL,
   WEBSITE_MANAGEMENT_BASE_URL,
   WEBSITE_MANAGEMENT_OBO_SCOPE,
+  WEBSITE_SELF_SERVICE_ENABLED,
 } from './src/server/config/env.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -92,7 +93,11 @@ app.use('/api/backend', createBackendProxyRouter({ BACKEND_BASE_URL }))
 // fallback on these routes), same-origin protection for mutations, no-cache responses.
 app.use(
   '/api/website-management',
-  createWebsiteManagementRouter({ WEBSITE_MANAGEMENT_BASE_URL, WEBSITE_MANAGEMENT_OBO_SCOPE }),
+  createWebsiteManagementRouter({
+    WEBSITE_MANAGEMENT_BASE_URL,
+    WEBSITE_MANAGEMENT_OBO_SCOPE,
+    WEBSITE_SELF_SERVICE_ENABLED,
+  }),
 )
 
 // BigQuery routes (router paths already include /api/bigquery)

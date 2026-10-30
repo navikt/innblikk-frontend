@@ -93,6 +93,15 @@ export const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
 export const WEBSITE_MANAGEMENT_BASE_URL = normalizeBaseUrl(process.env.WEBSITE_MANAGEMENT_BASE_URL)
 export const WEBSITE_MANAGEMENT_OBO_SCOPE = process.env.WEBSITE_MANAGEMENT_OBO_SCOPE || undefined
 
+// Self-service website management for non-ReOps users is not live: enabled only locally and in
+// the dev cluster. Prod keeps the management API ReOps-only. Override with
+// WEBSITE_SELF_SERVICE_ENABLED=true|false.
+const selfServiceOverride = process.env.WEBSITE_SELF_SERVICE_ENABLED
+export const WEBSITE_SELF_SERVICE_ENABLED =
+  selfServiceOverride === 'true' ||
+  (selfServiceOverride !== 'false' &&
+    (process.env.NODE_ENV !== 'production' || (process.env.NAIS_CLUSTER_NAME ?? '').startsWith('dev')))
+
 if (!BACKEND_BASE_URL) {
   throw new Error('Missing env var: BACKEND_BASE_URL')
 }

@@ -114,7 +114,12 @@ function isValidBody(body) {
   return body !== null && typeof body === 'object' && !Array.isArray(body)
 }
 
-export function createWebsiteManagementRouter({ WEBSITE_MANAGEMENT_BASE_URL, WEBSITE_MANAGEMENT_OBO_SCOPE }) {
+export function createWebsiteManagementRouter({
+  WEBSITE_MANAGEMENT_BASE_URL,
+  WEBSITE_MANAGEMENT_OBO_SCOPE,
+  // Fail closed: self-service (non-ReOps users) only works where explicitly enabled (dev).
+  WEBSITE_SELF_SERVICE_ENABLED = false,
+}) {
   const router = express.Router()
 
   router.use((req, res, next) => {
@@ -124,12 +129,12 @@ export function createWebsiteManagementRouter({ WEBSITE_MANAGEMENT_BASE_URL, WEB
   router.use(requireValidatedAzureUser)
   router.use(requireSameOriginMutation)
 
-  // scope=all is a cross-team listing and must be verified against Team Catalog by
-  // requireReopsTeamMember before any handler runs. The marker it sets is what the
-  // list handler checks — a client guessing `?scope=all` without membership is refused
-  // here, and never reaches the upstream service.
+  // Self-service is not live yet. Where it is disabled (prod) the whole management API is
+  // limited to Team ResearchOps, verified against Team Catalog on every request. Where it is
+  // enabled (dev) only the cross-team listing (scope=all) and hard delete stay ReOps-only —
+  // team ownership of mine-scope operations is enforced by the upstream service.
   router.use((req, res, next) => {
-    if (req.method === 'GET' && req.query.scope === 'all') {
+    if (!WEBSITE_SELF_SERVICE_ENABLED || (req.method === 'GET' && req.query.scope === 'all')) {
       return requireReopsTeamMember(req, res, () => {
         req.isReopsTeamMember = true
         next()

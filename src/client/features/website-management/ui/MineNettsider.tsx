@@ -3,11 +3,11 @@ import { BodyLong, BodyShort, Button, Heading, Link, Loader, LocalAlert, VStack 
 import { PlusIcon } from '@navikt/aksel-icons'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
-import { BetaFeatureNotice, BetaFeedbackLine } from '../../../shared/ui/BetaFeatureNotice.tsx'
 import {
   createManagedWebsite,
   softDeleteManagedWebsite,
   updateManagedWebsite,
+  WebsiteManagementApiError,
   WebsiteManagementUnavailableError,
   type WebsiteInput,
   type WebsiteRegistration,
@@ -58,23 +58,25 @@ export default function MineNettsider() {
     reload()
   }
 
-  const unavailable = contextError instanceof WebsiteManagementUnavailableError
+  const unavailable =
+    contextError instanceof WebsiteManagementUnavailableError ||
+    (contextError instanceof WebsiteManagementApiError && contextError.status === 403)
 
   return (
     <>
       <PageHeader
         title="Mine team sine nettsider"
-        beta
         description="Registrer og administrer sporingskoder for teamene dine."
       />
 
       <AppBlock className="pb-16">
         <VStack gap="space-16">
-          <BetaFeatureNotice id="nettsideadministrasjon" title="Nettsideadministrasjon er i beta">
-            Du kan nå registrere nye nettsider, endre navn og domene, og deaktivere innsamling for nettsider som eies av
-            teamene dine. Deaktivering stopper innsamlingen, men sletter ikke historiske data.
-            <BetaFeedbackLine />
-          </BetaFeatureNotice>
+          <LocalAlert status="warning">
+            <LocalAlert.Content>
+              Under utvikling og ikke annonsert ennå. Siden er bare tilgjengelig i dev, og endringer gjelder
+              dev-miljøet.
+            </LocalAlert.Content>
+          </LocalAlert>
 
           <BodyShort size="small" style={{ color: 'var(--ax-text-subtle)' }}>
             Endringene gjelder miljøet du er logget inn på. Den fullstendige oversikten over alle nettsider og

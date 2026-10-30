@@ -30,6 +30,7 @@ import { createWebsiteManagementRouter } from './websiteManagementRoutes.js'
 function buildApp({
   baseUrl = 'http://reops-clean-to-enriched:8080',
   scope = 'api://dev-gcp.team-researchops.reops-clean-to-enriched/.default',
+  selfService = true,
 } = {}) {
   const app = express()
   app.use(express.json())
@@ -38,6 +39,7 @@ function buildApp({
     createWebsiteManagementRouter({
       WEBSITE_MANAGEMENT_BASE_URL: baseUrl,
       WEBSITE_MANAGEMENT_OBO_SCOPE: scope,
+      WEBSITE_SELF_SERVICE_ENABLED: selfService,
     }),
   )
   return app
@@ -77,6 +79,7 @@ async function request(app, { method = 'GET', path, headers = {}, body, sameOrig
 }
 
 const asReops = { 'x-test-reops': 'yes' }
+const notReops = { 'x-test-reops': 'no' }
 const mutationHeaders = { 'x-requested-with': 'XMLHttpRequest' }
 
 // Captured BEFORE vi.stubGlobal replaces it: the real fetch drives browser-side
@@ -217,9 +220,29 @@ describe('routing and authorization', () => {
   })
 
   it('blocks scope=all for non-ReOps users (fail closed, never forwarded)', async () => {
-    const res = await request(buildApp(), { path: '/?scope=all' })
+    const res = await request(buildApp(), { path: '/?scope=all', headers: notReops })
     expect(res.status).toBe(403)
     expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('with self-service disabled (prod), blocks every route for non-ReOps users', async () => {
+    for (const path of ['/', '/?scope=all', '/teams', '/context']) {
+      const res = await request(buildApp({ selfService: false }), { path, headers: notReops })
+      expect(res.status).toBe(403)
+    }
+    const create = await request(buildApp({ selfService: false }), {
+      method: 'POST',
+      path: '/',
+      headers: { ...mutationHeaders, ...notReops },
+      body: { name: 'x', domain: 'x.nav.no' },
+    })
+    expect(create.status).toBe(403)
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('with self-service disabled (prod), still serves ReOps members', async () => {
+    const res = await request(buildApp({ selfService: false }), { path: '/?scope=all', headers: asReops })
+    expect(res.status).toBe(200)
   })
 
   it('allows scope=all for ReOps members and forwards it', async () => {
@@ -251,7 +274,7 @@ describe('hard delete (ReOps only)', () => {
     const res = await request(buildApp(), {
       method: 'DELETE',
       path: `/${VALID_ID}/registration`,
-      headers: { ...mutationHeaders, 'x-confirm-website-id': VALID_ID },
+      headers: { ...mutationHeaders, 'x-confirm-website-id': VALID_ID, ...notReops },
     })
     expect(res.status).toBe(403)
     expect(fetch).not.toHaveBeenCalled()

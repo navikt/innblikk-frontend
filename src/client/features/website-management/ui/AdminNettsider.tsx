@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react'
-import { BodyShort, Button, Heading, Link, Loader, LocalAlert, Switch, VStack } from '@navikt/ds-react'
+import { BodyShort, Button, Heading, Loader, LocalAlert, Switch, VStack } from '@navikt/ds-react'
 import { PlusIcon } from '@navikt/aksel-icons'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
-import { BetaFeatureNotice, BetaFeedbackLine } from '../../../shared/ui/BetaFeatureNotice.tsx'
 import {
   createManagedWebsite,
   hardDeleteManagedWebsite,
@@ -61,17 +60,15 @@ export default function AdminNettsider() {
     <>
       <PageHeader
         title="Alle nettsideregistreringer"
-        beta
         description="ReOps-intern oversikt over alle registreringer, inkludert deaktiverte og registreringer uten eier."
       />
 
       <AppBlock className="pb-16">
         <VStack gap="space-16">
-          <BetaFeatureNotice id="nettsideadministrasjon" title="Nettsideadministrasjon er i beta">
+          <BodyShort size="small" style={{ color: 'var(--ax-text-subtle)' }}>
             Eksisterende registreringer har foreløpig ingen eier (eierskap er ikke utledet fra tidligere team-ID-er).
             Tildel eierskap manuelt per registrering ved å søke opp teamet.
-            <BetaFeedbackLine />
-          </BetaFeatureNotice>
+          </BodyShort>
 
           {(contextLoading || isLoading) && <Loader size="large" title="Laster registreringer…" />}
 
@@ -118,8 +115,6 @@ export default function AdminNettsider() {
 
               <BodyShort size="small" style={{ color: 'var(--ax-text-subtle)' }}>
                 «Slett» fjerner kun registreringen i Postgres — ingenting i Kafka, BigQuery eller analysedata berøres.
-                Vanlige brukere administrerer egne nettsider på{' '}
-                <Link href="/mine-nettsider">Mine team sine nettsider</Link>.
               </BodyShort>
             </>
           )}

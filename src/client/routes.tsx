@@ -266,6 +266,7 @@ export const routes: AppRoute[] = [
   { path: '/copilot', component: <CopilotRoute />, fullWidth: true },
   { path: '/reops-internal', component: <ReopsInternalRoute />, fullWidth: true },
   { path: '/reops-internal/nettsider', component: <AdminNettsiderRoute />, fullWidth: true },
+  // Unlisted: self-service is not advertised anywhere yet (no nav, beta list or links); works in dev only.
   { path: '/mine-nettsider', component: <MineNettsider />, fullWidth: true },
   { path: '/sql', component: <SqlNextPage />, fullWidth: true },
   { path: '/sql-old', component: <SqlEditor />, fullWidth: true },
