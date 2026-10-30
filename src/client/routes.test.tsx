@@ -24,9 +24,9 @@ describe('SQL routes', () => {
 
 describe('isFullWidthPath', () => {
   it('treats every brukergrupper-next page as full width, including the edit route', () => {
-    expect(isFullWidthPath('/brukergrupper-next')).toBe(true)
-    expect(isFullWidthPath('/brukergrupper-next/ny')).toBe(true)
-    expect(isFullWidthPath('/brukergrupper-next/9')).toBe(true)
+    expect(isFullWidthPath('/brukergrupper')).toBe(true)
+    expect(isFullWidthPath('/brukergrupper/ny')).toBe(true)
+    expect(isFullWidthPath('/brukergrupper/9')).toBe(true)
   })
 
   it('treats the sidegrupper list and its editor routes as full width', () => {
