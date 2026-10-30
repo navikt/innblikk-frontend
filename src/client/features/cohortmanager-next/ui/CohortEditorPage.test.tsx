@@ -38,9 +38,9 @@ function renderAt(path: string) {
   render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
-        <Route path="/brukergrupper-next/ny" element={<CohortEditorRoute />} />
-        <Route path="/brukergrupper-next/:id" element={<CohortEditorRoute />} />
-        <Route path="/brukergrupper-next" element={<div>Oversikt</div>} />
+        <Route path="/brukergrupper/ny" element={<CohortEditorRoute />} />
+        <Route path="/brukergrupper/:id" element={<CohortEditorRoute />} />
+        <Route path="/brukergrupper" element={<div>Oversikt</div>} />
         <Route path="/annet" element={<div>Annen side</div>} />
       </Routes>
       <Link to="/annet">Annen lenke</Link>
@@ -58,7 +58,7 @@ describe('CohortEditorPage', () => {
   })
 
   it('starts with one empty criterion and the og/eller/deretter choices', async () => {
-    renderAt('/brukergrupper-next/ny?websiteId=site-1')
+    renderAt('/brukergrupper/ny?websiteId=site-1')
 
     expect(await screen.findByRole('heading', { name: 'Ny brukergruppe' })).toBeInTheDocument()
     expect(screen.getByLabelText('Beskrivelse (valgfri)')).not.toBeVisible()
@@ -73,7 +73,7 @@ describe('CohortEditorPage', () => {
 
   it('adds a second criterion with «og» and keeps both og and eller available', async () => {
     const user = userEvent.setup()
-    renderAt('/brukergrupper-next/ny?websiteId=site-1')
+    renderAt('/brukergrupper/ny?websiteId=site-1')
 
     await user.click(await screen.findByRole('button', { name: 'og' }))
 
@@ -91,7 +91,7 @@ describe('CohortEditorPage', () => {
 
   it('previews unsaved criteria without requiring a name or creating a group', async () => {
     const user = userEvent.setup()
-    renderAt('/brukergrupper-next/ny?websiteId=site-1')
+    renderAt('/brukergrupper/ny?websiteId=site-1')
     await user.type(await screen.findByRole('combobox', { name: 'Verdi' }), '/soknad{Enter}')
     await user.click(screen.getByRole('button', { name: 'Forhåndsvis gruppe' }))
     expect(await screen.findByText('12 unike brukere')).toBeInTheDocument()
@@ -105,7 +105,7 @@ describe('CohortEditorPage', () => {
 
   it('refuses to save an incomplete group and lists what is missing', async () => {
     const user = userEvent.setup()
-    renderAt('/brukergrupper-next/ny?websiteId=site-1')
+    renderAt('/brukergrupper/ny?websiteId=site-1')
 
     await user.click(await screen.findByRole('button', { name: 'Opprett brukergruppe' }))
 
@@ -116,7 +116,7 @@ describe('CohortEditorPage', () => {
 
   it('extends the last activity with «deretter» and can undo it', async () => {
     const user = userEvent.setup()
-    renderAt('/brukergrupper-next/ny?websiteId=site-1')
+    renderAt('/brukergrupper/ny?websiteId=site-1')
 
     await user.click(await screen.findByRole('button', { name: 'deretter' }))
 
@@ -130,18 +130,18 @@ describe('CohortEditorPage', () => {
   })
 
   it('hides the website picker when the URL identifies a known website', async () => {
-    renderAt('/brukergrupper-next/ny?websiteId=site-1')
+    renderAt('/brukergrupper/ny?websiteId=site-1')
 
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Tilbake til brukergrupper' })).toHaveAttribute(
         'href',
-        '/brukergrupper-next?websiteId=site-1',
+        '/brukergrupper?websiteId=site-1',
       ),
     )
     expect(screen.queryByRole('combobox', { name: 'Nettsted' })).not.toBeInTheDocument()
   })
 
-  it.each(['/brukergrupper-next/ny', '/brukergrupper-next/ny?websiteId=', '/brukergrupper-next/ny?websiteId=unknown'])(
+  it.each(['/brukergrupper/ny', '/brukergrupper/ny?websiteId=', '/brukergrupper/ny?websiteId=unknown'])(
     'requires a website selection when the URL has no valid website: %s',
     async (path) => {
       const user = userEvent.setup()
@@ -176,7 +176,7 @@ describe('CohortEditorPage', () => {
       name: 'Eksisterende',
       root: { nodeType: 'GROUP', combinator: 'AND', negated: false, children: [] },
     })
-    renderAt('/brukergrupper-next/3')
+    renderAt('/brukergrupper/3')
 
     expect(await screen.findByRole('heading', { name: 'Rediger brukergruppe' })).toBeInTheDocument()
     expect(screen.queryByRole('combobox', { name: 'Nettsted' })).not.toBeInTheDocument()
@@ -184,7 +184,7 @@ describe('CohortEditorPage', () => {
 
   it('follows in-app links freely when nothing has been changed', async () => {
     const user = userEvent.setup()
-    renderAt('/brukergrupper-next/ny?websiteId=site-1')
+    renderAt('/brukergrupper/ny?websiteId=site-1')
 
     await user.click(await screen.findByRole('link', { name: 'Annen lenke' }))
     expect(await screen.findByText('Annen side')).toBeInTheDocument()
@@ -192,7 +192,7 @@ describe('CohortEditorPage', () => {
 
   it('asks before following an in-app link while there are unsaved edits', async () => {
     const user = userEvent.setup()
-    renderAt('/brukergrupper-next/ny?websiteId=site-1')
+    renderAt('/brukergrupper/ny?websiteId=site-1')
 
     await user.type(await screen.findByLabelText('Navn'), 'Halvferdig')
     await user.click(screen.getByRole('link', { name: 'Annen lenke' }))
@@ -208,7 +208,7 @@ describe('CohortEditorPage', () => {
     const user = userEvent.setup()
     vi.mocked(replaceCriteria).mockRejectedValueOnce(new Error('Kriterier avvist'))
     vi.mocked(deleteCohortChecked).mockRejectedValueOnce(new Error('500'))
-    renderAt('/brukergrupper-next/ny?websiteId=site-1')
+    renderAt('/brukergrupper/ny?websiteId=site-1')
 
     await user.type(await screen.findByLabelText('Navn'), 'Søkere')
     await user.type(screen.getByRole('combobox', { name: 'Verdi' }), '/soknad{Enter}')
@@ -219,7 +219,7 @@ describe('CohortEditorPage', () => {
 
   it('saves a complete group as a wrapped event group', async () => {
     const user = userEvent.setup()
-    renderAt('/brukergrupper-next/ny?websiteId=site-1')
+    renderAt('/brukergrupper/ny?websiteId=site-1')
 
     await user.type(await screen.findByLabelText('Navn'), 'Søkere')
     await user.type(screen.getByRole('combobox', { name: 'Verdi' }), '/soknad{Enter}')
@@ -285,7 +285,7 @@ describe('CohortEditorPage', () => {
       },
     }
     vi.mocked(getCohort).mockResolvedValue(nested)
-    renderAt('/brukergrupper-next/9')
+    renderAt('/brukergrupper/9')
 
     expect(await screen.findByRole('heading', { name: 'Rediger brukergruppe' })).toBeInTheDocument()
     expect(screen.queryByText('Denne brukergruppen kan ikke redigeres her ennå')).not.toBeInTheDocument()
@@ -305,7 +305,7 @@ describe('CohortEditorPage', () => {
 
   it('turns «A og B» + eller into «A og (B eller C)», and further eller adds to that group', async () => {
     const user = userEvent.setup()
-    renderAt('/brukergrupper-next/ny?websiteId=site-1')
+    renderAt('/brukergrupper/ny?websiteId=site-1')
 
     await user.click(await screen.findByRole('button', { name: 'og' }))
     await user.click(screen.getByRole('button', { name: 'eller' }))
@@ -331,13 +331,13 @@ describe('CohortEditorPage', () => {
         children: [{ nodeType: 'CONDITION', field: 'screen', conditionType: 'EQUALS', value: '1x1' }],
       },
     })
-    renderAt('/brukergrupper-next/10')
+    renderAt('/brukergrupper/10')
 
     expect(await screen.findByText('Denne brukergruppen kan ikke redigeres her ennå')).toBeInTheDocument()
     expect(screen.queryByText(/gamle editoren/)).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Tilbake til brukergrupper/ })).toHaveAttribute(
       'href',
-      '/brukergrupper-next?websiteId=site-1',
+      '/brukergrupper?websiteId=site-1',
     )
   })
 })

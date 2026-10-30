@@ -36,7 +36,7 @@ import { WebsiteSelect } from '../../../shared/ui/WebsiteSelect.tsx'
 import { useUnsavedChangesGuard } from '../../../shared/hooks/useUnsavedChangesGuard.ts'
 import './cohortNext.css'
 
-const LIST_PATH = '/brukergrupper-next'
+const LIST_PATH = '/brukergrupper'
 
 function focusAnchor(anchorId: string) {
   const el = document.getElementById(anchorId)
@@ -252,7 +252,7 @@ function CohortEditorPage() {
       <PageHeader title={title} description={!isNew && websiteLabel ? `Nettsted: ${websiteLabel}` : undefined} beta />
 
       <AppBlock className="pb-16">
-        <BetaFeatureNotice id="brukergrupper-next" title="Brukergrupper er i beta" className="mb-4">
+        <BetaFeatureNotice id="brukergrupper" title="Brukergrupper er i beta" className="mb-4">
           Brukergrupper er under utvikling, og funksjonalitet kan endre seg.
           <BetaFeedbackLine />
         </BetaFeatureNotice>

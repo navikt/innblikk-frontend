@@ -116,14 +116,14 @@ for (const width of [390, 1440]) {
       },
     )
 
-    await page.goto('/brukergrupper-next?websiteId=site-1')
+    await page.goto('/brukergrupper?websiteId=site-1')
     const previewButton = page.getByRole('button', { name: 'Forhåndsvis', exact: true })
     await expect(previewButton).toBeVisible()
     expect(queries).toHaveLength(0)
     await previewButton.click()
     const dialog = page.getByRole('dialog', { name: 'Søkere', exact: true })
     await expect(dialog).toBeVisible()
-    await expect(page).toHaveURL(/\/brukergrupper-next\?websiteId=site-1$/)
+    await expect(page).toHaveURL(/\/brukergrupper\?websiteId=site-1$/)
     await expect(dialog.getByRole('heading', { name: 'Søkere', exact: true })).toBeVisible()
     await expect(page.getByLabel('Periode', { exact: true })).toHaveValue('last_7_days')
     await expect(page.getByText('120 unike brukere', { exact: true })).toBeVisible()
@@ -165,7 +165,7 @@ for (const width of [390, 1440]) {
     await page.getByRole('button', { name: 'Forhåndsvis gruppe', exact: true }).click()
     await expect(page.getByText('120 unike brukere', { exact: true })).toBeVisible()
 
-    await page.goto('/brukergrupper-next/ny?websiteId=site-1')
+    await page.goto('/brukergrupper/ny?websiteId=site-1')
     await page.getByRole('combobox', { name: 'Verdi', exact: true }).fill('/soknad')
     await page.getByRole('button', { name: 'Forhåndsvis gruppe', exact: true }).click()
     await expect(page.getByText('120 unike brukere', { exact: true })).toBeVisible()

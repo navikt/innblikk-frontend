@@ -90,7 +90,7 @@ export default function CohortManagerNext() {
   }
 
   const names = Object.fromEntries(details.map((c) => [String(c.id), c.name]))
-  const newHref = `/brukergrupper-next/ny?websiteId=${encodeURIComponent(websiteIdParam ?? '')}`
+  const newHref = `/brukergrupper/ny?websiteId=${encodeURIComponent(websiteIdParam ?? '')}`
 
   return (
     <>
@@ -101,7 +101,7 @@ export default function CohortManagerNext() {
       />
 
       <AppBlock className="pb-16">
-        <BetaFeatureNotice id="brukergrupper-next" title="Brukergrupper er i beta" className="mb-4">
+        <BetaFeatureNotice id="brukergrupper" title="Brukergrupper er i beta" className="mb-4">
           Brukergrupper er under utvikling, og funksjonalitet kan endre seg.
           <BetaFeedbackLine />
         </BetaFeatureNotice>
@@ -187,7 +187,7 @@ export default function CohortManagerNext() {
                                 size="small"
                                 variant="secondary"
                                 icon={<PencilIcon aria-hidden />}
-                                onClick={() => navigate(`/brukergrupper-next/${cohort.id}`)}
+                                onClick={() => navigate(`/brukergrupper/${cohort.id}`)}
                               >
                                 Rediger
                               </Button>
@@ -244,7 +244,7 @@ export default function CohortManagerNext() {
             {previewTarget && (
               <Button
                 as={Link}
-                to={`/brukergrupper-next/${previewTarget.id}`}
+                to={`/brukergrupper/${previewTarget.id}`}
                 variant="secondary"
                 icon={<PencilIcon aria-hidden />}
               >

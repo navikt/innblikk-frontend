@@ -23,7 +23,7 @@ describe('SQL routes', () => {
 })
 
 describe('isFullWidthPath', () => {
-  it('treats every brukergrupper-next page as full width, including the edit route', () => {
+  it('treats every brukergrupper page as full width, including the edit route', () => {
     expect(isFullWidthPath('/brukergrupper')).toBe(true)
     expect(isFullWidthPath('/brukergrupper/ny')).toBe(true)
     expect(isFullWidthPath('/brukergrupper/9')).toBe(true)
