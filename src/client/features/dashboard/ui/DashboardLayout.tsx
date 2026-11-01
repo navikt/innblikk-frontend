@@ -1,4 +1,6 @@
 import React from 'react'
+import type { ProjectDto } from '../../../shared/types/backend.ts'
+import { PageBreadcrumbs } from '../../../shared/ui/PageBreadcrumbs.tsx'
 import { KontaktSeksjon } from '../../../shared/ui/theme/Kontakt/KontaktSeksjon.tsx'
 import { Skyra } from '../../../shared/ui/theme/Skyra/Skyra.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
@@ -9,6 +11,7 @@ interface DashboardLayoutProps {
   subtitle?: string // e.g. Domain or ID
   description?: React.ReactNode
   headerActions?: React.ReactNode
+  team?: Pick<ProjectDto, 'id' | 'name'>
   filtersTop?: React.ReactNode
   filters?: React.ReactNode
   showKontaktSection?: boolean
@@ -20,6 +23,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   subtitle,
   description,
   headerActions,
+  team,
   filtersTop,
   filters,
   showKontaktSection = true,
@@ -27,7 +31,23 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 }) => {
   return (
     <>
-      <PageHeader title={title} subtitle={subtitle} description={description} actions={headerActions} />
+      <PageHeader
+        title={title}
+        subtitle={subtitle}
+        description={description}
+        actions={headerActions}
+        breadcrumbs={
+          team ? (
+            <PageBreadcrumbs
+              items={[
+                { label: 'Dashboard', to: '/dashboard' },
+                { label: team.name, to: `/dashboard?projectId=${team.id}` },
+                { label: title },
+              ]}
+            />
+          ) : undefined
+        }
+      />
 
       <AppBlock className="pb-16">
         {filtersTop && <div className="mb-4">{filtersTop}</div>}

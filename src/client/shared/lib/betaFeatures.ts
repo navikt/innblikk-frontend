@@ -36,6 +36,12 @@ export const betaFeatures: BetaFeature[] = [
     href: '/grafbygger',
   },
   {
+    id: 'brukergrupper',
+    title: 'Brukergrupper',
+    description: 'Definer brukergrupper, se gruppestørrelsen og bruk gruppene i Grafbygger.',
+    href: '/brukergrupper',
+  },
+  {
     id: 'wcag-sjekk',
     title: 'WCAG-sjekk',
     description: 'Sjekker nettsiden din mot WCAG-krav og viser hva som bør fikses.',

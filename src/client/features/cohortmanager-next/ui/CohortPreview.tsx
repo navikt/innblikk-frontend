@@ -134,7 +134,7 @@ export function CohortPreview({
     >
       <HStack justify="space-between" align="center" gap="space-8">
         <Heading level="2" size="small" id={regionId}>
-          Forhåndsvisning
+          Gruppestørrelse
         </Heading>
         {!defaultExpanded && (
           <Button

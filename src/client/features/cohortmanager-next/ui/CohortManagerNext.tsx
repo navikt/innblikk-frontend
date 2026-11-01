@@ -4,7 +4,7 @@ import { Alert, BodyShort, Box, Button, Dialog, Heading, HStack, Loader, Table, 
 import { ArchiveIcon, PencilIcon, PlusIcon, TrashIcon } from '@navikt/aksel-icons'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
-import { BetaFeatureNotice, BetaFeedbackLine } from '../../../shared/ui/BetaFeatureNotice.tsx'
+import { PageBreadcrumbs } from '../../../shared/ui/PageBreadcrumbs.tsx'
 import { fetchWebsites } from '../../../shared/api/websiteApi.ts'
 import type { Website } from '../../../shared/types/website.ts'
 import { getCohort, listCohorts } from '../../cohortmanager/api/cohortManagerApi.ts'
@@ -91,21 +91,40 @@ export default function CohortManagerNext() {
 
   const names = Object.fromEntries(details.map((c) => [String(c.id), c.name]))
   const newHref = `/brukergrupper/ny?websiteId=${encodeURIComponent(websiteIdParam ?? '')}`
+  const previewWebsite = websites.find((website) => website.id === previewTarget?.websiteId)
+  const chartHref =
+    previewTarget && previewWebsite
+      ? `/grafbygger?${new URLSearchParams({
+          websiteId: previewWebsite.id,
+          config: JSON.stringify({
+            website: previewWebsite,
+            cohortIds: [String(previewTarget.id)],
+            metrics: [],
+            groupByFields: [],
+          }),
+        })}`
+      : null
 
   return (
     <>
       <PageHeader
         title="Brukergrupper"
         description="Samle brukere som har gjort noe bestemt på nettstedet ditt, og bruk gruppen i grafene dine."
+        breadcrumbs={
+          <PageBreadcrumbs
+            items={[
+              {
+                label: 'Grafbygger',
+                to: websiteIdParam ? `/grafbygger?websiteId=${encodeURIComponent(websiteIdParam)}` : '/grafbygger',
+              },
+              { label: 'Brukergrupper' },
+            ]}
+          />
+        }
         beta
       />
 
       <AppBlock className="pb-16">
-        <BetaFeatureNotice id="brukergrupper" title="Brukergrupper er i beta" className="mb-4">
-          Brukergrupper er under utvikling, og funksjonalitet kan endre seg.
-          <BetaFeedbackLine />
-        </BetaFeatureNotice>
-
         <VStack gap="space-24">
           {websitesLoading ? (
             <Loader title="Laster nettsteder…" />
@@ -181,7 +200,7 @@ export default function CohortManagerNext() {
                                 disabled={!detail}
                                 onClick={() => setPreviewTarget(detail ?? null)}
                               >
-                                Forhåndsvis
+                                Vis gruppe
                               </Button>
                               <Button
                                 size="small"
@@ -237,10 +256,20 @@ export default function CohortManagerNext() {
                   defaultExpanded
                   autoPreview
                 />
+                {!chartHref && (
+                  <Alert variant="warning" size="small">
+                    Kunne ikke finne nettstedet til brukergruppen. Velg nettstedet på nytt og prøv igjen.
+                  </Alert>
+                )}
               </VStack>
             )}
           </Dialog.Body>
           <Dialog.Footer>
+            {chartHref && (
+              <Button as={Link} to={chartHref}>
+                Bruk i Grafbygger
+              </Button>
+            )}
             {previewTarget && (
               <Button
                 as={Link}

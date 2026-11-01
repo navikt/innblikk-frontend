@@ -15,9 +15,10 @@ vi.mock('./grafbygger/AlertWithCloseButton.tsx', () => ({
 }))
 
 vi.mock('./results/QueryPreview.tsx', () => ({
-  default: ({ onResetAll }: { onResetAll?: () => void }) => (
+  default: ({ onResetAll, sql }: { onResetAll?: () => void; sql: string }) => (
     <div data-testid="query-preview">
       QueryPreview
+      <pre data-testid="generated-sql">{sql}</pre>
       <button onClick={onResetAll}>Tilbakestill alle valg</button>
     </div>
   ),
@@ -50,18 +51,19 @@ vi.mock('../api/cohortApi.ts', async (importOriginal) => ({
 vi.mock('./grafbygger/CohortPicker.tsx', async () => {
   const React = await import('react')
   const CohortPickerStub = ({
+    initialCohortIds = [],
     onCohortIdsChange,
   }: {
+    initialCohortIds?: string[]
     onCohortIdsChange: (ids: string[]) => void
     onRatioModeChange: (enabled: boolean) => void
   }) => {
-    const ids =
-      (JSON.parse(localStorage.getItem('grafbygger:config:v2') ?? '{}') as { cohortIds?: string[] }).cohortIds ?? []
+    const ids = initialCohortIds
     React.useEffect(() => {
       if (ids.length > 0) onCohortIdsChange(ids)
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
-    return <div data-testid="cohort-picker" />
+    return <div data-testid="cohort-picker">{ids.join(',')}</div>
   }
   return { default: CohortPickerStub }
 })
@@ -97,6 +99,7 @@ describe('Grafbygger page', () => {
   beforeEach(() => {
     // Clear localStorage so cached websites/selection from a previous test don't interfere
     localStorage.clear()
+    mockFetchCohortsDeep.mockReset().mockResolvedValue(new Map())
     window.history.replaceState({}, '', '/grafbygger')
 
     vi.stubGlobal(
@@ -169,6 +172,49 @@ describe('Grafbygger page', () => {
     await user.click(screen.getByRole('button', { name: 'Tilbakestill alle valg' }))
 
     expect(await screen.findByText('Datakilder')).toBeInTheDocument()
+  })
+
+  it('opens a new graph with the supplied group selected and resolved without overwriting the last draft', async () => {
+    const savedDraft = JSON.stringify({
+      website: FAKE_WEBSITES[1],
+      metrics: [{ function: 'count', alias: 'antall' }],
+      groupByFields: [],
+      cohortIds: ['1'],
+    })
+    localStorage.setItem('grafbygger:config:v2', savedDraft)
+    mockFetchCohortsDeep.mockResolvedValue(new Map([['42', cohort('42', 'Firefox')]]))
+    const params = new URLSearchParams({
+      websiteId: 'site-1',
+      config: JSON.stringify({
+        website: FAKE_WEBSITES[0],
+        cohortIds: ['42'],
+        metrics: [],
+        groupByFields: [],
+      }),
+    })
+    window.history.replaceState({}, '', `/grafbygger?${params}`)
+    renderGrafbygger(`?${params}`)
+
+    expect(await screen.findByTestId('cohort-picker')).toHaveTextContent('42')
+    await waitFor(() => expect(screen.getByTestId('generated-sql')).toHaveTextContent('Firefox'))
+    expect(localStorage.getItem('grafbygger:config:v2')).toBe(savedDraft)
+  })
+
+  it('reports a group resolution failure instead of generating an unfiltered query', async () => {
+    mockFetchCohortsDeep.mockRejectedValueOnce(new Error('Unavailable'))
+    const params = new URLSearchParams({
+      config: JSON.stringify({
+        website: FAKE_WEBSITES[0],
+        cohortIds: ['42'],
+        metrics: [{ function: 'count', alias: 'antall' }],
+        groupByFields: [],
+      }),
+    })
+    window.history.replaceState({}, '', `/grafbygger?${params}`)
+    renderGrafbygger(`?${params}`)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Kunne ikke laste de valgte brukergruppene')
+    await waitFor(() => expect(screen.getByTestId('generated-sql')).toBeEmptyDOMElement())
   })
 
   describe('cross-tab cohort staleness', () => {

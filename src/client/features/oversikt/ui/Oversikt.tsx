@@ -138,6 +138,7 @@ const Oversikt = () => {
   }, [])
 
   const {
+    selectedProject,
     selectedDashboard,
     selectedProjectId,
     selectedDashboardId,
@@ -1850,6 +1851,7 @@ const Oversikt = () => {
   return (
     <DashboardLayout
       title={pageTitle}
+      team={selectedDashboard ? (selectedProject ?? undefined) : undefined}
       description={selectedDashboard?.description?.trim() ? selectedDashboard.description : undefined}
       showKontaktSection={!isFocusedMode}
       headerActions={

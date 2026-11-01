@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Accordion, Bleed, BodyShort, Box, Checkbox, Loader } from '@navikt/ds-react'
+import { Accordion, Alert, Bleed, BodyShort, Box, Checkbox, Loader } from '@navikt/ds-react'
 import { ArrowCirclepathReverseIcon } from '@navikt/aksel-icons'
 import { Events } from '@navikt/analytics-types'
 import { trackEvent } from '../../../shared/lib/trackEvent.ts'
@@ -37,6 +37,7 @@ const fingerprintCohortLookup = (lookup: Map<string, CohortDetailDto>): string =
   )
 
 const ChartsPage = () => {
+  const [cohortLoadError, setCohortLoadError] = useState<string | null>(null)
   const isFocusedMode = (() => {
     if (typeof window === 'undefined') return false
     const params = new URLSearchParams(window.location.search)
@@ -113,6 +114,7 @@ const ChartsPage = () => {
   const handleCohortIdsChange = useCallback(
     async (ids: string[]) => {
       const requestId = ++cohortRequestIdRef.current
+      setCohortLoadError(null)
       setConfig((prev) => ({ ...prev, cohortIds: ids }))
       if (ids.length === 0) {
         setResolvedCohorts([])
@@ -126,12 +128,16 @@ const ChartsPage = () => {
         const lookup = await fetchCohortsDeep(ids)
         if (requestId === cohortRequestIdRef.current) {
           const selected = ids.map((id) => lookup.get(id)).filter((c) => c !== undefined)
+          if (selected.length !== ids.length) {
+            throw new Error('En eller flere brukergrupper finnes ikke lenger.')
+          }
           cohortFingerprintRef.current = fingerprintCohortLookup(lookup)
           setResolvedCohorts(selected)
           setCohortLookup(lookup)
         }
       } catch {
         if (requestId === cohortRequestIdRef.current) {
+          setCohortLoadError('Kunne ikke laste de valgte brukergruppene. Velg dem på nytt eller prøv igjen senere.')
           setResolvedCohorts([])
           setCohortLookup(new Map())
         }
@@ -414,6 +420,11 @@ const ChartsPage = () => {
       )}
 
       <div className="sticky top-6 max-h-[calc(100vh-4rem)] overflow-y-auto">
+        {cohortLoadError && (
+          <Alert role="alert" variant="error" className="mb-4">
+            {cohortLoadError}
+          </Alert>
+        )}
         <QueryPreview
           sql={generatedSQL}
           activeStep={currentStep}

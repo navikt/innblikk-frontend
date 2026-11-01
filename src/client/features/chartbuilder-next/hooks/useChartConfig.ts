@@ -296,6 +296,8 @@ export function useChartConfig() {
     urlPathFromUrl,
     pathOperatorFromUrl,
     dateRangeFromUrl,
+    setConfig,
+    setDateRangeInDays,
   ])
 
   // Apply pending filters once dateRangeReady is true (EventFilter has mounted)
@@ -506,8 +508,15 @@ export function useChartConfig() {
           },
         ]
 
+    if (
+      JSON.stringify(debouncedConfig.cohortIds ?? []) !== JSON.stringify(config.cohortIds ?? []) ||
+      debouncedConfig.cohortIds?.some((id) => !resolvedCohorts.some((cohort) => String(cohort.id) === id))
+    ) {
+      return ''
+    }
+
     return generateSQLCore(debouncedConfig, sqlFilters, parameters, resolvedCohorts, cohortLookup)
-  }, [debouncedConfig, filters, parameters, resolvedCohorts, cohortLookup])
+  }, [debouncedConfig, config.cohortIds, filters, parameters, resolvedCohorts, cohortLookup])
 
   const setOrderBy = (column: string, direction: 'ASC' | 'DESC') => {
     const metricWithAlias = config.metrics.find((m) => m.alias === column)

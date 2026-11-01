@@ -8,6 +8,7 @@ interface PageHeaderProps {
   subtitle?: string
   description?: React.ReactNode
   actions?: React.ReactNode
+  breadcrumbs?: React.ReactNode
   variant?: 'regular' | 'article'
   beta?: boolean
   notice?: React.ReactNode
@@ -24,6 +25,7 @@ export const PageHeader = ({
   subtitle,
   description,
   actions,
+  breadcrumbs,
   variant = 'regular',
   beta,
   notice,
@@ -46,6 +48,7 @@ export const PageHeader = ({
       }}
     >
       <AppBlock gutters={compactGutters ? 'compact' : true}>
+        {breadcrumbs && <div className="mb-3">{breadcrumbs}</div>}
         <div
           className={`grid gap-[10px] md:grid-cols-[minmax(0,1fr)_auto] md:items-start ${
             isArticle ? 'max-w-[800px] mx-auto' : ''
