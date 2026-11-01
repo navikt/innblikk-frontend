@@ -143,6 +143,7 @@ const getNavItems = (isReopsTeamMember: boolean, showMarketing: boolean): NavEnt
       { id: 'sql', label: 'SQL-spørringer', to: '/sql' },
       { id: 'personvern', label: 'Personvernsjekk', to: '/personvernssjekk' },
       { id: 'kohorter', label: 'Brukergrupper', to: '/kohorter' },
+      { id: 'sidegrupper', label: 'Sidegrupper', to: '/sidegrupper' },
       ...(isReopsTeamMember ? [{ id: 'reops-internal', label: 'ReOps-internt', to: '/reops-internal' }] : []),
     ],
   },

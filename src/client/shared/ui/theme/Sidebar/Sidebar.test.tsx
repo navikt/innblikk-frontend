@@ -18,6 +18,33 @@ function WebsiteSwitcher() {
   return <button onClick={() => void navigate('/trafikkanalyse?websiteId=unsupported')}>Switch website</button>
 }
 
+describe('Sidebar tools navigation', () => {
+  it('lists Sidegrupper immediately after Brukergrupper', () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <Sidebar theme="light" />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Vis undermeny for Verktøy' }))
+
+    const sidegrupper = screen.getByRole('link', { name: 'Sidegrupper' })
+    expect(sidegrupper).toHaveAttribute('href', '/sidegrupper')
+    expect(screen.getByRole('link', { name: 'Brukergrupper' }).nextElementSibling).toBe(sidegrupper)
+  })
+
+  it('opens Verktøy when arriving directly at Sidegrupper', () => {
+    render(
+      <MemoryRouter initialEntries={['/sidegrupper']}>
+        <Sidebar theme="light" />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('button', { name: 'Skjul undermeny for Verktøy' })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('link', { name: 'Sidegrupper' })).toBeVisible()
+  })
+})
+
 describe('Sidebar campaign navigation', () => {
   it.each([
     ['?websiteId=supported', true],

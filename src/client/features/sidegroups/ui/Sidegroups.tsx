@@ -8,7 +8,6 @@ import { fetchWebsites } from '../../../shared/api/websiteApi.ts'
 import type { Website } from '../../../shared/types/website.ts'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
-import { BetaFeatureNotice, BetaFeedbackLine } from '../../../shared/ui/BetaFeatureNotice.tsx'
 import { WebsiteSelect } from '../../../shared/ui/WebsiteSelect.tsx'
 import { deleteSidegroup, listSidegroups } from '../api/sidegroupsApi.ts'
 import { sidegroupMatchFields, type Sidegroup } from '../model/types.ts'
@@ -71,14 +70,8 @@ export default function Sidegroups() {
 
   return (
     <>
-      <PageHeader title="Sidegrupper" description="Administrer alle grupper på nettstedet ditt" beta />
+      <PageHeader title="Sidegrupper" description="Samle sider i grupper basert på URL, og analyser dem samlet." beta />
       <AppBlock className="pb-16">
-        {/* Dismissable beta notice — registry id in shared/lib/betaFeatures.ts */}
-        <BetaFeatureNotice id="sidegrupper" title="Sidegrupper er i beta" className="mb-4">
-          Sidegrupper er under utvikling, og funksjonalitet kan endre seg.
-          <BetaFeedbackLine />
-        </BetaFeatureNotice>
-
         <VStack gap="space-16">
           {websitesLoading ? (
             <Loader size="small" title="Laster nettsteder…" />
