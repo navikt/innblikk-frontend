@@ -51,7 +51,7 @@ describe('Grafbygger page', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn((url: string) => {
-        if (url.includes('/api/bigquery/websites')) {
+        if (new URL(url, 'http://localhost').pathname === '/api/bigquery/websites') {
           return Promise.resolve({
             ok: true,
             json: () => Promise.resolve({ data: FAKE_WEBSITES }),

@@ -35,6 +35,7 @@ describe('automatic analysis reports', () => {
     localStorage.clear()
     window.history.replaceState({}, '', '/')
     vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 9, 15, 12))
     vi.clearAllMocks()
     vi.mocked(fetchMarketingStats).mockResolvedValue({ data: {} })
     vi.mocked(fetchFunnelData).mockResolvedValue({
@@ -160,5 +161,21 @@ describe('automatic analysis reports', () => {
     act(() => result.current.setPeriod('current_month'))
     await flushRefresh()
     expect(fetchGoalCompletionData).toHaveBeenCalledTimes(2)
+  })
+
+  it('waits for completed days before refreshing goal completion for the current month', async () => {
+    vi.setSystemTime(new Date(2026, 10, 1, 12))
+    const { result } = renderHook(useGoalCompletion, { wrapper })
+    act(() => {
+      result.current.setSelectedWebsite(website)
+      result.current.setStartStep({ type: 'url', value: '/start' })
+      result.current.setGoalStep({ type: 'url', value: '/done' })
+    })
+    await flushRefresh()
+    expect(fetchGoalCompletionData).toHaveBeenCalledTimes(1)
+    act(() => result.current.setPeriod('current_month'))
+    await flushRefresh()
+    expect(fetchGoalCompletionData).toHaveBeenCalledTimes(1)
+    expect(result.current.error).toBeNull()
   })
 })

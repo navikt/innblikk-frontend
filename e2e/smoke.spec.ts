@@ -787,7 +787,7 @@ for (const width of [390, 1440]) {
     )
 
     await page.goto('/brukergrupper?websiteId=site-1')
-    const previewButton = page.getByRole('button', { name: 'Forhåndsvis', exact: true })
+    const previewButton = page.getByRole('button', { name: 'Vis gruppe', exact: true })
     await expect(previewButton).toBeVisible()
     expect(queries).toHaveLength(0)
     await previewButton.click()
@@ -816,7 +816,7 @@ for (const width of [390, 1440]) {
     await page.getByRole('button', { name: 'Oppdater', exact: true }).click()
     await expect(page.getByText('120 unike brukere', { exact: true })).toBeVisible()
     await page.screenshot({ path: testInfo.outputPath('cohort-preview-modal.png'), fullPage: true })
-    const preview = page.getByRole('region', { name: 'Forhåndsvisning', exact: true })
+    const preview = dialog.getByRole('region', { name: 'Gruppestørrelse', exact: true })
     const bounds = await preview.boundingBox()
     expect(bounds).not.toBeNull()
     expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width)
