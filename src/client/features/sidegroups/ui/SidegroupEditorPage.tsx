@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   Alert,
@@ -23,7 +23,12 @@ import { WebsiteSelect } from '../../../shared/ui/WebsiteSelect.tsx'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { createSidegroup, listSidegroups, updateSidegroup } from '../api/sidegroupsApi.ts'
-import { sidegroupMatchFields, type SidegroupMatchField, type SidegroupRequest } from '../model/types.ts'
+import {
+  sidegroupMatchFields,
+  type Sidegroup,
+  type SidegroupMatchField,
+  type SidegroupRequest,
+} from '../model/types.ts'
 import { hasMultipleValues, parseBulkPatterns } from '../utils/bulkPatterns.ts'
 
 type MatchCondition = {
@@ -61,17 +66,31 @@ const snapshotOf = (name: string, websiteId: string | null, conditions: MatchCon
 /** Remounts per route target so state never leaks between «ny» and an existing sidegroup. */
 export default function SidegroupEditorRoute() {
   const { id } = useParams()
-  return <SidegroupEditorPage key={id ?? 'new'} />
+  return <SidegroupEditor key={id ?? 'new'} />
 }
 
-function SidegroupEditorPage() {
-  const { id } = useParams()
+export interface SidegroupEditorRef {
+  requestClose: () => void
+  getInitialFocus: () => HTMLInputElement | null
+}
+
+type SidegroupEditorProps =
+  | { website?: never; onSaved?: never; onCancel?: never }
+  | { website: Website; onSaved: (sidegroup: Sidegroup) => void; onCancel: () => void }
+
+export const SidegroupEditor = forwardRef<SidegroupEditorRef, SidegroupEditorProps>(function SidegroupEditor(
+  { website: fixedWebsite, onSaved, onCancel },
+  ref,
+) {
+  const { id: routeId } = useParams()
+  const embedded = Boolean(fixedWebsite)
+  const id = embedded ? undefined : routeId
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const isNew = !id
 
-  const [websites, setWebsites] = useState<Website[]>([])
-  const [websiteId, setWebsiteId] = useState<string | null>(searchParams.get('websiteId'))
+  const [websites, setWebsites] = useState<Website[]>(fixedWebsite ? [fixedWebsite] : [])
+  const [websiteId, setWebsiteId] = useState<string | null>(fixedWebsite?.id ?? searchParams.get('websiteId'))
   const [loading, setLoading] = useState(!isNew)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [name, setName] = useState('')
@@ -90,12 +109,14 @@ function SidegroupEditorPage() {
   const [patternError, setPatternError] = useState('')
   const [snapshot, setSnapshot] = useState<string | null>(() => (isNew ? snapshotOf('', websiteId, [], '') : null))
   const nextConditionId = useRef(0)
+  const nameInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
+    if (fixedWebsite) return
     fetchWebsites()
       .then(setWebsites)
       .catch(() => {})
-  }, [])
+  }, [fixedWebsite])
 
   useEffect(() => {
     if (!id) return
@@ -203,6 +224,7 @@ function SidegroupEditorPage() {
   }
 
   const save = async () => {
+    if (saving) return
     if (!name.trim() || !websiteId) {
       setShowErrors(true)
       return
@@ -211,10 +233,10 @@ function SidegroupEditorPage() {
     setFormError(null)
     try {
       const request = toRequest(name, description, websiteId, conditions)
-      if (id) await updateSidegroup(id, request)
-      else await createSidegroup(request)
+      const saved = id ? await updateSidegroup(id, request) : await createSidegroup(request)
       setSnapshot(snapshotOf(name, websiteId, conditions, ''))
-      void navigate(listHref)
+      if (onSaved) onSaved(saved)
+      else void navigate(listHref)
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Kunne ikke lagre sidegruppen')
     } finally {
@@ -237,7 +259,17 @@ function SidegroupEditorPage() {
     void save()
   }
 
-  const handleCancel = () => (dirty ? requestLeave(listHref) : void navigate(listHref))
+  const handleCancel = () => {
+    if (saving) return
+    if (dirty) requestLeave(listHref)
+    else if (onCancel) onCancel()
+    else void navigate(listHref)
+  }
+
+  useImperativeHandle(ref, () => ({
+    requestClose: handleCancel,
+    getInitialFocus: () => nameInputRef.current,
+  }))
 
   const changeWebsite = (nextId: string | null) => setWebsiteId(nextId)
 
@@ -264,226 +296,239 @@ function SidegroupEditorPage() {
     )
   }
 
+  const form = (
+    <form onSubmit={handleSubmit}>
+      <VStack gap="space-24" style={{ maxWidth: '56rem' }}>
+        {!embedded && (
+          <Button
+            as={Link}
+            to={listHref}
+            variant="tertiary"
+            size="small"
+            icon={<ArrowLeftIcon aria-hidden />}
+            style={{ alignSelf: 'flex-start' }}
+          >
+            Tilbake til sidegrupper
+          </Button>
+        )}
+
+        <VStack gap="space-12" style={{ maxWidth: '32rem' }}>
+          <TextField
+            ref={nameInputRef}
+            label="Navn"
+            value={name}
+            error={nameError}
+            autoFocus={isNew}
+            onChange={(event) => setName(event.target.value)}
+          />
+          {isNew && !embedded && (
+            <WebsiteSelect
+              websites={websites}
+              selectedId={websiteId}
+              onSelect={changeWebsite}
+              error={websiteError}
+              fullWidth
+            />
+          )}
+        </VStack>
+
+        <VStack gap="space-16" as="section" aria-labelledby="sidegroup-conditions">
+          <HStack gap="space-8" align="center">
+            <Heading level="2" size="small" id="sidegroup-conditions">
+              Hvilke sider skal være med i gruppen?
+            </Heading>
+            <HelpText title="URL-sti">For eksempel /artikler/.</HelpText>
+          </HStack>
+
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(12rem,1fr)_minmax(0,2fr)_auto] md:items-end">
+            <Select
+              label="Samsvar"
+              value={newConditionField}
+              onChange={(event) => setNewConditionField(event.target.value as SidegroupMatchField)}
+            >
+              {sidegroupMatchFields.map((field) => (
+                <option key={field.key} value={field.key}>
+                  {field.label}
+                </option>
+              ))}
+            </Select>
+            <TextField
+              label="URL-sti"
+              value={newConditionPattern}
+              onChange={(event) => {
+                setNewConditionPattern(event.target.value)
+                setPatternError('')
+              }}
+              error={patternError || undefined}
+              onPaste={handlePatternPaste}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  addCondition()
+                }
+              }}
+            />
+            <Button
+              type="button"
+              variant="secondary"
+              icon={<PlusIcon aria-hidden />}
+              onClick={addCondition}
+              disabled={!newConditionPattern.trim()}
+            >
+              Legg til
+            </Button>
+          </div>
+
+          {showPendingPatternDecision && (
+            <Alert variant="warning">
+              <VStack gap="space-8">
+                <BodyShort>URL-stien er ikke lagt til ennå.</BodyShort>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" size="small" variant="secondary" disabled={saving} onClick={addCondition}>
+                    Legg til
+                  </Button>
+                  <Button type="button" size="small" disabled={saving} onClick={saveWithoutAddingPending}>
+                    Lagre uten å legge til
+                  </Button>
+                </div>
+              </VStack>
+            </Alert>
+          )}
+
+          {conditions.length > 0 && (
+            <div className="overflow-x-auto">
+              <Table size="small">
+                <Table.Header>
+                  <Table.Row>
+                    <Table.HeaderCell>Samsvar</Table.HeaderCell>
+                    <Table.HeaderCell>URL-sti</Table.HeaderCell>
+                    <Table.HeaderCell>
+                      <span className="sr-only">Handlinger</span>
+                    </Table.HeaderCell>
+                  </Table.Row>
+                </Table.Header>
+                <Table.Body>
+                  {conditions.map((condition) => {
+                    const isEditing = editingConditionId === condition.id
+                    return (
+                      <Table.Row key={condition.id}>
+                        <Table.DataCell>
+                          {isEditing ? (
+                            <Select
+                              label="Samsvar"
+                              hideLabel
+                              value={editingConditionField}
+                              onChange={(event) => setEditingConditionField(event.target.value as SidegroupMatchField)}
+                            >
+                              {sidegroupMatchFields.map((field) => (
+                                <option key={field.key} value={field.key}>
+                                  {field.label}
+                                </option>
+                              ))}
+                            </Select>
+                          ) : (
+                            sidegroupMatchFields.find((field) => field.key === condition.field)?.label
+                          )}
+                        </Table.DataCell>
+                        <Table.DataCell>
+                          {isEditing ? (
+                            <TextField
+                              label="URL-sti"
+                              hideLabel
+                              value={editingConditionPattern}
+                              onChange={(event) => setEditingConditionPattern(event.target.value)}
+                            />
+                          ) : (
+                            condition.pattern
+                          )}
+                        </Table.DataCell>
+                        <Table.DataCell>
+                          <div className="flex justify-end gap-2">
+                            {isEditing ? (
+                              <>
+                                <Button
+                                  type="button"
+                                  size="xsmall"
+                                  onClick={saveConditionEdit}
+                                  disabled={!editingConditionPattern.trim()}
+                                >
+                                  Lagre
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="xsmall"
+                                  variant="secondary"
+                                  onClick={() => setEditingConditionId(null)}
+                                >
+                                  Avbryt
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <Button
+                                  type="button"
+                                  size="xsmall"
+                                  variant="tertiary-neutral"
+                                  icon={<PencilIcon aria-hidden />}
+                                  aria-label="Rediger regel"
+                                  onClick={() => startEditingCondition(condition)}
+                                />
+                                <Button
+                                  type="button"
+                                  size="xsmall"
+                                  variant="tertiary-neutral"
+                                  data-color="danger"
+                                  icon={<TrashIcon aria-hidden />}
+                                  aria-label="Fjern regel"
+                                  onClick={() => removeCondition(condition.id)}
+                                />
+                              </>
+                            )}
+                          </div>
+                        </Table.DataCell>
+                      </Table.Row>
+                    )
+                  })}
+                </Table.Body>
+              </Table>
+            </div>
+          )}
+        </VStack>
+
+        {formError && <Alert variant="error">{formError}</Alert>}
+
+        <HStack gap="space-12">
+          <Button type="submit" loading={saving}>
+            {isNew ? 'Opprett sidegruppe' : 'Lagre endringer'}
+          </Button>
+          <Button type="button" variant="secondary" disabled={saving} onClick={handleCancel}>
+            Avbryt
+          </Button>
+        </HStack>
+      </VStack>
+    </form>
+  )
+
   return (
     <>
-      <PageHeader title={title} description={!isNew && websiteLabel ? `Nettsted: ${websiteLabel}` : undefined} beta />
-
-      <AppBlock className="pb-16">
-        <BetaFeatureNotice id="sidegrupper" title="Sidegrupper er i beta" className="mb-4">
-          Sidegrupper er under utvikling, og funksjonalitet kan endre seg.
-          <BetaFeedbackLine />
-        </BetaFeatureNotice>
-
-        <form onSubmit={handleSubmit}>
-          <VStack gap="space-24" style={{ maxWidth: '56rem' }}>
-            <Button
-              as={Link}
-              to={listHref}
-              variant="tertiary"
-              size="small"
-              icon={<ArrowLeftIcon aria-hidden />}
-              style={{ alignSelf: 'flex-start' }}
-            >
-              Tilbake til sidegrupper
-            </Button>
-
-            <VStack gap="space-12" style={{ maxWidth: '32rem' }}>
-              <TextField
-                label="Navn"
-                value={name}
-                error={nameError}
-                autoFocus={isNew}
-                onChange={(event) => setName(event.target.value)}
-              />
-              {isNew && (
-                <WebsiteSelect
-                  websites={websites}
-                  selectedId={websiteId}
-                  onSelect={changeWebsite}
-                  error={websiteError}
-                  fullWidth
-                />
-              )}
-            </VStack>
-
-            <VStack gap="space-16" as="section" aria-labelledby="sidegroup-conditions">
-              <HStack gap="space-8" align="center">
-                <Heading level="2" size="small" id="sidegroup-conditions">
-                  Hvilke sider skal være med i gruppen?
-                </Heading>
-                <HelpText title="URL-sti">For eksempel /artikler/.</HelpText>
-              </HStack>
-
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(12rem,1fr)_minmax(0,2fr)_auto] md:items-end">
-                <Select
-                  label="Samsvar"
-                  value={newConditionField}
-                  onChange={(event) => setNewConditionField(event.target.value as SidegroupMatchField)}
-                >
-                  {sidegroupMatchFields.map((field) => (
-                    <option key={field.key} value={field.key}>
-                      {field.label}
-                    </option>
-                  ))}
-                </Select>
-                <TextField
-                  label="URL-sti"
-                  value={newConditionPattern}
-                  onChange={(event) => {
-                    setNewConditionPattern(event.target.value)
-                    setPatternError('')
-                  }}
-                  error={patternError || undefined}
-                  onPaste={handlePatternPaste}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      event.preventDefault()
-                      addCondition()
-                    }
-                  }}
-                />
-                <Button
-                  type="button"
-                  variant="secondary"
-                  icon={<PlusIcon aria-hidden />}
-                  onClick={addCondition}
-                  disabled={!newConditionPattern.trim()}
-                >
-                  Legg til
-                </Button>
-              </div>
-
-              {showPendingPatternDecision && (
-                <Alert variant="warning">
-                  <VStack gap="space-8">
-                    <BodyShort>URL-stien er ikke lagt til ennå.</BodyShort>
-                    <div className="flex flex-wrap gap-2">
-                      <Button type="button" size="small" variant="secondary" disabled={saving} onClick={addCondition}>
-                        Legg til
-                      </Button>
-                      <Button type="button" size="small" disabled={saving} onClick={saveWithoutAddingPending}>
-                        Lagre uten å legge til
-                      </Button>
-                    </div>
-                  </VStack>
-                </Alert>
-              )}
-
-              {conditions.length > 0 && (
-                <div className="overflow-x-auto">
-                  <Table size="small">
-                    <Table.Header>
-                      <Table.Row>
-                        <Table.HeaderCell>Samsvar</Table.HeaderCell>
-                        <Table.HeaderCell>URL-sti</Table.HeaderCell>
-                        <Table.HeaderCell>
-                          <span className="sr-only">Handlinger</span>
-                        </Table.HeaderCell>
-                      </Table.Row>
-                    </Table.Header>
-                    <Table.Body>
-                      {conditions.map((condition) => {
-                        const isEditing = editingConditionId === condition.id
-                        return (
-                          <Table.Row key={condition.id}>
-                            <Table.DataCell>
-                              {isEditing ? (
-                                <Select
-                                  label="Samsvar"
-                                  hideLabel
-                                  value={editingConditionField}
-                                  onChange={(event) =>
-                                    setEditingConditionField(event.target.value as SidegroupMatchField)
-                                  }
-                                >
-                                  {sidegroupMatchFields.map((field) => (
-                                    <option key={field.key} value={field.key}>
-                                      {field.label}
-                                    </option>
-                                  ))}
-                                </Select>
-                              ) : (
-                                sidegroupMatchFields.find((field) => field.key === condition.field)?.label
-                              )}
-                            </Table.DataCell>
-                            <Table.DataCell>
-                              {isEditing ? (
-                                <TextField
-                                  label="URL-sti"
-                                  hideLabel
-                                  value={editingConditionPattern}
-                                  onChange={(event) => setEditingConditionPattern(event.target.value)}
-                                />
-                              ) : (
-                                condition.pattern
-                              )}
-                            </Table.DataCell>
-                            <Table.DataCell>
-                              <div className="flex justify-end gap-2">
-                                {isEditing ? (
-                                  <>
-                                    <Button
-                                      type="button"
-                                      size="xsmall"
-                                      onClick={saveConditionEdit}
-                                      disabled={!editingConditionPattern.trim()}
-                                    >
-                                      Lagre
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      size="xsmall"
-                                      variant="secondary"
-                                      onClick={() => setEditingConditionId(null)}
-                                    >
-                                      Avbryt
-                                    </Button>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Button
-                                      type="button"
-                                      size="xsmall"
-                                      variant="tertiary-neutral"
-                                      icon={<PencilIcon aria-hidden />}
-                                      aria-label="Rediger regel"
-                                      onClick={() => startEditingCondition(condition)}
-                                    />
-                                    <Button
-                                      type="button"
-                                      size="xsmall"
-                                      variant="tertiary-neutral"
-                                      data-color="danger"
-                                      icon={<TrashIcon aria-hidden />}
-                                      aria-label="Fjern regel"
-                                      onClick={() => removeCondition(condition.id)}
-                                    />
-                                  </>
-                                )}
-                              </div>
-                            </Table.DataCell>
-                          </Table.Row>
-                        )
-                      })}
-                    </Table.Body>
-                  </Table>
-                </div>
-              )}
-            </VStack>
-
-            {formError && <Alert variant="error">{formError}</Alert>}
-
-            <HStack gap="space-12">
-              <Button type="submit" loading={saving}>
-                {isNew ? 'Opprett sidegruppe' : 'Lagre endringer'}
-              </Button>
-              <Button type="button" variant="secondary" disabled={saving} onClick={handleCancel}>
-                Avbryt
-              </Button>
-            </HStack>
-          </VStack>
-        </form>
-      </AppBlock>
+      {embedded ? (
+        form
+      ) : (
+        <>
+          <PageHeader
+            title={title}
+            description={!isNew && websiteLabel ? `Nettsted: ${websiteLabel}` : undefined}
+            beta
+          />
+          <AppBlock className="pb-16">
+            <BetaFeatureNotice id="sidegrupper" title="Sidegrupper er i beta" className="mb-4">
+              Sidegrupper er under utvikling, og funksjonalitet kan endre seg.
+              <BetaFeedbackLine />
+            </BetaFeatureNotice>
+            {form}
+          </AppBlock>
+        </>
+      )}
 
       <Dialog open={leaveTarget !== null} onOpenChange={(open) => !open && cancelLeave()}>
         <Dialog.Popup width="small" role="alertdialog">
@@ -500,7 +545,8 @@ function SidegroupEditorPage() {
                 const target = leaveTarget ?? listHref
                 setSnapshot(null)
                 cancelLeave()
-                void navigate(target)
+                if (onCancel) onCancel()
+                else void navigate(target)
               }}
             >
               Forkast
@@ -515,4 +561,4 @@ function SidegroupEditorPage() {
       </Dialog>
     </>
   )
-}
+})

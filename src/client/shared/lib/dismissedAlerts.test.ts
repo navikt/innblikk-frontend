@@ -20,6 +20,19 @@ describe('dismissedAlerts', () => {
     expect(isAlertDismissed('bar')).toBe(false)
   })
 
+  it('preserves the dismissed builder notice after its feature id is renamed', () => {
+    localStorage.setItem('innblikk_dismissed_alerts', JSON.stringify(['grafbygger-next', 'foo']))
+    expect(isAlertDismissed('grafbyggeren-alfa')).toBe(true)
+    expect(isAlertDismissed('foo')).toBe(true)
+    dismissAlert('bar')
+    expect(JSON.parse(localStorage.getItem('innblikk_dismissed_alerts')!)).toEqual(['grafbyggeren-alfa', 'foo', 'bar'])
+  })
+
+  it('stores new builder dismissals using the Alfa feature id', () => {
+    dismissAlert('grafbyggeren-alfa')
+    expect(JSON.parse(localStorage.getItem('innblikk_dismissed_alerts')!)).toEqual(['grafbyggeren-alfa'])
+  })
+
   it('does not duplicate ids on repeated dismissal', () => {
     dismissAlert('foo')
     dismissAlert('foo')

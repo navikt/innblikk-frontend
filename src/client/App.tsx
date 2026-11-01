@@ -19,7 +19,11 @@ const ScrollToTopWrapper = () => {
 
   // Don't show on /grafbygger — a floating overlay clashes with its sticky sidebar UI.
   // (/copilot doesn't render this wrapper at all — see AppShell's dedicated branch.)
-  if (location.pathname === '/grafbygger') {
+  if (
+    location.pathname === '/grafbygger' ||
+    location.pathname === '/grafbygger-alfa' ||
+    location.pathname === '/grafbygger-next'
+  ) {
     return null
   }
 

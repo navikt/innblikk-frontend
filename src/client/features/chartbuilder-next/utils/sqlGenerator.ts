@@ -635,7 +635,9 @@ export const generateSQLCore = (
 
   // Process filters with consistent table references
   filters.forEach((filter) => {
-    if (filter.column.startsWith('param_')) {
+    if (filter.rawExpression) {
+      sql += `  AND ${filter.rawExpression}\n`
+    } else if (filter.column.startsWith('param_')) {
       return
     } else {
       if (filter.interactive === true && filter.metabaseParam === true && filter.value) {

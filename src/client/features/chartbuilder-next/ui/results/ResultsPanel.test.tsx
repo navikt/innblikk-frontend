@@ -28,6 +28,26 @@ const props = {
   initialTab: 'table' as const,
 }
 
+describe('empty results', () => {
+  it('suggests adjusting filters and dates without linking back to the builder when already editing', () => {
+    render(<ResultsPanel {...props} websiteId="test-website" result={{ data: [] }} showChartBuilderLink={false} />)
+
+    expect(
+      screen.getByText('Spørringen returnerte ingen resultater. Prøv å justere filtrene eller datoperioden.'),
+    ).toBeVisible()
+    expect(screen.queryByRole('link', { name: 'Åpne i Grafbygger' })).not.toBeInTheDocument()
+  })
+
+  it('preserves the builder link for results displayed outside the builder', () => {
+    render(<ResultsPanel {...props} websiteId="test-website" result={{ data: [] }} />)
+
+    expect(screen.getByRole('link', { name: 'Åpne i Grafbygger' })).toHaveAttribute(
+      'href',
+      '/grafbygger?websiteId=test-website',
+    )
+  })
+})
+
 describe('result cell copying', () => {
   afterEach(() => vi.restoreAllMocks())
 

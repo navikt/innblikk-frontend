@@ -63,6 +63,7 @@ interface ResultsPanelProps {
   showSqlMetabaseActions?: boolean
   showExecuteButton?: boolean
   showError?: boolean
+  showChartBuilderLink?: boolean
   hiddenTabs?: string[]
   containerStyle?: 'green' | 'white' | 'none'
   showCost?: boolean
@@ -172,6 +173,7 @@ const ResultsPanel = ({
   showSqlMetabaseActions = true,
   showExecuteButton = true,
   showError = true,
+  showChartBuilderLink = true,
   prepareLineChartData,
   prepareBarChartData,
   preparePieChartData,
@@ -1524,7 +1526,8 @@ const ResultsPanel = ({
         {!sqlOnly && result && result.data && result.data.length === 0 && (
           <Alert variant="info" className="mt-3">
             Spørringen returnerte ingen resultater.
-            {websiteId && (
+            {!showChartBuilderLink && ' Prøv å justere filtrene eller datoperioden.'}
+            {showChartBuilderLink && websiteId && (
               <>
                 {' '}
                 <Link href={`/grafbygger?websiteId=${encodeURIComponent(websiteId)}`}>Åpne i Grafbygger</Link> for å

@@ -90,6 +90,41 @@ describe('chartbuilder preview filters', () => {
     expect(firstRequest.body).toContain('`runtime-project.umami_views.event`')
   })
 
+  it('does not estimate or execute until event validation succeeds', async () => {
+    const user = userEvent.setup()
+    const onBeforeExecute = vi.fn().mockReturnValue(false)
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({ totalBytesProcessedGB: '0', data: [] }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<QueryPreview sql="SELECT 1" onBeforeExecute={onBeforeExecute} />)
+
+    await user.click(screen.getByRole('button', { name: 'Vis resultater' }))
+    expect(onBeforeExecute).toHaveBeenCalledOnce()
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    onBeforeExecute.mockReturnValue(true)
+    await user.click(screen.getByRole('button', { name: 'Vis resultater' }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/bigquery', expect.any(Object)))
+  })
+
+  it('revalidates before execution if the event selection changes while estimating', async () => {
+    const user = userEvent.setup()
+    const onBeforeExecute = vi.fn().mockReturnValueOnce(true).mockReturnValue(false)
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({ totalBytesProcessedGB: '0', data: [] }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<QueryPreview sql="SELECT 1" onBeforeExecute={onBeforeExecute} />)
+
+    await user.click(screen.getByRole('button', { name: 'Vis resultater' }))
+    await waitFor(() => expect(onBeforeExecute).toHaveBeenCalledTimes(2))
+    expect(fetchMock).toHaveBeenCalledOnce()
+    expect(fetchMock).toHaveBeenCalledWith('/api/bigquery/estimate', expect.any(Object))
+  })
+
   it('places additional settings before the primary results action', () => {
     render(<QueryPreview sql="SELECT 1" additionalOptions={<div>Tilleggsvalg</div>} />)
 

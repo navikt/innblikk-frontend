@@ -23,6 +23,9 @@ import { BetaFeatureNotice, RESEARCHOPS_SLACK_URL } from '../../../shared/ui/Bet
 import { useIsReopsTeamMember } from '../../../shared/hooks/useIsReopsTeamMember.ts'
 import type { UserInfo } from '../model'
 
+const settingsBetaFeatures = betaFeatures.filter((feature) => feature.stage !== 'alfa')
+const settingsAlfaFeatures = betaFeatures.filter((feature) => feature.stage === 'alfa')
+
 export default function UserProfile() {
   const [user, setUser] = useState<UserInfo | null>(null)
   const [loading, setLoading] = useState(true)
@@ -146,11 +149,11 @@ export default function UserProfile() {
                 </BodyLong>
               </div>
 
-              {betaFeatures.length === 0 ? (
+              {settingsBetaFeatures.length === 0 ? (
                 <BodyShort textColor="subtle">Ingen funksjoner i beta akkurat nå.</BodyShort>
               ) : (
                 <VStack gap="space-8">
-                  {betaFeatures.map((feature) => (
+                  {settingsBetaFeatures.map((feature) => (
                     <BetaFeatureNotice
                       key={feature.id}
                       id={feature.id}
@@ -176,7 +179,7 @@ export default function UserProfile() {
               <div>
                 <Box asChild marginBlock={'space-0 space-6'}>
                   <Heading level="2" size="medium">
-                    Funksjoner i alpha
+                    Funksjoner i alfa
                   </Heading>
                 </Box>
                 <BodyLong textColor="subtle">
@@ -186,7 +189,28 @@ export default function UserProfile() {
                 </BodyLong>
               </div>
 
-              <BodyShort textColor="subtle">Ingen funksjoner i alpha akkurat nå.</BodyShort>
+              {settingsAlfaFeatures.length === 0 ? (
+                <BodyShort textColor="subtle">Ingen funksjoner i alfa akkurat nå.</BodyShort>
+              ) : (
+                <VStack gap="space-8">
+                  {settingsAlfaFeatures.map((feature) => (
+                    <BetaFeatureNotice
+                      key={feature.id}
+                      id={feature.id}
+                      title={`${feature.title} er i alfa`}
+                      variant="static"
+                    >
+                      {feature.description}
+                      {feature.href && (
+                        <>
+                          {' '}
+                          <Link href={feature.href}>Åpne {feature.title.toLowerCase()}</Link>
+                        </>
+                      )}
+                    </BetaFeatureNotice>
+                  ))}
+                </VStack>
+              )}
             </VStack>
           </section>
 

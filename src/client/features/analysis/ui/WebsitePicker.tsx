@@ -24,6 +24,7 @@ interface WebsitePickerProps {
   selectedWebsite: Website | null
   onWebsiteChange: (website: Website | null) => void
   onEventsLoad?: (events: string[], autoParameters?: { key: string; type: 'string' }[], maxDays?: number) => void
+  onMetadataLoad?: (maxDays: number) => void
   dateRangeInDays?: number // Add this prop to accept date range from parent
   shouldReload?: boolean // Add flag to force reload
   onIncludeParamsChange?: (includeParams: boolean) => void // Callback to notify parent of includeParams state
@@ -43,7 +44,7 @@ interface WebsitePickerProps {
 const API_TIMEOUT_MS = 120000 // timeout
 
 const timeoutPromise = (ms: number) => {
-  return new Promise((_, reject) => {
+  return new Promise<never>((_, reject) => {
     setTimeout(() => {
       reject(new Error(`Request timed out after ${ms}ms`))
     }, ms)
@@ -54,6 +55,7 @@ const WebsitePicker = ({
   selectedWebsite,
   onWebsiteChange,
   onEventsLoad,
+  onMetadataLoad,
   dateRangeInDays: externalDateRange,
   shouldReload = false,
   onIncludeParamsChange,
@@ -274,6 +276,8 @@ const WebsitePicker = ({
         totalDays = 1
       }
 
+      onMetadataLoad?.(totalDays)
+
       if (metadataOnly) {
         if (onEventsLoad) {
           onEventsLoad([], [], totalDays)
@@ -301,17 +305,24 @@ const WebsitePicker = ({
         const startAt = calculatedStartDate.getTime()
         const endAt = calculatedEndDate.getTime()
 
-        // Fetch BOTH query types to get both estimates
-        const propertiesResponse = (await Promise.race([
-          fetch(
-            `${apiBase}/websites/${websiteId}/event-properties?startAt=${startAt}&endAt=${endAt}&includeParams=${includeParams}`,
-          ),
+        const fetchProperties = async (withParams: boolean): Promise<EventProperty[]> => {
+          const response = await fetch(
+            `${apiBase}/websites/${websiteId}/event-properties?startAt=${startAt}&endAt=${endAt}&includeParams=${withParams}`,
+          )
+          if (!response.ok) {
+            throw new Error(`Event properties request failed: ${response.status}`)
+          }
+          const responseData = (await response.json()) as { properties?: EventProperty[] }
+          if (!Array.isArray(responseData.properties)) {
+            throw new Error('Invalid event properties response')
+          }
+          return responseData.properties
+        }
+        const propertyLists = await Promise.race([
+          Promise.all([fetchProperties(false), ...(includeParams ? [fetchProperties(true)] : [])]),
           timeoutPromise(API_TIMEOUT_MS),
-        ])) as Response
-        const responseData = (await propertiesResponse.json()) as { properties?: EventProperty[] }
-
-        // Extract properties and GB processed from response
-        const properties: EventProperty[] = responseData.properties ?? []
+        ])
+        const properties = propertyLists.flat()
 
         /* if (gbProcessedValue) {
         setGbProcessed(gbProcessedValue);
@@ -363,7 +374,7 @@ const WebsitePicker = ({
         fetchInProgress.current[websiteId] = false
       }
     },
-    [onEventsLoad, setMaxDaysAvailable, handleLoadingState, includeParams, dateRangeInDays],
+    [onEventsLoad, onMetadataLoad, setMaxDaysAvailable, handleLoadingState, includeParams, dateRangeInDays],
   )
 
   // Load websites on mount

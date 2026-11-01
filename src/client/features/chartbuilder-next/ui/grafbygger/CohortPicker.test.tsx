@@ -112,6 +112,27 @@ describe('CohortPicker', () => {
   })
 
   describe('selection', () => {
+    it('hides the ratio option without locking restored group selections', async () => {
+      mockFetchCohorts.mockResolvedValue([
+        { id: 'c1', websiteId: 'site-1', name: 'Kohort A' },
+        { id: 'c2', websiteId: 'site-1', name: 'Kohort B' },
+        { id: 'c3', websiteId: 'site-1', name: 'Kohort C' },
+      ])
+      const { onCohortIdsChange } = renderCohortPicker({
+        initialCohortIds: ['c1', 'c2'],
+        initialRatioMode: true,
+        showRatioOption: false,
+      })
+      const user = userEvent.setup()
+      const combobox = await screen.findByRole('combobox', { name: /velg brukergrupper/i })
+      await screen.findByRole('button', { name: /kohort b/i })
+      expect(screen.queryByRole('checkbox', { name: /Vis som ratio/i })).not.toBeInTheDocument()
+      expect(combobox).toBeEnabled()
+      await user.click(combobox)
+      await user.click(await screen.findByRole('option', { name: /kohort c/i }))
+      await waitFor(() => expect(onCohortIdsChange).toHaveBeenLastCalledWith(['c1', 'c2', 'c3']))
+    })
+
     it('fires onCohortIdsChange with id when cohort is selected', async () => {
       mockFetchCohorts.mockResolvedValue([{ id: 'c1', websiteId: 'site-1', name: 'Kohort A' }])
       const { onCohortIdsChange } = renderCohortPicker()

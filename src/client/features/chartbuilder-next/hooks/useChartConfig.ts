@@ -39,7 +39,15 @@ const DEFAULT_CONFIG: ChartConfig = {
   limit: 1000,
 }
 
-export function useChartConfig() {
+export function useChartConfig(edition: 'current' | 'next' = 'current') {
+  const storageKeys =
+    edition === 'next'
+      ? {
+          config: 'grafbygger-next:config:v2',
+          filters: 'grafbygger-next:filters:v2',
+          dateRangeInDays: 'grafbygger-next:dateRangeInDays:v2',
+        }
+      : STORAGE_KEYS
   const [searchParams] = useSearchParams()
 
   // Parse URL params for pre-populating from Dashboard
@@ -64,14 +72,25 @@ export function useChartConfig() {
   // Store pending filters to apply after events are loaded
   const [pendingFiltersFromUrl, setPendingFiltersFromUrl] = useState<Filter[] | null>(null)
 
-  const [config, setConfig, clearPersistedConfig] = usePersistentState<ChartConfig>(
-    STORAGE_KEYS.config,
+  const [storedConfig, setConfig, clearPersistedConfig] = usePersistentState<ChartConfig>(
+    storageKeys.config,
     DEFAULT_CONFIG,
     hasPreloadParams,
   )
+  const config = useMemo(
+    () =>
+      edition === 'next' && storedConfig.segmentRatioMode ? { ...storedConfig, segmentRatioMode: false } : storedConfig,
+    [edition, storedConfig],
+  )
+
+  useEffect(() => {
+    if (edition === 'next' && storedConfig.segmentRatioMode) {
+      setConfig((previous) => ({ ...previous, segmentRatioMode: false }))
+    }
+  }, [edition, storedConfig.segmentRatioMode, setConfig])
 
   const [filters, setFilters, clearPersistedFilters] = usePersistentState<Filter[]>(
-    STORAGE_KEYS.filters,
+    storageKeys.filters,
     [],
     hasPreloadParams,
   )
@@ -81,7 +100,7 @@ export function useChartConfig() {
   const [maxDaysAvailable, setMaxDaysAvailable] = useState<number>(0)
 
   const [dateRangeInDays, setDateRangeInDays, clearPersistedDateRangeInDays] = usePersistentState<number>(
-    STORAGE_KEYS.dateRangeInDays,
+    storageKeys.dateRangeInDays,
     7,
     hasPreloadParams,
   )
@@ -309,7 +328,11 @@ export function useChartConfig() {
   }, [pendingFiltersFromUrl, dateRangeReady])
 
   // Create refs to expose reset functions from child components
-  const chartFiltersRef = useRef<{ resetFilters: (silent?: boolean) => void; enableCustomEvents: () => void }>(null)
+  const chartFiltersRef = useRef<{
+    resetFilters: (silent?: boolean) => void
+    enableCustomEvents: () => void
+    validateSelection?: () => boolean
+  }>(null)
   const summarizeRef = useRef<{ resetConfig: (silent?: boolean) => void }>(null)
   const displayOptionsRef = useRef<{ resetOptions: (silent?: boolean) => void }>(null)
 
@@ -582,6 +605,11 @@ export function useChartConfig() {
     }
   }, [])
 
+  const handleMetadataLoad = useCallback((maxDays: number) => {
+    setMaxDaysAvailable(maxDays)
+    setDateRangeReady(true)
+  }, [])
+
   const handleEventsLoad = useCallback(
     (events: string[], autoParameters?: { key: string; type: 'string' }[], maxDays?: number) => {
       setAvailableEvents(events)
@@ -673,5 +701,6 @@ export function useChartConfig() {
     setColumnOrderMode,
     handleWebsiteChange,
     handleEventsLoad,
+    handleMetadataLoad,
   }
 }

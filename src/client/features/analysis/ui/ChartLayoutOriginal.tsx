@@ -23,6 +23,7 @@ interface ChartLayoutProps {
   showPageHeader?: boolean
   showKontaktSection?: boolean
   beta?: boolean
+  betaLabel?: string
   headerNotice?: React.ReactNode
 }
 
@@ -40,6 +41,7 @@ const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
   showPageHeader = true,
   showKontaktSection = true,
   beta = false,
+  betaLabel,
   headerNotice,
 }) => {
   const { isSidebarOpen, setIsSidebarOpen, handleChartChange } = useChartLayoutOriginal(hideSidebar)
@@ -56,7 +58,14 @@ const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
   return (
     <>
       {showPageHeader && (
-        <PageHeader title={title} description={description} beta={beta} notice={headerNotice} compactGutters />
+        <PageHeader
+          title={title}
+          description={description}
+          beta={beta}
+          betaLabel={betaLabel}
+          notice={headerNotice}
+          compactGutters
+        />
       )}
 
       <AppBlock className={isFocusedEmbedLayout ? 'pb-0' : 'pb-16'} gutters={isFocusedEmbedLayout ? false : 'compact'}>

@@ -1,9 +1,51 @@
 import { Suspense } from 'react'
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { isFullWidthPath, routes } from './routes.tsx'
 
 vi.mock('./features/sql-next', () => ({ SqlNextPage: () => <div>Ny SQL-editor</div> }))
 vi.mock('./features/sql', () => ({ SqlEditor: () => <div>Gammel SQL-editor</div> }))
+vi.mock('./features/chartbuilder-next', () => ({
+  Grafbygger: ({ edition }: { edition?: string }) => <div data-testid="builder" data-edition={edition} />,
+}))
+
+function LocationProbe() {
+  const { pathname, search, hash } = useLocation()
+  return (
+    <output data-testid="location">
+      {pathname}
+      {search}
+      {hash}
+    </output>
+  )
+}
+
+describe('Alfa builder routes', () => {
+  it.each(['/grafbygger-alfa', '/grafbygger-next'])('opens Alfa from %s and keeps URL parameters', async (path) => {
+    const suffix = '?websiteId=site-1&focused=1#hendelser'
+    render(
+      <MemoryRouter initialEntries={[`${path}${suffix}`]}>
+        <Suspense fallback={null}>
+          <Routes>
+            {routes
+              .filter((route) => ['/grafbygger-alfa', '/grafbygger-next'].includes(route.path))
+              .map((route) => (
+                <Route key={route.path} path={route.path} element={route.component} />
+              ))}
+          </Routes>
+        </Suspense>
+        <LocationProbe />
+      </MemoryRouter>,
+    )
+    expect(await screen.findByTestId('builder')).toHaveAttribute('data-edition', 'next')
+    expect(screen.getByTestId('location')).toHaveTextContent(`/grafbygger-alfa${suffix}`)
+    expect(isFullWidthPath(path)).toBe(true)
+  })
+
+  it('does not keep the misspelled grafbyggeren-alfa route or add a redirect', () => {
+    expect(routes.some((route) => route.path === '/grafbyggeren-alfa')).toBe(false)
+  })
+})
 
 describe('SQL routes', () => {
   it.each([

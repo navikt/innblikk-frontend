@@ -87,10 +87,10 @@ const FAKE_WEBSITES = [
   { id: 'site-2', name: 'Ditt NAV - prod', domain: 'nav.no', createdAt: '2023-01-01T00:00:00Z' },
 ]
 
-function renderGrafbygger(search = '') {
+function renderGrafbygger(search = '', edition: 'current' | 'next' = 'current') {
   return render(
-    <MemoryRouter initialEntries={[`/grafbygger${search}`]}>
-      <Grafbygger />
+    <MemoryRouter initialEntries={[`/${edition === 'next' ? 'grafbygger-alfa' : 'grafbygger'}${search}`]}>
+      <Grafbygger edition={edition} />
     </MemoryRouter>,
   )
 }
@@ -105,7 +105,7 @@ describe('Grafbygger page', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn((url: string) => {
-        if (url.includes('/api/bigquery/websites')) {
+        if (url.endsWith('/api/bigquery/websites')) {
           return Promise.resolve({
             ok: true,
             json: () => Promise.resolve({ data: FAKE_WEBSITES }),
@@ -172,6 +172,60 @@ describe('Grafbygger page', () => {
     await user.click(screen.getByRole('button', { name: 'Tilbakestill alle valg' }))
 
     expect(await screen.findByText('Datakilder')).toBeInTheDocument()
+  })
+
+  it('reveals optional user groups beside filters only in the experimental edition', async () => {
+    const user = userEvent.setup()
+    renderGrafbygger('', 'next')
+    await user.click(await screen.findByRole('combobox', { name: /nettside/i }))
+    await user.click(await screen.findByRole('option', { name: /nav\.no - prod/i }))
+    const addGroup = await screen.findByRole('button', { name: 'Brukergruppe' })
+    expect(screen.getByRole('button', { name: 'Filter' })).toBeVisible()
+    expect(screen.getByText('Målt som...')).toBeVisible()
+    expect(screen.queryByTestId('cohort-picker')).not.toBeInTheDocument()
+
+    await user.click(addGroup)
+    expect(screen.getByTestId('cohort-picker')).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Brukergruppe' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Fjern brukergrupper' }))
+    expect(screen.queryByTestId('cohort-picker')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Brukergruppe' })).toBeVisible()
+  })
+
+  it('shows restored experimental groups and removes their criteria when the group picker is removed', async () => {
+    const user = userEvent.setup()
+    localStorage.setItem(
+      'grafbygger-next:config:v2',
+      JSON.stringify({
+        website: FAKE_WEBSITES[0],
+        metrics: [{ function: 'count', alias: 'antall' }],
+        groupByFields: [],
+        cohortIds: ['1'],
+        segmentRatioMode: true,
+      }),
+    )
+    mockFetchCohortsDeep.mockResolvedValue(new Map([['1', cohort('1', 'Firefox')]]))
+    renderGrafbygger('', 'next')
+    expect(await screen.findByTestId('cohort-picker')).toHaveTextContent('1')
+    await waitFor(() => expect(screen.getByTestId('generated-sql')).toHaveTextContent('Firefox'))
+
+    await user.click(screen.getByRole('button', { name: 'Fjern brukergrupper' }))
+    expect(screen.queryByTestId('cohort-picker')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.getByTestId('generated-sql')).not.toHaveTextContent('Firefox'))
+    expect(localStorage.getItem('grafbygger-next:config:v2')).toContain('"cohortIds":[]')
+    expect(localStorage.getItem('grafbygger-next:config:v2')).toContain('"segmentRatioMode":false')
+  })
+
+  it('collapses experimental user groups when all choices are reset', async () => {
+    const user = userEvent.setup()
+    renderGrafbygger('', 'next')
+    await user.click(await screen.findByRole('combobox', { name: /nettside/i }))
+    await user.click(await screen.findByRole('option', { name: /nav\.no - prod/i }))
+    await user.click(await screen.findByRole('button', { name: 'Brukergruppe' }))
+    expect(screen.getByTestId('cohort-picker')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Tilbakestill alle valg' }))
+    expect(screen.queryByTestId('cohort-picker')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Brukergruppe' })).toBeVisible()
   })
 
   it('opens a new graph with the supplied group selected and resolved without overwriting the last draft', async () => {

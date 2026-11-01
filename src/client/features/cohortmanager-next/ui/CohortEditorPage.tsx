@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   Alert,
@@ -52,16 +52,33 @@ export default function CohortEditorRoute() {
   return <CohortEditorPage key={id ?? 'new'} />
 }
 
-function CohortEditorPage() {
-  const { id } = useParams()
+export interface CohortEditorRef {
+  requestClose: () => void
+  getInitialFocus: () => HTMLInputElement | null
+}
+
+type CohortEditorProps =
+  | { website?: never; onSaved?: never; onCancel?: never }
+  | { website: Website; onSaved: (cohort: CohortDto) => void; onCancel: () => void }
+
+export const CohortEditorPage = forwardRef<CohortEditorRef, CohortEditorProps>(function CohortEditorPage(
+  { website: embeddedWebsite, onSaved, onCancel },
+  ref,
+) {
+  const { id: routeId } = useParams()
+  const id = embeddedWebsite ? undefined : routeId
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const cohortId = id ? Number(id) : null
   const isNew = cohortId === null
 
-  const [selectedWebsiteId, setWebsiteId] = useState<string | null>(searchParams.get('websiteId'))
+  const [selectedWebsiteId, setWebsiteId] = useState<string | null>(
+    embeddedWebsite?.id ?? searchParams.get('websiteId'),
+  )
   const [websites, setWebsites] = useState<Website[]>([])
-  const websiteId = isNew ? (websites.find((site) => site.id === selectedWebsiteId)?.id ?? null) : selectedWebsiteId
+  const websiteId =
+    embeddedWebsite?.id ??
+    (isNew ? (websites.find((site) => site.id === selectedWebsiteId)?.id ?? null) : selectedWebsiteId)
   const hasWebsiteFromUrl = websites.some((site) => site.id === searchParams.get('websiteId'))
   const [loading, setLoading] = useState(!isNew)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -82,6 +99,7 @@ function CohortEditorPage() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [pendingFocus, setPendingFocus] = useState<string | null>(null)
   const summaryRef = useRef<HTMLDivElement>(null)
+  const nameInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (isNew) return
@@ -117,10 +135,11 @@ function CohortEditorPage() {
   }, [cohortId, isNew])
 
   useEffect(() => {
+    if (embeddedWebsite) return
     fetchWebsites()
       .then(setWebsites)
       .catch(() => {})
-  }, [])
+  }, [embeddedWebsite])
 
   useEffect(() => {
     if (!websiteId) return
@@ -163,6 +182,7 @@ function CohortEditorPage() {
   const showSummary = draft.cards.length > 1 || draft.cards.some((c) => c.kind === 'sequence' || c.kind === 'group')
 
   const handleSave = async () => {
+    if (saving) return
     setSaveError(null)
     if (!name.trim() || !websiteId || issues.length > 0) {
       setShowErrors(true)
@@ -173,8 +193,10 @@ function CohortEditorPage() {
     try {
       const root = draftToTree(draft)
       const trimmed = { name: name.trim(), description: description.trim() || undefined }
+      let saved: CohortDto
       if (isNew) {
         const created = await createCohort({ websiteId, ...trimmed })
+        saved = created
         try {
           await replaceCriteria(created.id, root)
         } catch (criteriaErr: unknown) {
@@ -189,11 +211,12 @@ function CohortEditorPage() {
           throw criteriaErr
         }
       } else {
-        await updateCohort(cohortId, { websiteId, ...trimmed })
+        saved = await updateCohort(cohortId, { websiteId, ...trimmed })
         await replaceCriteria(cohortId, root)
       }
       setSnapshot(JSON.stringify({ name, description, draft }))
-      void navigate(listHref)
+      if (onSaved) onSaved(saved)
+      else void navigate(listHref)
     } catch (err: unknown) {
       setSaveError(err instanceof Error ? err.message : 'Kunne ikke lagre brukergruppen')
     } finally {
@@ -201,7 +224,17 @@ function CohortEditorPage() {
     }
   }
 
-  const handleCancel = () => (dirty ? requestLeave(listHref) : void navigate(listHref))
+  const handleCancel = () => {
+    if (saving) return
+    if (dirty) requestLeave(listHref)
+    else if (onCancel) onCancel()
+    else void navigate(listHref)
+  }
+
+  useImperativeHandle(ref, () => ({
+    requestClose: handleCancel,
+    getInitialFocus: () => nameInputRef.current,
+  }))
 
   const title = isNew ? 'Ny brukergruppe' : 'Rediger brukergruppe'
 
@@ -249,128 +282,140 @@ function CohortEditorPage() {
 
   return (
     <>
-      <PageHeader title={title} description={!isNew && websiteLabel ? `Nettsted: ${websiteLabel}` : undefined} beta />
+      {!embeddedWebsite && (
+        <PageHeader title={title} description={!isNew && websiteLabel ? `Nettsted: ${websiteLabel}` : undefined} beta />
+      )}
 
-      <AppBlock className="pb-16">
-        <BetaFeatureNotice id="brukergrupper" title="Brukergrupper er i beta" className="mb-4">
-          Brukergrupper er under utvikling, og funksjonalitet kan endre seg.
-          <BetaFeedbackLine />
-        </BetaFeatureNotice>
+      <AppBlock gutters={!embeddedWebsite} className={embeddedWebsite ? '' : 'pb-16'}>
+        {!embeddedWebsite && (
+          <BetaFeatureNotice id="brukergrupper" title="Brukergrupper er i beta" className="mb-4">
+            Brukergrupper er under utvikling, og funksjonalitet kan endre seg.
+            <BetaFeedbackLine />
+          </BetaFeatureNotice>
+        )}
 
-        <VStack gap="space-24" style={{ maxWidth: '56rem' }}>
-          <Button
-            as={Link}
-            to={listHref}
-            variant="tertiary"
-            size="small"
-            icon={<ArrowLeftIcon aria-hidden />}
-            style={{ alignSelf: 'flex-start' }}
-          >
-            Tilbake til brukergrupper
-          </Button>
+        <fieldset disabled={saving} className="min-w-0 border-0 p-0 m-0">
+          <VStack gap="space-24" style={{ maxWidth: '56rem' }}>
+            {!embeddedWebsite && (
+              <Button
+                as={Link}
+                to={listHref}
+                variant="tertiary"
+                size="small"
+                icon={<ArrowLeftIcon aria-hidden />}
+                style={{ alignSelf: 'flex-start' }}
+              >
+                Tilbake til brukergrupper
+              </Button>
+            )}
 
-          {showErrors && (name.trim() === '' || !websiteId || issues.length > 0) && (
-            <ErrorSummary ref={summaryRef} heading="Dette må rettes før du kan lagre:">
-              {!websiteId && (
-                <ErrorSummary.Item
-                  href="#cohort-next-website"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    focusAnchor('cohort-next-website')
-                  }}
-                >
-                  Velg hvilket nettsted brukergruppen gjelder
-                </ErrorSummary.Item>
-              )}
-              {!name.trim() && (
-                <ErrorSummary.Item
-                  href="#cohort-next-name"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    focusAnchor('cohort-next-name')
-                  }}
-                >
-                  Gi brukergruppen et navn
-                </ErrorSummary.Item>
-              )}
-              {issues.map((issue, i) => (
-                <ErrorSummary.Item
-                  key={i}
-                  href={`#${issue.anchorId}`}
-                  onClick={(e) => {
-                    e.preventDefault()
-                    focusAnchor(issue.anchorId)
-                  }}
-                >
-                  {issue.message}
-                </ErrorSummary.Item>
-              ))}
-            </ErrorSummary>
-          )}
+            {showErrors && (name.trim() === '' || !websiteId || issues.length > 0) && (
+              <ErrorSummary ref={summaryRef} heading="Dette må rettes før du kan lagre:">
+                {!websiteId && (
+                  <ErrorSummary.Item
+                    href="#cohort-next-website"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      focusAnchor('cohort-next-website')
+                    }}
+                  >
+                    Velg hvilket nettsted brukergruppen gjelder
+                  </ErrorSummary.Item>
+                )}
+                {!name.trim() && (
+                  <ErrorSummary.Item
+                    href="#cohort-next-name"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      focusAnchor('cohort-next-name')
+                    }}
+                  >
+                    Gi brukergruppen et navn
+                  </ErrorSummary.Item>
+                )}
+                {issues.map((issue, i) => (
+                  <ErrorSummary.Item
+                    key={i}
+                    href={`#${issue.anchorId}`}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      focusAnchor(issue.anchorId)
+                    }}
+                  >
+                    {issue.message}
+                  </ErrorSummary.Item>
+                ))}
+              </ErrorSummary>
+            )}
 
-          <VStack gap="space-12" style={{ maxWidth: '32rem' }}>
-            <TextField
-              id="cohort-next-name"
-              label="Navn"
-              value={name}
-              error={nameError}
-              autoFocus={isNew}
-              onChange={(e) => setName(e.target.value)}
-            />
-            <div hidden>
+            <VStack gap="space-12" style={{ maxWidth: '32rem' }}>
               <TextField
-                label="Beskrivelse (valgfri)"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                ref={nameInputRef}
+                id="cohort-next-name"
+                label="Navn"
+                value={name}
+                error={nameError}
+                autoFocus={isNew}
+                onChange={(e) => setName(e.target.value)}
               />
-            </div>
-            {isNew && !hasWebsiteFromUrl && (
-              <div id="cohort-next-website">
-                <WebsiteSelect
-                  websites={websites}
-                  selectedId={websiteId}
-                  onSelect={changeWebsite}
-                  error={websiteError}
-                  fullWidth
+              <div hidden>
+                <TextField
+                  label="Beskrivelse (valgfri)"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
                 />
               </div>
-            )}
-          </VStack>
+              {isNew && !embeddedWebsite && !hasWebsiteFromUrl && (
+                <div id="cohort-next-website">
+                  <WebsiteSelect
+                    websites={websites}
+                    selectedId={websiteId}
+                    onSelect={changeWebsite}
+                    error={websiteError}
+                    fullWidth
+                  />
+                </div>
+              )}
+            </VStack>
+            <VStack gap="space-12" as="section" aria-labelledby="cohort-next-criteria">
+              <Heading level="2" size="small" id="cohort-next-criteria">
+                Hvem skal være med i gruppen?
+              </Heading>
 
-          <VStack gap="space-12" as="section" aria-labelledby="cohort-next-criteria">
-            <Heading level="2" size="small" id="cohort-next-criteria">
-              Hvem skal være med i gruppen?
-            </Heading>
+              <CardListEditor
+                combinator={draft.combinator}
+                cards={draft.cards}
+                onChange={(next) => setDraft(next)}
+                websiteId={websiteId ?? undefined}
+                others={others}
+                showErrors={showErrors || showPreviewErrors}
+                depth={0}
+                onFocusCard={setPendingFocus}
+              />
+            </VStack>
 
-            <CardListEditor
-              combinator={draft.combinator}
-              cards={draft.cards}
-              onChange={(next) => setDraft(next)}
-              websiteId={websiteId ?? undefined}
-              others={others}
-              showErrors={showErrors || showPreviewErrors}
-              depth={0}
-              onFocusCard={setPendingFocus}
+            {showSummary && <SummaryPanel draft={draft} names={names} />}
+            <CohortPreview
+              key={websiteId ?? 'no-website'}
+              websiteId={websiteId}
+              root={issues.length === 0 ? draftToTree(draft) : null}
+              onInvalid={() => setShowPreviewErrors(true)}
             />
+            {saveError && (
+              <Alert variant="error" role="alert">
+                {saveError}
+              </Alert>
+            )}
+            <HStack gap="space-12">
+              <Button loading={saving} onClick={() => void handleSave()}>
+                {isNew ? 'Opprett brukergruppe' : 'Lagre endringer'}
+              </Button>
+              <Button variant="secondary" onClick={handleCancel}>
+                Avbryt
+              </Button>
+            </HStack>
           </VStack>
-
-          {showSummary && <SummaryPanel draft={draft} names={names} />}
-          <CohortPreview
-            key={websiteId ?? 'no-website'}
-            websiteId={websiteId}
-            root={issues.length === 0 ? draftToTree(draft) : null}
-            onInvalid={() => setShowPreviewErrors(true)}
-          />
-          {saveError && <Alert variant="error">{saveError}</Alert>}
-          <HStack gap="space-12">
-            <Button loading={saving} onClick={() => void handleSave()}>
-              {isNew ? 'Opprett brukergruppe' : 'Lagre endringer'}
-            </Button>
-            <Button variant="secondary" onClick={handleCancel}>
-              Avbryt
-            </Button>
-          </HStack>
-        </VStack>
+        </fieldset>
       </AppBlock>
 
       <Dialog open={leaveTarget !== null} onOpenChange={(o) => !o && cancelLeave()}>
@@ -388,7 +433,8 @@ function CohortEditorPage() {
                 const target = leaveTarget ?? listHref
                 setSnapshot(null)
                 cancelLeave()
-                void navigate(target)
+                if (onCancel) onCancel()
+                else void navigate(target)
               }}
             >
               Forkast
@@ -403,4 +449,4 @@ function CohortEditorPage() {
       </Dialog>
     </>
   )
-}
+})

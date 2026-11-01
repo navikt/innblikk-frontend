@@ -70,6 +70,7 @@ interface QueryPreviewProps {
   metrics?: Array<{ column?: string }>
   groupByFields?: string[]
   onResetAll?: () => void
+  onBeforeExecute?: () => boolean
   availableEvents?: string[]
   isEventsLoading?: boolean
   websiteId?: string
@@ -181,6 +182,7 @@ const QueryPreview = ({
   metrics = [],
   groupByFields = [],
   onResetAll,
+  onBeforeExecute,
   availableEvents = [],
   isEventsLoading = false,
   websiteId,
@@ -779,6 +781,8 @@ const QueryPreview = ({
   })()
 
   const handleCopy = async () => {
+    if (onBeforeExecute && !onBeforeExecute()) return
+
     const metabaseSql = getProcessedSql({ preserveMetabasePlaceholders: true })
     void navigator.clipboard.writeText(metabaseSql)
     setCopied(true)
@@ -811,6 +815,8 @@ const QueryPreview = ({
   }
 
   const executeQuery = async () => {
+    if (onBeforeExecute && !onBeforeExecute()) return
+
     setLoading(true)
     setError(null)
     setLastAction('execute')
@@ -853,6 +859,11 @@ const QueryPreview = ({
   }
 
   const runQuery = async () => {
+    if (onBeforeExecute && !onBeforeExecute()) {
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     setError(null)
     setResult(null)
@@ -902,6 +913,7 @@ const QueryPreview = ({
 
   const handleRetry = async () => {
     if (!lastAction) return
+    if (onBeforeExecute && !onBeforeExecute()) return
 
     setError(null)
 
@@ -1627,6 +1639,7 @@ const QueryPreview = ({
                 showSqlCode={true}
                 alwaysShowSql={alwaysShowSql}
                 showEditButton={true}
+                showChartBuilderLink={false}
                 showCost={true}
                 websiteId={websiteId}
                 showDownloadReadMore={showDownloadReadMore}

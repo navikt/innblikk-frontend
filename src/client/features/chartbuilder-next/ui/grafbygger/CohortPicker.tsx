@@ -1,9 +1,12 @@
-import { Alert, BodyShort, Checkbox, Link, Loader, UNSAFE_Combobox } from '@navikt/ds-react'
+import { Alert, BodyShort, Button, Checkbox, Dialog, Link, Loader, UNSAFE_Combobox } from '@navikt/ds-react'
+import { PlusIcon } from '@navikt/aksel-icons'
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { Events } from '@navikt/analytics-types'
 import { trackEvent } from '../../../../shared/lib/trackEvent.ts'
 import { fetchCohorts, fetchCohortsDeep, cohortUsesTimeCriterion } from '../../api/cohortApi.ts'
 import type { CohortDto } from '../../../../shared/types/cohort.ts'
+import type { Website } from '../../../../shared/types/website.ts'
+import { CohortEditorPage, type CohortEditorRef } from '../../../cohortmanager-next/ui/CohortEditorPage.tsx'
 
 export interface CohortPickerRef {
   resetCohorts: () => void
@@ -15,15 +18,33 @@ interface CohortPickerProps {
    * once the cohort list has loaded (ids alone can't render chip labels). */
   initialCohortIds?: string[]
   initialRatioMode?: boolean
+  showRatioOption?: boolean
   onCohortIdsChange: (ids: string[]) => void
   onRatioModeChange: (enabled: boolean) => void
+  autoFocus?: boolean
+  creationWebsite?: Website
 }
 
 const CohortPicker = forwardRef<CohortPickerRef, CohortPickerProps>(
-  ({ websiteId, initialCohortIds, initialRatioMode, onCohortIdsChange, onRatioModeChange }, ref) => {
+  (
+    {
+      websiteId,
+      initialCohortIds,
+      initialRatioMode,
+      showRatioOption = true,
+      onCohortIdsChange,
+      onRatioModeChange,
+      autoFocus = false,
+      creationWebsite,
+    },
+    ref,
+  ) => {
     const [cohorts, setCohorts] = useState<CohortDto[]>([])
     const [isLoading, setIsLoading] = useState<boolean>(false)
     const [error, setError] = useState<string | null>(null)
+    const [creating, setCreating] = useState(false)
+    const editorRef = useRef<CohortEditorRef>(null)
+    const createButtonRef = useRef<HTMLButtonElement>(null)
     // Tracks selection by cohort *name*, not id — Aksel's UNSAFE_Combobox
     // renders each selected chip's visible text from the option's raw `value`
     // (there's no separate label-for-chip vs value-for-identity concept), so
@@ -31,7 +52,7 @@ const CohortPicker = forwardRef<CohortPickerRef, CohortPickerProps>(
     // Names are guaranteed unique per website by the backend
     // (`uq_cohorts_name_website`), so they're a safe identity to select on.
     const [selectedNames, setSelectedNames] = useState<string[]>([])
-    const [ratioMode, setRatioMode] = useState<boolean>(initialRatioMode ?? false)
+    const [ratioMode, setRatioMode] = useState<boolean>(showRatioOption && (initialRatioMode ?? false))
 
     // Hydration: persisted cohort ids arrive before the cohort list (names
     // need the fetch). Until applied, suppress the empty-selection emit that
@@ -105,11 +126,11 @@ const CohortPicker = forwardRef<CohortPickerRef, CohortPickerProps>(
 
     // Refetch when tab regains focus (user may have added cohorts in the /brukergrupper tab)
     useEffect(() => {
-      if (!websiteId) return
+      if (!websiteId || creating) return
       const handleFocus = () => loadCohorts(websiteId)
       window.addEventListener('focus', handleFocus)
       return () => window.removeEventListener('focus', handleFocus)
-    }, [websiteId])
+    }, [websiteId, creating])
 
     const selectedCohorts = selectedNames
       .map((name) => cohorts.find((c) => c.name === name))
@@ -151,11 +172,11 @@ const CohortPicker = forwardRef<CohortPickerRef, CohortPickerProps>(
     }, [selectedIds.join(',')])
 
     useEffect(() => {
-      if (selectedNames.length < 2 && ratioMode) {
+      if ((!showRatioOption || selectedNames.length < 2) && ratioMode) {
         setRatioMode(false)
         onRatioModeChange(false)
       }
-    }, [selectedNames.length, ratioMode, onRatioModeChange])
+    }, [showRatioOption, selectedNames.length, ratioMode, onRatioModeChange])
 
     const resetCohorts = () => {
       hydratedRef.current = true
@@ -171,11 +192,11 @@ const CohortPicker = forwardRef<CohortPickerRef, CohortPickerProps>(
 
     const comboboxDisabled = ratioMode && selectedNames.length >= 2
 
-    if (isLoading) {
+    if (isLoading && !creating) {
       return <Loader size="small" title="Laster brukergrupper" />
     }
 
-    if (error) {
+    if (error && !creationWebsite) {
       return (
         <Alert variant="error" size="small">
           {error}
@@ -187,8 +208,14 @@ const CohortPicker = forwardRef<CohortPickerRef, CohortPickerProps>(
 
     return (
       <div className="space-y-2">
+        {error && (
+          <Alert variant="error" size="small">
+            {error}
+          </Alert>
+        )}
         <UNSAFE_Combobox
           label="Velg brukergrupper"
+          autoFocus={autoFocus}
           options={cohorts.map((cohort) => ({
             label: cohort.name,
             value: cohort.name,
@@ -215,14 +242,68 @@ const CohortPicker = forwardRef<CohortPickerRef, CohortPickerProps>(
           disabled={comboboxDisabled}
         />
 
-        <BodyShort size="small">
-          <Link
-            href={`/brukergrupper${websiteId ? `?websiteId=${encodeURIComponent(websiteId)}` : ''}`}
-            target="_blank"
-          >
-            Administrer brukergrupper
-          </Link>
-        </BodyShort>
+        {creationWebsite ? (
+          <>
+            <Button
+              ref={createButtonRef}
+              className="px-0"
+              type="button"
+              size="small"
+              variant="tertiary"
+              data-color="neutral"
+              icon={<PlusIcon aria-hidden />}
+              disabled={comboboxDisabled}
+              onClick={() => setCreating(true)}
+            >
+              Opprett brukergruppe
+            </Button>
+            <Dialog
+              open={creating}
+              onOpenChange={(open) => {
+                if (!open) editorRef.current?.requestClose()
+              }}
+            >
+              <Dialog.Popup
+                width="56rem"
+                initialFocusTo={() => editorRef.current?.getInitialFocus()}
+                returnFocusTo={createButtonRef}
+              >
+                <Dialog.Header>
+                  <Dialog.Title>Ny brukergruppe</Dialog.Title>
+                  <Dialog.Description>Gjelder {creationWebsite.name}.</Dialog.Description>
+                </Dialog.Header>
+                <Dialog.Body>
+                  {creating && (
+                    <CohortEditorPage
+                      ref={editorRef}
+                      website={creationWebsite}
+                      onCancel={() => setCreating(false)}
+                      onSaved={(saved) => {
+                        hydratedRef.current = true
+                        pendingHydrationIdsRef.current = null
+                        setCohorts((current) => [
+                          ...current.filter((cohort) => cohort.id !== String(saved.id)),
+                          { ...saved, id: String(saved.id) },
+                        ])
+                        setSelectedNames((current) => [...new Set([...current, saved.name])])
+                        setCreating(false)
+                      }}
+                    />
+                  )}
+                </Dialog.Body>
+              </Dialog.Popup>
+            </Dialog>
+          </>
+        ) : (
+          <BodyShort size="small">
+            <Link
+              href={`/brukergrupper${websiteId ? `?websiteId=${encodeURIComponent(websiteId)}` : ''}`}
+              target="_blank"
+            >
+              Administrer brukergrupper
+            </Link>
+          </BodyShort>
+        )}
 
         {anySelectedUsesTime && (
           <Alert variant="info" size="small" className="mt-2">
@@ -232,7 +313,7 @@ const CohortPicker = forwardRef<CohortPickerRef, CohortPickerProps>(
           </Alert>
         )}
 
-        {selectedNames.length >= 2 && (
+        {showRatioOption && selectedNames.length >= 2 && (
           <div className="filter-card-animate-in">
             <Checkbox
               size="small"

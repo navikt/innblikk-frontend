@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Accordion, Alert, Bleed, BodyShort, Box, Checkbox, Loader } from '@navikt/ds-react'
-import { ArrowCirclepathReverseIcon } from '@navikt/aksel-icons'
+import { Accordion, Alert, Bleed, BodyShort, Box, Button, Checkbox, Loader } from '@navikt/ds-react'
+import { ArrowCirclepathReverseIcon, PlusIcon, XMarkIcon } from '@navikt/aksel-icons'
 import { Events } from '@navikt/analytics-types'
 import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import QueryPreview from './results/QueryPreview.tsx'
 import ResultsDisplayOptions from './results/ResultsDisplayOptions.tsx'
 import EventFilter from './grafbygger/EventFilter.tsx'
+import NextEventFilter from './grafbygger/NextEventFilter.tsx'
 import ChartLayout from '../../analysis/ui/ChartLayoutOriginal.tsx'
 import MetricSelector from './grafbygger/MetricSelector.tsx'
 import CohortPicker, { type CohortPickerRef } from './grafbygger/CohortPicker.tsx'
@@ -36,7 +37,9 @@ const fingerprintCohortLookup = (lookup: Map<string, CohortDetailDto>): string =
         : value,
   )
 
-const ChartsPage = () => {
+const ChartsPage = ({ edition = 'current' }: { edition?: 'current' | 'next' }) => {
+  const isNextEdition = edition === 'next'
+  const EventFilterComponent = isNextEdition ? NextEventFilter : EventFilter
   const [cohortLoadError, setCohortLoadError] = useState<string | null>(null)
   const isFocusedMode = (() => {
     if (typeof window === 'undefined') return false
@@ -54,6 +57,7 @@ const ChartsPage = () => {
   /** Fingerprint of the cohort criteria tree behind the current generated SQL — for cross-tab staleness detection. */
   const cohortFingerprintRef = useRef<string>('')
   const [cohortsUpdatedElsewhere, setCohortsUpdatedElsewhere] = useState(false)
+  const [cohortPickerWebsiteId, setCohortPickerWebsiteId] = useState<string | null>(null)
 
   const {
     config,
@@ -99,7 +103,8 @@ const ChartsPage = () => {
     setColumnOrderMode,
     handleWebsiteChange,
     handleEventsLoad,
-  } = useChartConfig()
+    handleMetadataLoad,
+  } = useChartConfig(edition)
 
   const handleRatioModeChange = useCallback(
     (enabled: boolean) => {
@@ -194,13 +199,22 @@ const ChartsPage = () => {
     setMetricResetSignal((prev) => prev + 1)
   }, [summarizeRef])
 
+  const handleRemoveCohorts = useCallback(() => {
+    cohortPickerRef.current?.resetCohorts()
+    setCohortPickerWebsiteId(null)
+    setCohortsUpdatedElsewhere(false)
+    handleRatioModeChange(false)
+    void handleCohortIdsChange([])
+  }, [handleCohortIdsChange, handleRatioModeChange])
+
   const handleResetAllWithSignals = useCallback(() => {
     resetAll()
     setGroupingResetSignal((prev) => prev + 1)
     setMetricResetSignal((prev) => prev + 1)
-    cohortPickerRef.current?.resetCohorts()
+    if (isNextEdition) handleRemoveCohorts()
+    else cohortPickerRef.current?.resetCohorts()
     setResolvedCohorts([])
-  }, [resetAll, setResolvedCohorts])
+  }, [resetAll, setResolvedCohorts, isNextEdition, handleRemoveCohorts])
 
   const showResetEventFilters = isEventFilterDirty
   const showResetMetrics = !(
@@ -214,6 +228,27 @@ const ChartsPage = () => {
   // Keep sidebar sections visible during background event/detail fetches.
   // Only gate on initial website/date readiness.
   const isSidebarLoading = isWebsitePickerInitializing || (!!config.website && !dateRangeReady)
+  const showNextCohorts = cohortPickerWebsiteId === config.website?.id || showResetSegments
+  const cohortPicker = (
+    <>
+      <CohortPicker
+        ref={cohortPickerRef}
+        websiteId={config.website?.id}
+        initialCohortIds={config.cohortIds}
+        initialRatioMode={config.segmentRatioMode}
+        showRatioOption={!isNextEdition}
+        onCohortIdsChange={handleCohortIdsChange}
+        onRatioModeChange={handleRatioModeChange}
+        autoFocus={isNextEdition && cohortPickerWebsiteId === config.website?.id}
+        creationWebsite={isNextEdition ? (config.website ?? undefined) : undefined}
+      />
+      {cohortsUpdatedElsewhere && (
+        <BodyShort size="small" style={{ color: 'var(--ax-text-subtle)' }}>
+          Oppdatert — en brukergruppe ble endret i en annen fane
+        </BodyShort>
+      )}
+    </>
+  )
 
   return (
     <ChartLayout
@@ -224,9 +259,16 @@ const ChartsPage = () => {
       sidebarFilterGap="space-16"
       showPageHeader={!isFocusedMode}
       showKontaktSection={!isFocusedMode}
+      beta={isNextEdition}
+      betaLabel={isNextEdition ? 'Alfa' : undefined}
       headerNotice={
-        <BetaFeatureNotice id="grafbygger-rewrite" title="Grafbyggeren er i beta">
-          Grafbyggeren har fått store endringer, med blant annet støtte for brukergrupper.
+        <BetaFeatureNotice
+          id={isNextEdition ? 'grafbyggeren-alfa' : 'grafbygger-rewrite'}
+          title={isNextEdition ? 'Prøv den nye grafbyggeren' : 'Grafbyggeren er i beta'}
+        >
+          {isNextEdition
+            ? 'Vi prøver ut en enklere måte å velge hendelser og filtre på. Den vanlige grafbyggeren er uendret.'
+            : 'Grafbyggeren har fått store endringer, med blant annet støtte for brukergrupper.'}
           <BetaFeedbackLine />
         </BetaFeatureNotice>
       }
@@ -240,6 +282,7 @@ const ChartsPage = () => {
                 selectedWebsite={config.website}
                 onWebsiteChange={handleWebsiteChange}
                 onEventsLoad={handleEventsLoad}
+                onMetadataLoad={isNextEdition ? handleMetadataLoad : undefined}
                 onInitialLoadingChange={setIsWebsitePickerInitializing}
                 dateRangeInDays={dateRangeInDays}
                 shouldReload={forceReload}
@@ -260,7 +303,7 @@ const ChartsPage = () => {
           ) : !config.website ? null : (
             <>
               <SidebarSection
-                title="Datakilder"
+                title={isNextEdition ? 'Hendelser' : 'Datakilder'}
                 action={
                   showResetEventFilters ? (
                     <ActionFeedbackButton
@@ -274,8 +317,27 @@ const ChartsPage = () => {
                   ) : undefined
                 }
               >
-                <EventFilter
+                <EventFilterComponent
+                  key={isNextEdition ? config.website.id : undefined}
                   ref={chartFiltersRef}
+                  {...(isNextEdition
+                    ? {
+                        website: config.website,
+                        additionalAction:
+                          COHORTS_ENABLED && !showNextCohorts ? (
+                            <Button
+                              variant="tertiary"
+                              data-color="neutral"
+                              size="small"
+                              className="px-0"
+                              icon={<PlusIcon aria-hidden />}
+                              onClick={() => setCohortPickerWebsiteId(config.website?.id ?? null)}
+                            >
+                              Brukergruppe
+                            </Button>
+                          ) : undefined,
+                      }
+                    : {})}
                   filters={filters}
                   parameters={parameters}
                   setFilters={setFilters}
@@ -294,6 +356,24 @@ const ChartsPage = () => {
                   }}
                   isEventsLoading={isEventsLoading}
                 />
+                {isNextEdition && COHORTS_ENABLED && showNextCohorts && (
+                  <section
+                    aria-label="Brukergrupper"
+                    className="mt-3 space-y-3 rounded-md border border-(--ax-border-neutral-subtle) bg-(--ax-bg-default) p-3"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-semibold">Brukergrupper</span>
+                      <Button
+                        variant="tertiary"
+                        size="xsmall"
+                        icon={<XMarkIcon aria-hidden />}
+                        aria-label="Fjern brukergrupper"
+                        onClick={handleRemoveCohorts}
+                      />
+                    </div>
+                    {cohortPicker}
+                  </section>
+                )}
               </SidebarSection>
 
               <SidebarSection
@@ -323,7 +403,7 @@ const ChartsPage = () => {
                 />
               </SidebarSection>
 
-              {COHORTS_ENABLED && (
+              {COHORTS_ENABLED && !isNextEdition && (
                 <SidebarSection
                   title="Brukergrupper"
                   action={
@@ -339,19 +419,7 @@ const ChartsPage = () => {
                     ) : undefined
                   }
                 >
-                  <CohortPicker
-                    ref={cohortPickerRef}
-                    websiteId={config.website?.id}
-                    initialCohortIds={config.cohortIds}
-                    initialRatioMode={config.segmentRatioMode}
-                    onCohortIdsChange={handleCohortIdsChange}
-                    onRatioModeChange={handleRatioModeChange}
-                  />
-                  {cohortsUpdatedElsewhere && (
-                    <BodyShort size="small" style={{ color: 'var(--ax-text-subtle)' }}>
-                      Oppdatert — en brukergruppe ble endret i en annen fane
-                    </BodyShort>
-                  )}
+                  {cohortPicker}
                 </SidebarSection>
               )}
 
@@ -433,6 +501,7 @@ const ChartsPage = () => {
           metrics={config.metrics}
           groupByFields={config.groupByFields}
           onResetAll={handleResetAllWithSignals}
+          onBeforeExecute={isNextEdition ? () => chartFiltersRef.current?.validateSelection?.() === true : undefined}
           availableEvents={availableEvents}
           isEventsLoading={isEventsLoading}
           websiteId={config.website?.id}

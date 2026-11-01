@@ -11,6 +11,7 @@ interface PageHeaderProps {
   breadcrumbs?: React.ReactNode
   variant?: 'regular' | 'article'
   beta?: boolean
+  betaLabel?: string
   notice?: React.ReactNode
   /**
    * Use the tighter 16/24px inline gutters so the header lines up with
@@ -28,6 +29,7 @@ export const PageHeader = ({
   breadcrumbs,
   variant = 'regular',
   beta,
+  betaLabel = 'Beta',
   notice,
   compactGutters = false,
 }: PageHeaderProps) => {
@@ -61,7 +63,7 @@ export const PageHeader = ({
               </Heading>
               {beta && (
                 <Tag variant="moderate" size="small" data-color="meta-purple" icon={<TestFlaskIcon aria-hidden />}>
-                  Beta
+                  {betaLabel}
                 </Tag>
               )}
             </div>

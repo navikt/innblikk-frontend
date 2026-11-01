@@ -35,6 +35,31 @@ test.describe('App smoke tests', () => {
     await expect(page.getByRole('heading', { level: 1, name: /grafbyggeren/i })).toBeVisible({ timeout: 10_000 })
   })
 
+  test('settings lists the experimental builder under alfa rather than beta', async ({ page }) => {
+    await page.route('**/api/user/me', (route) =>
+      route.fulfill({ status: 503, json: { message: 'Unavailable in this test' } }),
+    )
+    await page.goto('/innstillinger')
+    await expect(page.getByRole('heading', { name: 'Funksjoner i beta', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Grafbyggeren er i beta', exact: true })).toHaveCount(1)
+    const betaSection = page.locator('#beta')
+    const alfaSection = page.locator('#alpha')
+    await expect(betaSection.getByRole('link', { name: 'Åpne grafbyggeren', exact: true })).toHaveAttribute(
+      'href',
+      '/grafbygger',
+    )
+    await expect(betaSection.locator('a[href="/grafbygger-alfa"]')).toHaveCount(0)
+    await expect(alfaSection.getByRole('heading', { name: 'Funksjoner i alfa', exact: true })).toBeVisible()
+    await expect(alfaSection.getByRole('heading', { name: 'Grafbyggeren er i alfa', exact: true })).toBeVisible()
+    await expect(alfaSection.getByRole('link', { name: 'Åpne grafbyggeren', exact: true })).toHaveAttribute(
+      'href',
+      '/grafbygger-alfa',
+    )
+    await expect(alfaSection.getByRole('button', { name: 'Lukk melding' })).toHaveCount(0)
+    await expect(page.getByText('Ingen funksjoner i alfa akkurat nå.', { exact: true })).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Funksjoner i alpha', exact: true })).toHaveCount(0)
+  })
+
   test('/grafbygger renders the website picker with options', async ({ page }) => {
     await page.route('**/api/bigquery/websites', (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: MOCK_WEBSITES }) }),
@@ -49,6 +74,540 @@ test.describe('App smoke tests', () => {
     await combobox.click()
     await expect(page.getByRole('option', { name: /test\.nav\.no/i })).toBeVisible({ timeout: 10_000 })
   })
+
+  test('/grafbygger-next redirects to Alfa without losing the draft or URL parameters', async ({ page }) => {
+    await page.route('**/api/bigquery/websites', (route) => route.fulfill({ json: { data: MOCK_WEBSITES } }))
+    await page.route('**/event-properties?*', (route) => route.fulfill({ json: { properties: [] } }))
+    const draft = {
+      website: MOCK_WEBSITES[0],
+      metrics: [{ function: 'count', alias: 'antall' }],
+      groupByFields: [],
+    }
+    await page.addInitScript(`
+      localStorage.setItem('grafbygger-next:config:v2', ${JSON.stringify(JSON.stringify(draft))})
+      localStorage.setItem('grafbygger-next:filters:v2', JSON.stringify([
+        { column: 'event_type', operator: 'IN', value: '1', multipleValues: ['1'] }
+      ]))
+      localStorage.setItem('innblikk_dismissed_alerts', JSON.stringify(['grafbygger-next']))
+    `)
+    await page.goto('/grafbygger-next?websiteId=site-1&focused=0')
+    await expect(page).toHaveURL(/\/grafbygger-alfa\?websiteId=site-1&focused=0$/)
+    await expect(page.getByRole('heading', { level: 1, name: 'Grafbyggeren', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Sidevisninger slett' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Prøv den nye grafbyggeren', exact: true })).toHaveCount(0)
+  })
+
+  test('/grafbygger-alfa keeps the initial event controls minimal', async ({ page }) => {
+    const cohort = {
+      id: 3,
+      websiteId: 'site-1',
+      name: 'Søkere',
+      root: {
+        nodeType: 'GROUP',
+        combinator: 'AND',
+        negated: false,
+        children: [{ nodeType: 'CONDITION', field: 'browser', conditionType: 'EQUALS', value: 'Firefox' }],
+      },
+    }
+    await page.route(
+      (url) => url.pathname === '/api/backend/cohort',
+      (route) => route.fulfill({ json: [cohort, { ...cohort, id: 4, name: 'Windowsbrukere' }] }),
+    )
+    await page.route('**/api/backend/cohort/3', (route) => route.fulfill({ json: cohort }))
+    await page.route('**/api/backend/cohort/4', (route) =>
+      route.fulfill({ json: { ...cohort, id: 4, name: 'Windowsbrukere' } }),
+    )
+    await page.route('**/api/bigquery/websites', (route) => route.fulfill({ json: { data: MOCK_WEBSITES } }))
+    await page.route('**/event-properties?*', (route) =>
+      route.fulfill({
+        json: {
+          properties:
+            new URL(route.request().url()).searchParams.get('includeParams') === 'true'
+              ? []
+              : [{ eventName: 'skjema sendt' }, { eventName: 'meny åpnet' }],
+        },
+      }),
+    )
+    await page.goto('/grafbygger-alfa?websiteId=site-1')
+    const heading = page.getByRole('heading', { level: 1, name: 'Grafbyggeren', exact: true })
+    await expect(heading).toBeVisible()
+    await expect(heading.locator('..').getByText('Alfa', { exact: true })).toBeVisible()
+    await expect(heading.locator('..').getByText('Beta', { exact: true })).toHaveCount(0)
+    const picker = page.getByRole('combobox', { name: 'Hendelser', exact: true })
+    await expect(picker).toBeVisible()
+    await expect(picker).not.toHaveAttribute('placeholder')
+    await expect(page.getByRole('button', { name: 'Sidevisninger slett' })).toHaveCount(0)
+    await expect(page.getByText('Velg sidevisninger eller en egen hendelse.', { exact: true })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Filter', exact: true })).toBeVisible()
+    for (const name of ['Filter', 'Brukergruppe']) {
+      const action = page.getByRole('button', { name, exact: true })
+      await expect(action).toHaveAttribute('data-variant', 'tertiary')
+      await expect(action).toHaveAttribute('data-color', 'neutral')
+      await expect(action).toHaveCSS('padding-left', '0px')
+      await expect(action).toHaveCSS('padding-right', '0px')
+    }
+    await expect(page.getByText('Flere valg for hendelser', { exact: true })).toHaveCount(0)
+    await expect(page.getByText('Filtre', { exact: true })).toHaveCount(0)
+    await expect(page.getByRole('combobox', { name: 'Velg brukergrupper' })).toHaveCount(0)
+    await expect(page.getByText('Målt som...', { exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'Brukergruppe', exact: true }).click()
+    const groupPicker = page.getByRole('combobox', { name: 'Velg brukergrupper' })
+    await expect(groupPicker).toBeFocused()
+    await groupPicker.fill('Søkere')
+    await page.getByRole('option', { name: 'Søkere', exact: true }).click()
+    await expect(page.getByRole('button', { name: 'Søkere slett' })).toBeVisible()
+    await groupPicker.fill('Windowsbrukere')
+    await page.getByRole('option', { name: 'Windowsbrukere', exact: true }).click()
+    await expect(page.getByRole('button', { name: 'Windowsbrukere slett' })).toBeVisible()
+    await expect(page.getByRole('checkbox', { name: /Vis som ratio/ })).toHaveCount(0)
+
+    await picker.click()
+    await expect(page.getByRole('listbox').getByRole('option').first()).toHaveText('Sidevisninger')
+    await picker.fill('skjema')
+    await page.getByRole('option', { name: 'skjema sendt', exact: true }).click()
+    await expect(page.getByRole('button', { name: 'skjema sendt slett' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Sidevisninger slett' })).toHaveCount(0)
+    await page.keyboard.press('Escape')
+    await page.getByRole('button', { name: 'Filter', exact: true }).click()
+    const filterPicker = page.getByRole('combobox', { name: 'Velg filter' })
+    const eventFieldLeft = await picker.evaluate((input) => {
+      const field = input.closest('.aksel-combobox__wrapper-inner')
+      if (!field) throw new Error('Expected the event field wrapper')
+      return field.getBoundingClientRect().left
+    })
+    const filterFieldLeft = await filterPicker.evaluate((input) => {
+      const field = input.closest('.aksel-combobox__wrapper-inner')
+      if (!field) throw new Error('Expected the filter field wrapper')
+      return field.getBoundingClientRect().left
+    })
+    expect(Math.abs(filterFieldLeft - eventFieldLeft)).toBeLessThanOrEqual(1)
+    await page.getByRole('combobox', { name: 'Velg filter' }).fill('Side (URL)')
+    await page.getByRole('option', { name: 'Side (URL)', exact: true }).click()
+    await expect(page.getByRole('combobox', { name: 'Verdi', exact: true })).toBeVisible()
+    await expect(page.getByRole('combobox', { name: 'Kolonne', exact: true })).toHaveCount(0)
+    await page.getByRole('combobox', { name: 'Verdi', exact: true }).fill('/soknad')
+    await page.keyboard.press('Enter')
+    await expect(page.getByRole('button', { name: '/soknad slett' })).toBeVisible()
+    await picker.fill('meny')
+    await page.getByRole('option', { name: 'meny åpnet', exact: true }).click()
+    await expect(page.getByRole('button', { name: 'meny åpnet slett' })).toBeVisible()
+    await page.keyboard.press('Escape')
+
+    for (const width of [375, 768, 1280, 1920]) {
+      await page.setViewportSize({ width, height: 1000 })
+      await picker.scrollIntoViewIfNeeded()
+      const bounds = await picker.boundingBox()
+      expect(bounds).not.toBeNull()
+      expect(bounds!.x).toBeGreaterThanOrEqual(0)
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width)
+      expect(await page.evaluate<number>('document.documentElement.scrollWidth')).toBeLessThanOrEqual(width)
+      const fieldLeft = await picker.evaluate((input) => {
+        const field = input.closest('.aksel-combobox__wrapper-inner')
+        if (!field) throw new Error('Expected the event field wrapper')
+        return field.getBoundingClientRect().left
+      })
+      const filterButton = page.getByRole('button', { name: 'Filter', exact: true })
+      const buttonBounds = await filterButton.boundingBox()
+      expect(buttonBounds).not.toBeNull()
+      expect(Math.abs(buttonBounds!.x - fieldLeft)).toBeLessThanOrEqual(1)
+      expect(buttonBounds!.x).toBeGreaterThanOrEqual(0)
+      expect(buttonBounds!.height).toBeGreaterThanOrEqual(32)
+      const filterValueBounds = await page.getByRole('combobox', { name: 'Verdi', exact: true }).boundingBox()
+      expect(filterValueBounds).not.toBeNull()
+      expect(buttonBounds!.y + buttonBounds!.height).toBeLessThan(filterValueBounds!.y)
+      const iconBounds = await filterButton.locator('svg').boundingBox()
+      expect(iconBounds).not.toBeNull()
+      expect(Math.abs(iconBounds!.x - fieldLeft)).toBeLessThanOrEqual(2)
+      await filterButton.hover()
+      const hoveredBounds = await filterButton.boundingBox()
+      expect(hoveredBounds).toMatchObject({
+        x: buttonBounds!.x,
+        width: buttonBounds!.width,
+        height: buttonBounds!.height,
+      })
+    }
+    await page.getByRole('button', { name: 'Filter', exact: true }).click()
+    await page.getByRole('combobox', { name: 'Velg filter' }).fill('Sidetittel')
+    await page.getByRole('option', { name: 'Sidetittel', exact: true }).click()
+    await expect(page.getByText('Sidetittel', { exact: true }).and(page.locator('span'))).toBeVisible()
+    await page.reload()
+    await expect(page.getByText('Sidetittel', { exact: true }).and(page.locator('span'))).toBeVisible()
+    await expect(page.getByRole('button', { name: 'skjema sendt slett' })).toBeVisible()
+    await expect(page.getByRole('button', { name: '/soknad slett' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Søkere slett' })).toBeVisible()
+    await page.getByRole('button', { name: 'Fjern brukergrupper' }).click()
+    await expect(page.getByRole('combobox', { name: 'Velg brukergrupper' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Brukergruppe', exact: true })).toBeVisible()
+  })
+
+  test('/grafbygger-alfa creates and selects user groups without leaving the graph', async ({ page }) => {
+    const group = { id: 73, websiteId: 'site-1', name: 'Søkere', root: null }
+    let saved = false
+    let failCreate = true
+    let criteria: unknown
+    let finishSave: () => void = () => {}
+    const saveReady = new Promise<void>((resolve) => {
+      finishSave = resolve
+    })
+    await page.route('**/api/bigquery/websites', (route) => route.fulfill({ json: { data: MOCK_WEBSITES } }))
+    await page.route('**/event-properties?*', (route) => route.fulfill({ json: { properties: [] } }))
+    await page.route('**/column-values?*', (route) => route.fulfill({ json: { values: [], scannedDays: 30 } }))
+    await page.route(
+      (url) => url.pathname === '/api/backend/cohort',
+      async (route) => {
+        if (route.request().method() === 'POST') {
+          expect(route.request().postDataJSON()).toEqual({ websiteId: 'site-1', name: 'Søkere' })
+          if (failCreate) {
+            failCreate = false
+            await route.fulfill({ status: 503, json: { message: 'Kunne ikke opprette brukergruppen' } })
+          } else await route.fulfill({ json: group })
+        } else await route.fulfill({ json: saved ? [{ ...group, root: criteria }] : [] })
+      },
+    )
+    await page.route('**/api/backend/cohort/73/criteria', async (route) => {
+      criteria = route.request().postDataJSON()
+      await saveReady
+      saved = true
+      await route.fulfill({ json: criteria })
+    })
+    await page.route('**/api/backend/cohort/73', (route) => route.fulfill({ json: { ...group, root: criteria } }))
+
+    await page.goto('/grafbygger-alfa?websiteId=site-1')
+    await page.getByRole('button', { name: 'Brukergruppe', exact: true }).click()
+    const trigger = page.getByRole('button', { name: 'Opprett brukergruppe', exact: true })
+    await expect(trigger).toBeVisible()
+    await expect(trigger).toHaveCSS('padding-left', '0px')
+    await expect(trigger).toHaveCSS('padding-right', '0px')
+    const groupFieldLeft = await page.getByRole('combobox', { name: 'Velg brukergrupper' }).evaluate((input) => {
+      const field = input.closest('.aksel-combobox__wrapper-inner')
+      if (!field) throw new Error('Expected the user-group field wrapper')
+      return field.getBoundingClientRect().left
+    })
+    const triggerBounds = await trigger.boundingBox()
+    const triggerIconBounds = await trigger.locator('svg').boundingBox()
+    expect(triggerBounds).not.toBeNull()
+    expect(triggerIconBounds).not.toBeNull()
+    expect(Math.abs(triggerBounds!.x - groupFieldLeft)).toBeLessThanOrEqual(1)
+    expect(Math.abs(triggerIconBounds!.x - groupFieldLeft)).toBeLessThanOrEqual(2)
+    expect(triggerBounds!.height).toBeGreaterThanOrEqual(32)
+    await expect(page.getByRole('link', { name: 'Administrer brukergrupper' })).toHaveCount(0)
+    await trigger.click()
+    const dialog = page.getByRole('dialog', { name: 'Ny brukergruppe' })
+    await expect(dialog.getByRole('textbox', { name: 'Navn', exact: true })).toBeFocused()
+    await expect(dialog.getByRole('combobox', { name: 'Nettsted' })).toHaveCount(0)
+    await expect(dialog.getByRole('button', { name: 'Tilbake til brukergrupper' })).toHaveCount(0)
+    await dialog.getByRole('textbox', { name: 'Navn', exact: true }).click()
+    await page.keyboard.press('Escape')
+    await expect(dialog).toHaveCount(0)
+    await expect(trigger).toBeFocused()
+    await trigger.click()
+    await dialog.getByRole('button', { name: 'Opprett brukergruppe', exact: true }).click()
+    await expect(dialog.getByText('Dette må rettes før du kan lagre:')).toBeVisible()
+    await dialog.getByRole('textbox', { name: 'Navn', exact: true }).fill('Søkere')
+    await dialog.getByRole('combobox', { name: 'Verdi', exact: true }).fill('/soknad')
+    await page.keyboard.press('Enter')
+    for (const width of [375, 768, 1024, 1280]) {
+      await page.setViewportSize({ width, height: 1000 })
+      const bounds = await dialog.boundingBox()
+      expect(bounds).not.toBeNull()
+      expect(bounds!.x).toBeGreaterThanOrEqual(0)
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width)
+      expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
+      if (width >= 1024) {
+        expect(bounds!.width).toBe(896)
+        const fieldBounds = await dialog.getByRole('combobox', { name: 'Egenskap', exact: true }).boundingBox()
+        const removeBounds = await dialog.getByRole('button', { name: 'Fjern vilkår', exact: true }).boundingBox()
+        expect(fieldBounds).not.toBeNull()
+        expect(removeBounds).not.toBeNull()
+        expect(Math.abs(removeBounds!.y - fieldBounds!.y)).toBeLessThanOrEqual(1)
+      }
+    }
+    await dialog.getByRole('button', { name: 'Avbryt', exact: true }).click()
+    const discard = page.getByRole('alertdialog', { name: 'Forkaste endringene?' })
+    await expect(discard).toBeVisible()
+    await discard.getByRole('button', { name: 'Fortsett å redigere' }).click()
+    await expect(dialog.getByRole('textbox', { name: 'Navn', exact: true })).toHaveValue('Søkere')
+    await dialog.getByRole('button', { name: 'Opprett brukergruppe', exact: true }).click()
+    await expect(dialog.getByRole('alert')).toContainText('Kunne ikke opprette brukergruppen')
+    await dialog.getByRole('button', { name: 'Opprett brukergruppe', exact: true }).click()
+    await expect
+      .poll(() => criteria)
+      .toEqual({
+        nodeType: 'GROUP',
+        combinator: 'AND',
+        negated: false,
+        children: [
+          {
+            nodeType: 'GROUP',
+            combinator: 'AND',
+            negated: false,
+            children: [{ nodeType: 'CONDITION', field: 'url_path', conditionType: 'EQUALS', value: '/soknad' }],
+          },
+        ],
+      })
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeVisible()
+    finishSave()
+    await expect(dialog).toHaveCount(0)
+    await expect(trigger).toBeFocused()
+    await expect(page.getByRole('button', { name: 'Søkere slett' })).toBeVisible()
+    await expect(page).toHaveURL(/\/grafbygger-alfa\?websiteId=site-1$/)
+    await page.reload()
+    await expect(page.getByRole('button', { name: 'Søkere slett' })).toBeVisible()
+    await trigger.click()
+    await dialog.getByRole('textbox', { name: 'Navn', exact: true }).fill('Forkast meg')
+    await dialog.getByRole('button', { name: 'Avbryt', exact: true }).click()
+    await discard.getByRole('button', { name: 'Forkast', exact: true }).click()
+    await expect(dialog).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Søkere slett' })).toBeVisible()
+    await expect(page).toHaveURL(/\/grafbygger-alfa\?websiteId=site-1$/)
+  })
+
+  test('/grafbygger-alfa creates and selects sidegroups without leaving the graph', async ({ page }) => {
+    const requests: unknown[] = []
+    const queries: string[] = []
+    const group = { id: 73, websiteId: 'site-1', name: 'Hjelpesider', startWith: ['/hjelp'] }
+    let saved = false
+    let finishSave: () => void = () => {}
+    const saveReady = new Promise<void>((resolve) => {
+      finishSave = resolve
+    })
+    await page.route('**/api/bigquery/websites', (route) => route.fulfill({ json: { data: MOCK_WEBSITES } }))
+    await page.route('**/event-properties?*', (route) => route.fulfill({ json: { properties: [] } }))
+    await page.route(
+      (url) => url.pathname === '/api/backend/sidegroup',
+      async (route) => {
+        if (route.request().method() === 'GET') return route.fulfill({ json: saved ? [group] : [] })
+        requests.push(route.request().postDataJSON())
+        if (requests.length === 1)
+          return route.fulfill({ status: 503, json: { message: 'Kunne ikke lagre sidegruppen' } })
+        await saveReady
+        saved = true
+        await route.fulfill({ json: group })
+      },
+    )
+    await page.route('**/api/bigquery/estimate', (route) => route.fulfill({ json: { totalBytesProcessedGB: '0' } }))
+    await page.route(
+      (url) => url.pathname === '/api/bigquery',
+      (route) => {
+        queries.push(route.request().postDataJSON().query)
+        return route.fulfill({ json: { data: [{ antall: 1 }] } })
+      },
+    )
+
+    try {
+      await page.goto('/grafbygger-alfa?websiteId=site-1')
+      await page.getByRole('combobox', { name: 'Hendelser', exact: true }).click()
+      await page.getByRole('option', { name: 'Sidevisninger', exact: true }).click()
+      await page.keyboard.press('Escape')
+      await page.getByRole('button', { name: 'Filter', exact: true }).click()
+      await page.getByRole('combobox', { name: 'Velg filter' }).fill('Sidegruppe')
+      await page.getByRole('option', { name: 'Sidegruppe', exact: true }).click()
+      const createButton = page.getByRole('button', { name: 'Opprett sidegruppe', exact: true })
+      const dialog = page.getByRole('dialog', { name: 'Ny sidegruppe', exact: true })
+      const sidegroupBounds = await page.getByRole('combobox', { name: 'Sidegruppe', exact: true }).boundingBox()
+      expect(sidegroupBounds).not.toBeNull()
+      for (const name of ['Filter', 'Brukergruppe']) {
+        const actionBounds = await page.getByRole('button', { name, exact: true }).boundingBox()
+        expect(actionBounds).not.toBeNull()
+        expect(actionBounds!.y + actionBounds!.height).toBeLessThan(sidegroupBounds!.y)
+      }
+      await createButton.click()
+      await expect(dialog.getByRole('textbox', { name: 'Navn', exact: true })).toBeFocused()
+      await dialog.getByRole('textbox', { name: 'Navn', exact: true }).click()
+      await page.keyboard.press('Escape')
+      await expect(dialog).toHaveCount(0)
+      await expect(createButton).toBeFocused()
+
+      await createButton.click()
+      await dialog.getByRole('textbox', { name: 'Navn', exact: true }).fill('Halvferdig')
+      await page.keyboard.press('Escape')
+      const confirmation = page.getByRole('alertdialog', { name: 'Forkaste endringene?' })
+      await expect(confirmation).toBeVisible()
+      await confirmation.getByRole('button', { name: 'Forkast', exact: true }).click()
+      await expect(dialog).toHaveCount(0)
+      expect(requests).toHaveLength(0)
+
+      await createButton.click()
+      await expect(dialog.getByRole('combobox', { name: 'Nettsted' })).toHaveCount(0)
+      await dialog.getByRole('textbox', { name: 'Navn', exact: true }).fill('Hjelpesider')
+      await dialog.getByRole('combobox', { name: 'Samsvar', exact: true }).selectOption('startWith')
+      await dialog.getByRole('textbox', { name: 'URL-sti', exact: true }).fill('/hjelp')
+      await dialog.getByRole('button', { name: 'Legg til', exact: true }).click()
+      for (const width of [375, 768, 1280, 1920]) {
+        await page.setViewportSize({ width, height: 1000 })
+        const bounds = await dialog.boundingBox()
+        expect(bounds).not.toBeNull()
+        expect(bounds!.x).toBeGreaterThanOrEqual(0)
+        expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width)
+        expect(await page.evaluate<number>('document.documentElement.scrollWidth')).toBeLessThanOrEqual(width)
+      }
+
+      await dialog.getByRole('button', { name: 'Opprett sidegruppe', exact: true }).click()
+      await expect(dialog.getByText('Kunne ikke lagre sidegruppen', { exact: true })).toBeVisible()
+      await expect(dialog.getByRole('textbox', { name: 'Navn', exact: true })).toHaveValue('Hjelpesider')
+      await dialog.getByRole('button', { name: 'Opprett sidegruppe', exact: true }).click()
+      await expect.poll(() => requests.length).toBe(2)
+      await page.keyboard.press('Escape')
+      await expect(dialog).toBeVisible()
+      await expect(confirmation).toHaveCount(0)
+      finishSave()
+      await expect(dialog).toHaveCount(0)
+      await expect(page.getByRole('combobox', { name: 'Sidegruppe', exact: true })).toHaveValue('73')
+      await expect(createButton).toBeFocused()
+      await expect(page).toHaveURL(/\/grafbygger-alfa\?websiteId=site-1/)
+      expect(page.context().pages()).toHaveLength(1)
+      expect(requests[1]).toMatchObject({ websiteId: 'site-1', name: 'Hjelpesider', startWith: ['/hjelp'] })
+
+      await page.getByRole('button', { name: 'Vis resultater', exact: true }).click()
+      await expect.poll(() => queries.length).toBe(1)
+      expect(queries[0]).toContain("STARTS_WITH(LOWER(url_path), LOWER('/hjelp'))")
+      await page.reload()
+      await expect(page.getByRole('combobox', { name: 'Sidegruppe', exact: true })).toHaveValue('73')
+    } finally {
+      finishSave()
+    }
+  })
+
+  test('/grafbygger-alfa validates empty events only when results are requested', async ({ page }) => {
+    const queries: string[] = []
+    let estimates = 0
+    await page.route('**/api/bigquery/websites', (route) => route.fulfill({ json: { data: MOCK_WEBSITES } }))
+    await page.route('**/event-properties?*', (route) =>
+      route.fulfill({ json: { properties: [{ eventName: 'skjema sendt' }] } }),
+    )
+    await page.route('**/api/bigquery/estimate', (route) => {
+      estimates++
+      return route.fulfill({ json: { totalBytesProcessedGB: '0' } })
+    })
+    await page.route(
+      (url) => url.pathname === '/api/bigquery',
+      (route) => {
+        queries.push(route.request().postDataJSON().query)
+        return route.fulfill({ json: { data: [{ antall: 1 }] } })
+      },
+    )
+    await page.goto('/grafbygger-alfa?websiteId=site-1')
+    const picker = page.getByRole('combobox', { name: 'Hendelser', exact: true })
+    const error = page.getByRole('status', { name: 'Hva vil du måle?' })
+    const showResults = page.getByRole('button', { name: 'Vis resultater', exact: true })
+    await expect(picker).not.toHaveAttribute('placeholder')
+    await expect(error).toHaveCount(0)
+
+    await expect(page.getByText('Velg hva du vil måle: sidevisninger eller en egen hendelse.')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Bruk sidevisninger', exact: true })).toHaveCount(0)
+    for (const width of [375, 768, 1280, 1920]) {
+      await page.setViewportSize({ width, height: 1000 })
+      await showResults.click()
+      await expect(error).toBeVisible()
+      await expect(picker).toBeFocused()
+      await expect(picker).not.toHaveAttribute('aria-invalid', 'true')
+      await expect(error.getByRole('button', { name: 'Bruk sidevisninger' })).toBeVisible()
+      expect(queries).toHaveLength(0)
+      expect(estimates).toBe(0)
+      expect(await page.evaluate<number>('document.documentElement.scrollWidth')).toBeLessThanOrEqual(width)
+    }
+
+    await picker.fill('skjema')
+    await showResults.click()
+    await expect(error).toBeVisible()
+    expect(estimates).toBe(0)
+    await picker.click()
+    await page.getByRole('option', { name: 'skjema sendt', exact: true }).click()
+    await expect(error).toHaveCount(0)
+    await expect(picker).not.toHaveAttribute('aria-invalid', 'true')
+    await expect(page.getByRole('button', { name: 'Sidevisninger slett' })).toHaveCount(0)
+    await showResults.click()
+    await expect.poll(() => queries.length).toBe(1)
+    expect(queries[0]).toContain("event_name IN ('skjema sendt')")
+    expect(queries[0]).not.toContain('AND FALSE')
+    expect(queries[0]).not.toContain('event_type = 1 OR')
+
+    await page.getByRole('button', { name: 'skjema sendt slett' }).click()
+    await showResults.click()
+    await expect(error).toBeVisible()
+    expect(queries).toHaveLength(1)
+    await page.reload()
+    await expect(picker).not.toHaveAttribute('placeholder')
+    await expect(page.getByRole('button', { name: 'Sidevisninger slett' })).toHaveCount(0)
+    await expect(error).toHaveCount(0)
+    const estimatesBeforeNudge = estimates
+    await showResults.click()
+    await expect(error).toBeVisible()
+    expect(queries).toHaveLength(1)
+    expect(estimates).toBe(estimatesBeforeNudge)
+    await error.getByRole('button', { name: 'Bruk sidevisninger', exact: true }).click()
+    await expect(page.getByRole('button', { name: 'Sidevisninger slett' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Bruk sidevisninger', exact: true })).toHaveCount(0)
+    await expect(picker).not.toHaveAttribute('aria-invalid', 'true')
+    expect(queries).toHaveLength(1)
+    expect(estimates).toBe(estimatesBeforeNudge)
+    await showResults.click()
+    await expect.poll(() => queries.length).toBe(2)
+    expect(queries[1]).toContain('event_type IN (1)')
+    expect(queries[1]).not.toContain('AND FALSE')
+  })
+
+  test('/grafbygger-alfa allows exact event names while suggestions load', async ({ page }) => {
+    await page.route('**/api/bigquery/websites', (route) => route.fulfill({ json: { data: MOCK_WEBSITES } }))
+    let releaseSuggestions: () => void = () => {}
+    const suggestionsReady = new Promise<void>((resolve) => {
+      releaseSuggestions = resolve
+    })
+    await page.route('**/event-properties?*', async (route) => {
+      await suggestionsReady
+      await route.fulfill({
+        json: { properties: [{ eventName: 'søknad fullført' }, { eventName: 'meny åpnet' }] },
+      })
+    })
+    try {
+      await page.goto('/grafbygger-alfa?websiteId=site-1')
+      const picker = page.getByRole('combobox', { name: 'Hendelser', exact: true })
+      await expect(picker).toBeVisible()
+      await expect(page.getByText('Henter egne hendelser… Du kan også skrive inn hendelsesnavnet.')).toBeVisible()
+      await picker.fill('søknad fullført')
+      await picker.press('Enter')
+      await expect(page.getByRole('button', { name: 'søknad fullført slett' })).toBeVisible()
+      releaseSuggestions()
+      await expect(page.getByText('Henter egne hendelser… Du kan også skrive inn hendelsesnavnet.')).toHaveCount(0)
+      await picker.click()
+      await expect(page.getByRole('option', { name: 'søknad fullført', exact: true })).toHaveCount(1)
+      await expect(page.getByRole('option', { name: 'meny åpnet', exact: true })).toBeVisible()
+      await expect(page.getByRole('option', { name: 'Alle egne hendelser', exact: true })).toHaveCount(0)
+      await page.reload()
+      await expect(page.getByRole('button', { name: 'søknad fullført slett' })).toBeVisible()
+    } finally {
+      releaseSuggestions()
+    }
+  })
+
+  for (const response of [
+    { name: 'empty', status: 200, json: { properties: [] } },
+    { name: 'failed', status: 503, json: { error: 'Unavailable' } },
+    { name: 'malformed', status: 200, json: {} },
+  ]) {
+    test(`/grafbygger-alfa allows exact event names with ${response.name} suggestions`, async ({ page }) => {
+      await page.route('**/api/bigquery/websites', (route) => route.fulfill({ json: { data: MOCK_WEBSITES } }))
+      await page.route('**/event-properties?*', (route) =>
+        route.fulfill({ status: response.status, json: response.json }),
+      )
+      await page.goto('/grafbygger-alfa?websiteId=site-1')
+      const picker = page.getByRole('combobox', { name: 'Hendelser', exact: true })
+      await expect(picker).toBeVisible()
+      if (response.name !== 'empty') {
+        await expect(
+          page.getByText('Det oppstod en feil ved lasting av data. Forsøk å laste siden inn på nytt.'),
+        ).toBeVisible()
+      }
+      await expect(page.getByText('Skriv inn hendelsesnavnet for å legge til en egen hendelse.')).toHaveCount(0)
+      await picker.fill('skjema fullført')
+      await page.getByRole('option', { name: /legg til.*skjema fullført/i }).click()
+      await expect(page.getByRole('button', { name: 'skjema fullført slett' })).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Alle egne hendelser slett' })).toHaveCount(0)
+      await page.reload()
+      await expect(page.getByRole('button', { name: 'skjema fullført slett' })).toBeVisible()
+    })
+  }
 
   const routesWithHeadings: Array<{ path: string; heading: RegExp }> = [
     { path: '/trafikkanalyse', heading: /trafikkoversikt/i },

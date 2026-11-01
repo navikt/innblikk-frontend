@@ -1,11 +1,11 @@
 /**
- * Registry of features currently in beta.
+ * Registry of features currently in alfa or beta.
  *
  * «Beta» here describes the *feature*, never the user: there is no opt-in,
  * everyone gets beta features, and each feature surfaces its own dismissable
  * notice (BetaFeatureNotice) where it lives. This registry is the single
- * source of truth for which features are in beta, and powers the overview on
- * /innstillinger («Funksjoner i beta»).
+ * source of truth for which features are in alfa or beta, and powers the
+ * corresponding overviews on /innstillinger.
  *
  * When a feature graduates out of beta: remove its registry entry, its
  * mounted BetaFeatureNotice, and its `beta: true` marker in
@@ -15,6 +15,7 @@
 export type BetaFeature = {
   /** Dismissal key (dismissedAlerts.ts) and registry key. */
   id: string
+  stage?: 'alfa' | 'beta'
   /** Short name, e.g. «Grafbyggeren». */
   title: string
   /** One-liner about what is new/experimental, shown in the /innstillinger overview. */
@@ -34,6 +35,13 @@ export const betaFeatures: BetaFeature[] = [
     title: 'Grafbyggeren',
     description: 'Store endringer, med blant annet støtte for brukergrupper.',
     href: '/grafbygger',
+  },
+  {
+    id: 'grafbyggeren-alfa',
+    stage: 'alfa',
+    title: 'Grafbyggeren',
+    description: 'Velg hendelser, og legg til filtre og brukergrupper ved behov.',
+    href: '/grafbygger-alfa',
   },
   {
     id: 'brukergrupper',

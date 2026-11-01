@@ -457,7 +457,7 @@ interface CustomEventsEditorProps {
   addFilterDirectly?: (filter: Filter) => void
 }
 
-const CustomEventsEditor = ({
+export const CustomEventsEditor = ({
   customEventsMode,
   setCustomEventsMode,
   eventNameOperator,
@@ -702,9 +702,10 @@ interface GenericFilterCardProps {
   EVENT_TYPES?: Option[]
   removeFilter: (index: number) => void
   updateFilter: (index: number, updates: Partial<Filter>) => void
+  compact?: boolean
 }
 
-const GenericFilterCard = ({
+export const GenericFilterCard = ({
   filter,
   index,
   columnLabel,
@@ -717,6 +718,7 @@ const GenericFilterCard = ({
   EVENT_TYPES,
   removeFilter,
   updateFilter,
+  compact = false,
 }: GenericFilterCardProps) => {
   const getOptionsForColumn = (column: string): Option[] => {
     switch (column) {
@@ -739,7 +741,14 @@ const GenericFilterCard = ({
 
   const handleValueToggle = (option: string, isSelected: boolean) => {
     if (!option) return
-    const newValues = isSelected ? [...new Set([...currentValues, option])] : currentValues.filter((v) => v !== option)
+    const newValues =
+      compact && !['=', 'IN'].includes(filter.operator ?? '=')
+        ? isSelected
+          ? [option]
+          : []
+        : isSelected
+          ? [...new Set([...currentValues, option])]
+          : currentValues.filter((v) => v !== option)
 
     updateFilter(index, {
       operator: newValues.length > 1 ? 'IN' : filter.operator,
@@ -781,38 +790,40 @@ const GenericFilterCard = ({
       {/* Controls */}
       <div className="space-y-2">
         <div className="flex flex-wrap items-end gap-2">
-          <Select
-            label="Kolonne"
-            value={filter.column}
-            onChange={(e) => updateFilter(index, { column: e.target.value, operator: '=', value: '' })}
-            size="small"
-            className="min-w-[150px]"
-          >
-            <option value="" disabled>
-              Velg kolonne…
-            </option>
-            {FILTER_COLUMNS &&
-              Object.entries(FILTER_COLUMNS).map(([groupKey, group]) => (
-                <optgroup key={groupKey} label={group.label}>
-                  {group.columns.map((col) => (
-                    <option key={col.value} value={col.value}>
-                      {col.label}
+          {!compact && (
+            <Select
+              label="Kolonne"
+              value={filter.column}
+              onChange={(e) => updateFilter(index, { column: e.target.value, operator: '=', value: '' })}
+              size="small"
+              className="min-w-[150px]"
+            >
+              <option value="" disabled>
+                Velg kolonne…
+              </option>
+              {FILTER_COLUMNS &&
+                Object.entries(FILTER_COLUMNS).map(([groupKey, group]) => (
+                  <optgroup key={groupKey} label={group.label}>
+                    {group.columns.map((col) => (
+                      <option key={col.value} value={col.value}>
+                        {col.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              {parameters.length > 0 && (
+                <optgroup label="Hendelsesdetaljer">
+                  {uniqueParameters.map((param) => (
+                    <option key={`param_${param.key}`} value={`param_${getParamName(param)}`}>
+                      {getParamName(param)}
                     </option>
                   ))}
                 </optgroup>
-              ))}
-            {parameters.length > 0 && (
-              <optgroup label="Hendelsesdetaljer">
-                {uniqueParameters.map((param) => (
-                  <option key={`param_${param.key}`} value={`param_${getParamName(param)}`}>
-                    {getParamName(param)}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-          </Select>
+              )}
+            </Select>
+          )}
 
-          {!filter.interactive && (
+          {!filter.interactive && !compact && (
             <Button variant="tertiary" size="small" className="mb-1" onClick={makeInteractive}>
               Gjør til filtervalg
             </Button>
@@ -820,8 +831,9 @@ const GenericFilterCard = ({
 
           {filter.column !== 'created_at' && !filter.interactive && (
             <Select
-              label="Operator"
-              value={filter.operator || '='}
+              label={compact ? `${columnLabel}: sammenligning` : 'Operator'}
+              hideLabel={compact}
+              value={compact && filter.operator === 'IN' ? '=' : filter.operator || '='}
               onChange={(e) => updateFilter(index, { operator: e.target.value, value: '' })}
               size="small"
               className="min-w-[100px]"
@@ -843,16 +855,24 @@ const GenericFilterCard = ({
           !['IS NULL', 'IS NOT NULL'].includes(filter.operator || '') && (
             <UNSAFE_Combobox
               label="Verdi"
+              hideLabel={compact}
               description={null}
               options={getOptionsForColumn(filter.column)}
               selectedOptions={currentValues}
               onToggleSelected={handleValueToggle}
-              isMultiSelect={true}
+              isMultiSelect={!compact || ['=', 'IN'].includes(filter.operator ?? '=')}
               size="small"
               allowNewValues={filter.column !== 'event_type'}
               shouldAutocomplete={false}
             />
           )
+        )}
+        {compact && !filter.interactive && (
+          <ReadMore size="small" header="Bruk som dashboardfilter">
+            <Button variant="tertiary" size="small" onClick={makeInteractive}>
+              La mottakeren velge verdi
+            </Button>
+          </ReadMore>
         )}
       </div>
     </FilterCard>

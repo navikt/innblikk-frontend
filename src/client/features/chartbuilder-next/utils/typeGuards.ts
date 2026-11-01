@@ -19,7 +19,11 @@ export const isWebsiteLike = (value: unknown): value is Website => {
 }
 
 export const isFilterLike = (value: unknown): value is Filter => {
-  return isRecord(value) && typeof value.column === 'string' && typeof value.operator === 'string'
+  return (
+    isRecord(value) &&
+    typeof value.column === 'string' &&
+    (typeof value.operator === 'string' || (typeof value.rawExpression === 'string' && value.rawExpression.length > 0))
+  )
 }
 
 export const isFilterArray = (value: unknown): value is Filter[] => {

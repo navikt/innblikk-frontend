@@ -147,7 +147,7 @@ const LegacyOversiktRedirect = () => {
 
 const LegacyVisualizationRouteRedirect = ({ to }: { to: string }) => {
   const location = useLocation()
-  return <Navigate to={`${to}${location.search}`} replace />
+  return <Navigate to={`${to}${location.search}${location.hash}`} replace />
 }
 
 const ReopsInternalRoute = () => {
@@ -251,6 +251,12 @@ export const routes: AppRoute[] = [
 
   { path: '/taksonomi', component: <Taksonomi />, fullWidth: true },
   { path: '/grafbygger', component: <Grafbygger />, fullWidth: true },
+  { path: '/grafbygger-alfa', component: <Grafbygger key="next" edition="next" />, fullWidth: true },
+  {
+    path: '/grafbygger-next',
+    component: <LegacyVisualizationRouteRedirect to="/grafbygger-alfa" />,
+    fullWidth: true,
+  },
   { path: '/grafbygger-old', component: <GrafbyggerOld />, fullWidth: true },
   // Legacy alias from the pre-rollout live-testing route.
   { path: '/grafbygger_next', component: <LegacyVisualizationRouteRedirect to="/grafbygger" />, fullWidth: true },
