@@ -501,6 +501,7 @@ const ChartsPage = ({ edition = 'current' }: { edition?: 'current' | 'next' }) =
           metrics={config.metrics}
           groupByFields={config.groupByFields}
           onResetAll={handleResetAllWithSignals}
+          resetPlacement={isNextEdition ? 'results' : undefined}
           onBeforeExecute={isNextEdition ? () => chartFiltersRef.current?.validateSelection?.() === true : undefined}
           availableEvents={availableEvents}
           isEventsLoading={isEventsLoading}

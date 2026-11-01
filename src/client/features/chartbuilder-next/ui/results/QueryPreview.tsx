@@ -70,6 +70,7 @@ interface QueryPreviewProps {
   metrics?: Array<{ column?: string }>
   groupByFields?: string[]
   onResetAll?: () => void
+  resetPlacement?: 'top' | 'results'
   onBeforeExecute?: () => boolean
   availableEvents?: string[]
   isEventsLoading?: boolean
@@ -182,6 +183,7 @@ const QueryPreview = ({
   metrics = [],
   groupByFields = [],
   onResetAll,
+  resetPlacement = 'top',
   onBeforeExecute,
   availableEvents = [],
   isEventsLoading = false,
@@ -1447,22 +1449,22 @@ const QueryPreview = ({
     />
   )
 
+  const resetAction = onResetAll && activeStep > 1 && !isBasicTemplate() && (
+    <Button
+      variant="tertiary"
+      data-color={resetPlacement === 'results' ? 'neutral' : undefined}
+      size="xsmall"
+      onClick={() => setResetArmed(true)}
+      icon={<ArrowCirclepathReverseIcon aria-hidden />}
+    >
+      Tilbakestill alle valg
+    </Button>
+  )
+
   return (
     <>
       <div>
-        {/* Keep the reset action in the panel's top-right corner, above filters. */}
-        {onResetAll && activeStep > 1 && !isBasicTemplate() && (
-          <div className="flex justify-end mb-2">
-            <Button
-              variant="tertiary"
-              size="xsmall"
-              onClick={() => setResetArmed(true)}
-              icon={<ArrowCirclepathReverseIcon aria-hidden />}
-            >
-              Tilbakestill alle valg
-            </Button>
-          </div>
-        )}
+        {resetPlacement === 'top' && resetAction && <div className="flex justify-end mb-2">{resetAction}</div>}
 
         {/* Success Alert for Reset */}
         {showAlert && (
@@ -1474,11 +1476,17 @@ const QueryPreview = ({
         {/* Result filters — the Periode picker is the single period control and
             is always shown; it substitutes the {{created_at}} placeholder or
             rewrites the chart's concrete date bounds alike (see getProcessedSql). */}
-        <div className="pt-2 mb-3">
+        <div className={resetPlacement === 'results' ? 'mb-3' : 'pt-2 mb-3'}>
           <div className="flex flex-wrap gap-4 items-start">
             {/* URL Path Filter */}
             {(hasUrlPathFilter || hasInteractiveUrlPathFilter) && (
-              <div className="w-64 focus-within:relative focus-within:z-10">
+              <div
+                className={
+                  resetPlacement === 'results'
+                    ? 'w-full sm:w-40 sm:grow min-w-0 focus-within:relative focus-within:z-10'
+                    : 'w-64 focus-within:relative focus-within:z-10'
+                }
+              >
                 <UNSAFE_Combobox
                   label="URL-sti"
                   size="small"
@@ -1621,6 +1629,7 @@ const QueryPreview = ({
               </Dialog>
 
               <ResultsPanel
+                secondaryAction={resetPlacement === 'results' ? resetAction : undefined}
                 result={result}
                 loading={loading}
                 error={error}

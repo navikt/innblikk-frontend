@@ -240,6 +240,57 @@ test.describe('App smoke tests', () => {
     await expect(page.getByRole('button', { name: 'Brukergruppe', exact: true })).toBeVisible()
   })
 
+  test('/grafbygger-alfa aligns the top fields and keeps reset beside results', async ({ page }) => {
+    await page.route('**/api/bigquery/websites', (route) => route.fulfill({ json: { data: MOCK_WEBSITES } }))
+    await page.route('**/event-properties?*', (route) => route.fulfill({ json: { properties: [] } }))
+    await page.goto('/grafbygger-alfa?websiteId=site-1')
+    const events = page.getByRole('combobox', { name: 'Hendelser', exact: true })
+    await events.fill('Sidevisninger')
+    await page.getByRole('option', { name: 'Sidevisninger', exact: true }).click()
+    await page.getByRole('radio', { name: 'Unike besøkende', exact: true }).check()
+    const reset = page.getByRole('button', { name: 'Tilbakestill alle valg', exact: true })
+    await expect(reset).toBeVisible()
+    await expect(reset).toHaveAttribute('data-color', 'neutral')
+    for (const width of [375, 768, 1280, 1920]) {
+      await page.setViewportSize({ width, height: 1000 })
+      await page.evaluate('window.scrollTo({ top: 0, behavior: "instant" })')
+      const resetBounds = await reset.boundingBox()
+      expect(resetBounds).not.toBeNull()
+      const fieldBounds = []
+      for (const name of ['Nettside', 'URL-sti', 'Periode']) {
+        const field = page.getByRole('combobox', { name, exact: true })
+        const bounds = await field.evaluate((input) => {
+          const { x, y, width, height } = (
+            input.closest('.aksel-combobox__wrapper-inner') ?? input
+          ).getBoundingClientRect()
+          return { x, y, width, height }
+        })
+        if (name !== 'Nettside') expect(bounds.y + bounds.height).toBeLessThan(resetBounds!.y)
+        fieldBounds.push(bounds)
+      }
+      if (width >= 1280) {
+        expect(
+          Math.max(...fieldBounds.map((bounds) => bounds.y)) - Math.min(...fieldBounds.map((bounds) => bounds.y)),
+        ).toBeLessThanOrEqual(1)
+      }
+      expect(await page.evaluate<number>('document.documentElement.scrollWidth')).toBeLessThanOrEqual(width)
+      if (width === 1920) {
+        const resultsBounds = await page.getByRole('button', { name: 'Vis resultater', exact: true }).boundingBox()
+        expect(resultsBounds).not.toBeNull()
+        expect(
+          Math.abs(resetBounds!.y + resetBounds!.height / 2 - (resultsBounds!.y + resultsBounds!.height / 2)),
+        ).toBeLessThanOrEqual(1)
+        expect(resetBounds!.x).toBeGreaterThan(resultsBounds!.x + resultsBounds!.width)
+      }
+    }
+    await reset.click()
+    const dialog = page.getByRole('dialog', { name: 'Tilbakestill alle valg?' })
+    await expect(dialog).toBeVisible()
+    await dialog.getByRole('button', { name: 'Avbryt', exact: true }).click()
+    await expect(reset).toBeFocused()
+    await expect(page.getByRole('button', { name: 'Sidevisninger slett' })).toBeVisible()
+  })
+
   test('/grafbygger-alfa creates and selects user groups without leaving the graph', async ({ page }) => {
     const group = { id: 73, websiteId: 'site-1', name: 'Søkere', root: null }
     let saved = false

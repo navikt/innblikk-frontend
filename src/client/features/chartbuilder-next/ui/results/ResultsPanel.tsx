@@ -51,6 +51,7 @@ interface ResultsPanelProps {
   lastAction: 'copy' | 'estimate' | 'execute' | 'run' | null
   showLoadingMessage: boolean
   executeQuery: () => void
+  secondaryAction?: React.ReactNode
   handleRetry: () => void
   prepareLineChartData: (includeAverage?: boolean) => ILineChartProps | null
   prepareBarChartData: () => IVerticalBarChartProps | null
@@ -165,6 +166,7 @@ const ResultsPanel = ({
   lastAction,
   showLoadingMessage,
   executeQuery,
+  secondaryAction,
   handleRetry,
   sql,
   showSqlCode = false,
@@ -741,10 +743,9 @@ const ResultsPanel = ({
     // styling, the parent chat flow owns the spacing.
     <div className={sqlOnly || compactSpacing ? 'space-y-2' : 'space-y-2 mb-6'}>
       <div className={sqlOnly ? '' : containerClass}>
-        {/* Only show button if no results yet */}
-        {!result && !error && (
-          <div className="space-y-2">
-            {showExecuteButton && (
+        {((!result && !error && showExecuteButton) || secondaryAction) && (
+          <div className="flex flex-wrap items-center gap-4">
+            {!result && !error && showExecuteButton && (
               <Button
                 onClick={executeQuery}
                 loading={loading}
@@ -755,13 +756,14 @@ const ResultsPanel = ({
                 Vis resultater
               </Button>
             )}
-            {loading && showLoadingMessage && (
-              <Alert variant="info" className="text-sm mt-2">
-                <p className="font-medium">Spørring kjører...</p>
-                <p className="mt-1">Dette kan ta opptil 20-30 sekunder for store datasett. Vennligst vent.</p>
-              </Alert>
-            )}
+            {secondaryAction}
           </div>
+        )}
+        {!result && !error && loading && showLoadingMessage && (
+          <Alert variant="info" className="text-sm mt-2">
+            <p className="font-medium">Spørring kjører...</p>
+            <p className="mt-1">Dette kan ta opptil 20-30 sekunder for store datasett. Vennligst vent.</p>
+          </Alert>
         )}
 
         {/* Error Display */}

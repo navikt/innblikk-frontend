@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, vi } from 'vitest'
 import type { Filter } from '../../../../shared/types/chart.ts'
@@ -8,7 +8,12 @@ import EventFilter from '../grafbygger/EventFilter.tsx'
 import { generateSQLCore } from '../../utils/sqlGenerator.ts'
 
 vi.mock('./ResultsPanel.tsx', () => ({
-  default: ({ executeQuery }: { executeQuery: () => void }) => <button onClick={executeQuery}>Vis resultater</button>,
+  default: ({ executeQuery, secondaryAction }: { executeQuery: () => void; secondaryAction?: React.ReactNode }) => (
+    <div>
+      <button onClick={executeQuery}>Vis resultater</button>
+      {secondaryAction}
+    </div>
+  ),
 }))
 
 function Harness({ initialFilters = [] }: { initialFilters?: Filter[] }) {
@@ -146,6 +151,33 @@ describe('chartbuilder preview filters', () => {
     const reset = screen.getByRole('button', { name: 'Tilbakestill alle valg' })
     const url = await screen.findByRole('combobox', { name: 'URL-sti' })
     expect(reset.compareDocumentPosition(url) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('keeps confirmation and local filter resets when reset is placed beside results', async () => {
+    const user = userEvent.setup()
+    const onResetAll = vi.fn()
+    render(<QueryPreview sql="SELECT 1" activeStep={3} onResetAll={onResetAll} resetPlacement="results" />)
+    const reset = screen.getByRole('button', { name: 'Tilbakestill alle valg' })
+    expect(screen.getAllByRole('button', { name: 'Tilbakestill alle valg' })).toHaveLength(1)
+    expect(reset).toHaveAttribute('data-color', 'neutral')
+    expect(
+      screen.getByRole('button', { name: 'Vis resultater' }).compareDocumentPosition(reset) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Periode' }), 'yesterday')
+    await user.click(reset)
+    const dialog = await screen.findByRole('dialog', { name: 'Tilbakestill alle valg?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Avbryt' }))
+    expect(onResetAll).not.toHaveBeenCalled()
+    expect(screen.getByRole('combobox', { name: 'Periode' })).toHaveValue('yesterday')
+    await user.click(reset)
+    await user.click(
+      within(await screen.findByRole('dialog', { name: 'Tilbakestill alle valg?' })).getByRole('button', {
+        name: 'Ja, tilbakestill alt',
+      }),
+    )
+    expect(onResetAll).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('combobox', { name: 'Periode' })).toHaveValue('last_7_days')
   })
 
   it('always shows the period picker and rewrites concrete chart bounds when executing', async () => {
