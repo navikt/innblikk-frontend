@@ -253,6 +253,7 @@ const ChartsPage = ({ edition = 'current' }: { edition?: 'current' | 'next' }) =
   const additionalOptions = (
     <Accordion size="small" indent={false} className="mb-4">
       <Accordion.Item
+        style={isNextEdition ? { borderBottom: 'none' } : undefined}
         onOpenChange={(open) => {
           trackEvent(open ? Events.ACCORDION_APNET : Events.ACCORDION_LUKKET, {
             seksjon: 'grafbygger',

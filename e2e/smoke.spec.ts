@@ -318,6 +318,7 @@ test.describe('App smoke tests', () => {
     const settings = page.getByRole('button', { name: 'Tilleggsvalg', exact: true })
     await expect(settings).toHaveCount(1)
     await expect(settings).toHaveAttribute('aria-expanded', 'false')
+    await expect(settings.locator('..')).toHaveCSS('border-bottom-width', '0px')
     await expect(page.getByText('Gruppert etter...', { exact: true })).toBeVisible()
     for (const width of [1280, 1920]) {
       await page.setViewportSize({ width, height: 1000 })
@@ -333,6 +334,7 @@ test.describe('App smoke tests', () => {
       expect(settingsBounds!.x + settingsBounds!.width).toBeLessThan(previewBounds!.x)
     }
     await settings.click()
+    await expect(settings.locator('..')).toHaveCSS('border-bottom-width', '0px')
     await page.getByRole('checkbox', { name: /^Begrens antall rader/ }).check()
     const limit = page.getByRole('spinbutton', { name: 'Maksimalt antall rader', exact: true })
     await limit.fill('10')

@@ -179,6 +179,11 @@ describe('Grafbygger page', () => {
     const settings = within(container).getByRole('button', { name: 'Tilleggsvalg' })
     expect(screen.getAllByRole('button', { name: 'Tilleggsvalg' })).toHaveLength(1)
     expect(settings).toHaveAttribute('aria-expanded', 'false')
+    if (edition === 'current') {
+      expect(settings.parentElement).not.toHaveAttribute('style')
+    } else {
+      expect(settings.parentElement).toHaveAttribute('style', expect.stringContaining('border-bottom'))
+    }
     if (edition === 'next') {
       expect(
         screen.getByText('Gruppert etter...').compareDocumentPosition(settings) & Node.DOCUMENT_POSITION_FOLLOWING,
