@@ -28,6 +28,28 @@ const props = {
   initialTab: 'table' as const,
 }
 
+describe('secondary action', () => {
+  it.each(['initial', 'results', 'empty', 'error'] as const)('remains available in the %s state', (state) => {
+    const reset = vi.fn()
+    render(
+      <ResultsPanel
+        {...props}
+        result={state === 'results' ? props.result : state === 'empty' ? { data: [] } : null}
+        error={state === 'error' ? 'Spørringen feilet' : null}
+        secondaryAction={<button onClick={reset}>Tilbakestill alle valg</button>}
+      />,
+    )
+    expect(screen.getAllByRole('button', { name: 'Tilbakestill alle valg' })).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Tilbakestill alle valg' }))
+    expect(reset).toHaveBeenCalledTimes(1)
+    if (state === 'initial') {
+      expect(screen.getByRole('button', { name: 'Vis resultater' })).toBeVisible()
+    } else {
+      expect(screen.queryByRole('button', { name: 'Vis resultater' })).not.toBeInTheDocument()
+    }
+  })
+})
+
 describe('empty results', () => {
   it('suggests adjusting filters and dates without linking back to the builder when already editing', () => {
     render(<ResultsPanel {...props} websiteId="test-website" result={{ data: [] }} showChartBuilderLink={false} />)

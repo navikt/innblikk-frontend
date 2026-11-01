@@ -250,27 +250,78 @@ const ChartsPage = ({ edition = 'current' }: { edition?: 'current' | 'next' }) =
     </>
   )
 
+  const additionalOptions = (
+    <Accordion size="small" indent={false} className="mb-4">
+      <Accordion.Item
+        onOpenChange={(open) => {
+          trackEvent(open ? Events.ACCORDION_APNET : Events.ACCORDION_LUKKET, {
+            seksjon: 'grafbygger',
+            komponentId: 'tilleggsvalg',
+            tittel: 'Tilleggsvalg',
+          })
+        }}
+      >
+        <Accordion.Header className={`before:hidden after:hidden${isNextEdition ? ' px-0' : ''}`}>
+          Tilleggsvalg
+        </Accordion.Header>
+        <Accordion.Content>
+          <div ref={setKolonnenavnContainer} />
+          <div className="mb-4">
+            <PeriodOverrideOption filters={filters} setFilters={setFilters} maxDaysAvailable={maxDaysAvailable} />
+          </div>
+          <ResultsDisplayOptions
+            orderBy={config.orderBy}
+            setOrderBy={setOrderBy}
+            clearOrderBy={clearOrderBy}
+            limit={config.limit}
+            setLimit={setLimit}
+            columnOrderMode={config.columnOrderMode || 'default'}
+            setColumnOrderMode={setColumnOrderMode}
+            groupByFields={config.groupByFields}
+            metrics={config.metrics}
+          />
+          <div className="mt-4">
+            <Checkbox
+              size="small"
+              checked={config.paramAggregation === 'representative'}
+              description="Kun relevant hvis du grupperer på en tekstparameter. Normalt viser vi den eksakte verdien for hver rad. Med dette valget viser vi i stedet én tilfeldig verdi per gruppe – raskere spørring, men verdien kan avvike fra enkeltrader i gruppen."
+              onChange={(e) => {
+                trackEvent(Events.AVKRYSNINGSBOKS_ENDRET, {
+                  seksjon: 'grafbygger',
+                  komponentId: 'vis-representativ-parameterverdi',
+                  tekst: 'Vis representativ parameterverdi',
+                  checked: e.target.checked,
+                })
+                setParamAggregation(e.target.checked ? 'representative' : 'unique')
+              }}
+            >
+              Vis representativ parameterverdi
+            </Checkbox>
+          </div>
+        </Accordion.Content>
+      </Accordion.Item>
+    </Accordion>
+  )
+
   return (
     <ChartLayout
       title="Grafbyggeren"
       description="Lag tilpassede grafer og tabeller."
       currentPage="grafbygger"
       wideSidebar={true}
+      collapsibleSidebar={!isNextEdition}
       sidebarFilterGap="space-16"
       showPageHeader={!isFocusedMode}
       showKontaktSection={!isFocusedMode}
       beta={isNextEdition}
       betaLabel={isNextEdition ? 'Alfa' : undefined}
       headerNotice={
-        <BetaFeatureNotice
-          id={isNextEdition ? 'grafbyggeren-alfa' : 'grafbygger-rewrite'}
-          title={isNextEdition ? 'Prøv den nye grafbyggeren' : 'Grafbyggeren er i beta'}
-        >
-          {isNextEdition
-            ? 'Vi prøver ut en enklere måte å velge hendelser og filtre på. Den vanlige grafbyggeren er uendret.'
-            : 'Grafbyggeren har fått store endringer, med blant annet støtte for brukergrupper.'}
-          <BetaFeedbackLine />
-        </BetaFeatureNotice>
+        !isNextEdition && (
+          <BetaFeatureNotice id="grafbygger-rewrite" title="Grafbyggeren er i beta">
+            Grafbyggeren har fått store endringer, med blant annet støtte for brukergrupper.
+            <BetaFeedbackLine />
+          </BetaFeatureNotice>
+        )
       }
       filters={
         <>
@@ -379,7 +430,7 @@ const ChartsPage = ({ edition = 'current' }: { edition?: 'current' | 'next' }) =
               <SidebarSection
                 title="Målt som..."
                 action={
-                  showResetMetrics ? (
+                  showResetMetrics && !isNextEdition ? (
                     <ActionFeedbackButton
                       label="Tilbakestill"
                       activeLabel="Tilbakestilt!"
@@ -468,6 +519,7 @@ const ChartsPage = ({ edition = 'current' }: { edition?: 'current' | 'next' }) =
               </SidebarSection>
             </>
           )}
+          {isNextEdition && additionalOptions}
         </>
       }
     >
@@ -507,60 +559,7 @@ const ChartsPage = ({ edition = 'current' }: { edition?: 'current' | 'next' }) =
           isEventsLoading={isEventsLoading}
           websiteId={config.website?.id}
           showDownloadReadMore={false}
-          additionalOptions={
-            <Accordion size="small" indent={false} className="mb-4">
-              <Accordion.Item
-                onOpenChange={(open) => {
-                  trackEvent(open ? Events.ACCORDION_APNET : Events.ACCORDION_LUKKET, {
-                    seksjon: 'grafbygger',
-                    komponentId: 'tilleggsvalg',
-                    tittel: 'Tilleggsvalg',
-                  })
-                }}
-              >
-                <Accordion.Header className="before:hidden after:hidden">Tilleggsvalg</Accordion.Header>
-                <Accordion.Content>
-                  <div ref={setKolonnenavnContainer} />
-                  <div className="mb-4">
-                    <PeriodOverrideOption
-                      filters={filters}
-                      setFilters={setFilters}
-                      maxDaysAvailable={maxDaysAvailable}
-                    />
-                  </div>
-                  <ResultsDisplayOptions
-                    orderBy={config.orderBy}
-                    setOrderBy={setOrderBy}
-                    clearOrderBy={clearOrderBy}
-                    limit={config.limit}
-                    setLimit={setLimit}
-                    columnOrderMode={config.columnOrderMode || 'default'}
-                    setColumnOrderMode={setColumnOrderMode}
-                    groupByFields={config.groupByFields}
-                    metrics={config.metrics}
-                  />
-                  <div className="mt-4">
-                    <Checkbox
-                      size="small"
-                      checked={config.paramAggregation === 'representative'}
-                      description="Kun relevant hvis du grupperer på en tekstparameter. Normalt viser vi den eksakte verdien for hver rad. Med dette valget viser vi i stedet én tilfeldig verdi per gruppe – raskere spørring, men verdien kan avvike fra enkeltrader i gruppen."
-                      onChange={(e) => {
-                        trackEvent(Events.AVKRYSNINGSBOKS_ENDRET, {
-                          seksjon: 'grafbygger',
-                          komponentId: 'vis-representativ-parameterverdi',
-                          tekst: 'Vis representativ parameterverdi',
-                          checked: e.target.checked,
-                        })
-                        setParamAggregation(e.target.checked ? 'representative' : 'unique')
-                      }}
-                    >
-                      Vis representativ parameterverdi
-                    </Checkbox>
-                  </div>
-                </Accordion.Content>
-              </Accordion.Item>
-            </Accordion>
-          }
+          additionalOptions={isNextEdition ? undefined : additionalOptions}
         />
       </div>
     </ChartLayout>

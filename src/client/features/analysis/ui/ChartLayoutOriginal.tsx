@@ -18,6 +18,7 @@ interface ChartLayoutProps {
   currentPage?: AnalyticsPage
   wideSidebar?: boolean
   hideSidebar?: boolean
+  collapsibleSidebar?: boolean
   hideAnalysisSelector?: boolean
   sidebarFilterGap?: VStackProps['gap']
   showPageHeader?: boolean
@@ -36,6 +37,7 @@ const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
   currentPage,
   wideSidebar = false,
   hideSidebar = false,
+  collapsibleSidebar = true,
   hideAnalysisSelector,
   sidebarFilterGap = 'space-32',
   showPageHeader = true,
@@ -44,7 +46,8 @@ const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
   betaLabel,
   headerNotice,
 }) => {
-  const { isSidebarOpen, setIsSidebarOpen, handleChartChange } = useChartLayoutOriginal(hideSidebar)
+  const { isSidebarOpen: isSidebarExpanded, setIsSidebarOpen, handleChartChange } = useChartLayoutOriginal(hideSidebar)
+  const isSidebarOpen = isSidebarExpanded || (!hideSidebar && !collapsibleSidebar)
   // The global left Sidebar covers the main analysis navigation, so the in-page
   // "Type analyse" Select defaults to hidden (an explicit prop still wins).
   const effectiveHideAnalysisSelector = hideAnalysisSelector ?? true
@@ -143,17 +146,19 @@ const ChartLayoutOriginal: React.FC<ChartLayoutProps> = ({
                   </VStack>
                 </div>
                 {/* Collapse button on divider - hidden on mobile */}
-                <button
-                  onClick={() => setIsSidebarOpen(false)}
-                  className={`hidden md:flex absolute top-3 ${buttonPosition} -translate-x-1/2 items-center justify-center w-6 h-12 bg-[var(--ax-bg-default)] border border-[var(--ax-border-neutral-strong)] rounded-md shadow-sm hover:bg-[var(--ax-bg-neutral-soft)] hover:border-[var(--ax-border-accent)] transition-colors z-10`}
-                  title="Minimer filter"
-                  aria-label="Minimer filter"
-                >
-                  <ChevronLeftIcon fontSize="1rem" className="text-[var(--ax-text-accent)]" aria-hidden />
-                </button>
+                {collapsibleSidebar && (
+                  <button
+                    onClick={() => setIsSidebarOpen(false)}
+                    className={`hidden md:flex absolute top-3 ${buttonPosition} -translate-x-1/2 items-center justify-center w-6 h-12 bg-[var(--ax-bg-default)] border border-[var(--ax-border-neutral-strong)] rounded-md shadow-sm hover:bg-[var(--ax-bg-neutral-soft)] hover:border-[var(--ax-border-accent)] transition-colors z-10`}
+                    title="Minimer filter"
+                    aria-label="Minimer filter"
+                  >
+                    <ChevronLeftIcon fontSize="1rem" className="text-[var(--ax-text-accent)]" aria-hidden />
+                  </button>
+                )}
               </>
             )}
-            {!isSidebarOpen && !hideSidebar && (
+            {collapsibleSidebar && !isSidebarOpen && !hideSidebar && (
               /* Expand button on left edge - hidden on mobile */
               <button
                 onClick={() => setIsSidebarOpen(true)}

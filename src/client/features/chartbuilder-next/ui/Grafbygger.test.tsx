@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { vi, beforeEach, afterEach } from 'vitest'
@@ -15,10 +15,19 @@ vi.mock('./grafbygger/AlertWithCloseButton.tsx', () => ({
 }))
 
 vi.mock('./results/QueryPreview.tsx', () => ({
-  default: ({ onResetAll, sql }: { onResetAll?: () => void; sql: string }) => (
+  default: ({
+    onResetAll,
+    sql,
+    additionalOptions,
+  }: {
+    onResetAll?: () => void
+    sql: string
+    additionalOptions?: React.ReactNode
+  }) => (
     <div data-testid="query-preview">
       QueryPreview
       <pre data-testid="generated-sql">{sql}</pre>
+      {additionalOptions}
       <button onClick={onResetAll}>Tilbakestill alle valg</button>
     </div>
   ),
@@ -159,6 +168,42 @@ describe('Grafbygger page', () => {
 
     // Sidebar sections should now be visible
     expect(await screen.findByText(/datakilder/i)).toBeInTheDocument()
+  })
+
+  it.each(['current', 'next'] as const)('places additional settings correctly in the %s edition', async (edition) => {
+    const user = userEvent.setup()
+    renderGrafbygger('', edition)
+    await user.click(await screen.findByRole('combobox', { name: /nettside/i }))
+    await user.click(await screen.findByRole('option', { name: /nav\.no - prod/i }))
+    const container = screen.getByTestId(edition === 'next' ? 'sidebar' : 'query-preview')
+    const settings = within(container).getByRole('button', { name: 'Tilleggsvalg' })
+    expect(screen.getAllByRole('button', { name: 'Tilleggsvalg' })).toHaveLength(1)
+    expect(settings).toHaveAttribute('aria-expanded', 'false')
+    if (edition === 'next') {
+      expect(
+        screen.getByText('Gruppert etter...').compareDocumentPosition(settings) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy()
+    }
+    await user.click(settings)
+    expect(within(container).getByRole('checkbox', { name: /^Begrens antall rader/ })).toBeVisible()
+  })
+
+  it.each(['current', 'next'] as const)('handles the metric reset button in the %s edition', async (edition) => {
+    localStorage.setItem(
+      `${edition === 'next' ? 'grafbygger-next' : 'grafbygger'}:config:v2`,
+      JSON.stringify({
+        website: FAKE_WEBSITES[0],
+        metrics: [{ function: 'count', alias: 'mine_besok' }],
+        groupByFields: [],
+        cohortIds: [],
+      }),
+    )
+    renderGrafbygger('', edition)
+    const section = (await screen.findByTestId('metric-selector')).closest('.sidebar-section')
+    if (!(section instanceof HTMLElement)) throw new Error('Expected the metric selector inside a sidebar section')
+    const reset = within(section).queryByRole('button', { name: 'Tilbakestill' })
+    if (edition === 'next') expect(reset).not.toBeInTheDocument()
+    else expect(reset).toBeVisible()
   })
 
   it('keeps the selected website when all other choices are reset', async () => {

@@ -33,6 +33,7 @@ test.describe('App smoke tests', () => {
     )
     await page.goto('/grafbygger')
     await expect(page.getByRole('heading', { level: 1, name: /grafbyggeren/i })).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('heading', { name: 'Grafbyggeren er i beta', exact: true })).toBeVisible()
   })
 
   test('settings lists the experimental builder under alfa rather than beta', async ({ page }) => {
@@ -61,6 +62,7 @@ test.describe('App smoke tests', () => {
   })
 
   test('/grafbygger renders the website picker with options', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 1000 })
     await page.route('**/api/bigquery/websites', (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: MOCK_WEBSITES }) }),
     )
@@ -73,6 +75,11 @@ test.describe('App smoke tests', () => {
     // Open the dropdown and verify mock data populated the picker
     await combobox.click()
     await expect(page.getByRole('option', { name: /test\.nav\.no/i })).toBeVisible({ timeout: 10_000 })
+    await combobox.press('Escape')
+    await page.getByRole('button', { name: 'Minimer filter', exact: true }).click()
+    await expect(combobox).toHaveCount(0)
+    await page.getByRole('button', { name: 'Vis filter', exact: true }).click()
+    await expect(combobox).toBeVisible()
   })
 
   test('/grafbygger-next redirects to Alfa without losing the draft or URL parameters', async ({ page }) => {
@@ -133,6 +140,10 @@ test.describe('App smoke tests', () => {
     await expect(heading).toBeVisible()
     await expect(heading.locator('..').getByText('Alfa', { exact: true })).toBeVisible()
     await expect(heading.locator('..').getByText('Beta', { exact: true })).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Prøv den nye grafbyggeren', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Grafbyggeren er i beta', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Minimer filter', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Vis filter', exact: true })).toHaveCount(0)
     const picker = page.getByRole('combobox', { name: 'Hendelser', exact: true })
     await expect(picker).toBeVisible()
     await expect(picker).not.toHaveAttribute('placeholder')
@@ -240,13 +251,21 @@ test.describe('App smoke tests', () => {
     await expect(page.getByRole('button', { name: 'Brukergruppe', exact: true })).toBeVisible()
   })
 
-  test('/grafbygger-alfa aligns the top fields and keeps reset beside results', async ({ page }) => {
+  test('/grafbygger-alfa aligns the top fields and keeps reset beside results', async ({ page }, testInfo) => {
     await page.route('**/api/bigquery/websites', (route) => route.fulfill({ json: { data: MOCK_WEBSITES } }))
     await page.route('**/event-properties?*', (route) => route.fulfill({ json: { properties: [] } }))
     await page.goto('/grafbygger-alfa?websiteId=site-1')
     const events = page.getByRole('combobox', { name: 'Hendelser', exact: true })
     await events.fill('Sidevisninger')
     await page.getByRole('option', { name: 'Sidevisninger', exact: true }).click()
+    await events.press('Escape')
+    await page.getByRole('radio', { name: 'Unike besøkende', exact: true }).check()
+    const metricSection = page.locator('.sidebar-section').filter({
+      has: page.getByText('Målt som...', { exact: true }),
+    })
+    await expect(metricSection.getByRole('button', { name: 'Tilbakestill', exact: true })).toHaveCount(0)
+    await page.getByRole('radio', { name: 'Økter / besøk', exact: true }).check()
+    await expect(metricSection.getByRole('button', { name: 'Tilbakestill', exact: true })).toHaveCount(0)
     await page.getByRole('radio', { name: 'Unike besøkende', exact: true }).check()
     const reset = page.getByRole('button', { name: 'Tilbakestill alle valg', exact: true })
     await expect(reset).toBeVisible()
@@ -281,6 +300,7 @@ test.describe('App smoke tests', () => {
           Math.abs(resetBounds!.y + resetBounds!.height / 2 - (resultsBounds!.y + resultsBounds!.height / 2)),
         ).toBeLessThanOrEqual(1)
         expect(resetBounds!.x).toBeGreaterThan(resultsBounds!.x + resultsBounds!.width)
+        await page.screenshot({ path: testInfo.outputPath('reset-placement.png') })
       }
     }
     await reset.click()
@@ -289,6 +309,46 @@ test.describe('App smoke tests', () => {
     await dialog.getByRole('button', { name: 'Avbryt', exact: true }).click()
     await expect(reset).toBeFocused()
     await expect(page.getByRole('button', { name: 'Sidevisninger slett' })).toBeVisible()
+  })
+
+  test('/grafbygger-alfa keeps additional graph settings on the left', async ({ page }, testInfo) => {
+    await page.route('**/api/bigquery/websites', (route) => route.fulfill({ json: { data: MOCK_WEBSITES } }))
+    await page.route('**/event-properties?*', (route) => route.fulfill({ json: { properties: [] } }))
+    await page.goto('/grafbygger-alfa?websiteId=site-1')
+    const settings = page.getByRole('button', { name: 'Tilleggsvalg', exact: true })
+    await expect(settings).toHaveCount(1)
+    await expect(settings).toHaveAttribute('aria-expanded', 'false')
+    await expect(page.getByText('Gruppert etter...', { exact: true })).toBeVisible()
+    for (const width of [1280, 1920]) {
+      await page.setViewportSize({ width, height: 1000 })
+      await page.evaluate('window.scrollTo({ top: 0, behavior: "instant" })')
+      const settingsBounds = await settings.boundingBox()
+      const groupingBounds = await page.getByText('Gruppert etter...', { exact: true }).boundingBox()
+      const previewBounds = await page.getByRole('combobox', { name: 'Periode', exact: true }).boundingBox()
+      expect(settingsBounds).not.toBeNull()
+      expect(groupingBounds).not.toBeNull()
+      expect(previewBounds).not.toBeNull()
+      expect(settingsBounds!.y).toBeGreaterThan(groupingBounds!.y + groupingBounds!.height)
+      expect(settingsBounds!.x).toBeLessThan(previewBounds!.x)
+      expect(settingsBounds!.x + settingsBounds!.width).toBeLessThan(previewBounds!.x)
+    }
+    await settings.click()
+    await page.getByRole('checkbox', { name: /^Begrens antall rader/ }).check()
+    const limit = page.getByRole('spinbutton', { name: 'Maksimalt antall rader', exact: true })
+    await limit.fill('10')
+    await limit.blur()
+    await page.reload()
+    await expect(settings).toHaveAttribute('aria-expanded', 'false')
+    await settings.click()
+    await page.getByRole('checkbox', { name: /^Begrens antall rader/ }).check()
+    await expect(limit).toHaveValue('10')
+    for (const width of [375, 768, 1280, 1920]) {
+      await page.setViewportSize({ width, height: 1000 })
+      expect(await page.evaluate<number>('document.documentElement.scrollWidth')).toBeLessThanOrEqual(width)
+    }
+    await settings.click()
+    await page.evaluate('window.scrollTo({ top: 0, behavior: "instant" })')
+    await page.screenshot({ path: testInfo.outputPath('additional-settings-placement.png') })
   })
 
   test('/grafbygger-alfa creates and selects user groups without leaving the graph', async ({ page }) => {
