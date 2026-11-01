@@ -1747,7 +1747,7 @@ const Oversikt = () => {
           )}
 
           {showMetricTypeFilter && (
-            <div className="w-full sm:w-auto min-w-[150px]">
+            <div hidden className="w-full sm:w-auto min-w-[150px]">
               <Select
                 label="Visning"
                 size="small"
