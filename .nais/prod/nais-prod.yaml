@@ -22,7 +22,7 @@ spec:
     initialDelay: 20
     timeout: 60
   replicas:
-    min: 1
+    min: 2
     max: 2
     cpuThresholdPercentage: 80
   ingresses:

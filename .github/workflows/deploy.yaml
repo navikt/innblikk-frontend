@@ -3,6 +3,8 @@ run-name: 'Deploy Dev @ ${{ github.ref_name }} — ${{ github.sha }}'
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * *'
 
 concurrency:
   group: 'deploy-dev'
@@ -50,3 +52,68 @@ jobs:
           CLUSTER: 'dev-gcp'
           RESOURCE: .nais/dev/nais-dev.yaml
           VAR: image=${{ needs.build.outputs.image }},version=${{ github.sha }}
+
+  build-prod-rebuild:
+    name: 'Rebuild last prod release'
+    if: github.event_name == 'schedule'
+    runs-on: 'ubuntu-latest'
+    permissions:
+      packages: write
+      contents: read
+      id-token: write
+    outputs:
+      image: ${{ steps.docker-build-push.outputs.image }}
+      tag: ${{ steps.tag.outputs.tag }}
+      sha: ${{ steps.tag.outputs.sha }}
+    steps:
+      - uses: 'actions/checkout@v6'
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: 'Resolve latest prod tag'
+        id: tag
+        run: |
+          TAG="$(git tag -l 'prod-*' --sort=-creatordate | head -n 1)"
+          if [ -z "$TAG" ]; then
+            echo "No prod-* tag found"
+            exit 1
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-list -n 1 "$TAG")" >> "$GITHUB_OUTPUT"
+
+      - uses: 'actions/checkout@v6'
+        with:
+          ref: ${{ steps.tag.outputs.tag }}
+
+      - name: 'Build and push'
+        uses: nais/docker-build-push@v0
+        id: docker-build-push
+        with:
+          team: team-researchops
+          identity_provider: ${{ secrets.NAIS_WORKLOAD_IDENTITY_PROVIDER }}
+          project_id: ${{ vars.NAIS_MANAGEMENT_PROJECT_ID }}
+          no_cache: true
+          build_args: |
+            GIT_SHA=${{ steps.tag.outputs.sha }}
+          build_secrets: |
+            "NODE_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}"
+
+  deploy-prod-rebuild:
+    name: 'Deploy rebuilt release to Prod'
+    needs: build-prod-rebuild
+    runs-on: 'ubuntu-latest'
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: 'actions/checkout@v6'
+        with:
+          ref: ${{ needs.build-prod-rebuild.outputs.tag }}
+
+      - name: 'Deploy to Prod'
+        uses: 'nais/deploy/actions/deploy@v2'
+        env:
+          CLUSTER: 'prod-gcp'
+          RESOURCE: .nais/prod/nais-prod.yaml
+          VAR: image=${{ needs.build-prod-rebuild.outputs.image }},version=${{ needs.build-prod-rebuild.outputs.sha }}
