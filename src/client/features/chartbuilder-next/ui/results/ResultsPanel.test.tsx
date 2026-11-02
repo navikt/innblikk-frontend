@@ -28,6 +28,31 @@ const props = {
   initialTab: 'table' as const,
 }
 
+describe('shared funnel results', () => {
+  afterEach(() => window.history.replaceState({}, '', '/'))
+  const result = {
+    data: [
+      { step: 0, url: 'Søk', count: 100 },
+      { step: 1, url: 'Søknad', count: 20 },
+    ],
+  }
+
+  it('honors funnel links and keeps a table view available', () => {
+    window.history.replaceState({}, '', '/grafdeling?tab=funnel')
+    render(<ResultsPanel {...props} result={result} />)
+    expect(screen.getByRole('tab', { name: 'Trakt' })).toHaveAttribute('aria-selected', 'true')
+    expect(within(screen.getByRole('tabpanel', { name: 'Trakt' })).getByText('Søknad')).toBeVisible()
+    fireEvent.click(screen.getByRole('tab', { name: 'Tabell' }))
+    expect(within(screen.getByRole('table')).getByText('Søknad')).toBeVisible()
+  })
+
+  it('defaults explicitly marked queries to the visual presentation', () => {
+    window.history.replaceState({}, '', '/grafdeling')
+    render(<ResultsPanel {...props} initialTab={undefined} result={result} sql="/* @chart funnel */ SELECT 1" />)
+    expect(screen.getByRole('tab', { name: 'Trakt' })).toHaveAttribute('aria-selected', 'true')
+  })
+})
+
 describe('secondary action', () => {
   it.each(['initial', 'results', 'empty', 'error'] as const)('remains available in the %s state', (state) => {
     const reset = vi.fn()

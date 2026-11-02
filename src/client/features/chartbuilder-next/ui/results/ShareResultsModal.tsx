@@ -90,6 +90,7 @@ const ShareResultsModal = ({ sql, open, onClose }: ShareResultsModalProps) => {
 
   const tabOptions = [
     { label: 'Tabell', value: 'table' },
+    { label: 'Trakt', value: 'funnel' },
     { label: 'Linjediagram', value: 'linechart' },
     { label: 'Områdediagram', value: 'areachart' },
     { label: 'Stolpediagram', value: 'barchart' },

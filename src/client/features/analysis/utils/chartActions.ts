@@ -2,6 +2,7 @@ import type { SavedChart } from '../../../shared/types/savedChart'
 import type { ChartActionModalFilters } from '../model/types.ts'
 import { processDashboardSql } from '../../dashboard'
 import { translateValue } from '../../../shared/lib/translations.ts'
+import { hasFunnelChartMarker } from '../../dashboard/utils/funnelData'
 
 export const generateShareUrl = (
   chart: SavedChart,
@@ -21,6 +22,7 @@ export const generateShareUrl = (
   if (chart.type === 'line') tabParam = 'linechart'
   if (chart.type === 'bar') tabParam = 'barchart'
   if (chart.type === 'pie') tabParam = 'piechart'
+  if (chart.type === 'table' && hasFunnelChartMarker(chart.sql)) tabParam = 'funnel'
   params.set('tab', tabParam)
 
   if (websiteId) params.set('websiteId', websiteId)

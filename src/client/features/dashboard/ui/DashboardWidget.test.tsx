@@ -35,6 +35,97 @@ describe('dashboard custom SQL filters', () => {
       .mockReset()
       .mockResolvedValue({ data: [{ event_name: 'result', count: 3 }] })
   })
+
+  describe('dashboard funnel presentation', () => {
+    const rows = [
+      { step: 0, url: 'Gjør et søk', count: 100 },
+      { step: 1, url: 'Søker med superrask søknad', count: 20 },
+    ]
+
+    beforeEach(() => vi.mocked(executeBigQuery).mockReset())
+
+    it('renders existing ordered funnel charts visually and keeps the original table without refetching', async () => {
+      const user = userEvent.setup()
+      render(
+        <DashboardWidget
+          chart={{ ...chart, sql: baseSql }}
+          websiteId="website-1"
+          filters={filters}
+          prefetchedData={rows}
+        />,
+      )
+      expect(screen.getByRole('tab', { name: 'Trakt' })).toHaveAttribute('aria-selected', 'true')
+      const funnel = screen.getByRole('tabpanel', { name: 'Trakt' })
+      expect(within(funnel).getByText('Gjør et søk')).toBeVisible()
+      expect(within(funnel).getByText('Søker med superrask søknad')).toBeVisible()
+      expect(within(funnel).getByText('20%')).toBeVisible()
+      expect(screen.queryByRole('table')).not.toBeInTheDocument()
+
+      await user.click(screen.getByRole('tab', { name: 'Tabell' }))
+      const table = screen.getByRole('table')
+      expect(within(table).getByText('Gjør et søk')).toBeVisible()
+      expect(within(table).getByText('100')).toBeVisible()
+      expect(within(table).getByRole('columnheader', { name: 'step' })).toBeVisible()
+      expect(executeBigQuery).not.toHaveBeenCalled()
+    })
+
+    it('keeps generic name/value tables as tables but offers an optional visual presentation', async () => {
+      const user = userEvent.setup()
+      render(
+        <DashboardWidget
+          chart={{ ...chart, sql: baseSql }}
+          websiteId="website-1"
+          filters={filters}
+          prefetchedData={rows.map((row) => ({ name: row.url, value: row.count }))}
+        />,
+      )
+      expect(screen.getByRole('tab', { name: 'Tabell' })).toHaveAttribute('aria-selected', 'true')
+      await user.click(screen.getByRole('tab', { name: 'Trakt' }))
+      expect(within(screen.getByRole('tabpanel', { name: 'Trakt' })).getByText('20%')).toBeVisible()
+      expect(executeBigQuery).not.toHaveBeenCalled()
+    })
+
+    it('honors explicit funnel metadata for name/value results', () => {
+      render(
+        <DashboardWidget
+          chart={{ ...chart, sql: `/* @chart funnel */\n${baseSql}` }}
+          websiteId="website-1"
+          filters={filters}
+          prefetchedData={rows.map((row) => ({ name: row.url, value: row.count }))}
+        />,
+      )
+      expect(screen.getByRole('tab', { name: 'Trakt' })).toHaveAttribute('aria-selected', 'true')
+    })
+
+    it('reports incompatible marked data and still allows inspecting the table', async () => {
+      const user = userEvent.setup()
+      render(
+        <DashboardWidget
+          chart={{ ...chart, sql: `/* @chart funnel */\n${baseSql}` }}
+          websiteId="website-1"
+          filters={filters}
+          prefetchedData={[{ event_name: 'start', count: 1 }]}
+        />,
+      )
+      expect(screen.getByRole('alert')).toHaveTextContent('Traktvisning krever minst to steg')
+      await user.click(screen.getByRole('tab', { name: 'Tabell' }))
+      expect(within(screen.getByRole('table')).getByText('start')).toBeVisible()
+    })
+
+    it('handles all-zero funnels without displaying 100% progression', () => {
+      render(
+        <DashboardWidget
+          chart={{ ...chart, sql: baseSql }}
+          websiteId="website-1"
+          filters={filters}
+          prefetchedData={rows.map((row) => ({ ...row, count: 0 }))}
+        />,
+      )
+      const funnel = screen.getByRole('tabpanel', { name: 'Trakt' })
+      expect(within(funnel).queryByText('100%')).not.toBeInTheDocument()
+      expect(funnel).toHaveTextContent('Ingen på forrige steg')
+    })
+  })
   afterEach(() => vi.unstubAllGlobals())
 
   it('guides users to fill required filters, fetches the selection, and returns to info when cleared', async () => {

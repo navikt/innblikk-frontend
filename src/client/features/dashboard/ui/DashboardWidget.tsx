@@ -8,6 +8,7 @@ import DashboardWidgetLineChart from './widget/DashboardWidgetLineChart.tsx'
 import DashboardWidgetBarChart from './widget/DashboardWidgetBarChart.tsx'
 import DashboardWidgetPieChart from './widget/DashboardWidgetPieChart.tsx'
 import DashboardWidgetTable from './widget/DashboardWidgetTable.tsx'
+import DashboardWidgetFunnel from './widget/DashboardWidgetFunnel.tsx'
 import DashboardWidgetSiteimprove from './widget/DashboardWidgetSiteimprove.tsx'
 import TableSectionHeader from '../../../shared/ui/TableSectionHeader.tsx'
 import TransferToMetabaseDialog from '../../../shared/ui/TransferToMetabaseDialog.tsx'
@@ -25,6 +26,7 @@ import {
 } from '../../sql/utils/customSqlFilters'
 import CustomSqlFilterField from '../../sql-next/ui/CustomSqlFilterField'
 import { getDateRangeFromPeriod } from '../../../shared/lib/utils'
+import { getDashboardFunnel, hasFunnelChartMarker } from '../utils/funnelData'
 
 type SelectedWebsite = {
   domain: string
@@ -543,7 +545,7 @@ export const DashboardWidget = ({
     } else if (chart.type === 'pie') {
       return <DashboardWidgetPieChart data={data} heightPx={chartHeightPx} />
     } else if (chart.type === 'table') {
-      return (
+      const table = (
         <DashboardWidgetTable
           data={data}
           page={page}
@@ -554,6 +556,21 @@ export const DashboardWidget = ({
           onOpenAnalysisMenu={chartLinksEnabled ? setSelectedUrlForAnalysis : undefined}
         />
       )
+      const funnel = getDashboardFunnel(data)
+      const markedAsFunnel = hasFunnelChartMarker(chart.sql)
+      if (funnel || markedAsFunnel) {
+        return (
+          <DashboardWidgetFunnel
+            steps={funnel?.steps ?? null}
+            defaultView={markedAsFunnel || funnel?.ordered ? 'funnel' : 'table'}
+            table={table}
+            websiteId={chartLinksEnabled ? websiteId : undefined}
+            period={filters.dateRange}
+            heightPx={chartHeightPx}
+          />
+        )
+      }
+      return table
     }
 
     return <div>Ukjent diagramtype: {chart.type}</div>

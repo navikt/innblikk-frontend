@@ -27,6 +27,8 @@ import { nb } from 'date-fns/locale'
 import SqlViewer from './SqlViewer.tsx'
 import ShareResultsModal from './ShareResultsModal.tsx'
 import AnalysisActionModal from '../../../analysis/ui/AnalysisActionModal.tsx'
+import FunnelChart from '../../../analysis/ui/funnel/FunnelChart'
+import { getDashboardFunnel, hasFunnelChartMarker } from '../../../dashboard/utils/funnelData'
 import { encode } from '@toon-format/toon'
 import TransferToMetabaseDialog from '../../../../shared/ui/TransferToMetabaseDialog.tsx'
 import {
@@ -87,7 +89,7 @@ interface ResultsPanelProps {
   // Overrides which tab is active on first render (URL's own `?tab=` param still wins if
   // present — this only applies when there's no URL param to read, e.g. embedded results like
   // Copilot's chat that don't want to touch the browser URL per message).
-  initialTab?: 'table' | 'linechart' | 'areachart' | 'barchart' | 'piechart'
+  initialTab?: 'table' | 'linechart' | 'areachart' | 'barchart' | 'piechart' | 'funnel'
 }
 
 function ResultCellCopyButton({ value }: { value: unknown }) {
@@ -203,10 +205,10 @@ const ResultsPanel = ({
   const [activeTab, setActiveTab] = useState<string>(() => {
     const urlParams = new URLSearchParams(window.location.search)
     const tabParam = urlParams.get('tab')
-    const validTabs = ['table', 'linechart', 'areachart', 'barchart', 'piechart']
+    const validTabs = ['table', 'linechart', 'areachart', 'barchart', 'piechart', 'funnel']
     if (tabParam && validTabs.includes(tabParam)) return tabParam
     if (initialTab && validTabs.includes(initialTab)) return initialTab
-    return 'table'
+    return hasFunnelChartMarker(sql) ? 'funnel' : 'table'
   })
 
   const [searchQuery, setSearchQuery] = useState<string>('')
@@ -218,6 +220,8 @@ const ResultsPanel = ({
   const [granularity, setGranularity] = useState<'day' | 'week' | 'month'>('day')
   const [showShareModal, setShowShareModal] = useState<boolean>(false)
   const columnCount = Object.keys(result?.data?.[0] ?? {}).length
+  const funnel = getDashboardFunnel(result?.data)
+  const showFunnel = Boolean(funnel || hasFunnelChartMarker(sql) || activeTab === 'funnel')
   const rowLimit = Math.min(
     MAX_PREVIEW_ROWS,
     Math.max(MIN_PREVIEW_ROWS, Math.floor(MAX_PREVIEW_CELLS / Math.max(columnCount, 1))),
@@ -795,12 +799,24 @@ const ResultsPanel = ({
               {!hideTabList && (
                 <Tabs.List>
                   {!hiddenTabs.includes('table') && <Tabs.Tab value="table" label="Tabell" />}
+                  {showFunnel && !hiddenTabs.includes('funnel') && <Tabs.Tab value="funnel" label="Trakt" />}
                   {!hiddenTabs.includes('linechart') && <Tabs.Tab value="linechart" label="Linje" />}
                   {!hiddenTabs.includes('areachart') && <Tabs.Tab value="areachart" label="Område" />}
                   {!hiddenTabs.includes('barchart') && <Tabs.Tab value="barchart" label="Stolpe" />}
                   {!hiddenTabs.includes('piechart') && <Tabs.Tab value="piechart" label="Kake" />}
                 </Tabs.List>
               )}
+
+              <Tabs.Panel value="funnel" className="pt-4">
+                {funnel ? (
+                  <FunnelChart data={funnel.steps} websiteId={websiteId} period={period} />
+                ) : (
+                  <Alert variant="error">
+                    Kunne ikke vise dataene som trakt. Bruk step/url/count, step_number/step/count eller name/value med
+                    minst to steg og ikke-økende antall.
+                  </Alert>
+                )}
+              </Tabs.Panel>
 
               {/* Table Tab */}
               <Tabs.Panel value="table" className="pt-4">

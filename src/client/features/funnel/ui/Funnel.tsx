@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   Heading,
   Button,
@@ -56,12 +57,16 @@ import {
   copyToClipboard,
   generateMetabaseFunnelSql,
   generateMetabaseTimingSql,
+  generateDashboardFunnelSql,
 } from '../utils/funnelUtils'
 import TableSectionHeader from '../../../shared/ui/TableSectionHeader.tsx'
 import { SuggestingValueEditor } from '../../cohortmanager/ui/SuggestingValueEditor.tsx'
+import AddToDashboardDialog from '../../../shared/ui/AddToDashboardDialog'
 
 const Funnel = () => {
   const state = useFunnel()
+  const [dashboardSql, setDashboardSql] = useState<string | null>(null)
+  const [dashboardSaveError, setDashboardSaveError] = useState<string | null>(null)
 
   const {
     selectedWebsite,
@@ -119,6 +124,16 @@ const Funnel = () => {
     if (ok) {
       setMetabaseCopySuccess(true)
       setTimeout(() => setMetabaseCopySuccess(false), 2000)
+    }
+  }
+
+  const addToDashboard = () => {
+    if (!funnelSql) return
+    setDashboardSaveError(null)
+    try {
+      setDashboardSql(generateDashboardFunnelSql(funnelSql))
+    } catch (error: unknown) {
+      setDashboardSaveError(error instanceof Error ? error.message : 'Kunne ikke klargjøre trakten for dashboardet.')
     }
   }
 
@@ -450,15 +465,31 @@ const Funnel = () => {
                 <Heading level="2" size="medium">
                   Resultater
                 </Heading>
-                <Button
-                  size="small"
-                  variant="secondary"
-                  icon={copySuccess ? <CheckmarkIcon fontSize="1rem" /> : <PaperplaneIcon fontSize="1rem" />}
-                  onClick={copyShareLink}
-                >
-                  {copySuccess ? 'Kopiert!' : 'Del analyse'}
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="small"
+                    variant="secondary"
+                    icon={<PlusIcon aria-hidden />}
+                    onClick={addToDashboard}
+                    disabled={!funnelSql}
+                  >
+                    Legg til i dashboard
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="secondary"
+                    icon={copySuccess ? <CheckmarkIcon fontSize="1rem" /> : <PaperplaneIcon fontSize="1rem" />}
+                    onClick={copyShareLink}
+                  >
+                    {copySuccess ? 'Kopiert!' : 'Del analyse'}
+                  </Button>
+                </div>
               </div>
+              {dashboardSaveError && (
+                <Alert variant="error" className="mb-4">
+                  {dashboardSaveError}
+                </Alert>
+              )}
               <Tabs value={activeTab} onChange={setActiveTab}>
                 <Tabs.List>
                   <Tabs.Tab value="vertical" label="Vertikal" />
@@ -934,6 +965,16 @@ const Funnel = () => {
             </div>
           )}
 
+          {selectedWebsite && (
+            <AddToDashboardDialog
+              open={dashboardSql !== null}
+              onClose={() => setDashboardSql(null)}
+              graphName="Trakt"
+              sqlText={dashboardSql ?? ''}
+              sourceWebsiteId={selectedWebsite.id}
+              showWebsiteSelector={false}
+            />
+          )}
           <Modal open={!!modalSql} onClose={() => setModalSql(null)} header={{ heading: 'SQL-spørring' }} width={800}>
             <Modal.Body>{modalSql && <SqlViewer sql={modalSql} withoutReadMore showEditButton />}</Modal.Body>
           </Modal>

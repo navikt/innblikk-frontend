@@ -33,6 +33,12 @@ import { fetchColumnValues } from '../../cohortmanager/api/columnValuesApi.ts'
 import { columnValuesSuggestions } from '../../cohortmanager/hooks/useColumnValueSuggestions.ts'
 
 const FAKE_WEBSITES = [{ id: 'site-1', name: 'Nav.no - prod', domain: 'nav.no', createdAt: '2023-01-01T00:00:00Z' }]
+const FAKE_FUNNEL_SQL = `WITH events AS (
+  SELECT * FROM events
+  WHERE website_id = 'site-1'
+    AND created_at BETWEEN '2026-10-04T22:00:00.000Z' AND '2026-11-01T22:59:59.999Z'
+)
+SELECT 0 AS step, '/stillinger' AS url, 100 AS count`
 
 function renderPage(entry = '/trakt') {
   window.history.replaceState({}, '', entry)
@@ -56,18 +62,43 @@ describe('Funnel page', () => {
     )
     vi.stubGlobal(
       'fetch',
-      vi.fn((url: string) => {
+      vi.fn((url: string, init?: RequestInit) => {
         if (url === '/api/bigquery/funnel') {
           return Promise.resolve({
             ok: true,
             json: () =>
               Promise.resolve({
+                sql: FAKE_FUNNEL_SQL,
                 data: [
                   { step: 0, url: '/stillinger', count: 100 },
                   { step: 1, url: 'Stillingsvisning', count: 20 },
                 ],
               }),
           })
+        }
+        if (url.endsWith('/queries') && init?.method === 'POST' && typeof init.body === 'string') {
+          const payload: unknown = JSON.parse(init.body)
+          if (
+            typeof payload !== 'object' ||
+            payload === null ||
+            !('sqlText' in payload) ||
+            typeof payload.sqlText !== 'string' ||
+            !/^(?:SELECT|WITH)\b/i.test(payload.sqlText.trim())
+          ) {
+            return Promise.resolve(
+              new Response(JSON.stringify({ error: 'Only SELECT queries are allowed' }), { status: 400 }),
+            )
+          }
+        }
+        const backendData: Record<string, unknown> = {
+          '/api/backend/projects': [{ id: 1, name: 'Team' }],
+          '/api/backend/projects/1/dashboards': [{ id: 2, name: 'Dashboard', projectId: 1 }],
+          '/api/backend/projects/1/dashboards/2/categories': [{ id: 3, name: 'Fane 1', dashboardId: 2 }],
+          '/api/backend/projects/1/dashboards/2/categories/3/graphs': { id: 4, name: 'Trakt', categoryId: 3 },
+          '/api/backend/projects/1/dashboards/2/categories/3/graphs/4/queries': { id: 5, name: 'Trakt', graphId: 4 },
+        }
+        if (url in backendData) {
+          return Promise.resolve(new Response(JSON.stringify(backendData[url])))
         }
         if (url.includes('/events?')) {
           return Promise.resolve({
@@ -146,6 +177,34 @@ describe('Funnel page', () => {
     params.append('step', 'event:Stillingsvisning|anywhere')
     return renderPage(`/trakt?${params}`)
   }
+
+  it('saves a visual funnel using backend-compatible TABLE storage and dynamic dashboard dates', async () => {
+    const user = userEvent.setup()
+    const params = new URLSearchParams({ websiteId: 'site-1' })
+    params.append('step', 'url:/stillinger')
+    params.append('step', 'event:Stillingsvisning|anywhere')
+    renderPage(`/trakt?${params}`)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Oppdater' })).toBeEnabled())
+    await user.click(screen.getByRole('button', { name: 'Oppdater' }))
+    await user.click(await screen.findByRole('button', { name: 'Legg til i dashboard' }))
+    const dialog = screen.getByRole('dialog', { name: 'Legg til i dashboard' })
+    expect(within(dialog).queryByRole('combobox', { name: 'Nettside' })).not.toBeInTheDocument()
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith('/api/backend/projects/1/dashboards/2/categories', undefined),
+    )
+    await user.click(within(dialog).getByRole('button', { name: 'Legg til i dashboard' }))
+    expect(await screen.findByRole('button', { name: 'Gå til dashboard' })).toBeVisible()
+    const graphRequest = vi
+      .mocked(fetch)
+      .mock.calls.find(([url, init]) => typeof url === 'string' && url.endsWith('/graphs') && init?.method === 'POST')
+    const queryRequest = vi
+      .mocked(fetch)
+      .mock.calls.find(([url, init]) => typeof url === 'string' && url.endsWith('/queries') && init?.method === 'POST')
+    expect(graphRequest?.[1]?.body).toContain('"graphType":"TABLE"')
+    expect(queryRequest?.[1]?.body).toContain('/* @chart funnel */')
+    expect(queryRequest?.[1]?.body).toContain('[[AND {{created_at}}]]')
+    expect(queryRequest?.[1]?.body).not.toContain('2026-10-04')
+  })
 
   it('suggests detail names and numeric values scoped to the website, event, and key', async () => {
     const user = userEvent.setup()

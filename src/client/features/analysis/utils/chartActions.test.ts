@@ -25,4 +25,10 @@ describe('chart actions with custom filters', () => {
     const url = new URL(generateShareUrl(chart, 'website-1', filters))
     expect(url.searchParams.get('sql')).toBe("SELECT event_name FROM events WHERE event_name = 'paid'")
   })
+
+  it('preserves the visual presentation of funnel charts without requiring a new backend graph type', () => {
+    const url = new URL(generateShareUrl({ ...chart, sql: `/* @chart funnel */\n${chart.sql}` }, 'website-1', filters))
+    expect(url.searchParams.get('tab')).toBe('funnel')
+    expect(url.searchParams.get('sql')).toContain('/* @chart funnel */')
+  })
 })
