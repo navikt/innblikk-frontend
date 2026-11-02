@@ -104,7 +104,7 @@ const FAKE_WEBSITES = [
 
 function renderGrafbygger(search = '', edition: 'current' | 'next' = 'current') {
   return render(
-    <MemoryRouter initialEntries={[`/${edition === 'next' ? 'grafbygger-alfa' : 'grafbygger'}${search}`]}>
+    <MemoryRouter initialEntries={[`/${edition === 'next' ? 'grafbygger' : 'grafbygger-eol'}${search}`]}>
       <Grafbygger edition={edition} />
     </MemoryRouter>,
   )
@@ -201,11 +201,28 @@ describe('Grafbygger page', () => {
     }
     if (edition === 'next') {
       expect(
-        screen.getByText('Gruppert etter...').compareDocumentPosition(settings) & Node.DOCUMENT_POSITION_FOLLOWING,
+        screen.getByText('Fordelt på...').compareDocumentPosition(settings) & Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy()
     }
     await user.click(settings)
     expect(within(container).getByRole('checkbox', { name: /^Begrens antall rader/ })).toBeVisible()
+  })
+
+  it.each(['current', 'next'] as const)('orders metrics and event sections for the %s edition', async (edition) => {
+    const user = userEvent.setup()
+    renderGrafbygger('', edition)
+    await user.click(await screen.findByRole('combobox', { name: /nettside/i }))
+    await user.click(await screen.findByRole('option', { name: /nav\.no - prod/i }))
+
+    const metrics = await screen.findByText(edition === 'next' ? 'Vis...' : 'Målt som...')
+    const events = screen.getByText(edition === 'next' ? 'For hendelser og filtre...' : 'Datakilder', { exact: true })
+    const grouping = screen.getByText(edition === 'next' ? 'Fordelt på...' : 'Gruppert etter...')
+    expect(
+      metrics.compareDocumentPosition(events) &
+        (edition === 'next' ? Node.DOCUMENT_POSITION_FOLLOWING : Node.DOCUMENT_POSITION_PRECEDING),
+    ).toBeTruthy()
+    expect(events.compareDocumentPosition(grouping) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(metrics.compareDocumentPosition(grouping) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it.each(['current', 'next'] as const)('handles the metric reset button in the %s edition', async (edition) => {
@@ -246,7 +263,7 @@ describe('Grafbygger page', () => {
     await user.click(await screen.findByRole('option', { name: /nav\.no - prod/i }))
     const addGroup = await screen.findByRole('button', { name: 'Brukergruppe' })
     expect(screen.getByRole('button', { name: 'Filter' })).toBeVisible()
-    expect(screen.getByText('Målt som...')).toBeVisible()
+    expect(screen.getByText('Vis...')).toBeVisible()
     expect(screen.queryByTestId('cohort-picker')).not.toBeInTheDocument()
 
     await user.click(addGroup)

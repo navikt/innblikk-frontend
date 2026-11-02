@@ -304,6 +304,35 @@ const ChartsPage = ({ edition = 'current' }: { edition?: 'current' | 'next' }) =
     </Accordion>
   )
 
+  const metricsSection = (
+    <SidebarSection
+      title={isNextEdition ? 'Vis...' : 'Målt som...'}
+      action={
+        showResetMetrics && !isNextEdition ? (
+          <ActionFeedbackButton
+            label="Tilbakestill"
+            activeLabel="Tilbakestilt!"
+            variant="tertiary"
+            size="xsmall"
+            icon={<ArrowCirclepathReverseIcon aria-hidden />}
+            onClick={handleResetMetrics}
+          />
+        ) : undefined
+      }
+    >
+      <MetricSelector
+        ref={summarizeRef}
+        metrics={config.metrics}
+        METRICS={METRICS}
+        removeMetric={removeMetric}
+        addMetric={addMetric}
+        filters={filters}
+        resetSignal={metricResetSignal}
+        kolonnenavnContainer={kolonnenavnContainer}
+      />
+    </SidebarSection>
+  )
+
   return (
     <ChartLayout
       title="Grafbyggeren"
@@ -315,11 +344,10 @@ const ChartsPage = ({ edition = 'current' }: { edition?: 'current' | 'next' }) =
       showPageHeader={!isFocusedMode}
       showKontaktSection={!isFocusedMode}
       beta={isNextEdition}
-      betaLabel={isNextEdition ? 'Alfa' : undefined}
       headerNotice={
-        !isNextEdition && (
+        isNextEdition && (
           <BetaFeatureNotice id="grafbygger-rewrite" title="Grafbyggeren er i beta">
-            Grafbyggeren har fått store endringer, med blant annet støtte for brukergrupper.
+            Velg hendelser, og legg til filtre og brukergrupper ved behov.
             <BetaFeedbackLine />
           </BetaFeatureNotice>
         )
@@ -354,8 +382,9 @@ const ChartsPage = ({ edition = 'current' }: { edition?: 'current' | 'next' }) =
             </div>
           ) : !config.website ? null : (
             <>
+              {isNextEdition && metricsSection}
               <SidebarSection
-                title={isNextEdition ? 'Hendelser' : 'Datakilder'}
+                title={isNextEdition ? 'For hendelser og filtre...' : 'Datakilder'}
                 action={
                   showResetEventFilters ? (
                     <ActionFeedbackButton
@@ -428,32 +457,7 @@ const ChartsPage = ({ edition = 'current' }: { edition?: 'current' | 'next' }) =
                 )}
               </SidebarSection>
 
-              <SidebarSection
-                title="Målt som..."
-                action={
-                  showResetMetrics && !isNextEdition ? (
-                    <ActionFeedbackButton
-                      label="Tilbakestill"
-                      activeLabel="Tilbakestilt!"
-                      variant="tertiary"
-                      size="xsmall"
-                      icon={<ArrowCirclepathReverseIcon aria-hidden />}
-                      onClick={handleResetMetrics}
-                    />
-                  ) : undefined
-                }
-              >
-                <MetricSelector
-                  ref={summarizeRef}
-                  metrics={config.metrics}
-                  METRICS={METRICS}
-                  removeMetric={removeMetric}
-                  addMetric={addMetric}
-                  filters={filters}
-                  resetSignal={metricResetSignal}
-                  kolonnenavnContainer={kolonnenavnContainer}
-                />
-              </SidebarSection>
+              {!isNextEdition && metricsSection}
 
               {COHORTS_ENABLED && !isNextEdition && (
                 <SidebarSection
@@ -476,7 +480,7 @@ const ChartsPage = ({ edition = 'current' }: { edition?: 'current' | 'next' }) =
               )}
 
               <SidebarSection
-                title="Gruppert etter..."
+                title={isNextEdition ? 'Fordelt på...' : 'Gruppert etter...'}
                 action={
                   showResetGroupings ? (
                     <ActionFeedbackButton

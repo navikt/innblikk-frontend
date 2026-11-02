@@ -21,6 +21,7 @@ const ScrollToTopWrapper = () => {
   // (/copilot doesn't render this wrapper at all — see AppShell's dedicated branch.)
   if (
     location.pathname === '/grafbygger' ||
+    location.pathname === '/grafbygger-eol' ||
     location.pathname === '/grafbygger-alfa' ||
     location.pathname === '/grafbygger-next'
   ) {

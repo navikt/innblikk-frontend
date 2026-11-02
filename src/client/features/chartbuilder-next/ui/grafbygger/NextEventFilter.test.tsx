@@ -40,7 +40,7 @@ function Harness({
 }) {
   const [filters, setFilters] = useState(initial)
   return (
-    <MemoryRouter initialEntries={['/grafbygger-alfa?websiteId=site-1']}>
+    <MemoryRouter initialEntries={['/grafbygger?websiteId=site-1']}>
       <NextEventFilter
         ref={ref}
         filters={filters}
