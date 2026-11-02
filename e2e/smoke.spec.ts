@@ -677,7 +677,7 @@ test.describe('App smoke tests', () => {
       await page.goto('/grafbygger-alfa?websiteId=site-1')
       const picker = page.getByRole('combobox', { name: 'Hendelser', exact: true })
       await expect(picker).toBeVisible()
-      await expect(page.getByText('Henter egne hendelser… Du kan også skrive inn hendelsesnavnet.')).toBeVisible()
+      await expect(page.getByText('Henter egne hendelser… Du kan også skrive inn hendelsesnavnet.')).toHaveCount(0)
       await picker.fill('søknad fullført')
       await picker.press('Enter')
       await expect(page.getByRole('button', { name: 'søknad fullført slett' })).toBeVisible()
