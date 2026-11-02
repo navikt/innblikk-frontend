@@ -16,6 +16,117 @@ const TEMPLATED_EVENT_SQL =
   "SELECT event_name FROM `test-project.umami_views.event` WHERE website_id = '{{website_id}}' [[AND {{created_at}}]]"
 
 describe('SQL editor actions', () => {
+  it('runs a restored query when a custom filter is chosen, but never runs subsequent SQL text edits automatically', async () => {
+    vi.useFakeTimers()
+    const sql = `${TEMPLATED_EVENT_SQL} AND event_name = {{event}}`
+    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'first' })}`)
+    const { result } = renderHook(() => useSqlNextEditor(), {
+      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500)
+    })
+    expect(executeQueryApi).not.toHaveBeenCalled()
+    act(() => result.current.handleCustomVariableChange('event', 'paid'))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300)
+    })
+    expect(executeQueryApi).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("event_name = 'paid'"), {
+      maxRows: PREVIEW_ROWS,
+    })
+    act(() => {
+      result.current.handleCustomVariableChange('event', 'signup')
+      result.current.handleQueryChange(`${sql} LIMIT 20`)
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500)
+    })
+    expect(executeQueryApi).toHaveBeenCalledOnce()
+    act(() => result.current.handleCustomVariableChange('event', 'manual'))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300)
+    })
+    expect(executeQueryApi).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(executeQueryApi).mock.calls[1][0]).toContain("event_name = 'manual' LIMIT 20")
+  })
+
+  it('waits for all required custom filters and never sends an incomplete query when one is cleared', async () => {
+    vi.useFakeTimers()
+    const sql = `${TEMPLATED_EVENT_SQL} AND event_name = {{event}} AND count > {{minimum}}`
+    window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql, websiteId: 'first' })}`)
+    const { result } = renderHook(() => useSqlNextEditor(), {
+      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+    })
+    act(() => result.current.handleCustomVariableChange('event', 'paid'))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500)
+    })
+    expect(estimateQueryCost).not.toHaveBeenCalled()
+    act(() => result.current.handleCustomVariableChange('minimum', '5'))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300)
+    })
+    expect(executeQueryApi).toHaveBeenCalledOnce()
+    act(() => result.current.handleCustomVariableChange('event', ''))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500)
+    })
+    expect(result.current.filterInputMessage).toContain('«event»')
+    expect(result.current.error).toBeNull()
+    expect(executeQueryApi).toHaveBeenCalledOnce()
+  })
+
+  it('restores dashboard filter values while retaining editable placeholders and labels', async () => {
+    const sql = '-- @filter event {"label":"Hendelse"}\nSELECT event_name FROM events WHERE event_name = {{event}}'
+    const path = `/sql?${new URLSearchParams({ sql, filterValues: JSON.stringify({ event: 'paid' }) })}`
+    window.history.replaceState({}, '', path)
+    const { result } = renderHook(() => useSqlNextEditor(), {
+      wrapper: ({ children }) => <MemoryRouter initialEntries={[path]}>{children}</MemoryRouter>,
+    })
+    expect(result.current.customVariableValues).toEqual({ event: 'paid' })
+    expect(result.current.customFilters[0].label).toBe('Hendelse')
+    expect(result.current.filterInputMessage).toBeNull()
+    await act(async () => {
+      await result.current.validateSQL()
+    })
+    expect(estimateQueryCost).toHaveBeenLastCalledWith(expect.stringContaining("event_name = 'paid'"))
+    expect(result.current.query).toBe(sql)
+  })
+
+  it.each(['validateSQL', 'executeQuery'] as const)(
+    '%s omits a blank optional filter, substitutes populated filters and rejects blank required filters',
+    async (action) => {
+      const base = `${TEMPLATED_EVENT_SQL} [[AND event_name = {{event}}]]`
+      window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql: base, websiteId: 'first' })}`)
+      const { result } = renderHook(() => useSqlNextEditor(), {
+        wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+      })
+      await act(async () => {
+        await result.current[action]()
+      })
+      expect(estimateQueryCost).toHaveBeenLastCalledWith(expect.not.stringMatching(/\{\{|\[\[|event_name\s*=/))
+      act(() => result.current.setCustomVariableValues({ event: 'paid' }))
+      await act(async () => {
+        await result.current[action]()
+      })
+      expect(estimateQueryCost).toHaveBeenLastCalledWith(expect.stringContaining("AND event_name = 'paid'"))
+      act(() => {
+        result.current.handleQueryChange(base.replace('[[AND event_name = {{event}}]]', 'AND event_name = {{event}}'))
+        result.current.setCustomVariableValues({})
+      })
+      vi.mocked(estimateQueryCost).mockClear()
+      vi.mocked(executeQueryApi).mockClear()
+      await act(async () => {
+        await result.current[action]()
+      })
+      expect(result.current.filterInputMessage).toContain('«event»')
+      expect(result.current.error).toBeNull()
+      expect(result.current.dryRunError).toBeNull()
+      expect(estimateQueryCost).not.toHaveBeenCalled()
+      expect(executeQueryApi).not.toHaveBeenCalled()
+    },
+  )
+
   it('asks for a website before a template query runs, without sending SQL', async () => {
     const sql = "SELECT browser FROM `test-project.umami_views.session` WHERE website_id = '{{website_id}}'"
     window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql })}`)

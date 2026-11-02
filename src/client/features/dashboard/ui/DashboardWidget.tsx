@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useEffectEvent, useMemo } from 'react'
 import type { ReactNode } from 'react'
 import { Loader, Alert, Button, Tooltip, ActionMenu } from '@navikt/ds-react'
 import { MenuElipsisVerticalIcon } from '@navikt/aksel-icons'
@@ -16,6 +16,15 @@ import { parseDashboardResponse, getSpanClass, type DashboardRow } from '../util
 import type { Sidegroup } from '../../sidegroups/model/types.ts'
 import { executeBigQuery } from '../api/bigquery.ts'
 import { buildEditorUrl, downloadChartCsv, generateShareUrl } from '../../analysis/utils/chartActions.ts'
+import {
+  applyOptionalCustomFilters,
+  getCustomSqlFilterInputMessage,
+  getCustomSqlFilters,
+  replaceCustomSqlVariables,
+  withoutSqlComments,
+} from '../../sql/utils/customSqlFilters'
+import CustomSqlFilterField from '../../sql-next/ui/CustomSqlFilterField'
+import { getDateRangeFromPeriod } from '../../../shared/lib/utils'
 
 type SelectedWebsite = {
   domain: string
@@ -329,12 +338,28 @@ export const DashboardWidget = ({
   const [selectedUrlForAnalysis, setSelectedUrlForAnalysis] = useState<string | null>(null)
   const [showTransferToMetabaseDialog, setShowTransferToMetabaseDialog] = useState(false)
   const [copyLinkFeedback, setCopyLinkFeedback] = useState(false)
+  const [customVariableValues, setCustomVariableValues] = useState<Record<string, string>>({})
+  const customFilters = useMemo(
+    () => (chart.sql && !['text', 'title', 'siteimprove'].includes(chart.type) ? getCustomSqlFilters(chart.sql) : []),
+    [chart.sql, chart.type],
+  )
+  const filterInputMessage = getCustomSqlFilterInputMessage(customFilters, customVariableValues)
+  const customFilterDateRange = getDateRangeFromPeriod(
+    filters.dateRange,
+    filters.customStartDate,
+    filters.customEndDate,
+  )
+  const widgetFilters = { ...filters, customVariableValues, websiteDomain: selectedWebsite?.domain }
+  const hasCustomFilters = customFilters.length > 0
+  const notifyDataLoaded = useEffectEvent((stats: { id: string; gb: number; title: string; totalCount?: number }) =>
+    onDataLoaded?.(stats),
+  )
   const showShareAction = false // Temporary: hide "Del grafen" in inline action menu
   const headingLevelStr = String(headingLevel) as '1' | '2' | '3' | '4' | '5'
 
   // If prefetchedData is available, use it directly instead of fetching
   useEffect(() => {
-    if (prefetchedData !== undefined) {
+    if (prefetchedData !== undefined && !hasCustomFilters) {
       setData(prefetchedData)
       setLoading(false)
       setError(null)
@@ -342,12 +367,12 @@ export const DashboardWidget = ({
       setHasFetchedIndividually(false) // Reset since we got batch data
       return
     }
-  }, [prefetchedData])
+  }, [prefetchedData, hasCustomFilters])
 
   // Reset fetch flag when filters or SQL changes (to allow variant/refetch updates)
   useEffect(() => {
     setHasFetchedIndividually(false)
-  }, [websiteId, filters, chart.sql])
+  }, [websiteId, filters, chart.sql, customVariableValues, selectedWebsite?.domain])
 
   useEffect(() => {
     if (chart.type === 'text') {
@@ -357,8 +382,15 @@ export const DashboardWidget = ({
       return
     }
 
+    if (filterInputMessage) {
+      setLoading(false)
+      setError(null)
+      setData([])
+      return
+    }
+
     // Skip if we already have batch data
-    if (prefetchedData !== undefined) return
+    if (prefetchedData !== undefined && !hasCustomFilters) return
 
     // If told to wait for batch, just ensure loading state is shown
     if (shouldWaitForBatch) {
@@ -369,6 +401,7 @@ export const DashboardWidget = ({
     // If we've already fetched individually, don't fetch again
     if (hasFetchedIndividually) return
 
+    let cancelled = false
     const fetchData = async () => {
       if (!chart.sql) return
 
@@ -376,9 +409,19 @@ export const DashboardWidget = ({
       setError(null)
 
       try {
-        const processedSql = processDashboardSql(chart.sql, websiteId, filters)
+        const processedSql = processDashboardSql(chart.sql, websiteId, {
+          ...filters,
+          customVariableValues,
+          websiteDomain: selectedWebsite?.domain,
+        })
+        if (/\{\{\s*[a-zA-Z_]\w*\s*\}\}/.test(withoutSqlComments(processedSql))) {
+          setData([])
+          setError({ message: 'Velg nettside og fyll ut filtrene for å vise resultatene.', variant: 'info' })
+          return
+        }
 
         const resultPayload = await executeBigQuery(processedSql, 'Dashboard')
+        if (cancelled) return
         const parsed = parseDashboardResponse(resultPayload)
         const resultData = parsed.data
         setData(resultData)
@@ -396,20 +439,19 @@ export const DashboardWidget = ({
           }
         }
 
-        if (onDataLoaded) {
-          const bytes = parsed.totalBytesProcessed ?? 0
-          const gb = bytes ? bytes / 1024 ** 3 : 0
-          onDataLoaded({
-            id: chart.id || '',
-            gb,
-            title: chart.title,
-            totalCount,
-          })
-        }
+        const bytes = parsed.totalBytesProcessed ?? 0
+        const gb = bytes ? bytes / 1024 ** 3 : 0
+        notifyDataLoaded({
+          id: chart.id || '',
+          gb,
+          title: chart.title,
+          totalCount,
+        })
 
         setPage(1)
         setHasFetchedIndividually(true)
       } catch (err: unknown) {
+        if (cancelled) return
         const message = err instanceof Error ? err.message : 'Ukjent feil'
         const missingUrlPath =
           filters.urlFilters.length === 0 &&
@@ -422,11 +464,15 @@ export const DashboardWidget = ({
             : { message, variant: 'error' },
         )
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
 
-    void fetchData()
+    const timer = window.setTimeout(() => void fetchData(), hasCustomFilters ? 300 : 0)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
   }, [
     chart.type,
     chart.sql,
@@ -437,7 +483,10 @@ export const DashboardWidget = ({
     prefetchedData,
     shouldWaitForBatch,
     hasFetchedIndividually,
-    onDataLoaded,
+    customVariableValues,
+    filterInputMessage,
+    hasCustomFilters,
+    selectedWebsite?.domain,
   ])
 
   // Render logic based on chart.type
@@ -469,6 +518,7 @@ export const DashboardWidget = ({
   const entityLabel = chart.type === 'text' ? 'tekstboks' : 'graf'
 
   const renderContent = () => {
+    if (filterInputMessage) return <Alert variant="info">{filterInputMessage}</Alert>
     if (loading)
       return (
         <div className="flex justify-center p-8">
@@ -526,14 +576,14 @@ export const DashboardWidget = ({
 
   const handleOpenSharedView = () => {
     if (!chart.sql) return
-    window.open(generateShareUrl(chart, websiteId, filters, selectedWebsite?.domain, dashboardTitle), '_blank')
+    window.open(generateShareUrl(chart, websiteId, widgetFilters, selectedWebsite?.domain, dashboardTitle), '_blank')
   }
 
   const handleCopyShareLink = async () => {
     if (!chart.sql) return
     try {
       await navigator.clipboard.writeText(
-        generateShareUrl(chart, websiteId, filters, selectedWebsite?.domain, dashboardTitle),
+        generateShareUrl(chart, websiteId, widgetFilters, selectedWebsite?.domain, dashboardTitle),
       )
       setCopyLinkFeedback(true)
       setTimeout(() => setCopyLinkFeedback(false), 2000)
@@ -544,7 +594,7 @@ export const DashboardWidget = ({
 
   const handleOpenInSqlEditor = () => {
     if (!chart.sql) return
-    window.location.href = buildEditorUrl(chart, websiteId, filters, selectedWebsite?.domain)
+    window.location.href = buildEditorUrl(chart, websiteId, widgetFilters, selectedWebsite?.domain)
   }
 
   const handleDownloadCsv = () => {
@@ -637,7 +687,7 @@ export const DashboardWidget = ({
 
   return (
     <>
-      <div className={containerClass}>
+      <div className={`${containerClass} focus-within:relative focus-within:z-10`}>
         <div className="flex flex-col mb-4">
           {chart.type === 'table' ? (
             <TableSectionHeader
@@ -713,6 +763,20 @@ export const DashboardWidget = ({
             </>
           )}
         </div>
+        {hasCustomFilters && (
+          <div className="flex flex-wrap items-start gap-4 mb-4">
+            {customFilters.map((filter) => (
+              <CustomSqlFilterField
+                key={filter.name}
+                filter={filter}
+                value={customVariableValues[filter.name] ?? ''}
+                onChange={(value) => setCustomVariableValues((previous) => ({ ...previous, [filter.name]: value }))}
+                websiteIds={websiteId ? [websiteId] : []}
+                dateRange={{ from: customFilterDateRange?.startDate, to: customFilterDateRange?.endDate }}
+              />
+            ))}
+          </div>
+        )}
         <div className={compactMode ? 'min-h-0 flex-1 overflow-hidden' : ''}>{renderContent()}</div>
       </div>
 
@@ -729,7 +793,15 @@ export const DashboardWidget = ({
         <TransferToMetabaseDialog
           open={showTransferToMetabaseDialog}
           onClose={() => setShowTransferToMetabaseDialog(false)}
-          sqlText={chart.sql}
+          sqlText={replaceCustomSqlVariables(
+            applyOptionalCustomFilters(
+              chart.sql,
+              customFilters.map((filter) => filter.name),
+              customVariableValues,
+            ),
+            customFilters.map((filter) => filter.name),
+            customVariableValues,
+          )}
           sourceWebsiteId={websiteId}
         />
       )}

@@ -59,6 +59,28 @@ vi.mock('../../sql/ui/SqlResultsSection', () => ({
 }))
 
 describe('SQL error results', () => {
+  it.each(['Vis resultater', 'Valider'])(
+    'shows missing custom input as information after %s, without querying',
+    (action) => {
+      vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+      const sql = '-- @filter event {"label":"Hendelse"}\nSELECT event_name FROM events WHERE event_name = {{event}}'
+      window.history.replaceState({}, '', `/sql?${new URLSearchParams({ sql })}`)
+      vi.mocked(estimateQueryCost).mockReset()
+      vi.mocked(executeQueryApi).mockReset()
+      render(
+        <MemoryRouter>
+          <SqlNextPage />
+        </MemoryRouter>,
+      )
+      fireEvent.click(screen.getByRole('button', { name: action }))
+      const message = screen.getByText('Velg eller fyll ut «Hendelse» for å vise resultatene.')
+      expect(message.closest('[data-variant]')).toHaveAttribute('data-variant', 'info')
+      expect(screen.queryByText('Feil i spørringen')).not.toBeInTheDocument()
+      expect(estimateQueryCost).not.toHaveBeenCalled()
+      expect(executeQueryApi).not.toHaveBeenCalled()
+    },
+  )
+
   it.each([
     ['4.99', null],
     ['5.30', null],

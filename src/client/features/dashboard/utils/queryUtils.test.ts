@@ -11,6 +11,42 @@ const filters = {
 describe('processDashboardSql', () => {
   afterEach(() => vi.useRealTimers())
 
+  it('omits blank optional custom conditions while preserving website and date filters', () => {
+    const sql = `${'-- @filter event_name {"label":"Hendelse"}\n'}SELECT e.event_name
+      FROM \`project.umami_views.event\` e
+      WHERE e.website_id = '{{website_id}}'
+      [[AND {{created_at}}]]
+      [[AND event_name = {{event_name}}]]`
+    const processed = processDashboardSql(sql, 'website-1', filters)
+    expect(processed).toContain("website_id = 'website-1'")
+    expect(processed).toContain('e.created_at BETWEEN')
+    expect(processed).not.toMatch(/\{\{|\[\[|event_name\s*=/)
+    expect(processed).toContain('-- @filter event_name')
+  })
+
+  it('substitutes custom strings and numbers consistently with the SQL editor', () => {
+    const sql = 'SELECT event_name FROM events WHERE 1=1 [[AND event_name = {{event}}]] AND count > {{minimum}}'
+    const processed = processDashboardSql(sql, 'website-1', {
+      ...filters,
+      customVariableValues: { event: "paid $& it's", minimum: '5' },
+    })
+    expect(processed).toBe("SELECT event_name FROM events WHERE 1=1 AND event_name = 'paid $& it''s' AND count > 5")
+  })
+
+  it('preserves required placeholders for the UI to request missing input, but ignores placeholders in comments', () => {
+    const sql = '-- {{ignored}}\nSELECT event_name FROM events WHERE event_name = {{event}}'
+    expect(processDashboardSql(sql, 'website-1', filters)).toBe(sql)
+  })
+
+  it('supports website and domain placeholders with or without quotes', () => {
+    expect(
+      processDashboardSql('SELECT {{nettside}} FROM events WHERE website_id = {{ website_id }}', 'site', {
+        ...filters,
+        websiteDomain: 'example.nav.no',
+      }),
+    ).toBe("SELECT 'example.nav.no' FROM events WHERE website_id = 'site'")
+  })
+
   it('applies dashboard URL and period filters to aliased event queries', () => {
     const sql = `
       SELECT e.url_path

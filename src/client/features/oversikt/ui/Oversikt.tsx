@@ -2062,7 +2062,7 @@ const Oversikt = () => {
                   return (
                     <div
                       key={chart.id}
-                      className={`relative ${getSpanClass(chart.width)}`}
+                      className={`relative focus-within:z-10 ${getSpanClass(chart.width)}`}
                       ref={(element) => {
                         if (element) chartRefs.current.set(chart.graphId, element)
                         else chartRefs.current.delete(chart.graphId)

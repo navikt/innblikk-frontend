@@ -19,6 +19,7 @@ import { getSqlCommaFix } from '../model/sqlCommaFix'
 import { getSqlClauseOrderFix } from '../model/sqlClauseOrderFix'
 import { getSqlJoinHint, getSqlJoinSuggestion } from '../model/sqlJoins'
 import { getGroupBySimplification } from '../model/groupBySimplification'
+import CustomSqlFilterField from './CustomSqlFilterField'
 
 const JOIN_HINT_DELAY_MS = 1000
 
@@ -53,6 +54,8 @@ export default function SqlNextPage() {
     urlPath,
     selectedWebsite,
     customVariables,
+    customFilters,
+    filterInputMessage,
     customVariableValues,
     hasUrlPathFilter,
     hasWebsiteIdPlaceholder,
@@ -70,7 +73,7 @@ export default function SqlNextPage() {
     pendingQueryEstimate,
 
     setUrlPath,
-    setCustomVariableValues,
+    handleCustomVariableChange,
     handleQueryChange,
     handleWebsiteIdsChange,
     handleUpgradeTables,
@@ -94,7 +97,7 @@ export default function SqlNextPage() {
     preparePieChartData,
   } = useSqlNextEditor()
 
-  const queryError = error ?? dryRunError
+  const queryError = filterInputMessage ? null : (error ?? dryRunError)
   const showWebsiteFilter = hasWebsiteIdPlaceholder || hasNettsidePlaceholder
   const showFilterBar = showWebsiteFilter || hasPeriodPlaceholder || hasUrlPathFilter || customVariables.length > 0
   const groupBySimplification =
@@ -149,7 +152,7 @@ export default function SqlNextPage() {
         <div className="flex flex-col gap-4">
           {showFilterBar && (
             <div className="rounded-lg border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-3.5">
-              <div className="flex flex-wrap items-end gap-4">
+              <div className="flex flex-wrap items-start gap-4">
                 {showWebsiteFilter && (
                   <div className="flex-1 min-w-[260px]">
                     <WebsiteSelect
@@ -189,22 +192,36 @@ export default function SqlNextPage() {
                   </div>
                 )}
 
-                {customVariables.map((varName) => (
-                  <div key={varName} className="min-w-[180px]">
-                    <TextField
-                      label={varName.replace(/_/g, ' ')}
-                      size="small"
-                      value={customVariableValues[varName] || ''}
-                      onChange={(e) =>
-                        setCustomVariableValues((prev) => ({
-                          ...prev,
-                          [varName]: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
+                {customFilters.map((filter) => (
+                  <CustomSqlFilterField
+                    key={filter.name}
+                    filter={filter}
+                    value={customVariableValues[filter.name] || ''}
+                    onChange={(value) => handleCustomVariableChange(filter.name, value)}
+                    websiteIds={websiteIds}
+                    dateRange={dateRange}
+                  />
                 ))}
               </div>
+              {customFilters.length > 0 && (
+                <ReadMore header="Tilpass SQL-filtre" size="small" className="mt-3">
+                  <BodyShort size="small">
+                    Bruk doble hakeparenteser for valgfrie filtre. Når feltet er tomt, utelates hele blokken. Uten
+                    hakeparenteser må feltet fylles ut. Hendelsesnavn foreslås fra valgte nettsider og periode. Velg et
+                    forslag eller skriv en verdi i nedtrekksfelt.
+                  </BodyShort>
+                  <pre className="whitespace-pre-wrap text-sm my-2">
+                    {'-- @filter event_name {"label":"Hendelse"}\n[[AND event_name = {{event_name}}]]'}
+                  </pre>
+                  <BodyShort size="small">
+                    Etiketter og egne forslag kan angis i en SQL-kommentar. Forslag begrenser ikke hvilke verdier du kan
+                    skrive.
+                  </BodyShort>
+                  <pre className="whitespace-pre-wrap text-sm my-2">
+                    {'-- @filter device {"label":"Enhet","options":["mobile","desktop"]}\n[[AND device = {{device}}]]'}
+                  </pre>
+                </ReadMore>
+              )}
             </div>
           )}
 
@@ -321,6 +338,7 @@ export default function SqlNextPage() {
                   </div>
                 </Alert>
               )}
+              {filterInputMessage && <Alert variant="info">{filterInputMessage}</Alert>}
               {queryError && (
                 <QueryErrorDisplay
                   error={queryError}
@@ -337,7 +355,7 @@ export default function SqlNextPage() {
                 />
               )}
 
-              {hasAttemptedFetch && result?.truncated && !queryError && (
+              {hasAttemptedFetch && result?.truncated && !queryError && !filterInputMessage && (
                 <Alert variant="warning" size="small">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span>
@@ -364,13 +382,13 @@ export default function SqlNextPage() {
                 </Alert>
               )}
 
-              {hasAttemptedFetch && isResultLimited && !queryError && (
+              {hasAttemptedFetch && isResultLimited && !queryError && !filterInputMessage && (
                 <Alert variant="info" size="small">
                   Resultatet er begrenset av <code>LIMIT {explicitLimit}</code> i SQL-en.
                 </Alert>
               )}
 
-              {hasAttemptedFetch || queryError ? (
+              {filterInputMessage ? null : hasAttemptedFetch || queryError ? (
                 queryError ? null : (
                   <SqlResultsSection
                     copyableCells

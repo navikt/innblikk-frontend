@@ -19,6 +19,13 @@ import { getSqlCode } from '../model/sqlCode'
 import { getFromLocalStorage, saveToLocalStorage, SELECTED_WEBSITE_CACHE_KEY } from '../../../shared/lib/localStorage'
 import { DEFAULT_WEBSITE_ID, normalizeDomain } from '../../../shared/lib/domain'
 import { getGcpProjectId } from '../../../shared/lib/runtimeConfig'
+import {
+  getCustomSqlFilterInputMessage,
+  getCustomSqlFilters,
+  getCustomSqlVariableNames,
+  parseCustomSqlFilterValues,
+  withoutSqlComments,
+} from '../../sql/utils/customSqlFilters'
 
 export const PREVIEW_ROWS = 1000
 export const MORE_ROWS = 10000
@@ -90,7 +97,9 @@ export const useSqlNextEditor = () => {
   const customStartFromUrl = searchParams.get('customStartDate')
   const customEndFromUrl = searchParams.get('customEndDate')
 
-  const [customVariableValues, setCustomVariableValues] = useState<Record<string, string>>({})
+  const [customVariableValues, setCustomVariableValues] = useState<Record<string, string>>(() =>
+    parseCustomSqlFilterValues(searchParams.get('filterValues')),
+  )
   const [hasAttemptedFetch, setHasAttemptedFetch] = useState<boolean>(false)
   const [restoredWebsite] = useState<Website | null>(() => {
     const params = new URLSearchParams(window.location.search)
@@ -153,6 +162,7 @@ export const useSqlNextEditor = () => {
 
   const dryRunRequestIdRef = useRef(0)
   const lastValidQueryRef = useRef<string | null>(null)
+  const customFilterQueryRef = useRef<string | null>(null)
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' })
@@ -220,11 +230,8 @@ export const useSqlNextEditor = () => {
       : alwaysKnownVariables
 
     const allVariablesRegex = /\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/gi
-    const matches = [...query.matchAll(allVariablesRegex)]
-    const detectedVars = matches
-      .map((m) => m[1])
-      .filter((v) => !knownVariables.includes(v.toLowerCase()))
-      .filter((v, i, arr) => arr.indexOf(v) === i)
+    const matches = [...withoutSqlComments(query).matchAll(allVariablesRegex)]
+    const detectedVars = getCustomSqlVariableNames(query, knownVariables)
 
     const hasOldEventTable = /umami\.public_website_event/.test(query)
     const hasOldSessionTable = /umami\.public_session/.test(query)
@@ -280,6 +287,8 @@ export const useSqlNextEditor = () => {
   const effectiveWebsiteId =
     websiteIdsState[0] || websiteIdState || effectiveSelectedWebsite?.id || extractWebsiteId(query) || ''
   const effectiveWebsiteIds = websiteIdsState.length ? websiteIdsState : effectiveWebsiteId ? [effectiveWebsiteId] : []
+  const customFilters = useMemo(() => getCustomSqlFilters(query, customVariables), [query, customVariables])
+  const filterInputMessage = getCustomSqlFilterInputMessage(customFilters, customVariableValues)
 
   const getFilterContext = useCallback(
     () => ({
@@ -348,7 +357,7 @@ export const useSqlNextEditor = () => {
     setValidateError(null)
     setEstimate(null)
     setDryRunError(null)
-    if (!query.trim() || incompleteQueryMessage) return
+    if (!query.trim() || incompleteQueryMessage || filterInputMessage) return
     const reqId = ++dryRunRequestIdRef.current
     setEstimating(true)
     try {
@@ -403,6 +412,11 @@ export const useSqlNextEditor = () => {
 
   const executeQuery = async () => {
     setValidationRequested(true)
+    if (filterInputMessage) {
+      setError(null)
+      setDryRunError(null)
+      return
+    }
     if (incompleteQueryMessage) return
     previousFilterKeyRef.current = automaticFilterKey
 
@@ -446,9 +460,10 @@ export const useSqlNextEditor = () => {
     if (previousFilterKeyRef.current === automaticFilterKey) return
     if (
       !hasTemplateFields ||
-      lastValidQueryRef.current !== query ||
+      (lastValidQueryRef.current !== query && customFilterQueryRef.current !== query) ||
       !query.trim() ||
       incompleteQueryMessage ||
+      filterInputMessage ||
       effectiveWebsiteIds.length === 0 ||
       !dateRange.from ||
       !dateRange.to ||
@@ -469,6 +484,7 @@ export const useSqlNextEditor = () => {
     hasTemplateFields,
     query,
     incompleteQueryMessage,
+    filterInputMessage,
     effectiveWebsiteIds.length,
     dateRange.from,
     dateRange.to,
@@ -498,6 +514,7 @@ export const useSqlNextEditor = () => {
 
   const shareQuery = () => {
     const params = new URLSearchParams({ sql: query, dateRange: period })
+    if (Object.keys(customVariableValues).length) params.set('filterValues', JSON.stringify(customVariableValues))
     if (effectiveWebsiteIds.length > 1) params.set('websiteIds', effectiveWebsiteIds.join(','))
     else if (effectiveWebsiteId) params.set('websiteId', effectiveWebsiteId)
     if (period === 'custom') {
@@ -522,6 +539,11 @@ export const useSqlNextEditor = () => {
     if (!val.trim() || isInitialSqlQuery(val, getGcpProjectId())) {
       updateUrlParams({ sql: null, sqlStorageKey: null })
     }
+  }
+
+  const handleCustomVariableChange = (name: string, value: string) => {
+    customFilterQueryRef.current = query
+    setCustomVariableValues((previous) => ({ ...previous, [name]: value }))
   }
 
   const handleWebsiteChange = (website: Website | null) => {
@@ -685,6 +707,8 @@ export const useSqlNextEditor = () => {
     urlPath,
     selectedWebsite: effectiveSelectedWebsite,
     customVariables,
+    customFilters,
+    filterInputMessage,
     customVariableValues,
     hasMetabaseDateFilter,
     hasUrlPathFilter,
@@ -707,6 +731,7 @@ export const useSqlNextEditor = () => {
 
     setUrlPath,
     setCustomVariableValues,
+    handleCustomVariableChange,
     handleQueryChange,
     handleWebsiteChange,
     handleWebsiteIdsChange,

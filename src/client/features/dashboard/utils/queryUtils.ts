@@ -3,7 +3,12 @@ import { getDateRangeFromPeriod } from '../../../shared/lib/utils.ts'
 import { getGcpProjectId } from '../../../shared/lib/runtimeConfig'
 import { buildSidegroupSqlCondition } from '../../../shared/lib/sidegroupSql.ts'
 import type { Sidegroup } from '../../sidegroups/model/types.ts'
-import { replaceDateFilterPlaceholders } from '../../sql/utils/sqlProcessing'
+import { applyWebsiteDomain, applyWebsiteIdOnly, replaceDateFilterPlaceholders } from '../../sql/utils/sqlProcessing'
+import {
+  applyOptionalCustomFilters,
+  getCustomSqlVariableNames,
+  replaceCustomSqlVariables,
+} from '../../sql/utils/customSqlFilters'
 
 interface FilterState {
   urlFilters: string[]
@@ -13,6 +18,8 @@ interface FilterState {
   customStartDate?: Date
   customEndDate?: Date
   sidegroup?: Sidegroup | null
+  customVariableValues?: Record<string, string>
+  websiteDomain?: string
 }
 
 export const supportsMetricTypeSelection = (sql: string): boolean => /\bUnike_besokende\b/i.test(sql)
@@ -28,10 +35,12 @@ export const processDashboardSql = (sql: string, websiteId: string, filters: Fil
   // 0. Define timezone (default to Europe/Oslo)
   const timezone = 'Europe/Oslo'
 
-  let processedSql = sql
+  const customVariables = getCustomSqlVariableNames(sql)
+  const customValues = filters.customVariableValues ?? {}
+  let processedSql = applyOptionalCustomFilters(sql, customVariables, customValues)
 
   // 1. Substitute website_id
-  processedSql = processedSql.replace(/{{website_id}}/g, websiteId)
+  processedSql = applyWebsiteDomain(applyWebsiteIdOnly(processedSql, websiteId), filters.websiteDomain)
 
   // 2. Substitute URL Path
   const directUrlVarPattern = /\{\{\s*url_(?:sti|path)\s*\}\}/gi
@@ -186,5 +195,5 @@ export const processDashboardSql = (sql: string, websiteId: string, filters: Fil
     processedSql = replaceMetricAlias(processedSql, 'Antall økter')
   }
 
-  return processedSql
+  return replaceCustomSqlVariables(processedSql, customVariables, customValues)
 }

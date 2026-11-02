@@ -210,6 +210,8 @@ export interface ChartActionModalFilters {
   metricType: 'visitors' | 'pageviews' | 'proportion' | 'visits'
   customStartDate?: Date
   customEndDate?: Date
+  customVariableValues?: Record<string, string>
+  websiteDomain?: string
 }
 
 export interface ChartActionModalProps {

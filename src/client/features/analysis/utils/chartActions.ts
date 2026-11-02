@@ -46,6 +46,9 @@ export const buildEditorUrl = (
 ): string => {
   const params = new URLSearchParams()
   params.set('sql', chart.sql!)
+  if (filters.customVariableValues && Object.keys(filters.customVariableValues).length) {
+    params.set('filterValues', JSON.stringify(filters.customVariableValues))
+  }
 
   if (websiteId) params.set('websiteId', websiteId)
   if (domain) params.set('domain', domain)
@@ -62,7 +65,6 @@ export const buildEditorUrl = (
   return `/sql?${params.toString()}`
 }
 
- 
 export const serializeCsvValue = (val: unknown): string => {
   if (val === null || val === undefined) return ''
   if (val instanceof Date) return isNaN(val.getTime()) ? '' : val.toISOString()

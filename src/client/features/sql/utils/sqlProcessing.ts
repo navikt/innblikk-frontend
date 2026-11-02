@@ -1,6 +1,7 @@
 import { subDays, format } from 'date-fns'
 import { getGcpProjectId } from './formatters'
 import type { Website } from '../model/types'
+import { applyOptionalCustomFilters, replaceCustomSqlVariables } from './customSqlFilters'
 
 interface SqlFilterContext {
   websiteIdState: string
@@ -92,7 +93,11 @@ export const replaceDateFilterPlaceholders = (
 }
 
 export const applyUrlFiltersToSql = (sql: string, ctx: SqlFilterContext): string => {
-  let processedSql = applyWebsiteIdOnly(sql, ctx.websiteIdState, ctx.websiteIds)
+  let processedSql = applyWebsiteIdOnly(
+    applyOptionalCustomFilters(sql, ctx.customVariables, ctx.customVariableValues),
+    ctx.websiteIdState,
+    ctx.websiteIds,
+  )
   let fromSql: string | null = null
   let toSql: string | null = null
   const escapeSqlString = (value: string) => value.replace(/'/g, "''")
@@ -110,14 +115,7 @@ export const applyUrlFiltersToSql = (sql: string, ctx: SqlFilterContext): string
   }
 
   // Nettside substitution {{nettside}} -> website domain
-  const hasNettsidePlaceholder = /\{\{\s*nettside\s*\}\}/i.test(processedSql)
-  if (hasNettsidePlaceholder && ctx.selectedWebsite?.domain) {
-    const sanitizedDomain = ctx.selectedWebsite.domain.replace(/'/g, "''")
-    processedSql = processedSql.replace(
-      /(['"])?(\s*)\{\{\s*nettside\s*\}\}(\s*)\1?/gi,
-      (_match, _quote, leading = '', trailing = '') => `${leading}'${sanitizedDomain}'${trailing}`,
-    )
-  }
+  processedSql = applyWebsiteDomain(processedSql, ctx.selectedWebsite?.domain)
 
   // URL path substitution (Metabase style [[ {{url_sti}} --]] '/' or [[ {{url_path}} --]] '/')
   const pathSource = ctx.urlPathFromUrl || ctx.urlPath
@@ -255,18 +253,16 @@ export const applyUrlFiltersToSql = (sql: string, ctx: SqlFilterContext): string
   }
 
   // Custom variable substitution {{variable_name}}
-  for (const varName of ctx.customVariables) {
-    const value = ctx.customVariableValues[varName]
-    if (value !== undefined && value !== '') {
-      const varRegex = new RegExp(`\\{\\{\\s*${varName}\\s*\\}\\}`, 'gi')
-      const isNumeric = /^-?\d+\.?\d*$/.test(value)
-      const replacement = isNumeric ? value : `'${value.replace(/'/g, "''")}'`
-      processedSql = processedSql.replace(varRegex, replacement)
-    }
-  }
-
-  return processedSql
+  return replaceCustomSqlVariables(processedSql, ctx.customVariables, ctx.customVariableValues)
 }
+
+export const applyWebsiteDomain = (sql: string, domain?: string): string =>
+  domain
+    ? sql.replace(
+        /(['"])?(\s*)\{\{\s*nettside\s*\}\}(\s*)\1?/gi,
+        (_match, _quote, leading = '', trailing = '') => `${leading}'${domain.replace(/'/g, "''")}'${trailing}`,
+      )
+    : sql
 
 // Only substitute website_id placeholder for copy actions (keep other filters untouched)
 export const applyWebsiteIdOnly = (sql: string, websiteIdState: string, websiteIds?: string[]): string => {
