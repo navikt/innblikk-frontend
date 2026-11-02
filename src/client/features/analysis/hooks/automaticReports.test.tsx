@@ -117,7 +117,7 @@ describe('automatic analysis reports', () => {
     expect(fetchMarketingStats).toHaveBeenCalledTimes(2)
   })
 
-  it('waits for every funnel step and event filter to be complete', async () => {
+  it('only refreshes funnels explicitly, after every step and event filter is complete', async () => {
     const { result } = renderHook(useFunnel, { wrapper })
     act(() => {
       result.current.setSelectedWebsite(website)
@@ -128,6 +128,7 @@ describe('automatic analysis reports', () => {
     })
     await flushRefresh()
     expect(fetchFunnelData).not.toHaveBeenCalled()
+    expect(result.current.canFetch).toBe(false)
     act(() =>
       result.current.setSteps([
         { type: 'url', value: '/start' },
@@ -135,6 +136,9 @@ describe('automatic analysis reports', () => {
       ]),
     )
     await flushRefresh()
+    expect(fetchFunnelData).not.toHaveBeenCalled()
+    expect(result.current.canFetch).toBe(true)
+    await act(async () => result.current.fetchData())
     expect(fetchFunnelData).toHaveBeenCalledTimes(1)
     act(() =>
       result.current.setSteps([
@@ -142,6 +146,104 @@ describe('automatic analysis reports', () => {
         { type: 'event', value: 'done', params: [{ key: 'type', operator: 'equals', value: '' }] },
       ]),
     )
+    await flushRefresh()
+    expect(fetchFunnelData).toHaveBeenCalledTimes(1)
+    expect(result.current.canFetch).toBe(false)
+
+    for (const value of ['s', 'st', 'sti', 'stil', 'still', 'stillinger']) {
+      act(() =>
+        result.current.setSteps([
+          { type: 'url', value: `/${value}` },
+          { type: 'event', value: 'done' },
+        ]),
+      )
+      await flushRefresh()
+    }
+    act(() => {
+      result.current.setOnlyDirectEntry(false)
+      result.current.setPeriod('last_28_days')
+      result.current.setSelectedWebsite({ ...website, id: 'site-2' })
+    })
+    await flushRefresh()
+    expect(fetchFunnelData).toHaveBeenCalledTimes(1)
+    await act(async () => result.current.fetchData())
+    expect(fetchFunnelData).toHaveBeenCalledTimes(2)
+    expect(fetchFunnelData).toHaveBeenLastCalledWith(
+      expect.objectContaining({ websiteId: 'site-2', onlyDirectEntry: false, period: 'last_28_days' }),
+    )
+  })
+
+  it('does not show or share an outdated funnel response after editing during a query', async () => {
+    let resolveRequest!: (value: Awaited<ReturnType<typeof fetchFunnelData>>) => void
+    vi.mocked(fetchFunnelData).mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveRequest = resolve
+      }),
+    )
+    const { result } = renderHook(useFunnel, { wrapper })
+    act(() => {
+      result.current.setSelectedWebsite(website)
+      result.current.setSteps([
+        { type: 'url', value: '/start' },
+        { type: 'url', value: '/done' },
+      ])
+    })
+    let request!: Promise<void>
+    act(() => {
+      request = result.current.fetchData()
+    })
+    expect(result.current.loading).toBe(true)
+    act(() =>
+      result.current.setSteps([
+        { type: 'url', value: '/changed' },
+        { type: 'url', value: '/done' },
+      ]),
+    )
+    await act(async () => {
+      resolveRequest({
+        data: [{ step: 0, url: '/start', count: 10 }],
+        sql: 'SELECT 10',
+        queryStats: null,
+        shareParams: new URLSearchParams('step=url:/start'),
+        error: null,
+      })
+      await request
+    })
+    expect(result.current.funnelData).toEqual([])
+    expect(result.current.funnelSql).toBeNull()
+    expect(result.current.hasAttemptedFetch).toBe(false)
+    expect(result.current.loading).toBe(false)
+    expect(window.location.search).toBe('')
+    await flushRefresh()
+    expect(fetchFunnelData).toHaveBeenCalledTimes(1)
+  })
+
+  it('clears completed funnel results when its draft changes and disables invalid date ranges', async () => {
+    vi.mocked(fetchFunnelData).mockResolvedValueOnce({
+      data: [{ step: 0, url: '/start', count: 10 }],
+      sql: 'SELECT 10',
+      queryStats: null,
+      shareParams: null,
+      error: null,
+    })
+    const { result } = renderHook(useFunnel, { wrapper })
+    act(() => {
+      result.current.setSelectedWebsite(website)
+      result.current.setSteps([
+        { type: 'url', value: '/start' },
+        { type: 'url', value: '/done' },
+      ])
+    })
+    await act(async () => result.current.fetchData())
+    expect(result.current.funnelData).toHaveLength(1)
+    act(() => {
+      result.current.setPeriod('custom')
+      result.current.setCustomStartDate(new Date('2026-10-04'))
+      result.current.setCustomEndDate(new Date('2026-10-03'))
+    })
+    expect(result.current.canFetch).toBe(false)
+    expect(result.current.funnelData).toEqual([])
+    expect(result.current.funnelSql).toBeNull()
     await flushRefresh()
     expect(fetchFunnelData).toHaveBeenCalledTimes(1)
   })

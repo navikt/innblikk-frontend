@@ -11,15 +11,18 @@ vi.mock('../../analysis/ui/ChartLayout.tsx', () => ({
   default: ({
     title,
     sidebarContent,
+    filters,
     children,
   }: {
     title: string
     sidebarContent?: React.ReactNode
+    filters?: React.ReactNode
     children: React.ReactNode
   }) => (
     <div>
       <h1>{title}</h1>
       <aside>{sidebarContent}</aside>
+      <div>{filters}</div>
       <main>{children}</main>
     </div>
   ),
@@ -54,6 +57,18 @@ describe('Funnel page', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn((url: string) => {
+        if (url === '/api/bigquery/funnel') {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                data: [
+                  { step: 0, url: '/stillinger', count: 100 },
+                  { step: 1, url: 'Stillingsvisning', count: 20 },
+                ],
+              }),
+          })
+        }
         if (url.includes('/events?')) {
           return Promise.resolve({
             ok: true,
@@ -87,6 +102,42 @@ describe('Funnel page', () => {
   it('renders the steps sidebar', async () => {
     renderPage()
     expect(await screen.findByText(/steg i trakten/i)).toBeInTheDocument()
+  })
+
+  it('only queries on refresh and keeps detail filters when the shared page is reopened', async () => {
+    const user = userEvent.setup()
+    const params = new URLSearchParams({ websiteId: 'site-1', strict: 'false' })
+    params.append('step', 'url:/stillinger')
+    params.append('step', 'event:Stillingsvisning|anywhere|param:hasSuperrask=1')
+    const page = renderPage(`/trakt?${params}`)
+    const refresh = await screen.findByRole('button', { name: 'Oppdater' })
+    await waitFor(() => expect(refresh).toBeEnabled())
+
+    await user.type(screen.getByRole('combobox', { name: 'URL-sti' }), '/stillinger/test')
+    await user.tab()
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    const queryCalls = () => vi.mocked(fetch).mock.calls.filter(([url]) => url === '/api/bigquery/funnel')
+    expect(queryCalls()).toHaveLength(0)
+
+    await user.click(refresh)
+    await screen.findByRole('heading', { name: 'Resultater' })
+    expect(queryCalls()).toHaveLength(1)
+    expect(queryCalls()[0][1]?.body).toContain('"value":"/stillinger/test"')
+    expect(queryCalls()[0][1]?.body).toContain('"key":"hasSuperrask","value":"1","operator":"equals"')
+    const shareUrl = `${window.location.pathname}${window.location.search}`
+    expect(new URLSearchParams(window.location.search).getAll('step')[1]).toContain('param:hasSuperrask=1')
+
+    page.unmount()
+    renderPage(shareUrl)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Oppdater' })).toBeEnabled())
+    expect(screen.getByRole('combobox', { name: 'Detalj' }).closest('.cohort-suggesting-value')).toHaveTextContent(
+      'hasSuperrask',
+    )
+    expect(queryCalls()).toHaveLength(1)
+    await user.click(screen.getByRole('button', { name: 'Oppdater' }))
+    await screen.findByRole('heading', { name: 'Resultater' })
+    expect(queryCalls()).toHaveLength(2)
+    expect(queryCalls()[1][1]?.body).toBe(queryCalls()[0][1]?.body)
   })
 
   function renderEventPage() {

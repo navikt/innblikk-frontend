@@ -71,7 +71,9 @@ const FunnelChart: React.FC<FunnelChartProps> = ({ data, loading, websiteId, per
                       </div>
                     ) : (
                       <div className="px-3 py-1.5">
-                        <span className="text-sm font-medium text-gray-400">Ingen frafall</span>
+                        <span className="text-sm font-medium text-gray-400">
+                          {data[index - 1].count > 0 ? 'Ingen frafall' : 'Ingen på forrige steg'}
+                        </span>
                       </div>
                     )}
                   </div>

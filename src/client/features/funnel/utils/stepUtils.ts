@@ -33,12 +33,13 @@ export function parseStepsFromParams(searchParams: URLSearchParams): FunnelStep[
         const part = parts[i]
         if (part === 'current-path' || part === 'anywhere') {
           scope = part
-        } else if (part.startsWith('param:')) {
-          const [key, ...valParts] = part.substring(6).split('=')
+        } else if (part.startsWith('param:') || part.startsWith('param-contains:')) {
+          const operator = part.startsWith('param-contains:') ? 'contains' : 'equals'
+          const [key, ...valParts] = part.substring(part.indexOf(':') + 1).split('=')
           const decodedKey = decodeParamToken(key)
           const decodedValue = decodeParamToken(valParts.join('='))
           if (decodedKey && decodedValue) {
-            params.push({ key: decodedKey, value: decodedValue, operator: 'equals' })
+            params.push({ key: decodedKey, value: decodedValue, operator })
           }
         }
       }
@@ -62,6 +63,16 @@ export function parseStepsFromParams(searchParams: URLSearchParams): FunnelStep[
     }
     return { type: 'url' as const, value: param }
   })
+}
+
+export function serializeStep(step: FunnelStep): string {
+  if (step.type === 'url') return `url:${encodeURIComponent(getStepUrlDisplay(step))}`
+
+  const filters = (step.params ?? []).map(
+    (param) =>
+      `${param.operator === 'contains' ? 'param-contains' : 'param'}:${encodeURIComponent(param.key)}=${encodeURIComponent(param.value)}`,
+  )
+  return [`event:${encodeURIComponent(step.value)}`, step.eventScope ?? 'current-path', ...filters].join('|')
 }
 
 /**

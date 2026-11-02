@@ -18,13 +18,19 @@ export interface FunnelStepMetrics {
 export const computeFunnelStepMetrics = (data: FunnelStep[], index: number): FunnelStepMetrics => {
   const item: FunnelStep = data[index]
   const prevItem: FunnelStep | null = index > 0 ? data[index - 1] : null
-  const firstStepCount: number = data[0]?.count || 1
+  const firstStepCount: number = data[0]?.count ?? 0
 
-  const percentageOfPrev = prevItem && prevItem.count > 0 ? Math.round((item.count / prevItem.count) * 100) : 100
+  const percentageOfPrev = prevItem
+    ? prevItem.count > 0
+      ? Math.round((item.count / prevItem.count) * 100)
+      : 0
+    : item.count > 0
+      ? 100
+      : 0
 
   const dropoffCount = prevItem ? prevItem.count - item.count : 0
-  const dropoffPercentage = prevItem ? 100 - percentageOfPrev : 0
-  const totalConversionPercent = Math.round((item.count / firstStepCount) * 100)
+  const dropoffPercentage = prevItem && prevItem.count > 0 ? 100 - percentageOfPrev : 0
+  const totalConversionPercent = firstStepCount > 0 ? Math.round((item.count / firstStepCount) * 100) : 0
 
   return { percentageOfPrev, dropoffCount, dropoffPercentage, totalConversionPercent }
 }

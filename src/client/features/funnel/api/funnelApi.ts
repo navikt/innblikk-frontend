@@ -8,7 +8,7 @@ import type {
   EventsApiResponse,
 } from '../model/types'
 import { getDateRangeFromPeriod } from '../../../shared/lib/utils'
-import { getStepUrlDisplay, splitUrlStepInput } from '../utils/stepUtils'
+import { serializeStep, splitUrlStepInput } from '../utils/stepUtils'
 
 const normalizeGeneratedSql = (sql: string): string =>
   sql
@@ -35,16 +35,29 @@ export interface FetchFunnelResult {
 export async function fetchFunnelData(params: FetchFunnelParams): Promise<FetchFunnelResult> {
   const { websiteId, steps, period, customStartDate, customEndDate, onlyDirectEntry } = params
 
-  const normalizedSteps = steps
-    .map((s) => (s.type === 'url' ? { ...s, ...splitUrlStepInput(s.value, s.query ?? '') } : s))
-    .filter((s) => s.value.trim() !== '')
+  const normalizedSteps = steps.map((s) =>
+    s.type === 'url' ? { ...s, ...splitUrlStepInput(s.value, s.query ?? '') } : s,
+  )
 
-  if (normalizedSteps.length < 2) {
-    return { data: [], sql: null, queryStats: null, shareParams: null, error: 'Du må legge inn minst to gyldige steg.' }
+  if (
+    normalizedSteps.length < 2 ||
+    normalizedSteps.some(
+      (step) =>
+        !step.value.trim() ||
+        (step.type === 'event' && (step.params ?? []).some((param) => !param.key.trim() || !param.value.trim())),
+    )
+  ) {
+    return {
+      data: [],
+      sql: null,
+      queryStats: null,
+      shareParams: null,
+      error: 'Fyll ut minst to steg og alle hendelsesfiltrene.',
+    }
   }
 
   const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
-  if (!dateRange) {
+  if (!dateRange || dateRange.endDate < dateRange.startDate) {
     return { data: [], sql: null, queryStats: null, shareParams: null, error: 'Vennligst velg en gyldig periode.' }
   }
   const { startDate, endDate } = dateRange
@@ -83,17 +96,12 @@ export async function fetchFunnelData(params: FetchFunnelParams): Promise<FetchF
 
     // Build share params
     const newParams = new URLSearchParams(window.location.search)
+    newParams.set('websiteId', websiteId)
     newParams.set('period', period)
     newParams.set('strict', String(onlyDirectEntry))
     newParams.delete('step')
     normalizedSteps.forEach((step) => {
-      let paramValue: string
-      if (step.type === 'event') {
-        paramValue = `event:${step.value}|${step.eventScope || 'current-path'}`
-      } else {
-        paramValue = `url:${getStepUrlDisplay(step)}`
-      }
-      newParams.append('step', paramValue)
+      newParams.append('step', serializeStep(step))
     })
 
     return {

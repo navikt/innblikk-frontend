@@ -64,7 +64,7 @@ const HorizontalFunnelChart: React.FC<HorizontalFunnelChartProps> = ({ data, loa
                 <div
                   className="relative flex flex-col items-center justify-center py-4 px-4 rounded-lg shadow-sm transition-all duration-300 hover:shadow-md text-white border border-transparent dark:border-[var(--ax-border-neutral-subtle)]"
                   style={{
-                    width: `${Math.max(160, 220 * (item.count / maxCount))}px`,
+                    width: `${maxCount > 0 ? Math.max(160, 220 * (item.count / maxCount)) : 160}px`,
                     minHeight: '140px',
                     backgroundColor: 'var(--funnel-box-bg, rgb(19, 17, 54))',
                   }}

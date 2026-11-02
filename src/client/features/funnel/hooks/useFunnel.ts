@@ -1,5 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
-import { useAutoRefresh } from '../../analysis/hooks/useAutoRefresh'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { parseISO } from 'date-fns'
 import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
@@ -80,6 +79,7 @@ export interface FunnelState {
   setSelectedTimingUrl: (u: string | null) => void
 
   // Actions
+  canFetch: boolean
   fetchData: () => Promise<void>
   fetchTiming: () => Promise<void>
   copyShareLink: () => Promise<void>
@@ -134,6 +134,7 @@ export function useFunnel(): FunnelState {
   const [modalSql, setModalSql] = useState<string | null>(null)
   const [selectedTableUrl, setSelectedTableUrl] = useState<string | null>(null)
   const [selectedTimingUrl, setSelectedTimingUrl] = useState<string | null>(null)
+  const configurationVersion = useRef(0)
 
   const [availableEvents, setAvailableEvents] = useState<string[]>([])
   const [loadingEvents, setLoadingEvents] = useState<boolean>(false)
@@ -157,13 +158,15 @@ export function useFunnel(): FunnelState {
   }, [selectedWebsite])
 
   const fetchData = useCallback(async () => {
-    if (!selectedWebsite) return
+    if (!selectedWebsite || loading) return
+    const version = configurationVersion.current
 
     setHasAttemptedFetch(true)
     setLoading(true)
     setError(null)
     setFunnelData([])
     setFunnelSql(null)
+    setFunnelQueryStats(null)
 
     const result = await fetchFunnelData({
       websiteId: selectedWebsite.id,
@@ -173,6 +176,11 @@ export function useFunnel(): FunnelState {
       customEndDate,
       onlyDirectEntry,
     })
+
+    if (version !== configurationVersion.current) {
+      setLoading(false)
+      return
+    }
 
     if (result.error) {
       setError(result.error)
@@ -188,7 +196,7 @@ export function useFunnel(): FunnelState {
     }
 
     setLoading(false)
-  }, [customEndDate, customStartDate, onlyDirectEntry, period, selectedWebsite, steps])
+  }, [customEndDate, customStartDate, loading, onlyDirectEntry, period, selectedWebsite, steps])
 
   const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
   const hasValidSteps =
@@ -198,22 +206,26 @@ export function useFunnel(): FunnelState {
         step.value.trim() &&
         (step.type !== 'event' || (step.params ?? []).every((param) => param.key.trim() && param.value.trim())),
     )
-  useAutoRefresh(
-    JSON.stringify([selectedWebsite?.id, steps, period, customStartDate, customEndDate, onlyDirectEntry]),
-    Boolean(selectedWebsite && hasValidSteps && dateRange && dateRange.endDate >= dateRange.startDate),
-    loading,
-    fetchData,
+  const canFetch = Boolean(
+    selectedWebsite && hasValidSteps && dateRange && dateRange.endDate >= dateRange.startDate && !loading,
   )
 
-  // Reset timing state when funnel configuration changes.
-  // Keep this effect scoped to config dependencies so timing results are not
-  // immediately cleared after a successful fetch.
   useEffect(() => {
+    configurationVersion.current += 1
+    setFunnelData([])
+    setFunnelSql(null)
+    setFunnelQueryStats(null)
+    setError(null)
+    setHasAttemptedFetch(false)
+    setModalSql(null)
     setTimingData([])
     setShowTiming(false)
     setTimingQueryStats(null)
     setTimingError(null)
     setTimingSql(null)
+    return () => {
+      configurationVersion.current += 1
+    }
   }, [customEndDate, customStartDate, onlyDirectEntry, period, selectedWebsite, steps])
 
   const copyShareLink = async () => {
@@ -235,6 +247,7 @@ export function useFunnel(): FunnelState {
     setTimingError(null)
     setTimingSql(null)
 
+    const version = configurationVersion.current
     const result = await fetchTimingDataApi({
       websiteId: selectedWebsite.id,
       steps,
@@ -243,6 +256,11 @@ export function useFunnel(): FunnelState {
       customEndDate,
       onlyDirectEntry,
     })
+
+    if (version !== configurationVersion.current) {
+      setTimingLoading(false)
+      return
+    }
 
     if (result.error) {
       setTimingError(result.error)
@@ -300,6 +318,7 @@ export function useFunnel(): FunnelState {
     selectedTimingUrl,
     setSelectedTimingUrl,
     fetchData,
+    canFetch,
     fetchTiming,
     copyShareLink,
     setCopySuccess,

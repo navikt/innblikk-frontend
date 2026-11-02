@@ -14,6 +14,7 @@ import {
 } from '@navikt/ds-react'
 import {
   CheckmarkIcon,
+  ArrowCirclepathIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   CodeIcon,
@@ -103,6 +104,8 @@ const Funnel = () => {
     selectedTimingUrl,
     setSelectedTimingUrl,
     fetchTiming,
+    fetchData,
+    canFetch,
     copyShareLink,
     setMetabaseCopySuccess,
     setTimingMetabaseCopySuccess,
@@ -162,6 +165,15 @@ const Funnel = () => {
               <Radio value="loose">Tillat andre steg imellom</Radio>
             </div>
           </RadioGroup>
+          <Button
+            size="small"
+            icon={<ArrowCirclepathIcon aria-hidden />}
+            onClick={() => void fetchData()}
+            disabled={!canFetch}
+            loading={loading}
+          >
+            Oppdater
+          </Button>
         </>
       }
     >
@@ -232,7 +244,7 @@ const Funnel = () => {
                               const next = splitUrlStepInput(value, step.query ?? '')
                               setSteps(updateStepQuery(updateStepValue(steps, index, next.value), index, next.query))
                             }}
-                            description="Valgfritt. Du kan lime inn hele URL-en med ?query."
+                            description="Bruk * for variable deler av stien. Du kan også lime inn en hel URL med ?query."
                           />
                         ) : (
                           <Combobox
@@ -264,6 +276,7 @@ const Funnel = () => {
                         {step.type === 'event' && (
                           <RadioGroup
                             legend="Hendelsens plassering"
+                            description="På nåværende sti betyr samme URL-sti som i forrige steg."
                             size="small"
                             value={step.eventScope || 'current-path'}
                             onChange={(val: string) =>
@@ -415,6 +428,12 @@ const Funnel = () => {
           {error && (
             <Alert variant="error" className="mb-4">
               {error}
+            </Alert>
+          )}
+
+          {!loading && !error && !hasAttemptedFetch && (
+            <Alert variant="info" className="mb-4">
+              Sett opp stegene og klikk Oppdater for å hente data. Endringer hentes ikke automatisk.
             </Alert>
           )}
 
