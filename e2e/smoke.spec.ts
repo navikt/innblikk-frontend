@@ -160,7 +160,8 @@ test.describe('App smoke tests', () => {
     await expect(page.getByText('Flere valg for hendelser', { exact: true })).toHaveCount(0)
     await expect(page.getByText('Filtre', { exact: true })).toHaveCount(0)
     await expect(page.getByRole('combobox', { name: 'Velg brukergrupper' })).toHaveCount(0)
-    await expect(page.getByText('Målt som...', { exact: true })).toBeVisible()
+    await expect(page.getByText('Vis...', { exact: true })).toBeVisible()
+    await expect(page.getByText('For hendelser og filtre...', { exact: true })).toBeVisible()
     await page.getByRole('button', { name: 'Brukergruppe', exact: true }).click()
     const groupPicker = page.getByRole('combobox', { name: 'Velg brukergrupper' })
     await expect(groupPicker).toBeFocused()
@@ -261,7 +262,7 @@ test.describe('App smoke tests', () => {
     await events.press('Escape')
     await page.getByRole('radio', { name: 'Unike besøkende', exact: true }).check()
     const metricSection = page.locator('.sidebar-section').filter({
-      has: page.getByText('Målt som...', { exact: true }),
+      has: page.getByText('Vis...', { exact: true }),
     })
     await expect(metricSection.getByRole('button', { name: 'Tilbakestill', exact: true })).toHaveCount(0)
     await page.getByRole('radio', { name: 'Økter / besøk', exact: true }).check()
@@ -319,12 +320,12 @@ test.describe('App smoke tests', () => {
     await expect(settings).toHaveCount(1)
     await expect(settings).toHaveAttribute('aria-expanded', 'false')
     await expect(settings.locator('..')).toHaveCSS('border-bottom-width', '0px')
-    await expect(page.getByText('Gruppert etter...', { exact: true })).toBeVisible()
+    await expect(page.getByText('Fordelt på...', { exact: true })).toBeVisible()
     for (const width of [1280, 1920]) {
       await page.setViewportSize({ width, height: 1000 })
       await page.evaluate('window.scrollTo({ top: 0, behavior: "instant" })')
       const settingsBounds = await settings.boundingBox()
-      const groupingBounds = await page.getByText('Gruppert etter...', { exact: true }).boundingBox()
+      const groupingBounds = await page.getByText('Fordelt på...', { exact: true }).boundingBox()
       const previewBounds = await page.getByRole('combobox', { name: 'Periode', exact: true }).boundingBox()
       expect(settingsBounds).not.toBeNull()
       expect(groupingBounds).not.toBeNull()
