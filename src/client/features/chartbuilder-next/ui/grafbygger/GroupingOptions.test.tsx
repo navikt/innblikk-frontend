@@ -12,11 +12,13 @@ vi.mock('../../../../shared/lib/trackEvent.ts', () => ({
 }))
 
 function Harness({
+  edition = 'next',
   initial = [],
   filters = [],
   onEnableCustomEvents = vi.fn(),
   setDateFormat = vi.fn(),
 }: {
+  edition?: 'current' | 'next'
   initial?: string[]
   filters?: Filter[]
   onEnableCustomEvents?: () => void
@@ -25,6 +27,7 @@ function Harness({
   const [groupByFields, setGroupByFields] = useState(initial)
   return (
     <GroupingOptions
+      edition={edition}
       groupByFields={groupByFields}
       parameters={[]}
       dateFormat="day"
@@ -60,6 +63,13 @@ describe('GroupingOptions', () => {
       expect(shortcuts[index]).toBeVisible()
       expect(shortcuts[index]).not.toBeChecked()
     }
+  })
+
+  it('keeps only the date shortcut in the current edition', () => {
+    render(<Harness edition="current" filters={multipleEvents} />)
+    expect(screen.getAllByRole('checkbox')[0]).toHaveAccessibleName('Dato')
+    expect(screen.getAllByRole('checkbox', { name: 'URL-sti' })).toHaveLength(1)
+    expect(screen.getAllByRole('checkbox', { name: 'Hendelsesnavn' })).toHaveLength(1)
   })
 
   it.each([

@@ -7,7 +7,11 @@ import { vi, beforeEach, afterEach } from 'vitest'
 vi.mock('./grafbygger/EventFilter.tsx', () => ({ default: () => <div data-testid="event-filter" /> }))
 vi.mock('./grafbygger/MetricSelector.tsx', () => ({ default: () => <div data-testid="metric-selector" /> }))
 vi.mock('./grafbygger/SegmentBy.tsx', () => ({ default: () => <div data-testid="segment-by" /> }))
-vi.mock('./grafbygger/GroupingOptions.tsx', () => ({ default: () => <div data-testid="grouping-options" /> }))
+vi.mock('./grafbygger/GroupingOptions.tsx', () => ({
+  default: ({ edition }: { edition?: 'current' | 'next' }) => (
+    <div data-testid="grouping-options" data-edition={edition} />
+  ),
+}))
 vi.mock('./grafbygger/DisplayOptions.tsx', () => ({ default: () => <div data-testid="display-options" /> }))
 vi.mock('./grafbygger/ActiveMetricsPanel.tsx', () => ({ default: () => <div data-testid="active-metrics" /> }))
 vi.mock('./grafbygger/AlertWithCloseButton.tsx', () => ({
@@ -16,15 +20,17 @@ vi.mock('./grafbygger/AlertWithCloseButton.tsx', () => ({
 
 vi.mock('./results/QueryPreview.tsx', () => ({
   default: ({
+    edition,
     onResetAll,
     sql,
     additionalOptions,
   }: {
+    edition?: 'current' | 'next'
     onResetAll?: () => void
     sql: string
     additionalOptions?: React.ReactNode
   }) => (
-    <div data-testid="query-preview">
+    <div data-testid="query-preview" data-edition={edition}>
       QueryPreview
       <pre data-testid="generated-sql">{sql}</pre>
       {additionalOptions}
@@ -105,6 +111,15 @@ function renderGrafbygger(search = '', edition: 'current' | 'next' = 'current') 
 }
 
 describe('Grafbygger page', () => {
+  it.each(['current', 'next'] as const)('scopes grouping and preview behavior to edition %s', async (edition) => {
+    const user = userEvent.setup()
+    renderGrafbygger('', edition)
+    await user.click(await screen.findByRole('combobox', { name: /nettside/i }))
+    await user.click(await screen.findByRole('option', { name: /nav\.no - prod/i }))
+    expect(await screen.findByTestId('grouping-options')).toHaveAttribute('data-edition', edition)
+    expect(screen.getByTestId('query-preview')).toHaveAttribute('data-edition', edition)
+  })
+
   beforeEach(() => {
     // Clear localStorage so cached websites/selection from a previous test don't interfere
     localStorage.clear()

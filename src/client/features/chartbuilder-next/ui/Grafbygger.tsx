@@ -491,6 +491,7 @@ const ChartsPage = ({ edition = 'current' }: { edition?: 'current' | 'next' }) =
                 }
               >
                 <GroupingOptions
+                  edition={edition}
                   groupByFields={config.groupByFields}
                   parameters={parameters}
                   dateFormat={config.dateFormat}
@@ -547,6 +548,7 @@ const ChartsPage = ({ edition = 'current' }: { edition?: 'current' | 'next' }) =
           </Alert>
         )}
         <QueryPreview
+          edition={edition}
           sql={generatedSQL}
           activeStep={currentStep}
           openFormprogress={false}

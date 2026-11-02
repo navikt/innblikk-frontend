@@ -271,9 +271,95 @@ describe('chartbuilder preview filters', () => {
       metabaseParam: true,
     }
 
-    render(<QueryPreview sql="SELECT 1" filters={[filter]} />)
+    render(<QueryPreview edition="next" sql="SELECT 1" filters={[filter]} />)
 
     expect(screen.getByRole('combobox', { name: 'URL-sti' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '/ (forsiden) slett' })).not.toBeInTheDocument()
+  })
+
+  it.each(['', '/', '/soknad'])('only filters preview SQL by an explicitly selected URL: "%s"', async (path) => {
+    const user = userEvent.setup()
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({ totalBytesProcessedGB: '0', data: [] }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(
+      <QueryPreview
+        edition="next"
+        sql="SELECT 1 WHERE TRUE AND url_path = {{url_sti}}"
+        availableEvents={['/soknad']}
+      />,
+    )
+    const picker = await screen.findByRole('combobox', { name: 'URL-sti' })
+    expect(picker).toHaveValue('')
+    expect(screen.queryByRole('button', { name: '/ (forsiden) slett' })).not.toBeInTheDocument()
+    if (path) {
+      await user.click(picker)
+      await user.click(screen.getByRole('option', { name: path === '/' ? '/ (forsiden)' : path }))
+    }
+    expect(screen.getByRole('combobox', { name: 'Periode' })).toHaveValue('last_7_days')
+    await user.click(screen.getByRole('button', { name: 'Vis resultater' }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/bigquery', expect.any(Object)))
+    const request = fetchMock.mock.calls.find(([url]) => url === '/api/bigquery')?.[1] as RequestInit
+    const payload: unknown = JSON.parse(request.body as string)
+    if (!payload || typeof payload !== 'object' || !('query' in payload) || typeof payload.query !== 'string') {
+      throw new Error('Expected a query string in the request')
+    }
+    if (path) {
+      expect(payload.query).toContain(`url_path = '${path}'`)
+    } else {
+      expect(payload.query).not.toContain('url_path')
+    }
+  })
+
+  it('resets the URL picker to empty instead of selecting the front page', async () => {
+    const user = userEvent.setup()
+    render(
+      <QueryPreview
+        edition="next"
+        sql="SELECT 1 WHERE TRUE AND url_path = {{url_sti}}"
+        activeStep={3}
+        onResetAll={vi.fn()}
+      />,
+    )
+    await user.click(await screen.findByRole('combobox', { name: 'URL-sti' }))
+    await user.click(screen.getByRole('option', { name: '/ (forsiden)' }))
+    expect(screen.getByRole('button', { name: '/ (forsiden) slett' })).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Tilbakestill alle valg' }))
+    await user.click(
+      within(await screen.findByRole('dialog', { name: 'Tilbakestill alle valg?' })).getByRole('button', {
+        name: 'Ja, tilbakestill alt',
+      }),
+    )
+    expect(screen.queryByRole('button', { name: '/ (forsiden) slett' })).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'URL-sti' })).toHaveValue('')
+    expect(screen.getByRole('combobox', { name: 'Periode' })).toHaveValue('last_7_days')
+  })
+
+  it('preserves the front-page default and reset in the current edition', async () => {
+    const user = userEvent.setup()
+    render(
+      <QueryPreview
+        sql="SELECT 1 WHERE TRUE AND url_path = {{url_sti}}"
+        activeStep={3}
+        onResetAll={vi.fn()}
+        availableEvents={['/soknad']}
+      />,
+    )
+    expect(await screen.findByRole('button', { name: '/ (forsiden) slett' })).toBeVisible()
+    await user.click(screen.getByRole('combobox', { name: 'URL-sti' }))
+    await user.click(screen.getByRole('option', { name: '/soknad' }))
+    expect(screen.getByRole('button', { name: '/soknad slett' })).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Tilbakestill alle valg' }))
+    await user.click(
+      within(await screen.findByRole('dialog', { name: 'Tilbakestill alle valg?' })).getByRole('button', {
+        name: 'Ja, tilbakestill alt',
+      }),
+    )
+    expect(screen.getByRole('button', { name: '/ (forsiden) slett' })).toBeVisible()
+    expect(screen.queryByRole('button', { name: '/soknad slett' })).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Periode' })).toHaveValue('last_7_days')
   })
 
   it('keeps the URL input available when date initialization runs and dashboard overrides are toggled', async () => {

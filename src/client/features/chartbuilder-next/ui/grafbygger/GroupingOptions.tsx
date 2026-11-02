@@ -9,6 +9,7 @@ import { ArrowDownIcon, ArrowUpIcon } from '@navikt/aksel-icons'
 import { getEventSelection } from '../../utils/eventSelection.ts'
 
 interface GroupingOptionsProps {
+  edition?: 'current' | 'next'
   groupByFields: string[]
   parameters: Parameter[]
   dateFormat: string | null
@@ -26,6 +27,7 @@ interface GroupingOptionsProps {
 }
 
 const GroupingOptions = ({
+  edition = 'current',
   groupByFields,
   parameters,
   dateFormat,
@@ -123,12 +125,15 @@ const GroupingOptions = ({
 
   const quickGroupingOptions = useMemo(() => {
     const columns = Object.values(COLUMN_GROUPS).flatMap((group) => group.columns)
-    const fields = ['created_at', 'url_path', ...(showEventNameShortcut ? ['event_name'] : [])]
+    const fields = [
+      'created_at',
+      ...(edition === 'next' ? ['url_path', ...(showEventNameShortcut ? ['event_name'] : [])] : []),
+    ]
     return fields.flatMap((field) => {
       const column = columns.find((option) => option.value === field)
       return column ? [column] : []
     })
-  }, [COLUMN_GROUPS, showEventNameShortcut])
+  }, [COLUMN_GROUPS, edition, showEventNameShortcut])
 
   const groupedGroupingOptions = useMemo(() => {
     const baseGroups = Object.entries(COLUMN_GROUPS).map(([groupKey, group]) => ({

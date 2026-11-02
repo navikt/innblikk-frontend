@@ -62,6 +62,7 @@ type QueryResult = {
 type EstimateResponse = QueryStats & { error?: string }
 
 interface QueryPreviewProps {
+  edition?: 'current' | 'next'
   sql: string
   activeStep?: number
   openFormprogress?: boolean
@@ -175,6 +176,7 @@ const timeoutPromise = (ms: number) => {
 }
 
 const QueryPreview = ({
+  edition = 'current',
   sql,
   activeStep = 1,
   openFormprogress = true,
@@ -224,7 +226,8 @@ const QueryPreview = ({
     to: initialDateRange.to,
   })
   const [datePreset, setDatePreset] = useState<DatePreset>(DEFAULT_DATE_PRESET)
-  const [urlPath, setUrlPath] = useState<string>('/')
+  const defaultUrlPath = edition === 'next' ? '' : '/'
+  const [urlPath, setUrlPath] = useState<string>(defaultUrlPath)
   const [urlComboInputValue, setUrlComboInputValue] = useState<string>('')
   const isSelectingUrlPathRef = useRef(false)
   const [eventName, setEventName] = useState<string>('')
@@ -240,7 +243,7 @@ const QueryPreview = ({
     eventName: string
   }>({
     dateRange: { from: initialDateRange.from, to: initialDateRange.to },
-    urlPath: '/',
+    urlPath: defaultUrlPath,
     eventName: '',
   })
 
@@ -1596,12 +1599,12 @@ const QueryPreview = ({
                         const resetDateRange = getDateRangeFromPreset(DEFAULT_DATE_PRESET)
                         setDatePreset(DEFAULT_DATE_PRESET)
                         setDateRange({ from: resetDateRange.from, to: resetDateRange.to })
-                        setUrlPath('/')
+                        setUrlPath(defaultUrlPath)
                         setUrlComboInputValue('')
                         setEventName('')
                         setExecutedParams({
                           dateRange: { from: resetDateRange.from, to: resetDateRange.to },
-                          urlPath: '/',
+                          urlPath: defaultUrlPath,
                           eventName: '',
                         })
                         setResult(null) // Clear results
