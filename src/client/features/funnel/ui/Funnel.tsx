@@ -1,6 +1,5 @@
 import {
   Heading,
-  TextField,
   Button,
   Alert,
   Loader,
@@ -58,6 +57,7 @@ import {
   generateMetabaseTimingSql,
 } from '../utils/funnelUtils'
 import TableSectionHeader from '../../../shared/ui/TableSectionHeader.tsx'
+import { SuggestingValueEditor } from '../../cohortmanager/ui/SuggestingValueEditor.tsx'
 
 const Funnel = () => {
   const state = useFunnel()
@@ -189,7 +189,7 @@ const Funnel = () => {
                 {steps.map((step, index) => (
                   <div
                     key={index}
-                    className="border border-gray-300 rounded-lg p-3 bg-[var(--ax-bg-default)] relative shadow-sm"
+                    className="border border-gray-300 rounded-lg p-3 bg-[var(--ax-bg-default)] relative shadow-sm focus-within:z-10"
                   >
                     <div className="flex items-start gap-3">
                       {/* Step number badge */}
@@ -198,7 +198,7 @@ const Funnel = () => {
                       </div>
 
                       {/* Step content */}
-                      <div className="flex-grow space-y-3">
+                      <div className="flex-grow min-w-0 space-y-3">
                         {/* Type selector with label */}
                         <Select
                           label={`Stegtype`}
@@ -284,7 +284,7 @@ const Funnel = () => {
                                 {step.params.map((param, pIndex) => (
                                   <div
                                     key={pIndex}
-                                    className="bg-[var(--ax-bg-neutral-soft)] rounded-md p-3 relative group border border-[var(--ax-border-neutral-subtle)]"
+                                    className="bg-[var(--ax-bg-neutral-soft)] rounded-md p-3 relative group border border-[var(--ax-border-neutral-subtle)] focus-within:z-10"
                                   >
                                     <Button
                                       variant="tertiary-neutral"
@@ -295,13 +295,15 @@ const Funnel = () => {
                                       className="absolute top-2 right-2"
                                     />
                                     <div className="flex items-end gap-2 pr-8">
-                                      <div className="flex-1">
-                                        <TextField
+                                      <div className="flex-1 min-w-0 relative focus-within:z-10">
+                                        <SuggestingValueEditor
                                           label="Detalj"
-                                          size="small"
+                                          websiteId={step.value ? selectedWebsite?.id : undefined}
+                                          column="event_data_key"
+                                          eventName={step.value}
                                           value={param.key}
-                                          onChange={(e) =>
-                                            setSteps(updateStepParam(steps, index, pIndex, 'key', e.target.value))
+                                          onChange={(value) =>
+                                            setSteps(updateStepParam(steps, index, pIndex, 'key', value))
                                           }
                                         />
                                       </div>
@@ -331,12 +333,15 @@ const Funnel = () => {
                                       </div>
                                     </div>
                                     <div className="mt-2">
-                                      <TextField
+                                      <SuggestingValueEditor
                                         label="Verdi"
-                                        size="small"
+                                        websiteId={step.value && param.key.trim() ? selectedWebsite?.id : undefined}
+                                        column="event_data_value"
+                                        suggestionKey={param.key}
+                                        eventName={step.value}
                                         value={param.value}
-                                        onChange={(e) =>
-                                          setSteps(updateStepParam(steps, index, pIndex, 'value', e.target.value))
+                                        onChange={(value) =>
+                                          setSteps(updateStepParam(steps, index, pIndex, 'value', value))
                                         }
                                       />
                                     </div>

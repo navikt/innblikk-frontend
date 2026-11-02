@@ -191,7 +191,7 @@ events AS (
           AND d_${index}_${pIdx}.website_id = '${selectedWebsite.id}'
           AND d_${index}_${pIdx}.created_at = e.created_at
           AND p_${index}_${pIdx}.data_key = '${p.key}'
-          AND p_${index}_${pIdx}.string_value ${op} '${cleanVal}'
+          AND COALESCE(p_${index}_${pIdx}.string_value, CAST(p_${index}_${pIdx}.number_value AS STRING)) ${op} '${cleanVal}'
     )`
       })
 

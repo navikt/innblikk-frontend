@@ -179,7 +179,7 @@ export function createFunnelRoutes({ bigquery, GCP_PROJECT_ID }) {
                   AND d_${index}_${pIdx}.website_id = e.website_id
                   AND d_${index}_${pIdx}.created_at = e.created_at
                   AND p_${index}_${pIdx}.data_key = @${pKeyName}
-                  AND p_${index}_${pIdx}.string_value ${operator} @${pValName}
+                  AND COALESCE(p_${index}_${pIdx}.string_value, CAST(p_${index}_${pIdx}.number_value AS STRING)) ${operator} @${pValName}
             )`
           })
 
@@ -411,7 +411,7 @@ export function createFunnelRoutes({ bigquery, GCP_PROJECT_ID }) {
                   AND d_${index}_${pIdx}.website_id = e.website_id
                   AND d_${index}_${pIdx}.created_at = e.created_at
                   AND p_${index}_${pIdx}.data_key = @${pKeyName}
-                  AND p_${index}_${pIdx}.string_value ${operator} @${pValName}
+                  AND COALESCE(p_${index}_${pIdx}.string_value, CAST(p_${index}_${pIdx}.number_value AS STRING)) ${operator} @${pValName}
             )`
           })
 
