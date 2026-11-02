@@ -2,10 +2,9 @@ name: 'CI'
 run-name: 'CI @ ${{ github.ref_name }} — ${{ github.sha }}'
 
 on:
-  push:
-    branches: [main]
   pull_request:
     types: [opened, edited, synchronize, reopened]
+  workflow_call:
 
 permissions:
   contents: read
@@ -96,45 +95,3 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
-
-  deploy-dev:
-    name: 'Deploy Dev'
-    if: github.event_name == 'push' && github.ref_name == 'main'
-    needs: [lint, test, test-e2e]
-    runs-on: 'ubuntu-latest'
-    permissions:
-      packages: write
-      contents: write
-      id-token: write
-    steps:
-      - uses: 'actions/checkout@v6'
-
-      - name: 'Build and push'
-        uses: nais/docker-build-push@v0
-        id: docker-build-push
-        with:
-          team: team-researchops
-          identity_provider: ${{ secrets.NAIS_WORKLOAD_IDENTITY_PROVIDER }}
-          project_id: ${{ vars.NAIS_MANAGEMENT_PROJECT_ID }}
-          build_args: |
-            GIT_SHA=${{ github.sha }}
-          build_secrets: |
-            "NODE_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}"
-
-      - name: 'Deploy to Dev'
-        uses: 'nais/deploy/actions/deploy@v2'
-        env:
-          CLUSTER: 'dev-gcp'
-          RESOURCE: .nais/dev/nais-dev.yaml
-          VAR: image=${{ steps.docker-build-push.outputs.image }},version=${{ github.sha }}
-
-      - name: 'Create dev deployment tag'
-        if: success()
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          TAG_NAME="dev-$(date -u +'%Y.%m.%d-%H%M%S')"
-          git tag -a "$TAG_NAME" \
-            -m "Development deployment of ${{ github.sha }}" \
-            -m "Image: ${{ steps.docker-build-push.outputs.image }}"
-          git push origin "$TAG_NAME"

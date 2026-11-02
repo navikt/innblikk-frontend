@@ -1,22 +1,51 @@
-name: 'Deploy Dev'
-run-name: 'Deploy Dev @ ${{ github.ref_name }} — ${{ github.sha }}'
+name: 'Deploy'
+run-name: 'Deploy (${{ github.event_name }}) @ ${{ github.ref_name }} — ${{ github.sha }}'
 
+# push to main     -> tests, then deploy to dev (tagged dev-*)
+# manual, dev      -> deploy the selected ref to dev
+# manual, prod     -> promote the latest dev-* image to prod (tagged prod-*)
+# nightly          -> dev from main HEAD + prod rebuilt from the latest prod-* tag
+#                     (same code, fresh Chainguard base image)
+# manual, prod-rebuild -> run only the nightly prod rebuild by hand (to test it)
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
   schedule:
     - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Where to deploy'
+        type: choice
+        options: [dev, prod, prod-rebuild]
+        default: dev
 
 concurrency:
-  group: 'deploy-dev'
+  group: 'deploy'
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
-  build:
-    name: 'Build'
+  test:
+    name: 'Test'
+    if: github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/ci.yaml
+
+  deploy-dev:
+    name: 'Deploy Dev'
+    needs: test
+    if: >-
+      ${{ !cancelled() && needs.test.result != 'failure' && needs.test.result != 'cancelled'
+      && (github.event_name != 'workflow_dispatch' || inputs.environment == 'dev') }}
     runs-on: 'ubuntu-latest'
     permissions:
       packages: write
-      contents: read
+      contents: write
       id-token: write
     steps:
       - uses: 'actions/checkout@v6'
@@ -28,63 +57,103 @@ jobs:
           team: team-researchops
           identity_provider: ${{ secrets.NAIS_WORKLOAD_IDENTITY_PROVIDER }}
           project_id: ${{ vars.NAIS_MANAGEMENT_PROJECT_ID }}
+          no_cache: ${{ github.event_name == 'schedule' }}
           build_args: |
             GIT_SHA=${{ github.sha }}
           build_secrets: |
             "NODE_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}"
-
-    outputs:
-      image: ${{ steps.docker-build-push.outputs.image }}
-
-  deploy-dev:
-    name: 'Deploy to Dev'
-    needs: build
-    runs-on: 'ubuntu-latest'
-    permissions:
-      contents: write
-      id-token: write
-    steps:
-      - uses: 'actions/checkout@v6'
 
       - name: 'Deploy to Dev'
         uses: 'nais/deploy/actions/deploy@v2'
         env:
           CLUSTER: 'dev-gcp'
           RESOURCE: .nais/dev/nais-dev.yaml
-          VAR: image=${{ needs.build.outputs.image }},version=${{ github.sha }}
+          VAR: image=${{ steps.docker-build-push.outputs.image }},version=${{ github.sha }}
 
-  build-prod-rebuild:
-    name: 'Rebuild last prod release'
-    if: github.event_name == 'schedule'
+      # Only tested builds from main are promotable to prod.
+      - name: 'Create dev deployment tag'
+        if: github.event_name == 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          TAG_NAME="dev-$(date -u +'%Y.%m.%d-%H%M%S')"
+          git tag -a "$TAG_NAME" \
+            -m "Development deployment of ${{ github.sha }}" \
+            -m "Image: ${{ steps.docker-build-push.outputs.image }}"
+          git push origin "$TAG_NAME"
+
+  promote-prod:
+    name: 'Promote to Prod'
+    if: github.event_name == 'workflow_dispatch' && inputs.environment == 'prod' && github.ref_name == 'main'
     runs-on: 'ubuntu-latest'
     permissions:
-      packages: write
-      contents: read
+      contents: write
       id-token: write
-    outputs:
-      image: ${{ steps.docker-build-push.outputs.image }}
-      tag: ${{ steps.tag.outputs.tag }}
-      sha: ${{ steps.tag.outputs.sha }}
     steps:
       - uses: 'actions/checkout@v6'
         with:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: 'Resolve latest prod tag'
+      - name: 'Resolve latest dev deployment'
+        id: resolve-dev
+        run: |
+          DEV_TAG="$(git for-each-ref --sort=-creatordate 'refs/tags/dev-*' --format='%(refname:short)' | head -n1)"
+          if [ -z "$DEV_TAG" ]; then
+            echo "No dev-* tag found. Push to main first so there is an image to promote."
+            exit 1
+          fi
+          VERSION="$(git for-each-ref "refs/tags/${DEV_TAG}" --format='%(subject)' | sed -n 's/^Development deployment of //p')"
+          IMAGE="$(git for-each-ref "refs/tags/${DEV_TAG}" --format='%(body)' | sed -n 's/^Image: //p' | head -n1)"
+          if [ -z "$VERSION" ] || [ -z "$IMAGE" ]; then
+            echo "Tag ${DEV_TAG} is missing version/image metadata."
+            exit 1
+          fi
+          echo "Promoting ${DEV_TAG}: ${IMAGE} (${VERSION})"
+          {
+            echo "version=${VERSION}"
+            echo "image=${IMAGE}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: 'Deploy to Prod'
+        uses: 'nais/deploy/actions/deploy@v2'
+        env:
+          CLUSTER: 'prod-gcp'
+          RESOURCE: .nais/prod/nais-prod.yaml
+          VAR: image=${{ steps.resolve-dev.outputs.image }},version=${{ steps.resolve-dev.outputs.version }}
+
+      - name: 'Create prod deployment tag'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          TAG_NAME="prod-$(date -u +'%Y.%m.%d-%H%M%S')"
+          git tag -a "$TAG_NAME" -m "Production deployment of ${{ steps.resolve-dev.outputs.version }}"
+          git push origin "$TAG_NAME"
+
+  rebuild-prod:
+    name: 'Rebuild Prod (fresh base image)'
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.environment == 'prod-rebuild')
+    runs-on: 'ubuntu-latest'
+    permissions:
+      packages: write
+      contents: read
+      id-token: write
+    steps:
+      - uses: 'actions/checkout@v6'
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: 'Check out latest prod release'
         id: tag
         run: |
           TAG="$(git tag -l 'prod-*' --sort=-creatordate | head -n 1)"
           if [ -z "$TAG" ]; then
-            echo "No prod-* tag found"
+            echo "No prod-* tag found. Do a manual prod deploy first."
             exit 1
           fi
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "sha=$(git rev-list -n 1 "$TAG")" >> "$GITHUB_OUTPUT"
-
-      - uses: 'actions/checkout@v6'
-        with:
-          ref: ${{ steps.tag.outputs.tag }}
+          git checkout --detach "$TAG"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: 'Build and push'
         uses: nais/docker-build-push@v0
@@ -99,21 +168,9 @@ jobs:
           build_secrets: |
             "NODE_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}"
 
-  deploy-prod-rebuild:
-    name: 'Deploy rebuilt release to Prod'
-    needs: build-prod-rebuild
-    runs-on: 'ubuntu-latest'
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: 'actions/checkout@v6'
-        with:
-          ref: ${{ needs.build-prod-rebuild.outputs.tag }}
-
       - name: 'Deploy to Prod'
         uses: 'nais/deploy/actions/deploy@v2'
         env:
           CLUSTER: 'prod-gcp'
           RESOURCE: .nais/prod/nais-prod.yaml
-          VAR: image=${{ needs.build-prod-rebuild.outputs.image }},version=${{ needs.build-prod-rebuild.outputs.sha }}
+          VAR: image=${{ steps.docker-build-push.outputs.image }},version=${{ steps.tag.outputs.sha }}
