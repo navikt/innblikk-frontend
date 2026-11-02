@@ -63,13 +63,31 @@ const filters = (): Filter[] => {
 
 async function addFilter(user: ReturnType<typeof userEvent.setup>, name: string) {
   await user.click(screen.getByRole('button', { name: 'Filter' }))
-  await user.click(screen.getByRole('combobox', { name: 'Velg filter' }))
   await user.click(screen.getByRole('option', { name }))
 }
 
 describe('NextEventFilter', () => {
   beforeEach(() => {
     vi.mocked(createSidegroup).mockReset()
+  })
+
+  it('focuses and opens filter suggestions immediately, and allows dismissal and reopening', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+    await user.click(screen.getByRole('button', { name: 'Filter' }))
+    const picker = screen.getByRole('combobox', { name: 'Velg filter' })
+    expect(picker).toHaveFocus()
+    expect(picker).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('option', { name: 'Side (URL)' })).toBeVisible()
+    expect(screen.getByRole('option', { name: 'Sidegruppe' })).toBeVisible()
+    await user.keyboard('{Escape}')
+    expect(picker).toHaveAttribute('aria-expanded', 'false')
+    await user.click(picker)
+    expect(picker).toHaveAttribute('aria-expanded', 'true')
+    await user.click(screen.getByRole('button', { name: 'Avbryt filtervalg' }))
+    expect(screen.queryByRole('combobox', { name: 'Velg filter' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Filter' }))
+    expect(screen.getByRole('combobox', { name: 'Velg filter' })).toHaveAttribute('aria-expanded', 'true')
   })
 
   it('starts empty without a warning and puts pageviews first in a searchable event list', async () => {
@@ -211,7 +229,7 @@ describe('NextEventFilter', () => {
   it('lets users enter a specific event before suggestions have loaded', async () => {
     const user = userEvent.setup()
     const { rerender } = render(<Harness events={[]} loading />)
-    expect(screen.getByText('Henter egne hendelser… Du kan også skrive inn hendelsesnavnet.')).toBeVisible()
+    expect(screen.queryByText(/Henter egne hendelser/)).not.toBeInTheDocument()
     const picker = screen.getByRole('combobox', { name: 'Hendelser' })
     await user.type(picker, 'søknad fullført{Enter}')
     expect(filters()).toContainEqual(

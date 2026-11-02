@@ -45,6 +45,7 @@ const NextEventFilter = forwardRef(
     const initialized = useRef(false)
     const websiteId = website?.id
     const eventInputRef = useRef<HTMLInputElement>(null)
+    const filterInputRef = useRef<HTMLInputElement>(null)
     const nudgeTitleId = useId()
     const [validationAttempted, setValidationAttempted] = useState(false)
     const [addingFilter, setAddingFilter] = useState(false)
@@ -128,6 +129,10 @@ const NextEventFilter = forwardRef(
 
     const dirty = selectedValues.length > 0 || visibleFilters.length > 0
     useEffect(() => onDirtyStateChange?.(dirty), [dirty, onDirtyStateChange])
+
+    useEffect(() => {
+      if (addingFilter) filterInputRef.current?.click()
+    }, [addingFilter])
 
     const updateSelection = (pageviews: boolean, custom: boolean, eventNames?: Filter) => {
       if (pageviews || custom) setValidationAttempted(false)
@@ -258,16 +263,12 @@ const NextEventFilter = forwardRef(
             </div>
           </Alert>
         )}
-        {customEventsList.length === 0 && isEventsLoading && (
-          <BodyShort size="small" textColor="subtle" role="status">
-            Henter egne hendelser… Du kan også skrive inn hendelsesnavnet.
-          </BodyShort>
-        )}
         <HStack gap="space-24" align="start" wrap>
           {addingFilter ? (
             <div className="flex min-w-0 flex-1 items-start gap-1">
               <div className="min-w-0 flex-1">
                 <UNSAFE_Combobox
+                  ref={filterInputRef}
                   label="Velg filter"
                   hideLabel
                   autoFocus

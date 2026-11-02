@@ -1,4 +1,4 @@
-import { Accordion, Checkbox, Button, Select, Label, Switch, Search } from '@navikt/ds-react'
+import { Accordion, Checkbox, Button, Select, Label, Switch, Search, HStack } from '@navikt/ds-react'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { Events } from '@navikt/analytics-types'
 import { trackEvent } from '../../../../shared/lib/trackEvent.ts'
@@ -6,6 +6,7 @@ import type { Parameter, DateFormat, ColumnGroup, Filter } from '../../../../sha
 import AlertWithCloseButton from './AlertWithCloseButton.tsx' // Import AlertWithCloseButton
 import accordionStyles from '../../../../shared/ui/GroupedAccordion.module.css'
 import { ArrowDownIcon, ArrowUpIcon } from '@navikt/aksel-icons'
+import { getEventSelection } from '../../utils/eventSelection.ts'
 
 interface GroupingOptionsProps {
   groupByFields: string[]
@@ -109,16 +110,25 @@ const GroupingOptions = ({
   }, [parameters, filters])
 
   const uniqueParameters = getUniqueParameters(filteredParameters)
+  const eventSelection = getEventSelection(filters)
+  const selectedEventNames =
+    eventSelection.custom &&
+    eventSelection.names &&
+    !eventSelection.names.interactive &&
+    ['IN', '='].includes(eventSelection.names.operator ?? '=')
+      ? (eventSelection.names.multipleValues ?? (eventSelection.names.value ? [eventSelection.names.value] : []))
+      : []
+  const showEventNameShortcut =
+    new Set(selectedEventNames.filter(Boolean)).size + (eventSelection.pageviews ? 1 : 0) > 1
 
-  const dateOption = useMemo(() => {
-    const eventBasicsGroup = Object.entries(COLUMN_GROUPS)
-      .map(([groupKey, group]) => ({
-        key: groupKey,
-        options: group.columns.map((col) => ({ value: col.value, label: col.label })),
-      }))
-      .find((group) => group.key === 'eventBasics')
-    return eventBasicsGroup?.options.find((option) => option.value === 'created_at')
-  }, [COLUMN_GROUPS])
+  const quickGroupingOptions = useMemo(() => {
+    const columns = Object.values(COLUMN_GROUPS).flatMap((group) => group.columns)
+    const fields = ['created_at', 'url_path', ...(showEventNameShortcut ? ['event_name'] : [])]
+    return fields.flatMap((field) => {
+      const column = columns.find((option) => option.value === field)
+      return column ? [column] : []
+    })
+  }, [COLUMN_GROUPS, showEventNameShortcut])
 
   const groupedGroupingOptions = useMemo(() => {
     const baseGroups = Object.entries(COLUMN_GROUPS).map(([groupKey, group]) => ({
@@ -290,23 +300,28 @@ const GroupingOptions = ({
         )}
 
         <div className="space-y-4 mb-3">
-          {dateOption && (
+          {quickGroupingOptions.length > 0 && (
             <div className="mb-3">
-              <Checkbox
-                size="small"
-                checked={groupByFields.includes('created_at')}
-                onChange={(e) => {
-                  trackEvent(Events.AVKRYSNINGSBOKS_ENDRET, {
-                    seksjon: 'grafbygger',
-                    komponentId: 'gruppering-dato',
-                    tekst: 'Dato',
-                    checked: e.target.checked,
-                  })
-                  handleToggleGroupField('created_at')
-                }}
-              >
-                Dato
-              </Checkbox>
+              <HStack gap="space-16" wrap>
+                {quickGroupingOptions.map((option) => (
+                  <Checkbox
+                    key={option.value}
+                    size="small"
+                    checked={groupByFields.includes(option.value)}
+                    onChange={(e) => {
+                      trackEvent(Events.AVKRYSNINGSBOKS_ENDRET, {
+                        seksjon: 'grafbygger',
+                        komponentId: option.value === 'created_at' ? 'gruppering-dato' : `gruppering-${option.value}`,
+                        tekst: option.label,
+                        checked: e.target.checked,
+                      })
+                      handleToggleGroupField(option.value)
+                    }}
+                  >
+                    {option.label}
+                  </Checkbox>
+                ))}
+              </HStack>
               {groupByFields.includes('created_at') && (
                 <div className="mt-2 ml-6">
                   <Select
