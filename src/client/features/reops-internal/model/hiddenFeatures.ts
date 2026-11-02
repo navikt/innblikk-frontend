@@ -19,6 +19,12 @@ export type LegacyLink = {
  */
 export const hiddenFeatures: HiddenFeature[] = [
   {
+    id: 'grafbygger-eol',
+    href: '/grafbygger-eol',
+    label: 'Grafbygger (tidligere versjon)',
+    description: 'Den forrige grafbyggeren, beholdt på /grafbygger-eol etter at den nye ble standard.',
+  },
+  {
     id: 'grafbygger-copilot',
     href: '/grafbygger-copilot',
     label: 'Grafbygger Copilot',
@@ -61,6 +67,18 @@ export const hiddenFeatures: HiddenFeature[] = [
  * points at the old URL.
  */
 export const legacyLinks: LegacyLink[] = [
+  {
+    id: 'grafbygger-alfa',
+    href: '/grafbygger-alfa',
+    redirectsTo: '/grafbygger',
+    description: 'Alfa-versjonen er nå standard grafbygger i beta.',
+  },
+  {
+    id: 'grafbygger-next',
+    href: '/grafbygger-next',
+    redirectsTo: '/grafbygger',
+    description: 'Tidligere testrute for den nye grafbyggeren.',
+  },
   {
     id: 'oversikt',
     href: '/oversikt',

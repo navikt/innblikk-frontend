@@ -36,7 +36,7 @@ test.describe('App smoke tests', () => {
     await expect(page.getByRole('heading', { name: 'Grafbyggeren er i beta', exact: true })).toBeVisible()
   })
 
-  test('settings lists the experimental builder under alfa rather than beta', async ({ page }) => {
+  test('settings lists the new builder once under beta and not alfa', async ({ page }) => {
     await page.route('**/api/user/me', (route) =>
       route.fulfill({ status: 503, json: { message: 'Unavailable in this test' } }),
     )
@@ -51,13 +51,10 @@ test.describe('App smoke tests', () => {
     )
     await expect(betaSection.locator('a[href="/grafbygger-alfa"]')).toHaveCount(0)
     await expect(alfaSection.getByRole('heading', { name: 'Funksjoner i alfa', exact: true })).toBeVisible()
-    await expect(alfaSection.getByRole('heading', { name: 'Grafbyggeren er i alfa', exact: true })).toBeVisible()
-    await expect(alfaSection.getByRole('link', { name: 'Åpne grafbyggeren', exact: true })).toHaveAttribute(
-      'href',
-      '/grafbygger-alfa',
-    )
+    await expect(alfaSection.getByRole('heading', { name: 'Grafbyggeren er i alfa', exact: true })).toHaveCount(0)
+    await expect(alfaSection.getByRole('link', { name: 'Åpne grafbyggeren', exact: true })).toHaveCount(0)
     await expect(alfaSection.getByRole('button', { name: 'Lukk melding' })).toHaveCount(0)
-    await expect(page.getByText('Ingen funksjoner i alfa akkurat nå.', { exact: true })).toHaveCount(0)
+    await expect(page.getByText('Ingen funksjoner i alfa akkurat nå.', { exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Funksjoner i alpha', exact: true })).toHaveCount(0)
   })
 
@@ -76,35 +73,74 @@ test.describe('App smoke tests', () => {
     await combobox.click()
     await expect(page.getByRole('option', { name: /test\.nav\.no/i })).toBeVisible({ timeout: 10_000 })
     await combobox.press('Escape')
-    await page.getByRole('button', { name: 'Minimer filter', exact: true }).click()
-    await expect(combobox).toHaveCount(0)
-    await page.getByRole('button', { name: 'Vis filter', exact: true }).click()
-    await expect(combobox).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Minimer filter', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Vis filter', exact: true })).toHaveCount(0)
   })
 
-  test('/grafbygger-next redirects to Alfa without losing the draft or URL parameters', async ({ page }) => {
+  test('/grafbygger-eol keeps the previous builder and its separate draft', async ({ page }) => {
     await page.route('**/api/bigquery/websites', (route) => route.fulfill({ json: { data: MOCK_WEBSITES } }))
     await page.route('**/event-properties?*', (route) => route.fulfill({ json: { properties: [] } }))
-    const draft = {
+    const previousDraft = {
       website: MOCK_WEBSITES[0],
-      metrics: [{ function: 'count', alias: 'antall' }],
+      metrics: [{ function: 'count', alias: 'tidligere_antall' }],
       groupByFields: [],
     }
-    await page.addInitScript(`
+    const betaDraft = {
+      ...previousDraft,
+      metrics: [{ function: 'count', alias: 'nytt_antall' }],
+    }
+    await page.addInitScript(
+      ({ previousDraft, betaDraft }) => {
+        localStorage.setItem('grafbygger:config:v2', JSON.stringify(previousDraft))
+        localStorage.setItem('grafbygger-next:config:v2', JSON.stringify(betaDraft))
+      },
+      { previousDraft, betaDraft },
+    )
+    await page.goto('/grafbygger-eol?websiteId=site-1')
+    await expect(page.getByText('Datakilder', { exact: true })).toBeVisible()
+    await expect(page.getByText('Målt som...', { exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Minimer filter', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Grafbyggeren er i beta', exact: true })).toHaveCount(0)
+    await expect
+      .poll(() => page.evaluate(() => localStorage.getItem('grafbygger:config:v2')))
+      .toContain(`"metrics":${JSON.stringify(previousDraft.metrics)}`)
+
+    await page.getByRole('link', { name: 'Grafbygger', exact: true }).click()
+    await expect(page).toHaveURL(/\/grafbygger\?websiteId=site-1$/)
+    await expect(page.getByText('For hendelser og filtre...', { exact: true })).toBeVisible()
+    await expect
+      .poll(() => page.evaluate(() => localStorage.getItem('grafbygger-next:config:v2')))
+      .toContain(`"metrics":${JSON.stringify(betaDraft.metrics)}`)
+    expect(await page.evaluate(() => localStorage.getItem('grafbygger:config:v2'))).toContain(
+      `"metrics":${JSON.stringify(previousDraft.metrics)}`,
+    )
+  })
+
+  for (const path of ['/grafbygger-alfa', '/grafbygger-next']) {
+    test(`${path} redirects to the beta builder without losing the draft or URL parameters`, async ({ page }) => {
+      await page.route('**/api/bigquery/websites', (route) => route.fulfill({ json: { data: MOCK_WEBSITES } }))
+      await page.route('**/event-properties?*', (route) => route.fulfill({ json: { properties: [] } }))
+      const draft = {
+        website: MOCK_WEBSITES[0],
+        metrics: [{ function: 'count', alias: 'antall' }],
+        groupByFields: [],
+      }
+      await page.addInitScript(`
       localStorage.setItem('grafbygger-next:config:v2', ${JSON.stringify(JSON.stringify(draft))})
       localStorage.setItem('grafbygger-next:filters:v2', JSON.stringify([
         { column: 'event_type', operator: 'IN', value: '1', multipleValues: ['1'] }
       ]))
       localStorage.setItem('innblikk_dismissed_alerts', JSON.stringify(['grafbygger-next']))
     `)
-    await page.goto('/grafbygger-next?websiteId=site-1&focused=0')
-    await expect(page).toHaveURL(/\/grafbygger-alfa\?websiteId=site-1&focused=0$/)
-    await expect(page.getByRole('heading', { level: 1, name: 'Grafbyggeren', exact: true })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Sidevisninger slett' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Prøv den nye grafbyggeren', exact: true })).toHaveCount(0)
-  })
+      await page.goto(`${path}?websiteId=site-1&focused=0`)
+      await expect(page).toHaveURL(/\/grafbygger\?websiteId=site-1&focused=0$/)
+      await expect(page.getByRole('heading', { level: 1, name: 'Grafbyggeren', exact: true })).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Sidevisninger slett' })).toBeVisible()
+      await expect(page.getByRole('heading', { name: 'Prøv den nye grafbyggeren', exact: true })).toHaveCount(0)
+    })
+  }
 
-  test('/grafbygger-alfa keeps the initial event controls minimal', async ({ page }) => {
+  test('/grafbygger keeps the initial event controls minimal', async ({ page }) => {
     const cohort = {
       id: 3,
       websiteId: 'site-1',
@@ -135,13 +171,13 @@ test.describe('App smoke tests', () => {
         },
       }),
     )
-    await page.goto('/grafbygger-alfa?websiteId=site-1')
+    await page.goto('/grafbygger?websiteId=site-1')
     const heading = page.getByRole('heading', { level: 1, name: 'Grafbyggeren', exact: true })
     await expect(heading).toBeVisible()
-    await expect(heading.locator('..').getByText('Alfa', { exact: true })).toBeVisible()
-    await expect(heading.locator('..').getByText('Beta', { exact: true })).toHaveCount(0)
+    await expect(heading.locator('..').getByText('Beta', { exact: true })).toBeVisible()
+    await expect(heading.locator('..').getByText('Alfa', { exact: true })).toHaveCount(0)
     await expect(page.getByRole('heading', { name: 'Prøv den nye grafbyggeren', exact: true })).toHaveCount(0)
-    await expect(page.getByRole('heading', { name: 'Grafbyggeren er i beta', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Grafbyggeren er i beta', exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Minimer filter', exact: true })).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Vis filter', exact: true })).toHaveCount(0)
     const picker = page.getByRole('combobox', { name: 'Hendelser', exact: true })
@@ -252,10 +288,10 @@ test.describe('App smoke tests', () => {
     await expect(page.getByRole('button', { name: 'Brukergruppe', exact: true })).toBeVisible()
   })
 
-  test('/grafbygger-alfa aligns the top fields and keeps reset beside results', async ({ page }, testInfo) => {
+  test('/grafbygger aligns the top fields and keeps reset beside results', async ({ page }, testInfo) => {
     await page.route('**/api/bigquery/websites', (route) => route.fulfill({ json: { data: MOCK_WEBSITES } }))
     await page.route('**/event-properties?*', (route) => route.fulfill({ json: { properties: [] } }))
-    await page.goto('/grafbygger-alfa?websiteId=site-1')
+    await page.goto('/grafbygger?websiteId=site-1')
     const events = page.getByRole('combobox', { name: 'Hendelser', exact: true })
     await events.fill('Sidevisninger')
     await page.getByRole('option', { name: 'Sidevisninger', exact: true }).click()
@@ -312,10 +348,10 @@ test.describe('App smoke tests', () => {
     await expect(page.getByRole('button', { name: 'Sidevisninger slett' })).toBeVisible()
   })
 
-  test('/grafbygger-alfa keeps additional graph settings on the left', async ({ page }, testInfo) => {
+  test('/grafbygger keeps additional graph settings on the left', async ({ page }, testInfo) => {
     await page.route('**/api/bigquery/websites', (route) => route.fulfill({ json: { data: MOCK_WEBSITES } }))
     await page.route('**/event-properties?*', (route) => route.fulfill({ json: { properties: [] } }))
-    await page.goto('/grafbygger-alfa?websiteId=site-1')
+    await page.goto('/grafbygger?websiteId=site-1')
     const settings = page.getByRole('button', { name: 'Tilleggsvalg', exact: true })
     await expect(settings).toHaveCount(1)
     await expect(settings).toHaveAttribute('aria-expanded', 'false')
@@ -354,7 +390,7 @@ test.describe('App smoke tests', () => {
     await page.screenshot({ path: testInfo.outputPath('additional-settings-placement.png') })
   })
 
-  test('/grafbygger-alfa creates and selects user groups without leaving the graph', async ({ page }) => {
+  test('/grafbygger creates and selects user groups without leaving the graph', async ({ page }) => {
     const group = { id: 73, websiteId: 'site-1', name: 'Søkere', root: null }
     let saved = false
     let failCreate = true
@@ -386,7 +422,7 @@ test.describe('App smoke tests', () => {
     })
     await page.route('**/api/backend/cohort/73', (route) => route.fulfill({ json: { ...group, root: criteria } }))
 
-    await page.goto('/grafbygger-alfa?websiteId=site-1')
+    await page.goto('/grafbygger?websiteId=site-1')
     await page.getByRole('button', { name: 'Brukergruppe', exact: true }).click()
     const trigger = page.getByRole('button', { name: 'Opprett brukergruppe', exact: true })
     await expect(trigger).toBeVisible()
@@ -465,7 +501,7 @@ test.describe('App smoke tests', () => {
     await expect(dialog).toHaveCount(0)
     await expect(trigger).toBeFocused()
     await expect(page.getByRole('button', { name: 'Søkere slett' })).toBeVisible()
-    await expect(page).toHaveURL(/\/grafbygger-alfa\?websiteId=site-1$/)
+    await expect(page).toHaveURL(/\/grafbygger\?websiteId=site-1$/)
     await page.reload()
     await expect(page.getByRole('button', { name: 'Søkere slett' })).toBeVisible()
     await trigger.click()
@@ -474,10 +510,10 @@ test.describe('App smoke tests', () => {
     await discard.getByRole('button', { name: 'Forkast', exact: true }).click()
     await expect(dialog).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Søkere slett' })).toBeVisible()
-    await expect(page).toHaveURL(/\/grafbygger-alfa\?websiteId=site-1$/)
+    await expect(page).toHaveURL(/\/grafbygger\?websiteId=site-1$/)
   })
 
-  test('/grafbygger-alfa creates and selects sidegroups without leaving the graph', async ({ page }) => {
+  test('/grafbygger creates and selects sidegroups without leaving the graph', async ({ page }) => {
     const requests: unknown[] = []
     const queries: string[] = []
     const group = { id: 73, websiteId: 'site-1', name: 'Hjelpesider', startWith: ['/hjelp'] }
@@ -510,7 +546,7 @@ test.describe('App smoke tests', () => {
     )
 
     try {
-      await page.goto('/grafbygger-alfa?websiteId=site-1')
+      await page.goto('/grafbygger?websiteId=site-1')
       await page.getByRole('combobox', { name: 'Hendelser', exact: true }).click()
       await page.getByRole('option', { name: 'Sidevisninger', exact: true }).click()
       await page.keyboard.press('Escape')
@@ -569,7 +605,7 @@ test.describe('App smoke tests', () => {
       await expect(dialog).toHaveCount(0)
       await expect(page.getByRole('combobox', { name: 'Sidegruppe', exact: true })).toHaveValue('73')
       await expect(createButton).toBeFocused()
-      await expect(page).toHaveURL(/\/grafbygger-alfa\?websiteId=site-1/)
+      await expect(page).toHaveURL(/\/grafbygger\?websiteId=site-1/)
       expect(page.context().pages()).toHaveLength(1)
       expect(requests[1]).toMatchObject({ websiteId: 'site-1', name: 'Hjelpesider', startWith: ['/hjelp'] })
 
@@ -583,7 +619,7 @@ test.describe('App smoke tests', () => {
     }
   })
 
-  test('/grafbygger-alfa validates empty events only when results are requested', async ({ page }) => {
+  test('/grafbygger validates empty events only when results are requested', async ({ page }) => {
     const queries: string[] = []
     let estimates = 0
     await page.route('**/api/bigquery/websites', (route) => route.fulfill({ json: { data: MOCK_WEBSITES } }))
@@ -601,7 +637,7 @@ test.describe('App smoke tests', () => {
         return route.fulfill({ json: { data: [{ antall: 1 }] } })
       },
     )
-    await page.goto('/grafbygger-alfa?websiteId=site-1')
+    await page.goto('/grafbygger?websiteId=site-1')
     const picker = page.getByRole('combobox', { name: 'Hendelser', exact: true })
     const error = page.getByRole('status', { name: 'Hva vil du måle?' })
     const showResults = page.getByRole('button', { name: 'Vis resultater', exact: true })
@@ -662,7 +698,7 @@ test.describe('App smoke tests', () => {
     expect(queries[1]).not.toContain('AND FALSE')
   })
 
-  test('/grafbygger-alfa allows exact event names while suggestions load', async ({ page }) => {
+  test('/grafbygger allows exact event names while suggestions load', async ({ page }) => {
     await page.route('**/api/bigquery/websites', (route) => route.fulfill({ json: { data: MOCK_WEBSITES } }))
     let releaseSuggestions: () => void = () => {}
     const suggestionsReady = new Promise<void>((resolve) => {
@@ -675,7 +711,7 @@ test.describe('App smoke tests', () => {
       })
     })
     try {
-      await page.goto('/grafbygger-alfa?websiteId=site-1')
+      await page.goto('/grafbygger?websiteId=site-1')
       const picker = page.getByRole('combobox', { name: 'Hendelser', exact: true })
       await expect(picker).toBeVisible()
       await expect(page.getByText('Henter egne hendelser… Du kan også skrive inn hendelsesnavnet.')).toHaveCount(0)
@@ -700,12 +736,12 @@ test.describe('App smoke tests', () => {
     { name: 'failed', status: 503, json: { error: 'Unavailable' } },
     { name: 'malformed', status: 200, json: {} },
   ]) {
-    test(`/grafbygger-alfa allows exact event names with ${response.name} suggestions`, async ({ page }) => {
+    test(`/grafbygger allows exact event names with ${response.name} suggestions`, async ({ page }) => {
       await page.route('**/api/bigquery/websites', (route) => route.fulfill({ json: { data: MOCK_WEBSITES } }))
       await page.route('**/event-properties?*', (route) =>
         route.fulfill({ status: response.status, json: response.json }),
       )
-      await page.goto('/grafbygger-alfa?websiteId=site-1')
+      await page.goto('/grafbygger?websiteId=site-1')
       const picker = page.getByRole('combobox', { name: 'Hendelser', exact: true })
       await expect(picker).toBeVisible()
       if (response.name !== 'empty') {

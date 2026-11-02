@@ -20,26 +20,36 @@ function LocationProbe() {
   )
 }
 
-describe('Alfa builder routes', () => {
-  it.each(['/grafbygger-alfa', '/grafbygger-next'])('opens Alfa from %s and keeps URL parameters', async (path) => {
-    const suffix = '?websiteId=site-1&focused=1#hendelser'
-    render(
-      <MemoryRouter initialEntries={[`${path}${suffix}`]}>
-        <Suspense fallback={null}>
-          <Routes>
-            {routes
-              .filter((route) => ['/grafbygger-alfa', '/grafbygger-next'].includes(route.path))
-              .map((route) => (
-                <Route key={route.path} path={route.path} element={route.component} />
-              ))}
-          </Routes>
-        </Suspense>
-        <LocationProbe />
-      </MemoryRouter>,
-    )
-    expect(await screen.findByTestId('builder')).toHaveAttribute('data-edition', 'next')
-    expect(screen.getByTestId('location')).toHaveTextContent(`/grafbygger-alfa${suffix}`)
-    expect(isFullWidthPath(path)).toBe(true)
+describe('builder routes', () => {
+  it.each(['/grafbygger', '/grafbygger-alfa', '/grafbygger-next', '/grafbygger_next'])(
+    'opens the beta builder from %s and keeps URL parameters',
+    async (path) => {
+      const suffix = '?websiteId=site-1&focused=1#hendelser'
+      render(
+        <MemoryRouter initialEntries={[`${path}${suffix}`]}>
+          <Suspense fallback={null}>
+            <Routes>
+              {routes
+                .filter((route) => route.path.startsWith('/grafbygger'))
+                .map((route) => (
+                  <Route key={route.path} path={route.path} element={route.component} />
+                ))}
+            </Routes>
+          </Suspense>
+          <LocationProbe />
+        </MemoryRouter>,
+      )
+      expect(await screen.findByTestId('builder')).toHaveAttribute('data-edition', 'next')
+      expect(screen.getByTestId('location')).toHaveTextContent(`/grafbygger${suffix}`)
+      expect(isFullWidthPath(path)).toBe(true)
+    },
+  )
+
+  it('keeps the previous builder at /grafbygger-eol', async () => {
+    const route = routes.find((entry) => entry.path === '/grafbygger-eol')
+    render(<Suspense fallback={null}>{route?.component}</Suspense>)
+    expect(await screen.findByTestId('builder')).toHaveAttribute('data-edition', 'current')
+    expect(isFullWidthPath('/grafbygger-eol')).toBe(true)
   })
 
   it('does not keep the misspelled grafbyggeren-alfa route or add a redirect', () => {

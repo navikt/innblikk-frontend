@@ -104,7 +104,7 @@ const FAKE_WEBSITES = [
 
 function renderGrafbygger(search = '', edition: 'current' | 'next' = 'current') {
   return render(
-    <MemoryRouter initialEntries={[`/${edition === 'next' ? 'grafbygger-alfa' : 'grafbygger'}${search}`]}>
+    <MemoryRouter initialEntries={[`/${edition === 'next' ? 'grafbygger' : 'grafbygger-eol'}${search}`]}>
       <Grafbygger edition={edition} />
     </MemoryRouter>,
   )

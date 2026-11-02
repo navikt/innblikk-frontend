@@ -344,11 +344,10 @@ const ChartsPage = ({ edition = 'current' }: { edition?: 'current' | 'next' }) =
       showPageHeader={!isFocusedMode}
       showKontaktSection={!isFocusedMode}
       beta={isNextEdition}
-      betaLabel={isNextEdition ? 'Alfa' : undefined}
       headerNotice={
-        !isNextEdition && (
+        isNextEdition && (
           <BetaFeatureNotice id="grafbygger-rewrite" title="Grafbyggeren er i beta">
-            Grafbyggeren har fått store endringer, med blant annet støtte for brukergrupper.
+            Velg hendelser, og legg til filtre og brukergrupper ved behov.
             <BetaFeedbackLine />
           </BetaFeatureNotice>
         )

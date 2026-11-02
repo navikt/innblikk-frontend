@@ -6,10 +6,10 @@ import { useChartConfig } from './useChartConfig.ts'
 describe('builder edition draft isolation', () => {
   beforeEach(() => {
     localStorage.clear()
-    window.history.replaceState({}, '', '/grafbygger-alfa')
+    window.history.replaceState({}, '', '/grafbygger')
   })
 
-  it('does not read or overwrite the ordinary builder draft', async () => {
+  it('does not read or overwrite the EOL builder draft', async () => {
     const savedFilters = JSON.stringify([{ column: 'browser', operator: '=', value: 'Firefox' }])
     localStorage.setItem('grafbygger:filters:v2', savedFilters)
     const { result } = renderHook(() => useChartConfig('next'), { wrapper: MemoryRouter })
@@ -19,7 +19,7 @@ describe('builder edition draft isolation', () => {
     expect(localStorage.getItem('grafbygger:filters:v2')).toBe(savedFilters)
   })
 
-  it('restores the experimental draft independently', () => {
+  it('restores the beta draft independently', () => {
     localStorage.setItem(
       'grafbygger-next:filters:v2',
       JSON.stringify([{ column: 'device', value: 'mobile', operator: '=' }]),
@@ -46,11 +46,11 @@ describe('builder edition draft isolation', () => {
     await waitFor(() => expect(JSON.parse(localStorage.getItem(key)!).segmentRatioMode).toBe(edition === 'current'))
   })
 
-  it('disables ratio mode from an experimental preload link', () => {
+  it('disables ratio mode from a beta preload link', () => {
     const config = encodeURIComponent(JSON.stringify({ segmentRatioMode: true, cohortIds: ['1', '2'] }))
     const { result } = renderHook(() => useChartConfig('next'), {
       wrapper: ({ children }) => (
-        <MemoryRouter initialEntries={[`/grafbygger-alfa?config=${config}`]}>{children}</MemoryRouter>
+        <MemoryRouter initialEntries={[`/grafbygger?config=${config}`]}>{children}</MemoryRouter>
       ),
     })
     expect(result.current.config.segmentRatioMode).toBe(false)

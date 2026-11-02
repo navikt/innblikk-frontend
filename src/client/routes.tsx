@@ -250,11 +250,16 @@ export const routes: AppRoute[] = [
   { path: '/tilgjengelighet', component: <Tilgjengelighet />, fullWidth: true },
 
   { path: '/taksonomi', component: <Taksonomi />, fullWidth: true },
-  { path: '/grafbygger', component: <Grafbygger />, fullWidth: true },
-  { path: '/grafbygger-alfa', component: <Grafbygger key="next" edition="next" />, fullWidth: true },
+  { path: '/grafbygger', component: <Grafbygger key="next" edition="next" />, fullWidth: true },
+  { path: '/grafbygger-eol', component: <Grafbygger key="current" edition="current" />, fullWidth: true },
+  {
+    path: '/grafbygger-alfa',
+    component: <LegacyVisualizationRouteRedirect to="/grafbygger" />,
+    fullWidth: true,
+  },
   {
     path: '/grafbygger-next',
-    component: <LegacyVisualizationRouteRedirect to="/grafbygger-alfa" />,
+    component: <LegacyVisualizationRouteRedirect to="/grafbygger" />,
     fullWidth: true,
   },
   { path: '/grafbygger-old', component: <GrafbyggerOld />, fullWidth: true },
