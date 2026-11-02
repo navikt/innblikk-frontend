@@ -16,11 +16,11 @@ jobs:
       pull-requests: write
       id-token: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - run: |
           echo "DT=$(date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_ENV
           echo "B=$(date '+%Y%m%d-%H%M%S')" >> $GITHUB_ENV
-      - uses: navikt/digestabot@6c419f9c92ce6a841d25d44e1f91ae8d371ecdd3
+      - uses: navikt/digestabot@3302a753e533ceb9ec216de7f78345436cd636e3
         with:
           team: team-researchops
           token: ${{ secrets.GITHUB_TOKEN }}
