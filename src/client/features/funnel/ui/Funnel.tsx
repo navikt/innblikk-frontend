@@ -12,9 +12,12 @@ import {
   Modal,
   ActionMenu,
   Tooltip,
+  HelpText,
 } from '@navikt/ds-react'
 import {
   CheckmarkIcon,
+  ArrowUpIcon,
+  ArrowDownIcon,
   ArrowCirclepathIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -41,6 +44,7 @@ import { useFunnel } from '../hooks/useFunnel'
 import {
   addStep,
   removeStep,
+  moveStep,
   updateStepValue,
   updateStepType,
   updateStepEventScope,
@@ -67,6 +71,7 @@ const Funnel = () => {
   const state = useFunnel()
   const [dashboardSql, setDashboardSql] = useState<string | null>(null)
   const [dashboardSaveError, setDashboardSaveError] = useState<string | null>(null)
+  const [stepMoveMessage, setStepMoveMessage] = useState('')
 
   const {
     selectedWebsite,
@@ -131,7 +136,12 @@ const Funnel = () => {
     if (!funnelSql) return
     setDashboardSaveError(null)
     try {
-      setDashboardSql(generateDashboardFunnelSql(funnelSql))
+      setDashboardSql(
+        generateDashboardFunnelSql(
+          funnelSql,
+          activeTab === 'horizontal' || activeTab === 'table' ? activeTab : 'vertical',
+        ),
+      )
     } catch (error: unknown) {
       setDashboardSaveError(error instanceof Error ? error.message : 'Kunne ikke klargjøre trakten for dashboardet.')
     }
@@ -213,9 +223,12 @@ const Funnel = () => {
               </div>
 
               <div className="space-y-3">
+                <div className="sr-only" role="status">
+                  {stepMoveMessage}
+                </div>
                 {steps.map((step, index) => (
                   <div
-                    key={index}
+                    key={step.id}
                     className="border border-gray-300 rounded-lg p-3 bg-[var(--ax-bg-default)] relative shadow-sm focus-within:z-10"
                   >
                     <div className="flex items-start gap-3">
@@ -259,7 +272,14 @@ const Funnel = () => {
                               const next = splitUrlStepInput(value, step.query ?? '')
                               setSteps(updateStepQuery(updateStepValue(steps, index, next.value), index, next.query))
                             }}
-                            description="Bruk * for variable deler av stien. Du kan også lime inn en hel URL med ?query."
+                            helpText={
+                              <HelpText title="Om URL-sti" placement="top">
+                                <p>Bruk * der deler av adressen varierer, for eksempel /soknad/*/kvittering.</p>
+                                <p className="mt-2">
+                                  Du kan også lime inn hele nettadressen, inkludert det som står etter ?.
+                                </p>
+                              </HelpText>
+                            }
                           />
                         ) : (
                           <Combobox
@@ -389,17 +409,45 @@ const Funnel = () => {
                         )}
                       </div>
 
-                      {/* Delete button */}
-                      {steps.length > 2 && (
-                        <Button
-                          variant="tertiary-neutral"
-                          size="small"
-                          icon={<TrashIcon fontSize="1rem" />}
-                          onClick={() => setSteps(removeStep(steps, index))}
-                          aria-label="Fjern steg"
-                          className="flex-shrink-0 mt-1"
-                        />
-                      )}
+                      <div className="flex flex-col flex-shrink-0 gap-1 mt-1">
+                        <Tooltip content="Flytt opp">
+                          <Button
+                            variant="tertiary-neutral"
+                            size="small"
+                            icon={<ArrowUpIcon aria-hidden />}
+                            aria-label={`Flytt steg ${index + 1} opp`}
+                            aria-disabled={index === 0}
+                            onClick={() => {
+                              if (index === 0) return
+                              setSteps(moveStep(steps, index, -1))
+                              setStepMoveMessage(`Steg ${index + 1} flyttet til plass ${index}.`)
+                            }}
+                          />
+                        </Tooltip>
+                        <Tooltip content="Flytt ned">
+                          <Button
+                            variant="tertiary-neutral"
+                            size="small"
+                            icon={<ArrowDownIcon aria-hidden />}
+                            aria-label={`Flytt steg ${index + 1} ned`}
+                            aria-disabled={index === steps.length - 1}
+                            onClick={() => {
+                              if (index === steps.length - 1) return
+                              setSteps(moveStep(steps, index, 1))
+                              setStepMoveMessage(`Steg ${index + 1} flyttet til plass ${index + 2}.`)
+                            }}
+                          />
+                        </Tooltip>
+                        {steps.length > 2 && (
+                          <Button
+                            variant="tertiary-neutral"
+                            size="small"
+                            icon={<TrashIcon fontSize="1rem" />}
+                            onClick={() => setSteps(removeStep(steps, index))}
+                            aria-label={`Fjern steg ${index + 1}`}
+                          />
+                        )}
+                      </div>
                     </div>
 
                     {/* Connector line to next step */}
@@ -416,9 +464,19 @@ const Funnel = () => {
                   size="small"
                   icon={<PlusIcon fontSize="1.25rem" />}
                   onClick={() => setSteps(addStep(steps))}
-                  className="w-full mb-6"
+                  className="w-full"
                 >
                   Legg til steg
+                </Button>
+                <Button
+                  size="small"
+                  icon={<ArrowCirclepathIcon aria-hidden />}
+                  onClick={() => void fetchData()}
+                  disabled={!canFetch}
+                  loading={loading}
+                  className="w-full"
+                >
+                  Oppdater
                 </Button>
               </div>
             </div>
@@ -448,7 +506,7 @@ const Funnel = () => {
 
           {!loading && !error && !hasAttemptedFetch && (
             <Alert variant="info" className="mb-4">
-              Sett opp stegene og klikk Oppdater for å hente data. Endringer hentes ikke automatisk.
+              Sett opp stegene og klikk Oppdater for å hente data.
             </Alert>
           )}
 
@@ -969,7 +1027,7 @@ const Funnel = () => {
             <AddToDashboardDialog
               open={dashboardSql !== null}
               onClose={() => setDashboardSql(null)}
-              graphName="Trakt"
+              graphName=""
               sqlText={dashboardSql ?? ''}
               sourceWebsiteId={selectedWebsite.id}
               showWebsiteSelector={false}

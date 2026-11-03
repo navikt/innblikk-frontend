@@ -10,6 +10,48 @@ import type {
 import { getDateRangeFromPeriod } from '../../../shared/lib/utils'
 import { serializeStep, splitUrlStepInput } from '../utils/stepUtils'
 
+export const FUNNEL_REQUEST_TIMEOUT_MS = 120000
+
+async function requestFunnelJson<T>(url: string, init: RequestInit, signal?: AbortSignal): Promise<T> {
+  const controller = new AbortController()
+  const abort = () => controller.abort(signal?.reason)
+  if (signal?.aborted) abort()
+  else signal?.addEventListener('abort', abort, { once: true })
+  const timeout = setTimeout(
+    () => controller.abort(new DOMException('Forespørselen tok for lang tid.', 'TimeoutError')),
+    FUNNEL_REQUEST_TIMEOUT_MS,
+  )
+  try {
+    const response = await fetch(url, { ...init, signal: controller.signal })
+    if (!response.ok) {
+      if (response.status === 401) throw new Error('Du må logge inn på nytt. Traktoppsettet er beholdt.')
+      if (response.status === 403) throw new Error('Du har ikke tilgang til å hente disse dataene.')
+      const fallbackMessage = `Kunne ikke hente data (${response.status}). Prøv igjen.`
+      let message = fallbackMessage
+      try {
+        const payload: unknown = await response.json()
+        if (isErrorResponse(payload)) message = payload.error
+      } catch {
+        message = fallbackMessage
+      }
+      throw new Error(message)
+    }
+    return (await response.json()) as T
+  } finally {
+    clearTimeout(timeout)
+    signal?.removeEventListener('abort', abort)
+  }
+}
+
+const getFetchError = (error: unknown): string => {
+  if (typeof error === 'object' && error !== null && 'name' in error && error.name === 'TimeoutError') {
+    return 'Hentingen tok for lang tid. Prøv igjen eller velg en kortere periode.'
+  }
+  return error instanceof Error && error.name !== 'TypeError'
+    ? error.message
+    : 'Kunne ikke hente data. Sjekk nettforbindelsen og prøv igjen.'
+}
+
 const normalizeGeneratedSql = (sql: string): string =>
   sql
     .replace(/umami\.public_website_event/gi, 'umami_views.event')
@@ -22,6 +64,7 @@ export interface FetchFunnelParams {
   customStartDate?: Date
   customEndDate?: Date
   onlyDirectEntry: boolean
+  signal?: AbortSignal
 }
 
 export interface FetchFunnelResult {
@@ -63,24 +106,27 @@ export async function fetchFunnelData(params: FetchFunnelParams): Promise<FetchF
   const { startDate, endDate } = dateRange
 
   try {
-    const response = await fetch('/api/bigquery/funnel', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        websiteId,
-        steps: normalizedSteps,
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
-        onlyDirectEntry,
-      }),
-    })
-
-    if (!response.ok) {
-      return { data: [], sql: null, queryStats: null, shareParams: null, error: 'Kunne ikke hente traktdata' }
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const data: FunnelApiResponse = await response.json()
+    const data = await requestFunnelJson<FunnelApiResponse>(
+      '/api/bigquery/funnel',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          websiteId,
+          steps: normalizedSteps.map(({ type, value, query, eventScope, params }) => ({
+            type,
+            value,
+            query,
+            eventScope,
+            params,
+          })),
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+          onlyDirectEntry,
+        }),
+      },
+      params.signal,
+    )
 
     if ('error' in data) {
       return { data: [], sql: null, queryStats: null, shareParams: null, error: data.error }
@@ -99,6 +145,12 @@ export async function fetchFunnelData(params: FetchFunnelParams): Promise<FetchF
     newParams.set('websiteId', websiteId)
     newParams.set('period', period)
     newParams.set('strict', String(onlyDirectEntry))
+    newParams.delete('from')
+    newParams.delete('to')
+    if (period === 'custom' && customStartDate && customEndDate) {
+      newParams.set('from', customStartDate.toISOString())
+      newParams.set('to', customEndDate.toISOString())
+    }
     newParams.delete('step')
     normalizedSteps.forEach((step) => {
       newParams.append('step', serializeStep(step))
@@ -111,13 +163,13 @@ export async function fetchFunnelData(params: FetchFunnelParams): Promise<FetchF
       shareParams: newParams,
       error: null,
     }
-  } catch {
+  } catch (error: unknown) {
     return {
       data: [],
       sql: null,
       queryStats: null,
       shareParams: null,
-      error: 'Det oppstod en feil ved henting av data.',
+      error: getFetchError(error),
     }
   }
 }
@@ -129,6 +181,7 @@ export interface FetchTimingParams {
   customStartDate?: Date
   customEndDate?: Date
   onlyDirectEntry: boolean
+  signal?: AbortSignal
 }
 
 export interface FetchTimingResult {
@@ -166,33 +219,27 @@ export async function fetchTimingData(params: FetchTimingParams): Promise<FetchT
     .filter((s) => s.value.trim() !== '')
 
   try {
-    const response = await fetch('/api/bigquery/funnel-timing', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        websiteId,
-        steps: normalizedSteps,
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
-        onlyDirectEntry,
-      }),
-    })
-
-    if (!response.ok) {
-      let errorMessage = 'Kunne ikke hente tidsdata'
-      try {
-        const errorData: unknown = await response.json()
-        if (isErrorResponse(errorData)) {
-          errorMessage = errorData.error
-        }
-      } catch {
-        // no-op: keep default error message
-      }
-      return { data: [], sql: null, queryStats: null, error: errorMessage }
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const data: TimingApiResponse = await response.json()
+    const data = await requestFunnelJson<TimingApiResponse>(
+      '/api/bigquery/funnel-timing',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          websiteId,
+          steps: normalizedSteps.map(({ type, value, query, eventScope, params }) => ({
+            type,
+            value,
+            query,
+            eventScope,
+            params,
+          })),
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+          onlyDirectEntry,
+        }),
+      },
+      params.signal,
+    )
 
     if ('error' in data) {
       return { data: [], sql: null, queryStats: null, error: data.error }
@@ -204,8 +251,8 @@ export async function fetchTimingData(params: FetchTimingParams): Promise<FetchT
       queryStats: data.queryStats ?? null,
       error: null,
     }
-  } catch {
-    return { data: [], sql: null, queryStats: null, error: 'Det oppstod en feil ved henting av tidsdata.' }
+  } catch (error: unknown) {
+    return { data: [], sql: null, queryStats: null, error: getFetchError(error) }
   }
 }
 

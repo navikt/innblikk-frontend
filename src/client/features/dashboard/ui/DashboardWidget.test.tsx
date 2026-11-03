@@ -97,6 +97,21 @@ describe('dashboard custom SQL filters', () => {
       expect(screen.getByRole('tab', { name: 'Trakt' })).toHaveAttribute('aria-selected', 'true')
     })
 
+    it('renders saved horizontal funnels without fetching new data', () => {
+      render(
+        <DashboardWidget
+          chart={{ ...chart, sql: `WITH /* @chart funnel horizontal */ events AS (SELECT 1) SELECT * FROM events` }}
+          websiteId="website-1"
+          filters={filters}
+          prefetchedData={rows}
+        />,
+      )
+      expect(screen.getByRole('tab', { name: 'Trakt' })).toHaveAttribute('aria-selected', 'true')
+      expect(screen.getByText('Steg 1')).toBeVisible()
+      expect(screen.getByText('gikk videre')).toBeVisible()
+      expect(executeBigQuery).not.toHaveBeenCalled()
+    })
+
     it('reports incompatible marked data and still allows inspecting the table', async () => {
       const user = userEvent.setup()
       render(

@@ -90,6 +90,15 @@ export function removeStep(steps: FunnelStep[], index: number): FunnelStep[] {
   return steps.filter((_, i) => i !== index)
 }
 
+export function moveStep(steps: FunnelStep[], index: number, direction: -1 | 1): FunnelStep[] {
+  const destination = index + direction
+  if (index < 0 || index >= steps.length || destination < 0 || destination >= steps.length) return steps
+  const nextSteps = [...steps]
+  const [step] = nextSteps.splice(index, 1)
+  nextSteps.splice(destination, 0, step)
+  return nextSteps
+}
+
 /**
  * Update a step's value.
  */

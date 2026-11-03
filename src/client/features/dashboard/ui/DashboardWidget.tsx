@@ -26,7 +26,7 @@ import {
 } from '../../sql/utils/customSqlFilters'
 import CustomSqlFilterField from '../../sql-next/ui/CustomSqlFilterField'
 import { getDateRangeFromPeriod } from '../../../shared/lib/utils'
-import { getDashboardFunnel, hasFunnelChartMarker } from '../utils/funnelData'
+import { getDashboardFunnel, getDashboardFunnelView, hasFunnelChartMarker } from '../utils/funnelData'
 
 type SelectedWebsite = {
   domain: string
@@ -558,11 +558,13 @@ export const DashboardWidget = ({
       )
       const funnel = getDashboardFunnel(data)
       const markedAsFunnel = hasFunnelChartMarker(chart.sql)
+      const presentation = getDashboardFunnelView(chart.sql)
       if (funnel || markedAsFunnel) {
         return (
           <DashboardWidgetFunnel
             steps={funnel?.steps ?? null}
-            defaultView={markedAsFunnel || funnel?.ordered ? 'funnel' : 'table'}
+            defaultView={presentation !== 'table' && (markedAsFunnel || funnel?.ordered) ? 'funnel' : 'table'}
+            presentation={presentation}
             table={table}
             websiteId={chartLinksEnabled ? websiteId : undefined}
             period={filters.dateRange}

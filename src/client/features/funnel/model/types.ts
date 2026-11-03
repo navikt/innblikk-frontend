@@ -3,6 +3,7 @@ import type { QueryStats } from '../../../shared/types/queryStats'
 export type StepParam = { key: string; value: string; operator: 'equals' | 'contains' }
 
 export type FunnelStep = {
+  id?: string
   type: 'url' | 'event'
   value: string
   query?: string
@@ -29,8 +30,7 @@ export type TimingResultRow = {
 }
 
 export type FunnelApiResponse =
-  | { error: string }
-  | { data: Omit<FunnelResultRow, 'params'>[]; sql?: string; queryStats?: QueryStats }
+  { error: string } | { data: Omit<FunnelResultRow, 'params'>[]; sql?: string; queryStats?: QueryStats }
 
 export type TimingApiResponse = { error: string } | { data: TimingResultRow[]; sql?: string; queryStats?: QueryStats }
 

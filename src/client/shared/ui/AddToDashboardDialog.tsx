@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Alert, Button, Modal, Select, TextField } from '@navikt/ds-react'
+import { Alert, Button, Modal, Select, TextField, UNSAFE_Combobox as Combobox } from '@navikt/ds-react'
 import { Events } from '@navikt/analytics-types'
 import type { DashboardDto, GraphCategoryDto, ProjectDto } from '../types/backend.ts'
 import type { Website } from '../types/website.ts'
@@ -7,6 +7,7 @@ import { trackEvent } from '../lib/trackEvent.ts'
 import {
   fetchProjects,
   fetchDashboards,
+  createDashboard,
   fetchCategories,
   saveChartToBackend,
 } from '../../features/chartbuilder-next/api/chartStorageApi.ts'
@@ -95,6 +96,9 @@ const AddToDashboardDialog = ({
   const [loadingCategories, setLoadingCategories] = useState(false)
   const [loadingWebsites, setLoadingWebsites] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [creatingDashboard, setCreatingDashboard] = useState(false)
+  const [dashboardPickerVersion, setDashboardPickerVersion] = useState(0)
+  const dashboardCreationRef = useRef(false)
   const [error, setError] = useState<string | null>(null)
   const [showSaveSuccessModal, setShowSaveSuccessModal] = useState(false)
   const [savedLocation, setSavedLocation] = useState<{
@@ -112,6 +116,7 @@ const AddToDashboardDialog = ({
   }, [open])
 
   const handleClose = () => {
+    if (saving || dashboardCreationRef.current) return
     trackEvent(Events.MODAL_LUKKET, { komponentId: 'legg-til-i-dashbord' })
     onClose()
   }
@@ -232,6 +237,8 @@ const AddToDashboardDialog = ({
     let cancelled = false
     const run = async () => {
       setLoadingCategories(true)
+      setCategories([])
+      setCategoryId(0)
       try {
         const items = await fetchCategories(projectId, dashboardId)
         if (cancelled) return
@@ -264,7 +271,43 @@ const AddToDashboardDialog = ({
     return trimmed
   }
 
+  const handleDashboardSelection = async (option: string, isSelected: boolean) => {
+    if (dashboardCreationRef.current || saving || loadingDashboards || !projectId) return
+    setError(null)
+    setCategoryId(0)
+    if (!isSelected) {
+      setDashboardId(0)
+      setCategories([])
+      return
+    }
+    const name = option.trim()
+    if (!name) return
+    const existing = dashboards.find(
+      (dashboard) => String(dashboard.id) === option || dashboard.name.trim().toLowerCase() === name.toLowerCase(),
+    )
+    if (existing) {
+      setDashboardId(existing.id)
+      saveStoredDashboardId(existing.id)
+      return
+    }
+    dashboardCreationRef.current = true
+    setCreatingDashboard(true)
+    try {
+      const created = await createDashboard(projectId, name)
+      setDashboards((items) => [...items, created])
+      setDashboardId(created.id)
+      saveStoredDashboardId(created.id)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Kunne ikke opprette dashboard')
+      setDashboardPickerVersion((version) => version + 1)
+    } finally {
+      dashboardCreationRef.current = false
+      setCreatingDashboard(false)
+    }
+  }
+
   const handleSave = async () => {
+    if (saving || dashboardCreationRef.current || loadingProjects || loadingDashboards || loadingCategories) return
     if (!projectId) {
       setError('Velg arbeidsområde')
       return
@@ -278,7 +321,7 @@ const AddToDashboardDialog = ({
       return
     }
     if (!chartName.trim()) {
-      setError('Velg grafnavn')
+      setError('Skriv et grafnavn')
       return
     }
     if (!sqlText.trim()) {
@@ -338,8 +381,19 @@ const AddToDashboardDialog = ({
       <Modal open={open} onClose={handleClose} header={{ heading: 'Legg til i dashboard' }} width="small">
         <Modal.Body>
           <div className="flex flex-col gap-4">
-            {graphName && <p className="text-sm text-[var(--ax-text-subtle)]">{graphName}</p>}
-            {error && <Alert variant="error">{error}</Alert>}
+            {error && (
+              <Alert variant="error" role="alert">
+                {error}
+              </Alert>
+            )}
+
+            <TextField
+              label={nameLabel}
+              value={chartName}
+              onChange={(event) => setChartName(event.target.value)}
+              size="small"
+              disabled={saving}
+            />
 
             <Select
               label="Arbeidsområde"
@@ -352,11 +406,14 @@ const AddToDashboardDialog = ({
                   tekst: event.target.selectedOptions[0]?.text,
                 })
                 setProjectId(nextProjectId)
+                setDashboardId(0)
+                setCategories([])
+                setCategoryId(0)
                 if (nextProjectId) saveStoredProjectId(nextProjectId)
                 setError(null)
               }}
               size="small"
-              disabled={loadingProjects || saving}
+              disabled={loadingProjects || saving || creatingDashboard}
             >
               <option value="">Velg arbeidsområde</option>
               {projects.map((project) => (
@@ -366,31 +423,23 @@ const AddToDashboardDialog = ({
               ))}
             </Select>
 
-            <Select
+            <Combobox
+              key={`${projectId}-${dashboardPickerVersion}`}
               label="Dashboard"
-              value={dashboardId ? String(dashboardId) : ''}
-              onChange={(event) => {
-                const nextDashboardId = Number(event.target.value)
-                trackEvent(Events.NEDTREKKSLISTE_VALG_ENDRET, {
-                  komponentId: 'legg-til-i-dashbord',
-                  valgtVerdi: event.target.value,
-                  tekst: event.target.selectedOptions[0]?.text,
-                })
-                setDashboardId(nextDashboardId)
-                if (nextDashboardId) saveStoredDashboardId(nextDashboardId)
-                setCategoryId(0)
-                setError(null)
+              options={dashboards.map((dashboard) => ({ label: dashboard.name, value: String(dashboard.id) }))}
+              selectedOptions={dashboards
+                .filter((dashboard) => dashboard.id === dashboardId)
+                .map((dashboard) => dashboard.name)}
+              onToggleSelected={(option, isSelected) => {
+                void handleDashboardSelection(option, isSelected)
               }}
+              isMultiSelect={false}
+              allowNewValues
+              clearButton
+              isLoading={loadingDashboards || creatingDashboard}
               size="small"
-              disabled={!projectId || loadingDashboards || saving}
-            >
-              <option value="">Velg dashboard</option>
-              {dashboards.map((dashboard) => (
-                <option key={dashboard.id} value={dashboard.id}>
-                  {dashboard.name}
-                </option>
-              ))}
-            </Select>
+              disabled={!projectId || loadingDashboards || creatingDashboard || saving}
+            />
 
             {categories.length > 1 && (
               <Select
@@ -418,14 +467,6 @@ const AddToDashboardDialog = ({
                 ))}
               </Select>
             )}
-
-            <TextField
-              label={nameLabel}
-              value={chartName}
-              onChange={(event) => setChartName(event.target.value)}
-              size="small"
-              disabled={saving}
-            />
 
             {showWebsiteSelector && (
               <Select
@@ -455,10 +496,21 @@ const AddToDashboardDialog = ({
           </div>
         </Modal.Body>
         <Modal.Footer>
-          <Button onClick={() => void handleSave()} loading={saving}>
+          <Button
+            onClick={() => void handleSave()}
+            loading={saving}
+            disabled={
+              !projectId ||
+              !dashboardId ||
+              loadingProjects ||
+              loadingDashboards ||
+              loadingCategories ||
+              creatingDashboard
+            }
+          >
             Legg til i dashboard
           </Button>
-          <Button variant="secondary" onClick={onClose} disabled={saving}>
+          <Button variant="secondary" onClick={handleClose} disabled={saving || creatingDashboard}>
             Avbryt
           </Button>
         </Modal.Footer>

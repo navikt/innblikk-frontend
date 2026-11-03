@@ -2,7 +2,7 @@ import type { FunnelStep, FunnelResultRow, TimingResultRow } from '../model/type
 import type { Website } from '../../../shared/types/chart'
 import { getGcpProjectId } from '../../../shared/lib/runtimeConfig'
 import { getStepUrlDisplay, normalizeStepQuery, splitUrlStepInput } from './stepUtils'
-import { FUNNEL_CHART_MARKER } from '../../dashboard/utils/funnelData'
+import { FUNNEL_CHART_MARKER, type DashboardFunnelView } from '../../dashboard/utils/funnelData'
 export { copyToClipboard } from '../../../shared/lib/clipboard'
 
 const escapeSqlLiteral = (value: string): string => value.replace(/'/g, "''")
@@ -32,7 +32,7 @@ const buildStepDisplayValue = (step: FunnelStep): string => {
   return getStepUrlDisplay(step)
 }
 
-export function generateDashboardFunnelSql(sql: string): string {
+export function generateDashboardFunnelSql(sql: string, view: DashboardFunnelView = 'vertical'): string {
   const dateFilter =
     /^([ \t]*)AND created_at BETWEEN '\d{4}-\d{2}-\d{2}T[\d:.]+Z' AND '\d{4}-\d{2}-\d{2}T[\d:.]+Z'[ \t]*$/m
   if (!dateFilter.test(sql)) {
@@ -42,7 +42,8 @@ export function generateDashboardFunnelSql(sql: string): string {
   if (!statementStart.test(sql)) {
     throw new Error('Kunne ikke klargjøre SQL-spørringen for dashboardet. Oppdater trakten og prøv igjen.')
   }
-  return sql.replace(dateFilter, '$1[[AND {{created_at}}]]').replace(statementStart, `$1 ${FUNNEL_CHART_MARKER}`)
+  const marker = view === 'vertical' ? FUNNEL_CHART_MARKER : `/* @chart funnel ${view} */`
+  return sql.replace(dateFilter, '$1[[AND {{created_at}}]]').replace(statementStart, `$1 ${marker}`)
 }
 
 /**

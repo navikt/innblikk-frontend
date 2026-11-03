@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { FUNNEL_CHART_MARKER, getDashboardFunnel, hasFunnelChartMarker } from './funnelData'
+import { FUNNEL_CHART_MARKER, getDashboardFunnel, getDashboardFunnelView, hasFunnelChartMarker } from './funnelData'
 
 describe('dashboard funnel data', () => {
+  it('reads saved presentation while keeping legacy funnels vertical', () => {
+    expect(getDashboardFunnelView(`WITH /* @chart funnel horizontal */ events AS (SELECT 1)`)).toBe('horizontal')
+    expect(getDashboardFunnelView(`SELECT /* @chart funnel table */ 1`)).toBe('table')
+    expect(getDashboardFunnelView(FUNNEL_CHART_MARKER)).toBe('vertical')
+    expect(hasFunnelChartMarker(`WITH /* @chart funnel horizontal */ events AS (SELECT 1)`)).toBe(true)
+    expect(hasFunnelChartMarker(`SELECT '/* @chart funnel horizontal */' AS name`)).toBe(false)
+  })
+
   it('orders API funnel rows by their step number, not column order or count', () => {
     expect(
       getDashboardFunnel([

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { generateDashboardFunnelSql, generateMetabaseFunnelSql } from './funnelUtils'
 import { processDashboardSql } from '../../dashboard/utils/queryUtils'
+import { moveStep } from './stepUtils'
 import type { FunnelStep } from '../model/types'
 import type { Website } from '../../../shared/types/chart'
 
@@ -11,6 +12,31 @@ const website: Website = {
   teamId: 'team-1',
   createdAt: '2026-10-01T00:00:00Z',
 }
+
+describe('moveStep', () => {
+  const steps: FunnelStep[] = [
+    { id: 'start', type: 'url', value: '/start', query: 'source=test' },
+    {
+      id: 'event',
+      type: 'event',
+      value: 'clicked',
+      eventScope: 'anywhere',
+      params: [{ key: 'text', value: 'Next', operator: 'equals' }],
+    },
+    { id: 'end', type: 'url', value: '/end' },
+  ]
+
+  it('moves the complete step without mutating the original array', () => {
+    expect(moveStep(steps, 1, -1)).toEqual([steps[1], steps[0], steps[2]])
+    expect(moveStep(steps, 1, 1)).toEqual([steps[0], steps[2], steps[1]])
+    expect(steps.map((step) => step.id)).toEqual(['start', 'event', 'end'])
+  })
+
+  it('does not move past either boundary', () => {
+    expect(moveStep(steps, 0, -1)).toBe(steps)
+    expect(moveStep(steps, 2, 1)).toBe(steps)
+  })
+})
 
 describe('generateMetabaseFunnelSql detail filters', () => {
   it.each([true, false])('supports numeric and text details with onlyDirectEntry=%s', (onlyDirectEntry) => {

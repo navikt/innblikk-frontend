@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fetchFunnelData, type FetchFunnelParams } from './funnelApi'
+import { fetchFunnelData, fetchTimingData, FUNNEL_REQUEST_TIMEOUT_MS, type FetchFunnelParams } from './funnelApi'
 import { parseStepsFromParams, serializeStep } from '../utils/stepUtils'
 import type { FunnelStep } from '../model/types'
 
@@ -26,6 +26,7 @@ const params: FetchFunnelParams = {
 }
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.unstubAllGlobals()
   window.history.replaceState({}, '', '/')
 })
@@ -58,6 +59,23 @@ describe('funnel sharing', () => {
     const search = new URLSearchParams()
     unusualSteps.forEach((step) => search.append('step', serializeStep(step)))
     expect(parseStepsFromParams(new URLSearchParams(search.toString()))).toEqual(unusualSteps)
+  })
+
+  it('shares custom dates and preserves presentation, then removes dates for relative periods', async () => {
+    window.history.replaceState({}, '', '/trakt?view=horizontal&from=old&to=old')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ data: [] }) }))
+    const result = await fetchFunnelData({
+      ...params,
+      period: 'custom',
+      customStartDate: new Date('2026-10-01T10:00:00Z'),
+      customEndDate: new Date('2026-10-04T10:00:00Z'),
+    })
+    expect(result.shareParams?.get('from')).toBe('2026-10-01T10:00:00.000Z')
+    expect(result.shareParams?.get('to')).toBe('2026-10-04T10:00:00.000Z')
+    expect(result.shareParams?.get('view')).toBe('horizontal')
+    const relative = await fetchFunnelData(params)
+    expect(relative.shareParams?.has('from')).toBe(false)
+    expect(relative.shareParams?.has('to')).toBe(false)
   })
 
   it('still reads existing unencoded links and equals filters', () => {
@@ -97,5 +115,38 @@ describe('funnel validation', () => {
     })
     expect(result.error).toBeTruthy()
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('funnel request recovery', () => {
+  it.each([fetchFunnelData, fetchTimingData])(
+    'times out requests without retrying automatically',
+    async (fetchData) => {
+      vi.useFakeTimers()
+      const fetchMock = vi.fn(
+        (_url: string, init: RequestInit) =>
+          new Promise((_resolve, reject) => {
+            init.signal?.addEventListener('abort', () => reject(init.signal?.reason as Error), { once: true })
+          }),
+      )
+      vi.stubGlobal('fetch', fetchMock)
+      const pending = fetchData(params)
+      await vi.advanceTimersByTimeAsync(FUNNEL_REQUEST_TIMEOUT_MS)
+      expect((await pending).error).toContain('tok for lang tid')
+      expect(fetchMock).toHaveBeenCalledOnce()
+      expect(vi.getTimerCount()).toBe(0)
+    },
+  )
+
+  it.each([
+    { status: 401, message: 'logge inn på nytt' },
+    { status: 403, message: 'ikke tilgang' },
+    { status: 500, message: 'Backend unavailable' },
+  ])('keeps useful error details for HTTP $status', async ({ status, message }) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: 'Backend unavailable' }), { status })),
+    )
+    expect((await fetchFunnelData(params)).error).toContain(message)
   })
 })

@@ -1,5 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import { UNSAFE_Combobox } from '@navikt/ds-react'
+import { useEffect, useId, useState, type ReactNode } from 'react'
+import { Label, UNSAFE_Combobox } from '@navikt/ds-react'
 import { columnValuesSuggestions } from '../../cohortmanager/hooks/useColumnValueSuggestions.ts'
 
 interface UrlPathInputProps {
@@ -9,6 +9,7 @@ interface UrlPathInputProps {
   onCommit?: (value: string) => void
   label?: string
   description?: ReactNode
+  helpText?: ReactNode
   className?: string
 }
 
@@ -19,9 +20,11 @@ export default function UrlPathInput({
   onCommit,
   label = 'URL',
   description,
+  helpText,
   className,
 }: UrlPathInputProps) {
   const [search, setSearch] = useState('')
+  const inputId = useId()
   const { values, loading, load } = columnValuesSuggestions.useColumnValueSuggestions(websiteId, 'url_path')
 
   useEffect(() => {
@@ -50,8 +53,19 @@ export default function UrlPathInput({
         if (!event.currentTarget.contains(event.relatedTarget)) onCommit?.(value)
       }}
     >
+      {helpText && (
+        <div className="flex items-center gap-2 mb-2">
+          <Label id={`${inputId}-label`} htmlFor={inputId} size="small">
+            {label}
+          </Label>
+          {helpText}
+        </div>
+      )}
       <UNSAFE_Combobox
+        id={inputId}
+        aria-labelledby={helpText ? `${inputId}-label` : undefined}
         label={label}
+        hideLabel={Boolean(helpText)}
         description={description}
         size="small"
         options={values}

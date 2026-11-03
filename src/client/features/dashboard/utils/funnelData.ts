@@ -3,8 +3,15 @@ import { extractJsonValue, isRecord } from './widgetUtils'
 
 export const FUNNEL_CHART_MARKER = '/* @chart funnel */'
 
+export type DashboardFunnelView = 'vertical' | 'horizontal' | 'table'
+
+export const getDashboardFunnelView = (sql = ''): DashboardFunnelView => {
+  const view = /^\s*(?:(?:WITH|SELECT)\b\s*)?\/\*\s*@chart\s+funnel(?:\s+(horizontal|table))?\s*\*\//i.exec(sql)?.[1]
+  return view?.toLowerCase() === 'horizontal' ? 'horizontal' : view?.toLowerCase() === 'table' ? 'table' : 'vertical'
+}
+
 export const hasFunnelChartMarker = (sql = ''): boolean =>
-  /^\s*(?:(?:WITH|SELECT)\b\s*)?\/\*\s*@chart\s+funnel\s*\*\//i.test(sql)
+  /^\s*(?:(?:WITH|SELECT)\b\s*)?\/\*\s*@chart\s+funnel(?:\s+(?:horizontal|table))?\s*\*\//i.test(sql)
 
 const readNumber = (value: unknown): number | null => {
   const raw = extractJsonValue(value)

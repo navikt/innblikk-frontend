@@ -1,11 +1,14 @@
 import type { ReactNode } from 'react'
 import { Alert, Tabs } from '@navikt/ds-react'
 import FunnelChart from '../../../analysis/ui/funnel/FunnelChart'
+import HorizontalFunnelChart from '../../../analysis/ui/funnel/HorizontalFunnelChart'
+import type { DashboardFunnelView } from '../../utils/funnelData'
 import type { FunnelResultRow } from '../../../funnel/model/types'
 
 interface DashboardWidgetFunnelProps {
   steps: FunnelResultRow[] | null
   defaultView: 'funnel' | 'table'
+  presentation?: DashboardFunnelView
   table: ReactNode
   websiteId?: string
   period?: string
@@ -15,6 +18,7 @@ interface DashboardWidgetFunnelProps {
 const DashboardWidgetFunnel = ({
   steps,
   defaultView,
+  presentation = 'vertical',
   table,
   websiteId,
   period,
@@ -28,7 +32,11 @@ const DashboardWidgetFunnel = ({
       </Tabs.List>
       <Tabs.Panel value="funnel">
         {steps ? (
-          <FunnelChart data={steps} websiteId={websiteId} period={period} />
+          presentation === 'horizontal' ? (
+            <HorizontalFunnelChart data={steps} websiteId={websiteId} period={period} />
+          ) : (
+            <FunnelChart data={steps} websiteId={websiteId} period={period} />
+          )
         ) : (
           <Alert variant="error" role="alert" className="mt-4">
             Traktvisning krever minst to steg med navn og ikke-negative heltall. Antallet kan ikke øke mellom stegene.
