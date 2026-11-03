@@ -1,7 +1,54 @@
-import { describe, it, expect } from 'vitest'
-import { buildColumnValuesQuery, ALLOWED_COLUMNS } from './columnValuesRoutes.js'
+import { describe, it, expect, vi } from 'vitest'
+import { buildColumnValuesQuery, ALLOWED_COLUMNS, createColumnValuesRouter } from './columnValuesRoutes.js'
+import { MAX_BYTES_BILLED } from './helpers.js'
 
 const PROJECT = 'test-project'
+
+describe('column-values cost limits', () => {
+  it.each([
+    { costs: [1], days: 30 },
+    { costs: [1.01, 1], days: 14 },
+    { costs: [2, 1.01, 1], days: 7 },
+    { costs: [2, 2, 1.01], days: null },
+  ])('uses only the first affordable window: $costs', async ({ costs, days }) => {
+    const createQueryJob = vi.fn(async (config) =>
+      config.dryRun
+        ? [
+            {
+              metadata: {
+                statistics: { totalBytesProcessed: String((costs.shift() / 6.25) * 1024 ** 4) },
+              },
+            },
+          ]
+        : [{ getQueryResults: async () => [[{ value: 'Chrome' }]] }],
+    )
+    const router = createColumnValuesRouter({
+      bigquery: { createQueryJob },
+      GCP_PROJECT_ID: PROJECT,
+    })
+    const res = { status: vi.fn().mockReturnThis(), json: vi.fn() }
+    const handler = router.stack[0].route.stack[0].handle
+    await handler({ params: { websiteId: 'site-1' }, query: { column: 'browser' } }, res)
+
+    const configs = createQueryJob.mock.calls.map(([config]) => config)
+    const dryRuns = configs.filter((config) => config.dryRun)
+    expect(
+      dryRuns.map((config) =>
+        Math.round((Date.parse(config.params.endDate) - Date.parse(config.params.startDate)) / 86400000),
+      ),
+    ).toEqual(days === 30 ? [30] : days === 14 ? [30, 14] : [30, 14, 7])
+    const executions = configs.filter((config) => !config.dryRun)
+    if (days === null) {
+      expect(executions).toHaveLength(0)
+      expect(res.status).toHaveBeenCalledWith(422)
+      expect(res.json).toHaveBeenCalledWith({ error: expect.stringContaining('too expensive') })
+    } else {
+      expect(executions).toHaveLength(1)
+      expect(executions[0].maximumBytesBilled).toBe(MAX_BYTES_BILLED)
+      expect(res.json).toHaveBeenCalledWith({ values: ['Chrome'], scannedDays: days })
+    }
+  })
+})
 
 describe('buildColumnValuesQuery', () => {
   it('queries an event-column directly on public_website_event', () => {

@@ -8,6 +8,12 @@ import type { Filter } from '../../../../shared/types/chart.ts'
 import { useSidegroupsForWebsite } from '../../../sidegroups/hooks/useSidegroupsForWebsite.ts'
 import { isFilterArray } from '../../utils/typeGuards.ts'
 import { createSidegroup } from '../../../sidegroups/api/sidegroupsApi.ts'
+import { fetchColumnValues } from '../../../cohortmanager/api/columnValuesApi.ts'
+import { columnValuesSuggestions } from '../../../cohortmanager/hooks/useColumnValueSuggestions.ts'
+
+vi.mock('../../../cohortmanager/api/columnValuesApi.ts', () => ({
+  fetchColumnValues: vi.fn(),
+}))
 
 vi.mock('../../../sidegroups/hooks/useSidegroupsForWebsite.ts', () => ({
   useSidegroupsForWebsite: vi.fn(() => ({
@@ -69,6 +75,25 @@ async function addFilter(user: ReturnType<typeof userEvent.setup>, name: string)
 describe('NextEventFilter', () => {
   beforeEach(() => {
     vi.mocked(createSidegroup).mockReset()
+    columnValuesSuggestions.clearColumnValuesCache()
+    vi.mocked(fetchColumnValues).mockReset()
+    vi.mocked(fetchColumnValues).mockResolvedValue({ values: [], scannedDays: 30 })
+  })
+
+  it('loads filter suggestions for the selected website and preserves selected values', async () => {
+    const user = userEvent.setup()
+    vi.mocked(fetchColumnValues).mockResolvedValue({ values: ['Chrome', 'Firefox'], scannedDays: 7 })
+    render(<Harness />)
+    expect(fetchColumnValues).not.toHaveBeenCalled()
+    await addFilter(user, 'Nettlesertype')
+    await screen.findByText('Forslag fra siste 7 dager')
+    expect(fetchColumnValues).toHaveBeenCalledExactlyOnceWith('site-1', 'browser', undefined, undefined)
+    await user.click(screen.getByRole('combobox', { name: 'Verdi' }))
+    await user.click(screen.getByRole('option', { name: 'Chrome' }))
+    expect(filters()).toContainEqual(
+      expect.objectContaining({ column: 'browser', value: 'Chrome', multipleValues: ['Chrome'] }),
+    )
+    expect(fetchColumnValues).toHaveBeenCalledTimes(1)
   })
 
   it('focuses and opens filter suggestions immediately, and allows dismissal and reopening', async () => {

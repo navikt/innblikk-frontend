@@ -390,6 +390,7 @@ const NextEventFilter = forwardRef(
           return (
             <GenericFilterCard
               key={index}
+              websiteId={websiteId}
               compact
               filter={filter}
               index={index}

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   RadioGroup,
   Radio,
@@ -12,11 +12,15 @@ import {
   ReadMore,
   Tag,
   VStack,
+  BodyShort,
 } from '@navikt/ds-react'
 import { XMarkIcon, PlusIcon, CheckmarkIcon } from '@navikt/aksel-icons'
 import { Events } from '@navikt/analytics-types'
 import { trackEvent } from '../../../../shared/lib/trackEvent.ts'
 import type { Filter, Parameter } from '../../../../shared/types/chart.ts'
+import type { SuggestibleColumn } from '../../../cohortmanager/api/columnValuesApi.ts'
+import { columnValuesSuggestions } from '../../../cohortmanager/hooks/useColumnValueSuggestions.ts'
+import { toSuggestionOptions } from '../../../cohortmanager/ui/SuggestingValueEditor.tsx'
 
 // ─── Local types ─────────────────────────────────────────────────────────────
 
@@ -689,7 +693,20 @@ const toParamName = (column: string): string => {
   return column.toLowerCase().replace(/[^a-z0-9_]/g, '_')
 }
 
+const SUGGESTION_COLUMNS: Partial<Record<string, SuggestibleColumn>> = {
+  url_path: 'url_path',
+  event_name: 'event_name',
+  referrer_domain: 'referrer_domain',
+  browser: 'browser',
+  os: 'os',
+  device: 'device',
+  screen: 'screen',
+  language: 'language',
+  country: 'country',
+}
+
 interface GenericFilterCardProps {
+  websiteId?: string
   filter: Filter
   index: number
   columnLabel: string
@@ -706,6 +723,7 @@ interface GenericFilterCardProps {
 }
 
 export const GenericFilterCard = ({
+  websiteId,
   filter,
   index,
   columnLabel,
@@ -720,16 +738,31 @@ export const GenericFilterCard = ({
   updateFilter,
   compact = false,
 }: GenericFilterCardProps) => {
+  const suggestionKey = filter.column.startsWith('param_') ? filter.column.slice('param_'.length) : undefined
+  const suggestionColumn = suggestionKey ? 'event_data_value' : SUGGESTION_COLUMNS[filter.column]
+  const canSuggest =
+    Boolean(suggestionColumn) && !filter.interactive && !['IS NULL', 'IS NOT NULL'].includes(filter.operator ?? '')
+  const { values, scannedDays, failed, loading, load } = columnValuesSuggestions.useColumnValueSuggestions(
+    canSuggest ? websiteId : undefined,
+    suggestionColumn ?? 'url_path',
+    suggestionKey,
+  )
+
+  useEffect(() => {
+    if (canSuggest) load()
+  }, [canSuggest, load])
+
   const getOptionsForColumn = (column: string): Option[] => {
+    const suggestedValues = canSuggest && websiteId ? values : []
     switch (column) {
       case 'event_name':
-        return customEventsList.map((event) => ({ label: event || '', value: event || '' }))
+        return toSuggestionOptions(column, [...new Set([...customEventsList, ...suggestedValues])])
       case 'url_path':
-        return availablePaths.map((path) => ({ label: path, value: path }))
+        return toSuggestionOptions(column, [...new Set([...availablePaths, ...suggestedValues])])
       case 'event_type':
         return EVENT_TYPES ?? []
       default:
-        return []
+        return toSuggestionOptions(column, suggestedValues)
     }
   }
 
@@ -853,18 +886,37 @@ export const GenericFilterCard = ({
           </div>
         ) : (
           !['IS NULL', 'IS NOT NULL'].includes(filter.operator || '') && (
-            <UNSAFE_Combobox
-              label="Verdi"
-              hideLabel={compact}
-              description={null}
-              options={getOptionsForColumn(filter.column)}
-              selectedOptions={currentValues}
-              onToggleSelected={handleValueToggle}
-              isMultiSelect={!compact || ['=', 'IN'].includes(filter.operator ?? '=')}
-              size="small"
-              allowNewValues={filter.column !== 'event_type'}
-              shouldAutocomplete={false}
-            />
+            <>
+              <UNSAFE_Combobox
+                label="Verdi"
+                hideLabel={compact}
+                description={null}
+                options={getOptionsForColumn(filter.column)}
+                selectedOptions={
+                  filter.column === 'country'
+                    ? currentValues.map(
+                        (value) => toSuggestionOptions('country', [value])[0] ?? { label: value, value },
+                      )
+                    : currentValues
+                }
+                onToggleSelected={handleValueToggle}
+                isMultiSelect={!compact || ['=', 'IN'].includes(filter.operator ?? '=')}
+                size="small"
+                allowNewValues={filter.column !== 'event_type'}
+                shouldAutocomplete={false}
+                isLoading={loading}
+              />
+              {canSuggest && scannedDays !== null && scannedDays < 30 && (
+                <BodyShort size="small" style={{ color: 'var(--ax-text-subtle)' }}>
+                  Forslag fra siste {scannedDays} dager
+                </BodyShort>
+              )}
+              {canSuggest && failed && (
+                <BodyShort size="small" style={{ color: 'var(--ax-text-subtle)' }}>
+                  Kunne ikke hente forslag — du kan fortsatt skrive verdien manuelt
+                </BodyShort>
+              )}
+            </>
           )
         )}
         {compact && !filter.interactive && (

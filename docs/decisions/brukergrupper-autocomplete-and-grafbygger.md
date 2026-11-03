@@ -39,6 +39,8 @@ On window focus: re-run `fetchCohortsDeep(selectedCohortIds)`; if the resolved t
 
 ## Deferred / notes
 
+- `/grafbygger` bruker også `column-values` for filterverdier (nettleser, operativsystem, enhet, skjerm, språk, land, henvisningsdomene, URL-sti og hendelsesdetaljer). Samme kostnadsstige **30d → 14d → 7d** og delte øktcache som `/tabellbygger`; skriving i feltet utløser ikke flere spørringer. Dashboardparametre og «er tom»/«er ikke tom» henter ikke forslag. Andre felt beholder manuell inntasting.
+
 - `docs/future-features.md` — LLM SQL→form backfill for editing dashboard graphs (no SQL marker convention needed) + brukergrupper rollout to other features.
 - Nettside picker got placeholder only; proper redesign later (acknowledged a11y tradeoff).
 - AGENTS.md known-gotchas: consider adding DatePicker-inside-overflow-container variant (fix: `strategy="fixed"`) — distinct from the existing Combobox stacking gotcha.
