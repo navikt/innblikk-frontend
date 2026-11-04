@@ -397,10 +397,10 @@ export function createClickmapPreviewRouter() {
       return 'any'
     }
     const candidateMatchesIntent = (candidateKind, intent) => {
-      if (intent === 'accordion') return candidateKind === 'accordion'
+      if (intent === 'accordion') return candidateKind === 'accordion' || candidateKind === 'expandable'
       if (intent === 'tab') return candidateKind === 'tab'
-      if (intent === 'button') return candidateKind === 'button' || candidateKind === 'menuitem'
-      if (intent === 'menu') return candidateKind === 'menuitem' || candidateKind === 'link' || candidateKind === 'button'
+      if (intent === 'button') return candidateKind === 'button' || candidateKind === 'menuitem' || candidateKind === 'expandable'
+      if (intent === 'menu') return candidateKind === 'menuitem' || candidateKind === 'link' || candidateKind === 'button' || candidateKind === 'expandable'
       return true
     }
     const getAccordionText = (element) => {
@@ -539,9 +539,10 @@ export function createClickmapPreviewRouter() {
       }
   
       Array.from(document.querySelectorAll('a[href]')).forEach((element) => addCandidate(element, 'link'))
-      Array.from(document.querySelectorAll('button[aria-expanded], button[aria-controls], summary')).forEach((element) =>
-        addCandidate(element, 'accordion'),
+      Array.from(document.querySelectorAll('button[aria-expanded], button[aria-controls]')).forEach((element) =>
+        addCandidate(element, 'expandable'),
       )
+      Array.from(document.querySelectorAll('summary')).forEach((element) => addCandidate(element, 'accordion'))
       Array.from(
         document.querySelectorAll(
           'section.navds-expansioncard .navds-expansioncard__header, section[class*="expansioncard"] .navds-expansioncard__header, section[class*="Expandable_expandable"] [class*="Expandable_header"], section[class*="Expandable_expandable"] [class*="Expandable_headerTitle"]',
@@ -563,16 +564,16 @@ export function createClickmapPreviewRouter() {
     }
 
     const getMatchScore = (candidate, item) => {
+      const itemIntent = getComponentIntent(item.componentKey)
+      const itemIsAccordion = itemIntent === 'accordion'
       const elementText =
-        candidate.kind === 'accordion'
+        candidate.kind === 'accordion' || (candidate.kind === 'expandable' && itemIsAccordion)
           ? getAccordionText(candidate.element)
           : cleanText(candidate.element.textContent || candidate.element.getAttribute('aria-label') || '')
       const elementDestination = candidate.kind === 'link' ? normalizeDestination(candidate.element.getAttribute('href') || '') : null
-      const itemIntent = getComponentIntent(item.componentKey)
-      const itemIsAccordion = itemIntent === 'accordion'
       const itemIsInternalNavigation = isInternalNavigationComponent(item.componentKey)
       const matchesIntent = candidateMatchesIntent(candidate.kind, itemIntent)
-      if (itemIsAccordion && candidate.kind !== 'accordion') return -1
+      if (itemIsAccordion && !matchesIntent) return -1
       if (candidate.kind === 'link' && isHeadingLink(candidate.element)) return -1
       if (candidate.kind === 'link' && isInPageHashLink(candidate.element) && !isNavigationMenuLink(candidate.element)) return -1
       if (itemIsInternalNavigation && candidate.kind === 'link' && !isNavigationMenuLink(candidate.element)) return -1
@@ -600,7 +601,7 @@ export function createClickmapPreviewRouter() {
         (sectionExactMatch ? 4 : sectionContainsMatch ? 1 : 0) +
         (textExactMatch ? 2 : textContainsMatch ? 1 : 0) +
         (matchesIntent ? 2 : 0) +
-        (itemIsAccordion && candidate.kind === 'accordion' ? 2 : 0) +
+        (itemIsAccordion && matchesIntent ? 2 : 0) +
         (candidate.kind === 'link' ? 0.1 : 0)
       )
     }
@@ -707,7 +708,7 @@ export function createClickmapPreviewRouter() {
           binWeights[binIndex] += match.count
 
           const categoryBucket = binCategoryCounts[binIndex]
-          if (candidate.kind === 'accordion') {
+          if (candidate.kind === 'accordion' || (candidate.kind === 'expandable' && getComponentIntent(match.componentKey) === 'accordion')) {
             categoryBucket.accordionClicks += match.count
           } else if (candidate.kind === 'link') {
             categoryBucket.linkClicks += match.count
@@ -940,14 +941,14 @@ export function createClickmapPreviewRouter() {
 
       for (const candidate of candidates) {
         const matchesIntent = candidateMatchesIntent(candidate.kind, targetIntent)
-        if (targetIsAccordion && candidate.kind !== 'accordion') continue
+        if (targetIsAccordion && !matchesIntent) continue
         if (candidate.kind === 'link' && isHeadingLink(candidate.element)) continue
         if (candidate.kind === 'link' && isInPageHashLink(candidate.element) && !isNavigationMenuLink(candidate.element))
           continue
         if (targetIsInternalNavigation && candidate.kind === 'link' && !isNavigationMenuLink(candidate.element)) continue
 
         const elementText =
-          candidate.kind === 'accordion'
+          candidate.kind === 'accordion' || (candidate.kind === 'expandable' && targetIsAccordion)
             ? getAccordionText(candidate.element)
             : cleanText(candidate.element.textContent || candidate.element.getAttribute('aria-label') || '')
         const textExact = !!target.linkTextKey && target.linkTextKey === elementText
@@ -976,7 +977,7 @@ export function createClickmapPreviewRouter() {
           !textExact &&
           !textContains &&
           targetIsAccordion &&
-          candidate.kind !== 'accordion'
+          !matchesIntent
         )
           continue
 
@@ -985,7 +986,7 @@ export function createClickmapPreviewRouter() {
           (sectionExact ? 4 : sectionContains ? 1 : 0) +
           (textExact ? 4 : textContains ? 2 : 0) +
           (matchesIntent ? 2 : 0) +
-          (targetIsAccordion && candidate.kind === 'accordion' ? 2 : 0) +
+          (targetIsAccordion && matchesIntent ? 2 : 0) +
           (candidate.element.classList.contains('umami-clickmap-hit') || candidate.element.classList.contains('umami-heatmap-hit')
             ? 1
             : 0)
