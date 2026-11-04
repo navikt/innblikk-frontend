@@ -20,6 +20,9 @@ const MOCK_WEBSITES = [
 ]
 
 test.describe('App smoke tests', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route('**/column-values?*', (route) => route.fulfill({ json: { values: [], scannedDays: 30 } }))
+  })
   test('home page loads and shows the page heading', async ({ page }) => {
     await page.goto('/')
     await expect(page.getByRole('heading', { name: /forstå brukeradferd med innblikk/i })).toBeVisible({
@@ -216,26 +219,27 @@ test.describe('App smoke tests', () => {
     await expect(page.getByRole('button', { name: 'skjema sendt slett' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Sidevisninger slett' })).toHaveCount(0)
     await page.keyboard.press('Escape')
-    await page.getByRole('button', { name: 'Filter', exact: true }).click()
+    const filterTrigger = page.getByRole('button', { name: 'Filter', exact: true })
+    const triggerBeforeOpen = await filterTrigger.boundingBox()
+    await filterTrigger.click()
     const filterPicker = page.getByRole('combobox', { name: 'Velg filter' })
-    const eventFieldLeft = await picker.evaluate((input) => {
-      const field = input.closest('.aksel-combobox__wrapper-inner')
-      if (!field) throw new Error('Expected the event field wrapper')
-      return field.getBoundingClientRect().left
-    })
-    const filterFieldLeft = await filterPicker.evaluate((input) => {
-      const field = input.closest('.aksel-combobox__wrapper-inner')
-      if (!field) throw new Error('Expected the filter field wrapper')
-      return field.getBoundingClientRect().left
-    })
-    expect(Math.abs(filterFieldLeft - eventFieldLeft)).toBeLessThanOrEqual(1)
+    const filterDialog = page.getByRole('dialog', { name: 'Velg filter', exact: true })
+    await expect(filterDialog).toBeVisible()
+    await expect(filterPicker).toBeFocused()
+    await expect(filterTrigger).toHaveAttribute('aria-expanded', 'true')
+    expect(await filterTrigger.boundingBox()).toEqual(triggerBeforeOpen)
+    await expect(filterDialog.getByRole('listbox')).toHaveCount(1)
+    await expect(page.getByRole('button', { name: 'Avbryt filtervalg' })).toHaveCount(0)
     await page.getByRole('combobox', { name: 'Velg filter' }).fill('Side (URL)')
-    await page.getByRole('option', { name: 'Side (URL)', exact: true }).click()
+    await filterDialog.getByRole('option', { name: /^Side \(URL\) –/ }).click()
+    await expect(filterTrigger).toBeFocused()
+    const pageFilter = page.getByRole('region', { name: 'Side (URL)', exact: true })
+    await expect(pageFilter.getByRole('combobox', { name: 'Side (URL): sammenligning' })).toHaveValue('STARTS_WITH')
     await expect(page.getByRole('combobox', { name: 'Verdi', exact: true })).toBeVisible()
     await expect(page.getByRole('combobox', { name: 'Kolonne', exact: true })).toHaveCount(0)
     await page.getByRole('combobox', { name: 'Verdi', exact: true }).fill('/soknad')
     await page.keyboard.press('Enter')
-    await expect(page.getByRole('button', { name: '/soknad slett' })).toBeVisible()
+    await expect(pageFilter.locator('.aksel-combobox__selected-options--no-bg')).toHaveText('/soknad')
     await picker.fill('meny')
     await page.getByRole('option', { name: 'meny åpnet', exact: true }).click()
     await expect(page.getByRole('button', { name: 'meny åpnet slett' })).toBeVisible()
@@ -276,12 +280,15 @@ test.describe('App smoke tests', () => {
     }
     await page.getByRole('button', { name: 'Filter', exact: true }).click()
     await page.getByRole('combobox', { name: 'Velg filter' }).fill('Sidetittel')
-    await page.getByRole('option', { name: 'Sidetittel', exact: true }).click()
+    await page
+      .getByRole('dialog', { name: 'Velg filter', exact: true })
+      .getByRole('option', { name: /^Sidetittel –/ })
+      .click()
     await expect(page.getByText('Sidetittel', { exact: true }).and(page.locator('span'))).toBeVisible()
     await page.reload()
     await expect(page.getByText('Sidetittel', { exact: true }).and(page.locator('span'))).toBeVisible()
     await expect(page.getByRole('button', { name: 'skjema sendt slett' })).toBeVisible()
-    await expect(page.getByRole('button', { name: '/soknad slett' })).toBeVisible()
+    await expect(pageFilter.locator('.aksel-combobox__selected-options--no-bg')).toHaveText('/soknad')
     await expect(page.getByRole('button', { name: 'Søkere slett' })).toBeVisible()
     await page.getByRole('button', { name: 'Fjern brukergrupper' }).click()
     await expect(page.getByRole('combobox', { name: 'Velg brukergrupper' })).toHaveCount(0)
@@ -313,7 +320,7 @@ test.describe('App smoke tests', () => {
       const resetBounds = await reset.boundingBox()
       expect(resetBounds).not.toBeNull()
       const fieldBounds = []
-      for (const name of ['Nettside', 'URL-sti', 'Periode']) {
+      for (const name of ['Nettside', 'Side (URL)', 'Periode']) {
         const field = page.getByRole('combobox', { name, exact: true })
         const bounds = await field.evaluate((input) => {
           const { x, y, width, height } = (
@@ -552,7 +559,10 @@ test.describe('App smoke tests', () => {
       await page.keyboard.press('Escape')
       await page.getByRole('button', { name: 'Filter', exact: true }).click()
       await page.getByRole('combobox', { name: 'Velg filter' }).fill('Sidegruppe')
-      await page.getByRole('option', { name: 'Sidegruppe', exact: true }).click()
+      await page
+        .getByRole('dialog', { name: 'Velg filter', exact: true })
+        .getByRole('option', { name: /^Sidegruppe –/ })
+        .click()
       const createButton = page.getByRole('button', { name: 'Opprett sidegruppe', exact: true })
       const dialog = page.getByRole('dialog', { name: 'Ny sidegruppe', exact: true })
       const sidegroupBounds = await page.getByRole('combobox', { name: 'Sidegruppe', exact: true }).boundingBox()

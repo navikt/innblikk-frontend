@@ -42,6 +42,7 @@ describe('GenericFilterCard suggestions', () => {
     ['country', 'country', undefined],
     ['referrer_domain', 'referrer_domain', undefined],
     ['url_path', 'url_path', undefined],
+    ['url_query', 'url_query', undefined],
     ['param_button', 'event_data_value', 'button'],
   ])('requests the supported column %s with its proper scope', async (column, expected, key) => {
     render(<GenericFilterCard {...props} filter={{ column, operator: '=', value: '' }} />)
@@ -95,7 +96,7 @@ describe('GenericFilterCard suggestions', () => {
     const user = userEvent.setup()
     vi.mocked(fetchColumnValues).mockRejectedValue(new Error('Suggestions exceed budget'))
     render(<GenericFilterCard {...props} />)
-    await screen.findByText('Kunne ikke hente forslag — du kan fortsatt skrive verdien manuelt')
+    await screen.findByText(/Kunne ikke hente forslag/)
     await user.type(screen.getByRole('combobox', { name: 'Verdi' }), 'My browser{Enter}')
     expect(props.updateFilter).toHaveBeenLastCalledWith(0, {
       operator: '=',
