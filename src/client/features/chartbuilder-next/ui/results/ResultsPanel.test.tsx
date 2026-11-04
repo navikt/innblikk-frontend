@@ -1,6 +1,7 @@
 import { render, screen, within, fireEvent, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import ResultsPanel from './ResultsPanel'
+import ShareResultsModal from './ShareResultsModal'
 
 vi.mock('@fluentui/react-charting', () => ({
   LineChart: () => null,
@@ -27,6 +28,136 @@ const props = {
   showDownloadReadMore: false,
   initialTab: 'table' as const,
 }
+
+describe('chart tab availability', () => {
+  afterEach(() => window.history.replaceState({}, '', '/'))
+
+  const line = {
+    data: {
+      lineChartData: [{ legend: 'Antall', data: [{ x: new Date('2026-11-01'), y: 10 }] }],
+    },
+  }
+  const category = { data: [{ x: 'Søk', y: 10 }] }
+  const chartProps = {
+    ...props,
+    hiddenTabs: [],
+    prepareLineChartData: () => line,
+    prepareBarChartData: () => category,
+    preparePieChartData: () => ({ ...category, total: 10 }),
+  }
+
+  it('only shows Table when none of the charts can render', () => {
+    render(<ResultsPanel {...props} hiddenTabs={[]} />)
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Tabell'])
+    expect(screen.getByRole('table')).toBeVisible()
+  })
+
+  it('shows all supported chart types', () => {
+    render(<ResultsPanel {...chartProps} />)
+    for (const name of ['Tabell', 'Linje', 'Område', 'Stolpe', 'Kake']) {
+      expect(screen.getByRole('tab', { name })).toBeVisible()
+    }
+    expect(screen.queryByRole('tab', { name: 'Trakt' })).not.toBeInTheDocument()
+  })
+
+  it('hides Line and Area together when line preparation fails, without hiding other charts', () => {
+    render(<ResultsPanel {...chartProps} prepareLineChartData={() => null} />)
+    expect(screen.queryByRole('tab', { name: 'Linje' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'Område' })).not.toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Stolpe' })).toBeVisible()
+    expect(screen.getByRole('tab', { name: 'Kake' })).toBeVisible()
+  })
+
+  it.each([
+    { data: [] },
+    { data: [{ x: 'A', y: 0 }] },
+    { data: [{ x: 'A', y: NaN }] },
+    { data: [{ x: 'A', y: Infinity }] },
+    {
+      data: [...Array.from({ length: 11 }, (_, i) => ({ x: String(i), y: 0 })), { x: 'A', y: 1 }, { x: 'B', y: -1 }],
+    },
+  ])('hides Bar and Pie using their existing displayed-value checks: %j', ({ data }) => {
+    render(
+      <ResultsPanel
+        {...chartProps}
+        prepareBarChartData={() => ({ data })}
+        preparePieChartData={() => ({ data, total: 0 })}
+      />,
+    )
+    expect(screen.queryByRole('tab', { name: 'Stolpe' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'Kake' })).not.toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Tabell' })).toBeVisible()
+  })
+
+  it('keeps Line and Area available for all-zero data', () => {
+    render(
+      <ResultsPanel
+        {...chartProps}
+        prepareLineChartData={() => ({
+          data: { lineChartData: [{ legend: 'Antall', data: [{ x: new Date('2026-11-01'), y: 0 }] }] },
+        })}
+      />,
+    )
+    expect(screen.getByRole('tab', { name: 'Linje' })).toBeVisible()
+    expect(screen.getByRole('tab', { name: 'Område' })).toBeVisible()
+  })
+
+  it('preserves explicit chart exclusions but never hides Table', () => {
+    window.history.replaceState({}, '', '/grafbygger?hideTabs=table,linechart')
+    render(<ResultsPanel {...chartProps} hiddenTabs={['table', 'piechart']} />)
+    expect(screen.getByRole('tab', { name: 'Tabell' })).toBeVisible()
+    expect(screen.queryByRole('tab', { name: 'Linje' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'Kake' })).not.toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Område' })).toBeVisible()
+  })
+
+  it.each(['linechart', 'areachart', 'barchart', 'piechart', 'funnel'])(
+    'falls back from an unavailable %s URL tab and updates the graph suggestion',
+    (tab) => {
+      window.history.replaceState({}, '', `/grafbygger?websiteId=site-1&tab=${tab}#resultater`)
+      const onGraphTypeSuggestionChange = vi.fn()
+      render(<ResultsPanel {...props} hiddenTabs={[]} onGraphTypeSuggestionChange={onGraphTypeSuggestionChange} />)
+      expect(screen.getByRole('tab', { name: 'Tabell' })).toHaveAttribute('aria-selected', 'true')
+      expect(new URLSearchParams(window.location.search).get('tab')).toBe('table')
+      expect(new URLSearchParams(window.location.search).get('websiteId')).toBe('site-1')
+      expect(window.location.hash).toBe('#resultater')
+      expect(onGraphTypeSuggestionChange).toHaveBeenCalledExactlyOnceWith('TABLE')
+    },
+  )
+
+  it('switches to Table when new results invalidate the selected chart, and restores tabs for compatible results', () => {
+    const { rerender } = render(<ResultsPanel {...chartProps} initialTab="linechart" />)
+    expect(screen.getByRole('tab', { name: 'Linje' })).toHaveAttribute('aria-selected', 'true')
+    rerender(<ResultsPanel {...props} hiddenTabs={[]} result={{ data: [{ antall: 1 }] }} />)
+    expect(screen.getByRole('tab', { name: 'Tabell' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.queryByRole('tab', { name: 'Linje' })).not.toBeInTheDocument()
+    rerender(<ResultsPanel {...chartProps} />)
+    expect(screen.getByRole('tab', { name: 'Linje' })).toBeVisible()
+    expect(screen.getByRole('tab', { name: 'Tabell' })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('does not discard a requested chart before results arrive', () => {
+    window.history.replaceState({}, '', '/grafbygger?tab=linechart')
+    const { rerender } = render(<ResultsPanel {...chartProps} result={null} loading />)
+    expect(new URLSearchParams(window.location.search).get('tab')).toBe('linechart')
+    rerender(<ResultsPanel {...chartProps} />)
+    expect(screen.getByRole('tab', { name: 'Linje' })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('does not show Funnel just because an incompatible result has a funnel marker', () => {
+    render(<ResultsPanel {...props} hiddenTabs={[]} sql="/* @chart funnel */ SELECT 1" initialTab={undefined} />)
+    expect(screen.queryByRole('tab', { name: 'Trakt' })).not.toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Tabell' })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('does not offer to hide Table in share settings', () => {
+    render(<ShareResultsModal sql="SELECT 1" open onClose={vi.fn()} />)
+    fireEvent.click(screen.getByText('Skjul graftyper', { selector: 'span' }))
+    expect(screen.queryByRole('checkbox', { name: 'Tabell' })).not.toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: 'Linjediagram' })).toBeVisible()
+    expect(screen.getByRole('option', { name: 'Tabell' })).toBeInTheDocument()
+  })
+})
 
 describe('shared funnel results', () => {
   afterEach(() => window.history.replaceState({}, '', '/'))

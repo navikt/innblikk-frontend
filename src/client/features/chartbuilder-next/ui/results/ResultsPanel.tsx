@@ -160,6 +160,15 @@ const MAX_PREVIEW_ROWS = 5000
 const MIN_PREVIEW_ROWS = 50
 const MAX_PREVIEW_CELLS = 4000
 
+const hasRenderableCategoryData = (data: Array<{ y: number }> | undefined): boolean => {
+  if (!data?.length) return false
+  const displayedValues =
+    data.length > 12
+      ? [...data.slice(0, 11).map((point) => point.y), data.slice(11).reduce((sum, point) => sum + point.y, 0)]
+      : data.map((point) => point.y)
+  return displayedValues.some((value) => Number.isFinite(value) && value !== 0)
+}
+
 const ResultsPanel = ({
   result,
   loading,
@@ -329,19 +338,45 @@ const ResultsPanel = ({
     }
   }
 
-  // Get hidden tabs from URL or props
+  const preparedCharts = useMemo(() => {
+    if (sqlOnly || !result?.data?.length) return { line: null, bar: null, pie: null }
+    return {
+      line: prepareLineChartData(false),
+      bar: prepareBarChartData(),
+      pie: preparePieChartData(),
+    }
+  }, [result, sqlOnly, prepareLineChartData, prepareBarChartData, preparePieChartData])
+
   const hiddenTabs = (() => {
     const urlParams = new URLSearchParams(window.location.search)
     const hideTabsParam = urlParams.get('hideTabs')
     const urlHiddenTabs = hideTabsParam ? hideTabsParam.split(',') : []
-    return [...new Set([...urlHiddenTabs, ...propHiddenTabs])]
+    const unavailableTabs: string[] = []
+    if (result?.data?.length) {
+      if (!preparedCharts.line) unavailableTabs.push('linechart', 'areachart')
+      if (!hasRenderableCategoryData(preparedCharts.bar?.data)) unavailableTabs.push('barchart')
+      if (!hasRenderableCategoryData(preparedCharts.pie?.data)) unavailableTabs.push('piechart')
+      if (!funnel) unavailableTabs.push('funnel')
+    }
+    return [...new Set([...urlHiddenTabs, ...propHiddenTabs, ...unavailableTabs])].filter((tab) => tab !== 'table')
   })()
 
+  const selectedTab = hiddenTabs.includes(activeTab) ? 'table' : activeTab
+
   useEffect(() => {
-    if (hiddenTabs.includes(activeTab)) {
-      setActiveTab('table')
+    if (activeTab !== selectedTab) {
+      setActiveTab(selectedTab)
+      const urlParams = new URLSearchParams(window.location.search)
+      if (urlParams.has('tab')) {
+        urlParams.set('tab', selectedTab)
+        window.history.replaceState(
+          {},
+          '',
+          `${window.location.pathname}?${urlParams.toString()}${window.location.hash}`,
+        )
+      }
     }
-  }, [activeTab, hiddenTabs])
+  }, [activeTab, selectedTab])
 
   // Update URL when tab changes
   const handleTabChange = (newTab: string) => {
@@ -355,15 +390,15 @@ const ResultsPanel = ({
   useEffect(() => {
     if (!onGraphTypeSuggestionChange) return
     const suggestedType =
-      activeTab === 'barchart'
+      selectedTab === 'barchart'
         ? 'BAR'
-        : activeTab === 'piechart'
+        : selectedTab === 'piechart'
           ? 'PIE'
-          : activeTab === 'linechart' || activeTab === 'areachart'
+          : selectedTab === 'linechart' || selectedTab === 'areachart'
             ? 'LINE'
             : 'TABLE'
     onGraphTypeSuggestionChange(suggestedType)
-  }, [activeTab, onGraphTypeSuggestionChange])
+  }, [selectedTab, onGraphTypeSuggestionChange])
 
   // Handler for executing search
   const handleSearch = () => {
@@ -795,10 +830,10 @@ const ResultsPanel = ({
         {!sqlOnly && result && result.data && result.data.length > 0 && (
           <div className="mt-2 space-y-3">
             {/* Tabbed Display */}
-            <Tabs value={activeTab} onChange={handleTabChange}>
+            <Tabs value={selectedTab} onChange={handleTabChange}>
               {!hideTabList && (
                 <Tabs.List>
-                  {!hiddenTabs.includes('table') && <Tabs.Tab value="table" label="Tabell" />}
+                  <Tabs.Tab value="table" label="Tabell" />
                   {showFunnel && !hiddenTabs.includes('funnel') && <Tabs.Tab value="funnel" label="Trakt" />}
                   {!hiddenTabs.includes('linechart') && <Tabs.Tab value="linechart" label="Linje" />}
                   {!hiddenTabs.includes('areachart') && <Tabs.Tab value="areachart" label="Område" />}
@@ -1043,7 +1078,7 @@ const ResultsPanel = ({
               <Tabs.Panel value="linechart" className="pt-4">
                 <div className="border rounded-lg bg-[var(--ax-bg-default)] p-4">
                   {(() => {
-                    let chartData = prepareLineChartData(showAverage)
+                    let chartData = showAverage ? prepareLineChartData(true) : preparedCharts.line
 
                     if (chartData && granularity !== 'day') {
                       chartData = aggregateChartData(chartData, granularity)
@@ -1117,7 +1152,7 @@ const ResultsPanel = ({
               <Tabs.Panel value="areachart" className="pt-4">
                 <div className="border rounded-lg bg-[var(--ax-bg-default)] p-4">
                   {(() => {
-                    let baseChartData = prepareLineChartData(false)
+                    let baseChartData = preparedCharts.line
 
                     if (!baseChartData) {
                       return (
@@ -1243,7 +1278,7 @@ const ResultsPanel = ({
               <Tabs.Panel value="barchart" className="pt-4">
                 <div className="border rounded-lg bg-[var(--ax-bg-default)] p-4">
                   {(() => {
-                    const chartData = prepareBarChartData()
+                    const chartData = preparedCharts.bar
                     console.log('Bar Chart Data:', chartData)
                     // Check if too many items
                     let displayData: IVerticalBarChartDataPoint[] = []
@@ -1280,11 +1315,7 @@ const ResultsPanel = ({
                       )
                     }
                     // Check if all y values are NaN, 0, or invalid
-                    const hasValidBarData =
-                      Array.isArray(displayData) &&
-                      displayData.some((item) => {
-                        return !Number.isNaN(item.y) && typeof item.y === 'number' && item.y !== 0
-                      })
+                    const hasValidBarData = hasRenderableCategoryData(displayData)
 
                     if (!hasValidBarData) {
                       return (
@@ -1327,7 +1358,7 @@ const ResultsPanel = ({
               <Tabs.Panel value="piechart" className="pt-4">
                 <div className="border rounded-lg bg-[var(--ax-bg-default)] p-4">
                   {(() => {
-                    const chartData = preparePieChartData()
+                    const chartData = preparedCharts.pie
                     console.log('Pie Chart Data:', chartData)
                     // Check if too many items
                     let displayData: any[] = []
@@ -1364,13 +1395,9 @@ const ResultsPanel = ({
                       )
                     }
                     // Check if all y values are NaN or if no valid values exist
-                    const hasValidY =
-                      Array.isArray(displayData) && displayData.some((item) => !Number.isNaN(item.y) && item.y !== 0)
+                    const hasValidY = hasRenderableCategoryData(displayData)
 
-                    if (
-                      !hasValidY ||
-                      (Array.isArray(displayData) && displayData.every((item) => Number.isNaN(item.y)))
-                    ) {
+                    if (!hasValidY) {
                       return (
                         <Alert variant="info">
                           Klarer ikke å vise sirkeldiagram, egner seg trolig ikke for denne grafen.

@@ -52,7 +52,7 @@ const ShareResultsModal = ({ sql, open, onClose }: ShareResultsModalProps) => {
       if (hiddenTabs.length === 0) {
         const hideTabsParam = urlParams.get('hideTabs')
         if (hideTabsParam) {
-          setHiddenTabs(hideTabsParam.split(',').filter(Boolean))
+          setHiddenTabs(hideTabsParam.split(',').filter((tab) => tab && tab !== 'table'))
         }
       }
     }
@@ -134,15 +134,17 @@ const ShareResultsModal = ({ sql, open, onClose }: ShareResultsModalProps) => {
           <ReadMore header="Skjul graftyper">
             <CheckboxGroup
               legend="Skjul graftyper"
-              description="Velg graftyper du vil skjule i delingsvisningen. Dette kan være nyttig hvis du kun ønsker å vise én eller noen få graf- eller tabelltyper til mottakeren."
+              description="Velg graftyper du vil skjule i delingsvisningen. Tabellvisningen er alltid tilgjengelig."
               value={hiddenTabs}
               onChange={(val) => setHiddenTabs(val as string[])}
             >
-              {tabOptions.map((option) => (
-                <Checkbox key={option.value} value={option.value}>
-                  {option.label}
-                </Checkbox>
-              ))}
+              {tabOptions
+                .filter((option) => option.value !== 'table')
+                .map((option) => (
+                  <Checkbox key={option.value} value={option.value}>
+                    {option.label}
+                  </Checkbox>
+                ))}
             </CheckboxGroup>
           </ReadMore>
 
