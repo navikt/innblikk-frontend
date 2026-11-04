@@ -1,4 +1,5 @@
 import PeriodPicker from '../../../analysis/ui/PeriodPicker.tsx'
+import { getChartColumnLabel } from '../../model/columnLabels.ts'
 import type { Filter } from '../../../../shared/types/chart.ts'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Events } from '@navikt/analytics-types'
@@ -1449,7 +1450,7 @@ const QueryPreview = ({
                 }
               >
                 <UNSAFE_Combobox
-                  label="URL-sti"
+                  label={edition === 'next' ? getChartColumnLabel('url_path') : 'URL-sti'}
                   size="small"
                   options={urlPathOptions}
                   selectedOptions={urlPath ? [formatPathLabel(urlPath)] : []}

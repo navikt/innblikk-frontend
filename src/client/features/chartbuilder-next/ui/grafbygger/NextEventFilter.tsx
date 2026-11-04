@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useId, useImperativeHandle, useRef, useState } from 'react'
 import { Alert, BodyShort, Button, Dialog, Heading, HStack, Select, UNSAFE_Combobox } from '@navikt/ds-react'
-import { PlusIcon, XMarkIcon } from '@navikt/aksel-icons'
+import { PlusIcon } from '@navikt/aksel-icons'
 import type { Filter, Parameter } from '../../../../shared/types/chart.ts'
 import type { Website } from '../../../../shared/types/website.ts'
 import { FILTER_COLUMNS, OPERATORS } from '../../../../shared/lib/constants.ts'
@@ -10,6 +10,12 @@ import { SidegroupEditor, type SidegroupEditorRef } from '../../../sidegroups/ui
 import type { Sidegroup } from '../../../sidegroups/model/types.ts'
 import { CustomEventsEditor, GenericFilterCard } from './EventSelector.tsx'
 import { defaultPageFilter, getEventSelection, setEventSelection } from '../../utils/eventSelection.ts'
+import FilterCard from './FilterCard.tsx'
+import { FILTER_DESCRIPTIONS } from './filterDescriptions.ts'
+import FilterTypePicker from './FilterTypePicker.tsx'
+import { getChartColumnLabel } from '../../model/columnLabels.ts'
+import OptionExplanation from '../../../../shared/ui/DescribedCombobox/OptionExplanation.tsx'
+import { getDefaultFilterOperator } from '../../model/filterOperators.ts'
 
 interface NextEventFilterProps {
   filters: Filter[]
@@ -45,7 +51,6 @@ const NextEventFilter = forwardRef(
     const initialized = useRef(false)
     const websiteId = website?.id
     const eventInputRef = useRef<HTMLInputElement>(null)
-    const filterInputRef = useRef<HTMLInputElement>(null)
     const nudgeTitleId = useId()
     const [validationAttempted, setValidationAttempted] = useState(false)
     const [addingFilter, setAddingFilter] = useState(false)
@@ -99,22 +104,37 @@ const NextEventFilter = forwardRef(
       ...(isAdvanced ? [{ label: 'Eget hendelsesutvalg', value: 'advanced' }] : []),
     ]
     const normalizedEventSearch = eventSearch.trim().toLocaleLowerCase('nb')
-    const filterOptions = [
-      { label: 'Side (URL)', value: 'url_path' },
+    const filterChoices = [
+      { label: getChartColumnLabel('url_path'), value: 'url_path' },
+      { label: getChartColumnLabel('url_query'), value: 'url_query' },
       { label: 'Sidegruppe', value: 'sidegroup' },
       ...Object.values(FILTER_COLUMNS)
         .flatMap((group) => group.columns)
-        .filter((column) => !['event_type', 'event_name', 'url_path', 'created_at'].includes(column.value)),
+        .filter(
+          (column) =>
+            !['event_type', 'event_name', 'url_path', 'url_query', 'url_fullpath', 'created_at'].includes(column.value),
+        ),
       ...uniqueParameters.map((param) => ({
         label: param.key.split('.').pop() ?? param.key,
         value: `param_${param.key.split('.').pop()}`,
       })),
       { label: 'Hendelsesutvalg (avansert)', value: 'event-options' },
-    ]
+    ].map((option) => ({ ...option, label: getChartColumnLabel(option.value, option.label) }))
+    const filterOptions = filterChoices.map((option) => ({
+      value: option.value,
+      label: option.label,
+      description: FILTER_DESCRIPTIONS[option.value]?.description ?? 'Egenskap som sendes med hendelsen',
+      example: FILTER_DESCRIPTIONS[option.value]?.example,
+    }))
     const visibleFilters = filters.filter(
       (filter) =>
         !['event_type', 'event_name', 'created_at'].includes(filter.column) &&
-        !(filter.column === 'url_path' && filter.interactive && filter.value === '{{url_sti}}'),
+        !(
+          filter.column === 'url_path' &&
+          filter.interactive &&
+          filter.value === '{{url_sti}}' &&
+          !filter.showInFilterEditor
+        ),
     )
 
     useEffect(() => {
@@ -129,10 +149,6 @@ const NextEventFilter = forwardRef(
 
     const dirty = selectedValues.length > 0 || visibleFilters.length > 0
     useEffect(() => onDirtyStateChange?.(dirty), [dirty, onDirtyStateChange])
-
-    useEffect(() => {
-      if (addingFilter) filterInputRef.current?.click()
-    }, [addingFilter])
 
     const updateSelection = (pageviews: boolean, custom: boolean, eventNames?: Filter) => {
       if (pageviews || custom) setValidationAttempted(false)
@@ -264,127 +280,90 @@ const NextEventFilter = forwardRef(
           </Alert>
         )}
         <HStack gap="space-24" align="start" wrap>
-          {addingFilter ? (
-            <div className="flex min-w-0 flex-1 items-start gap-1">
-              <div className="min-w-0 flex-1">
-                <UNSAFE_Combobox
-                  ref={filterInputRef}
-                  label="Velg filter"
-                  hideLabel
-                  autoFocus
-                  size="small"
-                  placeholder="Søk etter filter"
-                  options={filterOptions}
-                  selectedOptions={[]}
-                  isMultiSelect={false}
-                  shouldAutocomplete={false}
-                  onToggleSelected={(value, selected) => {
-                    if (!selected) return
-                    if (value === 'event-options') setShowEventOptions(true)
-                    else {
-                      setFilters((previous) => [
-                        ...previous.filter((filter) =>
-                          value === 'url_path' || value === 'sidegroup' ? filter.column !== 'url_path' : true,
-                        ),
-                        value === 'sidegroup'
-                          ? { column: 'url_path', rawExpression: 'TRUE' }
-                          : { column: value, operator: '=', value: '' },
-                      ])
-                    }
-                    setAddingFilter(false)
-                    onEnableCustomEvents?.(value.startsWith('param_'))
-                  }}
-                />
-              </div>
-              <Button
-                size="small"
-                variant="tertiary"
-                icon={<XMarkIcon aria-hidden />}
-                aria-label="Avbryt filtervalg"
-                onClick={() => setAddingFilter(false)}
-              />
-            </div>
-          ) : (
-            <Button
-              variant="tertiary"
-              data-color="neutral"
-              size="small"
-              className="px-0"
-              icon={<PlusIcon aria-hidden />}
-              onClick={() => {
-                setAddingFilter(true)
-                onEnableCustomEvents?.(true)
-              }}
-            >
-              Filter
-            </Button>
-          )}
+          <FilterTypePicker
+            open={addingFilter}
+            onOpenChange={setAddingFilter}
+            options={filterOptions}
+            onRequestOptions={() => onEnableCustomEvents?.(true)}
+            onSelect={(value) => {
+              if (value === 'event-options') setShowEventOptions(true)
+              else {
+                setFilters((previous) => [
+                  ...previous.filter((filter) =>
+                    value === 'url_path' || value === 'sidegroup' ? filter.column !== 'url_path' : true,
+                  ),
+                  value === 'sidegroup'
+                    ? { column: 'url_path', rawExpression: 'TRUE' }
+                    : { column: value, operator: getDefaultFilterOperator(value), value: '' },
+                ])
+              }
+              onEnableCustomEvents?.(value.startsWith('param_'))
+            }}
+          />
           {additionalAction}
         </HStack>
         {visibleFilters.map((filter) => {
           const index = filters.indexOf(filter)
           if (filter.column === 'url_path' && filter.rawExpression) {
             return (
-              <div key={index} className="rounded-md border border-(--ax-border-neutral-subtle) p-3 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-semibold">Sidegruppe</span>
-                  <Button
-                    size="xsmall"
-                    variant="tertiary"
-                    icon={<XMarkIcon aria-hidden />}
-                    aria-label="Fjern sidegruppefilter"
-                    onClick={() => removeFilter(index)}
-                  />
-                </div>
-                {groupsError && (
-                  <Alert size="small" variant="error">
-                    Kunne ikke hente sidegrupper. Du kan fortsatt opprette en ny.
-                  </Alert>
-                )}
-                <Select
-                  label="Sidegruppe"
-                  hideLabel
-                  size="small"
-                  disabled={groupsLoading}
-                  value={filter.multipleValues?.[0] ?? ''}
-                  onChange={(event) => {
-                    const group = selectableSidegroups.find((item) => String(item.id) === event.target.value)
-                    if (group)
-                      updateFilter(index, {
-                        rawExpression: buildSidegroupSqlCondition(group, 'url_path'),
-                        multipleValues: [String(group.id)],
-                        customColumn: group.name,
-                      })
-                  }}
-                >
-                  <option value="" disabled>
-                    {groupsLoading ? 'Henter sidegrupper…' : 'Velg sidegruppe'}
-                  </option>
-                  {filter.multipleValues?.[0] &&
-                    !selectableSidegroups.some((group) => String(group.id) === filter.multipleValues?.[0]) && (
-                      <option value={filter.multipleValues[0]}>{filter.customColumn ?? 'Lagret sidegruppe'}</option>
-                    )}
-                  {selectableSidegroups.map((group) => (
-                    <option key={group.id} value={group.id}>
-                      {group.name}
-                    </option>
-                  ))}
-                </Select>
-                {website && (
-                  <Button
-                    type="button"
-                    variant="tertiary"
+              <FilterCard
+                key={index}
+                title="Sidegruppe"
+                removeLabel="Fjern sidegruppefilter"
+                onRemove={() => removeFilter(index)}
+              >
+                <div className="space-y-2">
+                  <OptionExplanation {...FILTER_DESCRIPTIONS.sidegroup} />
+                  {groupsError && (
+                    <Alert size="small" variant="error">
+                      Kunne ikke hente sidegrupper. Du kan fortsatt opprette en ny.
+                    </Alert>
+                  )}
+                  <Select
+                    label="Sidegruppe"
+                    hideLabel
                     size="small"
-                    icon={<PlusIcon aria-hidden />}
-                    onClick={(event) => {
-                      sidegroupTriggerRef.current = event.currentTarget
-                      setCreatingSidegroupIndex(index)
+                    disabled={groupsLoading}
+                    value={filter.multipleValues?.[0] ?? ''}
+                    onChange={(event) => {
+                      const group = selectableSidegroups.find((item) => String(item.id) === event.target.value)
+                      if (group)
+                        updateFilter(index, {
+                          rawExpression: buildSidegroupSqlCondition(group, 'url_path'),
+                          multipleValues: [String(group.id)],
+                          customColumn: group.name,
+                        })
                     }}
                   >
-                    Opprett sidegruppe
-                  </Button>
-                )}
-              </div>
+                    <option value="" disabled>
+                      {groupsLoading ? 'Henter sidegrupper…' : 'Velg sidegruppe'}
+                    </option>
+                    {filter.multipleValues?.[0] &&
+                      !selectableSidegroups.some((group) => String(group.id) === filter.multipleValues?.[0]) && (
+                        <option value={filter.multipleValues[0]}>{filter.customColumn ?? 'Lagret sidegruppe'}</option>
+                      )}
+                    {selectableSidegroups.map((group) => (
+                      <option key={group.id} value={group.id}>
+                        {group.name}
+                      </option>
+                    ))}
+                  </Select>
+                  {website && (
+                    <Button
+                      type="button"
+                      variant="tertiary"
+                      size="small"
+                      icon={<PlusIcon aria-hidden />}
+                      onClick={(event) => {
+                        sidegroupTriggerRef.current = event.currentTarget
+                        setCreatingSidegroupIndex(index)
+                      }}
+                    >
+                      Opprett sidegruppe
+                    </Button>
+                  )}
+                </div>
+              </FilterCard>
             )
           }
           return (
@@ -392,9 +371,19 @@ const NextEventFilter = forwardRef(
               key={index}
               websiteId={websiteId}
               compact
+              explanation={
+                filterOptions.find((option) => option.value === filter.column) ?? FILTER_DESCRIPTIONS[filter.column]
+              }
               filter={filter}
               index={index}
-              columnLabel={filterOptions.find((option) => option.value === filter.column)?.label ?? filter.column}
+              columnLabel={getChartColumnLabel(
+                filter.column,
+                filterChoices.find((option) => option.value === filter.column)?.label ??
+                  Object.values(FILTER_COLUMNS)
+                    .flatMap((group) => group.columns)
+                    .find((column) => column.value === filter.column)?.label ??
+                  filter.column,
+              )}
               OPERATORS={OPERATORS}
               parameters={parameters}
               uniqueParameters={uniqueParameters}
@@ -406,36 +395,49 @@ const NextEventFilter = forwardRef(
           )
         })}
         {(showEventOptions || isAdvanced) && (
-          <CustomEventsEditor
-            customEventsMode={
-              customMode ??
-              (!selection.custom ? 'none' : names?.interactive ? 'interactive' : names ? 'specific' : 'all')
-            }
-            setCustomEventsMode={(mode) => {
-              setCustomMode(mode)
-              if (mode === 'all') updateSelection(selection.pageviews, true)
-              if (mode === 'specific') updateNames(customValues, eventOperator)
+          <FilterCard
+            title="Hendelsesutvalg (avansert)"
+            onRemove={() => {
+              setShowEventOptions(false)
+              setCustomMode(null)
+              updateSelection(selection.pageviews, selection.custom)
             }}
-            eventNameOperator={names?.operator ?? eventOperator}
-            setEventNameOperator={(operator) => {
-              setEventOperator(operator)
-              updateNames(customValues, operator)
-            }}
-            customEvents={customValues}
-            customEventsList={customEventsList}
-            handleCustomEventsChange={updateNames}
-            handleEventTypeChange={(_, checked) => updateSelection(selection.pageviews, checked, names)}
-            onEnableCustomEvents={onEnableCustomEvents}
-            eventLookbackDays={dateRangeInDays}
-            onEventLookbackDaysChange={onDateRangeInDaysChange}
-            isEventsLoading={isEventsLoading}
-            filters={filters}
-            parameters={parameters}
-            uniqueParameters={uniqueParameters}
-            OPERATORS={OPERATORS}
-            updateFilter={updateFilter}
-            addFilterDirectly={(filter) => setFilters((previous) => [...previous, filter])}
-          />
+          >
+            <div className="mb-2">
+              <OptionExplanation {...FILTER_DESCRIPTIONS['event-options']} />
+            </div>
+            <CustomEventsEditor
+              websiteId={websiteId}
+              customEventsMode={
+                customMode ??
+                (!selection.custom ? 'none' : names?.interactive ? 'interactive' : names ? 'specific' : 'all')
+              }
+              setCustomEventsMode={(mode) => {
+                setCustomMode(mode)
+                if (mode === 'all') updateSelection(selection.pageviews, true)
+                if (mode === 'specific') updateNames(customValues, eventOperator)
+              }}
+              eventNameOperator={names?.operator ?? eventOperator}
+              setEventNameOperator={(operator) => {
+                setEventOperator(operator)
+                updateNames(customValues, operator)
+              }}
+              customEvents={customValues}
+              customEventsList={customEventsList}
+              handleCustomEventsChange={updateNames}
+              handleEventTypeChange={(_, checked) => updateSelection(selection.pageviews, checked, names)}
+              onEnableCustomEvents={onEnableCustomEvents}
+              eventLookbackDays={dateRangeInDays}
+              onEventLookbackDaysChange={onDateRangeInDaysChange}
+              isEventsLoading={isEventsLoading}
+              filters={filters}
+              parameters={parameters}
+              uniqueParameters={uniqueParameters}
+              OPERATORS={OPERATORS}
+              updateFilter={updateFilter}
+              addFilterDirectly={(filter) => setFilters((previous) => [...previous, filter])}
+            />
+          </FilterCard>
         )}
         <Dialog
           open={creatingSidegroupIndex !== null}

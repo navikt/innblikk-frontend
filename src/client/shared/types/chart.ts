@@ -9,6 +9,8 @@ export interface Filter {
   dateRangeType?: string // For tracking which date range type is selected
   metabaseParam?: boolean // Add this line
   interactive?: boolean // Add this for interactive mode filters
+  /** Keep an explicitly configured dashboard filter visible in the chart editor. */
+  showInFilterEditor?: boolean
   /**
    * A pre-built, already-parenthesized SQL boolean expression to inject
    * verbatim, bypassing column/operator/value formatting entirely. Used to

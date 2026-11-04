@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Accordion, Alert, Bleed, BodyShort, Box, Button, Checkbox, Loader } from '@navikt/ds-react'
-import { ArrowCirclepathReverseIcon, PlusIcon, XMarkIcon } from '@navikt/aksel-icons'
+import { ArrowCirclepathReverseIcon, PlusIcon } from '@navikt/aksel-icons'
 import { Events } from '@navikt/analytics-types'
 import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
@@ -8,6 +8,8 @@ import QueryPreview from './results/QueryPreview.tsx'
 import ResultsDisplayOptions from './results/ResultsDisplayOptions.tsx'
 import EventFilter from './grafbygger/EventFilter.tsx'
 import NextEventFilter from './grafbygger/NextEventFilter.tsx'
+import FilterCard from './grafbygger/FilterCard.tsx'
+import OptionExplanation from '../../../shared/ui/DescribedCombobox/OptionExplanation.tsx'
 import ChartLayout from '../../analysis/ui/ChartLayoutOriginal.tsx'
 import MetricSelector from './grafbygger/MetricSelector.tsx'
 import CohortPicker, { type CohortPickerRef } from './grafbygger/CohortPicker.tsx'
@@ -438,22 +440,14 @@ const ChartsPage = ({ edition = 'current' }: { edition?: 'current' | 'next' }) =
                   isEventsLoading={isEventsLoading}
                 />
                 {isNextEdition && COHORTS_ENABLED && showNextCohorts && (
-                  <section
-                    aria-label="Brukergrupper"
-                    className="mt-3 space-y-3 rounded-md border border-(--ax-border-neutral-subtle) bg-(--ax-bg-default) p-3"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-semibold">Brukergrupper</span>
-                      <Button
-                        variant="tertiary"
-                        size="xsmall"
-                        icon={<XMarkIcon aria-hidden />}
-                        aria-label="Fjern brukergrupper"
-                        onClick={handleRemoveCohorts}
-                      />
-                    </div>
-                    {cohortPicker}
-                  </section>
+                  <div className="mt-3">
+                    <FilterCard title="Brukergrupper" onRemove={handleRemoveCohorts}>
+                      <div className="mb-3">
+                        <OptionExplanation description="Avgrens til en lagret gruppe besøkende, for eksempel de som har sendt inn en søknad." />
+                      </div>
+                      {cohortPicker}
+                    </FilterCard>
+                  </div>
                 )}
               </SidebarSection>
 

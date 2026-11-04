@@ -30,6 +30,21 @@ const baseConfig: ChartConfig = {
   limit: 1000,
 }
 
+describe('page and URL parameter filters', () => {
+  it('combines separate page and parameter criteria with AND', () => {
+    const sql = generateSQLCore(
+      baseConfig,
+      [
+        ...dayFilters,
+        { column: 'url_path', operator: '=', value: '/sok' },
+        { column: 'url_query', operator: '=', value: 'tema=jobb' },
+      ],
+      [],
+    )
+    expect(sql).toMatch(/url_path\s*=\s*'\/sok'\s+AND\s+(?:\w+\.)?url_query\s*=\s*'tema=jobb'/)
+  })
+})
+
 describe('zero-padding of time-grouped queries', () => {
   it('wraps a day-grouped query in a calendar series that pads missing days with 0', () => {
     const sql = generateSQLCore({ ...baseConfig, groupByFields: ['created_at'] }, dayFilters, [])

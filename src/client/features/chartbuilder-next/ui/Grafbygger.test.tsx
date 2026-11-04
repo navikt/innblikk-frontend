@@ -268,6 +268,9 @@ describe('Grafbygger page', () => {
 
     await user.click(addGroup)
     expect(screen.getByTestId('cohort-picker')).toBeVisible()
+    expect(
+      screen.getByText('Avgrens til en lagret gruppe besøkende, for eksempel de som har sendt inn en søknad.'),
+    ).toHaveClass('option-explanation__description')
     expect(screen.queryByRole('button', { name: 'Brukergruppe' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Fjern brukergrupper' }))
     expect(screen.queryByTestId('cohort-picker')).not.toBeInTheDocument()

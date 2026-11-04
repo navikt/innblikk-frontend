@@ -7,6 +7,7 @@ import AlertWithCloseButton from './AlertWithCloseButton.tsx' // Import AlertWit
 import accordionStyles from '../../../../shared/ui/GroupedAccordion.module.css'
 import { ArrowDownIcon, ArrowUpIcon } from '@navikt/aksel-icons'
 import { getEventSelection } from '../../utils/eventSelection.ts'
+import { getChartColumnLabel } from '../../model/columnLabels.ts'
 
 interface GroupingOptionsProps {
   edition?: 'current' | 'next'
@@ -131,7 +132,9 @@ const GroupingOptions = ({
     ]
     return fields.flatMap((field) => {
       const column = columns.find((option) => option.value === field)
-      return column ? [column] : []
+      return column
+        ? [{ ...column, label: edition === 'next' ? getChartColumnLabel(column.value, column.label) : column.label }]
+        : []
     })
   }, [COLUMN_GROUPS, edition, showEventNameShortcut])
 
@@ -139,7 +142,12 @@ const GroupingOptions = ({
     const baseGroups = Object.entries(COLUMN_GROUPS).map(([groupKey, group]) => ({
       key: groupKey,
       label: group.label,
-      options: group.columns.map((col) => ({ value: col.value, label: col.label })),
+      options: group.columns
+        .filter((col) => edition !== 'next' || col.value !== 'url_fullpath')
+        .map((col) => ({
+          value: col.value,
+          label: edition === 'next' ? getChartColumnLabel(col.value, col.label) : col.label,
+        })),
       isEventDetailsEmpty: false,
     }))
 
@@ -194,7 +202,7 @@ const GroupingOptions = ({
     }
 
     return reorderedGroups
-  }, [COLUMN_GROUPS, uniqueParameters, sanitizeColumnName])
+  }, [COLUMN_GROUPS, uniqueParameters, sanitizeColumnName, edition])
 
   /** Groups shaped for accordion and filtered search in "Hendelsesdetaljer" */
   const comboboxGroups = useMemo(
@@ -509,7 +517,12 @@ const GroupingOptions = ({
                       <div className="flex flex-col">
                         <div className="flex items-center gap-3">
                           <span className="text-sm text-[var(--ax-text-subtle)]">{index + 1}.</span>
-                          <span className="font-medium">{paramName || column?.label || field}</span>
+                          <span className="font-medium">
+                            {paramName ||
+                              (edition === 'next'
+                                ? getChartColumnLabel(field, column?.label || field)
+                                : column?.label || field)}
+                          </span>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">

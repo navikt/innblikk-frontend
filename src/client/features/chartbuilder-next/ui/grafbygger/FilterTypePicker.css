@@ -1,0 +1,9 @@
+.filter-type-picker__content {
+  padding: var(--ax-space-12);
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+}
+
+.filter-type-picker__content .described-combobox__popup {
+  max-height: min(20rem, 45dvh);
+}
