@@ -16,6 +16,8 @@ interface ChartLayoutProps {
   onFiltersSubmit?: () => void
   children: React.ReactNode
   currentPage?: AnalyticsPage
+  beta?: boolean
+  betaLabel?: string
   wideSidebar?: boolean // Deprecated but kept for compatibility
   hideSidebar?: boolean // Now hides the top filter bar
   hideAnalysisSelector?: boolean
@@ -114,6 +116,8 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
   onFiltersSubmit,
   children,
   currentPage,
+  beta,
+  betaLabel,
   hideSidebar = false,
   hideAnalysisSelector,
   sidebarContent,
@@ -138,7 +142,13 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
 
   return (
     <>
-      <PageHeader title={title} description={description} beta={isCurrentPageBeta} compactGutters />
+      <PageHeader
+        title={title}
+        description={description}
+        beta={beta ?? isCurrentPageBeta}
+        betaLabel={betaLabel}
+        compactGutters
+      />
 
       <AppBlock className="pb-16" gutters="compact">
         {/*
