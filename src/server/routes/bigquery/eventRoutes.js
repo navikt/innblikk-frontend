@@ -998,11 +998,9 @@ export function createEventRouter({ bigquery, GCP_PROJECT_ID, BIGQUERY_TIMEZONE 
                       e.session_id,
                       e.event_name,
                       e.created_at,
-                      -- Aggregate ALL properties into a string for grouping
-                      -- Exclude variable properties like scrollPos, screen that don't provide meaningful info
                       STRING_AGG(
                           CASE 
-                              WHEN LOWER(p.data_key) IN ('scrollpos', 'screen', 'screenwidth', 'screenheight', 'viewport', 'timestamp', 'time', 'scrolldepth') THEN NULL
+                              WHEN REGEXP_CONTAINS(LOWER(p.data_key), r'^(device.*|originversion|scrollpos|screen|screenwidth|screenheight|viewport|timestamp|time|scrolldepth)$') THEN NULL
                               ELSE CONCAT(
                                   p.data_key,
                                   ': ',

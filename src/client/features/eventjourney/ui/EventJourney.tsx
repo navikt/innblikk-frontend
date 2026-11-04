@@ -139,7 +139,7 @@ const EventJourney = () => {
   return (
     <ChartLayout
       title="Hendelsesforløp"
-      description="Se rekkefølgen av hendelser brukere gjør på en spesifikk side."
+      description="Se rekkefølgen av hendelser brukere gjør på en spesifikk side. Hendelser grupperes etter innhold, ikke enhet, nettleser eller skjermstørrelse."
       currentPage="hendelsesreiser"
       websiteDomain={selectedWebsite?.domain}
       websiteName={selectedWebsite?.name}
