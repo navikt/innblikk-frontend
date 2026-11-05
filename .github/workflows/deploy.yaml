@@ -54,7 +54,7 @@ jobs:
       contents: write
       id-token: write
     steps:
-      - uses: 'actions/checkout@v6'
+      - uses: 'actions/checkout@v7'
 
       - name: 'Build and push'
         uses: nais/docker-build-push@v0
@@ -70,7 +70,7 @@ jobs:
             "NODE_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}"
 
       - name: 'Deploy to Dev'
-        uses: 'nais/deploy/actions/deploy@v2'
+        uses: 'nais/deploy/actions/deploy@v3'
         env:
           CLUSTER: 'dev-gcp'
           RESOURCE: .nais/dev/nais-dev.yaml
@@ -96,7 +96,7 @@ jobs:
       contents: write
       id-token: write
     steps:
-      - uses: 'actions/checkout@v6'
+      - uses: 'actions/checkout@v7'
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -122,7 +122,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: 'Deploy to Prod'
-        uses: 'nais/deploy/actions/deploy@v2'
+        uses: 'nais/deploy/actions/deploy@v3'
         env:
           CLUSTER: 'prod-gcp'
           RESOURCE: .nais/prod/nais-prod.yaml
@@ -145,7 +145,7 @@ jobs:
       contents: write
       id-token: write
     steps:
-      - uses: 'actions/checkout@v6'
+      - uses: 'actions/checkout@v7'
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -200,7 +200,7 @@ jobs:
             "NODE_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}"
 
       - name: 'Deploy release'
-        uses: 'nais/deploy/actions/deploy@v2'
+        uses: 'nais/deploy/actions/deploy@v3'
         env:
           CLUSTER: '${{ steps.tag.outputs.environment }}-gcp'
           RESOURCE: .nais/${{ steps.tag.outputs.environment }}/nais-${{ steps.tag.outputs.environment }}.yaml
