@@ -1,5 +1,5 @@
 name: 'Deploy'
-run-name: 'Deploy (${{ github.event_name }}) @ ${{ github.ref_name }} — ${{ github.sha }}'
+run-name: 'Deploy (${{ inputs.environment || github.event_name }}) @ ${{ inputs.release_tag || github.ref_name }}'
 
 # push to main     -> tests, then deploy to dev (tagged dev-*)
 # manual, dev      -> deploy the selected ref to dev
@@ -7,6 +7,8 @@ run-name: 'Deploy (${{ github.event_name }}) @ ${{ github.ref_name }} — ${{ gi
 # nightly          -> dev from main HEAD + prod rebuilt from the latest prod-* tag
 #                     (same code, fresh Chainguard base image)
 # manual, prod-rebuild -> run only the nightly prod rebuild by hand (to test it)
+# manual, release_tag  -> rebuild an existing tag and deploy to dev/prod
+#                        (run workflow from main, not from the old tag)
 on:
   push:
     branches: [main]
@@ -19,6 +21,10 @@ on:
         type: choice
         options: [dev, prod, prod-rebuild]
         default: dev
+      release_tag:
+        description: 'Optional existing release tag to redeploy to dev/prod. Leave blank for normal deployment. Run workflow from main.'
+        type: string
+        required: false
 
 concurrency:
   group: 'deploy'
@@ -41,7 +47,7 @@ jobs:
     needs: test
     if: >-
       ${{ !cancelled() && needs.test.result != 'failure' && needs.test.result != 'cancelled'
-      && (github.event_name != 'workflow_dispatch' || inputs.environment == 'dev') }}
+      && (github.event_name != 'workflow_dispatch' || (inputs.environment == 'dev' && inputs.release_tag == '')) }}
     runs-on: 'ubuntu-latest'
     permissions:
       packages: write
@@ -84,7 +90,7 @@ jobs:
 
   promote-prod:
     name: 'Promote to Prod'
-    if: github.event_name == 'workflow_dispatch' && inputs.environment == 'prod' && github.ref_name == 'main'
+    if: github.event_name == 'workflow_dispatch' && inputs.environment == 'prod' && inputs.release_tag == '' && github.ref_name == 'main'
     runs-on: 'ubuntu-latest'
     permissions:
       contents: write
@@ -130,13 +136,13 @@ jobs:
           git tag -a "$TAG_NAME" -m "Production deployment of ${{ steps.resolve-dev.outputs.version }}"
           git push origin "$TAG_NAME"
 
-  rebuild-prod:
-    name: 'Rebuild Prod (fresh base image)'
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.environment == 'prod-rebuild')
+  deploy-release:
+    name: "Rebuild release → ${{ inputs.environment == 'dev' && 'Dev' || 'Prod' }} (fresh base image)"
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (inputs.environment == 'prod-rebuild' || inputs.release_tag != ''))
     runs-on: 'ubuntu-latest'
     permissions:
       packages: write
-      contents: read
+      contents: write
       id-token: write
     steps:
       - uses: 'actions/checkout@v6'
@@ -144,16 +150,41 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: 'Check out latest prod release'
+      - name: 'Resolve and check out release'
         id: tag
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+          WORKFLOW_REF: ${{ github.ref }}
         run: |
-          TAG="$(git tag -l 'prod-*' --sort=-creatordate | head -n 1)"
+          if [ -n "$RELEASE_TAG" ]; then
+            if [ "$WORKFLOW_REF" != 'refs/heads/main' ]; then
+              echo "Run tag redeployments from main so the current workflow is used."
+              exit 1
+            fi
+            case "$TARGET_ENVIRONMENT" in
+              dev|prod) ;;
+              *) echo "Select dev or prod when specifying a release tag."; exit 1 ;;
+            esac
+            TAG="$RELEASE_TAG"
+          else
+            TAG="$(git tag -l 'prod-*' --sort=-creatordate | head -n 1)"
+            TARGET_ENVIRONMENT=prod
+          fi
           if [ -z "$TAG" ]; then
             echo "No prod-* tag found. Do a manual prod deploy first."
             exit 1
           fi
-          git checkout --detach "$TAG"
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          if ! git check-ref-format "refs/tags/$TAG" || ! SHA="$(git rev-parse --verify "refs/tags/${TAG}^{commit}")"; then
+            echo "Release tag does not exist or does not point to a commit: $TAG"
+            exit 1
+          fi
+          git checkout --detach "$SHA"
+          {
+            echo "sha=$SHA"
+            echo "environment=$TARGET_ENVIRONMENT"
+          } >> "$GITHUB_OUTPUT"
+          echo "Rebuilding $TAG ($SHA) for $TARGET_ENVIRONMENT."
 
       - name: 'Build and push'
         uses: nais/docker-build-push@v0
@@ -168,9 +199,24 @@ jobs:
           build_secrets: |
             "NODE_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}"
 
-      - name: 'Deploy to Prod'
+      - name: 'Deploy release'
         uses: 'nais/deploy/actions/deploy@v2'
         env:
-          CLUSTER: 'prod-gcp'
-          RESOURCE: .nais/prod/nais-prod.yaml
+          CLUSTER: '${{ steps.tag.outputs.environment }}-gcp'
+          RESOURCE: .nais/${{ steps.tag.outputs.environment }}/nais-${{ steps.tag.outputs.environment }}.yaml
           VAR: image=${{ steps.docker-build-push.outputs.image }},version=${{ steps.tag.outputs.sha }}
+
+      # Record rollbacks too, so nightly rebuilds keep the newly selected code.
+      - name: 'Create prod deployment tag'
+        if: inputs.release_tag != '' && steps.tag.outputs.environment == 'prod'
+        env:
+          RELEASE_SHA: ${{ steps.tag.outputs.sha }}
+          RELEASE_IMAGE: ${{ steps.docker-build-push.outputs.image }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          TAG_NAME="prod-$(date -u +'%Y.%m.%d-%H%M%S')"
+          git tag -a "$TAG_NAME" "$RELEASE_SHA" \
+            -m "Production deployment of $RELEASE_SHA" \
+            -m "Image: $RELEASE_IMAGE"
+          git push origin "$TAG_NAME"
