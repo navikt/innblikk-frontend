@@ -2,8 +2,8 @@
  * Registry of features currently in alfa or beta.
  *
  * «Beta» here describes the *feature*, never the user: there is no opt-in,
- * everyone gets beta features, and each feature surfaces its own dismissable
- * notice (BetaFeatureNotice) where it lives. This registry is the single
+ * everyone gets beta features. Features can surface a dismissable
+ * notice (BetaFeatureNotice) where they live. This registry is the single
  * source of truth for which features are in alfa or beta, and powers the
  * corresponding overviews on /innstillinger.
  *
@@ -13,7 +13,7 @@
  * inert once the notice is unmounted.
  */
 export type BetaFeature = {
-  /** Dismissal key (dismissedAlerts.ts) and registry key. */
+  /** Registry key; also a dismissal key when the feature has a notice. */
   id: string
   stage?: 'alfa' | 'beta'
   /** Short name, e.g. «Grafbyggeren». */
@@ -25,6 +25,13 @@ export type BetaFeature = {
 }
 
 export const betaFeatures: BetaFeature[] = [
+  {
+    id: 'navigasjonsmonstre',
+    stage: 'alfa',
+    title: 'Gjentatt navigasjon',
+    description: 'Se hvilke sider brukerne kommer tilbake til i samme besøk.',
+    href: '/navigasjonsmonstre',
+  },
   {
     id: 'nytt-design',
     title: 'Nytt design',

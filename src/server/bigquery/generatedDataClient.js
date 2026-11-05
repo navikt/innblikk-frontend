@@ -271,6 +271,7 @@ function buildFakeJob(query, dryRun) {
   const totalBytesProcessed = fakeBytesProcessed(query)
   const job = {
     metadata: {
+      isGeneratedData: true,
       statistics: {
         totalBytesProcessed: String(totalBytesProcessed),
         query: {
@@ -337,7 +338,16 @@ export function createGeneratedBigQueryClient({ proxyBaseUrl, staticToken } = {}
         try {
           const result = await proxyQuery({ query: config.query, params: config.params, dryRun: config.dryRun })
           if (config.dryRun === true) {
-            const bytes = String(result.totalBytesProcessed ?? 0)
+            const value = result.totalBytesProcessed
+            if (
+              !['string', 'number'].includes(typeof value) ||
+              (typeof value === 'string' && !/^\d+$/.test(value)) ||
+              !Number.isSafeInteger(Number(value)) ||
+              Number(value) < 0
+            ) {
+              throw new Error('BigQuery proxy returned no valid dry-run byte estimate')
+            }
+            const bytes = String(value)
             const dryRunJob = {
               metadata: {
                 statistics: {

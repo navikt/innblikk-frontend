@@ -6,7 +6,7 @@ import { dismissAlert, isAlertDismissed } from '../lib/dismissedAlerts.ts'
 export const RESEARCHOPS_SLACK_URL = 'https://nav-it.slack.com/archives/C02UGFS2J4B'
 
 interface BetaFeatureNoticeProps {
-  /** Dismissal key, must match an entry in shared/lib/betaFeatures.ts. */
+  /** Dismissal key; listed features must match the betaFeatures registry. Unlisted experiments use a local key. */
   id: string
   /** e.g. «Grafbyggeren er i beta». */
   title: string

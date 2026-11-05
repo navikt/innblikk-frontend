@@ -6,6 +6,7 @@ import { Events } from '@navikt/analytics-types'
 import { trackEvent } from '../../../../shared/lib/trackEvent.ts'
 import { getFeatureFlag, type FeatureFlags } from '../../../../shared/lib/featureFlags.ts'
 import { getGcpProjectId } from '../../../../shared/lib/runtimeConfig.ts'
+import { QueryCostConfirmation } from '../../../../shared/ui/QueryCostConfirmation'
 import {
   Heading,
   Link,
@@ -1918,59 +1919,13 @@ const QueryPreview = ({
         </Modal.Footer>
       </Modal>
 
-      {/* Confirmation Modal for Large Queries */}
-      <Modal
+      <QueryCostConfirmation
         open={showConfirmModal}
-        onClose={handleCancelQuery}
-        header={{
-          heading: 'Bekreft stor spørring',
-          closeButton: false,
-        }}
-      >
-        <Modal.Body>
-          {pendingQueryEstimate &&
-            (() => {
-              const gb = Number(pendingQueryEstimate.totalBytesProcessedGB ?? 0)
-              const cost = Number(pendingQueryEstimate.estimatedCostUSD ?? NaN) || gb * 0.00625
-              let variant: 'info' | 'warning' | 'error'
-              let message: string
-
-              if (gb >= 100) {
-                variant = 'error'
-                message = 'Dette er en veldig stor spørring!'
-              } else if (gb >= 20) {
-                variant = 'warning'
-                message = 'Dette er en stor spørring.'
-              } else {
-                variant = 'info'
-                message = 'Denne spørringen vil prosessere en del data.'
-              }
-
-              return (
-                <div className="space-y-4">
-                  <Alert variant={variant}>
-                    <div className="space-y-2">
-                      <p className="font-medium">{message}</p>
-                      <p>
-                        <strong>Data å prosessere:</strong> {pendingQueryEstimate.totalBytesProcessedGB} GB
-                        {cost > 0 && ` • Kostnad: $${cost.toFixed(2)}`}
-                      </p>
-                    </div>
-                  </Alert>
-                  <p>Er du sikker på at du vil kjøre denne spørringen?</p>
-                </div>
-              )
-            })()}
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="primary" onClick={handleConfirmQuery} loading={loading}>
-            Ja, kjør spørringen
-          </Button>
-          <Button variant="secondary" onClick={handleCancelQuery}>
-            Avbryt
-          </Button>
-        </Modal.Footer>
-      </Modal>
+        estimate={pendingQueryEstimate}
+        loading={loading}
+        onConfirm={handleConfirmQuery}
+        onCancel={handleCancelQuery}
+      />
     </>
   )
 }

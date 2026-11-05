@@ -53,6 +53,7 @@ const Diagnosis = lazy(() => import('./features/analysis').then((m) => ({ defaul
 
 // User Feature
 const UserJourney = lazy(() => import('./features/user').then((m) => ({ default: m.UserJourney })))
+const NavigationPatterns = lazy(() => import('./features/navigation-patterns/NavigationPatterns.tsx'))
 const UserProfile = lazy(() => import('./features/user').then((m) => ({ default: m.UserProfile })))
 const UserProfiles = lazy(() => import('./features/user').then((m) => ({ default: m.UserProfiles })))
 
@@ -287,6 +288,7 @@ export const routes: AppRoute[] = [
   { path: '/dashboard', component: <DashboardRouteResolver />, fullWidth: true },
   { path: '/dashboard/:dashboardId', component: <DashboardDetailRoute />, fullWidth: true },
   { path: '/brukerreiser', component: <UserJourney />, fullWidth: true },
+  { path: '/navigasjonsmonstre', component: <NavigationPatterns />, fullWidth: true },
   { path: '/hendelsesreiser', component: <EventJourney />, fullWidth: true },
   { path: '/hendelsesreiser/visualisering', component: <EventJourneyClickmap />, fullWidth: true },
   { path: '/trakt', component: <Funnel />, fullWidth: true },

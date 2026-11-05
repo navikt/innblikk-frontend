@@ -130,6 +130,21 @@ describe('chartbuilder preview filters', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/bigquery/estimate', expect.any(Object))
   })
 
+  it('keeps Grafbygger cost confirmation before execution when using the shared modal', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({ totalBytesProcessedGB: '50', estimatedCostUSD: '0.305', data: [] }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<QueryPreview sql="SELECT 1" />)
+    await userEvent.click(screen.getByRole('button', { name: 'Vis resultater' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Bekreft stor spørring' })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).not.toHaveBeenCalledWith('/api/bigquery', expect.any(Object))
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Ja, kjør spørringen' }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/bigquery', expect.any(Object)))
+  })
+
   it('places additional settings before the primary results action', () => {
     render(<QueryPreview sql="SELECT 1" additionalOptions={<div>Tilleggsvalg</div>} />)
 
