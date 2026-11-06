@@ -223,6 +223,123 @@ function resolveDateRange(params) {
 }
 
 function synthesizeRows(query, params) {
+  if (query.includes('RankedContext AS') && query.includes('omitted_events')) {
+    const start = Date.parse(params.episodeStart)
+    const end = Date.parse(params.episodeEnd)
+    const pageviews = params.sessionId === 'generated-pageviews'
+    const duplicates = params.sessionId === 'generated-duplicates'
+    const count = pageviews ? 5 : duplicates ? 2 : 4
+    const path = duplicates ? '/kontakt' : '/soknad'
+    const event = (time, phase, index, type, url) => ({
+      event_id: `generated-activity-${index}`,
+      created_at: { value: new Date(time).toISOString() },
+      event_type: type,
+      event_name: type === 1 ? '' : 'navigere',
+      url_path: url,
+      page_title: url === '/kvittering' ? 'Kvittering' : 'Søknad',
+      hostname: 'gaupe.nav.no',
+      phase,
+      properties:
+        type === 1
+          ? []
+          : [
+              { key: 'lenketekst', value: duplicates ? 'Kontakt oss' : 'Send søknad' },
+              { key: 'destinasjon', value: duplicates ? '/kontakt' : '/kvittering' },
+              { key: 'komponent', value: 'knapp' },
+            ],
+      property_count: type === 1 ? 0 : 3,
+      is_highlighted: params.highlightedEventIds.includes(`generated-activity-${index}`),
+    })
+    return [
+      {
+        activity: [
+          event(start - 5000, 'before', 0, 1, path),
+          ...Array.from({ length: count }, (_, index) =>
+            event(start + ((end - start) * index) / (count - 1), 'during', index + 1, pageviews ? 1 : 2, path),
+          ),
+          event(end + 1000, 'after', count + 1, 1, '/kvittering'),
+        ],
+        omitted_events: 0,
+        is_generated_data: true,
+      },
+    ]
+  }
+  if (query.includes('NumberedWindows AS') && query.includes('targeted_interaction_events')) {
+    const { end } = resolveDateRange(params)
+    const example = (offset, duration, count, signal, kind = 'latest') => ({
+      started_at: { value: new Date(end - offset).toISOString() },
+      ended_at: { value: new Date(end - offset + duration * 1000).toISOString() },
+      event_count: count,
+      duration_seconds: duration,
+      session_id: `generated-${signal}`,
+      visit_id: `generated-visit-${signal}`,
+      visitor_type: params?.useCookies ? 'cookie' : 'fingerprint',
+      device: 'mobile',
+      browser: 'safari',
+      event_ids: Array.from({ length: count }, (_, index) => `generated-activity-${index + 1}`),
+      example_kind: kind,
+    })
+    return [
+      {
+        summary: {
+          total_visitors: 120,
+          total_visits: 150,
+          cookie_visitors: params?.useCookies ? 100 : 0,
+          fingerprint_visitors: params?.useCookies ? 20 : 120,
+          events_without_visit: 0,
+          total_events: 820,
+          custom_events: 500,
+          interaction_events: 300,
+          targeted_interaction_events: 270,
+          tied_timestamps: 12,
+        },
+        affected_visitors: 8,
+        total_episodes: 11,
+        duplicate_episodes: 2,
+        total_findings: 3,
+        signal_findings: { pageviews: 1, interactions: 1, duplicates: 1 },
+        is_generated_data: true,
+        findings: [
+          {
+            signal: 'pageviews',
+            hostname: 'gaupe.nav.no',
+            page: '/soknad',
+            event_name: '',
+            target: '',
+            has_target: 0,
+            episodes: 5,
+            affected_visitors: 4,
+            max_repetitions: 5,
+            examples: [example(300000, 12, 5, 'pageviews', 'largest'), example(60000, 8, 3, 'pageviews')],
+          },
+          {
+            signal: 'interactions',
+            hostname: 'gaupe.nav.no',
+            page: '/soknad',
+            event_name: 'navigere',
+            target: 'Send søknad · /kvittering',
+            has_target: 1,
+            episodes: 4,
+            affected_visitors: 3,
+            max_repetitions: 4,
+            examples: [example(400000, 3, 4, 'interactions', 'largest'), example(120000, 2, 3, 'interactions')],
+          },
+          {
+            signal: 'duplicates',
+            hostname: 'gaupe.nav.no',
+            page: '/kontakt',
+            event_name: 'navigere',
+            target: 'Kontakt oss · /kontakt',
+            has_target: 1,
+            episodes: 2,
+            affected_visitors: 2,
+            max_repetitions: 2,
+            examples: [example(180000, 0.05, 2, 'duplicates', 'largest')],
+          },
+        ],
+      },
+    ]
+  }
   const aliases = extractSelectAliases(query)
   if (aliases.length === 0) return []
 
@@ -267,7 +384,7 @@ function fakeBytesProcessed(query) {
   return 5 * 1024 * 1024 + (seed % (1.5 * 1024 * 1024 * 1024))
 }
 
-function buildFakeJob(query, dryRun) {
+function buildFakeJob(query, dryRun, params) {
   const totalBytesProcessed = fakeBytesProcessed(query)
   const job = {
     metadata: {
@@ -281,7 +398,7 @@ function buildFakeJob(query, dryRun) {
     },
     async getQueryResults() {
       if (dryRun) return [[]]
-      return [synthesizeRows(query, undefined)]
+      return [synthesizeRows(query, params)]
     },
     // Mirrors @google-cloud/bigquery's Job.getMetadata() ([metadata] tuple) — some routes
     // (e.g. event-properties) read bytes-processed this way instead of via job.metadata.
@@ -363,7 +480,7 @@ export function createGeneratedBigQueryClient({ proxyBaseUrl, staticToken } = {}
           )
         }
       }
-      return [buildFakeJob(config.query, config.dryRun === true)]
+      return [buildFakeJob(config.query, config.dryRun === true, config.params)]
     },
 
     async query(config) {

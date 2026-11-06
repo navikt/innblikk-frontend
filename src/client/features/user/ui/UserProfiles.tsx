@@ -9,21 +9,18 @@ import {
   Heading,
   Table,
   Pagination,
-  Modal,
   Link,
   InlineMessage,
   Tooltip,
 } from '@navikt/ds-react'
 import {
   ClockIcon,
-  ExternalLinkIcon,
   GlobeIcon,
   LaptopIcon,
   MagnifyingGlassIcon,
   MenuElipsisVerticalIcon,
   MobileIcon,
   MonitorIcon,
-  PersonIcon,
   TabletIcon,
 } from '@navikt/aksel-icons'
 import { parseISO } from 'date-fns'
@@ -53,6 +50,7 @@ import { useCookieSupport, useCookieStartDate } from '../../../shared/hooks/useS
 import type { UserProfile, ActivityItem, QueryStats, UsersApiResponse, ActivityApiResponse } from '../model'
 import { getUserProfilesSqlTemplate } from '../utils/userProfilesDashboardSql.ts'
 import { SqlViewer } from '../../chartbuilder-next'
+import UserActivityModal from './UserActivityModal'
 
 const ROWS_PER_PAGE = 50
 const DEFAULT_MAX_USERS = 1000
@@ -86,7 +84,7 @@ const UserProfiles = () => {
     () => searchParams.get('urlPath') || searchParams.get('pagePath') || '',
   )
   const [pathOperator, setPathOperator] = useState<string>(() => searchParams.get('pathOperator') || 'equals')
-  const [searchQuery, setSearchQuery] = useState<string>('')
+  const [searchQuery, setSearchQuery] = useState<string>(() => searchParams.get('query') || '')
   const [users, setUsers] = useState<UserProfile[]>([])
   const [totalUsers, setTotalUsers] = useState<number>(0)
   const [loading, setLoading] = useState<boolean>(false)
@@ -95,7 +93,7 @@ const UserProfiles = () => {
   const [maxUsers, setMaxUsers] = useState<number>(DEFAULT_MAX_USERS)
   const [queryStats, setQueryStats] = useState<QueryStats | null>(null)
   const [generatedSql, setGeneratedSql] = useState<string | null>(null)
-  const [showTableSearch, setShowTableSearch] = useState(false)
+  const [showTableSearch, setShowTableSearch] = useState(() => Boolean(searchParams.get('query')))
   const [showAddToDashboardDialog, setShowAddToDashboardDialog] = useState(false)
   const [showTransferToMetabaseDialog, setShowTransferToMetabaseDialog] = useState(false)
   const tableSearchInputRef = useRef<HTMLInputElement>(null)
@@ -104,6 +102,7 @@ const UserProfiles = () => {
   const [selectedSession, setSelectedSession] = useState<UserProfile | null>(null)
   const [activityLoading, setActivityLoading] = useState<boolean>(false)
   const [activityData, setActivityData] = useState<ActivityItem[]>([])
+  const [activityError, setActivityError] = useState<string | null>(null)
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false)
   const [selectedActivityUrl, setSelectedActivityUrl] = useState<string | null>(null)
 
@@ -188,6 +187,8 @@ const UserProfiles = () => {
         // Update URL with configuration for sharing
         const newParams = new URLSearchParams(window.location.search)
         newParams.set('period', period)
+        if (searchQuery) newParams.set('query', searchQuery)
+        else newParams.delete('query')
         if (pagePath) {
           newParams.set('urlPath', pagePath)
           newParams.set('pathOperator', pathOperator)
@@ -237,31 +238,39 @@ const UserProfiles = () => {
 
   // Handle "Enter" key in search fields
 
-  const fetchUserActivity = async (sessionId: string) => {
-    if (!selectedWebsite) return
+  const fetchUserActivity = useCallback(
+    async (sessionId: string) => {
+      if (!selectedWebsite) return
 
-    setActivityLoading(true)
-    const { startDate, endDate } = getDateRange()
+      setActivityLoading(true)
+      setActivityData([])
+      setActivityError(null)
+      const { startDate, endDate } = getDateRange()
 
-    try {
-      const response = await fetch(`/api/bigquery/users/${sessionId}/activity`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          websiteId: selectedWebsite.id,
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
-        }),
-      })
+      try {
+        const response = await fetch(`/api/bigquery/users/${sessionId}/activity`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            websiteId: selectedWebsite.id,
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString(),
+          }),
+        })
 
-      if (!response.ok) throw new Error('Kunne ikke hente aktivitet')
+        if (!response.ok) throw new Error('Kunne ikke hente aktivitet')
 
-      const result: ActivityApiResponse = await response.json()
-      setActivityData(result.activity)
-    } finally {
-      setActivityLoading(false)
-    }
-  }
+        const result: ActivityApiResponse = await response.json()
+        setActivityData(result.activity)
+      } catch (error) {
+        console.error('User activity failed:', error)
+        setActivityError(error instanceof Error ? error.message : 'Kunne ikke hente aktivitet')
+      } finally {
+        setActivityLoading(false)
+      }
+    },
+    [selectedWebsite, getDateRange],
+  )
 
   const handleRowClick = (user: UserProfile) => {
     trackEvent(Events.TABELL_RAD_VALGT, { seksjon: 'brukerprofiler', komponentId: 'bruker-tabell', erValgt: true })
@@ -651,183 +660,113 @@ const UserProfiles = () => {
         sourceWebsiteId={selectedWebsite?.id}
       />
 
-      <Modal
+      <UserActivityModal
         open={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        header={{
-          heading: 'Brukerdetaljer',
-          closeButton: true,
+        activity={activityData}
+        loading={activityLoading}
+        error={activityError}
+        onOpenUrl={setSelectedActivityUrl}
+        onRetry={() => {
+          if (selectedSession)
+            void fetchUserActivity(
+              selectedSession.primarySessionId || selectedSession.sessionIds?.[0] || selectedSession.userId || '',
+            )
         }}
-        width="medium"
-      >
-        <Modal.Body>
-          {selectedSession && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4 bg-[var(--ax-bg-neutral-soft)] p-4 rounded-lg">
-                <div className="col-span-2">
-                  <Heading level="3" size="xsmall" className="mb-1 text-gray-500">
-                    {selectedSession.idType === 'cookie' ? 'Cookie ID (Distinct ID)' : 'Sesjons‑ID'}
-                  </Heading>
-                  <code className="text-sm break-all">
-                    {selectedSession.userId || '(mangler cookie-id)'}
-                    {selectedSession.idType === 'cookie' ? ' 🍪' : ''}
-                  </code>
-                </div>
-                {selectedSession.sessionIds &&
-                  selectedSession.sessionIds.length > 0 &&
-                  selectedSession.idType === 'cookie' && (
-                    <div className="col-span-2">
-                      <Heading level="3" size="xsmall" className="mb-1 text-gray-500">
-                        Sesjoner knyttet til bruker ({selectedSession.sessionIds.length})
-                      </Heading>
-                      <ul className="space-y-1 list-disc list-inside">
-                        {selectedSession.sessionIds.map((id: string) => (
-                          <li key={id} className="break-all">
-                            {id}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                {selectedSession.distinctId && selectedSession.idType !== 'cookie' && (
+        details={
+          selectedSession && (
+            <div className="grid grid-cols-2 gap-4 bg-[var(--ax-bg-neutral-soft)] p-4 rounded-lg">
+              <div className="col-span-2">
+                <Heading level="3" size="xsmall" className="mb-1 text-gray-500">
+                  {selectedSession.idType === 'cookie' ? 'Cookie ID (Distinct ID)' : 'Sesjons‑ID'}
+                </Heading>
+                <code className="text-sm break-all">
+                  {selectedSession.userId || '(mangler cookie-id)'}
+                  {selectedSession.idType === 'cookie' ? ' 🍪' : ''}
+                </code>
+              </div>
+              {selectedSession.sessionIds &&
+                selectedSession.sessionIds.length > 0 &&
+                selectedSession.idType === 'cookie' && (
                   <div className="col-span-2">
                     <Heading level="3" size="xsmall" className="mb-1 text-gray-500">
-                      Distinct ID (Cookie ID)
+                      Sesjoner knyttet til bruker ({selectedSession.sessionIds.length})
                     </Heading>
-                    <code className="text-sm break-all">{selectedSession.distinctId}</code>
+                    <ul className="space-y-1 list-disc list-inside">
+                      {selectedSession.sessionIds.map((id: string) => (
+                        <li key={id} className="break-all">
+                          {id}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
-                <div>
+              {selectedSession.distinctId && selectedSession.idType !== 'cookie' && (
+                <div className="col-span-2">
                   <Heading level="3" size="xsmall" className="mb-1 text-gray-500">
-                    Først sett
+                    Distinct ID (Cookie ID)
                   </Heading>
-                  <div className="flex items-center gap-2">
-                    <ClockIcon fontSize="1rem" className="text-gray-400" />
-                    <span>{formatDate(selectedSession.firstSeen)}</span>
-                  </div>
+                  <code className="text-sm break-all">{selectedSession.distinctId}</code>
                 </div>
-                <div>
-                  <Heading level="3" size="xsmall" className="mb-1 text-gray-500">
-                    Sist sett
-                  </Heading>
-                  <div className="flex items-center gap-2">
-                    <ClockIcon fontSize="1rem" className="text-gray-400" />
-                    <span>{formatDate(selectedSession.lastSeen)}</span>
-                  </div>
-                </div>
-                <div>
-                  <Heading level="3" size="xsmall" className="mb-1 text-gray-500">
-                    Enhet
-                  </Heading>
-                  <div className="flex items-center gap-2">
-                    {getDeviceIcon(selectedSession.device)}
-                    <span>{translateDevice(selectedSession.device)}</span>
-                  </div>
-                </div>
-                <div>
-                  <Heading level="3" size="xsmall" className="mb-1 text-gray-500">
-                    Operativsystem
-                  </Heading>
-                  <div className="flex items-center gap-2">
-                    <MonitorIcon fontSize="1rem" className="text-gray-400" />
-                    <span>{selectedSession.os || '-'}</span>
-                  </div>
-                </div>
-                <div>
-                  <Heading level="3" size="xsmall" className="mb-1 text-gray-500">
-                    Nettleser
-                  </Heading>
-                  <div className="flex items-center gap-2">
-                    <GlobeIcon fontSize="1rem" className="text-gray-400" />
-                    <span>{selectedSession.browser || '-'}</span>
-                  </div>
-                </div>
-                <div>
-                  <Heading level="3" size="xsmall" className="mb-1 text-gray-500">
-                    Land
-                  </Heading>
-                  <div className="flex items-center gap-2">
-                    <GlobeIcon fontSize="1rem" className="text-gray-400" />
-                    <span>{translateCountry(selectedSession.country ?? '')}</span>
-                  </div>
+              )}
+              <div>
+                <Heading level="3" size="xsmall" className="mb-1 text-gray-500">
+                  Først sett
+                </Heading>
+                <div className="flex items-center gap-2">
+                  <ClockIcon fontSize="1rem" className="text-gray-400" />
+                  <span>{formatDate(selectedSession.firstSeen)}</span>
                 </div>
               </div>
-
               <div>
-                <Heading level="3" size="small" className="mb-4">
-                  Aktivitetslogg
+                <Heading level="3" size="xsmall" className="mb-1 text-gray-500">
+                  Sist sett
                 </Heading>
-
-                {!activityLoading && activityData.length > 0 && (
-                  <div className="bg-[var(--ax-bg-neutral-soft)] p-4 rounded-lg mb-6 flex flex-wrap gap-8 border border-gray-100">
-                    <div>
-                      <span className="text-[var(--ax-text-default)] block text-sm font-medium mb-1">
-                        Sidevisninger
-                      </span>
-                      <span className="font-bold text-2xl text-[var(--ax-text-default)]">
-                        {activityData.filter((a) => a.type === 'pageview').length}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[var(--ax-text-default)] block text-sm font-medium mb-1">Hendelser</span>
-                      <span className="font-bold text-2xl text-[var(--ax-text-default)]">
-                        {activityData.filter((a) => a.type !== 'pageview').length}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[var(--ax-text-default)] block text-sm font-medium mb-1">Totalt</span>
-                      <span className="font-bold text-2xl text-[var(--ax-text-default)]">{activityData.length}</span>
-                    </div>
-                  </div>
-                )}
-
-                {activityLoading ? (
-                  <div className="flex justify-center p-4">
-                    <Loader />
-                  </div>
-                ) : (
-                  <div className="relative border-l border-[var(--ax-border-neutral-subtle)] ml-3 space-y-8">
-                    {activityData.map((item, index) => (
-                      <div key={index} className="mb-8 ml-8 relative">
-                        <span className="absolute flex items-center justify-center w-8 h-8 bg-[var(--ax-bg-accent-soft)] rounded-full -left-[41px] ring-4 ring-[var(--ax-bg-default)]">
-                          {item.type === 'pageview' ? (
-                            <MonitorIcon fontSize="1.125rem" className="text-[var(--ax-text-accent)]" />
-                          ) : (
-                            <PersonIcon fontSize="1.125rem" className="text-green-600" />
-                          )}
-                        </span>
-                        <div className="flex flex-col gap-1">
-                          <span className="text-sm text-gray-500">
-                            {new Date(item.createdAt).toLocaleTimeString('no-NO', {
-                              timeZone: 'Europe/Oslo',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </span>
-                          <h4 className="text-lg font-medium text-[var(--ax-text-default)]">
-                            {item.type === 'pageview' ? 'Sidevisning' : item.name}
-                          </h4>
-                          <p className="text-base text-[var(--ax-text-default)]">{item.title || item.url}</p>
-                          {item.url && (
-                            <code
-                              className="text-sm text-blue-600 hover:underline cursor-pointer mt-1 bg-[var(--ax-bg-neutral-soft)] p-1.5 rounded w-fit flex items-center gap-1"
-                              onClick={() => {
-                                if (item.url) setSelectedActivityUrl(item.url)
-                              }}
-                            >
-                              {item.url} <ExternalLinkIcon className="h-3 w-3" fontSize="1.25rem" />
-                            </code>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <div className="flex items-center gap-2">
+                  <ClockIcon fontSize="1rem" className="text-gray-400" />
+                  <span>{formatDate(selectedSession.lastSeen)}</span>
+                </div>
+              </div>
+              <div>
+                <Heading level="3" size="xsmall" className="mb-1 text-gray-500">
+                  Enhet
+                </Heading>
+                <div className="flex items-center gap-2">
+                  {getDeviceIcon(selectedSession.device)}
+                  <span>{translateDevice(selectedSession.device)}</span>
+                </div>
+              </div>
+              <div>
+                <Heading level="3" size="xsmall" className="mb-1 text-gray-500">
+                  Operativsystem
+                </Heading>
+                <div className="flex items-center gap-2">
+                  <MonitorIcon fontSize="1rem" className="text-gray-400" />
+                  <span>{selectedSession.os || '-'}</span>
+                </div>
+              </div>
+              <div>
+                <Heading level="3" size="xsmall" className="mb-1 text-gray-500">
+                  Nettleser
+                </Heading>
+                <div className="flex items-center gap-2">
+                  <GlobeIcon fontSize="1rem" className="text-gray-400" />
+                  <span>{selectedSession.browser || '-'}</span>
+                </div>
+              </div>
+              <div>
+                <Heading level="3" size="xsmall" className="mb-1 text-gray-500">
+                  Land
+                </Heading>
+                <div className="flex items-center gap-2">
+                  <GlobeIcon fontSize="1rem" className="text-gray-400" />
+                  <span>{translateCountry(selectedSession.country ?? '')}</span>
+                </div>
               </div>
             </div>
-          )}
-        </Modal.Body>
-      </Modal>
+          )
+        }
+      />
 
       <AnalysisActionModal
         open={!!selectedActivityUrl}
