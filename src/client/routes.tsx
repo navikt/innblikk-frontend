@@ -19,6 +19,7 @@ const SidegruppeEditor = lazy(() => import('./features/sidegroups').then((m) => 
 
 // Chartbuilder Feature (the rewritten grafbygger, with cohorts — currently in beta)
 const Grafbygger = lazy(() => import('./features/chartbuilder-next').then((m) => ({ default: m.Grafbygger })))
+const GrafbyggerAlfa = lazy(() => import('./features/chartbuilder-alfa/ui/Grafbygger.tsx'))
 const Grafdeling = lazy(() => import('./features/chartbuilder-next').then((m) => ({ default: m.Grafdeling })))
 
 // Old Chartbuilder Feature (the previous grafbygger, kept available under /grafbygger-old)
@@ -254,7 +255,7 @@ export const routes: AppRoute[] = [
   { path: '/grafbygger-eol', component: <Grafbygger key="current" edition="current" />, fullWidth: true },
   {
     path: '/grafbygger-alfa',
-    component: <LegacyVisualizationRouteRedirect to="/grafbygger" />,
+    component: <GrafbyggerAlfa />,
     fullWidth: true,
   },
   {

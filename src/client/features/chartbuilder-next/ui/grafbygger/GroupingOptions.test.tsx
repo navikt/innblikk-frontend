@@ -48,21 +48,6 @@ function Harness({
 }
 
 describe('GroupingOptions', () => {
-  it('uses the same URL names as filters in the shortcuts, accordion and reorder list', async () => {
-    const user = userEvent.setup()
-    render(<Harness initial={['url_path', 'url_query']} />)
-    await user.click(screen.getByRole('button', { name: 'Sidedetaljer (2)' }))
-    expect(screen.getByRole('checkbox', { name: 'Parameter (URL)' })).toBeChecked()
-    expect(screen.getAllByRole('checkbox', { name: 'Side (URL)' })).toHaveLength(2)
-    expect(screen.queryByRole('checkbox', { name: 'URL-spørring' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('checkbox', { name: 'Side og parametere (URL)' })).not.toBeInTheDocument()
-    expect(screen.getByRole('checkbox', { name: 'Referrer (domene)' })).toBeInTheDocument()
-    expect(screen.getByRole('checkbox', { name: 'Referrer (side)' })).toBeInTheDocument()
-    expect(screen.queryByRole('checkbox', { name: 'Henvisningsdomene' })).not.toBeInTheDocument()
-    await user.click(screen.getByRole('checkbox', { name: /^Endre rekkefølge på grupperinger/ }))
-    expect(screen.getByText('Parameter (URL)', { selector: 'span.font-medium' })).toBeVisible()
-    expect(screen.getByText('Side (URL)', { selector: 'span.font-medium' })).toBeVisible()
-  })
   const multipleEvents = setEventSelection([], false, true, {
     column: 'event_name',
     operator: 'IN',
@@ -73,7 +58,7 @@ describe('GroupingOptions', () => {
   it('shows date, URL path and event name shortcuts before the accordions', () => {
     render(<Harness filters={multipleEvents} />)
     const shortcuts = screen.getAllByRole('checkbox').slice(0, 3)
-    for (const [index, name] of ['Dato', 'Side (URL)', 'Hendelsesnavn'].entries()) {
+    for (const [index, name] of ['Dato', 'URL-sti', 'Hendelsesnavn'].entries()) {
       expect(shortcuts[index]).toHaveAccessibleName(name)
       expect(shortcuts[index]).toBeVisible()
       expect(shortcuts[index]).not.toBeChecked()
@@ -142,9 +127,9 @@ describe('GroupingOptions', () => {
   it('keeps URL path shortcuts and accordion choices in sync', async () => {
     const user = userEvent.setup()
     render(<Harness />)
-    await user.click(screen.getAllByRole('checkbox', { name: 'Side (URL)' })[0])
+    await user.click(screen.getAllByRole('checkbox', { name: 'URL-sti' })[0])
     await user.click(screen.getByRole('button', { name: 'Sidedetaljer (1)' }))
-    const checkboxes = screen.getAllByRole('checkbox', { name: 'Side (URL)' })
+    const checkboxes = screen.getAllByRole('checkbox', { name: 'URL-sti' })
     expect(checkboxes).toHaveLength(2)
     checkboxes.forEach((checkbox) => expect(checkbox).toBeChecked())
     await user.click(checkboxes[1])
@@ -175,7 +160,7 @@ describe('GroupingOptions', () => {
         onEnableCustomEvents={onEnableCustomEvents}
       />,
     )
-    expect(screen.getAllByRole('checkbox', { name: 'Side (URL)' })[0]).toBeChecked()
+    expect(screen.getAllByRole('checkbox', { name: 'URL-sti' })[0]).toBeChecked()
     const checkbox = screen.getAllByRole('checkbox', { name: 'Hendelsesnavn' })[0]
     expect(checkbox).toBeChecked()
     await user.click(checkbox)

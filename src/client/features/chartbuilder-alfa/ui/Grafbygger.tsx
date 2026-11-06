@@ -1,0 +1,571 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Accordion, Alert, Bleed, BodyShort, Box, Button, Checkbox, Loader } from '@navikt/ds-react'
+import { ArrowCirclepathReverseIcon, PlusIcon } from '@navikt/aksel-icons'
+import { Events } from '@navikt/analytics-types'
+import { trackEvent } from '../../../shared/lib/trackEvent.ts'
+import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
+import QueryPreview from './results/QueryPreview.tsx'
+import ResultsDisplayOptions from '../../chartbuilder-next/ui/results/ResultsDisplayOptions.tsx'
+import EventFilter from '../../chartbuilder-next/ui/grafbygger/EventFilter.tsx'
+import NextEventFilter from './grafbygger/NextEventFilter.tsx'
+import FilterCard from './grafbygger/FilterCard.tsx'
+import OptionExplanation from '../../../shared/ui/DescribedCombobox/OptionExplanation.tsx'
+import ChartLayout from '../../analysis/ui/ChartLayoutOriginal.tsx'
+import MetricSelector from '../../chartbuilder-next/ui/grafbygger/MetricSelector.tsx'
+import CohortPicker, { type CohortPickerRef } from '../../chartbuilder-next/ui/grafbygger/CohortPicker.tsx'
+import GroupingOptions from './grafbygger/GroupingOptions.tsx'
+import PeriodOverrideOption from '../../chartbuilder-next/ui/grafbygger/PeriodFilter.tsx'
+import AlertWithCloseButton from '../../chartbuilder-next/ui/grafbygger/AlertWithCloseButton.tsx'
+import { BetaFeatureNotice, BetaFeedbackLine } from '../../../shared/ui/BetaFeatureNotice.tsx'
+import SidebarSection from '../../../shared/ui/SidebarSection.tsx'
+import ActionFeedbackButton from '../../../shared/ui/ActionFeedbackButton.tsx'
+import { FILTER_COLUMNS } from '../../../shared/lib/constants.ts'
+import { DATE_FORMATS, METRICS, COHORTS_ENABLED } from '../../chartbuilder-next/model/constants.ts'
+import { sanitizeColumnName } from '../../chartbuilder-next/utils/sanitize.ts'
+import { useChartConfig } from '../../chartbuilder-next/hooks/useChartConfig.ts'
+import { fetchCohortsDeep } from '../../chartbuilder-next/api/cohortApi.ts'
+import type { CohortDetailDto } from '../../../shared/types/cohort.ts'
+/**
+ * Stable fingerprint of a deep-fetched cohort lookup (ids + criteria trees),
+ * used to detect cross-tab edits without re-rendering on identical data.
+ * keySort stringification makes it order-independent.
+ */
+const fingerprintCohortLookup = (lookup: Map<string, CohortDetailDto>): string =>
+  JSON.stringify(
+    [...lookup.entries()].map(([id, c]) => [id, c.root] as const).sort(([a], [b]) => a.localeCompare(b)),
+    (_key, value: unknown) =>
+      value && typeof value === 'object' && !Array.isArray(value)
+        ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)))
+        : value,
+  )
+
+const ChartsPage = ({ edition = 'next' }: { edition?: 'current' | 'next' }) => {
+  const isNextEdition = edition === 'next'
+  const EventFilterComponent = isNextEdition ? NextEventFilter : EventFilter
+  const [cohortLoadError, setCohortLoadError] = useState<string | null>(null)
+  const isFocusedMode = (() => {
+    if (typeof window === 'undefined') return false
+    const params = new URLSearchParams(window.location.search)
+    const value = params.get('focused')
+    return value === '1' || value === 'true'
+  })()
+  const [isWebsitePickerInitializing, setIsWebsitePickerInitializing] = useState<boolean>(true)
+  const [groupingResetSignal, setGroupingResetSignal] = useState<number>(0)
+  const [metricResetSignal, setMetricResetSignal] = useState<number>(0)
+  const [isEventFilterDirty, setIsEventFilterDirty] = useState<boolean>(false)
+  const [kolonnenavnContainer, setKolonnenavnContainer] = useState<HTMLDivElement | null>(null)
+  const cohortPickerRef = useRef<CohortPickerRef>(null)
+  const cohortRequestIdRef = useRef(0)
+  /** Fingerprint of the cohort criteria tree behind the current generated SQL — for cross-tab staleness detection. */
+  const cohortFingerprintRef = useRef<string>('')
+  const [cohortsUpdatedElsewhere, setCohortsUpdatedElsewhere] = useState(false)
+  const [cohortPickerWebsiteId, setCohortPickerWebsiteId] = useState<string | null>(null)
+
+  const {
+    config,
+    filters,
+    parameters,
+    availableEvents,
+    dateRangeReady,
+    dateRangeInDays,
+    maxDaysAvailable,
+    forceReload,
+    resetIncludeParams,
+    requestIncludeParams,
+    requestLoadEvents,
+    isEventsLoading,
+    currentStep,
+    alertInfo,
+    generatedSQL,
+    hasAppliedUrlParams,
+    titleFromUrl,
+
+    chartFiltersRef,
+    summarizeRef,
+
+    setFilters,
+    setDateRangeInDays,
+    setRequestIncludeParams,
+    setRequestLoadEvents,
+    setIsEventsLoading,
+    setResolvedCohorts,
+    setCohortLookup,
+
+    resetAll,
+    addMetric,
+    removeMetric,
+    addGroupByField,
+    removeGroupByField,
+    moveGroupField,
+    setOrderBy,
+    clearOrderBy,
+    setConfig,
+    setParamAggregation,
+    setLimit,
+    setColumnOrderMode,
+    handleWebsiteChange,
+    handleEventsLoad,
+    handleMetadataLoad,
+  } = useChartConfig(edition, 'grafbygger-alfa')
+
+  const handleRatioModeChange = useCallback(
+    (enabled: boolean) => {
+      setConfig((prev) => ({
+        ...prev,
+        segmentRatioMode: enabled,
+      }))
+    },
+    [setConfig],
+  )
+
+  const handleCohortIdsChange = useCallback(
+    async (ids: string[]) => {
+      const requestId = ++cohortRequestIdRef.current
+      setCohortLoadError(null)
+      setConfig((prev) => ({ ...prev, cohortIds: ids }))
+      if (ids.length === 0) {
+        setResolvedCohorts([])
+        setCohortLookup(new Map())
+        return
+      }
+      try {
+        // Fetches the selected cohorts plus every cohort they (transitively)
+        // reference via COHORT_REF nodes, so the resolver can inline referenced
+        // cohorts' criteria instead of falling back to "matches everyone".
+        const lookup = await fetchCohortsDeep(ids)
+        if (requestId === cohortRequestIdRef.current) {
+          const selected = ids.map((id) => lookup.get(id)).filter((c) => c !== undefined)
+          if (selected.length !== ids.length) {
+            throw new Error('En eller flere brukergrupper finnes ikke lenger.')
+          }
+          cohortFingerprintRef.current = fingerprintCohortLookup(lookup)
+          setResolvedCohorts(selected)
+          setCohortLookup(lookup)
+        }
+      } catch {
+        if (requestId === cohortRequestIdRef.current) {
+          setCohortLoadError('Kunne ikke laste de valgte brukergruppene. Velg dem på nytt eller prøv igjen senere.')
+          setResolvedCohorts([])
+          setCohortLookup(new Map())
+        }
+      }
+    },
+    [setConfig, setResolvedCohorts, setCohortLookup],
+  )
+
+  /**
+   * Cross-tab staleness: a cohort edited in another tab (e.g. /brukergrupper)
+   * must flow into this grafbygger's generated SQL without a manual refresh.
+   * On window focus, re-resolve the selected cohorts; if the criteria tree
+   * changed, swap in the fresh lookup (generatedSQL re-derives via useMemo)
+   * and flag the inline note in the Brukergrupper section.
+   */
+  useEffect(() => {
+    const handleFocus = async () => {
+      const ids = config.cohortIds ?? []
+      if (ids.length === 0) return
+      try {
+        const lookup = await fetchCohortsDeep(ids)
+        const fingerprint = fingerprintCohortLookup(lookup)
+        // First successful resolve seeds the baseline without a note — this
+        // covers cohortIds restored from persisted config (the fingerprint ref
+        // starts empty because handleCohortIdsChange never ran this session).
+        if (cohortFingerprintRef.current === '') {
+          cohortFingerprintRef.current = fingerprint
+          const selected = ids.map((id) => lookup.get(id)).filter((c) => c !== undefined)
+          setResolvedCohorts(selected)
+          setCohortLookup(lookup)
+          return
+        }
+        if (fingerprint === cohortFingerprintRef.current) return
+        cohortFingerprintRef.current = fingerprint
+        const selected = ids.map((id) => lookup.get(id)).filter((c) => c !== undefined)
+        setResolvedCohorts(selected)
+        setCohortLookup(lookup)
+        setCohortsUpdatedElsewhere(true)
+      } catch {
+        // Silent by design — a failed re-check keeps the current SQL.
+      }
+    }
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [config.cohortIds, setResolvedCohorts, setCohortLookup])
+
+  const handleResetGroupings = useCallback(() => {
+    setConfig((prev) => ({ ...prev, groupByFields: [] }))
+    setGroupingResetSignal((prev) => prev + 1)
+  }, [setConfig])
+
+  const handleResetMetrics = useCallback(() => {
+    summarizeRef.current?.resetConfig(false)
+    setMetricResetSignal((prev) => prev + 1)
+  }, [summarizeRef])
+
+  const handleRemoveCohorts = useCallback(() => {
+    cohortPickerRef.current?.resetCohorts()
+    setCohortPickerWebsiteId(null)
+    setCohortsUpdatedElsewhere(false)
+    handleRatioModeChange(false)
+    void handleCohortIdsChange([])
+  }, [handleCohortIdsChange, handleRatioModeChange])
+
+  const handleResetAllWithSignals = useCallback(() => {
+    resetAll()
+    setGroupingResetSignal((prev) => prev + 1)
+    setMetricResetSignal((prev) => prev + 1)
+    if (isNextEdition) handleRemoveCohorts()
+    else cohortPickerRef.current?.resetCohorts()
+    setResolvedCohorts([])
+  }, [resetAll, setResolvedCohorts, isNextEdition, handleRemoveCohorts])
+
+  const showResetEventFilters = isEventFilterDirty
+  const showResetMetrics = !(
+    config.metrics.length === 1 &&
+    config.metrics[0].function === 'count' &&
+    config.metrics[0].alias === 'antall'
+  )
+  const showResetSegments = (config.cohortIds?.length ?? 0) > 0
+  const showResetGroupings = config.groupByFields.length > 0
+
+  // Keep sidebar sections visible during background event/detail fetches.
+  // Only gate on initial website/date readiness.
+  const isSidebarLoading = isWebsitePickerInitializing || (!!config.website && !dateRangeReady)
+  const showNextCohorts = cohortPickerWebsiteId === config.website?.id || showResetSegments
+  const cohortPicker = (
+    <>
+      <CohortPicker
+        ref={cohortPickerRef}
+        websiteId={config.website?.id}
+        initialCohortIds={config.cohortIds}
+        initialRatioMode={config.segmentRatioMode}
+        showRatioOption={!isNextEdition}
+        onCohortIdsChange={handleCohortIdsChange}
+        onRatioModeChange={handleRatioModeChange}
+        autoFocus={isNextEdition && cohortPickerWebsiteId === config.website?.id}
+        creationWebsite={isNextEdition ? (config.website ?? undefined) : undefined}
+      />
+      {cohortsUpdatedElsewhere && (
+        <BodyShort size="small" style={{ color: 'var(--ax-text-subtle)' }}>
+          Oppdatert — en brukergruppe ble endret i en annen fane
+        </BodyShort>
+      )}
+    </>
+  )
+
+  const additionalOptions = (
+    <Accordion size="small" indent={false} className="mb-4">
+      <Accordion.Item
+        style={isNextEdition ? { borderBottom: 'none' } : undefined}
+        onOpenChange={(open) => {
+          trackEvent(open ? Events.ACCORDION_APNET : Events.ACCORDION_LUKKET, {
+            seksjon: 'grafbygger',
+            komponentId: 'tilleggsvalg',
+            tittel: 'Tilleggsvalg',
+          })
+        }}
+      >
+        <Accordion.Header className={`before:hidden after:hidden${isNextEdition ? ' px-0' : ''}`}>
+          Tilleggsvalg
+        </Accordion.Header>
+        <Accordion.Content>
+          <div ref={setKolonnenavnContainer} />
+          <div className="mb-4">
+            <PeriodOverrideOption filters={filters} setFilters={setFilters} maxDaysAvailable={maxDaysAvailable} />
+          </div>
+          <ResultsDisplayOptions
+            orderBy={config.orderBy}
+            setOrderBy={setOrderBy}
+            clearOrderBy={clearOrderBy}
+            limit={config.limit}
+            setLimit={setLimit}
+            columnOrderMode={config.columnOrderMode || 'default'}
+            setColumnOrderMode={setColumnOrderMode}
+            groupByFields={config.groupByFields}
+            metrics={config.metrics}
+          />
+          <div className="mt-4">
+            <Checkbox
+              size="small"
+              checked={config.paramAggregation === 'representative'}
+              description="Kun relevant hvis du grupperer på en tekstparameter. Normalt viser vi den eksakte verdien for hver rad. Med dette valget viser vi i stedet én tilfeldig verdi per gruppe – raskere spørring, men verdien kan avvike fra enkeltrader i gruppen."
+              onChange={(e) => {
+                trackEvent(Events.AVKRYSNINGSBOKS_ENDRET, {
+                  seksjon: 'grafbygger',
+                  komponentId: 'vis-representativ-parameterverdi',
+                  tekst: 'Vis representativ parameterverdi',
+                  checked: e.target.checked,
+                })
+                setParamAggregation(e.target.checked ? 'representative' : 'unique')
+              }}
+            >
+              Vis representativ parameterverdi
+            </Checkbox>
+          </div>
+        </Accordion.Content>
+      </Accordion.Item>
+    </Accordion>
+  )
+
+  const metricsSection = (
+    <SidebarSection
+      title={isNextEdition ? 'Vis...' : 'Målt som...'}
+      action={
+        showResetMetrics && !isNextEdition ? (
+          <ActionFeedbackButton
+            label="Tilbakestill"
+            activeLabel="Tilbakestilt!"
+            variant="tertiary"
+            size="xsmall"
+            icon={<ArrowCirclepathReverseIcon aria-hidden />}
+            onClick={handleResetMetrics}
+          />
+        ) : undefined
+      }
+    >
+      <MetricSelector
+        ref={summarizeRef}
+        metrics={config.metrics}
+        METRICS={METRICS}
+        removeMetric={removeMetric}
+        addMetric={addMetric}
+        filters={filters}
+        resetSignal={metricResetSignal}
+        kolonnenavnContainer={kolonnenavnContainer}
+      />
+    </SidebarSection>
+  )
+
+  return (
+    <ChartLayout
+      title="Grafbyggeren"
+      description="Lag tilpassede grafer og tabeller."
+      currentPage="grafbygger"
+      wideSidebar={true}
+      collapsibleSidebar={!isNextEdition}
+      sidebarFilterGap="space-16"
+      showPageHeader={!isFocusedMode}
+      showKontaktSection={!isFocusedMode}
+      beta={isNextEdition}
+      betaLabel="Alfa"
+      headerNotice={
+        isNextEdition && (
+          <BetaFeatureNotice id="grafbygger-alfa" title="Grafbyggeren er i alfa">
+            Prøv nye filtervalg med forklaringer og et oppdatert design. Funksjonalitet og utforming kan endre seg.
+            <BetaFeedbackLine />
+          </BetaFeatureNotice>
+        )
+      }
+      filters={
+        <>
+          {/* ── Nettside ───────────────────────────────────────── */}
+          <Bleed asChild marginBlock="space-24 space-0" marginInline="space-24" reflectivePadding>
+            <Box background="accent-strong" className="pb-2">
+              <WebsitePicker
+                id="grafbygger-website-picker"
+                selectedWebsite={config.website}
+                onWebsiteChange={handleWebsiteChange}
+                onEventsLoad={handleEventsLoad}
+                onMetadataLoad={isNextEdition ? handleMetadataLoad : undefined}
+                onInitialLoadingChange={setIsWebsitePickerInitializing}
+                dateRangeInDays={dateRangeInDays}
+                shouldReload={forceReload}
+                resetIncludeParams={resetIncludeParams}
+                requestIncludeParams={requestIncludeParams}
+                disableAutoEvents={true}
+                requestLoadEvents={requestLoadEvents}
+                onLoadingChange={setIsEventsLoading}
+                labelClassName="[&_label]:text-[var(--ax-text-accent-contrast)]"
+              />
+            </Box>
+          </Bleed>
+
+          {isSidebarLoading ? (
+            <div className="px-1 py-2 mt-2 max-w-[180px]">
+              <Loader size="small" title="Laster data" />
+            </div>
+          ) : !config.website ? null : (
+            <>
+              {isNextEdition && metricsSection}
+              <SidebarSection
+                title={isNextEdition ? 'For hendelser og filtre...' : 'Datakilder'}
+                action={
+                  showResetEventFilters ? (
+                    <ActionFeedbackButton
+                      label="Tilbakestill"
+                      activeLabel="Tilbakestilt!"
+                      variant="tertiary"
+                      size="xsmall"
+                      icon={<ArrowCirclepathReverseIcon aria-hidden />}
+                      onClick={() => chartFiltersRef.current?.resetFilters(false)}
+                    />
+                  ) : undefined
+                }
+              >
+                <EventFilterComponent
+                  key={isNextEdition ? config.website.id : undefined}
+                  ref={chartFiltersRef}
+                  {...(isNextEdition
+                    ? {
+                        website: config.website,
+                        additionalAction:
+                          COHORTS_ENABLED && !showNextCohorts ? (
+                            <Button
+                              variant="tertiary"
+                              data-color="neutral"
+                              size="small"
+                              className="px-0"
+                              icon={<PlusIcon aria-hidden />}
+                              onClick={() => setCohortPickerWebsiteId(config.website?.id ?? null)}
+                            >
+                              Brukergruppe
+                            </Button>
+                          ) : undefined,
+                      }
+                    : {})}
+                  filters={filters}
+                  parameters={parameters}
+                  setFilters={setFilters}
+                  onDirtyStateChange={setIsEventFilterDirty}
+                  availableEvents={availableEvents}
+                  onEnableCustomEvents={(withParams = false) => {
+                    setRequestLoadEvents(true)
+                    if (withParams) {
+                      setRequestIncludeParams(true)
+                    }
+                  }}
+                  dateRangeInDays={dateRangeInDays}
+                  onDateRangeInDaysChange={(days) => {
+                    setDateRangeInDays(days)
+                    setRequestLoadEvents(true)
+                  }}
+                  isEventsLoading={isEventsLoading}
+                />
+                {isNextEdition && COHORTS_ENABLED && showNextCohorts && (
+                  <div className="mt-3">
+                    <FilterCard title="Brukergrupper" onRemove={handleRemoveCohorts}>
+                      <div className="mb-3">
+                        <OptionExplanation description="Avgrens til en lagret gruppe besøkende, for eksempel de som har sendt inn en søknad." />
+                      </div>
+                      {cohortPicker}
+                    </FilterCard>
+                  </div>
+                )}
+              </SidebarSection>
+
+              {!isNextEdition && metricsSection}
+
+              {COHORTS_ENABLED && !isNextEdition && (
+                <SidebarSection
+                  title="Brukergrupper"
+                  action={
+                    showResetSegments ? (
+                      <ActionFeedbackButton
+                        label="Tilbakestill"
+                        activeLabel="Tilbakestilt!"
+                        variant="tertiary"
+                        size="xsmall"
+                        icon={<ArrowCirclepathReverseIcon aria-hidden />}
+                        onClick={() => cohortPickerRef.current?.resetCohorts()}
+                      />
+                    ) : undefined
+                  }
+                >
+                  {cohortPicker}
+                </SidebarSection>
+              )}
+
+              <SidebarSection
+                title={isNextEdition ? 'Fordelt på...' : 'Gruppert etter...'}
+                action={
+                  showResetGroupings ? (
+                    <ActionFeedbackButton
+                      label="Tilbakestill"
+                      activeLabel="Tilbakestilt!"
+                      variant="tertiary"
+                      size="xsmall"
+                      icon={<ArrowCirclepathReverseIcon aria-hidden />}
+                      onClick={handleResetGroupings}
+                    />
+                  ) : undefined
+                }
+              >
+                <GroupingOptions
+                  edition={edition}
+                  groupByFields={config.groupByFields}
+                  parameters={parameters}
+                  dateFormat={config.dateFormat}
+                  DATE_FORMATS={DATE_FORMATS}
+                  COLUMN_GROUPS={FILTER_COLUMNS}
+                  sanitizeColumnName={sanitizeColumnName}
+                  addGroupByField={addGroupByField}
+                  removeGroupByField={removeGroupByField}
+                  moveGroupField={moveGroupField}
+                  setDateFormat={(format) =>
+                    setConfig((prev) => ({
+                      ...prev,
+                      dateFormat: format,
+                    }))
+                  }
+                  filters={filters}
+                  onEnableCustomEvents={() => {
+                    if (chartFiltersRef.current) {
+                      chartFiltersRef.current.enableCustomEvents()
+                    }
+                    setRequestLoadEvents(true)
+                    setRequestIncludeParams(true)
+                  }}
+                  isEventsLoading={isEventsLoading}
+                  resetSignal={groupingResetSignal}
+                />
+              </SidebarSection>
+            </>
+          )}
+          {isNextEdition && additionalOptions}
+        </>
+      }
+    >
+      {/* Alert Display */}
+      {alertInfo.show && (
+        <div className="mb-4">
+          <AlertWithCloseButton variant="success">{alertInfo.message}</AlertWithCloseButton>
+        </div>
+      )}
+
+      {/* Alert when pre-loaded from Dashboard */}
+      {titleFromUrl && hasAppliedUrlParams && config.website && (
+        <div className="mb-4">
+          <AlertWithCloseButton variant="info">
+            Forhåndsvisning fra dashboard: <strong>{titleFromUrl}</strong>. Du kan nå redigere og tilpasse grafen.
+          </AlertWithCloseButton>
+        </div>
+      )}
+
+      <div className="sticky top-6 max-h-[calc(100vh-4rem)] overflow-y-auto">
+        {cohortLoadError && (
+          <Alert role="alert" variant="error" className="mb-4">
+            {cohortLoadError}
+          </Alert>
+        )}
+        <QueryPreview
+          edition={edition}
+          sql={generatedSQL}
+          activeStep={currentStep}
+          openFormprogress={false}
+          filters={filters}
+          metrics={config.metrics}
+          groupByFields={config.groupByFields}
+          onResetAll={handleResetAllWithSignals}
+          resetPlacement={isNextEdition ? 'results' : undefined}
+          onBeforeExecute={isNextEdition ? () => chartFiltersRef.current?.validateSelection?.() === true : undefined}
+          availableEvents={availableEvents}
+          isEventsLoading={isEventsLoading}
+          websiteId={config.website?.id}
+          showDownloadReadMore={false}
+          additionalOptions={isNextEdition ? undefined : additionalOptions}
+        />
+      </div>
+    </ChartLayout>
+  )
+}
+
+export default ChartsPage

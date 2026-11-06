@@ -273,7 +273,7 @@ describe('chartbuilder preview filters', () => {
 
     render(<QueryPreview edition="next" sql="SELECT 1" filters={[filter]} />)
 
-    expect(screen.getByRole('combobox', { name: 'Side (URL)' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'URL-sti' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '/ (forsiden) slett' })).not.toBeInTheDocument()
   })
 
@@ -291,7 +291,7 @@ describe('chartbuilder preview filters', () => {
         availableEvents={['/soknad']}
       />,
     )
-    const picker = await screen.findByRole('combobox', { name: 'Side (URL)' })
+    const picker = await screen.findByRole('combobox', { name: 'URL-sti' })
     expect(picker).toHaveValue('')
     expect(screen.queryByRole('button', { name: '/ (forsiden) slett' })).not.toBeInTheDocument()
     if (path) {
@@ -323,7 +323,7 @@ describe('chartbuilder preview filters', () => {
         onResetAll={vi.fn()}
       />,
     )
-    await user.click(await screen.findByRole('combobox', { name: 'Side (URL)' }))
+    await user.click(await screen.findByRole('combobox', { name: 'URL-sti' }))
     await user.click(screen.getByRole('option', { name: '/ (forsiden)' }))
     expect(screen.getByRole('button', { name: '/ (forsiden) slett' })).toBeVisible()
     await user.click(screen.getByRole('button', { name: 'Tilbakestill alle valg' }))
@@ -333,7 +333,7 @@ describe('chartbuilder preview filters', () => {
       }),
     )
     expect(screen.queryByRole('button', { name: '/ (forsiden) slett' })).not.toBeInTheDocument()
-    expect(screen.getByRole('combobox', { name: 'Side (URL)' })).toHaveValue('')
+    expect(screen.getByRole('combobox', { name: 'URL-sti' })).toHaveValue('')
     expect(screen.getByRole('combobox', { name: 'Periode' })).toHaveValue('last_7_days')
   })
 

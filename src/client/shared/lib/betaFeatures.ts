@@ -37,6 +37,13 @@ export const betaFeatures: BetaFeature[] = [
     href: '/grafbygger',
   },
   {
+    id: 'grafbygger-alfa',
+    stage: 'alfa',
+    title: 'Grafbyggeren',
+    description: 'Prøv nye filtervalg med forklaringer og et oppdatert design.',
+    href: '/grafbygger-alfa',
+  },
+  {
     id: 'brukergrupper',
     title: 'Brukergrupper',
     description: 'Definer brukergrupper, se gruppestørrelsen og bruk gruppene i Grafbygger.',

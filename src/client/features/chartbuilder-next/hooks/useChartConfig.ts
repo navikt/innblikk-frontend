@@ -39,9 +39,14 @@ const DEFAULT_CONFIG: ChartConfig = {
   limit: 1000,
 }
 
-export function useChartConfig(edition: 'current' | 'next' = 'current') {
-  const storageKeys =
-    edition === 'next'
+export function useChartConfig(edition: 'current' | 'next' = 'current', draftNamespace?: 'grafbygger-alfa') {
+  const storageKeys = draftNamespace
+    ? {
+        config: `${draftNamespace}:config:v2`,
+        filters: `${draftNamespace}:filters:v2`,
+        dateRangeInDays: `${draftNamespace}:dateRangeInDays:v2`,
+      }
+    : edition === 'next'
       ? {
           config: 'grafbygger-next:config:v2',
           filters: 'grafbygger-next:filters:v2',

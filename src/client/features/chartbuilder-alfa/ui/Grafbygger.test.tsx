@@ -1,0 +1,415 @@
+import { render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
+import { vi, beforeEach, afterEach } from 'vitest'
+
+// ── Stub heavy sidebar children – they have their own tests ───────────────────
+vi.mock('../../chartbuilder-next/ui/grafbygger/EventFilter.tsx', () => ({
+  default: () => <div data-testid="event-filter" />,
+}))
+vi.mock('../../chartbuilder-next/ui/grafbygger/MetricSelector.tsx', () => ({
+  default: () => <div data-testid="metric-selector" />,
+}))
+vi.mock('../../chartbuilder-next/ui/grafbygger/SegmentBy.tsx', () => ({
+  default: () => <div data-testid="segment-by" />,
+}))
+vi.mock('./grafbygger/GroupingOptions.tsx', () => ({
+  default: ({ edition }: { edition?: 'current' | 'next' }) => (
+    <div data-testid="grouping-options" data-edition={edition} />
+  ),
+}))
+vi.mock('../../chartbuilder-next/ui/grafbygger/DisplayOptions.tsx', () => ({
+  default: () => <div data-testid="display-options" />,
+}))
+vi.mock('../../chartbuilder-next/ui/grafbygger/ActiveMetricsPanel.tsx', () => ({
+  default: () => <div data-testid="active-metrics" />,
+}))
+vi.mock('../../chartbuilder-next/ui/grafbygger/AlertWithCloseButton.tsx', () => ({
+  default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}))
+
+vi.mock('./results/QueryPreview.tsx', () => ({
+  default: ({
+    edition,
+    onResetAll,
+    sql,
+    additionalOptions,
+  }: {
+    edition?: 'current' | 'next'
+    onResetAll?: () => void
+    sql: string
+    additionalOptions?: React.ReactNode
+  }) => (
+    <div data-testid="query-preview" data-edition={edition}>
+      QueryPreview
+      <pre data-testid="generated-sql">{sql}</pre>
+      {additionalOptions}
+      <button onClick={onResetAll}>Tilbakestill alle valg</button>
+    </div>
+  ),
+}))
+
+vi.mock('../../analysis/ui/ChartLayoutOriginal.tsx', () => ({
+  default: ({ title, filters, children }: { title: string; filters: React.ReactNode; children: React.ReactNode }) => (
+    <div>
+      <h1>{title}</h1>
+      <aside data-testid="sidebar">{filters}</aside>
+      <main>{children}</main>
+    </div>
+  ),
+}))
+
+import Grafbygger from './Grafbygger.tsx'
+import { fetchCohortsDeep } from '../../chartbuilder-next/api/cohortApi.ts'
+import type { CohortDetailDto } from '../../../shared/types/cohort.ts'
+
+// Cohort API is unit-tested elsewhere; here we control the deep-fetch directly.
+vi.mock('../../chartbuilder-next/api/cohortApi.ts', async (importOriginal) => ({
+  ...(await importOriginal()),
+  fetchCohorts: vi.fn().mockResolvedValue([]),
+  fetchCohortsDeep: vi.fn().mockResolvedValue(new Map()),
+}))
+
+// CohortPicker is interaction-heavy (combobox of cohort names); for the
+// staleness tests we stub it and report the persisted cohortIds upstream on
+// mount, mimicking what a restored session does.
+vi.mock('../../chartbuilder-next/ui/grafbygger/CohortPicker.tsx', async () => {
+  const React = await import('react')
+  const CohortPickerStub = ({
+    initialCohortIds = [],
+    onCohortIdsChange,
+  }: {
+    initialCohortIds?: string[]
+    onCohortIdsChange: (ids: string[]) => void
+    onRatioModeChange: (enabled: boolean) => void
+  }) => {
+    const ids = initialCohortIds
+    React.useEffect(() => {
+      if (ids.length > 0) onCohortIdsChange(ids)
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+    return <div data-testid="cohort-picker">{ids.join(',')}</div>
+  }
+  return { default: CohortPickerStub }
+})
+
+const mockFetchCohortsDeep = vi.mocked(fetchCohortsDeep)
+
+const cohort = (id: string, value: string): CohortDetailDto => ({
+  id,
+  websiteId: 'site-1',
+  name: `Cohort ${id}`,
+  root: {
+    nodeType: 'GROUP',
+    combinator: 'AND',
+    negated: false,
+    children: [{ nodeType: 'CONDITION', field: 'browser', conditionType: 'EQUALS', value }],
+  },
+})
+
+const FAKE_WEBSITES = [
+  { id: 'site-1', name: 'Nav.no - prod', domain: 'nav.no', createdAt: '2023-01-01T00:00:00Z' },
+  { id: 'site-2', name: 'Ditt NAV - prod', domain: 'nav.no', createdAt: '2023-01-01T00:00:00Z' },
+]
+
+function renderGrafbygger(search = '', edition: 'current' | 'next' = 'current') {
+  return render(
+    <MemoryRouter initialEntries={[`/${edition === 'next' ? 'grafbygger' : 'grafbygger-eol'}${search}`]}>
+      <Grafbygger edition={edition} />
+    </MemoryRouter>,
+  )
+}
+
+describe('Grafbygger page', () => {
+  it.each(['current', 'next'] as const)('scopes grouping and preview behavior to edition %s', async (edition) => {
+    const user = userEvent.setup()
+    renderGrafbygger('', edition)
+    await user.click(await screen.findByRole('combobox', { name: /nettside/i }))
+    await user.click(await screen.findByRole('option', { name: /nav\.no - prod/i }))
+    expect(await screen.findByTestId('grouping-options')).toHaveAttribute('data-edition', edition)
+    expect(screen.getByTestId('query-preview')).toHaveAttribute('data-edition', edition)
+  })
+
+  beforeEach(() => {
+    // Clear localStorage so cached websites/selection from a previous test don't interfere
+    localStorage.clear()
+    mockFetchCohortsDeep.mockReset().mockResolvedValue(new Map())
+    window.history.replaceState({}, '', '/grafbygger')
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        if (url.endsWith('/api/bigquery/websites')) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ data: FAKE_WEBSITES }),
+          })
+        }
+        // Any other fetch (event-properties etc.) returns empty
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ properties: [] }),
+        })
+      }),
+    )
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('renders the page title', async () => {
+    renderGrafbygger()
+    expect(screen.getByRole('heading', { level: 1, name: /grafbyggeren/i })).toBeInTheDocument()
+    // Wait for WebsitePicker async fetch to settle
+    await screen.findByRole('combobox', { name: /nettside/i })
+  })
+
+  it('renders the website picker', async () => {
+    renderGrafbygger()
+    expect(await screen.findByRole('combobox', { name: /nettside/i })).toBeInTheDocument()
+  })
+
+  it('renders QueryPreview', async () => {
+    renderGrafbygger()
+    expect(screen.getByTestId('query-preview')).toBeInTheDocument()
+    // Wait for WebsitePicker async fetch to settle
+    await screen.findByRole('combobox', { name: /nettside/i })
+  })
+
+  it('shows sidebar sections after selecting a website', async () => {
+    const user = userEvent.setup()
+    renderGrafbygger()
+
+    // Wait for WebsitePicker to finish its initial fetch and mark itself ready
+    const combobox = await screen.findByRole('combobox', { name: /nettside/i })
+
+    // Open the dropdown
+    await user.click(combobox)
+
+    // The first website option should now be visible – click it
+    const firstOption = await screen.findByRole('option', { name: /nav\.no - prod/i })
+    await user.click(firstOption)
+
+    // Sidebar sections should now be visible
+    expect(await screen.findByText(/datakilder/i)).toBeInTheDocument()
+  })
+
+  it.each(['current', 'next'] as const)('places additional settings correctly in the %s edition', async (edition) => {
+    const user = userEvent.setup()
+    renderGrafbygger('', edition)
+    await user.click(await screen.findByRole('combobox', { name: /nettside/i }))
+    await user.click(await screen.findByRole('option', { name: /nav\.no - prod/i }))
+    const container = screen.getByTestId(edition === 'next' ? 'sidebar' : 'query-preview')
+    const settings = within(container).getByRole('button', { name: 'Tilleggsvalg' })
+    expect(screen.getAllByRole('button', { name: 'Tilleggsvalg' })).toHaveLength(1)
+    expect(settings).toHaveAttribute('aria-expanded', 'false')
+    if (edition === 'current') {
+      expect(settings.parentElement).not.toHaveAttribute('style')
+    } else {
+      expect(settings.parentElement).toHaveAttribute('style', expect.stringContaining('border-bottom'))
+    }
+    if (edition === 'next') {
+      expect(
+        screen.getByText('Fordelt på...').compareDocumentPosition(settings) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy()
+    }
+    await user.click(settings)
+    expect(within(container).getByRole('checkbox', { name: /^Begrens antall rader/ })).toBeVisible()
+  })
+
+  it.each(['current', 'next'] as const)('orders metrics and event sections for the %s edition', async (edition) => {
+    const user = userEvent.setup()
+    renderGrafbygger('', edition)
+    await user.click(await screen.findByRole('combobox', { name: /nettside/i }))
+    await user.click(await screen.findByRole('option', { name: /nav\.no - prod/i }))
+
+    const metrics = await screen.findByText(edition === 'next' ? 'Vis...' : 'Målt som...')
+    const events = screen.getByText(edition === 'next' ? 'For hendelser og filtre...' : 'Datakilder', { exact: true })
+    const grouping = screen.getByText(edition === 'next' ? 'Fordelt på...' : 'Gruppert etter...')
+    expect(
+      metrics.compareDocumentPosition(events) &
+        (edition === 'next' ? Node.DOCUMENT_POSITION_FOLLOWING : Node.DOCUMENT_POSITION_PRECEDING),
+    ).toBeTruthy()
+    expect(events.compareDocumentPosition(grouping) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(metrics.compareDocumentPosition(grouping) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it.each(['current', 'next'] as const)('handles the metric reset button in the %s edition', async (edition) => {
+    localStorage.setItem(
+      'grafbygger-alfa:config:v2',
+      JSON.stringify({
+        website: FAKE_WEBSITES[0],
+        metrics: [{ function: 'count', alias: 'mine_besok' }],
+        groupByFields: [],
+        cohortIds: [],
+      }),
+    )
+    renderGrafbygger('', edition)
+    const section = (await screen.findByTestId('metric-selector')).closest('.sidebar-section')
+    if (!(section instanceof HTMLElement)) throw new Error('Expected the metric selector inside a sidebar section')
+    const reset = within(section).queryByRole('button', { name: 'Tilbakestill' })
+    if (edition === 'next') expect(reset).not.toBeInTheDocument()
+    else expect(reset).toBeVisible()
+  })
+
+  it('keeps the selected website when all other choices are reset', async () => {
+    const user = userEvent.setup()
+    renderGrafbygger()
+    const websitePicker = await screen.findByRole('combobox', { name: /nettside/i })
+    await user.click(websitePicker)
+    await user.click(await screen.findByRole('option', { name: /nav\.no - prod/i }))
+    expect(await screen.findByText('Datakilder')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Tilbakestill alle valg' }))
+
+    expect(await screen.findByText('Datakilder')).toBeInTheDocument()
+  })
+
+  it('reveals optional user groups beside filters only in the experimental edition', async () => {
+    const user = userEvent.setup()
+    renderGrafbygger('', 'next')
+    await user.click(await screen.findByRole('combobox', { name: /nettside/i }))
+    await user.click(await screen.findByRole('option', { name: /nav\.no - prod/i }))
+    const addGroup = await screen.findByRole('button', { name: 'Brukergruppe' })
+    expect(screen.getByRole('button', { name: 'Filter' })).toBeVisible()
+    expect(screen.getByText('Vis...')).toBeVisible()
+    expect(screen.queryByTestId('cohort-picker')).not.toBeInTheDocument()
+
+    await user.click(addGroup)
+    expect(screen.getByTestId('cohort-picker')).toBeVisible()
+    expect(
+      screen.getByText('Avgrens til en lagret gruppe besøkende, for eksempel de som har sendt inn en søknad.'),
+    ).toHaveClass('option-explanation__description')
+    expect(screen.queryByRole('button', { name: 'Brukergruppe' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Fjern brukergrupper' }))
+    expect(screen.queryByTestId('cohort-picker')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Brukergruppe' })).toBeVisible()
+  })
+
+  it('shows restored experimental groups and removes their criteria when the group picker is removed', async () => {
+    const user = userEvent.setup()
+    localStorage.setItem(
+      'grafbygger-alfa:config:v2',
+      JSON.stringify({
+        website: FAKE_WEBSITES[0],
+        metrics: [{ function: 'count', alias: 'antall' }],
+        groupByFields: [],
+        cohortIds: ['1'],
+        segmentRatioMode: true,
+      }),
+    )
+    mockFetchCohortsDeep.mockResolvedValue(new Map([['1', cohort('1', 'Firefox')]]))
+    renderGrafbygger('', 'next')
+    expect(await screen.findByTestId('cohort-picker')).toHaveTextContent('1')
+    await waitFor(() => expect(screen.getByTestId('generated-sql')).toHaveTextContent('Firefox'))
+
+    await user.click(screen.getByRole('button', { name: 'Fjern brukergrupper' }))
+    expect(screen.queryByTestId('cohort-picker')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.getByTestId('generated-sql')).not.toHaveTextContent('Firefox'))
+    expect(localStorage.getItem('grafbygger-alfa:config:v2')).toContain('"cohortIds":[]')
+    expect(localStorage.getItem('grafbygger-alfa:config:v2')).toContain('"segmentRatioMode":false')
+  })
+
+  it('collapses experimental user groups when all choices are reset', async () => {
+    const user = userEvent.setup()
+    renderGrafbygger('', 'next')
+    await user.click(await screen.findByRole('combobox', { name: /nettside/i }))
+    await user.click(await screen.findByRole('option', { name: /nav\.no - prod/i }))
+    await user.click(await screen.findByRole('button', { name: 'Brukergruppe' }))
+    expect(screen.getByTestId('cohort-picker')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Tilbakestill alle valg' }))
+    expect(screen.queryByTestId('cohort-picker')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Brukergruppe' })).toBeVisible()
+  })
+
+  it('opens a new graph with the supplied group selected and resolved without overwriting the last draft', async () => {
+    const savedDraft = JSON.stringify({
+      website: FAKE_WEBSITES[1],
+      metrics: [{ function: 'count', alias: 'antall' }],
+      groupByFields: [],
+      cohortIds: ['1'],
+    })
+    localStorage.setItem('grafbygger:config:v2', savedDraft)
+    mockFetchCohortsDeep.mockResolvedValue(new Map([['42', cohort('42', 'Firefox')]]))
+    const params = new URLSearchParams({
+      websiteId: 'site-1',
+      config: JSON.stringify({
+        website: FAKE_WEBSITES[0],
+        cohortIds: ['42'],
+        metrics: [],
+        groupByFields: [],
+      }),
+    })
+    window.history.replaceState({}, '', `/grafbygger?${params}`)
+    renderGrafbygger(`?${params}`)
+
+    expect(await screen.findByTestId('cohort-picker')).toHaveTextContent('42')
+    await waitFor(() => expect(screen.getByTestId('generated-sql')).toHaveTextContent('Firefox'))
+    expect(localStorage.getItem('grafbygger:config:v2')).toBe(savedDraft)
+  })
+
+  it('reports a group resolution failure instead of generating an unfiltered query', async () => {
+    mockFetchCohortsDeep.mockRejectedValueOnce(new Error('Unavailable'))
+    const params = new URLSearchParams({
+      config: JSON.stringify({
+        website: FAKE_WEBSITES[0],
+        cohortIds: ['42'],
+        metrics: [{ function: 'count', alias: 'antall' }],
+        groupByFields: [],
+      }),
+    })
+    window.history.replaceState({}, '', `/grafbygger?${params}`)
+    renderGrafbygger(`?${params}`)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Kunne ikke laste de valgte brukergruppene')
+    await waitFor(() => expect(screen.getByTestId('generated-sql')).toBeEmptyDOMElement())
+  })
+
+  describe('cross-tab cohort staleness', () => {
+    const renderWithSelectedCohort = async () => {
+      // Persisted grafbygger config selects website + one cohort, bypassing UI clicks.
+      localStorage.setItem(
+        'grafbygger-alfa:config:v2',
+        JSON.stringify({
+          website: FAKE_WEBSITES[0],
+          metrics: [{ function: 'count', alias: 'antall' }],
+          groupByFields: [],
+          cohortIds: ['1'],
+        }),
+      )
+      mockFetchCohortsDeep.mockResolvedValue(new Map([['1', cohort('1', 'Chrome')]]))
+      renderGrafbygger()
+      // Initial handleCohortIdsChange-equivalent state: our effect only matters
+      // when cohortIds are set, which the persisted config provides on mount.
+      await screen.findByRole('combobox', { name: /nettside/i })
+      // Wait for React to settle (usePersistentState hydration + effect attach)
+      // before dispatching focus events — otherwise they land before the
+      // window 'focus' listener is registered.
+      await screen.findByText(/datakilder/i)
+    }
+
+    it('re-fetches selected cohorts on window focus and shows the inline note when the tree changed', async () => {
+      await renderWithSelectedCohort()
+      expect(screen.queryByText(/Oppdatert — en brukergruppe ble endret i en annen fane/)).toBeNull()
+      // CohortPicker stub reports the persisted selection on mount (baseline fetch).
+      await waitFor(() => expect(mockFetchCohortsDeep).toHaveBeenCalled())
+
+      // Another tab edits the cohort: next focus-fetch returns a different tree.
+      mockFetchCohortsDeep.mockResolvedValue(new Map([['1', cohort('1', 'Firefox')]]))
+      window.dispatchEvent(new Event('focus'))
+
+      expect(await screen.findByText(/Oppdatert — en brukergruppe ble endret i en annen fane/)).toBeInTheDocument()
+    })
+
+    it('stays silent on focus when nothing changed', async () => {
+      await renderWithSelectedCohort()
+      await waitFor(() => expect(mockFetchCohortsDeep).toHaveBeenCalled())
+
+      window.dispatchEvent(new Event('focus')) // same tree
+      await waitFor(() => expect(mockFetchCohortsDeep.mock.calls.length).toBeGreaterThanOrEqual(2))
+
+      expect(screen.queryByText(/Oppdatert — en brukergruppe ble endret i en annen fane/)).toBeNull()
+    })
+  })
+})

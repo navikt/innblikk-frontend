@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   RadioGroup,
   Radio,
@@ -13,7 +13,6 @@ import {
   Tag,
   VStack,
   BodyShort,
-  TextField,
 } from '@navikt/ds-react'
 import { XMarkIcon, PlusIcon, CheckmarkIcon } from '@navikt/aksel-icons'
 import { Events } from '@navikt/analytics-types'
@@ -22,11 +21,6 @@ import type { Filter, Parameter } from '../../../../shared/types/chart.ts'
 import type { SuggestibleColumn } from '../../../cohortmanager/api/columnValuesApi.ts'
 import { columnValuesSuggestions } from '../../../cohortmanager/hooks/useColumnValueSuggestions.ts'
 import { toSuggestionOptions } from '../../../cohortmanager/ui/SuggestingValueEditor.tsx'
-import FilterCard from './FilterCard.tsx'
-import { FILTER_DESCRIPTIONS } from './filterDescriptions.ts'
-import OptionExplanation from '../../../../shared/ui/DescribedCombobox/OptionExplanation.tsx'
-import type { OptionExplanationProps } from '../../../../shared/ui/DescribedCombobox/types.ts'
-import { getDefaultFilterOperator } from '../../model/filterOperators.ts'
 
 // ─── Local types ─────────────────────────────────────────────────────────────
 
@@ -63,6 +57,13 @@ const getParamName = (param: Parameter): string => {
 
 // ─── Shared primitives ────────────────────────────────────────────────────────
 
+/** Outer wrapper card shared by every active row. */
+const FilterCard = ({ children }: { children: React.ReactNode }) => (
+  <div className="filter-card-animate-in rounded-md border border-(--ax-border-neutral-subtle) bg-(--ax-bg-default) px-3 py-3">
+    {children}
+  </div>
+)
+
 // ─── SelectableValuesCombobox ─────────────────────────────────────────────────
 //
 // Unified combobox used for both URL-path and event-name selection.
@@ -78,8 +79,6 @@ interface SelectableValuesComboboxProps {
   multiDescription?: string
   singleLabel: string
   partialMatchDescriptions?: Record<string, string>
-  isLoading?: boolean
-  suppressEmptyDropdown?: boolean
 }
 
 const SelectableValuesCombobox = ({
@@ -91,25 +90,15 @@ const SelectableValuesCombobox = ({
   multiDescription,
   singleLabel,
   partialMatchDescriptions = PARTIAL_MATCH_DESCRIPTIONS,
-  isLoading = false,
-  suppressEmptyDropdown = false,
 }: SelectableValuesComboboxProps) => {
-  const [search, setSearch] = useState('')
-  const hasSuggestions = options.some((option) => !selectedValues.includes(option.value))
-  const isListOpen = suppressEmptyDropdown && !isLoading && !hasSuggestions && !search.trim() ? false : undefined
   if (operator === 'IN') {
     return (
       <UNSAFE_Combobox
         label={multiLabel}
         description={multiDescription}
         options={options}
-        value={search}
-        onChange={setSearch}
-        isLoading={isLoading}
-        isListOpen={isListOpen}
         selectedOptions={selectedValues}
         onToggleSelected={(option, isSelected) => {
-          setSearch('')
           trackEvent(Events.COMBOBOX_OPTION_TOGGLED, {
             seksjon: 'grafbygger',
             komponentId: multiLabel,
@@ -131,13 +120,8 @@ const SelectableValuesCombobox = ({
       label={singleLabel}
       description={partialMatchDescriptions[operator] ?? null}
       options={options}
-      value={search}
-      onChange={setSearch}
-      isLoading={isLoading}
-      isListOpen={isListOpen}
       selectedOptions={selectedValues.length > 0 ? [selectedValues[0]] : []}
       onToggleSelected={(option, isSelected) => {
-        setSearch('')
         trackEvent(Events.COMBOBOX_OPTION_TOGGLED, {
           seksjon: 'grafbygger',
           komponentId: singleLabel,
@@ -456,7 +440,6 @@ const EventParamFilter = ({
 // ─── CustomEventsEditor ───────────────────────────────────────────────────────
 
 interface CustomEventsEditorProps {
-  websiteId?: string
   customEventsMode: 'none' | 'all' | 'specific' | 'interactive'
   setCustomEventsMode: (mode: 'none' | 'all' | 'specific' | 'interactive') => void
   eventNameOperator: string
@@ -479,7 +462,6 @@ interface CustomEventsEditorProps {
 }
 
 export const CustomEventsEditor = ({
-  websiteId,
   customEventsMode,
   setCustomEventsMode,
   eventNameOperator,
@@ -499,20 +481,6 @@ export const CustomEventsEditor = ({
   updateFilter,
   addFilterDirectly,
 }: CustomEventsEditorProps) => {
-  const shouldLoadSuggestions = customEventsMode === 'specific' && Boolean(websiteId)
-  const {
-    values: eventSuggestions,
-    loading: suggestionsLoading,
-    failed: suggestionsFailed,
-    scannedDays,
-    load,
-  } = columnValuesSuggestions.useColumnValueSuggestions(shouldLoadSuggestions ? websiteId : undefined, 'event_name')
-  useEffect(() => {
-    if (shouldLoadSuggestions) load()
-  }, [shouldLoadSuggestions, load])
-  const eventOptions = [...new Set([...customEventsList, ...eventSuggestions.filter(Boolean)])].sort((first, second) =>
-    first.localeCompare(second, 'nb'),
-  )
   const [hasRequestedParams, setHasRequestedParams] = useState(false)
   const isParamsLoading = hasRequestedParams && isEventsLoading
 
@@ -552,8 +520,8 @@ export const CustomEventsEditor = ({
     }
   }
 
-  const showLoading = !websiteId && isEventsLoading && !isParamsLoading && customEventsList.length === 0
-  const showSpecificContent = Boolean(websiteId) || !isEventsLoading || isParamsLoading
+  const showLoading = isEventsLoading && !isParamsLoading && customEventsList.length === 0
+  const showSpecificContent = !isEventsLoading || isParamsLoading
 
   return (
     <div className="space-y-3">
@@ -598,34 +566,14 @@ export const CustomEventsEditor = ({
           {showSpecificContent && (
             <SelectableValuesCombobox
               operator={eventNameOperator}
-              options={eventOptions.map((event) => ({ label: event, value: event }))}
+              options={customEventsList.map((event) => ({ label: event, value: event }))}
               selectedValues={customEvents}
               onToggle={handleEventToggle}
               multiLabel="Velg hendelser"
               multiDescription="Flere hendelser kan velges for 'er lik' operator"
               singleLabel="Velg hendelse"
               partialMatchDescriptions={EVENT_PARTIAL_MATCH_DESCRIPTIONS}
-              isLoading={suggestionsLoading || (isEventsLoading && eventOptions.length === 0)}
-              suppressEmptyDropdown={Boolean(websiteId)}
             />
-          )}
-          {websiteId &&
-            !suggestionsLoading &&
-            !isEventsLoading &&
-            scannedDays !== null &&
-            !suggestionsFailed &&
-            eventOptions.length === 0 && (
-              <BodyShort size="small" role="status">
-                Ingen hendelsesforslag funnet. Skriv inn et hendelsesnavn selv, og trykk Enter for å legge det til.
-              </BodyShort>
-            )}
-          {websiteId && suggestionsFailed && (
-            <BodyShort size="small" role="status">
-              Kunne ikke hente hendelsesforslag. Du kan fortsatt velge fra listen eller skrive inn et navn selv.
-            </BodyShort>
-          )}
-          {websiteId && scannedDays !== null && scannedDays < 30 && eventSuggestions.length > 0 && (
-            <BodyShort size="small">Ekstra forslag fra siste {scannedDays} dager</BodyShort>
           )}
 
           {customEvents.length > 0 && (
@@ -747,7 +695,6 @@ const toParamName = (column: string): string => {
 
 const SUGGESTION_COLUMNS: Partial<Record<string, SuggestibleColumn>> = {
   url_path: 'url_path',
-  url_query: 'url_query',
   event_name: 'event_name',
   referrer_domain: 'referrer_domain',
   browser: 'browser',
@@ -773,7 +720,6 @@ interface GenericFilterCardProps {
   removeFilter: (index: number) => void
   updateFilter: (index: number, updates: Partial<Filter>) => void
   compact?: boolean
-  explanation?: OptionExplanationProps
 }
 
 export const GenericFilterCard = ({
@@ -791,25 +737,11 @@ export const GenericFilterCard = ({
   removeFilter,
   updateFilter,
   compact = false,
-  explanation,
 }: GenericFilterCardProps) => {
-  const [valueSearch, setValueSearch] = useState('')
-  const valueInputRef = useRef<HTMLInputElement>(null)
-  const dashboardActionRef = useRef<HTMLButtonElement>(null)
-  const previousInteractive = useRef(filter.interactive)
-  useEffect(() => {
-    if (previousInteractive.current === filter.interactive) return
-    previousInteractive.current = filter.interactive
-    if (compact) {
-      if (filter.interactive) dashboardActionRef.current?.focus()
-      else valueInputRef.current?.focus()
-    }
-  }, [compact, filter.interactive])
   const suggestionKey = filter.column.startsWith('param_') ? filter.column.slice('param_'.length) : undefined
   const suggestionColumn = suggestionKey ? 'event_data_value' : SUGGESTION_COLUMNS[filter.column]
   const canSuggest =
     Boolean(suggestionColumn) && !filter.interactive && !['IS NULL', 'IS NOT NULL'].includes(filter.operator ?? '')
-  const isMultiSelect = !compact || ['=', 'IN'].includes(filter.operator ?? '=')
   const { values, scannedDays, failed, loading, load } = columnValuesSuggestions.useColumnValueSuggestions(
     canSuggest ? websiteId : undefined,
     suggestionColumn ?? 'url_path',
@@ -839,12 +771,9 @@ export const GenericFilterCard = ({
     : filter.value
       ? [filter.value]
       : []
-  const valueOptions = getOptionsForColumn(filter.column)
-  const hasUnselectedSuggestions = valueOptions.some((option) => !currentValues.includes(option.value))
 
   const handleValueToggle = (option: string, isSelected: boolean) => {
     if (!option) return
-    setValueSearch('')
     const newValues =
       compact && !['=', 'IN'].includes(filter.operator ?? '=')
         ? isSelected
@@ -867,28 +796,32 @@ export const GenericFilterCard = ({
       value: `{{${toParamName(filter.column)}}}`,
       metabaseParam: true,
       interactive: true,
-      multipleValues: undefined,
-      ...(compact ? { showInFilterEditor: true } : {}),
     })
   }
 
   return (
-    <FilterCard
-      title={columnLabel}
-      onRemove={() => removeFilter(index)}
-      badge={
-        filter.interactive && (
+    <FilterCard>
+      {/* Header */}
+      <div className="mb-2 flex items-center gap-2">
+        <span className="grow text-xs font-semibold text-(--ax-text-default)">{columnLabel}</span>
+        {filter.interactive && (
           <span className="inline-flex items-center rounded-full bg-[var(--ax-bg-accent-soft)] px-2 py-0.5 text-xs font-medium text-[var(--ax-text-accent)]">
-            Kan overstyres
+            Mottaker velger selv
           </span>
-        )
-      }
-    >
+        )}
+        <Button
+          variant="tertiary"
+          data-color="danger"
+          size="xsmall"
+          icon={<XMarkIcon aria-hidden />}
+          onClick={() => removeFilter(index)}
+        >
+          Fjern
+        </Button>
+      </div>
+
       {/* Controls */}
       <div className="space-y-2">
-        {compact && (explanation || FILTER_DESCRIPTIONS[filter.column]) && (
-          <OptionExplanation {...(explanation ?? FILTER_DESCRIPTIONS[filter.column])} />
-        )}
         <div className="flex flex-wrap items-end gap-2">
           {!compact && (
             <Select
@@ -948,104 +881,50 @@ export const GenericFilterCard = ({
         </div>
 
         {filter.interactive ? (
-          <div className="space-y-2">
-            <BodyShort size="small" role="status">
-              Valgte verdier er erstattet med en Metabase-parameter. Verdien kan overstyres i dashboardet eller
-              Metabase.
-              {filter.column === 'url_path' &&
-                ` Du kan prøve det med ${compact ? 'Side (URL)' : 'URL-sti'} ved siden av resultatene.`}
-            </BodyShort>
-            <BodyShort size="small">
-              <code className="inline-block rounded bg-(--ax-bg-neutral-soft) px-2 py-1 font-mono">{filter.value}</code>
-            </BodyShort>
-            <Button
-              ref={dashboardActionRef}
-              type="button"
-              variant="tertiary"
-              size="small"
-              onClick={() => {
-                setValueSearch('')
-                updateFilter(index, {
-                  interactive: false,
-                  metabaseParam: false,
-                  operator: compact ? getDefaultFilterOperator(filter.column) : '=',
-                  value: '',
-                  multipleValues: undefined,
-                })
-              }}
-            >
-              Velg fast verdi i stedet
-            </Button>
+          <div className="rounded bg-[var(--ax-bg-accent-soft)] p-2 text-sm text-[var(--ax-text-default)]">
+            Parameter: <strong>{filter.value?.toString().replace('{{', '').replace('}}', '')}</strong>
           </div>
         ) : (
           !['IS NULL', 'IS NOT NULL'].includes(filter.operator || '') && (
             <>
-              {!suggestionColumn && filter.column !== 'event_type' && !isMultiSelect ? (
-                <TextField
-                  ref={valueInputRef}
-                  label="Verdi"
-                  size="small"
-                  description="Skriv inn verdien selv. Dette filteret har ikke forslag."
-                  value={filter.value ?? ''}
-                  onChange={(event) => updateFilter(index, { value: event.target.value, multipleValues: undefined })}
-                />
-              ) : (
-                <UNSAFE_Combobox
-                  ref={valueInputRef}
-                  label="Verdi"
-                  hideLabel={compact}
-                  description={null}
-                  options={valueOptions}
-                  selectedOptions={
-                    filter.column === 'country'
-                      ? currentValues.map(
-                          (value) => toSuggestionOptions('country', [value])[0] ?? { label: value, value },
-                        )
-                      : currentValues
-                  }
-                  onToggleSelected={handleValueToggle}
-                  isMultiSelect={isMultiSelect}
-                  size="small"
-                  allowNewValues={filter.column !== 'event_type'}
-                  shouldAutocomplete={false}
-                  isLoading={loading}
-                  value={valueSearch}
-                  onChange={setValueSearch}
-                  isListOpen={!loading && !hasUnselectedSuggestions && !valueSearch.trim() ? false : undefined}
-                />
-              )}
-              {!suggestionColumn && filter.column !== 'event_type' && isMultiSelect && (
-                <BodyShort size="small">
-                  Dette filteret har ikke forslag. Skriv inn en verdi, og trykk Enter for å legge den til.
-                </BodyShort>
-              )}
-              {canSuggest &&
-                !loading &&
-                !failed &&
-                scannedDays !== null &&
-                values.length === 0 &&
-                getOptionsForColumn(filter.column).length === 0 && (
-                  <BodyShort size="small" role="status">
-                    Ingen forslag funnet. Skriv inn en verdi selv, og trykk Enter for å legge den til.
-                  </BodyShort>
-                )}
+              <UNSAFE_Combobox
+                label="Verdi"
+                hideLabel={compact}
+                description={null}
+                options={getOptionsForColumn(filter.column)}
+                selectedOptions={
+                  filter.column === 'country'
+                    ? currentValues.map(
+                        (value) => toSuggestionOptions('country', [value])[0] ?? { label: value, value },
+                      )
+                    : currentValues
+                }
+                onToggleSelected={handleValueToggle}
+                isMultiSelect={!compact || ['=', 'IN'].includes(filter.operator ?? '=')}
+                size="small"
+                allowNewValues={filter.column !== 'event_type'}
+                shouldAutocomplete={false}
+                isLoading={loading}
+              />
               {canSuggest && scannedDays !== null && scannedDays < 30 && (
-                <BodyShort size="small" role="status" style={{ color: 'var(--ax-text-subtle)' }}>
+                <BodyShort size="small" style={{ color: 'var(--ax-text-subtle)' }}>
                   Forslag fra siste {scannedDays} dager
                 </BodyShort>
               )}
               {canSuggest && failed && (
-                <BodyShort size="small" role="status" style={{ color: 'var(--ax-text-subtle)' }}>
-                  Kunne ikke hente forslag. Skriv inn en verdi selv, og trykk Enter for å legge den til.
+                <BodyShort size="small" style={{ color: 'var(--ax-text-subtle)' }}>
+                  Kunne ikke hente forslag — du kan fortsatt skrive verdien manuelt
                 </BodyShort>
               )}
             </>
           )
         )}
         {compact && !filter.interactive && (
-          <Button type="button" variant="tertiary" size="small" onClick={makeInteractive}>
-            La valg bli overstyrt (templating)
-          </Button>
+          <ReadMore size="small" header="Bruk som dashboardfilter">
+            <Button variant="tertiary" size="small" onClick={makeInteractive}>
+              La mottakeren velge verdi
+            </Button>
+          </ReadMore>
         )}
       </div>
     </FilterCard>

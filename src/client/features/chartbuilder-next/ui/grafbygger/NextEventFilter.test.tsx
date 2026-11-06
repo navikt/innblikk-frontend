@@ -69,33 +69,10 @@ const filters = (): Filter[] => {
 
 async function addFilter(user: ReturnType<typeof userEvent.setup>, name: string) {
   await user.click(screen.getByRole('button', { name: 'Filter' }))
-  await user.click(screen.getByRole('option', { name: (label) => label.startsWith(`${name} – `) }))
+  await user.click(screen.getByRole('option', { name }))
 }
 
 describe('NextEventFilter', () => {
-  it('uses recognizable referrer names in the picker and filter card', async () => {
-    const user = userEvent.setup()
-    render(<Harness />)
-    await user.click(screen.getByRole('button', { name: 'Filter' }))
-    expect(screen.getByRole('option', { name: /^Referrer \(domene\) –/ })).toBeVisible()
-    expect(screen.getByRole('option', { name: /^Referrer \(side\) –/ })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: /^Referrer \(parameter\) –/ })).toBeInTheDocument()
-    expect(screen.queryByRole('option', { name: /Henvisningsdomene/ })).not.toBeInTheDocument()
-    await user.click(screen.getByRole('option', { name: /^Referrer \(domene\) –/ }))
-    expect(screen.getByRole('region', { name: 'Referrer (domene)' })).toBeVisible()
-  })
-  it('uses the identical explanation and visual-only example in picker and card', async () => {
-    const user = userEvent.setup()
-    render(<Harness />)
-    await user.click(screen.getByRole('button', { name: 'Filter' }))
-    const option = screen.getByRole('option', { name: /^Parameter \(URL\) –/ })
-    const explanation = option.querySelector('.option-explanation')?.innerHTML
-    expect(explanation).toBeTruthy()
-    await user.click(option)
-    const card = screen.getByRole('region', { name: 'Parameter (URL)' })
-    expect(card.querySelector('.option-explanation')?.innerHTML).toBe(explanation)
-    expect(card.querySelector('code')).toHaveAttribute('aria-hidden', 'true')
-  })
   beforeEach(() => {
     vi.mocked(createSidegroup).mockReset()
     columnValuesSuggestions.clearColumnValuesCache()
@@ -122,53 +99,20 @@ describe('NextEventFilter', () => {
   it('focuses and opens filter suggestions immediately, and allows dismissal and reopening', async () => {
     const user = userEvent.setup()
     render(<Harness />)
-    const trigger = screen.getByRole('button', { name: 'Filter' })
-    await user.click(trigger)
+    await user.click(screen.getByRole('button', { name: 'Filter' }))
     const picker = screen.getByRole('combobox', { name: 'Velg filter' })
-    const chooser = screen.getByRole('dialog', { name: 'Velg filter' })
-    expect(within(chooser).getByRole('combobox', { name: 'Velg filter' })).toBe(picker)
-    expect(trigger).toBeVisible()
-    expect(trigger).toHaveAttribute('aria-haspopup', 'dialog')
-    expect(trigger).toHaveAttribute('aria-expanded', 'true')
-    expect(trigger).toHaveAttribute('aria-controls', chooser.id)
-    expect(screen.queryByRole('button', { name: 'Avbryt filtervalg' })).not.toBeInTheDocument()
     expect(picker).toHaveFocus()
     expect(picker).toHaveAttribute('aria-expanded', 'true')
-    expect(screen.getByRole('option', { name: /Side \(URL\) – Adressen uten/ })).toBeVisible()
-    expect(screen.getByRole('option', { name: /Sidegruppe – En samling sider/ })).toBeVisible()
+    expect(screen.getByRole('option', { name: 'Side (URL)' })).toBeVisible()
+    expect(screen.getByRole('option', { name: 'Sidegruppe' })).toBeVisible()
     await user.keyboard('{Escape}')
-    expect(trigger).toHaveAttribute('aria-expanded', 'false')
-    expect(trigger).toHaveFocus()
-    await user.click(trigger)
-    expect(screen.getByRole('combobox', { name: 'Velg filter' })).toHaveFocus()
-    await user.click(trigger)
+    expect(picker).toHaveAttribute('aria-expanded', 'false')
+    await user.click(picker)
+    expect(picker).toHaveAttribute('aria-expanded', 'true')
+    await user.click(screen.getByRole('button', { name: 'Avbryt filtervalg' }))
     expect(screen.queryByRole('combobox', { name: 'Velg filter' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Filter' }))
     expect(screen.getByRole('combobox', { name: 'Velg filter' })).toHaveAttribute('aria-expanded', 'true')
-  })
-
-  it('dismisses on outside click without selecting a filter or stealing focus', async () => {
-    const user = userEvent.setup()
-    render(<Harness />)
-    const initial = filters()
-    await user.click(screen.getByRole('button', { name: 'Filter' }))
-    const events = screen.getByRole('combobox', { name: 'Hendelser' })
-    await user.click(events)
-    expect(screen.queryByRole('dialog', { name: 'Velg filter' })).not.toBeInTheDocument()
-    expect(events).toHaveFocus()
-    expect(filters()).toEqual(initial)
-  })
-
-  it('adds a keyboard-selected filter and returns focus to the persistent trigger', async () => {
-    const user = userEvent.setup()
-    render(<Harness />)
-    const trigger = screen.getByRole('button', { name: 'Filter' })
-    await user.click(trigger)
-    await user.type(screen.getByRole('combobox', { name: 'Velg filter' }), 'Parameter (URL)')
-    await user.keyboard('{ArrowDown}{Enter}')
-    expect(filters()).toContainEqual(expect.objectContaining({ column: 'url_query', operator: 'LIKE' }))
-    expect(screen.queryByRole('dialog', { name: 'Velg filter' })).not.toBeInTheDocument()
-    expect(trigger).toHaveFocus()
   })
 
   it('starts empty without a warning and puts pageviews first in a searchable event list', async () => {
@@ -386,161 +330,8 @@ describe('NextEventFilter', () => {
     const value = screen.getByRole('combobox', { name: 'Verdi' })
     await user.type(value, 'Firefox{Enter}')
     expect(filters()).toContainEqual(expect.objectContaining({ column: 'browser', value: 'Firefox' }))
-    await user.click(screen.getByRole('button', { name: 'Fjern nettlesertype' }))
+    await user.click(screen.getByRole('button', { name: 'Fjern' }))
     expect(filters().some((filter) => filter.column === 'browser')).toBe(false)
-  })
-
-  it('explains URL filters, omits the combined choice and suggests registered parameters', async () => {
-    const user = userEvent.setup()
-    vi.mocked(fetchColumnValues).mockResolvedValue({
-      values: ['tema=jobb', 'tema=pensjon&sortering=dato'],
-      scannedDays: 30,
-    })
-    render(<Harness />)
-    await user.click(screen.getByRole('button', { name: 'Filter' }))
-    expect(screen.getByRole('option', { name: /Parameter \(URL\) – Parametere etter/ })).toBeVisible()
-    expect(screen.queryByRole('option', { name: /URL-sti og spørring/ })).not.toBeInTheDocument()
-    await user.click(screen.getByRole('option', { name: /Parameter \(URL\) –/ }))
-    expect(screen.getByText(/Parametere etter \? i adressen, uten spørsmålstegnet/)).toBeVisible()
-    await waitFor(() => expect(fetchColumnValues).toHaveBeenCalledWith('site-1', 'url_query', undefined, undefined))
-    const value = screen.getByRole('combobox', { name: 'Verdi' })
-    await user.click(value)
-    await user.click(await screen.findByRole('option', { name: 'tema=jobb' }))
-    expect(filters()).toContainEqual(
-      expect.objectContaining({ column: 'url_query', operator: 'LIKE', value: 'tema=jobb' }),
-    )
-    await addFilter(user, 'Side (URL)')
-    expect(filters()).toContainEqual(
-      expect.objectContaining({ column: 'url_path', operator: 'STARTS_WITH', value: '' }),
-    )
-    expect(filters()).toContainEqual(expect.objectContaining({ column: 'url_query', value: 'tema=jobb' }))
-  })
-
-  it('uses manual input for fields without a suggestion source', async () => {
-    const user = userEvent.setup()
-    render(<Harness />)
-    await addFilter(user, 'Sidetittel')
-    const value = screen.getByRole('combobox', { name: 'Verdi' })
-    await user.click(value)
-    expect(value).toHaveAttribute('aria-expanded', 'false')
-    await user.type(value, 'Søk på nav.no{Enter}En annen tittel{Enter}')
-    expect(filters()).toContainEqual(expect.objectContaining({ column: 'page_title', value: 'Søk på nav.no' }))
-    expect(filters()).toContainEqual(
-      expect.objectContaining({
-        column: 'page_title',
-        operator: 'IN',
-        multipleValues: ['Søk på nav.no', 'En annen tittel'],
-      }),
-    )
-    expect(fetchColumnValues).not.toHaveBeenCalled()
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Sidetittel: sammenligning' }), 'LIKE')
-    await user.type(screen.getByRole('textbox', { name: 'Verdi' }), 'Søk')
-    expect(filters()).toContainEqual(expect.objectContaining({ column: 'page_title', operator: 'LIKE', value: 'Søk' }))
-    expect(screen.queryByRole('combobox', { name: 'Verdi' })).not.toBeInTheDocument()
-  })
-
-  it.each([
-    ['Side (URL)', 'STARTS_WITH'],
-    ['Parameter (URL)', 'LIKE'],
-  ])('uses the default comparator for %s, including when switching back from templating', async (name, operator) => {
-    const user = userEvent.setup()
-    render(<Harness />)
-    await addFilter(user, name)
-    expect(screen.getByRole('combobox', { name: `${name}: sammenligning` })).toHaveValue(operator)
-    expect(screen.queryByText(/«Er lik» krever/)).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'La valg bli overstyrt (templating)' }))
-    await user.click(screen.getByRole('button', { name: 'Velg fast verdi i stedet' }))
-    expect(screen.getByRole('combobox', { name: `${name}: sammenligning` })).toHaveValue(operator)
-  })
-
-  it('preserves an explicitly saved URL parameter comparator', () => {
-    render(<Harness initial={[{ column: 'url_query', operator: '=', value: 'tema=jobb' }]} />)
-    expect(screen.getByRole('combobox', { name: 'Parameter (URL): sammenligning' })).toHaveValue('=')
-  })
-
-  it('shows loading while URL parameters are fetched and keeps manual entry available after failure', async () => {
-    const user = userEvent.setup()
-    let rejectRequest!: (error: Error) => void
-    vi.mocked(fetchColumnValues).mockReturnValue(
-      new Promise((_, reject) => {
-        rejectRequest = reject
-      }),
-    )
-    render(<Harness />)
-    await addFilter(user, 'Parameter (URL)')
-    const value = screen.getByRole('combobox', { name: 'Verdi' })
-    await user.click(value)
-    expect(screen.getByTitle('Søker…')).toBeInTheDocument()
-    await act(async () => {
-      rejectRequest(new Error('Unavailable'))
-      await Promise.resolve()
-    })
-    expect(await screen.findByText(/Kunne ikke hente forslag/)).toBeVisible()
-    expect(screen.queryByTitle('Søker…')).not.toBeInTheDocument()
-    expect(value).toHaveAttribute('aria-expanded', 'false')
-    await user.type(value, 'tema=jobb{Enter}')
-    expect(filters()).toContainEqual(expect.objectContaining({ column: 'url_query', value: 'tema=jobb' }))
-  })
-
-  it('announces empty suggestions without opening an empty dropdown and still accepts manual values', async () => {
-    const user = userEvent.setup()
-    render(<Harness />)
-    await addFilter(user, 'Nettlesertype')
-    await screen.findByText(/Ingen forslag funnet/)
-    const value = screen.getByRole('combobox', { name: 'Verdi' })
-    await user.click(value)
-    expect(value).toHaveAttribute('aria-expanded', 'false')
-    await user.type(value, 'Firefox{Enter}')
-    expect(filters()).toContainEqual(expect.objectContaining({ column: 'browser', value: 'Firefox' }))
-  })
-
-  it('keeps converted page filters visible and offers switching back to a fixed value', async () => {
-    const user = userEvent.setup()
-    render(<Harness />)
-    await addFilter(user, 'Side (URL)')
-    await user.type(screen.getByRole('combobox', { name: 'Verdi' }), '/soknad{Enter}')
-    expect(screen.queryByRole('button', { name: 'Bruk som dashboardfilter' })).not.toBeInTheDocument()
-    expect(screen.queryByText('Erstatter dette faste filteret med et valg i dashboardet.')).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'La valg bli overstyrt (templating)' }))
-    const card = screen.getByRole('region', { name: 'Side (URL)' })
-    expect(within(card).getByText(/Valgte verdier er erstattet med en Metabase-parameter/)).toBeVisible()
-    expect(within(card).getByText('{{url_sti}}', { selector: 'code' })).toBeVisible()
-    expect(within(card).getByText('{{url_sti}}', { selector: 'code' }).parentElement).toHaveTextContent(
-      /^\{\{url_sti\}\}$/,
-    )
-    expect(within(card).getByRole('button', { name: 'Velg fast verdi i stedet' })).toHaveFocus()
-    expect(filters()).toContainEqual(
-      expect.objectContaining({
-        column: 'url_path',
-        interactive: true,
-        value: '{{url_sti}}',
-        showInFilterEditor: true,
-      }),
-    )
-    expect(filters().find((filter) => filter.column === 'url_path')?.multipleValues).toBeUndefined()
-    await user.click(within(card).getByRole('button', { name: 'Velg fast verdi i stedet' }))
-    expect(screen.getByRole('combobox', { name: 'Verdi' })).toBeVisible()
-    expect(screen.getByRole('combobox', { name: 'Verdi' })).toHaveFocus()
-    expect(filters()).toContainEqual(expect.objectContaining({ column: 'url_path', interactive: false, value: '' }))
-  })
-
-  it('keeps explicitly configured dashboard filters visible after restoring them', () => {
-    render(
-      <Harness
-        initial={[
-          { column: 'event_type', operator: '=', value: '1' },
-          {
-            column: 'url_path',
-            operator: '=',
-            value: '{{url_sti}}',
-            interactive: true,
-            metabaseParam: true,
-            showInFilterEditor: true,
-          },
-        ]}
-      />,
-    )
-    expect(screen.getByRole('region', { name: 'Side (URL)' })).toBeVisible()
   })
 
   it('creates a sidegroup in a modal and immediately selects it, including when other groups exist', async () => {
@@ -681,78 +472,6 @@ describe('NextEventFilter', () => {
         rawExpression: '(event_type = 1 OR (event_type = 2 AND event_name = {{event_name}}))',
       }),
     )
-  })
-
-  it('loads event-name suggestions for advanced selection and merges them without duplicates', async () => {
-    const user = userEvent.setup()
-    vi.mocked(fetchColumnValues).mockResolvedValue({ values: ['skjema sendt', 'ny hendelse'], scannedDays: 7 })
-    render(<Harness />)
-    await addFilter(user, 'Hendelsesutvalg (avansert)')
-    expect(fetchColumnValues).not.toHaveBeenCalled()
-    await user.click(screen.getByRole('radio', { name: 'Utvalgte hendelser' }))
-    await screen.findByText('Ekstra forslag fra siste 7 dager')
-    expect(fetchColumnValues).toHaveBeenCalledExactlyOnceWith('site-1', 'event_name', undefined, undefined)
-    const card = screen.getByRole('region', { name: 'Hendelsesutvalg (avansert)' })
-    await user.click(screen.getByRole('combobox', { name: 'Velg hendelser' }))
-    expect(within(card).getAllByRole('option', { name: 'skjema sendt' })).toHaveLength(1)
-    expect(within(card).getByRole('option', { name: 'knapp klikket' })).toBeVisible()
-    await user.click(within(card).getByRole('option', { name: 'ny hendelse' }))
-    expect(filters()).toContainEqual(expect.objectContaining({ column: 'event_name', multipleValues: ['ny hendelse'] }))
-  })
-
-  it('shows the event suggestion spinner and accepts manual names after an empty response', async () => {
-    const user = userEvent.setup()
-    let resolveRequest!: (value: { values: string[]; scannedDays: number }) => void
-    vi.mocked(fetchColumnValues).mockReturnValue(
-      new Promise((resolve) => {
-        resolveRequest = resolve
-      }),
-    )
-    render(<Harness events={[]} />)
-    await addFilter(user, 'Hendelsesutvalg (avansert)')
-    await user.click(screen.getByRole('radio', { name: 'Utvalgte hendelser' }))
-    const card = screen.getByRole('region', { name: 'Hendelsesutvalg (avansert)' })
-    const input = within(card).getByRole('combobox', { name: 'Velg hendelser' })
-    await user.click(input)
-    expect(within(card).getByTitle('Søker…')).toBeInTheDocument()
-    await act(async () => {
-      resolveRequest({ values: [], scannedDays: 30 })
-      await Promise.resolve()
-    })
-    expect(await screen.findByText(/Ingen hendelsesforslag funnet/)).toBeVisible()
-    expect(input).toHaveAttribute('aria-expanded', 'false')
-    await user.type(input, 'søknad fullført{Enter}')
-    expect(filters()).toContainEqual(expect.objectContaining({ column: 'event_name', value: 'søknad fullført' }))
-  })
-
-  it('preserves known events and manual entry when event suggestions fail', async () => {
-    const user = userEvent.setup()
-    vi.mocked(fetchColumnValues).mockRejectedValue(new Error('Unavailable'))
-    render(<Harness />)
-    await addFilter(user, 'Hendelsesutvalg (avansert)')
-    await user.click(screen.getByRole('radio', { name: 'Utvalgte hendelser' }))
-    expect(await screen.findByText(/Kunne ikke hente hendelsesforslag/)).toBeVisible()
-    const input = screen.getByRole('combobox', { name: 'Velg hendelser' })
-    await user.click(input)
-    expect(
-      within(screen.getByRole('region', { name: 'Hendelsesutvalg (avansert)' })).getByRole('option', {
-        name: 'skjema sendt',
-      }),
-    ).toBeVisible()
-    await user.type(input, 'nytt navn{Enter}')
-    expect(filters()).toContainEqual(expect.objectContaining({ column: 'event_name', value: 'nytt navn' }))
-  })
-
-  it('uses the brief self-created sidegroup explanation in both picker and card', async () => {
-    const user = userEvent.setup()
-    render(<Harness />)
-    await user.click(screen.getByRole('button', { name: 'Filter' }))
-    const option = screen.getByRole('option', { name: 'Sidegruppe – En samling sider du setter sammen selv.' })
-    expect(option.querySelector('code')).toBeNull()
-    await user.click(option)
-    const card = screen.getByRole('region', { name: 'Sidegruppe' })
-    expect(within(card).getByText('En samling sider du setter sammen selv.')).toBeVisible()
-    expect(card.querySelector('code')).toBeNull()
   })
 
   it('reports sidegroup loading failures explicitly', () => {
