@@ -10,6 +10,9 @@ import { SidegroupEditor, type SidegroupEditorRef } from '../../../sidegroups/ui
 import type { Sidegroup } from '../../../sidegroups/model/types.ts'
 import { CustomEventsEditor, GenericFilterCard } from './EventSelector.tsx'
 import { defaultPageFilter, getEventSelection, setEventSelection } from '../../utils/eventSelection.ts'
+import { useFeatureFlag } from '../../../../shared/hooks/useFeatureFlag.ts'
+import FilterTypePicker from '../../../chartbuilder-alfa/ui/grafbygger/FilterTypePicker.tsx'
+import { FILTER_DESCRIPTIONS } from '../../../chartbuilder-alfa/ui/grafbygger/filterDescriptions.ts'
 
 interface NextEventFilterProps {
   filters: Filter[]
@@ -43,6 +46,7 @@ const NextEventFilter = forwardRef(
     ref,
   ) => {
     const initialized = useRef(false)
+    const customFilterSelector = useFeatureFlag('grafbygger_custom_filter_selector')
     const websiteId = website?.id
     const eventInputRef = useRef<HTMLInputElement>(null)
     const filterInputRef = useRef<HTMLInputElement>(null)
@@ -131,8 +135,24 @@ const NextEventFilter = forwardRef(
     useEffect(() => onDirtyStateChange?.(dirty), [dirty, onDirtyStateChange])
 
     useEffect(() => {
-      if (addingFilter) filterInputRef.current?.click()
-    }, [addingFilter])
+      if (addingFilter && !customFilterSelector) filterInputRef.current?.click()
+    }, [addingFilter, customFilterSelector])
+
+    const selectFilter = (value: string) => {
+      if (value === 'event-options') setShowEventOptions(true)
+      else {
+        setFilters((previous) => [
+          ...previous.filter((filter) =>
+            value === 'url_path' || value === 'sidegroup' ? filter.column !== 'url_path' : true,
+          ),
+          value === 'sidegroup'
+            ? { column: 'url_path', rawExpression: 'TRUE' }
+            : { column: value, operator: '=', value: '' },
+        ])
+      }
+      setAddingFilter(false)
+      onEnableCustomEvents?.(value.startsWith('param_'))
+    }
 
     const updateSelection = (pageviews: boolean, custom: boolean, eventNames?: Filter) => {
       if (pageviews || custom) setValidationAttempted(false)
@@ -264,7 +284,19 @@ const NextEventFilter = forwardRef(
           </Alert>
         )}
         <HStack gap="space-24" align="start" wrap>
-          {addingFilter ? (
+          {customFilterSelector ? (
+            <FilterTypePicker
+              open={addingFilter}
+              onOpenChange={setAddingFilter}
+              options={filterOptions.map((option) => ({
+                ...option,
+                description: FILTER_DESCRIPTIONS[option.value]?.description ?? 'Egenskap som sendes med hendelsen',
+                example: FILTER_DESCRIPTIONS[option.value]?.example,
+              }))}
+              onRequestOptions={() => onEnableCustomEvents?.(true)}
+              onSelect={selectFilter}
+            />
+          ) : addingFilter ? (
             <div className="flex min-w-0 flex-1 items-start gap-1">
               <div className="min-w-0 flex-1">
                 <UNSAFE_Combobox
@@ -280,19 +312,7 @@ const NextEventFilter = forwardRef(
                   shouldAutocomplete={false}
                   onToggleSelected={(value, selected) => {
                     if (!selected) return
-                    if (value === 'event-options') setShowEventOptions(true)
-                    else {
-                      setFilters((previous) => [
-                        ...previous.filter((filter) =>
-                          value === 'url_path' || value === 'sidegroup' ? filter.column !== 'url_path' : true,
-                        ),
-                        value === 'sidegroup'
-                          ? { column: 'url_path', rawExpression: 'TRUE' }
-                          : { column: value, operator: '=', value: '' },
-                      ])
-                    }
-                    setAddingFilter(false)
-                    onEnableCustomEvents?.(value.startsWith('param_'))
+                    selectFilter(value)
                   }}
                 />
               </div>

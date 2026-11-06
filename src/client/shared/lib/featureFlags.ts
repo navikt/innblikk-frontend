@@ -27,11 +27,13 @@ function trackFlagChange<K extends keyof FeatureFlags>(key: K, value: FeatureFla
 }
 
 export type FeatureFlags = {
+  grafbygger_custom_filter_selector: boolean
   grafbygger_always_show_sql: boolean
   copilot_show_technical_details: boolean
 }
 
 const DEFAULT_FLAGS: FeatureFlags = {
+  grafbygger_custom_filter_selector: false,
   grafbygger_always_show_sql: false,
   copilot_show_technical_details: false,
 }
@@ -45,7 +47,7 @@ export const getFeatureFlags = (): FeatureFlags => {
     // don't keep round-tripping to the backend via syncSettingsToBackend.
     const pruned: Partial<FeatureFlags> = {}
     for (const key of Object.keys(DEFAULT_FLAGS) as (keyof FeatureFlags)[]) {
-      if (parsed[key] !== undefined) pruned[key] = parsed[key]
+      if (typeof parsed[key] === 'boolean') pruned[key] = parsed[key]
     }
     return { ...DEFAULT_FLAGS, ...pruned }
   } catch {

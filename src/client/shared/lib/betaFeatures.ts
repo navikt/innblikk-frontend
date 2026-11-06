@@ -1,9 +1,12 @@
+import type { FeatureFlags } from './featureFlags.ts'
+
 /**
  * Registry of features currently in alfa or beta.
  *
  * «Beta» here describes the *feature*, never the user: there is no opt-in,
- * everyone gets beta features, and each feature surfaces its own dismissable
- * notice (BetaFeatureNotice) where it lives. This registry is the single
+ * everyone gets beta features. Alfa features require explicit opt-in through
+ * their own checkbox in /innstillinger. Beta features surface a dismissable
+ * notice (BetaFeatureNotice) where they live. This registry is the single
  * source of truth for which features are in alfa or beta, and powers the
  * corresponding overviews on /innstillinger.
  *
@@ -15,14 +18,13 @@
 export type BetaFeature = {
   /** Dismissal key (dismissedAlerts.ts) and registry key. */
   id: string
-  stage?: 'alfa' | 'beta'
   /** Short name, e.g. «Grafbyggeren». */
   title: string
   /** One-liner about what is new/experimental, shown in the /innstillinger overview. */
   description: string
   /** Where the feature lives. Omit for global features (e.g. the design itself). */
   href?: string
-}
+} & ({ stage: 'alfa'; optInFlag: keyof FeatureFlags } | { stage?: 'beta'; optInFlag?: never })
 
 export const betaFeatures: BetaFeature[] = [
   {
@@ -37,11 +39,12 @@ export const betaFeatures: BetaFeature[] = [
     href: '/grafbygger',
   },
   {
-    id: 'grafbygger-alfa',
+    id: 'grafbygger-filter-selector',
     stage: 'alfa',
-    title: 'Grafbyggeren',
-    description: 'Prøv nye filtervalg med forklaringer og et oppdatert design.',
-    href: '/grafbygger-alfa',
+    optInFlag: 'grafbygger_custom_filter_selector',
+    title: 'Ny filtervelger i grafbyggeren',
+    description: 'Søk etter filtre og se forklaringer og eksempler før du velger.',
+    href: '/grafbygger',
   },
   {
     id: 'brukergrupper',

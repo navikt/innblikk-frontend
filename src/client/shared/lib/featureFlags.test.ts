@@ -20,6 +20,7 @@ describe('featureFlags', () => {
       const flags = getFeatureFlags()
       expect(flags.copilot_show_technical_details).toBe(false)
       expect(flags.grafbygger_always_show_sql).toBe(false)
+      expect(flags.grafbygger_custom_filter_selector).toBe(false)
     })
 
     it('returns stored values merged with defaults', () => {
@@ -48,6 +49,17 @@ describe('featureFlags', () => {
   })
 
   describe('getFeatureFlag', () => {
+    it('does not enable alfa for malformed stored values', () => {
+      localStorage.setItem('innblikk_feature_flags', JSON.stringify({ grafbygger_custom_filter_selector: 'false' }))
+      expect(getFeatureFlag('grafbygger_custom_filter_selector')).toBe(false)
+    })
+
+    it('persists explicit alfa opt-in and opt-out', () => {
+      setFeatureFlag('grafbygger_custom_filter_selector', true)
+      expect(getFeatureFlag('grafbygger_custom_filter_selector')).toBe(true)
+      setFeatureFlag('grafbygger_custom_filter_selector', false)
+      expect(getFeatureFlag('grafbygger_custom_filter_selector')).toBe(false)
+    })
     it('returns default value for an unset flag', () => {
       expect(getFeatureFlag('copilot_show_technical_details')).toBe(false)
     })
@@ -133,7 +145,11 @@ describe('featureFlags', () => {
             ok: true,
             json: () =>
               Promise.resolve({
-                settings: { copilot_show_technical_details: 'true', grafbygger_always_show_sql: 'true' },
+                settings: {
+                  copilot_show_technical_details: 'true',
+                  grafbygger_always_show_sql: 'true',
+                  grafbygger_custom_filter_selector: 'true',
+                },
               }),
           }),
         ),
@@ -148,6 +164,7 @@ describe('featureFlags', () => {
       expect(stored.copilot_show_technical_details).toBe(true)
       expect(stored.grafbygger_always_show_sql).toBe(true)
       expect(listener).toHaveBeenCalledOnce()
+      expect(stored.grafbygger_custom_filter_selector).toBe(true)
       const detail = (listener.mock.calls[0][0] as CustomEvent).detail
       expect(detail.copilot_show_technical_details).toBe(true)
       window.removeEventListener('featureFlagsChange', listener)

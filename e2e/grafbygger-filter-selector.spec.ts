@@ -19,11 +19,15 @@ const MOCK_WEBSITES = [
   },
 ]
 
-test.describe('Grafbygger alfa', () => {
+test.describe('Alfa filter selector in the beta Grafbygger', () => {
   test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('innblikk_feature_flags', JSON.stringify({ grafbygger_custom_filter_selector: true }))
+    })
+    await page.route('**/api/backend/user-settings', (route) => route.fulfill({ json: { settings: {} } }))
     await page.route('**/column-values?*', (route) => route.fulfill({ json: { values: [], scannedDays: 30 } }))
   })
-  test('/grafbygger-alfa keeps the initial event controls minimal', async ({ page }) => {
+  test('/grafbygger keeps its beta identity and uses the opted-in filter selector', async ({ page }) => {
     const cohort = {
       id: 3,
       websiteId: 'site-1',
@@ -54,13 +58,14 @@ test.describe('Grafbygger alfa', () => {
         },
       }),
     )
-    await page.goto('/grafbygger-alfa?websiteId=site-1')
+    await page.goto('/grafbygger?websiteId=site-1')
     const heading = page.getByRole('heading', { level: 1, name: 'Grafbyggeren', exact: true })
     await expect(heading).toBeVisible()
-    await expect(heading.locator('..').getByText('Beta', { exact: true })).toHaveCount(0)
-    await expect(heading.locator('..').getByText('Alfa', { exact: true })).toBeVisible()
+    await expect(heading.locator('..').getByText('Beta', { exact: true })).toBeVisible()
+    await expect(heading.locator('..').getByText('Alfa', { exact: true })).toHaveCount(0)
     await expect(page.getByRole('heading', { name: 'Prøv den nye grafbyggeren', exact: true })).toHaveCount(0)
-    await expect(page.getByRole('heading', { name: 'Grafbyggeren er i alfa', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Grafbyggeren er i beta', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Grafbyggeren er i alfa', exact: true })).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Minimer filter', exact: true })).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Vis filter', exact: true })).toHaveCount(0)
     const picker = page.getByRole('combobox', { name: 'Hendelser', exact: true })
@@ -113,13 +118,15 @@ test.describe('Grafbygger alfa', () => {
     await page.getByRole('combobox', { name: 'Velg filter' }).fill('Side (URL)')
     await filterDialog.getByRole('option', { name: /^Side \(URL\) –/ }).click()
     await expect(filterTrigger).toBeFocused()
-    const pageFilter = page.getByRole('region', { name: 'Side (URL)', exact: true })
-    await expect(pageFilter.getByRole('combobox', { name: 'Side (URL): sammenligning' })).toHaveValue('STARTS_WITH')
+    const pageFilter = page.locator('.filter-card-animate-in').filter({
+      has: page.getByRole('combobox', { name: 'Side (URL): sammenligning' }),
+    })
+    await expect(pageFilter.getByRole('combobox', { name: 'Side (URL): sammenligning' })).toHaveValue('=')
     await expect(page.getByRole('combobox', { name: 'Verdi', exact: true })).toBeVisible()
     await expect(page.getByRole('combobox', { name: 'Kolonne', exact: true })).toHaveCount(0)
     await page.getByRole('combobox', { name: 'Verdi', exact: true }).fill('/soknad')
     await page.keyboard.press('Enter')
-    await expect(pageFilter.locator('.aksel-combobox__selected-options--no-bg')).toHaveText('/soknad')
+    await expect(pageFilter.getByRole('button', { name: '/soknad slett', exact: true })).toBeVisible()
     await picker.fill('meny')
     await page.getByRole('option', { name: 'meny åpnet', exact: true }).click()
     await expect(page.getByRole('button', { name: 'meny åpnet slett' })).toBeVisible()
@@ -168,14 +175,14 @@ test.describe('Grafbygger alfa', () => {
     await page.reload()
     await expect(page.getByText('Sidetittel', { exact: true }).and(page.locator('span'))).toBeVisible()
     await expect(page.getByRole('button', { name: 'skjema sendt slett' })).toBeVisible()
-    await expect(pageFilter.locator('.aksel-combobox__selected-options--no-bg')).toHaveText('/soknad')
+    await expect(pageFilter.getByRole('button', { name: '/soknad slett', exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Søkere slett' })).toBeVisible()
     await page.getByRole('button', { name: 'Fjern brukergrupper' }).click()
     await expect(page.getByRole('combobox', { name: 'Velg brukergrupper' })).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Brukergruppe', exact: true })).toBeVisible()
   })
 
-  test('/grafbygger-alfa creates and selects sidegroups without leaving the graph', async ({ page }) => {
+  test('/grafbygger creates and selects sidegroups using the opted-in filter selector', async ({ page }) => {
     const requests: unknown[] = []
     const queries: string[] = []
     const group = { id: 73, websiteId: 'site-1', name: 'Hjelpesider', startWith: ['/hjelp'] }
@@ -208,7 +215,7 @@ test.describe('Grafbygger alfa', () => {
     )
 
     try {
-      await page.goto('/grafbygger-alfa?websiteId=site-1')
+      await page.goto('/grafbygger?websiteId=site-1')
       await page.getByRole('combobox', { name: 'Hendelser', exact: true }).click()
       await page.getByRole('option', { name: 'Sidevisninger', exact: true }).click()
       await page.keyboard.press('Escape')
@@ -270,7 +277,7 @@ test.describe('Grafbygger alfa', () => {
       await expect(dialog).toHaveCount(0)
       await expect(page.getByRole('combobox', { name: 'Sidegruppe', exact: true })).toHaveValue('73')
       await expect(createButton).toBeFocused()
-      await expect(page).toHaveURL(/\/grafbygger-alfa\?websiteId=site-1/)
+      await expect(page).toHaveURL(/\/grafbygger\?websiteId=site-1/)
       expect(page.context().pages()).toHaveLength(1)
       expect(requests[1]).toMatchObject({ websiteId: 'site-1', name: 'Hjelpesider', startWith: ['/hjelp'] })
 

@@ -8,9 +8,6 @@ vi.mock('./features/sql', () => ({ SqlEditor: () => <div>Gammel SQL-editor</div>
 vi.mock('./features/chartbuilder-next', () => ({
   Grafbygger: ({ edition }: { edition?: string }) => <div data-testid="builder" data-edition={edition} />,
 }))
-vi.mock('./features/chartbuilder-alfa/ui/Grafbygger.tsx', () => ({
-  default: () => <div data-testid="alfa-builder" />,
-}))
 
 function LocationProbe() {
   const { pathname, search, hash } = useLocation()
@@ -24,7 +21,7 @@ function LocationProbe() {
 }
 
 describe('builder routes', () => {
-  it.each(['/grafbygger', '/grafbygger-next', '/grafbygger_next'])(
+  it.each(['/grafbygger', '/grafbygger-next', '/grafbygger_next', '/grafbygger-alfa'])(
     'opens the beta builder from %s and keeps URL parameters',
     async (path) => {
       const suffix = '?websiteId=site-1&focused=1#hendelser'
@@ -47,28 +44,6 @@ describe('builder routes', () => {
       expect(isFullWidthPath(path)).toBe(true)
     },
   )
-
-  it('opens the separate alfa builder and keeps URL parameters', async () => {
-    const url = '/grafbygger-alfa?websiteId=site-1&focused=1#hendelser'
-    render(
-      <MemoryRouter initialEntries={[url]}>
-        <Suspense fallback={null}>
-          <Routes>
-            {routes
-              .filter((route) => route.path.startsWith('/grafbygger'))
-              .map((route) => (
-                <Route key={route.path} path={route.path} element={route.component} />
-              ))}
-          </Routes>
-        </Suspense>
-        <LocationProbe />
-      </MemoryRouter>,
-    )
-    expect(await screen.findByTestId('alfa-builder')).toBeInTheDocument()
-    expect(screen.queryByTestId('builder')).not.toBeInTheDocument()
-    expect(screen.getByTestId('location')).toHaveTextContent(url)
-    expect(isFullWidthPath('/grafbygger-alfa')).toBe(true)
-  })
 
   it('keeps the previous builder at /grafbygger-eol', async () => {
     const route = routes.find((entry) => entry.path === '/grafbygger-eol')

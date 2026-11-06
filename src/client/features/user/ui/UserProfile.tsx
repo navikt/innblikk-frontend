@@ -183,8 +183,9 @@ export default function UserProfile() {
                   </Heading>
                 </Box>
                 <BodyLong textColor="subtle">
-                  Eksperimenter du kan prøve før alle andre. Ting kan være uferdige og endre seg uten forvarsel. Vi vil
-                  veldig gjerne høre hva du synes underveis.{' '}
+                  Eksperimenter du selv kan skru på. De er skrudd av som standard og kan endres helt eller fjernes uten
+                  forvarsel. Det er ikke sikkert de kommer i beta eller blir en ferdig funksjon. Vi vil gjerne høre hva
+                  du synes underveis.{' '}
                   <HeartFillIcon aria-hidden className="inline-block align-[-2px] text-[var(--ax-danger-500)]" />
                 </BodyLong>
               </div>
@@ -194,20 +195,16 @@ export default function UserProfile() {
               ) : (
                 <VStack gap="space-8">
                   {settingsAlfaFeatures.map((feature) => (
-                    <BetaFeatureNotice
+                    <Checkbox
                       key={feature.id}
-                      id={feature.id}
-                      title={`${feature.title} er i alfa`}
-                      variant="static"
+                      checked={flags[feature.optInFlag]}
+                      onChange={(e) => toggle(feature.optInFlag, e.target.checked)}
                     >
-                      {feature.description}
-                      {feature.href && (
-                        <>
-                          {' '}
-                          <Link href={feature.href}>Åpne {feature.title.toLowerCase()}</Link>
-                        </>
-                      )}
-                    </BetaFeatureNotice>
+                      Aktiver {feature.title.toLowerCase()}
+                      <BodyShort as="span" size="small" textColor="subtle" className="block font-normal mt-0.5">
+                        {feature.description}
+                      </BodyShort>
+                    </Checkbox>
                   ))}
                 </VStack>
               )}

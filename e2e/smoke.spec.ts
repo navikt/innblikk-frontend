@@ -36,10 +36,11 @@ test.describe('App smoke tests', () => {
     await expect(page.getByRole('heading', { name: 'Grafbyggeren er i beta', exact: true })).toBeVisible()
   })
 
-  test('settings lists the beta and alfa builders separately', async ({ page }) => {
+  test('settings keeps the builder in beta and offers only its new filter selector in alfa', async ({ page }) => {
     await page.route('**/api/user/me', (route) =>
       route.fulfill({ status: 503, json: { message: 'Unavailable in this test' } }),
     )
+    await page.route('**/api/backend/user-settings', (route) => route.fulfill({ json: { settings: {} } }))
     await page.goto('/innstillinger')
     await expect(page.getByRole('heading', { name: 'Funksjoner i beta', exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Grafbyggeren er i beta', exact: true })).toHaveCount(1)
@@ -51,14 +52,33 @@ test.describe('App smoke tests', () => {
     )
     await expect(betaSection.locator('a[href="/grafbygger-alfa"]')).toHaveCount(0)
     await expect(alfaSection.getByRole('heading', { name: 'Funksjoner i alfa', exact: true })).toBeVisible()
-    await expect(alfaSection.getByRole('heading', { name: 'Grafbyggeren er i alfa', exact: true })).toHaveCount(1)
-    await expect(alfaSection.getByRole('link', { name: 'Åpne grafbyggeren', exact: true })).toHaveAttribute(
-      'href',
-      '/grafbygger-alfa',
-    )
+    await expect(page.getByRole('heading', { name: 'Grafbyggeren er i alfa', exact: true })).toHaveCount(0)
+    await expect(alfaSection.getByRole('status')).toHaveCount(0)
+    const optIn = alfaSection.getByRole('checkbox', { name: /Aktiver ny filtervelger i grafbyggeren/ })
+    await expect(optIn).not.toBeChecked()
+    await expect(alfaSection.getByRole('link', { name: 'Åpne grafbyggeren', exact: true })).toHaveCount(0)
+    await expect(alfaSection).toContainText('Det er ikke sikkert de kommer i beta eller blir en ferdig funksjon.')
+    await optIn.check()
+    await expect(optIn).toBeChecked()
+    await expect(alfaSection.locator('a[href="/grafbygger-alfa"]')).toHaveCount(0)
     await expect(alfaSection.getByRole('button', { name: 'Lukk melding' })).toHaveCount(0)
     await expect(page.getByText('Ingen funksjoner i alfa akkurat nå.', { exact: true })).toHaveCount(0)
     await expect(page.getByRole('heading', { name: 'Funksjoner i alpha', exact: true })).toHaveCount(0)
+    await page.reload()
+    await expect(optIn).toBeChecked()
+    await optIn.uncheck()
+    await expect(alfaSection.getByRole('link', { name: 'Åpne grafbyggeren', exact: true })).toHaveCount(0)
+  })
+
+  test('the previous alfa URL opens the beta builder without enabling the experimental selector', async ({ page }) => {
+    await page.route('**/api/backend/user-settings', (route) => route.fulfill({ json: { settings: {} } }))
+    await page.route('**/api/bigquery/websites', (route) => route.fulfill({ json: { data: MOCK_WEBSITES } }))
+    await page.route('**/event-properties?*', (route) => route.fulfill({ json: { properties: [] } }))
+    await page.goto('/grafbygger-alfa?websiteId=site-1&focused=1')
+    await expect(page).toHaveURL(/\/grafbygger\?websiteId=site-1&focused=1$/)
+    await page.getByRole('button', { name: 'Filter', exact: true }).click()
+    await expect(page.getByRole('combobox', { name: 'Velg filter' })).toBeVisible()
+    await expect(page.getByRole('dialog', { name: 'Velg filter' })).toHaveCount(0)
   })
 
   test('/grafbygger renders the website picker with options', async ({ page }) => {
