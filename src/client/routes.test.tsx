@@ -75,6 +75,10 @@ describe('SQL routes', () => {
 })
 
 describe('isFullWidthPath', () => {
+  it('registers the unlisted alpha repetition analysis', () => {
+    expect(routes.some((route) => route.path === '/gjentatt-aktivitet')).toBe(true)
+    expect(isFullWidthPath('/gjentatt-aktivitet')).toBe(true)
+  })
   it('treats every brukergrupper page as full width, including the edit route', () => {
     expect(isFullWidthPath('/brukergrupper')).toBe(true)
     expect(isFullWidthPath('/brukergrupper/ny')).toBe(true)

@@ -23,11 +23,14 @@ export type UserProfile = {
 }
 
 export type ActivityItem = {
+  id?: string
   type: string
   name?: string
   title?: string
   url?: string
   createdAt: string
+  properties?: { key: string; value: string }[]
+  propertyCount?: number
 }
 
 export type { QueryStats }

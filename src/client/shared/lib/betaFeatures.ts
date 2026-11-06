@@ -26,6 +26,13 @@ export type BetaFeature = {
 
 export const betaFeatures: BetaFeature[] = [
   {
+    id: 'gjentatt-aktivitet',
+    stage: 'alfa',
+    title: 'Gjentatt aktivitet',
+    description: 'Finn gjentatte sidevisninger og interaksjoner som kan tyde på frustrasjon eller dobbelsporing.',
+    href: '/gjentatt-aktivitet',
+  },
+  {
     id: 'nytt-design',
     title: 'Nytt design',
     description: 'Ny sidemeny og nytt design på alle sider.',
