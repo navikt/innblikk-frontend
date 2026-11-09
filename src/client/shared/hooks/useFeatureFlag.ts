@@ -1,18 +1,32 @@
-import { useEffect, useState } from 'react'
-import { getFeatureFlag, type FeatureFlags } from '../lib/featureFlags.ts'
+import { useSyncExternalStore } from 'react'
+import { getFeatureFlag, getFeatureFlags, type FeatureFlags } from '../lib/featureFlags.ts'
 
-export function useFeatureFlag(flag: keyof FeatureFlags): boolean {
-  const [enabled, setEnabled] = useState(() => getFeatureFlag(flag))
+function subscribe(onChange: () => void): () => void {
+  window.addEventListener('featureFlagsChange', onChange)
+  window.addEventListener('storage', onChange)
+  return () => {
+    window.removeEventListener('featureFlagsChange', onChange)
+    window.removeEventListener('storage', onChange)
+  }
+}
 
-  useEffect(() => {
-    const handleChange = () => setEnabled(getFeatureFlag(flag))
-    window.addEventListener('featureFlagsChange', handleChange)
-    window.addEventListener('storage', handleChange)
-    return () => {
-      window.removeEventListener('featureFlagsChange', handleChange)
-      window.removeEventListener('storage', handleChange)
-    }
-  }, [flag])
+let snapshot: FeatureFlags | undefined
 
-  return enabled
+function getSnapshot(): FeatureFlags {
+  const flags = getFeatureFlags()
+  const previous = snapshot
+  // React requires the same snapshot reference until the stored values change.
+  if (previous && (Object.keys(flags) as (keyof FeatureFlags)[]).every((key) => flags[key] === previous[key])) {
+    return previous
+  }
+  snapshot = flags
+  return flags
+}
+
+export function useFeatureFlags(): FeatureFlags {
+  return useSyncExternalStore(subscribe, getSnapshot)
+}
+
+export function useFeatureFlag<K extends keyof FeatureFlags>(flag: K): FeatureFlags[K] {
+  return useSyncExternalStore(subscribe, () => getFeatureFlag(flag))
 }

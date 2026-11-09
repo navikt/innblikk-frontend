@@ -4,7 +4,7 @@ import type { Filter } from '../../../../shared/types/chart.ts'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Events } from '@navikt/analytics-types'
 import { trackEvent } from '../../../../shared/lib/trackEvent.ts'
-import { getFeatureFlag, type FeatureFlags } from '../../../../shared/lib/featureFlags.ts'
+import { useFeatureFlag } from '../../../../shared/hooks/useFeatureFlag.ts'
 import { getGcpProjectId } from '../../../../shared/lib/runtimeConfig.ts'
 import {
   Heading,
@@ -281,15 +281,7 @@ const QueryPreview = ({
     return value === '1' || value === 'true'
   }, [])
 
-  const [alwaysShowSql, setAlwaysShowSql] = useState(() => getFeatureFlag('grafbygger_always_show_sql'))
-
-  useEffect(() => {
-    const handleFlagsChange = (e: Event) => {
-      setAlwaysShowSql((e as CustomEvent<FeatureFlags>).detail.grafbygger_always_show_sql)
-    }
-    window.addEventListener('featureFlagsChange', handleFlagsChange)
-    return () => window.removeEventListener('featureFlagsChange', handleFlagsChange)
-  }, [])
+  const alwaysShowSql = useFeatureFlag('grafbygger_always_show_sql')
 
   const availablePaths = useMemo(() => {
     const paths = new Set<string>()

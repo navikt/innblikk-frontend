@@ -22,7 +22,7 @@ import remarkGfm from 'remark-gfm'
 import SqlResultsSection from '../../sql/ui/SqlResultsSection'
 import { extractWebsiteId } from '../../sql/utils/sqlProcessing'
 import { prepareLineChartData, prepareBarChartData, preparePieChartData } from '../../sql/utils/chartHelpers'
-import { getFeatureFlag, type FeatureFlags } from '../../../shared/lib/featureFlags'
+import { useFeatureFlag } from '../../../shared/hooks/useFeatureFlag.ts'
 import { useAssistantChat, type AssistantTurn } from '../hooks/useAssistantChat'
 
 // Renders links from Copilot's markdown replies (e.g. a website's domain from resolve_website)
@@ -70,22 +70,6 @@ const sqlReadMore = (sql: string) =>
       </pre>
     </ReadMore>
   )
-
-// Reactive to /profil's "Vis tekniske detaljer" checkbox without a page reload — same
-// `featureFlagsChange` event pattern used elsewhere (see UserProfile.tsx, Header.tsx).
-const useShowTechnicalDetails = (): boolean => {
-  const [value, setValue] = useState(() => getFeatureFlag('copilot_show_technical_details'))
-
-  useEffect(() => {
-    const handleChange = (e: Event) => {
-      setValue((e as CustomEvent<FeatureFlags>).detail.copilot_show_technical_details)
-    }
-    window.addEventListener('featureFlagsChange', handleChange)
-    return () => window.removeEventListener('featureFlagsChange', handleChange)
-  }, [])
-
-  return value
-}
 
 // Per-message token/cost estimate + a chronological list of every tool Gemini called this turn
 // (resolve_website, dry_run_query, ...) — only ever rendered when the user has opted into
@@ -146,7 +130,7 @@ function TurnBubbles({ turn, onConfirmRun }: { turn: AssistantTurn; onConfirmRun
   const costUSD = Number(turn.estimate?.estimatedCostUSD ?? 0)
   const websiteId = extractWebsiteId(turn.sql)
   const singleValue = getSingleValue(turn)
-  const showTechnicalDetails = useShowTechnicalDetails()
+  const showTechnicalDetails = useFeatureFlag('copilot_show_technical_details')
 
   // Actual execution stats once the query has run, falling back to the dry-run estimate if the
   // real query result somehow didn't come back with its own stats (shouldn't normally happen).
@@ -336,7 +320,7 @@ export default function Copilot() {
   const bottomRef = useRef<HTMLDivElement>(null)
   const hasStarted = turns.length > 0
   const [validationError, setValidationError] = useState<string | undefined>(undefined)
-  const showTechnicalDetails = useShowTechnicalDetails()
+  const showTechnicalDetails = useFeatureFlag('copilot_show_technical_details')
 
   // Sum of every turn's usage so far — the per-bubble figures (see TechnicalDetails) are
   // per-question, this is "what has this whole conversation cost so far".

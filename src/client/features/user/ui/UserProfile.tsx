@@ -17,7 +17,8 @@ import {
 import { HeartFillIcon, PersonIcon } from '@navikt/aksel-icons'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
-import { getFeatureFlags, setFeatureFlag, type FeatureFlags } from '../../../shared/lib/featureFlags.ts'
+import { setFeatureFlag, type FeatureFlags } from '../../../shared/lib/featureFlags.ts'
+import { useFeatureFlags } from '../../../shared/hooks/useFeatureFlag.ts'
 import { betaFeatures } from '../../../shared/lib/betaFeatures.ts'
 import { BetaFeatureNotice, RESEARCHOPS_SLACK_URL } from '../../../shared/ui/BetaFeatureNotice.tsx'
 import { useIsReopsTeamMember } from '../../../shared/hooks/useIsReopsTeamMember.ts'
@@ -30,7 +31,7 @@ export default function UserProfile() {
   const [user, setUser] = useState<UserInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [userError, setUserError] = useState<string | null>(null)
-  const [flags, setFlags] = useState<FeatureFlags>(getFeatureFlags)
+  const flags = useFeatureFlags()
   const { isReopsTeamMember } = useIsReopsTeamMember()
   const { hash } = useLocation()
   const buildSha = __GIT_SHA__
@@ -63,14 +64,6 @@ export default function UserProfile() {
         setUserError(err.message)
         setLoading(false)
       })
-  }, [])
-
-  useEffect(() => {
-    const handleChange = (e: Event) => {
-      setFlags((e as CustomEvent<FeatureFlags>).detail)
-    }
-    window.addEventListener('featureFlagsChange', handleChange)
-    return () => window.removeEventListener('featureFlagsChange', handleChange)
   }, [])
 
   const toggle = <K extends keyof FeatureFlags>(key: K, value: boolean) => {
