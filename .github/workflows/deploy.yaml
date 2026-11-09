@@ -137,7 +137,7 @@ jobs:
           git push origin "$TAG_NAME"
 
   deploy-release:
-    name: "Rebuild release → ${{ inputs.environment == 'dev' && 'Dev' || 'Prod' }} (fresh base image)"
+    name: 'Rebuild Release'
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (inputs.environment == 'prod-rebuild' || inputs.release_tag != ''))
     runs-on: 'ubuntu-latest'
     permissions:
