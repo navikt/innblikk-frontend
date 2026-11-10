@@ -167,24 +167,41 @@ describe('executed repetition detection SQL', () => {
 })
 
 describe('BigQuery source and aggregation', () => {
+  it.each(['deviceBrowser', 'deviceViewportHeight', 'originVersion', 'screenWidth'])(
+    'ignores volatile metadata in duplicate comparison: %s',
+    (key) => expect(new RegExp(REPETITION_VOLATILE_PROPERTY_PATTERN, 'i').test(key)).toBe(true),
+  )
+
   it.each([
-    'deviceBrowser',
-    'deviceViewportHeight',
-    'originVersion',
+    'lenketekst',
+    'destinasjon',
+    'komponentId',
+    'seksjon',
+    'beløp',
+    'valg',
+    'målgruppe',
     'scrollPos',
     'scrollPercent',
     'scrollPercentage',
     'scrollPosition',
     'scrollDepth',
-    'screenWidth',
-  ])('ignores volatile metadata in duplicate comparison: %s', (key) =>
-    expect(new RegExp(REPETITION_VOLATILE_PROPERTY_PATTERN, 'i').test(key)).toBe(true),
+  ])('preserves functional properties in duplicate comparison: %s', (key) =>
+    expect(new RegExp(REPETITION_VOLATILE_PROPERTY_PATTERN, 'i').test(key)).toBe(false),
   )
 
-  it.each(['lenketekst', 'destinasjon', 'komponentId', 'seksjon', 'beløp', 'valg', 'målgruppe'])(
-    'preserves functional properties in duplicate comparison: %s',
-    (key) => expect(new RegExp(REPETITION_VOLATILE_PROPERTY_PATTERN, 'i').test(key)).toBe(false),
-  )
+  it.each([1, 2])('requires matching scroll values for duplicate events of type %i', (type) => {
+    const payload = (scrollPos, scrollPercent) =>
+      JSON.stringify(
+        Object.entries({ scrollPos, scrollPercent }).filter(
+          ([key]) => !new RegExp(REPETITION_VOLATILE_PROPERTY_PATTERN, 'i').test(key),
+        ),
+      )
+    const first = { time: 0, type, payload: payload(171, 19) }
+    expect(signal([first, { time: 0, type, payload: payload(0, 17) }], 'duplicates')).toHaveLength(0)
+    expect(signal([first, { time: 0, type, payload: payload(183, 19) }], 'duplicates')).toHaveLength(0)
+    expect(signal([first, { time: 0, type, payload: payload(171, 17) }], 'duplicates')).toHaveLength(0)
+    expect(signal([first, { time: 0, type, payload: payload(171, 19) }], 'duplicates')).toHaveLength(1)
+  })
 
   it('deduplicates event IDs, aggregates properties before joining, and scopes after detection', () => {
     const sql = buildRepetitionQuery('test-project')

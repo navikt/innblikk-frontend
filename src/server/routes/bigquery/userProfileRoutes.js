@@ -137,18 +137,34 @@ export function createUserProfileRoutes({ bigquery, GCP_PROJECT_ID }) {
                   ANY_VALUE(session.browser) as browser,
                   ANY_VALUE(session.distinct_id) as distinct_id,
                   ARRAY_AGG(DISTINCT session.session_id) as session_ids,
-                  ARRAY_AGG(session.session_id ORDER BY session.created_at DESC LIMIT 1)[OFFSET(0)] as primary_session_id,
-                  COUNT(*) as event_count
+                  ARRAY_AGG(session.session_id ORDER BY session.created_at DESC LIMIT 1)[OFFSET(0)] as primary_session_id
               FROM \`${GCP_PROJECT_ID}.umami_views.session\` as session
               ${urlFilterJoin}
               WHERE session.website_id = @websiteId
               AND session.created_at BETWEEN @startDate AND @endDate
               ${searchFilter}
               GROUP BY user_id, id_type
-          )
-          SELECT * FROM session_data
+            ),
+            selected_users AS (
+              SELECT * FROM session_data
+              ORDER BY last_seen DESC
+              LIMIT @limit OFFSET @offset
+            ),
+            event_counts AS (
+              SELECT session_id, COUNT(DISTINCT event_id) AS event_count
+              FROM \`${GCP_PROJECT_ID}.umami_views.event\`
+              WHERE website_id = @websiteId
+              AND created_at BETWEEN @startDate AND @endDate
+              AND session_id IN (
+                SELECT session_id FROM selected_users CROSS JOIN UNNEST(session_ids) AS session_id
+              )
+              GROUP BY session_id
+            )
+            SELECT selected_users.*,
+              (SELECT COALESCE(SUM(event_count), 0) FROM event_counts
+               WHERE session_id IN UNNEST(selected_users.session_ids)) AS event_count
+            FROM selected_users
           ORDER BY last_seen DESC
-          LIMIT @limit OFFSET @offset
       `
 
       const [job] = await bigquery.createQueryJob(

@@ -20,6 +20,7 @@ export type UserProfile = {
   firstSeen: string
   lastSeen: string
   primarySessionId?: string
+  eventCount?: number
 }
 
 export type ActivityItem = {

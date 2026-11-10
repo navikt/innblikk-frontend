@@ -9,6 +9,23 @@ const activity = [
 ]
 
 describe('shared visitor activity modal', () => {
+  it.each([false, true])('shows dates in Oslo time with precise timestamps: %s', (precise) => {
+    render(
+      <UserActivityModal
+        open
+        onClose={() => {}}
+        activity={[
+          { ...activity[0], createdAt: '2026-12-31T22:59:58.123Z' },
+          { ...activity[1], createdAt: '2026-12-31T23:00:02.456Z' },
+        ]}
+        loading={false}
+        highlightedEventIds={precise ? new Set<string>() : undefined}
+      />,
+    )
+    expect(screen.getByText(precise ? '31.12.2026, 23:59:58,123' : '31.12.2026, 23:59')).toBeVisible()
+    expect(screen.getByText(precise ? '01.01.2027, 00:00:02,456' : '01.01.2027, 00:00')).toBeVisible()
+  })
+
   it('preserves profile details, activity counts and URL actions without marking normal profile activity', async () => {
     const user = userEvent.setup()
     const onOpenUrl = vi.fn()
@@ -79,11 +96,40 @@ describe('shared visitor activity modal', () => {
         ]}
       />,
     )
-    expect(screen.getAllByText('Nesten samtidige registreringer')).toHaveLength(2)
+    expect(screen.getAllByText('Lik A')).toHaveLength(2)
+    expect(screen.getByText('Nesten samtidige registreringer')).toBeVisible()
     expect(screen.getByRole('dialog').querySelectorAll('[data-detail-group]')).toHaveLength(2)
     expect(screen.queryByText('Inngår i funnet')).not.toBeInTheDocument()
     expect(screen.getByRole('dialog').querySelector('[data-highlighted]')).toBeNull()
     expect(screen.queryByRole('table', { name: 'Forskjeller i hendelsesdetaljer' })).not.toBeInTheDocument()
+  })
+
+  it('connects matching registrations across unrelated activity with group and position labels', () => {
+    const event = { ...activity[1], properties: [] }
+    render(
+      <UserActivityModal
+        open
+        onClose={() => {}}
+        loading={false}
+        activity={[
+          { ...event, createdAt: '2026-10-01T10:00:02.000Z' },
+          { ...activity[0], createdAt: '2026-10-01T10:00:02.010Z', properties: [] },
+          { ...event, createdAt: '2026-10-01T10:00:02.020Z' },
+          { ...event, createdAt: '2026-10-01T10:00:04.000Z' },
+          { ...event, createdAt: '2026-10-01T10:00:04.050Z' },
+        ]}
+      />,
+    )
+    const rows = screen.getByRole('dialog').querySelectorAll('.border-l > div')
+    expect(within(rows[0] as HTMLElement).getByText('Lik A')).toBeVisible()
+    expect(rows[1]).not.toHaveAttribute('data-detail-group')
+    expect(rows[1]).not.toHaveTextContent(/Lik [AB]/)
+    expect(within(rows[2] as HTMLElement).getByText('Lik A')).toBeVisible()
+    expect(within(rows[3] as HTMLElement).getByText('Lik B')).toBeVisible()
+    expect(within(rows[4] as HTMLElement).getByText('Lik B')).toBeVisible()
+    expect(rows[0].getAttribute('style')).toContain('var(--ax-border-accent)')
+    expect(rows[3].getAttribute('style')).toContain('var(--ax-border-success)')
+    expect(screen.getAllByText('2 × navigere · /aap/kalkulator')).toHaveLength(2)
   })
 
   it('does not mark incomplete profile matches as duplicates', () => {
@@ -92,6 +138,7 @@ describe('shared visitor activity modal', () => {
       <UserActivityModal open onClose={() => {}} loading={false} activity={[{ ...event, propertyCount: 51 }, event]} />,
     )
     expect(screen.queryByText('Nesten samtidige registreringer')).not.toBeInTheDocument()
+    expect(screen.queryByText(/^Lik /)).not.toBeInTheDocument()
     expect(screen.getByRole('dialog').querySelector('[data-detail-group]')).toBeNull()
   })
 
@@ -111,7 +158,7 @@ describe('shared visitor activity modal', () => {
         ]}
       />,
     )
-    expect(screen.getAllByText('Nesten samtidige registreringer')).toHaveLength(4)
+    expect(screen.getAllByText(/^Lik [AB]$/)).toHaveLength(4)
     const groups = screen.getByRole('dialog').querySelectorAll('[data-detail-group]')
     expect(groups[0].getAttribute('data-detail-group')).toBe(groups[1].getAttribute('data-detail-group'))
     expect(groups[2].getAttribute('data-detail-group')).toBe(groups[3].getAttribute('data-detail-group'))

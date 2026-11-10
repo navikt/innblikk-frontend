@@ -105,6 +105,8 @@ const UserProfiles = () => {
   const [activityError, setActivityError] = useState<string | null>(null)
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false)
   const [selectedActivityUrl, setSelectedActivityUrl] = useState<string | null>(null)
+  const [selectedActivitySessionId, setSelectedActivitySessionId] = useState<string | null>(null)
+  const [pendingProfileQuery, setPendingProfileQuery] = useState(() => searchParams.get('query'))
 
   const filterKey = JSON.stringify([
     selectedWebsite?.id,
@@ -272,12 +274,42 @@ const UserProfiles = () => {
     [selectedWebsite, getDateRange],
   )
 
-  const handleRowClick = (user: UserProfile) => {
-    trackEvent(Events.TABELL_RAD_VALGT, { seksjon: 'brukerprofiler', komponentId: 'bruker-tabell', erValgt: true })
-    setSelectedSession(user)
-    setIsModalOpen(true)
-    void fetchUserActivity(user.primarySessionId || user.sessionIds?.[0] || user.userId || '')
+  const profileHref = (sessionId: string) => {
+    const params = new URLSearchParams(window.location.search)
+    params.set('query', sessionId)
+    return `${window.location.pathname}?${params.toString()}`
   }
+
+  const handleRowClick = useCallback(
+    (user: UserProfile, sessionId = user.primarySessionId || user.sessionIds?.[0] || user.userId || '') => {
+      setPendingProfileQuery(null)
+      trackEvent(Events.TABELL_RAD_VALGT, { seksjon: 'brukerprofiler', komponentId: 'bruker-tabell', erValgt: true })
+      setSelectedSession(user)
+      setSelectedActivitySessionId(sessionId)
+      setIsModalOpen(true)
+      const params = new URLSearchParams(window.location.search)
+      params.set('query', sessionId)
+      window.history.replaceState(window.history.state, '', `${window.location.pathname}?${params.toString()}`)
+      void fetchUserActivity(sessionId)
+    },
+    [fetchUserActivity],
+  )
+
+  useEffect(() => {
+    const query = pendingProfileQuery
+    if (!query || loading) return
+    const user = users.find(
+      (candidate) =>
+        candidate.userId === query ||
+        candidate.distinctId === query ||
+        candidate.primarySessionId === query ||
+        candidate.sessionIds?.includes(query),
+    )
+    if (user) {
+      const sessionId = user.primarySessionId === query || user.sessionIds?.includes(query) ? query : undefined
+      handleRowClick(user, sessionId)
+    }
+  }, [users, loading, handleRowClick, pendingProfileQuery])
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString('no-NO', {
@@ -577,10 +609,12 @@ const UserProfiles = () => {
                       <Table.Row>
                         <Table.HeaderCell>Bruker ID</Table.HeaderCell>
                         <Table.HeaderCell>Sist sett</Table.HeaderCell>
+                        <Table.HeaderCell align="right" className="w-px whitespace-nowrap">
+                          Aktiviteter
+                        </Table.HeaderCell>
                         <Table.HeaderCell>Land</Table.HeaderCell>
                         <Table.HeaderCell>Enhet</Table.HeaderCell>
                         <Table.HeaderCell>Nettleser</Table.HeaderCell>
-                        <Table.HeaderCell>Handling</Table.HeaderCell>
                       </Table.Row>
                     </Table.Header>
                     <Table.Body>
@@ -592,8 +626,10 @@ const UserProfiles = () => {
                         >
                           <Table.DataCell>
                             <Link
-                              href="#"
+                              href={profileHref(user.primarySessionId || user.sessionIds?.[0] || user.userId || '')}
                               onClick={(e) => {
+                                e.stopPropagation()
+                                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
                                 e.preventDefault()
                                 handleRowClick(user)
                               }}
@@ -603,6 +639,9 @@ const UserProfiles = () => {
                             </Link>
                           </Table.DataCell>
                           <Table.DataCell>{formatDate(user.lastSeen)}</Table.DataCell>
+                          <Table.DataCell align="right" className="w-px whitespace-nowrap tabular-nums">
+                            {user.eventCount?.toLocaleString('nb-NO') ?? '-'}
+                          </Table.DataCell>
                           <Table.DataCell>{translateCountry(user.country ?? '')}</Table.DataCell>
                           <Table.DataCell>
                             <div className="flex items-center gap-2">
@@ -611,18 +650,6 @@ const UserProfiles = () => {
                             </div>
                           </Table.DataCell>
                           <Table.DataCell>{user.browser || '-'}</Table.DataCell>
-                          <Table.DataCell>
-                            <Button
-                              size="small"
-                              variant="tertiary"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleRowClick(user)
-                              }}
-                            >
-                              Vis profil
-                            </Button>
-                          </Table.DataCell>
                         </Table.Row>
                       ))}
                     </Table.Body>
@@ -662,16 +689,19 @@ const UserProfiles = () => {
 
       <UserActivityModal
         open={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false)
+          const params = new URLSearchParams(window.location.search)
+          if (searchQuery) params.set('query', searchQuery)
+          else params.delete('query')
+          window.history.replaceState(window.history.state, '', `${window.location.pathname}?${params.toString()}`)
+        }}
         activity={activityData}
         loading={activityLoading}
         error={activityError}
         onOpenUrl={setSelectedActivityUrl}
         onRetry={() => {
-          if (selectedSession)
-            void fetchUserActivity(
-              selectedSession.primarySessionId || selectedSession.sessionIds?.[0] || selectedSession.userId || '',
-            )
+          if (selectedActivitySessionId) void fetchUserActivity(selectedActivitySessionId)
         }}
         details={
           selectedSession && (

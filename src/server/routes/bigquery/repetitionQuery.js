@@ -1,7 +1,7 @@
 import { normalizeUrlSql } from './helpers.js'
 
 export const REPETITION_VOLATILE_PROPERTY_PATTERN =
-  '^(device.*|originversion|scrollpos|scrollposition|scrollpercent|scrollpercentage|scrolldepth|screen|screenwidth|screenheight|viewport|timestamp|time)$'
+  '^(device.*|originversion|screen|screenwidth|screenheight|viewport|timestamp|time)$'
 
 export const REPETITION_DETECTION_SQL = `
   PageviewSteps AS (

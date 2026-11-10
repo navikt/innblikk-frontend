@@ -27,13 +27,19 @@ interface UserActivityModalProps {
 
 function activityTime(value: string, precise: boolean) {
   const date = new Date(value)
+  const day = date.toLocaleDateString('nb-NO', {
+    timeZone: 'Europe/Oslo',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
   const time = date.toLocaleTimeString('nb-NO', {
     timeZone: 'Europe/Oslo',
     hour: '2-digit',
     minute: '2-digit',
     ...(precise ? { second: '2-digit' } : {}),
   })
-  return precise ? `${time},${String(date.getMilliseconds()).padStart(3, '0')}` : time
+  return `${day}, ${precise ? `${time},${String(date.getMilliseconds()).padStart(3, '0')}` : time}`
 }
 
 function propertyValues(item: ActivityItem, key: string) {
@@ -180,6 +186,14 @@ export default function UserActivityModal({
     }
   }
   const groupColors = ['accent', 'success', 'warning', 'neutral'] as const
+  const profileGroupColors = ['accent', 'success', 'info', 'danger', 'neutral'] as const
+  const profileGroupColor = (number: number) => profileGroupColors[(number - 1) % profileGroupColors.length]
+  const groupLetter = (number: number) => (number <= 26 ? String.fromCharCode(64 + number) : String(number))
+  const profileLegend = profileComparison
+    ? [...detailGroups.entries()]
+        .map(([key, group]) => ({ group, item: activity[groupKeys.indexOf(key)] }))
+        .sort((first, second) => first.group.number - second.group.number)
+    : []
 
   return (
     <Modal open={open} onClose={onClose} header={{ heading, closeButton: true }} width="medium">
@@ -203,6 +217,30 @@ export default function UserActivityModal({
                     <span className="font-bold text-2xl">{count}</span>
                   </div>
                 ))}
+              </div>
+            )}
+            {!loading && !error && profileLegend.length > 0 && (
+              <div className="rounded-lg border border-[var(--ax-border-neutral-subtle)] p-4 mb-6 space-y-2">
+                <BodyShort size="small" weight="semibold">
+                  Nesten samtidige registreringer
+                </BodyShort>
+                <BodyShort size="small" className="text-[var(--ax-text-subtle)]">
+                  Samme farge og bokstav betyr samme innhold, registrert med maksimalt 100 ms mellom hver. Det kan
+                  skyldes dobbelsporing, men loggen alene fastslår ikke årsaken.
+                </BodyShort>
+                <ul className="space-y-1">
+                  {profileLegend.map(({ group, item }) => (
+                    <li key={group.number} className="flex flex-wrap items-center gap-2 text-sm">
+                      <Tag size="xsmall" variant="moderate" data-color={profileGroupColor(group.number)}>
+                        {groupLetter(group.number)}
+                      </Tag>
+                      <span>
+                        {group.count} × {item.type === 'pageview' ? 'Sidevisning' : item.name || 'Ukjent hendelse'}
+                        {item.url ? ` · ${item.url}` : ''}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
             {loading ? (
@@ -244,7 +282,7 @@ export default function UserActivityModal({
                   const group = groupKey === null ? undefined : detailGroups.get(groupKey)
                   const groupColor = group
                     ? profileComparison
-                      ? 'warning'
+                      ? profileGroupColor(group.number)
                       : groupColors[(group.number - 1) % groupColors.length]
                     : undefined
                   return (
@@ -296,13 +334,7 @@ export default function UserActivityModal({
                               size="small"
                               variant="moderate"
                               data-color={groupColor}
-                              icon={
-                                profileComparison ? (
-                                  <ExclamationmarkTriangleIcon aria-hidden />
-                                ) : group.count > 1 ? (
-                                  <CheckmarkIcon aria-hidden />
-                                ) : undefined
-                              }
+                              icon={!profileComparison && group.count > 1 ? <CheckmarkIcon aria-hidden /> : undefined}
                               title={
                                 group.incomplete
                                   ? 'Bare viste hendelsesdetaljer er sammenlignet. Noen detaljer er utelatt.'
@@ -314,7 +346,7 @@ export default function UserActivityModal({
                               }
                             >
                               {profileComparison
-                                ? 'Nesten samtidige registreringer'
+                                ? `Lik ${groupLetter(group.number)}`
                                 : detailGroups.size === 1
                                   ? `Alle ${group.count} har samme ${group.incomplete ? 'viste detaljer' : 'detaljer'}`
                                   : `Gruppe ${group.number} · ${group.count > 1 ? `${group.count} med samme ${group.incomplete ? 'viste detaljer' : 'detaljer'}` : group.incomplete ? 'egne viste detaljer' : 'egne detaljer'}`}
