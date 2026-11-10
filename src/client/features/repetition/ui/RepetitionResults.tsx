@@ -133,20 +133,40 @@ export default function RepetitionResults({ result, search }: { result: Repetiti
                                   )}
                                 </VStack>
                               </ReadMore>
-                              <div>
+                              <div className="w-full max-w-5xl">
                                 <Heading level="3" size="xsmall" spacing>
-                                  Åpne aktivitetsloggen for et eksempel
+                                  Eksempler
                                 </Heading>
-                                <ul className="m-0 flex list-none flex-col items-start gap-1 p-0">
-                                  {finding.examples.map((example) => (
-                                    <EpisodeActivity
-                                      key={`${example.sessionId}:${example.startedAt}`}
-                                      example={example}
-                                      finding={finding}
-                                      search={search}
-                                    />
-                                  ))}
-                                </ul>
+                                <div className="overflow-x-auto">
+                                  <Table size="small" aria-label="Eksempler" className="w-auto">
+                                    <Table.Header>
+                                      <Table.Row>
+                                        <Table.HeaderCell scope="col">Tidspunkt</Table.HeaderCell>
+                                        <Table.HeaderCell scope="col">Utvalg</Table.HeaderCell>
+                                        <Table.HeaderCell scope="col">
+                                          <span className="sr-only">Aktivitetslogg</span>
+                                        </Table.HeaderCell>
+                                        <Table.HeaderCell scope="col" align="right">
+                                          Antall
+                                        </Table.HeaderCell>
+                                        <Table.HeaderCell scope="col" align="right">
+                                          Varighet
+                                        </Table.HeaderCell>
+                                        <Table.HeaderCell scope="col">Enhet og nettleser</Table.HeaderCell>
+                                      </Table.Row>
+                                    </Table.Header>
+                                    <Table.Body>
+                                      {finding.examples.map((example) => (
+                                        <EpisodeActivity
+                                          key={`${example.sessionId}:${example.startedAt}`}
+                                          example={example}
+                                          finding={finding}
+                                          search={search}
+                                        />
+                                      ))}
+                                    </Table.Body>
+                                  </Table>
+                                </div>
                               </div>
                               {finding.eventName && <Link href={href}>Utforsk hendelsen</Link>}
                             </VStack>

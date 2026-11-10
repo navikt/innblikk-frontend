@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Website } from '../../../shared/types/chart'
@@ -36,8 +36,16 @@ vi.mock('../../analysis/ui/PeriodPicker', () => ({
   ),
 }))
 vi.mock('../../analysis/ui/UrlPathFilter', () => ({
-  default: ({ urlPaths, onUrlPathsChange }: { urlPaths: string[]; onUrlPathsChange: (paths: string[]) => void }) => (
-    <input aria-label="URL" value={urlPaths[0] || ''} onChange={(event) => onUrlPathsChange([event.target.value])} />
+  default: ({
+    label,
+    urlPaths,
+    onUrlPathsChange,
+  }: {
+    label: string
+    urlPaths: string[]
+    onUrlPathsChange: (paths: string[]) => void
+  }) => (
+    <input aria-label={label} value={urlPaths[0] || ''} onChange={(event) => onUrlPathsChange([event.target.value])} />
   ),
 }))
 vi.mock('../../chartbuilder-next', () => ({ SqlViewer: () => <div>SQL</div> }))
@@ -133,6 +141,9 @@ describe('repetition analysis page', () => {
   it('does not offer the signal filter before analysis because it filters existing results', () => {
     renderPage()
     expect(screen.queryByRole('combobox', { name: 'Vis signal' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Velg nettsted og periode, og trykk «Analyser».')).not.toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'URL (valgfritt)' })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Analyser' })).toHaveLength(1)
   })
 
   it('waits for an explicit request and displays results with an alpha badge', async () => {
@@ -151,13 +162,43 @@ describe('repetition analysis page', () => {
     expect(screen.getByText(/20 % av 10 besøkende/)).toBeInTheDocument()
   })
 
+  it('shows an Aksel loader and a waiting message only while analyzing', async () => {
+    let resolve: (value: Response) => void = () => {
+      throw new Error('Request not started')
+    }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        () =>
+          new Promise<Response>((done) => {
+            resolve = done
+          }),
+      ),
+    )
+    renderPage()
+    expect(screen.queryByTitle('Analyserer gjentatt aktivitet')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByText('Velg testnettsted'))
+    expect(screen.getByRole('button', { name: 'Analyser' })).toBeEnabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Analyser' }))
+    expect(screen.getByTitle('Analyserer gjentatt aktivitet')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Analyser gjentatt aktivitet' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Velg nettsted og periode, og trykk «Analyser».')).not.toBeInTheDocument()
+    expect(screen.getByText('Dette kan ta litt tid, særlig for lange perioder.')).toBeVisible()
+    resolve(new Response(JSON.stringify(rawResult)))
+    await screen.findByRole('heading', { name: 'Funn' })
+    expect(screen.queryByTitle('Analyserer gjentatt aktivitet')).not.toBeInTheDocument()
+    expect(screen.queryByText('Dette kan ta litt tid, særlig for lange perioder.')).not.toBeInTheDocument()
+    expect(screen.queryByText('Velg nettsted og periode, og trykk «Analyser».')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Analyser gjentatt aktivitet' })).not.toBeInTheDocument()
+  })
+
   it('hides stale results as soon as filters change', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(rawResult) }))
     renderPage()
     fireEvent.click(screen.getByText('Velg testnettsted'))
     fireEvent.click(screen.getByRole('button', { name: 'Analyser' }))
     await screen.findByRole('heading', { name: 'Funn' })
-    fireEvent.change(screen.getByRole('textbox', { name: 'URL' }), { target: { value: '/other' } })
+    fireEvent.change(screen.getByRole('textbox', { name: 'URL (valgfritt)' }), { target: { value: '/other' } })
     expect(screen.queryByRole('heading', { name: 'Funn' })).not.toBeInTheDocument()
   })
 
@@ -176,7 +217,7 @@ describe('repetition analysis page', () => {
     renderPage()
     fireEvent.click(screen.getByText('Velg testnettsted'))
     fireEvent.click(screen.getByRole('button', { name: 'Analyser' }))
-    fireEvent.change(screen.getByRole('textbox', { name: 'URL' }), { target: { value: '/other' } })
+    fireEvent.change(screen.getByRole('textbox', { name: 'URL (valgfritt)' }), { target: { value: '/other' } })
     expect(requestSignal?.aborted).toBe(true)
     resolve({ ok: true, json: () => Promise.resolve(rawResult) })
     await waitFor(() => expect(screen.queryByRole('heading', { name: 'Funn' })).not.toBeInTheDocument())
@@ -210,12 +251,25 @@ describe('repetition findings', () => {
   it('shows bounded examples and a contextual event explorer link', () => {
     render(<RepetitionResults result={parsed()} search="websiteId=site-1&period=last_7_days" />)
     fireEvent.click(screen.getByRole('button', { name: 'Vis mer' }))
-    expect(
-      screen.getByRole('button', { name: /Flest gjentakelser: .* 4 hendelser på 2 s · mobile · safari/ }),
-    ).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Nyeste: .* 3 hendelser på 1 s · desktop · chrome/ })).toBeInTheDocument()
-    const labels = screen.getAllByRole('button', { name: /(Flest gjentakelser|Nyeste):/ })
-    expect(labels[0]).toHaveTextContent('Flest gjentakelser')
+    expect(screen.getByRole('heading', { name: 'Eksempler' })).toBeInTheDocument()
+    const examples = within(screen.getByRole('table', { name: 'Eksempler' }))
+    expect(examples.getAllByRole('columnheader').map((header) => header.textContent)).toEqual([
+      'Tidspunkt',
+      'Utvalg',
+      'Aktivitetslogg',
+      'Antall',
+      'Varighet',
+      'Enhet og nettleser',
+    ])
+    const largest = within(examples.getByRole('row', { name: /Flest gjentakelser/ }))
+    expect(largest.getByRole('rowheader')).not.toHaveTextContent('Flest gjentakelser')
+    expect(largest.getByRole('cell', { name: 'Flest gjentakelser' })).toBeInTheDocument()
+    expect(largest.getByText('4 hendelser')).toBeInTheDocument()
+    expect(largest.getByText('2 s')).toBeInTheDocument()
+    expect(largest.getByText('mobile · safari')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Nyeste.*3 hendelser.*Åpne logg/ })).toBeInTheDocument()
+    const labels = screen.getAllByRole('button', { name: /(Flest gjentakelser|Nyeste).*Åpne logg/ })
+    expect(labels[0]).toHaveAccessibleName(/Flest gjentakelser/)
     expect(screen.getByRole('link', { name: 'Utforsk hendelsen' })).toHaveAttribute(
       'href',
       '/utforsk-hendelser?websiteId=site-1&period=last_7_days&urlPath=%2F&pathOperator=equals&event=navigere',
@@ -293,9 +347,11 @@ describe('repetition findings', () => {
     render(<RepetitionResults result={parsed()} search="websiteId=site-1&period=last_7_days&urlPath=%2F" />)
     fireEvent.click(screen.getByRole('button', { name: 'Vis mer' }))
     expect(fetch).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: /Flest gjentakelser: .* 4 hendelser på 2 s/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Flest gjentakelser.*4 hendelser.*Åpne logg/ }))
     expect(await screen.findByText('Inngår i funnet')).toBeInTheDocument()
     const dialog = screen.getByRole('dialog', { name: 'Gjentatte interaksjoner' })
+    expect(dialog.closest('table')).toBeNull()
+    expect(dialog.closest('.whitespace-nowrap')).toBeNull()
     expect(dialog.querySelectorAll('[data-highlighted="true"]')).toHaveLength(1)
     expect(dialog.querySelector('[data-highlighted="true"]')).toHaveTextContent('navigere')
     expect(dialog.querySelector('[data-highlighted="true"]')).not.toHaveTextContent('Kalkulator')
@@ -312,7 +368,7 @@ describe('repetition findings', () => {
     expect(link.getAttribute('href')).not.toContain('urlPath')
     fireEvent.click(screen.getByRole('button', { name: 'Lukk' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: /Flest gjentakelser: .* 4 hendelser på 2 s/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Flest gjentakelser.*4 hendelser.*Åpne logg/ }))
     expect(screen.getByRole('dialog', { name: 'Gjentatte interaksjoner' })).toBeInTheDocument()
     expect(fetch).toHaveBeenCalledOnce()
   })

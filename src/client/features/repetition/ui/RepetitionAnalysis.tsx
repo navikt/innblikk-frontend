@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
-import { Alert, BodyShort, Button, VStack } from '@navikt/ds-react'
+import { Alert, BodyShort, Button, Loader, VStack } from '@navikt/ds-react'
 import WebsitePicker from '../../analysis/ui/WebsitePicker'
 import PeriodPicker from '../../analysis/ui/PeriodPicker'
 import UrlPathFilter from '../../analysis/ui/UrlPathFilter'
@@ -144,6 +144,7 @@ export default function RepetitionAnalysis() {
               <WebsitePicker selectedWebsite={website} onWebsiteChange={setWebsite} disableAutoEvents />
             </div>
             <UrlPathFilter
+              label="URL (valgfritt)"
               urlPaths={paths}
               onUrlPathsChange={setPaths}
               pathOperator={pathOperator}
@@ -170,12 +171,17 @@ export default function RepetitionAnalysis() {
           </div>
           <AnalysisInfo summary={result?.result.summary} />
           <div aria-live="polite" aria-busy={loading}>
-            {loading && <BodyShort>Analyserer gjentatt aktivitet …</BodyShort>}
+            {loading && (
+              <div className="flex items-start gap-4">
+                <Loader size="large" title="Analyserer gjentatt aktivitet" />
+                <VStack gap="space-8">
+                  <BodyShort weight="semibold">Analyserer gjentatt aktivitet …</BodyShort>
+                  <BodyShort textColor="subtle">Dette kan ta litt tid, særlig for lange perioder.</BodyShort>
+                </VStack>
+              </div>
+            )}
             {error?.key === key && <Alert variant="error">{error.message}</Alert>}
             {result && <RepetitionResults result={result.result} search={result.search} />}
-            {!loading && !result && error?.key !== key && (
-              <BodyShort textColor="subtle">Velg nettsted og periode, og trykk «Analyser». URL kan stå tom.</BodyShort>
-            )}
           </div>
         </VStack>
       </AppBlock>
