@@ -243,18 +243,35 @@ export function createUserProfileRoutes({ bigquery, GCP_PROJECT_ID }) {
       const params = { websiteId, sessionId, startDate, endDate }
 
       const query = `
-          SELECT
-              created_at,
-              event_type,
-              event_name,
-              url_path,
-              page_title
-          FROM \`${GCP_PROJECT_ID}.umami_views.event\`
-          WHERE website_id = @websiteId
-          AND session_id = @sessionId
-          AND created_at BETWEEN @startDate AND @endDate
-          ORDER BY created_at DESC
-          LIMIT 1000
+          WITH SelectedEvents AS (
+            SELECT event_id, created_at, event_type, event_name, url_path, page_title
+            FROM \`${GCP_PROJECT_ID}.umami_views.event\`
+            WHERE website_id = @websiteId
+            AND session_id = @sessionId
+            AND created_at BETWEEN @startDate AND @endDate
+            ORDER BY created_at DESC
+            LIMIT 1000
+          ),
+          EventProperties AS (
+            SELECT d.website_event_id, d.created_at,
+              ARRAY_AGG(STRUCT(p.data_key AS key,
+                COALESCE(p.string_value, CAST(p.number_value AS STRING), CAST(p.date_value AS STRING), '') AS value)
+                ORDER BY p.data_key LIMIT 50) AS properties,
+              COUNT(*) AS property_count
+            FROM \`${GCP_PROJECT_ID}.umami_views.event_data\` d
+            CROSS JOIN UNNEST(d.event_parameters) p
+            WHERE d.website_id = @websiteId
+            AND d.created_at BETWEEN @startDate AND @endDate
+            AND d.website_event_id IN (SELECT event_id FROM SelectedEvents)
+            AND p.data_key IS NOT NULL
+            GROUP BY d.website_event_id, d.created_at
+          )
+          SELECT e.*,
+            COALESCE(p.properties, ARRAY<STRUCT<key STRING, value STRING>>[]) AS properties,
+            COALESCE(p.property_count, 0) AS property_count
+          FROM SelectedEvents e LEFT JOIN EventProperties p
+            ON e.event_id = p.website_event_id AND e.created_at = p.created_at
+          ORDER BY e.created_at DESC
       `
 
       const [job] = await bigquery.createQueryJob(
@@ -284,11 +301,14 @@ export function createUserProfileRoutes({ bigquery, GCP_PROJECT_ID }) {
       )
 
       const activity = rows.map((row) => ({
+        id: row.event_id,
         createdAt: row.created_at.value,
         type: row.event_type === 1 ? 'pageview' : 'event',
         name: row.event_name,
         url: row.url_path,
         title: row.page_title,
+        properties: row.properties || [],
+        propertyCount: Number(row.property_count || 0),
       }))
 
       res.json({ activity, queryStats })

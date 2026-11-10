@@ -35,6 +35,23 @@ describe('shared visitor activity modal', () => {
     expect(onClose).toHaveBeenCalledOnce()
   })
 
+  it('opens event details for normal profile activity without highlighted events', async () => {
+    const user = userEvent.setup()
+    render(
+      <UserActivityModal
+        open
+        onClose={() => {}}
+        activity={[activity[0], { ...activity[1], properties: [{ key: 'knapp', value: 'Neste' }], propertyCount: 2 }]}
+        loading={false}
+      />,
+    )
+    expect(screen.getAllByRole('button', { name: 'Hendelsesdetaljer' })).toHaveLength(1)
+    await user.click(screen.getByRole('button', { name: 'Hendelsesdetaljer' }))
+    expect(screen.getByRole('rowheader', { name: 'knapp' })).toBeVisible()
+    expect(screen.getByRole('cell', { name: 'Neste' })).toBeVisible()
+    expect(screen.getByText('Viser de første 1 av 2 egenskaper.')).toBeVisible()
+  })
+
   it('shows loading and errors explicitly and offers a retry', async () => {
     const user = userEvent.setup()
     const onRetry = vi.fn()
