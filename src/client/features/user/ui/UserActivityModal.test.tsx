@@ -96,8 +96,8 @@ describe('shared visitor activity modal', () => {
         ]}
       />,
     )
-    expect(screen.getAllByText('Lik A')).toHaveLength(2)
-    expect(screen.getByText('Nesten samtidige registreringer')).toBeVisible()
+    expect(screen.getAllByText('Mulig duplikat A')).toHaveLength(2)
+    expect(screen.getByText('Mulige duplikater')).toBeVisible()
     expect(screen.getByRole('dialog').querySelectorAll('[data-detail-group]')).toHaveLength(2)
     expect(screen.queryByText('Inngår i funnet')).not.toBeInTheDocument()
     expect(screen.getByRole('dialog').querySelector('[data-highlighted]')).toBeNull()
@@ -121,18 +121,15 @@ describe('shared visitor activity modal', () => {
       />,
     )
     const rows = screen.getByRole('dialog').querySelectorAll('.border-l > div')
-    expect(within(rows[0] as HTMLElement).getByText('Lik A')).toBeVisible()
+    expect(within(rows[0] as HTMLElement).getByText('Mulig duplikat A')).toBeVisible()
     expect(rows[1]).not.toHaveAttribute('data-detail-group')
-    expect(rows[1]).not.toHaveTextContent(/Lik [AB]/)
-    expect(within(rows[2] as HTMLElement).getByText('Lik A')).toBeVisible()
-    expect(within(rows[3] as HTMLElement).getByText('Lik B')).toBeVisible()
-    expect(within(rows[4] as HTMLElement).getByText('Lik B')).toBeVisible()
-    expect(rows[0].getAttribute('style')).toContain('var(--ax-border-accent)')
-    expect(rows[3].getAttribute('style')).toContain('var(--ax-border-success)')
-    expect(screen.getByRole('button', { name: 'Nesten samtidige registreringer' })).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    )
+    expect(rows[1]).not.toHaveTextContent(/Mulig duplikat [AB]/)
+    expect(within(rows[2] as HTMLElement).getByText('Mulig duplikat A')).toBeVisible()
+    expect(within(rows[3] as HTMLElement).getByText('Mulig duplikat B')).toBeVisible()
+    expect(within(rows[4] as HTMLElement).getByText('Mulig duplikat B')).toBeVisible()
+    expect(rows[0].getAttribute('style')).toContain('var(--ax-border-warning)')
+    expect(rows[3].getAttribute('style')).toContain('var(--ax-border-warning)')
+    expect(screen.getByRole('button', { name: 'Mulige duplikater' })).toHaveAttribute('aria-expanded', 'false')
     expect(screen.getAllByText('2 × navigere · /aap/kalkulator')).toHaveLength(2)
   })
 
@@ -141,8 +138,8 @@ describe('shared visitor activity modal', () => {
     render(
       <UserActivityModal open onClose={() => {}} loading={false} activity={[{ ...event, propertyCount: 51 }, event]} />,
     )
-    expect(screen.queryByText('Nesten samtidige registreringer')).not.toBeInTheDocument()
-    expect(screen.queryByText(/^Lik /)).not.toBeInTheDocument()
+    expect(screen.queryByText('Mulige duplikater')).not.toBeInTheDocument()
+    expect(screen.queryByText(/^Mulig duplikat /)).not.toBeInTheDocument()
     expect(screen.getByRole('dialog').querySelector('[data-detail-group]')).toBeNull()
   })
 
@@ -162,7 +159,7 @@ describe('shared visitor activity modal', () => {
         ]}
       />,
     )
-    expect(screen.getAllByText(/^Lik [AB]$/)).toHaveLength(4)
+    expect(screen.getAllByText(/^Mulig duplikat [AB]$/)).toHaveLength(4)
     const groups = screen.getByRole('dialog').querySelectorAll('[data-detail-group]')
     expect(groups[0].getAttribute('data-detail-group')).toBe(groups[1].getAttribute('data-detail-group'))
     expect(groups[2].getAttribute('data-detail-group')).toBe(groups[3].getAttribute('data-detail-group'))

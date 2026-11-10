@@ -5,8 +5,8 @@ import {
   CheckmarkIcon,
   ExclamationmarkTriangleIcon,
   ExternalLinkIcon,
+  LightningIcon,
   MonitorIcon,
-  PersonIcon,
 } from '@navikt/aksel-icons'
 import type { ActivityItem } from '../model'
 
@@ -186,8 +186,7 @@ export default function UserActivityModal({
     }
   }
   const groupColors = ['accent', 'success', 'warning', 'neutral'] as const
-  const profileGroupColors = ['accent', 'success', 'info', 'danger', 'neutral'] as const
-  const profileGroupColor = (number: number) => profileGroupColors[(number - 1) % profileGroupColors.length]
+  const profileGroupColor = 'warning'
   const groupLetter = (number: number) => (number <= 26 ? String.fromCharCode(64 + number) : String(number))
   const profileLegend = profileComparison
     ? [...detailGroups.entries()]
@@ -208,28 +207,39 @@ export default function UserActivityModal({
             {!loading && !error && activity.length > 0 && (
               <div className="bg-[var(--ax-bg-neutral-soft)] p-4 rounded-lg mb-6 flex flex-wrap gap-8">
                 {[
-                  ['Sidevisninger', activity.filter((item) => item.type === 'pageview').length],
-                  ['Hendelser', activity.filter((item) => item.type !== 'pageview').length],
-                  ['Totalt', activity.length],
-                ].map(([label, count]) => (
+                  {
+                    label: 'Sidevisninger',
+                    count: activity.filter((item) => item.type === 'pageview').length,
+                    icon: <MonitorIcon aria-hidden fontSize="1.125rem" className="text-[var(--ax-text-accent)]" />,
+                  },
+                  {
+                    label: 'Hendelser',
+                    count: activity.filter((item) => item.type !== 'pageview').length,
+                    icon: <LightningIcon aria-hidden fontSize="1.125rem" className="text-[var(--ax-text-success)]" />,
+                  },
+                  { label: 'Totalt', count: activity.length, icon: null },
+                ].map(({ label, count, icon }) => (
                   <div key={label}>
-                    <span className="block text-sm font-medium mb-1">{label}</span>
+                    <span className="mb-1 flex items-center gap-1 text-sm font-medium">
+                      {icon}
+                      {label}
+                    </span>
                     <span className="font-bold text-2xl">{count}</span>
                   </div>
                 ))}
               </div>
             )}
             {!loading && !error && profileLegend.length > 0 && (
-              <ReadMore size="small" header="Nesten samtidige registreringer" className="mb-6">
+              <ReadMore size="small" header="Mulige duplikater" className="mb-6">
                 <div className="space-y-2">
                   <BodyShort size="small">
-                    Samme farge og bokstav betyr samme innhold, registrert med maksimalt 100 ms mellom hver. Det kan
-                    skyldes dobbelsporing, men loggen alene fastslår ikke årsaken.
+                    Samme bokstav hører sammen: registreringer med samme innhold og maksimalt 100 ms mellom hver. Det
+                    kan være dobbelsporing, men loggen alene viser ikke årsaken.
                   </BodyShort>
                   <ul className="space-y-1">
                     {profileLegend.map(({ group, item }) => (
                       <li key={group.number} className="flex flex-wrap items-center gap-2 text-sm">
-                        <Tag size="xsmall" variant="moderate" data-color={profileGroupColor(group.number)}>
+                        <Tag size="xsmall" variant="moderate" data-color={profileGroupColor}>
                           {groupLetter(group.number)}
                         </Tag>
                         <span>
@@ -281,7 +291,7 @@ export default function UserActivityModal({
                   const group = groupKey === null ? undefined : detailGroups.get(groupKey)
                   const groupColor = group
                     ? profileComparison
-                      ? profileGroupColor(group.number)
+                      ? profileGroupColor
                       : groupColors[(group.number - 1) % groupColors.length]
                     : undefined
                   return (
@@ -299,9 +309,9 @@ export default function UserActivityModal({
                     >
                       <span className="absolute flex items-center justify-center w-8 h-8 bg-[var(--ax-bg-accent-soft)] rounded-full -left-[49px] ring-4 ring-[var(--ax-bg-default)]">
                         {item.type === 'pageview' ? (
-                          <MonitorIcon fontSize="1.125rem" className="text-[var(--ax-text-accent)]" />
+                          <MonitorIcon aria-hidden fontSize="1.125rem" className="text-[var(--ax-text-accent)]" />
                         ) : (
-                          <PersonIcon fontSize="1.125rem" className="text-[var(--ax-text-success)]" />
+                          <LightningIcon aria-hidden fontSize="1.125rem" className="text-[var(--ax-text-success)]" />
                         )}
                       </span>
                       <div className="flex flex-col gap-1">
@@ -345,7 +355,7 @@ export default function UserActivityModal({
                               }
                             >
                               {profileComparison
-                                ? `Lik ${groupLetter(group.number)}`
+                                ? `Mulig duplikat ${groupLetter(group.number)}`
                                 : detailGroups.size === 1
                                   ? `Alle ${group.count} har samme ${group.incomplete ? 'viste detaljer' : 'detaljer'}`
                                   : `Gruppe ${group.number} · ${group.count > 1 ? `${group.count} med samme ${group.incomplete ? 'viste detaljer' : 'detaljer'}` : group.incomplete ? 'egne viste detaljer' : 'egne detaljer'}`}
