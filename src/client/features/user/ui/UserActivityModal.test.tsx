@@ -129,6 +129,10 @@ describe('shared visitor activity modal', () => {
     expect(within(rows[4] as HTMLElement).getByText('Lik B')).toBeVisible()
     expect(rows[0].getAttribute('style')).toContain('var(--ax-border-accent)')
     expect(rows[3].getAttribute('style')).toContain('var(--ax-border-success)')
+    expect(screen.getByRole('button', { name: 'Nesten samtidige registreringer' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    )
     expect(screen.getAllByText('2 × navigere · /aap/kalkulator')).toHaveLength(2)
   })
 

@@ -220,28 +220,27 @@ export default function UserActivityModal({
               </div>
             )}
             {!loading && !error && profileLegend.length > 0 && (
-              <div className="rounded-lg border border-[var(--ax-border-neutral-subtle)] p-4 mb-6 space-y-2">
-                <BodyShort size="small" weight="semibold">
-                  Nesten samtidige registreringer
-                </BodyShort>
-                <BodyShort size="small" className="text-[var(--ax-text-subtle)]">
-                  Samme farge og bokstav betyr samme innhold, registrert med maksimalt 100 ms mellom hver. Det kan
-                  skyldes dobbelsporing, men loggen alene fastslår ikke årsaken.
-                </BodyShort>
-                <ul className="space-y-1">
-                  {profileLegend.map(({ group, item }) => (
-                    <li key={group.number} className="flex flex-wrap items-center gap-2 text-sm">
-                      <Tag size="xsmall" variant="moderate" data-color={profileGroupColor(group.number)}>
-                        {groupLetter(group.number)}
-                      </Tag>
-                      <span>
-                        {group.count} × {item.type === 'pageview' ? 'Sidevisning' : item.name || 'Ukjent hendelse'}
-                        {item.url ? ` · ${item.url}` : ''}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              <ReadMore size="small" header="Nesten samtidige registreringer" className="mb-6">
+                <div className="space-y-2">
+                  <BodyShort size="small">
+                    Samme farge og bokstav betyr samme innhold, registrert med maksimalt 100 ms mellom hver. Det kan
+                    skyldes dobbelsporing, men loggen alene fastslår ikke årsaken.
+                  </BodyShort>
+                  <ul className="space-y-1">
+                    {profileLegend.map(({ group, item }) => (
+                      <li key={group.number} className="flex flex-wrap items-center gap-2 text-sm">
+                        <Tag size="xsmall" variant="moderate" data-color={profileGroupColor(group.number)}>
+                          {groupLetter(group.number)}
+                        </Tag>
+                        <span>
+                          {group.count} × {item.type === 'pageview' ? 'Sidevisning' : item.name || 'Ukjent hendelse'}
+                          {item.url ? ` · ${item.url}` : ''}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </ReadMore>
             )}
             {loading ? (
               <div className="flex justify-center p-4">
