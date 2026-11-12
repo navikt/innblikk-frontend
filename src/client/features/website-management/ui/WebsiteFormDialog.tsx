@@ -27,6 +27,7 @@ function normalizeDomain(raw: string): string {
 // Bounds matching the PG columns / BigQuery sink limits on the service side.
 const MAX_NAME_LENGTH = 100
 const MAX_DOMAIN_LENGTH = 255
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function validateName(name: string): string | null {
   if (!name) return 'Navn må fylles ut'
@@ -58,11 +59,13 @@ function WebsiteFormFields({ website, teams, adminMode, onSubmit, onClose }: For
   const isEdit = Boolean(website)
   const [name, setName] = useState(website?.name ?? '')
   const [domain, setDomain] = useState(website?.domain ?? '')
+  const [websiteId, setWebsiteId] = useState('')
   const [ownerTeamId, setOwnerTeamId] = useState<string>(
     website?.ownerTeamId ?? (adminMode ? '' : (teams[0]?.id ?? '')),
   )
   const [nameError, setNameError] = useState<string | null>(null)
   const [domainError, setDomainError] = useState<string | null>(null)
+  const [websiteIdError, setWebsiteIdError] = useState<string | null>(null)
   const [ownerError, setOwnerError] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -74,6 +77,9 @@ function WebsiteFormFields({ website, teams, adminMode, onSubmit, onClose }: For
     const normalizedDomain = normalizeDomain(domain)
     const nextNameError = validateName(trimmedName)
     const nextDomainError = validateDomain(normalizedDomain)
+    const customWebsiteId = adminMode && !isEdit ? websiteId.trim().toLowerCase() : ''
+    const nextWebsiteIdError =
+      customWebsiteId && !UUID_PATTERN.test(customWebsiteId) ? 'Nettside-ID må være en gyldig UUID' : null
 
     let resolvedOwnerTeamId: string | null = null
     let nextOwnerError: string | null = null
@@ -93,13 +99,19 @@ function WebsiteFormFields({ website, teams, adminMode, onSubmit, onClose }: For
 
     setNameError(nextNameError)
     setDomainError(nextDomainError)
+    setWebsiteIdError(nextWebsiteIdError)
     setOwnerError(nextOwnerError)
-    if (nextNameError || nextDomainError || nextOwnerError) return
+    if (nextNameError || nextDomainError || nextOwnerError || nextWebsiteIdError) return
 
     setIsSubmitting(true)
     setSubmitError(null)
     try {
-      await onSubmit({ name: trimmedName, domain: normalizedDomain, ownerTeamId: resolvedOwnerTeamId })
+      await onSubmit({
+        name: trimmedName,
+        domain: normalizedDomain,
+        ownerTeamId: resolvedOwnerTeamId,
+        ...(customWebsiteId ? { websiteId: customWebsiteId } : {}),
+      })
       onClose()
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'Noe gikk galt')
@@ -131,6 +143,17 @@ function WebsiteFormFields({ website, teams, adminMode, onSubmit, onClose }: For
             inputMode="url"
             maxLength={MAX_DOMAIN_LENGTH}
           />
+          {adminMode && !isEdit && (
+            <TextField
+              label="Nettside-ID (valgfritt)"
+              description="La stå tom for å lage en ny ID. For å gjenopprette en fjernet registrering: bruk nøyaktig samme ID som før. Historiske data beholdes. ID-er som fortsatt er registrert, kan ikke brukes."
+              value={websiteId}
+              onChange={(event) => setWebsiteId(event.target.value)}
+              error={websiteIdError ?? undefined}
+              autoComplete="off"
+              spellCheck={false}
+            />
+          )}
           {adminMode ? (
             <UNSAFE_Combobox
               label="Eier (team i Teamkatalogen)"

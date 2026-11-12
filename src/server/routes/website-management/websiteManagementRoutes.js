@@ -299,8 +299,20 @@ export function createWebsiteManagementRouter({
 
   router.post('/', (req, res) => {
     if (!isValidBody(req.body)) return sanitizedError(res, 400, 'Ugyldig forespørselsdata')
-    const { name, domain, ownerTeamId } = req.body
-    return callUpstream(req, res, { method: 'POST', suffix: '', body: { name, domain, ownerTeamId } })
+    const { name, domain, ownerTeamId, websiteId } = req.body
+    const forward = () =>
+      callUpstream(req, res, {
+        method: 'POST',
+        suffix: '',
+        body: { name, domain, ownerTeamId, ...(websiteId != null ? { websiteId } : {}) },
+      })
+    if (websiteId != null) {
+      if (typeof websiteId !== 'string' || !UUID_PATTERN.test(websiteId)) {
+        return sanitizedError(res, 400, 'Ugyldig nettside-ID')
+      }
+      return requireReopsTeamMember(req, res, forward)
+    }
+    return forward()
   })
 
   router.put('/:websiteId', (req, res) => {

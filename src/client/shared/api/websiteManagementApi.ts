@@ -30,6 +30,8 @@ export interface WebsiteInput {
   name: string
   domain: string
   ownerTeamId: string | null
+  /** ReOps-only creation override for recovering a hard-deleted registration. */
+  websiteId?: string
 }
 
 /** Thrown when the management feature is not available (e.g. local dev without a target). */

@@ -16,6 +16,88 @@ function renderDialog(props: Partial<React.ComponentProps<typeof WebsiteFormDial
 }
 
 describe('WebsiteFormDialog', () => {
+  it('lets admins create with an explicit website ID', async () => {
+    const user = userEvent.setup()
+    const { onSubmit } = renderDialog({ adminMode: true })
+
+    await user.type(screen.getByLabelText(/Navn på nettsiden/), 'Gjenopprettet nettside')
+    await user.type(screen.getByLabelText(/Hoveddomene/), 'gammel.nav.no')
+    await user.type(screen.getByLabelText(/Nettside-ID/), '  123E4567-E89B-42D3-A456-426614174000  ')
+    await user.click(screen.getByRole('button', { name: 'Registrer nettside' }))
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith({
+        name: 'Gjenopprettet nettside',
+        domain: 'gammel.nav.no',
+        ownerTeamId: null,
+        websiteId: '123e4567-e89b-42d3-a456-426614174000',
+      }),
+    )
+  })
+
+  it('rejects malformed custom IDs before submitting', async () => {
+    const user = userEvent.setup()
+    const { onSubmit } = renderDialog({ adminMode: true })
+
+    await user.type(screen.getByLabelText(/Navn på nettsiden/), 'Nettside')
+    await user.type(screen.getByLabelText(/Hoveddomene/), 'side.nav.no')
+    await user.type(screen.getByLabelText(/Nettside-ID/), 'not-a-uuid')
+    await user.click(screen.getByRole('button', { name: 'Registrer nettside' }))
+
+    expect(await screen.findByText('Nettside-ID må være en gyldig UUID')).toBeInTheDocument()
+    expect(screen.getByLabelText(/Nettside-ID/)).toHaveAttribute('aria-invalid', 'true')
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  it('omits a whitespace-only custom ID so the server generates one', async () => {
+    const user = userEvent.setup()
+    const { onSubmit } = renderDialog({ adminMode: true })
+
+    await user.type(screen.getByLabelText(/Navn på nettsiden/), 'Nettside')
+    await user.type(screen.getByLabelText(/Hoveddomene/), 'side.nav.no')
+    await user.type(screen.getByLabelText(/Nettside-ID/), '   ')
+    await user.click(screen.getByRole('button', { name: 'Registrer nettside' }))
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith({
+        name: 'Nettside',
+        domain: 'side.nav.no',
+        ownerTeamId: null,
+      }),
+    )
+  })
+
+  it('hides custom IDs from self-service creation', () => {
+    renderDialog()
+    expect(screen.queryByLabelText(/Nettside-ID/)).not.toBeInTheDocument()
+  })
+
+  it('does not allow changing the ID when editing', async () => {
+    const user = userEvent.setup()
+    const { onSubmit } = renderDialog({
+      adminMode: true,
+      website: {
+        websiteId: '123e4567-e89b-42d3-a456-426614174000',
+        name: 'Nettside',
+        domain: 'side.nav.no',
+        ownerTeamId: null,
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+        deletedAt: null,
+      },
+    })
+
+    expect(screen.queryByLabelText(/Nettside-ID/)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Lagre endringer' }))
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith({
+        name: 'Nettside',
+        domain: 'side.nav.no',
+        ownerTeamId: null,
+      }),
+    )
+  })
+
   it('requires a name before submitting', async () => {
     const user = userEvent.setup()
     const { onSubmit } = renderDialog()
