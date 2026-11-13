@@ -8,12 +8,7 @@ import {
 import { preserveSharedAnalysisParams } from '../../../shared/lib/analysisNavigation.ts'
 import { chartGroups } from '../model/chartGroups.tsx'
 
-export const useChartNavigation = (
-  websiteDomain?: string,
-  websiteName?: string,
-  websiteId?: string,
-  hideAnalysisSelector = false,
-) => {
+export const useChartNavigation = (websiteDomain?: string, websiteId?: string, hideAnalysisSelector = false) => {
   const isNavOpen = !hideAnalysisSelector
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -30,8 +25,8 @@ export const useChartNavigation = (
     [domain, resolvedWebsiteId],
   )
   const showMarketingSection = useMemo(
-    () => hasMarketingSupport(domain, websiteName, resolvedWebsiteId),
-    [domain, websiteName, resolvedWebsiteId],
+    () => hasMarketingSupport(domain, resolvedWebsiteId),
+    [domain, resolvedWebsiteId],
   )
   const showClickmapSection = useMemo(() => hasClickmapSupport(domain, resolvedWebsiteId), [domain, resolvedWebsiteId])
 

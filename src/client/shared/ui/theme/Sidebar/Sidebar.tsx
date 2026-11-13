@@ -347,7 +347,7 @@ export default function Sidebar({ theme }: SidebarProps) {
   const { pathname } = useLocation()
   const [searchParams] = useSearchParams()
   const { isReopsTeamMember } = useIsReopsTeamMember()
-  const showMarketing = hasMarketingSupport(searchParams.get('domain'), undefined, searchParams.get('websiteId'))
+  const showMarketing = hasMarketingSupport(searchParams.get('domain'), searchParams.get('websiteId'))
   const navItems = getNavItems(isReopsTeamMember, showMarketing)
 
   const { hostname, pathname: currentPathname, search, hash } = window.location
