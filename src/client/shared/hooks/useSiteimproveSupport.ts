@@ -65,14 +65,9 @@ export function hasSiteimproveSupport(domain: string | null | undefined, website
 /**
  * Check if a domain supports Marketing Analysis based on teamsData.json
  * @param domain - The domain to check
- * @param websiteName - Optional website name for additional dev environment checking
- * @returns boolean - true if Marketing Analysis is supported (default: true unless explicitly set to false or is dev environment)
+ * @returns boolean - true if Marketing Analysis is supported
  */
-export function hasMarketingSupport(
-  domain: string | null | undefined,
-  websiteName?: string | null,
-  websiteId?: string | null,
-): boolean {
+export function hasMarketingSupport(domain: string | null | undefined, websiteId?: string | null): boolean {
   const team = findTeam(domain, websiteId)
   // Only show if explicitly set to true in teamsData.json
   return team ? team.supportsMarketing === true : false
@@ -138,15 +133,10 @@ export function useCookieStartDate(domain: string | null | undefined, websiteId?
 /**
  * React hook to check Marketing Analysis support for a domain
  * @param domain - The domain to check
- * @param websiteName - Optional website name for dev environment detection
  * @returns boolean - true if Marketing Analysis is supported
  */
-export function useMarketingSupport(
-  domain: string | null | undefined,
-  websiteName?: string | null,
-  websiteId?: string | null,
-): boolean {
-  return useMemo(() => hasMarketingSupport(domain, websiteName, websiteId), [domain, websiteName, websiteId])
+export function useMarketingSupport(domain: string | null | undefined, websiteId?: string | null): boolean {
+  return useMemo(() => hasMarketingSupport(domain, websiteId), [domain, websiteId])
 }
 
 /**

@@ -28,15 +28,12 @@ const AnalysisActionModal: React.FC<AnalysisActionModalProps> = ({
   websiteId,
   period = 'current_month',
   domain: propDomain,
-  websiteName: propWebsiteName,
 }) => {
   const [copySuccess, setCopySuccess] = useState(false)
   const [resolvedDomain, setResolvedDomain] = useState<string | null>(null)
-  const [resolvedWebsiteName, setResolvedWebsiteName] = useState<string | undefined>(undefined)
   const domain = propDomain ?? resolvedDomain ?? 'nav.no'
-  const websiteName = propWebsiteName ?? resolvedWebsiteName
   const hasSiteimprove = useSiteimproveSupport(domain, websiteId)
-  const hasMarketing = useMarketingSupport(domain, websiteName, websiteId)
+  const hasMarketing = useMarketingSupport(domain, websiteId)
 
   useEffect(() => {
     if (open) {
@@ -50,8 +47,7 @@ const AnalysisActionModal: React.FC<AnalysisActionModalProps> = ({
 
   useEffect(() => {
     const shouldResolveDomain = !propDomain
-    const shouldResolveWebsiteName = !propWebsiteName
-    if (!websiteId || (!shouldResolveDomain && !shouldResolveWebsiteName)) return
+    if (!websiteId || !shouldResolveDomain) return
 
     let isActive = true
 
@@ -59,9 +55,6 @@ const AnalysisActionModal: React.FC<AnalysisActionModalProps> = ({
       if (!isActive || !website) return
       if (shouldResolveDomain && website.domain) {
         setResolvedDomain(website.domain)
-      }
-      if (shouldResolveWebsiteName && website.name) {
-        setResolvedWebsiteName(website.name)
       }
     }
 
@@ -100,7 +93,7 @@ const AnalysisActionModal: React.FC<AnalysisActionModalProps> = ({
     return () => {
       isActive = false
     }
-  }, [websiteId, propDomain, propWebsiteName])
+  }, [websiteId, propDomain])
 
   if (!urlPath || !websiteId) return null
 

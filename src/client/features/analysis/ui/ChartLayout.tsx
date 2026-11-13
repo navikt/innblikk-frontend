@@ -119,14 +119,8 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
   sidebarContent,
   websiteId,
   websiteDomain,
-  websiteName,
 }) => {
-  const { filteredChartGroups, handleNavigation } = useChartNavigation(
-    websiteDomain,
-    websiteName,
-    websiteId,
-    hideAnalysisSelector,
-  )
+  const { filteredChartGroups, handleNavigation } = useChartNavigation(websiteDomain, websiteId, hideAnalysisSelector)
   // The global left Sidebar covers the main analysis navigation, so the in-page
   // analysis-type selector column defaults to hidden. (No caller passes this prop
   // today; Grafdeling's explicit `true` still wins.)
