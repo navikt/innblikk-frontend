@@ -20,6 +20,62 @@ const MOCK_WEBSITES = [
 ]
 
 test.describe('App smoke tests', () => {
+  test('profile links open the exact session while partial searches stay in the table', async ({ page }) => {
+    const activitySessions: string[] = []
+    await page.route('**/api/bigquery/websites', (route) => route.fulfill({ json: { data: MOCK_WEBSITES } }))
+    await page.route('**/api/bigquery/users', (route) =>
+      route.fulfill({
+        json: {
+          users: [
+            {
+              userId: 'cookie-user-123',
+              distinctId: 'cookie-user-123',
+              idType: 'cookie',
+              sessionIds: ['session-older', 'session-newer'],
+              primarySessionId: 'session-newer',
+              firstSeen: '2026-10-01T10:00:00Z',
+              lastSeen: '2026-10-01T12:00:00Z',
+              eventCount: 2,
+            },
+          ],
+          total: 1,
+        },
+      }),
+    )
+    await page.route('**/api/bigquery/users/*/activity', (route) => {
+      const sessionId = new URL(route.request().url()).pathname.split('/').at(-2)!
+      activitySessions.push(sessionId)
+      return route.fulfill({
+        json: {
+          activity: [{ type: 'pageview', title: sessionId, createdAt: '2026-10-01T10:00:00Z' }],
+        },
+      })
+    })
+    const dialog = page.getByRole('dialog', { name: 'Brukerdetaljer', exact: true })
+    await page.goto('/brukerprofiler?websiteId=site-1&period=yesterday&query=session-older')
+    await expect(dialog.getByText('session-older', { exact: true }).last()).toBeVisible({ timeout: 15_000 })
+    expect(activitySessions).toEqual(['session-older'])
+    await dialog.getByRole('button', { name: 'Lukk', exact: true }).click()
+    await expect(dialog).not.toBeVisible()
+
+    await page.goto('/brukerprofiler?websiteId=site-1&period=yesterday&query=cookie')
+    const profileLink = page.getByRole('table').getByRole('link', { name: /cookie-u/ })
+    await expect(profileLink).toBeVisible({ timeout: 15_000 })
+    await expect(dialog).not.toBeVisible()
+    expect(activitySessions).toEqual(['session-older'])
+    await expect(profileLink).toHaveAttribute('href', /query=session-newer/)
+    await profileLink.click()
+    await expect(dialog.getByText('session-newer', { exact: true }).last()).toBeVisible()
+    await expect(page).toHaveURL(/query=session-newer/)
+    await page.reload()
+    await expect(dialog.getByText('session-newer', { exact: true }).last()).toBeVisible({ timeout: 15_000 })
+    expect(activitySessions).toEqual(['session-older', 'session-newer', 'session-newer'])
+
+    await page.goto('/brukerprofiler?websiteId=site-1&period=yesterday&query=cookie-user-123')
+    await expect(dialog.getByText('session-newer', { exact: true }).last()).toBeVisible({ timeout: 15_000 })
+    expect(activitySessions.at(-1)).toBe('session-newer')
+  })
+
   test('home page loads and shows the page heading', async ({ page }) => {
     await page.goto('/')
     await expect(page.getByRole('heading', { name: /forstå brukeradferd med innblikk/i })).toBeVisible({
