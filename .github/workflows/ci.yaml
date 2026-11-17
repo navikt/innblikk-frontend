@@ -5,6 +5,11 @@ on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
   workflow_call:
+    inputs:
+      ref:
+        description: 'Branch, tag or commit to check. Defaults to the triggering commit.'
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -23,6 +28,8 @@ jobs:
       HUSKY: 0
     steps:
       - uses: 'actions/checkout@v6'
+        with:
+          ref: ${{ inputs.ref }}
 
       - uses: pnpm/action-setup@v6
         with:
@@ -39,6 +46,31 @@ jobs:
       - name: 'Run ESLint'
         run: pnpm lint
 
+  build:
+    name: 'Build'
+    runs-on: 'ubuntu-latest'
+    env:
+      HUSKY: 0
+    steps:
+      - uses: 'actions/checkout@v6'
+        with:
+          ref: ${{ inputs.ref }}
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 26
+          cache: pnpm
+
+      - name: 'Install dependencies'
+        run: pnpm install --frozen-lockfile
+
+      - name: 'Type-check and build'
+        run: pnpm build
+
   test:
     name: 'Unit tests'
     runs-on: 'ubuntu-latest'
@@ -46,6 +78,8 @@ jobs:
       HUSKY: 0
     steps:
       - uses: 'actions/checkout@v6'
+        with:
+          ref: ${{ inputs.ref }}
 
       - uses: pnpm/action-setup@v6
         with:
@@ -69,6 +103,8 @@ jobs:
       HUSKY: 0
     steps:
       - uses: 'actions/checkout@v6'
+        with:
+          ref: ${{ inputs.ref }}
 
       - uses: pnpm/action-setup@v6
         with:
@@ -93,5 +129,21 @@ jobs:
         if: failure()
         with:
           name: playwright-report
-          path: playwright-report/
+          path: |
+            playwright-report/
+            test-results/
           retention-days: 7
+
+  # Builds the production image without pushing it, with the same shared workflow
+  # used for deploys. Fork PRs are skipped: they get neither the Nais login token
+  # nor access to the private @navikt packages the image needs.
+  docker-build:
+    name: 'Docker build'
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    uses: navikt/reops-workflows/.github/workflows/build.yaml@v1
+    permissions:
+      contents: read
+      packages: read
+      id-token: write
+    with:
+      push: false
