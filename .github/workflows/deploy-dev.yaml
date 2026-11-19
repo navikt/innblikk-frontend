@@ -23,7 +23,6 @@ jobs:
     permissions:
       contents: read
       packages: read
-      id-token: write
     with:
       ref: ${{ inputs.ref }}
 
