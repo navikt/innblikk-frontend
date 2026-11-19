@@ -66,6 +66,7 @@ export const useSpellings = () => {
     setCrawlInfo(null)
 
     const newParams = new URLSearchParams(locationSearch)
+    newParams.delete('pagePath')
     if (urlPath) {
       newParams.set('urlPath', urlPath)
     } else {
