@@ -70,6 +70,7 @@ const EventJourneyClickmap = lazy(() =>
 
 // Event Journey Feature
 const EventJourney = lazy(() => import('./features/eventjourney').then((m) => ({ default: m.EventJourney })))
+const RepetitionAnalysis = lazy(() => import('./features/repetition/ui/RepetitionAnalysis'))
 
 // Traffic Feature
 const TrafficAnalysis = lazy(() => import('./features/traffic').then((m) => ({ default: m.TrafficAnalysis })))
@@ -299,6 +300,7 @@ export const routes: AppRoute[] = [
   { path: '/brukersammensetning', component: <UserComposition />, fullWidth: true },
   { path: '/brukerprofiler', component: <UserProfiles />, fullWidth: true },
   { path: '/utforsk-hendelser', component: <EventExplorer />, fullWidth: true },
+  { path: '/gjentatt-aktivitet', component: <RepetitionAnalysis />, fullWidth: true },
   { path: '/klikkoversikt', component: <Clickmap />, fullWidth: true },
   { path: '/canvas', component: <Canvas />, fullWidth: true },
   { path: '/canvas/share', component: <CanvasShareView />, fullWidth: true },
