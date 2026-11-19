@@ -51,6 +51,9 @@ export const PageHeader = ({
         }}
       >
         <AppBlock gutters={compactGutters ? 'compact' : true}>
+          <div className={isArticle ? 'max-w-[800px] mx-auto' : undefined}>
+            {breadcrumbs ? <div className="mb-4">{breadcrumbs}</div> : <RouteBreadcrumbs className="mb-4" />}
+          </div>
           <div
             className={`grid gap-[10px] md:grid-cols-[minmax(0,1fr)_auto] md:items-start ${
               isArticle ? 'max-w-[800px] mx-auto' : ''
@@ -98,11 +101,6 @@ export const PageHeader = ({
           </div>
         </AppBlock>
       </div>
-      <AppBlock gutters={compactGutters ? 'compact' : true}>
-        <div className={isArticle ? 'max-w-[800px] mx-auto' : undefined}>
-          {breadcrumbs ? <div className="mt-4">{breadcrumbs}</div> : <RouteBreadcrumbs className="mt-4" />}
-        </div>
-      </AppBlock>
     </div>
   )
 }

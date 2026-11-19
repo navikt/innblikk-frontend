@@ -28,15 +28,16 @@ function setup(initialEntry: string) {
 }
 
 describe('route breadcrumbs', () => {
-  it('places larger breadcrumbs below and outside the colored title and description area', () => {
+  it('places compact breadcrumbs above the title with minimum-size link targets', () => {
     setup('/utforsk-hendelser/hendelse?event=one')
     const heading = screen.getByRole('heading', { name: 'Page', level: 1 })
     const titleArea = heading.closest('div[style]')!
     const navigation = screen.getByRole('navigation', { name: 'Brødsmulesti' })
     expect(titleArea).toContainElement(screen.getByText('Page description'))
-    expect(titleArea).not.toContainElement(navigation)
-    expect(heading.compareDocumentPosition(navigation) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(within(navigation).getByRole('list')).toHaveClass('text-lg')
+    expect(titleArea).toContainElement(navigation)
+    expect(navigation.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(within(navigation).getByRole('list')).toHaveClass('text-base', 'leading-6')
+    expect(within(navigation).getByRole('link')).toHaveClass('min-h-6', 'min-w-6')
   })
 
   it('does not show breadcrumbs for first-level screens', () => {
@@ -50,6 +51,8 @@ describe('route breadcrumbs', () => {
     )
     const nav = screen.getByRole('navigation', { name: 'Brødsmulesti' })
     const eventLink = within(nav).getByRole('link', { name: 'A+B C' })
+    expect(eventLink.parentElement?.querySelectorAll('svg[aria-hidden="true"]')).toHaveLength(3)
+    expect(eventLink.querySelectorAll('svg[aria-hidden="true"]')).toHaveLength(1)
     const eventUrl = new URL(eventLink.getAttribute('href')!, 'https://example.test')
     expect(eventUrl.pathname).toBe('/utforsk-hendelser/hendelse')
     expect(eventUrl.searchParams.get('event')).toBe('A+B C')

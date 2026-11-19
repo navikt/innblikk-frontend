@@ -24,7 +24,7 @@ afterEach(() => {
 })
 
 describe('alfa settings', () => {
-  it('offers only the filter selector as an alfa checkbox, separate from the beta builder', async () => {
+  it('offers the filter selector as an alfa checkbox, separate from the beta builder', async () => {
     const user = userEvent.setup()
     render(
       <MemoryRouter>
@@ -52,6 +52,23 @@ describe('alfa settings', () => {
     expect(getFeatureFlag('grafbygger_custom_filter_selector')).toBe(false)
     expect(document.querySelector('a[href="/grafbygger-alfa"]')).toBeNull()
     expect(document.querySelector('a[href="/grafbygger"]')).toBeInTheDocument()
+  })
+
+  it('offers vertical breadcrumb overflow as a separate default-off experiment', async () => {
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter>
+        <UserProfile />
+      </MemoryRouter>,
+    )
+    await screen.findByText('Testbruker')
+    const checkbox = screen.getByRole('checkbox', { name: /Aktiver loddrett brødsmulesti/ })
+    expect(checkbox).not.toBeChecked()
+    expect(checkbox.closest('#alpha')).toBeInTheDocument()
+    await user.click(checkbox)
+    expect(getFeatureFlag('breadcrumbs_vertical_overflow')).toBe(true)
+    await user.click(checkbox)
+    expect(getFeatureFlag('breadcrumbs_vertical_overflow')).toBe(false)
   })
 
   it('restores a previously saved alfa opt-in', async () => {

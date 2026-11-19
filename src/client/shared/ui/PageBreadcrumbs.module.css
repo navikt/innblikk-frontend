@@ -1,0 +1,161 @@
+.breadcrumbs {
+  position: relative;
+  min-inline-size: 0;
+  container: breadcrumbs / inline-size;
+}
+
+.list {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.target {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+}
+
+.linkLabel {
+  min-inline-size: 0;
+  text-decoration: underline;
+}
+
+.label {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.separator {
+  flex: none;
+  inline-size: 1rem;
+}
+
+.backSeparator,
+.verticalSeparator {
+  display: none;
+}
+
+/* A noninteractive, clipped copy keeps overflow independent of the visible layout. */
+.measurement {
+  position: absolute;
+  inset: 0 0 auto;
+  block-size: 1px;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.measurementList {
+  inline-size: max-content;
+  white-space: nowrap;
+}
+
+.measurementList .item {
+  flex: none;
+}
+
+.measurementLabel::before {
+  content: attr(data-label);
+}
+
+/* Safe fallback for browsers without scroll-driven animations: compact at narrow widths. */
+@container breadcrumbs (max-width: 36rem) {
+  .breadcrumbs:where([data-has-parent='true']) > .trail > .item:not([data-parent='true']) {
+    display: none;
+  }
+
+  .trail .horizontalSeparator {
+    display: none;
+  }
+
+  .trail .backSeparator {
+    display: block;
+  }
+}
+
+/* The timeline is active only if the hidden full-width trail actually overflows.
+   Both endpoints set the same value: this detects layout, not scroll progress,
+   and produces no visual animation. No ResizeObserver or resize handlers needed. */
+/* Aksel resets animation timing for reduced motion. Keep the stable fallback in
+   that mode instead of overriding its accessibility rules for this CSS trick. */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: scroll()) and (timeline-scope: --breadcrumb-overflow) {
+    .breadcrumbs {
+      --breadcrumb-overflows: 0;
+      timeline-scope: --breadcrumb-overflow;
+      animation: detect-breadcrumb-overflow 1s linear both;
+      animation-timeline: --breadcrumb-overflow;
+    }
+
+    .measurement {
+      scroll-timeline: --breadcrumb-overflow inline;
+    }
+
+    /* Reset the width-based fallback when actual overflow detection is available. */
+    .breadcrumbs:where([data-has-parent='true']) > .trail > .item:not([data-parent='true']) {
+      display: flex;
+    }
+
+    .trail .horizontalSeparator {
+      display: block;
+    }
+
+    .trail .backSeparator {
+      display: none;
+    }
+
+    @container breadcrumbs style(--breadcrumb-overflows: 1) {
+      .breadcrumbs:where([data-has-parent='true']) > .trail > .item:not([data-parent='true']) {
+        display: none;
+      }
+
+      .trail .horizontalSeparator {
+        display: none;
+      }
+
+      .trail .backSeparator {
+        display: block;
+      }
+
+      .breadcrumbs[data-vertical-experiment='true'] > .trail {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.25rem;
+      }
+
+      .breadcrumbs[data-vertical-experiment='true'] > .trail > .item {
+        display: flex;
+        padding-inline-start: max(0px, calc((var(--breadcrumb-depth) - 1) * 0.75rem));
+      }
+
+      .breadcrumbs[data-vertical-experiment='true'] > .trail .backSeparator {
+        display: none;
+      }
+
+      .breadcrumbs[data-vertical-experiment='true'] > .trail .verticalSeparator {
+        display: block;
+      }
+    }
+  }
+}
+
+@keyframes detect-breadcrumb-overflow {
+  from,
+  to {
+    --breadcrumb-overflows: 1;
+  }
+}

@@ -95,6 +95,82 @@ test('legacy event URLs accept percent-encoded spaces and preserve their hash', 
   expect(new URL(page.url()).hash).toBe('#legacy')
 })
 
+test('breadcrumbs use actual fit, default to the parent link, and make vertical overflow opt-in', async ({ page }) => {
+  const search = new URLSearchParams({
+    websiteId: website.id,
+    period: 'last_7_days',
+    event: eventName,
+    parameter: parameterName,
+  })
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await page.goto(`/utforsk-hendelser/hendelse/parameter?${search.toString()}`)
+  const nav = page.getByRole('navigation', { name: 'Brødsmulesti' })
+  const levels = nav.getByRole('listitem')
+  await expect(levels).toHaveCount(3)
+
+  // Long labels can require the compact layout even on a wide screen.
+  const longSearch = new URLSearchParams(search)
+  longSearch.set('event', 'et svært langt hendelsesnavn '.repeat(8))
+  await page.goto(`/utforsk-hendelser/hendelse/parameter?${longSearch.toString()}`)
+  await expect(levels).toHaveCount(1)
+  await page.goto(`/utforsk-hendelser/hendelse/parameter?${search.toString()}`)
+  await expect(levels).toHaveCount(3)
+
+  await page.setViewportSize({ width: 320, height: 900 })
+  await expect(levels).toHaveCount(1)
+  await expect(nav.getByRole('link', { name: eventName, exact: true })).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320)
+  const parentUrl = new URL((await nav.getByRole('link').getAttribute('href')) ?? '', page.url())
+  expect(parentUrl.pathname).toBe('/utforsk-hendelser/hendelse')
+  expect(parentUrl.searchParams.has('parameter')).toBe(false)
+  const parentLink = nav.getByRole('link')
+  expect(await parentLink.evaluate((element) => getComputedStyle(element).textDecorationLine)).toBe('none')
+  await parentLink.locator('svg').click()
+  await expect(page).toHaveURL(/\/utforsk-hendelser\/hendelse\?/)
+  await page.goBack()
+  await expect(levels).toHaveCount(1)
+
+  await page.evaluate(() => {
+    const flags = JSON.parse(localStorage.getItem('innblikk_feature_flags') || '{}') as Record<string, boolean>
+    localStorage.setItem('innblikk_feature_flags', JSON.stringify({ ...flags, breadcrumbs_vertical_overflow: true }))
+    window.dispatchEvent(new CustomEvent('featureFlagsChange'))
+  })
+  await expect(levels).toHaveCount(3)
+  await expect
+    .poll(async () =>
+      levels.evaluateAll((elements) => new Set(elements.map((element) => element.getBoundingClientRect().y)).size),
+    )
+    .toBe(3)
+  const narrowPositions = await levels.evaluateAll((elements) =>
+    elements.map((element) => element.getBoundingClientRect().y),
+  )
+  expect(narrowPositions[1]).toBeGreaterThan(narrowPositions[0])
+  expect(narrowPositions[2]).toBeGreaterThan(narrowPositions[1])
+
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await expect
+    .poll(async () =>
+      levels.evaluateAll((elements) => new Set(elements.map((element) => element.getBoundingClientRect().y)).size),
+    )
+    .toBe(1)
+
+  // Even with the experiment enabled, a short trail that fits stays horizontal on mobile.
+  await page.setViewportSize({ width: 320, height: 900 })
+  await page.goto(`/utforsk-hendelser/hendelse?websiteId=${website.id}&period=last_7_days&event=A`)
+  await expect(levels).toHaveCount(2)
+  await expect
+    .poll(async () =>
+      levels.evaluateAll((elements) => new Set(elements.map((element) => element.getBoundingClientRect().y)).size),
+    )
+    .toBe(1)
+
+  // Aksel's reduced-motion animation reset uses the conservative parent fallback.
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto(`/utforsk-hendelser/hendelse/parameter?${search.toString()}`)
+  await expect(levels).toHaveCount(1)
+  await expect(nav.getByRole('link', { name: eventName, exact: true })).toBeVisible()
+})
+
 test('accidental browser Back keeps a dirty editor until discard is confirmed', async ({ page }) => {
   await page.goto(`/brukergrupper?websiteId=${website.id}`)
   await page.getByRole('button', { name: 'Ny brukergruppe', exact: true }).click()
