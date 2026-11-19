@@ -69,9 +69,9 @@ import DeleteChartDialog from '../../oversikt/ui/dialogs/DeleteChartDialog.tsx'
 import type { Website } from '../../../shared/types/website.ts'
 import { useCookieStartDate, useCookieSupport } from '../../../shared/hooks/useSiteimproveSupport.ts'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { useReplaceSearchParams } from '../../../shared/hooks/useReplaceSearchParams.ts'
 import useCanvasCsvImport from '../hooks/useCanvasCsvImport.ts'
 import useCanvasBackgroundSync from '../hooks/useCanvasBackgroundSync.ts'
+import { useCanvasDashboardData } from '../hooks/useCanvasDashboardData.ts'
 import useCanvasAdminFlow from '../hooks/useCanvasAdminFlow.ts'
 import useCanvasEditLocks from '../hooks/useCanvasEditLocks.ts'
 import useCanvasFrameFormHandlers from '../hooks/useCanvasFrameFormHandlers.ts'
@@ -87,7 +87,6 @@ import useCanvasInteractions, {
 import useCanvasPlacement from '../hooks/useCanvasPlacement.ts'
 import useCanvasPlacementState from '../hooks/useCanvasPlacementState.ts'
 import useCanvasChartMutations from '../hooks/useCanvasChartMutations.ts'
-import { fetchCanvasStorageData } from '../api/canvasStorageApi.ts'
 import ChangeLogModal, { type ChangeLogEntry } from '../../../shared/ui/ChangeLogModal.tsx'
 import { buildCanvasPresentationUrl, buildCanvasShareUrl } from '../share/utils/canvasShareLayout.ts'
 
@@ -275,7 +274,6 @@ const CanvasContent = () => {
   const WEBSITE_TOP_LIST_VISIBLE_STORAGE_KEY = 'canvas:websiteTopListVisible'
   const location = useLocation()
   const navigate = useNavigate()
-  const replaceSearchParams = useReplaceSearchParams()
   const routeContext = useMemo(() => {
     const params = new URLSearchParams(location.search)
     const parseNumberParam = (value: string | null): number | null => {
@@ -293,7 +291,7 @@ const CanvasContent = () => {
       categoryId,
     }
   }, [location.search])
-  const { onlyDirectEntry, projectId, dashboardId, categoryId: initialCategoryId } = routeContext
+  const { onlyDirectEntry, projectId, dashboardId, categoryId: requestedCategoryId } = routeContext
   const canPersistToDashboard = projectId !== null && dashboardId !== null
   const isCanvasFrontpage = projectId === null && dashboardId === null
   const [canvasTitle, setCanvasTitle] = useState('Canvas')
@@ -529,7 +527,6 @@ const CanvasContent = () => {
   >(null)
   const [timerA11yAnnouncement, setTimerA11yAnnouncement] = useState('')
   const [placementA11yAnnouncement, setPlacementA11yAnnouncement] = useState('')
-  const [isLoadingCanvasItems, setIsLoadingCanvasItems] = useState(false)
   const [isSavingCanvasItem, setIsSavingCanvasItem] = useState(false)
   const [isImportingStickyCsv, setIsImportingStickyCsv] = useState(false)
   const [importStickyProgressCurrent, setImportStickyProgressCurrent] = useState(0)
@@ -1343,59 +1340,26 @@ const CanvasContent = () => {
     [canPersistToDashboard, projectId, dashboardId, ensureCanvasCategory],
   )
 
-  useEffect(() => {
-    if (!canPersistToDashboard || projectId === null || dashboardId === null || canvasInitMode === 'create') {
-      setFrames((prev) => (prev.length > 0 ? [] : prev))
-      setConnections((prev) => (prev.length > 0 ? [] : prev))
-      setCanvasCategories([])
-      setActiveCanvasCategoryId(null)
-      return
-    }
-    if (canvasInitMode !== 'existing') return
-
-    let isActive = true
-    const loadCanvasItems = async () => {
-      setIsLoadingCanvasItems(true)
-      setSyncError(null)
-      try {
-        const data = await fetchCanvasStorageData(projectId, dashboardId)
-        if (!isActive) return
-        setCanvasCategories(data.categories)
-        if (data.categories.length > 0) {
-          setActiveCanvasCategoryId((current) =>
-            current && data.categories.some((category) => category.id === current)
-              ? current
-              : initialCategoryId && data.categories.some((category) => category.id === initialCategoryId)
-                ? initialCategoryId
-                : data.categories[0].id,
-          )
-        } else {
-          setActiveCanvasCategoryId(null)
-        }
-
-        if (!isActive) return
-        markRemoteCanvasFramesApplied()
-        setFrames(data.frames)
-        setConnections(data.connections)
-      } catch (error) {
-        if (!isActive) return
-        setSyncError(error instanceof Error ? error.message : 'Kunne ikke laste canvas-data')
-      } finally {
-        if (isActive) setIsLoadingCanvasItems(false)
-      }
-    }
-
-    void loadCanvasItems()
-    return () => {
-      isActive = false
-    }
-  }, [canPersistToDashboard, projectId, dashboardId, canvasInitMode, initialCategoryId, markRemoteCanvasFramesApplied])
+  const isLoadingCanvasItems = useCanvasDashboardData({
+    projectId,
+    dashboardId,
+    mode: canvasInitMode,
+    requestedCategoryId,
+    categories: canvasCategories,
+    activeCategoryId: activeCanvasCategoryId,
+    setCategories: setCanvasCategories,
+    setActiveCategoryId: setActiveCanvasCategoryId,
+    setFrames,
+    setConnections,
+    setError: setSyncError,
+    onBeforeApplyRemoteData: markRemoteCanvasFramesApplied,
+  })
 
   useCanvasBackgroundSync({
     enabled: canvasSyncContextEnabled && shouldEnableBackgroundSync && !isLoadingCanvasItems,
     projectId,
     dashboardId,
-    initialCategoryId,
+    initialCategoryId: requestedCategoryId,
     activeCanvasCategoryId,
     lockedFrameIds,
     setCanvasCategories,
@@ -1423,34 +1387,6 @@ const CanvasContent = () => {
     },
     ws: canvasWebSocket,
   })
-
-  useEffect(() => {
-    if (!canPersistToDashboard) return
-    const firstCategoryId = canvasCategories[0]?.id ?? null
-    const shouldPersistCategoryId =
-      activeCanvasCategoryId !== null && firstCategoryId !== null && activeCanvasCategoryId !== firstCategoryId
-    const nextCategoryId = shouldPersistCategoryId ? String(activeCanvasCategoryId) : null
-    const params = new URLSearchParams(window.location.search)
-    const currentCategoryId = params.get('categoryId')
-    if (currentCategoryId === nextCategoryId) return
-
-    if (nextCategoryId) params.set('categoryId', nextCategoryId)
-    else params.delete('categoryId')
-
-    replaceSearchParams(params)
-  }, [activeCanvasCategoryId, canPersistToDashboard, canvasCategories, replaceSearchParams])
-
-  useEffect(() => {
-    if (canvasCategories.length === 0) {
-      if (activeCanvasCategoryId !== null) {
-        setActiveCanvasCategoryId(null)
-      }
-      return
-    }
-    if (activeCanvasCategoryId !== null && canvasCategories.some((category) => category.id === activeCanvasCategoryId))
-      return
-    setActiveCanvasCategoryId(canvasCategories[0].id)
-  }, [activeCanvasCategoryId, canvasCategories])
 
   useEffect(() => {
     if (!canPersistToDashboard || projectId === null || dashboardId === null) {

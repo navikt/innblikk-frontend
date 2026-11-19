@@ -53,6 +53,23 @@ The Express frontend fallback already supports deep URLs and refresh. It remains
 - Browsers without scroll-driven animation support and users requesting reduced motion use a conservative 36rem container-query fallback to the parent link. They do not enable the experimental vertical layout. Aksel's global reduced-motion reset changes animation timing, so the exact-fit CSS trick is intentionally disabled there rather than overriding accessibility rules. Compatibility was checked against live MDN browser data; the CSS mechanism was prototyped with repeated grow/shrink checks in Chromium.
 - Keep route/breadcrumb metadata central rather than inventing navigation logic per page.
 
+### Stable breadcrumbs and destination metadata
+
+- Breadcrumbs describe the destination's canonical hierarchy, not the route taken to reach it or the progress of its data requests. The hierarchy must not switch from a generic fallback to a different trail after loading.
+- When the current screen already knows the destination's metadata, reuse it on the first render after navigation. Dashboard links already have the owning team and dashboard names; the detail header and breadcrumb must not wait for another request to display them.
+- The dashboard browser and detail page share session-only team/dashboard metadata through `src/client/shared/lib/dashboardMetadata.ts`. Both use the same metadata API functions, so successful renames, moves, and deletions update the shared snapshot. Background requests refresh known metadata without clearing the displayed title or trail. This is not a cache of analytics results or a source of navigation state: the URL still identifies the destination.
+- For a direct link or refresh with no known metadata, reserve a breadcrumb row while resolving names. Do not temporarily show `Dashboard > Dashboardvisning`, a different hierarchy, or a lone non-clickable current-page item. Reuse the dashboard list returned by the owning-team lookup instead of immediately fetching that list again.
+- Stable does not mean frozen: a real rename, move, permission change, or navigation may change the trail. Responsive shortening and the opt-in vertical layout still apply. Unknown label lengths can change wrapping once cold-load data arrives; reserving a row is not a guarantee of identical geometry for arbitrary names.
+- Preserve the current dashboard detail trail (`Dashboard > Team > Dashboard name`) for now. Whether team selection in the dashboard browser should itself show `Dashboard > Team` is a separate, deferred hierarchy decision; this loading fix does not decide it.
+
+## Initialization and URL feedback
+
+- An unresolved initial selection is not an explicit empty selection. Preserve incoming IDs until the data needed to validate them has loaded; failed requests must not erase the requested selection.
+- Canvas storage hydration follows canvas identity (project/dashboard), not the active category. Category links and browser history restore the selected tab without replacing frames or connections. Publish the canonical category only after initial hydration; omit the first category from the URL as before. Dashboard-backed canvas storage and any future first-class canvas model are unchanged by this fix.
+- Load the Sidegroups website and sidegroup lists independently of website selection. Apply the default website only on initial entry; later URL changes and explicit clears may leave no website selected. A fresh entry without `websiteId` still gets the initial default. Deletion continues to refresh the sidegroup list.
+- In the legacy SQL editor (`/sql-old`), SQL document/prefill initialization is separate from date/path synchronization. Publishing a period or custom date must not overwrite unexecuted SQL edits; navigation to different SQL input still restores that input. The newer editor remains at `/sql`.
+- Campaign and retention URLs continue to accept `pagePath` as a compatibility alias for `urlPath`, but publishing the current selection removes the alias, including when the selection is empty. This prevents a cleared filter from returning on reload or onward navigation. Old links remain readable; no app-wide alias removal is part of these fixes.
+
 ## Adding or changing a page
 
 - Register the screen and its actual ancestors in `routes.tsx`. Prefer URL-derived selection, as in event explorer, over duplicating navigation state in `useState`.
@@ -67,7 +84,7 @@ The Express frontend fallback already supports deep URLs and refresh. It remains
 
 - Do not expand Grafbygger form serialization or attempt to serialize every control across the app.
 - Saved queries, short IDs, URL-length infrastructure limits, and draft sharing are separate work. There is no assumed universal 1,024-character URL limit.
-- No data snapshots, new beta feature, or broad data-fetching rewrite.
+- No analytics-result snapshots, new beta feature, or broad data-fetching rewrite. Reusing already-loaded team/dashboard metadata is covered above.
 
 ## References
 
@@ -92,6 +109,12 @@ Checks run from an isolated scratchpad copy, using the repository's installed de
 - [x] Final full-suite rerun after the sidegroup-context regression fix: 1,678 tests across 118 files
 
 The final full suite passed 1,678 tests across 118 files. All three browser tests in `e2e/navigation.spec.ts` passed after integration: real history, deep links, reload, sidebar/breadcrumb navigation without document reloads, and dirty-editor stay/discard behavior. No live backend or real user data is required. Existing ESLint warnings and bundle-size/static-vs-dynamic-import warnings remain outside this routing cleanup.
+
+Dashboard loading follow-up: regression tests cover known names on the first render, retaining the trail during a delayed background refresh, reserved breadcrumb space on cold entry, reuse of the owning-team lookup response, and shared metadata updates after renames, moves, and deletions. The E2E TypeScript project includes DOM libraries because `page.evaluate` callbacks run in the browser; its custom `window.navigationTest` marker is declared in the test file. Both CI build jobs run the same TypeScript check before bundling.
+
+Follow-up verification: all 1,685 tests across 120 files passed, as did the TypeScript/production build and formatting/ESLint checks on changed files. Checks used an isolated scratchpad copy without local environment-file loading; existing lint and bundle warnings remain. Browser E2E tests were typechecked but not rerun for this follow-up.
+
+Review-fix verification: 13 added regression tests cover canvas loading/tab navigation/history without losing local frames or connections, Sidegroups selection and clearing without list refetches, preservation of legacy SQL edits across filter changes, and campaign path-alias cleanup. The full rerun passed all 1,698 tests across 124 files; TypeScript/production build and formatting/ESLint checks also passed. An existing traffic same-route sidegroup-navigation test failed once in the first full run, then passed both in isolation and in the full rerun; its implementation and test were not changed. Browser E2E tests were not rerun. Retention alias cleanup was approved and added afterward, with regression cases for migrating, replacing, and clearing legacy-derived path filters.
 
 Breadcrumb design iteration: retain compact 16px text with 24px-minimum link targets; the enlarged hit-area experiment was dropped. Placement remains above the title/description inside the colored banner. Overflow defaults to a single parent link; the vertical alternative requires explicit alfa opt-in. During visual iteration, use focused layout checks rather than the full test suite.
 

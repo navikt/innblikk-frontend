@@ -352,7 +352,6 @@ export const routes: AppRoute[] = [
     path: '/dashboard/:dashboardId',
     component: <DashboardDetailRoute />,
     fullWidth: true,
-    breadcrumbs: childBreadcrumbs('/dashboard', 'Dashboard', 'Dashboardvisning'),
   },
   { path: '/brukerreiser', component: <UserJourney />, fullWidth: true },
   { path: '/hendelsesreiser', component: <EventJourney />, fullWidth: true },

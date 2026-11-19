@@ -71,7 +71,6 @@ describe('route breadcrumbs', () => {
   it.each([
     ['/brukergrupper/ny', 'Brukergrupper', '/brukergrupper'],
     ['/sidegrupper/42', 'Sidegrupper', '/sidegrupper'],
-    ['/dashboard/42', 'Dashboard', '/dashboard'],
     ['/hendelsesreiser/visualisering', 'Hendelsesforløp', '/hendelsesreiser'],
   ])('uses the same parent-navigation pattern for %s', (path, label, parentPath) => {
     setup(`${path}?websiteId=site-1`)
@@ -84,5 +83,11 @@ describe('route breadcrumbs', () => {
     expect(screen.getByRole('navigation', { name: 'Brødsmulesti' })).toBeInTheDocument()
     await act(() => router.navigate('/utforsk-hendelser'))
     expect(screen.queryByRole('navigation', { name: 'Brødsmulesti' })).not.toBeInTheDocument()
+  })
+
+  it('leaves dashboard detail breadcrumbs to the page instead of showing generic route labels', () => {
+    setup('/dashboard/42')
+    expect(screen.queryByRole('navigation', { name: 'Brødsmulesti' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Dashboardvisning')).not.toBeInTheDocument()
   })
 })

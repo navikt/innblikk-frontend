@@ -253,7 +253,7 @@ const Oversikt = () => {
   const totalGb = Object.values(stats).reduce((acc, curr) => acc + curr.gb, 0)
   const activeCategory = categories.find((category) => category.id === activeCategoryId) ?? null
   const hasMultipleTabs = categories.length > 1
-  const pageTitle = selectedDashboard?.name ?? ''
+  const pageTitle = selectedDashboard?.name ?? 'Dashboard'
   const visibleChangeLogEntries = useMemo(
     () =>
       changeLogEntries.filter(
@@ -1852,6 +1852,7 @@ const Oversikt = () => {
     <DashboardLayout
       title={pageTitle}
       team={selectedDashboard ? (selectedProject ?? undefined) : undefined}
+      breadcrumbsLoading={!selectedDashboard || !selectedProject}
       description={selectedDashboard?.description?.trim() ? selectedDashboard.description : undefined}
       showKontaktSection={!isFocusedMode}
       headerActions={

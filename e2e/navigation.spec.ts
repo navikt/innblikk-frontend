@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test'
 
+declare global {
+  interface Window {
+    navigationTest?: string
+  }
+}
+
 const eventName = 'nedtrekksliste + valg endret'
 const parameterName = 'valg + type'
 const website = { id: 'site-1', name: 'Test Site', domain: 'test.nav.no', teamId: 'team-1', createdAt: '2024-01-01' }

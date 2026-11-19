@@ -30,6 +30,8 @@ export const useSqlEditor = () => {
   )
   const [searchParams] = useSearchParams()
 
+  const sqlFromUrl = searchParams.get('sql')
+  const sqlStorageKeyFromUrl = searchParams.get('sqlStorageKey')
   const urlPathFromUrl = searchParams.get('urlPath')
   const pathOperatorFromUrl = searchParams.get('pathOperator')
   const dateRangeFromUrl = searchParams.get('dateRange')
@@ -104,11 +106,11 @@ export const useSqlEditor = () => {
 
   const websiteId = extractWebsiteId(query)
 
-  // Check for SQL in URL params on mount and init filters
+  // Only a different SQL document/prefill can replace editor contents. Filter
+  // publication also updates the router, but must never discard local edits.
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search)
-    let sqlParam = urlParams.get('sql')
-    const sqlStorageKey = urlParams.get('sqlStorageKey')
+    let sqlParam = sqlFromUrl
+    const sqlStorageKey = sqlStorageKeyFromUrl
     const defaultQuery = getDefaultQuery()
 
     if (!sqlParam && sqlStorageKey) {
@@ -136,8 +138,11 @@ export const useSqlEditor = () => {
     } else {
       setQuery(defaultQuery)
     }
+  }, [sqlFromUrl, sqlStorageKeyFromUrl])
 
-    // Init urlPath state from URL
+  // Restore filters independently of the SQL document.
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
     if (urlPathFromUrl) {
       setUrlPath(urlPathFromUrl.split(',')[0])
     }
@@ -415,28 +420,22 @@ export const useSqlEditor = () => {
   }
 
   const handleStartDateChange = (date: Date | undefined) => {
-    setDateRange((prev) => {
-      const newState = { ...prev, from: date }
-      setPeriod('custom')
-      updateUrlParams({
-        dateRange: 'custom',
-        customStartDate: date ? date.toISOString() : null,
-        customEndDate: newState.to ? newState.to.toISOString() : null,
-      })
-      return newState
+    setDateRange((prev) => ({ ...prev, from: date }))
+    setPeriod('custom')
+    updateUrlParams({
+      dateRange: 'custom',
+      customStartDate: date ? date.toISOString() : null,
+      customEndDate: dateRange.to ? dateRange.to.toISOString() : null,
     })
   }
 
   const handleEndDateChange = (date: Date | undefined) => {
-    setDateRange((prev) => {
-      const newState = { ...prev, to: date }
-      setPeriod('custom')
-      updateUrlParams({
-        dateRange: 'custom',
-        customStartDate: newState.from ? newState.from.toISOString() : null,
-        customEndDate: date ? date.toISOString() : null,
-      })
-      return newState
+    setDateRange((prev) => ({ ...prev, to: date }))
+    setPeriod('custom')
+    updateUrlParams({
+      dateRange: 'custom',
+      customStartDate: dateRange.from ? dateRange.from.toISOString() : null,
+      customEndDate: date ? date.toISOString() : null,
     })
   }
 

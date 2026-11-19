@@ -106,6 +106,7 @@ export function buildShareParams(
   search = window.location.search,
 ): URLSearchParams {
   const newParams = new URLSearchParams(search)
+  newParams.delete('pagePath')
   newParams.set('retentionPeriod', period)
   newParams.set('retentionReturnScope', returnScope)
   newParams.delete('period')

@@ -145,6 +145,7 @@ export const useMarketingAnalysis = () => {
     newParams.set('period', period)
     newParams.set('metricType', metricType)
     newParams.delete('urlPath')
+    newParams.delete('pagePath')
     if (urlPaths.length > 0) {
       urlPaths.forEach((p) => newParams.append('urlPath', p))
       newParams.set('pathOperator', pathOperator)
