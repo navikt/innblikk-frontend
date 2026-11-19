@@ -2,6 +2,7 @@ import { BodyLong, Detail, Heading, Tag } from '@navikt/ds-react'
 import { TestFlaskIcon } from '@navikt/aksel-icons'
 import React from 'react'
 import { AppBlock } from '../AppBlock/AppBlock.tsx'
+import { RouteBreadcrumbs } from '../../RouteBreadcrumbs.tsx'
 
 interface PageHeaderProps {
   title: string
@@ -37,64 +38,69 @@ export const PageHeader = ({
   const padding = isArticle ? '32px' : '16px'
 
   return (
-    <div
-      style={{
-        width: '100%',
-        backgroundColor: 'var(--ax-bg-accent-soft)',
-        color: 'var(--ax-text-default)',
-        paddingTop: padding,
-        paddingBottom: padding,
-        // Matches the sidebar's logo bar (65px) so the two bottom edges line up when there is no description.
-        minHeight: isArticle ? undefined : '65px',
-        marginBottom: '24px',
-      }}
-    >
-      <AppBlock gutters={compactGutters ? 'compact' : true}>
-        {breadcrumbs && <div className="mb-3">{breadcrumbs}</div>}
-        <div
-          className={`grid gap-[10px] md:grid-cols-[minmax(0,1fr)_auto] md:items-start ${
-            isArticle ? 'max-w-[800px] mx-auto' : ''
-          }`}
-        >
-          <div className="flex flex-col gap-[6px] md:col-start-1 md:row-start-1">
-            <div className="flex items-center gap-3 flex-wrap">
-              <Heading level="1" size="small">
-                {title}
-              </Heading>
-              {beta && (
-                <Tag variant="moderate" size="small" data-color="meta-purple" icon={<TestFlaskIcon aria-hidden />}>
-                  {betaLabel}
-                </Tag>
+    <div style={{ width: '100%', marginBottom: '24px' }}>
+      <div
+        style={{
+          width: '100%',
+          backgroundColor: 'var(--ax-bg-accent-soft)',
+          color: 'var(--ax-text-default)',
+          paddingTop: padding,
+          paddingBottom: padding,
+          // Matches the sidebar's logo bar (65px) so the two bottom edges line up when there is no description.
+          minHeight: isArticle ? undefined : '65px',
+        }}
+      >
+        <AppBlock gutters={compactGutters ? 'compact' : true}>
+          <div
+            className={`grid gap-[10px] md:grid-cols-[minmax(0,1fr)_auto] md:items-start ${
+              isArticle ? 'max-w-[800px] mx-auto' : ''
+            }`}
+          >
+            <div className="flex flex-col gap-[6px] md:col-start-1 md:row-start-1">
+              <div className="flex items-center gap-3 flex-wrap">
+                <Heading level="1" size="small">
+                  {title}
+                </Heading>
+                {beta && (
+                  <Tag variant="moderate" size="small" data-color="meta-purple" icon={<TestFlaskIcon aria-hidden />}>
+                    {betaLabel}
+                  </Tag>
+                )}
+              </div>
+              {subtitle && (
+                <Detail as="h2" className="text-[var(--ax-text-neutral-subtle)]">
+                  {subtitle}
+                </Detail>
+              )}
+              {description && (
+                <div className="text-[var(--ax-text-neutral-subtle)]">
+                  {typeof description === 'string' ? (
+                    isArticle ? (
+                      <BodyLong size="large">{description}</BodyLong>
+                    ) : (
+                      <Detail>{description}</Detail>
+                    )
+                  ) : (
+                    <BodyLong size={isArticle ? 'large' : 'small'} as="div">
+                      {description}
+                    </BodyLong>
+                  )}
+                </div>
               )}
             </div>
-            {subtitle && (
-              <Detail as="h2" className="text-[var(--ax-text-neutral-subtle)]">
-                {subtitle}
-              </Detail>
-            )}
-            {description && (
-              <div className="text-[var(--ax-text-neutral-subtle)]">
-                {typeof description === 'string' ? (
-                  isArticle ? (
-                    <BodyLong size="large">{description}</BodyLong>
-                  ) : (
-                    <Detail>{description}</Detail>
-                  )
-                ) : (
-                  <BodyLong size={isArticle ? 'large' : 'small'} as="div">
-                    {description}
-                  </BodyLong>
-                )}
+
+            {(actions || notice) && (
+              <div className="flex flex-col items-end gap-2 md:col-start-2 md:row-start-1 md:self-start">
+                {actions}
+                {notice && <div className="max-w-[560px]">{notice}</div>}
               </div>
             )}
           </div>
-
-          {(actions || notice) && (
-            <div className="flex flex-col items-end gap-2 md:col-start-2 md:row-start-1 md:self-start">
-              {actions}
-              {notice && <div className="max-w-[560px]">{notice}</div>}
-            </div>
-          )}
+        </AppBlock>
+      </div>
+      <AppBlock gutters={compactGutters ? 'compact' : true}>
+        <div className={isArticle ? 'max-w-[800px] mx-auto' : undefined}>
+          {breadcrumbs ? <div className="mt-4">{breadcrumbs}</div> : <RouteBreadcrumbs className="mt-4" />}
         </div>
       </AppBlock>
     </div>

@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   Alert,
   BodyShort,
@@ -14,9 +14,10 @@ import {
   TextField,
   VStack,
 } from '@navikt/ds-react'
-import { ArrowLeftIcon, PencilIcon, PlusIcon, TrashIcon } from '@navikt/aksel-icons'
+import { PencilIcon, PlusIcon, TrashIcon } from '@navikt/aksel-icons'
 import { fetchWebsites } from '../../../shared/api/websiteApi.ts'
 import { useUnsavedChangesGuard } from '../../../shared/hooks/useUnsavedChangesGuard.ts'
+import { preserveSharedAnalysisParams } from '../../../shared/lib/analysisNavigation.ts'
 import type { Website } from '../../../shared/types/website.ts'
 import { BetaFeatureNotice, BetaFeedbackLine } from '../../../shared/ui/BetaFeatureNotice.tsx'
 import { WebsiteSelect } from '../../../shared/ui/WebsiteSelect.tsx'
@@ -150,11 +151,14 @@ export const SidegroupEditor = forwardRef<SidegroupEditorRef, SidegroupEditorPro
   }, [id])
 
   const dirty = snapshot !== null && snapshot !== snapshotOf(name, websiteId, conditions, newConditionPattern)
-  const { leaveTarget, requestLeave, cancelLeave } = useUnsavedChangesGuard(dirty)
+  const { isLeaveBlocked, requestLeave, cancelLeave, confirmLeave, runWithoutBlocking } = useUnsavedChangesGuard(dirty)
 
   const website = websites.find((w) => w.id === websiteId)
   const websiteLabel = website ? `${website.name} — ${website.domain}` : ''
-  const listHref = `${LIST_PATH}${websiteId ? `?websiteId=${encodeURIComponent(websiteId)}` : ''}`
+  const listContext = new URLSearchParams(searchParams)
+  if (websiteId) listContext.set('websiteId', websiteId)
+  else listContext.delete('websiteId')
+  const listHref = preserveSharedAnalysisParams(LIST_PATH, listContext.toString())
   const nameError = showErrors && !name.trim() ? 'Gi sidegruppen et navn' : undefined
   const websiteError = showErrors && !websiteId ? 'Velg hvilket nettsted sidegruppen gjelder' : undefined
 
@@ -235,8 +239,10 @@ export const SidegroupEditor = forwardRef<SidegroupEditorRef, SidegroupEditorPro
       const request = toRequest(name, description, websiteId, conditions)
       const saved = id ? await updateSidegroup(id, request) : await createSidegroup(request)
       setSnapshot(snapshotOf(name, websiteId, conditions, ''))
-      if (onSaved) onSaved(saved)
-      else void navigate(listHref)
+      runWithoutBlocking(() => {
+        if (onSaved) onSaved(saved)
+        else void navigate(listHref)
+      })
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Kunne ikke lagre sidegruppen')
     } finally {
@@ -261,9 +267,10 @@ export const SidegroupEditor = forwardRef<SidegroupEditorRef, SidegroupEditorPro
 
   const handleCancel = () => {
     if (saving) return
-    if (dirty) requestLeave(listHref)
-    else if (onCancel) onCancel()
-    else void navigate(listHref)
+    if (onCancel) {
+      if (dirty) requestLeave(onCancel)
+      else onCancel()
+    } else void navigate(listHref)
   }
 
   useImperativeHandle(ref, () => ({
@@ -285,33 +292,18 @@ export const SidegroupEditor = forwardRef<SidegroupEditorRef, SidegroupEditorPro
 
   if (loadError) {
     return (
-      <AppBlock className="py-16">
-        <VStack gap="space-16" align="start">
+      <>
+        <PageHeader title={title} />
+        <AppBlock className="py-16">
           <Alert variant="error">{loadError}</Alert>
-          <Button as={Link} to={listHref} variant="secondary" icon={<ArrowLeftIcon aria-hidden />}>
-            Tilbake til sidegrupper
-          </Button>
-        </VStack>
-      </AppBlock>
+        </AppBlock>
+      </>
     )
   }
 
   const form = (
     <form onSubmit={handleSubmit}>
       <VStack gap="space-24" style={{ maxWidth: '56rem' }}>
-        {!embedded && (
-          <Button
-            as={Link}
-            to={listHref}
-            variant="tertiary"
-            size="small"
-            icon={<ArrowLeftIcon aria-hidden />}
-            style={{ alignSelf: 'flex-start' }}
-          >
-            Tilbake til sidegrupper
-          </Button>
-        )}
-
         <VStack gap="space-12" style={{ maxWidth: '32rem' }}>
           <TextField
             ref={nameInputRef}
@@ -530,7 +522,7 @@ export const SidegroupEditor = forwardRef<SidegroupEditorRef, SidegroupEditorPro
         </>
       )}
 
-      <Dialog open={leaveTarget !== null} onOpenChange={(open) => !open && cancelLeave()}>
+      <Dialog open={isLeaveBlocked} onOpenChange={(open) => !open && cancelLeave()}>
         <Dialog.Popup width="small" role="alertdialog">
           <Dialog.Header withClosebutton={false}>
             <Dialog.Title>Forkaste endringene?</Dialog.Title>
@@ -542,11 +534,8 @@ export const SidegroupEditor = forwardRef<SidegroupEditorRef, SidegroupEditorPro
             <Button
               data-color="danger"
               onClick={() => {
-                const target = leaveTarget ?? listHref
                 setSnapshot(null)
-                cancelLeave()
-                if (onCancel) onCancel()
-                else void navigate(target)
+                confirmLeave()
               }}
             >
               Forkast

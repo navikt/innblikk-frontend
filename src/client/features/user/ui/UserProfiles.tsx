@@ -1,6 +1,9 @@
+import { useReplaceSearchParams } from '../../../shared/hooks/useReplaceSearchParams'
+import { useRestoreAnalysisContext } from '../../analysis/hooks/useRestoreAnalysisContext'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAutoRefresh } from '../../analysis/hooks/useAutoRefresh'
-import { useSearchParams } from 'react-router-dom'
+import { Link as RouterLink, useSearchParams, useLocation } from 'react-router-dom'
+import { preserveSharedAnalysisParams } from '../../../shared/lib/analysisNavigation.ts'
 import {
   ActionMenu,
   Button,
@@ -60,6 +63,8 @@ const MIN_MAX_USERS = 50
 const MAX_MAX_USERS = 100000
 
 const UserProfiles = () => {
+  const replaceSearchParams = useReplaceSearchParams()
+  const { search: locationSearch } = useLocation()
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
   const [searchParams] = useSearchParams()
 
@@ -73,8 +78,8 @@ const UserProfiles = () => {
   }
 
   // Support custom dates from URL
-  const fromDateFromUrl = searchParams.get('from')
-  const toDateFromUrl = searchParams.get('to')
+  const fromDateFromUrl = searchParams.get('from') || searchParams.get('startDate')
+  const toDateFromUrl = searchParams.get('to') || searchParams.get('endDate')
   const initialCustomStartDate = fromDateFromUrl ? parseISO(fromDateFromUrl) : undefined
   const initialCustomEndDate = toDateFromUrl ? parseISO(toDateFromUrl) : undefined
 
@@ -86,6 +91,13 @@ const UserProfiles = () => {
     () => searchParams.get('urlPath') || searchParams.get('pagePath') || '',
   )
   const [pathOperator, setPathOperator] = useState<string>(() => searchParams.get('pathOperator') || 'equals')
+  useRestoreAnalysisContext({
+    period: setPeriodState,
+    startDate: setCustomStartDate,
+    endDate: setCustomEndDate,
+    paths: (paths) => setPagePath(paths[0] || ''),
+    pathOperator: setPathOperator,
+  })
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [users, setUsers] = useState<UserProfile[]>([])
   const [totalUsers, setTotalUsers] = useState<number>(0)
@@ -122,7 +134,7 @@ const UserProfiles = () => {
 
   const getDateRange = useCallback(() => {
     const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
-    if (!dateRange) {
+    if (!dateRange || !(dateRange.endDate >= dateRange.startDate)) {
       throw new Error('Vennligst velg en gyldig periode.')
     }
     return dateRange
@@ -170,6 +182,21 @@ const UserProfiles = () => {
 
       console.log('Fetching users with payload:', payload)
 
+      // Update URL with configuration for sharing
+      const newParams = new URLSearchParams(locationSearch)
+      newParams.set('period', period)
+      if (pagePath) {
+        newParams.set('urlPath', pagePath)
+        newParams.set('pathOperator', pathOperator)
+        newParams.delete('pagePath')
+      } else {
+        newParams.delete('urlPath')
+        newParams.delete('pathOperator')
+        newParams.delete('pagePath')
+      }
+
+      replaceSearchParams(newParams)
+
       try {
         const response = await fetch('/api/bigquery/users', {
           method: 'POST',
@@ -184,22 +211,6 @@ const UserProfiles = () => {
         setTotalUsers(result.total)
         setQueryStats(result.queryStats ?? null)
         if (result.generatedSql) setGeneratedSql(result.generatedSql)
-
-        // Update URL with configuration for sharing
-        const newParams = new URLSearchParams(window.location.search)
-        newParams.set('period', period)
-        if (pagePath) {
-          newParams.set('urlPath', pagePath)
-          newParams.set('pathOperator', pathOperator)
-          newParams.delete('pagePath')
-        } else {
-          newParams.delete('urlPath')
-          newParams.delete('pathOperator')
-          newParams.delete('pagePath')
-        }
-
-        // Update URL without navigation
-        window.history.replaceState({}, '', `${window.location.pathname}?${newParams.toString()}`)
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'En feil oppstod'
         setError(message)
@@ -208,6 +219,8 @@ const UserProfiles = () => {
       }
     },
     [
+      locationSearch,
+      replaceSearchParams,
       selectedWebsite,
       page,
       maxUsers,
@@ -429,7 +442,11 @@ const UserProfiles = () => {
       {!loading && selectedWebsite && users.length === 0 && (
         <Alert variant="info" className="mb-4">
           <>
-            Ingen brukere funnet. <Link href="/diagnose">Sjekk diagnostikk</Link> for å se om data blir samlet inn.
+            Ingen brukere funnet.{' '}
+            <Link as={RouterLink} to={preserveSharedAnalysisParams('/diagnose', locationSearch)}>
+              Sjekk diagnostikk
+            </Link>{' '}
+            for å se om data blir samlet inn.
           </>
         </Alert>
       )}

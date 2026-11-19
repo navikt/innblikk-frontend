@@ -1,4 +1,5 @@
 import { BodyShort, Heading, Link, List } from '@navikt/ds-react'
+import { Link as RouterLink } from 'react-router-dom'
 import { BOOKING_URL, SLACK_URL, trackKontakt } from '../../../../shared/ui/theme/Kontakt/trackKontakt.ts'
 import { KontaktSeksjon } from '../../../../shared/ui/theme/Kontakt/KontaktSeksjon.tsx'
 import { Skyra } from '../../../../shared/ui/theme/Skyra/Skyra.tsx'
@@ -62,7 +63,10 @@ function Komigang() {
                   #ResearchOps på Slack
                 </Link>{' '}
                 for å få sporingskode til nettsiden eller appen din. Du kan også se{' '}
-                <Link href={'/oppsett'}>eksisterende sporingskoder nederst på oppsett-siden</Link>.
+                <Link as={RouterLink} to="/oppsett">
+                  eksisterende sporingskoder nederst på oppsett-siden
+                </Link>
+                .
               </BodyShort>
             </div>
           </div>
@@ -133,7 +137,7 @@ function Komigang() {
             </List.Item>
             <List.Item>
               <strong>Taksonomi:</strong>{' '}
-              <Link target="_blank" href={`/taksonomi`}>
+              <Link as={RouterLink} target="_blank" to="/taksonomi">
                 Bruk Navs taksnomi
               </Link>{' '}
               for å få forslag til hva man kan kalle hendelser og detaljer.
@@ -165,7 +169,9 @@ function Komigang() {
           <List as="ul">
             <List.Item>
               <strong>
-                <Link href={'./'}>Innblikk Dashboard:</Link>
+                <Link as={RouterLink} to="/">
+                  Innblikk Dashboard:
+                </Link>
               </strong>{' '}
               Grunnleggende analyser og dashboard med data fra Innblikk.
             </List.Item>
@@ -187,13 +193,17 @@ function Komigang() {
           <List as="ul">
             <List.Item>
               <strong>
-                <Link href={'/grafbygger'}>Grafbyggeren:</Link>
+                <Link as={RouterLink} to="/grafbygger">
+                  Grafbyggeren:
+                </Link>
               </strong>{' '}
               Lag grafer og tabeller.
             </List.Item>
             <List.Item>
               <strong>
-                <Link href={'/metabase'}>Metabase dashboard guide:</Link>
+                <Link as={RouterLink} to="/metabase">
+                  Metabase dashboard guide:
+                </Link>
               </strong>{' '}
               Slik lager du dashboards i Metabase.
             </List.Item>

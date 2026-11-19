@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, BodyShort, Button, Modal, TextField } from '@navikt/ds-react'
 import { format, parseISO } from 'date-fns'
-import { ArrowLeftIcon, ArrowRightIcon } from '@navikt/aksel-icons'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { ArrowRightIcon } from '@navikt/aksel-icons'
+import { useSearchParams } from 'react-router-dom'
 import ChartLayout from '../../analysis/ui/ChartLayout.tsx'
 import WebsitePicker from '../../analysis/ui/WebsitePicker.tsx'
 import PeriodPicker from '../../analysis/ui/PeriodPicker.tsx'
@@ -10,6 +10,8 @@ import { parseJourneyStep } from '../../eventjourney/utils/parsers.ts'
 import { getStoredPeriod, normalizeUrlToPath, savePeriodPreference } from '../../../shared/lib/utils.ts'
 import type { Website } from '../../../shared/types/chart.ts'
 import { AlternativePreviewOptions, PreviewLoadingStatus, useAlternativePreview } from './AlternativePreviewOptions.tsx'
+import { useReplaceSearchParams } from '../../../shared/hooks/useReplaceSearchParams.ts'
+import { useRestoreAnalysisContext } from '../../analysis/hooks/useRestoreAnalysisContext.ts'
 
 type JourneyStep = {
   rawStep: string
@@ -415,7 +417,7 @@ const buildPreviewTargetUrl = (domain: string | undefined, path: string): string
 }
 
 const EventJourneyClickmap = () => {
-  const navigate = useNavigate()
+  const replaceSearchParams = useReplaceSearchParams()
   const [searchParams] = useSearchParams()
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
   const [isWebsitePickerInitializing, setIsWebsitePickerInitializing] = useState<boolean>(true)
@@ -448,6 +450,12 @@ const EventJourneyClickmap = () => {
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(
     toDateFromUrl ? parseISO(toDateFromUrl) : undefined,
   )
+  useRestoreAnalysisContext({
+    period: setPeriodState,
+    startDate: setCustomStartDate,
+    endDate: setCustomEndDate,
+    paths: (paths) => setUrlPath(normalizeUrlToPath(paths[0] || '')),
+  })
 
   const journeyCount = Number(searchParams.get('journeyCount') || '0')
   const journeyTotal = Number(searchParams.get('journeyTotal') || '0')
@@ -645,6 +653,8 @@ const EventJourneyClickmap = () => {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     params.set('period', period)
+    if (urlPath) params.set('urlPath', normalizeUrlToPath(urlPath))
+    else params.delete('urlPath')
     if (period === 'custom' && customStartDate && customEndDate) {
       params.set('from', format(customStartDate, 'yyyy-MM-dd'))
       params.set('to', format(customEndDate, 'yyyy-MM-dd'))
@@ -652,8 +662,8 @@ const EventJourneyClickmap = () => {
       params.delete('from')
       params.delete('to')
     }
-    window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`)
-  }, [period, customStartDate, customEndDate])
+    replaceSearchParams(params)
+  }, [period, customStartDate, customEndDate, urlPath, replaceSearchParams])
 
   return (
     <ChartLayout
@@ -752,23 +762,6 @@ const EventJourneyClickmap = () => {
 
       {hasJourney && selectedWebsite && previewTargetUrl && (
         <>
-          <div className="mb-4 pb-[2px]">
-            <Button
-              size="small"
-              variant="secondary"
-              icon={<ArrowLeftIcon fontSize="1rem" />}
-              onClick={() => {
-                const params = new URLSearchParams(window.location.search)
-                params.delete('journey')
-                params.delete('journeyCount')
-                params.delete('journeyTotal')
-                void navigate(`/hendelsesreiser?${params.toString()}`)
-              }}
-            >
-              Alle hendelsesforløp
-            </Button>
-          </div>
-
           <div className="mb-4 rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-neutral-soft)] px-4 py-3">
             <p className="text-xl leading-8 text-[var(--ax-text-default)]">
               <span className="font-bold text-red-700">{journeyPercent} %</span> av alle økter fulgte dette løpet. Det

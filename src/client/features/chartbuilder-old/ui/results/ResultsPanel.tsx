@@ -1,3 +1,5 @@
+import { Link as RouterLink } from 'react-router-dom'
+import { useReplaceSearchParams } from '../../../../shared/hooks/useReplaceSearchParams.ts'
 import { trackEvent } from '../../../../shared/lib/trackEvent.ts'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Events, type LastNedProperties } from '@navikt/analytics-types'
@@ -117,6 +119,7 @@ const ResultsPanel = ({
   onGraphTypeSuggestionChange,
   initialTab,
 }: ResultsPanelProps) => {
+  const replaceSearchParams = useReplaceSearchParams()
   // Read initial tab from URL parameter, falling back to the `initialTab` prop (e.g. Copilot's
   // per-message chart suggestion — see chartSuggestion in useAssistantChat.ts) if there's no URL
   // param, then finally to 'table'. The URL param always wins when present since it reflects an
@@ -260,8 +263,7 @@ const ResultsPanel = ({
     setActiveTab(newTab)
     const urlParams = new URLSearchParams(window.location.search)
     urlParams.set('tab', newTab)
-    const newUrl = `${window.location.pathname}?${urlParams.toString()}`
-    window.history.replaceState({}, '', newUrl)
+    replaceSearchParams(urlParams)
   }
 
   useEffect(() => {
@@ -1442,8 +1444,10 @@ const ResultsPanel = ({
             {websiteId && (
               <>
                 {' '}
-                <Link href={`/grafbygger?websiteId=${encodeURIComponent(websiteId)}`}>Åpne i Grafbygger</Link> for å
-                justere filtre og datoperiode.
+                <Link as={RouterLink} to={`/grafbygger?websiteId=${encodeURIComponent(websiteId)}`}>
+                  Åpne i Grafbygger
+                </Link>{' '}
+                for å justere filtre og datoperiode.
               </>
             )}
           </Alert>

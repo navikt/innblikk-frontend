@@ -1791,8 +1791,8 @@ const Oversikt = () => {
             </ActionMenu.Trigger>
             <ActionMenu.Content>
               <ActionMenu.Item
-                as="a"
-                href="/grafbygger"
+                as={Link}
+                to="/grafbygger"
                 onClick={trackAddMenuValg('dashbord-legg-til', 'Legg til graf')}
               >
                 Legg til graf
@@ -1865,8 +1865,8 @@ const Oversikt = () => {
               </ActionMenu.Trigger>
               <ActionMenu.Content align="end">
                 <ActionMenu.Item
-                  as="a"
-                  href="/grafbygger"
+                  as={Link}
+                  to="/grafbygger"
                   onClick={trackAddMenuValg('dashbord-legg-til-header', 'Legg til graf')}
                 >
                   Legg til graf
@@ -2027,8 +2027,8 @@ const Oversikt = () => {
                     </ActionMenu.Trigger>
                     <ActionMenu.Content align="start">
                       <ActionMenu.Item
-                        as="a"
-                        href="/grafbygger"
+                        as={Link}
+                        to="/grafbygger"
                         onClick={trackAddMenuValg('tom-dashbord-legg-til', 'Legg til ny graf')}
                       >
                         Legg til ny graf
@@ -2255,8 +2255,8 @@ const Oversikt = () => {
                   </ActionMenu.Trigger>
                   <ActionMenu.Content align="end">
                     <ActionMenu.Item
-                      as="a"
-                      href="/grafbygger"
+                      as={Link}
+                      to="/grafbygger"
                       onClick={trackAddMenuValg('dashbord-legg-til-bunn', 'Legg til graf')}
                     >
                       Legg til graf

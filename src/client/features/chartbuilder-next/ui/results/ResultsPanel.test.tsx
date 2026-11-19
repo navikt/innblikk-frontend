@@ -1,7 +1,11 @@
-import { render, screen, within, fireEvent, waitFor } from '@testing-library/react'
+import { BrowserRouter, useLocation } from 'react-router-dom'
+import { render as rtlRender, screen, within, fireEvent, waitFor, type RenderOptions } from '@testing-library/react'
+import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import ResultsPanel from './ResultsPanel'
 import ShareResultsModal from './ShareResultsModal'
+
+const render = (ui: ReactNode, options?: RenderOptions) => rtlRender(ui, { wrapper: BrowserRouter, ...options })
 
 vi.mock('@fluentui/react-charting', () => ({
   LineChart: () => null,
@@ -109,6 +113,27 @@ describe('chart tab availability', () => {
     expect(screen.queryByRole('tab', { name: 'Linje' })).not.toBeInTheDocument()
     expect(screen.queryByRole('tab', { name: 'Kake' })).not.toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Område' })).toBeVisible()
+  })
+
+  it('replaces the tab in router state without adding history and preserves other parameters', async () => {
+    window.history.replaceState({}, '', '/grafbygger?websiteId=site-1#resultater')
+    const historyLength = window.history.length
+    const Location = () => {
+      const location = useLocation()
+      return <output data-testid="router-location">{location.search + location.hash}</output>
+    }
+    render(
+      <>
+        <ResultsPanel {...chartProps} />
+        <Location />
+      </>,
+    )
+    fireEvent.click(screen.getByRole('tab', { name: 'Linje' }))
+    await waitFor(() =>
+      expect(screen.getByTestId('router-location')).toHaveTextContent('?websiteId=site-1&tab=linechart#resultater'),
+    )
+    expect(window.location.hash).toBe('#resultater')
+    expect(window.history.length).toBe(historyLength)
   })
 
   it.each(['linechart', 'areachart', 'barchart', 'piechart', 'funnel'])(

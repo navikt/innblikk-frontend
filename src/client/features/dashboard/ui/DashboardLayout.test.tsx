@@ -9,7 +9,7 @@ function LocationDisplay() {
 }
 
 describe('DashboardLayout breadcrumbs', () => {
-  it('shows the hierarchy above the title without changing the existing content', () => {
+  it('shows the hierarchy below and outside the title area without changing the existing content', () => {
     render(
       <MemoryRouter initialEntries={['/dashboard/12']}>
         <DashboardLayout
@@ -38,9 +38,12 @@ describe('DashboardLayout breadcrumbs', () => {
     expect(within(navigation).getByText('Besøk')).toHaveAttribute('aria-current', 'page')
     expect(within(navigation).queryByRole('link', { name: 'Besøk' })).not.toBeInTheDocument()
     expect(
-      navigation.compareDocumentPosition(screen.getByRole('heading', { name: 'Besøk', level: 1 })) &
+      screen.getByRole('heading', { name: 'Besøk', level: 1 }).compareDocumentPosition(navigation) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Besøk', level: 1 }).closest('div[style]')).not.toContainElement(
+      navigation,
+    )
     expect(screen.getByText('Trafikk for teamet')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Rediger' })).toBeInTheDocument()
     expect(screen.getByText('Grafer')).toBeInTheDocument()

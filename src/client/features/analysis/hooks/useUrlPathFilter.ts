@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useReplaceSearchParams } from '../../../shared/hooks/useReplaceSearchParams'
 import { normalizeUrlToPath } from '../../../shared/lib/utils.ts'
 import { useWebsiteMatching } from '../../../shared/hooks/useWebsiteMatching.ts'
 import type { PendingSwitchData } from '../model/types.ts'
@@ -31,6 +32,7 @@ export const useUrlPathFilter = (
   const isSelectingRef = useRef(false)
 
   const [searchParams] = useSearchParams()
+  const replaceSearchParams = useReplaceSearchParams()
   const { findMatchingWebsite, normalizeDomain: normalizeDomainHelper } = useWebsiteMatching()
 
   const normalizeDomain = useCallback(
@@ -70,9 +72,11 @@ export const useUrlPathFilter = (
       } else {
         newParams.delete('urlPath')
       }
-      window.location.search = newParams.toString()
+      newParams.delete('sidegroupId')
+      onUrlPathsChange(path && path !== '/' ? [path] : [])
+      replaceSearchParams(newParams)
     },
-    [searchParams],
+    [searchParams, replaceSearchParams, onUrlPathsChange],
   )
 
   const handlePaste = useCallback(

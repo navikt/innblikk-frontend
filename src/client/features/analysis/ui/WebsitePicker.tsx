@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
+import { useReplaceSearchParams } from '../../../shared/hooks/useReplaceSearchParams.ts'
 import { UNSAFE_Combobox, Alert } from '@navikt/ds-react'
 import { Events } from '@navikt/analytics-types'
 import { trackEvent } from '../../../shared/lib/trackEvent.ts'
@@ -71,7 +72,8 @@ const WebsitePicker = ({
   labelClassName,
   id,
 }: WebsitePickerProps) => {
-  const [, setSearchParams] = useSearchParams()
+  const location = useLocation()
+  const replaceSearchParams = useReplaceSearchParams()
   const [websites, setWebsites] = useState<Website[]>([])
   const [loadedWebsiteId, setLoadedWebsiteId] = useState<string | null>(null)
   const [setMaxDaysAvailable] = useState<number>(30)
@@ -82,6 +84,7 @@ const WebsitePicker = ({
   const prevExternalDateRange = useRef<number>(externalDateRange || 14)
   const prevShouldReload = useRef<boolean>(shouldReload)
   const initialUrlChecked = useRef<boolean>(false)
+  const restoredSiteKey = useRef<string | null>(null)
   // One-shot per mount: the default-site fallback (and URL/LS restore below)
   // is initial-load behavior, not a standing reaction to "no selection" —
   // otherwise clearing the field instantly re-fills it.
@@ -124,26 +127,16 @@ const WebsitePicker = ({
     }
   }, [isInitialLoading, onInitialLoadingChange])
 
-  // Function to update URL with website ID.
-  // Uses React Router's setSearchParams (not raw pushState) so that
-  // useLocation().search stays in sync — the Sidebar reads it to build
-  // param-preserving links, and a raw pushState would leave it stale.
   const updateUrlWithWebsiteId = useCallback(
     (website: Website | null) => {
-      setSearchParams(
-        (prev) => {
-          const next = new URLSearchParams(prev)
-          if (website && website.id) {
-            next.set('websiteId', website.id)
-          } else {
-            next.delete('websiteId')
-          }
-          return next
-        },
-        { replace: true, preventScrollReset: true },
-      )
+      const next = new URLSearchParams(location.search)
+      if (website?.id) next.set('websiteId', website.id)
+      else next.delete('websiteId')
+      next.delete('domain')
+      if (website?.id !== selectedWebsite?.id) next.delete('sidegroupId')
+      replaceSearchParams(next)
     },
-    [setSearchParams],
+    [location.search, replaceSearchParams, selectedWebsite?.id],
   )
 
   // Handle website selection and update URL
@@ -164,61 +157,6 @@ const WebsitePicker = ({
     },
     [onWebsiteChange, updateUrlWithWebsiteId],
   )
-
-  // Check for website ID in URL on initial load
-  useEffect(() => {
-    if (websitesLoaded.current && !initialUrlChecked.current && websites.length > 0) {
-      const urlParams = new URLSearchParams(window.location.search)
-      const websiteIdFromUrl = urlParams.get('websiteId')
-      const domainFromUrl = urlParams.get('domain')
-
-      if (websiteIdFromUrl) {
-        const website = websites.find((w) => w.id === websiteIdFromUrl)
-        if (website && !selectedWebsite) {
-          handleWebsiteChange(website) // Use handleWebsiteChange to ensure caching
-        }
-      } else if (domainFromUrl) {
-        // No websiteId, but we have a domain — try to match by domain.
-        // This handles links like /trafikkanalyse?domain=www.nav.no&urlPath=/helse
-        const normalizedInput = normalizeDomain(domainFromUrl)
-        const website = websites.find((w) => normalizeDomain(w.domain) === normalizedInput)
-        if (website && !selectedWebsite) {
-          handleWebsiteChange(website)
-        }
-      }
-
-      initialUrlChecked.current = true
-    }
-  }, [websites, selectedWebsite, handleWebsiteChange])
-
-  // Handle browser back/forward navigation
-  useEffect(() => {
-    const handlePopState = () => {
-      if (websitesLoaded.current) {
-        const urlParams = new URLSearchParams(window.location.search)
-        const websiteIdFromUrl = urlParams.get('websiteId')
-
-        if (websiteIdFromUrl) {
-          const website = websites.find((w) => w.id === websiteIdFromUrl)
-          if (website && (!selectedWebsite || website.id !== selectedWebsite.id)) {
-            // Note: We call onWebsiteChange here instead of handleWebsiteChange
-            // because handleWebsiteChange would update the URL again via pushState,
-            // which we don't want during popstate (back/forward navigation)
-            onWebsiteChange(website)
-            // But we still need to save to localStorage
-            saveToLocalStorage(SELECTED_WEBSITE_CACHE_KEY, website)
-          }
-        } else if (selectedWebsite) {
-          // No website ID in URL, but we have a selected website, clear it
-          onWebsiteChange(null)
-          localStorage.removeItem(SELECTED_WEBSITE_CACHE_KEY)
-        }
-      }
-    }
-
-    window.addEventListener('popstate', handlePopState)
-    return () => window.removeEventListener('popstate', handlePopState)
-  }, [websites, selectedWebsite, onWebsiteChange])
 
   const handleLoadingState = useCallback(
     (loading: boolean) => {
@@ -425,7 +363,7 @@ const WebsitePicker = ({
 
     if (initialUrlChecked.current) return
 
-    const urlParams = new URLSearchParams(window.location.search)
+    const urlParams = new URLSearchParams(location.search)
     const websiteIdFromUrl = urlParams.get('websiteId')
     const domainFromUrl = urlParams.get('domain')
 
@@ -443,54 +381,41 @@ const WebsitePicker = ({
     }
 
     initialUrlChecked.current = true
-  }, [selectedWebsite, handleWebsiteChange, disableAutoRestore])
+  }, [selectedWebsite, handleWebsiteChange, disableAutoRestore, location.search])
 
-  // Check for website ID in URL after websites are loaded
   useEffect(() => {
-    // Skip if auto-restore is disabled
-    if (disableAutoRestore) return
+    if (disableAutoRestore || !websitesLoaded.current || websites.length === 0) return
 
-    // Initial load only — later re-runs of this effect (e.g. handleWebsiteChange
-    // identity change after the user cleared the field) must not re-apply
-    // URL params or re-fill the default site.
-    if (initialSelectionResolved.current) return
+    const params = new URLSearchParams(location.search)
+    const websiteId = params.get('websiteId')
+    const domain = params.get('domain')
+    const siteKey = JSON.stringify([websiteId, domain])
+    if (restoredSiteKey.current === siteKey) return
+    restoredSiteKey.current = siteKey
 
-    if (!websitesLoaded.current || websites.length === 0) return
-
-    initialSelectionResolved.current = true
-
-    const urlParams = new URLSearchParams(window.location.search)
-    const websiteIdFromUrl = urlParams.get('websiteId')
-    const domainFromUrl = urlParams.get('domain')
-
-    if (websiteIdFromUrl) {
-      const website = websites.find((w) => w.id === websiteIdFromUrl)
-      if (website) {
-        handleWebsiteChange(website)
-      }
-    } else if (domainFromUrl) {
-      // No websiteId, but we have a domain — try to match by domain
-      const normalizedInput = normalizeDomain(domainFromUrl)
-      const matches = websites.filter((w) => normalizeDomain(w.domain) === normalizedInput)
-      // Several website_ids can share one domain (e.g. www.nav.no has both the front page and
-      // "Nav.no - minside"). When ambiguous, prefer the canonical front-page ID for the current
-      // environment rather than whichever row the API happens to return first.
+    if (websiteId || domain) {
+      const matches = websiteId
+        ? websites.filter((website) => website.id === websiteId)
+        : websites.filter((website) => normalizeDomain(website.domain) === normalizeDomain(domain!))
       const preferredId = getGcpProjectId().includes('-dev-') ? DEFAULT_WEBSITE_ID.dev : DEFAULT_WEBSITE_ID.prod
-      const website = matches.find((w) => w.id === preferredId) ?? matches[0]
-      if (website && (!selectedWebsite || selectedWebsite.id !== website.id)) {
-        handleWebsiteChange(website)
+      const website = matches.find((item) => item.id === preferredId) ?? matches[0]
+      if (website && website.id !== selectedWebsite?.id) {
+        onWebsiteChange(website)
+        saveToLocalStorage(SELECTED_WEBSITE_CACHE_KEY, website)
       }
-    } else if (!selectedWebsite) {
-      // No URL param and nothing restored from localStorage — fall back to the default
-      // "front page" site for the environment we're actually querying, matched by stable
-      // website ID. (Priority: URL param > last-selected localStorage > this default.)
-      const defaultWebsiteId = getGcpProjectId().includes('-dev-') ? DEFAULT_WEBSITE_ID.dev : DEFAULT_WEBSITE_ID.prod
-      const defaultWebsite = websites.find((w) => w.id === defaultWebsiteId)
-      if (defaultWebsite) {
-        handleWebsiteChange(defaultWebsite)
+      initialSelectionResolved.current = true
+    } else if (!initialSelectionResolved.current) {
+      initialSelectionResolved.current = true
+      if (!selectedWebsite) {
+        const defaultId = getGcpProjectId().includes('-dev-') ? DEFAULT_WEBSITE_ID.dev : DEFAULT_WEBSITE_ID.prod
+        const website = websites.find((item) => item.id === defaultId)
+        if (website) handleWebsiteChange(website)
       }
+    } else if (selectedWebsite) {
+      onWebsiteChange(null)
+      localStorage.removeItem(SELECTED_WEBSITE_CACHE_KEY)
     }
-  }, [websites, handleWebsiteChange, disableAutoRestore])
+  }, [location.search, websites, selectedWebsite, onWebsiteChange, handleWebsiteChange, disableAutoRestore])
 
   // Fetch events when a website is selected (only if onEventsLoad callback is provided)
   useEffect(() => {

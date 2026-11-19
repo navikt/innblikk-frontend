@@ -1,5 +1,7 @@
+import { useReplaceSearchParams } from '../../../shared/hooks/useReplaceSearchParams'
+import { useRestoreAnalysisContext } from '../../analysis/hooks/useRestoreAnalysisContext'
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
-import { useSearchParams, useNavigate } from 'react-router-dom'
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
 import type { ILineChartDataPoint } from '@fluentui/react-charting'
 import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
@@ -18,6 +20,7 @@ import {
   getCookieBadge,
   getVisitorLabelWithBadge,
 } from '../../../shared/lib/utils.ts'
+import { normalizeDomain } from '../../../shared/lib/domain'
 import type {
   SeriesPoint,
   PageMetricRow,
@@ -51,6 +54,8 @@ import {
 } from '../api/trafficApi'
 
 export const useTrafficAnalysis = () => {
+  const replaceSearchParams = useReplaceSearchParams()
+  const { search: locationSearch } = useLocation()
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
   const usesCookies = useCookieSupport(selectedWebsite?.domain, selectedWebsite?.id)
   const cookieStartDate = useCookieStartDate(selectedWebsite?.domain, selectedWebsite?.id)
@@ -59,9 +64,13 @@ export const useTrafficAnalysis = () => {
   const [sidegroupUrlId, setSidegroupUrlId] = useState(() => searchParams.get('sidegroupId'))
   const [sidegroupReadyWebsiteId, setSidegroupReadyWebsiteId] = useState<string | null>(null)
   const [sidegroupResolutionFailed, setSidegroupResolutionFailed] = useState(false)
+  const incomingSidegroupId = searchParams.get('sidegroupId')
+  const previousSidegroupId = useRef(incomingSidegroupId)
 
   // Initialize state from URL params - support multiple paths
-  const pathsFromUrl = searchParams.getAll('urlPath')
+  const pathsFromUrl = searchParams.getAll('urlPath').length
+    ? searchParams.getAll('urlPath')
+    : searchParams.getAll('pagePath')
   const initialPaths = pathsFromUrl.length > 0 ? pathsFromUrl.map((p) => normalizeUrlToPath(p)).filter(Boolean) : []
   const [urlPaths, setUrlPaths] = useState<string[]>(initialPaths)
   const [pathOperator, setPathOperator] = useState<string>(() =>
@@ -117,8 +126,8 @@ export const useTrafficAnalysis = () => {
   const [submittedPeriod, setSubmittedPeriod] = useState<string>(() => getStoredPeriod(searchParams.get('period')))
 
   // Support custom dates from URL
-  const fromDateFromUrl = searchParams.get('from')
-  const toDateFromUrl = searchParams.get('to')
+  const fromDateFromUrl = searchParams.get('from') || searchParams.get('startDate')
+  const toDateFromUrl = searchParams.get('to') || searchParams.get('endDate')
   const initialCustomStartDate = fromDateFromUrl ? parseISO(fromDateFromUrl) : undefined
   const initialCustomEndDate = toDateFromUrl ? parseISO(toDateFromUrl) : undefined
 
@@ -142,22 +151,46 @@ export const useTrafficAnalysis = () => {
   )
   const [submittedUrlPaths, setSubmittedUrlPaths] = useState<string[]>(initialPaths)
   const [submittedSidegroup, setSubmittedSidegroup] = useState<Sidegroup | null>(null)
+  useEffect(() => {
+    if (previousSidegroupId.current === incomingSidegroupId) return
+    previousSidegroupId.current = incomingSidegroupId
+    setSidegroupUrlId(incomingSidegroupId)
+    setSidegroup(null)
+    setSubmittedSidegroup(null)
+    setSidegroupReadyWebsiteId(null)
+    setSidegroupResolutionFailed(false)
+  }, [incomingSidegroupId])
+
+  useRestoreAnalysisContext({
+    period: setPeriodState,
+    startDate: setCustomStartDate,
+    endDate: setCustomEndDate,
+    paths: (paths) => setUrlPaths(paths.map(normalizeUrlToPath).filter(Boolean)),
+    pathOperator: setPathOperator,
+    metricType: setMetricTypeState,
+  })
   const handleWebsiteChange = useCallback(
     (website: Website | null) => {
       if (selectedWebsite?.id && selectedWebsite.id !== website?.id) {
         setSidegroup(null)
         setSubmittedSidegroup(null)
-        setSidegroupUrlId(null)
+        const incomingSite = searchParams.get('websiteId')
+        const incomingDomain = searchParams.get('domain')
+        const matchesIncomingSite =
+          incomingSite === website?.id ||
+          (!incomingSite &&
+            !!incomingDomain &&
+            !!website &&
+            normalizeDomain(incomingDomain) === normalizeDomain(website.domain))
+        const incomingGroup = matchesIncomingSite ? searchParams.get('sidegroupId') : null
+        setSidegroupUrlId(incomingGroup)
         setSidegroupResolutionFailed(false)
-        setSidegroupReadyWebsiteId(website?.id ?? null)
+        setSidegroupReadyWebsiteId(incomingGroup ? null : (website?.id ?? null))
         setError(null)
-        const url = new URL(window.location.href)
-        url.searchParams.delete('sidegroupId')
-        window.history.replaceState({}, '', url.toString())
       }
       setSelectedWebsite(website)
     },
-    [selectedWebsite?.id],
+    [selectedWebsite?.id, searchParams],
   )
   const handleSidegroupChange = useCallback(
     (nextSidegroup: Sidegroup | null) => {
@@ -384,6 +417,42 @@ export const useTrafficAnalysis = () => {
     setSubmittedPreviousDateRange(previousDateRange)
     const { countByParams, countBySwitchAtParam } = getCountByQueryParams(startDate, endDate)
 
+    // Update URL with configuration for sharing
+    const newParams = new URLSearchParams(locationSearch)
+    newParams.set('period', period)
+    newParams.set('metricType', metricType)
+    if (comparePreviousPeriod) {
+      newParams.set('comparePrevious', '1')
+    } else {
+      newParams.delete('comparePrevious')
+    }
+    newParams.delete('urlPath')
+    if (urlPaths.length > 0) {
+      urlPaths.forEach((p) => newParams.append('urlPath', p))
+      newParams.set('pathOperator', pathOperator)
+    } else {
+      newParams.delete('pathOperator')
+    }
+    if (sidegroup) {
+      newParams.set('sidegroupId', String(sidegroup.id))
+      newParams.set('pathOperator', 'sidegroup')
+      setSidegroupUrlId(String(sidegroup.id))
+    } else {
+      newParams.delete('sidegroupId')
+      setSidegroupUrlId(null)
+    }
+    setSidegroupReadyWebsiteId(selectedWebsite.id)
+
+    if (period === 'custom' && customStartDate && customEndDate) {
+      newParams.set('from', format(customStartDate, 'yyyy-MM-dd'))
+      newParams.set('to', format(customEndDate, 'yyyy-MM-dd'))
+    } else {
+      newParams.delete('from')
+      newParams.delete('to')
+    }
+
+    replaceSearchParams(newParams)
+
     try {
       const urlPath = urlPaths.length > 0 ? urlPaths[0] : ''
       const normalizedPath = urlPath !== '/' && urlPath.endsWith('/') ? urlPath.slice(0, -1) : urlPath
@@ -433,41 +502,6 @@ export const useTrafficAnalysis = () => {
         )
       }
 
-      // Update URL with configuration for sharing
-      const newParams = new URLSearchParams(window.location.search)
-      newParams.set('period', period)
-      newParams.set('metricType', metricType)
-      if (comparePreviousPeriod) {
-        newParams.set('comparePrevious', '1')
-      } else {
-        newParams.delete('comparePrevious')
-      }
-      newParams.delete('urlPath')
-      if (urlPaths.length > 0) {
-        urlPaths.forEach((p) => newParams.append('urlPath', p))
-        newParams.set('pathOperator', pathOperator)
-      } else {
-        newParams.delete('pathOperator')
-      }
-      if (sidegroup) {
-        newParams.set('sidegroupId', String(sidegroup.id))
-        newParams.set('pathOperator', 'sidegroup')
-        setSidegroupUrlId(String(sidegroup.id))
-      } else {
-        newParams.delete('sidegroupId')
-        setSidegroupUrlId(null)
-      }
-      setSidegroupReadyWebsiteId(selectedWebsite.id)
-
-      if (period === 'custom' && customStartDate && customEndDate) {
-        newParams.set('from', format(customStartDate, 'yyyy-MM-dd'))
-        newParams.set('to', format(customEndDate, 'yyyy-MM-dd'))
-      } else {
-        newParams.delete('from')
-        newParams.delete('to')
-      }
-
-      window.history.replaceState({}, '', `${window.location.pathname}?${newParams.toString()}`)
       setLastAppliedFilterKey(appliedFilterKey)
     } catch (err) {
       console.error('Error fetching traffic data:', err)
@@ -477,6 +511,8 @@ export const useTrafficAnalysis = () => {
       setLoading(false)
     }
   }, [
+    locationSearch,
+    replaceSearchParams,
     selectedWebsite,
     sidegroupResolutionPending,
     sidegroupResolutionFailed,
@@ -1072,8 +1108,8 @@ export const useTrafficAnalysis = () => {
       params.set('from', format(effectiveCustomStartDate, 'yyyy-MM-dd'))
       params.set('to', format(effectiveCustomEndDate, 'yyyy-MM-dd'))
     } else {
-      const from = searchParams.get('from')
-      const to = searchParams.get('to')
+      const from = searchParams.get('from') || searchParams.get('startDate')
+      const to = searchParams.get('to') || searchParams.get('endDate')
       if (effectivePeriod === 'custom' && from && to) {
         params.set('from', from)
         params.set('to', to)

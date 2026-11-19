@@ -1174,7 +1174,7 @@ describe('SQL editor actions', () => {
     window.history.replaceState({}, '', `/sql?${params}`)
 
     const { result, unmount } = renderHook(() => useSqlNextEditor(), {
-      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+      wrapper: ({ children }) => <BrowserRouter>{children}</BrowserRouter>,
     })
     expect(result.current.query).toBe('SELECT 1')
 

@@ -6,6 +6,7 @@ import { Events } from '@navikt/analytics-types'
 import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import { fetchWebsites } from '../../../shared/api/websiteApi.ts'
 import type { Website } from '../../../shared/types/website.ts'
+import { preserveSharedAnalysisParams } from '../../../shared/lib/analysisNavigation.ts'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { WebsiteSelect } from '../../../shared/ui/WebsiteSelect.tsx'
@@ -13,7 +14,7 @@ import { deleteSidegroup, listSidegroups } from '../api/sidegroupsApi.ts'
 import { sidegroupMatchFields, type Sidegroup } from '../model/types.ts'
 
 export default function Sidegroups() {
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const requestedWebsiteId = searchParams.get('websiteId')
   const [sidegroups, setSidegroups] = useState<Sidegroup[]>([])
   const [expandedSidegroups, setExpandedSidegroups] = useState<Set<string>>(() => new Set())
@@ -66,7 +67,21 @@ export default function Sidegroups() {
   const visibleSidegroups = selectedWebsiteId
     ? sidegroups.filter((sidegroup) => sidegroup.websiteId === selectedWebsiteId)
     : []
-  const newHref = `/sidegrupper/ny?websiteId=${encodeURIComponent(selectedWebsiteId ?? '')}`
+  const contextParams = new URLSearchParams(searchParams)
+  if (selectedWebsiteId) contextParams.set('websiteId', selectedWebsiteId)
+  const newHref = preserveSharedAnalysisParams('/sidegrupper/ny', contextParams.toString())
+  const selectWebsite = (id: string | null) => {
+    setSelectedWebsiteId(id)
+    setSearchParams(
+      (previous) => {
+        const next = new URLSearchParams(previous)
+        if (id) next.set('websiteId', id)
+        else next.delete('websiteId')
+        return next
+      },
+      { replace: true, preventScrollReset: true },
+    )
+  }
 
   return (
     <>
@@ -76,7 +91,7 @@ export default function Sidegroups() {
           {websitesLoading ? (
             <Loader size="small" title="Laster nettsteder…" />
           ) : (
-            <WebsiteSelect websites={websites} selectedId={selectedWebsiteId} onSelect={setSelectedWebsiteId} />
+            <WebsiteSelect websites={websites} selectedId={selectedWebsiteId} onSelect={selectWebsite} />
           )}
           <HStack justify="space-between" align="center">
             <Heading size="small" level="2">
@@ -203,7 +218,10 @@ export default function Sidegroups() {
                           <div className="flex justify-end gap-2">
                             <Button
                               as={Link}
-                              to={`/sidegrupper/${encodeURIComponent(sidegroup.id)}`}
+                              to={preserveSharedAnalysisParams(
+                                `/sidegrupper/${encodeURIComponent(sidegroup.id)}`,
+                                contextParams.toString(),
+                              )}
                               size="xsmall"
                               variant="secondary"
                               icon={<PencilIcon aria-hidden />}

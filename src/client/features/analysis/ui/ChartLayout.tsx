@@ -8,6 +8,7 @@ import { Skyra } from '../../../shared/ui/theme/Skyra/Skyra.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { useChartNavigation } from '../hooks/useChartNavigation.ts'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
+import { Link } from 'react-router-dom'
 
 interface ChartLayoutProps {
   title: string
@@ -28,7 +29,7 @@ interface ChartLayoutProps {
 interface SidebarNavigationContentProps {
   filteredChartGroups: ChartGroup[]
   currentPage?: AnalyticsPage
-  onNavigate: (e: React.MouseEvent, href: string) => void
+  getTargetUrl: (href: string) => string
 }
 
 const SkipSidebarLink: React.FC = () => {
@@ -53,7 +54,7 @@ const SkipSidebarLink: React.FC = () => {
 const SidebarNavigationContent: React.FC<SidebarNavigationContentProps> = ({
   filteredChartGroups,
   currentPage,
-  onNavigate,
+  getTargetUrl,
 }) => (
   <>
     <SkipSidebarLink />
@@ -70,9 +71,9 @@ const SidebarNavigationContent: React.FC<SidebarNavigationContentProps> = ({
             const isActive = currentPage === page.id
             return (
               <li key={page.id}>
-                <a
-                  href={page.href}
-                  onClick={(e) => onNavigate(e, page.href)}
+                <Link
+                  to={getTargetUrl(page.href)}
+                  aria-current={isActive ? 'page' : undefined}
                   className={`block px-3 py-2 text-base font-medium rounded-md transition-all duration-200 truncate ${
                     isActive
                       ? 'bg-[var(--ax-bg-accent-strong)] text-white shadow-sm'
@@ -97,7 +98,7 @@ const SidebarNavigationContent: React.FC<SidebarNavigationContentProps> = ({
                       </Tooltip>
                     )}
                   </span>
-                </a>
+                </Link>
               </li>
             )
           })}
@@ -120,7 +121,7 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
   websiteId,
   websiteDomain,
 }) => {
-  const { filteredChartGroups, handleNavigation } = useChartNavigation(websiteDomain, websiteId, hideAnalysisSelector)
+  const { filteredChartGroups, getTargetUrl } = useChartNavigation(websiteDomain, websiteId, hideAnalysisSelector)
   // The global left Sidebar covers the main analysis navigation, so the in-page
   // analysis-type selector column defaults to hidden. (No caller passes this prop
   // today; Grafdeling's explicit `true` still wins.)
@@ -187,7 +188,7 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
                             <SidebarNavigationContent
                               filteredChartGroups={filteredChartGroups}
                               currentPage={currentPage}
-                              onNavigate={handleNavigation}
+                              getTargetUrl={getTargetUrl}
                             />
                           </div>
                         </Accordion.Content>
@@ -202,7 +203,7 @@ const ChartLayout: React.FC<ChartLayoutProps> = ({
                     <SidebarNavigationContent
                       filteredChartGroups={filteredChartGroups}
                       currentPage={currentPage}
-                      onNavigate={handleNavigation}
+                      getTargetUrl={getTargetUrl}
                     />
                   </div>
                 </div>

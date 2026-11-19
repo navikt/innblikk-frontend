@@ -1,4 +1,5 @@
 import { Heading, VStack, Box, List } from '@navikt/ds-react'
+import { Link } from 'react-router-dom'
 import { KontaktSeksjon } from '../../../../shared/ui/theme/Kontakt/KontaktSeksjon.tsx'
 import { Skyra } from '../../../../shared/ui/theme/Skyra/Skyra.tsx'
 import { PageHeader } from '../../../../shared/ui/theme/PageHeader/PageHeader.tsx'
@@ -100,9 +101,14 @@ const MetabaseGuide = () => {
                     </span>
                     <span>
                       Gå til{' '}
-                      <a href="/grafbygger" target="_new" className="text-[var(--ax-text-accent)] underline">
+                      <Link
+                        to="/grafbygger"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[var(--ax-text-accent)] underline"
+                      >
                         Grafbygger
-                      </a>
+                      </Link>
                       .
                     </span>
                   </li>

@@ -68,7 +68,8 @@ import EditChartDialog from '../../oversikt/ui/dialogs/EditChartDialog.tsx'
 import DeleteChartDialog from '../../oversikt/ui/dialogs/DeleteChartDialog.tsx'
 import type { Website } from '../../../shared/types/website.ts'
 import { useCookieStartDate, useCookieSupport } from '../../../shared/hooks/useSiteimproveSupport.ts'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { useReplaceSearchParams } from '../../../shared/hooks/useReplaceSearchParams.ts'
 import useCanvasCsvImport from '../hooks/useCanvasCsvImport.ts'
 import useCanvasBackgroundSync from '../hooks/useCanvasBackgroundSync.ts'
 import useCanvasAdminFlow from '../hooks/useCanvasAdminFlow.ts'
@@ -269,10 +270,12 @@ const estimateStickyFrameHeight = (text: string, width: number): number => {
   return Math.max(STICKY_CARD_MIN_HEIGHT, lineCount * STICKY_CARD_LINE_HEIGHT + STICKY_CARD_VERTICAL_PADDING)
 }
 
-const Canvas = () => {
+const CanvasContent = () => {
   const LAST_PROJECT_STORAGE_KEY = 'projectmanager:lastSelectedProjectId'
   const WEBSITE_TOP_LIST_VISIBLE_STORAGE_KEY = 'canvas:websiteTopListVisible'
   const location = useLocation()
+  const navigate = useNavigate()
+  const replaceSearchParams = useReplaceSearchParams()
   const routeContext = useMemo(() => {
     const params = new URLSearchParams(location.search)
     const parseNumberParam = (value: string | null): number | null => {
@@ -1434,10 +1437,8 @@ const Canvas = () => {
     if (nextCategoryId) params.set('categoryId', nextCategoryId)
     else params.delete('categoryId')
 
-    const nextSearch = params.toString()
-    const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}${window.location.hash}`
-    window.history.replaceState(window.history.state, '', nextUrl)
-  }, [activeCanvasCategoryId, canPersistToDashboard, canvasCategories])
+    replaceSearchParams(params)
+  }, [activeCanvasCategoryId, canPersistToDashboard, canvasCategories, replaceSearchParams])
 
   useEffect(() => {
     if (canvasCategories.length === 0) {
@@ -3844,7 +3845,7 @@ const Canvas = () => {
   }
 
   const handleOpenShareView = () => {
-    window.location.assign(
+    void navigate(
       buildCanvasShareUrl({
         projectId,
         dashboardId,
@@ -3854,7 +3855,7 @@ const Canvas = () => {
   }
 
   const handleOpenPresentationView = () => {
-    window.location.assign(
+    void navigate(
       buildCanvasPresentationUrl({
         projectId,
         dashboardId,
@@ -5765,6 +5766,13 @@ const Canvas = () => {
       />
     </>
   )
+}
+
+const Canvas = () => {
+  const { search } = useLocation()
+  const params = new URLSearchParams(search)
+  const key = JSON.stringify([params.get('projectId'), params.get('dashboardId'), params.get('strict')])
+  return <CanvasContent key={key} />
 }
 
 export default Canvas

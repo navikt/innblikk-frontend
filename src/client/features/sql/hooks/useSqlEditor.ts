@@ -1,3 +1,4 @@
+import { useReplaceSearchParams } from '../../../shared/hooks/useReplaceSearchParams.ts'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import * as sqlFormatter from 'sql-formatter'
@@ -13,7 +14,7 @@ import {
   replaceHardcodedWebsiteId,
   sanitizePlaceholders,
   restorePlaceholders,
-  updateUrlParams,
+  updateUrlParams as updateSqlUrlParams,
 } from '../utils/sqlProcessing'
 import { prepareLineChartData, prepareBarChartData, preparePieChartData } from '../utils/chartHelpers'
 import { fetchWebsites, estimateQueryCost, executeQueryApi } from '../api/sqlApi'
@@ -22,6 +23,11 @@ import { fetchWebsites, estimateQueryCost, executeQueryApi } from '../api/sqlApi
 const sqlPrefillCache = new Map<string, string>()
 
 export const useSqlEditor = () => {
+  const replaceSearchParams = useReplaceSearchParams()
+  const updateUrlParams = useCallback(
+    (updates: Record<string, string | null>) => updateSqlUrlParams(updates, replaceSearchParams),
+    [replaceSearchParams],
+  )
   const [searchParams] = useSearchParams()
 
   const urlPathFromUrl = searchParams.get('urlPath')

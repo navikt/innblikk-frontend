@@ -8,6 +8,9 @@ vi.mock('./features/sql', () => ({ SqlEditor: () => <div>Gammel SQL-editor</div>
 vi.mock('./features/chartbuilder-next', () => ({
   Grafbygger: ({ edition }: { edition?: string }) => <div data-testid="builder" data-edition={edition} />,
 }))
+vi.mock('./features/oversikt/index.ts', () => ({ Oversikt: () => <div>Dashboard detail</div> }))
+vi.mock('./features/user', () => ({ UserProfile: () => <div>Settings</div> }))
+vi.mock('./features/eventexplorer', () => ({ EventExplorer: () => <div>Events</div> }))
 
 function LocationProbe() {
   const { pathname, search, hash } = useLocation()
@@ -85,5 +88,30 @@ describe('isFullWidthPath', () => {
     expect(isFullWidthPath('/sidegrupper')).toBe(true)
     expect(isFullWidthPath('/sidegrupper/ny')).toBe(true)
     expect(isFullWidthPath('/sidegrupper/abc-123')).toBe(true)
+  })
+})
+
+describe('canonical legacy redirects', () => {
+  it.each([
+    ['/oversikt?dashboardId=42&period=last_7_days#chart', '/dashboard/42?period=last_7_days#chart'],
+    ['/dashboard?dashboardId=42&websiteId=site-1#chart', '/dashboard/42?websiteId=site-1#chart'],
+    ['/dashboard?visning=fylkeskontor&websiteId=site-1#chart', '/dashboard/10?websiteId=site-1#chart'],
+    ['/dashboard?visning=hjelpemiddelsentral&websiteId=site-1#chart', '/dashboard/11?websiteId=site-1#chart'],
+    ['/profil?tab=alpha#settings', '/innstillinger?tab=alpha#settings'],
+    ['/datastruktur?websiteId=site-1&event=A%2BB+C#chart', '/utforsk-hendelser?websiteId=site-1&event=A%2BB+C#chart'],
+  ])('preserves destination context and hash for %s', async (entry, destination) => {
+    render(
+      <MemoryRouter initialEntries={[entry]}>
+        <Suspense fallback={null}>
+          <Routes>
+            {routes.map((route) => (
+              <Route key={route.path} path={route.path} element={route.component} />
+            ))}
+          </Routes>
+        </Suspense>
+        <LocationProbe />
+      </MemoryRouter>,
+    )
+    expect(await screen.findByTestId('location')).toHaveTextContent(destination)
   })
 })

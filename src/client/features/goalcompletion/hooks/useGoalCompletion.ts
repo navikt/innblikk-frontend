@@ -1,6 +1,8 @@
+import { useReplaceSearchParams } from '../../../shared/hooks/useReplaceSearchParams'
+import { useRestoreAnalysisContext } from '../../analysis/hooks/useRestoreAnalysisContext'
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useAutoRefresh } from '../../analysis/hooks/useAutoRefresh'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useLocation } from 'react-router-dom'
 import type { ILineChartProps } from '@fluentui/react-charting'
 import { parseISO } from 'date-fns'
 import type { GoalCompletionRow, GoalCompletionSummary, GoalStep, QueryStats } from '../model/types'
@@ -49,6 +51,8 @@ export interface GoalCompletionState {
 }
 
 export function useGoalCompletion(): GoalCompletionState {
+  const replaceSearchParams = useReplaceSearchParams()
+  const { search: locationSearch } = useLocation()
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
   const usesCookies = useCookieSupport(selectedWebsite?.domain)
   const cookieStartDate = useCookieStartDate(selectedWebsite?.domain)
@@ -71,14 +75,21 @@ export function useGoalCompletion(): GoalCompletionState {
     })
   }, [usesCookies, goalPeriodFromUrl])
 
-  const fromDateFromUrl = searchParams.get('from')
-  const toDateFromUrl = searchParams.get('to')
+  const fromDateFromUrl = searchParams.get('from') || searchParams.get('startDate')
+  const toDateFromUrl = searchParams.get('to') || searchParams.get('endDate')
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(
     fromDateFromUrl ? parseISO(fromDateFromUrl) : undefined,
   )
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(
     toDateFromUrl ? parseISO(toDateFromUrl) : undefined,
   )
+  useRestoreAnalysisContext({
+    periodParam: 'goalPeriod',
+    period: (value) =>
+      setPeriod(usesCookies || ['current_month', 'last_month', 'custom'].includes(value) ? value : 'last_month'),
+    startDate: setCustomStartDate,
+    endDate: setCustomEndDate,
+  })
 
   const [data, setData] = useState<GoalCompletionRow[]>([])
   const [summary, setSummary] = useState<GoalCompletionSummary>(EMPTY_SUMMARY)
@@ -154,11 +165,24 @@ export function useGoalCompletion(): GoalCompletionState {
     setHasAttemptedFetch(true)
 
     const range = getGoalCompletionDateRange(usesCookies, period, customStartDate, customEndDate)
-    if (!range) {
+    if (!range || !(range.endDate >= range.startDate)) {
       setError('Vennligst velg en gyldig periode.')
       setLoading(false)
       return
     }
+
+    const newParams = new URLSearchParams(locationSearch)
+    newParams.set('goalPeriod', period)
+    newParams.delete('period')
+    newParams.delete('startStep')
+    newParams.delete('goalStep')
+    newParams.delete('startUrl')
+    newParams.delete('goalUrl')
+    newParams.delete('startPathOperator')
+    newParams.delete('goalPathOperator')
+    newParams.set('startStep', serializeGoalStep(normalizedStartStep))
+    newParams.set('goalStep', serializeGoalStep(normalizedGoalStep))
+    replaceSearchParams(newParams)
 
     const result = await fetchGoalCompletionData({
       websiteId: selectedWebsite.id,
@@ -178,23 +202,13 @@ export function useGoalCompletion(): GoalCompletionState {
       setChartData(buildGoalCompletionChartData(result.data))
       setQueryStats(result.queryStats)
 
-      const newParams = new URLSearchParams(window.location.search)
-      newParams.set('goalPeriod', period)
-      newParams.delete('period')
-      newParams.delete('startStep')
-      newParams.delete('goalStep')
-      newParams.delete('startUrl')
-      newParams.delete('goalUrl')
-      newParams.delete('startPathOperator')
-      newParams.delete('goalPathOperator')
-      newParams.set('startStep', serializeGoalStep(normalizedStartStep))
-      newParams.set('goalStep', serializeGoalStep(normalizedGoalStep))
-      window.history.replaceState({}, '', `${window.location.pathname}?${newParams.toString()}`)
       setLastAppliedFilterKey(appliedFilterKey)
     }
 
     setLoading(false)
   }, [
+    locationSearch,
+    replaceSearchParams,
     selectedWebsite,
     buildFilterKey,
     startStep,
