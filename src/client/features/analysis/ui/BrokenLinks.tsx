@@ -223,6 +223,7 @@ const BrokenLinks = () => {
               } else {
                 newParams.delete('urlPath')
               }
+              newParams.delete('pagePath')
               replaceSearchParams(newParams)
             }}
           />
