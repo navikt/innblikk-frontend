@@ -28,14 +28,6 @@ export type BetaFeature = {
 
 export const betaFeatures: BetaFeature[] = [
   {
-    id: 'vertical-breadcrumbs',
-    stage: 'alfa',
-    optInFlag: 'breadcrumbs_vertical_overflow',
-    title: 'Loddrett brødsmulesti',
-    description:
-      'Vis hele stien som en innrykket liste når det blir trangt. Vanlig visning viser bare lenken til siden over.',
-  },
-  {
     id: 'nytt-design',
     title: 'Nytt design',
     description: 'Ny sidemeny og nytt design på alle sider.',

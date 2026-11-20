@@ -1,8 +1,6 @@
 import { Link } from '@navikt/ds-react'
-import { ArrowDownRightIcon, ArrowLeftIcon, ChevronRightIcon } from '@navikt/aksel-icons'
+import { ArrowLeftIcon, ChevronRightIcon } from '@navikt/aksel-icons'
 import { Link as RouterLink } from 'react-router-dom'
-import type { CSSProperties } from 'react'
-import { useFeatureFlag } from '../hooks/useFeatureFlag.ts'
 import styles from './PageBreadcrumbs.module.css'
 
 export interface BreadcrumbItem {
@@ -15,32 +13,18 @@ interface PageBreadcrumbsProps {
 }
 
 export function PageBreadcrumbs({ items }: PageBreadcrumbsProps) {
-  const verticalExperiment = useFeatureFlag('breadcrumbs_vertical_overflow')
   let parentIndex = -1
   items.forEach((item, index) => {
     if (index < items.length - 1 && item.to) parentIndex = index
   })
 
   return (
-    <nav
-      aria-label="Brødsmulesti"
-      className={styles.breadcrumbs}
-      data-has-parent={parentIndex >= 0 || undefined}
-      data-vertical-experiment={verticalExperiment || undefined}
-    >
+    <nav aria-label="Brødsmulesti" className={styles.breadcrumbs} data-has-parent={parentIndex >= 0 || undefined}>
       <ol className={`${styles.list} ${styles.trail} text-base leading-6`}>
         {items.map((item, index) => (
-          <li
-            key={item.to ?? index}
-            className={styles.item}
-            data-parent={index === parentIndex || undefined}
-            style={{ '--breadcrumb-depth': index } as CSSProperties}
-          >
+          <li key={item.to ?? index} className={styles.item} data-parent={index === parentIndex || undefined}>
             {index > 0 && (
-              <>
-                <ChevronRightIcon aria-hidden className={`${styles.separator} ${styles.horizontalSeparator}`} />
-                <ArrowDownRightIcon aria-hidden className={`${styles.separator} ${styles.verticalSeparator}`} />
-              </>
+              <ChevronRightIcon aria-hidden className={`${styles.separator} ${styles.horizontalSeparator}`} />
             )}
             {index < items.length - 1 && item.to ? (
               <Link

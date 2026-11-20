@@ -51,7 +51,7 @@ describe('route breadcrumbs', () => {
     )
     const nav = screen.getByRole('navigation', { name: 'Brødsmulesti' })
     const eventLink = within(nav).getByRole('link', { name: 'A+B C' })
-    expect(eventLink.parentElement?.querySelectorAll('svg[aria-hidden="true"]')).toHaveLength(3)
+    expect(eventLink.parentElement?.querySelectorAll('svg[aria-hidden="true"]')).toHaveLength(2)
     expect(eventLink.querySelectorAll('svg[aria-hidden="true"]')).toHaveLength(1)
     const eventUrl = new URL(eventLink.getAttribute('href')!, 'https://example.test')
     expect(eventUrl.pathname).toBe('/utforsk-hendelser/hendelse')

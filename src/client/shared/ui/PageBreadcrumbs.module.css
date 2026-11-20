@@ -44,8 +44,7 @@
   inline-size: 1rem;
 }
 
-.backSeparator,
-.verticalSeparator {
+.backSeparator {
   display: none;
 }
 
@@ -128,25 +127,6 @@
       }
 
       .trail .backSeparator {
-        display: block;
-      }
-
-      .breadcrumbs[data-vertical-experiment='true'] > .trail {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 0.25rem;
-      }
-
-      .breadcrumbs[data-vertical-experiment='true'] > .trail > .item {
-        display: flex;
-        padding-inline-start: max(0px, calc((var(--breadcrumb-depth) - 1) * 0.75rem));
-      }
-
-      .breadcrumbs[data-vertical-experiment='true'] > .trail .backSeparator {
-        display: none;
-      }
-
-      .breadcrumbs[data-vertical-experiment='true'] > .trail .verticalSeparator {
         display: block;
       }
     }

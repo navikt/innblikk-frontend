@@ -101,7 +101,7 @@ test('legacy event URLs accept percent-encoded spaces and preserve their hash', 
   expect(new URL(page.url()).hash).toBe('#legacy')
 })
 
-test('breadcrumbs use actual fit, default to the parent link, and make vertical overflow opt-in', async ({ page }) => {
+test('breadcrumbs use actual fit and default to the parent link on overflow', async ({ page }) => {
   const search = new URLSearchParams({
     websiteId: website.id,
     period: 'last_7_days',
@@ -136,23 +136,6 @@ test('breadcrumbs use actual fit, default to the parent link, and make vertical 
   await page.goBack()
   await expect(levels).toHaveCount(1)
 
-  await page.evaluate(() => {
-    const flags = JSON.parse(localStorage.getItem('innblikk_feature_flags') || '{}') as Record<string, boolean>
-    localStorage.setItem('innblikk_feature_flags', JSON.stringify({ ...flags, breadcrumbs_vertical_overflow: true }))
-    window.dispatchEvent(new CustomEvent('featureFlagsChange'))
-  })
-  await expect(levels).toHaveCount(3)
-  await expect
-    .poll(async () =>
-      levels.evaluateAll((elements) => new Set(elements.map((element) => element.getBoundingClientRect().y)).size),
-    )
-    .toBe(3)
-  const narrowPositions = await levels.evaluateAll((elements) =>
-    elements.map((element) => element.getBoundingClientRect().y),
-  )
-  expect(narrowPositions[1]).toBeGreaterThan(narrowPositions[0])
-  expect(narrowPositions[2]).toBeGreaterThan(narrowPositions[1])
-
   await page.setViewportSize({ width: 1280, height: 900 })
   await expect
     .poll(async () =>
@@ -160,7 +143,7 @@ test('breadcrumbs use actual fit, default to the parent link, and make vertical 
     )
     .toBe(1)
 
-  // Even with the experiment enabled, a short trail that fits stays horizontal on mobile.
+  // A short trail that fits stays horizontal on mobile.
   await page.setViewportSize({ width: 320, height: 900 })
   await page.goto(`/utforsk-hendelser/hendelse?websiteId=${website.id}&period=last_7_days&event=A`)
   await expect(levels).toHaveCount(2)
