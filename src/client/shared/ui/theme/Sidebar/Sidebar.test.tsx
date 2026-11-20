@@ -19,6 +19,32 @@ function WebsiteSwitcher() {
 }
 
 describe('Sidebar tools navigation', () => {
+  it('recognizes canonical nested user-group editors and keeps common context in the list link', () => {
+    render(
+      <MemoryRouter initialEntries={['/brukergrupper/42?websiteId=site-1&period=last_7_days']}>
+        <Sidebar theme="light" />
+      </MemoryRouter>,
+    )
+    const link = screen.getByRole('link', { name: 'Brukergrupper' })
+    expect(link).toHaveAttribute('aria-current', 'location')
+    expect(link).toHaveAttribute('href', '/brukergrupper?period=last_7_days&websiteId=site-1')
+  })
+
+  it('links from event details to the list while retaining common filters only', () => {
+    render(
+      <MemoryRouter
+        initialEntries={[
+          '/utforsk-hendelser/hendelse/parameter?event=one&parameter=two&websiteId=site-1&urlPath=%2Fa&metricType=visitors',
+        ]}
+      >
+        <Sidebar theme="light" />
+      </MemoryRouter>,
+    )
+    const link = screen.getByRole('link', { name: 'Egendefinerte hendelser' })
+    expect(link).toHaveAttribute('aria-current', 'location')
+    expect(link).toHaveAttribute('href', '/utforsk-hendelser?urlPath=%2Fa&websiteId=site-1&metricType=visitors')
+  })
+
   it('lists Sidegrupper immediately after Brukergrupper', () => {
     render(
       <MemoryRouter initialEntries={['/']}>

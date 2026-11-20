@@ -8,8 +8,9 @@ import {
   ThemeIcon,
 } from '@navikt/aksel-icons'
 import { Events, type ActionMenuApnetProperties, type ActionMenuValgValgtProperties } from '@navikt/analytics-types'
-import { ActionMenu, Button, Dropdown, Link, Tag, Tooltip } from '@navikt/ds-react'
+import { ActionMenu, Button, Dropdown, Tag, Tooltip } from '@navikt/ds-react'
 import { useEffect, useState } from 'react'
+import { Link as RouterLink } from 'react-router-dom'
 import '../../../../tailwind.css'
 import { AppBlock } from '../AppBlock/AppBlock.tsx'
 import { getDataMode } from '../../../lib/runtimeConfig.ts'
@@ -33,7 +34,7 @@ export default function Header({ theme }: HeaderProps) {
   const isDevEnvironment = isLocalhost || hostname.includes('.dev.nav.no')
   const { isReopsTeamMember } = useIsReopsTeamMember()
 
-  const guideLinks = [
+  const guideLinks: MenuLink[] = [
     { href: '/funksjoner', label: 'Funksjonsoversikt' },
     { href: '/komigang', label: 'Kom i gang' },
     {
@@ -198,8 +199,7 @@ export default function Header({ theme }: HeaderProps) {
           {guideLinks.map((item) => (
             <ActionMenu.Item
               key={item.href}
-              as="a"
-              href={item.href}
+              {...(item.external ? { as: 'a' as const, href: item.href } : { as: RouterLink, to: item.href })}
               onSelect={() => {
                 const properties: ActionMenuValgValgtProperties = {
                   valgTekst: item.label,
@@ -245,8 +245,8 @@ export default function Header({ theme }: HeaderProps) {
           {developerLinks.map((item) => (
             <ActionMenu.Item
               key={item.href}
-              as="a"
-              href={item.href}
+              as={RouterLink}
+              to={item.href}
               onSelect={() => {
                 const properties: ActionMenuValgValgtProperties = {
                   valgTekst: item.label,
@@ -279,8 +279,8 @@ export default function Header({ theme }: HeaderProps) {
             </span>
           </ActionMenu.Item>
           <ActionMenu.Item
-            as="a"
-            href="/innstillinger"
+            as={RouterLink}
+            to="/innstillinger"
             onSelect={() => {
               const properties: ActionMenuValgValgtProperties = {
                 valgTekst: 'Innstillinger',
@@ -309,7 +309,7 @@ export default function Header({ theme }: HeaderProps) {
       <AppBlock>
         <header className="flex py-1 z-10 items-center justify-between">
           <div className="flex items-center gap-2">
-            <Button as={Link} variant="tertiary" className={`${linkButton} px-0`} href="/">
+            <Button as={RouterLink} variant="tertiary" className={`${linkButton} px-0`} to="/">
               <div className="flex items-start gap-1.5 py-1">
                 <span aria-hidden="true" className="grid place-items-center mt-0.5 shrink-0">
                   <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -361,13 +361,13 @@ export default function Header({ theme }: HeaderProps) {
                 </Button>
                 <Dropdown.Menu className="w-auto">
                   <Dropdown.Menu.List>
-                    <Dropdown.Menu.List.Item as={Link} href="/trafikkanalyse" className="no-underline">
+                    <Dropdown.Menu.List.Item as={RouterLink} to="/trafikkanalyse" className="no-underline">
                       <span className="whitespace-nowrap">Trafikkanalyse</span>
                     </Dropdown.Menu.List.Item>
-                    <Dropdown.Menu.List.Item as={Link} href="/grafbygger" className="no-underline">
+                    <Dropdown.Menu.List.Item as={RouterLink} to="/grafbygger" className="no-underline">
                       <span className="whitespace-nowrap">Grafbygger</span>
                     </Dropdown.Menu.List.Item>
-                    <Dropdown.Menu.List.Item as={Link} href="/dashboard" className="no-underline">
+                    <Dropdown.Menu.List.Item as={RouterLink} to="/dashboard" className="no-underline">
                       <span className="whitespace-nowrap">Dashboard</span>
                     </Dropdown.Menu.List.Item>
                   </Dropdown.Menu.List>
@@ -379,17 +379,17 @@ export default function Header({ theme }: HeaderProps) {
             <div className="flex items-center justify-between w-full">
               <div className="flex items-center w-full"></div>
               <div className="flex flex-grow">
-                <Button as={Link} variant="tertiary" href="/trafikkanalyse" className={linkButton}>
+                <Button as={RouterLink} variant="tertiary" to="/trafikkanalyse" className={linkButton}>
                   <div className="flex items-center gap-2">
                     <span className="whitespace-nowrap">Trafikkanalyse</span>
                   </div>
                 </Button>
-                <Button as={Link} variant="tertiary" href="/grafbygger" className={linkButton}>
+                <Button as={RouterLink} variant="tertiary" to="/grafbygger" className={linkButton}>
                   <div className="flex items-center gap-2">
                     <span className="whitespace-nowrap">Grafbygger</span>
                   </div>
                 </Button>
-                <Button as={Link} variant="tertiary" href="/dashboard" className={linkButton}>
+                <Button as={RouterLink} variant="tertiary" to="/dashboard" className={linkButton}>
                   <div className="flex items-center gap-2">
                     <span className="whitespace-nowrap">Dashboard</span>
                   </div>

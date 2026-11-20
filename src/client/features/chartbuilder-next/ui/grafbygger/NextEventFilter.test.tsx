@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createRef, useState } from 'react'
-import { MemoryRouter } from 'react-router-dom'
+import { createContext, createRef, useContext, useState } from 'react'
+import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { vi } from 'vitest'
 import NextEventFilter from './NextEventFilter.tsx'
 import type { Filter } from '../../../../shared/types/chart.ts'
@@ -35,18 +35,23 @@ const ref = createRef<{
   validateSelection: () => boolean
 }>()
 
-function Harness({
-  initial = [],
-  events = ['/soknad', 'pageview', 'skjema sendt', 'knapp klikket'],
-  loading = false,
-}: {
+type HarnessProps = {
   initial?: Filter[]
   events?: string[]
   loading?: boolean
-}) {
+}
+
+const HarnessContext = createContext<HarnessProps>({})
+
+function HarnessContent() {
+  const {
+    initial = [],
+    events = ['/soknad', 'pageview', 'skjema sendt', 'knapp klikket'],
+    loading = false,
+  } = useContext(HarnessContext)
   const [filters, setFilters] = useState(initial)
   return (
-    <MemoryRouter initialEntries={['/grafbygger?websiteId=site-1']}>
+    <>
       <NextEventFilter
         ref={ref}
         filters={filters}
@@ -57,7 +62,20 @@ function Harness({
         isEventsLoading={loading}
       />
       <output data-testid="filters">{JSON.stringify(filters)}</output>
-    </MemoryRouter>
+    </>
+  )
+}
+
+function Harness(props: HarnessProps) {
+  const [router] = useState(() =>
+    createMemoryRouter([{ path: '/grafbygger', element: <HarnessContent /> }], {
+      initialEntries: ['/grafbygger?websiteId=site-1'],
+    }),
+  )
+  return (
+    <HarnessContext.Provider value={props}>
+      <RouterProvider router={router} />
+    </HarnessContext.Provider>
   )
 }
 

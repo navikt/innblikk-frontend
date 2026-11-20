@@ -14,6 +14,7 @@ import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
 import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import type { ChartActionModalProps } from '../model/types.ts'
 import { buildEditorUrl, generateShareUrl, downloadChartCsv } from '../utils/chartActions.ts'
+import { Link, useNavigate } from 'react-router-dom'
 
 const ChartActionModal: React.FC<ChartActionModalProps> = ({
   open,
@@ -34,6 +35,7 @@ const ChartActionModal: React.FC<ChartActionModalProps> = ({
   replaceExploreActionWithSqlEditor = false,
 }) => {
   const [copyFeedback, setCopyFeedback] = useState(false)
+  const navigate = useNavigate()
 
   if (!chart.sql && !hideUsageActions) return null
 
@@ -61,7 +63,7 @@ const ChartActionModal: React.FC<ChartActionModalProps> = ({
   }
 
   const handleOpenInSqlEditor = () => {
-    window.location.href = buildEditorUrl(chart, websiteId, filters, domain)
+    void navigate(buildEditorUrl(chart, websiteId, filters, domain))
     onClose()
   }
 
@@ -157,8 +159,8 @@ const ChartActionModal: React.FC<ChartActionModalProps> = ({
               )}
               {!onCopyChart && (
                 <Button
-                  as="a"
-                  href={addToDashboardHref}
+                  as={Link}
+                  to={addToDashboardHref}
                   variant="secondary"
                   onClick={onClose}
                   className={actionButtonClass}

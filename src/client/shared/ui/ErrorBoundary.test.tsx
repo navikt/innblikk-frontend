@@ -2,6 +2,8 @@ import { act, fireEvent, render, screen } from '@testing-library/react'
 import { ErrorBoundary } from './ErrorBoundary.tsx'
 import * as pageRecovery from '../lib/pageRecovery.ts'
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.ts'
+import { createMemoryRouter, RouterProvider } from 'react-router-dom'
+import { useState } from 'react'
 
 const chunkError = new Error('Failed to fetch dynamically imported module: /assets/page-old.js')
 
@@ -10,9 +12,10 @@ function BrokenPage({ error }: { error: Error }) {
   return null
 }
 
-function Editor({ fail }: { fail: boolean }) {
+function Editor() {
+  const [fail, setFail] = useState(false)
   useUnsavedChangesGuard(true)
-  return fail ? <BrokenPage error={chunkError} /> : <div>Ulagret arbeid</div>
+  return fail ? <BrokenPage error={chunkError} /> : <button onClick={() => setFail(true)}>Ulagret arbeid</button>
 }
 
 describe('page recovery policy', () => {
@@ -135,16 +138,18 @@ describe('ErrorBoundary', () => {
   })
 
   it('does not reload when an editor has unsaved changes, even when the error unmounts it', () => {
-    const { rerender } = render(
-      <ErrorBoundary>
-        <Editor fail={false} />
-      </ErrorBoundary>,
-    )
-    rerender(
-      <ErrorBoundary>
-        <Editor fail />
-      </ErrorBoundary>,
-    )
+    const router = createMemoryRouter([
+      {
+        path: '/',
+        element: (
+          <ErrorBoundary>
+            <Editor />
+          </ErrorBoundary>
+        ),
+      },
+    ])
+    render(<RouterProvider router={router} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Ulagret arbeid' }))
     expect(pageRecovery.tryReloadPage).not.toHaveBeenCalled()
     expect(screen.getByRole('button', { name: 'Prøv igjen' })).toBeInTheDocument()
   })

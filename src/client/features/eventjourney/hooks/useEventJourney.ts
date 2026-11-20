@@ -1,6 +1,8 @@
+import { useReplaceSearchParams } from '../../../shared/hooks/useReplaceSearchParams'
+import { useRestoreAnalysisContext } from '../../analysis/hooks/useRestoreAnalysisContext'
 import { useState, useCallback } from 'react'
 import { useAutoRefresh } from '../../analysis/hooks/useAutoRefresh'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useLocation } from 'react-router-dom'
 import { parseISO, format } from 'date-fns'
 import type { Website } from '../../../shared/types/chart'
 import {
@@ -27,6 +29,8 @@ const normalizeGeneratedSql = (sql: string): string =>
     .replace(/umami\.public_session/gi, 'umami_views.session')
 
 export const useEventJourney = () => {
+  const replaceSearchParams = useReplaceSearchParams()
+  const { search: locationSearch } = useLocation()
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
   const [searchParams] = useSearchParams()
 
@@ -42,13 +46,19 @@ export const useEventJourney = () => {
   }
 
   // Support custom dates from URL
-  const fromDateFromUrl = searchParams.get('from')
-  const toDateFromUrl = searchParams.get('to')
+  const fromDateFromUrl = searchParams.get('from') || searchParams.get('startDate')
+  const toDateFromUrl = searchParams.get('to') || searchParams.get('endDate')
   const initialCustomStartDate = fromDateFromUrl ? parseISO(fromDateFromUrl) : undefined
   const initialCustomEndDate = toDateFromUrl ? parseISO(toDateFromUrl) : undefined
 
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(initialCustomStartDate)
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(initialCustomEndDate)
+  useRestoreAnalysisContext({
+    period: setPeriodState,
+    startDate: setCustomStartDate,
+    endDate: setCustomEndDate,
+    paths: (paths) => setUrlPath(paths[0] || ''),
+  })
 
   const [data, setData] = useState<{ path: string[]; count: number }[]>([])
   const [loading, setLoading] = useState<boolean>(false)
@@ -81,27 +91,25 @@ export const useEventJourney = () => {
     const appliedFilterKey = buildFilterKey()
 
     const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
-    if (!dateRange) {
+    if (!dateRange || !(dateRange.endDate >= dateRange.startDate)) {
       setError('Vennligst velg en gyldig periode.')
       setLoading(false)
       return
     }
     const { startDate, endDate } = dateRange
 
-    const syncSearchParams = () => {
-      const newParams = new URLSearchParams(window.location.search)
-      newParams.set('period', period)
-      newParams.set('urlPath', normalizedUrlPath)
-      newParams.delete('minEvents')
-      if (period === 'custom' && customStartDate && customEndDate) {
-        newParams.set('from', format(customStartDate, 'yyyy-MM-dd'))
-        newParams.set('to', format(customEndDate, 'yyyy-MM-dd'))
-      } else {
-        newParams.delete('from')
-        newParams.delete('to')
-      }
-      window.history.replaceState({}, '', `${window.location.pathname}?${newParams.toString()}`)
+    const newParams = new URLSearchParams(locationSearch)
+    newParams.set('period', period)
+    newParams.set('urlPath', normalizedUrlPath)
+    newParams.delete('minEvents')
+    if (period === 'custom' && customStartDate && customEndDate) {
+      newParams.set('from', format(customStartDate, 'yyyy-MM-dd'))
+      newParams.set('to', format(customEndDate, 'yyyy-MM-dd'))
+    } else {
+      newParams.delete('from')
+      newParams.delete('to')
     }
+    replaceSearchParams(newParams)
 
     const cachedResult = eventJourneyCache.get(appliedFilterKey)
     if (cachedResult) {
@@ -112,7 +120,6 @@ export const useEventJourney = () => {
       setQueryStats(cachedResult.queryStats)
       setGeneratedSql(cachedResult.generatedSql ? normalizeGeneratedSql(cachedResult.generatedSql) : null)
       setLastAppliedFilterKey(appliedFilterKey)
-      syncSearchParams()
       return
     }
 
@@ -146,7 +153,6 @@ export const useEventJourney = () => {
         queryStats: nextQueryStats,
         generatedSql: nextGeneratedSql,
       })
-      syncSearchParams()
       setLastAppliedFilterKey(appliedFilterKey)
     } catch (err) {
       console.error(err)
@@ -154,7 +160,16 @@ export const useEventJourney = () => {
     } finally {
       setLoading(false)
     }
-  }, [selectedWebsite, urlPath, buildFilterKey, period, customStartDate, customEndDate])
+  }, [
+    locationSearch,
+    replaceSearchParams,
+    selectedWebsite,
+    urlPath,
+    buildFilterKey,
+    period,
+    customStartDate,
+    customEndDate,
+  ])
 
   const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
   useAutoRefresh(
