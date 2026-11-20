@@ -105,7 +105,7 @@ const ReopsInternal = lazy(() => import('./features/reops-internal').then((m) =>
 const MineNettsider = lazy(() => import('./features/website-management').then((m) => ({ default: m.MineNettsider })))
 const AdminNettsider = lazy(() => import('./features/website-management').then((m) => ({ default: m.AdminNettsider })))
 
-const ProfilRedirect = () => <LegacyVisualizationRouteRedirect to="/innstillinger" />
+const ProfilRedirect = () => <LegacyRouteRedirect to="/innstillinger" />
 
 const DashboardRouteResolver = () => {
   const location = useLocation()
@@ -159,7 +159,7 @@ const LegacyOversiktRedirect = () => {
   )
 }
 
-const LegacyVisualizationRouteRedirect = ({ to }: { to: string }) => {
+const LegacyRouteRedirect = ({ to }: { to: string }) => {
   const location = useLocation()
   return <Navigate to={`${to}${location.search}${location.hash}`} replace />
 }
@@ -302,17 +302,17 @@ export const routes: AppRoute[] = [
   { path: '/grafbygger-eol', component: <Grafbygger key="current" edition="current" />, fullWidth: true },
   {
     path: '/grafbygger-alfa',
-    component: <LegacyVisualizationRouteRedirect to="/grafbygger" />,
+    component: <LegacyRouteRedirect to="/grafbygger" />,
     fullWidth: true,
   },
   {
     path: '/grafbygger-next',
-    component: <LegacyVisualizationRouteRedirect to="/grafbygger" />,
+    component: <LegacyRouteRedirect to="/grafbygger" />,
     fullWidth: true,
   },
   { path: '/grafbygger-old', component: <GrafbyggerOld />, fullWidth: true },
   // Legacy alias from the pre-rollout live-testing route.
-  { path: '/grafbygger_next', component: <LegacyVisualizationRouteRedirect to="/grafbygger" />, fullWidth: true },
+  { path: '/grafbygger_next', component: <LegacyRouteRedirect to="/grafbygger" />, fullWidth: true },
   { path: '/brukergrupper-pro', component: <CohortManager />, fullWidth: true },
   { path: '/brukergrupper', component: <CohortManagerNext />, fullWidth: true },
   {
@@ -328,7 +328,7 @@ export const routes: AppRoute[] = [
     breadcrumbs: childBreadcrumbs('/brukergrupper', 'Brukergrupper', 'Rediger brukergruppe'),
   },
   // Legacy alias — user-facing name changed from "kohorter" to "brukergrupper"; backend still calls them cohorts.
-  { path: '/kohorter', component: <LegacyVisualizationRouteRedirect to="/brukergrupper" />, fullWidth: true },
+  { path: '/kohorter', component: <LegacyRouteRedirect to="/brukergrupper" />, fullWidth: true },
   { path: '/metabase', component: <MetabaseGuide />, fullWidth: true },
 
   { path: '/grafbygger-copilot', component: <CopilotAnalyse />, fullWidth: true },
@@ -399,18 +399,18 @@ export const routes: AppRoute[] = [
     fullWidth: true,
     breadcrumbs: childBreadcrumbs('/klikkoversikt', 'Klikkoversikt', 'Scrollkart'),
   },
-  { path: '/klikkkart', component: <LegacyVisualizationRouteRedirect to="/klikkoversikt" />, fullWidth: true },
+  { path: '/klikkkart', component: <LegacyRouteRedirect to="/klikkoversikt" />, fullWidth: true },
   {
     path: '/varmekart',
-    component: <LegacyVisualizationRouteRedirect to="/klikkoversikt/varmekart" />,
+    component: <LegacyRouteRedirect to="/klikkoversikt/varmekart" />,
     fullWidth: true,
   },
   {
     path: '/scrollkart',
-    component: <LegacyVisualizationRouteRedirect to="/klikkoversikt/scrollkart" />,
+    component: <LegacyRouteRedirect to="/klikkoversikt/scrollkart" />,
     fullWidth: true,
   },
-  { path: '/datastruktur', component: <LegacyVisualizationRouteRedirect to="/utforsk-hendelser" />, fullWidth: true },
+  { path: '/datastruktur', component: <LegacyRouteRedirect to="/utforsk-hendelser" />, fullWidth: true },
   { path: '/trafikkanalyse', component: <TrafficAnalysis />, fullWidth: true },
   { path: '/tabellbygger', component: <TableBuilder />, fullWidth: true },
   { path: '/markedsanalyse', component: <MarketingAnalysis />, fullWidth: true },
