@@ -5,11 +5,15 @@ import { executeBigQuery } from '../api/bigquery'
 import type { SavedChart } from '../../../shared/types/savedChart'
 import { getDateRangeFromPeriod } from '../../../shared/lib/utils'
 import * as chartTransfer from '../utils/chartTransfer'
+import { openTransferredChart } from '../api/openTransferredChart'
 
 vi.mock('../api/bigquery', () => ({ executeBigQuery: vi.fn() }))
+vi.mock('../api/openTransferredChart', () => ({ openTransferredChart: vi.fn().mockResolvedValue(undefined) }))
 vi.mock('../../../shared/api/websiteApi', () => ({ fetchWebsites: vi.fn().mockResolvedValue([]) }))
 vi.mock('../../analysis/ui/AnalysisActionModal.tsx', () => ({ default: () => null }))
-vi.mock('../../../shared/ui/TransferToMetabaseDialog.tsx', () => ({ default: () => null }))
+vi.mock('../../../shared/ui/TransferToMetabaseDialog.tsx', () => ({
+  default: ({ open }: { open: boolean }) => (open ? <div role="dialog" aria-label="Overfør til Metabase" /> : null),
+}))
 vi.mock('./widget/DashboardWidgetLineChart.tsx', () => ({ default: () => null }))
 vi.mock('./widget/DashboardWidgetBarChart.tsx', () => ({ default: () => null }))
 vi.mock('./widget/DashboardWidgetPieChart.tsx', () => ({ default: () => null }))
@@ -43,23 +47,24 @@ it('offers export to the opposite environment and hides export on unsupported or
   try {
     const { rerender } = render(<DashboardWidget {...props} />)
     await user.click(screen.getByRole('button', { name: 'Flere valg for graf Hendelser' }))
-    const addToProduction = screen.getByRole('menuitem', { name: 'Legg til i Innblikk prod (beta)' })
+    const addToProduction = screen.getByRole('menuitem', { name: 'Legg til i Innblikk prod' })
     expect(addToProduction).toBeVisible()
     const menuItems = screen.getAllByRole('menuitem')
     expect(menuItems[menuItems.indexOf(addToProduction) - 1]).toHaveTextContent('Legg til i Metabase')
     source.mockReturnValue('dev')
     rerender(<DashboardWidget {...props} />)
-    expect(screen.getByRole('menuitem', { name: 'Legg til i Innblikk dev (beta)' })).toBeVisible()
+    expect(screen.getByRole('menuitem', { name: 'Legg til i Innblikk dev' })).toBeVisible()
     source.mockReturnValue(null)
     rerender(<DashboardWidget {...props} />)
-    expect(screen.queryByRole('menuitem', { name: 'Legg til i Innblikk prod (beta)' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('menuitem', { name: 'Legg til i Innblikk dev (beta)' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Legg til i Innblikk prod' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Legg til i Innblikk dev' })).not.toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Legg til i Metabase' })).toBeVisible()
   } finally {
     source.mockRestore()
   }
 })
 
-it('keeps the Innblikk add action available without data and before the SQL editor action', async () => {
+it('keeps both add actions available without data and opens the existing Metabase dialog', async () => {
   const user = userEvent.setup()
   const source = vi.spyOn(chartTransfer, 'getTransferTarget').mockReturnValue('prod')
   try {
@@ -76,16 +81,19 @@ it('keeps the Innblikk add action available without data and before the SQL edit
     await user.click(screen.getByRole('button', { name: 'Flere valg for graf Hendelser' }))
     expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
       'Rediger graf',
-      'Legg til i Innblikk prod (beta)',
+      'Legg til i Metabase',
+      'Legg til i Innblikk prod',
       'Åpne i SQL-editor',
     ])
+    await user.click(screen.getByRole('menuitem', { name: 'Legg til i Metabase' }))
+    expect(screen.getByRole('dialog', { name: 'Overfør til Metabase' })).toBeInTheDocument()
   } finally {
     source.mockRestore()
   }
 })
 
 it.each(['prod', 'dev'] as const)(
-  'closes the export modal after saving and offers the destination %s dashboard in a new tab',
+  'opens the destination %s import in a new tab without a source modal',
   async (target) => {
     const user = userEvent.setup()
     const source = vi.spyOn(chartTransfer, 'getTransferTarget').mockReturnValue(target)
@@ -98,33 +106,54 @@ it.each(['prod', 'dev'] as const)(
           prefetchedData={[{ event_name: 'result', count: 3 }]}
         />,
       )
-      expect(screen.queryByRole('link', { name: `Åpne dashboard i ${target}` })).not.toBeInTheDocument()
+      vi.mocked(openTransferredChart).mockClear()
       await user.click(screen.getByRole('button', { name: 'Flere valg for graf Hendelser' }))
-      await user.click(screen.getByRole('menuitem', { name: `Legg til i Innblikk ${target} (beta)` }))
-      const iframe = screen.getByTitle<HTMLIFrameElement>(`Velg team og dashboard i ${target}`)
-      const requestId = new URL(iframe.src).searchParams.get('requestId')
-      for (const type of ['ready', 'saved']) {
-        await act(() =>
-          window.dispatchEvent(
-            new MessageEvent('message', {
-              origin: chartTransfer.transferEnvironments[target].origin,
-              source: iframe.contentWindow,
-              data: { channel: chartTransfer.TRANSFER_CHANNEL, requestId, type, dashboardId: 20 },
-            }),
-          ),
-        )
-      }
+      await user.click(screen.getByRole('menuitem', { name: `Legg til i Innblikk ${target}` }))
+      expect(openTransferredChart).toHaveBeenCalledExactlyOnceWith({ ...chart, sql: baseSql }, 'website-1', target)
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-      expect(screen.getByText(`Grafen er lagret i ${target}.`)).toBeVisible()
-      const link = screen.getByRole('link', { name: `Åpne dashboard i ${target}` })
-      expect(link).toHaveAttribute('href', `${chartTransfer.transferEnvironments[target].origin}/dashboard/20`)
-      expect(link).toHaveAttribute('target', '_blank')
-      expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+      expect(document.querySelector('iframe')).toBeNull()
     } finally {
       source.mockRestore()
     }
   },
 )
+
+it('reports a blocked new tab in the source chart without opening a modal', async () => {
+  const user = userEvent.setup()
+  vi.mocked(openTransferredChart).mockRejectedValueOnce(new Error('Nettleseren blokkerte den nye fanen.'))
+  render(
+    <DashboardWidget chart={{ ...chart, sql: baseSql }} websiteId="website-1" filters={filters} prefetchedData={[]} />,
+  )
+  await user.click(screen.getByRole('button', { name: 'Flere valg for graf Hendelser' }))
+  await user.click(screen.getByRole('menuitem', { name: 'Legg til i Innblikk prod' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Nettleseren blokkerte den nye fanen.')
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
+it('offers Metabase while a chart is waiting for data to load', async () => {
+  const user = userEvent.setup()
+  render(
+    <DashboardWidget chart={{ ...chart, sql: baseSql }} websiteId="website-1" filters={filters} shouldWaitForBatch />,
+  )
+  await user.click(screen.getByRole('button', { name: 'Flere valg for graf Hendelser' }))
+  expect(screen.getByRole('menuitem', { name: 'Legg til i Metabase' })).toBeVisible()
+  expect(screen.queryByRole('menuitem', { name: 'Last ned CSV' })).not.toBeInTheDocument()
+})
+
+it('does not offer Metabase for a chart without SQL', async () => {
+  const user = userEvent.setup()
+  render(
+    <DashboardWidget
+      chart={{ ...chart, sql: '' }}
+      websiteId="website-1"
+      filters={filters}
+      prefetchedData={[{ count: 3 }]}
+      onEditChart={vi.fn()}
+    />,
+  )
+  await user.click(screen.getByRole('button', { name: 'Flere valg for graf Hendelser' }))
+  expect(screen.queryByRole('menuitem', { name: 'Legg til i Metabase' })).not.toBeInTheDocument()
+})
 
 describe('dashboard custom SQL filters', () => {
   beforeEach(() => {

@@ -1,28 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
 import { Alert, BodyShort, Button, Loader, Select } from '@navikt/ds-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader'
 import { fetchCategories, fetchDashboards, fetchProjects } from '../../oversikt/api/oversiktApi'
 import type { DashboardDto, GraphCategoryDto, ProjectDto } from '../../../shared/types/backend'
 import type { Website } from '../../../shared/types/website'
 import { fetchWebsites } from '../../../shared/api/websiteApi'
-import { BetaFeatureNotice, BetaFeedbackLine } from '../../../shared/ui/BetaFeatureNotice'
 import { importTransferredChart } from '../api/importTransferredChart'
 import { getMissingWebsiteIds, prepareChartWebsites } from '../utils/chartTransferWebsites'
-import {
-  isTransferChart,
-  getTransferEnvironment,
-  getTransferTarget,
-  TRANSFER_CHANNEL,
-  type TransferChart,
-} from '../utils/chartTransfer'
+import { clearChartImport, getTransferEnvironment, initializeChartImport } from '../utils/chartTransfer'
 
 export default function ChartImport() {
-  const [params] = useState(() => new URLSearchParams(window.location.search))
-  const origin = params.get('origin') ?? ''
-  const requestId = params.get('requestId') ?? ''
+  const navigate = useNavigate()
+  const [importState] = useState(initializeChartImport)
   const target = getTransferEnvironment(window.location.origin)
-  const validContext =
-    target !== null && window.parent !== window && getTransferTarget(origin) === target && Boolean(requestId)
-  const [chart, setChart] = useState<TransferChart | null>(null)
+  const chart = importState.chart
   const [projects, setProjects] = useState<ProjectDto[]>([])
   const [dashboards, setDashboards] = useState<DashboardDto[]>([])
   const [categories, setCategories] = useState<GraphCategoryDto[]>([])
@@ -38,8 +30,8 @@ export default function ChartImport() {
   const [loadingDashboards, setLoadingDashboards] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const receivedRef = useRef(false)
+  const [savedDashboardUrl, setSavedDashboardUrl] = useState('')
+  const [error, setError] = useState<string | null>(importState.error)
   const savingRef = useRef(false)
   const missingWebsiteIds = chart ? getMissingWebsiteIds(chart, websites) : []
   const hasValidWebsiteSelections = missingWebsiteIds.every((id) =>
@@ -49,31 +41,7 @@ export default function ChartImport() {
     categoriesLoaded && (categories.length === 0 || categories.some((item) => item.id === Number(categoryId)))
 
   useEffect(() => {
-    if (!validContext || target === null) return
-    const receive = (event: MessageEvent<unknown>) => {
-      if (event.origin !== origin || event.source !== window.parent || receivedRef.current) return
-      const message = event.data
-      if (
-        !message ||
-        typeof message !== 'object' ||
-        !('channel' in message) ||
-        message.channel !== TRANSFER_CHANNEL ||
-        !('requestId' in message) ||
-        message.requestId !== requestId ||
-        !('type' in message) ||
-        message.type !== 'chart' ||
-        !('chart' in message)
-      )
-        return
-      if (!isTransferChart(message.chart)) {
-        setError('Grafen mangler informasjon som kreves for import. Lukk dialogen og prøv igjen.')
-        return
-      }
-      receivedRef.current = true
-      setChart(message.chart)
-    }
-    window.addEventListener('message', receive)
-    window.parent.postMessage({ channel: TRANSFER_CHANNEL, type: 'ready', requestId }, origin)
+    if (!chart || target === null) return
     let active = true
     Promise.all([fetchProjects(), fetchWebsites()])
       .then(([items, websiteItems]) => {
@@ -91,9 +59,8 @@ export default function ChartImport() {
       })
     return () => {
       active = false
-      window.removeEventListener('message', receive)
     }
-  }, [validContext, target, origin, requestId])
+  }, [chart, target])
 
   useEffect(() => {
     if (!projectId || target === null) return
@@ -139,7 +106,6 @@ export default function ChartImport() {
   const save = async () => {
     if (savingRef.current || saved) return
     if (
-      !validContext ||
       target === null ||
       !chart ||
       !projectId ||
@@ -160,9 +126,8 @@ export default function ChartImport() {
     savingRef.current = true
     setSaving(true)
     setError(null)
-    window.parent.postMessage({ channel: TRANSFER_CHANNEL, type: 'saving', requestId, saving: true }, origin)
     try {
-      await importTransferredChart(
+      const graph = await importTransferredChart(
         Number(projectId),
         Number(dashboardId),
         prepareChartWebsites(chart, websites, websiteReplacements),
@@ -170,40 +135,47 @@ export default function ChartImport() {
         categoryId ? Number(categoryId) : undefined,
       )
       setSaved(true)
-      window.parent.postMessage(
-        { channel: TRANSFER_CHANNEL, type: 'saved', requestId, dashboardId: Number(dashboardId) },
-        origin,
-      )
+      const dashboardUrl = `/dashboard/${dashboardId}?categoryId=${graph.categoryId}`
+      setSavedDashboardUrl(dashboardUrl)
+      clearChartImport()
+      await navigate(dashboardUrl, { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : `Kunne ikke lagre grafen i ${target}.`)
     } finally {
       savingRef.current = false
       setSaving(false)
-      window.parent.postMessage({ channel: TRANSFER_CHANNEL, type: 'saving', requestId, saving: false }, origin)
     }
   }
 
-  if (!validContext || target === null)
+  const cancel = async () => {
+    try {
+      clearChartImport()
+      await navigate('/')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Kunne ikke avbryte importen.')
+    }
+  }
+
+  if (!chart || target === null)
     return (
       <Alert variant="error" role="alert">
-        Åpne «Legg til i Innblikk» fra grafmenyen.
+        {error ?? 'Åpne «Legg til i Innblikk» på nytt fra grafmenyen.'}
       </Alert>
     )
 
   return (
     <div>
-      <div className="flex flex-col gap-4 px-4 pb-4">
-        <BetaFeatureNotice id="eksporter-graf" title="Kopiering av grafer er i beta">
-          Kopier grafen til et dashboard i {target}. Grafen du kopierer blir ikke endret.
-          <BetaFeedbackLine />
-        </BetaFeatureNotice>
+      <PageHeader title={`Legg til i Innblikk ${target}`} />
+      <div className="flex flex-col gap-4 px-4 pb-4 max-w-2xl">
         {error && (
           <Alert variant="error" role="alert">
             {error}
           </Alert>
         )}
         {saved ? (
-          <Alert variant="success">Grafen er lagret i {target}.</Alert>
+          <Alert variant="success">
+            Grafen er lagret i {target}. <Link to={savedDashboardUrl}>Åpne dashboard</Link>
+          </Alert>
         ) : loading ? (
           <Loader title={`Henter team og nettsteder fra ${target}`} />
         ) : (
@@ -322,6 +294,9 @@ export default function ChartImport() {
               }
             >
               Legg til i Innblikk {target}
+            </Button>
+            <Button variant="secondary" disabled={saving} onClick={() => void cancel()}>
+              Avbryt
             </Button>
           </>
         )}

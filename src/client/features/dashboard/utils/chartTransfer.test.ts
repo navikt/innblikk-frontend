@@ -1,10 +1,15 @@
+// @vitest-environment-options {"url":"https://innblikk.ansatt.nav.no"}
 import {
+  buildChartImportUrl,
   buildTransferChart,
+  clearChartImport,
   convertSqlForEnvironment,
   isTransferChart,
   getTransferTarget,
   getTransferEnvironment,
   transferEnvironments,
+  initializeChartImport,
+  type TransferChart,
 } from './chartTransfer'
 
 describe('chart transfer', () => {
@@ -37,6 +42,116 @@ describe('chart transfer', () => {
   it.each(['prod', 'dev'] as const)('preserves unrelated and already-%s references', (target) => {
     const sql = `SELECT * FROM \`other-project.dataset.table\` JOIN \`${transferEnvironments[target].projectId}.umami_views.session\` ON TRUE`
     expect(convertSqlForEnvironment(sql, target)).toBe(sql)
+  })
+
+  describe('chart import links', () => {
+    const chart: TransferChart = {
+      title: 'Besøk – øæå 🚀',
+      graphType: 'TABLE',
+      width: 50,
+      description: 'SQL med & + # og Unicode',
+      sourceWebsites: [
+        { id: 'one', name: 'Første nettsted', domain: 'one.nav.no' },
+        { id: 'two', name: 'Andre nettsted', domain: 'two.nav.no' },
+      ],
+      queries: [
+        { name: 'Første', sql: `SELECT '${'øæå & + #'.repeat(2000)}' WHERE website_id IN ('one', 'two')` },
+        { name: 'Andre', sql: 'SELECT * FROM `team-researchops-dev-4396.umami_views.session`' },
+      ],
+    }
+
+    beforeEach(() => {
+      clearChartImport()
+      sessionStorage.clear()
+      window.history.replaceState({}, '', '/')
+    })
+
+    afterEach(() => vi.restoreAllMocks())
+
+    const openLink = () => {
+      const url = new URL(buildChartImportUrl(chart, 'prod', transferEnvironments.dev.origin))
+      window.history.replaceState({}, '', url.pathname + url.search + url.hash)
+      return url
+    }
+
+    it.each(['prod', 'dev'] as const)(
+      'puts all chart data in the fragment for %s, not HTTP query parameters',
+      (target) => {
+        const source = target === 'prod' ? 'dev' : 'prod'
+        const url = new URL(buildChartImportUrl(chart, target, transferEnvironments[source].origin))
+        expect(url.origin).toBe(transferEnvironments[target].origin)
+        expect(url.pathname).toBe('/importer-graf')
+        expect([...url.searchParams.keys()]).toEqual(['importId'])
+        expect(url.search).not.toContain('SELECT')
+        const payload: unknown = JSON.parse(new URLSearchParams(url.hash.slice(1)).get('chart')!)
+        expect(payload).toEqual({ version: 1, sourceOrigin: transferEnvironments[source].origin, chart })
+      },
+    )
+
+    it('validates and stores the chart before removing its fragment, preserving existing history state', () => {
+      const url = openLink()
+      window.history.replaceState({ existing: 'state' }, '', url.pathname + url.search + url.hash)
+      expect(initializeChartImport()).toEqual({ chart, error: null })
+      expect(window.location.hash).toBe('')
+      expect(window.history.state).toEqual({ existing: 'state' })
+      expect(JSON.parse(sessionStorage.getItem(`innblikk-chart-import:${url.searchParams.get('importId')}`)!)).toEqual({
+        version: 1,
+        sourceOrigin: transferEnvironments.dev.origin,
+        chart,
+      })
+      expect(initializeChartImport()).toEqual({ chart, error: null })
+    })
+
+    it('restores a chart from tab storage after a fresh module load without a fragment', async () => {
+      openLink()
+      initializeChartImport()
+      vi.resetModules()
+      const reloaded = await import('./chartTransfer')
+      expect(reloaded.initializeChartImport()).toEqual({ chart, error: null })
+      expect(window.location.hash).toBe('')
+    })
+
+    it.each([
+      'not-json',
+      JSON.stringify({ version: 1, sourceOrigin: 'https://evil.test', chart }),
+      JSON.stringify({ version: 1, sourceOrigin: transferEnvironments.prod.origin, chart }),
+      JSON.stringify({ version: 2, sourceOrigin: transferEnvironments.dev.origin, chart }),
+      JSON.stringify({ version: 1, sourceOrigin: transferEnvironments.dev.origin, chart: { ...chart, queries: [] } }),
+    ])('rejects malformed or wrong-environment links and clears their fragments', (payload) => {
+      window.history.replaceState(
+        {},
+        '',
+        `/importer-graf?importId=${crypto.randomUUID()}#${new URLSearchParams({ chart: payload })}`,
+      )
+      const state = initializeChartImport()
+      expect(state.chart).toBeNull()
+      expect(state.error).toMatch(/ugyldig/)
+      expect(window.location.hash).toBe('')
+      expect(sessionStorage.length).toBe(0)
+    })
+
+    it('reports unavailable tab storage rather than pretending the import can be resumed', () => {
+      openLink()
+      vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new DOMException('Storage blocked', 'SecurityError')
+      })
+      expect(initializeChartImport()).toEqual({
+        chart: null,
+        error: 'Kunne ikke lagre importen midlertidig i nettleseren. Tillat lagring og prøv igjen.',
+      })
+      expect(window.location.hash).toBe('')
+      expect(initializeChartImport().chart).toBeNull()
+    })
+
+    it('removes pending data after completion without affecting other tab storage', () => {
+      openLink()
+      initializeChartImport()
+      sessionStorage.setItem('other', 'keep')
+      clearChartImport()
+      expect(sessionStorage.length).toBe(1)
+      expect(sessionStorage.getItem('other')).toBe('keep')
+      expect(initializeChartImport().chart).toBeNull()
+    })
   })
 
   it('transfers chart metadata and all variants without freezing dashboard filters', () => {

@@ -37,6 +37,9 @@ describe('alfa settings', () => {
     expect(document.querySelector('a[href="/grafbygger-alfa"]')).toBeNull()
     expect(document.querySelector('a[href="/grafbygger"]')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Grafbyggeren er i beta' })).toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'Eksport av grafer mellom dev og prod er i beta' }),
+    ).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Grafbyggeren er i alfa' })).not.toBeInTheDocument()
     expect(checkbox.closest('#alpha')?.querySelector('[role="status"]')).toBeNull()
     expect(screen.getByText(/Søk etter filtre og se forklaringer og eksempler/)).toBeInTheDocument()

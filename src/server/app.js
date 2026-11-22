@@ -6,30 +6,11 @@ export function createApp({ buildPath }) {
   const app = express()
 
   // Security headers
-  const defaultHeaders = helmet({
-    contentSecurityPolicy: false, // Disabled — managed by NAIS ingress / requires tuning for inline scripts
-  })
-  const importHeaders = helmet({
-    frameguard: false,
-    contentSecurityPolicy: {
-      useDefaults: false,
-      directives: {
-        defaultSrc: helmet.contentSecurityPolicy.dangerouslyDisableDefaultSrc,
-        frameAncestors: [
-          "'self'",
-          'https://innblikk.ansatt.nav.no',
-          'https://innblikk.ansatt.dev.nav.no',
-          'http://localhost:*',
-          'https://localhost:*',
-          'http://127.0.0.1:*',
-          'https://127.0.0.1:*',
-          'http://[::1]:*',
-          'https://[::1]:*',
-        ],
-      },
-    },
-  })
-  app.use((req, res, next) => (req.path === '/importer-graf' ? importHeaders : defaultHeaders)(req, res, next))
+  app.use(
+    helmet({
+      contentSecurityPolicy: false, // Disabled — managed by NAIS ingress / requires tuning for inline scripts
+    }),
+  )
 
   app.use(express.json())
 

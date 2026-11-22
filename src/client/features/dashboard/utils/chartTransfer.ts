@@ -3,7 +3,6 @@ import type { SavedChart } from '../../../shared/types/savedChart'
 export const PRODUCTION_ORIGIN = 'https://innblikk.ansatt.nav.no'
 export const DEVELOPMENT_ORIGIN = 'https://innblikk.ansatt.dev.nav.no'
 export const CHART_IMPORT_PATH = '/importer-graf'
-export const TRANSFER_CHANNEL = 'innblikk-chart-transfer'
 export type TransferEnvironment = 'prod' | 'dev'
 
 export const transferEnvironments = {
@@ -19,6 +18,97 @@ export type TransferChart = {
   websiteId?: string
   sourceWebsites?: { id: string; name: string; domain: string }[]
   queries: { name: string; sql: string }[]
+}
+
+export type ChartImportState = { chart: TransferChart; error: null } | { chart: null; error: string }
+
+const importStoragePrefix = 'innblikk-chart-import:'
+let preparedImport: { context: string; state: ChartImportState } | undefined
+
+export const buildChartImportUrl = (
+  chart: TransferChart,
+  target: TransferEnvironment,
+  sourceOrigin: string,
+): string => {
+  if (!isTransferChart(chart) || getTransferTarget(sourceOrigin) !== target) {
+    throw new Error('Grafen kan ikke legges til i dette miljøet.')
+  }
+  const url = new URL(CHART_IMPORT_PATH, transferEnvironments[target].origin)
+  url.searchParams.set('importId', crypto.randomUUID())
+  url.hash = new URLSearchParams({ chart: JSON.stringify({ version: 1, sourceOrigin, chart }) }).toString()
+  return url.toString()
+}
+
+export const initializeChartImport = (): ChartImportState => {
+  const context = `${window.location.origin}${window.location.pathname}${window.location.search}`
+  if (!window.location.hash && preparedImport?.context === context) return preparedImport.state
+  const importId = new URLSearchParams(window.location.search).get('importId')
+  const target = getTransferEnvironment(window.location.origin)
+  const hash = window.location.hash
+  let state: ChartImportState
+  try {
+    if (window.location.pathname !== CHART_IMPORT_PATH || !importId || target === null) {
+      throw new Error('Åpne «Legg til i Innblikk» på nytt fra grafmenyen.')
+    }
+    let serialized: string | null
+    try {
+      serialized = hash
+        ? new URLSearchParams(hash.slice(1)).get('chart')
+        : sessionStorage.getItem(`${importStoragePrefix}${importId}`)
+    } catch {
+      throw new Error('Kunne ikke lese importen fra nettleseren. Tillat midlertidig lagring og prøv igjen.')
+    }
+    if (!serialized) {
+      throw new Error(
+        'Grafen mangler i lenken. Hvis du nettopp logget inn, åpne «Legg til i Innblikk» på nytt fra grafmenyen.',
+      )
+    }
+    let payload: unknown
+    try {
+      payload = JSON.parse(serialized)
+    } catch {
+      throw new Error('Grafen i lenken er ugyldig. Åpne «Legg til i Innblikk» på nytt fra grafmenyen.')
+    }
+    if (
+      !payload ||
+      typeof payload !== 'object' ||
+      !('version' in payload) ||
+      payload.version !== 1 ||
+      !('sourceOrigin' in payload) ||
+      typeof payload.sourceOrigin !== 'string' ||
+      getTransferTarget(payload.sourceOrigin) !== target ||
+      !('chart' in payload) ||
+      !isTransferChart(payload.chart)
+    ) {
+      throw new Error('Grafen i lenken er ugyldig eller tilhører feil miljø.')
+    }
+    if (hash) {
+      try {
+        sessionStorage.setItem(`${importStoragePrefix}${importId}`, serialized)
+      } catch {
+        throw new Error('Kunne ikke lagre importen midlertidig i nettleseren. Tillat lagring og prøv igjen.')
+      }
+    }
+    state = { chart: payload.chart, error: null }
+  } catch (err) {
+    state = { chart: null, error: err instanceof Error ? err.message : 'Kunne ikke lese grafen fra lenken.' }
+  } finally {
+    if (hash) window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search)
+  }
+  preparedImport = { context, state }
+  return state
+}
+
+export const clearChartImport = () => {
+  preparedImport = undefined
+  const importId = new URLSearchParams(window.location.search).get('importId')
+  if (importId) {
+    try {
+      sessionStorage.removeItem(`${importStoragePrefix}${importId}`)
+    } catch {
+      throw new Error('Kunne ikke fjerne importdata fra nettleseren.')
+    }
+  }
 }
 
 export const getTransferEnvironment = (origin: string): TransferEnvironment | null => {

@@ -1,11 +1,12 @@
 // @vitest-environment-options {"url":"https://innblikk.ansatt.dev.nav.no"}
-import { act, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import ChartImport from './ChartImport'
 import { fetchCategories, fetchProjects, fetchDashboards } from '../../oversikt/api/oversiktApi'
 import { fetchWebsites } from '../../../shared/api/websiteApi'
 import { importTransferredChart } from '../api/importTransferredChart'
-import { PRODUCTION_ORIGIN, TRANSFER_CHANNEL } from '../utils/chartTransfer'
+import { PRODUCTION_ORIGIN, clearChartImport, initializeChartImport } from '../utils/chartTransfer'
 
 vi.mock('../../oversikt/api/oversiktApi', () => ({
   fetchCategories: vi.fn(),
@@ -18,13 +19,10 @@ vi.mock('../api/importTransferredChart', () => ({ importTransferredChart: vi.fn(
 const existingId = '11111111-1111-1111-1111-111111111111'
 const missingId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
 const replacementId = '22222222-2222-2222-2222-222222222222'
-const parentWindow = { postMessage: vi.fn() }
-const originalParent = Object.getOwnPropertyDescriptor(window, 'parent')!
-
 beforeEach(() => {
   vi.resetAllMocks()
-  window.history.replaceState({}, '', `/importer-graf?origin=${encodeURIComponent(PRODUCTION_ORIGIN)}&requestId=test`)
-  Object.defineProperty(window, 'parent', { configurable: true, value: parentWindow })
+  clearChartImport()
+  sessionStorage.clear()
   vi.mocked(fetchProjects).mockResolvedValue([{ id: 10, name: 'Dev-team' }])
   vi.mocked(fetchDashboards).mockResolvedValue([{ id: 20, projectId: 10, name: 'Dev-dashboard' }])
   vi.mocked(fetchCategories).mockResolvedValue([{ id: 30, dashboardId: 20, name: 'General' }])
@@ -35,7 +33,15 @@ beforeEach(() => {
   vi.mocked(importTransferredChart).mockResolvedValue({ id: 40, categoryId: 30, name: 'Besøk' })
 })
 
-afterEach(() => Object.defineProperty(window, 'parent', originalParent))
+const renderImport = () =>
+  render(
+    <MemoryRouter initialEntries={['/importer-graf']}>
+      <Routes>
+        <Route path="/importer-graf" element={<ChartImport />} />
+        <Route path="/dashboard/:id" element={<h1>Dev-dashboard åpnet</h1>} />
+      </Routes>
+    </MemoryRouter>,
+  )
 
 it('imports from prod into dev, preserving matching IDs and requiring a dev replacement for missing IDs', async () => {
   const user = userEvent.setup()
@@ -50,16 +56,12 @@ it('imports from prod into dev, preserving matching IDs and requiring a dev repl
       },
     ],
   }
-  render(<ChartImport />)
-  await act(() =>
-    window.dispatchEvent(
-      new MessageEvent('message', {
-        origin: PRODUCTION_ORIGIN,
-        source: window.parent,
-        data: { channel: TRANSFER_CHANNEL, type: 'chart', requestId: 'test', chart: sourceChart },
-      }),
-    ),
-  )
+  const hash = new URLSearchParams({
+    chart: JSON.stringify({ version: 1, sourceOrigin: PRODUCTION_ORIGIN, chart: sourceChart }),
+  })
+  window.history.replaceState({}, '', `/importer-graf?importId=${crypto.randomUUID()}#${hash}`)
+  initializeChartImport()
+  renderImport()
   await user.selectOptions(await screen.findByLabelText('Team i dev'), '10')
   await screen.findByRole('option', { name: 'Dev-dashboard' })
   await user.selectOptions(screen.getByLabelText('Dashboard i dev'), '20')
@@ -81,24 +83,23 @@ it('imports from prod into dev, preserving matching IDs and requiring a dev repl
     'dev',
     30,
   )
-  expect(parentWindow.postMessage).toHaveBeenCalledWith(
-    {
-      channel: TRANSFER_CHANNEL,
-      type: 'saved',
-      requestId: 'test',
-      dashboardId: 20,
-    },
-    PRODUCTION_ORIGIN,
-  )
+  expect(screen.getByRole('heading', { name: 'Dev-dashboard åpnet' })).toBeInTheDocument()
+  expect(sessionStorage.length).toBe(0)
 })
 
 it('rejects an import opened from the same dev environment', () => {
   window.history.replaceState(
     {},
     '',
-    `/importer-graf?origin=${encodeURIComponent(window.location.origin)}&requestId=test`,
+    `/importer-graf?importId=${crypto.randomUUID()}#${new URLSearchParams({
+      chart: JSON.stringify({
+        version: 1,
+        sourceOrigin: window.location.origin,
+        chart: { title: 'Besøk', graphType: 'LINE', width: 50, queries: [{ name: 'Besøk', sql: 'SELECT 1' }] },
+      }),
+    })}`,
   )
-  render(<ChartImport />)
-  expect(screen.getByRole('alert')).toHaveTextContent('Åpne «Legg til i Innblikk» fra grafmenyen')
+  renderImport()
+  expect(screen.getByRole('alert')).toHaveTextContent('ugyldig eller tilhører feil miljø')
   expect(fetchProjects).not.toHaveBeenCalled()
 })

@@ -89,7 +89,7 @@ const AppShell = ({ theme }: { theme: 'light' | 'dark' }) => {
     </Routes>
   )
 
-  if (isCanvasPage || isFocusedDashboardPage || isFocusedGrafbyggerPage || location.pathname === '/importer-graf') {
+  if (isCanvasPage || isFocusedDashboardPage || isFocusedGrafbyggerPage) {
     return (
       <ErrorBoundary>
         <Suspense fallback={<PageLoader />}>{appRoutes}</Suspense>

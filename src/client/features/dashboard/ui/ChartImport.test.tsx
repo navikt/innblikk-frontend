@@ -1,10 +1,12 @@
 // @vitest-environment-options {"url":"https://innblikk.ansatt.nav.no"}
+import { StrictMode } from 'react'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import ChartImport from './ChartImport'
 import { fetchCategories, fetchDashboards, fetchProjects } from '../../oversikt/api/oversiktApi'
 import { importTransferredChart } from '../api/importTransferredChart'
-import { TRANSFER_CHANNEL } from '../utils/chartTransfer'
+import { clearChartImport, initializeChartImport } from '../utils/chartTransfer'
 import { fetchWebsites } from '../../../shared/api/websiteApi'
 
 vi.mock('../../oversikt/api/oversiktApi', () => ({
@@ -19,10 +21,7 @@ const existingId = '11111111-1111-1111-1111-111111111111'
 const secondProductionId = '22222222-2222-2222-2222-222222222222'
 const missingId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
 const secondMissingId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
-
 const origin = 'https://innblikk.ansatt.dev.nav.no'
-const parentWindow = { postMessage: vi.fn() }
-const originalParent = Object.getOwnPropertyDescriptor(window, 'parent')!
 const chart = {
   title: 'Besøk',
   graphType: 'LINE',
@@ -32,34 +31,62 @@ const chart = {
 
 beforeEach(() => {
   vi.resetAllMocks()
-  window.history.replaceState({}, '', `/importer-graf?origin=${encodeURIComponent(origin)}&requestId=test`)
-  Object.defineProperty(window, 'parent', { configurable: true, value: parentWindow })
+  clearChartImport()
+  sessionStorage.clear()
   vi.mocked(fetchProjects).mockResolvedValue([{ id: 10, name: 'Mitt team' }])
   vi.mocked(fetchDashboards).mockResolvedValue([{ id: 20, projectId: 10, name: 'Mitt dashboard' }])
   vi.mocked(fetchCategories).mockResolvedValue([{ id: 30, dashboardId: 20, name: 'General' }])
+  vi.mocked(importTransferredChart).mockResolvedValue({ id: 40, categoryId: 30, name: 'Besøk' })
   vi.mocked(fetchWebsites).mockResolvedValue([
     { id: existingId, name: 'Nettsted en', domain: 'one.nav.no', teamId: '', createdAt: '' },
     { id: secondProductionId, name: 'Nettsted to', domain: 'two.nav.no', teamId: '', createdAt: '' },
   ])
 })
 
-afterEach(() => {
-  Object.defineProperty(window, 'parent', originalParent)
-})
+afterEach(() => vi.restoreAllMocks())
 
-const receiveChart = (sourceOrigin = origin, transferredChart: unknown = chart) =>
-  act(() =>
-    window.dispatchEvent(
-      new MessageEvent('message', {
-        origin: sourceOrigin,
-        source: window.parent,
-        data: { channel: TRANSFER_CHANNEL, requestId: 'test', type: 'chart', chart: transferredChart },
-      }),
-    ),
+function ImportRoutes() {
+  const location = useLocation()
+  return (
+    <>
+      <Routes>
+        <Route path="/importer-graf" element={<ChartImport />} />
+        <Route path="/dashboard/:id" element={<h1>Måldashboard</h1>} />
+        <Route path="/" element={<h1>Forside</h1>} />
+      </Routes>
+      <output aria-label="Gjeldende side">{location.pathname + location.search}</output>
+    </>
+  )
+}
+
+const renderRoutes = () =>
+  render(
+    <StrictMode>
+      <MemoryRouter initialEntries={[window.location.pathname + window.location.search]}>
+        <ImportRoutes />
+      </MemoryRouter>
+    </StrictMode>,
   )
 
-it('lets the user choose team/dashboard without SQL and acknowledges only after saving completes', async () => {
+const renderImport = (transferredChart: unknown = chart, sourceOrigin = origin) => {
+  const hash = new URLSearchParams({
+    chart: JSON.stringify({ version: 1, sourceOrigin, chart: transferredChart }),
+  })
+  window.history.replaceState({}, '', `/importer-graf?importId=${crypto.randomUUID()}#${hash}`)
+  initializeChartImport()
+  return renderRoutes()
+}
+
+const selectDashboard = async () => {
   const user = userEvent.setup()
+  await user.selectOptions(await screen.findByLabelText('Team i prod'), '10')
+  await screen.findByRole('option', { name: 'Mitt dashboard' })
+  await user.selectOptions(screen.getByLabelText('Dashboard i prod'), '20')
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Legg til i Innblikk prod' })).toBeEnabled())
+  return user
+}
+
+it('imports in a standalone tab without SQL and navigates only after saving completes', async () => {
   let finishSave!: () => void
   vi.mocked(importTransferredChart).mockImplementation(
     () =>
@@ -67,72 +94,91 @@ it('lets the user choose team/dashboard without SQL and acknowledges only after 
         finishSave = () => resolve({ id: 40, categoryId: 30, name: 'Besøk' })
       }),
   )
-  render(<ChartImport />)
-  await receiveChart('https://evil.test')
-  expect(screen.queryByText('Graf: Besøk')).not.toBeInTheDocument()
-  await receiveChart()
-  await user.selectOptions(await screen.findByLabelText('Team i prod'), '10')
-  await waitFor(() => expect(screen.getByRole('option', { name: 'Mitt dashboard' })).toBeInTheDocument())
-  await user.selectOptions(screen.getByLabelText('Dashboard i prod'), '20')
+  renderImport()
+  const user = await selectDashboard()
   expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
-  expect(
-    screen.queryByRole('heading', { name: /Lagre graf|Legg til i Innblikk|Eksporter graf/ }),
-  ).not.toBeInTheDocument()
+  expect(screen.getAllByRole('heading')).toHaveLength(1)
+  expect(screen.getByRole('heading', { name: 'Legg til i Innblikk prod' })).toBeInTheDocument()
   expect(screen.queryByLabelText('Fane')).not.toBeInTheDocument()
+  expect(window.location.hash).toBe('')
   await user.click(screen.getByRole('button', { name: 'Legg til i Innblikk prod' }))
   expect(importTransferredChart).toHaveBeenCalledWith(10, 20, chart, 'prod', 30)
-  expect(parentWindow.postMessage).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'saved' }), origin)
+  expect(screen.queryByRole('heading', { name: 'Måldashboard' })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Avbryt' })).toBeDisabled()
   await act(async () => {
     finishSave()
     await Promise.resolve()
   })
-  expect(parentWindow.postMessage).toHaveBeenCalledWith(
-    {
-      channel: TRANSFER_CHANNEL,
-      requestId: 'test',
-      type: 'saved',
-      dashboardId: 20,
-    },
-    origin,
-  )
+  expect(screen.getByRole('heading', { name: 'Måldashboard' })).toBeInTheDocument()
+  expect(screen.getByLabelText('Gjeldende side')).toHaveTextContent('/dashboard/20?categoryId=30')
+  expect(sessionStorage.length).toBe(0)
 })
 
-it('keeps the form open and reports a failed save without sending a success message', async () => {
-  const user = userEvent.setup()
+it('keeps the form and pending import after a failed save without navigating', async () => {
   vi.mocked(importTransferredChart).mockRejectedValue(new Error('Kunne ikke lagre'))
-  render(<ChartImport />)
-  await receiveChart()
-  await user.selectOptions(await screen.findByLabelText('Team i prod'), '10')
-  await screen.findByRole('option', { name: 'Mitt dashboard' })
-  await user.selectOptions(screen.getByLabelText('Dashboard i prod'), '20')
+  renderImport()
+  const user = await selectDashboard()
   await user.click(screen.getByRole('button', { name: 'Legg til i Innblikk prod' }))
   expect(await screen.findByRole('alert')).toHaveTextContent('Kunne ikke lagre')
-  expect(parentWindow.postMessage).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'saved' }), origin)
+  expect(screen.queryByRole('heading', { name: 'Måldashboard' })).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Legg til i Innblikk prod' })).toBeEnabled()
+  expect(sessionStorage.length).toBe(1)
 })
 
-it('does not load production data when opened without a trusted dev parent', () => {
-  window.history.replaceState({}, '', '/importer-graf?origin=https://evil.test&requestId=test')
-  render(<ChartImport />)
-  expect(screen.getByRole('alert')).toHaveTextContent('Åpne «Legg til i Innblikk» fra grafmenyen')
+it('does not allow another save if storage cleanup fails after the chart has been saved', async () => {
+  renderImport()
+  const user = await selectDashboard()
+  vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+    throw new DOMException('Storage blocked', 'SecurityError')
+  })
+  await user.click(screen.getByRole('button', { name: 'Legg til i Innblikk prod' }))
+  expect(screen.getByRole('alert')).toHaveTextContent('Kunne ikke fjerne importdata')
+  expect(screen.getByText(/Grafen er lagret i prod/)).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'Åpne dashboard' })).toHaveAttribute('href', '/dashboard/20?categoryId=30')
+  expect(screen.queryByRole('button', { name: 'Legg til i Innblikk prod' })).not.toBeInTheDocument()
+  expect(importTransferredChart).toHaveBeenCalledOnce()
+})
+
+it('rejects an invalid source without loading production data', () => {
+  renderImport(chart, 'https://evil.test')
+  expect(screen.getByRole('alert')).toHaveTextContent('ugyldig eller tilhører feil miljø')
   expect(fetchProjects).not.toHaveBeenCalled()
   expect(fetchWebsites).not.toHaveBeenCalled()
 })
 
+it('explains how to retry if a login redirect lost the chart fragment', () => {
+  window.history.replaceState({}, '', `/importer-graf?importId=${crypto.randomUUID()}`)
+  renderRoutes()
+  expect(screen.getByRole('alert')).toHaveTextContent('Hvis du nettopp logget inn')
+  expect(fetchProjects).not.toHaveBeenCalled()
+})
+
+it('restores the pending chart on reload after removing the fragment', async () => {
+  const view = renderImport()
+  await screen.findByText('Graf: Besøk')
+  expect(window.location.hash).toBe('')
+  view.unmount()
+  renderRoutes()
+  expect(await screen.findByText('Graf: Besøk')).toBeInTheDocument()
+})
+
+it('clears pending import data when cancelled', async () => {
+  renderImport()
+  await screen.findByText('Graf: Besøk')
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Avbryt' }))
+  expect(screen.getByRole('heading', { name: 'Forside' })).toBeInTheDocument()
+  expect(sessionStorage.length).toBe(0)
+})
+
 it('keeps all valid website IDs unchanged without showing a website picker', async () => {
-  const user = userEvent.setup()
-  vi.mocked(importTransferredChart).mockResolvedValue({ id: 40, categoryId: 30, name: 'Besøk' })
   const validChart = {
     ...chart,
     queries: [
       { name: 'Besøk', sql: `SELECT * FROM events WHERE website_id IN ('${existingId}', '${secondProductionId}')` },
     ],
   }
-  render(<ChartImport />)
-  await receiveChart(origin, validChart)
-  await user.selectOptions(await screen.findByLabelText('Team i prod'), '10')
-  await screen.findByRole('option', { name: 'Mitt dashboard' })
-  await user.selectOptions(screen.getByLabelText('Dashboard i prod'), '20')
+  renderImport(validChart)
+  const user = await selectDashboard()
   expect(screen.queryByLabelText('Velg nettsted i prod')).not.toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Legg til i Innblikk prod' }))
   expect(importTransferredChart).toHaveBeenCalledWith(10, 20, validChart, 'prod', 30)
@@ -140,7 +186,6 @@ it('keeps all valid website IDs unchanged without showing a website picker', asy
 
 it('requires separate valid replacements for missing IDs and keeps existing IDs across variants', async () => {
   const user = userEvent.setup()
-  vi.mocked(importTransferredChart).mockResolvedValue({ id: 40, categoryId: 30, name: 'Besøk' })
   const multiChart = {
     ...chart,
     sourceWebsites: [
@@ -155,8 +200,7 @@ it('requires separate valid replacements for missing IDs and keeps existing IDs 
       { name: 'Andre', sql: `SELECT * FROM events WHERE website_id = '${secondMissingId}'` },
     ],
   }
-  render(<ChartImport />)
-  await receiveChart(origin, multiChart)
+  renderImport(multiChart)
   await user.selectOptions(await screen.findByLabelText('Team i prod'), '10')
   await screen.findByRole('option', { name: 'Mitt dashboard' })
   await user.selectOptions(screen.getByLabelText('Dashboard i prod'), '20')
@@ -186,35 +230,30 @@ it('requires separate valid replacements for missing IDs and keeps existing IDs 
 
 it('blocks saving and shows an error if the production website list cannot be loaded', async () => {
   vi.mocked(fetchWebsites).mockRejectedValue(new Error('Kunne ikke hente nettsteder'))
-  render(<ChartImport />)
-  await receiveChart()
+  renderImport()
   expect(await screen.findByRole('alert')).toHaveTextContent('Kunne ikke hente nettsteder')
   expect(screen.getByRole('button', { name: 'Legg til i Innblikk prod' })).toBeDisabled()
   expect(importTransferredChart).not.toHaveBeenCalled()
 })
 
 it('shows ordered tabs only for dashboards with multiple tabs and saves to the chosen tab', async () => {
-  const user = userEvent.setup()
   vi.mocked(fetchCategories).mockResolvedValue([
     { id: 31, dashboardId: 20, name: 'Detaljer', ordering: 1 },
     { id: 30, dashboardId: 20, name: 'General', ordering: 0 },
   ])
   vi.mocked(importTransferredChart).mockResolvedValue({ id: 40, categoryId: 31, name: 'Besøk' })
-  render(<ChartImport />)
-  await receiveChart()
-  await user.selectOptions(await screen.findByLabelText('Team i prod'), '10')
-  await screen.findByRole('option', { name: 'Mitt dashboard' })
-  await user.selectOptions(screen.getByLabelText('Dashboard i prod'), '20')
+  renderImport()
+  const user = await selectDashboard()
   const tabs = await screen.findByLabelText('Fane')
   expect(tabs).toHaveValue('30')
   expect(screen.getByRole('option', { name: 'Fane 1' })).toBeInTheDocument()
   await user.selectOptions(tabs, '31')
   await user.click(screen.getByRole('button', { name: 'Legg til i Innblikk prod' }))
   expect(importTransferredChart).toHaveBeenCalledWith(10, 20, chart, 'prod', 31)
+  expect(screen.getByLabelText('Gjeldende side')).toHaveTextContent('/dashboard/20?categoryId=31')
 })
 
 it('resets tab selection when switching dashboards and hides the picker for a single tab', async () => {
-  const user = userEvent.setup()
   vi.mocked(fetchDashboards).mockResolvedValue([
     { id: 20, projectId: 10, name: 'Mitt dashboard' },
     { id: 21, projectId: 10, name: 'Annet dashboard' },
@@ -226,11 +265,8 @@ it('resets tab selection when switching dashboards and hides the picker for a si
     ])
     .mockResolvedValueOnce([{ id: 32, dashboardId: 21, name: 'General' }])
   vi.mocked(importTransferredChart).mockResolvedValue({ id: 40, categoryId: 32, name: 'Besøk' })
-  render(<ChartImport />)
-  await receiveChart()
-  await user.selectOptions(await screen.findByLabelText('Team i prod'), '10')
-  await screen.findByRole('option', { name: 'Mitt dashboard' })
-  await user.selectOptions(screen.getByLabelText('Dashboard i prod'), '20')
+  renderImport()
+  const user = await selectDashboard()
   await user.selectOptions(await screen.findByLabelText('Fane'), '31')
   await user.selectOptions(screen.getByLabelText('Dashboard i prod'), '21')
   await waitFor(() => expect(screen.getByRole('button', { name: 'Legg til i Innblikk prod' })).toBeEnabled())
@@ -248,8 +284,7 @@ it('blocks saving while tabs load and after a tab-loading error', async () => {
         rejectTabs = reject
       }),
   )
-  render(<ChartImport />)
-  await receiveChart()
+  renderImport()
   await user.selectOptions(await screen.findByLabelText('Team i prod'), '10')
   await screen.findByRole('option', { name: 'Mitt dashboard' })
   await user.selectOptions(screen.getByLabelText('Dashboard i prod'), '20')
@@ -264,15 +299,9 @@ it('blocks saving while tabs load and after a tab-loading error', async () => {
 })
 
 it('keeps the default-tab creation behavior when the dashboard has no tabs', async () => {
-  const user = userEvent.setup()
   vi.mocked(fetchCategories).mockResolvedValue([])
-  vi.mocked(importTransferredChart).mockResolvedValue({ id: 40, categoryId: 30, name: 'Besøk' })
-  render(<ChartImport />)
-  await receiveChart()
-  await user.selectOptions(await screen.findByLabelText('Team i prod'), '10')
-  await screen.findByRole('option', { name: 'Mitt dashboard' })
-  await user.selectOptions(screen.getByLabelText('Dashboard i prod'), '20')
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Legg til i Innblikk prod' })).toBeEnabled())
+  renderImport()
+  const user = await selectDashboard()
   expect(screen.queryByLabelText('Fane')).not.toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Legg til i Innblikk prod' }))
   expect(importTransferredChart).toHaveBeenCalledWith(10, 20, chart, 'prod', undefined)
