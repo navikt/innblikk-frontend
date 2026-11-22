@@ -1,7 +1,7 @@
 import { useState, useEffect, useEffectEvent, useMemo } from 'react'
 import type { ReactNode } from 'react'
-import { Loader, Alert, Button, Tooltip, ActionMenu } from '@navikt/ds-react'
-import { MenuElipsisVerticalIcon } from '@navikt/aksel-icons'
+import { Loader, Alert, Button, Tooltip, ActionMenu, Link } from '@navikt/ds-react'
+import { MenuElipsisVerticalIcon, ExternalLinkIcon } from '@navikt/aksel-icons'
 import type { SavedChart } from '../../../shared/types/savedChart'
 import AnalysisActionModal from '../../analysis/ui/AnalysisActionModal.tsx'
 import DashboardWidgetLineChart from './widget/DashboardWidgetLineChart.tsx'
@@ -12,6 +12,8 @@ import DashboardWidgetFunnel from './widget/DashboardWidgetFunnel.tsx'
 import DashboardWidgetSiteimprove from './widget/DashboardWidgetSiteimprove.tsx'
 import TableSectionHeader from '../../../shared/ui/TableSectionHeader.tsx'
 import TransferToMetabaseDialog from '../../../shared/ui/TransferToMetabaseDialog.tsx'
+import ExportChartDialog from './ExportChartDialog'
+import { getTransferTarget, transferEnvironments, type TransferEnvironment } from '../utils/chartTransfer'
 import { processDashboardSql } from '../utils/queryUtils.ts'
 import { parseDashboardResponse, getSpanClass, type DashboardRow } from '../utils/widgetUtils.ts'
 import type { Sidegroup } from '../../sidegroups/model/types.ts'
@@ -339,6 +341,11 @@ export const DashboardWidget = ({
   const [hasFetchedIndividually, setHasFetchedIndividually] = useState(false)
   const [selectedUrlForAnalysis, setSelectedUrlForAnalysis] = useState<string | null>(null)
   const [showTransferToMetabaseDialog, setShowTransferToMetabaseDialog] = useState(false)
+  const [showExport, setShowExport] = useState(false)
+  const [exportedDashboard, setExportedDashboard] = useState<{ id: number; environment: TransferEnvironment } | null>(
+    null,
+  )
+  const exportTarget = getTransferTarget(window.location.origin)
   const [copyLinkFeedback, setCopyLinkFeedback] = useState(false)
   const [customVariableValues, setCustomVariableValues] = useState<Record<string, string>>({})
   const customFilters = useMemo(
@@ -518,6 +525,7 @@ export const DashboardWidget = ({
   const canShowActions =
     Boolean(chart.sql) || Boolean(onDeleteChart) || Boolean(onMoveChart) || Boolean(onEditChart) || Boolean(onCopyChart)
   const entityLabel = chart.type === 'text' ? 'tekstboks' : 'graf'
+  const canExport = exportTarget !== null && Boolean(chart.sql) && ['line', 'bar', 'pie', 'table'].includes(chart.type)
 
   const renderContent = () => {
     if (filterInputMessage) return <Alert variant="info">{filterInputMessage}</Alert>
@@ -659,11 +667,16 @@ export const DashboardWidget = ({
         {onDeleteChart && (
           <ActionMenu.Item onClick={() => onDeleteChart(chart.id)}>{`Slett ${entityLabel}`}</ActionMenu.Item>
         )}
-        {(Boolean(data && data.length > 0) || (replaceExploreActionWithSqlEditor && Boolean(chart.sql))) && (
-          <ActionMenu.Divider />
-        )}
+        {(Boolean(data && data.length > 0) ||
+          canExport ||
+          (replaceExploreActionWithSqlEditor && Boolean(chart.sql))) && <ActionMenu.Divider />}
         {data && data.length > 0 && (
-          <ActionMenu.Item onClick={() => setShowTransferToMetabaseDialog(true)}>Overfør til Metabase</ActionMenu.Item>
+          <ActionMenu.Item onClick={() => setShowTransferToMetabaseDialog(true)}>Legg til i Metabase</ActionMenu.Item>
+        )}
+        {canExport && (
+          <ActionMenu.Item onClick={() => setShowExport(true)}>
+            Legg til i Innblikk {exportTarget} (beta)
+          </ActionMenu.Item>
         )}
         {replaceExploreActionWithSqlEditor && chart.sql && (
           <ActionMenu.Item onClick={handleOpenInSqlEditor}>Åpne i SQL-editor</ActionMenu.Item>
@@ -706,7 +719,28 @@ export const DashboardWidget = ({
 
   return (
     <>
+      {showExport && exportTarget !== null && (
+        <ExportChartDialog
+          chart={chart}
+          websiteId={websiteId}
+          target={exportTarget}
+          onClose={() => setShowExport(false)}
+          onSaved={(id) => setExportedDashboard({ id, environment: exportTarget })}
+        />
+      )}
       <div className={`${containerClass} focus-within:relative focus-within:z-10`}>
+        {exportedDashboard !== null && (
+          <Alert variant="success" role="status" className="mb-4">
+            Grafen er lagret i {exportedDashboard.environment}.{' '}
+            <Link
+              href={`${transferEnvironments[exportedDashboard.environment].origin}/dashboard/${exportedDashboard.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Åpne dashboard i {exportedDashboard.environment} <ExternalLinkIcon aria-hidden fontSize="1rem" />
+            </Link>
+          </Alert>
+        )}
         <div className="flex flex-col mb-4">
           {chart.type === 'table' ? (
             <TableSectionHeader

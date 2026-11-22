@@ -28,6 +28,12 @@ export type BetaFeature = {
 
 export const betaFeatures: BetaFeature[] = [
   {
+    id: 'eksporter-graf',
+    title: 'Eksport av grafer mellom dev og prod',
+    description: 'Kopier grafer mellom dev og prod uten å redigere SQL.',
+    href: '/dashboard',
+  },
+  {
     id: 'nytt-design',
     title: 'Nytt design',
     description: 'Ny sidemeny og nytt design på alle sider.',

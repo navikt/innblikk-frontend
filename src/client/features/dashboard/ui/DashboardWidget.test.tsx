@@ -4,8 +4,10 @@ import { DashboardWidget } from './DashboardWidget'
 import { executeBigQuery } from '../api/bigquery'
 import type { SavedChart } from '../../../shared/types/savedChart'
 import { getDateRangeFromPeriod } from '../../../shared/lib/utils'
+import * as chartTransfer from '../utils/chartTransfer'
 
 vi.mock('../api/bigquery', () => ({ executeBigQuery: vi.fn() }))
+vi.mock('../../../shared/api/websiteApi', () => ({ fetchWebsites: vi.fn().mockResolvedValue([]) }))
 vi.mock('../../analysis/ui/AnalysisActionModal.tsx', () => ({ default: () => null }))
 vi.mock('../../../shared/ui/TransferToMetabaseDialog.tsx', () => ({ default: () => null }))
 vi.mock('./widget/DashboardWidgetLineChart.tsx', () => ({ default: () => null }))
@@ -28,6 +30,101 @@ const chart: SavedChart = {
   type: 'table',
   sql: `${directive}${baseSql} AND event_name = {{event}} GROUP BY event_name`,
 }
+
+it('offers export to the opposite environment and hides export on unsupported origins', async () => {
+  const user = userEvent.setup()
+  const source = vi.spyOn(chartTransfer, 'getTransferTarget').mockReturnValue('prod')
+  const props = {
+    chart: { ...chart, sql: baseSql },
+    websiteId: 'website-1',
+    filters,
+    prefetchedData: [{ event_name: 'result', count: 3 }],
+  }
+  try {
+    const { rerender } = render(<DashboardWidget {...props} />)
+    await user.click(screen.getByRole('button', { name: 'Flere valg for graf Hendelser' }))
+    const addToProduction = screen.getByRole('menuitem', { name: 'Legg til i Innblikk prod (beta)' })
+    expect(addToProduction).toBeVisible()
+    const menuItems = screen.getAllByRole('menuitem')
+    expect(menuItems[menuItems.indexOf(addToProduction) - 1]).toHaveTextContent('Legg til i Metabase')
+    source.mockReturnValue('dev')
+    rerender(<DashboardWidget {...props} />)
+    expect(screen.getByRole('menuitem', { name: 'Legg til i Innblikk dev (beta)' })).toBeVisible()
+    source.mockReturnValue(null)
+    rerender(<DashboardWidget {...props} />)
+    expect(screen.queryByRole('menuitem', { name: 'Legg til i Innblikk prod (beta)' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Legg til i Innblikk dev (beta)' })).not.toBeInTheDocument()
+  } finally {
+    source.mockRestore()
+  }
+})
+
+it('keeps the Innblikk add action available without data and before the SQL editor action', async () => {
+  const user = userEvent.setup()
+  const source = vi.spyOn(chartTransfer, 'getTransferTarget').mockReturnValue('prod')
+  try {
+    render(
+      <DashboardWidget
+        chart={{ ...chart, sql: baseSql }}
+        websiteId="website-1"
+        filters={filters}
+        prefetchedData={[]}
+        replaceExploreActionWithSqlEditor
+        onEditChart={vi.fn()}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: 'Flere valg for graf Hendelser' }))
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
+      'Rediger graf',
+      'Legg til i Innblikk prod (beta)',
+      'Åpne i SQL-editor',
+    ])
+  } finally {
+    source.mockRestore()
+  }
+})
+
+it.each(['prod', 'dev'] as const)(
+  'closes the export modal after saving and offers the destination %s dashboard in a new tab',
+  async (target) => {
+    const user = userEvent.setup()
+    const source = vi.spyOn(chartTransfer, 'getTransferTarget').mockReturnValue(target)
+    try {
+      render(
+        <DashboardWidget
+          chart={{ ...chart, sql: baseSql }}
+          websiteId="website-1"
+          filters={filters}
+          prefetchedData={[{ event_name: 'result', count: 3 }]}
+        />,
+      )
+      expect(screen.queryByRole('link', { name: `Åpne dashboard i ${target}` })).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Flere valg for graf Hendelser' }))
+      await user.click(screen.getByRole('menuitem', { name: `Legg til i Innblikk ${target} (beta)` }))
+      const iframe = screen.getByTitle<HTMLIFrameElement>(`Velg team og dashboard i ${target}`)
+      const requestId = new URL(iframe.src).searchParams.get('requestId')
+      for (const type of ['ready', 'saved']) {
+        await act(() =>
+          window.dispatchEvent(
+            new MessageEvent('message', {
+              origin: chartTransfer.transferEnvironments[target].origin,
+              source: iframe.contentWindow,
+              data: { channel: chartTransfer.TRANSFER_CHANNEL, requestId, type, dashboardId: 20 },
+            }),
+          ),
+        )
+      }
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(screen.getByText(`Grafen er lagret i ${target}.`)).toBeVisible()
+      const link = screen.getByRole('link', { name: `Åpne dashboard i ${target}` })
+      expect(link).toHaveAttribute('href', `${chartTransfer.transferEnvironments[target].origin}/dashboard/20`)
+      expect(link).toHaveAttribute('target', '_blank')
+      expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+    } finally {
+      source.mockRestore()
+    }
+  },
+)
 
 describe('dashboard custom SQL filters', () => {
   beforeEach(() => {
