@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { BrowserRouter, useNavigate } from 'react-router-dom'
+import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.hoisted(() => {
@@ -52,7 +52,9 @@ import { useTrafficAnalysis } from './useTrafficAnalysis.ts'
 const website = { id: 'site-1', name: 'Nav', domain: 'nav.no', teamId: 'team-1', createdAt: '2023-01-01T00:00:00Z' }
 const sidegroup = { id: '42', name: 'Jobber', websiteId: 'site-1', include: ['/jobs'] }
 
-const wrapper = ({ children }: { children: ReactNode }) => <BrowserRouter>{children}</BrowserRouter>
+const wrapper = ({ children }: { children: ReactNode }) => (
+  <MemoryRouter initialEntries={['/trafikkanalyse']}>{children}</MemoryRouter>
+)
 
 describe('useTrafficAnalysis sidegroup filter', () => {
   beforeEach(() => {
@@ -85,31 +87,6 @@ describe('useTrafficAnalysis sidegroup filter', () => {
     act(() => result.current.setSelectedWebsite({ ...website, id: 'site-2' }))
     await waitFor(() => expect(fetchTrafficSeriesMock).toHaveBeenCalledTimes(3))
     expect(buildSeriesUrlMock.mock.lastCall?.[0]).toBe('site-2')
-  })
-
-  it('publishes the committed filters before a pending request completes', async () => {
-    window.history.replaceState({}, '', '/trafikkanalyse?other=keep#section')
-    let resolveRequest!: (result: { data: never[] }) => void
-    fetchTrafficSeriesMock.mockReturnValueOnce(
-      new Promise((resolve) => {
-        resolveRequest = resolve
-      }),
-    )
-    const { result } = renderHook(() => useTrafficAnalysis(), { wrapper })
-    act(() => {
-      result.current.setSelectedWebsite(website)
-      result.current.setUrlPaths(['/jobs', '/work'])
-      result.current.setPeriod('last_28_days')
-    })
-    await waitFor(() => expect(fetchTrafficSeriesMock).toHaveBeenCalledTimes(1))
-    expect(result.current.loading).toBe(true)
-    const params = new URLSearchParams(window.location.search)
-    expect(params.get('period')).toBe('last_28_days')
-    expect(params.getAll('urlPath')).toEqual(['/jobs', '/work'])
-    expect(params.get('other')).toBe('keep')
-    expect(window.location.hash).toBe('#section')
-    act(() => resolveRequest({ data: [] }))
-    await waitFor(() => expect(result.current.loading).toBe(false))
   })
 
   it('keeps the report until custom dates form a complete valid range', async () => {
@@ -185,7 +162,9 @@ describe('useTrafficAnalysis sidegroup filter', () => {
 
   it('restores a sidegroup from the URL before the first traffic request', async () => {
     window.history.replaceState({}, '', '/trafikkanalyse?sidegroupId=42')
-    const sidegroupWrapper = ({ children }: { children: ReactNode }) => <BrowserRouter>{children}</BrowserRouter>
+    const sidegroupWrapper = ({ children }: { children: ReactNode }) => (
+      <MemoryRouter initialEntries={['/trafikkanalyse?sidegroupId=42']}>{children}</MemoryRouter>
+    )
     const { result } = renderHook(() => useTrafficAnalysis(), { wrapper: sidegroupWrapper })
 
     act(() => result.current.setSelectedWebsite(website))
@@ -207,27 +186,12 @@ describe('useTrafficAnalysis sidegroup filter', () => {
     expect(new URLSearchParams(window.location.search).get('pathOperator')).toBe('sidegroup')
   })
 
-  it('clears the old sidegroup when a same-route link selects ordinary paths', async () => {
-    window.history.replaceState({}, '', '/trafikkanalyse?sidegroupId=42')
-    const { result } = renderHook(() => ({ report: useTrafficAnalysis(), navigate: useNavigate() }), { wrapper })
-    act(() => result.current.report.setSelectedWebsite(website))
-    await waitFor(() => expect(result.current.report.sidegroup?.id).toBe('42'))
-    await waitFor(() => expect(fetchTrafficSeriesMock).toHaveBeenCalled())
-    await waitFor(() => expect(result.current.report.loading).toBe(false))
-    act(() => {
-      void result.current.navigate('/trafikkanalyse?websiteId=site-1&period=last_7_days&urlPath=%2Fwork')
-    })
-    await waitFor(() => expect(result.current.report.sidegroup).toBeNull())
-    await waitFor(() => expect(result.current.report.pathOperator).toBe('equals'))
-    await waitFor(() => expect(fetchTrafficSeriesMock).toHaveBeenCalledTimes(2))
-    expect(new URLSearchParams(window.location.search).has('sidegroupId')).toBe(false)
-    expect(buildSeriesUrlMock.mock.lastCall?.[8]).toBeNull()
-  })
-
   it('does not fetch whole-site data when the shared sidegroup cannot be resolved', async () => {
     useSidegroupsMock.mockImplementation(() => ({ sidegroups: [], loading: false, error: true }))
     window.history.replaceState({}, '', '/trafikkanalyse?sidegroupId=42')
-    const sidegroupWrapper = ({ children }: { children: ReactNode }) => <BrowserRouter>{children}</BrowserRouter>
+    const sidegroupWrapper = ({ children }: { children: ReactNode }) => (
+      <MemoryRouter initialEntries={['/trafikkanalyse?sidegroupId=42']}>{children}</MemoryRouter>
+    )
     const { result } = renderHook(() => useTrafficAnalysis(), { wrapper: sidegroupWrapper })
 
     act(() => result.current.setSelectedWebsite(website))

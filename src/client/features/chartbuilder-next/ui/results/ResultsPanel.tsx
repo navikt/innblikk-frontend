@@ -1,5 +1,3 @@
-import { Link as RouterLink } from 'react-router-dom'
-import { useReplaceSearchParams } from '../../../../shared/hooks/useReplaceSearchParams.ts'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Events, type LastNedProperties } from '@navikt/analytics-types'
 import { trackEvent } from '../../../../shared/lib/trackEvent.ts'
@@ -209,7 +207,6 @@ const ResultsPanel = ({
   onGraphTypeSuggestionChange,
   initialTab,
 }: ResultsPanelProps) => {
-  const replaceSearchParams = useReplaceSearchParams()
   // Read initial tab from URL parameter, falling back to the `initialTab` prop (e.g. Copilot's
   // per-message chart suggestion — see chartSuggestion in useAssistantChat.ts) if there's no URL
   // param, then finally to 'table'. The URL param always wins when present since it reflects an
@@ -372,17 +369,22 @@ const ResultsPanel = ({
       const urlParams = new URLSearchParams(window.location.search)
       if (urlParams.has('tab')) {
         urlParams.set('tab', selectedTab)
-        replaceSearchParams(urlParams)
+        window.history.replaceState(
+          {},
+          '',
+          `${window.location.pathname}?${urlParams.toString()}${window.location.hash}`,
+        )
       }
     }
-  }, [activeTab, selectedTab, replaceSearchParams])
+  }, [activeTab, selectedTab])
 
   // Update URL when tab changes
   const handleTabChange = (newTab: string) => {
     setActiveTab(newTab)
     const urlParams = new URLSearchParams(window.location.search)
     urlParams.set('tab', newTab)
-    replaceSearchParams(urlParams)
+    const newUrl = `${window.location.pathname}?${urlParams.toString()}`
+    window.history.replaceState({}, '', newUrl)
   }
 
   useEffect(() => {
@@ -1573,10 +1575,8 @@ const ResultsPanel = ({
             {showChartBuilderLink && websiteId && (
               <>
                 {' '}
-                <Link as={RouterLink} to={`/grafbygger?websiteId=${encodeURIComponent(websiteId)}`}>
-                  Åpne i Grafbygger
-                </Link>{' '}
-                for å justere filtre og datoperiode.
+                <Link href={`/grafbygger?websiteId=${encodeURIComponent(websiteId)}`}>Åpne i Grafbygger</Link> for å
+                justere filtre og datoperiode.
               </>
             )}
           </Alert>

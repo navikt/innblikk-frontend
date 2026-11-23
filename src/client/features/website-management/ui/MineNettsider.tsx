@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { BodyLong, BodyShort, Button, Heading, Link, Loader, LocalAlert, VStack } from '@navikt/ds-react'
 import { PlusIcon } from '@navikt/aksel-icons'
-import { Link as RouterLink } from 'react-router-dom'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import {
@@ -81,11 +80,7 @@ export default function MineNettsider() {
 
           <BodyShort size="small" style={{ color: 'var(--ax-text-subtle)' }}>
             Endringene gjelder miljøet du er logget inn på. Den fullstendige oversikten over alle nettsider og
-            sporingskoder ligger fortsatt på{' '}
-            <Link as={RouterLink} to="/sporingskoder">
-              Sporingskoder
-            </Link>
-            .
+            sporingskoder ligger fortsatt på <Link href="/sporingskoder">Sporingskoder</Link>.
           </BodyShort>
 
           {isLoadingAnything && <Loader size="large" title="Laster nettsider…" />}

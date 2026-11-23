@@ -1,9 +1,8 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
-import { createRef } from 'react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createMemoryRouter, Link, Outlet, RouterProvider } from 'react-router-dom'
+import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
-import SidegroupEditorRoute, { SidegroupEditor, type SidegroupEditorRef } from './SidegroupEditorPage.tsx'
+import SidegroupEditorRoute from './SidegroupEditorPage.tsx'
 import { createSidegroup, listSidegroups, updateSidegroup } from '../api/sidegroupsApi.ts'
 
 vi.mock('../api/sidegroupsApi.ts', () => ({
@@ -17,27 +16,17 @@ vi.mock('../../../shared/api/websiteApi.ts', () => ({
 }))
 
 function renderAt(path: string) {
-  const router = createMemoryRouter(
-    [
-      {
-        element: (
-          <>
-            <Outlet />
-            <Link to="/annet">Annen lenke</Link>
-          </>
-        ),
-        children: [
-          { path: '/sidegrupper/ny', element: <SidegroupEditorRoute /> },
-          { path: '/sidegrupper/:id', element: <SidegroupEditorRoute /> },
-          { path: '/sidegrupper', element: <div>Oversikt</div> },
-          { path: '/annet', element: <div>Annen side</div> },
-        ],
-      },
-    ],
-    { initialEntries: [path] },
+  render(
+    <MemoryRouter initialEntries={[path]}>
+      <Routes>
+        <Route path="/sidegrupper/ny" element={<SidegroupEditorRoute />} />
+        <Route path="/sidegrupper/:id" element={<SidegroupEditorRoute />} />
+        <Route path="/sidegrupper" element={<div>Oversikt</div>} />
+        <Route path="/annet" element={<div>Annen side</div>} />
+      </Routes>
+      <Link to="/annet">Annen lenke</Link>
+    </MemoryRouter>,
   )
-  render(<RouterProvider router={router} />)
-  return router
 }
 
 describe('SidegroupEditorPage', () => {
@@ -207,66 +196,5 @@ describe('SidegroupEditorPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Forkast' }))
     expect(await screen.findByText('Annen side')).toBeInTheDocument()
-  })
-
-  it('keeps embedded close and save callbacks without route navigation', async () => {
-    const user = userEvent.setup()
-    const ref = createRef<SidegroupEditorRef>()
-    const onCancel = vi.fn()
-    const onSaved = vi.fn()
-    const website = { id: 'site-1', name: 'Nav.no', domain: 'nav.no', teamId: 'team', createdAt: '' }
-    const router = createMemoryRouter([
-      { path: '/', element: <SidegroupEditor ref={ref} website={website} onCancel={onCancel} onSaved={onSaved} /> },
-    ])
-    render(<RouterProvider router={router} />)
-    await user.type(await screen.findByLabelText('Navn'), 'Hjelp')
-    act(() => ref.current?.requestClose())
-    await user.click(await screen.findByRole('button', { name: 'Fortsett å redigere' }))
-    expect(onCancel).not.toHaveBeenCalled()
-    expect(screen.getByLabelText('Navn')).toHaveValue('Hjelp')
-    await user.click(screen.getByRole('button', { name: 'Opprett sidegruppe' }))
-    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1))
-    expect(router.state.location.pathname).toBe('/')
-    expect(screen.queryByText('Forkaste endringene?')).not.toBeInTheDocument()
-  })
-
-  it('discards an embedded draft through the cancel callback', async () => {
-    const user = userEvent.setup()
-    const ref = createRef<SidegroupEditorRef>()
-    const onCancel = vi.fn()
-    const website = { id: 'site-1', name: 'Nav.no', domain: 'nav.no', teamId: 'team', createdAt: '' }
-    const router = createMemoryRouter([
-      { path: '/', element: <SidegroupEditor ref={ref} website={website} onCancel={onCancel} onSaved={vi.fn()} /> },
-    ])
-    render(<RouterProvider router={router} />)
-    await user.type(await screen.findByLabelText('Navn'), 'Hjelp')
-    act(() => ref.current?.requestClose())
-    await user.click(await screen.findByRole('button', { name: 'Forkast' }))
-    expect(onCancel).toHaveBeenCalledTimes(1)
-    expect(router.state.location.pathname).toBe('/')
-  })
-
-  it('resumes router navigation instead of cancelling the embedded editor', async () => {
-    const user = userEvent.setup()
-    const onCancel = vi.fn()
-    const website = { id: 'site-1', name: 'Nav.no', domain: 'nav.no', teamId: 'team', createdAt: '' }
-    const router = createMemoryRouter([
-      {
-        path: '/',
-        element: (
-          <>
-            <SidegroupEditor website={website} onCancel={onCancel} onSaved={vi.fn()} />
-            <Link to="/annet">Gå videre</Link>
-          </>
-        ),
-      },
-      { path: '/annet', element: <div>Annen side</div> },
-    ])
-    render(<RouterProvider router={router} />)
-    await user.type(await screen.findByLabelText('Navn'), 'Hjelp')
-    await user.click(screen.getByRole('link', { name: 'Gå videre' }))
-    await user.click(await screen.findByRole('button', { name: 'Forkast' }))
-    expect(await screen.findByText('Annen side')).toBeInTheDocument()
-    expect(onCancel).not.toHaveBeenCalled()
   })
 })

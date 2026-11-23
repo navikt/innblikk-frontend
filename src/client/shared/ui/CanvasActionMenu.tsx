@@ -1,6 +1,5 @@
 import { ActionMenu, Button, Tooltip } from '@navikt/ds-react'
 import { MenuElipsisVerticalIcon } from '@navikt/aksel-icons'
-import { Link } from 'react-router-dom'
 
 export type CanvasActionMenuItem = {
   label: string
@@ -31,7 +30,7 @@ const CanvasActionMenu = ({ canvasName, items }: CanvasActionMenuProps) => {
       <ActionMenu.Content align="end">
         {items.map((item) =>
           item.href ? (
-            <ActionMenu.Item key={item.label} as={Link} to={item.href} onClick={item.onClick}>
+            <ActionMenu.Item key={item.label} as="a" href={item.href} onClick={item.onClick}>
               {item.label}
             </ActionMenu.Item>
           ) : (

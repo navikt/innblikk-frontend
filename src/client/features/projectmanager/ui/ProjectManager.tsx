@@ -1304,7 +1304,7 @@ const ProjectManager = () => {
         </Button>
       </ActionMenu.Trigger>
       <ActionMenu.Content align="start">
-        <ActionMenu.Item as={RouterLink} to="/grafbygger">
+        <ActionMenu.Item as="a" href="/grafbygger">
           Legg til graf
         </ActionMenu.Item>
         <ActionMenu.Item onClick={() => openImportChart(dashboardId)}>Importer graf</ActionMenu.Item>

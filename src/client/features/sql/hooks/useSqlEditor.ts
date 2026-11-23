@@ -1,4 +1,3 @@
-import { useReplaceSearchParams } from '../../../shared/hooks/useReplaceSearchParams.ts'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import * as sqlFormatter from 'sql-formatter'
@@ -14,7 +13,7 @@ import {
   replaceHardcodedWebsiteId,
   sanitizePlaceholders,
   restorePlaceholders,
-  updateUrlParams as updateSqlUrlParams,
+  updateUrlParams,
 } from '../utils/sqlProcessing'
 import { prepareLineChartData, prepareBarChartData, preparePieChartData } from '../utils/chartHelpers'
 import { fetchWebsites, estimateQueryCost, executeQueryApi } from '../api/sqlApi'
@@ -23,15 +22,8 @@ import { fetchWebsites, estimateQueryCost, executeQueryApi } from '../api/sqlApi
 const sqlPrefillCache = new Map<string, string>()
 
 export const useSqlEditor = () => {
-  const replaceSearchParams = useReplaceSearchParams()
-  const updateUrlParams = useCallback(
-    (updates: Record<string, string | null>) => updateSqlUrlParams(updates, replaceSearchParams),
-    [replaceSearchParams],
-  )
   const [searchParams] = useSearchParams()
 
-  const sqlFromUrl = searchParams.get('sql')
-  const sqlStorageKeyFromUrl = searchParams.get('sqlStorageKey')
   const urlPathFromUrl = searchParams.get('urlPath')
   const pathOperatorFromUrl = searchParams.get('pathOperator')
   const dateRangeFromUrl = searchParams.get('dateRange')
@@ -106,11 +98,11 @@ export const useSqlEditor = () => {
 
   const websiteId = extractWebsiteId(query)
 
-  // Only a different SQL document/prefill can replace editor contents. Filter
-  // publication also updates the router, but must never discard local edits.
+  // Check for SQL in URL params on mount and init filters
   useEffect(() => {
-    let sqlParam = sqlFromUrl
-    const sqlStorageKey = sqlStorageKeyFromUrl
+    const urlParams = new URLSearchParams(window.location.search)
+    let sqlParam = urlParams.get('sql')
+    const sqlStorageKey = urlParams.get('sqlStorageKey')
     const defaultQuery = getDefaultQuery()
 
     if (!sqlParam && sqlStorageKey) {
@@ -138,11 +130,8 @@ export const useSqlEditor = () => {
     } else {
       setQuery(defaultQuery)
     }
-  }, [sqlFromUrl, sqlStorageKeyFromUrl])
 
-  // Restore filters independently of the SQL document.
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search)
+    // Init urlPath state from URL
     if (urlPathFromUrl) {
       setUrlPath(urlPathFromUrl.split(',')[0])
     }
@@ -420,22 +409,28 @@ export const useSqlEditor = () => {
   }
 
   const handleStartDateChange = (date: Date | undefined) => {
-    setDateRange((prev) => ({ ...prev, from: date }))
-    setPeriod('custom')
-    updateUrlParams({
-      dateRange: 'custom',
-      customStartDate: date ? date.toISOString() : null,
-      customEndDate: dateRange.to ? dateRange.to.toISOString() : null,
+    setDateRange((prev) => {
+      const newState = { ...prev, from: date }
+      setPeriod('custom')
+      updateUrlParams({
+        dateRange: 'custom',
+        customStartDate: date ? date.toISOString() : null,
+        customEndDate: newState.to ? newState.to.toISOString() : null,
+      })
+      return newState
     })
   }
 
   const handleEndDateChange = (date: Date | undefined) => {
-    setDateRange((prev) => ({ ...prev, to: date }))
-    setPeriod('custom')
-    updateUrlParams({
-      dateRange: 'custom',
-      customStartDate: dateRange.from ? dateRange.from.toISOString() : null,
-      customEndDate: date ? date.toISOString() : null,
+    setDateRange((prev) => {
+      const newState = { ...prev, to: date }
+      setPeriod('custom')
+      updateUrlParams({
+        dateRange: 'custom',
+        customStartDate: newState.from ? newState.from.toISOString() : null,
+        customEndDate: date ? date.toISOString() : null,
+      })
+      return newState
     })
   }
 

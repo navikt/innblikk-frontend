@@ -1,4 +1,3 @@
-import { Link as RouterLink } from 'react-router-dom'
 import { ActionMenu, Alert, Button, Tabs, Tag, TextField } from '@navikt/ds-react'
 import {
   FileTextIcon,
@@ -227,8 +226,8 @@ const CanvasTopBar = ({
       <div className="pointer-events-auto rounded-md border border-[var(--ax-border-neutral-subtle)] bg-[var(--ax-bg-default)] p-2 shadow-sm">
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
-            <RouterLink
-              to={canvasHomeHref}
+            <a
+              href={canvasHomeHref}
               aria-label={`${headingTitle}. Til dashboard-oversikt`}
               className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-sm border-0 bg-transparent p-0 text-left text-[var(--ax-text-default)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-border-accent)]"
             >
@@ -251,7 +250,7 @@ const CanvasTopBar = ({
               <h1 className="m-0 truncate text-[20px] font-semibold leading-none" title={headingTitle}>
                 {headingTitle}
               </h1>
-            </RouterLink>
+            </a>
             <Tag data-color="meta-purple" variant="strong" size="small" icon={<TestFlaskIcon aria-hidden />}>
               Beta
             </Tag>
@@ -407,9 +406,7 @@ const CanvasTopBar = ({
                   />
                 </ActionMenu.Trigger>
                 <ActionMenu.Content align="end">
-                  <ActionMenu.Item as={RouterLink} to="/canvas">
-                    Canvas-oversikt
-                  </ActionMenu.Item>
+                  <ActionMenu.Item onClick={() => window.location.assign('/canvas')}>Canvas-oversikt</ActionMenu.Item>
                   <ActionMenu.Divider />
                   <ActionMenu.Item onClick={onOpenInventory}>Elementer</ActionMenu.Item>
                   <ActionMenu.Item onClick={onOpenChangeLog}>Endringslogg</ActionMenu.Item>
@@ -418,7 +415,7 @@ const CanvasTopBar = ({
                   )}
                   <ActionMenu.Item onClick={onOpenCanvasSettings}>Innstillinger</ActionMenu.Item>
                   <ActionMenu.Divider />
-                  <ActionMenu.Item as={RouterLink} to="/">
+                  <ActionMenu.Item onClick={() => window.location.assign('/')}>
                     <span className="inline-flex items-center gap-1">
                       Innblikk
                       <HouseIcon fontSize="0.875rem" />

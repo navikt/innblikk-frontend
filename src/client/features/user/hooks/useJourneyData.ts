@@ -1,5 +1,3 @@
-import { useReplaceSearchParams } from '../../../shared/hooks/useReplaceSearchParams'
-import { useLocation } from 'react-router-dom'
 import { useState, useCallback } from 'react'
 import type { IChartProps } from '@fluentui/react-charting'
 import type { Website } from '../../../shared/types/chart'
@@ -16,8 +14,6 @@ export function useJourneyData(
   limit: number,
   journeyDirection: string,
 ) {
-  const replaceSearchParams = useReplaceSearchParams()
-  const { search: locationSearch } = useLocation()
   const [data, setData] = useState<IChartProps | null>(null)
   const [rawData, setRawData] = useState<JourneyData | null>(null)
   const [loading, setLoading] = useState<boolean>(false)
@@ -58,30 +54,13 @@ export function useJourneyData(
       setError(null)
 
       const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
-      if (!dateRange || !(dateRange.endDate >= dateRange.startDate)) {
+      if (!dateRange) {
         setError('Vennligst velg en gyldig periode.')
         setLoading(false)
         setIsUpdating(false)
         return
       }
       const { startDate, endDate } = dateRange
-
-      const newParams = new URLSearchParams(locationSearch)
-      newParams.set('period', period)
-      newParams.set('steps', stepsToFetch.toString())
-      newParams.set('limit', limit.toString())
-      newParams.set('direction', journeyDirection)
-      newParams.set('urlPath', normalizedStartUrl)
-      newParams.delete('startUrl')
-      if (period === 'custom' && customStartDate && customEndDate) {
-        newParams.set('from', format(customStartDate, 'yyyy-MM-dd'))
-        newParams.set('to', format(customEndDate, 'yyyy-MM-dd'))
-      } else {
-        newParams.delete('from')
-        newParams.delete('to')
-      }
-
-      replaceSearchParams(newParams)
 
       try {
         const response = await fetch('/api/bigquery/journeys', {
@@ -138,6 +117,22 @@ export function useJourneyData(
 
         setReverseVisualOrder(journeyDirection === 'backward')
 
+        const newParams = new URLSearchParams(window.location.search)
+        newParams.set('period', period)
+        newParams.set('steps', stepsToFetch.toString())
+        newParams.set('limit', limit.toString())
+        newParams.set('direction', journeyDirection)
+        newParams.set('urlPath', normalizedStartUrl)
+        newParams.delete('startUrl')
+        if (period === 'custom' && customStartDate && customEndDate) {
+          newParams.set('from', format(customStartDate, 'yyyy-MM-dd'))
+          newParams.set('to', format(customEndDate, 'yyyy-MM-dd'))
+        } else {
+          newParams.delete('from')
+          newParams.delete('to')
+        }
+
+        window.history.replaceState({}, '', `${window.location.pathname}?${newParams.toString()}`)
         setLastAppliedFilterKey(appliedFilterKey)
       } catch {
         setError('Kunne ikke laste brukerreiser. Prøv igjen senere.')
@@ -146,16 +141,7 @@ export function useJourneyData(
         setIsUpdating(false)
       }
     },
-    [
-      locationSearch,
-      replaceSearchParams,
-      selectedWebsite,
-      period,
-      customStartDate,
-      customEndDate,
-      limit,
-      journeyDirection,
-    ],
+    [selectedWebsite, period, customStartDate, customEndDate, limit, journeyDirection],
   )
 
   return {

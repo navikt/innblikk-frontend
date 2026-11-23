@@ -12,7 +12,6 @@ interface DashboardLayoutProps {
   description?: React.ReactNode
   headerActions?: React.ReactNode
   team?: Pick<ProjectDto, 'id' | 'name'>
-  breadcrumbsLoading?: boolean
   filtersTop?: React.ReactNode
   filters?: React.ReactNode
   showKontaktSection?: boolean
@@ -25,7 +24,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   description,
   headerActions,
   team,
-  breadcrumbsLoading = false,
   filtersTop,
   filters,
   showKontaktSection = true,
@@ -47,8 +45,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 { label: title },
               ]}
             />
-          ) : breadcrumbsLoading ? (
-            <div aria-hidden className="h-6" data-testid="dashboard-breadcrumb-placeholder" />
           ) : undefined
         }
       />

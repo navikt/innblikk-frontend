@@ -1,5 +1,3 @@
-import { useReplaceSearchParams } from '../../../shared/hooks/useReplaceSearchParams'
-import { useRestoreAnalysisContext } from '../hooks/useRestoreAnalysisContext'
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Events } from '@navikt/analytics-types'
@@ -154,13 +152,9 @@ function BrokenLinkPagesContent({
 const BrokenLinks = () => {
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
   const [actionModalUrl, setActionModalUrl] = useState<string | null>(null)
-  const [searchParams] = useSearchParams()
-  const replaceSearchParams = useReplaceSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState<string>('pages')
-  const [urlPath, setUrlPath] = useState<string>(
-    () => searchParams.get('urlPath') || searchParams.get('pagePath') || '',
-  )
-  useRestoreAnalysisContext({ paths: (paths) => setUrlPath(paths[0] || '') })
+  const [urlPath, setUrlPath] = useState<string>(() => searchParams.get('urlPath') || '')
   const [pagesSearch, setPagesSearch] = useState('')
   const [linksSearch, setLinksSearch] = useState('')
   const [showPagesSearch, setShowPagesSearch] = useState(false)
@@ -223,8 +217,7 @@ const BrokenLinks = () => {
               } else {
                 newParams.delete('urlPath')
               }
-              newParams.delete('pagePath')
-              replaceSearchParams(newParams)
+              setSearchParams(newParams, { replace: true })
             }}
           />
         </>

@@ -1,11 +1,11 @@
-import { Heading, Loader } from '@navikt/ds-react'
+import { Heading, Button, Loader } from '@navikt/ds-react'
+import { ArrowLeftIcon } from '@navikt/aksel-icons'
 import type { SeriesPoint, EventProperty, ParameterValue, LatestEvent, QueryStats } from '../model/types.ts'
 import EventSeriesChart from './EventSeriesChart.tsx'
 import EventPropertiesSection from './EventPropertiesSection.tsx'
 
 interface EventDetailViewProps {
   selectedEvent: string
-  period: string
   seriesData: SeriesPoint[]
   propertiesData: EventProperty[]
   loadingData: boolean
@@ -17,12 +17,13 @@ interface EventDetailViewProps {
   latestEvents: LatestEvent[]
   selectedParameterForDrilldown: string | null
   parameterValuesQueryStats: QueryStats | null
+  onBack: () => void
+  onDrilldown: (parameterName: string | null) => void
   onFetchValues: () => void
 }
 
 const EventDetailView = ({
   selectedEvent,
-  period,
   seriesData,
   propertiesData,
   loadingData,
@@ -34,9 +35,17 @@ const EventDetailView = ({
   latestEvents,
   selectedParameterForDrilldown,
   parameterValuesQueryStats,
+  onBack,
+  onDrilldown,
   onFetchValues,
 }: EventDetailViewProps) => (
   <div className="space-y-6">
+    <div className="flex items-center gap-4 mb-4">
+      <Button variant="tertiary" size="small" icon={<ArrowLeftIcon aria-hidden fontSize="1.25rem" />} onClick={onBack}>
+        Alle hendelser
+      </Button>
+    </div>
+
     <Heading level="2" size="medium">
       Hendelse: {selectedEvent}
     </Heading>
@@ -60,8 +69,7 @@ const EventDetailView = ({
             latestEvents={latestEvents}
             selectedParameterForDrilldown={selectedParameterForDrilldown}
             parameterValuesQueryStats={parameterValuesQueryStats}
-            selectedEvent={selectedEvent}
-            period={period}
+            onDrilldown={onDrilldown}
             onFetchValues={onFetchValues}
           />
         </div>

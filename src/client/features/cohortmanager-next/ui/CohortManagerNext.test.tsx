@@ -34,12 +34,23 @@ function renderAt(path: string) {
 }
 
 describe('CohortManagerNext', () => {
-  it('has no breadcrumb on the first-level Brukergrupper page', async () => {
+  it('shows Grafbygger above the title and marks Brukergrupper as the current page', async () => {
     renderAt('/brukergrupper')
 
     expect(screen.queryByRole('heading', { name: 'Brukergrupper er i beta' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('navigation', { name: 'Brødsmulesti' })).not.toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Brukergrupper', level: 1 })).toBeVisible()
+    const navigation = screen.getByRole('navigation', { name: 'Brødsmulesti' })
+    expect(
+      within(navigation)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Grafbygger', 'Brukergrupper'])
+    expect(within(navigation).getByRole('link', { name: 'Grafbygger' })).toHaveAttribute('href', '/grafbygger')
+    expect(within(navigation).getByText('Brukergrupper')).toHaveAttribute('aria-current', 'page')
+    expect(within(navigation).queryByRole('link', { name: 'Brukergrupper' })).not.toBeInTheDocument()
+    expect(
+      navigation.compareDocumentPosition(screen.getByRole('heading', { name: 'Brukergrupper', level: 1 })) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
     await waitFor(() => expect(screen.queryByTitle('Laster nettsteder…')).not.toBeInTheDocument())
   })
 
@@ -73,7 +84,7 @@ describe('CohortManagerNext', () => {
       expect(within(dialog).queryByRole('radio')).not.toBeInTheDocument()
       expect(within(dialog).getByRole('button', { name: 'Rediger gruppe' })).toHaveAttribute(
         'href',
-        '/brukergrupper/42?websiteId=site-1',
+        '/brukergrupper/42',
       )
       const link = within(dialog).getByRole('button', { name: 'Bruk i Grafbygger' })
       const url = new URL(link.getAttribute('href')!, 'https://example.test')
@@ -90,33 +101,24 @@ describe('CohortManagerNext', () => {
     })
   })
 
-  it.each(['site-1', 'site /?&'])(
-    'opens the editor with the selected website %s and shared filters',
-    async (websiteId) => {
-      const user = userEvent.setup()
-      renderAt(`/brukergrupper?websiteId=${encodeURIComponent(websiteId)}&period=last_7_days&urlPath=%2Farbeid`)
+  it.each(['site-1', 'site /?&'])('returns to Grafbygger with the selected website %s', async (websiteId) => {
+    const user = userEvent.setup()
+    const destination = `/grafbygger?websiteId=${encodeURIComponent(websiteId)}`
+    renderAt(`/brukergrupper?websiteId=${encodeURIComponent(websiteId)}`)
 
-      await user.click(await screen.findByRole('button', { name: 'Ny brukergruppe' }))
+    await user.click(screen.getByRole('link', { name: 'Grafbygger' }))
 
-      const url = new URL(screen.getByLabelText('Gjeldende adresse').textContent, 'https://example.test')
-      expect(url.pathname).toBe('/brukergrupper/ny')
-      expect(url.searchParams.get('websiteId')).toBe(websiteId)
-      expect(url.searchParams.get('period')).toBe('last_7_days')
-      expect(url.searchParams.get('urlPath')).toBe('/arbeid')
-    },
-  )
+    expect(screen.getByLabelText('Gjeldende adresse').textContent).toBe(destination)
+  })
 
-  it('updates the editor link when the default website is selected after loading', async () => {
+  it('updates the link when the default website is selected after loading', async () => {
     vi.mocked(fetchWebsites).mockResolvedValueOnce([
       { id: 'site-1', name: 'Nav.no', domain: 'nav.no', teamId: 'team-1', createdAt: '2026-01-01T00:00:00Z' },
     ])
     renderAt('/brukergrupper')
 
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Ny brukergruppe' })).toHaveAttribute(
-        'href',
-        '/brukergrupper/ny?websiteId=site-1',
-      ),
+      expect(screen.getByRole('link', { name: 'Grafbygger' })).toHaveAttribute('href', '/grafbygger?websiteId=site-1'),
     )
   })
 })

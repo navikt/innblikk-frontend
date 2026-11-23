@@ -1,4 +1,3 @@
-import { Link as RouterLink } from 'react-router-dom'
 import { useState, useEffect, useEffectEvent, useMemo } from 'react'
 import type { ReactNode } from 'react'
 import { Loader, Alert, Button, Tooltip, ActionMenu } from '@navikt/ds-react'
@@ -619,6 +618,11 @@ export const DashboardWidget = ({
     }
   }
 
+  const handleOpenInSqlEditor = () => {
+    if (!chart.sql) return
+    window.location.href = buildEditorUrl(chart, websiteId, widgetFilters, selectedWebsite?.domain)
+  }
+
   const handleDownloadCsv = () => {
     if (!data || data.length === 0) return
     downloadChartCsv(data, chart.title)
@@ -688,12 +692,7 @@ export const DashboardWidget = ({
           </ActionMenu.Item>
         )}
         {replaceExploreActionWithSqlEditor && chart.sql && (
-          <ActionMenu.Item
-            as={RouterLink}
-            to={buildEditorUrl(chart, websiteId, widgetFilters, selectedWebsite?.domain)}
-          >
-            Åpne i SQL-editor
-          </ActionMenu.Item>
+          <ActionMenu.Item onClick={handleOpenInSqlEditor}>Åpne i SQL-editor</ActionMenu.Item>
         )}
         {data && data.length > 0 && <ActionMenu.Item onClick={handleDownloadCsv}>Last ned CSV</ActionMenu.Item>}
       </ActionMenu.Content>

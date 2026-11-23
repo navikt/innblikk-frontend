@@ -8,7 +8,7 @@ import {
 } from '@navikt/aksel-icons'
 import { ActionMenu, Alert, BodyLong, BodyShort, Button, Heading, Link, Loader, Select, Table } from '@navikt/ds-react'
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
-import { Link as RouterLink, useLocation } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 import { DashboardWidget } from '../../../dashboard'
 import { copyToClipboard } from '../../../../shared/lib/clipboard.ts'
 import { getCanvasStickyColorOptionById } from '../../ui/sticky/CanvasStickyColorRegistry.ts'
@@ -185,6 +185,10 @@ const CanvasShareView = () => {
     if (copied) {
       window.setTimeout(() => setCopySuccess(false), 2500)
     }
+  }
+
+  const navigateBackToCanvas = () => {
+    window.location.assign(canvasPath)
   }
 
   useEffect(() => {
@@ -747,7 +751,7 @@ const CanvasShareView = () => {
                 />
               </ActionMenu.Trigger>
               <ActionMenu.Content align="end">
-                <ActionMenu.Item as={RouterLink} to={canvasPath}>
+                <ActionMenu.Item onClick={navigateBackToCanvas}>
                   <span className="inline-flex items-center gap-2">
                     <ArrowLeftIcon fontSize="0.875rem" />
                     Til canvas

@@ -1,8 +1,6 @@
-import { useReplaceSearchParams } from '../../../shared/hooks/useReplaceSearchParams'
-import { useRestoreAnalysisContext } from './useRestoreAnalysisContext'
 import { useState, useEffect, useCallback } from 'react'
 import { useAutoRefresh } from './useAutoRefresh'
-import { useSearchParams, useLocation } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import type { Website } from '../../../shared/types/chart.ts'
 import type { SpellingIssue, QualityAssuranceCheck, SpellingCrawlData } from '../model/types.ts'
 import { getSiteimproveId } from '../utils/siteimprove.ts'
@@ -11,8 +9,6 @@ import { fetchPageId, fetchSpellingOverview, fetchPageSpellings } from '../api/s
 const SITEIMPROVE_BASE_URL = '/api/siteimprove'
 
 export const useSpellings = () => {
-  const replaceSearchParams = useReplaceSearchParams()
-  const { search: locationSearch } = useLocation()
   const [searchParams] = useSearchParams()
 
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
@@ -28,10 +24,7 @@ export const useSpellings = () => {
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [urlPath, setUrlPath] = useState<string>(
-    () => searchParams.get('urlPath') || searchParams.get('pagePath') || '',
-  )
-  useRestoreAnalysisContext({ paths: (paths) => setUrlPath(paths[0] || '') })
+  const [urlPath, setUrlPath] = useState<string>(() => searchParams.get('urlPath') || '')
 
   // Resolve siteimproveId when website changes
   useEffect(() => {
@@ -65,15 +58,6 @@ export const useSpellings = () => {
     setHasAttemptedFetch(true)
     setCrawlInfo(null)
 
-    const newParams = new URLSearchParams(locationSearch)
-    newParams.delete('pagePath')
-    if (urlPath) {
-      newParams.set('urlPath', urlPath)
-    } else {
-      newParams.delete('urlPath')
-    }
-    replaceSearchParams(newParams)
-
     try {
       if (!urlPath) {
         const result = await fetchSpellingOverview(SITEIMPROVE_BASE_URL, siteimproveId)
@@ -95,6 +79,15 @@ export const useSpellings = () => {
         setCrawlInfo(result.crawlInfo)
         setMisspellings(result.misspellings)
         setPotentialMisspellings(result.potentialMisspellings)
+
+        // Update URL for sharing
+        const newParams = new URLSearchParams(window.location.search)
+        if (urlPath) {
+          newParams.set('urlPath', urlPath)
+        } else {
+          newParams.delete('urlPath')
+        }
+        window.history.replaceState({}, '', `${window.location.pathname}?${newParams.toString()}`)
       }
     } catch (err) {
       console.error('Error fetching spelling data:', err)
@@ -103,7 +96,7 @@ export const useSpellings = () => {
     } finally {
       setLoading(false)
     }
-  }, [locationSearch, replaceSearchParams, siteimproveId, urlPath])
+  }, [siteimproveId, urlPath])
 
   useAutoRefresh(
     JSON.stringify([selectedWebsite?.id, siteimproveId, urlPath]),

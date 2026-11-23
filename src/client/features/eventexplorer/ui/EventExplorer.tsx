@@ -1,6 +1,5 @@
 import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import { useState } from 'react'
-import { Navigate, useLocation } from 'react-router-dom'
 import { Button, Alert, Loader } from '@navikt/ds-react'
 import { CheckmarkIcon, PaperplaneIcon } from '@navikt/aksel-icons'
 import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
@@ -13,38 +12,8 @@ import { copyToClipboard } from '../utils/clipboard.ts'
 import EventList from './EventList.tsx'
 import EventDetailView from './EventDetailView.tsx'
 import { SqlViewer } from '../../chartbuilder-next'
-import { EVENT_DETAIL_PATH, EVENT_LIST_PATH, EVENT_PARAMETER_PATH } from '../utils/navigation.ts'
 
 const EventExplorer = () => {
-  const { pathname, search, hash } = useLocation()
-  const params = new URLSearchParams(search)
-  const event = params.get('event')
-  const parameter = params.get('parameter')
-  let destination: string | null = null
-
-  if (pathname.endsWith('/')) {
-    destination = pathname.replace(/\/+$/, '')
-  } else if (pathname === EVENT_LIST_PATH && event) {
-    destination = EVENT_DETAIL_PATH
-    params.delete('parameter')
-  } else if (pathname !== EVENT_LIST_PATH && !event) {
-    destination = EVENT_LIST_PATH
-    params.delete('event')
-    params.delete('parameter')
-  } else if (pathname === EVENT_PARAMETER_PATH && !parameter) {
-    destination = EVENT_DETAIL_PATH
-    params.delete('parameter')
-  }
-
-  if (destination) {
-    const query = params.toString()
-    return <Navigate to={`${destination}${query ? `?${query}` : ''}${hash}`} replace />
-  }
-
-  return <EventExplorerContent />
-}
-
-const EventExplorerContent = () => {
   const {
     selectedWebsite,
     setSelectedWebsite,
@@ -53,6 +22,7 @@ const EventExplorerContent = () => {
     pathOperator,
     setPathOperator,
     selectedEvent,
+    setSelectedEvent,
     events,
     loadingEvents,
     period,
@@ -74,6 +44,7 @@ const EventExplorerContent = () => {
     hasLoadedValues,
     latestEvents,
     selectedParameterForDrilldown,
+    setSelectedParameterForDrilldown,
     parameterValuesQueryStats,
     fetchAllParameterValues,
   } = useEventExplorer()
@@ -88,6 +59,11 @@ const EventExplorerContent = () => {
       setCopySuccess(true)
       setTimeout(() => setCopySuccess(false), 2000)
     }
+  }
+
+  const handleBackToEvents = () => {
+    setSelectedEvent('')
+    setSelectedParameterForDrilldown(null)
   }
 
   return (
@@ -141,7 +117,7 @@ const EventExplorerContent = () => {
           eventsQueryStats={eventsQueryStats}
           websiteName={selectedWebsite?.name}
           selectedWebsiteId={selectedWebsite?.id}
-          period={period}
+          onSelectEvent={setSelectedEvent}
         />
       )}
       {!selectedEvent && generatedSql && <SqlViewer sql={generatedSql} seksjon="event-explorer" />}
@@ -149,7 +125,6 @@ const EventExplorerContent = () => {
       {selectedEvent && (
         <EventDetailView
           selectedEvent={selectedEvent}
-          period={period}
           seriesData={seriesData}
           propertiesData={propertiesData}
           loadingData={loadingData}
@@ -161,11 +136,13 @@ const EventExplorerContent = () => {
           latestEvents={latestEvents}
           selectedParameterForDrilldown={selectedParameterForDrilldown}
           parameterValuesQueryStats={parameterValuesQueryStats}
+          onBack={handleBackToEvents}
+          onDrilldown={setSelectedParameterForDrilldown}
           onFetchValues={fetchAllParameterValues}
         />
       )}
 
-      {!loadingEvents && (selectedEvent || (hasSearched && events.length > 0)) && (
+      {!loadingEvents && hasSearched && (events.length > 0 || selectedEvent) && (
         <div className="flex justify-end mt-8">
           <Button
             size="small"

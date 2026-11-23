@@ -1,8 +1,6 @@
-import { useReplaceSearchParams } from '../../../shared/hooks/useReplaceSearchParams'
-import { useRestoreAnalysisContext } from './useRestoreAnalysisContext'
 import { useCallback, useEffect, useState } from 'react'
 import { useAutoRefresh } from './useAutoRefresh'
-import { useSearchParams, useLocation } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import type { Website } from '../../../shared/types/chart.ts'
 import type { WcagIssue } from '../model/types.ts'
 import { getSiteimproveId } from '../utils/siteimprove.ts'
@@ -12,8 +10,6 @@ import { fetchPageWcagIssues } from '../api/wcag.ts'
 const SITEIMPROVE_BASE_URL = '/api/siteimprove'
 
 export const useWcag = () => {
-  const replaceSearchParams = useReplaceSearchParams()
-  const { search: locationSearch } = useLocation()
   const [searchParams] = useSearchParams()
 
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
@@ -28,10 +24,7 @@ export const useWcag = () => {
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [urlPath, setUrlPath] = useState<string>(
-    () => searchParams.get('urlPath') || searchParams.get('pagePath') || '',
-  )
-  useRestoreAnalysisContext({ paths: (paths) => setUrlPath(paths[0] || '') })
+  const [urlPath, setUrlPath] = useState<string>(() => searchParams.get('urlPath') || '')
 
   useEffect(() => {
     if (!selectedWebsite) {
@@ -70,10 +63,6 @@ export const useWcag = () => {
         return
       }
 
-      const newParams = new URLSearchParams(locationSearch)
-      newParams.set('urlPath', urlPath)
-      replaceSearchParams(newParams)
-
       const foundPageId = await fetchPageId(SITEIMPROVE_BASE_URL, siteimproveId, urlPath)
       if (!foundPageId) {
         setError(`Fant ingen side hos Siteimprove med URL som inneholder "${urlPath}". Sjekk at URL-en er korrekt.`)
@@ -87,6 +76,10 @@ export const useWcag = () => {
       setConfirmedIssues(result.confirmedIssues)
       setPotentialIssues(result.potentialIssues)
       setPassedIssues(result.passedIssues)
+
+      const newParams = new URLSearchParams(window.location.search)
+      newParams.set('urlPath', urlPath)
+      window.history.replaceState({}, '', `${window.location.pathname}?${newParams.toString()}`)
     } catch (err) {
       console.error('Error fetching WCAG data:', err)
       const message = err instanceof Error ? err.message : 'Det oppstod en feil ved henting av data.'
@@ -94,7 +87,7 @@ export const useWcag = () => {
     } finally {
       setLoading(false)
     }
-  }, [locationSearch, replaceSearchParams, siteimproveId, urlPath])
+  }, [siteimproveId, urlPath])
 
   useAutoRefresh(
     JSON.stringify([selectedWebsite?.id, siteimproveId, urlPath]),
