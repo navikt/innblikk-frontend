@@ -30,7 +30,7 @@ export const buildChartImportUrl = (
   target: TransferEnvironment,
   sourceOrigin: string,
 ): string => {
-  if (!isTransferChart(chart) || getTransferTarget(sourceOrigin) !== target) {
+  if (getTransferTarget(sourceOrigin) !== target) {
     throw new Error('Grafen kan ikke legges til i dette miljøet.')
   }
   const url = new URL(CHART_IMPORT_PATH, transferEnvironments[target].origin)
@@ -188,7 +188,10 @@ export const isTransferChart = (value: unknown): value is TransferChart => {
 }
 
 export const buildTransferChart = (
-  chart: SavedChart & { variants?: { queryName: string; sql: string }[] },
+  chart: Omit<SavedChart, 'description'> & {
+    description?: string | null
+    variants?: { queryName?: string | null; sql: string }[]
+  },
   websiteId?: string,
 ): TransferChart => {
   const graphTypes = { line: 'LINE', bar: 'BAR', pie: 'PIE', table: 'TABLE' } as const
@@ -197,16 +200,17 @@ export const buildTransferChart = (
   }
   const graphType = graphTypes[chart.type as keyof typeof graphTypes]
   const width = chart.width === 'full' ? 100 : chart.width === 'half' || !chart.width ? 50 : Number(chart.width)
-  const payload = {
+  return {
     title: chart.title,
     graphType,
     width,
-    description: chart.description,
+    description: chart.description ?? undefined,
     ...(websiteId ? { websiteId } : {}),
     queries: chart.variants?.length
-      ? chart.variants.map((query) => ({ name: query.queryName, sql: query.sql }))
+      ? chart.variants.map((query, index) => ({
+          name: query.queryName?.trim() || `${chart.title} - query ${index + 1}`,
+          sql: query.sql,
+        }))
       : [{ name: `${chart.title} - query`, sql: chart.sql }],
   }
-  if (!isTransferChart(payload)) throw new Error('Grafen mangler informasjon som kreves for eksport.')
-  return payload
 }

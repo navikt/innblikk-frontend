@@ -179,7 +179,33 @@ describe('chart transfer', () => {
     })
   })
 
-  it('rejects unsupported charts and invalid incoming payloads', () => {
+  it('imports a saved chart with a null description and unnamed variants without rejecting it', () => {
+    const payload = buildTransferChart({
+      title: 'Skjermstørrelse',
+      type: 'table',
+      sql: 'SELECT 1',
+      description: null,
+      variants: [
+        { queryName: '', sql: 'SELECT 1' },
+        { queryName: null, sql: 'SELECT 2' },
+        { sql: 'SELECT 3' },
+        { queryName: 'Navngitt variant', sql: 'SELECT 4' },
+      ],
+    })
+    expect(payload.description).toBeUndefined()
+    expect(payload.queries).toEqual([
+      { name: 'Skjermstørrelse - query 1', sql: 'SELECT 1' },
+      { name: 'Skjermstørrelse - query 2', sql: 'SELECT 2' },
+      { name: 'Skjermstørrelse - query 3', sql: 'SELECT 3' },
+      { name: 'Navngitt variant', sql: 'SELECT 4' },
+    ])
+    const url = new URL(buildChartImportUrl(payload, 'prod', transferEnvironments.dev.origin))
+    window.history.replaceState({}, '', url.pathname + url.search + url.hash)
+    expect(initializeChartImport()).toEqual({ chart: payload, error: null })
+    clearChartImport()
+  })
+
+  it('rejects unsupported chart types and keeps format validation for incoming links', () => {
     expect(() => buildTransferChart({ title: 'Tekst', type: 'text', sql: 'SELECT 1' })).toThrow()
     expect(
       isTransferChart({ title: 'Test', graphType: 'TABLE', width: 50, queries: [{ name: 'Test', sql: '' }] }),
