@@ -72,7 +72,8 @@ it('imports from prod into dev, preserving matching IDs and requiring a dev repl
   await user.click(await screen.findByRole('option', { name: 'Dev-dashboard' }))
   expect(screen.getByRole('button', { name: 'Legg til i Innblikk dev' })).toBeDisabled()
   expect(screen.queryByRole('link', { name: '#researchops' })).not.toBeInTheDocument()
-  await user.selectOptions(screen.getByLabelText('Velg nettsted i dev'), replacementId)
+  await user.type(screen.getByRole('combobox', { name: 'Velg nettsted i dev' }), 'replacement.dev.nav.no')
+  await user.click(await screen.findByRole('option', { name: 'Erstatning (replacement.dev.nav.no)' }))
   await user.click(screen.getByRole('button', { name: 'Legg til i Innblikk dev' }))
   expect(importTransferredChart).toHaveBeenCalledWith(
     10,

@@ -1,6 +1,6 @@
 // @vitest-environment-options {"url":"https://innblikk.ansatt.nav.no"}
 import { StrictMode } from 'react'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import ChartImport from './ChartImport'
@@ -86,11 +86,18 @@ const renderImport = (transferredChart: unknown = chart, sourceOrigin = origin) 
   return renderRoutes()
 }
 
+const comboboxOptions = (input: HTMLElement) => {
+  const popupId = input.getAttribute('aria-controls')
+  const popup = popupId ? document.getElementById(popupId) : null
+  if (!popup) throw new Error('Combobox option list is missing')
+  return within(popup)
+}
+
 const chooseComboboxOption = async (user: ReturnType<typeof userEvent.setup>, label: string, option: string) => {
   const input = await screen.findByRole('combobox', { name: label })
   await waitFor(() => expect(input).toBeEnabled())
   await user.click(input)
-  await user.click(await screen.findByRole('option', { name: option }))
+  await user.click(await comboboxOptions(input).findByRole('option', { name: option }))
 }
 
 const typeNewOption = async (user: ReturnType<typeof userEvent.setup>, label: string, name: string) => {
@@ -233,9 +240,24 @@ it('requires separate valid replacements for missing IDs and keeps existing IDs 
   await chooseComboboxOption(user, 'Team i prod', 'Mitt team')
   await chooseComboboxOption(user, 'Dashboard i prod', 'Mitt dashboard')
   expect(screen.getByRole('button', { name: 'Legg til i Innblikk prod' })).toBeDisabled()
-  await user.selectOptions(screen.getByLabelText('Velg nettsted i prod for Første dev-nettsted'), existingId)
+  const firstWebsite = screen.getByRole('combobox', { name: 'Velg nettsted i prod for Første dev-nettsted' })
+  await user.type(firstWebsite, 'one.nav.no')
+  expect(firstWebsite).toHaveValue('one.nav.no')
+  expect(
+    comboboxOptions(firstWebsite).queryByRole('option', { name: 'Nettsted to (two.nav.no)' }),
+  ).not.toBeInTheDocument()
+  await user.click(await comboboxOptions(firstWebsite).findByRole('option', { name: 'Nettsted en (one.nav.no)' }))
   expect(screen.getByRole('button', { name: 'Legg til i Innblikk prod' })).toBeDisabled()
-  await user.selectOptions(screen.getByLabelText('Velg nettsted i prod for Andre dev-nettsted'), secondProductionId)
+  const secondWebsite = screen.getByRole('combobox', { name: 'Velg nettsted i prod for Andre dev-nettsted' })
+  await user.type(secondWebsite, 'Nettsted to')
+  expect(
+    comboboxOptions(secondWebsite).queryByRole('option', { name: 'Nettsted en (one.nav.no)' }),
+  ).not.toBeInTheDocument()
+  await user.click(await comboboxOptions(secondWebsite).findByRole('option', { name: 'Nettsted to (two.nav.no)' }))
+  expect(screen.getByRole('button', { name: 'Legg til i Innblikk prod' })).toBeEnabled()
+  await chooseComboboxOption(user, 'Velg nettsted i prod for Første dev-nettsted', 'Nettsted en (one.nav.no)')
+  expect(screen.getByRole('button', { name: 'Legg til i Innblikk prod' })).toBeDisabled()
+  await chooseComboboxOption(user, 'Velg nettsted i prod for Første dev-nettsted', 'Nettsted en (one.nav.no)')
   expect(screen.getAllByRole('textbox')).toHaveLength(1)
   expect(screen.getAllByText(/Velg nettstedet som skal brukes\./)).toHaveLength(2)
   expect(screen.queryByText(/Fant ikke samme nettsted-ID/)).not.toBeInTheDocument()

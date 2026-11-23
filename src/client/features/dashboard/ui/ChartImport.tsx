@@ -58,6 +58,10 @@ export default function ChartImport() {
   const creationRef = useRef(false)
   const busy = saving || creating !== null
   const missingWebsiteIds = chart ? getMissingWebsiteIds(chart, websites) : []
+  const websiteOptions = websites.map((website) => ({
+    value: website.id,
+    label: `${website.name} (${website.domain})`,
+  }))
   const hasValidWebsiteSelections = missingWebsiteIds.every((id) =>
     websites.some((website) => website.id === websiteReplacements[id]),
   )
@@ -305,41 +309,39 @@ export default function ChartImport() {
                     const source = chart?.sourceWebsites?.find((website) => website.id === id)
                     const sourceName = source?.name || source?.domain || `nettsted ${index + 1}`
                     return (
-                      <Select
-                        key={id}
-                        label={
-                          missingWebsiteIds.length === 1
-                            ? `Velg nettsted i ${target}`
-                            : `Velg nettsted i ${target} for ${sourceName}`
-                        }
-                        description={
-                          <>
-                            Velg nettstedet som skal brukes.
-                            {target === 'prod' && index === 0 && (
-                              <>
-                                {' '}
-                                Hvis nettstedet mangler sporingskode for prod, kontakt{' '}
-                                <AkselLink href={RESEARCHOPS_SLACK_URL} target="_blank" rel="noopener noreferrer">
-                                  #researchops
-                                </AkselLink>{' '}
-                                på Slack.
-                              </>
-                            )}
-                          </>
-                        }
-                        value={websiteReplacements[id] ?? ''}
-                        disabled={busy}
-                        onChange={(event) =>
-                          setWebsiteReplacements((previous) => ({ ...previous, [id]: event.target.value }))
-                        }
-                      >
-                        <option value="">Velg nettsted</option>
-                        {websites.map((website) => (
-                          <option key={website.id} value={website.id}>
-                            {website.name} ({website.domain})
-                          </option>
-                        ))}
-                      </Select>
+                      <div key={id} className="focus-within:relative focus-within:z-10">
+                        <Combobox
+                          label={
+                            missingWebsiteIds.length === 1
+                              ? `Velg nettsted i ${target}`
+                              : `Velg nettsted i ${target} for ${sourceName}`
+                          }
+                          description={
+                            <>
+                              Velg nettstedet som skal brukes.
+                              {target === 'prod' && index === 0 && (
+                                <>
+                                  {' '}
+                                  Hvis nettstedet mangler sporingskode for prod, kontakt{' '}
+                                  <AkselLink href={RESEARCHOPS_SLACK_URL} target="_blank" rel="noopener noreferrer">
+                                    #researchops
+                                  </AkselLink>{' '}
+                                  på Slack.
+                                </>
+                              )}
+                            </>
+                          }
+                          options={websiteOptions}
+                          selectedOptions={websiteOptions.filter((option) => option.value === websiteReplacements[id])}
+                          isMultiSelect={false}
+                          placeholder="Søk etter nettsted…"
+                          clearButton
+                          disabled={busy}
+                          onToggleSelected={(option, isSelected) =>
+                            setWebsiteReplacements((previous) => ({ ...previous, [id]: isSelected ? option : '' }))
+                          }
+                        />
+                      </div>
                     )
                   })}
                 {websitesLoaded && missingWebsiteIds.length > 0 && websites.length === 0 && (
