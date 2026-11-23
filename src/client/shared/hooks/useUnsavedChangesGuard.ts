@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useBlocker } from 'react-router-dom'
 
 const activeGuards = new Set<symbol>()
 
@@ -6,19 +7,27 @@ export function hasUnsavedChanges(): boolean {
   return activeGuards.size > 0
 }
 
-/**
- * Warns about unsaved edits when the tab is closed and when an in-app link is clicked.
- * BrowserRouter has no navigation blocker, so link clicks are intercepted instead:
- * `leaveTarget` holds the intercepted destination until the caller confirms or cancels.
- */
 export function useUnsavedChangesGuard(dirty: boolean) {
-  const [leaveTarget, setLeaveTarget] = useState<string | null>(null)
+  const bypassRef = useRef(false)
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null)
+  const blocker = useBlocker(
+    useCallback(
+      ({ currentLocation, nextLocation }) =>
+        dirty &&
+        !bypassRef.current &&
+        (currentLocation.pathname !== nextLocation.pathname || currentLocation.search !== nextLocation.search),
+      [dirty],
+    ),
+  )
 
   useEffect(() => {
     if (!dirty) return
     const guard = Symbol()
     activeGuards.add(guard)
-    const handler = (e: BeforeUnloadEvent) => e.preventDefault()
+    const handler = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
     window.addEventListener('beforeunload', handler)
     return () => {
       activeGuards.delete(guard)
@@ -26,21 +35,31 @@ export function useUnsavedChangesGuard(dirty: boolean) {
     }
   }, [dirty])
 
-  useEffect(() => {
-    if (!dirty) return
-    const onClick = (e: MouseEvent) => {
-      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
-      const anchor = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null
-      if (!anchor || anchor.target === '_blank' || anchor.origin !== window.location.origin) return
-      const destination = anchor.pathname + anchor.search + anchor.hash
-      if (destination === window.location.pathname + window.location.search + window.location.hash) return
-      e.preventDefault()
-      e.stopPropagation()
-      setLeaveTarget(destination)
+  const runWithoutBlocking = (action: () => void) => {
+    bypassRef.current = true
+    try {
+      action()
+    } finally {
+      bypassRef.current = false
     }
-    document.addEventListener('click', onClick, true)
-    return () => document.removeEventListener('click', onClick, true)
-  }, [dirty])
+  }
 
-  return { leaveTarget, requestLeave: setLeaveTarget, cancelLeave: () => setLeaveTarget(null) }
+  const requestLeave = (action: () => void) => setPendingAction(() => action)
+  const cancelLeave = () => {
+    if (blocker.state === 'blocked') blocker.reset()
+    setPendingAction(null)
+  }
+  const confirmLeave = () => {
+    if (blocker.state === 'blocked') blocker.proceed()
+    else if (pendingAction) runWithoutBlocking(pendingAction)
+    setPendingAction(null)
+  }
+
+  return {
+    isLeaveBlocked: blocker.state === 'blocked' || pendingAction !== null,
+    requestLeave,
+    cancelLeave,
+    confirmLeave,
+    runWithoutBlocking,
+  }
 }

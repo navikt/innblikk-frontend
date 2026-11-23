@@ -364,7 +364,10 @@ export const restorePlaceholders = (sql: string, placeholders: Map<string, strin
 }
 
 // Helper to update URL params without losing others
-export const updateUrlParams = (updates: Record<string, string | null>) => {
+export const updateUrlParams = (
+  updates: Record<string, string | null>,
+  replaceSearchParams: (params: URLSearchParams, hash?: string) => void,
+) => {
   const params = new URLSearchParams(window.location.search)
   Object.entries(updates).forEach(([key, value]) => {
     if (value === null) {
@@ -373,6 +376,5 @@ export const updateUrlParams = (updates: Record<string, string | null>) => {
       params.set(key, value)
     }
   })
-  const newUrl = `${window.location.pathname}?${params.toString()}`
-  window.history.replaceState({}, '', newUrl)
+  replaceSearchParams(params)
 }

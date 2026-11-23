@@ -1,6 +1,6 @@
 import { Search, Alert, BodyShort, Link, ReadMore, List, Skeleton } from '@navikt/ds-react'
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link as RouterLink, useNavigate } from 'react-router-dom'
 import type { Website } from '../model/types.ts'
 import { fetchWebsites } from '../api/bigquery.ts'
 import { PROD_TEAM_ID } from '../../settings/model/constants.ts'
@@ -235,11 +235,8 @@ function UrlSearchForm({ children }: UrlSearchFormProps) {
               {visibleWebsites?.map((item) => (
                 <List.Item key={item.id}>
                   <Link
-                    href={`/trafikkanalyse?websiteId=${item.id}&domain=${item.domain}&urlPath=%2F`}
-                    onClick={(event) => {
-                      event.preventDefault()
-                      navigateToTrafficAnalysis(item, '/')
-                    }}
+                    as={RouterLink}
+                    to={`/trafikkanalyse?${new URLSearchParams({ websiteId: item.id, domain: item.domain, urlPath: '/' })}`}
                   >
                     {item.domain}
                   </Link>
@@ -250,7 +247,10 @@ function UrlSearchForm({ children }: UrlSearchFormProps) {
             <BodyShort style={{ marginBottom: '16px' }}>Ingen nettsider matcher søket.</BodyShort>
           ) : null}
           <BodyShort className="mt-4 mb-2">
-            Savner du en nettside eller app? <Link href="/komigang">Følg kom-i-gang-guiden!</Link>
+            Savner du en nettside eller app?{' '}
+            <Link as={RouterLink} to="/komigang">
+              Følg kom-i-gang-guiden!
+            </Link>
           </BodyShort>
         </ReadMore>
       </form>

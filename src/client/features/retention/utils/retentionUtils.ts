@@ -103,8 +103,10 @@ export function buildShareParams(
   urlPath: string,
   pathOperator: string,
   returnScope: 'same_url' | 'site',
+  search = window.location.search,
 ): URLSearchParams {
-  const newParams = new URLSearchParams(window.location.search)
+  const newParams = new URLSearchParams(search)
+  newParams.delete('pagePath')
   newParams.set('retentionPeriod', period)
   newParams.set('retentionReturnScope', returnScope)
   newParams.delete('period')

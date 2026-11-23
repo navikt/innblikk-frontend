@@ -1,6 +1,8 @@
+import { useReplaceSearchParams } from '../../../shared/hooks/useReplaceSearchParams'
+import { useRestoreAnalysisContext } from '../hooks/useRestoreAnalysisContext'
 import { useState, useCallback } from 'react'
 import { useAutoRefresh } from '../hooks/useAutoRefresh'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useLocation } from 'react-router-dom'
 import { Button, Alert, Loader, Tabs, Switch } from '@navikt/ds-react'
 import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
 import { trackEvent } from '../../../shared/lib/trackEvent.ts'
@@ -27,6 +29,8 @@ import { getUserCompositionSqlTemplate } from '../utils/userCompositionDashboard
 import { CheckmarkIcon, PaperplaneIcon } from '@navikt/aksel-icons'
 
 const UserComposition = () => {
+  const replaceSearchParams = useReplaceSearchParams()
+  const { search: locationSearch } = useLocation()
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
   const usesCookies = useCookieSupport(selectedWebsite?.domain)
   const cookieStartDate = useCookieStartDate(selectedWebsite?.domain)
@@ -52,13 +56,20 @@ const UserComposition = () => {
   }
 
   // Support custom dates from URL
-  const fromDateFromUrl = searchParams.get('from')
-  const toDateFromUrl = searchParams.get('to')
+  const fromDateFromUrl = searchParams.get('from') || searchParams.get('startDate')
+  const toDateFromUrl = searchParams.get('to') || searchParams.get('endDate')
   const initialCustomStartDate = fromDateFromUrl ? parseISO(fromDateFromUrl) : undefined
   const initialCustomEndDate = toDateFromUrl ? parseISO(toDateFromUrl) : undefined
 
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(initialCustomStartDate)
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(initialCustomEndDate)
+  useRestoreAnalysisContext({
+    period: setPeriodState,
+    startDate: setCustomStartDate,
+    endDate: setCustomEndDate,
+    paths: (paths) => setUrlPaths(paths.map(normalizeUrlToPath).filter(Boolean)),
+    pathOperator: setPathOperator,
+  })
 
   type CompositionRow = {
     category: string
@@ -107,13 +118,26 @@ const UserComposition = () => {
     setQueryStats(null)
 
     const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
-    if (!dateRange) {
+    if (!dateRange || !(dateRange.endDate >= dateRange.startDate)) {
       setError('Vennligst velg en gyldig periode.')
       setLoading(false)
       return
     }
     const { startDate, endDate } = dateRange
     const { countBy, countBySwitchAt } = getCookieCountByParams(usesCookies, cookieStartDate, startDate, endDate)
+
+    const newParams = new URLSearchParams(locationSearch)
+    newParams.set('period', period)
+    if (urlPaths.length > 0) {
+      newParams.set('urlPath', urlPaths[0])
+      newParams.set('pathOperator', pathOperator)
+      newParams.delete('pagePath')
+    } else {
+      newParams.delete('urlPath')
+      newParams.delete('pathOperator')
+      newParams.delete('pagePath')
+    }
+    replaceSearchParams(newParams)
 
     try {
       const response = await fetch('/api/bigquery/composition', {
@@ -147,25 +171,14 @@ const UserComposition = () => {
 
       setQueryStats(result.queryStats ?? null)
       if ('generatedSql' in result && result.generatedSql) setGeneratedSql(result.generatedSql)
-
-      const newParams = new URLSearchParams(window.location.search)
-      newParams.set('period', period)
-      if (urlPaths.length > 0) {
-        newParams.set('urlPath', urlPaths[0])
-        newParams.set('pathOperator', pathOperator)
-        newParams.delete('pagePath')
-      } else {
-        newParams.delete('urlPath')
-        newParams.delete('pathOperator')
-        newParams.delete('pagePath')
-      }
-      window.history.replaceState({}, '', `${window.location.pathname}?${newParams.toString()}`)
     } catch {
       setError('Det oppstod en feil ved henting av data.')
     } finally {
       setLoading(false)
     }
   }, [
+    locationSearch,
+    replaceSearchParams,
     selectedWebsite,
     period,
     customStartDate,

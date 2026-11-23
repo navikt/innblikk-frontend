@@ -3,6 +3,8 @@ import type { ReactElement } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { Loader } from '@navikt/ds-react'
 import { useIsReopsTeamMember } from './shared/hooks/useIsReopsTeamMember.ts'
+import { preserveSharedAnalysisParams } from './shared/lib/analysisNavigation.ts'
+import type { BreadcrumbResolver } from './shared/ui/RouteBreadcrumbs.tsx'
 
 // Content Feature
 const Home = lazy(() => import('./features/content').then((m) => ({ default: m.Home })))
@@ -103,7 +105,7 @@ const ReopsInternal = lazy(() => import('./features/reops-internal').then((m) =>
 const MineNettsider = lazy(() => import('./features/website-management').then((m) => ({ default: m.MineNettsider })))
 const AdminNettsider = lazy(() => import('./features/website-management').then((m) => ({ default: m.AdminNettsider })))
 
-const ProfilRedirect = () => <Navigate to="/innstillinger" replace />
+const ProfilRedirect = () => <LegacyRouteRedirect to="/innstillinger" />
 
 const DashboardRouteResolver = () => {
   const location = useLocation()
@@ -111,10 +113,12 @@ const DashboardRouteResolver = () => {
   const visning = params.get('visning')
 
   if (visning === 'fylkeskontor') {
-    return <Navigate to="/dashboard/10" replace />
+    params.delete('visning')
+    return <Navigate to={{ pathname: '/dashboard/10', search: params.toString(), hash: location.hash }} replace />
   }
   if (visning === 'hjelpemiddelsentral') {
-    return <Navigate to="/dashboard/11" replace />
+    params.delete('visning')
+    return <Navigate to={{ pathname: '/dashboard/11', search: params.toString(), hash: location.hash }} replace />
   }
 
   const legacyDashboardId = params.get('dashboardId')
@@ -122,7 +126,12 @@ const DashboardRouteResolver = () => {
     const nextParams = new URLSearchParams(params)
     nextParams.delete('dashboardId')
     const query = nextParams.toString()
-    return <Navigate to={`/dashboard/${legacyDashboardId}${query ? `?${query}` : ''}`} replace />
+    return (
+      <Navigate
+        to={{ pathname: `/dashboard/${encodeURIComponent(legacyDashboardId)}`, search: query, hash: location.hash }}
+        replace
+      />
+    )
   }
 
   return <ProjectManager />
@@ -138,15 +147,20 @@ const LegacyOversiktRedirect = () => {
 
   if (!dashboardId) {
     const query = params.toString()
-    return <Navigate to={`/dashboard${query ? `?${query}` : ''}`} replace />
+    return <Navigate to={{ pathname: '/dashboard', search: query, hash: location.hash }} replace />
   }
 
   params.delete('dashboardId')
   const query = params.toString()
-  return <Navigate to={`/dashboard/${dashboardId}${query ? `?${query}` : ''}`} replace />
+  return (
+    <Navigate
+      to={{ pathname: `/dashboard/${encodeURIComponent(dashboardId)}`, search: query, hash: location.hash }}
+      replace
+    />
+  )
 }
 
-const LegacyVisualizationRouteRedirect = ({ to }: { to: string }) => {
+const LegacyRouteRedirect = ({ to }: { to: string }) => {
   const location = useLocation()
   return <Navigate to={`${to}${location.search}${location.hash}`} replace />
 }
@@ -201,7 +215,31 @@ export type AppRoute = {
   path: string
   component: ReactElement
   fullWidth?: boolean
+  breadcrumbs?: BreadcrumbResolver
 }
+
+const childBreadcrumbs =
+  (parentPath: string, parentLabel: string, label: string): BreadcrumbResolver =>
+  (_params, search) => [{ label: parentLabel, to: preserveSharedAnalysisParams(parentPath, search) }, { label }]
+
+const eventBreadcrumbs =
+  (parameter = false): BreadcrumbResolver =>
+  (_params, search) => {
+    const params = new URLSearchParams(search)
+    const event = params.get('event') || 'Hendelse'
+    const items = [
+      { label: 'Egendefinerte hendelser', to: preserveSharedAnalysisParams('/utforsk-hendelser', search) },
+      { label: event },
+    ]
+    if (parameter) {
+      items[1] = {
+        label: event,
+        to: preserveSharedAnalysisParams(`/utforsk-hendelser/hendelse?${new URLSearchParams({ event })}`, search),
+      }
+      items.push({ label: params.get('parameter') || 'Hendelsesdetalj' })
+    }
+    return items
+  }
 
 export const fullWidthPathPrefixes = [
   '/trafikkanalyse',
@@ -245,8 +283,18 @@ export const routes: AppRoute[] = [
   { path: '/oppsett', component: <Oppsett />, fullWidth: true },
   { path: '/sporingskoder', component: <Sporingskoder />, fullWidth: true },
   { path: '/sidegrupper', component: <Sidegrupper />, fullWidth: true },
-  { path: '/sidegrupper/ny', component: <SidegruppeEditor />, fullWidth: true },
-  { path: '/sidegrupper/:id', component: <SidegruppeEditor />, fullWidth: true },
+  {
+    path: '/sidegrupper/ny',
+    component: <SidegruppeEditor />,
+    fullWidth: true,
+    breadcrumbs: childBreadcrumbs('/sidegrupper', 'Sidegrupper', 'Ny sidegruppe'),
+  },
+  {
+    path: '/sidegrupper/:id',
+    component: <SidegruppeEditor />,
+    fullWidth: true,
+    breadcrumbs: childBreadcrumbs('/sidegrupper', 'Sidegrupper', 'Rediger sidegruppe'),
+  },
   { path: '/personvern', component: <Personvern />, fullWidth: true },
   { path: '/tilgjengelighet', component: <Tilgjengelighet />, fullWidth: true },
 
@@ -255,29 +303,44 @@ export const routes: AppRoute[] = [
   { path: '/grafbygger-eol', component: <Grafbygger key="current" edition="current" />, fullWidth: true },
   {
     path: '/grafbygger-alfa',
-    component: <LegacyVisualizationRouteRedirect to="/grafbygger" />,
+    component: <LegacyRouteRedirect to="/grafbygger" />,
     fullWidth: true,
   },
   {
     path: '/grafbygger-next',
-    component: <LegacyVisualizationRouteRedirect to="/grafbygger" />,
+    component: <LegacyRouteRedirect to="/grafbygger" />,
     fullWidth: true,
   },
   { path: '/grafbygger-old', component: <GrafbyggerOld />, fullWidth: true },
   // Legacy alias from the pre-rollout live-testing route.
-  { path: '/grafbygger_next', component: <LegacyVisualizationRouteRedirect to="/grafbygger" />, fullWidth: true },
+  { path: '/grafbygger_next', component: <LegacyRouteRedirect to="/grafbygger" />, fullWidth: true },
   { path: '/brukergrupper-pro', component: <CohortManager />, fullWidth: true },
   { path: '/brukergrupper', component: <CohortManagerNext />, fullWidth: true },
-  { path: '/brukergrupper/ny', component: <CohortEditorPage />, fullWidth: true },
-  { path: '/brukergrupper/:id', component: <CohortEditorPage />, fullWidth: true },
+  {
+    path: '/brukergrupper/ny',
+    component: <CohortEditorPage />,
+    fullWidth: true,
+    breadcrumbs: childBreadcrumbs('/brukergrupper', 'Brukergrupper', 'Ny brukergruppe'),
+  },
+  {
+    path: '/brukergrupper/:id',
+    component: <CohortEditorPage />,
+    fullWidth: true,
+    breadcrumbs: childBreadcrumbs('/brukergrupper', 'Brukergrupper', 'Rediger brukergruppe'),
+  },
   // Legacy alias — user-facing name changed from "kohorter" to "brukergrupper"; backend still calls them cohorts.
-  { path: '/kohorter', component: <LegacyVisualizationRouteRedirect to="/brukergrupper" />, fullWidth: true },
+  { path: '/kohorter', component: <LegacyRouteRedirect to="/brukergrupper" />, fullWidth: true },
   { path: '/metabase', component: <MetabaseGuide />, fullWidth: true },
 
   { path: '/grafbygger-copilot', component: <CopilotAnalyse />, fullWidth: true },
   { path: '/copilot', component: <CopilotRoute />, fullWidth: true },
   { path: '/reops-internal', component: <ReopsInternalRoute />, fullWidth: true },
-  { path: '/reops-internal/nettsider', component: <AdminNettsiderRoute />, fullWidth: true },
+  {
+    path: '/reops-internal/nettsider',
+    component: <AdminNettsiderRoute />,
+    fullWidth: true,
+    breadcrumbs: childBreadcrumbs('/reops-internal', 'ReOps-internt', 'Nettsider'),
+  },
   // Unlisted: self-service is not advertised anywhere yet (no nav, beta list or links); works in dev only.
   { path: '/mine-nettsider', component: <MineNettsider />, fullWidth: true },
   { path: '/sql', component: <SqlNextPage />, fullWidth: true },
@@ -286,11 +349,20 @@ export const routes: AppRoute[] = [
   { path: '/innstillinger', component: <UserProfile />, fullWidth: true },
   { path: '/grafdeling', component: <Grafdeling />, fullWidth: true },
   { path: '/dashboard', component: <DashboardRouteResolver />, fullWidth: true },
+  {
+    path: '/dashboard/:dashboardId',
+    component: <DashboardDetailRoute />,
+    fullWidth: true,
+  },
   { path: '/importer-graf', component: <ChartImport />, fullWidth: true },
-  { path: '/dashboard/:dashboardId', component: <DashboardDetailRoute />, fullWidth: true },
   { path: '/brukerreiser', component: <UserJourney />, fullWidth: true },
   { path: '/hendelsesreiser', component: <EventJourney />, fullWidth: true },
-  { path: '/hendelsesreiser/visualisering', component: <EventJourneyClickmap />, fullWidth: true },
+  {
+    path: '/hendelsesreiser/visualisering',
+    component: <EventJourneyClickmap />,
+    fullWidth: true,
+    breadcrumbs: childBreadcrumbs('/hendelsesreiser', 'Hendelsesforløp', 'Visualisering'),
+  },
   { path: '/trakt', component: <Funnel />, fullWidth: true },
   { path: '/brukerlojalitet', component: <Retention />, fullWidth: true },
   {
@@ -301,24 +373,46 @@ export const routes: AppRoute[] = [
   { path: '/brukersammensetning', component: <UserComposition />, fullWidth: true },
   { path: '/brukerprofiler', component: <UserProfiles />, fullWidth: true },
   { path: '/utforsk-hendelser', component: <EventExplorer />, fullWidth: true },
+  {
+    path: '/utforsk-hendelser/hendelse',
+    component: <EventExplorer />,
+    fullWidth: true,
+    breadcrumbs: eventBreadcrumbs(),
+  },
+  {
+    path: '/utforsk-hendelser/hendelse/parameter',
+    component: <EventExplorer />,
+    fullWidth: true,
+    breadcrumbs: eventBreadcrumbs(true),
+  },
   { path: '/klikkoversikt', component: <Clickmap />, fullWidth: true },
   { path: '/canvas', component: <Canvas />, fullWidth: true },
   { path: '/canvas/share', component: <CanvasShareView />, fullWidth: true },
   { path: '/canvas/presentation', component: <CanvasPresentationView />, fullWidth: true },
-  { path: '/klikkoversikt/varmekart', component: <Clickmap visualizationMode="heatmap" />, fullWidth: true },
-  { path: '/klikkoversikt/scrollkart', component: <Clickmap visualizationMode="scrollmap" />, fullWidth: true },
-  { path: '/klikkkart', component: <LegacyVisualizationRouteRedirect to="/klikkoversikt" />, fullWidth: true },
+  {
+    path: '/klikkoversikt/varmekart',
+    component: <Clickmap visualizationMode="heatmap" />,
+    fullWidth: true,
+    breadcrumbs: childBreadcrumbs('/klikkoversikt', 'Klikkoversikt', 'Varmekart'),
+  },
+  {
+    path: '/klikkoversikt/scrollkart',
+    component: <Clickmap visualizationMode="scrollmap" />,
+    fullWidth: true,
+    breadcrumbs: childBreadcrumbs('/klikkoversikt', 'Klikkoversikt', 'Scrollkart'),
+  },
+  { path: '/klikkkart', component: <LegacyRouteRedirect to="/klikkoversikt" />, fullWidth: true },
   {
     path: '/varmekart',
-    component: <LegacyVisualizationRouteRedirect to="/klikkoversikt/varmekart" />,
+    component: <LegacyRouteRedirect to="/klikkoversikt/varmekart" />,
     fullWidth: true,
   },
   {
     path: '/scrollkart',
-    component: <LegacyVisualizationRouteRedirect to="/klikkoversikt/scrollkart" />,
+    component: <LegacyRouteRedirect to="/klikkoversikt/scrollkart" />,
     fullWidth: true,
   },
-  { path: '/datastruktur', component: <EventExplorer />, fullWidth: true },
+  { path: '/datastruktur', component: <LegacyRouteRedirect to="/utforsk-hendelser" />, fullWidth: true },
   { path: '/trafikkanalyse', component: <TrafficAnalysis />, fullWidth: true },
   { path: '/tabellbygger', component: <TableBuilder />, fullWidth: true },
   { path: '/markedsanalyse', component: <MarketingAnalysis />, fullWidth: true },

@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Alert, BodyShort, Box, Button, Dialog, Heading, HStack, Loader, Table, VStack } from '@navikt/ds-react'
 import { ArchiveIcon, PencilIcon, PlusIcon, TrashIcon } from '@navikt/aksel-icons'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
-import { PageBreadcrumbs } from '../../../shared/ui/PageBreadcrumbs.tsx'
 import { fetchWebsites } from '../../../shared/api/websiteApi.ts'
 import type { Website } from '../../../shared/types/website.ts'
 import { getCohort, listCohorts } from '../../cohortmanager/api/cohortManagerApi.ts'
@@ -15,10 +14,10 @@ import { WebsiteSelect } from '../../../shared/ui/WebsiteSelect.tsx'
 import { TrashDialog } from './TrashDialog.tsx'
 import { CohortPreview } from './CohortPreview.tsx'
 import './cohortNext.css'
+import { preserveSharedAnalysisParams } from '../../../shared/lib/analysisNavigation.ts'
 
 export default function CohortManagerNext() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const navigate = useNavigate()
   const websiteIdParam = searchParams.get('websiteId')
 
   const [websites, setWebsites] = useState<Website[]>([])
@@ -35,7 +34,16 @@ export default function CohortManagerNext() {
   const loadSeq = useRef(0)
 
   const selectWebsite = useCallback(
-    (id: string | null) => setSearchParams(id ? { websiteId: id } : {}, { replace: true }),
+    (id: string | null) =>
+      setSearchParams(
+        (previous) => {
+          const next = new URLSearchParams(previous)
+          if (id) next.set('websiteId', id)
+          else next.delete('websiteId')
+          return next
+        },
+        { replace: true, preventScrollReset: true },
+      ),
     [setSearchParams],
   )
 
@@ -90,7 +98,7 @@ export default function CohortManagerNext() {
   }
 
   const names = Object.fromEntries(details.map((c) => [String(c.id), c.name]))
-  const newHref = `/brukergrupper/ny?websiteId=${encodeURIComponent(websiteIdParam ?? '')}`
+  const newHref = preserveSharedAnalysisParams('/brukergrupper/ny', searchParams.toString())
   const previewWebsite = websites.find((website) => website.id === previewTarget?.websiteId)
   const chartHref =
     previewTarget && previewWebsite
@@ -110,17 +118,6 @@ export default function CohortManagerNext() {
       <PageHeader
         title="Brukergrupper"
         description="Samle brukere som har gjort noe bestemt på nettstedet ditt, og bruk gruppen i grafene dine."
-        breadcrumbs={
-          <PageBreadcrumbs
-            items={[
-              {
-                label: 'Grafbygger',
-                to: websiteIdParam ? `/grafbygger?websiteId=${encodeURIComponent(websiteIdParam)}` : '/grafbygger',
-              },
-              { label: 'Brukergrupper' },
-            ]}
-          />
-        }
         beta
       />
 
@@ -206,7 +203,11 @@ export default function CohortManagerNext() {
                                 size="small"
                                 variant="secondary"
                                 icon={<PencilIcon aria-hidden />}
-                                onClick={() => navigate(`/brukergrupper/${cohort.id}`)}
+                                as={Link}
+                                to={preserveSharedAnalysisParams(
+                                  `/brukergrupper/${cohort.id}`,
+                                  searchParams.toString(),
+                                )}
                               >
                                 Rediger
                               </Button>
@@ -273,7 +274,7 @@ export default function CohortManagerNext() {
             {previewTarget && (
               <Button
                 as={Link}
-                to={`/brukergrupper/${previewTarget.id}`}
+                to={preserveSharedAnalysisParams(`/brukergrupper/${previewTarget.id}`, searchParams.toString())}
                 variant="secondary"
                 icon={<PencilIcon aria-hidden />}
               >

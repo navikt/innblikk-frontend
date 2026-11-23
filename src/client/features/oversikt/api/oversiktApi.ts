@@ -1,6 +1,4 @@
 import type {
-  ProjectDto,
-  DashboardDto,
   GraphCategoryDto,
   GraphCategoryOrderingEntry,
   GraphDto,
@@ -40,53 +38,14 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   return payload as T
 }
 
-export async function fetchProjects(): Promise<ProjectDto[]> {
-  return requestJson<ProjectDto[]>('/api/backend/projects')
-}
-
-export async function createProject(name: string, description?: string): Promise<ProjectDto> {
-  return requestJson<ProjectDto>('/api/backend/projects', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      name: name.trim(),
-      description: description?.trim() || undefined,
-    }),
-  })
-}
-
-export async function fetchDashboards(projectId: number): Promise<DashboardDto[]> {
-  return requestJson<DashboardDto[]>(`/api/backend/projects/${projectId}/dashboards`)
-}
-
-export async function createDashboard(projectId: number, name: string, description?: string): Promise<DashboardDto> {
-  return requestJson<DashboardDto>(`/api/backend/projects/${projectId}/dashboards`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      name: name.trim(),
-      description: description?.trim() || undefined,
-    }),
-  })
-}
-
-export async function updateDashboard(
-  projectId: number,
-  dashboardId: number,
-  params: { name: string; projectId?: number; description?: string },
-): Promise<DashboardDto> {
-  return requestJson<DashboardDto>(`/api/backend/projects/${projectId}/dashboards/${dashboardId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params),
-  })
-}
-
-export async function deleteDashboard(projectId: number, dashboardId: number): Promise<void> {
-  await requestJson<unknown>(`/api/backend/projects/${projectId}/dashboards/${dashboardId}`, {
-    method: 'DELETE',
-  })
-}
+export {
+  fetchProjects,
+  fetchDashboards,
+  createProject,
+  createDashboard,
+  updateDashboard,
+  deleteDashboard,
+} from '../../../shared/lib/dashboardMetadata.ts'
 
 // ── Graph Categories ──
 

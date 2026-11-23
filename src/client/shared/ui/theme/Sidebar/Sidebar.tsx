@@ -137,12 +137,13 @@ const getNavItems = (isReopsTeamMember: boolean, showMarketing: boolean): NavEnt
     kind: 'group',
     id: 'verktoy',
     label: 'Verktøy',
+    preserveAnalysisParams: true,
     icon: <WrenchIcon aria-hidden fontSize="1.25rem" />,
     items: [
       { id: 'sporingskoder', label: 'Sporingskoder', to: '/sporingskoder' },
       { id: 'sql', label: 'SQL-spørringer', to: '/sql' },
       { id: 'personvern', label: 'Personvernsjekk', to: '/personvernssjekk' },
-      { id: 'kohorter', label: 'Brukergrupper', to: '/kohorter' },
+      { id: 'kohorter', label: 'Brukergrupper', to: '/brukergrupper' },
       { id: 'sidegrupper', label: 'Sidegrupper', to: '/sidegrupper' },
       ...(isReopsTeamMember ? [{ id: 'reops-internal', label: 'ReOps-internt', to: '/reops-internal' }] : []),
     ],
@@ -216,6 +217,7 @@ function SidebarLink({ entry, collapsed }: { entry: NavLink; collapsed: boolean 
   const content = (
     <RouterLink
       to={entry.preserveAnalysisParams ? preserveSharedAnalysisParams(entry.to, search) : entry.to}
+      aria-current={active ? (pathname === entry.to ? 'page' : 'location') : undefined}
       className={rowClass(active)}
     >
       <span className="grid shrink-0 place-items-center">{entry.icon}</span>
@@ -243,6 +245,9 @@ function SidebarGroup({
 }) {
   const { pathname, search } = useLocation()
   const isActiveGroup = entry.items.some((item) => isPathActive(pathname, item.to))
+  const activeItem = entry.items
+    .filter((item) => !item.external && isPathActive(pathname, item.to))
+    .sort((a, b) => b.to.length - a.to.length)[0]
   const [isOpen, setIsOpen] = useState(isActiveGroup)
 
   // Keep the group expanded whenever navigation lands on one of its pages
@@ -308,7 +313,8 @@ function SidebarGroup({
               <RouterLink
                 key={item.id}
                 to={entry.preserveAnalysisParams ? preserveSharedAnalysisParams(item.to, search) : item.to}
-                className={subRowClass(pathname === item.to)}
+                className={subRowClass(activeItem?.id === item.id)}
+                aria-current={activeItem?.id === item.id ? (pathname === item.to ? 'page' : 'location') : undefined}
               >
                 {item.label}
               </RouterLink>

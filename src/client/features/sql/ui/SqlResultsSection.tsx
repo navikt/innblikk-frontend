@@ -1,3 +1,4 @@
+import { Link as RouterLink } from 'react-router-dom'
 import { ResultsPanel } from '../../chartbuilder-next'
 import { Alert, Button, Heading, Link, Modal, ReadMore, Select, TextField, UNSAFE_Combobox } from '@navikt/ds-react'
 import { ExternalLinkIcon, FilesIcon } from '@navikt/aksel-icons'
@@ -401,13 +402,6 @@ export default function SqlResultsSection({
     ? `/dashboard/${savedLocation.dashboardId}?projectId=${savedLocation.projectId}`
     : ''
 
-  const handleGoToSavedDashboard = () => {
-    if (!savedDashboardUrl) return
-    if (typeof window !== 'undefined') {
-      window.location.href = savedDashboardUrl
-    }
-  }
-
   return (
     <>
       <div className="flex flex-col">
@@ -608,7 +602,9 @@ export default function SqlResultsSection({
           {savedLocation && <p>Grafen er lagt til i "{savedLocation.dashboardName}". Hva vil du gjøre nå?</p>}
         </Modal.Body>
         <Modal.Footer>
-          <Button onClick={handleGoToSavedDashboard}>Gå til dashboard</Button>
+          <Button as={RouterLink} to={savedDashboardUrl}>
+            Gå til dashboard
+          </Button>
           <Button variant="secondary" onClick={() => setShowSaveSuccessModal(false)}>
             Bli her
           </Button>

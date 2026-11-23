@@ -1,3 +1,4 @@
+import { Link as RouterLink } from 'react-router-dom'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useFeatureFlag } from '../../../../shared/hooks/useFeatureFlag.ts'
 import { getGcpProjectId } from '../../../../shared/lib/runtimeConfig.ts'
@@ -1184,13 +1185,6 @@ const QueryPreview = ({
       : 'Oversikt'
     : ''
 
-  const handleGoToSavedDashboard = () => {
-    if (!savedDashboardUrl) return
-    if (typeof window !== 'undefined') {
-      window.location.href = savedDashboardUrl
-    }
-  }
-
   // Show loading message after 10 seconds
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>
@@ -1561,7 +1555,7 @@ const QueryPreview = ({
 
               {saveSuccess && savedLocation && (
                 <Alert variant="success" size="small">
-                  <Link href={savedDashboardUrl}>
+                  <Link as={RouterLink} to={savedDashboardUrl}>
                     Grafen er lagt til i "{savedLocation.dashboardName}". Åpne i {savedDashboardLabel}.
                   </Link>
                 </Alert>
@@ -1795,7 +1789,7 @@ const QueryPreview = ({
           {savedLocation && <p>Grafen er lagt til i "{savedLocation.dashboardName}". Hva vil du gjøre nå?</p>}
         </Modal.Body>
         <Modal.Footer>
-          <Button onClick={handleGoToSavedDashboard}>
+          <Button as={RouterLink} to={savedDashboardUrl}>
             Gå til {savedLocation && isCanvasDashboard(savedLocation.dashboardDescription) ? 'canvas' : 'dashboard'}
           </Button>
           <Button variant="secondary" onClick={() => setShowSaveSuccessModal(false)}>

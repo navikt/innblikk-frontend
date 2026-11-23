@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useCallback } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import {
   hasClickmapSupport,
   hasMarketingSupport,
@@ -10,7 +10,6 @@ import { chartGroups } from '../model/chartGroups.tsx'
 
 export const useChartNavigation = (websiteDomain?: string, websiteId?: string, hideAnalysisSelector = false) => {
   const isNavOpen = !hideAnalysisSelector
-  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
   // The global left Sidebar covers Trafikkanalyse/Hendelser/Brukere — the in-page
@@ -45,17 +44,9 @@ export const useChartNavigation = (websiteDomain?: string, websiteId?: string, h
       .filter((group) => group.ids.length > 0)
   }, [showSiteimproveSection, showMarketingSection, showClickmapSection, activeChartGroups])
 
-  const getTargetUrl = useCallback((href: string) => {
-    return preserveSharedAnalysisParams(href, window.location.search)
-  }, [])
-
-  const handleNavigation = useCallback(
-    (e: React.MouseEvent, href: string) => {
-      e.preventDefault()
-      const targetUrl = getTargetUrl(href)
-      void navigate(targetUrl)
-    },
-    [getTargetUrl, navigate],
+  const getTargetUrl = useCallback(
+    (href: string) => preserveSharedAnalysisParams(href, searchParams.toString()),
+    [searchParams],
   )
 
   // Trigger resize for charts when sidebar widths change
@@ -68,6 +59,6 @@ export const useChartNavigation = (websiteDomain?: string, websiteId?: string, h
 
   return {
     filteredChartGroups,
-    handleNavigation,
+    getTargetUrl,
   }
 }

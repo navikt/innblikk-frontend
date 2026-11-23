@@ -1,5 +1,7 @@
+import { useReplaceSearchParams } from '../../../shared/hooks/useReplaceSearchParams'
+import { useCaptureAnalysisLocation, useRestoreAnalysisContext } from '../../analysis/hooks/useRestoreAnalysisContext'
 import { useState, useEffect, useEffectEvent, useCallback, useRef } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useLocation } from 'react-router-dom'
 import { parseISO } from 'date-fns'
 import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
 import { trackEvent } from '../../../shared/lib/trackEvent'
@@ -89,6 +91,9 @@ export interface FunnelState {
 }
 
 export function useFunnel(): FunnelState {
+  const replaceSearchParams = useReplaceSearchParams()
+  const { search: locationSearch } = useLocation()
+  const captureLocation = useCaptureAnalysisLocation()
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
   const [searchParams] = useSearchParams()
   const [isStepsOpen, setIsStepsOpen] = useState(true)
@@ -106,13 +111,14 @@ export function useFunnel(): FunnelState {
     savePeriodPreference(newPeriod)
   }
 
-  const fromDateFromUrl = searchParams.get('from')
-  const toDateFromUrl = searchParams.get('to')
+  const fromDateFromUrl = searchParams.get('from') || searchParams.get('startDate')
+  const toDateFromUrl = searchParams.get('to') || searchParams.get('endDate')
   const initialCustomStartDate = fromDateFromUrl ? parseISO(fromDateFromUrl) : undefined
   const initialCustomEndDate = toDateFromUrl ? parseISO(toDateFromUrl) : undefined
 
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(initialCustomStartDate)
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(initialCustomEndDate)
+  useRestoreAnalysisContext({ period: setPeriodState, startDate: setCustomStartDate, endDate: setCustomEndDate })
 
   const [onlyDirectEntry, setOnlyDirectEntry] = useState<boolean>(() => {
     const param = searchParams.get('strict')
@@ -128,9 +134,9 @@ export function useFunnel(): FunnelState {
   })
   const setActiveTab = (view: string) => {
     setActiveTabState(view)
-    const params = new URLSearchParams(window.location.search)
+    const params = new URLSearchParams(locationSearch)
     params.set('view', view)
-    window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`)
+    replaceSearchParams(params)
   }
   const [hasAttemptedFetch, setHasAttemptedFetch] = useState<boolean>(false)
 
@@ -175,6 +181,7 @@ export function useFunnel(): FunnelState {
   }, [selectedWebsite])
 
   const fetchData = useCallback(async () => {
+    const isCurrentLocation = captureLocation()
     if (!selectedWebsite || funnelRequest.current) return
     const version = configurationVersion.current
     const controller = new AbortController()
@@ -196,6 +203,7 @@ export function useFunnel(): FunnelState {
         customEndDate,
         onlyDirectEntry,
         signal: controller.signal,
+        search: locationSearch,
       })
 
       if (controller.signal.aborted || version !== configurationVersion.current) return
@@ -210,7 +218,7 @@ export function useFunnel(): FunnelState {
         setFunnelSql(result.sql ? normalizeGeneratedSql(result.sql) : null)
 
         if (result.shareParams) {
-          window.history.replaceState({}, '', `${window.location.pathname}?${result.shareParams.toString()}`)
+          if (isCurrentLocation()) replaceSearchParams(result.shareParams)
         }
       }
     } finally {
@@ -219,7 +227,17 @@ export function useFunnel(): FunnelState {
         setLoading(false)
       }
     }
-  }, [customEndDate, customStartDate, onlyDirectEntry, period, selectedWebsite, steps])
+  }, [
+    captureLocation,
+    locationSearch,
+    replaceSearchParams,
+    customEndDate,
+    customStartDate,
+    onlyDirectEntry,
+    period,
+    selectedWebsite,
+    steps,
+  ])
 
   const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
   const hasValidSteps =

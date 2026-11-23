@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import { Button, Table, TextField, ActionMenu, Tooltip } from '@navikt/ds-react'
 import { MagnifyingGlassIcon, MenuElipsisVerticalIcon } from '@navikt/aksel-icons'
 import { Events } from '@navikt/analytics-types'
@@ -9,16 +10,18 @@ import TransferToMetabaseDialog from '../../../shared/ui/TransferToMetabaseDialo
 import { getEventListSqlTemplate } from '../utils/eventExplorerDashboardSql.ts'
 import { openSqlEditorWithContext } from '../../../shared/lib/openSqlEditor.ts'
 import TableSectionHeader from '../../../shared/ui/TableSectionHeader.tsx'
+import { eventDestination } from '../utils/navigation.ts'
 
 interface EventListProps {
   events: { name: string; count: number }[]
   eventsQueryStats: QueryStats | null
   websiteName?: string
   selectedWebsiteId?: string
-  onSelectEvent: (name: string) => void
+  period: string
 }
 
-const EventList = ({ events, eventsQueryStats, websiteName, selectedWebsiteId, onSelectEvent }: EventListProps) => {
+const EventList = ({ events, eventsQueryStats, websiteName, selectedWebsiteId, period }: EventListProps) => {
+  const { search, hash } = useLocation()
   const [eventSearch, setEventSearch] = useState<string>('')
   const [showSearch, setShowSearch] = useState(false)
   const [showAddToDashboardDialog, setShowAddToDashboardDialog] = useState(false)
@@ -179,7 +182,13 @@ const EventList = ({ events, eventsQueryStats, websiteName, selectedWebsiteId, o
                 <Table.DataCell>{event.name}</Table.DataCell>
                 <Table.DataCell align="right">{event.count.toLocaleString('nb-NO')}</Table.DataCell>
                 <Table.DataCell>
-                  <Button size="xsmall" variant="secondary" onClick={() => onSelectEvent(event.name)}>
+                  <Button
+                    as={Link}
+                    role="link"
+                    to={eventDestination(search, hash, event.name, undefined, period)}
+                    size="xsmall"
+                    variant="secondary"
+                  >
                     Utforsk
                   </Button>
                 </Table.DataCell>

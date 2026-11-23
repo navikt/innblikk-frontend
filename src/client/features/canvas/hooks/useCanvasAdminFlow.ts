@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import { useCallback, useEffect, useMemo } from 'react'
 import {
   createCategory,
@@ -137,6 +138,7 @@ const useCanvasAdminFlow = ({
   setCreateTeamError,
   setIsCreatingTeam,
 }: UseCanvasAdminFlowParams) => {
+  const navigate = useNavigate()
   const loadExistingCanvasOptions = useCallback(
     async (projectIdToLoad: number | null) => {
       if (projectIdToLoad === null) {
@@ -445,7 +447,7 @@ const useCanvasAdminFlow = ({
       setIsCreatingCanvas(true)
       setCreateCanvasError(null)
       const createdDashboard = await createDashboard(selectedProjectId, canvasName, CANVAS_DASHBOARD_TOKEN)
-      window.location.href = `/canvas?projectId=${selectedProjectId}&dashboardId=${createdDashboard.id}`
+      void navigate(`/canvas?projectId=${selectedProjectId}&dashboardId=${createdDashboard.id}`)
     } catch (error) {
       setCreateCanvasError(error instanceof Error ? error.message : 'Kunne ikke opprette canvas')
     } finally {

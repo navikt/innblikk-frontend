@@ -1,6 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { BrowserRouter } from 'react-router-dom'
+import { fireEvent, render as rtlRender, screen, waitFor, type RenderOptions } from '@testing-library/react'
+import type { ReactNode } from 'react'
 import SqlResultsSection from './SqlResultsSection'
 import { fetchCategories, saveChartToBackend } from '../../chartbuilder-next/api/chartStorageApi'
+
+const render = (ui: ReactNode, options?: RenderOptions) => rtlRender(ui, { wrapper: BrowserRouter, ...options })
 
 vi.mock('../../chartbuilder-next', () => ({
   ResultsPanel: ({ sql }: { sql: string }) => <pre data-testid="result-sql">{sql}</pre>,

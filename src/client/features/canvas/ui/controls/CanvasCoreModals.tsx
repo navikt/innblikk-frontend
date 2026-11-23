@@ -1,3 +1,4 @@
+import { Link as RouterLink } from 'react-router-dom'
 import { useState } from 'react'
 import { Alert, Button, Label, Modal, ReadMore, Select, TextField, UNSAFE_Combobox as Combobox } from '@navikt/ds-react'
 import type { CanvasChartOption, CanvasDeleteTarget } from '../../model/types.ts'
@@ -242,12 +243,12 @@ const CanvasCoreModals = ({
                               : ''
                           }`}
                         >
-                          <a
-                            href={`/canvas?projectId=${createCanvasProjectId}&dashboardId=${option.id}`}
+                          <RouterLink
+                            to={`/canvas?projectId=${createCanvasProjectId}&dashboardId=${option.id}`}
                             className="block min-w-0 flex-1 truncate px-4 py-3 text-base font-semibold text-[var(--ax-text-default)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--ax-border-accent)]"
                           >
                             {option.name}
-                          </a>
+                          </RouterLink>
                           <div className="pr-2">
                             <CanvasActionMenu
                               canvasName={option.name}

@@ -253,7 +253,7 @@ const Oversikt = () => {
   const totalGb = Object.values(stats).reduce((acc, curr) => acc + curr.gb, 0)
   const activeCategory = categories.find((category) => category.id === activeCategoryId) ?? null
   const hasMultipleTabs = categories.length > 1
-  const pageTitle = selectedDashboard?.name ?? ''
+  const pageTitle = selectedDashboard?.name ?? 'Dashboard'
   const visibleChangeLogEntries = useMemo(
     () =>
       changeLogEntries.filter(
@@ -1791,8 +1791,8 @@ const Oversikt = () => {
             </ActionMenu.Trigger>
             <ActionMenu.Content>
               <ActionMenu.Item
-                as="a"
-                href="/grafbygger"
+                as={Link}
+                to="/grafbygger"
                 onClick={trackAddMenuValg('dashbord-legg-til', 'Legg til graf')}
               >
                 Legg til graf
@@ -1852,6 +1852,7 @@ const Oversikt = () => {
     <DashboardLayout
       title={pageTitle}
       team={selectedDashboard ? (selectedProject ?? undefined) : undefined}
+      breadcrumbsLoading={!selectedDashboard || !selectedProject}
       description={selectedDashboard?.description?.trim() ? selectedDashboard.description : undefined}
       showKontaktSection={!isFocusedMode}
       headerActions={
@@ -1865,8 +1866,8 @@ const Oversikt = () => {
               </ActionMenu.Trigger>
               <ActionMenu.Content align="end">
                 <ActionMenu.Item
-                  as="a"
-                  href="/grafbygger"
+                  as={Link}
+                  to="/grafbygger"
                   onClick={trackAddMenuValg('dashbord-legg-til-header', 'Legg til graf')}
                 >
                   Legg til graf
@@ -2027,8 +2028,8 @@ const Oversikt = () => {
                     </ActionMenu.Trigger>
                     <ActionMenu.Content align="start">
                       <ActionMenu.Item
-                        as="a"
-                        href="/grafbygger"
+                        as={Link}
+                        to="/grafbygger"
                         onClick={trackAddMenuValg('tom-dashbord-legg-til', 'Legg til ny graf')}
                       >
                         Legg til ny graf
@@ -2255,8 +2256,8 @@ const Oversikt = () => {
                   </ActionMenu.Trigger>
                   <ActionMenu.Content align="end">
                     <ActionMenu.Item
-                      as="a"
-                      href="/grafbygger"
+                      as={Link}
+                      to="/grafbygger"
                       onClick={trackAddMenuValg('dashbord-legg-til-bunn', 'Legg til graf')}
                     >
                       Legg til graf

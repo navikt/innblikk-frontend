@@ -1,11 +1,14 @@
-import { useState } from 'react'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { BrowserRouter } from 'react-router-dom'
+import { useState, type ReactNode } from 'react'
+import { render as rtlRender, screen, waitFor, within, type RenderOptions } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, vi } from 'vitest'
 import type { Filter } from '../../../../shared/types/chart.ts'
 import QueryPreview from './QueryPreview.tsx'
 import EventFilter from '../../../chartbuilder-next/ui/grafbygger/EventFilter.tsx'
 import { generateSQLCore } from '../../../chartbuilder-next/utils/sqlGenerator.ts'
+
+const render = (ui: ReactNode, options?: RenderOptions) => rtlRender(ui, { wrapper: BrowserRouter, ...options })
 
 vi.mock('../../../chartbuilder-next/ui/results/ResultsPanel.tsx', () => ({
   default: ({ executeQuery, secondaryAction }: { executeQuery: () => void; secondaryAction?: React.ReactNode }) => (

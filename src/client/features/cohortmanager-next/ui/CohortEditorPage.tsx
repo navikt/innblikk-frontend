@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   Alert,
   BodyShort,
@@ -12,7 +12,6 @@ import {
   TextField,
   VStack,
 } from '@navikt/ds-react'
-import { ArrowLeftIcon } from '@navikt/aksel-icons'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { BetaFeatureNotice, BetaFeedbackLine } from '../../../shared/ui/BetaFeatureNotice.tsx'
@@ -34,6 +33,7 @@ import { SummaryPanel } from './SummaryPanel.tsx'
 import { CohortPreview } from './CohortPreview.tsx'
 import { WebsiteSelect } from '../../../shared/ui/WebsiteSelect.tsx'
 import { useUnsavedChangesGuard } from '../../../shared/hooks/useUnsavedChangesGuard.ts'
+import { preserveSharedAnalysisParams } from '../../../shared/lib/analysisNavigation.ts'
 import './cohortNext.css'
 
 const LIST_PATH = '/brukergrupper'
@@ -163,7 +163,7 @@ export const CohortEditorPage = forwardRef<CohortEditorRef, CohortEditorProps>(f
   const websiteLabel = website ? `${website.name} — ${website.domain}` : ''
 
   const dirty = snapshot !== null && snapshot !== JSON.stringify({ name, description, draft })
-  const { leaveTarget, requestLeave, cancelLeave } = useUnsavedChangesGuard(dirty)
+  const { isLeaveBlocked, requestLeave, cancelLeave, confirmLeave, runWithoutBlocking } = useUnsavedChangesGuard(dirty)
 
   useEffect(() => {
     if (!pendingFocus) return
@@ -176,7 +176,10 @@ export const CohortEditorPage = forwardRef<CohortEditorRef, CohortEditorProps>(f
   const nameError = showErrors && !name.trim() ? 'Gi brukergruppen et navn' : undefined
   const websiteError =
     (showErrors || showPreviewErrors) && !websiteId ? 'Velg hvilket nettsted brukergruppen gjelder' : undefined
-  const listHref = `${LIST_PATH}${websiteId ? `?websiteId=${encodeURIComponent(websiteId)}` : ''}`
+  const listContext = new URLSearchParams(searchParams)
+  if (websiteId) listContext.set('websiteId', websiteId)
+  else listContext.delete('websiteId')
+  const listHref = preserveSharedAnalysisParams(LIST_PATH, listContext.toString())
 
   // One simple card already reads as a sentence; the summary only helps once cards combine.
   const showSummary = draft.cards.length > 1 || draft.cards.some((c) => c.kind === 'sequence' || c.kind === 'group')
@@ -215,8 +218,10 @@ export const CohortEditorPage = forwardRef<CohortEditorRef, CohortEditorProps>(f
         await replaceCriteria(cohortId, root)
       }
       setSnapshot(JSON.stringify({ name, description, draft }))
-      if (onSaved) onSaved(saved)
-      else void navigate(listHref)
+      runWithoutBlocking(() => {
+        if (onSaved) onSaved(saved)
+        else void navigate(listHref)
+      })
     } catch (err: unknown) {
       setSaveError(err instanceof Error ? err.message : 'Kunne ikke lagre brukergruppen')
     } finally {
@@ -226,9 +231,10 @@ export const CohortEditorPage = forwardRef<CohortEditorRef, CohortEditorProps>(f
 
   const handleCancel = () => {
     if (saving) return
-    if (dirty) requestLeave(listHref)
-    else if (onCancel) onCancel()
-    else void navigate(listHref)
+    if (onCancel) {
+      if (dirty) requestLeave(onCancel)
+      else onCancel()
+    } else void navigate(listHref)
   }
 
   useImperativeHandle(ref, () => ({
@@ -248,14 +254,12 @@ export const CohortEditorPage = forwardRef<CohortEditorRef, CohortEditorProps>(f
 
   if (loadError) {
     return (
-      <AppBlock className="py-16">
-        <VStack gap="space-16" align="start">
+      <>
+        <PageHeader title={title} />
+        <AppBlock className="py-16">
           <Alert variant="error">{loadError}</Alert>
-          <Button as={Link} to={listHref} variant="secondary" icon={<ArrowLeftIcon aria-hidden />}>
-            Tilbake til brukergrupper
-          </Button>
-        </VStack>
-      </AppBlock>
+        </AppBlock>
+      </>
     )
   }
 
@@ -271,9 +275,6 @@ export const CohortEditorPage = forwardRef<CohortEditorRef, CohortEditorProps>(f
                 <BodyShort>{unsupportedReason}</BodyShort>
               </VStack>
             </Alert>
-            <Button as={Link} to={listHref} variant="secondary" icon={<ArrowLeftIcon aria-hidden />}>
-              Tilbake til brukergrupper
-            </Button>
           </VStack>
         </AppBlock>
       </>
@@ -296,19 +297,6 @@ export const CohortEditorPage = forwardRef<CohortEditorRef, CohortEditorProps>(f
 
         <fieldset disabled={saving} className="min-w-0 border-0 p-0 m-0">
           <VStack gap="space-24" style={{ maxWidth: '56rem' }}>
-            {!embeddedWebsite && (
-              <Button
-                as={Link}
-                to={listHref}
-                variant="tertiary"
-                size="small"
-                icon={<ArrowLeftIcon aria-hidden />}
-                style={{ alignSelf: 'flex-start' }}
-              >
-                Tilbake til brukergrupper
-              </Button>
-            )}
-
             {showErrors && (name.trim() === '' || !websiteId || issues.length > 0) && (
               <ErrorSummary ref={summaryRef} heading="Dette må rettes før du kan lagre:">
                 {!websiteId && (
@@ -418,7 +406,7 @@ export const CohortEditorPage = forwardRef<CohortEditorRef, CohortEditorProps>(f
         </fieldset>
       </AppBlock>
 
-      <Dialog open={leaveTarget !== null} onOpenChange={(o) => !o && cancelLeave()}>
+      <Dialog open={isLeaveBlocked} onOpenChange={(o) => !o && cancelLeave()}>
         <Dialog.Popup width="small" role="alertdialog">
           <Dialog.Header withClosebutton={false}>
             <Dialog.Title>Forkaste endringene?</Dialog.Title>
@@ -430,11 +418,8 @@ export const CohortEditorPage = forwardRef<CohortEditorRef, CohortEditorProps>(f
             <Button
               data-color="danger"
               onClick={() => {
-                const target = leaveTarget ?? listHref
                 setSnapshot(null)
-                cancelLeave()
-                if (onCancel) onCancel()
-                else void navigate(target)
+                confirmLeave()
               }}
             >
               Forkast
