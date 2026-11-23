@@ -1,5 +1,4 @@
 name: 'CI'
-run-name: 'CI @ ${{ github.ref_name }} — ${{ github.sha }}'
 
 on:
   pull_request:
@@ -133,17 +132,3 @@ jobs:
             playwright-report/
             test-results/
           retention-days: 7
-
-  # Builds the production image without pushing it, with the same shared workflow
-  # used for deploys. Fork PRs are skipped: they get neither the Nais login token
-  # nor access to the private @navikt packages the image needs.
-  docker-build:
-    name: 'Docker build'
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-    uses: navikt/reops-workflows/.github/workflows/build.yaml@v1
-    permissions:
-      contents: read
-      packages: read
-      id-token: write
-    with:
-      push: false
