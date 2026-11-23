@@ -1,5 +1,6 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { DashboardWidget } from './DashboardWidget'
 import { executeBigQuery } from '../api/bigquery'
 import type { SavedChart } from '../../../shared/types/savedChart'
@@ -69,14 +70,16 @@ it('keeps both add actions available without data and opens the existing Metabas
   const source = vi.spyOn(chartTransfer, 'getTransferTarget').mockReturnValue('prod')
   try {
     render(
-      <DashboardWidget
-        chart={{ ...chart, sql: baseSql }}
-        websiteId="website-1"
-        filters={filters}
-        prefetchedData={[]}
-        replaceExploreActionWithSqlEditor
-        onEditChart={vi.fn()}
-      />,
+      <MemoryRouter>
+        <DashboardWidget
+          chart={{ ...chart, sql: baseSql }}
+          websiteId="website-1"
+          filters={filters}
+          prefetchedData={[]}
+          replaceExploreActionWithSqlEditor
+          onEditChart={vi.fn()}
+        />
+      </MemoryRouter>,
     )
     await user.click(screen.getByRole('button', { name: 'Flere valg for graf Hendelser' }))
     expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
