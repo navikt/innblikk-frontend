@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { isFullWidthPath, routes } from './routes.tsx'
 
@@ -112,6 +112,6 @@ describe('canonical legacy redirects', () => {
         <LocationProbe />
       </MemoryRouter>,
     )
-    expect(await screen.findByTestId('location')).toHaveTextContent(destination)
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(destination))
   })
 })
