@@ -314,7 +314,7 @@ export default function ChartImport() {
                         }
                         description={
                           <>
-                            Fant ikke samme nettsted-ID i {target}. Velg nettstedet som skal brukes.
+                            Velg nettstedet som skal brukes.
                             {target === 'prod' && index === 0 && (
                               <>
                                 {' '}

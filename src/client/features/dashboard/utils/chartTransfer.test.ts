@@ -75,24 +75,28 @@ describe('chart transfer', () => {
     }
 
     it.each(['prod', 'dev'] as const)(
-      'puts all chart data in the fragment for %s, not HTTP query parameters',
+      'puts all chart data in HTTP query parameters for %s so login redirects preserve it',
       (target) => {
         const source = target === 'prod' ? 'dev' : 'prod'
         const url = new URL(buildChartImportUrl(chart, target, transferEnvironments[source].origin))
         expect(url.origin).toBe(transferEnvironments[target].origin)
         expect(url.pathname).toBe('/importer-graf')
-        expect([...url.searchParams.keys()]).toEqual(['importId'])
-        expect(url.search).not.toContain('SELECT')
-        const payload: unknown = JSON.parse(new URLSearchParams(url.hash.slice(1)).get('chart')!)
+        expect([...url.searchParams.keys()]).toEqual(['importId', 'chart'])
+        expect(url.hash).toBe('')
+        const payload: unknown = JSON.parse(url.searchParams.get('chart')!)
         expect(payload).toEqual({ version: 1, sourceOrigin: transferEnvironments[source].origin, chart })
       },
     )
 
-    it('validates and stores the chart before removing its fragment, preserving existing history state', () => {
+    it('stores the chart after a query-preserving login redirect and removes it while preserving history state', () => {
       const url = openLink()
-      window.history.replaceState({ existing: 'state' }, '', url.pathname + url.search + url.hash)
+      url.searchParams.set('other', 'keep')
+      window.history.replaceState({ existing: 'state' }, '', url.pathname + url.search)
       expect(initializeChartImport()).toEqual({ chart, error: null })
       expect(window.location.hash).toBe('')
+      expect(new URLSearchParams(window.location.search).get('chart')).toBeNull()
+      expect(new URLSearchParams(window.location.search).get('importId')).toBe(url.searchParams.get('importId'))
+      expect(new URLSearchParams(window.location.search).get('other')).toBe('keep')
       expect(window.history.state).toEqual({ existing: 'state' })
       expect(JSON.parse(sessionStorage.getItem(`innblikk-chart-import:${url.searchParams.get('importId')}`)!)).toEqual({
         version: 1,
@@ -102,13 +106,25 @@ describe('chart transfer', () => {
       expect(initializeChartImport()).toEqual({ chart, error: null })
     })
 
-    it('restores a chart from tab storage after a fresh module load without a fragment', async () => {
+    it('restores a chart from tab storage after a fresh module load without URL chart data', async () => {
       openLink()
       initializeChartImport()
       vi.resetModules()
       const reloaded = await import('./chartTransfer')
       expect(reloaded.initializeChartImport()).toEqual({ chart, error: null })
       expect(window.location.hash).toBe('')
+      expect(new URLSearchParams(window.location.search).has('chart')).toBe(false)
+    })
+
+    it('still accepts earlier fragment links and removes their payload', () => {
+      const url = new URL(buildChartImportUrl(chart, 'prod', transferEnvironments.dev.origin))
+      const serialized = url.searchParams.get('chart')!
+      url.searchParams.delete('chart')
+      url.hash = new URLSearchParams({ chart: serialized }).toString()
+      window.history.replaceState({}, '', url.pathname + url.search + url.hash)
+      expect(initializeChartImport()).toEqual({ chart, error: null })
+      expect(window.location.hash).toBe('')
+      expect(initializeChartImport()).toEqual({ chart, error: null })
     })
 
     it.each([
@@ -117,16 +133,17 @@ describe('chart transfer', () => {
       JSON.stringify({ version: 1, sourceOrigin: transferEnvironments.prod.origin, chart }),
       JSON.stringify({ version: 2, sourceOrigin: transferEnvironments.dev.origin, chart }),
       JSON.stringify({ version: 1, sourceOrigin: transferEnvironments.dev.origin, chart: { ...chart, queries: [] } }),
-    ])('rejects malformed or wrong-environment links and clears their fragments', (payload) => {
+    ])('rejects malformed or wrong-environment links and clears their chart parameters', (payload) => {
       window.history.replaceState(
         {},
         '',
-        `/importer-graf?importId=${crypto.randomUUID()}#${new URLSearchParams({ chart: payload })}`,
+        `/importer-graf?${new URLSearchParams({ importId: crypto.randomUUID(), chart: payload })}`,
       )
       const state = initializeChartImport()
       expect(state.chart).toBeNull()
       expect(state.error).toMatch(/ugyldig/)
       expect(window.location.hash).toBe('')
+      expect(new URLSearchParams(window.location.search).has('chart')).toBe(false)
       expect(sessionStorage.length).toBe(0)
     })
 
@@ -140,7 +157,11 @@ describe('chart transfer', () => {
         error: 'Kunne ikke lagre importen midlertidig i nettleseren. Tillat lagring og prøv igjen.',
       })
       expect(window.location.hash).toBe('')
-      expect(initializeChartImport().chart).toBeNull()
+      expect(new URLSearchParams(window.location.search).has('chart')).toBe(false)
+      expect(initializeChartImport()).toEqual({
+        chart: null,
+        error: 'Kunne ikke lagre importen midlertidig i nettleseren. Tillat lagring og prøv igjen.',
+      })
     })
 
     it('removes pending data after completion without affecting other tab storage', () => {

@@ -58,10 +58,11 @@ it('imports from prod into dev, preserving matching IDs and requiring a dev repl
       },
     ],
   }
-  const hash = new URLSearchParams({
+  const params = new URLSearchParams({
+    importId: crypto.randomUUID(),
     chart: JSON.stringify({ version: 1, sourceOrigin: PRODUCTION_ORIGIN, chart: sourceChart }),
   })
-  window.history.replaceState({}, '', `/importer-graf?importId=${crypto.randomUUID()}#${hash}`)
+  window.history.replaceState({}, '', `/importer-graf?${params}`)
   initializeChartImport()
   renderImport()
   await user.click(await screen.findByRole('combobox', { name: 'Team i dev' }))

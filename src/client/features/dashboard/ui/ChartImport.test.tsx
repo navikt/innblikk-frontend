@@ -77,10 +77,11 @@ const renderRoutes = () =>
   )
 
 const renderImport = (transferredChart: unknown = chart, sourceOrigin = origin) => {
-  const hash = new URLSearchParams({
+  const params = new URLSearchParams({
+    importId: crypto.randomUUID(),
     chart: JSON.stringify({ version: 1, sourceOrigin, chart: transferredChart }),
   })
-  window.history.replaceState({}, '', `/importer-graf?importId=${crypto.randomUUID()}#${hash}`)
+  window.history.replaceState({}, '', `/importer-graf?${params}`)
   initializeChartImport()
   return renderRoutes()
 }
@@ -236,7 +237,8 @@ it('requires separate valid replacements for missing IDs and keeps existing IDs 
   expect(screen.getByRole('button', { name: 'Legg til i Innblikk prod' })).toBeDisabled()
   await user.selectOptions(screen.getByLabelText('Velg nettsted i prod for Andre dev-nettsted'), secondProductionId)
   expect(screen.getAllByRole('textbox')).toHaveLength(1)
-  expect(screen.getAllByText(/Fant ikke samme nettsted-ID i prod\./)).toHaveLength(2)
+  expect(screen.getAllByText(/Velg nettstedet som skal brukes\./)).toHaveLength(2)
+  expect(screen.queryByText(/Fant ikke samme nettsted-ID/)).not.toBeInTheDocument()
   expect(screen.getAllByRole('link', { name: '#researchops' })).toHaveLength(1)
   expect(screen.getByRole('link', { name: '#researchops' })).toHaveAttribute(
     'href',

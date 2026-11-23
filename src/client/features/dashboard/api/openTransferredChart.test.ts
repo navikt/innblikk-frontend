@@ -52,8 +52,8 @@ it('opens a tab synchronously before fetching website labels and navigates with 
   const url = new URL(vi.mocked(tab.location.replace).mock.calls[0][0])
   expect(url.origin).toBe('https://innblikk.ansatt.nav.no')
   expect(url.pathname).toBe('/importer-graf')
-  expect(url.search).not.toContain('SELECT')
-  const payload: unknown = JSON.parse(new URLSearchParams(url.hash.slice(1)).get('chart')!)
+  expect(url.hash).toBe('')
+  const payload: unknown = JSON.parse(url.searchParams.get('chart')!)
   expect(payload).toEqual({
     version: 1,
     sourceOrigin: window.location.origin,

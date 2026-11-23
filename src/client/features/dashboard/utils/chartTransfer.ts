@@ -35,16 +35,22 @@ export const buildChartImportUrl = (
   }
   const url = new URL(CHART_IMPORT_PATH, transferEnvironments[target].origin)
   url.searchParams.set('importId', crypto.randomUUID())
-  url.hash = new URLSearchParams({ chart: JSON.stringify({ version: 1, sourceOrigin, chart }) }).toString()
+  url.searchParams.set('chart', JSON.stringify({ version: 1, sourceOrigin, chart }))
   return url.toString()
 }
 
 export const initializeChartImport = (): ChartImportState => {
-  const context = `${window.location.origin}${window.location.pathname}${window.location.search}`
-  if (!window.location.hash && preparedImport?.context === context) return preparedImport.state
-  const importId = new URLSearchParams(window.location.search).get('importId')
+  const url = new URL(window.location.href)
+  const hasChartParameter = url.searchParams.has('chart')
+  const chartParameter = url.searchParams.get('chart')
+  url.searchParams.delete('chart')
+  const cleanPath = url.pathname + url.search
+  const context = url.origin + cleanPath
+  const hash = url.hash
+  const hasUrlPayload = hasChartParameter || Boolean(hash)
+  if (!hasUrlPayload && preparedImport?.context === context) return preparedImport.state
+  const importId = url.searchParams.get('importId')
   const target = getTransferEnvironment(window.location.origin)
-  const hash = window.location.hash
   let state: ChartImportState
   try {
     if (window.location.pathname !== CHART_IMPORT_PATH || !importId || target === null) {
@@ -52,9 +58,11 @@ export const initializeChartImport = (): ChartImportState => {
     }
     let serialized: string | null
     try {
-      serialized = hash
-        ? new URLSearchParams(hash.slice(1)).get('chart')
-        : sessionStorage.getItem(`${importStoragePrefix}${importId}`)
+      serialized = hasChartParameter
+        ? chartParameter
+        : hash
+          ? new URLSearchParams(hash.slice(1)).get('chart')
+          : sessionStorage.getItem(`${importStoragePrefix}${importId}`)
     } catch {
       throw new Error('Kunne ikke lese importen fra nettleseren. Tillat midlertidig lagring og prøv igjen.')
     }
@@ -82,7 +90,7 @@ export const initializeChartImport = (): ChartImportState => {
     ) {
       throw new Error('Grafen i lenken er ugyldig eller tilhører feil miljø.')
     }
-    if (hash) {
+    if (hasUrlPayload) {
       try {
         sessionStorage.setItem(`${importStoragePrefix}${importId}`, serialized)
       } catch {
@@ -93,7 +101,7 @@ export const initializeChartImport = (): ChartImportState => {
   } catch (err) {
     state = { chart: null, error: err instanceof Error ? err.message : 'Kunne ikke lese grafen fra lenken.' }
   } finally {
-    if (hash) window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search)
+    if (hasUrlPayload) window.history.replaceState(window.history.state, '', cleanPath)
   }
   preparedImport = { context, state }
   return state
