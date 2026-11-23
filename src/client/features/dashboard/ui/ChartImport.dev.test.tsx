@@ -1,5 +1,5 @@
 // @vitest-environment-options {"url":"https://innblikk.ansatt.dev.nav.no"}
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import ChartImport from './ChartImport'
@@ -12,6 +12,8 @@ vi.mock('../../oversikt/api/oversiktApi', () => ({
   fetchCategories: vi.fn(),
   fetchProjects: vi.fn(),
   fetchDashboards: vi.fn(),
+  createProject: vi.fn(),
+  createDashboard: vi.fn(),
 }))
 vi.mock('../../../shared/api/websiteApi', () => ({ fetchWebsites: vi.fn() }))
 vi.mock('../api/importTransferredChart', () => ({ importTransferredChart: vi.fn() }))
@@ -62,10 +64,13 @@ it('imports from prod into dev, preserving matching IDs and requiring a dev repl
   window.history.replaceState({}, '', `/importer-graf?importId=${crypto.randomUUID()}#${hash}`)
   initializeChartImport()
   renderImport()
-  await user.selectOptions(await screen.findByLabelText('Team i dev'), '10')
-  await screen.findByRole('option', { name: 'Dev-dashboard' })
-  await user.selectOptions(screen.getByLabelText('Dashboard i dev'), '20')
+  await user.click(await screen.findByRole('combobox', { name: 'Team i dev' }))
+  await user.click(await screen.findByRole('option', { name: 'Dev-team' }))
+  await waitFor(() => expect(screen.getByRole('combobox', { name: 'Dashboard i dev' })).toBeEnabled())
+  await user.click(screen.getByRole('combobox', { name: 'Dashboard i dev' }))
+  await user.click(await screen.findByRole('option', { name: 'Dev-dashboard' }))
   expect(screen.getByRole('button', { name: 'Legg til i Innblikk dev' })).toBeDisabled()
+  expect(screen.queryByRole('link', { name: '#researchops' })).not.toBeInTheDocument()
   await user.selectOptions(screen.getByLabelText('Velg nettsted i dev'), replacementId)
   await user.click(screen.getByRole('button', { name: 'Legg til i Innblikk dev' }))
   expect(importTransferredChart).toHaveBeenCalledWith(

@@ -89,6 +89,32 @@ it('leaves multi-website charts unchanged when all referenced IDs exist in the d
   expect(prepareChartWebsites(chart, websites, {})).toEqual(chart)
 })
 
+it('matches website IDs even when source and destination domains differ', () => {
+  const chart = {
+    ...makeChart(`SELECT * FROM events WHERE website_id IN ('${validId}', '${replacementId}')`),
+    sourceWebsites: [
+      { id: validId, name: 'Første nettsted', domain: 'first.dev.nav.no' },
+      { id: replacementId, name: 'Andre nettsted', domain: 'second.dev.nav.no' },
+    ],
+  }
+  const targetWebsites = websites.map((website, index) => ({
+    ...website,
+    domain: index === 0 ? 'first.nav.no' : 'second.nav.no',
+  }))
+  expect(getMissingWebsiteIds(chart, targetWebsites)).toEqual([])
+  expect(prepareChartWebsites(chart, targetWebsites, {})).toEqual(chart)
+})
+
+it('does not treat a matching domain as a matching website ID', () => {
+  const chart = {
+    ...makeChart(`SELECT * FROM events WHERE website_id = '${missingId}'`),
+    sourceWebsites: [{ id: missingId, name: 'Nettsted', domain: 'same.nav.no' }],
+  }
+  const targetWebsites = [{ ...websites[0], domain: 'same.nav.no' }]
+  expect(getMissingWebsiteIds(chart, targetWebsites)).toEqual([missingId])
+  expect(() => prepareChartWebsites(chart, targetWebsites, {})).toThrow('gyldig nettsted')
+})
+
 it('requires a valid replacement even when the original website ID is malformed', () => {
   const chart = makeChart("SELECT * FROM events WHERE website_id = 'invalid-id'")
   expect(getMissingWebsiteIds(chart, websites)).toEqual(['invalid-id'])

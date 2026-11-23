@@ -4,7 +4,13 @@ import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import ChartImport from './ChartImport'
-import { fetchCategories, fetchDashboards, fetchProjects } from '../../oversikt/api/oversiktApi'
+import {
+  createDashboard,
+  createProject,
+  fetchCategories,
+  fetchDashboards,
+  fetchProjects,
+} from '../../oversikt/api/oversiktApi'
 import { importTransferredChart } from '../api/importTransferredChart'
 import { clearChartImport, initializeChartImport } from '../utils/chartTransfer'
 import { fetchWebsites } from '../../../shared/api/websiteApi'
@@ -13,6 +19,8 @@ vi.mock('../../oversikt/api/oversiktApi', () => ({
   fetchCategories: vi.fn(),
   fetchDashboards: vi.fn(),
   fetchProjects: vi.fn(),
+  createProject: vi.fn(),
+  createDashboard: vi.fn(),
 }))
 vi.mock('../api/importTransferredChart', () => ({ importTransferredChart: vi.fn() }))
 vi.mock('../../../shared/api/websiteApi', () => ({ fetchWebsites: vi.fn() }))
@@ -77,11 +85,26 @@ const renderImport = (transferredChart: unknown = chart, sourceOrigin = origin) 
   return renderRoutes()
 }
 
+const chooseComboboxOption = async (user: ReturnType<typeof userEvent.setup>, label: string, option: string) => {
+  const input = await screen.findByRole('combobox', { name: label })
+  await waitFor(() => expect(input).toBeEnabled())
+  await user.click(input)
+  await user.click(await screen.findByRole('option', { name: option }))
+}
+
+const typeNewOption = async (user: ReturnType<typeof userEvent.setup>, label: string, name: string) => {
+  const input = await screen.findByRole('combobox', { name: label })
+  await waitFor(() => expect(input).toBeEnabled())
+  await user.click(input)
+  await user.clear(input)
+  await user.type(input, name)
+  await user.keyboard('{Enter}')
+}
+
 const selectDashboard = async () => {
   const user = userEvent.setup()
-  await user.selectOptions(await screen.findByLabelText('Team i prod'), '10')
-  await screen.findByRole('option', { name: 'Mitt dashboard' })
-  await user.selectOptions(screen.getByLabelText('Dashboard i prod'), '20')
+  await chooseComboboxOption(user, 'Team i prod', 'Mitt team')
+  await chooseComboboxOption(user, 'Dashboard i prod', 'Mitt dashboard')
   await waitFor(() => expect(screen.getByRole('button', { name: 'Legg til i Innblikk prod' })).toBeEnabled())
   return user
 }
@@ -96,7 +119,8 @@ it('imports in a standalone tab without SQL and navigates only after saving comp
   )
   renderImport()
   const user = await selectDashboard()
-  expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+  expect(screen.getAllByRole('textbox')).toHaveLength(1)
+  expect(screen.getByRole('textbox', { name: 'Grafnavn' })).toHaveValue('Besøk')
   expect(screen.getAllByRole('heading')).toHaveLength(1)
   expect(screen.getByRole('heading', { name: 'Legg til i Innblikk prod' })).toBeInTheDocument()
   expect(screen.queryByLabelText('Fane')).not.toBeInTheDocument()
@@ -155,16 +179,16 @@ it('explains how to retry if a login redirect lost the chart fragment', () => {
 
 it('restores the pending chart on reload after removing the fragment', async () => {
   const view = renderImport()
-  await screen.findByText('Graf: Besøk')
+  await screen.findByRole('textbox', { name: 'Grafnavn' })
   expect(window.location.hash).toBe('')
   view.unmount()
   renderRoutes()
-  expect(await screen.findByText('Graf: Besøk')).toBeInTheDocument()
+  expect(await screen.findByRole('textbox', { name: 'Grafnavn' })).toHaveValue('Besøk')
 })
 
 it('clears pending import data when cancelled', async () => {
   renderImport()
-  await screen.findByText('Graf: Besøk')
+  await screen.findByRole('textbox', { name: 'Grafnavn' })
   await userEvent.setup().click(screen.getByRole('button', { name: 'Avbryt' }))
   expect(screen.getByRole('heading', { name: 'Forside' })).toBeInTheDocument()
   expect(sessionStorage.length).toBe(0)
@@ -173,6 +197,10 @@ it('clears pending import data when cancelled', async () => {
 it('keeps all valid website IDs unchanged without showing a website picker', async () => {
   const validChart = {
     ...chart,
+    sourceWebsites: [
+      { id: existingId, name: 'Nettsted en', domain: 'one.dev.nav.no' },
+      { id: secondProductionId, name: 'Nettsted to', domain: 'two.dev.nav.no' },
+    ],
     queries: [
       { name: 'Besøk', sql: `SELECT * FROM events WHERE website_id IN ('${existingId}', '${secondProductionId}')` },
     ],
@@ -201,14 +229,20 @@ it('requires separate valid replacements for missing IDs and keeps existing IDs 
     ],
   }
   renderImport(multiChart)
-  await user.selectOptions(await screen.findByLabelText('Team i prod'), '10')
-  await screen.findByRole('option', { name: 'Mitt dashboard' })
-  await user.selectOptions(screen.getByLabelText('Dashboard i prod'), '20')
+  await chooseComboboxOption(user, 'Team i prod', 'Mitt team')
+  await chooseComboboxOption(user, 'Dashboard i prod', 'Mitt dashboard')
   expect(screen.getByRole('button', { name: 'Legg til i Innblikk prod' })).toBeDisabled()
   await user.selectOptions(screen.getByLabelText('Velg nettsted i prod for Første dev-nettsted'), existingId)
   expect(screen.getByRole('button', { name: 'Legg til i Innblikk prod' })).toBeDisabled()
   await user.selectOptions(screen.getByLabelText('Velg nettsted i prod for Andre dev-nettsted'), secondProductionId)
-  expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+  expect(screen.getAllByRole('textbox')).toHaveLength(1)
+  expect(screen.getAllByText(/Fant ikke samme nettsted-ID i prod\./)).toHaveLength(2)
+  expect(screen.getAllByRole('link', { name: '#researchops' })).toHaveLength(1)
+  expect(screen.getByRole('link', { name: '#researchops' })).toHaveAttribute(
+    'href',
+    'https://nav-it.slack.com/archives/C02UGFS2J4B',
+  )
+  expect(screen.getByText(/Hvis nettstedet mangler sporingskode for prod/)).toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Legg til i Innblikk prod' }))
   expect(importTransferredChart).toHaveBeenCalledWith(
     10,
@@ -268,7 +302,7 @@ it('resets tab selection when switching dashboards and hides the picker for a si
   renderImport()
   const user = await selectDashboard()
   await user.selectOptions(await screen.findByLabelText('Fane'), '31')
-  await user.selectOptions(screen.getByLabelText('Dashboard i prod'), '21')
+  await chooseComboboxOption(user, 'Dashboard i prod', 'Annet dashboard')
   await waitFor(() => expect(screen.getByRole('button', { name: 'Legg til i Innblikk prod' })).toBeEnabled())
   expect(screen.queryByLabelText('Fane')).not.toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Legg til i Innblikk prod' }))
@@ -285,9 +319,8 @@ it('blocks saving while tabs load and after a tab-loading error', async () => {
       }),
   )
   renderImport()
-  await user.selectOptions(await screen.findByLabelText('Team i prod'), '10')
-  await screen.findByRole('option', { name: 'Mitt dashboard' })
-  await user.selectOptions(screen.getByLabelText('Dashboard i prod'), '20')
+  await chooseComboboxOption(user, 'Team i prod', 'Mitt team')
+  await chooseComboboxOption(user, 'Dashboard i prod', 'Mitt dashboard')
   expect(screen.getByRole('button', { name: 'Legg til i Innblikk prod' })).toBeDisabled()
   await act(async () => {
     rejectTabs(new Error('Kunne ikke hente faner'))
@@ -305,4 +338,76 @@ it('keeps the default-tab creation behavior when the dashboard has no tabs', asy
   expect(screen.queryByLabelText('Fane')).not.toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Legg til i Innblikk prod' }))
   expect(importTransferredChart).toHaveBeenCalledWith(10, 20, chart, 'prod', undefined)
+})
+
+it('lets the user rename the copy without changing the original chart or query variants', async () => {
+  renderImport()
+  const user = await selectDashboard()
+  const name = screen.getByRole('textbox', { name: 'Grafnavn' })
+  await user.clear(name)
+  expect(screen.getByRole('button', { name: 'Legg til i Innblikk prod' })).toBeDisabled()
+  expect(screen.getByText('Skriv et grafnavn.')).toBeInTheDocument()
+  await user.type(name, '  Besøk i prod  ')
+  await user.click(screen.getByRole('button', { name: 'Legg til i Innblikk prod' }))
+  expect(importTransferredChart).toHaveBeenCalledWith(10, 20, { ...chart, title: 'Besøk i prod' }, 'prod', 30)
+  expect(chart.title).toBe('Besøk')
+})
+
+it('creates a team and dashboard from the comboboxes, then saves the chart there', async () => {
+  const user = userEvent.setup()
+  vi.mocked(fetchProjects).mockResolvedValue([])
+  vi.mocked(fetchDashboards).mockResolvedValue([])
+  vi.mocked(fetchCategories).mockResolvedValue([])
+  vi.mocked(createProject).mockResolvedValue({ id: 11, name: 'Nytt team' })
+  vi.mocked(createDashboard).mockResolvedValue({ id: 21, projectId: 11, name: 'Nytt dashboard' })
+  renderImport()
+  await typeNewOption(user, 'Team i prod', 'Nytt team')
+  await typeNewOption(user, 'Dashboard i prod', 'Nytt dashboard')
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Legg til i Innblikk prod' })).toBeEnabled())
+  expect(createProject).toHaveBeenCalledExactlyOnceWith('Nytt team')
+  expect(createDashboard).toHaveBeenCalledExactlyOnceWith(11, 'Nytt dashboard')
+  await user.click(screen.getByRole('button', { name: 'Legg til i Innblikk prod' }))
+  expect(importTransferredChart).toHaveBeenCalledWith(11, 21, chart, 'prod', undefined)
+})
+
+it('blocks saving and cancellation during team creation and allows retry after a failed creation', async () => {
+  const user = userEvent.setup()
+  let rejectCreation!: (error: Error) => void
+  vi.mocked(createProject)
+    .mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          rejectCreation = reject
+        }),
+    )
+    .mockResolvedValue({ id: 11, name: 'Nytt team' })
+  renderImport()
+  await typeNewOption(user, 'Team i prod', 'Nytt team')
+  expect(screen.getByRole('button', { name: 'Avbryt' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Legg til i Innblikk prod' })).toBeDisabled()
+  await act(async () => {
+    rejectCreation(new Error('Kunne ikke opprette team'))
+    await Promise.resolve()
+  })
+  expect(screen.getByRole('alert')).toHaveTextContent('Kunne ikke opprette team')
+  await typeNewOption(user, 'Team i prod', 'Nytt team')
+  await waitFor(() => expect(screen.getByRole('combobox', { name: 'Dashboard i prod' })).toBeEnabled())
+  expect(createProject).toHaveBeenCalledTimes(2)
+})
+
+it('keeps the selected team and allows retry after a dashboard creation fails', async () => {
+  const user = userEvent.setup()
+  vi.mocked(fetchDashboards).mockResolvedValue([])
+  vi.mocked(fetchCategories).mockResolvedValue([])
+  vi.mocked(createDashboard)
+    .mockRejectedValueOnce(new Error('Kunne ikke opprette dashboard'))
+    .mockResolvedValue({ id: 21, projectId: 10, name: 'Nytt dashboard' })
+  renderImport()
+  await chooseComboboxOption(user, 'Team i prod', 'Mitt team')
+  await typeNewOption(user, 'Dashboard i prod', 'Nytt dashboard')
+  expect(await screen.findByRole('alert')).toHaveTextContent('Kunne ikke opprette dashboard')
+  await typeNewOption(user, 'Dashboard i prod', 'Nytt dashboard')
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Legg til i Innblikk prod' })).toBeEnabled())
+  expect(createDashboard).toHaveBeenNthCalledWith(1, 10, 'Nytt dashboard')
+  expect(createDashboard).toHaveBeenNthCalledWith(2, 10, 'Nytt dashboard')
 })
