@@ -159,7 +159,10 @@ export const useTrafficAnalysis = () => {
     setSubmittedSidegroup(null)
     setSidegroupReadyWebsiteId(null)
     setSidegroupResolutionFailed(false)
-  }, [incomingSidegroupId])
+    if (!incomingSidegroupId) {
+      setPathOperator(searchParams.get('pathOperator') || 'equals')
+    }
+  }, [incomingSidegroupId, searchParams])
 
   useRestoreAnalysisContext({
     period: setPeriodState,
