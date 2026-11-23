@@ -1,6 +1,6 @@
 import { Alert, BodyLong, BodyShort, Button, Heading, Link, Loader, Select, Table } from '@navikt/ds-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
-import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { DashboardWidget } from '../../../dashboard'
 import { getCanvasStickyColorOptionById } from '../../ui/sticky/CanvasStickyColorRegistry.ts'
 import { isIllustrationImageFrame } from '../../ui/image/CanvasImageUtils.ts'
@@ -931,8 +931,7 @@ const CanvasPresentationView = () => {
                     <Button
                       size="xsmall"
                       variant="tertiary-neutral"
-                      as={RouterLink}
-                      to={canvasPath}
+                      onClick={() => window.location.assign(canvasPath)}
                       aria-label="Ferdig"
                       title="Ferdig"
                     >

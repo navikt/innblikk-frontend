@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link as RouterLink, useLocation } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 import {
   Alert,
   Bleed,
@@ -157,9 +157,7 @@ export default function UserProfile() {
                       {feature.href && (
                         <>
                           {' '}
-                          <Link as={RouterLink} to={feature.href}>
-                            Åpne {feature.title.toLowerCase()}
-                          </Link>
+                          <Link href={feature.href}>Åpne {feature.title.toLowerCase()}</Link>
                         </>
                       )}
                     </BetaFeatureNotice>

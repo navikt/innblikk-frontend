@@ -2,11 +2,6 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { format, isValid, parseISO } from 'date-fns'
 import { normalizeUrlToPath } from '../../../shared/lib/utils.ts'
-import {
-  getCachedProjects,
-  getCachedDashboards,
-  getCachedDashboardProjectId,
-} from '../../../shared/lib/dashboardMetadata.ts'
 import { parseFormattedPath } from '../../analysis/utils/urlPathFilter.ts'
 import { extractWebsiteId } from '../../sql/utils/sqlProcessing.ts'
 import { useSidegroupsForWebsite } from '../../sidegroups/hooks/useSidegroupsForWebsite.ts'
@@ -149,8 +144,8 @@ export const useOversikt = () => {
   const { dashboardId: dashboardIdFromPath } = useParams<{ dashboardId?: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
   const routeDashboardId = parseId(dashboardIdFromPath ?? null)
+  const initialProjectId = parseId(searchParams.get('projectId'))
   const initialDashboardId = parseId(searchParams.get('dashboardId')) ?? routeDashboardId
-  const initialProjectId = parseId(searchParams.get('projectId')) ?? getCachedDashboardProjectId(initialDashboardId)
   const initialPathOperator = normalizePathOperator(searchParams.get('pathOperator'))
   const initialUrlPaths = getInitialUrlPaths(searchParams)
   const initialResolvedUrlPaths =
@@ -164,8 +159,8 @@ export const useOversikt = () => {
   const initialCustomEndDate = parseCustomDateFromUrl(searchParams.get('customEndDate'))
   const initialMetricType = normalizeMetricType(searchParams.get('metrikk') || searchParams.get('metricType'))
 
-  const [projects, setProjects] = useState<ProjectDto[]>(getCachedProjects)
-  const [dashboards, setDashboards] = useState<DashboardDto[]>(() => getCachedDashboards(initialProjectId))
+  const [projects, setProjects] = useState<ProjectDto[]>([])
+  const [dashboards, setDashboards] = useState<DashboardDto[]>([])
   const [categories, setCategories] = useState<GraphCategoryDto[]>([])
   const [graphs, setGraphs] = useState<GraphWithQueries[]>([])
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
@@ -181,7 +176,6 @@ export const useOversikt = () => {
   const [comboInputValue, setComboInputValue] = useState('')
   const isSelectingRef = useRef(false)
   const hasResolvedInitialProjectRef = useRef(false)
-  const discoveredDashboardsRef = useRef<{ projectId: number; items: DashboardDto[] } | null>(null)
   const previousUrlPathStorageKeyRef = useRef<string | null>(null)
 
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(initialProjectId)
@@ -550,14 +544,12 @@ export const useOversikt = () => {
         setProjects(projectItems)
 
         const fromUrl = parseId(searchParams.get('projectId'))
-        let resolvedFromRoute = getCachedDashboardProjectId(routeDashboardId)
-        if (!fromUrl && !resolvedFromRoute && routeDashboardId) {
+        let resolvedFromRoute: number | null = null
+        if (!fromUrl && routeDashboardId) {
           for (const project of projectItems) {
             const dashboardsInProject = await fetchDashboards(project.id)
             if (dashboardsInProject.some((dashboard) => dashboard.id === routeDashboardId)) {
               resolvedFromRoute = project.id
-              // Reuse the lookup result instead of immediately requesting it again.
-              discoveredDashboardsRef.current = { projectId: project.id, items: dashboardsInProject }
               break
             }
           }
@@ -597,9 +589,7 @@ export const useOversikt = () => {
       setLoadingDashboards(true)
       setError(null)
       try {
-        const discovered = discoveredDashboardsRef.current
-        const dashboardItems = discovered?.projectId === projectId ? discovered.items : await fetchDashboards(projectId)
-        if (discovered?.projectId === projectId) discoveredDashboardsRef.current = null
+        const dashboardItems = await fetchDashboards(projectId)
         setDashboards(dashboardItems)
 
         const fromUrlProjectId = parseId(searchParams.get('projectId'))

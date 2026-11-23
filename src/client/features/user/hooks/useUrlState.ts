@@ -1,4 +1,3 @@
-import { useRestoreAnalysisContext } from '../../analysis/hooks/useRestoreAnalysisContext'
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { parseISO } from 'date-fns'
@@ -19,19 +18,13 @@ export function useUrlState() {
     savePeriodPreference(newPeriod)
   }
 
-  const fromDateFromUrl = searchParams.get('from') || searchParams.get('startDate')
-  const toDateFromUrl = searchParams.get('to') || searchParams.get('endDate')
+  const fromDateFromUrl = searchParams.get('from')
+  const toDateFromUrl = searchParams.get('to')
   const initialCustomStartDate = fromDateFromUrl ? parseISO(fromDateFromUrl) : undefined
   const initialCustomEndDate = toDateFromUrl ? parseISO(toDateFromUrl) : undefined
 
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(initialCustomStartDate)
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(initialCustomEndDate)
-  useRestoreAnalysisContext({
-    period: setPeriodState,
-    startDate: setCustomStartDate,
-    endDate: setCustomEndDate,
-    paths: (paths) => setStartUrl(paths[0] || ''),
-  })
 
   const [steps, setSteps] = useState<number>(() => {
     const stepsParam = searchParams.get('steps')

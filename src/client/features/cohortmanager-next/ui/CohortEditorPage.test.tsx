@@ -1,9 +1,8 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react'
-import { createRef } from 'react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createMemoryRouter, Link, Outlet, RouterProvider } from 'react-router-dom'
+import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
-import CohortEditorRoute, { CohortEditorPage, type CohortEditorRef } from './CohortEditorPage.tsx'
+import CohortEditorRoute from './CohortEditorPage.tsx'
 import { deleteCohortChecked } from '../api/cohortApi.ts'
 import { createCohort, getCohort, replaceCriteria, updateCohort } from '../../cohortmanager/api/cohortManagerApi.ts'
 import type { CohortDetailDto } from '../../cohortmanager/model/types.ts'
@@ -36,27 +35,17 @@ vi.mock('../../../shared/api/websiteApi.ts', () => ({
 }))
 
 function renderAt(path: string) {
-  const router = createMemoryRouter(
-    [
-      {
-        element: (
-          <>
-            <Outlet />
-            <Link to="/annet">Annen lenke</Link>
-          </>
-        ),
-        children: [
-          { path: '/brukergrupper/ny', element: <CohortEditorRoute /> },
-          { path: '/brukergrupper/:id', element: <CohortEditorRoute /> },
-          { path: '/brukergrupper', element: <div>Oversikt</div> },
-          { path: '/annet', element: <div>Annen side</div> },
-        ],
-      },
-    ],
-    { initialEntries: [path] },
+  render(
+    <MemoryRouter initialEntries={[path]}>
+      <Routes>
+        <Route path="/brukergrupper/ny" element={<CohortEditorRoute />} />
+        <Route path="/brukergrupper/:id" element={<CohortEditorRoute />} />
+        <Route path="/brukergrupper" element={<div>Oversikt</div>} />
+        <Route path="/annet" element={<div>Annen side</div>} />
+      </Routes>
+      <Link to="/annet">Annen lenke</Link>
+    </MemoryRouter>,
   )
-  render(<RouterProvider router={router} />)
-  return router
 }
 
 describe('CohortEditorPage', () => {
@@ -143,8 +132,12 @@ describe('CohortEditorPage', () => {
   it('hides the website picker when the URL identifies a known website', async () => {
     renderAt('/brukergrupper/ny?websiteId=site-1')
 
-    await waitFor(() => expect(screen.queryByRole('combobox', { name: 'Nettsted' })).not.toBeInTheDocument())
-    expect(screen.queryByRole('button', { name: 'Tilbake til brukergrupper' })).not.toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Tilbake til brukergrupper' })).toHaveAttribute(
+        'href',
+        '/brukergrupper?websiteId=site-1',
+      ),
+    )
     expect(screen.queryByRole('combobox', { name: 'Nettsted' })).not.toBeInTheDocument()
   })
 
@@ -209,68 +202,6 @@ describe('CohortEditorPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Forkast' }))
     expect(await screen.findByText('Annen side')).toBeInTheDocument()
-  })
-
-  it('keeps embedded close and save callbacks without route navigation', async () => {
-    const user = userEvent.setup()
-    const ref = createRef<CohortEditorRef>()
-    const onCancel = vi.fn()
-    const onSaved = vi.fn()
-    const website = { id: 'site-1', name: 'Nav.no', domain: 'nav.no', teamId: 'team', createdAt: '' }
-    const router = createMemoryRouter([
-      { path: '/', element: <CohortEditorPage ref={ref} website={website} onCancel={onCancel} onSaved={onSaved} /> },
-    ])
-    render(<RouterProvider router={router} />)
-    await user.type(await screen.findByLabelText('Navn'), 'Søkere')
-    act(() => ref.current?.requestClose())
-    await user.click(await screen.findByRole('button', { name: 'Fortsett å redigere' }))
-    expect(onCancel).not.toHaveBeenCalled()
-    expect(screen.getByLabelText('Navn')).toHaveValue('Søkere')
-    await user.type(screen.getByRole('combobox', { name: 'Verdi' }), '/soknad{Enter}')
-    await user.click(screen.getByRole('button', { name: 'Opprett brukergruppe' }))
-    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1))
-    expect(router.state.location.pathname).toBe('/')
-    expect(screen.queryByText('Forkaste endringene?')).not.toBeInTheDocument()
-  })
-
-  it('discards an embedded draft through the cancel callback', async () => {
-    const user = userEvent.setup()
-    const ref = createRef<CohortEditorRef>()
-    const onCancel = vi.fn()
-    const website = { id: 'site-1', name: 'Nav.no', domain: 'nav.no', teamId: 'team', createdAt: '' }
-    const router = createMemoryRouter([
-      { path: '/', element: <CohortEditorPage ref={ref} website={website} onCancel={onCancel} onSaved={vi.fn()} /> },
-    ])
-    render(<RouterProvider router={router} />)
-    await user.type(await screen.findByLabelText('Navn'), 'Søkere')
-    act(() => ref.current?.requestClose())
-    await user.click(await screen.findByRole('button', { name: 'Forkast' }))
-    expect(onCancel).toHaveBeenCalledTimes(1)
-    expect(router.state.location.pathname).toBe('/')
-  })
-
-  it('resumes router navigation instead of cancelling the embedded editor', async () => {
-    const user = userEvent.setup()
-    const onCancel = vi.fn()
-    const website = { id: 'site-1', name: 'Nav.no', domain: 'nav.no', teamId: 'team', createdAt: '' }
-    const router = createMemoryRouter([
-      {
-        path: '/',
-        element: (
-          <>
-            <CohortEditorPage website={website} onCancel={onCancel} onSaved={vi.fn()} />
-            <Link to="/annet">Gå videre</Link>
-          </>
-        ),
-      },
-      { path: '/annet', element: <div>Annen side</div> },
-    ])
-    render(<RouterProvider router={router} />)
-    await user.type(await screen.findByLabelText('Navn'), 'Søkere')
-    await user.click(screen.getByRole('link', { name: 'Gå videre' }))
-    await user.click(await screen.findByRole('button', { name: 'Forkast' }))
-    expect(await screen.findByText('Annen side')).toBeInTheDocument()
-    expect(onCancel).not.toHaveBeenCalled()
   })
 
   it('reports it when the empty group left by a failed save cannot be removed', async () => {
@@ -404,6 +335,9 @@ describe('CohortEditorPage', () => {
 
     expect(await screen.findByText('Denne brukergruppen kan ikke redigeres her ennå')).toBeInTheDocument()
     expect(screen.queryByText(/gamle editoren/)).not.toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Ukjent felt' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Tilbake til brukergrupper/ })).toHaveAttribute(
+      'href',
+      '/brukergrupper?websiteId=site-1',
+    )
   })
 })

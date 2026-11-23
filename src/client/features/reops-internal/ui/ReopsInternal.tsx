@@ -1,5 +1,4 @@
 import { BodyShort, Box, Heading, Link, VStack } from '@navikt/ds-react'
-import { Link as RouterLink } from 'react-router-dom'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { hiddenFeatures, legacyLinks } from '../model/hiddenFeatures'
@@ -17,7 +16,7 @@ export default function ReopsInternal() {
           {hiddenFeatures.map((feature) => (
             <Box key={feature.id} background="raised" borderRadius="8" padding="space-6">
               <VStack gap="space-1">
-                <Link as={RouterLink} to={feature.href}>
+                <Link href={feature.href}>
                   <Heading level="2" size="small">
                     {feature.label}
                   </Heading>
@@ -45,7 +44,7 @@ export default function ReopsInternal() {
             <Box key={link.id} background="raised" borderRadius="8" padding="space-6">
               <VStack gap="space-1">
                 <BodyShort size="small" weight="semibold">
-                  <Link as={RouterLink} to={link.href}>
+                  <Link href={link.href}>
                     <code>{link.href}</code>
                   </Link>{' '}
                   → <code>{link.redirectsTo}</code>

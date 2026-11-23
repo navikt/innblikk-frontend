@@ -1,4 +1,3 @@
-import { Link as RouterLink } from 'react-router-dom'
 import PeriodPicker from '../../../analysis/ui/PeriodPicker.tsx'
 import type { Filter } from '../../../../shared/types/chart.ts'
 import { useState, useEffect, useMemo, useRef } from 'react'
@@ -1260,6 +1259,13 @@ const QueryPreview = ({
       : 'Oversikt'
     : ''
 
+  const handleGoToSavedDashboard = () => {
+    if (!savedDashboardUrl) return
+    if (typeof window !== 'undefined') {
+      window.location.href = savedDashboardUrl
+    }
+  }
+
   // Show loading message after 10 seconds
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>
@@ -1660,7 +1666,7 @@ const QueryPreview = ({
 
               {saveSuccess && savedLocation && (
                 <Alert variant="success" size="small">
-                  <Link as={RouterLink} to={savedDashboardUrl}>
+                  <Link href={savedDashboardUrl}>
                     Grafen er lagt til i "{savedLocation.dashboardName}". Åpne i {savedDashboardLabel}.
                   </Link>
                 </Alert>
@@ -1894,7 +1900,7 @@ const QueryPreview = ({
           {savedLocation && <p>Grafen er lagt til i "{savedLocation.dashboardName}". Hva vil du gjøre nå?</p>}
         </Modal.Body>
         <Modal.Footer>
-          <Button as={RouterLink} to={savedDashboardUrl}>
+          <Button onClick={handleGoToSavedDashboard}>
             Gå til {savedLocation && isCanvasDashboard(savedLocation.dashboardDescription) ? 'canvas' : 'dashboard'}
           </Button>
           <Button variant="secondary" onClick={() => setShowSaveSuccessModal(false)}>

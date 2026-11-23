@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Alert, BodyShort, Button, Dialog, HStack, Heading, Loader, Table, VStack } from '@navikt/ds-react'
 import { PencilIcon, PlusIcon, TrashIcon } from '@navikt/aksel-icons'
@@ -6,8 +6,6 @@ import { Events } from '@navikt/analytics-types'
 import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import { fetchWebsites } from '../../../shared/api/websiteApi.ts'
 import type { Website } from '../../../shared/types/website.ts'
-import { preserveSharedAnalysisParams } from '../../../shared/lib/analysisNavigation.ts'
-import { useReplaceSearchParams } from '../../../shared/hooks/useReplaceSearchParams.ts'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
 import { WebsiteSelect } from '../../../shared/ui/WebsiteSelect.tsx'
@@ -16,20 +14,18 @@ import { sidegroupMatchFields, type Sidegroup } from '../model/types.ts'
 
 export default function Sidegroups() {
   const [searchParams] = useSearchParams()
-  const replaceSearchParams = useReplaceSearchParams()
   const requestedWebsiteId = searchParams.get('websiteId')
   const [sidegroups, setSidegroups] = useState<Sidegroup[]>([])
   const [expandedSidegroups, setExpandedSidegroups] = useState<Set<string>>(() => new Set())
   const [websites, setWebsites] = useState<Website[]>([])
   const [websitesLoading, setWebsitesLoading] = useState(true)
   const [selectedWebsiteId, setSelectedWebsiteId] = useState<string | null>(null)
-  const hasInitializedWebsite = useRef(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Sidegroup | null>(null)
   const [deleting, setDeleting] = useState(false)
 
-  const loadSidegroups = useCallback(async () => {
+  const loadSidegroups = async () => {
     setLoading(true)
     setError(null)
     try {
@@ -39,34 +35,18 @@ export default function Sidegroups() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }
 
   useEffect(() => {
     void loadSidegroups()
-    let active = true
     fetchWebsites()
       .then((data) => {
-        if (!active) return
         setWebsites(data)
+        setSelectedWebsiteId(data.find((website) => website.id === requestedWebsiteId)?.id ?? data[0]?.id ?? null)
       })
-      .catch((err: unknown) => {
-        if (active) setError(err instanceof Error ? err.message : 'Kunne ikke laste nettsteder')
-      })
-      .finally(() => {
-        if (active) setWebsitesLoading(false)
-      })
-    return () => {
-      active = false
-    }
-  }, [loadSidegroups])
-
-  useEffect(() => {
-    if (websitesLoading) return
-    const requested = websites.find((website) => website.id === requestedWebsiteId)?.id
-    const initialDefault = hasInitializedWebsite.current ? null : (websites[0]?.id ?? null)
-    hasInitializedWebsite.current = true
-    setSelectedWebsiteId(requested ?? initialDefault)
-  }, [requestedWebsiteId, websites, websitesLoading])
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Kunne ikke laste nettsteder'))
+      .finally(() => setWebsitesLoading(false))
+  }, [requestedWebsiteId])
 
   const handleDelete = async () => {
     if (!deleteTarget) return
@@ -86,16 +66,7 @@ export default function Sidegroups() {
   const visibleSidegroups = selectedWebsiteId
     ? sidegroups.filter((sidegroup) => sidegroup.websiteId === selectedWebsiteId)
     : []
-  const contextParams = new URLSearchParams(searchParams)
-  if (selectedWebsiteId) contextParams.set('websiteId', selectedWebsiteId)
-  const newHref = preserveSharedAnalysisParams('/sidegrupper/ny', contextParams.toString())
-  const selectWebsite = (id: string | null) => {
-    setSelectedWebsiteId(id)
-    const next = new URLSearchParams(searchParams)
-    if (id) next.set('websiteId', id)
-    else next.delete('websiteId')
-    replaceSearchParams(next)
-  }
+  const newHref = `/sidegrupper/ny?websiteId=${encodeURIComponent(selectedWebsiteId ?? '')}`
 
   return (
     <>
@@ -105,7 +76,7 @@ export default function Sidegroups() {
           {websitesLoading ? (
             <Loader size="small" title="Laster nettsteder…" />
           ) : (
-            <WebsiteSelect websites={websites} selectedId={selectedWebsiteId} onSelect={selectWebsite} />
+            <WebsiteSelect websites={websites} selectedId={selectedWebsiteId} onSelect={setSelectedWebsiteId} />
           )}
           <HStack justify="space-between" align="center">
             <Heading size="small" level="2">
@@ -232,10 +203,7 @@ export default function Sidegroups() {
                           <div className="flex justify-end gap-2">
                             <Button
                               as={Link}
-                              to={preserveSharedAnalysisParams(
-                                `/sidegrupper/${encodeURIComponent(sidegroup.id)}`,
-                                contextParams.toString(),
-                              )}
+                              to={`/sidegrupper/${encodeURIComponent(sidegroup.id)}`}
                               size="xsmall"
                               variant="secondary"
                               icon={<PencilIcon aria-hidden />}

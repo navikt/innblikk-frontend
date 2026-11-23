@@ -1,6 +1,6 @@
 import { act, render, renderHook, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { BrowserRouter, MemoryRouter } from 'react-router-dom'
+import { MemoryRouter } from 'react-router-dom'
 import { vi, beforeEach, afterEach } from 'vitest'
 
 vi.mock('../../cohortmanager/api/columnValuesApi.ts', () => ({
@@ -45,9 +45,9 @@ SELECT 0 AS step, '/stillinger' AS url, 100 AS count`
 function renderPage(entry = '/trakt') {
   window.history.replaceState({}, '', entry)
   return render(
-    <BrowserRouter>
+    <MemoryRouter initialEntries={[entry]}>
       <Funnel />
-    </BrowserRouter>,
+    </MemoryRouter>,
   )
 }
 

@@ -1,8 +1,6 @@
-import { useReplaceSearchParams } from '../../../shared/hooks/useReplaceSearchParams'
-import { useRestoreAnalysisContext } from '../../analysis/hooks/useRestoreAnalysisContext'
 import { useCallback, useState } from 'react'
 import { useAutoRefresh } from '../../analysis/hooks/useAutoRefresh'
-import { useSearchParams, useLocation } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
 import type { Website } from '../../../shared/types/chart'
 import {
@@ -20,8 +18,6 @@ const CLICKMAP_EVENTS = ['navigere', 'accordion åpnet']
 type ClickmapDataset = 'clickmap' | 'scrollmap'
 
 export const useClickmap = (dataset: ClickmapDataset = 'clickmap') => {
-  const replaceSearchParams = useReplaceSearchParams()
-  const { search: locationSearch } = useLocation()
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
   const [searchParams] = useSearchParams()
 
@@ -35,19 +31,13 @@ export const useClickmap = (dataset: ClickmapDataset = 'clickmap') => {
     savePeriodPreference(newPeriod)
   }
 
-  const fromDateFromUrl = searchParams.get('from') || searchParams.get('startDate')
-  const toDateFromUrl = searchParams.get('to') || searchParams.get('endDate')
+  const fromDateFromUrl = searchParams.get('from')
+  const toDateFromUrl = searchParams.get('to')
   const initialCustomStartDate = fromDateFromUrl ? parseISO(fromDateFromUrl) : undefined
   const initialCustomEndDate = toDateFromUrl ? parseISO(toDateFromUrl) : undefined
 
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(initialCustomStartDate)
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(initialCustomEndDate)
-  useRestoreAnalysisContext({
-    period: setPeriodState,
-    startDate: setCustomStartDate,
-    endDate: setCustomEndDate,
-    paths: (paths) => setUrlPath(paths[0] || ''),
-  })
 
   const [data, setData] = useState<ClickmapItem[]>([])
   const [loading, setLoading] = useState<boolean>(false)
@@ -79,7 +69,7 @@ export const useClickmap = (dataset: ClickmapDataset = 'clickmap') => {
       if (!effectiveUrlPath.trim()) return
 
       const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
-      if (!dateRange || !(dateRange.endDate >= dateRange.startDate)) {
+      if (!dateRange) {
         setError('Vennligst velg en gyldig periode.')
         return
       }
@@ -100,22 +90,6 @@ export const useClickmap = (dataset: ClickmapDataset = 'clickmap') => {
       setData([])
       setQueryStats(null)
 
-      const newParams = new URLSearchParams(locationSearch)
-      newParams.set('period', period)
-      newParams.set('urlPath', normalizedPath)
-      newParams.delete('pathOperator')
-      newParams.delete('eventName')
-
-      if (period === 'custom' && customStartDate && customEndDate) {
-        newParams.set('from', format(customStartDate, 'yyyy-MM-dd'))
-        newParams.set('to', format(customEndDate, 'yyyy-MM-dd'))
-      } else {
-        newParams.delete('from')
-        newParams.delete('to')
-      }
-
-      replaceSearchParams(newParams)
-
       try {
         const result = await fetchClickmap({
           websiteId: selectedWebsite.id,
@@ -131,6 +105,21 @@ export const useClickmap = (dataset: ClickmapDataset = 'clickmap') => {
         setData(result.data ?? [])
         setQueryStats(result.queryStats ?? null)
 
+        const newParams = new URLSearchParams(window.location.search)
+        newParams.set('period', period)
+        newParams.set('urlPath', normalizedPath)
+        newParams.delete('pathOperator')
+        newParams.delete('eventName')
+
+        if (period === 'custom' && customStartDate && customEndDate) {
+          newParams.set('from', format(customStartDate, 'yyyy-MM-dd'))
+          newParams.set('to', format(customEndDate, 'yyyy-MM-dd'))
+        } else {
+          newParams.delete('from')
+          newParams.delete('to')
+        }
+
+        window.history.replaceState({}, '', `${window.location.pathname}?${newParams.toString()}`)
         setLastAppliedFilterKey(appliedFilterKey)
       } catch (err) {
         console.error('Error fetching clickmap data:', err)
@@ -139,7 +128,7 @@ export const useClickmap = (dataset: ClickmapDataset = 'clickmap') => {
         setLoading(false)
       }
     },
-    [locationSearch, replaceSearchParams, selectedWebsite, urlPath, period, customStartDate, customEndDate, dataset],
+    [selectedWebsite, urlPath, period, customStartDate, customEndDate, dataset],
   )
 
   const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)

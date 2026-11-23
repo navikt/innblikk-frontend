@@ -1,5 +1,4 @@
 import { BodyShort, Heading, Link, Tag } from '@navikt/ds-react'
-import { Link as RouterLink } from 'react-router-dom'
 import { TeamWebsites } from '../../../settings'
 import { KontaktSeksjon } from '../../../../shared/ui/theme/Kontakt/KontaktSeksjon.tsx'
 import { Skyra } from '../../../../shared/ui/theme/Skyra/Skyra.tsx'
@@ -125,13 +124,12 @@ function Oppsett() {
               href: 'https://navno.sharepoint.com/sites/intranett-utvikling/SitePages/Rutine-for-bruk-av-Umami.aspx',
               label: 'Retningslinjer',
               description: 'Rutine for bruk av Innblikk',
-              external: true,
             },
             { href: '/taksonomi', label: 'Taksonomi', description: 'Navngi hendelser og egenskaper' },
           ].map((article) => (
             <Link
               key={article.href}
-              {...(article.external ? { href: article.href } : { as: RouterLink, to: article.href })}
+              href={article.href}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -224,8 +222,7 @@ function Oppsett() {
                   .map((tool: { id: string; href: string; label: string; description: string }) => (
                     <Link
                       key={tool.id}
-                      as={RouterLink}
-                      to={tool.href}
+                      href={tool.href}
                       style={{
                         display: 'flex',
                         alignItems: 'center',

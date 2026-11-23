@@ -1,8 +1,6 @@
-import { useReplaceSearchParams } from '../../../shared/hooks/useReplaceSearchParams'
-import { useRestoreAnalysisContext } from '../../analysis/hooks/useRestoreAnalysisContext'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useAutoRefresh } from '../../analysis/hooks/useAutoRefresh'
-import { useLocation, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import type { ILineChartProps } from '@fluentui/react-charting'
 import { parseISO } from 'date-fns'
 import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
@@ -71,8 +69,6 @@ export interface RetentionState {
 }
 
 export function useRetention(): RetentionState {
-  const replaceSearchParams = useReplaceSearchParams()
-  const { search: locationSearch } = useLocation()
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
   const usesCookies = useCookieSupport(selectedWebsite?.domain)
   const cookieStartDate = useCookieStartDate(selectedWebsite?.domain)
@@ -81,9 +77,7 @@ export function useRetention(): RetentionState {
   const returnScopeFromUrl = searchParams.get('retentionReturnScope')
 
   // Initialize state from URL params
-  const [urlPath, setUrlPath] = useState<string>(
-    () => searchParams.get('urlPath') || searchParams.get('pagePath') || '',
-  )
+  const [urlPath, setUrlPath] = useState<string>(() => searchParams.get('urlPath') || '')
   const [pathOperator, setPathOperator] = useState<string>(() => searchParams.get('pathOperator') || 'equals')
   const [returnScope, setReturnScope] = useState<'same_url' | 'site'>(() =>
     returnScopeFromUrl === 'site' ? 'site' : 'same_url',
@@ -117,22 +111,13 @@ export function useRetention(): RetentionState {
   }, [usesCookies, retentionPeriodFromUrl])
 
   // Custom dates from URL
-  const fromDateFromUrl = searchParams.get('from') || searchParams.get('startDate')
-  const toDateFromUrl = searchParams.get('to') || searchParams.get('endDate')
+  const fromDateFromUrl = searchParams.get('from')
+  const toDateFromUrl = searchParams.get('to')
   const initialCustomStartDate = fromDateFromUrl ? parseISO(fromDateFromUrl) : undefined
   const initialCustomEndDate = toDateFromUrl ? parseISO(toDateFromUrl) : undefined
 
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(initialCustomStartDate)
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(initialCustomEndDate)
-  useRestoreAnalysisContext({
-    periodParam: 'retentionPeriod',
-    period: (value) =>
-      setPeriodState(usesCookies || ['current_month', 'last_month', 'custom'].includes(value) ? value : 'last_month'),
-    startDate: setCustomStartDate,
-    endDate: setCustomEndDate,
-    paths: (paths) => setUrlPath(paths[0] || ''),
-    pathOperator: setPathOperator,
-  })
 
   // Data state
   const [retentionData, setRetentionData] = useState<RetentionRow[]>([])
@@ -213,16 +198,11 @@ export function useRetention(): RetentionState {
     setHasAttemptedFetch(true)
 
     const range = getRetentionDateRange(usesCookies, period, customStartDate, customEndDate)
-    if (!range || !(range.endDate >= range.startDate)) {
+    if (!range) {
       setError('Vennligst velg en gyldig periode.')
       setLoading(false)
       return
     }
-
-    // Update URL with configuration for sharing
-    const normalizedUrl = normalizeUrlToPath(urlPath)
-    const newParams = buildShareParams(period, normalizedUrl, pathOperator, returnScope, locationSearch)
-    replaceSearchParams(newParams)
 
     const result = await fetchRetentionData({
       websiteId: selectedWebsite.id,
@@ -245,13 +225,15 @@ export function useRetention(): RetentionState {
       setSameDayReturningUsers(result.sameDayReturningUsers ?? 0)
       setNonReturningUsers(result.nonReturningUsers ?? 0)
 
+      // Update URL with configuration for sharing
+      const normalizedUrl = normalizeUrlToPath(urlPath)
+      const newParams = buildShareParams(period, normalizedUrl, pathOperator, returnScope)
+      window.history.replaceState({}, '', `${window.location.pathname}?${newParams.toString()}`)
       setLastAppliedFilterKey(appliedFilterKey)
     }
 
     setLoading(false)
   }, [
-    locationSearch,
-    replaceSearchParams,
     selectedWebsite,
     buildFilterKey,
     urlPath,

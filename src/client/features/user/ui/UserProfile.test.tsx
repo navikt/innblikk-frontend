@@ -24,7 +24,7 @@ afterEach(() => {
 })
 
 describe('alfa settings', () => {
-  it('offers the filter selector as an alfa checkbox, separate from the beta builder', async () => {
+  it('offers only the filter selector as an alfa checkbox, separate from the beta builder', async () => {
     const user = userEvent.setup()
     render(
       <MemoryRouter>

@@ -1,8 +1,6 @@
-import { useReplaceSearchParams } from '../../../shared/hooks/useReplaceSearchParams'
-import { useRestoreAnalysisContext } from '../../analysis/hooks/useRestoreAnalysisContext'
 import { useState, useMemo, useCallback } from 'react'
 import { useAutoRefresh } from '../../analysis/hooks/useAutoRefresh'
-import { useSearchParams, useLocation } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
 import { Events, type KopierLenkeProperties } from '@navikt/analytics-types'
 import { trackEvent } from '../../../shared/lib/trackEvent.ts'
@@ -27,15 +25,11 @@ import type { MarketingData, QueryStats } from '../model/types'
 import { fetchMarketingStats } from '../api/trafficApi'
 
 export const useMarketingAnalysis = () => {
-  const replaceSearchParams = useReplaceSearchParams()
-  const { search: locationSearch } = useLocation()
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
   const [searchParams] = useSearchParams()
 
   // Initialize state from URL params
-  const pathsFromUrl = searchParams.getAll('urlPath').length
-    ? searchParams.getAll('urlPath')
-    : searchParams.getAll('pagePath')
+  const pathsFromUrl = searchParams.getAll('urlPath')
   const initialPaths = pathsFromUrl.length > 0 ? pathsFromUrl.map((p) => normalizeUrlToPath(p)).filter(Boolean) : []
   const [urlPaths, setUrlPaths] = useState<string[]>(initialPaths)
   const [pathOperator, setPathOperator] = useState<string>(() => searchParams.get('pathOperator') || 'equals')
@@ -47,8 +41,8 @@ export const useMarketingAnalysis = () => {
   }
 
   // Support custom dates from URL
-  const fromDateFromUrl = searchParams.get('from') || searchParams.get('startDate')
-  const toDateFromUrl = searchParams.get('to') || searchParams.get('endDate')
+  const fromDateFromUrl = searchParams.get('from')
+  const toDateFromUrl = searchParams.get('to')
   const initialCustomStartDate = fromDateFromUrl ? parseISO(fromDateFromUrl) : undefined
   const initialCustomEndDate = toDateFromUrl ? parseISO(toDateFromUrl) : undefined
 
@@ -80,14 +74,6 @@ export const useMarketingAnalysis = () => {
   const [submittedMetricType, setSubmittedMetricType] = useState<string>(() =>
     getStoredMetricType(searchParams.get('metricType')),
   )
-  useRestoreAnalysisContext({
-    period: setPeriodState,
-    startDate: setCustomStartDate,
-    endDate: setCustomEndDate,
-    paths: (paths) => setUrlPaths(paths.map(normalizeUrlToPath).filter(Boolean)),
-    pathOperator: setPathOperator,
-    metricType: setMetricTypeState,
-  })
 
   const setMetricType = (newMetricType: string) => {
     setMetricTypeState(newMetricType)
@@ -130,7 +116,7 @@ export const useMarketingAnalysis = () => {
     setSubmittedMetricType(metricType)
 
     const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
-    if (!dateRange || !(dateRange.endDate >= dateRange.startDate)) {
+    if (!dateRange) {
       setError('Vennligst velg en gyldig periode.')
       setLoading(false)
       return
@@ -139,29 +125,6 @@ export const useMarketingAnalysis = () => {
     const { countBy, countBySwitchAt } = getCookieCountByParams(usesCookies, cookieStartDate, startDate, endDate)
     const countByParams = countBy ? `&countBy=${countBy}` : ''
     const countBySwitchAtParam = countBySwitchAt ? `&countBySwitchAt=${countBySwitchAt}` : ''
-
-    // Update URL with configuration for sharing
-    const newParams = new URLSearchParams(locationSearch)
-    newParams.set('period', period)
-    newParams.set('metricType', metricType)
-    newParams.delete('urlPath')
-    newParams.delete('pagePath')
-    if (urlPaths.length > 0) {
-      urlPaths.forEach((p) => newParams.append('urlPath', p))
-      newParams.set('pathOperator', pathOperator)
-    } else {
-      newParams.delete('pathOperator')
-    }
-
-    if (period === 'custom' && customStartDate && customEndDate) {
-      newParams.set('from', format(customStartDate, 'yyyy-MM-dd'))
-      newParams.set('to', format(customEndDate, 'yyyy-MM-dd'))
-    } else {
-      newParams.delete('from')
-      newParams.delete('to')
-    }
-
-    replaceSearchParams(newParams)
 
     try {
       const urlPath = urlPaths.length > 0 ? urlPaths[0] : ''
@@ -186,6 +149,27 @@ export const useMarketingAnalysis = () => {
         setQueryStats(result.queryStats)
       }
 
+      // Update URL with configuration for sharing
+      const newParams = new URLSearchParams(window.location.search)
+      newParams.set('period', period)
+      newParams.set('metricType', metricType)
+      newParams.delete('urlPath')
+      if (urlPaths.length > 0) {
+        urlPaths.forEach((p) => newParams.append('urlPath', p))
+        newParams.set('pathOperator', pathOperator)
+      } else {
+        newParams.delete('pathOperator')
+      }
+
+      if (period === 'custom' && customStartDate && customEndDate) {
+        newParams.set('from', format(customStartDate, 'yyyy-MM-dd'))
+        newParams.set('to', format(customEndDate, 'yyyy-MM-dd'))
+      } else {
+        newParams.delete('from')
+        newParams.delete('to')
+      }
+
+      window.history.replaceState({}, '', `${window.location.pathname}?${newParams.toString()}`)
       setLastAppliedFilterKey(appliedFilterKey)
     } catch (err) {
       console.error('Error fetching marketing data:', err)
@@ -195,8 +179,6 @@ export const useMarketingAnalysis = () => {
       setLoading(false)
     }
   }, [
-    locationSearch,
-    replaceSearchParams,
     selectedWebsite,
     buildFilterKey,
     metricType,

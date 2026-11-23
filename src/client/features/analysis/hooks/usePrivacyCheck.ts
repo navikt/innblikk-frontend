@@ -1,7 +1,5 @@
-import { useReplaceSearchParams } from '../../../shared/hooks/useReplaceSearchParams'
-import { useRestoreAnalysisContext } from './useRestoreAnalysisContext'
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useSearchParams, useLocation } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { parseISO } from 'date-fns'
 import type { Website } from '../../../shared/types/chart.ts'
 import type { PrivacyRow, QueryStats } from '../model/types.ts'
@@ -11,20 +9,17 @@ import { calculatePrivacyDateRange, filterFalsePositives, summarizeRedactedByKey
 const ROWS_PER_PAGE = 20
 
 export const usePrivacyCheck = () => {
-  const replaceSearchParams = useReplaceSearchParams()
-  const { search: locationSearch } = useLocation()
   const [searchParams] = useSearchParams()
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
   const [period, setPeriod] = useState<string>(() => searchParams.get('period') || 'current_month')
 
-  const fromDateFromUrl = searchParams.get('from') || searchParams.get('startDate')
-  const toDateFromUrl = searchParams.get('to') || searchParams.get('endDate')
+  const fromDateFromUrl = searchParams.get('from')
+  const toDateFromUrl = searchParams.get('to')
   const initialCustomStartDate = fromDateFromUrl ? parseISO(fromDateFromUrl) : undefined
   const initialCustomEndDate = toDateFromUrl ? parseISO(toDateFromUrl) : undefined
 
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(initialCustomStartDate)
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(initialCustomEndDate)
-  useRestoreAnalysisContext({ period: setPeriod, startDate: setCustomStartDate, endDate: setCustomEndDate })
   const [data, setData] = useState<PrivacyRow[] | null>(null)
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
@@ -73,16 +68,11 @@ export const usePrivacyCheck = () => {
       }
 
       const range = calculatePrivacyDateRange(period, customStartDate, customEndDate)
-      if (!range || !(range.endDate >= range.startDate)) {
+      if (!range) {
         setError('Vennligst velg en gyldig periode.')
         setLoading(false)
         return
       }
-
-      // Update URL with selected period for sharing
-      const newParams = new URLSearchParams(locationSearch)
-      newParams.set('period', period)
-      replaceSearchParams(newParams)
 
       try {
         let dryRun = !force && period === 'custom'
@@ -125,6 +115,11 @@ export const usePrivacyCheck = () => {
             setQueryStats(result.queryStats ?? null)
             setGeneratedSql(result.generatedSql ?? null)
             setLoading(false)
+
+            // Update URL with selected period for sharing
+            const newParams = new URLSearchParams(window.location.search)
+            newParams.set('period', period)
+            window.history.replaceState({}, '', `${window.location.pathname}?${newParams.toString()}`)
           }
         } while (shouldRetry)
       } catch (err) {
@@ -133,7 +128,7 @@ export const usePrivacyCheck = () => {
         setLoading(false)
       }
     },
-    [locationSearch, replaceSearchParams, period, customStartDate, customEndDate, selectedWebsite],
+    [period, customStartDate, customEndDate, selectedWebsite],
   )
 
   const handleExplore = useCallback((type: string) => {

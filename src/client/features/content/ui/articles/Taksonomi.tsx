@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link as RouterLink } from 'react-router-dom'
 import {
   Alert,
   BodyLong,
@@ -313,9 +312,7 @@ const TaksonomiPage = () => {
               <List as="ol">
                 <List.Item>
                   <strong>
-                    <Link as={RouterLink} to="/sporingskoder">
-                      Hent sporingskode
-                    </Link>
+                    <Link href="/public">Hent sporingskode</Link>
                   </strong>{' '}
                   fra Innblikk forsiden og legg den inn i appen din
                 </List.Item>
@@ -324,9 +321,7 @@ const TaksonomiPage = () => {
                 </List.Item>
                 <List.Item>
                   <strong>
-                    <Link as={RouterLink} to="/grafbygger">
-                      Verifiser i Grafbygger
-                    </Link>
+                    <Link href="/grafbygger">Verifiser i Grafbygger</Link>
                   </strong>{' '}
                   at hendelsene kommer inn som forventet
                 </List.Item>

@@ -1,4 +1,3 @@
-import { useReplaceSearchParams } from '../../../shared/hooks/useReplaceSearchParams.ts'
 import { useCallback, useEffect, useRef } from 'react'
 import { getFromLocalStorage, saveToLocalStorage, SELECTED_WEBSITE_CACHE_KEY } from '../storage/localStorage.ts'
 import type { Website } from '../model/types.ts'
@@ -16,23 +15,19 @@ export const useWebsiteSelection = ({
   onWebsiteChange,
   disableUrlUpdate = false,
 }: UseWebsiteSelectionProps) => {
-  const replaceSearchParams = useReplaceSearchParams()
   const initialSelectionHandled = useRef<boolean>(false)
 
-  const updateUrlWithWebsiteId = useCallback(
-    (website: Website | null) => {
-      const params = new URLSearchParams(window.location.search)
+  const updateUrlWithWebsiteId = useCallback((website: Website | null) => {
+    const url = new URL(window.location.href)
 
-      if (website && website.id) {
-        params.set('websiteId', website.id)
-      } else {
-        params.delete('websiteId')
-      }
+    if (website && website.id) {
+      url.searchParams.set('websiteId', website.id)
+    } else {
+      url.searchParams.delete('websiteId')
+    }
 
-      replaceSearchParams(params)
-    },
-    [replaceSearchParams],
-  )
+    window.history.pushState({}, '', url.toString())
+  }, [])
 
   const applySelection = useCallback(
     (website: Website | null, updateUrl: boolean = true) => {

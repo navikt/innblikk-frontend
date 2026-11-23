@@ -1,10 +1,8 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { useLocation, useSearchParams } from 'react-router-dom'
-import { useReplaceSearchParams } from '../../../shared/hooks/useReplaceSearchParams'
-import { EVENT_LIST_PATH, EVENT_PARAMETER_PATH } from '../utils/navigation'
+import { useState, useEffect, useCallback } from 'react'
+import { useAutoRefresh } from '../../analysis/hooks/useAutoRefresh'
+import { useSearchParams } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
 import type { Website } from '../../../shared/types/chart'
-import { normalizeDomain } from '../../../shared/lib/domain'
 import {
   normalizeUrlToPath,
   getDateRangeFromPeriod,
@@ -21,83 +19,39 @@ import {
 import type { SeriesPoint, EventProperty, ParameterValue, LatestEvent, QueryStats } from '../model/types'
 
 export const useEventExplorer = () => {
-  const [website, setSelectedWebsite] = useState<Website | null>(null)
+  const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null)
   const [searchParams] = useSearchParams()
 
-  const websiteId = searchParams.get('websiteId')
-  const domain = searchParams.get('domain')
-  const matchesWebsite = websiteId
-    ? website?.id === websiteId
-    : domain
-      ? Boolean(website && normalizeDomain(website.domain) === normalizeDomain(domain))
-      : true
-  const selectedWebsite = matchesWebsite ? website : null
-  const location = useLocation()
-  const replaceSearchParams = useReplaceSearchParams()
-  const latestSearch = useRef(location.search)
-  useEffect(() => {
-    latestSearch.current = location.search
-  }, [location.search])
-  const updateParams = useCallback(
-    (update: (params: URLSearchParams) => void) => {
-      const params = new URLSearchParams(latestSearch.current)
-      update(params)
-      latestSearch.current = params.toString()
-      replaceSearchParams(params)
-    },
-    [replaceSearchParams],
-  )
+  // Initialize state from URL params
+  const pathsFromUrl = searchParams.getAll('urlPath')
+  const legacyPath = searchParams.get('pagePath')
+  const initialPaths =
+    pathsFromUrl.length > 0
+      ? pathsFromUrl.map((p) => normalizeUrlToPath(p)).filter(Boolean)
+      : legacyPath
+        ? [normalizeUrlToPath(legacyPath)].filter(Boolean)
+        : []
 
-  const urlPaths = useMemo(() => {
-    const paths = searchParams.getAll('urlPath')
-    const legacyPath = searchParams.get('pagePath')
-    return (paths.length ? paths : legacyPath ? [legacyPath] : []).map(normalizeUrlToPath).filter(Boolean)
-  }, [searchParams])
-  const pathOperator = searchParams.get('pathOperator') || 'equals'
-  const selectedEvent = location.pathname === EVENT_LIST_PATH ? '' : searchParams.get('event') || ''
-  const selectedParameterForDrilldown =
-    location.pathname === EVENT_PARAMETER_PATH ? searchParams.get('parameter') : null
-  const period = getStoredPeriod(searchParams.get('period'))
-  useEffect(() => {
-    if (!searchParams.has('period')) updateParams((params) => params.set('period', period))
-  }, [period, searchParams, updateParams])
-  const from = searchParams.get('from') || searchParams.get('startDate')
-  const to = searchParams.get('to') || searchParams.get('endDate')
-  const customStartDate = useMemo(() => (from ? parseISO(from) : undefined), [from])
-  const customEndDate = useMemo(() => (to ? parseISO(to) : undefined), [to])
-  const setUrlPaths = (paths: string[]) =>
-    updateParams((params) => {
-      params.delete('urlPath')
-      params.delete('pagePath')
-      paths.forEach((path) => params.append('urlPath', path))
-    })
-  const setPathOperator = (operator: string) => updateParams((params) => params.set('pathOperator', operator))
-  const setPeriod = (value: string) => {
-    savePeriodPreference(value)
-    updateParams((params) => {
-      params.set('period', value)
-      if (value !== 'custom') {
-        params.delete('from')
-        params.delete('to')
-        params.delete('startDate')
-        params.delete('endDate')
-      }
-    })
-  }
-  const setCustomStartDate = (date: Date | undefined) =>
-    updateParams((params) => {
-      params.delete('startDate')
-      if (date && !isNaN(date.getTime())) params.set('from', format(date, 'yyyy-MM-dd'))
-      else params.delete('from')
-    })
-  const setCustomEndDate = (date: Date | undefined) =>
-    updateParams((params) => {
-      params.delete('endDate')
-      if (date && !isNaN(date.getTime())) params.set('to', format(date, 'yyyy-MM-dd'))
-      else params.delete('to')
-    })
+  const [urlPaths, setUrlPaths] = useState<string[]>(initialPaths)
+  const [pathOperator, setPathOperator] = useState<string>(() => searchParams.get('pathOperator') || 'equals')
+  const [selectedEvent, setSelectedEvent] = useState<string>(() => searchParams.get('event') || '')
   const [events, setEvents] = useState<{ name: string; count: number }[]>([])
   const [loadingEvents, setLoadingEvents] = useState<boolean>(false)
+  const [period, setPeriodState] = useState<string>(() => getStoredPeriod(searchParams.get('period')))
+
+  const setPeriod = (newPeriod: string) => {
+    setPeriodState(newPeriod)
+    savePeriodPreference(newPeriod)
+  }
+
+  // Support custom dates from URL
+  const fromDateFromUrl = searchParams.get('from')
+  const toDateFromUrl = searchParams.get('to')
+  const initialCustomStartDate = fromDateFromUrl ? parseISO(fromDateFromUrl) : undefined
+  const initialCustomEndDate = toDateFromUrl ? parseISO(toDateFromUrl) : undefined
+
+  const [customStartDate, setCustomStartDate] = useState<Date | undefined>(initialCustomStartDate)
+  const [customEndDate, setCustomEndDate] = useState<Date | undefined>(initialCustomEndDate)
   const [hasSearched, setHasSearched] = useState<boolean>(false)
 
   // Data states
@@ -114,6 +68,7 @@ export const useEventExplorer = () => {
   const [loadingValues, setLoadingValues] = useState<boolean>(false)
   const [hasLoadedValues, setHasLoadedValues] = useState<boolean>(false)
   const [latestEvents, setLatestEvents] = useState<LatestEvent[]>([])
+  const [selectedParameterForDrilldown, setSelectedParameterForDrilldown] = useState<string | null>(null)
   const [parameterValuesQueryStats, setParameterValuesQueryStats] = useState<QueryStats | null>(null)
 
   const [lastAppliedFilterKey, setLastAppliedFilterKey] = useState<string | null>(null)
@@ -131,17 +86,6 @@ export const useEventExplorer = () => {
     [selectedWebsite?.id, urlPaths, pathOperator, period, customStartDate, customEndDate],
   )
 
-  const requestKey = JSON.stringify([buildFilterKey(), selectedEvent])
-  const currentRequest = useRef(0)
-  useEffect(() => {
-    currentRequest.current += 1
-    return () => {
-      currentRequest.current += 1
-    }
-  }, [requestKey])
-  const [listDataKey, setListDataKey] = useState<string | null>(null)
-  const [detailDataKey, setDetailDataKey] = useState<string | null>(null)
-
   const hasUnappliedFilterChanges = buildFilterKey() !== lastAppliedFilterKey
 
   // Calculate dates based on selection
@@ -157,12 +101,11 @@ export const useEventExplorer = () => {
   const fetchEventsData = useCallback(async () => {
     if (!selectedWebsite) return
     const appliedFilterKey = buildFilterKey()
-    const version = currentRequest.current
-    const isCurrent = () => currentRequest.current === version
 
     setLoadingEvents(true)
     setHasSearched(true)
     setEvents([])
+    setSelectedEvent('')
     setSeriesData([])
     setPropertiesData([])
     setError(null)
@@ -179,9 +122,7 @@ export const useEventExplorer = () => {
         pathOperator,
       })
 
-      if (!isCurrent()) return
       setEvents(result.events ?? [])
-      setListDataKey(requestKey)
       if (result.queryStats) {
         setEventsQueryStats(result.queryStats)
       }
@@ -189,30 +130,43 @@ export const useEventExplorer = () => {
         setGeneratedSql(result.generatedSql)
       }
 
+      // Update URL with configuration for sharing
+      const newParams = new URLSearchParams(window.location.search)
+      newParams.set('period', period)
+      newParams.delete('urlPath')
+      newParams.delete('pagePath')
+      if (urlPaths.length > 0) {
+        urlPaths.forEach((p) => newParams.append('urlPath', p))
+        newParams.set('pathOperator', pathOperator)
+      } else {
+        newParams.delete('pathOperator')
+      }
+
+      if (period === 'custom' && customStartDate && customEndDate) {
+        newParams.set('from', format(customStartDate, 'yyyy-MM-dd'))
+        newParams.set('to', format(customEndDate, 'yyyy-MM-dd'))
+      } else {
+        newParams.delete('from')
+        newParams.delete('to')
+      }
+
+      window.history.replaceState({}, '', `${window.location.pathname}?${newParams.toString()}`)
       setLastAppliedFilterKey(appliedFilterKey)
     } catch (err) {
-      if (!isCurrent()) return
-      setListDataKey(requestKey)
       console.error('Error fetching events:', err)
       setError((err as Error).message || 'Kunne ikke hente hendelser.')
     } finally {
-      if (isCurrent()) setLoadingEvents(false)
+      setLoadingEvents(false)
     }
-  }, [selectedWebsite, buildFilterKey, getDates, urlPaths, pathOperator, requestKey])
+  }, [selectedWebsite, buildFilterKey, getDates, urlPaths, pathOperator, period, customStartDate, customEndDate])
 
   const dateRange = getDateRangeFromPeriod(period, customStartDate, customEndDate)
   const canRefresh = Boolean(selectedWebsite && dateRange && dateRange.endDate >= dateRange.startDate)
-  useEffect(() => {
-    if (!canRefresh || selectedEvent) return
-    const timer = window.setTimeout(() => void fetchEventsData(), 300)
-    return () => window.clearTimeout(timer)
-  }, [canRefresh, selectedEvent, requestKey, fetchEventsData])
+  useAutoRefresh(buildFilterKey(), canRefresh && !selectedEvent, loadingEvents || loadingData, fetchEventsData)
 
   // Fetch data when an event is selected
   const fetchEventData = useCallback(async () => {
     if (!selectedWebsite || !selectedEvent) return
-    const version = currentRequest.current
-    const isCurrent = () => currentRequest.current === version
 
     setLoadingData(true)
     setError(null)
@@ -221,7 +175,6 @@ export const useEventExplorer = () => {
     setQueryStats(null)
     setAllParameterValues({})
     setHasLoadedValues(false)
-    setLoadingValues(false)
 
     try {
       const { startAt, endAt } = getDates()
@@ -237,7 +190,6 @@ export const useEventExplorer = () => {
         urlPath: pagePath,
         pathOperator,
       })
-      if (!isCurrent()) return
       setSeriesData(seriesResult.data ?? [])
 
       // Fetch Properties Data
@@ -251,8 +203,6 @@ export const useEventExplorer = () => {
         pathOperator,
       })
 
-      if (!isCurrent()) return
-      setDetailDataKey(requestKey)
       setPropertiesData(propsResult.properties ?? [])
       if (propsResult.gbProcessed !== undefined) {
         const gbProcessed = Number(propsResult.gbProcessed)
@@ -263,30 +213,49 @@ export const useEventExplorer = () => {
             : undefined,
         })
       }
+
+      // Update URL with selected event for sharing
+      const newParams = new URLSearchParams(window.location.search)
+      newParams.set('period', period)
+      newParams.set('event', selectedEvent)
+      newParams.delete('urlPath')
+      newParams.delete('pagePath')
+      if (urlPaths.length > 0) {
+        urlPaths.forEach((p) => newParams.append('urlPath', p))
+        newParams.set('pathOperator', pathOperator)
+      } else {
+        newParams.delete('pathOperator')
+      }
+
+      if (period === 'custom' && customStartDate && customEndDate) {
+        newParams.set('from', format(customStartDate, 'yyyy-MM-dd'))
+        newParams.set('to', format(customEndDate, 'yyyy-MM-dd'))
+      } else {
+        newParams.delete('from')
+        newParams.delete('to')
+      }
+
+      window.history.replaceState({}, '', `${window.location.pathname}?${newParams.toString()}`)
     } catch (err) {
-      if (!isCurrent()) return
-      setDetailDataKey(requestKey)
       console.error('Error fetching data:', err)
       setError('Det oppstod en feil ved henting av data.')
     } finally {
-      if (isCurrent()) setLoadingData(false)
+      setLoadingData(false)
     }
-  }, [selectedWebsite, selectedEvent, getDates, urlPaths, pathOperator, requestKey])
+  }, [selectedWebsite, selectedEvent, getDates, urlPaths, pathOperator, period, customStartDate, customEndDate])
 
-  useEffect(() => {
-    if (!canRefresh || !selectedEvent) return
-    const timer = window.setTimeout(() => void fetchEventData(), 300)
-    return () => window.clearTimeout(timer)
-  }, [canRefresh, selectedEvent, requestKey, fetchEventData])
+  useAutoRefresh(
+    JSON.stringify([buildFilterKey(), selectedEvent]),
+    canRefresh && Boolean(selectedEvent),
+    loadingData || loadingEvents,
+    fetchEventData,
+  )
 
   // Fetch values for ALL parameters
   const fetchAllParameterValues = useCallback(async () => {
-    if (!selectedWebsite || !selectedEvent || propertiesData.length === 0 || detailDataKey !== requestKey) return
-    const version = currentRequest.current
-    const isCurrent = () => currentRequest.current === version
+    if (!selectedWebsite || !selectedEvent || propertiesData.length === 0) return
 
     setLoadingValues(true)
-    setError(null)
     setAllParameterValues({})
 
     try {
@@ -313,7 +282,6 @@ export const useEventExplorer = () => {
       })
 
       const results = await Promise.all(fetchPromises)
-      if (!isCurrent()) return
 
       // Convert array to object for easier lookup
       const valuesMap: Record<string, ParameterValue[]> = {}
@@ -339,24 +307,22 @@ export const useEventExplorer = () => {
         pathOperator,
       })
 
-      if (!isCurrent()) return
       setLatestEvents(latestResult.events ?? [])
       setHasLoadedValues(true)
     } catch (err) {
-      if (!isCurrent()) return
       console.error('Error fetching parameter values:', err)
       setError('Kunne ikke hente parameterverdier.')
     } finally {
-      if (isCurrent()) setLoadingValues(false)
+      setLoadingValues(false)
     }
-  }, [selectedWebsite, selectedEvent, propertiesData, getDates, urlPaths, pathOperator, detailDataKey, requestKey])
+  }, [selectedWebsite, selectedEvent, propertiesData, getDates, urlPaths, pathOperator])
 
   // Auto-fetch values when drilling down into a parameter
   useEffect(() => {
-    if (selectedParameterForDrilldown && !hasLoadedValues && !loadingValues && !error) {
+    if (selectedParameterForDrilldown && !hasLoadedValues && !loadingValues) {
       void fetchAllParameterValues()
     }
-  }, [selectedParameterForDrilldown, hasLoadedValues, loadingValues, error, fetchAllParameterValues])
+  }, [selectedParameterForDrilldown, hasLoadedValues, loadingValues, fetchAllParameterValues])
 
   return {
     selectedWebsite,
@@ -366,8 +332,9 @@ export const useEventExplorer = () => {
     pathOperator,
     setPathOperator,
     selectedEvent,
-    events: listDataKey === requestKey ? events : [],
-    loadingEvents: !selectedEvent && (loadingEvents || (canRefresh && listDataKey !== requestKey)),
+    setSelectedEvent,
+    events,
+    loadingEvents,
     period,
     setPeriod,
     customStartDate,
@@ -375,9 +342,9 @@ export const useEventExplorer = () => {
     customEndDate,
     setCustomEndDate,
     hasSearched,
-    seriesData: detailDataKey === requestKey ? seriesData : [],
-    propertiesData: detailDataKey === requestKey ? propertiesData : [],
-    loadingData: Boolean(selectedEvent) && (loadingData || (canRefresh && detailDataKey !== requestKey)),
+    seriesData,
+    propertiesData,
+    loadingData,
     error,
     queryStats,
     eventsQueryStats,
@@ -387,6 +354,7 @@ export const useEventExplorer = () => {
     hasLoadedValues,
     latestEvents,
     selectedParameterForDrilldown,
+    setSelectedParameterForDrilldown,
     parameterValuesQueryStats,
     hasUnappliedFilterChanges,
     fetchEventsData,

@@ -1,6 +1,6 @@
 import { Loader, Page, Theme } from '@navikt/ds-react'
-import { createContext, Suspense, useContext, useEffect, useLayoutEffect, useState } from 'react'
-import { createBrowserRouter, RouterProvider, Outlet, ScrollRestoration, useLocation, Link } from 'react-router-dom'
+import { Suspense, useEffect, useLayoutEffect, useState } from 'react'
+import { BrowserRouter as Router, Route, Routes, useLocation, Link } from 'react-router-dom'
 import routes, { isFullWidthPath } from './routes.tsx'
 import ScrollToTop from './shared/ui/theme/ScrollToTop/ScrollToTop.tsx'
 import Sidebar from './shared/ui/theme/Sidebar/Sidebar.tsx'
@@ -10,7 +10,6 @@ import { AppBlock } from './shared/ui/theme/AppBlock/AppBlock.tsx'
 import { loadFeatureFlagsFromBackend } from './shared/lib/featureFlags.ts'
 import { touchUserSettings } from './shared/lib/heartbeat.ts'
 import { identifyTeamContext } from './shared/lib/identifyTeamContext.ts'
-import { RouteBreadcrumbsProvider } from './shared/ui/RouteBreadcrumbs.tsx'
 
 import './App.css'
 
@@ -61,11 +60,19 @@ const NotFound = () => (
   </div>
 )
 
-const AppThemeContext = createContext<'light' | 'dark'>('light')
+// Reset scroll position on every route change. The browser does this for free on a real
+// navigation (full page load), but client-side routing (react-router) keeps whatever scrollY
+// the previous page had — jarring when the new page's content starts higher/lower than where
+// you left off on the old one.
+const useResetScrollOnNavigate = (pathname: string) => {
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [pathname])
+}
 
-const AppShell = () => {
-  const theme = useContext(AppThemeContext)
+const AppShell = ({ theme }: { theme: 'light' | 'dark' }) => {
   const location = useLocation()
+  useResetScrollOnNavigate(location.pathname)
   const isCanvasPage = location.pathname.startsWith('/canvas')
   const isCopilotPage = location.pathname === '/copilot'
   const focusedParam = new URLSearchParams(location.search).get('focused')
@@ -73,7 +80,14 @@ const AppShell = () => {
   const isFocusedDashboardPage = location.pathname.startsWith('/dashboard') && isFocusedParam
   const isFocusedGrafbyggerPage = location.pathname.startsWith('/grafbygger') && isFocusedParam
 
-  const appRoutes = <Outlet />
+  const appRoutes = (
+    <Routes>
+      {routes.map(({ path, component }) => (
+        <Route key={path} path={path} element={component} />
+      ))}
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  )
 
   if (isCanvasPage || isFocusedDashboardPage || isFocusedGrafbyggerPage) {
     return (
@@ -120,26 +134,6 @@ const AppShell = () => {
     </div>
   )
 }
-
-// Create one router outside rendering, including React StrictMode's double render.
-const router = createBrowserRouter([
-  {
-    element: (
-      <RouteBreadcrumbsProvider>
-        <AppShell />
-        <ScrollRestoration />
-      </RouteBreadcrumbsProvider>
-    ),
-    children: [
-      ...routes.map(({ path, component, breadcrumbs }) => ({
-        path,
-        element: component,
-        handle: { breadcrumbs },
-      })),
-      { path: '*', element: <NotFound /> },
-    ],
-  },
-])
 
 function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -220,9 +214,9 @@ function App() {
 
   return (
     <Theme theme={theme}>
-      <AppThemeContext.Provider value={theme}>
-        <RouterProvider router={router} />
-      </AppThemeContext.Provider>
+      <Router>
+        <AppShell theme={theme} />
+      </Router>
     </Theme>
   )
 }

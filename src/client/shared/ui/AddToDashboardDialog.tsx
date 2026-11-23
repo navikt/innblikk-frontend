@@ -1,4 +1,3 @@
-import { Link as RouterLink } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
 import { Alert, Button, Modal, Select, TextField, UNSAFE_Combobox as Combobox } from '@navikt/ds-react'
 import { Events } from '@navikt/analytics-types'
@@ -372,6 +371,11 @@ const AddToDashboardDialog = ({
     ? `/dashboard/${savedLocation.dashboardId}?projectId=${savedLocation.projectId}`
     : ''
 
+  const handleGoToSavedDashboard = () => {
+    if (!savedDashboardUrl || typeof window === 'undefined') return
+    window.location.href = savedDashboardUrl
+  }
+
   return (
     <>
       <Modal open={open} onClose={handleClose} header={{ heading: 'Legg til i dashboard' }} width="small">
@@ -522,9 +526,7 @@ const AddToDashboardDialog = ({
           {savedLocation && <p>Grafen er lagt til i "{savedLocation.dashboardName}". Hva vil du gjøre nå?</p>}
         </Modal.Body>
         <Modal.Footer>
-          <Button as={RouterLink} to={savedDashboardUrl}>
-            Gå til dashboard
-          </Button>
+          <Button onClick={handleGoToSavedDashboard}>Gå til dashboard</Button>
           <Button variant="secondary" onClick={() => setShowSaveSuccessModal(false)}>
             Bli her
           </Button>

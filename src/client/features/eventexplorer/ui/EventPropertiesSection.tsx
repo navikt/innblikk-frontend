@@ -1,10 +1,9 @@
 import { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
 import { Heading, Button, BodyShort, Table, Tabs, Skeleton, Loader } from '@navikt/ds-react'
+import { ArrowLeftIcon } from '@navikt/aksel-icons'
 import { Events } from '@navikt/analytics-types'
 import { trackEvent } from '../../../shared/lib/trackEvent.ts'
 import type { EventProperty, ParameterValue, LatestEvent, QueryStats } from '../model/types.ts'
-import { eventDestination } from '../utils/navigation.ts'
 
 interface EventPropertiesSectionProps {
   propertiesData: EventProperty[]
@@ -14,8 +13,7 @@ interface EventPropertiesSectionProps {
   latestEvents: LatestEvent[]
   selectedParameterForDrilldown: string | null
   parameterValuesQueryStats: QueryStats | null
-  selectedEvent: string
-  period: string
+  onDrilldown: (parameterName: string | null) => void
   onFetchValues: () => void
 }
 
@@ -27,12 +25,10 @@ const EventPropertiesSection = ({
   latestEvents,
   selectedParameterForDrilldown,
   parameterValuesQueryStats,
-  selectedEvent,
-  period,
+  onDrilldown,
   onFetchValues,
 }: EventPropertiesSectionProps) => {
   const [parameterValuesTab, setParameterValuesTab] = useState<string>('latest')
-  const { search, hash } = useLocation()
 
   const handleTabChange = (value: string) => {
     trackEvent(Events.FANE_BYTTET, {
@@ -49,6 +45,7 @@ const EventPropertiesSection = ({
       <ParameterDrilldown
         parameterName={selectedParameterForDrilldown}
         values={allParameterValues[selectedParameterForDrilldown]?.slice(0, 20) || []}
+        onBack={() => onDrilldown(null)}
       />
     )
   }
@@ -83,13 +80,7 @@ const EventPropertiesSection = ({
                   <Table.DataCell>{prop.propertyName}</Table.DataCell>
                   <Table.DataCell align="right">{prop.total.toLocaleString('nb-NO')}</Table.DataCell>
                   <Table.DataCell>
-                    <Button
-                      as={Link}
-                      role="link"
-                      to={eventDestination(search, hash, selectedEvent, prop.propertyName, period)}
-                      size="xsmall"
-                      variant="secondary"
-                    >
+                    <Button size="xsmall" variant="secondary" onClick={() => onDrilldown(prop.propertyName)}>
                       Utforsk
                     </Button>
                   </Table.DataCell>
@@ -233,8 +224,22 @@ const TopValuesView = ({
   </>
 )
 
-const ParameterDrilldown = ({ parameterName, values }: { parameterName: string; values: ParameterValue[] }) => (
+const ParameterDrilldown = ({
+  parameterName,
+  values,
+  onBack,
+}: {
+  parameterName: string
+  values: ParameterValue[]
+  onBack: () => void
+}) => (
   <>
+    <div className="flex items-center gap-4 mb-4">
+      <Button variant="tertiary" size="small" icon={<ArrowLeftIcon aria-hidden fontSize="1.25rem" />} onClick={onBack}>
+        Alle hendelsesdetaljer
+      </Button>
+    </div>
+
     <Heading level="3" size="medium" className="mb-6">
       {parameterName}
     </Heading>

@@ -1,4 +1,3 @@
-import { useRestoreAnalysisContext } from './useRestoreAnalysisContext'
 import { useState, useMemo, useCallback } from 'react'
 import { useAutoRefresh } from './useAutoRefresh'
 import { useSearchParams } from 'react-router-dom'
@@ -20,14 +19,13 @@ export const useDiagnosis = () => {
 
   const [period, setPeriod] = useState<string>(() => searchParams.get('period') || 'last_7_days')
 
-  const fromDateFromUrl = searchParams.get('from') || searchParams.get('startDate')
-  const toDateFromUrl = searchParams.get('to') || searchParams.get('endDate')
+  const fromDateFromUrl = searchParams.get('from')
+  const toDateFromUrl = searchParams.get('to')
   const initialCustomStartDate = fromDateFromUrl ? parseISO(fromDateFromUrl) : undefined
   const initialCustomEndDate = toDateFromUrl ? parseISO(toDateFromUrl) : undefined
 
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(initialCustomStartDate)
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(initialCustomEndDate)
-  useRestoreAnalysisContext({ period: setPeriod, startDate: setCustomStartDate, endDate: setCustomEndDate })
   const [data, setData] = useState<DiagnosisData[] | null>(null)
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)

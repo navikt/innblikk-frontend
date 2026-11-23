@@ -65,7 +65,6 @@ export interface FetchFunnelParams {
   customEndDate?: Date
   onlyDirectEntry: boolean
   signal?: AbortSignal
-  search?: string
 }
 
 export interface FetchFunnelResult {
@@ -142,7 +141,7 @@ export async function fetchFunnelData(params: FetchFunnelParams): Promise<FetchF
     })
 
     // Build share params
-    const newParams = new URLSearchParams(params.search ?? window.location.search)
+    const newParams = new URLSearchParams(window.location.search)
     newParams.set('websiteId', websiteId)
     newParams.set('period', period)
     newParams.set('strict', String(onlyDirectEntry))

@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { BrowserRouter } from 'react-router-dom'
+import { MemoryRouter } from 'react-router-dom'
 import { vi, beforeEach, afterEach } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { columnValuesSuggestions } from '../../cohortmanager/hooks/useColumnValueSuggestions.ts'
@@ -31,15 +31,13 @@ import type { VisualizationMode } from '../model/visualizationMode.ts'
 const FAKE_WEBSITES = [{ id: 'site-1', name: 'Nav.no - prod', domain: 'nav.no', createdAt: '2023-01-01T00:00:00Z' }]
 
 function renderPage(visualizationMode: VisualizationMode = 'clickmap', withPreview = false) {
-  window.history.replaceState(
-    {},
-    '',
-    withPreview ? '/klikkoversikt?websiteId=site-1&urlPath=/account' : '/klikkoversikt',
-  )
+  if (withPreview) window.history.replaceState({}, '', '/klikkoversikt?websiteId=site-1&urlPath=/account')
   return render(
-    <BrowserRouter>
+    <MemoryRouter
+      initialEntries={[withPreview ? '/klikkoversikt?websiteId=site-1&urlPath=/account' : '/klikkoversikt']}
+    >
       <Clickmap visualizationMode={visualizationMode} />
-    </BrowserRouter>,
+    </MemoryRouter>,
   )
 }
 
@@ -135,9 +133,9 @@ describe('Clickmap page', () => {
       expect(screen.getByRole('button', { name: 'Alternative visningsvalg' })).toHaveAttribute('aria-expanded', 'true')
       expect(screen.getByRole('radio', { name: 'Lim inn HTML' })).toBeVisible()
       rerender(
-        <BrowserRouter>
+        <MemoryRouter>
           <Clickmap visualizationMode={mode === 'clickmap' ? 'heatmap' : 'clickmap'} />
-        </BrowserRouter>,
+        </MemoryRouter>,
       )
       expect(screen.getByRole('button', { name: 'Alternative visningsvalg' })).toHaveAttribute('aria-expanded', 'true')
       expect(screen.getByRole('radio', { name: 'Lim inn HTML' })).toBeVisible()
