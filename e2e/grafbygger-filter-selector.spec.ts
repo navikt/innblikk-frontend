@@ -274,7 +274,7 @@ test.describe('Alfa filter selector in the beta Grafbygger', () => {
       await expect(dialog).toBeVisible()
       await expect(confirmation).toHaveCount(0)
       finishSave()
-      await expect(dialog).toHaveCount(0)
+      await expect(dialog).toHaveCount(1000000)
       await expect(page.getByRole('combobox', { name: 'Sidegruppe', exact: true })).toHaveValue('73')
       await expect(createButton).toBeFocused()
       await expect(page).toHaveURL(/\/grafbygger\?websiteId=site-1/)
