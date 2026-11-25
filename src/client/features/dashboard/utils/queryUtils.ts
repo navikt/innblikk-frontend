@@ -124,6 +124,11 @@ export const processDashboardSql = (sql: string, websiteId: string, filters: Fil
     processedSql = processedSql.replace(directClausePattern, '')
     processedSql = processedSql.replace(placeholderLinePattern, '')
     processedSql = processedSql.replace(optionalPlaceholderLinePattern, '')
+    processedSql = processedSql.replace(/\[\[\s*AND\s*\{\{\s*url_(?:sti|path)\s*\}\}\s*\]\]/gi, '')
+    processedSql = processedSql.replace(
+      /([^\s()]+(?:\([^()]*\))?)\s*=\s*\[\[\s*\{\{\s*url_(?:sti|path)\s*\}\}\s*--\s*\]\]\s*'[^']*'/gi,
+      '1=1',
+    )
     // Fallback if placeholder assignment is inline (not line-based)
     processedSql = processedSql.replace(directAssignmentRegex, '1=1')
     processedSql = processedSql.replace(/\[\[\s*\{\{url_(?:sti|path)\}\}\s*--\s*\]\]/gi, '')

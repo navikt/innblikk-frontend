@@ -11,6 +11,18 @@ const filters = {
 describe('processDashboardSql', () => {
   afterEach(() => vi.useRealTimers())
 
+  it.each([
+    'AND e.url_path = {{url_sti}}',
+    "AND e.url_path = [[ {{url_sti}} --]] '/'",
+    "AND (e.url_path = [[ {{url_sti}} --]] '/')",
+    '[[AND {{url_sti}} ]]',
+  ])('removes the URL filter when empty: %s', (urlCondition) => {
+    const sql = `SELECT e.url_path FROM events e WHERE e.website_id = '{{website_id}}' ${urlCondition}`
+    const result = processDashboardSql(sql, 'website-1', { ...filters, urlFilters: [] })
+    expect(result).toContain("e.website_id = 'website-1'")
+    expect(result).not.toMatch(/\{\{|\[\[|url_path\s*=|'\/'/)
+  })
+
   it('omits blank optional custom conditions while preserving website and date filters', () => {
     const sql = `${'-- @filter event_name {"label":"Hendelse"}\n'}SELECT e.event_name
       FROM \`project.umami_views.event\` e

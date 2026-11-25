@@ -310,7 +310,7 @@ const Canvas = () => {
   const [canvasDefaultCustomStartDate, setCanvasDefaultCustomStartDate] = useState<Date | undefined>(undefined)
   const [canvasDefaultCustomEndDate, setCanvasDefaultCustomEndDate] = useState<Date | undefined>(undefined)
   const [canvasHideDateFilter, setCanvasHideDateFilter] = useState(false)
-  const [canvasUrlPathFilter, setCanvasUrlPathFilter] = useState('/')
+  const [canvasUrlPathFilter, setCanvasUrlPathFilter] = useState('')
   const [canvasHideUrlPathFilter, setCanvasHideUrlPathFilter] = useState(false)
   const usesCookies = useCookieSupport(selectedWebsite?.domain, selectedWebsite?.id)
   const cookieStartDate = useCookieStartDate(selectedWebsite?.domain, selectedWebsite?.id)
@@ -624,16 +624,9 @@ const Canvas = () => {
 
   const getNormalizedCanvasUrlPath = useCallback((value: string) => {
     const normalized = normalizeUrlToPath(value).trim()
-    if (!normalized) return '/'
+    if (!normalized) return ''
     return normalized.startsWith('/') ? normalized : `/${normalized}`
   }, [])
-
-  const handleCanvasUrlPathFilterChange = useCallback(
-    (value: string) => {
-      setCanvasUrlPathFilter(getNormalizedCanvasUrlPath(value))
-    },
-    [getNormalizedCanvasUrlPath],
-  )
 
   const hasDynamicUrlPathCharts = useMemo(
     () =>
@@ -647,7 +640,7 @@ const Canvas = () => {
 
   const dashboardWidgetFilters = useMemo(
     () => ({
-      urlFilters: hasDynamicUrlPathCharts ? [getNormalizedCanvasUrlPath(canvasUrlPathFilter)] : [],
+      urlFilters: hasDynamicUrlPathCharts ? [getNormalizedCanvasUrlPath(canvasUrlPathFilter)].filter(Boolean) : [],
       dateRange: period,
       pathOperator: 'equals',
       metricType: 'visitors' as const,
@@ -1463,7 +1456,7 @@ const Canvas = () => {
       setCanvasDefaultCustomStartDate(undefined)
       setCanvasDefaultCustomEndDate(undefined)
       setCanvasHideDateFilter(false)
-      setCanvasUrlPathFilter('/')
+      setCanvasUrlPathFilter('')
       setCanvasHideUrlPathFilter(false)
       return
     }
@@ -1486,7 +1479,7 @@ const Canvas = () => {
           setCanvasDefaultCustomStartDate(undefined)
           setCanvasDefaultCustomEndDate(undefined)
           setCanvasHideDateFilter(false)
-          setCanvasUrlPathFilter('/')
+          setCanvasUrlPathFilter('')
           setCanvasHideUrlPathFilter(false)
           return
         }
@@ -1509,7 +1502,7 @@ const Canvas = () => {
         setCanvasDefaultCustomStartDate(defaultCustomStartDate)
         setCanvasDefaultCustomEndDate(defaultCustomEndDate)
         setCanvasHideDateFilter(hideDateFilter)
-        setCanvasUrlPathFilter(getNormalizedCanvasUrlPath(defaultUrlPath ?? '/'))
+        setCanvasUrlPathFilter(getNormalizedCanvasUrlPath(defaultUrlPath ?? ''))
         setCanvasHideUrlPathFilter(hideUrlPathFilter)
         if (!hasPeriodInUrl) {
           const nextPeriod = configuredDefaultPeriod ? getStoredPeriod(configuredDefaultPeriod) : getStoredPeriod(null)
@@ -1534,7 +1527,7 @@ const Canvas = () => {
         setCanvasDefaultCustomStartDate(undefined)
         setCanvasDefaultCustomEndDate(undefined)
         setCanvasHideDateFilter(false)
-        setCanvasUrlPathFilter('/')
+        setCanvasUrlPathFilter('')
         setCanvasHideUrlPathFilter(false)
       }
     }
@@ -4611,7 +4604,7 @@ const Canvas = () => {
           showDateFilter={showDateFilter}
           showUrlPathFilter={showUrlPathFilter}
           urlPathFilterValue={canvasUrlPathFilter}
-          onUrlPathFilterChange={handleCanvasUrlPathFilterChange}
+          onUrlPathFilterChange={setCanvasUrlPathFilter}
           activeParticipantCount={activeParticipantCount}
           activeOtherParticipantCount={activeOtherParticipantCount}
           participantLabels={participantLabels}

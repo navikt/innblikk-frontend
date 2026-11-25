@@ -277,7 +277,6 @@ const CanvasTopBar = ({
                     size="small"
                     value={urlPathFilterValue}
                     onChange={(event) => onUrlPathFilterChange(event.target.value)}
-                    placeholder="/"
                     className="w-full sm:w-auto min-w-[220px]"
                   />
                 </div>
