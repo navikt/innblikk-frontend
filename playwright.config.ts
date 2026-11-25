@@ -5,8 +5,9 @@ export default defineConfig({
   timeout: 30_000,
   retries: 1,
   // 'github' for PR annotations on failures + 'list' for one line per test in CI logs.
-  // Locally also 'list' — consistent output everywhere.
-  reporter: process.env.CI ? [['github'], ['list']] : 'list',
+  // In CI, 'html' also writes playwright-report/, which is uploaded when tests fail.
+  // Locally only 'list'.
+  reporter: process.env.CI ? [['github'], ['list'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL: 'http://localhost:5173',
     trace: 'on-first-retry',

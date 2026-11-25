@@ -52,7 +52,7 @@ describe('Sidebar campaign navigation', () => {
     ['?websiteId=unknown', false],
     ['?domain=supported.nav.no', true],
     ['?websiteId=unsupported&domain=supported.nav.no', false],
-    ['?websiteId=supported&domain=app.dev.nav.no', false],
+    ['?websiteId=supported&domain=app.dev.nav.no', true],
     ['', false],
   ])('checks marketing availability for %s', (search, available) => {
     render(

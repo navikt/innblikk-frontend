@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { getFeatureFlag, type FeatureFlags } from '../../../../shared/lib/featureFlags.ts'
+import { useFeatureFlag } from '../../../../shared/hooks/useFeatureFlag.ts'
 import { getGcpProjectId } from '../../../../shared/lib/runtimeConfig.ts'
 import { Heading, Link, Button, Alert, Modal, TextField, Select, UNSAFE_Combobox } from '@navikt/ds-react'
 import { ArrowCirclepathReverseIcon, ExternalLinkIcon, FilesIcon } from '@navikt/aksel-icons'
@@ -240,15 +240,7 @@ const QueryPreview = ({
     return value === '1' || value === 'true'
   }, [])
 
-  const [alwaysShowSql, setAlwaysShowSql] = useState(() => getFeatureFlag('grafbygger_always_show_sql'))
-
-  useEffect(() => {
-    const handleFlagsChange = (e: Event) => {
-      setAlwaysShowSql((e as CustomEvent<FeatureFlags>).detail.grafbygger_always_show_sql)
-    }
-    window.addEventListener('featureFlagsChange', handleFlagsChange)
-    return () => window.removeEventListener('featureFlagsChange', handleFlagsChange)
-  }, [])
+  const alwaysShowSql = useFeatureFlag('grafbygger_always_show_sql')
 
   const availablePaths = useMemo(() => {
     const paths = new Set<string>()

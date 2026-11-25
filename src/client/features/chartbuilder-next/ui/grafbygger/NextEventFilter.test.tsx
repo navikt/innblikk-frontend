@@ -74,10 +74,55 @@ async function addFilter(user: ReturnType<typeof userEvent.setup>, name: string)
 
 describe('NextEventFilter', () => {
   beforeEach(() => {
+    localStorage.clear()
     vi.mocked(createSidegroup).mockReset()
     columnValuesSuggestions.clearColumnValuesCache()
     vi.mocked(fetchColumnValues).mockReset()
     vi.mocked(fetchColumnValues).mockResolvedValue({ values: [], scannedDays: 30 })
+  })
+
+  it('uses the custom filter selector only after opt-in, without changing selected filters', async () => {
+    const user = userEvent.setup()
+    render(<Harness initial={[{ column: 'browser', operator: '=', value: 'Firefox' }]} />)
+    const before = filters()
+    expect(screen.getByRole('button', { name: 'Filter' })).not.toHaveAttribute('aria-haspopup')
+
+    act(() => {
+      localStorage.setItem('innblikk_feature_flags', JSON.stringify({ grafbygger_custom_filter_selector: true }))
+      window.dispatchEvent(new Event('featureFlagsChange'))
+    })
+    const trigger = screen.getByRole('button', { name: 'Filter' })
+    expect(trigger).toHaveAttribute('aria-haspopup', 'dialog')
+    expect(filters()).toEqual(before)
+    await user.click(trigger)
+    const dialog = screen.getByRole('dialog', { name: 'Velg filter' })
+    expect(within(dialog).getByRole('combobox', { name: 'Velg filter' })).toHaveFocus()
+    expect(within(dialog).getByText('Adressen uten parametere (det som står etter ?).')).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('option', { name: /^Side \(URL\) –/ }))
+    expect(screen.queryByRole('dialog', { name: 'Velg filter' })).not.toBeInTheDocument()
+    expect(filters()).toContainEqual({ column: 'url_path', operator: '=', value: '' })
+
+    const selected = filters()
+    act(() => {
+      localStorage.setItem('innblikk_feature_flags', JSON.stringify({ grafbygger_custom_filter_selector: false }))
+      window.dispatchEvent(new Event('featureFlagsChange'))
+    })
+    expect(filters()).toEqual(selected)
+    expect(screen.getByRole('button', { name: 'Filter' })).not.toHaveAttribute('aria-haspopup')
+    await user.click(screen.getByRole('button', { name: 'Filter' }))
+    expect(screen.getByRole('combobox', { name: 'Velg filter' })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Velg filter' })).not.toBeInTheDocument()
+  })
+
+  it('restores selector opt-in and follows opt-out from another tab', () => {
+    localStorage.setItem('innblikk_feature_flags', JSON.stringify({ grafbygger_custom_filter_selector: true }))
+    render(<Harness />)
+    expect(screen.getByRole('button', { name: 'Filter' })).toHaveAttribute('aria-haspopup', 'dialog')
+    act(() => {
+      localStorage.removeItem('innblikk_feature_flags')
+      window.dispatchEvent(new StorageEvent('storage', { key: 'innblikk_feature_flags' }))
+    })
+    expect(screen.getByRole('button', { name: 'Filter' })).not.toHaveAttribute('aria-haspopup')
   })
 
   it('loads filter suggestions for the selected website and preserves selected values', async () => {

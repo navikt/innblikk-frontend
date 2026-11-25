@@ -8,6 +8,7 @@ import { requestJson } from '../../../shared/lib/apiClient.ts'
  */
 export type SuggestibleColumn =
   | 'url_path'
+  | 'url_query'
   | 'referrer_domain'
   | 'browser'
   | 'os'

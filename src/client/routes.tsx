@@ -130,6 +130,7 @@ const DashboardRouteResolver = () => {
 }
 
 const DashboardDetailRoute = () => <Oversikt />
+const ChartImport = lazy(() => import('./features/dashboard/ui/ChartImport'))
 
 const LegacyOversiktRedirect = () => {
   const location = useLocation()
@@ -286,6 +287,7 @@ export const routes: AppRoute[] = [
   { path: '/innstillinger', component: <UserProfile />, fullWidth: true },
   { path: '/grafdeling', component: <Grafdeling />, fullWidth: true },
   { path: '/dashboard', component: <DashboardRouteResolver />, fullWidth: true },
+  { path: '/importer-graf', component: <ChartImport />, fullWidth: true },
   { path: '/dashboard/:dashboardId', component: <DashboardDetailRoute />, fullWidth: true },
   { path: '/brukerreiser', component: <UserJourney />, fullWidth: true },
   { path: '/hendelsesreiser', component: <EventJourney />, fullWidth: true },

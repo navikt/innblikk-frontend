@@ -12,6 +12,8 @@ import DashboardWidgetFunnel from './widget/DashboardWidgetFunnel.tsx'
 import DashboardWidgetSiteimprove from './widget/DashboardWidgetSiteimprove.tsx'
 import TableSectionHeader from '../../../shared/ui/TableSectionHeader.tsx'
 import TransferToMetabaseDialog from '../../../shared/ui/TransferToMetabaseDialog.tsx'
+import { getTransferTarget } from '../utils/chartTransfer'
+import { openTransferredChart } from '../api/openTransferredChart'
 import { processDashboardSql } from '../utils/queryUtils.ts'
 import { parseDashboardResponse, getSpanClass, type DashboardRow } from '../utils/widgetUtils.ts'
 import type { Sidegroup } from '../../sidegroups/model/types.ts'
@@ -339,6 +341,9 @@ export const DashboardWidget = ({
   const [hasFetchedIndividually, setHasFetchedIndividually] = useState(false)
   const [selectedUrlForAnalysis, setSelectedUrlForAnalysis] = useState<string | null>(null)
   const [showTransferToMetabaseDialog, setShowTransferToMetabaseDialog] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
+  const exportTarget = getTransferTarget(window.location.origin)
   const [copyLinkFeedback, setCopyLinkFeedback] = useState(false)
   const [customVariableValues, setCustomVariableValues] = useState<Record<string, string>>({})
   const customFilters = useMemo(
@@ -518,6 +523,8 @@ export const DashboardWidget = ({
   const canShowActions =
     Boolean(chart.sql) || Boolean(onDeleteChart) || Boolean(onMoveChart) || Boolean(onEditChart) || Boolean(onCopyChart)
   const entityLabel = chart.type === 'text' ? 'tekstboks' : 'graf'
+  const canTransferToMetabase = Boolean(chart.sql?.trim()) && ['line', 'bar', 'pie', 'table'].includes(chart.type)
+  const canExport = exportTarget !== null && canTransferToMetabase
 
   const renderContent = () => {
     if (filterInputMessage) return <Alert variant="info">{filterInputMessage}</Alert>
@@ -621,6 +628,19 @@ export const DashboardWidget = ({
     downloadChartCsv(data, chart.title)
   }
 
+  const handleExport = async () => {
+    if (exportTarget === null || exporting) return
+    setExportError(null)
+    setExporting(true)
+    try {
+      await openTransferredChart(chart, websiteId, exportTarget)
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : `Kunne ikke åpne grafen i ${exportTarget}.`)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const chartActions = canShowActions ? (
     <ActionMenu>
       <Tooltip content="Flere valg" placement="top">
@@ -659,11 +679,17 @@ export const DashboardWidget = ({
         {onDeleteChart && (
           <ActionMenu.Item onClick={() => onDeleteChart(chart.id)}>{`Slett ${entityLabel}`}</ActionMenu.Item>
         )}
-        {(Boolean(data && data.length > 0) || (replaceExploreActionWithSqlEditor && Boolean(chart.sql))) && (
-          <ActionMenu.Divider />
+        {(Boolean(data && data.length > 0) ||
+          canTransferToMetabase ||
+          canExport ||
+          (replaceExploreActionWithSqlEditor && Boolean(chart.sql))) && <ActionMenu.Divider />}
+        {canTransferToMetabase && (
+          <ActionMenu.Item onClick={() => setShowTransferToMetabaseDialog(true)}>Legg til i Metabase</ActionMenu.Item>
         )}
-        {data && data.length > 0 && (
-          <ActionMenu.Item onClick={() => setShowTransferToMetabaseDialog(true)}>Overfør til Metabase</ActionMenu.Item>
+        {canExport && (
+          <ActionMenu.Item onClick={() => void handleExport()} disabled={exporting}>
+            Legg til i Innblikk {exportTarget}
+          </ActionMenu.Item>
         )}
         {replaceExploreActionWithSqlEditor && chart.sql && (
           <ActionMenu.Item onClick={handleOpenInSqlEditor}>Åpne i SQL-editor</ActionMenu.Item>
@@ -707,6 +733,11 @@ export const DashboardWidget = ({
   return (
     <>
       <div className={`${containerClass} focus-within:relative focus-within:z-10`}>
+        {exportError && (
+          <Alert variant="error" role="alert" className="mb-4">
+            {exportError}
+          </Alert>
+        )}
         <div className="flex flex-col mb-4">
           {chart.type === 'table' ? (
             <TableSectionHeader

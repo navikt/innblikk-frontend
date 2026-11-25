@@ -269,6 +269,73 @@ describe('routing and authorization', () => {
   })
 })
 
+describe('custom website IDs (ReOps only)', () => {
+  it('forwards a custom ID for verified ReOps members', async () => {
+    const body = { name: 'Restored', domain: 'restored.nav.no', ownerTeamId: null, websiteId: VALID_ID }
+    const res = await request(buildApp(), {
+      method: 'POST',
+      path: '/',
+      headers: { ...mutationHeaders, ...asReops },
+      body,
+    })
+    expect(res.status).toBe(200)
+    expect(JSON.parse(upstreamCalls()[0][1].body)).toEqual(body)
+  })
+
+  it('blocks custom IDs from non-ReOps callers before forwarding', async () => {
+    const res = await request(buildApp(), {
+      method: 'POST',
+      path: '/',
+      headers: { ...mutationHeaders, ...notReops },
+      body: { name: 'x', domain: 'x.nav.no', ownerTeamId: OTHER_ID, websiteId: VALID_ID },
+    })
+    expect(res.status).toBe(403)
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it.each(['not-a-uuid', '', 42, [], {}])('rejects invalid custom ID %j', async (websiteId) => {
+    const res = await request(buildApp(), {
+      method: 'POST',
+      path: '/',
+      headers: { ...mutationHeaders, ...asReops },
+      body: { name: 'x', domain: 'x.nav.no', websiteId },
+    })
+    expect(res.status).toBe(400)
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('preserves ordinary self-service creation with no custom ID', async () => {
+    const res = await request(buildApp(), {
+      method: 'POST',
+      path: '/',
+      headers: mutationHeaders,
+      body: { name: 'x', domain: 'x.nav.no', ownerTeamId: OTHER_ID, websiteId: null },
+    })
+    expect(res.status).toBe(200)
+    expect(JSON.parse(upstreamCalls()[0][1].body)).toEqual({ name: 'x', domain: 'x.nav.no', ownerTeamId: OTHER_ID })
+  })
+
+  it('passes duplicate-ID conflicts through to the form', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          title: 'Conflict',
+          detail: 'Nettside-ID-en er allerede registrert. Bruk en annen ID.',
+        }),
+        { status: 409 },
+      ),
+    )
+    const res = await request(buildApp(), {
+      method: 'POST',
+      path: '/',
+      headers: { ...mutationHeaders, ...asReops },
+      body: { name: 'x', domain: 'x.nav.no', websiteId: VALID_ID },
+    })
+    expect(res.status).toBe(409)
+    expect(res.json.detail).toBe('Nettside-ID-en er allerede registrert. Bruk en annen ID.')
+  })
+})
+
 describe('hard delete (ReOps only)', () => {
   it('requires ReOps membership before anything is forwarded', async () => {
     const res = await request(buildApp(), {

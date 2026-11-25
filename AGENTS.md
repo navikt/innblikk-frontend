@@ -19,6 +19,15 @@ time on a path that was never going to work for their actual role.
 
 ## Beta features
 
+Alfa features are **opt-in**, unlike beta features. Give each alfa feature its own
+default-off flag in `src/client/shared/lib/featureFlags.ts`, and register it with
+`stage: 'alfa'` and `optInFlag` in `betaFeatures.ts`. Settings renders its checkbox;
+use the same checkbox and description styling as Tilpasning, not a feature notice.
+Gate only the experimental component or behavior, including on direct URLs. An
+alfa component inside a beta feature does not make the entire feature alfa.
+Explain that the experiment may change completely, disappear, or never reach
+beta or release. Keep the existing experience when the checkbox is off.
+
 When adding a new feature, **ask the user whether it should launch in beta**. If yes, wire it into the existing beta plumbing — all three parts, no partial jobs:
 
 1. **Registry entry** in `src/client/shared/lib/betaFeatures.ts` (`id`, `title`, one-line `description`, `href`). This powers the «Funksjoner i beta» overview on `/innstillinger`, so the feature must be listed there to be documented.

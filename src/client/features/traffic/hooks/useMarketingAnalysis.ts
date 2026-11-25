@@ -51,7 +51,7 @@ export const useMarketingAnalysis = () => {
   const usesCookies = useCookieSupport(selectedWebsite?.domain, selectedWebsite?.id)
   const cookieStartDate = useCookieStartDate(selectedWebsite?.domain, selectedWebsite?.id)
 
-  const hasMarketing = useMarketingSupport(selectedWebsite?.domain, selectedWebsite?.name, selectedWebsite?.id)
+  const hasMarketing = useMarketingSupport(selectedWebsite?.domain, selectedWebsite?.id)
 
   const currentDateRange = useMemo(
     () => getDateRangeFromPeriod(period, customStartDate, customEndDate),

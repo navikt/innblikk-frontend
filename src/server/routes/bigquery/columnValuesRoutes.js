@@ -36,6 +36,7 @@ const LIMIT_BY_COLUMN = { url_path: 500 }
  */
 const COLUMN_SPECS = {
   url_path: { source: 'event', valueExpr: 'e.url_path' },
+  url_query: { source: 'event', valueExpr: "NULLIF(TRIM(e.url_query), '')" },
   referrer_domain: { source: 'event', valueExpr: 'e.referrer_domain' },
   event_name: { source: 'event', valueExpr: 'e.event_name' },
   browser: { source: 'session', valueExpr: 's.browser' },

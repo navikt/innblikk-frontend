@@ -1,19 +1,11 @@
-import { useEffect, useState } from 'react'
 import { BodyShort, Checkbox, Heading } from '@navikt/ds-react'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
-import { getFeatureFlags, setFeatureFlag, type FeatureFlags } from '../../../shared/lib/featureFlags.ts'
+import { setFeatureFlag, type FeatureFlags } from '../../../shared/lib/featureFlags.ts'
+import { useFeatureFlags } from '../../../shared/hooks/useFeatureFlag.ts'
 
 function Innstillinger() {
-  const [flags, setFlags] = useState<FeatureFlags>(getFeatureFlags)
-
-  useEffect(() => {
-    const handleChange = (e: Event) => {
-      setFlags((e as CustomEvent<FeatureFlags>).detail)
-    }
-    window.addEventListener('featureFlagsChange', handleChange)
-    return () => window.removeEventListener('featureFlagsChange', handleChange)
-  }, [])
+  const flags = useFeatureFlags()
 
   const toggle = <K extends keyof FeatureFlags>(key: K, value: boolean) => {
     setFeatureFlag(key, value as FeatureFlags[K])

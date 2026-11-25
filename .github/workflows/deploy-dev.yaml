@@ -1,0 +1,51 @@
+name: 'Deploy to dev'
+run-name: 'Deploy ${{ inputs.ref }} to dev'
+
+# Deploys any branch, tag or commit to the shared dev environment for testing.
+# Coordinate with the team before replacing what is currently running there.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch, tag or commit to deploy'
+        type: string
+        required: true
+        default: main
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    name: 'CI'
+    uses: ./.github/workflows/ci.yaml
+    permissions:
+      contents: read
+      packages: read
+    with:
+      ref: ${{ inputs.ref }}
+
+  build:
+    name: 'Build'
+    needs: ci
+    uses: navikt/reops-workflows/.github/workflows/build.yaml@v1
+    permissions:
+      contents: read
+      packages: read
+      id-token: write
+    with:
+      ref: ${{ inputs.ref }}
+
+  deploy:
+    name: 'Deploy'
+    needs: build
+    uses: navikt/reops-workflows/.github/workflows/deploy.yaml@v1
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      cluster: dev-gcp
+      manifest: .nais/dev/nais-dev.yaml
+      ref: ${{ needs.build.outputs.source-sha }}
+      image: ${{ needs.build.outputs.image }}

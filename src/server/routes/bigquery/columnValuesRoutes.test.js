@@ -51,6 +51,16 @@ describe('column-values cost limits', () => {
 })
 
 describe('buildColumnValuesQuery', () => {
+  it('suggests nonempty URL parameters with the same website, partition and result limits', () => {
+    const { query } = buildColumnValuesQuery({ projectId: PROJECT, column: 'url_query' })
+    expect(query).toContain("SELECT NULLIF(TRIM(e.url_query), '') AS value")
+    expect(query).toContain("NULLIF(TRIM(e.url_query), '') IS NOT NULL")
+    expect(query).toContain('FROM `test-project.umami.public_website_event` e')
+    expect(query).toContain('e.website_id = @websiteId')
+    expect(query).toContain('e.created_at BETWEEN @startDate AND @endDate')
+    expect(query).toContain('LIMIT 100')
+    expect(query).not.toContain('JOIN')
+  })
   it('queries an event-column directly on public_website_event', () => {
     const { query } = buildColumnValuesQuery({ projectId: PROJECT, column: 'url_path' })
     expect(query).toContain('FROM `test-project.umami.public_website_event` e')
@@ -109,7 +119,7 @@ describe('buildColumnValuesQuery', () => {
     expect(() => buildColumnValuesQuery({ projectId: PROJECT, column: 'DROP TABLE x' })).toThrow(/Unsupported column/)
   })
 
-  it('allowlist covers exactly the columns the cohort editor needs', () => {
+  it('allowlist covers the supported cohort and chart filter suggestions', () => {
     expect([...ALLOWED_COLUMNS].sort()).toEqual(
       [
         'browser',
@@ -123,6 +133,7 @@ describe('buildColumnValuesQuery', () => {
         'referrer_domain',
         'screen',
         'url_path',
+        'url_query',
       ].sort(),
     )
   })

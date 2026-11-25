@@ -17,7 +17,8 @@ import {
 import { HeartFillIcon, PersonIcon } from '@navikt/aksel-icons'
 import { AppBlock } from '../../../shared/ui/theme/AppBlock/AppBlock.tsx'
 import { PageHeader } from '../../../shared/ui/theme/PageHeader/PageHeader.tsx'
-import { getFeatureFlags, setFeatureFlag, type FeatureFlags } from '../../../shared/lib/featureFlags.ts'
+import { setFeatureFlag, type FeatureFlags } from '../../../shared/lib/featureFlags.ts'
+import { useFeatureFlags } from '../../../shared/hooks/useFeatureFlag.ts'
 import { betaFeatures } from '../../../shared/lib/betaFeatures.ts'
 import { BetaFeatureNotice, RESEARCHOPS_SLACK_URL } from '../../../shared/ui/BetaFeatureNotice.tsx'
 import { useIsReopsTeamMember } from '../../../shared/hooks/useIsReopsTeamMember.ts'
@@ -30,7 +31,7 @@ export default function UserProfile() {
   const [user, setUser] = useState<UserInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [userError, setUserError] = useState<string | null>(null)
-  const [flags, setFlags] = useState<FeatureFlags>(getFeatureFlags)
+  const flags = useFeatureFlags()
   const { isReopsTeamMember } = useIsReopsTeamMember()
   const { hash } = useLocation()
   const buildSha = __GIT_SHA__
@@ -63,14 +64,6 @@ export default function UserProfile() {
         setUserError(err.message)
         setLoading(false)
       })
-  }, [])
-
-  useEffect(() => {
-    const handleChange = (e: Event) => {
-      setFlags((e as CustomEvent<FeatureFlags>).detail)
-    }
-    window.addEventListener('featureFlagsChange', handleChange)
-    return () => window.removeEventListener('featureFlagsChange', handleChange)
   }, [])
 
   const toggle = <K extends keyof FeatureFlags>(key: K, value: boolean) => {
@@ -183,8 +176,9 @@ export default function UserProfile() {
                   </Heading>
                 </Box>
                 <BodyLong textColor="subtle">
-                  Eksperimenter du kan prøve før alle andre. Ting kan være uferdige og endre seg uten forvarsel. Vi vil
-                  veldig gjerne høre hva du synes underveis.{' '}
+                  Eksperimenter du selv kan skru på. De er skrudd av som standard og kan endres helt eller fjernes uten
+                  forvarsel. Det er ikke sikkert de kommer i beta eller blir en ferdig funksjon. Vi vil gjerne høre hva
+                  du synes underveis.{' '}
                   <HeartFillIcon aria-hidden className="inline-block align-[-2px] text-[var(--ax-danger-500)]" />
                 </BodyLong>
               </div>
@@ -194,20 +188,16 @@ export default function UserProfile() {
               ) : (
                 <VStack gap="space-8">
                   {settingsAlfaFeatures.map((feature) => (
-                    <BetaFeatureNotice
+                    <Checkbox
                       key={feature.id}
-                      id={feature.id}
-                      title={`${feature.title} er i alfa`}
-                      variant="static"
+                      checked={flags[feature.optInFlag]}
+                      onChange={(e) => toggle(feature.optInFlag, e.target.checked)}
                     >
-                      {feature.description}
-                      {feature.href && (
-                        <>
-                          {' '}
-                          <Link href={feature.href}>Åpne {feature.title.toLowerCase()}</Link>
-                        </>
-                      )}
-                    </BetaFeatureNotice>
+                      Aktiver {feature.title.toLowerCase()}
+                      <BodyShort as="span" size="small" textColor="subtle" className="block font-normal mt-0.5">
+                        {feature.description}
+                      </BodyShort>
+                    </Checkbox>
                   ))}
                 </VStack>
               )}

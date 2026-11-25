@@ -68,12 +68,6 @@ export const hiddenFeatures: HiddenFeature[] = [
  */
 export const legacyLinks: LegacyLink[] = [
   {
-    id: 'grafbygger-alfa',
-    href: '/grafbygger-alfa',
-    redirectsTo: '/grafbygger',
-    description: 'Alfa-versjonen er nå standard grafbygger i beta.',
-  },
-  {
     id: 'grafbygger-next',
     href: '/grafbygger-next',
     redirectsTo: '/grafbygger',

@@ -21,7 +21,7 @@ function LocationProbe() {
 }
 
 describe('builder routes', () => {
-  it.each(['/grafbygger', '/grafbygger-alfa', '/grafbygger-next', '/grafbygger_next'])(
+  it.each(['/grafbygger', '/grafbygger-next', '/grafbygger_next', '/grafbygger-alfa'])(
     'opens the beta builder from %s and keeps URL parameters',
     async (path) => {
       const suffix = '?websiteId=site-1&focused=1#hendelser'
