@@ -27,12 +27,14 @@ function trackFlagChange<K extends keyof FeatureFlags>(key: K, value: FeatureFla
 }
 
 export type FeatureFlags = {
+  gjentatt_aktivitet: boolean
   grafbygger_custom_filter_selector: boolean
   grafbygger_always_show_sql: boolean
   copilot_show_technical_details: boolean
 }
 
 const DEFAULT_FLAGS: FeatureFlags = {
+  gjentatt_aktivitet: false,
   grafbygger_custom_filter_selector: false,
   grafbygger_always_show_sql: false,
   copilot_show_technical_details: false,

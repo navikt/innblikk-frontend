@@ -1,6 +1,6 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Website } from '../../../shared/types/chart'
 import type { RepetitionResult } from '../model/repetition'
 import { parseRepetitionResult } from '../model/repetition'
@@ -8,6 +8,7 @@ import RepetitionAnalysis from './RepetitionAnalysis'
 import RepetitionResults from './RepetitionResults'
 import { betaFeatures } from '../../../shared/lib/betaFeatures'
 import { analyticsPages } from '../../analysis/model/analyticsNavigation'
+import { setFeatureFlag } from '../../../shared/lib/featureFlags'
 
 vi.mock('../../analysis/ui/WebsitePicker', () => ({
   default: ({ onWebsiteChange }: { onWebsiteChange: (site: Website) => void }) => (
@@ -122,7 +123,12 @@ function renderPage(url = '/gjentatt-aktivitet?period=last_7_days') {
   )
 }
 
+beforeEach(() => {
+  localStorage.clear()
+})
+
 afterEach(() => {
+  localStorage.clear()
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
 })
@@ -131,13 +137,34 @@ describe('alpha discovery', () => {
   it('lists the feature as alpha without adding it to the analysis menu', () => {
     expect(betaFeatures.find((feature) => feature.id === 'gjentatt-aktivitet')).toMatchObject({
       stage: 'alfa',
+      optInFlag: 'gjentatt_aktivitet',
       href: '/gjentatt-aktivitet',
     })
     expect(analyticsPages.some((page) => page.href === '/gjentatt-aktivitet')).toBe(false)
   })
+
+  it('blocks direct URLs until opted in and unmounts the analysis on opt-out', () => {
+    const fetch = vi.fn().mockResolvedValue({ ok: true })
+    vi.stubGlobal('fetch', fetch)
+    renderPage('/gjentatt-aktivitet?websiteId=site-1&period=last_7_days')
+    expect(screen.queryByRole('button', { name: 'Analyser' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Velg testnettsted')).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Funksjoner i alfa/ })).toHaveAttribute('href', '/innstillinger#alpha')
+    expect(fetch).not.toHaveBeenCalled()
+
+    act(() => setFeatureFlag('gjentatt_aktivitet', true))
+    expect(screen.getByRole('button', { name: 'Analyser' })).toBeInTheDocument()
+
+    act(() => setFeatureFlag('gjentatt_aktivitet', false))
+    expect(screen.queryByRole('button', { name: 'Analyser' })).not.toBeInTheDocument()
+  })
 })
 
 describe('repetition analysis page', () => {
+  beforeEach(() => {
+    localStorage.setItem('innblikk_feature_flags', JSON.stringify({ gjentatt_aktivitet: true }))
+  })
+
   it('does not offer the signal filter before analysis because it filters existing results', () => {
     renderPage()
     expect(screen.queryByRole('combobox', { name: 'Vis signal' })).not.toBeInTheDocument()
@@ -295,6 +322,7 @@ describe('repetition findings', () => {
   })
 
   it('keeps rules and coverage in one short collapsed panel without warning boxes or settings', async () => {
+    localStorage.setItem('innblikk_feature_flags', JSON.stringify({ gjentatt_aktivitet: true }))
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(rawResult) }))
     const { container } = renderPage()
     expect(screen.getAllByRole('button', { name: /Om analysen|Hva dekker/ })).toHaveLength(1)

@@ -30,6 +30,7 @@ export const betaFeatures: BetaFeature[] = [
   {
     id: 'gjentatt-aktivitet',
     stage: 'alfa',
+    optInFlag: 'gjentatt_aktivitet',
     title: 'Gjentatt aktivitet',
     description: 'Finn gjentatte sidevisninger og interaksjoner som kan tyde på frustrasjon eller dobbelsporing.',
     href: '/gjentatt-aktivitet',

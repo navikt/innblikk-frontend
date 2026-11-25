@@ -24,7 +24,7 @@ afterEach(() => {
 })
 
 describe('alfa settings', () => {
-  it('offers only the filter selector as an alfa checkbox, separate from the beta builder', async () => {
+  it('offers independent alfa checkboxes, separate from the beta builder', async () => {
     const user = userEvent.setup()
     render(
       <MemoryRouter>
@@ -34,6 +34,8 @@ describe('alfa settings', () => {
     await screen.findByText('Testbruker')
     const checkbox = screen.getByRole('checkbox', { name: /Aktiver ny filtervelger i grafbyggeren/ })
     expect(checkbox).not.toBeChecked()
+    const repetitionCheckbox = screen.getByRole('checkbox', { name: /Aktiver gjentatt aktivitet/ })
+    expect(repetitionCheckbox).not.toBeChecked()
     expect(document.querySelector('a[href="/grafbygger-alfa"]')).toBeNull()
     expect(document.querySelector('a[href="/grafbygger"]')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Grafbyggeren er i beta' })).toBeInTheDocument()
@@ -47,6 +49,7 @@ describe('alfa settings', () => {
 
     await user.click(checkbox)
     expect(checkbox).toBeChecked()
+    expect(repetitionCheckbox).not.toBeChecked()
     expect(getFeatureFlag('grafbygger_custom_filter_selector')).toBe(true)
     expect(document.querySelector('a[href="/grafbygger-alfa"]')).toBeNull()
     expect(fetch).toHaveBeenCalledWith('/api/backend/user-settings', expect.objectContaining({ method: 'PUT' }))
@@ -55,6 +58,14 @@ describe('alfa settings', () => {
     expect(getFeatureFlag('grafbygger_custom_filter_selector')).toBe(false)
     expect(document.querySelector('a[href="/grafbygger-alfa"]')).toBeNull()
     expect(document.querySelector('a[href="/grafbygger"]')).toBeInTheDocument()
+
+    await user.click(repetitionCheckbox)
+    expect(repetitionCheckbox).toBeChecked()
+    expect(getFeatureFlag('gjentatt_aktivitet')).toBe(true)
+    expect(checkbox).not.toBeChecked()
+
+    await user.click(repetitionCheckbox)
+    expect(getFeatureFlag('gjentatt_aktivitet')).toBe(false)
   })
 
   it('restores a previously saved alfa opt-in', async () => {

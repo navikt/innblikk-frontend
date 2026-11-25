@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
 import { Alert, BodyShort, Button, Loader, VStack } from '@navikt/ds-react'
 import WebsitePicker from '../../analysis/ui/WebsitePicker'
@@ -16,6 +16,7 @@ import {
   getCookieCountByParams,
 } from '../../../shared/lib/utils'
 import { useCookieSupport, useCookieStartDate } from '../../../shared/hooks/useSiteimproveSupport'
+import { useFeatureFlag } from '../../../shared/hooks/useFeatureFlag'
 import type { Website } from '../../../shared/types/chart'
 import { parseRepetitionResult } from '../model/repetition'
 import type { RepetitionResult } from '../model/repetition'
@@ -23,6 +24,27 @@ import RepetitionResults from './RepetitionResults'
 import AnalysisInfo from './AnalysisInfo'
 
 export default function RepetitionAnalysis() {
+  const enabled = useFeatureFlag('gjentatt_aktivitet')
+
+  if (!enabled) {
+    return (
+      <>
+        <PageHeader title="Gjentatt aktivitet" description="Eksperimentell analyse av gjentatt aktivitet." />
+        <AppBlock gutters="compact">
+          <BodyShort>
+            Aktiver gjentatt aktivitet under <Link to="/innstillinger#alpha">Funksjoner i alfa i innstillingene</Link>{' '}
+            for å prøve analysen. Eksperimentet kan endres helt, fjernes eller aldri komme i beta eller bli en ferdig
+            funksjon.
+          </BodyShort>
+        </AppBlock>
+      </>
+    )
+  }
+
+  return <EnabledRepetitionAnalysis />
+}
+
+function EnabledRepetitionAnalysis() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [website, setWebsite] = useState<Website | null>(null)
   const usesCookies = useCookieSupport(website?.domain, website?.id)
