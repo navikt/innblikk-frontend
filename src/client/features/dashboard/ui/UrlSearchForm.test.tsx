@@ -34,11 +34,13 @@ function renderForm() {
 }
 
 function expectDestination(websiteId: string, path: string | null) {
-  const address = screen.getByTestId('adresse').textContent
-  expect(address.split('?')[0]).toBe('/trafikkanalyse')
-  const params = new URLSearchParams(address.split('?')[1])
-  expect(params.get('websiteId')).toBe(websiteId)
-  expect(params.get('urlPath')).toBe(path)
+  return waitFor(() => {
+    const address = screen.getByTestId('adresse').textContent
+    expect(address.split('?')[0]).toBe('/trafikkanalyse')
+    const params = new URLSearchParams(address.split('?')[1])
+    expect(params.get('websiteId')).toBe(websiteId)
+    expect(params.get('urlPath')).toBe(path)
+  })
 }
 
 describe('URL-forslag på forsiden', () => {
@@ -61,7 +63,7 @@ describe('URL-forslag på forsiden', () => {
     await user.click(await screen.findByRole('option', { name: /^\/arbeid$/ }))
     expect(input).toHaveValue('/arbeid')
     await user.click(screen.getByRole('button', { name: /^Søk$/ }))
-    expectDestination(DEFAULT_WEBSITE_ID.prod, '/arbeid')
+    await expectDestination(DEFAULT_WEBSITE_ID.prod, '/arbeid')
     expect(fetchColumnValues).toHaveBeenCalledWith(DEFAULT_WEBSITE_ID.prod, 'url_path', undefined, undefined)
     expect(fetchWebsites).toHaveBeenCalledTimes(1)
   })
@@ -76,7 +78,7 @@ describe('URL-forslag på forsiden', () => {
     await user.click(await screen.findByRole('option', { name: /^https:\/\/aksel.nav.no\/komponenter$/ }))
     expect(input).toHaveValue('https://aksel.nav.no/komponenter')
     await user.click(screen.getByRole('button', { name: /^Søk$/ }))
-    expectDestination('aksel', '/komponenter')
+    await expectDestination('aksel', '/komponenter')
     expect(fetchColumnValues).toHaveBeenCalledWith('aksel', 'url_path', undefined, undefined)
   })
 
@@ -92,7 +94,7 @@ describe('URL-forslag på forsiden', () => {
     await user.keyboard('/komponenter')
     expect(input).toHaveValue('aksel.nav.no/komponenter')
     await user.click(screen.getByRole('button', { name: /^Søk$/ }))
-    expectDestination('aksel', '/komponenter')
+    await expectDestination('aksel', '/komponenter')
   })
 
   it('lar brukeren skrive en adresse selv når URL-forslag ikke kan hentes', async () => {
@@ -101,7 +103,7 @@ describe('URL-forslag på forsiden', () => {
     await user.type(renderForm(), 'nav.no/en-annen-side?lang=nb')
     await screen.findByText('Kunne ikke hente URL-forslag. Du kan fortsatt skrive inn adressen selv.')
     await user.click(screen.getByRole('button', { name: /^Søk$/ }))
-    expectDestination(DEFAULT_WEBSITE_ID.prod, '/en-annen-side')
+    await expectDestination(DEFAULT_WEBSITE_ID.prod, '/en-annen-side')
   })
 
   it('velger forslag med tastaturet uten å sende inn skjemaet før søk', async () => {
@@ -118,7 +120,7 @@ describe('URL-forslag på forsiden', () => {
     expect(input).toHaveValue('/arbeid/soknad')
     expect(screen.getByTestId('adresse')).toHaveTextContent(/^\/$/)
     await user.keyboard('{Enter}')
-    expectDestination(DEFAULT_WEBSITE_ID.prod, '/arbeid/soknad')
+    await expectDestination(DEFAULT_WEBSITE_ID.prod, '/arbeid/soknad')
   })
 
   it('viser oppslagsfeil og lar brukeren prøve igjen', async () => {
@@ -130,7 +132,7 @@ describe('URL-forslag på forsiden', () => {
     await screen.findByText('Kunne ikke hente nettsider. Prøv igjen.')
     await user.type(input, '/arbeid')
     await user.click(screen.getByRole('button', { name: /^Søk$/ }))
-    await waitFor(() => expectDestination(DEFAULT_WEBSITE_ID.prod, '/arbeid'))
+    await expectDestination(DEFAULT_WEBSITE_ID.prod, '/arbeid')
     expect(fetchWebsites).toHaveBeenCalledTimes(2)
     error.mockRestore()
   })
@@ -168,14 +170,14 @@ describe('URL-forslag på forsiden', () => {
     await user.click(await screen.findByRole('option', { name: /^aksel.nav.no$/ }))
     expect(input).toHaveValue('aksel.nav.no')
     await user.keyboard('{Enter}')
-    expectDestination('aksel', null)
+    await expectDestination('aksel', null)
   })
 
   it('filtrerer på forsiden når brukeren skriver en eksplisitt skråstrek', async () => {
     const user = userEvent.setup()
     await user.type(renderForm(), 'aksel.nav.no/')
     await user.keyboard('{Enter}')
-    expectDestination('aksel', '/')
+    await expectDestination('aksel', '/')
   })
 
   it('viser ikke «Legg til» og lar brukeren søke etter en adresse uten forslag', async () => {
@@ -186,7 +188,7 @@ describe('URL-forslag på forsiden', () => {
     expect(screen.queryByText(/legg til/i)).not.toBeInTheDocument()
     expect(input).toHaveValue('nav.no/en-ny-side')
     await user.keyboard('{Enter}')
-    expectDestination(DEFAULT_WEBSITE_ID.prod, '/en-ny-side')
+    await expectDestination(DEFAULT_WEBSITE_ID.prod, '/en-ny-side')
   })
 
   it('lukker URL-forslag ved Escape og åpner dem igjen når feltet klikkes', async () => {
