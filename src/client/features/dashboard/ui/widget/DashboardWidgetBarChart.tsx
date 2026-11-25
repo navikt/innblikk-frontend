@@ -2,7 +2,6 @@ import type { IVerticalBarChartDataPoint } from '@fluentui/react-charting'
 import { ResponsiveContainer, VerticalBarChart } from '@fluentui/react-charting'
 import type { DashboardRow } from '../../utils/widgetUtils.ts'
 import { extractJsonValue } from '../../utils/widgetUtils.ts'
-import { formatQueryValue } from '../../../../shared/lib/queryValueFormat.ts'
 
 interface DashboardWidgetBarChartProps {
   data: DashboardRow[]
@@ -36,7 +35,7 @@ const DashboardWidgetBarChart = ({ data, heightPx, presentationMode = false }: D
     const rawLabel = extractJsonValue((row as Record<string, unknown>)[labelKey])
     const rawValue = extractJsonValue((row as Record<string, unknown>)[valueKey])
     return {
-      x: formatQueryValue(rawLabel ?? 'Ukjent'),
+      x: String(rawLabel ?? 'Ukjent'),
       y: toNumber(rawValue),
     }
   })

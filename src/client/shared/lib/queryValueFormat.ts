@@ -19,14 +19,6 @@ const datetimeFormatter = new Intl.DateTimeFormat('nb-NO', {
   second: '2-digit',
   timeZone: 'UTC',
 })
-const axisFormatter = new Intl.DateTimeFormat('nb-NO', {
-  day: 'numeric',
-  month: 'short',
-  timeZone: 'Europe/Oslo',
-})
-
-export const formatQueryDateAxisLabel = (date: Date): string => axisFormatter.format(date)
-
 export const formatQueryValue = (input: unknown): string => {
   const value =
     input !== null &&

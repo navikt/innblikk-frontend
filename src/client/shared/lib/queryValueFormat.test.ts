@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatQueryDateAxisLabel, formatQueryValue } from './queryValueFormat.ts'
+import { formatQueryValue } from './queryValueFormat.ts'
 
 describe('query date display', () => {
   it.each([
@@ -34,9 +34,5 @@ describe('query date display', () => {
       '{"value":"2026-08-01","label":"metadata"}',
     )
     expect(formatQueryValue(['2026-08-01'])).toBe('["2026-08-01"]')
-  })
-
-  it('formats axis ticks using the Oslo calendar day', () => {
-    expect(formatQueryDateAxisLabel(new Date('2026-07-31T23:30:00Z'))).toBe('1. aug.')
   })
 })

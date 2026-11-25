@@ -32,7 +32,6 @@ import AddToDashboardDialog from '../../../shared/ui/AddToDashboardDialog.tsx'
 import TransferToMetabaseDialog from '../../../shared/ui/TransferToMetabaseDialog.tsx'
 import { openSqlEditorWithContext } from '../../../shared/lib/openSqlEditor.ts'
 import { getGcpProjectId } from '../../../shared/lib/runtimeConfig.ts'
-import { formatQueryValue } from '../../../shared/lib/queryValueFormat.ts'
 import {
   getDateRangeFromPeriod,
   getStoredPeriod,
@@ -418,7 +417,8 @@ const formatCell = (value: JsonValue | undefined, column: SelectedColumn) => {
   if (value == null || value === '') return '–'
   if (typeof value === 'number' && isShareView(column)) return percentFormatter.format(value)
   if (typeof value === 'number') return numberFormatter.format(value)
-  return formatQueryValue(value)
+  if (typeof value === 'object') return JSON.stringify(value)
+  return String(value)
 }
 
 const escapeCsvField = (value: string) => `"${value.replace(/"/g, '""')}"`

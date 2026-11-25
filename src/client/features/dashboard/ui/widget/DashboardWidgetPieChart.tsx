@@ -1,7 +1,6 @@
 import { PieChart, ResponsiveContainer } from '@fluentui/react-charting'
 import type { DashboardRow } from '../../utils/widgetUtils.ts'
 import { extractJsonValue } from '../../utils/widgetUtils.ts'
-import { formatQueryValue } from '../../../../shared/lib/queryValueFormat.ts'
 
 interface DashboardWidgetPieChartProps {
   data: DashboardRow[]
@@ -30,7 +29,7 @@ const DashboardWidgetPieChart = ({ data, heightPx }: DashboardWidgetPieChartProp
   const slices = data.map((row, index) => {
     const rawLabel = extractJsonValue((row as Record<string, unknown>)[labelKey])
     const rawValue = extractJsonValue((row as Record<string, unknown>)[valueKey])
-    const label = formatQueryValue(rawLabel ?? 'Ukjent')
+    const label = String(rawLabel ?? 'Ukjent')
     return {
       x: label,
       y: toNumber(rawValue),
