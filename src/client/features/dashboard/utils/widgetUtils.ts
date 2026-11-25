@@ -1,5 +1,4 @@
 import type { SavedChart } from '../../../shared/types/savedChart'
-import { formatQueryValue } from '../../../shared/lib/queryValueFormat.ts'
 
 type JsonPrimitive = string | number | boolean | null
 interface JsonObject {
@@ -72,10 +71,6 @@ export const getSpanClass = (width?: SavedChart['width']): string => {
 
 export const isClickablePath = (val: unknown): val is string => {
   return typeof val === 'string' && val.startsWith('/') && val !== '/'
-}
-
-export const formatTableValue = (val: unknown): string => {
-  return formatQueryValue(val)
 }
 
 export const extractJsonValue = (value: unknown): unknown => {
