@@ -29,6 +29,18 @@ const props = {
   initialTab: 'table' as const,
 }
 
+it('localizes BigQuery dates and timestamps in SQL result tables', () => {
+  render(
+    <ResultsPanel
+      {...props}
+      result={{ data: [{ dato: { value: '2026-08-01' }, tidspunkt: { value: '2026-01-01T23:30:00Z' } }] }}
+    />,
+  )
+  const table = within(screen.getByRole('table'))
+  expect(table.getByRole('cell', { name: '01.08.2026' })).toBeVisible()
+  expect(table.getByRole('cell', { name: '02.01.2026, 00:30:00' })).toBeVisible()
+})
+
 describe('chart tab availability', () => {
   afterEach(() => window.history.replaceState({}, '', '/'))
 

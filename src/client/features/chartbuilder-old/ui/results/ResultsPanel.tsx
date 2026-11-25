@@ -20,6 +20,7 @@ import {
 import type { ILineChartProps, IVerticalBarChartProps, IVerticalBarChartDataPoint } from '@fluentui/react-charting'
 import { LineChart, VerticalBarChart, AreaChart, PieChart, ResponsiveContainer } from '@fluentui/react-charting'
 import { translateValue } from '../../../../shared/lib/translations.ts'
+import { formatQueryDateAxisLabel, formatQueryValue } from '../../../../shared/lib/queryValueFormat.ts'
 import { serializeCsvValue } from '../../../analysis/utils/chartActions.ts'
 import { openSqlEditorWithContext } from '../../../../shared/lib/openSqlEditor.ts'
 import { format, startOfWeek, startOfMonth, isValid } from 'date-fns'
@@ -439,17 +440,7 @@ const ResultsPanel = ({
                       ? '(ukjent)'
                       : typeof translatedValue === 'number'
                         ? translatedValue.toLocaleString('nb-NO')
-                        : translatedValue !== null && translatedValue !== undefined
-                          ? typeof translatedValue === 'object'
-                            ? translatedValue instanceof Date && !isNaN(translatedValue as any)
-                              ? translatedValue.toISOString()
-                              : Object.keys(translatedValue).length === 1 && 'value' in translatedValue
-                                ? typeof translatedValue.value === 'string' && !isNaN(Date.parse(translatedValue.value))
-                                  ? new Date(translatedValue.value).toISOString()
-                                  : String(translatedValue.value)
-                                : JSON.stringify(translatedValue)
-                            : String(translatedValue)
-                          : '(ukjent)'
+                        : formatQueryValue(translatedValue)
 
                     return (
                       <td
@@ -984,6 +975,7 @@ const ResultsPanel = ({
                           <ResponsiveContainer>
                             <LineChart
                               data={chartData.data}
+                              customDateTimeFormatter={formatQueryDateAxisLabel}
                               legendsOverflowText="Flere"
                               yAxisTickCount={10}
                               allowMultipleShapesForPoints={false}
@@ -1108,6 +1100,7 @@ const ResultsPanel = ({
                           <ResponsiveContainer>
                             <AreaChart
                               data={chartData.data}
+                              customDateTimeFormatter={formatQueryDateAxisLabel}
                               legendsOverflowText="Flere"
                               yAxisTickCount={isPercentageStacked ? 5 : 10}
                               enablePerfOptimization={true}

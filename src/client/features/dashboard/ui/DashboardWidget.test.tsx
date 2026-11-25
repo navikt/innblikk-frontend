@@ -35,6 +35,27 @@ const chart: SavedChart = {
   sql: `${directive}${baseSql} AND event_name = {{event}} GROUP BY event_name`,
 }
 
+it('renders BigQuery dates in shared Canvas/dashboard tables without changing raw data or number formatting', () => {
+  const rows = [
+    { maaned: { value: '2026-08-01T00:00:00.000Z' }, skjema_startet: 50119, fullforingsgrad_prosent: 87.7 },
+    { maaned: { value: '2026-09-01' }, skjema_startet: 51331, fullforingsgrad_prosent: 87.9 },
+  ]
+  render(
+    <DashboardWidget
+      chart={{ ...chart, sql: baseSql }}
+      websiteId="website-1"
+      filters={filters}
+      prefetchedData={rows}
+    />,
+  )
+  const table = within(screen.getByRole('table'))
+  expect(table.getByRole('cell', { name: '01.08.2026, 02:00:00' })).toBeVisible()
+  expect(table.getByRole('cell', { name: '01.09.2026' })).toBeVisible()
+  expect(table.getByRole('cell', { name: (name) => name.replace(/\s/g, '') === '50119' })).toBeVisible()
+  expect(table.getByRole('cell', { name: '87,7' })).toBeVisible()
+  expect(rows[0].maaned.value).toBe('2026-08-01T00:00:00.000Z')
+})
+
 it('offers export to the opposite environment and hides export on unsupported origins', async () => {
   const user = userEvent.setup()
   const source = vi.spyOn(chartTransfer, 'getTransferTarget').mockReturnValue('prod')

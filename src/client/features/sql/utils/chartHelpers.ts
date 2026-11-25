@@ -1,4 +1,5 @@
 import { translateValue } from '../../../shared/lib/translations'
+import { formatQueryDateAxisLabel, formatQueryValue } from '../../../shared/lib/queryValueFormat.ts'
 import type { JsonValue, Row } from '../model/types'
 
 // Safely convert a JsonValue to a string without triggering no-base-to-string
@@ -76,7 +77,7 @@ export const prepareLineChartData = (data: Row[], includeAverage: boolean = fals
         x = !isNaN(parsedDate.getTime()) ? parsedDate : rowIndex
       }
 
-      const xLabel = typeof xValue === 'string' || typeof xValue === 'number' ? String(xValue) : JSON.stringify(xValue)
+      const xLabel = formatQueryValue(xValue)
 
       seriesMap.get(seriesValue)!.push({
         x,
@@ -144,6 +145,7 @@ export const prepareLineChartData = (data: Row[], includeAverage: boolean = fals
 
     return {
       data: { lineChartData },
+      customDateTimeFormatter: formatQueryDateAxisLabel,
       enabledLegendsWrapLines: true,
     }
   }
@@ -166,7 +168,7 @@ export const prepareLineChartData = (data: Row[], includeAverage: boolean = fals
       x = index
     }
 
-    const xLabel = typeof xValue === 'string' || typeof xValue === 'number' ? String(xValue) : JSON.stringify(xValue)
+    const xLabel = formatQueryValue(xValue)
 
     return {
       x,
@@ -209,6 +211,7 @@ export const prepareLineChartData = (data: Row[], includeAverage: boolean = fals
 
   return {
     data: { lineChartData },
+    customDateTimeFormatter: formatQueryDateAxisLabel,
     enabledLegendsWrapLines: true,
   }
 }
@@ -238,7 +241,7 @@ export const prepareBarChartData = (data: Row[]) => {
 
     const rawLabel = unwrapValue(row[labelKey])
     const translatedLabel = translateValue(labelKey, rawLabel ?? '') as string
-    const label = String(translatedLabel || 'Ukjent')
+    const label = formatQueryValue(translatedLabel || 'Ukjent')
 
     return {
       x: label,
@@ -297,7 +300,7 @@ export const preparePieChartData = (data: Row[]) => {
     const value = toNumber(raw)
     const rawLabel = unwrapValue(row[labelKey])
     const translatedLabel = translateValue(labelKey, rawLabel ?? '') as string
-    const label = String(translatedLabel || 'Ukjent')
+    const label = formatQueryValue(translatedLabel || 'Ukjent')
 
     return {
       y: value,

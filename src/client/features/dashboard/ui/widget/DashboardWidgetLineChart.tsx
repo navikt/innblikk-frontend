@@ -1,6 +1,6 @@
 import type { ILineChartDataPoint } from '@fluentui/react-charting'
 import { LineChart, ResponsiveContainer } from '@fluentui/react-charting'
-import { format } from 'date-fns'
+import { formatQueryDateAxisLabel, formatQueryValue } from '../../../../shared/lib/queryValueFormat.ts'
 import type { DashboardRow } from '../../utils/widgetUtils.ts'
 import { extractJsonValue } from '../../utils/widgetUtils.ts'
 
@@ -59,7 +59,7 @@ const DashboardWidgetLineChart = ({
       const seriesName = String((row as Record<string, unknown>)[seriesKey] ?? 'Ukjent')
 
       const x = toChartX(xVal, index)
-      const xLabel = x instanceof Date ? format(x, 'dd.MM') : String(xVal ?? index)
+      const xLabel = formatQueryValue(xVal ?? index)
 
       if (!seriesMap.has(seriesName)) {
         seriesMap.set(seriesName, [])
@@ -85,6 +85,7 @@ const DashboardWidgetLineChart = ({
           <LineChart
             key={`line-multi-${lines.length}-${data.length}`}
             data={{ lineChartData: lines }}
+            customDateTimeFormatter={formatQueryDateAxisLabel}
             yAxisTickFormat={(d: number) => d.toLocaleString('nb-NO')}
             margins={chartMargins}
             styles={{
@@ -110,7 +111,7 @@ const DashboardWidgetLineChart = ({
     const rawY = (row as Record<string, unknown>)[yKey]
     const yVal = typeof rawY === 'number' ? rawY : parseFloat(String(rawY)) || 0
     const x = toChartX(xVal, index)
-    const xLabel = x instanceof Date ? format(x, 'dd.MM') : String(xVal ?? index)
+    const xLabel = formatQueryValue(xVal ?? index)
     return {
       x,
       y: yVal,
@@ -137,6 +138,7 @@ const DashboardWidgetLineChart = ({
         <LineChart
           key={chartKey}
           data={{ lineChartData: lines }}
+          customDateTimeFormatter={formatQueryDateAxisLabel}
           yAxisTickFormat={(d: number) => d.toLocaleString('nb-NO')}
           margins={chartMargins}
           styles={{
