@@ -102,7 +102,7 @@ function UrlSearchForm({ children }: UrlSearchFormProps) {
     }
   }, [searchQuery])
 
-  const trimmedInput = inputValue.trim()
+  const trimmedInput = inputValue.trim().split(/[?#]/, 1)[0]
   const pathStart = trimmedInput.indexOf('/', trimmedInput.indexOf('://') >= 0 ? trimmedInput.indexOf('://') + 3 : 0)
   const urlPrefix = pathOnly ? '' : pathStart >= 0 ? trimmedInput.slice(0, pathStart) : trimmedInput
   const suggestions = matchedWebsite
@@ -259,10 +259,12 @@ function UrlSearchForm({ children }: UrlSearchFormProps) {
                 event.stopPropagation()
               }
             }}
-            onMouseDown={(event) => {
-              if ((event.target as HTMLElement).closest('[role="listbox"]')) event.preventDefault()
+            onMouseDownCapture={(event) => {
+              if ((event.target as HTMLElement).closest('[role="listbox"], .aksel-combobox__button-toggle-list')) {
+                event.preventDefault()
+              }
             }}
-            onClick={(event) => {
+            onClickCapture={(event) => {
               if (event.target instanceof HTMLInputElement) setIsSuggestionsOpen(true)
               else if ((event.target as HTMLElement).closest('.aksel-combobox__button-toggle-list')) {
                 setIsSuggestionsOpen((open) => !open)
@@ -283,6 +285,9 @@ function UrlSearchForm({ children }: UrlSearchFormProps) {
                 value={searchQuery}
                 selectedOptions={[]}
                 options={suggestions}
+                filteredOptions={suggestions.filter((suggestion) =>
+                  suggestion.toLocaleLowerCase().includes(trimmedInput.toLocaleLowerCase()),
+                )}
                 isListOpen={isSuggestionsOpen}
                 onChange={handleSearchChange}
                 onClear={(event) => {

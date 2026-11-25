@@ -202,4 +202,48 @@ describe('URL-forslag på forsiden', () => {
     await user.click(input)
     expect(input).toHaveAttribute('aria-expanded', 'true')
   })
+
+  it.each(['?next=/komponenter', '#/komponenter'])(
+    'åpner hele nettstedet uten å tolke %s som en sti',
+    async (suffix) => {
+      const user = userEvent.setup()
+      const input = renderForm()
+      await user.type(input, `aksel.nav.no${suffix}`)
+      await screen.findByRole('option', { name: /^aksel.nav.no\/komponenter$/ })
+      await user.keyboard('{Enter}')
+      await expectDestination('aksel', null)
+    },
+  )
+
+  it.each(['?next=/monster', '#/monster'])(
+    'foreslår pathname og ikke query eller fragment når adressen slutter med %s',
+    async (suffix) => {
+      const user = userEvent.setup()
+      const input = renderForm()
+      await user.type(input, `https://aksel.nav.no/kom${suffix}`)
+      await user.click(await screen.findByRole('option', { name: /^https:\/\/aksel.nav.no\/komponenter$/ }))
+      expect(input).toHaveValue('https://aksel.nav.no/komponenter')
+      await user.keyboard('{Enter}')
+      await expectDestination('aksel', '/komponenter')
+    },
+  )
+
+  it('åpner og lukker forslag med pilknappen uten å miste fokus eller tekst', async () => {
+    const user = userEvent.setup()
+    const input = renderForm()
+    await user.type(input, 'aks')
+    await user.click(await screen.findByRole('option', { name: /^aksel.nav.no$/ }))
+    await screen.findByRole('option', { name: /^aksel.nav.no\/komponenter$/ })
+    const toggle = input
+      .closest('.aksel-combobox__wrapper-inner')!
+      .querySelector('.aksel-combobox__button-toggle-list')!
+    await user.click(toggle)
+    expect(input).toHaveAttribute('aria-expanded', 'false')
+    expect(input).toHaveFocus()
+    expect(input).toHaveValue('aksel.nav.no')
+    await user.click(toggle)
+    expect(input).toHaveAttribute('aria-expanded', 'true')
+    expect(input).toHaveFocus()
+    await screen.findByRole('option', { name: /^aksel.nav.no\/komponenter$/ })
+  })
 })
