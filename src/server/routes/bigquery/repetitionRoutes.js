@@ -5,6 +5,19 @@ import { MAX_BYTES_BILLED, getNavIdent, prepareGeneratedSql, requireBigQuery } f
 import { buildRepetitionQuery, buildRepetitionActivityQuery } from './repetitionQuery.js'
 import { getCompletedQueryStats } from './sqlRoutes.js'
 
+const calendarDateFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Europe/Oslo',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
+
+function calendarDay(timestamp) {
+  const parts = calendarDateFormatter.formatToParts(timestamp)
+  const value = (type) => Number(parts.find((part) => part.type === type).value)
+  return Date.UTC(value('year'), value('month') - 1, value('day')) / 86400000
+}
+
 function queryTimestamp(value) {
   const microseconds = (value.match(/\.(\d+)/)?.[1] || '').slice(3, 6).padEnd(3, '0')
   return new Date(value).toISOString().replace(/Z$/, `${microseconds}Z`)
@@ -31,7 +44,7 @@ export function createRepetitionRouter({ bigquery, GCP_PROJECT_ID }) {
       !Number.isFinite(start) ||
       !Number.isFinite(end) ||
       end < start ||
-      end - start > 31 * 86400000 ||
+      calendarDay(end) - calendarDay(start) + 1 > 31 ||
       typeof urlPath !== 'string' ||
       urlPath.length > 500 ||
       !['equals', 'starts-with'].includes(pathOperator) ||
@@ -48,7 +61,10 @@ export function createRepetitionRouter({ bigquery, GCP_PROJECT_ID }) {
         websiteId,
         startDate: new Date(start).toISOString(),
         endDate: new Date(end).toISOString(),
-        urlPath: urlPath.replace(/[?#].*$/, '').replace(/\/+$/, '') || (urlPath ? '/' : ''),
+        urlPath:
+          pathOperator === 'starts-with'
+            ? urlPath.replace(/[?#].*$/, '').replace(/\/{2,}/g, '/')
+            : urlPath.replace(/[?#].*$/, '').replace(/\/+$/, '') || (urlPath ? '/' : ''),
         pathOperator,
         useCookies: countBy === 'distinct_id',
         cookieStartDate:

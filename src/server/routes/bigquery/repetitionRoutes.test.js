@@ -54,12 +54,29 @@ describe('repetition endpoint', () => {
     expect(res.json.mock.calls[0][0].signal_findings).toEqual({ pageviews: 1, interactions: 1, duplicates: 1 })
   })
 
+  it('keeps the trailing slash when passing a directory prefix to BigQuery', async () => {
+    const bigquery = createGeneratedBigQueryClient()
+    const createQueryJob = vi.spyOn(bigquery, 'createQueryJob')
+    const res = await request(bigquery, { urlPath: '/aap//?test=1', pathOperator: 'starts-with' })
+    expect(res.status).not.toHaveBeenCalled()
+    expect(createQueryJob.mock.calls[0][0].params.urlPath).toBe('/aap/')
+  })
+
+  it.each([
+    ['2026-09-30T22:00:00Z', '2026-10-31T22:59:59.999Z'],
+    ['2026-02-28T23:00:00Z', '2026-03-31T21:59:59.999Z'],
+  ])('accepts 31 Oslo calendar dates across a clock change: %s to %s', async (startDate, endDate) => {
+    const res = await request(createGeneratedBigQueryClient(), { startDate, endDate })
+    expect(res.status).not.toHaveBeenCalled()
+  })
+
   it.each([
     { websiteId: '' },
     { startDate: 'bad' },
     { startDate: null },
     { endDate: '2026-09-01T00:00:00Z' },
     { endDate: '2026-11-02T00:00:00Z' },
+    { startDate: '2026-10-01T12:00:00Z', endDate: '2026-11-01T11:00:00Z' },
     { pathOperator: 'invalid' },
     { urlPath: ['a'] },
   ])('rejects invalid input without issuing a query: %j', async (overrides) => {
@@ -125,6 +142,59 @@ describe('repetition endpoint', () => {
     expect(data.activity[1].properties).toContainEqual({ key: 'lenketekst', value: 'Send søknad' })
     expect(data.is_generated_data).toBe(true)
     expect(data.activity.map((event) => event.is_highlighted)).toEqual([false, true, true, true, true, false])
+  })
+
+  it.each(['pageviews', 'interactions'])(
+    'makes every generated %s example agree with its activity evidence',
+    async (signal) => {
+      const bigquery = createGeneratedBigQueryClient()
+      const analysis = (await request(bigquery)).json.mock.calls[0][0]
+      const finding = analysis.findings.find((item) => item.signal === signal)
+      for (const example of finding.examples) {
+        const res = await request(
+          bigquery,
+          {
+            sessionId: example.session_id,
+            visitId: example.visit_id,
+            startedAt: example.started_at.value,
+            endedAt: example.ended_at.value,
+            highlightedEventIds: example.event_ids,
+          },
+          '/api/bigquery/repetition/activity',
+        )
+        expect(res.status).not.toHaveBeenCalled()
+        const activity = res.json.mock.calls[0][0].activity
+        const episode = activity.filter((event) => event.phase === 'during')
+        expect(episode).toHaveLength(example.event_count)
+        expect(episode.map((event) => event.event_id)).toEqual(example.event_ids)
+        expect(episode.every((event) => event.is_highlighted)).toBe(true)
+        expect(activity.filter((event) => event.phase !== 'during').every((event) => !event.is_highlighted)).toBe(true)
+      }
+    },
+  )
+
+  it('supports a single evidence ID without generating extra events or invalid timestamps', async () => {
+    const res = await request(
+      createGeneratedBigQueryClient(),
+      {
+        sessionId: 'generated-interactions',
+        visitId: 'generated-visit-interactions',
+        startedAt: '2026-10-01T10:00:00Z',
+        endedAt: '2026-10-01T10:00:00Z',
+        highlightedEventIds: ['custom-evidence-id'],
+      },
+      '/api/bigquery/repetition/activity',
+    )
+    expect(res.status).not.toHaveBeenCalled()
+    const activity = res.json.mock.calls[0][0].activity
+    expect(activity.filter((event) => event.is_highlighted)).toEqual([
+      expect.objectContaining({
+        event_id: 'custom-evidence-id',
+        created_at: { value: '2026-10-01T10:00:00.000Z' },
+        phase: 'during',
+      }),
+    ])
+    expect(activity).toHaveLength(3)
   })
 
   it.each([undefined, [], [null], [''], ['x'.repeat(101)], Array(101).fill('event')])(

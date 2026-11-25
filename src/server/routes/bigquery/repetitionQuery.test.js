@@ -2,11 +2,14 @@ import { DatabaseSync } from 'node:sqlite'
 import { describe, expect, it } from 'vitest'
 import {
   REPETITION_DETECTION_SQL,
+  REPETITION_EVIDENCE_SQL,
+  REPETITION_PATH_SQL,
+  REPETITION_PATH_FILTER_SQL,
   REPETITION_VOLATILE_PROPERTY_PATTERN,
   buildRepetitionQuery,
 } from './repetitionQuery.js'
 
-function detect(events) {
+function detect(events, evidence = false) {
   const db = new DatabaseSync(':memory:')
   try {
     db.exec(`CREATE TABLE events (
@@ -41,8 +44,13 @@ function detect(events) {
       .prepare(
         `WITH RawEvents AS (SELECT * FROM events),
       ${REPETITION_DETECTION_SQL}
-      SELECT signal, session_id, page, target, has_target, start_us, end_us, event_count
-      FROM Episodes ORDER BY signal, start_us`,
+      ${
+        evidence
+          ? `, ExampleEpisodes AS (SELECT * FROM Episodes), ${REPETITION_EVIDENCE_SQL}
+             SELECT signal, episode_number, event_id FROM EpisodeEvidence ORDER BY signal, episode_number, event_id`
+          : `SELECT signal, session_id, page, target, has_target, start_us, end_us, event_count
+             FROM Episodes ORDER BY signal, start_us`
+      }`,
       )
       .all()
   } finally {
@@ -63,6 +71,29 @@ describe('executed repetition detection SQL', () => {
     for (const other of [{ page: '/other' }, { hostname: 'other.nav.no' }]) {
       expect(signal([{ time: 0 }, { time: 1 }, { time: 2, ...other }, { time: 3 }], 'pageviews')).toHaveLength(0)
     }
+  })
+
+  it('selects evidence by episode sequence when intervening pageviews share timestamps', () => {
+    const events = ['/a', '/a', '/a', '/b', '/a'].map((page) => ({ page, time: 0 }))
+    expect(signal(events, 'pageviews')).toEqual([expect.objectContaining({ event_count: 3 })])
+    expect(
+      detect(events, true)
+        .filter((row) => row.signal === 'pageviews')
+        .map((row) => row.event_id),
+    ).toEqual(['event-000', 'event-001', 'event-002'])
+
+    events.push({ page: '/a', time: 0 }, { page: '/a', time: 0 })
+    const evidence = detect(events, true).filter((row) => row.signal === 'pageviews')
+    expect(evidence.filter((row) => row.episode_number === 1).map((row) => row.event_id)).toEqual([
+      'event-000',
+      'event-001',
+      'event-002',
+    ])
+    expect(evidence.filter((row) => row.episode_number === 2).map((row) => row.event_id)).toEqual([
+      'event-004',
+      'event-005',
+      'event-006',
+    ])
   })
 
   it('does not split pageview sequences on custom events', () => {
@@ -167,6 +198,47 @@ describe('executed repetition detection SQL', () => {
 })
 
 describe('BigQuery source and aggregation', () => {
+  it('preserves directory separators for prefixes while keeping exact matching slash-insensitive', () => {
+    const db = new DatabaseSync(':memory:')
+    try {
+      db.function('REGEXP_REPLACE', (value, pattern, replacement) =>
+        value === null ? null : value.replace(new RegExp(pattern, 'g'), replacement),
+      )
+      db.function('STARTS_WITH', (value, prefix) => Number(value.startsWith(prefix)))
+      db.exec('CREATE TABLE paths (url_path TEXT)')
+      const paths = ['/aap/', '/aap/steg/1', '/aap-soknad', '/aap', '/aap//steg/2?test=1', '/aap/#info']
+      const insert = db.prepare('INSERT INTO paths VALUES (?)')
+      paths.forEach((path) => insert.run(path))
+      const query = db.prepare(`
+        WITH Normalized AS (SELECT ${REPETITION_PATH_SQL.replace(/r'/g, "'")} AS page FROM paths)
+        SELECT page FROM Normalized WHERE ${REPETITION_PATH_FILTER_SQL} ORDER BY page
+      `)
+      expect(query.all({ urlPath: '/aap/', pathOperator: 'starts-with' }).map((row) => row.page)).toEqual([
+        '/aap/',
+        '/aap/',
+        '/aap/steg/1',
+        '/aap/steg/2',
+      ])
+      expect(query.all({ urlPath: '/aap', pathOperator: 'equals' }).map((row) => row.page)).toEqual([
+        '/aap',
+        '/aap/',
+        '/aap/',
+      ])
+      expect(query.all({ urlPath: '/aap', pathOperator: 'starts-with' })).toHaveLength(paths.length)
+    } finally {
+      db.close()
+    }
+  })
+
+  it('bounds the session partition scan with a look-back before the selected period', () => {
+    const sql = buildRepetitionQuery('test-project')
+    const sessionQuery = sql.slice(sql.indexOf('SessionIdentities AS'), sql.indexOf('PropertyValues AS'))
+    expect(sessionQuery).toContain(
+      'created_at BETWEEN TIMESTAMP_SUB(TIMESTAMP(@startDate), INTERVAL 31 DAY) AND TIMESTAMP(@endDate)',
+    )
+    expect(sessionQuery).toContain('session_id IN (SELECT DISTINCT session_id FROM SourceEvents)')
+  })
+
   it.each(['deviceBrowser', 'deviceViewportHeight', 'originVersion', 'screenWidth'])(
     'ignores volatile metadata in duplicate comparison: %s',
     (key) => expect(new RegExp(REPETITION_VOLATILE_PROPERTY_PATTERN, 'i').test(key)).toBe(true),
@@ -208,7 +280,7 @@ describe('BigQuery source and aggregation', () => {
     expect(sql).toContain('PARTITION BY event_id ORDER BY created_at')
     expect(sql).toContain('GROUP BY p.website_event_id, p.created_at')
     expect(sql).toContain('e.created_at = p.created_at')
-    expect(sql.indexOf('WHERE @urlPath')).toBeGreaterThan(sql.indexOf('Episodes AS'))
+    expect(sql.indexOf('ScopedEvents AS')).toBeGreaterThan(sql.indexOf('Episodes AS'))
     expect(sql).toContain('COUNT(DISTINCT user_key)')
     expect(sql).toContain('PARTITION BY session_id, visit_key')
     expect(sql).toContain("CONCAT('cookie:', s.details.distinct_id)")
@@ -223,7 +295,8 @@ describe('BigQuery source and aggregation', () => {
     expect(sql).toContain('WHERE signal_rank <= 100')
     expect(sql).toContain("COUNTIF(signal = 'duplicates') AS duplicates")
     expect(sql).not.toContain('@signal')
-    expect(sql).toContain("e.signal = 'duplicates' AND r.duplicate_fingerprint = e.fingerprint")
+    expect(sql).toContain("SELECT 'duplicates', session_id, visit_key, hostname, page, duplicate_fingerprint")
+    expect(sql).toContain('r.sequence_number BETWEEN e.start_sequence AND e.end_sequence')
     expect(sql).not.toContain('LIKE @urlPath')
   })
 })

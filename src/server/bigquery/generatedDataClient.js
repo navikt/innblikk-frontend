@@ -228,10 +228,11 @@ function synthesizeRows(query, params) {
     const end = Date.parse(params.episodeEnd)
     const pageviews = params.sessionId === 'generated-pageviews'
     const duplicates = params.sessionId === 'generated-duplicates'
-    const count = pageviews ? 5 : duplicates ? 2 : 4
+    const evidenceIds = [...new Set(params.highlightedEventIds)]
+    const count = evidenceIds.length
     const path = duplicates ? '/kontakt' : '/soknad'
     const event = (time, phase, index, type, url) => ({
-      event_id: `generated-activity-${index}`,
+      event_id: phase === 'during' ? evidenceIds[index - 1] : `generated-context-${phase}`,
       created_at: { value: new Date(time).toISOString() },
       event_type: type,
       event_name: type === 1 ? '' : 'navigere',
@@ -248,14 +249,20 @@ function synthesizeRows(query, params) {
               { key: 'komponent', value: 'knapp' },
             ],
       property_count: type === 1 ? 0 : 3,
-      is_highlighted: params.highlightedEventIds.includes(`generated-activity-${index}`),
+      is_highlighted: phase === 'during',
     })
     return [
       {
         activity: [
           event(start - 5000, 'before', 0, 1, path),
           ...Array.from({ length: count }, (_, index) =>
-            event(start + ((end - start) * index) / (count - 1), 'during', index + 1, pageviews ? 1 : 2, path),
+            event(
+              count === 1 ? start : start + ((end - start) * index) / (count - 1),
+              'during',
+              index + 1,
+              pageviews ? 1 : 2,
+              path,
+            ),
           ),
           event(end + 1000, 'after', count + 1, 1, '/kvittering'),
         ],

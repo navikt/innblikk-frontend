@@ -32,6 +32,7 @@ vi.mock('../../analysis/ui/PeriodPicker', () => ({
     <select aria-label="Periode" value={period} onChange={(event) => onPeriodChange(event.target.value)}>
       <option value="last_7_days">Siste 7 dager</option>
       <option value="last_28_days">Siste 28 dager</option>
+      <option value="last_month">Forrige måned</option>
       <option value="custom">Egendefinert</option>
     </select>
   ),
@@ -189,6 +190,17 @@ describe('repetition analysis page', () => {
     expect(screen.getByText(/20 % av 10 besøkende/)).toBeInTheDocument()
   })
 
+  it('preserves a directory prefix restored from the URL in the analysis request', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(new Response(JSON.stringify(rawResult)))
+    vi.stubGlobal('fetch', fetch)
+    renderPage('/gjentatt-aktivitet?period=last_7_days&urlPath=%2Faap%2F&pathOperator=starts-with')
+    fireEvent.click(screen.getByText('Velg testnettsted'))
+    fireEvent.click(screen.getByRole('button', { name: 'Analyser' }))
+    await screen.findByRole('heading', { name: 'Funn' })
+    expect(fetch.mock.calls[0][1]?.body).toContain('"urlPath":"/aap/"')
+    expect(fetch.mock.calls[0][1]?.body).toContain('"pathOperator":"starts-with"')
+  })
+
   it('shows an Aksel loader and a waiting message only while analyzing', async () => {
     let resolve: (value: Response) => void = () => {
       throw new Error('Request not started')
@@ -259,6 +271,23 @@ describe('repetition analysis page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Analyser' }))
     expect(await screen.findByText(/HTTP 500/)).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Funn' })).not.toBeInTheDocument()
+  })
+
+  it('accepts a full 31-date month across the autumn clock change', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-11-15T12:00:00Z'))
+    try {
+      const fetch = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(rawResult) })
+      vi.stubGlobal('fetch', fetch)
+      renderPage('/gjentatt-aktivitet?period=last_month')
+      fireEvent.click(screen.getByText('Velg testnettsted'))
+      fireEvent.click(screen.getByRole('button', { name: 'Analyser' }))
+      expect(await screen.findByRole('heading', { name: 'Funn' })).toBeInTheDocument()
+      expect(fetch).toHaveBeenCalledWith('/api/bigquery/repetition', expect.any(Object))
+      expect(screen.queryByText(/gyldig periode på maksimalt 31 dager/)).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('rejects invalid custom dates without requesting data', async () => {

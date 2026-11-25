@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { format, parseISO } from 'date-fns'
+import { differenceInCalendarDays, format, parseISO } from 'date-fns'
 import { Alert, BodyShort, Button, Loader, VStack } from '@navikt/ds-react'
 import WebsitePicker from '../../analysis/ui/WebsitePicker'
 import PeriodPicker from '../../analysis/ui/PeriodPicker'
@@ -88,7 +88,7 @@ function EnabledRepetitionAnalysis() {
       !Number.isFinite(range.startDate.getTime()) ||
       !Number.isFinite(range.endDate.getTime()) ||
       range.endDate < range.startDate ||
-      range.endDate.getTime() - range.startDate.getTime() > 31 * 86400000
+      differenceInCalendarDays(range.endDate, range.startDate) + 1 > 31
     ) {
       setError({ key, message: 'Velg et nettsted og en gyldig periode på maksimalt 31 dager.' })
       return

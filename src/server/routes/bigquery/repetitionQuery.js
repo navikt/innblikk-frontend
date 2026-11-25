@@ -3,6 +3,14 @@ import { normalizeUrlSql } from './helpers.js'
 export const REPETITION_VOLATILE_PROPERTY_PATTERN =
   '^(device.*|originversion|screen|screenwidth|screenheight|viewport|timestamp|time)$'
 
+export const REPETITION_PATH_SQL =
+  "COALESCE(NULLIF(REGEXP_REPLACE(REGEXP_REPLACE(url_path, r'[?#].*', ''), r'//+', '/'), ''), '/')"
+
+export const REPETITION_PATH_FILTER_SQL = `
+  @urlPath = '' OR (@pathOperator = 'equals' AND RTRIM(page, '/') = RTRIM(@urlPath, '/'))
+    OR (@pathOperator = 'starts-with' AND STARTS_WITH(page, @urlPath))
+`
+
 export const REPETITION_DETECTION_SQL = `
   PageviewSteps AS (
     SELECT *,
@@ -72,9 +80,34 @@ export const REPETITION_DETECTION_SQL = `
     SELECT signal, session_id, visit_key, hostname, page, fingerprint, finding_fingerprint, event_name,
       MAX(target) AS target, MAX(has_target) AS has_target, episode_number,
       MIN(start_us) AS start_us, MAX(end_us) AS end_us,
+      MIN(start_sequence) AS start_sequence, MAX(end_sequence) AS end_sequence,
       MAX(end_sequence) - MIN(start_sequence) + 1 AS event_count
     FROM NumberedWindows
     GROUP BY signal, session_id, visit_key, hostname, page, fingerprint, finding_fingerprint, event_name, episode_number
+  )
+`
+
+export const REPETITION_EVIDENCE_SQL = `
+  EvidenceEvents AS (
+    SELECT 'pageviews' AS signal, session_id, visit_key, hostname, page, '' AS fingerprint,
+      sequence_number, event_id, time_us
+    FROM PageviewSteps
+    UNION ALL
+    SELECT 'interactions', session_id, visit_key, hostname, page, fingerprint,
+      sequence_number, event_id, time_us
+    FROM InteractionSteps
+    UNION ALL
+    SELECT 'duplicates', session_id, visit_key, hostname, page, duplicate_fingerprint,
+      sequence_number, event_id, time_us
+    FROM DuplicateSteps
+  ),
+  EpisodeEvidence AS (
+    SELECT e.signal, e.session_id, e.visit_key, e.hostname, e.page, e.fingerprint, e.episode_number,
+      r.event_id, r.time_us
+    FROM ExampleEpisodes e JOIN EvidenceEvents r
+      ON e.signal = r.signal AND e.session_id = r.session_id AND e.visit_key = r.visit_key
+      AND e.hostname = r.hostname AND e.page = r.page AND e.fingerprint = r.fingerprint
+      AND r.sequence_number BETWEEN e.start_sequence AND e.end_sequence
   )
 `
 
@@ -88,7 +121,8 @@ export function buildRepetitionQuery(projectId) {
     WITH SourceEvents AS (
       SELECT event_id, session_id, COALESCE(NULLIF(visit_id, ''), CONCAT('unknown:', session_id)) AS visit_key,
         COALESCE(hostname, '') AS hostname,
-        ${normalizeUrlSql('url_path')} AS page, event_type,
+        CASE WHEN @pathOperator = 'starts-with' AND @urlPath != '' THEN ${REPETITION_PATH_SQL}
+          ELSE ${normalizeUrlSql('url_path')} END AS page, event_type,
         COALESCE(event_name, '') AS event_name, created_at
       FROM \`${projectId}.umami.public_website_event\`
       WHERE website_id = @websiteId AND created_at BETWEEN @startDate AND @endDate
@@ -101,6 +135,7 @@ export function buildRepetitionQuery(projectId) {
           ORDER BY created_at DESC LIMIT 1)[OFFSET(0)] AS details
       FROM \`${projectId}.umami_views.session\`
       WHERE website_id = @websiteId AND session_id IN (SELECT DISTINCT session_id FROM SourceEvents)
+        AND created_at BETWEEN TIMESTAMP_SUB(TIMESTAMP(@startDate), INTERVAL 31 DAY) AND TIMESTAMP(@endDate)
       GROUP BY session_id
     ),
     PropertyValues AS (
@@ -151,13 +186,11 @@ export function buildRepetitionQuery(projectId) {
     ),
     ScopedEvents AS (
       SELECT * FROM RawEvents
-      WHERE @urlPath = '' OR (@pathOperator = 'equals' AND page = @urlPath)
-        OR (@pathOperator = 'starts-with' AND STARTS_WITH(page, @urlPath))
+      WHERE ${REPETITION_PATH_FILTER_SQL}
     ),
     ScopedEpisodes AS (
       SELECT * FROM EnrichedEpisodes
-      WHERE @urlPath = '' OR (@pathOperator = 'equals' AND page = @urlPath)
-        OR (@pathOperator = 'starts-with' AND STARTS_WITH(page, @urlPath))
+      WHERE ${REPETITION_PATH_FILTER_SQL}
     ),
     RankedEpisodes AS (
       SELECT *,
@@ -181,19 +214,12 @@ export function buildRepetitionQuery(projectId) {
       WHERE largest_rank = 1 OR latest_rank <= 3
       QUALIFY example_rank <= 3
     ),
+    ${REPETITION_EVIDENCE_SQL},
     EvidenceIds AS (
-      SELECT e.signal, e.session_id, e.visit_key, e.hostname, e.page, e.fingerprint, e.episode_number,
-        ARRAY_AGG(r.event_id ORDER BY r.time_us, r.event_id LIMIT 100) AS event_ids
-      FROM ExampleEpisodes e JOIN RawEvents r
-        ON e.session_id = r.session_id AND e.visit_key = r.visit_key
-        AND e.hostname = r.hostname AND e.page = r.page
-        AND r.time_us BETWEEN e.start_us AND e.end_us
-        AND (
-          (e.signal = 'pageviews' AND r.event_type = 1)
-          OR (e.signal = 'interactions' AND r.event_type = 2 AND r.fingerprint = e.fingerprint)
-          OR (e.signal = 'duplicates' AND r.duplicate_fingerprint = e.fingerprint)
-        )
-      GROUP BY e.signal, e.session_id, e.visit_key, e.hostname, e.page, e.fingerprint, e.episode_number
+      SELECT signal, session_id, visit_key, hostname, page, fingerprint, episode_number,
+        ARRAY_AGG(event_id ORDER BY time_us, event_id LIMIT 100) AS event_ids
+      FROM EpisodeEvidence
+      GROUP BY signal, session_id, visit_key, hostname, page, fingerprint, episode_number
     ),
     ExampleArrays AS (
       SELECT e.signal, e.hostname, e.page, e.finding_fingerprint,
