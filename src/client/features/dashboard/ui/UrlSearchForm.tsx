@@ -112,6 +112,7 @@ function UrlSearchForm({ children }: UrlSearchFormProps) {
     (suggestion) =>
       suggestion !== inputValue.trim() && suggestion.toLocaleLowerCase().includes(trimmedInput.toLocaleLowerCase()),
   )
+  const isLoadingSuggestions = isLoading || loading
 
   const navigateToTrafficAnalysis = (website: Website, path?: string) => {
     void navigate(
@@ -276,7 +277,7 @@ function UrlSearchForm({ children }: UrlSearchFormProps) {
             }}
           >
             <Label id={`${inputId}-label`} htmlFor={inputId} className="block mb-2">
-              Lim inn URL for å se webstatistikk
+              Søk eller lim inn URL for å se webstatistikk
             </Label>
             <HStack
               wrap={false}
@@ -288,7 +289,7 @@ function UrlSearchForm({ children }: UrlSearchFormProps) {
                 ref={inputRef}
                 id={inputId}
                 aria-labelledby={`${inputId}-label`}
-                label="Lim inn URL for å se webstatistikk"
+                label="Søk eller lim inn URL for å se webstatistikk"
                 description={matchedWebsite ? 'URL-stier' : 'Nettsider / apper'}
                 hideLabel
                 className="flex-1 min-w-0"
@@ -296,7 +297,7 @@ function UrlSearchForm({ children }: UrlSearchFormProps) {
                 selectedOptions={[]}
                 options={suggestions}
                 filteredOptions={filteredSuggestions}
-                isListOpen={isSuggestionsOpen && filteredSuggestions.length > 0}
+                isListOpen={isSuggestionsOpen && (isLoadingSuggestions || filteredSuggestions.length > 0)}
                 onChange={handleSearchChange}
                 onClear={(event) => {
                   if (event.type === 'blur') {
@@ -319,7 +320,7 @@ function UrlSearchForm({ children }: UrlSearchFormProps) {
                   setAlertVisible(false)
                 }}
                 error={searchError}
-                isLoading={isLoading || loading}
+                isLoading={isLoadingSuggestions}
                 isMultiSelect={false}
                 clearButton
               />

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -30,7 +30,7 @@ function renderForm() {
       <Location />
     </MemoryRouter>,
   )
-  return screen.getByRole('combobox', { name: 'Lim inn URL for å se webstatistikk' })
+  return screen.getByRole('combobox', { name: 'Søk eller lim inn URL for å se webstatistikk' })
 }
 
 function expectDestination(websiteId: string, path: string | null) {
@@ -54,6 +54,53 @@ describe('URL-forslag på forsiden', () => {
         scannedDays: 30,
       }),
     )
+  })
+
+  it('viser lasting mens nettsider hentes, og skjuler listen når resultatet er tomt', async () => {
+    let resolveWebsites!: (value: Awaited<ReturnType<typeof fetchWebsites>>) => void
+    vi.mocked(fetchWebsites).mockReturnValue(
+      new Promise((resolve) => {
+        resolveWebsites = resolve
+      }),
+    )
+    const user = userEvent.setup()
+    const input = renderForm()
+    await user.click(input)
+    const dropdown = input.closest('.url-search-form__controls')!.querySelector('.aksel-combobox__list')!
+    expect(input).toHaveAttribute('aria-expanded', 'true')
+    expect(dropdown).not.toHaveClass('aksel-combobox__list--closed')
+    expect(dropdown.querySelector('.aksel-combobox__list-item--loading')).toBeInTheDocument()
+    await act(async () => {
+      resolveWebsites([])
+      await Promise.resolve()
+    })
+    expect(dropdown.querySelector('.aksel-combobox__list-item--loading')).not.toBeInTheDocument()
+    expect(dropdown).toHaveClass('aksel-combobox__list--closed')
+    expect(input).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('viser lasting mens URL-stier hentes, og deretter forslagene', async () => {
+    let resolvePaths!: (value: Awaited<ReturnType<typeof fetchColumnValues>>) => void
+    vi.mocked(fetchColumnValues).mockReturnValue(
+      new Promise((resolve) => {
+        resolvePaths = resolve
+      }),
+    )
+    const user = userEvent.setup()
+    const input = renderForm()
+    await user.type(input, 'aks')
+    await user.click(await screen.findByRole('option', { name: /^aksel.nav.no$/ }))
+    const dropdown = input.closest('.url-search-form__controls')!.querySelector('.aksel-combobox__list')!
+    expect(input).toHaveAttribute('aria-expanded', 'true')
+    expect(dropdown).not.toHaveClass('aksel-combobox__list--closed')
+    expect(dropdown.querySelector('.aksel-combobox__list-item--loading')).toBeInTheDocument()
+    await act(async () => {
+      resolvePaths({ values: ['/komponenter'], scannedDays: 30 })
+      await Promise.resolve()
+    })
+    await screen.findByRole('option', { name: /^aksel.nav.no\/komponenter$/ })
+    expect(dropdown.querySelector('.aksel-combobox__list-item--loading')).not.toBeInTheDocument()
+    expect(input).toHaveAttribute('aria-expanded', 'true')
   })
 
   it('bruker hovednettstedet i produksjon for bare en sti, også med et testnettsted først', async () => {
