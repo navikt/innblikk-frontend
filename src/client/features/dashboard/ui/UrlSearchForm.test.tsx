@@ -186,9 +186,39 @@ describe('URL-forslag på forsiden', () => {
     await user.type(input, 'nav.no/en-ny-side')
     await waitFor(() => expect(fetchColumnValues).toHaveBeenCalled())
     expect(screen.queryByText(/legg til/i)).not.toBeInTheDocument()
+    expect(screen.getByText('Ingen søketreff').closest('.aksel-combobox__list')).toHaveClass(
+      'aksel-combobox__list--closed',
+    )
+    expect(input).toHaveAttribute('aria-expanded', 'false')
     expect(input).toHaveValue('nav.no/en-ny-side')
     await user.keyboard('{Enter}')
     await expectDestination(DEFAULT_WEBSITE_ID.prod, '/en-ny-side')
+  })
+
+  it('skjuler tomme URL-forslag og lar brukeren søke på en side uten trafikk', async () => {
+    vi.mocked(fetchColumnValues).mockResolvedValue({ values: [], scannedDays: 30 })
+    const user = userEvent.setup()
+    const input = renderForm()
+    await user.type(input, 'aksel.nav.no/ny-side')
+    await waitFor(() => expect(fetchColumnValues).toHaveBeenCalledWith('aksel', 'url_path', undefined, undefined))
+    expect(screen.getByText('Ingen søketreff').closest('.aksel-combobox__list')).toHaveClass(
+      'aksel-combobox__list--closed',
+    )
+    expect(input).toHaveAttribute('aria-expanded', 'false')
+    await user.keyboard('{Enter}')
+    await expectDestination('aksel', '/ny-side')
+  })
+
+  it('åpner forslag igjen når en adresse uten treff endres til en med treff', async () => {
+    const user = userEvent.setup()
+    const input = renderForm()
+    await user.type(input, '/ingen-trafikk')
+    await waitFor(() => expect(fetchColumnValues).toHaveBeenCalled())
+    expect(input).toHaveAttribute('aria-expanded', 'false')
+    await user.clear(input)
+    await user.type(input, '/arb')
+    await screen.findByRole('option', { name: /^\/arbeid$/ })
+    expect(input).toHaveAttribute('aria-expanded', 'true')
   })
 
   it('lukker URL-forslag ved Escape og åpner dem igjen når feltet klikkes', async () => {

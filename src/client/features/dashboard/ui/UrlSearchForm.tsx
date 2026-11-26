@@ -108,6 +108,9 @@ function UrlSearchForm({ children }: UrlSearchFormProps) {
   const suggestions = matchedWebsite
     ? values.map((path) => `${urlPrefix}${path}`)
     : (filteredData ?? []).map((website) => website.domain)
+  const filteredSuggestions = suggestions.filter((suggestion) =>
+    suggestion.toLocaleLowerCase().includes(trimmedInput.toLocaleLowerCase()),
+  )
 
   const navigateToTrafficAnalysis = (website: Website, path?: string) => {
     void navigate(
@@ -285,10 +288,8 @@ function UrlSearchForm({ children }: UrlSearchFormProps) {
                 value={searchQuery}
                 selectedOptions={[]}
                 options={suggestions}
-                filteredOptions={suggestions.filter((suggestion) =>
-                  suggestion.toLocaleLowerCase().includes(trimmedInput.toLocaleLowerCase()),
-                )}
-                isListOpen={isSuggestionsOpen}
+                filteredOptions={filteredSuggestions}
+                isListOpen={isSuggestionsOpen && filteredSuggestions.length > 0}
                 onChange={handleSearchChange}
                 onClear={(event) => {
                   if (event.type === 'blur') {
