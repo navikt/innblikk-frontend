@@ -106,7 +106,7 @@ function UrlSearchForm({ children }: UrlSearchFormProps) {
   const pathStart = trimmedInput.indexOf('/', trimmedInput.indexOf('://') >= 0 ? trimmedInput.indexOf('://') + 3 : 0)
   const urlPrefix = pathOnly ? '' : pathStart >= 0 ? trimmedInput.slice(0, pathStart) : trimmedInput
   const suggestions = matchedWebsite
-    ? values.map((path) => `${urlPrefix}${path}`)
+    ? values.filter((path) => pathOnly || path !== '/').map((path) => `${urlPrefix}${path}`)
     : (filteredData ?? []).map((website) => website.domain)
   const filteredSuggestions = suggestions.filter((suggestion) =>
     suggestion.toLocaleLowerCase().includes(trimmedInput.toLocaleLowerCase()),

@@ -198,6 +198,36 @@ describe('URL-forslag på forsiden', () => {
     await expectDestination('aksel', '/')
   })
 
+  it.each([
+    { paths: ['/', '/komponenter'], hasSuggestions: true },
+    { paths: ['/'], hasSuggestions: false },
+  ])('utelater nettstedets rot fra URL-forslag for $paths', async ({ paths, hasSuggestions }) => {
+    vi.mocked(fetchColumnValues).mockResolvedValue({ values: paths, scannedDays: 30 })
+    const user = userEvent.setup()
+    const input = renderForm()
+    await user.type(input, 'aks')
+    await user.click(await screen.findByRole('option', { name: /^aksel.nav.no$/ }))
+    await waitFor(() => expect(fetchColumnValues).toHaveBeenCalledWith('aksel', 'url_path', undefined, undefined))
+    if (hasSuggestions) {
+      await screen.findByRole('option', { name: /^aksel.nav.no\/komponenter$/ })
+    } else {
+      await waitFor(() => expect(input).toHaveAttribute('aria-expanded', 'false'))
+    }
+    expect(screen.queryByRole('option', { name: /^aksel.nav.no\/$/ })).not.toBeInTheDocument()
+    await user.keyboard('{Enter}')
+    await expectDestination('aksel', null)
+  })
+
+  it('beholder rotstien som forslag når brukeren skriver bare en sti', async () => {
+    vi.mocked(fetchColumnValues).mockResolvedValue({ values: ['/', '/arbeid'], scannedDays: 30 })
+    const user = userEvent.setup()
+    const input = renderForm()
+    await user.type(input, '/')
+    await user.click(await screen.findByRole('option', { name: /^\/$/ }))
+    await user.keyboard('{Enter}')
+    await expectDestination(DEFAULT_WEBSITE_ID.prod, '/')
+  })
+
   it('viser ikke «Legg til» og lar brukeren søke etter en adresse uten forslag', async () => {
     const user = userEvent.setup()
     const input = renderForm()
