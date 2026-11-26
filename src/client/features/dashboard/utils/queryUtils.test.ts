@@ -50,6 +50,17 @@ describe('processDashboardSql', () => {
     },
   )
 
+  it.each([
+    ['(e.url_path)', '{{url_sti}}'],
+    ['LOWER(TRIM(e.url_path))', '{{url_sti}}'],
+    ['LOWER(TRIM(e.url_path))', "[[ {{url_sti}} --]] '/'"],
+  ])('removes a balanced URL expression when empty: %s = %s', (expression, placeholder) => {
+    const sql = `SELECT e.url_path FROM events e WHERE (${expression} = ${placeholder})`
+    expect(processDashboardSql(sql, 'website-1', { ...filters, urlFilters: [] })).toBe(
+      'SELECT e.url_path FROM events e WHERE (1=1)',
+    )
+  })
+
   it('omits blank optional custom conditions while preserving website and date filters', () => {
     const sql = `${'-- @filter event_name {"label":"Hendelse"}\n'}SELECT e.event_name
       FROM \`project.umami_views.event\` e

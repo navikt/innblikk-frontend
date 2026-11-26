@@ -31,6 +31,40 @@ const replaceMetricAlias = (sql: string, targetAlias: string): string => {
     .replace(/\bUnike_besokende\b/gi, targetAlias.includes(' ') ? quotedTargetAlias : targetAlias)
 }
 
+const removeEmptyUrlAssignments = (sql: string): string => {
+  const tokens = [
+    ...sql.matchAll(
+      /--[^\r\n]*|#[^\r\n]*|\/\*[\s\S]*?\*\/|'(?:''|\\[\s\S]|[^'\\])*'|"(?:""|\\[\s\S]|[^"\\])*"|`(?:\\[\s\S]|[^`\\])*`|\[\[[\s\S]*?\]\](?:\s*'(?:''|\\[\s\S]|[^'\\])*')?|\{\{[^}]+\}\}|[a-z_][\w$]*|[^\s]/gi,
+    ),
+  ]
+  const identifier = /^(?:`[^`]+`|[a-z_][\w$]*)$/i
+  const reserved = /^(?:WHERE|AND|OR|NOT|ON|HAVING|WHEN|THEN|ELSE|SELECT|FROM|BY|IN|AS|QUALIFY)$/i
+  const urlPlaceholder =
+    /^(?:['"]?\{\{\s*url_(?:sti|path)\s*\}\}['"]?|\[\[\s*\{\{\s*url_(?:sti|path)\s*\}\}\s*--\s*\]\](?:\s*'(?:''|\\[\s\S]|[^'\\])*')?)$/i
+  let result = sql
+  for (let index = tokens.length - 2; index > 0; index -= 1) {
+    if (tokens[index][0] !== '=' || !urlPlaceholder.test(tokens[index + 1][0])) continue
+    let start = index - 1
+    if (tokens[start][0] === ')') {
+      let depth = 1
+      while (start > 0 && depth > 0) {
+        start -= 1
+        if (tokens[start][0] === ')') depth += 1
+        if (tokens[start][0] === '(') depth -= 1
+      }
+      if (depth !== 0) continue
+      const functionName = tokens[start - 1]?.[0]
+      if (functionName && identifier.test(functionName) && !reserved.test(functionName)) start -= 1
+    } else if (!identifier.test(tokens[start][0]) || reserved.test(tokens[start][0])) {
+      continue
+    }
+    while (start > 1 && tokens[start - 1][0] === '.' && identifier.test(tokens[start - 2][0])) start -= 2
+    const end = tokens[index + 1].index + tokens[index + 1][0].length
+    result = `${result.slice(0, tokens[start].index)}1=1${result.slice(end)}`
+  }
+  return result
+}
+
 export const processDashboardSql = (sql: string, websiteId: string, filters: FilterState): string => {
   // 0. Define timezone (default to Europe/Oslo)
   const timezone = 'Europe/Oslo'
@@ -119,20 +153,14 @@ export const processDashboardSql = (sql: string, websiteId: string, filters: Fil
     const placeholderLinePattern = /^\s*AND\s+[^\n]*url_path[^\n]*\{\{\s*url_(?:sti|path)\s*\}\}[^\n]*$/gim
     const optionalPlaceholderLinePattern =
       /^\s*AND\s+[^\n]*url_path[^\n]*\[\[\s*\{\{url_(?:sti|path)\}\}\s*--\s*\]\][^\n]*$/gim
-    const directAssignmentRegex =
-      /([^\s()]+(?:\([^()]*\))?)\s*=\s*(?:['"])?\s*\{\{\s*url_(?:sti|path)\s*\}\}\s*(?:['"])?/gi
     processedSql = processedSql.replace(optionalClausePattern, '')
     processedSql = processedSql.replace(directClausePattern, '')
     processedSql = processedSql.replace(placeholderLinePattern, '')
     processedSql = processedSql.replace(optionalPlaceholderLinePattern, '')
     processedSql = processedSql.replace(/\bWHERE\s+\[\[\s*AND\s*\{\{\s*url_(?:sti|path)\s*\}\}\s*\]\]/gi, 'WHERE 1=1')
     processedSql = processedSql.replace(/\[\[\s*AND\s*\{\{\s*url_(?:sti|path)\s*\}\}\s*\]\]/gi, '')
-    processedSql = processedSql.replace(
-      /([^\s()]+(?:\([^()]*\))?)\s*=\s*\[\[\s*\{\{\s*url_(?:sti|path)\s*\}\}\s*--\s*\]\]\s*'(?:''|\\[\s\S]|[^'\\])*'/gi,
-      '1=1',
-    )
     // Fallback if placeholder assignment is inline (not line-based)
-    processedSql = processedSql.replace(directAssignmentRegex, '1=1')
+    processedSql = removeEmptyUrlAssignments(processedSql)
     processedSql = processedSql.replace(/\[\[\s*\{\{url_(?:sti|path)\}\}\s*--\s*\]\]/gi, '')
     // Do not force '/' when URL is blank; keep whole-site behavior.
     processedSql = processedSql.replace(directUrlVarPattern, '')
