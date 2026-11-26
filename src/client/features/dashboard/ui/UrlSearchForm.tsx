@@ -1,25 +1,73 @@
-import { Search, Alert, BodyShort, Link, ReadMore, List, Skeleton } from '@navikt/ds-react'
-import { useState } from 'react'
+import {
+  Search,
+  Alert,
+  BodyShort,
+  Link,
+  ReadMore,
+  List,
+  Skeleton,
+  UNSAFE_Combobox,
+  Button,
+  HStack,
+  Label,
+} from '@navikt/ds-react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { MagnifyingGlassIcon } from '@navikt/aksel-icons'
 import { useNavigate } from 'react-router-dom'
 import type { Website } from '../model/types.ts'
 import { fetchWebsites } from '../api/bigquery.ts'
 import { PROD_TEAM_ID } from '../../settings/model/constants.ts'
+import { DEFAULT_WEBSITE_ID, normalizeDomain } from '../../../shared/lib/domain.ts'
+import { columnValuesSuggestions } from '../../cohortmanager/hooks/useColumnValueSuggestions.ts'
 
 interface UrlSearchFormProps {
   children?: React.ReactNode
 }
 
+function parseSearchUrl(input: string): URL | null {
+  const trimmed = input.trim()
+  if (!trimmed) return null
+  try {
+    return new URL(
+      trimmed.startsWith('/')
+        ? `https://www.nav.no${trimmed}`
+        : /^https?:\/\//i.test(trimmed)
+          ? trimmed
+          : `https://${trimmed}`,
+    )
+  } catch {
+    return null
+  }
+}
+
+function matchWebsite(websites: Website[], url: URL, pathOnly: boolean): Website | undefined {
+  if (pathOnly) return websites.find((website) => website.id === DEFAULT_WEBSITE_ID.prod)
+  const domain = normalizeDomain(url.hostname)
+  return (
+    websites.find((website) => normalizeDomain(website.domain) === domain) ??
+    websites
+      .filter((website) => domain.endsWith(`.${normalizeDomain(website.domain)}`))
+      .sort((a, b) => normalizeDomain(b.domain).length - normalizeDomain(a.domain).length)[0]
+  )
+}
+
 function UrlSearchForm({ children }: UrlSearchFormProps) {
   const navigate = useNavigate()
+  const inputId = useId()
   const [filteredData, setFilteredData] = useState<Website[] | null>(null)
   const [searchQuery, setSearchQuery] = useState<string>('')
+  const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const pendingInputValue = useRef<string | null>(null)
+  const moveCaretToEnd = useRef(false)
+  const [lookupWebsites, setLookupWebsites] = useState<Website[]>([])
+  const websitesRequest = useRef<Promise<Website[]> | null>(null)
   const [akselSearchQuery, setAkselSearchQuery] = useState<string>('')
   const [alertVisible, setAlertVisible] = useState<boolean>(false)
   const [hasLoadedData, setHasLoadedData] = useState<boolean>(false)
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [searchError, setSearchError] = useState<string | null>(null)
   const hostname = typeof window !== 'undefined' ? window.location.hostname : ''
-  const isLocalEnvironment = hostname === 'localhost' || hostname === '127.0.0.1'
   const isDevEnvironment = hostname.includes('.dev.nav.no')
   const isProdEnvironment = hostname.includes('.nav.no') && !isDevEnvironment
   const normalizedAkselSearchQuery = akselSearchQuery.trim().toLowerCase()
@@ -33,144 +81,141 @@ function UrlSearchForm({ children }: UrlSearchFormProps) {
   const hasVisibleWebsites = (visibleWebsites?.length ?? 0) > 0
   const showNoMatches = hasLoadedData && !hasVisibleWebsites && !isLoading
 
-  const normalizeDomain = (domain: string) => {
-    const cleaned = domain
-      .trim()
-      .toLowerCase()
-      .replace(/^https?:\/\//, '')
-      .replace(/\.$/, '')
-      .replace(/^www\./, '')
-    return cleaned === 'nav.no' ? 'www.nav.no' : cleaned
-  }
+  const inputValue = searchQuery
+  const searchUrl = parseSearchUrl(inputValue)
+  const pathOnly = inputValue.trim().startsWith('/')
+  const matchedWebsite = searchUrl ? matchWebsite(lookupWebsites, searchUrl, pathOnly) : undefined
+  const { values, loading, failed, load } = columnValuesSuggestions.useColumnValueSuggestions(
+    matchedWebsite?.id,
+    'url_path',
+  )
 
-  const navigateToTrafficAnalysis = (website: Website, path: string) => {
+  useEffect(() => {
+    if (matchedWebsite) load()
+  }, [matchedWebsite, load])
+
+  useLayoutEffect(() => {
+    if (moveCaretToEnd.current) {
+      moveCaretToEnd.current = false
+      inputRef.current?.focus()
+      inputRef.current?.setSelectionRange(searchQuery.length, searchQuery.length)
+    }
+  }, [searchQuery])
+
+  const trimmedInput = inputValue.trim().split(/[?#]/, 1)[0]
+  const pathStart = trimmedInput.indexOf('/', trimmedInput.indexOf('://') >= 0 ? trimmedInput.indexOf('://') + 3 : 0)
+  const urlPrefix = pathOnly ? '' : pathStart >= 0 ? trimmedInput.slice(0, pathStart) : trimmedInput
+  const suggestions = matchedWebsite
+    ? values.filter((path) => pathOnly || path !== '/').map((path) => `${urlPrefix}${path}`)
+    : (filteredData ?? []).map((website) => website.domain)
+  const filteredSuggestions = suggestions.filter(
+    (suggestion) =>
+      suggestion !== inputValue.trim() && suggestion.toLocaleLowerCase().includes(trimmedInput.toLocaleLowerCase()),
+  )
+  const isLoadingSuggestions = isLoading || loading
+
+  const navigateToTrafficAnalysis = (website: Website, path?: string) => {
     void navigate(
-      `/trafikkanalyse?websiteId=${website.id}&domain=${website.domain}&urlPath=${encodeURIComponent(path)}`,
+      `/trafikkanalyse?websiteId=${website.id}&domain=${website.domain}${path === undefined ? '' : `&urlPath=${encodeURIComponent(path)}`}`,
     )
   }
 
   const loadWebsitesData = async (): Promise<Website[]> => {
     // If we already have data, return it
-    if (hasLoadedData && filteredData) {
-      return filteredData
-    }
+    if (hasLoadedData) return lookupWebsites
+    if (websitesRequest.current) return websitesRequest.current
 
     setIsLoading(true)
 
-    try {
-      const websitesData = await fetchWebsites()
+    const request = (async () => {
+      try {
+        const websitesData = await fetchWebsites()
 
-      const environmentFilteredWebsites = websitesData.filter((website: Website) => {
-        if (isProdEnvironment) {
-          return website.teamId === PROD_TEAM_ID
-        }
+        const environmentFilteredWebsites = websitesData.filter((website: Website) => {
+          if (website.id === DEFAULT_WEBSITE_ID.prod) return true
+          if (isProdEnvironment) {
+            return website.teamId === PROD_TEAM_ID
+          }
 
-        if (isDevEnvironment) {
-          return website.teamId !== PROD_TEAM_ID
-        }
+          if (isDevEnvironment) {
+            return website.teamId !== PROD_TEAM_ID
+          }
 
-        return true
-      })
+          return true
+        })
 
-      // Filter out exactly "nav.no" if desired, though logic below handles matching
-      const filteredItems = environmentFilteredWebsites.filter((item: Website) => item.domain !== 'nav.no')
+        // Filter out exactly "nav.no" if desired, though logic below handles matching
+        const filteredItems = environmentFilteredWebsites.filter((item: Website) => item.domain !== 'nav.no')
 
-      // Deduplicate by domain
-      const uniqueWebsites = filteredItems.filter(
-        (website: Website, index: number, self: Website[]) =>
-          index === self.findIndex((w) => w.domain === website.domain),
-      )
+        filteredItems.sort((a, b) => {
+          if (a.id === DEFAULT_WEBSITE_ID.prod) return -1
+          if (b.id === DEFAULT_WEBSITE_ID.prod) return 1
+          return a.domain.localeCompare(b.domain, 'nb')
+        })
 
-      // Sort by domain, but feature www.nav.no first in prod environment.
-      uniqueWebsites.sort((a: Website, b: Website) => {
-        if (isProdEnvironment) {
-          const aIsFeatured = normalizeDomain(a.domain) === 'www.nav.no'
-          const bIsFeatured = normalizeDomain(b.domain) === 'www.nav.no'
+        // Deduplicate by domain
+        const uniqueWebsites = filteredItems.filter(
+          (website: Website, index: number, self: Website[]) =>
+            index === self.findIndex((w) => w.domain === website.domain),
+        )
 
-          if (aIsFeatured && !bIsFeatured) return -1
-          if (!aIsFeatured && bIsFeatured) return 1
-        }
-
-        return a.domain.localeCompare(b.domain, 'nb')
-      })
-
-      setFilteredData(uniqueWebsites)
-      setHasLoadedData(true)
-      setIsLoading(false)
-      return uniqueWebsites
-    } catch (error) {
-      console.error('Error fetching data:', error)
-      setIsLoading(false)
-      throw error
-    }
+        setFilteredData(uniqueWebsites)
+        setLookupWebsites(uniqueWebsites)
+        setHasLoadedData(true)
+        setIsLoading(false)
+        return uniqueWebsites
+      } catch (error) {
+        console.error('Error fetching data:', error)
+        setIsLoading(false)
+        websitesRequest.current = null
+        throw error
+      }
+    })()
+    websitesRequest.current = request
+    return request
   }
+
+  const showWebsiteLoadError = () => setSearchError('Kunne ikke hente nettsider. Prøv igjen.')
 
   const handleReadMoreToggle = (open: boolean) => {
     if (open && !hasLoadedData) {
-      loadWebsitesData().catch(() => {})
+      void loadWebsitesData().catch(showWebsiteLoadError)
     }
   }
 
   const handleSearchChange = (value: string) => {
-    setSearchQuery(value)
+    if (pendingInputValue.current === null) setIsSuggestionsOpen(true)
+    const nextValue = pendingInputValue.current ?? value
+    pendingInputValue.current = null
+    setSearchQuery(nextValue)
     setAlertVisible(false)
     setSearchError(null)
   }
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
-    if (!searchQuery) {
+    if (!inputValue.trim()) {
       setSearchError('Du må sette inn en URL-adresse.')
       return
     }
     setSearchError(null)
     setAlertVisible(false)
 
-    let inputUrl = searchQuery.trim()
-    const isPathOnlyInput = inputUrl.startsWith('/')
-
-    if ((isProdEnvironment || isLocalEnvironment) && isPathOnlyInput) {
-      inputUrl = `https://www.nav.no${inputUrl}`
-    } else if (!inputUrl.startsWith('http://') && !inputUrl.startsWith('https://')) {
-      inputUrl = 'https://' + inputUrl
+    const urlObj = parseSearchUrl(inputValue)
+    if (!urlObj) {
+      setSearchError('Ugyldig URL-format.')
+      return
     }
 
     try {
-      let urlObj = new URL(inputUrl)
-
-      // Normalize nav.no to www.nav.no for matching consistency,
-      if (urlObj.hostname === 'nav.no') {
-        inputUrl = inputUrl.replace('://nav.no', '://www.nav.no')
-        urlObj = new URL(inputUrl)
-      }
-
       const websites = await loadWebsitesData()
-
-      const inputDomain = urlObj.hostname
-      const normalizedInputDomain = normalizeDomain(inputDomain)
-
-      // Find best match: prefer exact match, then longest suffix match (most specific subdomain)
-      const matchedWebsite = websites.reduce<Website | null>((best, item) => {
-        const normalizedDomain = normalizeDomain(item.domain)
-
-        // Exact match wins immediately
-        if (normalizedDomain === normalizedInputDomain) {
-          return item
-        }
-
-        // Suffix match: input is a subdomain of this website's domain
-        if (normalizedInputDomain.endsWith(`.${normalizedDomain}`)) {
-          // Keep the longer (more specific) domain
-          if (!best) return item
-          const bestLen = normalizeDomain(best.domain).length
-          return normalizedDomain.length > bestLen ? item : best
-        }
-
-        return best
-      }, null)
+      const matchedWebsite = matchWebsite(websites, urlObj, pathOnly)
 
       if (matchedWebsite) {
-        navigateToTrafficAnalysis(matchedWebsite, decodeURIComponent(urlObj.pathname))
+        navigateToTrafficAnalysis(
+          matchedWebsite,
+          pathOnly || pathStart >= 0 ? decodeURIComponent(urlObj.pathname) : undefined,
+        )
       } else {
         setAlertVisible(true)
       }
@@ -184,15 +229,114 @@ function UrlSearchForm({ children }: UrlSearchFormProps) {
     <div>
       <form role="search" onSubmit={handleSubmit}>
         <div>
-          <Search
-            label="Lim inn URL for å se webstatistikk"
-            hideLabel={false}
-            variant="primary"
-            value={searchQuery}
-            error={searchError}
-            onChange={handleSearchChange}
-            onClear={() => setSearchQuery('')}
-          />
+          <div
+            onFocus={(event) => {
+              if (event.target instanceof HTMLInputElement) setIsSuggestionsOpen(true)
+              if (!hasLoadedData && !event.currentTarget.contains(event.relatedTarget)) {
+                void loadWebsitesData().catch(showWebsiteLoadError)
+              }
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && event.defaultPrevented) event.stopPropagation()
+            }}
+            onKeyDownCapture={(event) => {
+              if (event.target instanceof HTMLInputElement) {
+                if (event.key === 'ArrowDown' || event.key === 'ArrowUp') setIsSuggestionsOpen(true)
+                if (event.key === 'Escape') setIsSuggestionsOpen(false)
+              }
+              if (
+                event.key === 'Enter' &&
+                !event.nativeEvent.isComposing &&
+                event.target instanceof HTMLInputElement &&
+                !event.target.getAttribute('aria-activedescendant')
+              ) {
+                event.preventDefault()
+                event.stopPropagation()
+                event.currentTarget.closest('form')?.requestSubmit()
+              }
+            }}
+            onKeyUpCapture={(event) => {
+              if (
+                event.key === 'Enter' &&
+                event.target instanceof HTMLInputElement &&
+                !event.target.getAttribute('aria-activedescendant')
+              ) {
+                event.stopPropagation()
+              }
+            }}
+            onMouseDownCapture={(event) => {
+              if ((event.target as HTMLElement).closest('[role="listbox"], .aksel-combobox__button-toggle-list')) {
+                event.preventDefault()
+              }
+            }}
+            onClickCapture={(event) => {
+              if (event.target instanceof HTMLInputElement) setIsSuggestionsOpen(true)
+              else if ((event.target as HTMLElement).closest('.aksel-combobox__button-toggle-list')) {
+                setIsSuggestionsOpen((open) => !open)
+              }
+            }}
+          >
+            <Label id={`${inputId}-label`} htmlFor={inputId} className="block mb-2">
+              Søk eller lim inn URL for å se webstatistikk
+            </Label>
+            <HStack
+              wrap={false}
+              align="start"
+              className="url-search-form__controls"
+              data-suggestion-mode={matchedWebsite ? 'paths' : 'websites'}
+            >
+              <UNSAFE_Combobox
+                ref={inputRef}
+                id={inputId}
+                aria-labelledby={`${inputId}-label`}
+                label="Søk eller lim inn URL for å se webstatistikk"
+                description={matchedWebsite ? 'URL-stier' : 'Nettsider / apper'}
+                hideLabel
+                className="flex-1 min-w-0"
+                value={searchQuery}
+                selectedOptions={[]}
+                options={suggestions}
+                filteredOptions={filteredSuggestions}
+                isListOpen={isSuggestionsOpen && (isLoadingSuggestions || filteredSuggestions.length > 0)}
+                onChange={handleSearchChange}
+                onClear={(event) => {
+                  if (event.type === 'blur') {
+                    pendingInputValue.current = searchQuery
+                    setIsSuggestionsOpen(false)
+                  }
+                  if (event.type === 'keydown' && 'key' in event && event.key === 'Escape') {
+                    pendingInputValue.current = ''
+                    setIsSuggestionsOpen(false)
+                  }
+                }}
+                onToggleSelected={(value, selected) => {
+                  pendingInputValue.current = selected ? value : ''
+                  const selectedUrl = parseSearchUrl(value)
+                  setIsSuggestionsOpen(
+                    Boolean(selected && selectedUrl && value.replace(/^https?:\/\//i, '').indexOf('/') < 0),
+                  )
+                  moveCaretToEnd.current = true
+                  setSearchError(null)
+                  setAlertVisible(false)
+                }}
+                error={searchError}
+                isLoading={isLoadingSuggestions}
+                isMultiSelect={false}
+                clearButton
+              />
+              <Button
+                type="submit"
+                className="url-search-form__submit"
+                aria-label="Søk"
+                icon={<MagnifyingGlassIcon aria-hidden />}
+              />
+            </HStack>
+            {failed && (
+              <BodyShort size="small" className="mt-2">
+                Kunne ikke hente URL-forslag. Du kan fortsatt skrive inn adressen selv.
+              </BodyShort>
+            )}
+          </div>
           {alertVisible && (
             <Alert style={{ marginTop: '20px' }} variant="warning">
               Denne siden har ikke fått støtte for Innblikk enda. Fortvil ikke — kontakt Team ResearchOps for å få lagt
@@ -235,10 +379,10 @@ function UrlSearchForm({ children }: UrlSearchFormProps) {
               {visibleWebsites?.map((item) => (
                 <List.Item key={item.id}>
                   <Link
-                    href={`/trafikkanalyse?websiteId=${item.id}&domain=${item.domain}&urlPath=%2F`}
+                    href={`/trafikkanalyse?websiteId=${item.id}&domain=${item.domain}`}
                     onClick={(event) => {
                       event.preventDefault()
-                      navigateToTrafficAnalysis(item, '/')
+                      navigateToTrafficAnalysis(item)
                     }}
                   >
                     {item.domain}
