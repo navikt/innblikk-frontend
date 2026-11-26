@@ -638,16 +638,17 @@ const Canvas = () => {
     [activeCanvasCategoryId, frames],
   )
 
+  const normalizedCanvasUrlPath = getNormalizedCanvasUrlPath(canvasUrlPathFilter)
   const dashboardWidgetFilters = useMemo(
     () => ({
-      urlFilters: hasDynamicUrlPathCharts ? [getNormalizedCanvasUrlPath(canvasUrlPathFilter)].filter(Boolean) : [],
+      urlFilters: hasDynamicUrlPathCharts ? [normalizedCanvasUrlPath].filter(Boolean) : [],
       dateRange: period,
       pathOperator: 'equals',
       metricType: 'visitors' as const,
       customStartDate,
       customEndDate,
     }),
-    [canvasUrlPathFilter, customEndDate, customStartDate, getNormalizedCanvasUrlPath, hasDynamicUrlPathCharts, period],
+    [normalizedCanvasUrlPath, customEndDate, customStartDate, hasDynamicUrlPathCharts, period],
   )
 
   const activeInsightFrame = useMemo(

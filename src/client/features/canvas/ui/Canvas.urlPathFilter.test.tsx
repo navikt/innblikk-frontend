@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -6,6 +6,7 @@ import type { FilterState } from '../../oversikt/model/types.ts'
 import Canvas from './Canvas.tsx'
 import { fetchCanvasStorageData } from '../api/canvasStorageApi.ts'
 import { fetchDashboards, updateDashboard } from '../../oversikt/api/oversiktApi.ts'
+import { executeBigQuery } from '../../dashboard/api/bigquery.ts'
 
 vi.mock('../api/canvasStorageApi.ts', async (importOriginal) => ({
   ...(await importOriginal()),
@@ -17,6 +18,7 @@ vi.mock('../../oversikt/api/oversiktApi.ts', async (importOriginal) => ({
   updateDashboard: vi.fn().mockResolvedValue({}),
 }))
 vi.mock('../hooks/useCanvasBackgroundSync.ts', () => ({ default: vi.fn() }))
+vi.mock('../../dashboard/api/bigquery.ts', () => ({ executeBigQuery: vi.fn() }))
 vi.mock('@navikt/ds-react', async (importOriginal) => ({
   ...(await importOriginal()),
   Textarea: () => null,
@@ -30,15 +32,28 @@ const ws = vi.hoisted(() => ({
 vi.mock('../hooks/useCanvasWebSocket.ts', () => ({
   default: () => ws,
 }))
-vi.mock('./layers/CanvasFrameLayer.tsx', () => ({
-  default: ({ dashboardWidgetFilters }: { dashboardWidgetFilters: FilterState }) => (
-    <output data-testid="chart-url-filter">{JSON.stringify(dashboardWidgetFilters.urlFilters)}</output>
-  ),
-}))
+vi.mock('./layers/CanvasFrameLayer.tsx', async () => {
+  const { DashboardWidget } = await import('../../dashboard/ui/DashboardWidget.tsx')
+  const chart = {
+    id: 'chart',
+    title: 'Chart',
+    type: 'table' as const,
+    sql: "SELECT url_path, COUNT(*) FROM events WHERE website_id = '{{website_id}}' AND url_path = {{url_sti}}",
+  }
+  return {
+    default: ({ dashboardWidgetFilters }: { dashboardWidgetFilters: FilterState }) => (
+      <>
+        <output data-testid="chart-url-filter">{JSON.stringify(dashboardWidgetFilters.urlFilters)}</output>
+        <DashboardWidget chart={chart} websiteId="website-1" filters={dashboardWidgetFilters} />
+      </>
+    ),
+  }
+})
 
 describe('Canvas URL filter', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(executeBigQuery).mockResolvedValue({ data: [] })
     localStorage.clear()
     window.history.replaceState({}, '', '/canvas?projectId=1&dashboardId=2')
     vi.mocked(fetchDashboards).mockResolvedValue([
@@ -69,6 +84,7 @@ describe('Canvas URL filter', () => {
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     vi.unstubAllGlobals()
   })
 
@@ -103,6 +119,26 @@ describe('Canvas URL filter', () => {
     await user.type(input, 'https://www.nav.no/arbeid?lang=nb')
     expect(input).toHaveValue('https://www.nav.no/arbeid?lang=nb')
     await waitFor(() => expect(screen.getByTestId('chart-url-filter')).toHaveTextContent('["/arbeid"]'))
+  })
+
+  it('does not refetch charts when editing query parameters without changing the path', async () => {
+    const user = userEvent.setup()
+    renderCanvas()
+    const input = await screen.findByRole('textbox', { name: 'URL-sti' })
+    await user.clear(input)
+    await user.paste('https://www.nav.no/arbeid')
+    await waitFor(() =>
+      expect(executeBigQuery).toHaveBeenLastCalledWith(expect.stringContaining("url_path = '/arbeid'"), 'Dashboard'),
+    )
+    vi.mocked(executeBigQuery).mockClear()
+
+    await user.type(input, '?lang=nb')
+    await act(async () => {
+      await new Promise<void>((resolve) => setTimeout(resolve, 0))
+    })
+
+    expect(input).toHaveValue('https://www.nav.no/arbeid?lang=nb')
+    expect(executeBigQuery).not.toHaveBeenCalled()
   })
 
   it('does not select the homepage when no default URL is saved', async () => {

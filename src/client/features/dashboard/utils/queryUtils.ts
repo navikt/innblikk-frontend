@@ -119,14 +119,16 @@ export const processDashboardSql = (sql: string, websiteId: string, filters: Fil
     const placeholderLinePattern = /^\s*AND\s+[^\n]*url_path[^\n]*\{\{\s*url_(?:sti|path)\s*\}\}[^\n]*$/gim
     const optionalPlaceholderLinePattern =
       /^\s*AND\s+[^\n]*url_path[^\n]*\[\[\s*\{\{url_(?:sti|path)\}\}\s*--\s*\]\][^\n]*$/gim
-    const directAssignmentRegex = /(\S+)\s*=\s*(?:['"])?\s*\{\{\s*url_(?:sti|path)\s*\}\}\s*(?:['"])?/gi
+    const directAssignmentRegex =
+      /([^\s()]+(?:\([^()]*\))?)\s*=\s*(?:['"])?\s*\{\{\s*url_(?:sti|path)\s*\}\}\s*(?:['"])?/gi
     processedSql = processedSql.replace(optionalClausePattern, '')
     processedSql = processedSql.replace(directClausePattern, '')
     processedSql = processedSql.replace(placeholderLinePattern, '')
     processedSql = processedSql.replace(optionalPlaceholderLinePattern, '')
+    processedSql = processedSql.replace(/\bWHERE\s+\[\[\s*AND\s*\{\{\s*url_(?:sti|path)\s*\}\}\s*\]\]/gi, 'WHERE 1=1')
     processedSql = processedSql.replace(/\[\[\s*AND\s*\{\{\s*url_(?:sti|path)\s*\}\}\s*\]\]/gi, '')
     processedSql = processedSql.replace(
-      /([^\s()]+(?:\([^()]*\))?)\s*=\s*\[\[\s*\{\{\s*url_(?:sti|path)\s*\}\}\s*--\s*\]\]\s*'[^']*'/gi,
+      /([^\s()]+(?:\([^()]*\))?)\s*=\s*\[\[\s*\{\{\s*url_(?:sti|path)\s*\}\}\s*--\s*\]\]\s*'(?:''|\\[\s\S]|[^'\\])*'/gi,
       '1=1',
     )
     // Fallback if placeholder assignment is inline (not line-based)
