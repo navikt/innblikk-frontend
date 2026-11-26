@@ -108,8 +108,9 @@ function UrlSearchForm({ children }: UrlSearchFormProps) {
   const suggestions = matchedWebsite
     ? values.filter((path) => pathOnly || path !== '/').map((path) => `${urlPrefix}${path}`)
     : (filteredData ?? []).map((website) => website.domain)
-  const filteredSuggestions = suggestions.filter((suggestion) =>
-    suggestion.toLocaleLowerCase().includes(trimmedInput.toLocaleLowerCase()),
+  const filteredSuggestions = suggestions.filter(
+    (suggestion) =>
+      suggestion !== inputValue.trim() && suggestion.toLocaleLowerCase().includes(trimmedInput.toLocaleLowerCase()),
   )
 
   const navigateToTrafficAnalysis = (website: Website, path?: string) => {

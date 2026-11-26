@@ -218,14 +218,50 @@ describe('URL-forslag på forsiden', () => {
     await expectDestination('aksel', null)
   })
 
-  it('beholder rotstien som forslag når brukeren skriver bare en sti', async () => {
+  it('lar brukeren søke på rotstien uten et identisk forslag', async () => {
     vi.mocked(fetchColumnValues).mockResolvedValue({ values: ['/', '/arbeid'], scannedDays: 30 })
     const user = userEvent.setup()
     const input = renderForm()
     await user.type(input, '/')
-    await user.click(await screen.findByRole('option', { name: /^\/$/ }))
+    await waitFor(() => expect(fetchColumnValues).toHaveBeenCalled())
+    expect(screen.queryByRole('option', { name: /^\/$/ })).not.toBeInTheDocument()
     await user.keyboard('{Enter}')
     await expectDestination(DEFAULT_WEBSITE_ID.prod, '/')
+  })
+
+  it.each([
+    { url: 'aksel.nav.no/komponenter', websiteId: 'aksel', path: '/komponenter' },
+    { url: 'https://aksel.nav.no/komponenter', websiteId: 'aksel', path: '/komponenter' },
+    { url: '/arbeid', websiteId: DEFAULT_WEBSITE_ID.prod, path: '/arbeid' },
+  ])('skjuler et identisk forslag når $url limes inn, og lar Enter søke', async ({ url, websiteId, path }) => {
+    const user = userEvent.setup()
+    const input = renderForm()
+    await user.click(input)
+    await user.paste(url)
+    await waitFor(() => expect(fetchColumnValues).toHaveBeenCalledWith(websiteId, 'url_path', undefined, undefined))
+    expect(screen.queryByRole('option', { name: url })).not.toBeInTheDocument()
+    expect(input).toHaveAttribute('aria-expanded', 'false')
+    expect(input).toHaveValue(url)
+    await user.keyboard('{Enter}')
+    await expectDestination(websiteId, path)
+  })
+
+  it('beholder lengre URL-stier når et identisk forslag skjules', async () => {
+    vi.mocked(fetchColumnValues).mockResolvedValue({
+      values: ['/komponenter', '/komponenter/button'],
+      scannedDays: 30,
+    })
+    const user = userEvent.setup()
+    const input = renderForm()
+    await user.click(input)
+    await user.paste('aksel.nav.no/komponenter')
+    const longerPath = await screen.findByRole('option', { name: /^aksel.nav.no\/komponenter\/button$/ })
+    expect(screen.queryByRole('option', { name: /^aksel.nav.no\/komponenter$/ })).not.toBeInTheDocument()
+    expect(input).toHaveAttribute('aria-expanded', 'true')
+    await user.click(longerPath)
+    expect(input).toHaveValue('aksel.nav.no/komponenter/button')
+    await user.click(screen.getByRole('button', { name: /^Søk$/ }))
+    await expectDestination('aksel', '/komponenter/button')
   })
 
   it('viser ikke «Legg til» og lar brukeren søke etter en adresse uten forslag', async () => {
