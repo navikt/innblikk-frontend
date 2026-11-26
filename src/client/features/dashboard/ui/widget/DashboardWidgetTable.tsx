@@ -1,7 +1,8 @@
 import { ActionMenu, Pagination, Table } from '@navikt/ds-react'
 import { ExternalLinkIcon } from '@navikt/aksel-icons'
 import type { DashboardRow } from '../../utils/widgetUtils.ts'
-import { formatTableValue, isClickablePath } from '../../utils/widgetUtils.ts'
+import { isClickablePath } from '../../utils/widgetUtils.ts'
+import { formatQueryValue } from '../../../../shared/lib/queryValueFormat.ts'
 import { translateValue } from '../../../../shared/lib/translations.ts'
 
 interface DashboardWidgetTableProps {
@@ -82,7 +83,7 @@ const DashboardWidgetTable = ({
                 <Table.Row key={i}>
                   {keys.map((key, j) => {
                     const val = (row as Record<string, unknown>)[key]
-                    const rawString = formatTableValue(val)
+                    const rawString = formatQueryValue(val)
                     const translatedVal = String(translateValue(key, rawString))
                     const displayVal =
                       typeof val === 'number' ? val.toLocaleString('nb-NO') : formatSpecialTableValue(translatedVal)

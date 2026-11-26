@@ -390,7 +390,7 @@ const useCanvasAdminFlow = ({
       setCanvasDefaultCustomStartDate(nextDefaultPeriod === 'custom' ? defaultCustomStartDate : undefined)
       setCanvasDefaultCustomEndDate(nextDefaultPeriod === 'custom' ? defaultCustomEndDate : undefined)
       setCanvasHideDateFilter(Boolean(hideDateFilter))
-      setCanvasUrlPathFilter(defaultUrlPath?.trim() || '/')
+      setCanvasUrlPathFilter(defaultUrlPath?.trim() ?? '')
       setCanvasHideUrlPathFilter(Boolean(hideUrlPathFilter))
       setIsCanvasSettingsModalOpen(false)
       return
@@ -406,7 +406,7 @@ const useCanvasAdminFlow = ({
         defaultCustomStartDate,
         defaultCustomEndDate,
         Boolean(hideDateFilter),
-        defaultUrlPath?.trim() || '/',
+        defaultUrlPath?.trim() ?? '',
         Boolean(hideUrlPathFilter),
       )
       await updateDashboard(projectId, dashboardId, { name: nextName, description: nextDescription })
@@ -417,7 +417,7 @@ const useCanvasAdminFlow = ({
       setCanvasDefaultCustomStartDate(nextDefaultPeriod === 'custom' ? defaultCustomStartDate : undefined)
       setCanvasDefaultCustomEndDate(nextDefaultPeriod === 'custom' ? defaultCustomEndDate : undefined)
       setCanvasHideDateFilter(Boolean(hideDateFilter))
-      setCanvasUrlPathFilter(defaultUrlPath?.trim() || '/')
+      setCanvasUrlPathFilter(defaultUrlPath?.trim() ?? '')
       setCanvasHideUrlPathFilter(Boolean(hideUrlPathFilter))
       setIsCanvasSettingsModalOpen(false)
       setRenameCanvasError(null)

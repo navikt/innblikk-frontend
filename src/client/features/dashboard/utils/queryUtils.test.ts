@@ -11,6 +11,56 @@ const filters = {
 describe('processDashboardSql', () => {
   afterEach(() => vi.useRealTimers())
 
+  it.each([
+    'AND e.url_path = {{url_sti}}',
+    "AND e.url_path = [[ {{url_sti}} --]] '/'",
+    "AND (e.url_path = [[ {{url_sti}} --]] '/')",
+    '[[AND {{url_sti}} ]]',
+  ])('removes the URL filter when empty: %s', (urlCondition) => {
+    const sql = `SELECT e.url_path FROM events e WHERE e.website_id = '{{website_id}}' ${urlCondition}`
+    const result = processDashboardSql(sql, 'website-1', { ...filters, urlFilters: [] })
+    expect(result).toContain("e.website_id = 'website-1'")
+    expect(result).not.toMatch(/\{\{|\[\[|url_path\s*=|'\/'/)
+  })
+
+  it.each(['url_sti', 'url_path'])('keeps a valid WHERE clause when %s is the only optional filter', (variable) => {
+    const sql = `SELECT url_path FROM events WHERE [[AND {{${variable}}} ]] GROUP BY url_path`
+    expect(processDashboardSql(sql, 'website-1', { ...filters, urlFilters: [] })).toBe(
+      'SELECT url_path FROM events WHERE 1=1 GROUP BY url_path',
+    )
+  })
+
+  it.each(["'/it\\'s'", "'/it''s'", "'/path\\\\'"])(
+    'removes the entire URL default literal when empty: %s',
+    (defaultPath) => {
+      const sql = `SELECT e.url_path FROM events e WHERE (e.url_path = [[ {{url_sti}} --]] ${defaultPath})`
+      expect(processDashboardSql(sql, 'website-1', { ...filters, urlFilters: [] })).toBe(
+        'SELECT e.url_path FROM events e WHERE (1=1)',
+      )
+    },
+  )
+
+  it.each(["'{{url_sti}}'", '{{url_path}}'])(
+    'preserves parentheses around an empty direct URL filter: %s',
+    (placeholder) => {
+      const sql = `SELECT e.url_path FROM events e WHERE (e.url_path = ${placeholder})`
+      expect(processDashboardSql(sql, 'website-1', { ...filters, urlFilters: [] })).toBe(
+        'SELECT e.url_path FROM events e WHERE (1=1)',
+      )
+    },
+  )
+
+  it.each([
+    ['(e.url_path)', '{{url_sti}}'],
+    ['LOWER(TRIM(e.url_path))', '{{url_sti}}'],
+    ['LOWER(TRIM(e.url_path))', "[[ {{url_sti}} --]] '/'"],
+  ])('removes a balanced URL expression when empty: %s = %s', (expression, placeholder) => {
+    const sql = `SELECT e.url_path FROM events e WHERE (${expression} = ${placeholder})`
+    expect(processDashboardSql(sql, 'website-1', { ...filters, urlFilters: [] })).toBe(
+      'SELECT e.url_path FROM events e WHERE (1=1)',
+    )
+  })
+
   it('omits blank optional custom conditions while preserving website and date filters', () => {
     const sql = `${'-- @filter event_name {"label":"Hendelse"}\n'}SELECT e.event_name
       FROM \`project.umami_views.event\` e

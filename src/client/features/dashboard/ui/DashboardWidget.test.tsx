@@ -35,6 +35,21 @@ const chart: SavedChart = {
   sql: `${directive}${baseSql} AND event_name = {{event}} GROUP BY event_name`,
 }
 
+it('renders BigQuery dates and Oslo timestamps in dashboard tables', () => {
+  const rows = [{ maaned: { value: '2026-08-01T00:00:00.000Z' } }, { maaned: { value: '2026-09-01' } }]
+  render(
+    <DashboardWidget
+      chart={{ ...chart, sql: baseSql }}
+      websiteId="website-1"
+      filters={filters}
+      prefetchedData={rows}
+    />,
+  )
+  const table = within(screen.getByRole('table'))
+  expect(table.getByRole('cell', { name: '01.08.2026, 02:00:00' })).toBeVisible()
+  expect(table.getByRole('cell', { name: '01.09.2026' })).toBeVisible()
+})
+
 it('offers export to the opposite environment and hides export on unsupported origins', async () => {
   const user = userEvent.setup()
   const source = vi.spyOn(chartTransfer, 'getTransferTarget').mockReturnValue('prod')
