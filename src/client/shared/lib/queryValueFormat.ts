@@ -20,36 +20,27 @@ const datetimeFormatter = new Intl.DateTimeFormat('nb-NO', {
   timeZone: 'UTC',
 })
 
-const DATE = /^\d{4}-\d{2}-\d{2}$/
-const DATETIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$/
-const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/
+const QUERY_DATE = /^(?<day>\d{4}-\d{2}-\d{2})(?:[T ](?<time>\d{2}:\d{2}:\d{2})(?:\.\d+)?(?<zone>Z|[+-]\d{2}:\d{2})?)?$/
 
 const formatQueryDate = (value: string): string | null => {
-  let formatter: Intl.DateTimeFormat
-  let date: Date
-  if (DATE.test(value)) {
-    formatter = dateFormatter
-    date = new Date(`${value}T00:00:00Z`)
-  } else if (DATETIME.test(value)) {
-    formatter = datetimeFormatter
-    date = new Date(`${value}Z`)
-  } else if (TIMESTAMP.test(value)) {
-    formatter = timestampFormatter
-    date = new Date(value)
-  } else {
+  const groups = QUERY_DATE.exec(value)?.groups
+  if (!groups) return null
+  const { day, time, zone } = groups
+
+  const fields = `${day}T${time ?? '00:00:00'}`
+  const calendar = new Date(`${fields}Z`)
+  if (!Number.isFinite(calendar.getTime()) || !calendar.toISOString().startsWith(fields)) {
     return null
   }
 
-  const calendarValue = DATE.test(value) ? `${value}T00:00:00` : value.slice(0, 19)
-  const calendarDate = new Date(`${calendarValue}Z`)
-  if (!Number.isFinite(calendarDate.getTime()) || calendarDate.toISOString().slice(0, 19) !== calendarValue) {
-    return null
-  }
+  if (!time) return dateFormatter.format(calendar)
+  if (!zone) return datetimeFormatter.format(calendar)
 
-  return Number.isFinite(date.getTime()) ? formatter.format(date) : null
+  const instant = new Date(value.replace(' ', 'T'))
+  return Number.isFinite(instant.getTime()) ? timestampFormatter.format(instant) : null
 }
 
-const unwrapQueryDate = (input: unknown): unknown =>
+const unwrapBigQueryValue = (input: unknown): unknown =>
   input !== null &&
   typeof input === 'object' &&
   !Array.isArray(input) &&
@@ -65,8 +56,8 @@ const unwrapQueryDate = (input: unknown): unknown =>
 export const formatQueryValue = (input: unknown): string => {
   if (input === null || input === undefined) return ''
 
-  const dateValue = unwrapQueryDate(input)
-  const formattedDate = typeof dateValue === 'string' ? formatQueryDate(dateValue) : null
+  const value = unwrapBigQueryValue(input)
+  const formattedDate = typeof value === 'string' ? formatQueryDate(value) : null
   if (formattedDate !== null) return formattedDate
 
   if (typeof input === 'string' || typeof input === 'number' || typeof input === 'boolean') return String(input)

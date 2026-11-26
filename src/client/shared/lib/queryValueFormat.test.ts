@@ -19,6 +19,9 @@ describe('query date display', () => {
     expect(formatQueryValue({ value: '2026-08-01' })).toBe('01.08.2026')
     expect(formatQueryValue('2024-02-29')).toBe('29.02.2024')
     expect(formatQueryValue({ value: '2026-08-01T23:30:00' })).toBe('01.08.2026, 23:30:00')
+    expect(formatQueryValue({ value: '2026-08-01T23:30:00.123456' })).toBe('01.08.2026, 23:30:00')
+    expect(formatQueryValue({ value: '2026-08-01 23:30:00.123456' })).toBe('01.08.2026, 23:30:00')
+    expect(formatQueryValue({ value: '2026-08-01 23:30:00Z' })).toBe('02.08.2026, 01:30:00')
   })
 
   it('keeps ordinary values, JSON and invalid dates readable without treating them as dates', () => {
@@ -27,7 +30,6 @@ describe('query date display', () => {
     expect(formatQueryValue(false)).toBe('false')
     expect(formatQueryValue('/2026-08-01')).toBe('/2026-08-01')
     expect(formatQueryValue('2026-02-30')).toBe('2026-02-30')
-    expect(formatQueryValue('2026-08-01 23:30:00')).toBe('2026-08-01 23:30:00')
     expect(formatQueryValue({ value: '2026-08-01T25:00:00Z' })).toBe('{"value":"2026-08-01T25:00:00Z"}')
     expect(formatQueryValue({ value: '2026-08-01', label: 'metadata' })).toBe(
       '{"value":"2026-08-01","label":"metadata"}',
@@ -35,7 +37,7 @@ describe('query date display', () => {
     expect(formatQueryValue(['2026-08-01'])).toBe('["2026-08-01"]')
   })
 
-  it.each([42, null, false, 'ordinary text', '2026-02-30', '2026-08-01T24:00:00Z'])(
+  it.each([42, null, false, 'ordinary text', '2026-02-30', '2026-08-01T24:00:00Z', '2026-08-01T12:00:00+99:99'])(
     'preserves JSON objects whose value is not a recognized date: %j',
     (value) => {
       expect(formatQueryValue({ value })).toBe(JSON.stringify({ value }))
