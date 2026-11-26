@@ -73,17 +73,6 @@ export const isClickablePath = (val: unknown): val is string => {
   return typeof val === 'string' && val.startsWith('/') && val !== '/'
 }
 
-export const formatTableValue = (val: unknown): string => {
-  if (val === null || val === undefined) return ''
-  if (typeof val === 'string') return val
-  if (typeof val === 'number' || typeof val === 'boolean') return String(val)
-  try {
-    return JSON.stringify(val)
-  } catch {
-    return ''
-  }
-}
-
 export const extractJsonValue = (value: unknown): unknown => {
   if (value && typeof value === 'object' && 'value' in (value as JsonObject)) {
     return (value as JsonObject).value
