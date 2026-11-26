@@ -84,7 +84,7 @@ const CanvasAdminModals = ({
   defaultCanvasCustomStartDateInitialValue,
   defaultCanvasCustomEndDateInitialValue,
   hideDateFilterInitialValue = false,
-  defaultUrlPathInitialValue = '/',
+  defaultUrlPathInitialValue = '',
   hideUrlPathFilterInitialValue = false,
   renameCanvasError,
   onRenameCanvas,
@@ -224,6 +224,7 @@ const CanvasAdminModals = ({
             <TextField
               key={`default-url-path-${isCanvasSettingsModalOpen ? defaultUrlPathInitialValue : 'closed'}`}
               label="Standard URL-sti"
+              description="Tomt felt betyr hele nettstedet."
               value={defaultUrlPath}
               onChange={(event) => setDefaultUrlPath(event.target.value)}
               size="small"
