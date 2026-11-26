@@ -97,6 +97,24 @@ describe('URL-forslag på forsiden', () => {
     await expectDestination('aksel', '/komponenter')
   })
 
+  it('bytter overskrift fra nettsteder til URL-stier og tilbake med forslagene', async () => {
+    const user = userEvent.setup()
+    const input = renderForm()
+    await user.type(input, 'aks')
+    await screen.findByRole('option', { name: /^aksel.nav.no$/ })
+    expect(input).toHaveAccessibleDescription('Nettsider / apper')
+    expect(input.closest('.url-search-form__controls')).toHaveAttribute('data-suggestion-mode', 'websites')
+    await user.click(screen.getByRole('option', { name: /^aksel.nav.no$/ }))
+    await screen.findByRole('option', { name: /^aksel.nav.no\/komponenter$/ })
+    expect(input).toHaveAccessibleDescription('URL-stier')
+    expect(input.closest('.url-search-form__controls')).toHaveAttribute('data-suggestion-mode', 'paths')
+    await user.clear(input)
+    await user.type(input, 'aks')
+    await screen.findByRole('option', { name: /^aksel.nav.no$/ })
+    expect(input).toHaveAccessibleDescription('Nettsider / apper')
+    expect(input.closest('.url-search-form__controls')).toHaveAttribute('data-suggestion-mode', 'websites')
+  })
+
   it('lar brukeren skrive en adresse selv når URL-forslag ikke kan hentes', async () => {
     vi.mocked(fetchColumnValues).mockRejectedValue(new Error('Feil ved oppslag'))
     const user = userEvent.setup()

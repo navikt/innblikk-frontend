@@ -224,6 +224,19 @@
   border-end-end-radius: 0;
 }
 
+.url-search-form__controls .aksel-combobox__list::before {
+  content: 'Nettsider / apper' / '';
+  flex-shrink: 0;
+  padding: var(--ax-space-12) var(--ax-space-20) var(--ax-space-4);
+  color: var(--ax-text-subtle);
+  font-size: var(--ax-font-size-small);
+  line-height: var(--ax-font-line-height-small);
+}
+
+.url-search-form__controls[data-suggestion-mode='paths'] .aksel-combobox__list::before {
+  content: 'URL-stier' / '';
+}
+
 .url-search-form__submit {
   flex-shrink: 0;
   border-start-start-radius: 0;

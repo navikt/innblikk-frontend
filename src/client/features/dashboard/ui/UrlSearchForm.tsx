@@ -277,12 +277,18 @@ function UrlSearchForm({ children }: UrlSearchFormProps) {
             <Label id={`${inputId}-label`} htmlFor={inputId} className="block mb-2">
               Lim inn URL for å se webstatistikk
             </Label>
-            <HStack wrap={false} align="start" className="url-search-form__controls">
+            <HStack
+              wrap={false}
+              align="start"
+              className="url-search-form__controls"
+              data-suggestion-mode={matchedWebsite ? 'paths' : 'websites'}
+            >
               <UNSAFE_Combobox
                 ref={inputRef}
                 id={inputId}
                 aria-labelledby={`${inputId}-label`}
                 label="Lim inn URL for å se webstatistikk"
+                description={matchedWebsite ? 'URL-stier' : 'Nettsider / apper'}
                 hideLabel
                 className="flex-1 min-w-0"
                 value={searchQuery}
