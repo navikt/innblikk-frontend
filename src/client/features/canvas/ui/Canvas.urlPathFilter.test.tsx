@@ -1,4 +1,6 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
+import type { ComponentProps } from 'react'
+import type * as Aksel from '@navikt/ds-react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -19,10 +21,16 @@ vi.mock('../../oversikt/api/oversiktApi.ts', async (importOriginal) => ({
 }))
 vi.mock('../hooks/useCanvasBackgroundSync.ts', () => ({ default: vi.fn() }))
 vi.mock('../../dashboard/api/bigquery.ts', () => ({ executeBigQuery: vi.fn() }))
-vi.mock('@navikt/ds-react', async (importOriginal) => ({
-  ...(await importOriginal()),
-  Textarea: () => null,
-}))
+vi.mock('@navikt/ds-react', async (importOriginal) => {
+  const actual = await importOriginal<typeof Aksel>()
+  return {
+    ...actual,
+    Modal: Object.assign(
+      (props: ComponentProps<typeof actual.Modal>) => (props.open ? <actual.Modal {...props} /> : null),
+      { Body: actual.Modal.Body, Footer: actual.Modal.Footer, Header: actual.Modal.Header },
+    ),
+  }
+})
 const ws = vi.hoisted(() => ({
   isConnected: true,
   subscribe: () => () => {},
