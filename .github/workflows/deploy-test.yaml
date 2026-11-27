@@ -1,0 +1,36 @@
+name: 'Deploy Test (Manual)'
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to build, including a PR's source branch in this repository"
+        type: string
+        default: main
+
+concurrency:
+  group: deploy-test-manual
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    uses: navikt/reops-workflows/.github/workflows/build.yaml@v1
+    permissions:
+      contents: read
+      packages: read
+      id-token: write
+    with:
+      ref: refs/heads/${{ inputs.branch }}
+
+  deploy:
+    needs: build
+    uses: navikt/reops-workflows/.github/workflows/deploy.yaml@v1
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      cluster: dev-gcp
+      manifest: .nais/test/nais-test.yaml
+      ref: ${{ github.sha }}
+      image: ${{ needs.build.outputs.image }}
