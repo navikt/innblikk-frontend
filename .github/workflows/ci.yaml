@@ -4,11 +4,6 @@ on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
   workflow_call:
-    inputs:
-      ref:
-        description: 'Branch, tag or commit to check. Defaults to the triggering commit.'
-        type: string
-        default: ''
 
 permissions:
   contents: read
@@ -27,8 +22,6 @@ jobs:
       HUSKY: 0
     steps:
       - uses: 'actions/checkout@v7'
-        with:
-          ref: ${{ inputs.ref }}
 
       - uses: pnpm/action-setup@v6
         with:
@@ -52,8 +45,6 @@ jobs:
       HUSKY: 0
     steps:
       - uses: 'actions/checkout@v7'
-        with:
-          ref: ${{ inputs.ref }}
 
       - uses: pnpm/action-setup@v6
         with:
@@ -77,8 +68,6 @@ jobs:
       HUSKY: 0
     steps:
       - uses: 'actions/checkout@v7'
-        with:
-          ref: ${{ inputs.ref }}
 
       - uses: pnpm/action-setup@v6
         with:
@@ -102,8 +91,6 @@ jobs:
       HUSKY: 0
     steps:
       - uses: 'actions/checkout@v7'
-        with:
-          ref: ${{ inputs.ref }}
 
       - uses: pnpm/action-setup@v6
         with:

@@ -1,0 +1,63 @@
+name: 'Refresh prod'
+
+# Rebuilds the code in the newest release tag without layer cache and deploys it to prod,
+# so patched base images and packages reach prod even when no code is merged.
+# How release tags and images relate: https://github.com/navikt/reops-workflows/blob/main/docs/tagger-og-images.md
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: 'Find newest release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      sha: ${{ steps.release.outputs.sha }}
+    steps:
+      - uses: 'actions/checkout@v7'
+
+      - name: 'Find newest release tag'
+        id: release
+        run: |
+          TAG="$(git ls-remote --tags --refs origin 'release-*' | cut -f2 | sed 's|^refs/tags/||' | sort -r | head -n1)"
+          if [ -z "$TAG" ]; then
+            echo "::notice::No release tag yet. Nothing to refresh until the next release."
+            exit 0
+          fi
+          git fetch --quiet --depth=1 origin "refs/tags/$TAG:refs/tags/$TAG"
+          SHA="$(git rev-parse "${TAG}^{commit}")"
+          echo "Refreshing $TAG ($SHA)"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: 'Build'
+    needs: resolve
+    if: needs.resolve.outputs.sha != ''
+    uses: navikt/reops-workflows/.github/workflows/build.yaml@v1
+    permissions:
+      contents: read
+      packages: read
+      id-token: write
+    with:
+      ref: ${{ needs.resolve.outputs.sha }}
+      fresh: true
+
+  deploy-prod:
+    name: 'Deploy prod'
+    needs: build
+    uses: navikt/reops-workflows/.github/workflows/deploy.yaml@v1
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      cluster: prod-gcp
+      manifest: .nais/prod/nais-prod.yaml
+      ref: ${{ needs.build.outputs.source-sha }}
+      image: ${{ needs.build.outputs.image }}

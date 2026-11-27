@@ -1,0 +1,69 @@
+name: 'Roll back prod'
+run-name: 'Roll back prod to ${{ inputs.tag }}'
+
+# Redeploys the exact image recorded in a release tag. Find tags under Tags on GitHub,
+# or with: git ls-remote --tags origin 'release-*'
+# A new release tag is created, so the nightly refresh keeps the rolled-back code.
+# How release tags and images relate: https://github.com/navikt/reops-workflows/blob/main/docs/tagger-og-images.md
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to roll back to, for example release-20261127-101500'
+        type: string
+        required: true
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: 'Read release tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      sha: ${{ steps.release.outputs.sha }}
+      image: ${{ steps.release.outputs.image }}
+    steps:
+      - uses: 'actions/checkout@v7'
+
+      - name: 'Read commit and image from tag'
+        id: release
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          if [[ "$TAG" != release-* ]] || ! git check-ref-format "refs/tags/$TAG"; then
+            echo "::error::Not a release tag: $TAG"
+            exit 1
+          fi
+          if ! git fetch --quiet --depth=1 origin "refs/tags/$TAG:refs/tags/$TAG"; then
+            echo "::error::Tag not found: $TAG"
+            exit 1
+          fi
+          SHA="$(git rev-parse "${TAG}^{commit}")"
+          IMAGE="$(git tag --list "$TAG" --format='%(contents:subject)')"
+          if [ -z "$IMAGE" ]; then
+            echo "::error::Tag $TAG has no image in its message"
+            exit 1
+          fi
+          echo "Rolling back to $TAG: $IMAGE ($SHA)"
+          {
+            echo "sha=$SHA"
+            echo "image=$IMAGE"
+          } >> "$GITHUB_OUTPUT"
+
+  deploy-prod:
+    name: 'Deploy prod'
+    needs: resolve
+    uses: navikt/reops-workflows/.github/workflows/deploy.yaml@v1
+    permissions:
+      contents: write
+      id-token: write
+    with:
+      cluster: prod-gcp
+      manifest: .nais/prod/nais-prod.yaml
+      ref: ${{ needs.resolve.outputs.sha }}
+      image: ${{ needs.resolve.outputs.image }}
+      source-sha: ${{ needs.resolve.outputs.sha }}
