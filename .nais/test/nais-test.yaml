@@ -1,0 +1,71 @@
+apiVersion: nais.io/v1alpha1
+kind: Application
+metadata:
+  name: reops-innblikk-frontend-test
+  namespace: team-researchops
+  labels:
+    team: team-researchops
+spec:
+  image: "{{ image }}"
+  port: 8080
+  envFrom:
+    - secret: innblikk-frontend-test-bigquery
+  liveness:
+    path: /isalive
+    port: 8080
+    initialDelay: 20
+    timeout: 60
+  readiness:
+    path: /isready
+    port: 8080
+    initialDelay: 20
+    timeout: 60
+  replicas:
+    min: 1
+    max: 1
+  resources:
+    limits:
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+  ingresses:
+    - https://innblikk-test.ansatt.dev.nav.no
+  accessPolicy:
+    outbound:
+      external:
+        - host: www.nav.no
+        - host: reops-demo-appen.ekstern.dev.nav.no
+        - host: teamkatalog-api.intern.nav.no
+        - host: github.com
+        - host: release-assets.githubusercontent.com
+      rules:
+        - application: reops-innblikk-backend-test
+          namespace: team-researchops
+        - application: reops-clean-to-enriched-test
+          namespace: team-researchops
+  azure:
+    application:
+      enabled: true
+      allowAllUsers: true
+      tenant: nav.no
+    sidecar:
+      autoLogin: true
+      enabled: true
+  env:
+    - name: NODE_ENV
+      value: production
+    - name: GCP_PROJECT_ID
+      value: team-researchops-dev-4396
+    - name: BACKEND_BASE_URL
+      value: http://reops-innblikk-backend-test.team-researchops.svc.cluster.local
+    - name: BACKEND_WS_HOST
+      value: innblikk-backend-test.ansatt.dev.nav.no
+    - name: BACKEND_APP_NAME
+      value: reops-innblikk-backend-test
+    - name: NAIS_CLUSTER_NAME
+      value: dev-gcp
+    - name: WEBSITE_MANAGEMENT_BASE_URL
+      value: http://reops-clean-to-enriched-test.team-researchops.svc.cluster.local
+    - name: WEBSITE_MANAGEMENT_OBO_SCOPE
+      value: api://dev-gcp.team-researchops.reops-clean-to-enriched-test/.default
