@@ -1,16 +1,10 @@
 name: 'Deploy to dev'
-run-name: 'Deploy ${{ inputs.ref }} to dev'
+run-name: 'Deploy ${{ github.ref_name }} to dev'
 
-# Deploys any branch, tag or commit to the shared dev environment for testing.
+# Deploys the branch chosen in "Use workflow from" to the shared dev environment for testing.
 # Coordinate with the team before replacing what is currently running there.
 on:
   workflow_dispatch:
-    inputs:
-      ref:
-        description: 'Branch, tag or commit to deploy'
-        type: string
-        required: true
-        default: main
 
 concurrency:
   group: deploy
@@ -23,8 +17,6 @@ jobs:
     permissions:
       contents: read
       packages: read
-    with:
-      ref: ${{ inputs.ref }}
 
   build:
     name: 'Build'
@@ -34,8 +26,6 @@ jobs:
       contents: read
       packages: read
       id-token: write
-    with:
-      ref: ${{ inputs.ref }}
 
   deploy:
     name: 'Deploy'
