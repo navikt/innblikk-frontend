@@ -1,0 +1,55 @@
+name: 'Release'
+
+# Every merge to main is tested, built once, and the same image is deployed to dev and then prod.
+# The prod deploy tags the commit as release-<timestamp>, used by refresh and rollback.
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    name: 'CI'
+    uses: ./.github/workflows/ci.yaml
+    permissions:
+      contents: read
+      packages: read
+
+  build:
+    name: 'Build'
+    needs: ci
+    uses: navikt/reops-workflows/.github/workflows/build.yaml@v1
+    permissions:
+      contents: read
+      packages: read
+      id-token: write
+
+  deploy-dev:
+    name: 'Deploy dev'
+    needs: build
+    uses: navikt/reops-workflows/.github/workflows/deploy.yaml@v1
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      cluster: dev-gcp
+      manifest: .nais/dev/nais-dev.yaml
+      ref: ${{ needs.build.outputs.source-sha }}
+      image: ${{ needs.build.outputs.image }}
+
+  deploy-prod:
+    name: 'Deploy prod'
+    needs: [build, deploy-dev]
+    uses: navikt/reops-workflows/.github/workflows/deploy.yaml@v1
+    permissions:
+      contents: write
+      id-token: write
+    with:
+      cluster: prod-gcp
+      manifest: .nais/prod/nais-prod.yaml
+      ref: ${{ needs.build.outputs.source-sha }}
+      image: ${{ needs.build.outputs.image }}
+      source-sha: ${{ needs.build.outputs.source-sha }}
